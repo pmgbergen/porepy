@@ -6,12 +6,18 @@ The Parameters will be stored as a dictionary identified by pp.PARAMETERS in an
 "outer" dictionary (e.g. the data on the grid bucket nodes). In the Parameters object,
 there will be one dictionary containing parameters for each keyword. The keywords link
 parameters to discretization operators. For example, the operator
+
 discr = pp.Tpfa(keyword="flow")
-will access parameters under the keyword "flow". If outer_dictionary is the above mentioned
-outer dictionary, these parameters will be found in
+
+will access parameters under the keyword "flow". If outer_dictionary is the above
+mentioned outer dictionary, these parameters will be found in
+
 outer_dictionary[pp.PARAMETERS]["flow'],
+
 and the boundary values are extracted from this dictionary as
+
 bc = outer_dictionary[pp.PARAMETERS]["flow']["bc_values"]
+
 
 There is a (not entirely clear) distinction between two types of parameters:
 "Mathematical" parameters are those operated on by the discretization objects, and
@@ -26,7 +32,7 @@ mathematical point of view, these combine to the parameter "mass_weight". Simila
 the heat diffusion tensor ("physical" name) corresponds to the "second_order_tensor"
 ("mathematical" name).
 If we consider the Darcy equation as another example, the "second_order_tensor" is
-commonly termed the permeability ("physical"). Since the discretization schemes are
+commonly termed the permeability ("physical"). Since the discretization schemes
 do not know the physical terminology, the dictionary passed to these has to have the
 _mathematical_ parameters defined. Solving (systems of) equations with multiple
 instances of the same mathematical parameter (e.g. both thermal diffusivity and
@@ -37,10 +43,13 @@ Some default inner dictionaries are provided in pp.params.parameter_dictionaries
 For most instances, a convenient way to set up the parameters is:
 
     specified_parameters = {pm_1: val_1, ..., pm_n: val_n}
-    data = pp.initialize_data({}, grid, keyword, specified_parameters)
+    data = pp.initialize_default_data(grid, {}, keyword, specified_parameters)
 
 This will assign val_i to the specified parameters pm_i and default parameters to other
-required parameters.
+required parameters. If the data directory already exists as d (e.g. in the grid
+bucket), consider:
+
+    pp.initialize_default_data(grid, d, keyword, specified_parameters)
 """
 import numpy as np
 import porepy as pp
@@ -173,35 +182,71 @@ new Parameters class.
 """
 
 
-def initialize_data(data, g, keyword, specified_parameters=None):
+def initialize_default_data(
+    g, data, parameter_type, specified_parameters=None, keyword=None
+):
     """ Initialize a data dictionary for a single keyword.
 
     The initialization consists of adding a parameter dictionary and initializing a
-    matrix dictionary in the proper fields of data. If a known keyword is passed,
-    default data are added for a certain set of "basic"
+    matrix dictionary in the proper fields of data. Default data are added for a certain
+    set of "basic" parameters, depending on the type chosen.
 
-    Parameters:
+    Args:
+        g: Grid object with computed geometry.
+        data: Outer data dictionary, to which the parameters will be added.
+        parameter_type: Which type of parameters to use for the default assignment.
+            Must be one of the following:
+                "flow", "transport" and "mechanics".
+        specified_parameters: A dictionary with specified parameters, overriding the
+            default values. Defualts to an empty dictionary (only default values).
+        keyword: String to identify the parameters. Defaults to the parameter type.
+
+     Returns:
+        data: The filled dictionary.
+
+    Raises:
+        KeyError if an unknown parameter type is passed.
+    """
+    if not specified_parameters:
+        specified_parameters = {}
+    if not keyword:
+        keyword = parameter_type
+    if parameter_type is "flow":
+        d = dicts.flow_dictionary(g, specified_parameters)
+    elif parameter_type is "transport":
+        d = dicts.transport_dictionary(g, specified_parameters)
+    elif parameter_type is "mechanics":
+        d = dicts.mechanics_dictionary(g, specified_parameters)
+    else:
+        raise KeyError(
+            'Default dictionaries only exist for the parameter types "flow", '
+            + '"transport" and "mechanics", not for '
+            + parameter_type
+            + "."
+        )
+    return initialize_data(g, data, keyword, d)
+
+
+def initialize_data(g, data, keyword, specified_parameters=None):
+    """ Initialize a data dictionary for a single keyword.
+
+    The initialization consists of adding a parameter dictionary and initializing a
+    matrix dictionary in the proper fields of data.
+
+    Args:
         data: Outer data dictionary, to which the parameters will be added.
         g: The grid.
         keyword: String identifying the parameters.
         specified_parameters: A dictionary with specified parameters, defaults to empty
-            dictionary. Keyword specific
-            default parameters will be set for those which are not specified.
+            dictionary.
+
     Returns:
         data: The filled dictionary.
     """
     if not specified_parameters:
         specified_parameters = {}
     add_discretization_matrix_keyword(data, keyword)
-    if keyword is "flow":
-        d = dicts.flow_dictionary(g, specified_parameters)
-    elif keyword is "transport":
-        d = dicts.transport_dictionary(g, specified_parameters)
-    elif keyword is "mechanics":
-        d = dicts.mechanics_dictionary(g, specified_parameters)
-    else:
-        d = specified_parameters.copy()
-    parameters = pp.Parameters(g, [keyword], [d])
+    parameters = pp.Parameters(g, [keyword], [specified_parameters])
     data[pp.PARAMETERS] = parameters
     return data
 
@@ -209,7 +254,7 @@ def initialize_data(data, g, keyword, specified_parameters=None):
 def modify_variable(variable, new_value):
     """ Changes the value (not id) of the stored parameter.
 
-    Mutes the value of a variable to new_value
+    Mutes the value of a variable to new_value.
     Note that this method cannot be extended to cover Numbers, as these are
     immutable in Python.
     Note that there are implicit assumptions on the arguments, in particular that
@@ -217,6 +262,13 @@ def modify_variable(variable, new_value):
         list, the lists should have the same length
         np.ndarray, the arrays should have the same shape, and new_value must be
             convertible to variable.dtype
+    Args:
+        variable: The variable.
+        new_value: The new value to be assigned to the variable.
+
+    Raises:
+        TypeError if the variable is a number.
+        NotImplementedError if a variable of unknown type is passed.
     """
     if isinstance(variable, np.ndarray):
         if variable.dtype != new_value.dtype:
@@ -226,6 +278,10 @@ def modify_variable(variable, new_value):
         variable[:] = new_value
     elif isinstance(variable, numbers.Number):
         raise TypeError("Numbers are immutable.")
+    else:
+        raise NotImplementedError(
+            "No mute method implemented for variable of type " + str(type(variable))
+        )
 
 
 def add_nonpresent_dictionary(dictionary, key):

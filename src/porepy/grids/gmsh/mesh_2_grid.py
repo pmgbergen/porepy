@@ -123,7 +123,6 @@ def create_2d_grids(pts, cells, **kwargs):
         # faces. The new tag name become the lower version of what gmsh gives
         # in the cell_info["line"]. The map phys_names recover the literal name.
 
-
         # create all the extra tags for the grids, by default they're false
         for tag in np.unique(cell_info["line"]["gmsh:physical"]):
             tag_name = phys_names[tag].lower() + "_faces"
@@ -259,8 +258,9 @@ def create_0d_grids(pts, cells):
 
 def create_embedded_line_grid(loc_coord, glob_id, tol=1e-4):
     loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
-    sorted_coord, rot, active_dimension, sort_ind = \
-        cg.project_points_to_line(loc_coord, tol)
+    sorted_coord, rot, active_dimension, sort_ind = cg.project_points_to_line(
+        loc_coord, tol
+    )
     g = structured.TensorGrid(sorted_coord)
 
     # Project back to active dimension

@@ -23,7 +23,7 @@ def setup_2d_1d(nx, simplex_grid=False):
         perm = pp.SecondOrderTensor(gb.dim_max(), kxx)
         a = 0.01 / np.max(nx)
         a = np.power(a, gb.dim_max() - g.dim) * np.ones(g.num_cells)
-        specified_parameters = {"aperture": a, "permeability": perm}
+        specified_parameters = {"aperture": a, "second_order_tensor": perm}
         if g.dim == 2:
             bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
             bound = pp.BoundaryCondition(
@@ -33,7 +33,7 @@ def setup_2d_1d(nx, simplex_grid=False):
             bc_val[bound_faces] = g.face_centers[1, bound_faces]
             specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-        pp.initialize_data(d, g, "flow", specified_parameters)
+        pp.initialize_default_data(g, d, "flow", specified_parameters)
 
     for e, d in gb.edges():
         gl, _ = gb.nodes_of_edge(e)

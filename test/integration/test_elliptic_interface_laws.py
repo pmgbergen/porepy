@@ -20,7 +20,7 @@ class TestTwoGridCoupling(unittest.TestCase):
            g_mortar
     There is one cell per grid and they are coupled together by a single mortar
     variable.
-    
+
     We define a random Robin and Mortar weights and test if we recover the
     condition on the interface.
     """
@@ -146,7 +146,7 @@ class TestTwoGridCoupling(unittest.TestCase):
                 "source": np.zeros(g.num_cells * g.dim),
                 "inverter": "python",
             }
-            pp.initialize_data(d, g, self.kw, data)
+            pp.initialize_data(g, d, self.kw, data)
 
         for _, d in gb.edges():
             mg = d["mortar_grid"]
@@ -157,7 +157,7 @@ class TestTwoGridCoupling(unittest.TestCase):
                 "robin_weight": [RW] * mg.num_cells,
                 "robin_rhs": np.tile(rhs, (mg.num_cells)),
             }
-            pp.initialize_data(d, mg, self.kw, data)
+            pp.initialize_data(mg, d, self.kw, data)
 
 
 def define_gb():
@@ -201,3 +201,7 @@ def define_gb():
     mg = pp.BoundaryMortar(mortar_grid.dim, mortar_grid, slave_master.T)
     gb.set_edge_prop([g_s, g_m], "mortar_grid", mg)
     return gb
+
+
+if __name__ == "__main__":
+    unittest.main()

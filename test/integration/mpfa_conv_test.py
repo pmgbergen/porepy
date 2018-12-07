@@ -99,8 +99,8 @@ class MainTester(unittest.TestCase):
         """
         # Discretization. Use python inverter for speed
         discr = pp.Mpfa(keyword="flow")
-        specified_parameters = {"permeability": k, "bc": bound_cond}
-        data = pp.initialize_data({}, g, "flow", specified_parameters)
+        specified_parameters = {"second_order_tensor": k, "bc": bound_cond}
+        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
         data[pp.PARAMETERS]["flow"]["mpfa_eta"] = 0
         a = discr.assemble_matrix(g, data)
 
@@ -148,8 +148,8 @@ class MainTester(unittest.TestCase):
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
 
         discr = pp.Mpfa(keyword="flow")
-        specified_parameters = {"permeability": perm, "bc": bound_cond}
-        data = pp.initialize_data({}, g, "flow", specified_parameters)
+        specified_parameters = {"second_order_tensor": perm, "bc": bound_cond}
+        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
         data[pp.PARAMETERS]["flow"]["mpfa_eta"] = 0
         a = discr.assemble_matrix(g, data)
 
