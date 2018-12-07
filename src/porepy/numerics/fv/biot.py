@@ -109,7 +109,7 @@ class Biot(Solver):
         div_d = matrix_dictionaries["mechanics"]["div_d"]
 
         div_d = np.squeeze(parameter_dictionary["biot_alpha"] * div_d * d * d_scaling)
-        p_cmpr = matrix_dictionaries["flow"]["compr_discr"] * p
+        p_cmpr = matrix_dictionaries["flow"]["mass"] * p
 
         mech_rhs = np.zeros(g.dim * g.num_cells)
 
@@ -198,10 +198,10 @@ class Biot(Solver):
         # Matrix for left hand side
         A_biot = sps.bmat(
             [
-                [A_mech, f_matrices["grad_p"] * biot_alpha],
+                [A_mech, m_matrices["grad_p"] * biot_alpha],
                 [
                     m_matrices["div_d"] * biot_alpha * d_scaling,
-                    f_matrices["compr_discr"]
+                    f_matrices["mass"]
                     + dt * A_flow
                     + m_matrices["stabilization"],
                 ],
@@ -223,8 +223,10 @@ class Biot(Solver):
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         compr = parameter_dictionary["fluid_compressibility"]
         poro = parameter_dictionary["porosity"]
-        matrix_dictionary["compr_discr"] = sps.dia_matrix(
-            (g.cell_volumes * compr * poro, 0), shape=(g.num_cells, g.num_cells)
+        apertures = parameter_dictionary["aperture"]
+        volumes = poro * g.cell_volumes * apertures
+        matrix_dictionary["mass"] = sps.dia_matrix(
+            (volumes * compr, 0), shape=(g.num_cells, g.num_cells)
         )
 
     def _discretize_mech(self, g, data):
@@ -312,7 +314,7 @@ class Biot(Solver):
 
         """
         parameters = data[pp.PARAMETERS]
-        matrices = data[pp.DISCRETIZATION_MATRICES]
+        m_matrices = data[pp.DISCRETIZATION_MATRICES]["mechanics"]
         bound_mech = parameters["mechanics"]["bc"]
         bound_flow = parameters["flow"]["bc"]
         constit = parameters["mechanics"]["fourth_order_tensor"]
@@ -446,12 +448,12 @@ class Biot(Solver):
 
         stabilization = div * igrad * rhs_normals
 
-        matrices["mechanics"]["stress"] = stress
-        matrices["mechanics"]["bound_stress"] = bound_stress
-        matrices["flow"]["grad_p"] = grad_p
-        matrices["mechanics"]["div_d"] = div_d
-        matrices["mechanics"]["stabilization"] = stabilization
-        matrices["mechanics"]["bound_div_d"] = bound_div_d
+        m_matrices["stress"] = stress
+        m_matrices["bound_stress"] = bound_stress
+        m_matrices["grad_p"] = grad_p
+        m_matrices["div_d"] = div_d
+        m_matrices["stabilization"] = stabilization
+        m_matrices["bound_div_d"] = bound_div_d
 
     def _face_vector_to_scalar(self, nf, nd):
         """ Create a mapping from vector quantities on faces (stresses) to
@@ -615,3 +617,109 @@ class Biot(Solver):
         d = self.extractD(g, u, as_vector=True)
         stress = np.squeeze(stress_discr * d) + (bound_stress * bound_val)
         return stress
+
+
+class GradP(pp.numerics.mixed_dim.VectorEllipticDiscretization):
+    """ Class for the grad p term of the Biot equation.
+    """
+    def ndof(self, g):
+        """ Return the number of degrees of freedom associated to the method.
+
+        In this case number of cells times dimension (stress dof).
+
+        Parameter
+        ---------
+        g: grid, or a subclass.
+
+        Return
+        ------
+        dof: the number of degrees of freedom.
+
+        """
+        return g.dim * g.num_cells
+
+    def extract_displacement(self, g, solution_array, d):
+        """ Extract the pressure part of a solution.
+        The method is trivial for finite volume methods, with the pressure
+        being the only primary variable.
+
+        Parameters:
+            g (grid): To which the solution array belongs.
+            solution_array (np.array): Solution for this grid obtained from
+                either a mono-dimensional or a mixed-dimensional problem.
+            d (dictionary): Data dictionary associated with the grid. Not used,
+                but included for consistency reasons.
+        Returns:
+            np.array (g.num_cells): Pressure solution vector. Will be identical
+                to solution_array.
+        """
+        return solution_array
+
+    def discretize(self, g, data):
+        """ Discretize the grad p term of the Biot equation.
+
+        Parameters:
+            g (pp.Grid): grid, or a subclass, with geometry fields computed.
+            data (dict): For entries, see above.
+
+        Raises:
+            NotImplementedError, the discretization should be performed using the
+            discretize method of the Biot class.
+        """
+        raise NotImplementedError("""No discretize method implemented for the GradP
+                                  class. See the Biot class.""")
+
+    def assemble_matrix_rhs(self, g, data):
+        """ Return the matrix and right-hand side for a discretization of the grad p
+        term of the Biot equation.
+
+        Parameters:
+            g : grid, or a subclass, with geometry fields computed.
+            data: dictionary to store the data. For details on necessary keywords,
+                see method discretize()
+
+        Returns:
+            matrix: sparse csr (g.dim * g_num_cells, g.dim * g_num_cells) Discretization
+            matrix.
+            rhs: array (g.dim * g_num_cells) Right-hand side.
+        """
+        return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
+
+    def assemble_matrix(self, g, data):
+        """ Return the matrix and right-hand side for a discretization of the grad p
+        term of the Biot equation.
+
+        Parameters:
+            g (Grid): Computational grid, with geometry fields computed.
+            data (dictionary): With data stored.
+
+        Returns:
+            scipy.sparse.csr_matrix: System matrix of this discretization. The
+                size of the matrix will depend on the specific discretization.
+
+        Raises:
+            ValueError if the grad p term has not already been discretized.
+        """
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        if not "grad_p" in matrix_dictionary:
+            raise ValueError("""GradP class requires a pre-computed discretization to be
+                             stored in the matrix dictionary.""")
+
+        return matrix_dictionary["grad_p"]
+
+    def assemble_rhs(self, g, data):
+        """ Return the zero right-hand side for a discretization of the grad p term.
+
+        @Runar: Is it correct that this is zero.
+
+        Parameters:
+            g (Grid): Computational grid.
+            data (dictionary): With data stored.
+
+        Returns:
+            np.ndarray: Zero right hand side vector with representation of boundary
+                conditions.
+        """
+        return np.zeros(self.ndof)
+
+
