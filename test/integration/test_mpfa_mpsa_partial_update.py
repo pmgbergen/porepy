@@ -131,7 +131,7 @@ class TestPartialMPSA(unittest.TestCase):
 
         return g, stiffness, bnd, stress, bound_stress
 
-    def expand_indices_nd(self, ind, nd, direction=1):
+    def expand_indices_nd(self, ind, nd, direction="F"):
         dim_inds = np.arange(nd)
         dim_inds = dim_inds[:, np.newaxis]  # Prepare for broadcasting
         new_ind = nd * ind + dim_inds
