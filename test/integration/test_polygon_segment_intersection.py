@@ -28,10 +28,11 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         p_2 = p_1 + np.array([1, 0, 0]).reshape((-1, 1))
         caught_exp = False
         try:
-            isect = cg.polygon_segment_intersect(p_1, p_2)
+            cg.polygon_segment_intersect(p_1, p_2)
         except NotImplementedError:
             caught_exp = True
         self.assertTrue(caught_exp)
 
-    if __name__ == "__main__":
-        unittest.main()
+
+if __name__ == "__main__":
+    unittest.main()

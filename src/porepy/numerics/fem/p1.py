@@ -94,7 +94,7 @@ class P1(Solver):
         is_tangential: bool, whether the lower-dimensional permeability tensor has been
             rotated to the fracture plane. Defaults to False. Stored in data dictionary.
         bc_weight: bool, whether to compute the infinity norm of the matrix and use it
-            as a weight to impose the boundary conditions. Default True.
+            as a weight to impose the boundary conditions. Default False.
 
         Additional return:
         weight: if bc_weight is True return the weight computed.

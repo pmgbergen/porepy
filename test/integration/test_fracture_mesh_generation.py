@@ -176,46 +176,46 @@ class TestMeshGeneration(unittest.TestCase):
         p2 = np.array([[0.5, 0.5, 1], [0.5, 0.5, 0], [0.5, 0.9, 0.0]]).T
 
         domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
-        # This test, when used with certain versions of gmsh (<2.15?) gives a
+        # This test, when used with certain versions of gmsh (<2.15?) gives
         # a mismatch between 2d cells and 3d faces on fracture surfaces. The bug
         # can be located in the .msh-file. To function as a test, we disband the
         # test of cell-face relations.
-        grids = meshing.simplex_grid([p1, p2], domain, ensure_matching_face_cell=False)
+        meshing.simplex_grid([p1, p2], domain, ensure_matching_face_cell=False)
 
     def test_T_intersection_one_outside_plane(self, **kwargs):
         p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         p2 = np.array([[0.5, 0.5, 1], [0.5, 0.5, 0], [0.5, 1.9, 0.0]]).T
 
         domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
-        grids = meshing.simplex_grid([p1, p2], domain)
+        meshing.simplex_grid([p1, p2], domain)
 
     def test_T_intersection_both_outside_plane(self, **kwargs):
         p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         p2 = np.array([[0.5, 0.5, 1], [0.5, -0.5, 0], [0.5, 1.9, 0.0]]).T
 
         domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
-        grids = meshing.simplex_grid([p1, p2], domain)
+        meshing.simplex_grid([p1, p2], domain)
 
     def test_T_intersection_both_on_boundary(self, **kwargs):
         p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         p2 = np.array([[0.0, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.0]]).T
 
         domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
-        grids = meshing.simplex_grid([p1, p2], domain)
+        meshing.simplex_grid([p1, p2], domain)
 
     def test_T_intersection_one_boundary_one_outside(self, **kwargs):
         p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         p2 = np.array([[-0.2, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.0]]).T
 
         domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
-        grids = meshing.simplex_grid([p1, p2], domain)
+        meshing.simplex_grid([p1, p2], domain)
 
     def test_T_intersection_one_boundary_one_inside(self, **kwargs):
         p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         p2 = np.array([[0.2, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.0]]).T
 
         domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
-        grids = meshing.simplex_grid([p1, p2], domain)
+        meshing.simplex_grid([p1, p2], domain)
 
     def test_issue_54(self):
         domain = {"xmin": -1, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
@@ -223,16 +223,14 @@ class TestMeshGeneration(unittest.TestCase):
             [[0.5, 0.5, 0.5, 0.5], [0.4, 0.5, 0.5, 0.4], [0.2, 0.2, 0.8, 0.8]]
         )
         f_2 = np.array([[0, 0.8, 0.8, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]])
-        grids = meshing.simplex_grid(
-            [f_1, f_2], domain, ensure_matching_face_cell=False
-        )
+        meshing.simplex_grid([f_1, f_2], domain, ensure_matching_face_cell=False)
 
     def test_issue_58_1(self):
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         kwargs = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[0, 1, 1, 0], [0, 0.5, 0.5, 0], [0, 0, 1, 1]])
-        grids = meshing.simplex_grid([f_1, f_2], domain, **kwargs)
+        meshing.simplex_grid([f_1, f_2], domain, **kwargs)
 
     def test_issue_58_2(self):
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
@@ -245,7 +243,7 @@ class TestMeshGeneration(unittest.TestCase):
 
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[0, 1, 1, 0], [0.3, 0.5, 0.5, 0.3], [0, 0, 1, 1]])
-        grids = meshing.simplex_grid([f_1, f_2], domain, **kwargs)
+        meshing.simplex_grid([f_1, f_2], domain, **kwargs)
 
     def test_issue_58_3(self):
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
@@ -258,7 +256,7 @@ class TestMeshGeneration(unittest.TestCase):
 
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[0, 1, 1, 0], [0, 1, 1, 0], [0, 0, 1, 1]])
-        grids = meshing.simplex_grid([f_1, f_2], domain, **kwargs)
+        meshing.simplex_grid([f_1, f_2], domain, **kwargs)
 
     def test_geiger_3d_partial(self):
         f_1 = np.array([[0.5, 0, 0], [0.5, 1, 0], [0.5, 1, 1], [0.5, 0, 1]]).T
