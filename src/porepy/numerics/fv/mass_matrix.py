@@ -144,31 +144,41 @@ class MassMatrix(Solver):
     def discretize(self, g, data, faces=None):
         """ Discretize a L2-mass bilinear form with constant test and trial functions.
 
+        Note that the porosity is not included in the volumes, and should be included
+        in the mass weight if appropriate.
+
+        We assume the following two sub-dictionaries to be present in the data
+        dictionary:
+            parameter_dictionary, storing all parameters.
+                Stored in data[pp.PARAMETERS][self.keyword].
+            matrix_dictionary, for storage of discretization matrices.
+                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        parameter_dictionary contains the entries:
+            mass_weight: (array, self.g.num_cells): Scalar values which may e.g.
+                represent the porosity or heat capacity.
+            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
+                the face normals.
+            time_step: Time step for a possible temporal discretization scheme.
+
+        matrix_dictionary will be updated with the following entries:
+            mass: sps.dia_matrix (sparse dia, self.ndof x self.ndof): Mass matrix
+                obtained from the discretization.
+            bound_mass: all zero np.ndarray (self.ndof)
+
         Parameters:
             g : grid, or a subclass, with geometry fields computed.
             data: dictionary to store the data.
 
-        Stores:
-            matrix (sparse dia, self.ndof x self.ndof): Mass matrix obtained from the
-                discretization, stored as           self._key() + "mass".
-            rhs (array, self.ndof):
-                Null right-hand side, stored as     self._key() + "bound_mass".
 
-        The names of data in the input dictionary (data) are:
-        param (Parameter Class): Contains the following parameters:
-            mass_weigh: (array, self.g.num_cells): Scalar values which may e.g.
-                represent the porosity or heat capacity. If not given assumed unitary.
-            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
-                the face normals. If not given assumed unitary.
-        time_step: Time step for a possible temporal discretization scheme. If not given
-            assumed unitary.
         """
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         ndof = self.ndof(g)
         w = parameter_dictionary["mass_weight"]
         aperture = parameter_dictionary["aperture"]
-        coeff = g.cell_volumes * w / parameter_dictionary["time_step"] * aperture
+        volumes = g.cell_volumes * aperture
+        coeff = volumes * w / parameter_dictionary["time_step"]
 
         matrix_dictionary["mass"] = sps.dia_matrix((coeff, 0), shape=(ndof, ndof))
         matrix_dictionary["bound_mass"] = np.zeros(ndof)
