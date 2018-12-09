@@ -82,7 +82,7 @@ class Mpfa(FVElliptic):
         aperture = parameter_dictionary["aperture"]
 
         eta = parameter_dictionary.get("mpfa_eta", None)
-        inverter = parameter_dictionary.get('mpfa_inverter', None)
+        inverter = parameter_dictionary.get("mpfa_inverter", None)
 
         trm, bound_flux, bp_cell, bp_face = self.mpfa(
             g, k, bnd, eta=eta, apertures=aperture, inverter=inverter

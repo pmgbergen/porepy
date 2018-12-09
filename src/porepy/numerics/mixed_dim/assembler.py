@@ -9,7 +9,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class Assembler():
+class Assembler:
     """ A class that assembles multi-physics problems on mixed-dimensional
     domains.
 

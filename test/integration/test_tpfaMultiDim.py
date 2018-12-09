@@ -4,6 +4,7 @@ import unittest
 import porepy as pp
 from test import common
 
+
 def setup_2d_1d(nx, simplex_grid=False):
     frac1 = np.array([[0.2, 0.8], [0.5, 0.5]])
     frac2 = np.array([[0.5, 0.5], [0.8, 0.2]])

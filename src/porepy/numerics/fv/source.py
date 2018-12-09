@@ -6,7 +6,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class Integral():
+class Integral:
     """
     Discretization of the integrated source term
     int q * dx

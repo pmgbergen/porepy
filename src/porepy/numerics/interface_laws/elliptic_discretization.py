@@ -5,7 +5,7 @@ to be used in both mono and mixed-dimensional problems.
 """
 
 
-class EllipticDiscretization():
+class EllipticDiscretization:
     """ This is the parent class of all discretizations for second order elliptic
     problems. The class cannot be used itself, but should rather be seen as a
     declaration of which methods are assumed implemented for all specific
@@ -325,7 +325,7 @@ class EllipticDiscretization():
         raise NotImplementedError("Method not implemented")
 
 
-class VectorEllipticDiscretization():
+class VectorEllipticDiscretization:
     """ Superclass for finite volume discretizations of the vector elliptic equation.
 
     Should not be used by itself, instead use a subclass that implements an
