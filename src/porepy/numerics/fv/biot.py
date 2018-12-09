@@ -1,13 +1,13 @@
 import scipy.sparse as sps
 import scipy.sparse.linalg as la
 import numpy as np
+
 import porepy as pp
 
 from porepy.numerics.fv import fvutils, mpsa
-from porepy.numerics.mixed_dim.solver import Solver
 
 
-class Biot(Solver):
+class Biot():
     def __init__(self, eta=None):
         """ Set default values for some parameters used in discretization.
 
