@@ -9,7 +9,7 @@ import scipy.sparse as sps
 import unittest
 
 import porepy as pp
-from porepy.numerics.mixed_dim import coupler, condensation
+from porepy.numerics.mixed_dim import condensation
 
 # ------------------------------------------------------------------------------#
 
