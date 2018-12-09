@@ -10,8 +10,6 @@ import numpy as np
 import networkx
 
 from porepy.utils import setmembership
-from porepy.numerics.mixed_dim import condensation
-from porepy.params.data import Parameters
 
 
 class GridBucket(object):
