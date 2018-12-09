@@ -4,7 +4,7 @@ Module contains superclass for mpfa and tpfa.
 import porepy as pp
 
 
-class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
+class FVElliptic(pp.numerics.interface_laws.EllipticDiscretization):
     """ Superclass for finite volume discretizations of the elliptic equation.
 
     Should not be used by itself, instead use a subclass that implements an
