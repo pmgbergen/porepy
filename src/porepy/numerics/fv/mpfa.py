@@ -55,6 +55,8 @@ class Mpfa(FVElliptic):
             mpfa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of
             pressure continuity point. If not given, porepy tries to set an optimal
             value.
+            mpfa_inverter (str): Optional. Inverter to apply for local problems.
+                Can take values 'numba' (default), 'cython' or 'python'.
 
         matrix_dictionary will be updated with the following entries:
             flux: sps.csc_matrix (g.num_faces, g.num_cells)
@@ -80,9 +82,10 @@ class Mpfa(FVElliptic):
         aperture = parameter_dictionary["aperture"]
 
         eta = parameter_dictionary.get("mpfa_eta", None)
+        inverter = parameter_dictionary.get('mpfa_inverter', None)
 
         trm, bound_flux, bp_cell, bp_face = self.mpfa(
-            g, k, bnd, eta=eta, apertures=aperture
+            g, k, bnd, eta=eta, apertures=aperture, inverter=inverter
         )
         matrix_dictionary["flux"] = trm
         matrix_dictionary["bound_flux"] = bound_flux
