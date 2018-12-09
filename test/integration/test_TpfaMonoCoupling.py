@@ -6,6 +6,7 @@ from scipy.spatial.distance import cdist
 import porepy as pp
 from test import common
 
+
 class TestTpfaCouplingDiffGrids(unittest.TestCase):
     def test_two_cart_grids(self):
         """

@@ -168,7 +168,6 @@ class BasicsTest(unittest.TestCase):
 
         self.assertTrue(np.allclose(p, p_known, rtol, atol))
 
-
     if __name__ == "__main__":
         unittest.main()
 

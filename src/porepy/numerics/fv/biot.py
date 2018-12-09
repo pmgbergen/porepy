@@ -7,7 +7,7 @@ import porepy as pp
 from porepy.numerics.fv import fvutils, mpsa
 
 
-class Biot():
+class Biot:
     def __init__(self, eta=None):
         """ Set default values for some parameters used in discretization.
 

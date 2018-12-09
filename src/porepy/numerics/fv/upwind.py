@@ -32,7 +32,7 @@ import porepy as pp
 # ------------------------------------------------------------------------------#
 
 
-class Upwind():
+class Upwind:
     """
     Discretize a hyperbolic transport equation using a single point upstream
     weighting scheme.

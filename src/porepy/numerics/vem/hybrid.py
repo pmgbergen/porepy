@@ -13,7 +13,7 @@ import porepy as pp
 from porepy.utils import comp_geom as cg
 
 
-class HybridDualVEM():
+class HybridDualVEM:
     """ Implementation of mixed virtual element method, using hybridization to
     arrive at a SPD system.
 
