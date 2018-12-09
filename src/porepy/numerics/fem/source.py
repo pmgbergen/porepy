@@ -19,7 +19,6 @@ class P1Source():
 
     def __init__(self, keyword="flow"):
         self.keyword = keyword
-        Solver.__init__(self)
 
     def ndof(self, g):
         return g.num_nodes
