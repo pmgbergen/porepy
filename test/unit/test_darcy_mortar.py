@@ -10,6 +10,7 @@ import scipy.sparse as sps
 import unittest
 
 import porepy as pp
+from test import common
 
 
 class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
@@ -42,6 +43,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
             else:
                 parameter_dictionary["bc"] = pp.BoundaryCondition(g)
             parameter_dictionary["bc_values"] = b_val
+            parameter_dictionary["mpfa_inverter"] = "python"
 
             d[pp.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
             d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
@@ -95,14 +97,25 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
             pp.mortars.update_physical_low_grid(mg, new_g, tol=1e-4)
         return gb
 
+    def solve(self, gb, method=None):
+        key = "flow"
+        if method is None:
+            method = pp.Tpfa(key)
+        elif method == "mpfa":
+            method = pp.Mpfa(key)
+        assembler = common.setup_flow_assembler(gb, method, key)
+        A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        assembler.distribute_variable(gb, p, block_dof, full_dof)
+
+        return p
+
     def test_tpfa_matching_grids_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
         self.set_param_flow(gb, no_flow=True, multi_point=False)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        p = self.solve(gb)
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
         self.assertTrue(np.all(p[:3] == 1))
         self.assertTrue(np.all(p[3:] == 0))
 
@@ -110,10 +123,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
         self.set_param_flow(gb, no_flow=True, multi_point=False)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
-
-        p = sps.linalg.spsolve(A_flow, b_flow)
+        p = self.solve(gb)
         self.assertTrue(np.all(p[:4] == 1))
         self.assertTrue(np.all(p[4:] == 0))
 
@@ -121,13 +131,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
         self.set_param_flow(gb, no_flow=True, multi_point=False)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
-
-        for e, d in gb.edges():
-            mg = d["mortar_grid"]
-
-        p = sps.linalg.spsolve(A_flow, b_flow)
+        p = self.solve(gb)
         self.assertTrue(np.all(p[:3] == 1))
         self.assertTrue(np.all(p[3:] == 0))
 
@@ -137,11 +141,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
         self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        self.solve(gb)
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -158,11 +159,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
         self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
-
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
+        self.solve(gb)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -179,11 +176,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
         self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        self.solve(gb)
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -200,11 +194,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2)
         self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        self.solve(gb)
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -223,11 +214,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         )
         self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        self.solve(gb)
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -246,11 +234,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         )
         self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        self.solve(gb)
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -269,11 +254,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         )
         self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        self.solve(gb)
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -292,11 +274,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         )
         self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        self.solve(gb)
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -311,10 +290,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
         self.set_param_flow(gb, no_flow=True, multi_point=True)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        p = self.solve(gb, "mpfa")
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
         self.assertTrue(np.all(p[:3] == 1))
         self.assertTrue(np.all(p[3:] == 0))
 
@@ -322,10 +299,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
         self.set_param_flow(gb, no_flow=True, multi_point=True)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        p = self.solve(gb, "mpfa")
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
         self.assertTrue(np.all(p[:4] == 1))
         self.assertTrue(np.all(p[4:] == 0))
 
@@ -333,10 +308,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
         self.set_param_flow(gb, no_flow=True, multi_point=True)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        p = self.solve(gb, "mpfa")
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
         self.assertTrue(np.all(p[:3] == 1))
         self.assertTrue(np.all(p[3:] == 0))
 
@@ -346,11 +319,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
         self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        self.solve(gb, "mpfa")
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -367,11 +337,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
         self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        self.solve(gb, "mpfa")
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -388,11 +355,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
         self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        self.solve(gb, "mpfa")
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -409,11 +373,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2)
         self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        self.solve(gb, "mpfa")
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -432,11 +393,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         )
         self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        self.solve(gb, "mpfa")
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -455,11 +413,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         )
         self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        self.solve(gb, "mpfa")
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -478,11 +433,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         )
         self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        self.solve(gb, "mpfa")
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -501,11 +453,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         )
         self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
 
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
+        self.solve(gb, "mpfa")
 
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
@@ -515,12 +464,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p_1d = gb.node_props(g_1d, "pressure")
         # NOTE: This will not be entirely correct,
         self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
-
-
-# -----------------------------------------------------------------------------#
-
-
-# -----------------------------------------------------------------------------#
 
 
 class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
@@ -624,6 +567,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
             bound_faces = np.where(np.abs(yf - 1) < 1e-4)[0]
             bv[bound_faces] = 1
             parameter_dictionary["bc_values"] = bv
+            parameter_dictionary["mpfa_inverter"] = "python"
 
             d[pp.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
             d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
@@ -651,38 +595,22 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
 
     def run_mpfa(self, gb):
-
         key = "flow"
-        discretization_key = key + "_" + pp.DISCRETIZATION
-
-        for g, d in gb:
-            d[discretization_key] = pp.Mpfa(key)
-
-        for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key, pp.Mpfa(key))
-
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
-
+        method = pp.Mpfa(key)
+        assembler = common.setup_flow_assembler(gb, method, key)
+        A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
         p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
+        assembler.distribute_variable(gb, p, block_dof, full_dof)
 
     def run_vem(self, gb):
         key = "flow"
-        discretization_key = key + "_" + pp.DISCRETIZATION
-
+        method = pp.MVEM(key)
+        assembler = common.setup_flow_assembler(gb, method, key)
+        A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        assembler.distribute_variable(gb, p, block_dof, full_dof)
         for g, d in gb:
-            d[discretization_key] = pp.MVEM(key)
-
-        for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key, pp.MVEM(key))
-
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
-
-        up = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "up", up)
-        solver_flow.extract_pressure(gb, "up", "pressure")
+            d["pressure"] = d["pressure"][g.num_faces :]
 
     def test_mpfa_one_frac(self):
         gb = self.setup(num_fracs=1)
@@ -864,6 +792,7 @@ class TestMortar3D(unittest.TestCase):
             bound_faces = np.where(np.abs(yf - 1) < 1e-4)[0]
             bv[bound_faces] = 1
             parameter_dictionary["bc_values"] = bv
+            parameter_dictionary["mpfa_inverter"] = "python"
 
             d[pp.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
             d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
@@ -884,19 +813,11 @@ class TestMortar3D(unittest.TestCase):
 
     def run_mpfa(self, gb):
         key = "flow"
-        discretization_key = key + "_" + pp.DISCRETIZATION
-
-        for g, d in gb:
-            d[discretization_key] = pp.Mpfa(key)
-
-        for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key, pp.Mpfa(key))
-
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
-
+        method = pp.Mpfa(key)
+        assembler = common.setup_flow_assembler(gb, method, key)
+        A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
         p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
+        assembler.distribute_variable(gb, p, block_dof, full_dof)
 
     def run_vem(self, gb):
         solver_flow = pp.MVEM("flow")
@@ -1070,19 +991,12 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 
     def run_mpfa(self, gb):
         key = "flow"
-        discretization_key = key + "_" + pp.DISCRETIZATION
-
-        for g, d in gb:
-            d[discretization_key] = pp.Mpfa(key)
-
-        for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key, pp.Mpfa(key))
-
-        solver_flow = pp.EllipticAssembler("flow")
-        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
-
+        method = pp.Mpfa(key)
+        assembler = common.setup_flow_assembler(gb, method, key)
+        A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
         p = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "pressure", p)
+        assembler.distribute_variable(gb, p, "pressure", block_dof, full_dof)
+        assembler.distribute_variable(gb, p, "mortar_solution", block_dof, full_dof)
 
     def run_vem(self, gb):
         solver_flow = pp.MVEM("flow")
