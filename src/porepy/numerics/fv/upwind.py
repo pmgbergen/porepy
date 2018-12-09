@@ -4,8 +4,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver
-
 # ------------------------------------------------------------------------------#
 
 # class _UpwindMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
@@ -34,7 +32,7 @@ from porepy.numerics.mixed_dim.solver import Solver
 # ------------------------------------------------------------------------------#
 
 
-class Upwind(Solver):
+class Upwind():
     """
     Discretize a hyperbolic transport equation using a single point upstream
     weighting scheme.

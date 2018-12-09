@@ -10,11 +10,10 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver
 from porepy.utils import comp_geom as cg
 
 
-class HybridDualVEM(Solver):
+class HybridDualVEM():
     """ Implementation of mixed virtual element method, using hybridization to
     arrive at a SPD system.
 
@@ -281,6 +280,3 @@ class HybridDualVEM(Solver):
             )
 
         return u, p
-
-
-# ------------------------------------------------------------------------------#

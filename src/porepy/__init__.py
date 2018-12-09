@@ -37,7 +37,6 @@ from porepy.numerics.fv.source import Integral
 from porepy.numerics.vem.dual_elliptic import project_flux
 from porepy.numerics.vem.mvem import MVEM
 from porepy.numerics.vem.vem_source import DualIntegral
-from porepy.numerics.elliptic import DualEllipticModel
 
 # Finite elements, elliptic
 from porepy.numerics.fem.p1 import P1
@@ -46,7 +45,6 @@ from porepy.numerics.fem.mass_matrix import P1MassMatrix
 from porepy.numerics.fem.rt0 import RT0
 
 # Mixed-dimensional discretizations and assemblers
-from porepy.numerics.mixed_dim.elliptic_assembler import EllipticAssembler
 from porepy.numerics.interface_laws.elliptic_interface_laws import (
     RobinCoupling,
     FluxPressureContinuity,
@@ -55,24 +53,13 @@ from porepy.numerics.interface_laws.elliptic_interface_laws import (
 )
 from porepy.numerics.mixed_dim.assembler import Assembler
 
+import porepy.numerics
+
 # Transport related
 from porepy.numerics.fv.upwind import Upwind
 from porepy.numerics.interface_laws.hyperbolic_interface_laws import UpwindCoupling
 from porepy.numerics.fv.mass_matrix import MassMatrix
 from porepy.numerics.fv.mass_matrix import InvMassMatrix
-
-# Physical models
-from porepy.numerics.elliptic import EllipticModel, EllipticDataAssigner
-from porepy.numerics.parabolic import ParabolicModel, ParabolicDataAssigner
-from porepy.numerics.compressible import (
-    SlightlyCompressibleModel,
-    SlightlyCompressibleDataAssigner,
-)
-from porepy.numerics.mechanics import StaticModel, StaticDataAssigner
-from porepy.numerics.fracture_deformation import (
-    FrictionSlipModel,
-    FrictionSlipDataAssigner,
-)
 
 # Time steppers
 from porepy.numerics.time_stepper import Implicit, Explicit
