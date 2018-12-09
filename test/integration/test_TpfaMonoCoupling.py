@@ -4,7 +4,7 @@ import scipy.sparse as sps
 from scipy.spatial.distance import cdist
 
 import porepy as pp
-
+from test import common
 
 class TestTpfaCouplingDiffGrids(unittest.TestCase):
     def test_two_cart_grids(self):
@@ -23,7 +23,6 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         gb = self.generate_grids(n, xmax, ymax, split)
         tol = 1e-6
         for g, d in gb:
-            d["param"] = pp.Parameters(g)
             left = g.face_centers[0] < tol
             right = g.face_centers[0] > xmax - tol
             dir_bc = left + right
@@ -33,27 +32,21 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
             bc_val[right] = 0
             specified_parameters = {"bc": bound, "bc_values": bc_val}
             pp.initialize_default_data(g, d, "flow", specified_parameters)
-        # assign discretization
-        key = "flow"
-        discretization_key = key + "_" + pp.DISCRETIZATION
 
-        tpfa = pp.Tpfa(key)
-        for g, d in gb:
-            d[discretization_key] = tpfa
-
-        for _, d in gb.edges():
-            d[discretization_key] = pp.FluxPressureContinuity(key, tpfa)
+        for e, d in gb.edges():
+            mg = d["mortar_grid"]
+            d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{}])
             pp.params.data.add_discretization_matrix_keyword(d, "flow")
-        assembler = pp.EllipticAssembler(key)
+        # assign discretization
+        data_key = "flow"
+        tpfa = pp.Tpfa(data_key)
+        coupler = pp.FluxPressureContinuity(data_key, tpfa)
+        assembler = common.setup_flow_assembler(gb, tpfa, data_key, coupler=coupler)
+        common.solve_pressure_distribute(gb, assembler)
 
-        A, b = assembler.assemble_matrix_rhs(gb)
-
-        x = sps.linalg.spsolve(A, b)
-
-        assembler.split(gb, "flow", x)
         # test pressure
         for g, d in gb:
-            self.assertTrue(np.allclose(d["flow"], xmax - g.cell_centers[0]))
+            self.assertTrue(np.allclose(d["pressure"], xmax - g.cell_centers[0]))
 
         # test mortar solution
         for e, d_e in gb.edges():
@@ -285,6 +278,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         x = sps.linalg.spsolve(A, b)
 
         assembler.distribute_variable(gb, x, block_dof, full_dof)
+
         # test pressure
         for g, d in gb:
             ap, _, _ = analytic_p(g.cell_centers)

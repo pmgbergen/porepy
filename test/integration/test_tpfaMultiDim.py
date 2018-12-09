@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 
 import porepy as pp
-
+from test import common
 
 def setup_2d_1d(nx, simplex_grid=False):
     frac1 = np.array([[0.2, 0.8], [0.5, 0.5]])
@@ -66,23 +66,10 @@ class BasicsTest(unittest.TestCase):
         # Structured Cartesian grid
         gb = setup_2d_1d(np.array([10, 10]))
 
-        # Python inverter is most efficient for small problems
         key = "flow"
-        discretization_key = key + "_" + pp.DISCRETIZATION
-
         tpfa = pp.Tpfa(key)
-        for g, d in gb:
-            d[discretization_key] = tpfa
-
-        for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key, tpfa)
-
-        assembler = pp.EllipticAssembler(key)
-
-        # Discretize
-        A, b = assembler.assemble_matrix_rhs(gb)
-        p = np.linalg.solve(A.A, b)
-        assembler.split(gb, "pressure", p)
+        assembler = common.setup_flow_assembler(gb, tpfa, key)
+        common.solve_pressure_distribute(gb, assembler)
 
         self.assertTrue(check_pressures(gb))
 
@@ -90,23 +77,10 @@ class BasicsTest(unittest.TestCase):
         # Unstructured simplex grid
         gb = setup_2d_1d(np.array([10, 10]), simplex_grid=True)
 
-        # Python inverter is most efficient for small problems
         key = "flow"
-        discretization_key = key + "_" + pp.DISCRETIZATION
-
         tpfa = pp.Tpfa(key)
-        for g, d in gb:
-            d[discretization_key] = tpfa
-
-        for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key, tpfa)
-
-        assembler = pp.EllipticAssembler(key)
-
-        # Discretize
-        A, b = assembler.assemble_matrix_rhs(gb)
-        p = np.linalg.solve(A.A, b)
-        assembler.split(gb, "pressure", p)
+        assembler = common.setup_flow_assembler(gb, tpfa, key)
+        common.solve_pressure_distribute(gb, assembler)
         self.assertTrue(check_pressures(gb))
 
 
