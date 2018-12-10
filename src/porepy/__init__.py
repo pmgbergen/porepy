@@ -61,9 +61,6 @@ from porepy.numerics.interface_laws.hyperbolic_interface_laws import UpwindCoupl
 from porepy.numerics.fv.mass_matrix import MassMatrix
 from porepy.numerics.fv.mass_matrix import InvMassMatrix
 
-# Time steppers
-from porepy.numerics.time_stepper import Implicit, Explicit
-
 # Grids
 from porepy.grids.grid import Grid
 from porepy.grids.fv_sub_grid import FvSubGrid
