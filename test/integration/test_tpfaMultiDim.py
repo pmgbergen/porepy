@@ -5,16 +5,21 @@ import porepy as pp
 
 
 def setup_2d_1d(nx, simplex_grid=False):
-    frac1 = np.array([[0.2, 0.8], [0.5, 0.5]])
-    frac2 = np.array([[0.5, 0.5], [0.8, 0.2]])
-    fracs = [frac1, frac2]
     if not simplex_grid:
+        frac1 = np.array([[0.2, 0.8], [0.5, 0.5]])
+        frac2 = np.array([[0.5, 0.5], [0.8, 0.2]])
+        fracs = [frac1, frac2]
+
         gb = pp.meshing.cart_grid(fracs, nx, physdims=[1, 1])
     else:
+        p = np.array([[0.2, 0.8, 0.5, 0.5], [0.5, 0.5, 0.8, 0.2]])
+        e = np.array([[0, 2], [1, 3]])
+        domain = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
+        network = pp.FractureNetwork2d(p, e, domain)
         mesh_size = 0.08
         mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
-        domain = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
-        gb = pp.meshing.simplex_grid(fracs, domain, **mesh_kwargs)
+
+        gb = network.mesh(mesh_kwargs)
 
     gb.compute_geometry()
     gb.assign_node_ordering()
