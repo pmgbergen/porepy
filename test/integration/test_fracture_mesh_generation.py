@@ -298,6 +298,103 @@ class TestDFMMeshGeneration(unittest.TestCase):
         network.mesh(mesh_args)
 
 
+class TestMeshGenerationFractureHitsBoundary(unittest.TestCase):
+    def kwarguments_and_domain(self):
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
+        mesh_args = {
+            "mesh_size_frac": 1,
+            "mesh_size_bound": 1,
+            "mesh_size_min": 0.2
+        }
+
+        return mesh_args, domain
+
+    def test_one_fracture_touching_one_boundary(self):
+        """
+        A single fracture completely immersed in a boundary grid.
+        """
+        f_1 = pp.Fracture(np.array([[-1, 2, 2, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
+
+        mesh_args, domain = self.kwarguments_and_domain()
+        network = pp.FractureNetwork3d([f_1], domain)
+        network.mesh(mesh_args)
+
+    def test_one_fracture_touching_two_neighbouring_boundaries(self):
+        """
+        Two fractures intersecting along a line.
+
+        The example also sets different characteristic mesh lengths on the boundary
+        and at the fractures.
+
+        """
+
+        f_1 = pp.Fracture(np.array([[-1, 2, 2, -1], [0, 0, 0, 0], [-1, -1, 2, 2]]))
+
+        mesh_args, domain = self.kwarguments_and_domain()
+        network = pp.FractureNetwork3d([f_1], domain)
+        network.mesh(mesh_args)
+
+    def test_one_fracture_touching_two_opposing_boundaries(self):
+        """
+        Two fractures intersecting along a line.
+
+        The example also sets different characteristic mesh lengths on the boundary
+        and at the fractures.
+
+        """
+
+        f_1 = pp.Fracture(np.array([[-2, 2, 2, -2], [0, 0, 0, 0], [-1, -1, 1, 1]]))
+        mesh_args, domain = self.kwarguments_and_domain()
+        network = pp.FractureNetwork3d([f_1], domain)
+        network.mesh(mesh_args)
+
+    def test_one_fracture_touching_three_boundaries(self):
+        """
+        Three fractures intersecting, with intersecting intersections (point)
+        """
+
+        f_1 = pp.Fracture(np.array([[-2, 2, 2, -2], [0, 0, 0, 0], [-1, -1, 2, 2]]))
+        mesh_args, domain = self.kwarguments_and_domain()
+        network = pp.FractureNetwork3d([f_1], domain)
+        network.mesh(mesh_args)
+
+    def test_one_fracture_touches_four_boundaries(self):
+        """
+        One fracture, intersected by two other (but no point intersections)
+        """
+
+        f_1 = pp.Fracture(np.array([[-2, 2, 2, -2], [0, 0, 0, 0], [-2, -2, 2, 2]]))
+
+        mesh_args, domain = self.kwarguments_and_domain()
+        network = pp.FractureNetwork3d([f_1], domain)
+        network.mesh(mesh_args)
+
+
+    def test_one_fracture_touches_boundary_corners(self):
+        """
+        One fracture, intersected by two other (but no point intersections)
+        """
+
+        f_1 = pp.Fracture(np.array([[-2, 2, 2, -2], [-2, 2, 2, -2], [-2, -2, 2, 2]]))
+
+        mesh_args, domain = self.kwarguments_and_domain()
+        network = pp.FractureNetwork3d([f_1], domain)
+        network.mesh(mesh_args)
+
+    def test_two_fractures_touching_one_boundary(self):
+        f_1 = pp.Fracture(np.array([[-1, 2, 2, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
+        f_2 = pp.Fracture(np.array([[-1, -1, 2, 2], [-1, 1, 1, -1], [0, 0, 0, 0]]))
+        mesh_args, domain = self.kwarguments_and_domain()
+        network = pp.FractureNetwork3d([f_1, f_2], domain)
+        network.mesh(mesh_args)
+
+    def test_one_fracture_touches_boundary_and_corner(self):
+        f_1 = pp.Fracture(np.array([[-2, 2, 2, -2], [-2, 1, 1, -2], [-2, -2, 2, 2]]))
+        mesh_args, domain = self.kwarguments_and_domain()
+        network = pp.FractureNetwork3d([f_1], domain)
+        network.mesh(mesh_args)
+
+
 class TestDFNMeshGeneration(unittest.TestCase):
     def test_conforming_two_fractures(self):
         f_1 = pp.Fracture(np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]]).T)
