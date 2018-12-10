@@ -4,7 +4,7 @@ import numpy.linalg
 import unittest
 import porepy as pp
 from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
-from porepy.params import parameter_dictionaries as dictionaries
+from test.test_utils import permute_matrix_vector
 
 
 class BiotTest(unittest.TestCase):
@@ -100,9 +100,14 @@ class BiotTest(unittest.TestCase):
         self.assertTrue(np.allclose(known_matrix, a))
 
     def test_assemble_biot(self):
+        """ Test the assembly of the Biot problem using the assembler.
+
+        The test checks whether the discretization matches that of the Biot class.
+        """
         gb = pp.meshing.cart_grid([], [2, 1])
         g = gb.grids_of_dimension(2)[0]
         d = gb.node_props(g)
+        # Parameters identified by two keywords
         kw_m = "mechanics"
         kw_f = "flow"
         bound_mech, bound_flow = self.make_boundary_conditions(g)
@@ -112,6 +117,8 @@ class BiotTest(unittest.TestCase):
         biot_discretizer = pp.Biot()
         biot_discretizer._discretize_mech(g, d)
 
+        # Set up the structure for the assembler. First define variables and equation
+        # term names.
         v_0 = "displacement"
         v_1 = "pressure"
         term_00 = "stress_divergence"
@@ -133,15 +140,21 @@ class BiotTest(unittest.TestCase):
         }
         # Assemble. Also discretizes the flow terms (fluid_mass and fluid_flux)
         general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, full_dof = general_assembler.assemble_matrix_rhs(gb)
 
         # Re-discretize and assemble using the Biot class
-        A_class, b_class = biot_discretizer.matrix_rhs(g, d)  # , discretize=False)
-        # Compare matrices
+        A_class, b_class = biot_discretizer.matrix_rhs(g, d, discretize=False)
+
+        # Make sure the variable ordering of the matrix assembled by the assembler
+        # matches that of the Biot class.
+        grids = [g, g]
+        variables = [v_0, v_1]
+        A, b = permute_matrix_vector(A, b, block_dof, full_dof, grids, variables)
+
+        # Compare the matrices and rhs vectors
         self.assertTrue(np.all(np.isclose(A.A, A_class.A)))
         self.assertTrue(np.all(np.isclose(b, b_class)))
 
 
 if __name__ == "__main__":
-    #    BiotTest().test_assemble_biot()
     unittest.main()

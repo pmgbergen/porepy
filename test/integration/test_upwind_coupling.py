@@ -1,11 +1,11 @@
 from __future__ import division
 import numpy as np
 import unittest
-import scipy.sparse as sps
 
 import porepy as pp
 from porepy.utils.grid_util import sign_of_boundary_faces
 from test.integration import _helper_test_upwind_coupling
+from test.test_utils import permute_matrix_vector
 
 # ------------------------------------------------------------------------------#
 
@@ -24,7 +24,8 @@ class BasicsTest(unittest.TestCase):
         key = "transport"
         upwind = pp.Upwind(key)
         upwind_coupling = pp.UpwindCoupling(key)
-        assign_discretization(gb, upwind, upwind_coupling, key)
+        variable = "T"
+        assign_discretization(gb, upwind, upwind_coupling, variable)
 
         # assign parameters
         gb.add_node_props(["param"])
@@ -58,15 +59,17 @@ class BasicsTest(unittest.TestCase):
         U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
-        keys = np.empty_like(grids)
+        variables = np.empty_like(grids)
         for g, d in gb:
             grids[d["node_number"]] = g
-            keys[d["node_number"]] = key
+            variables[d["node_number"]] = variable
         for e, d in gb.edges():
             grids[d["edge_number"] + gb.num_graph_nodes()] = e
-            keys[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
+            variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
-        U, rhs = permute_matrix_vector(U_tmp, rhs, block_dof, full_dof, grids, keys)
+        U, rhs = permute_matrix_vector(
+            U_tmp, rhs, block_dof, full_dof, grids, variables
+        )
 
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
@@ -105,7 +108,8 @@ class BasicsTest(unittest.TestCase):
         key = "transport"
         upwind = pp.Upwind(key)
         upwind_coupling = pp.UpwindCoupling(key)
-        assign_discretization(gb, upwind, upwind_coupling, key)
+        variable = "T"
+        assign_discretization(gb, upwind, upwind_coupling, variable)
 
         # assign parameters
 
@@ -142,15 +146,17 @@ class BasicsTest(unittest.TestCase):
         U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
-        keys = np.empty_like(grids)
+        variables = np.empty_like(grids)
         for g, d in gb:
             grids[d["node_number"]] = g
-            keys[d["node_number"]] = key
+            variables[d["node_number"]] = variable
         for e, d in gb.edges():
             grids[d["edge_number"] + gb.num_graph_nodes()] = e
-            keys[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
+            variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
-        U, rhs = permute_matrix_vector(U_tmp, rhs, block_dof, full_dof, grids, keys)
+        U, rhs = permute_matrix_vector(
+            U_tmp, rhs, block_dof, full_dof, grids, variables
+        )
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
 
@@ -237,7 +243,8 @@ class BasicsTest(unittest.TestCase):
         key = "transport"
         upwind = pp.Upwind(key)
         upwind_coupling = pp.UpwindCoupling(key)
-        assign_discretization(gb, upwind, upwind_coupling, key)
+        variable = "T"
+        assign_discretization(gb, upwind, upwind_coupling, variable)
 
         # define parameters
         tol = 1e-3
@@ -275,14 +282,16 @@ class BasicsTest(unittest.TestCase):
         U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
-        keys = np.empty_like(grids)
+        variables = np.empty_like(grids)
         for g, d in gb:
             grids[d["node_number"]] = g
-            keys[d["node_number"]] = key
+            variables[d["node_number"]] = variable
         for e, d in gb.edges():
             grids[d["edge_number"] + gb.num_graph_nodes()] = e
-            keys[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
-        U, rhs = permute_matrix_vector(U_tmp, rhs, block_dof, full_dof, grids, keys)
+            variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
+        U, rhs = permute_matrix_vector(
+            U_tmp, rhs, block_dof, full_dof, grids, variables
+        )
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
         U_known = np.array(
@@ -826,7 +835,8 @@ class BasicsTest(unittest.TestCase):
         key = "transport"
         upwind = pp.Upwind(key)
         upwind_coupling = pp.UpwindCoupling(key)
-        assign_discretization(gb, upwind, upwind_coupling, key)
+        variable = "T"
+        assign_discretization(gb, upwind, upwind_coupling, variable)
 
         # add parameters
         tol = 1e-3
@@ -861,15 +871,17 @@ class BasicsTest(unittest.TestCase):
         U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
-        keys = np.empty_like(grids)
+        variables = np.empty_like(grids)
         for g, d in gb:
             grids[d["node_number"]] = g
-            keys[d["node_number"]] = key
+            variables[d["node_number"]] = variable
         for e, d in gb.edges():
             grids[d["edge_number"] + gb.num_graph_nodes()] = e
-            keys[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
+            variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
-        U, rhs = permute_matrix_vector(U_tmp, rhs, block_dof, full_dof, grids, keys)
+        U, rhs = permute_matrix_vector(
+            U_tmp, rhs, block_dof, full_dof, grids, variables
+        )
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
 
@@ -885,8 +897,6 @@ class BasicsTest(unittest.TestCase):
         rhs_known = np.array([1, 0, 0, 0, 0])
 
         theta_known = np.array([1, 1, 1, -1, 1])
-
-        deltaT_known = 5 * 1e-3
 
         rtol = 1e-15
         atol = rtol
@@ -908,7 +918,8 @@ class BasicsTest(unittest.TestCase):
         key = "transport"
         upwind = pp.Upwind(key)
         upwind_coupling = pp.UpwindCoupling(key)
-        assign_discretization(gb, upwind, upwind_coupling, key)
+        variable = "T"
+        assign_discretization(gb, upwind, upwind_coupling, variable)
 
         # assign parameters
         tol = 1e-3
@@ -943,15 +954,17 @@ class BasicsTest(unittest.TestCase):
         U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
-        keys = np.empty_like(grids)
+        variables = np.empty_like(grids)
         for g, d in gb:
             grids[d["node_number"]] = g
-            keys[d["node_number"]] = key
+            variables[d["node_number"]] = variable
         for e, d in gb.edges():
             grids[d["edge_number"] + gb.num_graph_nodes()] = e
-            keys[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
+            variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
-        U, rhs = permute_matrix_vector(U_tmp, rhs, block_dof, full_dof, grids, keys)
+        U, rhs = permute_matrix_vector(
+            U_tmp, rhs, block_dof, full_dof, grids, variables
+        )
 
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
@@ -1080,7 +1093,8 @@ class BasicsTest(unittest.TestCase):
         key = "transport"
         upwind = pp.Upwind(key)
         upwind_coupling = pp.UpwindCoupling(key)
-        assign_discretization(gb, upwind, upwind_coupling, key)
+        variable = "T"
+        assign_discretization(gb, upwind, upwind_coupling, variable)
 
         # assign parameters
         tol = 1e-3
@@ -1115,14 +1129,16 @@ class BasicsTest(unittest.TestCase):
         U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
-        keys = np.empty_like(grids)
+        variables = np.empty_like(grids)
         for g, d in gb:
             grids[d["node_number"]] = g
-            keys[d["node_number"]] = key
+            variables[d["node_number"]] = variable
         for e, d in gb.edges():
             grids[d["edge_number"] + gb.num_graph_nodes()] = e
-            keys[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
-        U, rhs = permute_matrix_vector(U_tmp, rhs, block_dof, full_dof, grids, keys)
+            variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
+        U, rhs = permute_matrix_vector(
+            U_tmp, rhs, block_dof, full_dof, grids, variables
+        )
 
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
@@ -1216,8 +1232,6 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        deltaT_known = 5 * 1e-3
-
         rtol = 1e-15
         atol = rtol
         self.assertTrue(np.allclose(U.todense(), U_known, rtol, atol))
@@ -1239,7 +1253,8 @@ class BasicsTest(unittest.TestCase):
         key = "transport"
         upwind = pp.Upwind(key)
         upwind_coupling = pp.UpwindCoupling(key)
-        assign_discretization(gb, upwind, upwind_coupling, key)
+        variable = "T"
+        assign_discretization(gb, upwind, upwind_coupling, variable)
 
         gb.add_node_props(["param"])
         a = 1e-2
@@ -1256,15 +1271,17 @@ class BasicsTest(unittest.TestCase):
         U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
-        keys = np.empty_like(grids)
+        variables = np.empty_like(grids)
         for g, d in gb:
             grids[d["node_number"]] = g
-            keys[d["node_number"]] = key
+            variables[d["node_number"]] = variable
         for e, d in gb.edges():
             grids[d["edge_number"] + gb.num_graph_nodes()] = e
-            keys[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
+            variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
-        M, rhs = permute_matrix_vector(U_tmp, rhs, block_dof, full_dof, grids, keys)
+        M, rhs = permute_matrix_vector(
+            U_tmp, rhs, block_dof, full_dof, grids, variables
+        )
 
         # add generic mass matrix to solve system
         I_diag = np.zeros(M.shape[0])
@@ -1387,11 +1404,11 @@ class BasicsTest(unittest.TestCase):
 
         # define discretization
         key = "transport"
+        variable = "T"
         upwind = pp.Upwind(key)
         upwind_coupling = pp.UpwindCoupling(key)
-        assign_discretization(gb, upwind, upwind_coupling, key)
+        assign_discretization(gb, upwind, upwind_coupling, variable)
 
-        gb.add_node_props(["param"])
         a = 1e-1
         for g, d in gb:
             aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
@@ -1413,15 +1430,17 @@ class BasicsTest(unittest.TestCase):
         U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
-        keys = np.empty_like(grids)
+        variables = np.empty_like(grids)
         for g, d in gb:
             grids[d["node_number"]] = g
-            keys[d["node_number"]] = key
+            variables[d["node_number"]] = variable
         for e, d in gb.edges():
             grids[d["edge_number"] + gb.num_graph_nodes()] = e
-            keys[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
+            variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
-        M, rhs = permute_matrix_vector(U_tmp, rhs, block_dof, full_dof, grids, keys)
+        M, rhs = permute_matrix_vector(
+            U_tmp, rhs, block_dof, full_dof, grids, variables
+        )
         theta = np.linalg.solve(M.A, rhs)
         M_known = np.array(
             [
@@ -1550,18 +1569,22 @@ class BasicsTest(unittest.TestCase):
 # ------------------------------------------------------------------------------#
 
 
-def assign_discretization(gb, disc, coupling_disc, key):
+def assign_discretization(gb, disc, coupling_disc, variable):
     # Identifier of the advection term
     term = "advection"
     for _, d in gb:
-        d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-        d[pp.DISCRETIZATION] = {key: {term: disc}}
+        d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
+        d[pp.DISCRETIZATION] = {variable: {term: disc}}
 
     for e, d in gb.edges():
         g1, g2 = gb.nodes_of_edge(e)
         d[pp.PRIMARY_VARIABLES] = {"lambda_u": {"cells": 1}}
         d[pp.COUPLING_DISCRETIZATION] = {
-            key: {g1: (key, term), g2: (key, term), e: ("lambda_u", coupling_disc)}
+            variable: {
+                g1: (variable, term),
+                g2: (variable, term),
+                e: ("lambda_u", coupling_disc),
+            }
         }
 
 
@@ -1595,24 +1618,6 @@ def add_constant_darcy_flux(gb, upwind, flux, a):
             )
         else:
             d[pp.PARAMETERS]["transport"]["darcy_flux"] = darcy_flux_e
-
-
-def permute_matrix_vector(A, rhs, block_dof, full_dof, grids, keys):
-    sz = len(block_dof)
-    mat = np.empty((sz, sz), dtype=np.object)
-    b = np.empty(sz, dtype=np.object)
-    dof = np.empty(sz, dtype=np.object)
-    dof[0] = np.arange(full_dof[0])
-    for i in range(1, sz):
-        dof[i] = dof[i - 1][-1] + 1 + np.arange(full_dof[i])
-    for row in range(sz):
-        i = block_dof[(grids[row], keys[row])]
-        b[row] = rhs[dof[i]]
-        for col in range(sz):
-            j = block_dof[(grids[col], keys[col])]
-            mat[row, col] = A[dof[i]][:, dof[j]]
-
-    return sps.bmat(mat, format="csr"), np.concatenate(tuple(b))
 
 
 # #------------------------------------------------------------------------------#
