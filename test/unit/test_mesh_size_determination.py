@@ -1,5 +1,5 @@
 """
-Tests of mesh size determination for simplex grids. 
+Tests of mesh size determination for simplex grids.
 """
 import unittest
 import numpy as np
@@ -11,7 +11,7 @@ class TestMeshSize(unittest.TestCase):
         """
         Fracture set:
             f_1 = np.array([[.5, 4], [1, 1]])
-       
+
         """
         pts = np.array([[0.0, 5.0, 5.0, 0.0, 0.5, 4.0], [0.0, 0.0, 5.0, 5.0, 1.0, 1.0]])
         on_boundary = np.array([True, True, True, True, False, False])
@@ -100,7 +100,7 @@ class TestMeshSize(unittest.TestCase):
         on_boundary = np.array(
             [False, False, False, False, True, True, True, True, True, True, True, True]
         )
-        network = pp.FractureNetwork(f_set)
+        network = pp.FractureNetwork3d(f_set)
         network.impose_external_boundary(domain)
         network.find_intersections()
         network.split_intersections()

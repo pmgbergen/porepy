@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Apr 27 08:14:33 2018
+Various checks of the FractureNetwork3d class
 
 @author: eke001
 """
@@ -20,7 +20,7 @@ class TestFractureNetworkBoundingBox(unittest.TestCase):
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 1, 1]]), check_convexity=False
         )
 
-        network = pp.FractureNetwork([f1])
+        network = pp.FractureNetwork3d([f1])
         d = network.bounding_box()
 
         self.assertTrue(d["xmin"] == 0)
@@ -37,7 +37,7 @@ class TestFractureNetworkBoundingBox(unittest.TestCase):
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]), check_convexity=False
         )
 
-        network = pp.FractureNetwork([f1])
+        network = pp.FractureNetwork3d([f1])
         d = network.bounding_box()
 
         self.assertTrue(d["xmin"] == 0)
@@ -59,7 +59,7 @@ class TestFractureNetworkBoundingBox(unittest.TestCase):
             check_convexity=False,
         )
 
-        network = pp.FractureNetwork([f1, f2])
+        network = pp.FractureNetwork3d([f1, f2])
         d = network.bounding_box()
 
         self.assertTrue(d["xmin"] == 0)
@@ -76,7 +76,7 @@ class TestFractureNetworkBoundingBox(unittest.TestCase):
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 1, 1]]), check_convexity=False
         )
 
-        network = pp.FractureNetwork([f1])
+        network = pp.FractureNetwork3d([f1])
 
         external_boundary = {
             "xmin": -1,

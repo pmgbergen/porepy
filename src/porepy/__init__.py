@@ -88,7 +88,7 @@ from porepy.grids.point_grid import PointGrid
 from porepy.grids.mortar_grid import MortarGrid, BoundaryMortar
 
 # Fractures
-from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
+from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork3d
 from porepy.fracs.meshing import simplex_grid
 
 # Parameters
