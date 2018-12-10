@@ -537,21 +537,17 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
 
         if num_fracs == 0:
             p = np.zeros((2, 0))
+            e = np.zeros((2, 0))
 
         elif num_fracs == 1:
-            p = [np.array([[0, 1], [0.5, 0.5]])]
+            p = np.array([[0, 1], [0.5, 0.5]])
+            e = np.array([[0], [1]])
         #            p = [np.array([[0.5, 0.5], [0, 1]])]
         elif num_fracs == 2:
-            p = [
-                np.array([[0, 0.5], [0.5, 0.5]]),
-                np.array([[0.5, 1], [0.5, 0.5]]),
-                np.array([[0.5, 0.5], [0, 0.5]]),
-                np.array([[0.5, 0.5], [0.5, 1]]),
-            ]
+            raise ValueError('Not implemented')
         mesh_size = {"value": 0.3, "bound_value": 0.3}
-        gb = pp.meshing.simplex_grid(
-            fracs=p, domain=domain, mesh_size=mesh_size, verbose=0
-        )
+        network = pp.FractureNetwork2d(p, e, domain)
+        gb = network.mesh(mesh_size)
         #        gb = meshing.cart_grid([np.array([[0.5, 0.5], [0, 1]])],np.array([10, 10]),
         #                               physdims=np.array([1, 1]))
 
@@ -560,9 +556,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         # Refine 2D grid?
         if alpha_2d is not None:
             mesh_size = {"value": 0.3 * alpha_2d, "bound_value": 0.3 * alpha_2d}
-            gbn = pp.meshing.simplex_grid(
-                fracs=p, domain=domain, mesh_size=mesh_size, verbose=0
-            )
+            gbn = network.mesh(mesh_size)
             go = gb.grids_of_dimension(2)[0]
             gn = gbn.grids_of_dimension(2)[0]
             gn.compute_geometry()

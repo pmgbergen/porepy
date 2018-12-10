@@ -13,10 +13,10 @@ We consider the case with only boundary, fractures, auxiliary segments, and a mi
 class BasicsTest(unittest.TestCase):
     def test_boundary(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        fracs = []
+        network = pp.FractureNetwork2d(domain=domain)
         mesh_args = {"mesh_size_frac": 1}
+        gb = network.mesh(mesh_args)
 
-        gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain, **mesh_args)
         g = gb.grids_of_dimension(2)[0]
 
         tag = np.where(g.tags["domain_boundary_0_faces"])[0]
@@ -33,10 +33,10 @@ class BasicsTest(unittest.TestCase):
 
     def test_boundary_refined(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        fracs = []
-        mesh_args = {"mesh_size_frac": 0.5}
+        network = pp.FractureNetwork2d(domain=domain)
+        mesh_args = {"mesh_size_frac": 1}
+        gb = network.mesh(mesh_args)
 
-        gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain, **mesh_args)
         g = gb.grids_of_dimension(2)[0]
 
         tag = np.where(g.tags["domain_boundary_0_faces"])[0]
@@ -53,17 +53,16 @@ class BasicsTest(unittest.TestCase):
 
     def test_auxiliary(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        fracs = []
         mesh_args = {"mesh_size_frac": 1}
 
         subdomain = {
             "points": np.array([[0, 0.5], [0.5, 0.5]]),
             "edges": np.array([0, 1]).reshape((2, -1), order="F"),
         }
+        network = pp.FractureNetwork2d(domain=domain)
+        mesh_args = {"mesh_size_frac": 1}
 
-        gb = pp.fracs.meshing.simplex_grid(
-            fracs, domain=domain, subdomains=subdomain, **mesh_args
-        )
+        gb = network.mesh(mesh_args, constraints=subdomain)
         g = gb.grids_of_dimension(2)[0]
 
         tag = np.where(g.tags["domain_boundary_0_faces"])[0]
@@ -84,7 +83,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_auxiliary_refined(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        fracs = []
+        network = pp.FractureNetwork2d(domain=domain)
         mesh_args = {"mesh_size_frac": 0.33}
 
         subdomain = {
@@ -92,9 +91,7 @@ class BasicsTest(unittest.TestCase):
             "edges": np.array([0, 1]).reshape((2, -1), order="F"),
         }
 
-        gb = pp.fracs.meshing.simplex_grid(
-            fracs, domain=domain, subdomains=subdomain, **mesh_args
-        )
+        gb = network.mesh(mesh_args, constraints=subdomain)
         g = gb.grids_of_dimension(2)[0]
 
         tag = np.where(g.tags["domain_boundary_0_faces"])[0]
@@ -115,7 +112,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_auxiliary_2(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        fracs = []
+        network = pp.FractureNetwork2d(domain=domain)
         mesh_args = {"mesh_size_frac": 1}
 
         subdomain = {
@@ -123,9 +120,7 @@ class BasicsTest(unittest.TestCase):
             "edges": np.array([0, 1, 2, 3]).reshape((2, -1), order="F"),
         }
 
-        gb = pp.fracs.meshing.simplex_grid(
-            fracs, domain=domain, subdomains=subdomain, **mesh_args
-        )
+        gb = network.mesh(mesh_args, constraints=subdomain)
         g = gb.grids_of_dimension(2)[0]
 
         tag = np.where(g.tags["domain_boundary_0_faces"])[0]
@@ -150,7 +145,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_auxiliary_2_refined(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        fracs = []
+        network = pp.FractureNetwork2d(domain=domain)
         mesh_args = {"mesh_size_frac": 0.125}
 
         subdomain = {
@@ -158,9 +153,7 @@ class BasicsTest(unittest.TestCase):
             "edges": np.array([0, 1, 2, 3]).reshape((2, -1), order="F"),
         }
 
-        gb = pp.fracs.meshing.simplex_grid(
-            fracs, domain=domain, subdomains=subdomain, **mesh_args
-        )
+        gb = network.mesh(mesh_args, constraints=subdomain)
         g = gb.grids_of_dimension(2)[0]
 
         tag = np.where(g.tags["domain_boundary_0_faces"])[0]
@@ -185,13 +178,13 @@ class BasicsTest(unittest.TestCase):
 
     def test_fracture(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        fracs = {
-            "points": np.array([[0.5, 0.5], [0.25, 0.75]]),
-            "edges": np.array([0, 1]).reshape((2, -1), order="F"),
-        }
+
+        p = np.array([[0.5, 0.5], [0.25, 0.75]])
+        e = np.array([0, 1]).reshape((2, -1), order="F")
+        network = pp.FractureNetwork2d(p, e, domain)
         mesh_args = {"mesh_size_frac": 1}
 
-        gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain, **mesh_args)
+        gb = network.mesh(mesh_args)
         g = gb.grids_of_dimension(2)[0]
 
         tag = np.where(g.tags["domain_boundary_0_faces"])[0]
@@ -212,13 +205,13 @@ class BasicsTest(unittest.TestCase):
 
     def test_fracture_refined(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        fracs = {
-            "points": np.array([[0.5, 0.5], [0.25, 0.75]]),
-            "edges": np.array([0, 1]).reshape((2, -1), order="F"),
-        }
+        p = np.array([[0.5, 0.5], [0.25, 0.75]])
+        e = np.array([0, 1]).reshape((2, -1), order="F")
+        network = pp.FractureNetwork2d(p, e, domain)
+
         mesh_args = {"mesh_size_frac": 0.125}
 
-        gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain, **mesh_args)
+        gb = network.mesh(mesh_args)
         g = gb.grids_of_dimension(2)[0]
 
         tag = np.where(g.tags["domain_boundary_0_faces"])[0]
@@ -239,13 +232,14 @@ class BasicsTest(unittest.TestCase):
 
     def test_fracture_2(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        fracs = {
-            "points": np.array([[0.5, 0.5, 0.25, 0.75], [0.25, 0.75, 0.5, 0.5]]),
-            "edges": np.array([0, 1, 2, 3]).reshape((2, -1), order="F"),
-        }
+
+        p = np.array([[0.5, 0.5, 0.25, 0.75], [0.25, 0.75, 0.5, 0.5]])
+        e = np.array([0, 1, 2, 3]).reshape((2, -1), order="F")
+        network = pp.FractureNetwork2d(p, e, domain)
+
         mesh_args = {"mesh_size_frac": 1}
 
-        gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain, **mesh_args)
+        gb = network.mesh(mesh_args)
         g = gb.grids_of_dimension(2)[0]
         # Check the ordering of the 1d grids in the grid bucket. This affects the order
         # in which the 2d faces are split, and hence the id of the added faces.
@@ -278,10 +272,10 @@ class BasicsTest(unittest.TestCase):
 
     def test_fracture_auxiliary(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        fracs = {
-            "points": np.array([[0.5, 0.5], [0.25, 0.75]]),
-            "edges": np.array([0, 1]).reshape((2, -1), order="F"),
-        }
+        p = np.array([[0.5, 0.5], [0.25, 0.75]])
+        e = np.array([0, 1]).reshape((2, -1), order="F")
+        network = pp.FractureNetwork2d(p, e, domain)
+
         mesh_args = {"mesh_size_frac": 1}
 
         subdomain = {
@@ -289,9 +283,7 @@ class BasicsTest(unittest.TestCase):
             "edges": np.array([0, 1]).reshape((2, -1), order="F"),
         }
 
-        gb = pp.fracs.meshing.simplex_grid(
-            fracs, domain=domain, subdomains=subdomain, **mesh_args
-        )
+        gb = network.mesh(mesh_args, constraints=subdomain)
         g = gb.grids_of_dimension(2)[0]
 
         tag = np.where(g.tags["domain_boundary_0_faces"])[0]
@@ -317,7 +309,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_auxiliary_intersect(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        fracs = []
+        network = pp.FractureNetwork2d(domain=domain)
         mesh_args = {"mesh_size_frac": 1}
 
         subdomain = {
@@ -325,9 +317,7 @@ class BasicsTest(unittest.TestCase):
             "edges": np.array([0, 1, 2, 3]).reshape((2, -1), order="F"),
         }
 
-        gb = pp.fracs.meshing.simplex_grid(
-            fracs, domain=domain, subdomains=subdomain, **mesh_args
-        )
+        gb = network.mesh(mesh_args, constraints=subdomain)
         g = gb.grids_of_dimension(2)[0]
 
         tag = np.where(g.tags["domain_boundary_0_faces"])[0]
@@ -352,5 +342,4 @@ class BasicsTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    BasicsTest().test_fracture_auxiliary()
     unittest.main()

@@ -287,7 +287,7 @@ def _run_gmsh(file_name, network, **kwargs):
     return pts, cells, cell_info, phys_names
 
 
-def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwargs):
+def triangle_grid(points, edges, domain, subdomains=None, do_snap_to_grid=False, **kwargs):
     """
     Generate a gmsh grid in a 2D domain with fractures.
 
@@ -340,10 +340,6 @@ def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwarg
 
     in_file = file_name + ".geo"
 
-    # Pick out fracture points, and their connections
-    frac_pts = fracs["points"]
-    frac_con = fracs["edges"]
-
     if subdomains is None:
         subdom_pts = np.zeros((2, 0))
         subdom_con = np.zeros((2, 0))
@@ -354,12 +350,12 @@ def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwarg
 
     # Unified description of points and lines for domain, and fractures
     pts_all, lines, domain_pts = _merge_domain_fracs_2d(
-        domain, frac_pts, frac_con, subdom_pts, subdom_con
+        domain, points, edges, subdom_pts, subdom_con
     )
 
     # Snap to underlying grid before comparing points
     if do_snap_to_grid:
-        pts_all = cg.snap_to_grid(pts_all, tol)
+        pts_all = pp.cg.snap_to_grid(pts_all, tol)
 
     assert np.all(np.diff(lines[:2], axis=0) != 0)
 
@@ -398,7 +394,7 @@ def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwarg
 
     # Ensure unique description of points
     if do_snap_to_grid:
-        pts_split = cg.snap_to_grid(pts_split, tol)
+        pts_split = pp.cg.snap_to_grid(pts_split, tol)
 
     pts_split, _, old_2_new = unique_columns_tol(pts_split, tol=tol)
     lines_split[:2] = old_2_new[lines_split[:2]]
@@ -623,6 +619,9 @@ def _merge_domain_fracs_2d(dom, frac_p, frac_l, subdom_p, subdom_l):
         identifying which type of line this is (third row), and a running index
         for all lines (fourth row)
     """
+    if frac_p is None:
+        frac_p = np.zeros((2, 0))
+        frac_l = np.zeros((2, 0))
 
     # Use constants set outside. If we ever
     const = constants.GmshConstants()
