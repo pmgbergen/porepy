@@ -30,7 +30,7 @@ __all__ = []
 from porepy.numerics.fv.mpsa import Mpsa, FracturedMpsa
 from porepy.numerics.fv.tpfa import Tpfa
 from porepy.numerics.fv.mpfa import Mpfa
-from porepy.numerics.fv.biot import Biot
+from porepy.numerics.fv.biot import Biot, GradP, DivD, BiotStabilization
 from porepy.numerics.fv.source import Integral
 
 # Virtual elements, elliptic
