@@ -142,15 +142,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     return tetrahedral_grid_from_gmsh(file_name, network, **kwargs)
 
 
-def triangle_grid_embedded(
-    network,
-    find_isect=True,
-    f_name="dfn_network",
-    mesh_size_frac=None,
-    mesh_size_min=None,
-    mesh_size_bound=None,
-    **kwargs
-):
+def triangle_grid_embedded(network, f_name, **kwargs):
     """ Create triangular (2D) grid of a domain embedded in 3D space, without
     meshing the 3D volume.
 
@@ -168,16 +160,9 @@ def triangle_grid_embedded(
 
     Parameters:
         network (FractureNetwork): To be meshed.
-        find_isect (boolean, optional): If True (default), the network will
-            search for intersections among fractures. Set False if
-            network.find_intersections() already has been called.
         f_name (str, optional): Filename for communication with gmsh.
             The config file for gmsh will be f_name.geo, with the grid output
             to f_name.msh. Defaults to dfn_network.
-        mesh_size_frac (double, optional): Target mesh size sent to gmsh. If not
-            provided, gmsh will do its best to decide on the mesh size.
-        mesh_size_min (double, optional): Minimal mesh size sent to gmsh. If not
-            provided, gmsh will do its best to decide on the mesh size.
         **kwargs: Arguments sent to gmsh etc.
 
     Returns:
@@ -186,88 +171,7 @@ def triangle_grid_embedded(
 
     """
 
-    verbose = 1
-
-    if find_isect:
-        network.find_intersections()
-
-    # If fields mesh_size_frac and mesh_size_min are provided, try to estimate mesh sizes.
-    if mesh_size_frac is not None and mesh_size_min is not None:
-        if mesh_size_bound is None:
-            mesh_size_bound = mesh_size_frac
-        network.insert_auxiliary_points(mesh_size_frac, mesh_size_min, mesh_size_bound)
-        # In this case we need to recompute intersection decomposition anyhow.
-        network.split_intersections()
-
-    if not hasattr(network, "decomposition"):
-        network.split_intersections()
-    else:
-        logger.info("Use existing decomposition")
-
-    pts, cells, cell_info, phys_names = _run_gmsh(
-        f_name, network, in_3d=False, **kwargs
-    )
-    g_2d = mesh_2_grid.create_2d_grids(
-        pts,
-        cells,
-        is_embedded=True,
-        phys_names=phys_names,
-        cell_info=cell_info,
-        network=network,
-    )
-    g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
-    g_0d = mesh_2_grid.create_0d_grids(pts, cells)
-
-    grids = [g_2d, g_1d, g_0d]
-
-    if verbose > 0:
-        logger.info("\n")
-        for g_set in grids:
-            if len(g_set) > 0:
-                s = (
-                    "Created "
-                    + str(len(g_set))
-                    + " "
-                    + str(g_set[0].dim)
-                    + "-d grids with "
-                )
-                num = 0
-                for g in g_set:
-                    num += g.num_cells
-                s += str(num) + " cells"
-                logger.info(s)
-        logger.info("\n")
-
-    return grids
-
-
-def _run_gmsh(file_name, network, **kwargs):
-
-    verbose = kwargs.get("verbose", 1)
-    if file_name[-4:] == ".geo" or file_name[-4:] == ".msh":
-        file_name = file_name[:-4]
-
-    in_file = file_name + ".geo"
-    out_file = file_name + ".msh"
-
-    if not hasattr(network, "decomposition"):
-        network.split_intersections()
-    else:
-        logger.info("Use existing decomposition")
-
-    network.to_gmsh(in_file, **kwargs)
-
-    gmsh_opts = kwargs.get("gmsh_opts", {})
-    gmsh_verbose = kwargs.get("gmsh_verbose", verbose)
-    gmsh_opts["-v"] = gmsh_verbose
-    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3, **gmsh_opts)
-
-    if verbose > 0:
-        if gmsh_status == 0:
-            logger.info("Gmsh processed file successfully")
-        else:
-            logger.error("Gmsh failed with status " + str(gmsh_status))
-            sys.exit()
+    out_file = _run_gmsh(f_name, in_3d=False, **kwargs)
 
     # The interface of meshio changed between versions 1 and 2. We make no
     # assumption on which version is installed here.
@@ -284,10 +188,66 @@ def _run_gmsh(file_name, network, **kwargs):
         cell_info = mesh.cell_data
         phys_names = {v[0]: k for k, v in mesh.field_data.items()}
 
-    return pts, cells, cell_info, phys_names
+    pts, cells, cell_info, phys_names
+    g_2d = mesh_2_grid.create_2d_grids(
+        pts,
+        cells,
+        is_embedded=True,
+        phys_names=phys_names,
+        cell_info=cell_info,
+        network=network,
+    )
+    g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
+    g_0d = mesh_2_grid.create_0d_grids(pts, cells)
+
+    grids = [g_2d, g_1d, g_0d]
+
+    logger.info("\n")
+    for g_set in grids:
+        if len(g_set) > 0:
+            s = (
+                "Created "
+                + str(len(g_set))
+                + " "
+                + str(g_set[0].dim)
+                + "-d grids with "
+            )
+            num = 0
+            for g in g_set:
+                num += g.num_cells
+            s += str(num) + " cells"
+            logger.info(s)
+    logger.info("\n")
+
+    return grids
 
 
-def triangle_grid(points, edges, domain, subdomains=None, do_snap_to_grid=False, **kwargs):
+def _run_gmsh(file_name, **kwargs):
+
+    verbose = kwargs.get("verbose", 1)
+    if file_name[-4:] == ".geo" or file_name[-4:] == ".msh":
+        file_name = file_name[:-4]
+
+    in_file = file_name + ".geo"
+    out_file = file_name + ".msh"
+
+    gmsh_opts = kwargs.get("gmsh_opts", {})
+    gmsh_verbose = kwargs.get("gmsh_verbose", verbose)
+    gmsh_opts["-v"] = gmsh_verbose
+    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3, **gmsh_opts)
+
+    if verbose > 0:
+        if gmsh_status == 0:
+            logger.info("Gmsh processed file successfully")
+        else:
+            logger.error("Gmsh failed with status " + str(gmsh_status))
+            sys.exit()
+    return out_file
+
+
+def triangle_grid(
+    points, edges, domain, subdomains=None, do_snap_to_grid=False, **kwargs
+):
     """
     Generate a gmsh grid in a 2D domain with fractures.
 
@@ -442,32 +402,8 @@ def triangle_grid(points, edges, domain, subdomains=None, do_snap_to_grid=False,
     )
     gw.write_geo(in_file)
 
-    triangle_grid_run_gmsh(file_name, **kwargs)
+    _run_gmsh(file_name, **kwargs)
     return triangle_grid_from_gmsh(file_name, **kwargs)
-
-
-def triangle_grid_run_gmsh(file_name, **kwargs):
-
-    if file_name.endswith(".geo"):
-        file_name = file_name[:-4]
-    in_file = file_name + ".geo"
-    out_file = file_name + ".msh"
-
-    # Verbosity level
-    verbose = kwargs.get("verbose", 1)
-    gmsh_verbose = kwargs.get("gmsh_verbose", verbose)
-    gmsh_opts = {"-v": gmsh_verbose}
-
-    logger.info("Run gmsh")
-    tm = time.time()
-    # Run gmsh
-    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=2, **gmsh_opts)
-
-    if gmsh_status == 0:
-        logger.info("Gmsh processed file successfully")
-        logger.info("Elapsed time " + str(time.time() - tm))
-    else:
-        logger.error("Gmsh failed with status " + str(gmsh_status))
 
 
 def triangle_grid_from_gmsh(file_name, **kwargs):
@@ -534,7 +470,7 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
     return grids
 
 
-def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
+def tetrahedral_grid_from_gmsh(network, file_name, **kwargs):
 
     start_time = time.time()
     # Verbosity level

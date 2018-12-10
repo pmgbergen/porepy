@@ -8,11 +8,10 @@ on any problems if ran as a main method.
 import numpy as np
 import unittest
 
-from porepy.fracs import meshing
 import porepy as pp
 
 
-class TestMeshGeneration(unittest.TestCase):
+class TestDFMMeshGeneration(unittest.TestCase):
     def test_single_isolated_fracture(self):
         """
         A single fracture completely immersed in a boundary grid.
@@ -297,6 +296,23 @@ class TestMeshGeneration(unittest.TestCase):
 
         network = pp.FractureNetwork3d([f_1, f_2])
         network.mesh(mesh_args)
+
+
+class TestDFNMeshGeneration(unittest.TestCase):
+    def test_conforming_two_fractures(self):
+        f_1 = pp.Fracture(np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]]).T)
+        f_2 = pp.Fracture(np.array([[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1]]).T)
+        network = pp.FractureNetwork3d([f_1, f_2])
+        mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
+        network.mesh(mesh_args, dfn=True)
+
+    def test_conforming_three_fractures(self):
+        f_1 = pp.Fracture(np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]]).T)
+        f_2 = pp.Fracture(np.array([[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1]]).T)
+        f_3 = pp.Fracture(np.array([[0, -1, -1], [0, 1, -1], [0, 1, 1], [0, -1, 1]]).T)
+        network = pp.FractureNetwork3d([f_1, f_2, f_3])
+        mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
+        network.mesh(mesh_args, dfn=True)
 
 if __name__ == "__main__":
     unittest.main()

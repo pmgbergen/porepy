@@ -1108,7 +1108,7 @@ class FractureNetwork3d(object):
         # intersecting lines and polygons
         self.split_intersections()
 
-        file_name = 'gmsh_frac_file'
+        file_name = "gmsh_frac_file"
         in_file = file_name + ".geo"
         out_file = file_name + ".msh"
 
@@ -1117,10 +1117,14 @@ class FractureNetwork3d(object):
         in_3d = not dfn
         self.to_gmsh(in_file, in_3d=in_3d)
         gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3)
-        logger.info('Gmsh completed with status ' + str(gmsh_status))
+        logger.info("Gmsh completed with status " + str(gmsh_status))
 
-        # Process the gmsh .msh output file, to make a list of grids
-        grid_list = pp.fracs.simplex.tetrahedral_grid_from_gmsh(out_file, self)
+        if dfn:
+            grid_list = pp.fracs.simplex.triangle_grid_embedded(self, out_file)
+        else:
+            # Process the gmsh .msh output file, to make a list of grids
+            grid_list = pp.fracs.simplex.tetrahedral_grid_from_gmsh(self, out_file)
+
         # Merge the grids into a mixed-dimensional GridBucket
         gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
         return gb
