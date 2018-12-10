@@ -24,56 +24,6 @@ from porepy.utils import comp_geom as cg
 
 logger = logging.getLogger(__name__)
 
-def from_gmsh(file_name, dim, **kwargs):
-    """
-    Import an already generated grid from gmsh.
-    NOTE: Only 2d grid is implemented so far.
-
-    TODO: A similar function is being implemnted in the importer, use this instead.
-
-    Parameters
-    ----------
-    file_name (string): Gmsh file name.
-    dim (int): Spatial dimension of the grid.
-    **kwargs: May contain fracture tags, options for gridding, etc.
-
-    Returns
-    -------
-    Grid or GridBucket: If no fractures are present in the gmsh file a simple
-        grid is returned. Otherwise, a complete bucket where all fractures are
-        represented as lower dim grids. See the documentation of simplex_grid
-        for further details.
-
-    Examples
-    --------
-    gb = from_gmsh('grid.geo', 2)
-
-    """
-    # Call relevant method, depending on grid dimensions.
-    if dim == 2:
-        if file_name.endswith(".geo"):
-            simplex.triangle_grid_run_gmsh(file_name, **kwargs)
-            grids = simplex.triangle_grid_from_gmsh(file_name, **kwargs)
-        elif file_name.endswith(".msh"):
-            grids = simplex.triangle_grid_from_gmsh(file_name, **kwargs)
-
-    #    elif dim == 3:
-    #        grids = simplex.tetrahedral_grid_from_gmsh(file_name, **kwargs)
-    #   NOTE: function simplex.tetrahedral_grid needs to be split as did for
-    #   simplex.triangle_grid
-    else:
-        raise ValueError("Only support for 2 dimensions")
-
-    # No fractures are specified, return a simple grid
-    if len(grids[1]) == 0:
-        grids[0][0].compute_geometry()
-        return grids[0][0]
-
-    return grid_list_to_grid_bucket(grids)
-
-
-# ------------------------------------------------------------------------------#
-
 
 def grid_list_to_grid_bucket(grids, time_tot=None, **kwargs):
     """ Convert a list of grids to a full GridBucket.
