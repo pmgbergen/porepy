@@ -259,7 +259,9 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4, **kwarg
             grid_list.append(grids)
             neigh_list.append(other_frac)
 
-        logger.warning("Finished creating grids. Elapsed time " + str(time.time() - tic))
+        logger.warning(
+            "Finished creating grids. Elapsed time " + str(time.time() - tic)
+        )
         logger.warning("Merge grids")
         tic = time.time()
         grids = non_conforming.merge_grids(grid_list, neigh_list)
