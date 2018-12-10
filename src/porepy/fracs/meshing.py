@@ -11,10 +11,10 @@ import scipy.sparse as sps
 import time
 import logging
 
+import porepy as pp
+
 from porepy.fracs import structured, simplex, split_grid, non_conforming, tools
 from porepy.fracs.fractures import Intersection
-from porepy import FractureNetwork
-from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
 from porepy.grids.grid_bucket import GridBucket
 from porepy.grids import mortar_grid
 from porepy.grids.structured import TensorGrid
@@ -188,10 +188,10 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4, **kwarg
 
     """
 
-    if isinstance(fracs, FractureNetwork) or isinstance(fracs, FractureNetwork_full):
+    if isinstance(fracs, pp.FractureNetwork3d):
         network = fracs
     else:
-        network = FractureNetwork(fracs)
+        network = pp.FractureNetwork3d(fracs)
 
     # Populate intersections in FractureNetowrk, or find intersections if not
     # provided.

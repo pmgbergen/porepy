@@ -973,7 +973,7 @@ class Intersection(object):
 # ----------------------------------------------------------------------------
 
 
-class FractureNetwork(object):
+class FractureNetwork3d(object):
     """
     Collection of Fractures with geometrical information. Facilitates
     computation of intersections of the fracture. Also incorporates the

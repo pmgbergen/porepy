@@ -108,3 +108,6 @@ class TestMeshing(unittest.TestCase):
             )
 
         self.assertTrue(np.allclose(g_0[0].nodes, np.array([1, 1, 1])))
+
+if __name__ == '__main__':
+    unittest.main()

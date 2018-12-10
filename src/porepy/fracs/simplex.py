@@ -8,10 +8,11 @@ import numpy as np
 import meshio
 import logging
 
+import porepy as pp
+
 from porepy.grids import constants
 from porepy.grids.gmsh import gmsh_interface, mesh_2_grid
 from porepy.fracs import fractures, tools
-import porepy.utils.comp_geom as cg
 from porepy.utils.setmembership import unique_columns_tol, ismember_rows
 
 
@@ -96,7 +97,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
                     frac_list.append(fractures.Fracture(f))
 
         # Combine the fractures into a network
-        network = fractures.FractureNetwork(
+        network = pp.FractureNetwork3d(
             frac_list, verbose=verbose, tol=kwargs.get("tol", 1e-4)
         )
     # Add any subdomain boundaries:
@@ -331,9 +332,6 @@ def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwarg
     """
     logger.info("Create 2d mesh")
 
-    # Verbosity level
-    verbose = kwargs.get("verbose", 1)
-
     # File name for communication with gmsh
     file_name = kwargs.get("file_name", "gmsh_frac_file")
     kwargs.pop("file_name", str())
@@ -391,11 +389,11 @@ def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwarg
     # The new, faster one, is default, while the old one can be invoked by
     # passing the keyword argument use_stable=True.
     if kwargs.get("use_stable", False):
-        pts_split, lines_split = cg.remove_edge_crossings(
+        pts_split, lines_split = pp.cg.remove_edge_crossings(
             pts_all, lines, tol=tol, snap=do_snap_to_grid, box=domain
         )
     else:
-        pts_split, lines_split = cg.remove_edge_crossings2(pts_all, lines, tol=tol)
+        pts_split, lines_split = pp.cg.remove_edge_crossings2(pts_all, lines, tol=tol)
     logger.info("Done. Elapsed time " + str(time.time() - tm))
 
     # Ensure unique description of points

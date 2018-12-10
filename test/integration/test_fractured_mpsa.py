@@ -3,6 +3,7 @@ Tests of class FracturedMpsa in module porepy.numerics.fv.mpsa.
 """
 import numpy as np
 import unittest
+
 import porepy as pp
 
 

@@ -4,10 +4,12 @@ from scipy import sparse as sps
 from itertools import islice
 import csv
 
+import porepy as pp
+
 from porepy.grids import grid, grid_bucket
 from porepy.grids.gmsh import gmsh_interface
 from porepy.fracs import meshing, split_grid, simplex
-from porepy.fracs.fractures import Fracture, FractureNetwork, EllipticFracture
+from porepy.fracs.fractures import Fracture, EllipticFracture
 from porepy.utils.setmembership import unique_columns_tol
 from porepy.utils.sort_points import sort_point_pairs
 import porepy.utils.comp_geom as cg
@@ -102,7 +104,7 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
             frac_list.append(Fracture(pts.reshape((3, -1), order="F")))
 
     # Create the network
-    network = FractureNetwork(frac_list, tol=tol)
+    network = pp.FractureNetwork3d(frac_list, tol=tol)
 
     if has_domain:
         return frac_list, network, domain
@@ -184,7 +186,7 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
                 )
             )
     # Create the network
-    network = FractureNetwork(frac_list, tol=tol)
+    network = pp.FractureNetwork3d(frac_list, tol=tol)
 
     if has_domain:
         return frac_list, network, domain
@@ -579,9 +581,9 @@ def network_3d_from_fab(f_name, return_all=False, tol=None):
 
     fractures = [Fracture(f) for f in fracs]
     if tol is not None:
-        network = FractureNetwork(fractures, tol=tol)
+        network = pp.FractureNetwork3d(fractures, tol=tol)
     else:
-        network = FractureNetwork(fractures)
+        network = pp.FractureNetwork3d(fractures)
 
     if return_all:
         return network, tess_fracs, tess_sgn
