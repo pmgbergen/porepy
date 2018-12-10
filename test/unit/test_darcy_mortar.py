@@ -791,7 +791,7 @@ class TestMortar3D(unittest.TestCase):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
 
         if num_fracs == 0:
-            fl = None
+            fl = []
 
         elif num_fracs == 1:
             fl = [
@@ -822,13 +822,9 @@ class TestMortar3D(unittest.TestCase):
                 ),
             ]
 
-        gb = pp.meshing.simplex_grid(
-            fracs=fl, domain=domain, h_min=0.5, h_ideal=0.5, verbose=0
-        )
-
-        #        if remove_tags:
-        #            internal_flag = FaceTag.FRACTURE
-        #            [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
+        network = pp.FractureNetwork3d(fl, domain)
+        mesh_args = {'mesh_size_frac': 0.5, 'mesh_size_min': 0.5}
+        gb = network.mesh(mesh_args)
 
         self.set_params(gb)
 
