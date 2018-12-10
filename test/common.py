@@ -10,7 +10,7 @@ def setup_flow_assembler(gb, method, data_key=None, coupler=None):
     """ Setup a standard assembler for the flow problem for a given grid bucket.
 
     The assembler will be set up with primary variable name 'pressure' on the
-    GridBucket nodes, and mortar_solution for the mortar variables.
+    GridBucket nodes, and mortar_flux for the mortar variables.
 
     Parameters:
         gb: GridBucket.
@@ -36,31 +36,27 @@ def setup_flow_assembler(gb, method, data_key=None, coupler=None):
 
     for g, d in gb:
         if mixed_form:
-            d[pp.PRIMARY_VARIABLES] = {
-                'pressure': {"cells": 1, "faces": 1}
-            }
+            d[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1, "faces": 1}}
         else:
-            d[pp.PRIMARY_VARIABLES] = {
-                'pressure': {"cells": 1}
-            }
-        d[pp.DISCRETIZATION] = {
-            'pressure': {"diffusive": method},
-        }
+            d[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1}}
+        d[pp.DISCRETIZATION] = {"pressure": {"diffusive": method}}
     for e, d in gb.edges():
         g1, g2 = gb.nodes_of_edge(e)
-        d[pp.PRIMARY_VARIABLES] = {'mortar_solution': {"cells": 1}}
+        d[pp.PRIMARY_VARIABLES] = {"mortar_flux": {"cells": 1}}
         d[pp.COUPLING_DISCRETIZATION] = {
-            'lambda': {
-                g1: ('pressure', "diffusive"),
-                g2: ('pressure', "diffusive"),
-                e: ('mortar_solution', coupler),
-                }}
+            "lambda": {
+                g1: ("pressure", "diffusive"),
+                g2: ("pressure", "diffusive"),
+                e: ("mortar_flux", coupler),
+            }
+        }
         d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
     assembler = pp.Assembler()
     return assembler
 
-def solve_pressure_distribute(gb, assembler):
+
+def solve_and_distribute_pressure(gb, assembler):
     """ Given an assembler, assemble and solve the pressure equation, and distribute
     the result.
 

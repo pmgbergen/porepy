@@ -53,7 +53,7 @@ class TestMpfaMultiDim(unittest.TestCase):
         key = "flow"
         tpfa = pp.Tpfa(key)
         assembler = common.setup_flow_assembler(gb, tpfa, key)
-        common.solve_pressure_distribute(gb, assembler)
+        common.solve_and_distribute_pressure(gb, assembler)
         for g, d in gb:
             pressure = d["pressure"]
             pressure_analytic = g.cell_centers[1]

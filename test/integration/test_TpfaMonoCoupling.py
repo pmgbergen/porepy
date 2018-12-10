@@ -43,7 +43,7 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         tpfa = pp.Tpfa(data_key)
         coupler = pp.FluxPressureContinuity(data_key, tpfa)
         assembler = common.setup_flow_assembler(gb, tpfa, data_key, coupler=coupler)
-        common.solve_pressure_distribute(gb, assembler)
+        common.solve_and_distribute_pressure(gb, assembler)
 
         # test pressure
         for g, d in gb:
@@ -59,8 +59,8 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
             master_area = master_to_m * g1.face_areas
             slave_area = slave_to_m * g2.face_areas
 
-            self.assertTrue(np.allclose(d_e["mortar_solution"] / master_area, 1))
-            self.assertTrue(np.allclose(d_e["mortar_solution"] / slave_area, 1))
+            self.assertTrue(np.allclose(d_e["mortar_flux"] / master_area, 1))
+            self.assertTrue(np.allclose(d_e["mortar_flux"] / slave_area, 1))
 
     def generate_grids(self, n, xmax, ymax, split):
         g1 = pp.CartGrid([split * n, ymax * n], physdims=[split, ymax])
