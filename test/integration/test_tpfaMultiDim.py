@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 
 import porepy as pp
-from test import common
+from test import test_utils
 
 
 def setup_2d_1d(nx, simplex_grid=False):
@@ -69,8 +69,8 @@ class BasicsTest(unittest.TestCase):
 
         key = "flow"
         tpfa = pp.Tpfa(key)
-        assembler = common.setup_flow_assembler(gb, tpfa, key)
-        common.solve_and_distribute_pressure(gb, assembler)
+        assembler = test_utils.setup_flow_assembler(gb, tpfa, key)
+        test_utils.solve_and_distribute_pressure(gb, assembler)
 
         self.assertTrue(check_pressures(gb))
 
@@ -80,8 +80,8 @@ class BasicsTest(unittest.TestCase):
 
         key = "flow"
         tpfa = pp.Tpfa(key)
-        assembler = common.setup_flow_assembler(gb, tpfa, key)
-        common.solve_and_distribute_pressure(gb, assembler)
+        assembler = test_utils.setup_flow_assembler(gb, tpfa, key)
+        test_utils.solve_and_distribute_pressure(gb, assembler)
         self.assertTrue(check_pressures(gb))
 
 
