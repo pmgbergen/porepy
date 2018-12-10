@@ -1,7 +1,11 @@
 """
-The module contains the base class for all elliptic discretization methods,
-to be used in both mono and mixed-dimensional problems.
+The module contains the base class for all elliptic discretization methods, to be used
+in both mono and mixed-dimensional problems. One instance for the scalar and one for
+the vector equation.
 
+The classes may be interpreted as a "contract" which elliptic discretization methods
+must honor. This is particularly useful to ensure uniformity when coupling
+discretizations between dimensions by interface laws.
 """
 from porepy.numerics.mixed_dim.solver import Solver
 
@@ -13,10 +17,10 @@ class EllipticDiscretization(Solver):
     discretization schemes.
 
     Subclasses are intended used both on single grids, and as components in a
-    mixed-dimensional, or more generally multiple grid problem. In the latter case, this class will provide the
-    discretization on individual grids; a full discretization will also need
-    discretizations of the edge problems (coupling between grids) and a way to
-    assemble the grids.
+    mixed-dimensional, or more generally multiple grid problem. In the latter case,
+    this class will provide the discretization on individual grids; a full
+    discretization will also need discretizations of the edge problems (coupling between
+    grids) and a way to assemble the grids.
 
     The class methods should together take care of both the discretization
     (defined as construction of operators used when writing down the continuous
@@ -59,7 +63,8 @@ class EllipticDiscretization(Solver):
         return self.keyword + "_"
 
     def ndof(self, g):
-        """ Abstract method. Return the number of degrees of freedom associated to the method.
+        """ Abstract method. Return the number of degrees of freedom associated to the
+        method.
 
         Parameters
             g (grid): Computational grid
@@ -73,7 +78,8 @@ class EllipticDiscretization(Solver):
     def extract_pressure(self, g, solution_array, d):
         """ Abstract method. Extract the pressure part of a solution.
 
-        The implementation will depend what are the primary variables of the specific implementation.
+        The implementation will depend what the primary variables of the specific
+        implementation are.
 
         Parameters:
             g (grid): To which the solution array belongs.
@@ -331,10 +337,16 @@ class VectorEllipticDiscretization(Solver):
 
     Should not be used by itself, instead use a subclass that implements an
     actual discretization method. Known subclass is Mpsa.
-
     """
 
     def __init__(self, keyword):
+        """ Set the discretization, with the keyword used for storing various
+        information associated with the discretization.
+
+        Paramemeters:
+            keyword (str): Identifier of all information used for this
+                discretization.
+        """
         self.keyword = keyword
 
     def _key(self):
@@ -348,25 +360,23 @@ class VectorEllipticDiscretization(Solver):
         return self.keyword + "_"
 
     def ndof(self, g):
-        """
-        Return the number of degrees of freedom associated to the method.
-        In this case number of cells times dimension (stress dof).
+        """ Abstract method. Return the number of degrees of freedom associated to the
+        method.
 
-        Parameter
-        ---------
-        g: grid, or a subclass.
+        Parameter:
+            g (grid): Computational grid
 
-        Return
-        ------
-        dof: the number of degrees of freedom.
+        Returns:
+            int: the number of degrees of freedom.
 
         """
         raise NotImplementedError("Method not implemented")
 
     def extract_displacement(self, g, solution_array, d):
-        """ Extract the pressure part of a solution.
-        The method is trivial for finite volume methods, with the pressure
-        being the only primary variable.
+        """ Abstract method. Extract the displacement part of a solution.
+
+        The implementation will depend on what the primary variables of the specific
+        implementation are.
 
         Parameters:
             g (grid): To which the solution array belongs.
@@ -374,28 +384,30 @@ class VectorEllipticDiscretization(Solver):
                 either a mono-dimensional or a mixed-dimensional problem.
             d (dictionary): Data dictionary associated with the grid. Not used,
                 but included for consistency reasons.
+
         Returns:
-            np.array (g.num_cells): Pressure solution vector. Will be identical
-                to solution_array.
+            np.array (g.num_cells): Displacement solution vector.
+
+        Raises:
+            NotImplementedError if the method
         """
         raise NotImplementedError("Method not implemented")
 
     def extract_traction(self, g, solution_array, d):
-        """ Extract the flux related to a solution.
+        """ Abstract method. Extract the traction part of a solution.
 
-        The flux is computed from the discretization and the given pressure solution.
-
-        @ALL: We should incrude the boundary condition as well?
+        The implementation will depend on what the primary variables of the specific
+        implementation are.
 
         Parameters:
             g (grid): To which the solution array belongs.
             solution_array (np.array): Solution for this grid obtained from
                 either a mono-dimensional or a mixed-dimensional problem. Will
-                correspond to the pressure solution.
+                correspond to the displacement solution.
             d (dictionary): Data dictionary associated with the grid.
 
         Returns:
-            np.array (g.num_faces): Flux vector.
+            np.array (g.num_faces): Traction vector.
 
         """
         raise NotImplementedError()
@@ -403,44 +415,28 @@ class VectorEllipticDiscretization(Solver):
     # ------------------------------------------------------------------------------#
 
     def assemble_matrix_rhs(self, g, data):
+        """ Return the matrix and right-hand side for a discretization of a second
+        order elliptic vector equation.
 
-        """
-        Return the matrix and right-hand side for a discretization of a second
-        order elliptic equation using a FV method with a multi-point stress
-        approximation.
 
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data. For details on necessary keywords,
-            see method discretize()
-        discretize (boolean, optional): default True. Whether to discetize
-            prior to matrix assembly. If False, data should already contain
-            discretization.
 
-        Return
-        ------
-        matrix: sparse csr (g.dim * g_num_cells, g.dim * g_num_cells)
-            Discretization matrix.
-        rhs: array (g.dim * g_num_cells)
-            Right-hand side which contains the boundary conditions and the vector
-            source term.
+        Parameters:
+            g : grid, or a subclass, with geometry fields computed.
+            data: dictionary to store the data. For details on necessary keywords,
+                see method discretize()
+            discretize (boolean, optional): default True. Whether to discetize prior to
+                matrix assembly. If False, data should already contain discretization.
+
+        Returns:
+            matrix: sparse csr (self.ndof, self.ndof) discretization matrix.
+            rhs: np.ndarray (self.ndof) Right-hand side which contains the boundary
+                conditions and the vector source term.
         """
         raise NotImplementedError("Method not implemented")
 
     def assemble_matrix(self, g, data):
-        """
-        Return the matrix for a discretization of a second order elliptic equation
-        using a FV method.
-
-        The name of data in the input dictionary (data) are:
-        k : FourthOrderTensor
-            stiffness tensor defined cell-wise.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir', 'neu' 'rob', for Dirichlet, Neumann and Robin
-            boundary conditions, respectively.
+        """Return the matrix for a discretization of a second order elliptic vector
+        equation.
 
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
@@ -455,8 +451,8 @@ class VectorEllipticDiscretization(Solver):
     # ------------------------------------------------------------------------------#
 
     def assemble_rhs(self, g, data):
-        """ Return the right-hand side for a discretization of a second
-        order elliptic equation using a finite volume method.
+        """ Return the right-hand side for a discretization of a second order elliptic
+        vector equation.
 
         Also discretize the necessary operators if the data dictionary does not
         contain a discretization of the boundary equation.
@@ -467,8 +463,7 @@ class VectorEllipticDiscretization(Solver):
 
         Returns:
             np.ndarray: Right hand side vector with representation of boundary
-                conditions. The size of the vector will depend on the
-                discretization.
+                conditions. The size of the vector will depend on the discretization.
         """
         raise NotImplementedError("Method not implemented")
 
