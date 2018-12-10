@@ -70,7 +70,7 @@ class BasicsTest(unittest.TestCase):
         key = "flow"
         tpfa = pp.Tpfa(key)
         assembler = common.setup_flow_assembler(gb, tpfa, key)
-        common.solve_pressure_distribute(gb, assembler)
+        common.solve_and_distribute_pressure(gb, assembler)
 
         self.assertTrue(check_pressures(gb))
 
@@ -81,7 +81,7 @@ class BasicsTest(unittest.TestCase):
         key = "flow"
         tpfa = pp.Tpfa(key)
         assembler = common.setup_flow_assembler(gb, tpfa, key)
-        common.solve_pressure_distribute(gb, assembler)
+        common.solve_and_distribute_pressure(gb, assembler)
         self.assertTrue(check_pressures(gb))
 
 
