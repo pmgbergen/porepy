@@ -18,12 +18,8 @@ import numpy as np
 import scipy.sparse as sps
 import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver
 
-# ------------------------------------------------------------------------------#
-
-
-class MassMatrix(Solver):
+class MassMatrix:
     """ Class that provides the discretization of a L2-mass bilinear form with constant
     test and trial functions.
     """
@@ -187,7 +183,7 @@ class MassMatrix(Solver):
 ##########################################################################
 
 
-class InvMassMatrix(Solver):
+class InvMassMatrix:
     """ Class that provides the discretization of a L2-mass bilinear form with constant
     test and trial functions.
     """
@@ -339,6 +335,3 @@ class InvMassMatrix(Solver):
             (1.0 / M.diagonal(), 0), shape=M.shape
         )
         matrix_dictionary["bound_inv_mass"] = rhs
-
-
-# ------------------------------------------------------------------------------#

@@ -9,9 +9,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
-
-from porepy.numerics.fv import fvutils
 from porepy.numerics.fv.fv_elliptic import FVElliptic
 
 

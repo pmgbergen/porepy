@@ -2,6 +2,7 @@ import numpy as np
 import unittest
 
 import porepy as pp
+from test import test_utils
 
 
 def setup_cart_2d(nx):
@@ -49,24 +50,10 @@ class TestMpfaMultiDim(unittest.TestCase):
         # Structured Cartesian grid
         gb = setup_cart_2d(np.array([10, 10]))
 
-        # Python inverter is most efficient for small problems
         key = "flow"
-        discretization_key = key + "_" + pp.DISCRETIZATION
-
         tpfa = pp.Tpfa(key)
-        for g, d in gb:
-            # Choose discretization and define the solver
-            d[discretization_key] = tpfa
-
-        for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key, tpfa)
-
-        assembler = pp.EllipticAssembler(key)
-
-        A, rhs = assembler.assemble_matrix_rhs(gb)
-        p = np.linalg.solve(A.A, rhs)
-
-        assembler.split(gb, "pressure", p)
+        assembler = test_utils.setup_flow_assembler(gb, tpfa, key)
+        test_utils.solve_and_distribute_pressure(gb, assembler)
         for g, d in gb:
             pressure = d["pressure"]
             pressure_analytic = g.cell_centers[1]

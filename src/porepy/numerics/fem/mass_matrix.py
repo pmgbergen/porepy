@@ -3,12 +3,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver
 
-# ------------------------------------------------------------------------------#
-
-
-class P1MassMatrix(Solver):
+class P1MassMatrix():
 
     # ------------------------------------------------------------------------------#
 
@@ -182,6 +178,3 @@ class P1MassMatrix(Solver):
 
         M = np.ones((dim + 1, dim + 1)) + np.identity(dim + 1)
         return c_volume * M / ((dim + 1) * (dim + 2))
-
-
-# ------------------------------------------------------------------------------#

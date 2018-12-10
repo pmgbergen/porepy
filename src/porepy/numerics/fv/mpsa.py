@@ -17,7 +17,7 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-class Mpsa(pp.numerics.mixed_dim.VectorEllipticDiscretization):
+class Mpsa(pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization):
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
