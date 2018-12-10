@@ -91,7 +91,8 @@ def make_grid_bucket(mesh_size, is_coarse=False):
 
     file_name = "network_geiger.csv"
     write_network(file_name)
-    gb = pp.importer.dfm_2d_from_csv(file_name, mesh_kwargs, domain)
+    network = pp.importer.network_2d_from_csv(file_name, domain=domain)
+    gb = network.mesh(mesh_kwargs)
     gb.compute_geometry()
     if is_coarse:
         pp.coarsening.coarsen(gb, "by_volume")
