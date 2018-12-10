@@ -1,13 +1,13 @@
 import scipy.sparse as sps
 import scipy.sparse.linalg as la
 import numpy as np
+
 import porepy as pp
 
 from porepy.numerics.fv import fvutils, mpsa
-from porepy.numerics.mixed_dim.solver import Solver
 
 
-class Biot(Solver):
+class Biot:
     def __init__(self, mechanics_keyword="mechanics", flow_keyword="flow"):
         """ Set the two keywords.
 
@@ -620,7 +620,7 @@ class Biot(Solver):
         return stress
 
 
-class GradP(pp.numerics.mixed_dim.VectorEllipticDiscretization):
+class GradP(pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization):
     """ Class for the pressure gradientdivergence term of the Biot equation.
     """
 
@@ -730,7 +730,7 @@ class GradP(pp.numerics.mixed_dim.VectorEllipticDiscretization):
         return np.zeros(self.ndof(g))
 
 
-class DivD(pp.numerics.mixed_dim.VectorEllipticDiscretization):
+class DivD(pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization):
     """ Class for the displacement divergence term of the Biot equation.
     """
 
@@ -842,7 +842,7 @@ class DivD(pp.numerics.mixed_dim.VectorEllipticDiscretization):
         return np.zeros(self.ndof(g))
 
 
-class BiotStabilization(pp.numerics.mixed_dim.VectorEllipticDiscretization):
+class BiotStabilization(pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization):
     """ Class for the stabilization term of the Biot equation.
     """
 

@@ -2,10 +2,6 @@ import numpy as np
 import unittest
 import porepy as pp
 
-from porepy.numerics.elliptic import EllipticDataAssigner
-
-# ------------------------------------------------------------------------------#
-
 
 class BasicsTest(unittest.TestCase):
 

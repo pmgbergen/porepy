@@ -5,10 +5,8 @@ import numpy as np
 import scipy.sparse as sps
 import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver
 
-
-class Integral(Solver):
+class Integral:
     """
     Discretization of the integrated source term
     int q * dx

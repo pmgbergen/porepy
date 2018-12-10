@@ -9,7 +9,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
+class Assembler:
     """ A class that assembles multi-physics problems on mixed-dimensional
     domains.
 
@@ -523,7 +523,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     var[key] = val
             return var
 
-    def distribute_variable(self, gb, var, block_dof, full_dof):
+    def distribute_variable(self, gb, values, block_dof, full_dof, variable_names=None):
         """ Distribute a vector to the nodes and edges in the GridBucket.
 
         The intended use is to split a multi-physics solution vector into its
@@ -531,25 +531,38 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
         Parameters:
             gb (GridBucket): Where the variables should be distributed
-            var (np.array): Vector to be split.
+            values (np.array): Vector to be split. It is assumed that it corresponds
+                to the ordering implied in block_dof and full_dof, e.g. that it is
+                the solution of a linear system assembled with the assembler.
             block_dof (dictionary from tuples, each item on the form (grid, str), to ints):
                 The Grid (or MortarGrid) identifies GridBucket elements, the
                 string the local variable name. The values signifies the block
                 index of this grid-variable combination.
             full_dof (list of ints): Number of dofs for a variable combination.
                 The ordering of the list corresponds to block_dof.
+            variable_names (list of str, optional): Names of the variable to be
+                distributed. If not provided, all variables found in block_dof
+                will be distributed
 
         """
+        if variable_names is None:
+            variable_names = []
+            for pair in block_dof.keys():
+                variable_names.append(pair[1])
+
         dof = np.cumsum(np.append(0, np.asarray(full_dof)))
 
-        for pair, bi in block_dof.items():
-            g = pair[0]
-            var_name = pair[1]
-            if isinstance(g, pp.Grid):
-                data = gb.node_props(g)
-            else:  # This is really an edge
-                data = gb.edge_props(g)
-            data[var_name] = var[dof[bi] : dof[bi + 1]]
+        for var_name in set(variable_names):
+            for pair, bi in block_dof.items():
+                g = pair[0]
+                name = pair[1]
+                if name != var_name:
+                    continue
+                if isinstance(g, pp.Grid):
+                    data = gb.node_props(g)
+                else:  # This is really an edge
+                    data = gb.edge_props(g)
+                data[var_name] = values[dof[bi] : dof[bi + 1]]
 
     def merge_variable(self, gb, var, block_dof, full_dof):
         """ Merge a vector to the nodes and edges in the GridBucket.
