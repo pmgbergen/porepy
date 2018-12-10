@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 
 import porepy as pp
-from test import common
+from test import test_utils
 
 
 def setup_cart_2d(nx):
@@ -52,8 +52,8 @@ class TestMpfaMultiDim(unittest.TestCase):
 
         key = "flow"
         tpfa = pp.Tpfa(key)
-        assembler = common.setup_flow_assembler(gb, tpfa, key)
-        common.solve_and_distribute_pressure(gb, assembler)
+        assembler = test_utils.setup_flow_assembler(gb, tpfa, key)
+        test_utils.solve_and_distribute_pressure(gb, assembler)
         for g, d in gb:
             pressure = d["pressure"]
             pressure_analytic = g.cell_centers[1]

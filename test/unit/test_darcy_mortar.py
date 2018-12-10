@@ -10,7 +10,7 @@ import scipy.sparse as sps
 import unittest
 
 import porepy as pp
-from test import common
+from test import test_utils
 
 
 class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
@@ -103,7 +103,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
             method = pp.Tpfa(key)
         elif method == "mpfa":
             method = pp.Mpfa(key)
-        assembler = common.setup_flow_assembler(gb, method, key)
+        assembler = test_utils.setup_flow_assembler(gb, method, key)
         A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(gb, p, block_dof, full_dof)
@@ -597,7 +597,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
     def run_mpfa(self, gb):
         key = "flow"
         method = pp.Mpfa(key)
-        assembler = common.setup_flow_assembler(gb, method, key)
+        assembler = test_utils.setup_flow_assembler(gb, method, key)
         A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(gb, p, block_dof, full_dof)
@@ -605,7 +605,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
     def run_vem(self, gb):
         key = "flow"
         method = pp.MVEM(key)
-        assembler = common.setup_flow_assembler(gb, method, key)
+        assembler = test_utils.setup_flow_assembler(gb, method, key)
         A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(gb, p, block_dof, full_dof)
@@ -814,7 +814,7 @@ class TestMortar3D(unittest.TestCase):
     def run_mpfa(self, gb):
         key = "flow"
         method = pp.Mpfa(key)
-        assembler = common.setup_flow_assembler(gb, method, key)
+        assembler = test_utils.setup_flow_assembler(gb, method, key)
         A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(gb, p, block_dof, full_dof)
@@ -992,7 +992,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
     def run_mpfa(self, gb):
         key = "flow"
         method = pp.Mpfa(key)
-        assembler = common.setup_flow_assembler(gb, method, key)
+        assembler = test_utils.setup_flow_assembler(gb, method, key)
         A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(gb, p, "pressure", block_dof, full_dof)

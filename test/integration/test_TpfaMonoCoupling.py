@@ -4,7 +4,7 @@ import scipy.sparse as sps
 from scipy.spatial.distance import cdist
 
 import porepy as pp
-from test import common
+from test import test_utils
 
 
 class TestTpfaCouplingDiffGrids(unittest.TestCase):
@@ -42,8 +42,8 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         data_key = "flow"
         tpfa = pp.Tpfa(data_key)
         coupler = pp.FluxPressureContinuity(data_key, tpfa)
-        assembler = common.setup_flow_assembler(gb, tpfa, data_key, coupler=coupler)
-        common.solve_and_distribute_pressure(gb, assembler)
+        assembler = test_utils.setup_flow_assembler(gb, tpfa, data_key, coupler=coupler)
+        test_utils.solve_and_distribute_pressure(gb, assembler)
 
         # test pressure
         for g, d in gb:
