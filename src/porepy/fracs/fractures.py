@@ -1024,8 +1024,12 @@ class FractureNetwork3d(object):
             tol (double, optional): Geometric tolerance. Defaults to 1e-4.
 
         """
-
-        self._fractures = list(fractures)
+        if fractures is None:
+            self._fractures = []
+        elif not isinstance(fractures, list):
+            self._fractures = [fractures]
+        else:
+            self._fractures = fractures
 
         for i, f in enumerate(self._fractures):
             f.set_index(i)

@@ -12,13 +12,20 @@ import porepy as pp
 
 
 class TestDFMMeshGeneration(unittest.TestCase):
+
+    def test_no_fracture(self):
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
+        network = pp.FractureNetwork3d(domain=domain)
+        mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
+        network.mesh(mesh_args)
+
     def test_single_isolated_fracture(self):
         """
         A single fracture completely immersed in a boundary grid.
         """
         f_1 = pp.Fracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        network = pp.FractureNetwork3d([f_1], domain=domain)
+        network = pp.FractureNetwork3d(f_1, domain=domain)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
         network.mesh(mesh_args)
 
@@ -423,4 +430,5 @@ class TestDFNMeshGeneration(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    TestDFMMeshGeneration().test_no_fracture()
     unittest.main()
