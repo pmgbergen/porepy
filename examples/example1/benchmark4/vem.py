@@ -26,7 +26,7 @@ def add_data(gb, domain):
         a_dim = np.power(a, gb.dim_max() - g.dim)
         aperture = np.ones(g.num_cells) * a_dim
 
-        specified_parameters = {"aperture": aperture, "permeability": perm}
+        specified_parameters = {"aperture": aperture, "second_order_tensor": perm}
 
         # Boundaries
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -47,7 +47,7 @@ def add_data(gb, domain):
         else:
             bound = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
             specified_parameters.update({"bc": bound})
-        pp.initialize_data(d, g, "flow", specified_parameters)
+        pp.initialize_default_data(g, d, "flow", specified_parameters)
 
     # Assign coupling permeability
     gb.add_edge_props("kn")

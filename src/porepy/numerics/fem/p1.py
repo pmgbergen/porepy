@@ -45,34 +45,30 @@ class P1(Solver):
     # ------------------------------------------------------------------------------#
 
     def matrix_rhs(self, g, data):
-        """
-        Return the matrix and righ-hand side for a discretization of a second
+        """ Return the matrix and righ-hand side for a discretization of a second
         order elliptic equation using P1 method on simplices.
-        The name of data in the input dictionary (data) are:
-        perm : second_order_tensor
-            Permeability defined cell-wise.
-        source : array (self.g.num_cells)
-            Scalar source term defined cell-wise. If not given a zero source
-            term is assumed and a warning arised.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively.
+
+        We assume the following sub-dictionary to be present in the data dictionary:
+            parameter_dictionary, storing all parameters.
+                Stored in data[pp.PARAMETERS][self.keyword].
+
+        parameter_dictionary contains the entries:
+            second_order_tensor: (pp.SecondOrderTensor) Permeability defined cell-wise.
+            aperture: (np.ndarray) apertures of the cells for scaling of the face
+                normals.
+            bc: (pp.BoundaryConditionNode) node-wise boundary conditions.
+            bc_values: array (self.ndof) boundary condition values.
 
         Parameters
         ----------
-        g : grid, or a subclass, with geometry fields computed.
+        g: grid, or a subclass, with geometry fields computed.
         data: dictionary to store the data.
 
-        Return
+        Returns
         ------
-        matrix: sparse csr (g.num_nodes, g.num_nodes)
-            Matrix obtained from the discretization.
-        rhs: array (g.num_nodes)
-            Right-hand side which contains the boundary conditions and the scalar
-            source term.
-
+        matrix: sparse csr (g.num_nodes, g.num_nodes) Matrix obtained from the
+            discretization.
+        rhs: array (g.num_nodes) Right-hand side which contains the boundary conditions.
         """
         M, bc_weight = self.matrix(g, data, bc_weight=True)
         return M, self.rhs(g, data, bc_weight)
@@ -80,18 +76,32 @@ class P1(Solver):
     # ------------------------------------------------------------------------------#
 
     def matrix(self, g, data, bc_weight=False):
-        """
-        Return the matrix for a discretization of a second order elliptic equation
-        using P1 method. See self.matrix_rhs for a detaild description.
+        """ Return the matrix for a discretization of a second order elliptic equation
+        using P1 method.
 
-        Additional parameter:
+        Parameters
+        ----------
+        g: grid, or a subclass, with geometry fields computed.
+        data: dictionary to store the data. See self.matrix_rhs for required contents.
+
+        Returns
+        ------
+        matrix: sparse csr (g.num_nodes, g.num_nodes)
+            Matrix obtained from the discretization.
+
+        Optional parameters:
         --------------------
-        bc_weight: to compute the infinity norm of the matrix and use it as a
-            weight to impose the boundary conditions. Default True.
+        is_tangential: bool, whether the lower-dimensional permeability tensor has been
+            rotated to the fracture plane. Defaults to False. Stored in data dictionary.
+        bc_weight: bool, whether to compute the infinity norm of the matrix and use it
+            as a weight to impose the boundary conditions. Default False.
 
         Additional return:
         weight: if bc_weight is True return the weight computed.
 
+        Raises:
+        ------
+        ValueError if the boundary condition is not defined node-wise.
         """
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
@@ -194,7 +204,6 @@ class P1(Solver):
         --------------------
         bc_weight: to use the infinity norm of the matrix to impose the
             boundary conditions. Default 1.
-
         """
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
@@ -206,9 +215,6 @@ class P1(Solver):
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         bc_val = parameter_dictionary["bc_values"]
         bc = parameter_dictionary["bc"]
-
-        if bool(bc is None) != bool(bc_val is None):
-            raise ValueError("Consider to assign boundary condition value")
 
         rhs = np.zeros(self.ndof(g))
         if bc is None:

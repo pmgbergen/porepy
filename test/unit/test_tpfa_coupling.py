@@ -55,10 +55,10 @@ class BasicsTest(unittest.TestCase):
             specified_parameters = {
                 "bc": bc,
                 "bc_values": bc_val,
-                "permeability": p,
+                "second_order_tensor": p,
                 "aperture": aperture,
             }
-            pp.initialize_data(d, g, "flow", specified_parameters)
+            pp.initialize_default_data(g, d, "flow", specified_parameters)
 
         for e, d in gb.edges():
             d["kn"] = 1e-5

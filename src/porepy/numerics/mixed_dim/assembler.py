@@ -127,7 +127,9 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
             sps_matrix = sps.csr_matrix
 
         # Initialize the global matrix.
-        matrix, rhs, block_dof, full_dof = self._initialize_matrix_rhs(gb, variables, sps_matrix)
+        matrix, rhs, block_dof, full_dof = self._initialize_matrix_rhs(
+            gb, variables, sps_matrix
+        )
         if len(full_dof) == 0:
             if add_matrices:
                 mat, vec = self._assign_matrix_vector(full_dof, sps_matrix)
@@ -268,7 +270,9 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
                     # Associate the first variable with master, the second with
                     # slave, and the final with edge.
-                    loc_mat, _ = self._assign_matrix_vector(full_dof[[mi, si, ei]], sps_matrix)
+                    loc_mat, _ = self._assign_matrix_vector(
+                        full_dof[[mi, si, ei]], sps_matrix
+                    )
 
                     # Pick out the discretizations on the master and slave node
                     # for the relevant variables.
@@ -297,7 +301,9 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
                 elif mi is not None:
                     # si is None
-                    loc_mat, _ = self._assign_matrix_vector(full_dof[[mi, ei]], sps_matrix)
+                    loc_mat, _ = self._assign_matrix_vector(
+                        full_dof[[mi, ei]], sps_matrix
+                    )
                     loc_mat[0, 0] = matrix[mat_key_master][mi, mi]
                     tmp_mat, loc_rhs = e_discr.assemble_matrix_rhs(
                         g_master, data_master, data_edge, loc_mat
@@ -313,7 +319,9 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
                 elif si is not None:
                     # mi is None
-                    loc_mat, _ = self._assign_matrix_vector(full_dof[[si, ei]], sps_matrix)
+                    loc_mat, _ = self._assign_matrix_vector(
+                        full_dof[[si, ei]], sps_matrix
+                    )
                     loc_mat[0, 0] = matrix[mat_key_slave][si, si]
                     tmp_mat, loc_rhs = e_discr.assemble_matrix_rhs(
                         g_slave, data_slave, data_edge, loc_mat

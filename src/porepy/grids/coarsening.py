@@ -289,10 +289,10 @@ def tpfa_matrix(g, perm=None):
 
     solver = pp.Tpfa("flow")
     specified_parameters = {
-        "permeability": perm,
+        "second_order_tensor": perm,
         "bc": pp.BoundaryCondition(g, np.empty(0), ""),
     }
-    data = pp.initialize_data({}, g, "flow", specified_parameters)
+    data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
     return solver.assemble_matrix_rhs(g, data)[0]
 
 

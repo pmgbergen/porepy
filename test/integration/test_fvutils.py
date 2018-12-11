@@ -140,7 +140,7 @@ class TestFvutils(unittest.TestCase):
 
         bc_val = np.array([1, 2, 3, 4])
         specified_parameters = {"bc_values": bc_val}
-        data = pp.initialize_data({}, g, "flow", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
         matrix_dictionary = data[pp.PARAMETERS]["flow"]
         matrix_dictionary["flux"] = flux
         matrix_dictionary["bound_flux"] = bound_flux
