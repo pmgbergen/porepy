@@ -1,7 +1,6 @@
 """
 Module for creating simplex grids with fractures.
 """
-import warnings
 import time
 import sys
 import numpy as np
@@ -19,7 +18,7 @@ from porepy.utils.setmembership import unique_columns_tol, ismember_rows
 logger = logging.getLogger(__name__)
 
 
-def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs):
+def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=None, **kwargs):
     """
     Create grids for a domain with possibly intersecting fractures in 3d.
     The function can be call through the wrapper function meshing.simplex_grid.
@@ -75,6 +74,9 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
 
     # File name for communication with gmsh
     file_name = kwargs.pop("file_name", "gmsh_frac_file")
+
+    if subdomains is None:
+        subdomains = []
 
     if network is None:
 
@@ -138,6 +140,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     gmsh_verbose = kwargs.get("gmsh_verbose", verbose)
     gmsh_opts["-v"] = gmsh_verbose
     gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3, **gmsh_opts)
+    logger.info("Gmsh completed with status " + str(gmsh_status))
 
     return tetrahedral_grid_from_gmsh(file_name, network, **kwargs)
 
@@ -188,7 +191,6 @@ def triangle_grid_embedded(network, f_name, **kwargs):
         cell_info = mesh.cell_data
         phys_names = {v[0]: k for k, v in mesh.field_data.items()}
 
-    pts, cells, cell_info, phys_names
     g_2d = mesh_2_grid.create_2d_grids(
         pts,
         cells,
