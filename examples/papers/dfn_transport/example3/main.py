@@ -48,7 +48,7 @@ def main():
 
     input_folder = "../geometries/"
     file_name = input_folder + "example3.fab"
-    file_inters = input_folder + "example3.dat"
+    file_inters = None #input_folder + "example3.dat"
 
     mesh_size = 1e2 #np.power(2., -4)
     mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
@@ -62,7 +62,7 @@ def main():
 
     for folder, bc_type in bc_types.items():
 
-        gb = pp.importer.dfn_3d_from_fab(file_name, file_inters, tol=tol, box=box, **mesh_kwargs)
+        gb = pp.importer.dfn_3d_from_fab(file_name, file_inters, tol=tol, **mesh_kwargs)
 
         gb.remove_nodes(lambda g: g.dim == 0)
         gb.compute_geometry()
@@ -72,7 +72,8 @@ def main():
         domain = gb.bounding_box(as_dict=True)
 
         param = {"domain": domain, "tol": tol, "k": 1,
-                 "diff": 1e-4, "time_step": 1, "n_steps": 100,
+                 "bc_flow": 1e3,
+                 "diff": 1e-4, "time_step": 10, "n_steps": 100,
                  "folder": folder}
 
         # the flow problem
