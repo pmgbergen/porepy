@@ -16,7 +16,7 @@ import porepy as pp
 def make_dictionary(g, bc, bc_values=None):
     if bc_values is None:
         bc_values = np.zeros(g.num_faces)
-    d = {"bc": bc, "bc_values": bc_values}
+    d = {"bc": bc, "bc_values": bc_values, "mpfa_inverter": "python"}
     return pp.initialize_default_data(g, {}, "flow", d)
 
 

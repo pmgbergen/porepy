@@ -105,29 +105,38 @@ def main(kf, description, multi_point, if_export=False):
     add_data(gb, domain, kf, mesh_size)
 
     key = "flow"
-    discretization_key = key + "_" + pp.DISCRETIZATION
     if multi_point:
-        discr = pp.Mpfa(key)
+        method = pp.Mpfa(key)
     else:
-        discr = pp.Tpfa(key)
+        method = pp.Tpfa(key)
 
-    for _, d in gb:
-        d[discretization_key] = discr
+    coupler = pp.RobinCoupling(key, method)
 
-    for _, d in gb.edges():
-        d[discretization_key] = pp.RobinCoupling(key, discr)
+    for g, d in gb:
+        d[pp.PRIMARY_VARIABLES] = {
+            'pressure': {"cells": 1}
+            }
+        d[pp.DISCRETIZATION] = {
+            'pressure': {"diffusive": method},
+        }
+    for e, d in gb.edges():
+        g1, g2 = gb.nodes_of_edge(e)
+        d[pp.PRIMARY_VARIABLES] = {'mortar_solution': {"cells": 1}}
+        d[pp.COUPLING_DISCRETIZATION] = {
+            'lambda': {
+                g1: ('pressure', "diffusive"),
+                g2: ('pressure', "diffusive"),
+                e: ('mortar_solution', coupler),
+                }}
+        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-    assembler = pp.EllipticAssembler(key)
+    assembler = pp.Assembler()
 
     # Discretize
-    A, b = assembler.assemble_matrix_rhs(gb)
-
-    # Solve the linear system
+    A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
     p = sps.linalg.spsolve(A, b)
 
-    # Store the solution
-    gb.add_node_props(["pressure"])
-    assembler.split(gb, "pressure", p)
+    assembler.distribute_variable(gb, p, block_dof, full_dof)
 
     if if_export:
         save = pp.Exporter(gb, "fv", folder="fv_" + description)

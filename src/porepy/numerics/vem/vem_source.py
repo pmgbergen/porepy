@@ -4,12 +4,11 @@ Discretization of the source term of an equation.
 
 import numpy as np
 import scipy.sparse as sps
+
 import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver
 
-
-class DualIntegral(Solver):
+class DualIntegral:
     """
     Discretization of the integrated source term
     int q * dx
@@ -21,7 +20,6 @@ class DualIntegral(Solver):
 
     def __init__(self, keyword="flow"):
         self.keyword = keyword
-        Solver.__init__(self)
 
     def ndof(self, g):
         return g.num_cells + g.num_faces
@@ -41,6 +39,3 @@ class DualIntegral(Solver):
         rhs[is_p] = -sources
 
         return lhs, rhs
-
-
-# ------------------------------------------------------------------------------

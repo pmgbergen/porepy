@@ -17,7 +17,7 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
+class Mpsa(pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization):
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
@@ -35,8 +35,9 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
         return g.dim * g.num_cells
 
     def extract_displacement(self, g, solution_array, d):
-        """ Extract the pressure part of a solution.
-        The method is trivial for finite volume methods, with the pressure
+        """ Extract the displacement part of a solution.
+
+        The method is trivial for finite volume methods, with the displacement
         being the only primary variable.
 
         Parameters:
@@ -66,8 +67,8 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         parameter_dictionary contains the entries:
-            fourth_order_tensor : (pp.FourthOrderTensor) Stiffness tensor defined cell-wise.
-            bc : (BoundaryConditionVectorial) boundary conditions
+            fourth_order_tensor: (pp.FourthOrderTensor) Stiffness tensor defined cell-wise.
+            bc: (BoundaryConditionVectorial) boundary conditions
             mpsa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of
                 displacement continuity point: eta. eta = 0 gives cont. pt. at face midpoint,
                 eta = 1 at the vertex. If not given, porepy tries to set an optimal
@@ -80,22 +81,23 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
                 stress discretization, cell center contribution
             bound_flux: sps.csc_matrix (g.dim * g.num_faces, g.dim * g.num_faces)
                 stress discretization, face contribution
-            bound_displacement_cell: sps.csc_matrix (g.dim * g.num_faces, g.dim * g.num_cells)
-                Operator for reconstructing the displacement trace. Cell center contribution
-            bound_displacement_face: sps.csc_matrix (g.dim * g.num_faces, g.dim * g.num_faces)
-                Operator for reconstructing the displacement trace. Face contribution
-
-        Hidden option (intended as "advanced" option that one should normally not
-        care about):
-            Half transmissibility calculation according to Ivar Aavatsmark, see
-            folk.uib.no/fciia/elliptisk.pdf. Activated by adding the entry
-            Aavatsmark_transmissibilities: True   to the data dictionary.
+            bound_displacement_cell: sps.csc_matrix (g.dim * g.num_faces,
+                                                     g.dim * g.num_cells)
+                Operator for reconstructing the displacement trace. Cell center
+                contribution.
+            bound_displacement_face: sps.csc_matrix (g.dim * g.num_faces,
+                                                     g.dim * g.num_faces)
+                Operator for reconstructing the displacement trace. Face contribution.
 
         Parameters
         ----------
         g (pp.Grid): grid, or a subclass, with geometry fields computed.
         data (dict): For entries, see above.
         faces (np.ndarray): optional. Defines active faces.
+
+        Raises
+        ------
+        NotImplementedError for partial discretization
         """
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
@@ -148,17 +150,13 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
 
     def assemble_matrix(self, g, data):
         """
-        Return the matrix for a discretization of a second order elliptic equation
-        using a FV method.
+        Return the matrix for a discretization of a second order elliptic vector
+        equation using a FV method.
 
         The name of data in the input dictionary (data) are:
-        k : FourthOrderTensor
-            stiffness tensor defined cell-wise.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir', 'neu' 'rob', for Dirichlet, Neumann and Robin
-            boundary conditions, respectively.
+        fourth_order_tensor: FourthOrderTensor stiffness tensor defined cell-wise.
+        bc: boundary conditions, pp.BoundaryConditionVectorial.
+        bc_values: (g.dim * g.num_faces) Values of the boundary conditions.
 
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
