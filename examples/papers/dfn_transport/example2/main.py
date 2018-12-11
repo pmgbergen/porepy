@@ -31,8 +31,8 @@ def bc_flag(g, domain, tol):
 def main():
 
     input_folder = "../geometries/"
-    file_name = input_folder + "example3.fab"
-    file_inters = input_folder + "example3.dat"
+    file_name = input_folder + "example2.fab"
+    file_inters = input_folder + "example2.dat"
 
     mesh_size = 1 # for 1k triangles
     #mesh_size = 0.9 * np.power(2., -4) # for 3k triangles
