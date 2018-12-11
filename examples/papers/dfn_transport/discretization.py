@@ -61,7 +61,7 @@ def data_flow(gb, model, data, bc_flag):
             param["bc"] = pp.BoundaryCondition(g, b_faces, labels)
 
             bc_val = np.zeros(g.num_faces)
-            bc_val[b_faces[in_flow]] = 1
+            bc_val[b_faces[in_flow]] = data.get("bc_flow", 1)
         else:
             param["bc"] = pp.BoundaryCondition(g, empty, empty)
 
