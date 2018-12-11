@@ -152,13 +152,13 @@ class MortarGrid(object):
             + " the cells of the mortar grid.\nRows indicate the mortar"
             + " cell id, columns indicate the (higher dimensional) face id"
             + "\n"
-            + str(self.high_to_mortar_int)
+            + str(self.master_to_mortar_int)
             + "\n"
             + "Mapping from the cells of the mortar grid to the cells"
             + " of the lower dimensional grid.\nRows indicate the mortar"
             + " cell id, columns indicate the (lower dimensional) cell id"
             + "\n"
-            + str(self.low_to_mortar_int)
+            + str(self.slave_to_mortar_int)
         )
 
         return s
