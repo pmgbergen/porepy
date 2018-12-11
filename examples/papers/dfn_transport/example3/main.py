@@ -48,7 +48,7 @@ def main():
 
     input_folder = "../geometries/"
     file_name = input_folder + "example3.fab"
-    file_inters = None #input_folder + "example3.dat"
+    file_inters = input_folder + "example3.dat"
 
     mesh_size = 1e2 #np.power(2., -4)
     mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
