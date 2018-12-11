@@ -6,8 +6,6 @@ Created on Mon Dec 10 09:24:49 2018
 @author: Eirik Keilegavlens
 """
 import numpy as np
-import scipy
-import scipy.stats as stats
 import logging
 import networkx as nx
 

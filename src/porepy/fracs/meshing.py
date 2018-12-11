@@ -13,13 +13,10 @@ import logging
 
 import porepy as pp
 
-from porepy.fracs import structured, simplex, split_grid, non_conforming, tools
-from porepy.fracs.fractures import Intersection
+from porepy.fracs import structured, split_grid, tools
 from porepy.grids.grid_bucket import GridBucket
 from porepy.grids import mortar_grid
-from porepy.grids.structured import TensorGrid
 from porepy.utils import mcolon
-from porepy.utils import comp_geom as cg
 
 
 logger = logging.getLogger(__name__)
@@ -266,9 +263,6 @@ def _assemble_in_bucket(grids, **kwargs):
     return bucket
 
 
-# ------------------------------------------------------------------------------#
-
-
 def create_mortar_grids(gb, ensure_matching_face_cell=True, **kwargs):
 
     gb.add_edge_props("mortar_grid")
@@ -297,6 +291,3 @@ def create_mortar_grids(gb, ensure_matching_face_cell=True, **kwargs):
             # the tag name is just a place-holder we assume left side
             side_g = {mortar_grid.LEFT_SIDE: lg.copy()}
         d["mortar_grid"] = mortar_grid.MortarGrid(lg.dim, side_g, d["face_cells"])
-
-
-# ------------------------------------------------------------------------------#
