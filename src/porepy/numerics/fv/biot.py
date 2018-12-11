@@ -620,7 +620,9 @@ class Biot:
         return stress
 
 
-class GradP(pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization):
+class GradP(
+    pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization
+):
     """ Class for the pressure gradientdivergence term of the Biot equation.
     """
 
@@ -730,7 +732,9 @@ class GradP(pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDis
         return np.zeros(self.ndof(g))
 
 
-class DivD(pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization):
+class DivD(
+    pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization
+):
     """ Class for the displacement divergence term of the Biot equation.
     """
 
@@ -842,7 +846,9 @@ class DivD(pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDisc
         return np.zeros(self.ndof(g))
 
 
-class BiotStabilization(pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization):
+class BiotStabilization(
+    pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization
+):
     """ Class for the stabilization term of the Biot equation.
     """
 

@@ -76,15 +76,19 @@ class FractureNetwork2d(object):
             self.num_frac = 0
 
         if pts is None and edges is None:
-            logger.info('Generated empty fracture set')
+            logger.info("Generated empty fracture set")
         else:
             logger.info("Generated a fracture set with %i fractures", self.num_frac)
             if pts.size > 0:
                 logger.info(
-                    "Minimum point coordinates x: %.2f, y: %.2f", pts[0].min(), pts[1].min()
+                    "Minimum point coordinates x: %.2f, y: %.2f",
+                    pts[0].min(),
+                    pts[1].min(),
                 )
                 logger.info(
-                    "Maximum point coordinates x: %.2f, y: %.2f", pts[0].max(), pts[1].max()
+                    "Maximum point coordinates x: %.2f, y: %.2f",
+                    pts[0].max(),
+                    pts[1].max(),
                 )
         if domain is not None:
             logger.info("Domain specification :" + str(domain))
@@ -151,8 +155,9 @@ class FractureNetwork2d(object):
 
         if do_snap and p is not None and p.size > 0:
             p, _ = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=tol)
-        grid_list = pp.fracs.simplex.triangle_grid(p, e, self.domain, tol=tol,
-                                                   subdomains=constraints, **mesh_args)
+        grid_list = pp.fracs.simplex.triangle_grid(
+            p, e, self.domain, tol=tol, subdomains=constraints, **mesh_args
+        )
         gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
         return gb
 
@@ -205,7 +210,6 @@ class FractureNetwork2d(object):
         e = np.vstack((self.edges.copy(), np.arange(self.num_frac)))
         return pp.cg.remove_edge_crossings(p, e, tol=self.tol)
 
-
     def constrain_to_domain(self, domain=None):
         """ Constrain the fracture network to lay within a specified domain.
 
@@ -241,10 +245,10 @@ class FractureNetwork2d(object):
         if domain is None:
             domain = self.domain
 
-        p00 = np.array([domain['xmin'], domain['ymin']]).reshape((-1, 1))
-        p10 = np.array([domain['xmax'], domain['ymin']]).reshape((-1, 1))
-        p11 = np.array([domain['xmax'], domain['ymax']]).reshape((-1, 1))
-        p01 = np.array([domain['xmin'], domain['ymax']]).reshape((-1, 1))
+        p00 = np.array([domain["xmin"], domain["ymin"]]).reshape((-1, 1))
+        p10 = np.array([domain["xmax"], domain["ymin"]]).reshape((-1, 1))
+        p11 = np.array([domain["xmax"], domain["ymax"]]).reshape((-1, 1))
+        p01 = np.array([domain["xmin"], domain["ymax"]]).reshape((-1, 1))
         return np.hstack((p00, p10, p11, p01))
 
     # --------- Methods for analysis of the fracture set
@@ -285,7 +289,6 @@ class FractureNetwork2d(object):
             return G, split_network
         else:
             return G
-
 
     def split_intersections(self):
         """ Create a new FractureSet, with all fracture intersections removed
@@ -463,10 +466,10 @@ class FractureNetwork2d(object):
         """
         if domain is None:
             domain = self.domain
-        if 'ymin' and 'ymax' in domain.keys():
-            return (domain['xmax'] - domain['xmin']) * (domain['ymax'] - domain['ymin'])
+        if "ymin" and "ymax" in domain.keys():
+            return (domain["xmax"] - domain["xmin"]) * (domain["ymax"] - domain["ymin"])
         else:
-            return domain['xmax'] - domain['xmin']
+            return domain["xmax"] - domain["xmin"]
 
     def plot(self, **kwargs):
         """ Plot the fracture set.
@@ -488,4 +491,3 @@ class FractureNetwork2d(object):
 
     def __repr__(self):
         return self.__str__()
-

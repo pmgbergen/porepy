@@ -487,7 +487,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
             e = np.array([[0], [1]])
         #            p = [np.array([[0.5, 0.5], [0, 1]])]
         elif num_fracs == 2:
-            raise ValueError('Not implemented')
+            raise ValueError("Not implemented")
         mesh_size = {"value": 0.3, "bound_value": 0.3}
         network = pp.FractureNetwork2d(p, e, domain)
         gb = network.mesh(mesh_size)
@@ -751,7 +751,7 @@ class TestMortar3D(unittest.TestCase):
             ]
 
         network = pp.FractureNetwork3d(fl, domain)
-        mesh_args = {'mesh_size_frac': 0.5, 'mesh_size_min': 0.5}
+        mesh_args = {"mesh_size_frac": 0.5, "mesh_size_min": 0.5}
         gb = network.mesh(mesh_args)
 
         self.set_params(gb)

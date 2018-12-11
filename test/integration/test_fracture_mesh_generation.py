@@ -19,7 +19,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         f_1 = pp.Fracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         network = pp.FractureNetwork3d([f_1], domain=domain)
-        mesh_args = {'mesh_size_bound': 1, 'mesh_size_frac': 1, 'mesh_size_min': 0.1}
+        mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
         network.mesh(mesh_args)
 
     def test_two_intersecting_fractures(self, **kwargs):
@@ -32,7 +32,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
         """
 
         f_1 = pp.Fracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
-        f_2 = pp.Fracture(np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]]))
+        f_2 = pp.Fracture(
+            np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
+        )
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
 
         mesh_args = {"mesh_size_frac": 0.5, "mesh_size_bound": 1, "mesh_size_min": 0.2}
@@ -46,7 +48,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
         """
 
         f_1 = pp.Fracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
-        f_2 = pp.Fracture(np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]]))
+        f_2 = pp.Fracture(
+            np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
+        )
         f_3 = pp.Fracture(np.array([[-1, 1, 1, -1], [-1, -1, 1, 1], [0, 0, 0, 0]]))
 
         # Add some parameters for grid size
@@ -63,8 +67,10 @@ class TestDFMMeshGeneration(unittest.TestCase):
         """
 
         f_1 = pp.Fracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
-        f_2 = pp.Fracture(np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]]))
-        f_3 =  pp.Fracture(f_2.p + np.array([0.5, 0, 0]).reshape((-1, 1)))
+        f_2 = pp.Fracture(
+            np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
+        )
+        f_3 = pp.Fracture(f_2.p + np.array([0.5, 0, 0]).reshape((-1, 1)))
 
         # Add some parameters for grid size
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
@@ -104,7 +110,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
         of all three.
         """
         f_1 = pp.Fracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
-        f_2 = pp.Fracture(np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-0.5, -0.5, 0.5, 0.5]]))
+        f_2 = pp.Fracture(
+            np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-0.5, -0.5, 0.5, 0.5]])
+        )
         f_3 = pp.Fracture(np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
@@ -203,7 +211,6 @@ class TestDFMMeshGeneration(unittest.TestCase):
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
         network.mesh(mesh_args)
 
-
     def test_T_intersection_one_boundary_one_inside(self, **kwargs):
         f_1 = pp.Fracture(np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T)
         f_2 = pp.Fracture(np.array([[0.2, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.0]]).T)
@@ -214,13 +221,14 @@ class TestDFMMeshGeneration(unittest.TestCase):
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
         network.mesh(mesh_args)
 
-
     def test_issue_54(self):
         domain = {"xmin": -1, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
-        f_1 = pp.Fracture(np.array(
-            [[0.5, 0.5, 0.5, 0.5], [0.4, 0.5, 0.5, 0.4], [0.2, 0.2, 0.8, 0.8]]
-        ))
-        f_2 = pp.Fracture(np.array([[0, 0.8, 0.8, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]))
+        f_1 = pp.Fracture(
+            np.array([[0.5, 0.5, 0.5, 0.5], [0.4, 0.5, 0.5, 0.4], [0.2, 0.2, 0.8, 0.8]])
+        )
+        f_2 = pp.Fracture(
+            np.array([[0, 0.8, 0.8, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]])
+        )
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
@@ -234,7 +242,6 @@ class TestDFMMeshGeneration(unittest.TestCase):
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
         network.mesh(mesh_args)
-
 
     def test_issue_58_2(self):
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
@@ -251,7 +258,6 @@ class TestDFMMeshGeneration(unittest.TestCase):
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
         network.mesh(mesh_args)
 
-
     def test_issue_58_3(self):
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {
@@ -267,17 +273,26 @@ class TestDFMMeshGeneration(unittest.TestCase):
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
         network.mesh(mesh_args)
 
-
     def test_geiger_3d_partial(self):
-        f_1 = pp.Fracture(np.array([[0.5, 0, 0], [0.5, 1, 0], [0.5, 1, 1], [0.5, 0, 1]]).T)
-        f_2 = pp.Fracture(np.array([[0, 0.5, 0], [1, 0.5, 0], [1, 0.5, 1], [0, 0.5, 1]]).T)
-        f_3 = pp.Fracture(np.array([[0, 0, 0.5], [1, 0, 0.5], [1, 1, 0.5], [0, 1, 0.5]]).T)
-        f_4 = pp.Fracture(np.array(
-            [[0.5, 0.5, 0.75], [1.0, 0.5, 0.75], [1.0, 1.0, 0.75], [0.5, 1.0, 0.75]]
-        ).T)
-        f_5 = pp.Fracture(np.array(
-            [[0.75, 0.5, 0.5], [0.75, 1.0, 0.5], [0.75, 1.0, 1.0], [0.75, 0.5, 1.0]]
-        ).T)
+        f_1 = pp.Fracture(
+            np.array([[0.5, 0, 0], [0.5, 1, 0], [0.5, 1, 1], [0.5, 0, 1]]).T
+        )
+        f_2 = pp.Fracture(
+            np.array([[0, 0.5, 0], [1, 0.5, 0], [1, 0.5, 1], [0, 0.5, 1]]).T
+        )
+        f_3 = pp.Fracture(
+            np.array([[0, 0, 0.5], [1, 0, 0.5], [1, 1, 0.5], [0, 1, 0.5]]).T
+        )
+        f_4 = pp.Fracture(
+            np.array(
+                [[0.5, 0.5, 0.75], [1.0, 0.5, 0.75], [1.0, 1.0, 0.75], [0.5, 1.0, 0.75]]
+            ).T
+        )
+        f_5 = pp.Fracture(
+            np.array(
+                [[0.75, 0.5, 0.5], [0.75, 1.0, 0.5], [0.75, 1.0, 1.0], [0.75, 0.5, 1.0]]
+            ).T
+        )
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
         mesh_args = {
             "mesh_size_frac": 0.4,
@@ -301,11 +316,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
 class TestMeshGenerationFractureHitsBoundary(unittest.TestCase):
     def kwarguments_and_domain(self):
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        mesh_args = {
-            "mesh_size_frac": 1,
-            "mesh_size_bound": 1,
-            "mesh_size_min": 0.2
-        }
+        mesh_args = {"mesh_size_frac": 1, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         return mesh_args, domain
 
@@ -369,7 +380,6 @@ class TestMeshGenerationFractureHitsBoundary(unittest.TestCase):
         network = pp.FractureNetwork3d([f_1], domain)
         network.mesh(mesh_args)
 
-
     def test_one_fracture_touches_boundary_corners(self):
         """
         One fracture, intersected by two other (but no point intersections)
@@ -410,6 +420,7 @@ class TestDFNMeshGeneration(unittest.TestCase):
         network = pp.FractureNetwork3d([f_1, f_2, f_3])
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
         network.mesh(mesh_args, dfn=True)
+
 
 if __name__ == "__main__":
     unittest.main()
