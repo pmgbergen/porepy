@@ -28,7 +28,7 @@ def add_data(gb, domain, kf):
         a_dim = np.power(a, gb.dim_max() - g.dim)
         aperture = np.ones(g.num_cells) * a_dim
 
-        specified_parameters = {"aperture": aperture, "permeability": perm}
+        specified_parameters = {"aperture": aperture, "second_order_tensor": perm}
         # Boundaries
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if bound_faces.size != 0:
@@ -51,7 +51,7 @@ def add_data(gb, domain, kf):
             specified_parameters.update({"bc": bound})
 
         d["is_tangential"] = True
-        pp.initialize_data(d, g, "flow", specified_parameters)
+        pp.initialize_default_data(g, d, "flow", specified_parameters)
 
     # Assign coupling permeability
     for e, d in gb.edges():

@@ -50,7 +50,7 @@ class BasicsTest(unittest.TestCase):
                 bound = pp.BoundaryCondition(g, bound_faces, labels)
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-            pp.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_default_data(g, d, "transport", specified_parameters)
         add_constant_darcy_flux(gb, upwind, [0, 1, 0], a)
 
         assembler = pp.Assembler()
@@ -133,7 +133,7 @@ class BasicsTest(unittest.TestCase):
                 bound = pp.BoundaryCondition(g, bound_faces, labels)
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-            pp.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_default_data(g, d, "transport", specified_parameters)
 
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
@@ -266,7 +266,7 @@ class BasicsTest(unittest.TestCase):
             else:
                 bound = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
                 specified_parameters.update({"bc": bound})
-            pp.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_default_data(g, d, "transport", specified_parameters)
 
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
@@ -852,7 +852,7 @@ class BasicsTest(unittest.TestCase):
 
                 bound = pp.BoundaryCondition(g, bound_faces, labels)
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
-            pp.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_default_data(g, d, "transport", specified_parameters)
 
         add_constant_darcy_flux(gb, upwind, [0, 0, 1], a)
 
@@ -934,7 +934,7 @@ class BasicsTest(unittest.TestCase):
             bound = pp.BoundaryCondition(g, bound_faces, labels)
             specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-            pp.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_default_data(g, d, "transport", specified_parameters)
 
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
@@ -1107,7 +1107,7 @@ class BasicsTest(unittest.TestCase):
                 bound = pp.BoundaryCondition(g, bound_faces, labels)
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-            pp.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_default_data(g, d, "transport", specified_parameters)
 
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
         assembler = pp.Assembler()
@@ -1248,7 +1248,7 @@ class BasicsTest(unittest.TestCase):
             bf = g.tags["domain_boundary_faces"].nonzero()[0]
             bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
             specified_parameters = {"aperture": aperture, "bc": bc}
-            pp.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_default_data(g, d, "transport", specified_parameters)
 
         add_constant_darcy_flux(gb, upwind, [2, 0, 0], a)
         assembler = pp.Assembler()
@@ -1404,7 +1404,7 @@ class BasicsTest(unittest.TestCase):
 
             bound = pp.BoundaryCondition(g, bound_faces, labels)
             specified_parameters.update({"bc": bound, "bc_values": bc_val})
-            pp.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_default_data(g, d, "transport", specified_parameters)
 
         add_constant_darcy_flux(gb, upwind, [1, 1, 0], a)
 

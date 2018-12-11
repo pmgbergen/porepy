@@ -22,19 +22,31 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         super(RT0, self).__init__(keyword, "RT0")
 
     def discretize(self, g, data):
-        """
-        Return the matrix for a discretization of a second order elliptic equation
-        using RT0-P0 method. See self.matrix_rhs for a detaild
-        description.
+        """ Discretize a second order elliptic equation using using a RT0-P0 method.
 
-        Additional parameter:
+        We assume the following two sub-dictionaries to be present in the data
+        dictionary:
+            parameter_dictionary, storing all parameters.
+                Stored in data[pp.PARAMETERS][self.keyword].
+            matrix_dictionary, for storage of discretization matrices.
+                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        parameter_dictionary contains the entries:
+            second_order_tensor: (pp.SecondOrderTensor) Permeability defined cell-wise.
+            aperture: (np.ndarray) apertures of the cells for scaling of the face
+                normals.
+
+        matrix_dictionary will be updated with the following entries:
+            mass: sps.csc_matrix (g.num_faces, g.num_faces)
+                The mass matrix.
+            div: sps.csc_matrix (g.num_cells, g.num_faces)
+                The divergence matrix.
+
+        Optional parameter:
         --------------------
-        bc_weight: to compute the infinity norm of the matrix and use it as a
-            weight to impose the boundary conditions. Default True.
-
-        Additional return:
-        weight: if bc_weight is True return the weight computed.
-
+        is_tangential: Whether the lower-dimensional permeability tensor has been
+            rotated to the fracture plane. Defaults to False and stored in the data
+            dictionary.
         """
         # Allow short variable names in backend function
         # pylint: disable=invalid-name

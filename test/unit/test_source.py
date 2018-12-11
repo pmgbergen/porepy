@@ -23,7 +23,7 @@ def setup_3d_grid():
     g.compute_geometry()
     src = np.zeros(g.num_cells)
     src[4] = 1
-    data = pp.initialize_data({}, g, "flow", {"source": src})
+    data = pp.initialize_default_data(g, {}, "flow", {"source": src})
     return g, data
 
 

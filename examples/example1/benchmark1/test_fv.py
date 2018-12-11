@@ -33,7 +33,7 @@ def add_data(gb, domain, kf, mesh_value):
         specified_parameters = {
             "aperture": aperture,
             "source": np.zeros(g.num_cells),
-            "permeability": p,
+            "second_order_tensor": p,
         }
         # Boundaries
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -66,7 +66,7 @@ def add_data(gb, domain, kf, mesh_value):
         else:
             bound = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
 
-        pp.initialize_data(d, g, "flow", specified_parameters)
+        pp.initialize_default_data(g, d, "flow", specified_parameters)
 
     # Assign coupling permeability
     for e, d in gb.edges():

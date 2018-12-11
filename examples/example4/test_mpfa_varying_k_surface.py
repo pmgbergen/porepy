@@ -65,12 +65,12 @@ def add_data(g):
 
     bound = pp.BoundaryCondition(g, bound_faces, labels)
     specified_parameters = {
-        "permeability": perm,
+        "second_order_tensor": perm,
         "source": source,
         "bc": bound,
         "bc_values": bc_val,
     }
-    return pp.initialize_data({}, g, "flow", specified_parameters)
+    return pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
 
 # ------------------------------------------------------------------------------#
