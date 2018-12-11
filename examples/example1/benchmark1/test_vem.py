@@ -107,31 +107,39 @@ def main(kf, description, is_coarse=False, if_export=False):
     add_data(gb, domain, kf)
     key = "flow"
 
-    # Choose and define the solvers and coupler
-    discretization_key = key + "_" + pp.DISCRETIZATION
-    discr = pp.MVEM(key)
+    method = pp.MVEM(key)
 
-    for _, d in gb:
-        d[discretization_key] = discr
+    coupler = pp.RobinCoupling(key, method)
 
-    for _, d in gb.edges():
-        d[discretization_key] = pp.RobinCoupling(key, discr)
+    for g, d in gb:
+        d[pp.PRIMARY_VARIABLES] = {
+            'pressure': {"cells": 1, "faces": 1}
+            }
+        d[pp.DISCRETIZATION] = {
+            'pressure': {"diffusive": method},
+        }
+    for e, d in gb.edges():
+        g1, g2 = gb.nodes_of_edge(e)
+        d[pp.PRIMARY_VARIABLES] = {'mortar_solution': {"cells": 1}}
+        d[pp.COUPLING_DISCRETIZATION] = {
+            'lambda': {
+                g1: ('pressure', "diffusive"),
+                g2: ('pressure', "diffusive"),
+                e: ('mortar_solution', coupler),
+                }}
+        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-    assembler = pp.EllipticAssembler(key)
+    assembler = pp.Assembler()
 
     # Discretize
-    A, b = assembler.assemble_matrix_rhs(gb)
+    A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+    p = sps.linalg.spsolve(A, b)
 
-    # Solve the linear system
-    up = sps.linalg.spsolve(A, b)
-    assembler.split(gb, "up", up)
+    assembler.distribute_variable(gb, p, block_dof, full_dof)
 
-    gb.add_node_props(["darcy_flux", "pressure", "P0u"])
-    assembler.extract_flux(gb, "up", "darcy_flux")
-    assembler.extract_pressure(gb, "up", "pressure")
-
-    # EK: For the mometn, we don't have project_u for the general assembler
-    #    assembler.project_u(gb, "darcy_flux", "P0u")
+    for g, d in gb:
+        d['darcy_flux'] = d['pressure'][:g.num_faces]
+        d['pressure'] = d['pressure'][g.num_faces:]
 
     if if_export:
         save = pp.Exporter(gb, "vem", folder="vem_" + description)

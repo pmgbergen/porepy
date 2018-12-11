@@ -8,7 +8,6 @@ from porepy.params import bc, tensor
 from porepy.params.data import Parameters
 
 from porepy.numerics.fv import mpfa, tpfa
-from porepy.numerics.mixed_dim import coupler
 
 
 # ------------------------------------------------------------------------------#

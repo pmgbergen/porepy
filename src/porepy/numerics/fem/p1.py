@@ -4,15 +4,11 @@ import logging
 
 import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver
-
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
-# ------------------------------------------------------------------------------#
 
-
-class P1(Solver):
+class P1():
 
     # ------------------------------------------------------------------------------#
 
