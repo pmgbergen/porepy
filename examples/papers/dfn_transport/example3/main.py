@@ -56,6 +56,45 @@ def main():
 
     bc_types = {"same": bc_same, "different": bc_different}
 
+    # initial condition and type of fluid/rock
+    theta = 80 * pp.CELSIUS
+    fluid = pp.Water(theta)
+    rock = pp.Granite(theta)
+
+    aperture = 2 * pp.MILLIMETER
+
+    # permeability which follow the cubic law
+    k = aperture * aperture / 12. / fluid.dynamic_viscosity()
+
+    # fracture porosity
+    phi = 0.95
+
+    # specific heat capacity
+    cm = rock.specific_heat_capacity()
+    cw = fluid.specific_heat_capacity()
+
+    # density
+    rhom = rock.DENSITY
+    rhow = fluid.density()
+
+    # thermal conductivity
+    lm = rock.thermal_conductivity()
+    lw = fluid.thermal_conductivity()
+
+    # effective thermal capacity
+    ce = phi * rhow * cw + (1-phi) * rhom * cm
+
+    # effective thermal conductivity
+    l = np.power(lw, phi)*np.power(lm, 1-phi)
+
+    # boundary conditions
+    bc_flow = 5 * pp.BAR
+    bc_trans = 30 * pp.CELSIUS
+
+    end_time = 1e5
+    n_steps = 10
+    time_step = end_time / n_steps
+
     for folder, bc_type in bc_types.items():
 
         gb = pp.importer.dfn_3d_from_fab(file_name, file_inters, tol=tol, **mesh_kwargs)
@@ -67,9 +106,12 @@ def main():
         # recombute the domanin
         domain = gb.bounding_box(as_dict=True)
 
-        param = {"domain": domain, "tol": tol, "k": 1,
-                 "bc_flow": 1e4,
-                 "diff": 1e-4, "time_step": 10, "n_steps": 100,
+        param = {"domain": domain, "tol": tol,
+                 "k": k, "bc_flow": bc_flow,
+                 "diff": l, "mass_weight": ce,
+                 "flux_weight": rhow * cw,
+                 "bc_trans": bc_trans, "init_trans": theta,
+                 "time_step": time_step, "n_steps": n_steps,
                  "folder": folder}
 
         # the flow problem
