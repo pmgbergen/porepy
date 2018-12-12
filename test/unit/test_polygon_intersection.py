@@ -2,6 +2,7 @@ import numpy as np
 import unittest
 
 import porepy as pp
+from test import test_utils
 
 
 class BasicTest(unittest.TestCase):
@@ -61,19 +62,6 @@ class BasicTest(unittest.TestCase):
 
 
 class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
-    def compare_arrays(self, a, b):
-        if not np.all(a.shape == b.shape):
-            return False
-
-        for i in range(a.shape[1]):
-            dist = np.sum((b - a[:, i].reshape((-1, 1))) ** 2, axis=0)
-            if dist.min() > 1e-3:
-                return False
-        for i in range(b.shape[1]):
-            dist = np.sum((a - b[:, i].reshape((-1, 1))) ** 2, axis=0)
-            if dist.min() > 1e-3:
-                return False
-        return True
 
     def test_single_fracture(self):
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
@@ -99,7 +87,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(np.all(on_bound[1]) == False)
 
         known_points = np.array([[0, 0, -0.7], [0, 0, 0.8]]).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_three_intersecting_fractures(self):
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
@@ -119,7 +107,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         known_points = np.array(
             [[0, 0, -0.7], [0, 0, 0.8], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]]
         ).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_three_intersecting_fractures_one_intersected_by_two(self):
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
@@ -139,7 +127,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         known_points = np.array(
             [[0, 0, -0.7], [0, 0, 0.8], [0.5, 0.0, -0.7], [0.5, 0.0, 0.8]]
         ).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_three_intersecting_fractures_sharing_segment(self):
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
@@ -166,7 +154,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
                 [0.0, 0.0, 1],
             ]
         ).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_three_intersecting_fractures_split_segment(self):
         """
@@ -198,7 +186,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
                 [0.5, 0.0, 0],
             ]
         ).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_two_points_in_plane_of_other_fracture(self):
         """
@@ -217,7 +205,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(np.all(on_bound[1]) == False)
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_two_points_in_plane_of_other_fracture_order_reversed(self):
         """
@@ -236,7 +224,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(np.all(on_bound[1]) == False)
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_one_point_in_plane_of_other_fracture(self):
         """
@@ -255,7 +243,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(np.all(on_bound[1]) == False)
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_one_point_in_plane_of_other_fracture_order_reversed(self):
         """
@@ -274,7 +262,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(np.all(on_bound[1]) == False)
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_L_intersection(self):
         """
@@ -292,7 +280,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(np.sum(on_bound[1]) == 1)
 
         known_points = np.array([[0, 0.3, 0], [0, 0.7, 0]]).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_L_intersection_one_node_common(self):
         """
@@ -310,7 +298,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(np.sum(on_bound[1]) == 1)
 
         known_points = np.array([[0, 0.3, 0], [0, 1, 0]]).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_L_intersection_extends_beyond_each_other(self):
         """
@@ -328,7 +316,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(np.sum(on_bound[1]) == 1)
 
         known_points = np.array([[0, 0.3, 0], [0, 1, 0]]).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_T_intersection_within_polygon(self):
         """
@@ -347,7 +335,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(np.sum(on_bound[1]) == 1)
 
         known_points = np.array([[0.5, 0.5, 0], [0.5, 0.9, 0]]).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_T_intersection_one_outside_polygon(self):
         """
@@ -366,7 +354,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(np.sum(on_bound[1]) == 1)
 
         known_points = np.array([[0.5, 0.5, 0], [0.5, 1.0, 0]]).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_T_intersection_one_outside_one_on_polygon(self):
         """
@@ -385,7 +373,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(np.sum(on_bound[1]) == 1)
 
         known_points = np.array([[0.5, 0.0, 0], [0.5, 1.0, 0]]).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_T_intersection_one_outside_one_on_polygon_reverse_order(self):
         """
@@ -404,7 +392,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(np.sum(on_bound[1]) == 0)
 
         known_points = np.array([[0.5, 0.0, 0], [0.5, 1.0, 0]]).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
     def test_T_intersection_both_on_boundary(self):
         """
@@ -423,7 +411,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(np.sum(on_bound[1]) == 1)
 
         known_points = np.array([[0.5, 0.0, 0], [0.5, 1.0, 0]]).T
-        self.assertTrue(self.compare_arrays(new_pt, known_points))
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
 
 if __name__ == "__main__":

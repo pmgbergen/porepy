@@ -10,6 +10,7 @@ import unittest
 import numpy as np
 
 import porepy as pp
+from test import test_utils
 
 
 class TestSweepAndPrune(unittest.TestCase):
@@ -208,22 +209,6 @@ class TestBoundingBoxIntersection(unittest.TestCase):
 
 
 class TestFractureIntersectionRemoval(unittest.TestCase):
-    def compare_arrays(self, a, b):
-        if not np.all(a.shape == b.shape):
-            return False
-
-        a.sort(axis=0)
-        b.sort(axis=0)
-
-        for i in range(a.shape[1]):
-            dist = np.sum((b - a[:, i].reshape((-1, 1))) ** 2, axis=0)
-            if dist.min() > 1e-3:
-                return False
-        for i in range(b.shape[1]):
-            dist = np.sum((a - b[:, i].reshape((-1, 1))) ** 2, axis=0)
-            if dist.min() > 1e-3:
-                return False
-        return True
 
     def test_lines_crossing_origin(self):
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
@@ -239,7 +224,7 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
         lines_known = np.array([[0, 4, 2, 4], [4, 1, 4, 3], [1, 1, 2, 2], [3, 3, 4, 4]])
 
         self.assertTrue(np.allclose(new_pts, p_known))
-        self.assertTrue(self.compare_arrays(new_lines, lines_known))
+        self.assertTrue(test_utils.compare_arrays(new_lines, lines_known))
 
     def test_lines_no_crossing(self):
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
@@ -273,7 +258,7 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
         p_known = np.hstack((p, np.array([[0.4], [0.4]])))
         lines_known = np.array([[0, 3], [2, 6], [6, 5], [1, 6], [6, 4]]).T
         self.assertTrue(np.allclose(new_pts, p_known))
-        self.assertTrue(self.compare_arrays(new_lines, lines_known))
+        self.assertTrue(test_utils.compare_arrays(new_lines, lines_known))
 
     def test_overlapping_lines(self):
         p = np.array([[-0.6, 0.4, 0.4, -0.6, 0.4], [-0.5, -0.5, 0.5, 0.5, 0.0]])
@@ -281,9 +266,8 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
         new_pts, new_lines = pp.cg.remove_edge_crossings2(p, lines)
         lines_known = np.array([[0, 1], [0, 3], [1, 4], [2, 4], [2, 3]]).T
         self.assertTrue(np.allclose(new_pts, p))
-        self.assertTrue(self.compare_arrays(new_lines, lines_known))
+        self.assertTrue(test_utils.compare_arrays(new_lines, lines_known))
 
 
 if __name__ == "__main__":
-    TestFractureIntersectionRemoval().test_overlapping_lines()
     unittest.main()

@@ -107,3 +107,33 @@ def solve_and_distribute_pressure(gb, assembler):
     A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
     p = np.linalg.solve(A.A, b)
     assembler.distribute_variable(gb, p, block_dof, full_dof)
+
+def compare_arrays(a, b, tol=1e-4, sort=True):
+    """ Compare two arrays and check that they are equal up to a column permutation.
+
+    Typical usage is to compare coordinate arrays.
+
+    Parameters:
+        a, b (np.array): Arrays to be compared. W
+        tol (double, optional): Tolerance used in comparison.
+        sort (boolean, defaults to True): Sort arrays columnwise before comparing
+
+    Returns:
+        True if there is a permutation ind so that all(a[:, ind] == b).
+    """
+    if not np.all(a.shape == b.shape):
+        return False
+
+    if sort:
+        a = np.sort(a, axis=0)
+        b = np.sort(b, axis=0)
+
+    for i in range(a.shape[1]):
+        dist = np.sum((b - a[:, i].reshape((-1, 1))) ** 2, axis=0)
+        if dist.min() > tol:
+            return False
+    for i in range(b.shape[1]):
+        dist = np.sum((a - b[:, i].reshape((-1, 1))) ** 2, axis=0)
+        if dist.min() > tol:
+            return False
+    return True
