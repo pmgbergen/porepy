@@ -91,7 +91,8 @@ def make_grid_bucket(mesh_size, is_coarse=False):
 
     file_name = "network_geiger.csv"
     write_network(file_name)
-    gb = pp.importer.dfm_2d_from_csv(file_name, mesh_kwargs, domain)
+    network = pp.fracture_importer.network_2d_from_csv(file_name, domain=domain)
+    gb = network.mesh(mesh_kwargs)
     gb.compute_geometry()
     if is_coarse:
         pp.coarsening.coarsen(gb, "by_volume")
@@ -111,21 +112,18 @@ def main(kf, description, is_coarse=False, if_export=False):
     coupler = pp.RobinCoupling(key, method)
 
     for g, d in gb:
-        d[pp.PRIMARY_VARIABLES] = {
-            'pressure': {"cells": 1, "faces": 1}
-            }
-        d[pp.DISCRETIZATION] = {
-            'pressure': {"diffusive": method},
-        }
+        d[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1, "faces": 1}}
+        d[pp.DISCRETIZATION] = {"pressure": {"diffusive": method}}
     for e, d in gb.edges():
         g1, g2 = gb.nodes_of_edge(e)
-        d[pp.PRIMARY_VARIABLES] = {'mortar_solution': {"cells": 1}}
+        d[pp.PRIMARY_VARIABLES] = {"mortar_solution": {"cells": 1}}
         d[pp.COUPLING_DISCRETIZATION] = {
-            'lambda': {
-                g1: ('pressure', "diffusive"),
-                g2: ('pressure', "diffusive"),
-                e: ('mortar_solution', coupler),
-                }}
+            "lambda": {
+                g1: ("pressure", "diffusive"),
+                g2: ("pressure", "diffusive"),
+                e: ("mortar_solution", coupler),
+            }
+        }
         d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
     assembler = pp.Assembler()
@@ -137,8 +135,8 @@ def main(kf, description, is_coarse=False, if_export=False):
     assembler.distribute_variable(gb, p, block_dof, full_dof)
 
     for g, d in gb:
-        d['darcy_flux'] = d['pressure'][:g.num_faces]
-        d['pressure'] = d['pressure'][g.num_faces:]
+        d["darcy_flux"] = d["pressure"][: g.num_faces]
+        d["pressure"] = d["pressure"][g.num_faces :]
 
     if if_export:
         save = pp.Exporter(gb, "vem", folder="vem_" + description)

@@ -113,21 +113,18 @@ def main(kf, description, multi_point, if_export=False):
     coupler = pp.RobinCoupling(key, method)
 
     for g, d in gb:
-        d[pp.PRIMARY_VARIABLES] = {
-            'pressure': {"cells": 1}
-            }
-        d[pp.DISCRETIZATION] = {
-            'pressure': {"diffusive": method},
-        }
+        d[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1}}
+        d[pp.DISCRETIZATION] = {"pressure": {"diffusive": method}}
     for e, d in gb.edges():
         g1, g2 = gb.nodes_of_edge(e)
-        d[pp.PRIMARY_VARIABLES] = {'mortar_solution': {"cells": 1}}
+        d[pp.PRIMARY_VARIABLES] = {"mortar_solution": {"cells": 1}}
         d[pp.COUPLING_DISCRETIZATION] = {
-            'lambda': {
-                g1: ('pressure', "diffusive"),
-                g2: ('pressure', "diffusive"),
-                e: ('mortar_solution', coupler),
-                }}
+            "lambda": {
+                g1: ("pressure", "diffusive"),
+                g2: ("pressure", "diffusive"),
+                e: ("mortar_solution", coupler),
+            }
+        }
         d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
     assembler = pp.Assembler()
