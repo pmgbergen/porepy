@@ -212,13 +212,17 @@ def network_2d_from_csv(
 
     # Extract the data from the csv file
     data = np.genfromtxt(f_name, **npargs)
+    # Shortcut if no data is loaded
     if data.size == 0:
-        return np.empty((2, 0)), np.empty((2, 0), dtype=np.int)
+        return pp.FractureNetwork2d()
     data = np.atleast_2d(data)
 
     # Consider subset of fractures if asked for
     if max_num_fracs is not None:
-        data = data[:max_num_fracs]
+        if max_num_fracs == 0:
+            return pp.FractureNetwork2d()
+        else:
+            data = data[:max_num_fracs]
 
     num_fracs = data.shape[0] if data.size > 0 else 0
     num_data = data.shape[1] if data.size > 0 else 0
@@ -259,6 +263,8 @@ def network_2d_from_csv(
         edges = np.vstack(
             (np.arange(0, 2 * num_fracs, 2), np.arange(1, 2 * num_fracs, 2))
         )
+        # Fracture id is the first column of data
+        edges_frac_id = data[:, 0]
         if tagcols is not None:
             edges = np.vstack((edges, data[:, tagcols].T))
 

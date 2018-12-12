@@ -5,6 +5,7 @@ Access: from test import test_utils.
 
 import numpy as np
 import scipy.sparse as sps
+import os
 
 import porepy as pp
 
@@ -137,3 +138,9 @@ def compare_arrays(a, b, tol=1e-4, sort=True):
         if dist.min() > tol:
             return False
     return True
+
+def delete_file(file_name):
+    """ Delete a file if it exist. Cleanup after tests.
+    """
+    if os.path.exists(file_name):
+        os.remove(file_name)
