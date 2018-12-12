@@ -174,10 +174,10 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
         empty = np.empty(0)
 
         # weight for the mass matrix
-        param_adv["mass_weight"] = unity
+        param_adv["mass_weight"] = data.get("mass_weight", 1) * unity
 
         # diffusion term
-        kxx = data["diff"] * np.ones(g.num_cells)
+        kxx = data["diff"] * unity
         param_diff["second_order_tensor"] = pp.SecondOrderTensor(3, kxx)
 
         # Assign apertures
@@ -185,7 +185,7 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
         param_adv["aperture"] = unity
 
         # Flux
-        param_adv[flux_discharge_name] = d[flux_discharge_name]
+        param_adv[flux_discharge_name] = data.get("flux_weight", 1) * d[flux_discharge_name]
 
         # Boundaries
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -203,7 +203,7 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
             param_diff["bc"] = pp.BoundaryCondition(g, b_faces, labels_diff)
 
             bc_val = np.zeros(g.num_faces)
-            bc_val[b_faces[in_flow]] = 1
+            bc_val[b_faces[in_flow]] = data.get("bc_trans", 1)
         else:
             param_adv["bc"] = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
             param_diff["bc"] = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
@@ -222,7 +222,7 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
         param_adv = {}
         param_diff = {}
 
-        param_adv[flux_discharge_name] = d[flux_mortar_name]
+        param_adv[flux_discharge_name] = data.get("flux_weight", 1) * d[flux_mortar_name]
 
         param = pp.Parameters(e, [model_data_adv, model_data_diff], [param_adv, param_diff])
         d[pp.PARAMETERS] = param
@@ -324,7 +324,16 @@ def advdiff(gb, param, model_flow, bc_flag):
     logger.info("done")
     variables = [variable, param["pressure"], param["P0_flux"], "frac_num", "cell_volumes"]
 
-    x = np.zeros(A.shape[0])
+    # assign the initial condition
+    for g, d in gb:
+        if g.dim == 2:
+            #d[variable] = param.get("init_trans", 0) * np.ones(g.num_cells)
+            d[variable] = np.zeros(g.num_cells)
+        else:
+            d[variable] = np.zeros(g.num_cells)
+
+    x = assembler.merge_variable(gb, variable, block_dof, full_dof)
+
     outflow = np.zeros(param["n_steps"])
 
     logger.info("Start the time loop with " + str(param["n_steps"]) + " steps")
