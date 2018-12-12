@@ -91,8 +91,8 @@ def main():
     bc_flow = 5 * pp.BAR
     bc_trans = 30 * pp.CELSIUS
 
-    end_time = 1e5
-    n_steps = 10
+    end_time = 1e7
+    n_steps = 1000
     time_step = end_time / n_steps
 
     for folder, bc_type in bc_types.items():

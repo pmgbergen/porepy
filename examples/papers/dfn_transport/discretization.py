@@ -325,12 +325,11 @@ def advdiff(gb, param, model_flow, bc_flag):
     variables = [variable, param["pressure"], param["P0_flux"], "frac_num", "cell_volumes"]
 
     # assign the initial condition
+    x = np.zeros(A.shape[0])
+    assembler.distribute_variable(gb, x, block_dof, full_dof)
     for g, d in gb:
-        if g.dim == 2:
-            #d[variable] = param.get("init_trans", 0) * np.ones(g.num_cells)
-            d[variable] = np.zeros(g.num_cells)
-        else:
-            d[variable] = np.zeros(g.num_cells)
+        if g.dim == gb.dim_max():
+            d[variable] = param.get("init_trans", 0) * np.ones(g.num_cells)
 
     x = assembler.merge_variable(gb, variable, block_dof, full_dof)
 
