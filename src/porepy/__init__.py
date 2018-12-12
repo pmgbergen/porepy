@@ -96,7 +96,7 @@ from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 from porepy.utils import permutations
 from porepy.utils import comp_geom as cg
 from porepy.fracs import utils as frac_utils
-from porepy.fracs import meshing, importer, extrusion, mortars
+from porepy.fracs import meshing, fracture_importer, extrusion, mortars
 from porepy.grids import structured, simplex, coarsening, partition, refinement
 from porepy.numerics.fv import fvutils
 from porepy.utils import error
