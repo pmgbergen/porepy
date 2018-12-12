@@ -68,7 +68,7 @@ def main():
         domain = gb.bounding_box(as_dict=True)
 
         param = {"domain": domain, "tol": tol, "k": 1,
-                 "bc_flow": 1e3,
+                 "bc_flow": 1e4,
                  "diff": 1e-4, "time_step": 10, "n_steps": 100,
                  "folder": folder}
 
