@@ -72,8 +72,8 @@ from porepy.grids.point_grid import PointGrid
 from porepy.grids.mortar_grid import MortarGrid, BoundaryMortar
 
 # Fractures
-from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
-from porepy.fracs.meshing import simplex_grid
+from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork3d
+from porepy.fracs.fractures_2d import FractureNetwork2d
 
 # Parameters
 from porepy.params.bc import (
@@ -96,7 +96,7 @@ from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 from porepy.utils import permutations
 from porepy.utils import comp_geom as cg
 from porepy.fracs import utils as frac_utils
-from porepy.fracs import meshing, importer, extrusion, mortars
+from porepy.fracs import meshing, fracture_importer, extrusion, mortars
 from porepy.grids import structured, simplex, coarsening, partition, refinement
 from porepy.numerics.fv import fvutils
 from porepy.utils import error

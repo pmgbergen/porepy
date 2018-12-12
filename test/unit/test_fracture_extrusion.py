@@ -3,6 +3,7 @@ import numpy as np
 
 from porepy.fracs.fractures import Fracture
 from porepy.fracs import extrusion
+from test import test_utils
 
 
 class TestFractureExtrusion(unittest.TestCase):
@@ -79,7 +80,7 @@ class TestFractureExtrusion(unittest.TestCase):
         p_rot_1_known = np.array([[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]]).T
         exposure = np.array([[0], [0], [0]])
         extrusion.rotate_fracture(f, [1, 0, 0], np.pi / 2, exposure)
-        self.compare_arrays(f.p, p_rot_1_known)
+        test_utils.compare_arrays(f.p, p_rot_1_known)
 
         p_rot_2_known = np.array(
             [[0, 0.5, -0.5], [1, 0.5, -0.5], [1, 0.5, 0.5], [0, 0.5, 0.5]]
@@ -87,7 +88,7 @@ class TestFractureExtrusion(unittest.TestCase):
         exposure = np.array([[0], [0.5], [0]])
         f = Fracture(p, check_convexity=False)
         extrusion.rotate_fracture(f, [1, 0, 0], np.pi / 2, exposure)
-        self.compare_arrays(f.p, p_rot_2_known)
+        test_utils.compare_arrays(f.p, p_rot_2_known)
 
     def test_cut_fracture_no_intersection(self):
         p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
@@ -102,7 +103,7 @@ class TestFractureExtrusion(unittest.TestCase):
         ref_pt = np.array([[0], [1], [0]])
         extrusion.cut_fracture_by_plane(f2, f1, ref_pt)
 
-        self.compare_arrays(p_known, f2.p)
+        test_utils.compare_arrays(p_known, f2.p)
 
     def test_cut_fracture_simple_intersection(self):
         p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]]).T
@@ -119,7 +120,7 @@ class TestFractureExtrusion(unittest.TestCase):
         ref_pt = np.array([[0], [1], [0]])
         extrusion.cut_fracture_by_plane(f2, f1, ref_pt)
 
-        self.compare_arrays(p_known, f2.p)
+        test_utils.compare_arrays(p_known, f2.p)
 
     def test_cut_fracture_one_inclined(self):
         p1 = np.array([[0, 1, -0.5], [1, 1, -0.5], [1, -1, 1.5], [0, -1, 1.5]]).T
@@ -136,7 +137,7 @@ class TestFractureExtrusion(unittest.TestCase):
         ref_pt = np.array([[0], [1], [0]])
         extrusion.cut_fracture_by_plane(f2, f1, ref_pt)
 
-        self.compare_arrays(p_known, f2.p)
+        test_utils.compare_arrays(p_known, f2.p)
 
     def test_rotation(self):
         # Test a case with a fracture terminated in both ends (H-configuration)
