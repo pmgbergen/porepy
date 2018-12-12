@@ -96,6 +96,8 @@ class FractureNetwork2d(object):
 
         The new set may contain non-unique points and edges.
 
+        It is assumed that the domains, if specified, are on a dictionary form.
+
         WARNING: Tags, in FractureSet.edges[2:] are preserved. If the two sets have different
         set of tags, the necessary rows and columns are filled with what is essentially
         random values.
@@ -105,7 +107,8 @@ class FractureNetwork2d(object):
 
         Returns:
             New fracture set, containing all points and edges in both self and
-                fs.
+                fs, and the union of the domains.
+
         """
         logger.info("Add fracture sets: ")
         logger.info(str(self))
@@ -114,6 +117,8 @@ class FractureNetwork2d(object):
         p = np.hstack((self.pts, fs.pts))
         e = np.hstack((self.edges[:2], fs.edges[:2] + self.pts.shape[1]))
 
+        # Deal with tags
+        # Create separate tag arrays for self and fs, with 0 rows if no tags exist
         if self.edges.shape[0] > 2:
             self_tags = self.edges[2:]
         else:
@@ -122,6 +127,7 @@ class FractureNetwork2d(object):
             fs_tags = fs.edges[2:]
         else:
             fs_tags = np.empty((0, fs.num_frac))
+        # Combine tags
         if self_tags.size > 0 or fs_tags.size > 0:
             n_self = self_tags.shape[0]
             n_fs = fs_tags.shape[0]
@@ -134,12 +140,19 @@ class FractureNetwork2d(object):
             tags = np.hstack((self_tags, fs_tags)).astype(np.int)
             e = np.vstack((e, tags))
 
-        domain = {
-            "xmin": np.minimum(self.domain["xmin"], fs.domain["xmin"]),
-            "xmax": np.maximum(self.domain["xmax"], fs.domain["xmax"]),
-            "ymin": np.minimum(self.domain["ymin"], fs.domain["ymin"]),
-            "ymax": np.maximum(self.domain["ymax"], fs.domain["ymax"]),
-        }
+        if self.domain is not None and fs.domain is not None:
+            domain = {
+                "xmin": np.minimum(self.domain["xmin"], fs.domain["xmin"]),
+                "xmax": np.maximum(self.domain["xmax"], fs.domain["xmax"]),
+                "ymin": np.minimum(self.domain["ymin"], fs.domain["ymin"]),
+                "ymax": np.maximum(self.domain["ymax"], fs.domain["ymax"]),
+            }
+        elif self.domain is not None:
+            domain = self.domain
+        elif fs.domain is not None:
+            domain = fs.domain
+        else:
+            domain = None
 
         return FractureNetwork2d(p, e, domain)
 
@@ -170,16 +183,16 @@ class FractureNetwork2d(object):
         else:
             return x0, dx
 
-    def snap(self, threshold):
+    def snap(self, tol):
         """ Modify point definition so that short branches are removed, and
         almost intersecting fractures become intersecting.
 
         Parameters:
-            threshold (double): Threshold for geometric modifications. Points and
+            tol (double): Threshold for geometric modifications. Points and
                 segments closer than the threshold may be modified.
 
         Returns:
-            FractureSet: A new FractureSet with modified point coordinates.
+            FractureNetwork2d: A new network with modified point coordinates.
         """
 
         # We will not modify the original fractures
@@ -187,26 +200,9 @@ class FractureNetwork2d(object):
         e = self.edges.copy()
 
         # Prolong
-        p = pp.cg.snap_points_to_segments(p, e, threshold)
+        p = pp.cg.snap_points_to_segments(p, e, tol)
 
         return FractureNetwork2d(p, e, self.domain)
-
-    def branches(self):
-        """ Split the fractures into branches.
-
-        Returns:
-            np.array (2 x npt): Start and endpoint of the fracture branches,
-                that is, start and end points of fractures, as well as intersection
-                points.
-            np.array (3 x npt): Connections between points that form branches.
-                The first two rows represent indices of the start and end points
-                of the branches. The third gives the index of the fracture to which
-                the branch belongs, referring to the ordering in self.num_frac
-
-        """
-        p = self.pts.copy()
-        e = np.vstack((self.edges.copy(), np.arange(self.num_frac)))
-        return pp.cg.remove_edge_crossings(p, e, tol=self.tol)
 
     def constrain_to_domain(self, domain=None):
         """ Constrain the fracture network to lay within a specified domain.
@@ -223,7 +219,7 @@ class FractureNetwork2d(object):
                 provided, the domain of this object will be used.
 
         Returns:
-            FractureSet: Initialized by the constrained fractures, and the
+            FractureNetwork2d: Initialized by the constrained fractures, and the
                 specified domain.
 
         """
@@ -390,7 +386,7 @@ class FractureNetwork2d(object):
         tot_l = lambda f: np.sum(l[np.isin(fi, f)])
         return np.array([tot_l(f) for f in np.unique(fi)])
 
-    def angle(self, fi=None):
+    def orientation(self, fi=None):
         """ Compute the angle of the fractures to the x-axis.
 
         Parameters:
