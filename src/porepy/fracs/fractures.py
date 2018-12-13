@@ -1094,7 +1094,7 @@ class FractureNetwork3d(object):
         """
         # The implementation in this function is fairly straightforward, all
         # technical difficulties are hidden in other functions.
-        if not dfn:
+        if not dfn and not self.bounding_box_imposed:
             self.impose_external_boundary(box=self.domain)
 
         # Find intersections between fractures
