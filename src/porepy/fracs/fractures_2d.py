@@ -94,7 +94,7 @@ class FractureNetwork2d(object):
         if domain is not None:
             logger.info("Domain specification :" + str(domain))
 
-    def add_fractures(self, fs):
+    def add_network(self, fs):
         """ Add this fracture set to another one, and return a new set.
 
         The new set may contain non-unique points and edges.
