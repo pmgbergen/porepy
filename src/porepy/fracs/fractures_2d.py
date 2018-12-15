@@ -63,15 +63,18 @@ class FractureNetwork2d(object):
 
         """
 
-        self.pts = pts
-        self.edges = edges
+        if pts is None:
+            self.pts = np.zeros((2, 0))
+        else:
+            self.pts = pts
+        if edges is None:
+            self.edges = np.zeros((2, 0), dtype=np.int)
+        else:
+            self.edges = edges
         self.domain = domain
         self.tol = tol
 
-        if edges is not None:
-            self.num_frac = self.edges.shape[1]
-        else:
-            self.num_frac = 0
+        self.num_frac = self.edges.shape[1]
 
         if pts is None and edges is None:
             logger.info("Generated empty fracture set")
