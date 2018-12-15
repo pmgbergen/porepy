@@ -170,7 +170,7 @@ class FractureNetwork2d(object):
         if do_snap and p is not None and p.size > 0:
             p, _ = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=tol)
         grid_list = pp.fracs.simplex.triangle_grid(
-            p, e, self.domain, tol=tol, subdomains=constraints, **mesh_args
+            p, e[:2], self.domain, tol=tol, subdomains=constraints, **mesh_args
         )
         gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
         return gb
@@ -480,10 +480,14 @@ class FractureNetwork2d(object):
         pp.plot_fractures(self.domain, self.pts, self.edges, **kwargs)
 
     def __str__(self):
-        s = "Fracture set consisting of " + str(self.num_frac) + " fractures,"
-        s += " consisting of " + str(self.pts.shape[1]) + " points.\n"
-        s += "Domain: "
-        s += str(self.domain)
+        s = "Fracture set consisting of " + str(self.num_frac) + " fractures"
+        if self.pts is not None:
+            s += ", consisting of " + str(self.pts.shape[1]) + " points.\n"
+        else:
+            s += '.\n'
+        if self.domain is not None:
+            s += "Domain: "
+            s += str(self.domain)
         return s
 
     def __repr__(self):
