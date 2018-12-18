@@ -62,7 +62,6 @@ class BasicTest(unittest.TestCase):
 
 
 class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
-
     def test_single_fracture(self):
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
         new_pt, isect_pt, on_bound, _ = pp.cg.intersect_polygons_3d([f_1])

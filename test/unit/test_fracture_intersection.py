@@ -209,7 +209,6 @@ class TestBoundingBoxIntersection(unittest.TestCase):
 
 
 class TestFractureIntersectionRemoval(unittest.TestCase):
-
     def test_lines_crossing_origin(self):
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
         lines = np.array([[0, 2], [1, 3], [1, 2], [3, 4]])
