@@ -12,7 +12,6 @@ import porepy as pp
 
 
 class TestDFMMeshGeneration(unittest.TestCase):
-
     def test_no_fracture(self):
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         network = pp.FractureNetwork3d(domain=domain)

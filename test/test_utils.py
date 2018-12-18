@@ -109,6 +109,7 @@ def solve_and_distribute_pressure(gb, assembler):
     p = np.linalg.solve(A.A, b)
     assembler.distribute_variable(gb, p, block_dof, full_dof)
 
+
 def compare_arrays(a, b, tol=1e-4, sort=True):
     """ Compare two arrays and check that they are equal up to a column permutation.
 
@@ -138,6 +139,7 @@ def compare_arrays(a, b, tol=1e-4, sort=True):
         if dist.min() > tol:
             return False
     return True
+
 
 def delete_file(file_name):
     """ Delete a file if it exist. Cleanup after tests.

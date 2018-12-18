@@ -14,7 +14,6 @@ from test import test_utils
 
 
 class TestFractureNetwork2d(unittest.TestCase):
-
     def compare_dictionaries(self, a, b):
         ka = list(a.keys())
         kb = list(b.keys())
@@ -33,8 +32,8 @@ class TestFractureNetwork2d(unittest.TestCase):
     def setUp(self):
         self.p = np.array([[0, 2, 1, 1], [0, 0, 0, 1]])
         self.e = np.array([[0, 2], [1, 3]])
-        self.domain = {'xmin': 0, 'xmax': 5, 'ymin': -1, 'ymax': 5}
-        self.small_domain = {'xmin': -1, 'xmax': 1.5, 'ymin': -1, 'ymax': 5}
+        self.domain = {"xmin": 0, "xmax": 5, "ymin": -1, "ymax": 5}
+        self.small_domain = {"xmin": -1, "xmax": 1.5, "ymin": -1, "ymax": 5}
 
     def test_snap_fractures(self):
 
@@ -105,8 +104,12 @@ class TestFractureNetwork2d(unittest.TestCase):
     def test_angle(self):
         network = pp.FractureNetwork2d(self.p, self.e)
         angle = network.orientation()
-        known_orientation = np.array([0, np.pi/2])
-        self.assertTrue(np.logical_or(angle == known_orientation, angle - np.pi == known_orientation).all())
+        known_orientation = np.array([0, np.pi / 2])
+        self.assertTrue(
+            np.logical_or(
+                angle == known_orientation, angle - np.pi == known_orientation
+            ).all()
+        )
 
     def test_add_networks_no_domain(self):
         network_1 = pp.FractureNetwork2d(self.p, self.e)
@@ -122,7 +125,6 @@ class TestFractureNetwork2d(unittest.TestCase):
         # verify there are no tags in the joint network
         e_known = np.array([[0, 2, 4, 6], [1, 3, 5, 7]])
         self.assertTrue(test_utils.compare_arrays(together.edges, e_known))
-
 
     def test_add_networks_domains(self):
         network_1 = pp.FractureNetwork2d(self.p, self.e, self.domain)
@@ -148,7 +150,7 @@ class TestFractureNetwork2d(unittest.TestCase):
         # domain dicts
         network_2.domain = self.small_domain
         together = network_1.add_fractures(network_2)
-        combined_domain = {'xmin': -1, 'xmax': 5.0, 'ymin': -1, 'ymax': 5}
+        combined_domain = {"xmin": -1, "xmax": 5.0, "ymin": -1, "ymax": 5}
         self.assertTrue(self.compare_dictionaries(combined_domain, together.domain))
 
     def test_add_networks_preserve_tags(self):
