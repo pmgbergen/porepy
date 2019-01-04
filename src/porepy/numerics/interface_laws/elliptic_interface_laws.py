@@ -57,7 +57,7 @@ class RobinCoupling(object):
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
-        parameter_dictionary_h = data_h[pp.PARAMETERS][self.keyword]
+        parameter_dictionary_h = data_h[pp.PARAMETERS][self.discr_master.keyword]
         # Mortar data structure.
         mg = data_edge["mortar_grid"]
 
