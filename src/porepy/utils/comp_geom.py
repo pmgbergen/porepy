@@ -1601,6 +1601,8 @@ def intersect_polygons_3d(polys, tol=1e-8):
         for i in range(isect_pt.size):
             if len(isect_pt[i]) > 0:
                 isect_pt[i] = np.hstack((v for v in isect_pt[i]))
+            else:
+                isect_pt[i] = np.empty(0)
 
     else:
         new_pt = np.empty((3, 0))
