@@ -366,7 +366,15 @@ class BoundaryMortar(MortarGrid):
         # need to change the following lines
         slave_f, master_f, data = sps.find(master_slave)
 
-        cells = np.argsort(slave_f)
+        # It is assumed that the cells of the given mortar grid are ordered
+        # by the face numbers of the slave side
+        ix = np.argsort(slave_f)
+        slave_f = slave_f[ix]
+        master_f = master_f[ix]
+        data = data[ix]
+
+        # Define mappings
+        cells = np.arange(slave_f.size)
         self.num_cells = cells.size
         if not self.num_cells == mortar_grid.num_cells:
             raise ValueError(
