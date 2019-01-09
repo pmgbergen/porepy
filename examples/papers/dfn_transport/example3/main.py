@@ -1,7 +1,7 @@
 import numpy as np
 import porepy as pp
 
-import examples.papers.dfn_transport.discretization as discr
+import examples.papers.dfn_transport.discretization as compute
 from examples.papers.dfn_transport.flux_trace import jump_flux
 
 def bc_flag(g, domain, out_flow_start, out_flow_end, in_flow_start, in_flow_end, tol):
@@ -50,11 +50,14 @@ def main():
     file_name = input_folder + "example3.fab"
     file_inters = None #input_folder + "example3.dat"
 
-    mesh_size = 1e2 #np.power(2., -4)
-    mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
+    # define the discretizations for the Darcy part
+    discretizations = compute.get_discr()
+
+    # geometric tolerance
     tol = 1e-2
 
-    bc_types = {"same": bc_same, "different": bc_different}
+    mesh_size = 1e2 #np.power(2., -4)
+    mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
 
     # initial condition and type of fluid/rock
     theta = 80 * pp.CELSIUS
@@ -95,33 +98,36 @@ def main():
     n_steps = 1000
     time_step = end_time / n_steps
 
-    for folder, bc_type in bc_types.items():
+    bc_types = {"same": bc_same, "different": bc_different}
+    for bc_type_key, bc_type in bc_types.items():
 
-        gb = pp.importer.dfn_3d_from_fab(file_name, file_inters, tol=tol, **mesh_kwargs)
+        for discr_key, discr in discretizations.items():
 
-        gb.remove_nodes(lambda g: g.dim == 0)
-        gb.compute_geometry()
-        gb.assign_node_ordering()
+            folder = "solution_" + discr_key + "_" + bc_type_key
 
-        # recombute the domanin
-        domain = gb.bounding_box(as_dict=True)
+            gb = pp.importer.dfn_3d_from_fab(file_name, file_inters, tol=tol, **mesh_kwargs)
 
-        param = {"domain": domain, "tol": tol,
-                 "k": k, "bc_flow": bc_flow,
-                 "diff": l, "mass_weight": ce,
-                 "flux_weight": rhow * cw,
-                 "bc_trans": bc_trans, "init_trans": theta,
-                 "time_step": time_step, "n_steps": n_steps,
-                 "folder": folder}
+            gb.remove_nodes(lambda g: g.dim == 0)
+            gb.compute_geometry()
+            gb.assign_node_ordering()
 
-        # the flow problem
-        model_flow = discr.flow(gb, param, bc_type)
+            domain = gb.bounding_box(as_dict=True)
 
-        #jump_flux(gb, param["mortar_flux"])
+            param = {"domain": domain, "tol": tol,
+                     "k": k, "bc_flow": bc_flow,
+                     "diff": l, "mass_weight": ce,
+                     "flux_weight": rhow * cw,
+                     "bc_trans": bc_trans, "init_trans": theta,
+                     "time_step": time_step, "n_steps": n_steps,
+                     "folder": folder}
 
-        # the advection-diffusion problem
-        discr.advdiff(gb, param, model_flow, bc_type)
+            # the flow problem
+            model_flow = compute.flow(gb, discr, param, bc_type)
 
+            #jump_flux(gb, param["mortar_flux"])
+
+            # the advection-diffusion problem
+            compute.advdiff(gb, discr, param, model_flow, bc_type)
 
 if __name__ == "__main__":
     main()
