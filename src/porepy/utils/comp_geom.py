@@ -3877,6 +3877,132 @@ def intersect_polygon_lines(poly_pts, pts, edges):
 
 
 # ------------------------------------------------------------------------------#
+def constrain_polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
+    """ Constrain a seort of polygons in 3d to lie inside a, generally non-convex, polyhedron.
+
+    Polygons not inside the polyhedron will be removed from descriptions.
+    For non-convex polyhedra, polygons can be split in several parts.
+
+    Parameters:
+        polygons (np.ndarray, or list of arrays): Each element is a 3xnum_vertex
+            array, describing the vertexes of a polygon.
+        polyhedron (list of np.ndarray): Each element is a 3 x num_vertex array,
+            describing the vertexes of the polygons that together form the
+            polygon
+        tol (double, optional): Tolerance used to compare points. Defaults to 1e-8.
+
+    Returns:
+        list of np.ndarray: Of polygons lying inside the polyhedra.
+
+    """
+
+    if isinstance(polygons, np.ndarray):
+        polygons = [polygons]
+
+    constrained_polygons = []
+
+    # Loop over the polygons. For each, find the intersections with all
+    # polygons on the side of the polyhedra.
+    for poly in polygons:
+        # Add this polygon to the list of constraining polygons. Put this first
+        all_poly = [poly] + polyhedron
+
+        # Find intersections
+        coord, point_ind, is_bound, poly_ind = intersect_polygons_3d(all_poly)
+
+        # Find indices of the intersection points for this polygon (the first one)
+        isect_poly = point_ind[0]
+
+        # If there are no intersection points, we just need to test if the
+        # entire polygon is inside the polyhedral
+        if isect_poly.size == 0:
+            # Testing with a single point should suffice, but until the code
+            # for in-polyhedron testing is more mature, we do some safeguarding:
+            # Test for all points in the polygon, they should all be on the
+            # inside or outside.
+            inside = is_inside_polyhedron(polyhedron, poly)
+
+            if inside.all():
+                # Add the polygon to the constrained ones and continue
+                constrained_polygons.append([poly])
+                continue
+            elif np.all(np.logical_not(inside)):
+                # Do not add it.
+                continue
+            else:
+                # This indicates that the inside_polyhedron test is bad
+                assert False
+
+        # At this point we know there are intersections between the polygon and
+        # polyhedra
+
+        # Find index of intersection points
+        main_ind = point_ind[0]
+
+        # Storage for intersection segments between the main polygon and the
+        # polyhedron sides.
+        segments = []
+
+        # Loop over all sides of the polyhedral. Look for intersection points
+        # that are both in main and the other
+        for other in range(1, len(all_poly)):
+            other_ip = point_ind[other]
+
+            common = np.isin(other_ip, main_ind)
+            if common.sum() < 2:
+                # This is at most a point contact, no need to do anything
+                continue
+            # There is a real intersection between the segments. Add it.
+            segments.append(other_ip[common])
+
+        segments = np.array([i for i in segments]).T
+
+        # Uniquify intersection coordinates, and update the segments
+        unique_coords, _, ib = pp.utils.setmembership.unique_columns_tol(coord, tol=tol)
+        unique_segments = ib[segments]
+
+        # Represent the segments as a graph.
+        graph = nx.Graph()
+        for i in range(unique_segments.shape[1]):
+            graph.add_edge(unique_segments[0, i], unique_segments[1, i])
+
+        # If the segments are connected, which will always be the case if the
+        # polyhedron is convex, the graph will have a single connected component.
+        # If not, there will be multiple connected components. Find these, and
+        # make a separate polygon for each.
+
+        connected_poly = []
+
+        # Loop over connected components
+        for component in nx.connected_components(graph):
+            # Extract subgraph of this cluster
+            sg = graph.subgraph(component)
+            # Make a list of edges of this subgraph
+            el = []
+            for e in sg.edges():
+                el.append(e)
+            el = np.array([e for e in el]).T
+
+            # The vertexes of the polygon must be ordered. This is done slightly
+            # differently depending on whether the polygon forms a closed circle
+            # or not
+            count = np.bincount(el.ravel())
+            if np.any(count == 1):
+                # There should be exactly two loose ends, if not, this is really
+                # several polygons, and who knows how we ended up there.
+                assert np.sum(count == 1) == 2
+                sorted_pairs = pp.utils.sort_points.sort_point_pairs(el, is_circular=False)
+                inds = np.hstack((sorted_pairs[0], sorted_pairs[1, -1]))
+            else:
+                sorted_pairs = pp.utils.sort_points.sort_point_pairs(el)
+                inds = sorted_pairs[0]
+            inds = np.unique(el)
+            # And there we are
+            connected_poly.append(unique_coords[:, inds])
+
+        constrained_polygons.append(connected_poly)
+
+    return constrained_polygons
 
 
 def bounding_box(pts, overlap=0):
