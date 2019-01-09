@@ -110,12 +110,12 @@ class Biot:
         d_scaling = parameter_dictionary.get("displacement_scaling", 1)
         div_d = matrix_dictionaries[self.mechanics_keyword]["div_d"]
 
-        div_d = np.squeeze(parameter_dictionary["biot_alpha"] * div_d * d * d_scaling)
+        div_d_rhs = np.squeeze(parameter_dictionary["biot_alpha"] * div_d * d * d_scaling)
         p_cmpr = matrix_dictionaries[self.flow_keyword]["mass"] * p
 
         mech_rhs = np.zeros(g.dim * g.num_cells)
 
-        return np.hstack((mech_rhs, div_d + p_cmpr))
+        return np.hstack((mech_rhs, div_d_rhs + p_cmpr))
 
     def discretize(self, g, data):
         """ Discretize flow and mechanics equations using FV methods.
