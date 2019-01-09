@@ -101,5 +101,59 @@ class TestInsidePolygon(unittest.TestCase):
         self.assertTrue(not inside[0])
         self.assertTrue(inside[1])
 
-    if __name__ == "__main__":
-        unittest.main()
+class TestPointInPolyhedron(unittest.TestCase):
+
+    def setUp(self):
+        west = np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1]])
+        east = np.array([[1, 1, 1, 1], [0, 1, 1, 0], [0, 0, 1, 1]])
+        south = np.array([[0, 1, 1, 0], [0, 0, 0, 0], [0, 0, 1, 1]])
+        north = np.array([[0, 1, 1, 0], [1, 1, 1, 1], [0, 0, 1, 1]])
+        bottom = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+        top = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [1, 1, 1, 1]])
+        self.cart_polyhedron = [west, east, south, north, bottom, top]
+
+        south_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 0, 0], [0, 0.5, 1, 1]])
+        south_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 0, 0], [0.5, 0, 1, 1]])
+        north_w = np.array([[0, 0.5, 0.5, 0], [1, 1, 1, 1], [0, 0.5, 1, 1]])
+        north_e = np.array([[0.5, 1, 1, 0.5], [1, 1, 1, 1], [0.5, 0, 1, 1]])
+        bottom_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 1, 1], [0, 0.5, 0.5, 0]])
+        bottom_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 1, 1], [0.5, 0., 0, 0.5]])
+        top_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 1, 1], [1, 1, 1, 1]])
+        top_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 1, 1], [1, 1, 1, 1]])
+        self.non_convex_polyhedron = [west, east, south_w, south_e, north_w, north_e,
+                                      bottom_w, bottom_e, top_w, top_e]
+
+    def test_point_inside_box(self):
+        p = np.array([0.3, 0.5, 0.5])
+        is_inside = cg.is_inside_polyhedron(self.cart_polyhedron, p)
+        self.assertTrue(is_inside.size == 1)
+        self.assertTrue(is_inside[0] == 1)
+
+
+    def test_two_points_inside_box(self):
+        p = np.array([[0.3, 0.5, 0.5], [0.5, 0.5, 0.5]]).T
+        is_inside = cg.is_inside_polyhedron(self.cart_polyhedron, p)
+        self.assertTrue(is_inside.size == 2)
+        self.assertTrue(np.all(is_inside[0] == 1))
+
+    def test_point_outside_box(self):
+        p = np.array([1.5, 0.5, 0.5])
+        is_inside = cg.is_inside_polyhedron(self.cart_polyhedron, p)
+        self.assertTrue(is_inside.size == 1)
+        self.assertTrue(is_inside[0] == 0)
+
+    def test_point_inside_non_convex(self):
+        p = np.array([0.5, 0.5, 0.7])
+        is_inside = cg.is_inside_polyhedron(self.non_convex_polyhedron, p)
+        self.assertTrue(is_inside.size == 1)
+        self.assertTrue(is_inside[0] == 1)
+
+    def test_point_outside_non_convex_inside_box(self):
+        p = np.array([0.5, 0.5, 0.3])
+        is_inside = cg.is_inside_polyhedron(self.non_convex_polyhedron, p)
+        self.assertTrue(is_inside.size == 1)
+        self.assertTrue(is_inside[0] == 0)
+
+
+if __name__ == "__main__":
+    unittest.main()
