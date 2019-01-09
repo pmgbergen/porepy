@@ -1,7 +1,7 @@
 import numpy as np
 import porepy as pp
 
-import examples.papers.dfn_transport.discretization as discr
+import examples.papers.dfn_transport.discretization as compute
 from examples.papers.dfn_transport.flux_trace import jump_flux
 
 def bc_flag(g, domain, tol):
@@ -32,32 +32,46 @@ def main():
 
     input_folder = "../geometries/"
     file_name = input_folder + "example2.fab"
-    file_inters = input_folder + "example2.dat"
+    file_inters = None #input_folder + "example2.dat"
 
-    mesh_size = 1 # for 1k triangles
-    #mesh_size = 0.9 * np.power(2., -4) # for 3k triangles
-    #mesh_size = 0.875 * np.power(2., -5) # for 10k triangles
-    mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
+    # define the discretizations for the Darcy part
+    discretizations = compute.get_discr()
+
+    # geometric tolerance
     tol = 1e-4
-    gb = pp.importer.dfn_3d_from_fab(file_name, file_inters, tol=tol, **mesh_kwargs)
 
-    gb.remove_nodes(lambda g: g.dim == 0)
-    gb.compute_geometry()
-    gb.assign_node_ordering()
+    # define the mesh sizes
+    mesh_sizes = {
+                 "3k": 0.9 * np.power(2., -4), # for 3k triangles
+                 "40k": 0.49*0.875 * np.power(2., -5) # for 40k triangles
+                 }
 
-    domain = gb.bounding_box(as_dict=True)
+    for mesh_size_key, mesh_size in mesh_sizes.items():
+        mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
 
-    param = {"domain": domain, "tol": tol, "k": 1,
-             "diff": 1e-3, "time_step": 0.05, "n_steps": 500,
-             "folder": "solution"}
+        for discr_key, discr in discretizations.items():
 
-    # the flow problem
-    model_flow = discr.flow(gb, param, bc_flag)
+            folder = "solution_" + discr_key + "_" + mesh_size_key
 
-    jump_flux(gb, param["mortar_flux"])
+            gb = pp.importer.dfn_3d_from_fab(file_name, file_inters, tol=tol, **mesh_kwargs)
 
-    # the advection-diffusion problem
-    discr.advdiff(gb, param, model_flow, bc_flag)
+            gb.remove_nodes(lambda g: g.dim == 0)
+            gb.compute_geometry()
+            gb.assign_node_ordering()
+
+            domain = gb.bounding_box(as_dict=True)
+
+            param = {"domain": domain, "tol": tol, "k": 1,
+                     "diff": 1e-4, "time_step": 0.05, "n_steps": 500,
+                     "folder": folder}
+
+            # the flow problem
+            model_flow = compute.flow(gb, discr, param, bc_flag)
+
+            #jump_flux(gb, param["mortar_flux"])
+
+            # the advection-diffusion problem
+            compute.advdiff(gb, discr, param, model_flow, bc_flag)
 
 if __name__ == "__main__":
     main()
