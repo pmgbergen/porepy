@@ -1420,6 +1420,50 @@ def intersect_polygons_3d(polys, tol=1e-8):
                     main_normal,
                     main_center,
                 )
+            elif np.all(dot_prod_from_main[:-1] == 0):
+                # The two polygons lie in the same plane. The intersection points will
+                # be found on the segments of the polygons
+                isect = np.zeros((3, 0))
+                # Loop over both set of polygon segments, look for intersections
+                for sm in range(polys[main].shape[1]):
+                    # Store the intersection points found for this segment of the main
+                    # polygon. If there are more than one, we know that the intersection
+                    # is on the boundary of that polygon.
+                    tmp_isect = np.zeros((3, 0))
+                    for so in range(polys[o].shape[1]):
+                        loc_isect = segments_intersect_3d(
+                            main_p_expanded[:, sm],
+                            main_p_expanded[:, sm + 1],
+                            other_p_expanded[:, so],
+                            other_p_expanded[:, so + 1],
+                        )
+                        if loc_isect is None:
+                            continue
+                        else:
+                            isect = np.hstack((isect, loc_isect))
+                            tmp_isect = np.hstack((tmp_isect, loc_isect))
+
+                    # Uniquify the intersection points found on this segment of main.
+                    # If more than one, the intersection is on the boundary of main.
+                    tmp_unique_isect, *rest = pp.utils.setmembership.unique_columns_tol(
+                        tmp_isect, tol=tol
+                    )
+                    if tmp_unique_isect.shape[1] > 1:
+                        isect_on_boundary_main = True
+
+                isect, *rest = pp.utils.setmembership.unique_columns_tol(isect, tol=tol)
+
+                if isect.shape[1] == 0:
+                    # The polygons share a plane, but no intersections
+                    continue
+                elif isect.shape[1] == 1:
+                    # Point contact. Not really sure what to do with this, ignore for now
+                    continue
+                elif isect.shape[1] == 2:
+                    other_intersects_main_0 = isect[:, 0]
+                    other_intersects_main_1 = isect[:, 1]
+                else:
+                    raise ValueError("There should be at most two intersections")
 
             else:
                 # Both of the intersection points are vertexes.
@@ -1474,6 +1518,45 @@ def intersect_polygons_3d(polys, tol=1e-8):
                     other_normal,
                     other_center,
                 )
+            elif np.all(dot_prod_from_other[:-1] == 0):
+
+                isect = np.zeros((3, 0))
+                for so in range(polys[o].shape[1]):
+                    tmp_isect = np.zeros((3, 0))
+                    for sm in range(polys[main].shape[1]):
+                        loc_isect = segments_intersect_3d(
+                            main_p_expanded[:, sm],
+                            main_p_expanded[:, sm + 1],
+                            other_p_expanded[:, so],
+                            other_p_expanded[:, so + 1],
+                        )
+                        if loc_isect is None:
+                            continue
+                        else:
+                            isect = np.hstack((isect, loc_isect))
+                            tmp_isect = np.hstack((tmp_isect, loc_isect))
+
+                    tmp_unique_isect, *rest = pp.utils.setmembership.unique_columns_tol(
+                        tmp_isect, tol=tol
+                    )
+
+                    if tmp_unique_isect.shape[1] > 1:
+                        isect_on_boundary_other = True
+
+                isect, *rest = pp.utils.setmembership.unique_columns_tol(isect, tol=tol)
+
+                if isect.shape[1] == 0:
+                    # The polygons share a plane, but no intersections
+                    continue
+                elif isect.shape[1] == 1:
+                    # Point contact. Not really sure what to do with this, continue for now
+                    continue
+                elif isect.shape[1] == 2:
+                    main_intersects_other_0 = isect[:, 0]
+                    main_intersects_other_1 = isect[:, 1]
+                else:
+                    raise ValueError("There should be at most two intersections")
+
             else:
                 # Both of the intersection points are vertexes.
                 # Check that there are only two points - if this assertion fails,
