@@ -3813,7 +3813,7 @@ def intersect_triangulations(p_1, p_2, t_1, t_2):
 # ------------------------------------------------------------------------------#
 
 
-def intersect_polygon_lines(poly_pts, pts, edges):
+def constrain_lines_by_polygon(poly_pts, pts, edges):
     """
     Compute the intersections between a polygon (also not convex) and a set of lines.
     The computation is done line by line to avoid the splitting of edges caused by other
