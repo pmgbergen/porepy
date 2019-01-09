@@ -163,7 +163,10 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         index = np.argsort(cells)
         faces, sign = faces[index], sign[index]
 
-        c_centers, f_normals, f_centers, R, dim, node_coords = pp.cg.map_grid(g)
+        # Map the domain to a reference geometry (i.e. equivalent to compute
+        # surface coordinates in 1d and 2d)
+        tol = data.get("tol", 1e-5)
+        c_centers, f_normals, f_centers, R, dim, node_coords = pp.cg.map_grid(g, tol)
 
         nodes, _, _ = sps.find(g.face_nodes)
 
