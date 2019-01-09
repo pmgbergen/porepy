@@ -22,7 +22,15 @@ logger = setup_custom_logger()
 
 # ------------------------------------------------------------------------------#
 
-def data_flow(gb, model, data, bc_flag):
+def get_discr():
+    return { "MVEM": {"scheme": pp.MVEM, "dof": {"cells": 1, "faces": 1}},
+             "RT0":  {"scheme": pp.RT0,  "dof": {"cells": 1, "faces": 1}},
+             "Tpfa": {"scheme": pp.Tpfa, "dof": {"cells": 1}},
+             "Mpfa": {"scheme": pp.Mpfa, "dof": {"cells": 1}} }
+
+# ------------------------------------------------------------------------------#
+
+def data_flow(gb, discr, model, data, bc_flag):
     tol = data["tol"]
 
     model_data = model + "_data"
@@ -41,7 +49,15 @@ def data_flow(gb, model, data, bc_flag):
 
         # assign permeability
         kxx = data["k"] * unity
-        perm = pp.SecondOrderTensor(2, kxx=kxx, kyy=kxx, kzz=1)
+        if discr["scheme"] is pp.MVEM or discr["scheme"] is pp.RT0:
+            perm = pp.SecondOrderTensor(2, kxx=kxx, kyy=kxx, kzz=1)
+
+        elif discr["scheme"] is pp.Tpfa or discr["scheme"] is pp.Mpfa:
+            perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=kxx)
+
+        else:
+            raise ValueError
+
         param["second_order_tensor"] = perm
 
         # assign aperture
@@ -77,46 +93,43 @@ def data_flow(gb, model, data, bc_flag):
 
 # ------------------------------------------------------------------------------#
 
-def flow(gb, param, bc_flag):
+def flow(gb, discr, param, bc_flag):
 
     model = "flow"
 
-    model_data = data_flow(gb, model, param, bc_flag)
+    model_data = data_flow(gb, discr, model, param, bc_flag)
 
     # discretization operator name
     flux_id = "flux"
 
     # master variable name
-    variable = "flux_pressure"
+    variable = "flow_variable"
     mortar = "lambda_" + variable
 
     # post process variables
     pressure = "pressure"
     flux = "darcy_flux" # it has to be this one
-    P0_flux = "P0_flux"
 
     # save variable name for the advection-diffusion problem
     param["pressure"] = pressure
     param["flux"] = flux
-    param["P0_flux"] = P0_flux
     param["mortar_flux"] = mortar
 
-    discr = pp.MVEM(model_data)
+    discr_scheme = discr["scheme"](model_data)
     trace = pp.PressureTrace(model_data)
 
-    coupling = pp.FluxPressureContinuity(model_data, discr, trace)
+    coupling = pp.FluxPressureContinuity(model_data, discr_scheme, trace)
 
     # define the dof and discretization for the grids
     for g, d in gb:
         if g.dim == gb.dim_max():
-            d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1, "faces": 1}}
-            d[pp.DISCRETIZATION] = {variable: {flux_id: discr}}
+            d[pp.PRIMARY_VARIABLES] = {variable: discr["dof"]}
+            d[pp.DISCRETIZATION] = {variable: {flux_id: discr_scheme}}
         else:
             d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
             d[pp.DISCRETIZATION] = {variable: {flux_id: trace}}
 
     # define the interface terms to couple the grids
-    flux_mortar = "lambda_" + flux
     for e, d in gb.edges():
         g_slave, g_master = gb.nodes_of_edge(e)
         d[pp.PRIMARY_VARIABLES] = {mortar: {"cells": 1}}
@@ -136,20 +149,25 @@ def flow(gb, param, bc_flag):
     logger.info("done")
 
     logger.info("Solve the linear system")
-    up = sps.linalg.spsolve(A, b)
+    x = sps.linalg.spsolve(A, b)
     logger.info("done")
 
     logger.info("Variable post-process")
-    assembler.distribute_variable(gb, up, block_dof, full_dof)
+    assembler.distribute_variable(gb, x, block_dof, full_dof)
     for g, d in gb:
         if g.dim == 2:
-            d[pressure] = discr.extract_pressure(g, d[variable])
-            d[flux] = discr.extract_flux(g, d[variable])
+            d[pressure] = discr_scheme.extract_pressure(g, d[variable], d)
+            d[flux] = discr_scheme.extract_flux(g, d[variable], d)
         else:
             d[pressure] = np.zeros(g.num_cells)
             d[flux] = np.zeros(g.num_faces)
 
-    pp.project_flux(gb, discr, flux, P0_flux, mortar)
+    # export the P0 flux reconstruction only for some scheme
+    if discr["scheme"] is pp.MVEM or discr["scheme"] is pp.RT0:
+        P0_flux = "P0_flux"
+        param["P0_flux"] = P0_flux
+        pp.project_flux(gb, discr_scheme, flux, P0_flux, mortar)
+
     logger.info("done")
 
     return model_data
@@ -232,7 +250,7 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
 
 # ------------------------------------------------------------------------------#
 
-def advdiff(gb, param, model_flow, bc_flag):
+def advdiff(gb, discr, param, model_flow, bc_flag):
 
     model = "transport"
 
@@ -322,7 +340,10 @@ def advdiff(gb, param, model_flow, bc_flag):
     logger.info("Prepare the exporting")
     save = pp.Exporter(gb, "solution", folder=param["folder"])
     logger.info("done")
-    variables = [variable, param["pressure"], param["P0_flux"], "frac_num", "cell_volumes"]
+
+    variables = [variable, param["pressure"], "frac_num", "cell_volumes"]
+    if discr["scheme"] is pp.MVEM or discr["scheme"] is pp.RT0:
+        variables.append(param["P0_flux"])
 
     # assign the initial condition
     x = np.zeros(A.shape[0])
