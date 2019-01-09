@@ -80,9 +80,6 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
     return sorted_lines
 
 
-# ------------------------------------------------------------------------------#
-
-
 def sort_point_plane(pts, centre, normal=None):
     """ Sort the points which lie on a plane.
 
@@ -106,5 +103,111 @@ def sort_point_plane(pts, centre, normal=None):
     delta = np.array([d / np.linalg.norm(d) for d in delta.T]).T
     return np.argsort(np.arctan2(*delta))
 
+def sort_triangle_edges(t):
+    """ Sort a set of triangles so that no edges occur twice with the same ordering.
 
-# ------------------------------------------------------------------------------#
+    For a planar triangulation, this will end up with all the triangles being
+    ordered CW or CCW. In cases where the triangulated surface(s) do not share
+    a common plane, methods based on geometry are at best cumbersome. This
+    approach should work also in those cases.
+
+    Parameters:
+        t (np.ndarray, 3 x n_tri): Triangulation to have vertexes ordered.
+
+    Returns:
+        np.ndarray, 3 x n_tri: With the vertexes ordered.
+
+    Example:
+        >>> t = np.array([[0, 1, 2], [1, 2, 3]]).T
+        >>> sort_triangle_edges(t)
+        np.array([[0, 2], [1, 1], [2, 3]])
+
+    """
+
+    # Helper method to remove pairs from the queue if they already exist,
+    # add them if not
+    def update_queue(pair_0, pair_1):
+        if pair_0 in queue:
+            queue.remove(pair_0)
+        elif (pair_0[1], pair_0[0]) in queue:
+            queue.remove((pair_0[1], pair_0[0]))
+        else:
+            queue.append(pair_0)
+        if pair_1 in queue:
+            queue.remove(pair_1)
+        elif (pair_1[1], pair_1[0]) in queue:
+            queue.remove((pair_1[1], pair_1[0]))
+        else:
+            queue.append(pair_1)
+
+
+    nt = t.shape[1]
+
+    # Add all edges of the first triangle to the queue
+    queue = [(t[0, 0], t[1, 0]), (t[1, 0], t[2, 0]), (t[2, 0], t[0, 0])]
+
+    # For safeguarding, we count the number of iterations. Maximum number
+    # is if all triangles are isolated.
+    max_iter = nt * 3
+    num_iter = 0
+
+    # Bookkeeping of already processed triangles. Not sure if this is needed.
+    is_ordered = np.zeros(nt, dtype=np.bool)
+    is_ordered[0] = 1
+
+    while len(queue) > 0:
+
+        # Pick an edge to be processed
+        q = queue.pop(0)
+
+        # Find the other occurence of this edge
+        hit = np.logical_and.reduce((np.logical_not(is_ordered), np.any(t == q[0], axis=0),
+                                     np.any(t == q[1], axis=0)))
+        ind = np.where(hit > 0)[0]
+
+        # Check if the edge occured at all among the non-processed triangles
+        if ind.size == 0:
+            continue
+        # It should at most occur once among non-processed triangles
+        elif ind.size > 1:
+            raise ValueError('Edges should only occur twice')
+
+        # Find the triangle to be processed
+        ti = ind[0]
+        # Find row index of the first and second item of the pair q
+        hit_0 = np.where(t[:, ti] == q[0])[0][0]
+        hit_1 = np.where(t[:, ti] == q[1])[0][0]
+
+        # The existing pair has the pairing (q[0], q[1])
+        # hit_0 is associated with q[0]. To generate the oposite pair, we may
+        # need to flip the elements
+        if hit_0 < hit_1 or hit_0 == 2 and hit_1 == 0:
+            t[[hit_1, hit_0], ti] = t[[hit_0, hit_1], ti]
+
+        # Find the new pairs to be generated. This must be done in terms of
+        # the content in t[:, ti], not the indices represented by hit_0 and _1.
+        # The two pairs are formed by row hit_0 and hit_1, both combined with the
+        # third element. First, the latter must be identified
+        if hit_0 + hit_1 == 1:
+            # Existing pair in rows 0 and 1
+            pair_0 = (t[1, ti], t[2, ti])
+            pair_1 = (t[2, ti], t[0, ti])
+        elif hit_0 + hit_1 == 2:
+            # Existing pair in rows 0 and 2
+            pair_0 = (t[1, ti], t[2, ti])
+            pair_1 = (t[0, ti], t[1, ti])
+        else:  # sum is 3
+            # Existing pair in rows 1 and 2
+            pair_0 = (t[0, ti], t[1, ti])
+            pair_1 = (t[2, ti], t[0, ti])
+        # Update the queue, either remove the pairs or add them
+        update_queue(pair_0, pair_1)
+
+        # Bookkeeping
+        is_ordered[ti] = 1
+
+        # Safeguarding
+        num_iter += 1
+        if num_iter > max_iter:
+            raise ValueError('Should not come here')
+    return t
