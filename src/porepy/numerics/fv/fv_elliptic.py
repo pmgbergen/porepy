@@ -33,7 +33,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         """
         return g.num_cells
 
-    def extract_pressure(self, g, solution_array, d):
+    def extract_pressure(self, g, solution_array, data):
         """ Extract the pressure part of a solution.
         The method is trivial for finite volume methods, with the pressure
         being the only primary variable.
@@ -42,7 +42,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
             g (grid): To which the solution array belongs.
             solution_array (np.array): Solution for this grid obtained from
                 either a mono-dimensional or a mixed-dimensional problem.
-            d (dictionary): Data dictionary associated with the grid. Not used,
+            data (dictionary): Data dictionary associated with the grid. Not used,
                 but included for consistency reasons.
         Returns:
             np.array (g.num_cells): Pressure solution vector. Will be identical
@@ -50,26 +50,31 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         """
         return solution_array
 
-    def extract_flux(self, g, solution_array, d):
+    def extract_flux(self, g, solution_array, data):
         """ Extract the flux related to a solution.
 
         The flux is computed from the discretization and the given pressure solution.
-
-        @ALL: We should incrude the boundary condition as well?
 
         Parameters:
             g (grid): To which the solution array belongs.
             solution_array (np.array): Solution for this grid obtained from
                 either a mono-dimensional or a mixed-dimensional problem. Will
                 correspond to the pressure solution.
-            d (dictionary): Data dictionary associated with the grid.
+            data (dictionary): Data dictionary associated with the grid.
 
         Returns:
             np.array (g.num_faces): Flux vector.
 
         """
-        flux_discretization = d[self._key() + "flux"]
-        return flux_discretization * solution_array
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+
+        flux = matrix_dictionary["flux"].tocsr()
+        bound_flux = matrix_dictionary["bound_flux"].tocsr()
+
+        bc_val = parameter_dictionary["bc_values"]
+
+        return flux * solution_array + bound_flux * bc_val
 
     # ------------------------------------------------------------------------------#
 
