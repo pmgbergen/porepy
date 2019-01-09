@@ -11,6 +11,8 @@ import logging
 import time
 import numpy as np
 from sympy import geometry as geom
+import networkx as nx
+from scipy.spatial import Delaunay
 
 import shapely.geometry as shapely_geometry
 import shapely.speedups as shapely_speedups
@@ -1845,6 +1847,85 @@ def is_inside_polygon(poly, p, tol=0, default=False):
                 # No need to check the remaining segments of the polygon.
                 break
     return inside
+
+
+def is_inside_polyhedron(polyhedron, test_points, tol=1e-8):
+    """ Test whether a set of point is inside a polyhedron.
+
+    The actual algorithm and implementation used for the test can be found
+    at
+
+        https://github.com/mdickinson/polyhedron/blob/master/polyhedron.py
+
+    By Mark Dickinson. From what we know, the implementation is only available
+    on github (no pypi or similar), and we are also not aware of other
+    implementations of algorithms for point-in-polyhedron problems that allows
+    for non-convex polyhedra. Moreover, the file above has an unclear lisence.
+    Therefore, to use the present function, download the above file and put it
+    in the pythonpath with the name 'robust_point_in_polyhedron.py'
+    (polyhedron.py seemed too general a name for this).
+
+    Suggestions for better solutions to this are most welcome.
+
+    Parameters:
+        polyhedron (list of np.ndarray): Each list element represent a side
+            of the polyhedron. Each side is assumed to be a convex polygon.
+        test_points (np.ndarray, 3 x num_pt): Points to be tested.
+        tol (double, optional): Geometric tolerance, used in comparison of
+            points. Defaults to 1e-8.
+
+    Returns:
+        np.ndarray, size num_pt: Element i is 1 (True) if test_points[:, i] is
+            inside the polygon.
+
+    """
+    # If you get an error message here, read documentation of the method.
+    import robust_point_in_polyhedron
+
+    # The actual test requires that the polyhedra surface is described by
+    # a triangulation. To that end, loop over all polygons and compute
+    # triangulation. This is again done by a projection to 2d
+
+    # Data storage
+    tri = np.zeros((0, 3))
+    points = np.zeros((3, 0))
+
+    num_points = 0
+    for poly in polyhedron:
+        R = project_plane_matrix(poly)
+        p_2d = R.dot(poly)[:2]
+        loc_tri = Delaunay(p_2d.T)
+        simplices = loc_tri.simplices
+
+        # Add the triangulation, with indices adjusted for the number of points
+        # already added
+        tri = np.vstack((tri, num_points + simplices))
+        points = np.hstack((points, poly))
+        num_points += simplices.max() + 1
+
+    # Uniquify points, and update triangulation
+    upoints, _, ib = pp.utils.setmembership.unique_columns_tol(points, tol=tol)
+    ut = ib[tri.astype(np.int)]
+
+    # The in-polyhedra algorithm requires a very particular ordering of the vertexes
+    # in the triangulation. Fix this
+    sorted_t = pp.utils.sort_points.sort_triangle_edges(ut.T).T
+
+    # Generate tester for points
+    test_object = robust_point_in_polyhedron.Polyhedron(sorted_t, upoints.T)
+
+    if test_points.size < 4:
+        test_points = test_points.reshape((-1, 1))
+
+    is_inside = np.zeros(test_points.shape[1], dtype=np.bool)
+
+    # Loop over all points, check if they are inside.
+    for pi in range(test_points.shape[1]):
+        # NOTE: The documentation of the test is a bit unclear, but it seems
+        # a winding number of 0 means outside, non-zero is inside
+        is_inside[pi] = np.abs(test_object.winding_number(test_points[:, pi])) > 0
+
+    return is_inside
 
 
 # -----------------------------------------------------------------------------
