@@ -22,7 +22,7 @@ class BasicTest(unittest.TestCase):
         )
         lines = np.array([[0, 2, 4, 6, 8], [1, 3, 5, 7, 9]])
 
-        new_pts, new_lines = pp.cg.intersect_polygon_lines(polygon, pts, lines)
+        new_pts, new_lines = pp.cg.constrain_lines_by_polygon(polygon, pts, lines)
 
         pts_known = np.array(
             [
@@ -48,7 +48,7 @@ class BasicTest(unittest.TestCase):
         )
         lines = np.array([[0, 2, 4, 6, 8, 10, 12], [1, 3, 5, 7, 9, 11, 13]])
 
-        new_pts, new_lines = pp.cg.intersect_polygon_lines(polygon, pts, lines)
+        new_pts, new_lines = pp.cg.constrain_lines_by_polygon(polygon, pts, lines)
         pts_known = np.array(
             [
                 [0.0, 1.0, 0.0, 1.0, 0.5, 0.0, 0.0, 0.3, 0.0, 0.7, 0.8, 1.5],
