@@ -72,8 +72,10 @@ class Biot:
 
         matrices_m = data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]
         matrices_f = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
+        biot_alpha = data[pp.PARAMETERS][self.mechanics_keyword]["biot_alpha"]
         p_bound = (
-            -div_flow * matrices_f["bound_flux"] * p - matrices_m["bound_div_d"] * d
+            -div_flow * matrices_f["bound_flux"] * p
+            - matrices_m["bound_div_d"] * d * biot_alpha
         )
         s_bound = -div_mech * matrices_m["bound_stress"] * d
         return np.hstack((s_bound, p_bound))
@@ -830,10 +832,11 @@ class DivD(
         return matrix_dictionary["div_d"] * biot_alpha
 
     def assemble_rhs(self, g, data):
-        """ Return the zero right-hand side for a discretization of the displacement
+        """ Return the right-hand side for a discretization of the displacement
         divergence term.
 
-        @Runar: Is it correct that this is zero.
+        For the time being, we assume an IE temporal discretization.
+
 
         Parameters:
             g (Grid): Computational grid.
@@ -843,7 +846,21 @@ class DivD(
             np.ndarray: Zero right hand side vector with representation of boundary
                 conditions.
         """
-        return np.zeros(self.ndof(g))
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        # Boundary part
+        d_bound = parameter_dictionary["bc_values"]
+        biot_alpha = parameter_dictionary["biot_alpha"]
+        rhs_bound =  - matrix_dictionary["bound_div_d"] * d_bound * biot_alpha
+
+        # Time part
+        d_cell = parameter_dictionary["state"]
+        d_scaling = parameter_dictionary.get("displacement_scaling", 1)
+        div_d = matrix_dictionary["div_d"]
+        rhs_time = np.squeeze(biot_alpha * div_d * d_cell * d_scaling)
+
+        return rhs_bound + rhs_time
 
 
 class BiotStabilization(
