@@ -155,7 +155,6 @@ class MassMatrix:
                 represent the porosity or heat capacity.
             apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
                 the face normals.
-            time_step: Time step for a possible temporal discretization scheme.
 
         matrix_dictionary will be updated with the following entries:
             mass: sps.dia_matrix (sparse dia, self.ndof x self.ndof): Mass matrix
@@ -174,7 +173,7 @@ class MassMatrix:
         w = parameter_dictionary["mass_weight"]
         aperture = parameter_dictionary["aperture"]
         volumes = g.cell_volumes * aperture
-        coeff = volumes * w / parameter_dictionary["time_step"]
+        coeff = volumes * w
 
         matrix_dictionary["mass"] = sps.dia_matrix((coeff, 0), shape=(ndof, ndof))
         matrix_dictionary["bound_mass"] = np.zeros(ndof)

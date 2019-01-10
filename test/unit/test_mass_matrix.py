@@ -16,7 +16,7 @@ class MassMatrixTest(unittest.TestCase):
         time_discr = pp.MassMatrix()
         lhs, rhs = time_discr.assemble_matrix_rhs(g, data)
         self.assertTrue(np.allclose(rhs, 0))
-        self.assertTrue(np.allclose(lhs.diagonal(), g.cell_volumes * phi / dt))
+        self.assertTrue(np.allclose(lhs.diagonal(), g.cell_volumes * phi))
         off_diag = np.where(~np.eye(lhs.shape[0], dtype=bool))
         self.assertTrue(np.allclose(lhs.A[off_diag], 0))
 
@@ -30,7 +30,7 @@ class MassMatrixTest(unittest.TestCase):
         time_discr = pp.InvMassMatrix()
         lhs, rhs = time_discr.assemble_matrix_rhs(g, data)
         self.assertTrue(np.allclose(rhs, 0))
-        self.assertTrue(np.allclose(lhs.diagonal(), dt / (g.cell_volumes * phi)))
+        self.assertTrue(np.allclose(lhs.diagonal(), 1 / (g.cell_volumes * phi)))
         off_diag = np.where(~np.eye(lhs.shape[0], dtype=bool))
         self.assertTrue(np.allclose(lhs.A[off_diag], 0))
 
