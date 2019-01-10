@@ -76,9 +76,7 @@ class Biot:
         matrices_f = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
 
         dt = data[pp.PARAMETERS][self.flow_keyword]["time_step"]
-        p_bound = (
-            -div_flow * matrices_f["bound_flux"] * p * dt
-        )
+        p_bound = -div_flow * matrices_f["bound_flux"] * p * dt
         s_bound = -div_mech * matrices_m["bound_stress"] * d
         return np.hstack((s_bound, p_bound))
 
@@ -114,7 +112,9 @@ class Biot:
         d_scaling = parameter_dictionary.get("displacement_scaling", 1)
         div_d = matrix_dictionaries[self.mechanics_keyword]["div_d"]
 
-        div_d_rhs = np.squeeze(parameter_dictionary["biot_alpha"] * div_d * d * d_scaling)
+        div_d_rhs = np.squeeze(
+            parameter_dictionary["biot_alpha"] * div_d * d * d_scaling
+        )
         p_cmpr = matrix_dictionaries[self.flow_keyword]["mass"] * p
 
         mech_rhs = np.zeros(g.dim * g.num_cells)
@@ -857,7 +857,9 @@ class DivD(
         d_bound_1 = parameter_dictionary["bc_values"]
         d_bound_0 = parameter_dictionary["bc_values"]
         biot_alpha = parameter_dictionary["biot_alpha"]
-        rhs_bound =  - matrix_dictionary["bound_div_d"] * (d_bound_1-d_bound_0) * biot_alpha
+        rhs_bound = (
+            -matrix_dictionary["bound_div_d"] * (d_bound_1 - d_bound_0) * biot_alpha
+        )
 
         # Time part
         d_cell = parameter_dictionary["state"]
