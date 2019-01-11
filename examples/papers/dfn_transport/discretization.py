@@ -400,6 +400,9 @@ def compute_outflow(gb, param):
         flux[faces] *= sign
         flux[g.get_internal_faces()] = 0
         flux[flux < 0] = 0
+        #outflow += np.dot(flux, np.abs(g.cell_faces).dot(scalar))
+
+        flux[flux != 0] = 1
         outflow += np.dot(flux, np.abs(g.cell_faces).dot(scalar))
 
     return outflow
