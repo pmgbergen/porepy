@@ -181,7 +181,8 @@ class BiotTest(unittest.TestCase):
         g = gb.grids_of_dimension(2)[0]
         d = gb.node_props(g)
 
-        # Parameters identified by two keywords
+        # Parameters identified by two keywords. Non-default parameters of somewhat
+        # arbitrary values are assigned to make the test more revealing.
         kw_m = "mechanics"
         kw_f = "flow"
         bound_mech, bound_flow = self.make_boundary_conditions(g)
@@ -279,10 +280,9 @@ class BiotTest(unittest.TestCase):
 class ImplicitMassMatrix(pp.MassMatrix):
     def assemble_rhs(self, g, data):
         """ Overwrite MassMatrix method to
-        1) Be consistent with the Biot dt convention.
-        2) Return the correct rhs for an IE time discretization of the Biot problem.
+        Return the correct rhs for an IE time discretization of the Biot problem.
 
-        TODO: Implement more general solutions.
+        TODO: Implement a more general solution.
         """
 
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
@@ -294,11 +294,10 @@ class ImplicitMassMatrix(pp.MassMatrix):
 
 class ImplicitMpfa(pp.Mpfa):
     def assemble_matrix_rhs(self, g, data):
-        """ Overwrite MassMatrix method to
+        """ Overwrite MPSA method to
         1) Be consistent with the Biot dt convention.
-        2) Return the correct rhs for an IE time discretization of the Biot problem.
 
-        TODO: Implement more general solutions.
+        TODO: Implement more general solution?.
         """
         a, b = super().assemble_matrix_rhs(g, data)
         dt = data[pp.PARAMETERS][self.keyword]["time_step"]
@@ -306,5 +305,4 @@ class ImplicitMpfa(pp.Mpfa):
 
 
 if __name__ == "__main__":
-    #    BiotTest().test_assemble_biot_rhs()
     unittest.main()
