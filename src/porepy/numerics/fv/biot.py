@@ -202,7 +202,7 @@ class Biot:
                 [A_mech, matrices_m["grad_p"] * biot_alpha],
                 [
                     matrices_m["div_d"] * biot_alpha * d_scaling,
-                    matrices_f["mass"] + dt * A_flow + matrices_f["biot_stabilization"],
+                    matrices_f["mass"] + dt * A_flow + biot_alpha * matrices_f["biot_stabilization"],
                 ],
             ]
         ).tocsr()
@@ -390,7 +390,7 @@ class Biot:
         num_dir_subface = (
             bound_exclusion_mech.exclude_neu.shape[1]
             - bound_exclusion_mech.exclude_neu.shape[0]
-        ) * nd
+        )
         # No right hand side for cell displacement equations.
         rhs_normals_displ_var = sps.coo_matrix(
             (
@@ -964,8 +964,8 @@ class BiotStabilization(
                 """BiotStabilization class requires a pre-computed
                              discretization to be stored in the matrix dictionary."""
             )
-
-        return matrix_dictionary["biot_stabilization"]
+        alpha = data[pp.PARAMETERS][self.keyword]['biot_alpha']
+        return alpha * matrix_dictionary["biot_stabilization"]
 
     def assemble_rhs(self, g, data):
         """ Return the zero right-hand side for a discretization of the displacement
