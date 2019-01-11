@@ -251,8 +251,6 @@ class InvMassMatrix:
                 porosity. If not given assumed unitary.
             apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
                 the face normals. If not given assumed unitary.
-        deltaT: Time step for a possible temporal discretization scheme. If not given
-            assumed unitary.
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
@@ -325,8 +323,6 @@ class InvMassMatrix:
                 porosity. If not given assumed unitary.
             apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
                 the face normals. If not given assumed unitary.
-        deltaT: Time step for a possible temporal discretization scheme. If not given
-            assumed unitary.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         M, rhs = MassMatrix(keyword=self.keyword).assemble_matrix_rhs(g, data)
