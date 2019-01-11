@@ -47,7 +47,8 @@ def plot_grid(g, cell_value=None, vector_value=None, info=None, **kwargs):
         node numbers, respectively. O gives a plot of the face normals. See the funtion
         add_info.
     alpha: (optonal) transparency of cells (2d) and faces (3d)
-
+    cells: (optional) boolean array with length number of cells. Only plot cells c
+            where cells[c]=True. Not valid for a GridBucket.
     How to use:
     if g is a single grid:
     cell_id = np.arange(g.num_cells)
@@ -190,6 +191,8 @@ def plot_single(g, cell_value, vector_value, info, **kwargs):
             linewidth: Width of faces in 2d and edges in 3d.
             rgb: Color map weights. Defaults to [1, 0, 0].
             alpha: Transparency of the plot.
+            cells: boolean array with length number of cells. Only plot cells c
+                   where cells[c]=True
     """
     figsize = kwargs.get("figsize", None)
     if figsize is None:
@@ -419,6 +422,8 @@ def plot_grid_1d(g, cell_value, ax, **kwargs):
             return "k"
 
     for c in np.arange(g.num_cells):
+        if not plot_cells[c]:
+            continue
         loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c + 1])
         ptsId = nodes[loc]
         pts = g.nodes[:, ptsId]
@@ -433,6 +438,13 @@ def plot_grid_1d(g, cell_value, ax, **kwargs):
 def plot_grid_2d(g, cell_value, ax, **kwargs):
     """
     Plot the 2d grid g to the axis ax, with cell_value represented by the cell coloring.
+    keywargs: Keyword arguments:
+        color_map: Limits of the cell value color axis.
+        linewidth: Width of faces in 2d and edges in 3d.
+        rgb: Color map weights. Defaults to [1, 0, 0].
+        alpha: Transparency of the plot.
+        cells: boolean array with length number of cells. Only plot cells c
+               where cells[c]=True
     """
     faces, _, _ = sps.find(g.cell_faces)
     nodes, _, _ = sps.find(g.face_nodes)
@@ -451,7 +463,10 @@ def plot_grid_2d(g, cell_value, ax, **kwargs):
         def color_face(value):
             return np.r_[rgb, alpha]
 
+    cells = kwargs.get("cells", np.ones(g.num_cells, dtype=bool))
     for c in np.arange(g.num_cells):
+        if not plot_cells[c]:
+            continue
         loc_f = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
         faces_loc = faces[loc_f]
 
@@ -493,7 +508,10 @@ def plot_grid_3d(g, ax, **kwargs):
     def color_face(value):
         return np.r_[rgb, alpha]
 
+    cells = kwargs.get("cells", np.ones(g.num_cells, dtype=bool))
     for c in np.arange(g.num_cells):
+        if not plot_cells[c]:
+            continue
         loc_c = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
         fs = faces_cells[loc_c]
         for f in fs:
