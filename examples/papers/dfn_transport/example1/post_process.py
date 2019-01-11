@@ -125,55 +125,64 @@ def num_cells(file_in, num_frac, padding=6):
 
 def main():
 
-    num_simul = 5
+    num_simul = 21
 
     field = "scalar"
     n_step = 300
     time_step = 0.05
     num_frac = 3
 
-    for simul in np.arange(1, num_simul+1):
+    grids = ["1k", "3k", "10k"]
 
-        folder_in = "solution_" + str(simul) + "/"
-        folder_out = "plot/" + folder_in
+    folder_master = "/home/elle/simul/example1/"
+    folder_master_out = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/"
+    methods = ["MVEM", "Mpfa", "Tpfa"]
+    methods = ["Tpfa"]
 
-        # in this file the constant data are saved
-        file_in = folder_in + "solution_2_"
+    for method in methods:
+        for grid in grids:
+            for simul in np.arange(num_simul):
 
-        cot_avg, cot_min, cot_max = cot_domain(file_in, n_step, field, num_frac)
+                folder_in = folder_master + "solution_" + method + "_" + grid + "_" + str(simul+1) + "/"
+                folder_out = folder_master_out + method + "/"
 
-        times = np.arange(n_step) * time_step
-        labels = np.arange(num_frac).astype(np.str)
-        labels = np.core.defchararray.add("cot_", labels)
-        labels = np.insert(labels, 0, 'time')
+                # in this file the constant data are saved
+                file_in = folder_in + "solution_2_"
 
-        if not os.path.exists(folder_out):
-            os.makedirs(folder_out)
+                cot_avg, cot_min, cot_max = cot_domain(file_in, n_step, field, num_frac)
 
-        # create the output files
-        file_out = folder_out + "dot_min.csv"
-        data = np.insert(cot_min, 0, times, axis=1).T
-        write_csv(file_out, labels, data)
+                times = np.arange(n_step) * time_step
+                labels = np.arange(num_frac).astype(np.str)
+                labels = np.core.defchararray.add("cot_", labels)
+                labels = np.insert(labels, 0, 'time')
 
-        # create the output files
-        file_out = folder_out + "dot_max.csv"
-        data = np.insert(cot_max, 0, times, axis=1).T
-        write_csv(file_out, labels, data)
+                if not os.path.exists(folder_out):
+                    os.makedirs(folder_out)
 
-        # create the output files
-        file_out = folder_out + "dot_avg.csv"
-        data = np.insert(cot_avg, 0, times, axis=1).T
-        write_csv(file_out, labels, data)
+                # create the output files
+                file_out = folder_out + method + "_Cmin_" + str(simul+1) + "_" + grid + ".csv"
+                data = np.insert(cot_min, 0, times, axis=1).T
+                write_csv(file_out, labels, data)
 
-        # count number of cells
-        num = num_cells(file_in, num_frac)
-        file_out = folder_out + "num_cells.csv"
-        np.savetxt(file_out, np.atleast_2d(num), delimiter=',')
+                # create the output files
+                file_out = folder_out + method + "_Cmax_" + str(simul+1) + "_" + grid + ".csv"
+                data = np.insert(cot_max, 0, times, axis=1).T
+                write_csv(file_out, labels, data)
 
-        # copy outflow file
-        file_in = folder_in + "outflow.csv"
-        file_out = folder_out + "outflow.csv"
-        shutil.copy(file_in, file_out)
+                # create the output files
+                file_out = folder_out + method + "_Cmean_" + str(simul+1) + "_" + grid + ".csv"
+                data = np.insert(cot_avg, 0, times, axis=1).T
+                write_csv(file_out, labels, data)
+
+                # count number of cells
+                num = num_cells(file_in, num_frac)
+                file_out = folder_out + method + "_num_cells_" + str(simul+1) + "_" + grid + ".csv"
+                np.savetxt(file_out, np.atleast_2d(num), delimiter=',')
+
+                # copy outflow file
+                file_in = folder_in + "outflow.csv"
+                file_out = folder_out + method + "_production_" + str(simul+1) + "_" + grid + ".csv"
+                shutil.copy(file_in, file_out)
 
 if __name__ == "__main__":
     main()

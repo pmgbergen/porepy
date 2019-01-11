@@ -84,69 +84,103 @@ def save_multiple(filename, num_frac, folder):
 
 def main():
 
-    num_simul = 5
+    num_simul = 3
 
     n_step = 300
     num_frac = 3
 
     num_cells = np.zeros((num_simul, num_frac+1))
+    master_folder = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/"
 
-    for simul in np.arange(1, num_simul+1):
+    methods_stefano = ["OPTxfem"]
+    methods_alessio = ["MVEM", "Mpfa", "Tpfa"]
+    grids = {"grid_0": ("1k", "220"), "grid_1": ("3k", "650"), "grid_2": ("10k", "2100")}
 
-        folder_in = "./plot/solution_" + str(simul) + "/"
-        folder_out = folder_in + "img/"
+    for grid_name, grid in grids.items():
+        for simul in np.arange(num_simul):
 
-        data = folder_in + "dot_avg.csv"
-        label = "LABEL"
-        title = "average cot"
-        plot_multiple(data, label, title, num_frac)
+            folder_in = master_folder
+            folder_out = folder_in + "img/"
 
-        name = "cot_avg"
-        save_multiple(name, num_frac, folder_out)
+            title = "average concentration over time - " + grid_name.replace("_", " ")
+            # Alessio
+            for method in methods_alessio:
+                data = folder_in + method + "/" + method + "_Cmean_" + str(simul+1) + "_" + grid[0] + ".csv"
+                plot_multiple(data, method, title, num_frac)
 
-        ###########
+            # Stefano
+            for method in methods_stefano:
+                data = folder_in + method + "/" + method + "_Cmean_" + str(simul+1) + "_" + grid[1] + ".csv"
+                plot_multiple(data, method, title, num_frac)
 
-        data = folder_in + "dot_min.csv"
-        label = "LABEL"
-        title = "min cot"
-        plot_multiple(data, label, title, num_frac)
+            # save
+            name = grid_name + "_cot_avg_" + str(simul)
+            save_multiple(name, num_frac, folder_out)
 
-        name = "cot_min"
-        save_multiple(name, num_frac, folder_out)
+            ###########
 
-        ###########
+            title = "minimum concentration over time - " + grid_name.replace("_", " ")
+            # Alessio
+            for method in methods_alessio:
+                data = folder_in + method + "/" + method + "_Cmin_" + str(simul+1) + "_" + grid[0] + ".csv"
+                plot_multiple(data, method, title, num_frac)
 
-        data = folder_in + "dot_max.csv"
-        label = "LABEL"
-        title = "max cot"
-        plot_multiple(data, label, title, num_frac)
+            # Stefano
+            for method in methods_stefano:
+                data = folder_in + method + "/" + method + "_Cmin_" + str(simul+1) + "_" + grid[1] + ".csv"
+                plot_multiple(data, method, title, num_frac)
 
-        name = "cot_max"
-        save_multiple(name, num_frac, folder_out)
+            # save
+            name = grid_name + "_cot_min_" + str(simul)
+            save_multiple(name, num_frac, folder_out)
 
-        ###########
+            ###########
 
-        data = folder_in + "outflow.csv"
-        label = "LABEL"
-        title = "outflow"
-        plot_single(data, label, title)
+            title = "maximum concentration over time - " + grid_name.replace("_", " ")
+            # Alessio
+            for method in methods_alessio:
+                data = folder_in + method + "/" + method + "_Cmax_" + str(simul+1) + "_" + grid[0] + ".csv"
+                plot_multiple(data, method, title, num_frac)
 
-        name = "outflow"
-        save_single(name, folder_out)
+            # Stefano
+            for method in methods_stefano:
+                data = folder_in + method + "/" + method + "_Cmax_" + str(simul+1) + "_" + grid[1] + ".csv"
+                plot_multiple(data, method, title, num_frac)
 
-        ########
+            # save
+            name = grid_name + "_cot_max_" + str(simul)
+            save_multiple(name, num_frac, folder_out)
 
-        data = folder_in + "num_cells.csv"
-        num_cells[simul-1] = np.loadtxt(data, delimiter=',')
+            ###########
 
-    label = "LABEL"
-    title = "number of cells"
-    plot_num_cells(num_cells, label, title)
+            title = "outflow over time - " + grid_name.replace("_", " ")
+            # Alessio
+            for method in methods_alessio:
+                data = folder_in + method + "/" + method + "_production_" + str(simul+1) + "_" + grid[0] + ".csv"
+                plot_single(data, method, title)
 
-    name = "num_cells"
-    folder_out = "./plot/"
-    save_multiple(name, num_frac, folder_out)
-    save_single(name, folder_out, num_frac)
+            # Stefano
+            for method in methods_stefano:
+                data = folder_in + method + "/" + method + "_production_" + str(simul+1) + "_" + grid[1] + ".csv"
+                plot_single(data, method, title)
+
+            # save
+            name = grid_name + "_outflow_" + str(simul)
+            save_single(name, folder_out)
+
+            ########
+
+            #data = folder_in + "num_cells.csv"
+            #num_cells[simul-1] = np.loadtxt(data, delimiter=',')
+#
+#    label = "LABEL"
+#    title = "number of cells"
+#    plot_num_cells(num_cells, label, title)
+#
+#    name = "num_cells"
+#    folder_out = "./plot/"
+#    save_multiple(name, num_frac, folder_out)
+#    save_single(name, folder_out, num_frac)
 
 #------------------------------------------------------------------------------#
 
