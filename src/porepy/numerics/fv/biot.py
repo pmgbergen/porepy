@@ -202,7 +202,9 @@ class Biot:
                 [A_mech, matrices_m["grad_p"] * biot_alpha],
                 [
                     matrices_m["div_d"] * biot_alpha * d_scaling,
-                    matrices_f["mass"] + dt * A_flow + biot_alpha * matrices_f["biot_stabilization"],
+                    matrices_f["mass"]
+                    + dt * A_flow
+                    + biot_alpha * matrices_f["biot_stabilization"],
                 ],
             ]
         ).tocsr()
@@ -964,7 +966,7 @@ class BiotStabilization(
                 """BiotStabilization class requires a pre-computed
                              discretization to be stored in the matrix dictionary."""
             )
-        alpha = data[pp.PARAMETERS][self.keyword]['biot_alpha']
+        alpha = data[pp.PARAMETERS][self.keyword]["biot_alpha"]
         return alpha * matrix_dictionary["biot_stabilization"]
 
     def assemble_rhs(self, g, data):
