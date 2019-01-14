@@ -136,8 +136,7 @@ def main():
 
     folder_master = "/home/elle/simul/example1/"
     folder_master_out = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/"
-    methods = ["MVEM", "Mpfa", "Tpfa"]
-    methods = ["Tpfa"]
+    methods = ["MVEM", "Mpfa", "Tpfa", "RT0"]
 
     for method in methods:
         for grid in grids:
