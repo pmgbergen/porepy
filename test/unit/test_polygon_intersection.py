@@ -537,19 +537,18 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             [[0.2, 0.8, 0.8, 0.2], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
         )
 
-        constrained_poly = pp.cg.constrain_polygons_by_polyhedron(
+        constrained_poly, inds = pp.cg.constrain_polygons_by_polyhedron(
             poly, self.cart_polyhedron
         )
         self.assertTrue(len(constrained_poly) == 1)
-        self.assertTrue(len(constrained_poly[0]) == 1)
-        self.assertTrue(np.allclose(constrained_poly[0][0], poly))
+        self.assertTrue(np.allclose(constrained_poly[0], poly))
 
     def test_poly_outside_no_intersections(self):
         poly = np.array(
             [[1.2, 1.8, 1.8, 1.2], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
         )
 
-        constrained_poly = pp.cg.constrain_polygons_by_polyhedron(
+        constrained_poly, inds = pp.cg.constrain_polygons_by_polyhedron(
             poly, self.cart_polyhedron
         )
         self.assertTrue(len(constrained_poly) == 0)
@@ -560,7 +559,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             [[-0.2, 1.8, 1.8, -0.2], [0.5, 0.5, 0.5, 0.5], [-0.2, -0.2, 1.8, 1.8]]
         )
 
-        constrained_poly = pp.cg.constrain_polygons_by_polyhedron(
+        constrained_poly, inds = pp.cg.constrain_polygons_by_polyhedron(
             poly, self.cart_polyhedron
         )
 
@@ -569,9 +568,8 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         )
 
         self.assertTrue(len(constrained_poly) == 1)
-        self.assertTrue(len(constrained_poly[0]) == 1)
         self.assertTrue(
-            test_utils.compare_arrays(constrained_poly[0][0], known_constrained_poly)
+            test_utils.compare_arrays(constrained_poly[0], known_constrained_poly)
         )
 
     def test_poly_intersects_one_side(self):
@@ -580,7 +578,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             [[0.2, 1.8, 1.8, 0.2], [0.5, 0.5, 0.5, 0.5], [-0.2, -0.2, 1.8, 1.8]]
         )
 
-        constrained_poly = pp.cg.constrain_polygons_by_polyhedron(
+        constrained_poly, inds = pp.cg.constrain_polygons_by_polyhedron(
             poly, self.cart_polyhedron
         )
 
@@ -589,9 +587,8 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         )
 
         self.assertTrue(len(constrained_poly) == 1)
-        self.assertTrue(len(constrained_poly[0]) == 1)
         self.assertTrue(
-            test_utils.compare_arrays(constrained_poly[0][0], known_constrained_poly)
+            test_utils.compare_arrays(constrained_poly[0], known_constrained_poly)
         )
 
     def test_two_poly_one_intersects(self):
@@ -602,7 +599,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             [[0.2, 0.8, 0.8, 0.2], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
         )
 
-        constrained_poly = pp.cg.constrain_polygons_by_polyhedron(
+        constrained_poly, inds = pp.cg.constrain_polygons_by_polyhedron(
             [poly_1, poly_2], self.cart_polyhedron
         )
 
@@ -611,12 +608,11 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         )
 
         self.assertTrue(len(constrained_poly) == 2)
-        self.assertTrue(len(constrained_poly[0]) == 1)
         self.assertTrue(
-            test_utils.compare_arrays(constrained_poly[0][0], known_constrained_poly_1)
+            test_utils.compare_arrays(constrained_poly[0], known_constrained_poly_1)
         )
-        self.assertTrue(len(constrained_poly[1]) == 1)
-        self.assertTrue(test_utils.compare_arrays(constrained_poly[1][0], poly_2))
+        self.assertTrue(test_utils.compare_arrays(constrained_poly[1], poly_2))
+        self.assertTrue(np.allclose(inds, np.arange(2)))
 
     def test_one_poly_non_convex_domain(self):
         poly = np.array([[-1, 2, 2, 1], [0.5, 0.5, 0.5, 0.5], [-1, -1, 1, 1]])
@@ -624,15 +620,15 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         known_constrained_poly = np.array(
             [[0, 0.5, 1, 1, 0], [0.5, 0.5, 0.5, 0.5, 0.5], [0, 0.5, 0, 1, 1]]
         )
-        constrained_poly = pp.cg.constrain_polygons_by_polyhedron(
+        constrained_poly, inds = pp.cg.constrain_polygons_by_polyhedron(
             poly, self.non_convex_polyhedron
         )
 
         self.assertTrue(len(constrained_poly) == 1)
-        self.assertTrue(len(constrained_poly[0]) == 1)
         self.assertTrue(
-            test_utils.compare_arrays(constrained_poly[0][0], known_constrained_poly)
+            test_utils.compare_arrays(constrained_poly[0], known_constrained_poly)
         )
+        self.assertTrue(inds[0] == 0)
 
     def test_poly_split_by_non_convex_domain(self):
         poly = np.array([[-1, 2, 2, -1], [0.5, 0.5, 0.5, 0.5], [-1, -1, 0.3, 0.3]])
@@ -644,27 +640,26 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             [[0.7, 1, 1], [0.5, 0.5, 0.5], [0.3, 0.0, 0.3]]
         )
 
-        constrained_poly = pp.cg.constrain_polygons_by_polyhedron(
+        constrained_poly, inds = pp.cg.constrain_polygons_by_polyhedron(
             poly, self.non_convex_polyhedron
         )
 
-        self.assertTrue(len(constrained_poly) == 1)
-        self.assertTrue(len(constrained_poly[0]) == 2)
+        self.assertTrue(len(constrained_poly) == 2)
         self.assertTrue(
-            test_utils.compare_arrays(constrained_poly[0][0], known_constrained_poly_1)
+            test_utils.compare_arrays(constrained_poly[0], known_constrained_poly_1)
             or test_utils.compare_arrays(
-                constrained_poly[0][0], known_constrained_poly_2
+                constrained_poly[0], known_constrained_poly_2
             )
         )
         self.assertTrue(
-            test_utils.compare_arrays(constrained_poly[0][1], known_constrained_poly_1)
+            test_utils.compare_arrays(constrained_poly[1], known_constrained_poly_1)
             or test_utils.compare_arrays(
-                constrained_poly[0][1], known_constrained_poly_2
+                constrained_poly[1], known_constrained_poly_2
             )
         )
-
+        self.assertTrue(np.all(inds == 0))
 
 if __name__ == "__main__":
 
-    # TestPolygonPolyhedronIntersection().test_poly_split_by_non_convex_domain()
+    #TestPolygonPolyhedronIntersection().test_poly_split_by_non_convex_domain()
     unittest.main()
