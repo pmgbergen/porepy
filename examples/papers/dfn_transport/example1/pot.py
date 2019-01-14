@@ -93,7 +93,8 @@ def main():
     master_folder = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/"
 
     methods_stefano = ["OPTxfem"]
-    methods_alessio = ["MVEM", "Mpfa", "Tpfa"]
+    methods_alessio = ["MVEM", "Tpfa", "RT0", "Mpfa"]
+
     grids = {"grid_0": ("1k", "220"), "grid_1": ("3k", "650"), "grid_2": ("10k", "2100")}
 
     for grid_name, grid in grids.items():
