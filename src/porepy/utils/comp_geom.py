@@ -1869,6 +1869,13 @@ def is_inside_polyhedron(polyhedron, test_points, tol=1e-8):
     in the pythonpath with the name 'robust_point_in_polyhedron.py'
     (polyhedron.py seemed too general a name for this).
 
+    NOTE: The file must moreover be modified to be comparible with modern python:
+        Line 231: return (x > 0) - (x < 0)
+    must be replaced by
+        if x > 0: return 1
+        elif x < 0: return -1
+        else: return 0
+
     Suggestions for better solutions to this are most welcome.
 
     Parameters:

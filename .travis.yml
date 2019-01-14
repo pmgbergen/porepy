@@ -39,12 +39,20 @@ before_script:
   - ls
   - tar xvf gmsh-2.11.0-Linux64.tgz
 
+
   # Create porepy config file
   - cd $TRAVIS_BUILD_DIR
   - echo $TRAVIS_BUILD_DIR
   - echo "config = {\"gmsh_path\":\"$TRAVIS_BUILD_DIR/gmsh-2.11.0-Linux/bin/gmsh\"} " > porepy_config.py
   # add $HOME to $PYTHONPATH to make config file accessible
   - export PYTHONPATH=${TRAVIS_BUILD_DIR}:${PYTHONPATH}
+
+  # Download fire for point-in-polyhedron test
+  - wget https://raw.githubusercontent.com/mdickinson/polyhedron/master/polyhedron.py
+  # Rename file
+  - mv polyhedron.py robust_point_in_polyhedron.py
+  # Modify file to comply with modern python
+  - sed -i 's/return (x > 0) - (x < 0)/if x > 0: return 1\n    elif x < 0: return -1\n    else: return 0/g' 
 
 script: 
   - python setup.py test
