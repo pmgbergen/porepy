@@ -403,7 +403,7 @@ def compute_outflow(gb, param):
         #outflow += np.dot(flux, np.abs(g.cell_faces).dot(scalar))
 
         flux[flux != 0] = 1
-        outflow += np.dot(flux, np.abs(g.cell_faces).dot(scalar))
+        outflow += np.dot(flux*g.face_areas, np.abs(g.cell_faces).dot(scalar))
 
     return outflow
 
