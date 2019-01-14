@@ -25,8 +25,8 @@ logger = setup_custom_logger()
 def get_discr():
     return { "MVEM": {"scheme": pp.MVEM, "dof": {"cells": 1, "faces": 1}},
              "RT0":  {"scheme": pp.RT0,  "dof": {"cells": 1, "faces": 1}},
-             "Tpfa": {"scheme": pp.Tpfa, "dof": {"cells": 1}},
-             "Mpfa": {"scheme": pp.Mpfa, "dof": {"cells": 1}} }
+             "Tpfa": {"scheme": pp.Tpfa, "dof": {"cells": 1}}}
+             #"Mpfa": {"scheme": pp.Mpfa, "dof": {"cells": 1}}}
 
 # ------------------------------------------------------------------------------#
 
