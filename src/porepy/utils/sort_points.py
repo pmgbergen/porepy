@@ -32,21 +32,35 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
     num_lines = lines.shape[1]
     sorted_lines = -np.ones(lines.shape, dtype=lines.dtype)
 
-    # Start with the first line in input
-    sorted_lines[:, 0] = lines[:, 0]
+    # Keep track of which lines have been found, which are still candidates
+    found = np.zeros(num_lines, dtype=np.bool)
 
     # In the case of non-circular ordering ensure to start from the correct one
     if not is_circular:
-        check_circular = False
+        # The first segment must contain one of the endpoints, identified by a single
+        # occurence in line
+        values = lines.ravel()
+        count = np.bincount(values)
+        one_occurence = np.where(count == 1)[0]
+        hit = np.where(
+            np.logical_or(
+                np.isin(lines[0], one_occurence), np.isin(lines[1], one_occurence)
+            )
+        )[0][0]
+        sorted_lines[:, 0] = lines[:, hit]
+        # The end of the first segment must also occur somewhere else.
         if np.count_nonzero(lines == sorted_lines[0, 0]) > 1:
             sorted_lines[:2, 0] = np.flip(sorted_lines[:2, 0], 0)
+        found[hit] = True
 
+        # No check for circularity here
+        check_circular = False
+    else:
+        # Start with the first line in input
+        sorted_lines[:, 0] = lines[:, 0]
+        found[0] = True
     # The starting point for the next line
     prev = sorted_lines[1, 0]
-
-    # Keep track of which lines have been found, which are still candidates
-    found = np.zeros(num_lines, dtype=np.bool)
-    found[0] = True
 
     # Order of the origin line list, store if they're flip or not to form the chain
     is_ordered = np.zeros(num_lines, dtype=np.bool)
@@ -103,6 +117,7 @@ def sort_point_plane(pts, centre, normal=None):
     delta = np.array([d / np.linalg.norm(d) for d in delta.T]).T
     return np.argsort(np.arctan2(*delta))
 
+
 def sort_triangle_edges(t):
     """ Sort a set of triangles so that no edges occur twice with the same ordering.
 
@@ -140,7 +155,6 @@ def sort_triangle_edges(t):
         else:
             queue.append(pair_1)
 
-
     nt = t.shape[1]
 
     # Add all edges of the first triangle to the queue
@@ -161,8 +175,13 @@ def sort_triangle_edges(t):
         q = queue.pop(0)
 
         # Find the other occurence of this edge
-        hit = np.logical_and.reduce((np.logical_not(is_ordered), np.any(t == q[0], axis=0),
-                                     np.any(t == q[1], axis=0)))
+        hit = np.logical_and.reduce(
+            (
+                np.logical_not(is_ordered),
+                np.any(t == q[0], axis=0),
+                np.any(t == q[1], axis=0),
+            )
+        )
         ind = np.where(hit > 0)[0]
 
         # Check if the edge occured at all among the non-processed triangles
@@ -170,7 +189,7 @@ def sort_triangle_edges(t):
             continue
         # It should at most occur once among non-processed triangles
         elif ind.size > 1:
-            raise ValueError('Edges should only occur twice')
+            raise ValueError("Edges should only occur twice")
 
         # Find the triangle to be processed
         ti = ind[0]
@@ -209,5 +228,5 @@ def sort_triangle_edges(t):
         # Safeguarding
         num_iter += 1
         if num_iter > max_iter:
-            raise ValueError('Should not come here')
+            raise ValueError("Should not come here")
     return t
