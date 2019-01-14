@@ -1075,6 +1075,10 @@ def remove_edge_crossings2(p, e, tol=1e-4):
         # Utility function to normalize the fracture length
         def normalize(v):
             nrm = np.sqrt(np.sum(v ** 2, axis=0))
+
+            # If the norm of the vector is essentially zero, do not normalize the vector
+            hit = nrm < tol
+            nrm[hit] = 1
             return v / nrm
 
         def dist(a, b):
@@ -3991,7 +3995,9 @@ def constrain_polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                 # There should be exactly two loose ends, if not, this is really
                 # several polygons, and who knows how we ended up there.
                 assert np.sum(count == 1) == 2
-                sorted_pairs = pp.utils.sort_points.sort_point_pairs(el, is_circular=False)
+                sorted_pairs = pp.utils.sort_points.sort_point_pairs(
+                    el, is_circular=False
+                )
                 inds = np.hstack((sorted_pairs[0], sorted_pairs[1, -1]))
             else:
                 sorted_pairs = pp.utils.sort_points.sort_point_pairs(el)
