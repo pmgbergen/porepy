@@ -42,10 +42,21 @@ def main():
                  "10k": 0.875 * np.power(2., -5), # for 10k triangles
                  }
 
-    for mesh_size_key, mesh_size in mesh_sizes.items():
-        mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
+    for mesh_size_key in mesh_sizes.keys():
 
         for discr_key, discr in discretizations.items():
+
+            if discr_key == "MVEM":
+                if mesh_size_key == "1k":
+                    mesh_size =  mesh_sizes[mesh_size_key] / 16
+                elif mesh_size_key == "3k":
+                    mesh_size = mesh_sizes[mesh_size_key] / 1.55
+                elif mesh_size_key == "10k":
+                    mesh_size = mesh_sizes[mesh_size_key] / 1.4
+            else:
+                mesh_size = mesh_sizes[mesh_size_key]
+
+            mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
 
             num_simul = 21
             for simul in np.arange(1, num_simul+1):
@@ -60,6 +71,9 @@ def main():
                 gb.remove_nodes(lambda g: g.dim == 0)
                 gb.compute_geometry()
                 gb.assign_node_ordering()
+
+                if discr_key == "MVEM":
+                    pp.coarsening.coarsen(gb, "by_volume")
 
                 domain = gb.bounding_box(as_dict=True)
 
