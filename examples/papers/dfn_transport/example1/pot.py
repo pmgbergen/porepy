@@ -84,7 +84,7 @@ def save_multiple(filename, num_frac, folder):
 
 def main():
 
-    num_simul = 3
+    num_simul = 21
 
     n_step = 300
     num_frac = 3
@@ -93,7 +93,7 @@ def main():
     master_folder = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/"
 
     methods_stefano = ["OPTxfem"]
-    methods_alessio = ["MVEM", "Tpfa", "RT0", "Mpfa"]
+    methods_alessio = ["MVEM", "Tpfa", "RT0"]
 
     grids = {"grid_0": ("1k", "220"), "grid_1": ("3k", "650"), "grid_2": ("10k", "2100")}
 
