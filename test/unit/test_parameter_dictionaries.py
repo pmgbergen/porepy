@@ -160,7 +160,6 @@ class TestParameterDictionaries(unittest.TestCase):
         p_list = [
             "aperture",
             "porosity",
-            "fluid_compressibility",
             "mass_weight",
             "source",
             "time_step",
@@ -170,12 +169,7 @@ class TestParameterDictionaries(unittest.TestCase):
         ]
         [self.assertIn(parameter, dictionary) for parameter in p_list]
         # Check some of the values:
-        unitary_parameters = [
-            "aperture",
-            "porosity",
-            "fluid_compressibility",
-            "mass_weight",
-        ]
+        unitary_parameters = ["aperture", "porosity", "mass_weight"]
         ones = np.ones(self.g.num_cells)
         for parameter in unitary_parameters:
             self.assertTrue(np.all(np.isclose(dictionary[parameter], ones)))
