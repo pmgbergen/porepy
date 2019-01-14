@@ -3904,6 +3904,8 @@ def constrain_polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
 
     Returns:
         list of np.ndarray: Of polygons lying inside the polyhedra.
+        np.ndarray: For each constrained polygon, corresponding list of its original
+            polygon
 
     """
 
@@ -3911,15 +3913,16 @@ def constrain_polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         polygons = [polygons]
 
     constrained_polygons = []
+    orig_poly_ind = []
 
     # Loop over the polygons. For each, find the intersections with all
     # polygons on the side of the polyhedra.
-    for poly in polygons:
+    for pi, poly in enumerate(polygons):
         # Add this polygon to the list of constraining polygons. Put this first
         all_poly = [poly] + polyhedron
 
         # Find intersections
-        coord, point_ind, is_bound, poly_ind = intersect_polygons_3d(all_poly)
+        coord, point_ind, is_bound, _ = intersect_polygons_3d(all_poly)
 
         # Find indices of the intersection points for this polygon (the first one)
         isect_poly = point_ind[0]
@@ -3935,7 +3938,8 @@ def constrain_polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
 
             if inside.all():
                 # Add the polygon to the constrained ones and continue
-                constrained_polygons.append([poly])
+                constrained_polygons.append(poly)
+                orig_poly_ind.append(pi)
                 continue
             elif np.all(np.logical_not(inside)):
                 # Do not add it.
@@ -3982,8 +3986,6 @@ def constrain_polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         # If not, there will be multiple connected components. Find these, and
         # make a separate polygon for each.
 
-        connected_poly = []
-
         # Loop over connected components
         for component in nx.connected_components(graph):
             # Extract subgraph of this cluster
@@ -4011,11 +4013,10 @@ def constrain_polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                 inds = sorted_pairs[0]
             inds = np.unique(el)
             # And there we are
-            connected_poly.append(unique_coords[:, inds])
+            constrained_polygons.append(unique_coords[:, inds])
+            orig_poly_ind.append(pi)
 
-        constrained_polygons.append(connected_poly)
-
-    return constrained_polygons
+    return constrained_polygons, np.array(orig_poly_ind)
 
 
 def bounding_box(pts, overlap=0):
