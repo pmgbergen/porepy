@@ -421,8 +421,9 @@ def plot_grid_1d(g, cell_value, ax, **kwargs):
         def color_edge(value):
             return "k"
 
+    cells = kwargs.get("cells", np.ones(g.num_cells, dtype=bool))
     for c in np.arange(g.num_cells):
-        if not plot_cells[c]:
+        if not cells[c]:
             continue
         loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c + 1])
         ptsId = nodes[loc]
@@ -465,7 +466,7 @@ def plot_grid_2d(g, cell_value, ax, **kwargs):
 
     cells = kwargs.get("cells", np.ones(g.num_cells, dtype=bool))
     for c in np.arange(g.num_cells):
-        if not plot_cells[c]:
+        if not cells[c]:
             continue
         loc_f = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
         faces_loc = faces[loc_f]
@@ -510,7 +511,7 @@ def plot_grid_3d(g, ax, **kwargs):
 
     cells = kwargs.get("cells", np.ones(g.num_cells, dtype=bool))
     for c in np.arange(g.num_cells):
-        if not plot_cells[c]:
+        if not cells[c]:
             continue
         loc_c = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
         fs = faces_cells[loc_c]
