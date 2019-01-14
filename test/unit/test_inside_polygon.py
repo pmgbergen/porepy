@@ -101,8 +101,8 @@ class TestInsidePolygon(unittest.TestCase):
         self.assertTrue(not inside[0])
         self.assertTrue(inside[1])
 
-class TestPointInPolyhedron(unittest.TestCase):
 
+class TestPointInPolyhedron(unittest.TestCase):
     def setUp(self):
         west = np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1]])
         east = np.array([[1, 1, 1, 1], [0, 1, 1, 0], [0, 0, 1, 1]])
@@ -117,18 +117,27 @@ class TestPointInPolyhedron(unittest.TestCase):
         north_w = np.array([[0, 0.5, 0.5, 0], [1, 1, 1, 1], [0, 0.5, 1, 1]])
         north_e = np.array([[0.5, 1, 1, 0.5], [1, 1, 1, 1], [0.5, 0, 1, 1]])
         bottom_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 1, 1], [0, 0.5, 0.5, 0]])
-        bottom_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 1, 1], [0.5, 0., 0, 0.5]])
+        bottom_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 1, 1], [0.5, 0.0, 0, 0.5]])
         top_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 1, 1], [1, 1, 1, 1]])
         top_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 1, 1], [1, 1, 1, 1]])
-        self.non_convex_polyhedron = [west, east, south_w, south_e, north_w, north_e,
-                                      bottom_w, bottom_e, top_w, top_e]
+        self.non_convex_polyhedron = [
+            west,
+            east,
+            south_w,
+            south_e,
+            north_w,
+            north_e,
+            bottom_w,
+            bottom_e,
+            top_w,
+            top_e,
+        ]
 
     def test_point_inside_box(self):
         p = np.array([0.3, 0.5, 0.5])
         is_inside = cg.is_inside_polyhedron(self.cart_polyhedron, p)
         self.assertTrue(is_inside.size == 1)
         self.assertTrue(is_inside[0] == 1)
-
 
     def test_two_points_inside_box(self):
         p = np.array([[0.3, 0.5, 0.5], [0.5, 0.5, 0.5]]).T
