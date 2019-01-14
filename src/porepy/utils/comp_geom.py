@@ -11,6 +11,8 @@ import logging
 import time
 import numpy as np
 from sympy import geometry as geom
+import networkx as nx
+from scipy.spatial import Delaunay
 
 import shapely.geometry as shapely_geometry
 import shapely.speedups as shapely_speedups
@@ -1073,6 +1075,10 @@ def remove_edge_crossings2(p, e, tol=1e-4):
         # Utility function to normalize the fracture length
         def normalize(v):
             nrm = np.sqrt(np.sum(v ** 2, axis=0))
+
+            # If the norm of the vector is essentially zero, do not normalize the vector
+            hit = nrm < tol
+            nrm[hit] = 1
             return v / nrm
 
         def dist(a, b):
@@ -1420,6 +1426,50 @@ def intersect_polygons_3d(polys, tol=1e-8):
                     main_normal,
                     main_center,
                 )
+            elif np.all(dot_prod_from_main[:-1] == 0):
+                # The two polygons lie in the same plane. The intersection points will
+                # be found on the segments of the polygons
+                isect = np.zeros((3, 0))
+                # Loop over both set of polygon segments, look for intersections
+                for sm in range(polys[main].shape[1]):
+                    # Store the intersection points found for this segment of the main
+                    # polygon. If there are more than one, we know that the intersection
+                    # is on the boundary of that polygon.
+                    tmp_isect = np.zeros((3, 0))
+                    for so in range(polys[o].shape[1]):
+                        loc_isect = segments_intersect_3d(
+                            main_p_expanded[:, sm],
+                            main_p_expanded[:, sm + 1],
+                            other_p_expanded[:, so],
+                            other_p_expanded[:, so + 1],
+                        )
+                        if loc_isect is None:
+                            continue
+                        else:
+                            isect = np.hstack((isect, loc_isect))
+                            tmp_isect = np.hstack((tmp_isect, loc_isect))
+
+                    # Uniquify the intersection points found on this segment of main.
+                    # If more than one, the intersection is on the boundary of main.
+                    tmp_unique_isect, *rest = pp.utils.setmembership.unique_columns_tol(
+                        tmp_isect, tol=tol
+                    )
+                    if tmp_unique_isect.shape[1] > 1:
+                        isect_on_boundary_main = True
+
+                isect, *rest = pp.utils.setmembership.unique_columns_tol(isect, tol=tol)
+
+                if isect.shape[1] == 0:
+                    # The polygons share a plane, but no intersections
+                    continue
+                elif isect.shape[1] == 1:
+                    # Point contact. Not really sure what to do with this, ignore for now
+                    continue
+                elif isect.shape[1] == 2:
+                    other_intersects_main_0 = isect[:, 0]
+                    other_intersects_main_1 = isect[:, 1]
+                else:
+                    raise ValueError("There should be at most two intersections")
 
             else:
                 # Both of the intersection points are vertexes.
@@ -1474,6 +1524,45 @@ def intersect_polygons_3d(polys, tol=1e-8):
                     other_normal,
                     other_center,
                 )
+            elif np.all(dot_prod_from_other[:-1] == 0):
+
+                isect = np.zeros((3, 0))
+                for so in range(polys[o].shape[1]):
+                    tmp_isect = np.zeros((3, 0))
+                    for sm in range(polys[main].shape[1]):
+                        loc_isect = segments_intersect_3d(
+                            main_p_expanded[:, sm],
+                            main_p_expanded[:, sm + 1],
+                            other_p_expanded[:, so],
+                            other_p_expanded[:, so + 1],
+                        )
+                        if loc_isect is None:
+                            continue
+                        else:
+                            isect = np.hstack((isect, loc_isect))
+                            tmp_isect = np.hstack((tmp_isect, loc_isect))
+
+                    tmp_unique_isect, *rest = pp.utils.setmembership.unique_columns_tol(
+                        tmp_isect, tol=tol
+                    )
+
+                    if tmp_unique_isect.shape[1] > 1:
+                        isect_on_boundary_other = True
+
+                isect, *rest = pp.utils.setmembership.unique_columns_tol(isect, tol=tol)
+
+                if isect.shape[1] == 0:
+                    # The polygons share a plane, but no intersections
+                    continue
+                elif isect.shape[1] == 1:
+                    # Point contact. Not really sure what to do with this, continue for now
+                    continue
+                elif isect.shape[1] == 2:
+                    main_intersects_other_0 = isect[:, 0]
+                    main_intersects_other_1 = isect[:, 1]
+                else:
+                    raise ValueError("There should be at most two intersections")
+
             else:
                 # Both of the intersection points are vertexes.
                 # Check that there are only two points - if this assertion fails,
@@ -1601,6 +1690,8 @@ def intersect_polygons_3d(polys, tol=1e-8):
         for i in range(isect_pt.size):
             if len(isect_pt[i]) > 0:
                 isect_pt[i] = np.hstack((v for v in isect_pt[i]))
+            else:
+                isect_pt[i] = np.empty(0)
 
     else:
         new_pt = np.empty((3, 0))
@@ -1760,6 +1851,92 @@ def is_inside_polygon(poly, p, tol=0, default=False):
                 # No need to check the remaining segments of the polygon.
                 break
     return inside
+
+
+def is_inside_polyhedron(polyhedron, test_points, tol=1e-8):
+    """ Test whether a set of point is inside a polyhedron.
+
+    The actual algorithm and implementation used for the test can be found
+    at
+
+        https://github.com/mdickinson/polyhedron/blob/master/polyhedron.py
+
+    By Mark Dickinson. From what we know, the implementation is only available
+    on github (no pypi or similar), and we are also not aware of other
+    implementations of algorithms for point-in-polyhedron problems that allows
+    for non-convex polyhedra. Moreover, the file above has an unclear lisence.
+    Therefore, to use the present function, download the above file and put it
+    in the pythonpath with the name 'robust_point_in_polyhedron.py'
+    (polyhedron.py seemed too general a name for this).
+
+    NOTE: The file must moreover be modified to be comparible with modern python:
+        Line 231: return (x > 0) - (x < 0)
+    must be replaced by
+        if x > 0: return 1
+        elif x < 0: return -1
+        else: return 0
+
+    Suggestions for better solutions to this are most welcome.
+
+    Parameters:
+        polyhedron (list of np.ndarray): Each list element represent a side
+            of the polyhedron. Each side is assumed to be a convex polygon.
+        test_points (np.ndarray, 3 x num_pt): Points to be tested.
+        tol (double, optional): Geometric tolerance, used in comparison of
+            points. Defaults to 1e-8.
+
+    Returns:
+        np.ndarray, size num_pt: Element i is 1 (True) if test_points[:, i] is
+            inside the polygon.
+
+    """
+    # If you get an error message here, read documentation of the method.
+    import robust_point_in_polyhedron
+
+    # The actual test requires that the polyhedra surface is described by
+    # a triangulation. To that end, loop over all polygons and compute
+    # triangulation. This is again done by a projection to 2d
+
+    # Data storage
+    tri = np.zeros((0, 3))
+    points = np.zeros((3, 0))
+
+    num_points = 0
+    for poly in polyhedron:
+        R = project_plane_matrix(poly)
+        p_2d = R.dot(poly)[:2]
+        loc_tri = Delaunay(p_2d.T)
+        simplices = loc_tri.simplices
+
+        # Add the triangulation, with indices adjusted for the number of points
+        # already added
+        tri = np.vstack((tri, num_points + simplices))
+        points = np.hstack((points, poly))
+        num_points += simplices.max() + 1
+
+    # Uniquify points, and update triangulation
+    upoints, _, ib = pp.utils.setmembership.unique_columns_tol(points, tol=tol)
+    ut = ib[tri.astype(np.int)]
+
+    # The in-polyhedra algorithm requires a very particular ordering of the vertexes
+    # in the triangulation. Fix this
+    sorted_t = pp.utils.sort_points.sort_triangle_edges(ut.T).T
+
+    # Generate tester for points
+    test_object = robust_point_in_polyhedron.Polyhedron(sorted_t, upoints.T)
+
+    if test_points.size < 4:
+        test_points = test_points.reshape((-1, 1))
+
+    is_inside = np.zeros(test_points.shape[1], dtype=np.bool)
+
+    # Loop over all points, check if they are inside.
+    for pi in range(test_points.shape[1]):
+        # NOTE: The documentation of the test is a bit unclear, but it seems
+        # a winding number of 0 means outside, non-zero is inside
+        is_inside[pi] = np.abs(test_object.winding_number(test_points[:, pi])) > 0
+
+    return is_inside
 
 
 # -----------------------------------------------------------------------------
@@ -3647,7 +3824,7 @@ def intersect_triangulations(p_1, p_2, t_1, t_2):
 # ------------------------------------------------------------------------------#
 
 
-def intersect_polygon_lines(poly_pts, pts, edges):
+def constrain_lines_by_polygon(poly_pts, pts, edges):
     """
     Compute the intersections between a polygon (also not convex) and a set of lines.
     The computation is done line by line to avoid the splitting of edges caused by other
@@ -3711,6 +3888,134 @@ def intersect_polygon_lines(poly_pts, pts, edges):
 
 
 # ------------------------------------------------------------------------------#
+def constrain_polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
+    """ Constrain a seort of polygons in 3d to lie inside a, generally non-convex, polyhedron.
+
+    Polygons not inside the polyhedron will be removed from descriptions.
+    For non-convex polyhedra, polygons can be split in several parts.
+
+    Parameters:
+        polygons (np.ndarray, or list of arrays): Each element is a 3xnum_vertex
+            array, describing the vertexes of a polygon.
+        polyhedron (list of np.ndarray): Each element is a 3 x num_vertex array,
+            describing the vertexes of the polygons that together form the
+            polygon
+        tol (double, optional): Tolerance used to compare points. Defaults to 1e-8.
+
+    Returns:
+        list of np.ndarray: Of polygons lying inside the polyhedra.
+
+    """
+
+    if isinstance(polygons, np.ndarray):
+        polygons = [polygons]
+
+    constrained_polygons = []
+
+    # Loop over the polygons. For each, find the intersections with all
+    # polygons on the side of the polyhedra.
+    for poly in polygons:
+        # Add this polygon to the list of constraining polygons. Put this first
+        all_poly = [poly] + polyhedron
+
+        # Find intersections
+        coord, point_ind, is_bound, poly_ind = intersect_polygons_3d(all_poly)
+
+        # Find indices of the intersection points for this polygon (the first one)
+        isect_poly = point_ind[0]
+
+        # If there are no intersection points, we just need to test if the
+        # entire polygon is inside the polyhedral
+        if isect_poly.size == 0:
+            # Testing with a single point should suffice, but until the code
+            # for in-polyhedron testing is more mature, we do some safeguarding:
+            # Test for all points in the polygon, they should all be on the
+            # inside or outside.
+            inside = is_inside_polyhedron(polyhedron, poly)
+
+            if inside.all():
+                # Add the polygon to the constrained ones and continue
+                constrained_polygons.append([poly])
+                continue
+            elif np.all(np.logical_not(inside)):
+                # Do not add it.
+                continue
+            else:
+                # This indicates that the inside_polyhedron test is bad
+                assert False
+
+        # At this point we know there are intersections between the polygon and
+        # polyhedra
+
+        # Find index of intersection points
+        main_ind = point_ind[0]
+
+        # Storage for intersection segments between the main polygon and the
+        # polyhedron sides.
+        segments = []
+
+        # Loop over all sides of the polyhedral. Look for intersection points
+        # that are both in main and the other
+        for other in range(1, len(all_poly)):
+            other_ip = point_ind[other]
+
+            common = np.isin(other_ip, main_ind)
+            if common.sum() < 2:
+                # This is at most a point contact, no need to do anything
+                continue
+            # There is a real intersection between the segments. Add it.
+            segments.append(other_ip[common])
+
+        segments = np.array([i for i in segments]).T
+
+        # Uniquify intersection coordinates, and update the segments
+        unique_coords, _, ib = pp.utils.setmembership.unique_columns_tol(coord, tol=tol)
+        unique_segments = ib[segments]
+
+        # Represent the segments as a graph.
+        graph = nx.Graph()
+        for i in range(unique_segments.shape[1]):
+            graph.add_edge(unique_segments[0, i], unique_segments[1, i])
+
+        # If the segments are connected, which will always be the case if the
+        # polyhedron is convex, the graph will have a single connected component.
+        # If not, there will be multiple connected components. Find these, and
+        # make a separate polygon for each.
+
+        connected_poly = []
+
+        # Loop over connected components
+        for component in nx.connected_components(graph):
+            # Extract subgraph of this cluster
+            sg = graph.subgraph(component)
+            # Make a list of edges of this subgraph
+            el = []
+            for e in sg.edges():
+                el.append(e)
+            el = np.array([e for e in el]).T
+
+            # The vertexes of the polygon must be ordered. This is done slightly
+            # differently depending on whether the polygon forms a closed circle
+            # or not
+            count = np.bincount(el.ravel())
+            if np.any(count == 1):
+                # There should be exactly two loose ends, if not, this is really
+                # several polygons, and who knows how we ended up there.
+                assert np.sum(count == 1) == 2
+                sorted_pairs = pp.utils.sort_points.sort_point_pairs(
+                    el, is_circular=False
+                )
+                inds = np.hstack((sorted_pairs[0], sorted_pairs[1, -1]))
+            else:
+                sorted_pairs = pp.utils.sort_points.sort_point_pairs(el)
+                inds = sorted_pairs[0]
+            inds = np.unique(el)
+            # And there we are
+            connected_poly.append(unique_coords[:, inds])
+
+        constrained_polygons.append(connected_poly)
+
+    return constrained_polygons
 
 
 def bounding_box(pts, overlap=0):
