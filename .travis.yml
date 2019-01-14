@@ -48,11 +48,9 @@ before_script:
   - export PYTHONPATH=${TRAVIS_BUILD_DIR}:${PYTHONPATH}
 
   # Download fire for point-in-polyhedron test
-  - wget https://raw.githubusercontent.com/mdickinson/polyhedron/master/polyhedron.py
+  - wget https://raw.githubusercontent.com/keileg/polyhedron/master/polyhedron.py
   # Rename file
   - mv polyhedron.py robust_point_in_polyhedron.py
-  # Modify file to comply with modern python
-  - sed -i 's/return (x > 0) - (x < 0)/if x > 0: return 1\n    elif x < 0: return -1\n    else: return 0/g' 
 
 script: 
   - python setup.py test
