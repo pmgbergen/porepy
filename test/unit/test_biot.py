@@ -242,7 +242,7 @@ class BiotTest(unittest.TestCase):
         }
 
         times = np.arange(5)
-        for t in times:
+        for _ in times:
             # Assemble. Also discretizes the flow terms (fluid_mass and fluid_flux)
             general_assembler = pp.Assembler()
             A, b, block_dof, full_dof = general_assembler.assemble_matrix_rhs(gb)
@@ -272,32 +272,27 @@ class BiotTest(unittest.TestCase):
 
         # Check that the solution has converged to the expected, uniform steady state
         # dictated by the BCs.
-        assert np.all(np.isclose(x_i, np.ones((g.dim + 1) * g.num_cells)))
-
-        return
+        self.assertTrue(np.all(np.isclose(x_i, np.ones((g.dim + 1) * g.num_cells))))
 
 
 class ImplicitMassMatrix(pp.MassMatrix):
     def assemble_rhs(self, g, data):
-        """ Overwrite MassMatrix method to
-        Return the correct rhs for an IE time discretization of the Biot problem.
+        """ Overwrite MassMatrix method to return the correct rhs for an IE time
+        discretization of the Biot problem.
 
         TODO: Implement a more general solution.
         """
-
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         previous_pressure = parameter_dictionary["state"]
-
         return matrix_dictionary["mass"] * previous_pressure
 
 
 class ImplicitMpfa(pp.Mpfa):
     def assemble_matrix_rhs(self, g, data):
-        """ Overwrite MPSA method to
-        1) Be consistent with the Biot dt convention.
+        """ Overwrite MPSA method to be consistent with the Biot dt convention.
 
-        TODO: Implement more general solution?.
+        TODO: Implement more general solution?
         """
         a, b = super().assemble_matrix_rhs(g, data)
         dt = data[pp.PARAMETERS][self.keyword]["time_step"]
