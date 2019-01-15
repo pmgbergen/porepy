@@ -75,10 +75,14 @@ class TestAssembler(unittest.TestCase):
         for g, d in gb:
             d[pp.PRIMARY_VARIABLES] = {variable_name: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.DISCRETIZATION] = {variable_name: {term_g1: MockNodeDiscretization(1)}}
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {term_g1: MockNodeDiscretization(1)}
+                }
                 g1 = g
             else:
-                d[pp.DISCRETIZATION] = {variable_name: {term_g2: MockNodeDiscretization(2)}}
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {term_g2: MockNodeDiscretization(2)}
+                }
                 g2 = g
 
         for e, d in gb.edges():
@@ -107,11 +111,15 @@ class TestAssembler(unittest.TestCase):
         for g, d in gb:
             if g.grid_num == 1:
                 d[pp.PRIMARY_VARIABLES] = {"variable_1": {"cells": 1}}
-                d[pp.DISCRETIZATION] = {"variable_1": {"operator_1": MockNodeDiscretization(1)}}
+                d[pp.DISCRETIZATION] = {
+                    "variable_1": {"operator_1": MockNodeDiscretization(1)}
+                }
                 g1 = g
             else:
                 d[pp.PRIMARY_VARIABLES] = {"variable_2": {"cells": 1}}
-                d[pp.DISCRETIZATION] = {"variable_2": {"operator_2": MockNodeDiscretization(2)}}
+                d[pp.DISCRETIZATION] = {
+                    "variable_2": {"operator_2": MockNodeDiscretization(2)}
+                }
                 g2 = g
 
         for e, d in gb.edges():
@@ -147,7 +155,9 @@ class TestAssembler(unittest.TestCase):
         for g, d in gb:
             d[pp.PRIMARY_VARIABLES] = {variable_name: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.DISCRETIZATION] = {variable_name: {discretization_operator: MockNodeDiscretization(1)}}
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {discretization_operator: MockNodeDiscretization(1)}
+                }
                 g1 = g
             else:
                 g2 = g
@@ -181,10 +191,14 @@ class TestAssembler(unittest.TestCase):
         for g, d in gb:
             d[pp.PRIMARY_VARIABLES] = {variable_name: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.DISCRETIZATION] = {variable_name: {discretization_operator: MockNodeDiscretization(1)}}
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {discretization_operator: MockNodeDiscretization(1)}
+                }
                 g1 = g
             else:
-                d[pp.DISCRETIZATION] = {variable_name: {discretization_operator: MockNodeDiscretization(2)}}
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {discretization_operator: MockNodeDiscretization(2)}
+                }
                 g2 = g
 
         for e, d in gb.edges():
@@ -222,7 +236,9 @@ class TestAssembler(unittest.TestCase):
                 }
                 g1 = g
             else:
-                d[pp.DISCRETIZATION] = {variable_name: {operator_1: MockNodeDiscretization(2)}}
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {operator_1: MockNodeDiscretization(2)}
+                }
                 g2 = g
 
         for e, d in gb.edges():
@@ -256,10 +272,14 @@ class TestAssembler(unittest.TestCase):
         for g, d in gb:
             d[pp.PRIMARY_VARIABLES] = {variable_name: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.DISCRETIZATION] = {variable_name: {operator_1: MockNodeDiscretization(1)}}
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {operator_1: MockNodeDiscretization(1)}
+                }
                 g1 = g
             else:
-                d[pp.DISCRETIZATION] = {variable_name: {operator_1: MockNodeDiscretization(2)}}
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {operator_1: MockNodeDiscretization(2)}
+                }
                 g2 = g
 
         for e, d in gb.edges():
@@ -298,7 +318,10 @@ class TestAssembler(unittest.TestCase):
         variable_name_edge_2 = "variable_edge_2"
         operator_1 = "operator_1"
         for g, d in gb:
-            d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}, variable_name_2: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {
+                variable_name_1: {"cells": 1},
+                variable_name_2: {"cells": 1},
+            }
             if g.grid_num == 1:
                 d[pp.DISCRETIZATION] = {
                     variable_name_1: {operator_1: MockNodeDiscretization(1)},
@@ -313,7 +336,10 @@ class TestAssembler(unittest.TestCase):
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.PRIMARY_VARIABLES] = {variable_name_edge_1: {"cells": 1}, variable_name_edge_2: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {
+                variable_name_edge_1: {"cells": 1},
+                variable_name_edge_2: {"cells": 1},
+            }
             d[pp.DISCRETIZATION] = {
                 variable_name_edge_1: {operator_1: MockNodeDiscretization(5)},
                 variable_name_edge_2: {operator_1: MockNodeDiscretization(6)},
@@ -348,7 +374,10 @@ class TestAssembler(unittest.TestCase):
         variable_name_2 = "variable_2"
         operator = "operator"
         for g, d in gb:
-            d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}, variable_name_2: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {
+                variable_name_1: {"cells": 1},
+                variable_name_2: {"cells": 1},
+            }
             if g.grid_num == 1:
                 d[pp.DISCRETIZATION] = {
                     variable_name_1: {operator: MockNodeDiscretization(1)},
@@ -363,7 +392,10 @@ class TestAssembler(unittest.TestCase):
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}, variable_name_2: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {
+                variable_name_1: {"cells": 1},
+                variable_name_2: {"cells": 1},
+            }
             d[pp.DISCRETIZATION] = {
                 variable_name_1: {operator: MockNodeDiscretization(5)},
                 variable_name_2: {operator: MockNodeDiscretization(6)},
@@ -397,7 +429,10 @@ class TestAssembler(unittest.TestCase):
         variable_name_2 = "var_2"
         operator = "op"
         for g, d in gb:
-            d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}, variable_name_2: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {
+                variable_name_1: {"cells": 1},
+                variable_name_2: {"cells": 1},
+            }
             if g.grid_num == 1:
                 d[pp.DISCRETIZATION] = {
                     variable_name_1: {operator: MockNodeDiscretization(1)},
@@ -412,7 +447,10 @@ class TestAssembler(unittest.TestCase):
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}, variable_name_2: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {
+                variable_name_1: {"cells": 1},
+                variable_name_2: {"cells": 1},
+            }
             d[pp.DISCRETIZATION] = {
                 variable_name_1: {operator: MockNodeDiscretization(5)},
                 variable_name_2: {operator: MockNodeDiscretization(6)},
@@ -445,29 +483,43 @@ class TestAssembler(unittest.TestCase):
         variable_name_2 = "var_2"
         operator = "operator"
         for g, d in gb:
-            d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}, variable_name_2: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {
+                variable_name_1: {"cells": 1},
+                variable_name_2: {"cells": 1},
+            }
             if g.grid_num == 1:
                 d[pp.DISCRETIZATION] = {
                     variable_name_1: {operator: MockNodeDiscretization(1)},
                     variable_name_2: {operator: MockNodeDiscretization(2)},
-                    variable_name_1 + "_" + variable_name_2: {operator: MockNodeDiscretization(5)},
+                    variable_name_1
+                    + "_"
+                    + variable_name_2: {operator: MockNodeDiscretization(5)},
                 }
                 g1 = g
             else:
                 d[pp.DISCRETIZATION] = {
                     variable_name_1: {operator: MockNodeDiscretization(3)},
                     variable_name_2: {operator: MockNodeDiscretization(4)},
-                    variable_name_2 + "_" + variable_name_1: {operator: MockNodeDiscretization(6)},
+                    variable_name_2
+                    + "_"
+                    + variable_name_1: {operator: MockNodeDiscretization(6)},
                 }
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}, variable_name_2: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {
+                variable_name_1: {"cells": 1},
+                variable_name_2: {"cells": 1},
+            }
             d[pp.DISCRETIZATION] = {
                 variable_name_1: {operator: MockNodeDiscretization(7)},
                 variable_name_2: {operator: MockNodeDiscretization(8)},
-                variable_name_1 + "_" + variable_name_2: {operator: MockNodeDiscretization(6)},
-                variable_name_2 + "_" + variable_name_1: {operator: MockNodeDiscretization(1)},
+                variable_name_1
+                + "_"
+                + variable_name_2: {operator: MockNodeDiscretization(6)},
+                variable_name_2
+                + "_"
+                + variable_name_1: {operator: MockNodeDiscretization(1)},
             }
 
         # Assemble the global matrix
@@ -476,7 +528,14 @@ class TestAssembler(unittest.TestCase):
 
         # Define "known" node/variable ordering and the corresponding solution matrix
         grids = [g1, g1, g2, g2, e, e]
-        variables = [variable_name_1, variable_name_2, variable_name_1, variable_name_2, variable_name_1, variable_name_2]
+        variables = [
+            variable_name_1,
+            variable_name_2,
+            variable_name_1,
+            variable_name_2,
+            variable_name_1,
+            variable_name_2,
+        ]
         A_known = np.zeros((6, 6))
         A_known[0, 0] = 1
         A_known[1, 1] = 2
@@ -519,33 +578,49 @@ class TestAssembler(unittest.TestCase):
         operator = "operator"
         operator_edge = "operator_edge"
         for g, d in gb:
-            d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}, variable_name_2: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {
+                variable_name_1: {"cells": 1},
+                variable_name_2: {"cells": 1},
+            }
             if g.grid_num == 1:
                 d[pp.DISCRETIZATION] = {
                     variable_name_1: {operator: MockNodeDiscretization(1)},
                     variable_name_2: {operator: MockNodeDiscretization(2)},
-                    variable_name_1 + "_" + variable_name_2: {operator: MockNodeDiscretization(5)},
+                    variable_name_1
+                    + "_"
+                    + variable_name_2: {operator: MockNodeDiscretization(5)},
                 }
                 g1 = g
             else:
                 d[pp.DISCRETIZATION] = {
                     variable_name_1: {operator: MockNodeDiscretization(3)},
                     variable_name_2: {operator: MockNodeDiscretization(4)},
-                    variable_name_2 + "_" + variable_name_1: {operator: MockNodeDiscretization(6)},
+                    variable_name_2
+                    + "_"
+                    + variable_name_1: {operator: MockNodeDiscretization(6)},
                 }
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}, variable_name_2: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {
+                variable_name_1: {"cells": 1},
+                variable_name_2: {"cells": 1},
+            }
             d[pp.DISCRETIZATION] = {
                 variable_name_1: {operator_edge: MockNodeDiscretization(7)},
                 variable_name_2: {operator_edge: MockNodeDiscretization(8)},
-                variable_name_1 + "_" + variable_name_2: {operator_edge: MockNodeDiscretization(6)},
-                variable_name_2 + "_" + variable_name_1: {operator_edge: MockNodeDiscretization(1)},
+                variable_name_1
+                + "_"
+                + variable_name_2: {operator_edge: MockNodeDiscretization(6)},
+                variable_name_2
+                + "_"
+                + variable_name_1: {operator_edge: MockNodeDiscretization(1)},
             }
 
         general_assembler = pp.Assembler()
-        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(gb, variables=variable_name_1)
+        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(
+            gb, variables=variable_name_1
+        )
 
         A_known = np.zeros((3, 3))
 
@@ -568,10 +643,13 @@ class TestAssembler(unittest.TestCase):
         variable_name_1 = "var_1"
         variable_name_2 = "var_2"
         operator_1 = "operator_1"
-        operator_2 = 'operator_2'
+        operator_2 = "operator_2"
         operator_edge = "operator_edge"
         for g, d in gb:
-            d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}, variable_name_2: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {
+                variable_name_1: {"cells": 1},
+                variable_name_2: {"cells": 1},
+            }
             if g.grid_num == 1:
                 d[pp.DISCRETIZATION] = {
                     variable_name_1: {operator_1: MockNodeDiscretization(1)},
@@ -586,8 +664,13 @@ class TestAssembler(unittest.TestCase):
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}, variable_name_2: {"cells": 1}}
-            d[pp.DISCRETIZATION] = {variable_name_2: {operator_edge: MockNodeDiscretization(8)}}
+            d[pp.PRIMARY_VARIABLES] = {
+                variable_name_1: {"cells": 1},
+                variable_name_2: {"cells": 1},
+            }
+            d[pp.DISCRETIZATION] = {
+                variable_name_2: {operator_edge: MockNodeDiscretization(8)}
+            }
             d[pp.COUPLING_DISCRETIZATION] = {
                 "coupling_discretization": {
                     g1: (variable_name_1, operator_1),
@@ -602,7 +685,14 @@ class TestAssembler(unittest.TestCase):
 
         # Define "known" node/variable ordering and the corresponding solution matrix
         grids = [g1, g1, g2, g2, e, e]
-        variables = [variable_name_1, variable_name_2, variable_name_1, variable_name_2, variable_name_1, variable_name_2]
+        variables = [
+            variable_name_1,
+            variable_name_2,
+            variable_name_1,
+            variable_name_2,
+            variable_name_1,
+            variable_name_2,
+        ]
         A_known = np.zeros((6, 6))
         A_known[0, 0] = 1
         A_known[1, 1] = 2
