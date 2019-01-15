@@ -4,7 +4,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class P1MassMatrix():
+class P1MassMatrix:
 
     # ------------------------------------------------------------------------------#
 

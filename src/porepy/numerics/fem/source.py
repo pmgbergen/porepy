@@ -7,7 +7,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class P1Source():
+class P1Source:
     """
     Discretization of the integrated source term
     int q * dx
