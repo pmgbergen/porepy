@@ -8,7 +8,7 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-class P1():
+class P1:
 
     # ------------------------------------------------------------------------------#
 
