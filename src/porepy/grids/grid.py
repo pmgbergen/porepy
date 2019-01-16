@@ -180,6 +180,8 @@ class Grid(object):
             s = "Structured tetrahedral grid.\n"
         elif "TetrahedralGrid" in self.name:
             s = "Tetrahedral grid.\n"
+        else:
+            s = " ".join(self.name) + "\n"
         s = s + "Number of cells " + str(self.num_cells) + "\n"
         s = s + "Number of faces " + str(self.num_faces) + "\n"
         s = s + "Number of nodes " + str(self.num_nodes) + "\n"
