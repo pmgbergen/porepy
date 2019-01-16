@@ -56,11 +56,7 @@ class RobinCouplingMultiLayer(object):
 
         # Normal permeability and aperture of the intersection
         inv_k = 1.0 / (2.0 * parameter_dictionary_edge["normal_diffusivity"])
-        aperture_h = parameter_dictionary_h["aperture"]
-
-        proj = mg.master_to_mortar_avg()
-
-        Eta = sps.diags(np.divide(inv_k, proj * aperture_h))
+        Eta = sps.diags(inv_k)
 
         matrix_dictionary_edge["Robin_discr"] = -inv_M * Eta
 
@@ -88,11 +84,6 @@ class RobinCouplingMultiLayer(object):
         if not "Robin_discr" in matrix_dictionary_edge:
             self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
-        grid_swap = g_master.dim < g_slave.dim
-        if grid_swap:
-            g_master, g_slave = g_slave, g_master
-            data_master, data_slave = data_slave, data_master
-
         master_ind = 0
         slave_ind = 1
 
@@ -109,7 +100,7 @@ class RobinCouplingMultiLayer(object):
             in RobinCoupling must match the number of dofs given by the matrix
             """
             )
-        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
+        elif not dof_slave == matrix[slave_ind, slave_ind].shape[1]:
             raise ValueError(
                 """The number of dofs of the slave discretization given
             in RobinCoupling must match the number of dofs given by the matrix
@@ -123,7 +114,6 @@ class RobinCouplingMultiLayer(object):
             )
         # We know the number of dofs from the master and slave side from their
         # discretizations
-        #        dof = np.array([dof_master, dof_slave, mg.num_cells])
         dof = np.array(
             [
                 matrix[master_ind, master_ind].shape[1],
@@ -146,18 +136,18 @@ class RobinCouplingMultiLayer(object):
         # and mortar variables in the third
         cc[2, 2] = matrix_dictionary_edge["Robin_discr"]
 
-        self.discr_master.assemble_int_bound_pressure_trace(
-            g_master, data_master, data_edge, grid_swap, cc, matrix, master_ind
+        self.discr_master.assemble_int_bound_pressure_cell(
+            g_master, data_master, data_edge, True, cc, matrix, master_ind, coefficient = 1.
         )
-        self.discr_master.assemble_int_bound_flux(
-            g_master, data_master, data_edge, grid_swap, cc, matrix, master_ind
+        self.discr_master.assemble_int_bound_source(
+            g_master, data_master, data_edge, True, cc, matrix, master_ind, coefficient = -1.
         )
 
         self.discr_slave.assemble_int_bound_pressure_cell(
-            g_slave, data_slave, data_edge, grid_swap, cc, matrix, slave_ind
+            g_slave, data_slave, data_edge, False, cc, matrix, slave_ind
         )
         self.discr_slave.assemble_int_bound_source(
-            g_slave, data_slave, data_edge, grid_swap, cc, matrix, slave_ind
+            g_slave, data_slave, data_edge, False, cc, matrix, slave_ind
         )
 
         matrix += cc
