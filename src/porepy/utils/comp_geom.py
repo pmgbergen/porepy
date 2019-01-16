@@ -1304,10 +1304,14 @@ def intersect_polygons_3d(polys, tol=1e-8):
     isect_pt = np.empty(num_polys, dtype=np.object)
     # Storage for whehter an intersection is on the boundary of a polygon
     is_bound_isect = np.empty_like(isect_pt)
+    # Storage for which segment or vertex of a polygon is intersected
+    segment_vertex_intersection = np.empty_like(isect_pt)
+
     # Initialization
     for i in range(isect_pt.size):
         isect_pt[i] = []
         is_bound_isect[i] = []
+        segment_vertex_intersection[i] = []
 
     # Array for storing the newly found points
     new_pt = []
@@ -1316,6 +1320,7 @@ def intersect_polygons_3d(polys, tol=1e-8):
     # Index of the main fractures, to which the other ones will be compared.
     start_inds = np.unique(pairs[0])
 
+    # Store index of pairs of intersecting polygons
     polygon_pairs = []
 
     # Loop over all fracture pairs (taking more than one simultaneously if an index
@@ -1395,6 +1400,7 @@ def intersect_polygons_3d(polys, tol=1e-8):
             isect_on_boundary_main = False
             isect_on_boundary_other = False
 
+            # First, analyze the intersection between the plane of main and the other polygon
             if np.all(dot_prod_from_main != 0):
                 # In the case where one polygon does not have a vertex in the plane of
                 # the other polygon, there should be exactly two segments crossing the plane.
@@ -1413,6 +1419,9 @@ def intersect_polygons_3d(polys, tol=1e-8):
                     main_normal,
                     main_center,
                 )
+                # First indices, next is whether this refers to segment. False means vertex.
+                isect_other = (sign_change_main, (True, True))
+
             elif np.sum(dot_prod_from_main[:-1] == 0) == 1:
                 # The first and last element represent the same point, thus include
                 # only one of them when counting the number of points in the plane
@@ -1426,6 +1435,8 @@ def intersect_polygons_3d(polys, tol=1e-8):
                     main_normal,
                     main_center,
                 )
+                isect_other = ([hit[0], sign_change_full[0]], (False, True))
+
             elif np.all(dot_prod_from_main[:-1] == 0):
                 # The two polygons lie in the same plane. The intersection points will
                 # be found on the segments of the polygons
@@ -1471,6 +1482,8 @@ def intersect_polygons_3d(polys, tol=1e-8):
                 else:
                     raise ValueError("There should be at most two intersections")
 
+                isect_other = 'Not implemented for this configuration'
+
             else:
                 # Both of the intersection points are vertexes.
                 # Check that there are only two points - if this assertion fails,
@@ -1483,6 +1496,9 @@ def intersect_polygons_3d(polys, tol=1e-8):
                 # Pick the last of the intersection points. This is valid also for
                 # multiple (>2) intersection points, but we keep the assertion for now.
                 other_intersects_main_1 = other_p_expanded[:, hit[1]]
+
+                isect_other = (hit, (False, False))
+
                 # The other polygon has an edge laying in the plane of the main polygon.
                 # This will be registered as a boundary intersection, but only if
                 # the polygons (not only plane) intersect.
@@ -1493,6 +1509,7 @@ def intersect_polygons_3d(polys, tol=1e-8):
                 ):
                     isect_on_boundary_other = True
 
+            # Next, analyze intersection between main polygon and the plane of the other
             if np.all(dot_prod_from_other != 0):
                 # In the case where one polygon does not have a vertex in the plane of
                 # the other polygon, there should be exactly two segments crossing the plane.
@@ -1511,6 +1528,8 @@ def intersect_polygons_3d(polys, tol=1e-8):
                     other_normal,
                     other_center,
                 )
+                isect_main = (sign_change_other, (True, True))
+
             elif np.sum(dot_prod_from_other[:-1] == 0) == 1:
                 # The first and last element represent the same point, thus include
                 # only one of them when counting the number of points in the plane
@@ -1524,6 +1543,8 @@ def intersect_polygons_3d(polys, tol=1e-8):
                     other_normal,
                     other_center,
                 )
+                isect_main = ([hit[0], sign_change_full[0]], (False, True))
+
             elif np.all(dot_prod_from_other[:-1] == 0):
 
                 isect = np.zeros((3, 0))
@@ -1551,6 +1572,8 @@ def intersect_polygons_3d(polys, tol=1e-8):
 
                 isect, *rest = pp.utils.setmembership.unique_columns_tol(isect, tol=tol)
 
+                isect_main = 'Not implemented for this configuration'
+
                 if isect.shape[1] == 0:
                     # The polygons share a plane, but no intersections
                     continue
@@ -1577,6 +1600,9 @@ def intersect_polygons_3d(polys, tol=1e-8):
                 # Pick the last of the intersection points. This is valid also for
                 # multiple (>2) intersection points, but we keep the assertion for now.
                 main_intersects_other_1 = main_p_expanded[:, hit[-1]]
+
+                isect_main = (hit, (False, False))
+
                 # The main polygon has an edge laying in the plane of the other polygon.
                 # If the two intersection points form a segment
                 # This will be registered as a boundary intersection, but only if
@@ -1685,6 +1711,9 @@ def intersect_polygons_3d(polys, tol=1e-8):
             is_bound_isect[o].append(isect_on_boundary_other)
             polygon_pairs.append((main, o))
 
+            segment_vertex_intersection[main].append(isect_main)
+            segment_vertex_intersection[o].append(isect_other)
+
     if len(new_pt) > 0:
         new_pt = np.hstack((v for v in new_pt))
         for i in range(isect_pt.size):
@@ -1698,7 +1727,7 @@ def intersect_polygons_3d(polys, tol=1e-8):
         for i in range(isect_pt.size):
             isect_pt[i] = np.empty(0)
 
-    return new_pt, isect_pt, is_bound_isect, polygon_pairs
+    return new_pt, isect_pt, is_bound_isect, polygon_pairs, segment_vertex_intersection
 
 
 # ----------------------------------------------------------
