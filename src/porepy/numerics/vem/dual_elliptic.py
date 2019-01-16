@@ -289,7 +289,7 @@ class DualElliptic(
         return hat_E_int
 
     def assemble_int_bound_flux(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind, coefficient = 1.
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
@@ -318,6 +318,8 @@ class DualElliptic(
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
+            coefficient (float): scalar coefficient to multiply the resulting matrix before
+                the summing into cc. In this case is 1, related to the standard Robin interface law.
 
         """
 
@@ -325,10 +327,10 @@ class DualElliptic(
         mg = data_edge["mortar_grid"]
 
         hat_E_int = self._velocity_dof(g, mg, grid_swap)
-        cc[self_ind, 2] += matrix[self_ind, self_ind] * hat_E_int
+        cc[self_ind, 2] += coefficient * matrix[self_ind, self_ind] * hat_E_int
 
     def assemble_int_bound_source(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind, coefficient = 1.
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
@@ -357,6 +359,8 @@ class DualElliptic(
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
+            coefficient (float): scalar coefficient to multiply the resulting matrix before
+                the summing into cc. In this case is 1, related to the standard Robin interface law.
 
         """
         mg = data_edge["mortar_grid"]
@@ -368,10 +372,10 @@ class DualElliptic(
 
         A = proj.T
         shape = (g.num_faces, A.shape[1])
-        cc[self_ind, 2] += sps.bmat([[sps.csr_matrix(shape)], [A]])
+        cc[self_ind, 2] += coefficient * sps.bmat([[sps.csr_matrix(shape)], [A]])
 
     def assemble_int_bound_pressure_trace(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind, coefficient = -1.
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -400,16 +404,19 @@ class DualElliptic(
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
+            coefficient (float): scalar coefficient to multiply the resulting matrix before
+                the summing into cc. In this case is -1, related to the standard Robin interface law.
+
         """
         mg = data_edge["mortar_grid"]
 
         hat_E_int = self._velocity_dof(g, mg, grid_swap)
 
-        cc[2, self_ind] -= hat_E_int.T * matrix[self_ind, self_ind]
-        cc[2, 2] -= hat_E_int.T * matrix[self_ind, self_ind] * hat_E_int
+        cc[2, self_ind] += coefficient * hat_E_int.T * matrix[self_ind, self_ind]
+        cc[2, 2] += coefficient * hat_E_int.T * matrix[self_ind, self_ind] * hat_E_int
 
     def assemble_int_bound_pressure_cell(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind, coefficient = -1.
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
@@ -438,6 +445,8 @@ class DualElliptic(
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
+            coefficient (float): scalar coefficient to multiply the resulting matrix before
+                the summing into cc. In this case is -1, related to the standard Robin interface law.
 
         """
         mg = data_edge["mortar_grid"]
@@ -451,7 +460,7 @@ class DualElliptic(
         A = proj.T
         shape = (g.num_faces, A.shape[1])
 
-        cc[2, self_ind] -= sps.bmat([[sps.csr_matrix(shape)], [A]]).T
+        cc[2, self_ind] += coefficient * sps.bmat([[sps.csr_matrix(shape)], [A]]).T
 
     def enforce_neumann_int_bound(self, g, data_edge, matrix, swap_grid, self_ind):
         """ Enforce Neumann boundary conditions on a given system matrix.
