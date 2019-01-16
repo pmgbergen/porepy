@@ -3,6 +3,8 @@ import scipy.sparse as sps
 import numpy as np
 import porepy as pp
 
+from examples.papers.multilayer.multilayer_interface_law import RobinCouplingMultiLayer
+
 def setup_custom_logger():
     formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
                                   datefmt='%Y-%m-%d %H:%M:%S')
@@ -41,16 +43,25 @@ def data_flow(gb, model, data, bc_flag):
         if g.dim == 2:
             kxx = data["k"] * unity
             perm = pp.SecondOrderTensor(2, kxx=kxx, kyy=kxx, kzz=1)
-        elif g.dim == 1:
-            kxx = data["kf"] * unity
+            aperture = unity
+
+        elif "fault" in g.name:
+            data_fault = data["fault"]
+            kxx = data_fault["kf_t"] * unity
             perm = pp.SecondOrderTensor(1, kxx=kxx, kyy=1, kzz=1)
+            aperture = data_fault["aperture"] * unity
+
+        elif "layer" in g.name:
+            data_layer = data["layer"]
+            kxx = data_layer["kf_t"] * unity
+            perm = pp.SecondOrderTensor(1, kxx=kxx, kyy=1, kzz=1)
+            aperture = data_layer["aperture"] * unity
+
         else:
             raise ValueError
 
         param["second_order_tensor"] = perm
-
-        # assign aperture
-        param["aperture"] = data["aperture"] * unity
+        param["aperture"] = aperture
 
         # source
         param["source"] = zeros
@@ -62,13 +73,12 @@ def data_flow(gb, model, data, bc_flag):
             in_flow, out_flow = bc_flag(g, data["domain"], tol)
 
             labels = np.array(["neu"] * b_faces.size)
-            #labels[in_flow + out_flow] = "dir"
-            labels[:] = "dir"
+            labels[in_flow + out_flow] = "dir"
             param["bc"] = pp.BoundaryCondition(g, b_faces, labels)
 
             bc_val = np.zeros(g.num_faces)
-            #bc_val[b_faces[in_flow]] = data.get("bc_flow", 1)
-            bc_val[b_faces] = data["bc"]
+            bc_val[b_faces[in_flow]] = data["bc_inflow"]
+            bc_val[b_faces[out_flow]] = data["bc_outflow"]
         else:
             param["bc"] = pp.BoundaryCondition(g, empty, empty)
 
@@ -79,12 +89,18 @@ def data_flow(gb, model, data, bc_flag):
 
     for e, d in gb.edges():
         g_l = gb.nodes_of_edge(e)[0]
+
+        if "layer" in g_l.name:
+            data_interface = data["layer"]
+        else:
+            data_interface = data["fault"]
+
         mg = d["mortar_grid"]
         check_P = mg.slave_to_mortar_avg()
 
         aperture = gb.node_props(g_l, pp.PARAMETERS)[model_data]["aperture"]
         gamma = check_P * np.power(aperture, 1/(2.-g.dim))
-        kn = data["kf"] * np.ones(mg.num_cells) / gamma
+        kn = data_interface["kf_n"] * np.ones(mg.num_cells) / gamma
 
         param = {"normal_diffusivity": kn}
 
@@ -119,6 +135,7 @@ def flow(gb, param, bc_flag):
 
     discr = pp.RT0(model_data)
     coupling = pp.RobinCoupling(model_data, discr)
+    coupling_multilayer = RobinCouplingMultiLayer(model_data, discr)
 
     # define the dof and discretization for the grids
     for g, d in gb:
@@ -140,7 +157,13 @@ def flow(gb, param, bc_flag):
             }
         elif g_master.dim == 1:
             # the multilayer coupling condition
-            pass
+            d[pp.COUPLING_DISCRETIZATION] = {
+                flux: {
+                    g_slave:  (variable, flux_id),
+                    g_master: (variable, flux_id),
+                    e: (mortar, coupling_multilayer)
+                }
+            }
 
 
     # solution of the darcy problem
