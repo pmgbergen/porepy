@@ -118,8 +118,8 @@ def main():
     # the flow problem
     param = {"domain": gb_ml.bounding_box(as_dict=True), "tol": tol,
              "k": 1, "bc_inflow": 0, "bc_outflow": 1,
-             "fault": {"aperture": 1e-3, "kf_t": 1, "kf_n": 1e-2},
              "layer": {"aperture": 1e-3, "kf_t": 1, "kf_n": 1e2},
+             "fault": {"aperture": 1e-3, "kf_t": 1, "kf_n": 1e-2},
              "folder": "solution"}
     compute.flow(gb_ml, param, bc_flag)
 
