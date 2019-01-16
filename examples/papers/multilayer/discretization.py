@@ -148,14 +148,6 @@ def flow(gb, param, bc_flag):
 
     logger.info("Assemble the flow problem")
     A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
-
-    print(A.shape)
-    np.set_printoptions(linewidth=2000, precision=2)
-    import matplotlib.pylab as plt
-    plt.spy(A)
-    plt.show()
-    print(A[40:, 40:].todense())
-    sss
     logger.info("done")
 
     logger.info("Solve the linear system")
