@@ -1652,7 +1652,7 @@ def intersect_polygons_3d(polys, tol=1e-8):
             # second intersection point of the other one
             e_4 = np.sum((-main_0_other_1) * (-main_1_other_1))
             import pdb
-        #    pdb.set_trace()
+          #  pdb.set_trace()
             # This is in essence an implementation of the flow chart in Figure 9 in Dong et al,
             # However the inequality signs are changed a bit to make the logic clearer
             if e_1 > 0 and e_2 > 0 and e_3 > 0 and e_4 > 0:
@@ -4068,7 +4068,7 @@ def constrain_polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         all_poly = [poly] + polyhedron
 
         # Find intersections
-        coord, point_ind, is_bound, _ = intersect_polygons_3d(all_poly)
+        coord, point_ind, is_bound, pairs, seg_vert = intersect_polygons_3d(all_poly)
 
         # Find indices of the intersection points for this polygon (the first one)
         isect_poly = point_ind[0]
@@ -4117,9 +4117,68 @@ def constrain_polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
             segments.append(other_ip[common])
 
         segments = np.array([i for i in segments]).T
+        import pdb
+  #      pdb.set_trace()
+
+        num_coord = coord.shape[1]
+        coord_extended = np.hstack((coord, poly))
+
+        num_vert = poly.shape[1]
+        ind = np.arange(num_vert)
+        next_ind = 1 + ind
+        next_ind[-1] = 0
+        prev_ind = np.arange(num_vert) -1
+        prev_ind[0] = num_vert - 1
+
+        # Find segments that are completely inside the polygon
+        points_inside_polyhedron = is_inside_polyhedron(polyhedron, poly)
+        # segment_inside[0] tells whehter the point[:, -1] - point[:, 0] is fully inside
+        # the remaining elements are point[:, 0] - point[:, 1] etc.
+        segments_inside = np.logical_and(points_inside_polyhedron,
+                                         points_inside_polyhedron[next_ind])
+        segments_inside = np.vstack((ind[segments_inside], next_ind[segments_inside]))
+        segments_inside += num_coord
+
+        # Find segments composed of one interior point, and one of the intersection points
+        # Only consider segment-vertex information for the first polygon
+        seg_vert = seg_vert[0]
+        segments_bound = []
+
+
+
+        # Loop over all intersection information for this
+        for isect_ind, isect in enumerate(seg_vert):
+            if len(isect) == 0:
+                continue
+            index, is_edge = isect
+            import pdb
+            #pdb.set_trace()
+            if is_edge:
+                # The index here must refer to the intersection point, as defined
+                # in coord, while the index of the interior point should
+                # point  to the extended coord
+                if points_inside_polyhedron[index]:
+                    segments_bound.append([isect_ind, num_coord + index])
+                if points_inside_polyhedron[next_ind[index]]:
+                    segments_bound.append([isect_ind, num_coord + next_ind[index]])
+
+            else:  # vertex
+                if points_inside_polyhedron[prev_ind[index]]:
+                    segments_bound.append([isect_ind, num_coord + prev_ind[index]])
+                if points_inside_polyhedron[next_ind[index]]:
+                    segments_bound.append([isect_ind, num_coord + next_ind[index]])
+
+
+        if len(segments_bound) > 0:
+            segments_bound = np.array([i for i in segments_bound]).T
+        else:
+            segments_bound = np.zeros((2, 0), dtype=np.int)
+        segments = np.hstack((segments, segments_inside, segments_bound))
+        segments, *rest = pp.utils.setmembership.unique_columns_tol(segments)
+
 
         # Uniquify intersection coordinates, and update the segments
-        unique_coords, _, ib = pp.utils.setmembership.unique_columns_tol(coord, tol=tol)
+        unique_coords, _, ib = pp.utils.setmembership.unique_columns_tol(coord_extended, tol=tol)
         unique_segments = ib[segments]
 
         # Represent the segments as a graph.
@@ -4157,7 +4216,7 @@ def constrain_polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
             else:
                 sorted_pairs = pp.utils.sort_points.sort_point_pairs(el)
                 inds = sorted_pairs[0]
-            inds = np.unique(el)
+
             # And there we are
             constrained_polygons.append(unique_coords[:, inds])
             orig_poly_ind.append(pi)
