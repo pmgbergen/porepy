@@ -1202,8 +1202,7 @@ class FractureNetwork3d(object):
         # information on whether the fracture is on the boundary, and pairs of fractures
         # that intersect.
         isect, point_ind, bound_info, frac_pairs, _ = pp.cg.intersect_polygons_3d(polys)
-        import pdb
-       # pdb.set_trace()
+
         # Loop over all pairs of intersection pairs, add the intersections to the
         # internal list.
         for pair in frac_pairs:
@@ -1232,6 +1231,7 @@ class FractureNetwork3d(object):
             # must be divided by two.
             on_bound_0 = bound_info[ind_0][np.floor(i0[0] / 2).astype(np.int)]
             on_bound_1 = bound_info[ind_1][np.floor(i1[0] / 2).astype(np.int)]
+
             # Add the intersection to the internal list
             self.intersections.append(
                 Intersection(
@@ -1309,8 +1309,6 @@ class FractureNetwork3d(object):
         The method will add an atribute decomposition to self.
 
         """
-        import pdb
-       # pdb.set_trace()
 
         logger.info("Split intersections")
         start_time = time.time()
@@ -1870,6 +1868,10 @@ class FractureNetwork3d(object):
         s = "Fracture set with " + str(len(self._fractures)) + " fractures"
         return s
 
+    def _reindex_fractures(self):
+        for fi, f in enumerate(self._fractures):
+            f.index = fi
+
     def bounding_box(self):
         """ Obtain bounding box for fracture network.
 
@@ -1999,7 +2001,7 @@ class FractureNetwork3d(object):
         for fi in split_frac:
             hit = np.where(inds == fi)[0]
             for sub_i in hit:
-                self._fractures.append(constrained_polys[sub_i])
+                self.add(Fracture(constrained_polys[sub_i]))
 
         # Delete fractures that have all points outside the bounding box
         # There may be some uncovered cases here, with a fracture barely
@@ -2019,7 +2021,7 @@ class FractureNetwork3d(object):
                 boundary_tags.append(True)
         self.tags["boundary"] = boundary_tags
 
-
+        self._reindex_fractures()
 
 
     def _make_bounding_planes_from_box(self, box, keep_box=True):

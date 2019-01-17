@@ -427,7 +427,49 @@ class TestDFNMeshGeneration(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
         network.mesh(mesh_args, dfn=True)
 
+class TestDFMNonConvexDomain(unittest.TestCase):
+
+    def setUp(self):
+        west = np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1]])
+        east = np.array([[1, 1, 1, 1], [0, 1, 1, 0], [0, 0, 1, 1]])
+        south = np.array([[0, 1, 1, 0], [0, 0, 0, 0], [0, 0, 1, 1]])
+        north = np.array([[0, 1, 1, 0], [1, 1, 1, 1], [0, 0, 1, 1]])
+        bottom = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+        top = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [1, 1, 1, 1]])
+        self.cart_polyhedron = [west, east, south, north, bottom, top]
+
+        south_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 0, 0], [0, 0.5, 1, 1]])
+        south_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 0, 0], [0.5, 0, 1, 1]])
+        north_w = np.array([[0, 0.5, 0.5, 0], [1, 1, 1, 1], [0, 0.5, 1, 1]])
+        north_e = np.array([[0.5, 1, 1, 0.5], [1, 1, 1, 1], [0.5, 0, 1, 1]])
+        bottom_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 1, 1], [0, 0.5, 0.5, 0]])
+        bottom_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 1, 1], [0.5, 0.0, 0, 0.5]])
+        top_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 1, 1], [1, 1, 1, 1]])
+        top_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 1, 1], [1, 1, 1, 1]])
+        self.non_convex_polyhedron = [
+            west,
+            east,
+            south_w,
+            south_e,
+            north_w,
+            north_e,
+            bottom_w,
+            bottom_e,
+            top_w,
+            top_e
+        ]
+
+    def test_fracture_split_by_domain(self):
+        self.setUp()
+        f_1 = pp.Fracture(np.array([[-1, 2, 2, -1], [0.5, 0.5, 0.5, 0.5], [-1, -1, 0.3, 0.3]]))
+
+        network = pp.FractureNetwork3d(f_1, domain=self.non_convex_polyhedron)
+        mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
+        network.mesh(mesh_args)
+
+
+
 
 if __name__ == "__main__":
-    TestDFMMeshGeneration().test_no_fracture()
+    TestDFMNonConvexDomain().test_fracture_split_by_domain()
     unittest.main()
