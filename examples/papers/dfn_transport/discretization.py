@@ -154,13 +154,26 @@ def flow(gb, discr, param, bc_flag):
 
     logger.info("Variable post-process")
     assembler.distribute_variable(gb, x, block_dof, full_dof)
+
+    # extract the pressure from the solution
     for g, d in gb:
         if g.dim == 2:
             d[pressure] = discr_scheme.extract_pressure(g, d[variable], d)
-            d[flux] = discr_scheme.extract_flux(g, d[variable], d)
         else:
             d[pressure] = np.zeros(g.num_cells)
-            d[flux] = np.zeros(g.num_faces)
+
+    # extract the flux from the solution
+    if discr["scheme"] is pp.MVEM or discr["scheme"] is pp.RT0:
+        for g, d in gb:
+            if g.dim == 2:
+                d[flux] = discr_scheme.extract_flux(g, d[variable], d)
+            else:
+                d[flux] = np.zeros(g.num_faces)
+    else:
+        pp.fvutils.compute_darcy_flux(gb, model_data, flux, pressure, mortar)
+        for g, d in gb:
+            if g.dim == 1:
+                d[flux] = np.zeros(g.num_faces)
 
     # export the P0 flux reconstruction only for some scheme
     if discr["scheme"] is pp.MVEM or discr["scheme"] is pp.RT0:
@@ -291,6 +304,7 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
         g_slave, g_master = gb.nodes_of_edge(e)
         d[pp.PRIMARY_VARIABLES] = {mortar_adv: {"cells": 1},
                                    mortar_diff: {"cells": 1}}
+
         d[pp.COUPLING_DISCRETIZATION] = {
                 adv_id: {
                     g_slave: (variable, adv_id),
