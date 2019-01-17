@@ -1660,11 +1660,16 @@ def intersect_polygons_3d(polys, tol=1e-8):
             # e_4 is positive if both points of the main fracture lie on the same side of the
             # second intersection point of the other one
             e_4 = mod_sign(np.sum((-main_0_other_1) * (-main_1_other_1)))
+
             # This is in essence an implementation of the flow chart in Figure 9 in Dong et al,
             # However the inequality signs are changed a bit to make the logic clearer
             if e_1 > 0 and e_2 > 0 and e_3 > 0 and e_4 > 0:
                 # The intersection points for the two fractures are separated.
                 # There is no intersection
+                continue
+            if sum([e_1 == 0, e_2 == 0]) == 1 and sum([e_1 > 0, e_2 > 0]) == 1 \
+                and sum([e_3 == 0, e_4 == 0]) == 1 and sum([e_3 > 0, e_4 > 0]) == 1 :
+                # Contact in a single point
                 continue
             if e_1 >= 0:
                 # The first point on the main fracture is at most marginally involved in

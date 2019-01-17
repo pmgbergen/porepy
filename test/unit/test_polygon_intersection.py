@@ -406,6 +406,20 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertEqual(seg_vert[0][0], (0, False))
         self.assertEqual(seg_vert[0][1], (1, True))
 
+    def test_point_contact_1(self):
+        f_1 = np.array([[0.,  0.5, 0.5, 0. ],
+                        [0.,  0. , 0. , 0. ],
+                        [0.,  0.5, 1. , 1. ]])
+        f_2 = np.array([[0.5, 1.,  1.,  0.5],
+                        [0. , 0.,  1.,  1. ],
+                        [1. , 1.,  1.,  1. ]])
+        new_pt, isect_pt, on_bound, _, seg_vert = pp.cg.intersect_polygons_3d([f_1, f_2])
+        self.assertTrue(new_pt.shape[1] == 0)
+        self.assertTrue(isect_pt.size == 2)
+        self.assertTrue(len(isect_pt[0]) == 0)
+        self.assertTrue(len(isect_pt[1]) == 0)
+
+
     def test_L_intersection(self):
         """
         Two fractures, L-intersection.
@@ -967,7 +981,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
 
 
 if __name__ == "__main__":
- #   TestIntersectionPolygonsEmbeddedIn3d().test_L_intersection_extends_beyond_each_other()
+    TestIntersectionPolygonsEmbeddedIn3d().test_point_contact_1()
  #   TestIntersectionPolygonsEmbeddedIn3d().test_T_intersection_one_outside_one_on_polygon()
-    TestPolygonPolyhedronIntersection().test_fully_internal_segments_3()
+#    TestPolygonPolyhedronIntersection().test_fully_internal_segments_3()
     unittest.main()
