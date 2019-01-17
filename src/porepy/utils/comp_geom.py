@@ -2069,7 +2069,18 @@ def is_inside_polyhedron(polyhedron, test_points, tol=1e-8):
     for pi in range(test_points.shape[1]):
         # NOTE: The documentation of the test is a bit unclear, but it seems
         # a winding number of 0 means outside, non-zero is inside
-        is_inside[pi] = np.abs(test_object.winding_number(test_points[:, pi])) > 0
+        try:
+            is_inside[pi] = np.abs(test_object.winding_number(test_points[:, pi])) > 0
+            # If the given point is on the boundary, this will produce an error informing
+            # about coplanar or collinear points. Interpret this as a False (not inside)
+        except ValueError as err:
+            if str(err) == 'vertices coplanar with origin' or str(err) == 'vertices collinear with origin':
+                is_inside[pi] = False
+            else:
+                # If the error is about something else, raise it again.
+                raise err
+
+
 
     return is_inside
 
