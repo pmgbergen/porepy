@@ -4122,8 +4122,6 @@ def constrain_polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
             segments.append(other_ip[common])
 
         segments = np.array([i for i in segments]).T
-        import pdb
-  #      pdb.set_trace()
 
         num_coord = coord.shape[1]
         coord_extended = np.hstack((coord, poly))
@@ -4149,15 +4147,17 @@ def constrain_polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         seg_vert = seg_vert[0]
         segments_bound = []
 
-
+        vertex_on_boundary = np.zeros(num_vert, np.bool)
+        for isect in seg_vert:
+            if len(isect) > 0 and not isect[1]:
+                vertex_on_boundary[isect[0]] = 1
 
         # Loop over all intersection information for this
         for isect_ind, isect in enumerate(seg_vert):
             if len(isect) == 0:
                 continue
             index, is_edge = isect
-            import pdb
-            #pdb.set_trace()
+
             if is_edge:
                 # The index here must refer to the intersection point, as defined
                 # in coord, while the index of the interior point should
@@ -4170,21 +4170,23 @@ def constrain_polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
             else:  # vertex
                 if points_inside_polyhedron[prev_ind[index]]:
                     segments_bound.append([isect_ind, num_coord + prev_ind[index]])
+                elif vertex_on_boundary[prev_ind[index]]:
+                    segments_bound.append([num_coord + index, num_coord + prev_ind[index]])
                 if points_inside_polyhedron[next_ind[index]]:
                     segments_bound.append([isect_ind, num_coord + next_ind[index]])
-
+                elif vertex_on_boundary[next_ind[index]]:
+                    segments_bound.append([num_coord + index, num_coord + next_ind[index]])
 
         if len(segments_bound) > 0:
             segments_bound = np.array([i for i in segments_bound]).T
         else:
             segments_bound = np.zeros((2, 0), dtype=np.int)
-        segments = np.hstack((segments, segments_inside, segments_bound))
-        segments, *rest = pp.utils.setmembership.unique_columns_tol(segments)
-
+        segments = np.sort(np.hstack((segments, segments_inside, segments_bound)), axis=0)
 
         # Uniquify intersection coordinates, and update the segments
         unique_coords, _, ib = pp.utils.setmembership.unique_columns_tol(coord_extended, tol=tol)
         unique_segments = ib[segments]
+        unique_segments, *rest = pp.utils.setmembership.unique_columns_tol(unique_segments)
 
         # Represent the segments as a graph.
         graph = nx.Graph()
