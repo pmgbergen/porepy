@@ -72,7 +72,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(len(on_bound[0]) == 0)
 
         self.assertTrue(seg_vert.size == 1)
-        self.assertTrue(seg_vert[0].size == 0)
+        self.assertTrue(len(seg_vert[0]) == 0)
 
     def test_two_intersecting_fractures(self):
 
@@ -736,6 +736,8 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         north_e = np.array([[0.5, 1, 1, 0.5], [1, 1, 1, 1], [0.5, 0, 1, 1]])
         bottom_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 1, 1], [0, 0.5, 0.5, 0]])
         bottom_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 1, 1], [0.5, 0.0, 0, 0.5]])
+        top_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 1, 1], [1, 1, 1, 1]])
+        top_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 1, 1], [1, 1, 1, 1]])
         self.non_convex_polyhedron = [
             west,
             east,
@@ -745,7 +747,8 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             north_e,
             bottom_w,
             bottom_e,
-            top,
+            top_w,
+            top_e
         ]
 
     def test_poly_inside_no_intersections(self):
@@ -808,6 +811,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         )
 
     def test_two_poly_one_intersects(self):
+        self.setUp()
         poly_1 = np.array(
             [[-0.2, 1.8, 1.8, -0.2], [0.5, 0.5, 0.5, 0.5], [-0.2, -0.2, 1.8, 1.8]]
         )
@@ -831,10 +835,11 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         self.assertTrue(np.allclose(inds, np.arange(2)))
 
     def test_one_poly_non_convex_domain(self):
-        poly = np.array([[-1, 2, 2, 1], [0.5, 0.5, 0.5, 0.5], [-1, -1, 1, 1]])
+        self.setUp()
+        poly = np.array([[-1, 2, 2, -1], [0.5, 0.5, 0.5, 0.5], [-1, -1, 2, 2]])
 
         known_constrained_poly = np.array(
-            [[0, 0.5, 1, 1, 0], [0.5, 0.5, 0.5, 0.5, 0.5], [0, 0.5, 0, 1, 1]]
+            [[0, 0.5, 1, 1, 0, 0.5], [0.5, 0.5, 0.5, 0.5, 0.5, 0.5], [0, 0.5, 0, 1, 1, 1]]
         )
         constrained_poly, inds = pp.cg.constrain_polygons_by_polyhedron(
             poly, self.non_convex_polyhedron
@@ -863,19 +868,85 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         self.assertTrue(len(constrained_poly) == 2)
         self.assertTrue(
             test_utils.compare_arrays(constrained_poly[0], known_constrained_poly_1)
-            or test_utils.compare_arrays(
-                constrained_poly[0], known_constrained_poly_2
-            )
+            or test_utils.compare_arrays(constrained_poly[0], known_constrained_poly_2)
         )
         self.assertTrue(
             test_utils.compare_arrays(constrained_poly[1], known_constrained_poly_1)
-            or test_utils.compare_arrays(
-                constrained_poly[1], known_constrained_poly_2
-            )
+            or test_utils.compare_arrays(constrained_poly[1], known_constrained_poly_2)
         )
         self.assertTrue(np.all(inds == 0))
 
-if __name__ == "__main__":
+    def test_fully_internal_segments_1(self):
+        self.setUp()
 
-    #TestPolygonPolyhedronIntersection().test_poly_split_by_non_convex_domain()
+        f = np.array(
+            [
+                [0.5, 0.8, 0.5, 0.2, 0.2],
+                [0.5, 0.5, 0.5, 0.5, 0.5],
+                [0.0, 0.5, 1.5, 0.5, 0.3],
+            ]
+        )
+        constrained_poly, inds = pp.cg.constrain_polygons_by_polyhedron(
+            f, self.non_convex_polyhedron
+        )
+
+        # TODO: Fix known poitns
+        known_constrained_poly = np.array(
+            [
+                [0.5, 0.6875, 0.8, 0.65, 0.5, 0.35, 0.2, 0.2, 0.25],
+                [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+                [0.5, 0.3125, 0.5, 1.0, 1.0, 1.0, 0.5, 0.3, 0.25],
+            ]
+        )
+
+        self.assertTrue(len(constrained_poly) == 1)
+        self.assertTrue(
+            test_utils.compare_arrays(constrained_poly[0], known_constrained_poly)
+        )
+        self.assertTrue(inds[0] == 0)
+
+    def test_fully_internal_segments_2(self):
+        # Issue that showed up while running the function on a fracture network
+        f_1 = np.array([[-1, 2, 2, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
+        f_2 = np.array([[-1, -1, 2, 2], [-1, 1, 1, -1], [0, 0, 0, 0]])
+
+        polyhedron = [
+            np.array([[-2, -2, -2, -2], [-2, 2, 2, -2], [-2, -2, 2, 2]]),
+            np.array([[2, 2, 2, 2], [-2, 2, 2, -2], [-2, -2, 2, 2]]),
+            np.array([[-2, 2, 2, -2], [-2, -2, -2, -2], [-2, -2, 2, 2]]),
+            np.array([[-2, 2, 2, -2], [2, 2, 2, 2], [-2, -2, 2, 2]]),
+            np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [-2, -2, -2, -2]]),
+            np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [2, 2, 2, 2]]),
+        ]
+
+        constrained_poly, inds = pp.cg.constrain_polygons_by_polyhedron(
+            [f_1, f_2], polyhedron
+        )
+
+        self.assertTrue(test_utils.compare_arrays(f_1, constrained_poly[0]))
+        self.assertTrue(test_utils.compare_arrays(f_2, constrained_poly[1]))
+
+    def test_fully_internal_segments_3(self):
+        # Issue that showed up while running the function on a fracture network
+        f_1 = np.array([[-1, 3, 3, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
+
+        polyhedron = [
+            np.array([[-2, -2, -2, -2], [-2, 2, 2, -2], [-2, -2, 2, 2]]),
+            np.array([[2, 2, 2, 2], [-2, 2, 2, -2], [-2, -2, 2, 2]]),
+            np.array([[-2, 2, 2, -2], [-2, -2, -2, -2], [-2, -2, 2, 2]]),
+            np.array([[-2, 2, 2, -2], [2, 2, 2, 2], [-2, -2, 2, 2]]),
+            np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [-2, -2, -2, -2]]),
+            np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [2, 2, 2, 2]]),
+        ]
+
+        constrained_poly, inds = pp.cg.constrain_polygons_by_polyhedron(f_1, polyhedron)
+        known_poly = np.array([[-1, 2, 2, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
+
+        self.assertTrue(test_utils.compare_arrays(constrained_poly[0], known_poly))
+
+
+if __name__ == "__main__":
+ #   TestIntersectionPolygonsEmbeddedIn3d().test_L_intersection_extends_beyond_each_other()
+ #   TestIntersectionPolygonsEmbeddedIn3d().test_T_intersection_one_outside_one_on_polygon()
+    TestPolygonPolyhedronIntersection().test_fully_internal_segments_3()
     unittest.main()
