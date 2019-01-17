@@ -2081,13 +2081,11 @@ def is_inside_polyhedron(polyhedron, test_points, tol=1e-8):
             # If the given point is on the boundary, this will produce an error informing
             # about coplanar or collinear points. Interpret this as a False (not inside)
         except ValueError as err:
-            if str(err) == 'vertices coplanar with origin' or str(err) == 'vertices collinear with origin':
+            if str(err) in ['vertices coplanar with origin', 'vertices collinear with origin', 'vertex coincides with origin']:
                 is_inside[pi] = False
             else:
                 # If the error is about something else, raise it again.
                 raise err
-
-
 
     return is_inside
 
