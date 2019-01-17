@@ -1261,9 +1261,17 @@ def intersect_polygons_3d(polys, tol=1e-8):
 
     def mod_sign(v, tol=1e-8):
         # Modified signum function: The value is 0 if it is very close to zero.
-        sgn = np.sign(v)
-        sgn[np.abs(v) < tol] = 0
-        return sgn
+        if isinstance(v, np.ndarray):
+            sgn = np.sign(v)
+            sgn[np.abs(v) < tol] = 0
+            return sgn
+        else:
+            if abs(v) < tol:
+                return 0
+            elif v < 0:
+                return -1
+            else:
+                return 1
 
     def intersection(start, end, normal, center):
         # Find a point p on the segment between start and end, so that the vector
@@ -1641,18 +1649,17 @@ def intersect_polygons_3d(polys, tol=1e-8):
 
             # e_1 is positive if both points of the other fracture lie on the same side of the
             # first intersection point of the main one
-            e_1 = np.sum(main_0_other_0 * main_0_other_1)
+            # Use a mod_sign here to avoid issues related to rounding errors
+            e_1 = mod_sign(np.sum(main_0_other_0 * main_0_other_1))
             # e_2 is positive if both points of the other fracture lie on the same side of the
             # second intersection point of the main one
-            e_2 = np.sum(main_1_other_0 * main_1_other_1)
+            e_2 = mod_sign(np.sum(main_1_other_0 * main_1_other_1))
             # e_3 is positive if both points of the main fracture lie on the same side of the
             # first intersection point of the other one
-            e_3 = np.sum((-main_0_other_0) * (-main_1_other_0))
+            e_3 = mod_sign(np.sum((-main_0_other_0) * (-main_1_other_0)))
             # e_4 is positive if both points of the main fracture lie on the same side of the
             # second intersection point of the other one
-            e_4 = np.sum((-main_0_other_1) * (-main_1_other_1))
-            import pdb
-          #  pdb.set_trace()
+            e_4 = mod_sign(np.sum((-main_0_other_1) * (-main_1_other_1)))
             # This is in essence an implementation of the flow chart in Figure 9 in Dong et al,
             # However the inequality signs are changed a bit to make the logic clearer
             if e_1 > 0 and e_2 > 0 and e_3 > 0 and e_4 > 0:
