@@ -553,6 +553,27 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertEqual(seg_vert[1][0], (1, True))
         self.assertEqual(seg_vert[1][1], (1, False))
 
+    def test_T_intersection_both_on_polygon(self):
+
+        f_1 = np.array([[-2, -2, 2, 2],
+                        [-2, -2, 1, 1],
+                        [-2, 2, 2, -2]])
+        f_2 = np.array([[ 2.,  2.,  2.,  2.],
+                        [-2., -2.,  2.,  2.],
+                        [ 2., -2., -2.,  2.]])
+
+        new_pt, isect_pt, on_bound, _, seg_vert = pp.cg.intersect_polygons_3d([f_1, f_2])
+        self.assertTrue(new_pt.shape[1] == 2)
+        self.assertTrue(isect_pt.size == 2)
+        self.assertTrue(len(isect_pt[0]) == 2)
+        self.assertTrue(len(isect_pt[1]) == 2)
+        self.assertTrue(on_bound.size == 2)
+        self.assertTrue(np.sum(on_bound[0]) == 1)
+        self.assertTrue(np.sum(on_bound[1]) == 0)
+
+        known_points = np.array([[2, 1, 2], [2, 1.0, -2]]).T
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
+
     def test_T_intersection_one_outside_one_on_polygon(self):
         """
         Two fractures, L-intersection, partly overlapping segments
