@@ -537,6 +537,17 @@ def expand_indices_nd(ind, nd, direction="F"):
     new_ind = new_ind.ravel(direction)
     return new_ind
 
+def expand_indices_incr(ind, dim, increment):
+
+    # Convenience method for duplicating a list, with a certain increment
+
+    # Duplicate rows
+    ind_nd = np.tile(ind, (dim, 1))
+    # Add same increment to each row (0*incr, 1*incr etc.)
+    ind_incr = ind_nd + increment * np.array([np.arange(dim)]).transpose()
+    # Back to row vector
+    ind_new = ind_incr.reshape(-1, order='F')
+    return ind_new
 
 def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
     """
