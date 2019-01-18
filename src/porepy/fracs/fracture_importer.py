@@ -337,7 +337,7 @@ def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
             network is not None
         ), """Need access to the network used to
             produce the .geo file"""
-        grids = simplex.tetrahedral_grid_from_gmsh(out_file, network, **kwargs)
+        grids = simplex.tetrahedral_grid_from_gmsh(network, out_file, **kwargs)
     return meshing.grid_list_to_grid_bucket(grids, **kwargs)
 
 
