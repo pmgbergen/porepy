@@ -191,7 +191,8 @@ class Biot:
         # Put together linear system
         A_flow = div_flow * matrices_f["flux"]
         A_mech = div_mech * matrices_m["stress"]
-        grad_p = div_mech * (data["grad_p_jumps"] + data["grad_p_force"])
+        grad_p = div_mech * (matrices_m["grad_p_jumps"] + matrices_m["grad_p_force"])
+        stabilization = matrices_f["biot_stabilization"]
 
         # Time step size
         dt = param[self.flow_keyword]["time_step"]
@@ -203,7 +204,7 @@ class Biot:
                 [A_mech, grad_p],
                 [
                     matrices_m["div_d"] * biot_alpha * d_scaling,
-                    matrices_f["mass"] + dt * A_flow + data["stabilization"],
+                    matrices_f["mass"] + dt * A_flow + stabilization,
                 ],
             ]
         ).tocsr()
@@ -419,7 +420,7 @@ class Biot:
             alpha_tensor.values = np.delete(alpha_tensor.values, (2), axis=1)
 
         # Compute nAlpha product same as nK in Darcy
-        nAlpha_grad, cell_node_blocks, sub_cell_index = pp.fvutils.scalar_tensor_vector_prod(
+        nAlpha_grad, cell_node_blocks, sub_cell_index = fvutils.scalar_tensor_vector_prod(
             g, alpha_tensor, subcell_topology
         )
 
@@ -509,14 +510,14 @@ class Biot:
         # that is the actual force on the face
         grad_p_force = hf2f * map_unique_subfno * nAlpha_grad * sc2c
 
-        data["grad_p_jumps"] = grad_p_jumps
-        data["grad_p_force"] = grad_p_force
+        matrices_m["grad_p_jumps"] = grad_p_jumps
+        matrices_m["grad_p_force"] = grad_p_force
 
         stabilization = div * igrad * rhs_units * unique_nAlpha_grad * sc2c
         # include in the stabilization term also the "hydrostatic term?
         # I believe so but this needs some more testing
         stabilization += div * nAlpha_grad * sc2c
-        data["stabilization"] = stabilization
+        matrices_f["biot_stabilization"] = stabilization
 
         # ----------------------------------------------------------------------------
 
@@ -774,14 +775,14 @@ class GradP(
         Raises:
             ValueError if the pressure gradient term has not already been discretized.
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "grad_p" in matrix_dictionary:
+        mat_dict = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        if not "grad_p_jumps" in mat_dict:
             raise ValueError(
                 """GradP class requires a pre-computed discretization to be
                              stored in the matrix dictionary."""
             )
-        biot_alpha = data[pp.PARAMETERS][self.keyword]["biot_alpha"]
-        return matrix_dictionary["grad_p"] * biot_alpha
+        div_mech = fvutils.vector_divergence(g)
+        return div_mech * (mat_dict["grad_p_jumps"] + mat_dict["grad_p_force"])
 
     def assemble_rhs(self, g, data):
         """ Return the zero right-hand side for a discretization of the pressure
@@ -1028,8 +1029,7 @@ class BiotStabilization(
                 """BiotStabilization class requires a pre-computed
                              discretization to be stored in the matrix dictionary."""
             )
-        alpha = data[pp.PARAMETERS][self.keyword]["biot_alpha"]
-        return alpha * matrix_dictionary["biot_stabilization"]
+        return matrix_dictionary["biot_stabilization"]
 
     def assemble_rhs(self, g, data):
         """ Return the zero right-hand side for a discretization of the displacement
