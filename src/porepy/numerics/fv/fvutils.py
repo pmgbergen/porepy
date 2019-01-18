@@ -1194,6 +1194,7 @@ def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
 def compute_darcy_flux(
     gb,
     keyword="flow",
+    keyword_store=None,
     d_name="darcy_flux",
     p_name="pressure",
     lam_name="mortar_solution",
@@ -1211,25 +1212,29 @@ def compute_darcy_flux(
         'bc_val': Boundary condition values.
             and the following edge property field for all connected grids:
         'coupling_flux': Discretization of the coupling fluxes.
-    keyword (string): defaults to 'flow'. The physic regime
-    d_name (string): defaults to 'darcy_flux'. The keyword which the computed
-                     darcy_flux will be stored by in the dictionary.
+    keyword (string): defaults to 'flow'. The parameter keyword used to obtain the
+        data necessary to compute the fluxes.
+    keyword_store (string): defaults to keyword. The parameter keyword determining
+        where the data will be stored
+    d_name (string): defaults to 'darcy_flux'. The parameter name which the computed
+        darcy_flux will be stored by in the dictionary.
     p_name (string): defaults to 'pressure'. The keyword that the pressure
-                     field is stored by in the dictionary
-    data (dictionary): defaults to None. If gb is mono-dimensional grid the
-                       data dictionary must be given. If gb is a
-                       multi-dimensional grid, this variable has no effect
+        field is stored by in the dictionary
+    data (dictionary): defaults to None. If gb is mono-dimensional grid the data
+        dictionary must be given. If gb is a multi-dimensional grid, this variable has
+        no effect.
 
     Returns:
         gb, the same grid bucket with the added field 'darcy_flux' added to all
         node data fields. Note that the fluxes between grids will be added only
-        at the gb edge, not at the node fields. The sign of the darcy_flux
+        at the gb edge, not at the node fields. The signs of the darcy_flux
         correspond to the directions of the normals, in the edge/coupling case
         those of the higher grid. For edges beteween grids of equal dimension,
         there is an implicit assumption that all normals point from the second
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
     """
-    keyword = keyword
+    if keyword_store is None:
+        keyword_store = keyword
     if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
         parameter_dictionary = data[pp.PARAMETERS][keyword]
         matrix_dictionary = data[pp.PARAMETERS][keyword]
@@ -1244,7 +1249,7 @@ def compute_darcy_flux(
                                  discretization has been applied"""
             )
         data[d_name] = dis
-        parameter_dictionary[d_name] = dis
+        data[pp.PARAMETERS][keyword_store] = dis
         return
 
     # Compute fluxes from pressures internal to the subdomain, and for global
@@ -1266,8 +1271,7 @@ def compute_darcy_flux(
                 )
 
             d[d_name] = dis
-            parameter_dictionary[d_name] = dis
-
+            d[pp.PARAMETERS][keyword_store][d_name] = dis
     # Compute fluxes over internal faces, induced by the mortar flux. These
     # are a critical part of what makes MPFA consistent, but will not be
     # present for TPFA.
@@ -1275,13 +1279,20 @@ def compute_darcy_flux(
     # these are already accounted for in the mortar solution.
     for e, d in gb.edges():
         g_h = gb.nodes_of_edge(e)[1]
+        d_h = gb.node_props(g_h)
         # The mapping mortar_to_hat_bc contains is composed of a mapping to
         # faces on the higher-dimensional grid, and computation of the induced
         # fluxes.
-        induced_flux = d["mortar_grid"].master_to_mortar_int.T * d[lam_name]
+
+        bound_flux = d_h[pp.DISCRETIZATION_MATRICES][keyword]["bound_flux"]
+        induced_flux = (
+            bound_flux * d["mortar_grid"].master_to_mortar_int.T * d[lam_name]
+        )
         # Remove contribution directly on the boundary faces.
         induced_flux[g_h.tags["fracture_faces"]] = 0
-        gb.node_props(g_h)[d_name] += induced_flux
+        d_h[d_name] += induced_flux
+        d_h[pp.PARAMETERS][keyword_store][d_name] += induced_flux
+        d[pp.PARAMETERS][keyword_store][d_name] = d[lam_name].copy()
 
 
 def boundary_to_sub_boundary(bound, subcell_topology):
