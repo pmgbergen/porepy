@@ -28,7 +28,7 @@ def main(test_case, file_geo, folder, solver, solver_name, N=None):
         "kf": kf,
         "porosity_m": 1e-1,
         "porosity_f": porosity_f,
-        "dt": 0.25 / 100,
+        "time_step": 0.25 / 100,
         "t_max": 0.25,
     }
 
@@ -49,7 +49,9 @@ def main(test_case, file_geo, folder, solver, solver_name, N=None):
     with open(file_name, "w") as f:
         f.write(", ".join(map(str, results)))
 
-    solvers.transport(gb, data, solver_name, folder, problem_data.AdvectiveDataAssigner)
+    T, outflow, A, b, block_dof, full_dof = solvers.transport(
+        gb, data, solver_name, folder, save_every=10
+    )
 
 
 if __name__ == "__main__":

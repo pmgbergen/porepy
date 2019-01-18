@@ -1,7 +1,13 @@
 import numpy as np
+import porepy as pp
 
 import data as problem_data
 import examples.papers.arXiv_1809_06926.solvers as solvers
+
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def main(file_geo, folder, solver, solver_name):
@@ -20,7 +26,7 @@ def main(file_geo, folder, solver, solver_name):
         "porosity_low": 0.2,
         "porosity_high": 0.25,
         "porosity_f": 0.4,
-        "dt": 1e7,
+        "time_step": 1e7,
         "t_max": 1e9,
     }
 
@@ -41,10 +47,11 @@ def main(file_geo, folder, solver, solver_name):
     with open(file_name, "w") as f:
         f.write(", ".join(map(str, results)))
 
-    advective = solvers.transport(
-        gb, data, solver_name, folder, problem_data.AdvectiveDataAssigner
+    T, outflow, A, b, block_dof, full_dof = solvers.transport(
+        gb, data, solver_name, folder, save_every=20
     )
-    np.savetxt(folder + "/outflow.csv", advective._solver.outflow)
+
+    np.savetxt(folder + "/outflow.csv", outflow)
 
 
 if __name__ == "__main__":
