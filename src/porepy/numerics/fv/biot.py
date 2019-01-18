@@ -191,8 +191,8 @@ class Biot:
         # Put together linear system
         A_flow = div_flow * matrices_f["flux"]
         A_mech = div_mech * matrices_m["stress"]
-        grad_p = div_mech * (data['grad_p_jumps'] + data['grad_p_force'])
-        
+        grad_p = div_mech * (data["grad_p_jumps"] + data["grad_p_force"])
+
         # Time step size
         dt = param[self.flow_keyword]["time_step"]
 
@@ -203,9 +203,7 @@ class Biot:
                 [A_mech, grad_p],
                 [
                     matrices_m["div_d"] * biot_alpha * d_scaling,
-                    matrices_f["mass"]
-                    + dt * A_flow
-                    + data['stabilization',
+                    matrices_f["mass"] + dt * A_flow + data["stabilization"],
                 ],
             ]
         ).tocsr()
@@ -406,23 +404,24 @@ class Biot:
         matrices_m["div_d"] = div_d
         matrices_m["bound_div_d"] = bound_div_d
 
-        #----------------------------------------------------------------------------
+        # ----------------------------------------------------------------------------
 
         # Biot discretization
 
-        #----------------------------------------------------------------------------
+        # ----------------------------------------------------------------------------
 
         # Take Biot's alpha as a tensor
         alpha = parameters_m["biot_alpha"]
         alpha_tensor = pp.SecondOrderTensor(2, alpha * np.ones(g.num_cells))
-        
+
         if g.dim == 2:
             alpha_tensor.perm = np.delete(alpha_tensor.perm, (2), axis=0)
             alpha_tensor.perm = np.delete(alpha_tensor.perm, (2), axis=1)
 
         # Compute nAlpha product same as nK in Darcy
-        nAlpha_grad, cell_node_blocks, \
-            sub_cell_index = pp.numerics.fv.mpfa._tensor_vector_prod(g, alpha_tensor, subcell_topology)
+        nAlpha_grad, cell_node_blocks, sub_cell_index = pp.numerics.fv.mpfa._tensor_vector_prod(
+            g, alpha_tensor, subcell_topology
+        )
 
         # transfer nAlpha to a face-based
         unique_nAlpha_grad = subcell_topology.pair_over_subfaces(nAlpha_grad)
@@ -432,7 +431,7 @@ class Biot:
         def reshape(mat, nd, ind):
             newmat = mat[:, ind[0]]
 
-            for i in range (1, nd):
+            for i in range(1, nd):
                 this_dim = mat[:, ind[i]]
                 newmat = sps.block_diag([newmat, this_dim])
 
@@ -444,30 +443,32 @@ class Biot:
 
         # The pressure term in the tractions continuity equation is discretized
         # as a force on the faces. The right hand side is thus formed of the
-        # unit vector.       
+        # unit vector.
         def build_rhs_units_single_dimension(dim):
             vals = np.ones(num_subfno_unique)
             ind = subcell_topology.subfno_unique
-            mat = sps.coo_matrix((vals, (ind, ind)), 
-                                     shape=(num_subfno_unique,
-                                            num_subfno_unique))
+            mat = sps.coo_matrix(
+                (vals, (ind, ind)), shape=(num_subfno_unique, num_subfno_unique)
+            )
             return mat
 
         rhs_units = build_rhs_units_single_dimension(0)
-        
+
         for i in range(1, nd):
             this_dim = build_rhs_units_single_dimension(i)
             rhs_units = sps.block_diag([rhs_units, this_dim])
 
         rhs_units = bound_exclusion_mech.exclude_dirichlet(rhs_units)
 
-        num_dir_subface = (bound_exclusion_mech.exclude_neu.shape[1] -
-                           bound_exclusion_mech.exclude_neu.shape[0])
+        num_dir_subface = (
+            bound_exclusion_mech.exclude_neu.shape[1]
+            - bound_exclusion_mech.exclude_neu.shape[0]
+        )
 
         # No right hand side for cell displacement equations.
-        rhs_units_displ_var = sps.coo_matrix((nd * num_subfno
-                                                - num_dir_subface,
-                                                num_subfno_unique * nd))
+        rhs_units_displ_var = sps.coo_matrix(
+            (nd * num_subfno - num_dir_subface, num_subfno_unique * nd)
+        )
 
         # Why minus?
         rhs_units = -sps.vstack([rhs_units, rhs_units_displ_var])
@@ -478,9 +479,9 @@ class Biot:
             rows = np.arange(sub_cell_index[dim].size)
             cols = cell_node_blocks[0]
             vals = np.ones(rows.size)
-            mat = sps.coo_matrix((vals, (rows, cols)),
-                                       shape=(sub_cell_index[dim].size,
-                                              g.num_cells)).tocsr()
+            mat = sps.coo_matrix(
+                (vals, (rows, cols)), shape=(sub_cell_index[dim].size, g.num_cells)
+            ).tocsr()
             return mat
 
         sc2c = build_sc2c_single_dimension(0)
@@ -495,32 +496,34 @@ class Biot:
         # mapping from subface to unique subface for multi-dim problems
         vals = np.ones(num_subfno_unique * nd)
         rows = fvutils.expand_indices_nd(subcell_topology.subfno_unique, nd)
-        cols = fvutils.expand_indices_incr(subcell_topology.unique_subfno, nd, num_subhfno)
-        map_unique_subfno = sps.coo_matrix((vals, (rows, cols)), 
-                                 shape=(num_subfno_unique * nd,
-                                        num_subhfno * nd))
+        cols = fvutils.expand_indices_incr(
+            subcell_topology.unique_subfno, nd, num_subhfno
+        )
+        map_unique_subfno = sps.coo_matrix(
+            (vals, (rows, cols)), shape=(num_subfno_unique * nd, num_subhfno * nd)
+        )
 
         del vals, rows, cols
-        
-        # Computation of the "hydrostatic" term,
-        # that is the actual force on the face    
-        grad_p_force = hf2f * map_unique_subfno * nAlpha_grad * sc2c 
 
-        data['grad_p_jumps'] = grad_p_jumps
-        data['grad_p_force'] = grad_p_force
+        # Computation of the "hydrostatic" term,
+        # that is the actual force on the face
+        grad_p_force = hf2f * map_unique_subfno * nAlpha_grad * sc2c
+
+        data["grad_p_jumps"] = grad_p_jumps
+        data["grad_p_force"] = grad_p_force
 
         stabilization = div * igrad * rhs_units * unique_nAlpha_grad * sc2c
         # include in the stabilization term also the "hydrostatic term?
         # I believe so but this needs some more testing
-        stabilization += div * nAlpha_grad * sc2c 
-        data['stabilization'] = stabilization
-      
-        #----------------------------------------------------------------------------
+        stabilization += div * nAlpha_grad * sc2c
+        data["stabilization"] = stabilization
+
+        # ----------------------------------------------------------------------------
 
         # End of Biot discretization
 
-        #----------------------------------------------------------------------------
-            
+        # ----------------------------------------------------------------------------
+
     def _face_vector_to_scalar(self, nf, nd):
         """ Create a mapping from vector quantities on faces (stresses) to scalar
         quantities. The mapping is intended for the boundary discretization of the
