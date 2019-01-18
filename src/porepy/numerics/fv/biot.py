@@ -415,11 +415,11 @@ class Biot:
         alpha_tensor = pp.SecondOrderTensor(2, alpha * np.ones(g.num_cells))
 
         if g.dim == 2:
-            alpha_tensor.perm = np.delete(alpha_tensor.perm, (2), axis=0)
-            alpha_tensor.perm = np.delete(alpha_tensor.perm, (2), axis=1)
+            alpha_tensor.values = np.delete(alpha_tensor.values, (2), axis=0)
+            alpha_tensor.values = np.delete(alpha_tensor.values, (2), axis=1)
 
         # Compute nAlpha product same as nK in Darcy
-        nAlpha_grad, cell_node_blocks, sub_cell_index = pp.numerics.fv.mpfa._tensor_vector_prod(
+        nAlpha_grad, cell_node_blocks, sub_cell_index = pp.fvutils.scalar_tensor_vector_prod(
             g, alpha_tensor, subcell_topology
         )
 
