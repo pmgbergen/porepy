@@ -632,6 +632,74 @@ def vector_divergence(g):
 
     return block_div.transpose()
 
+def scalar_tensor_vector_prod(g, k, subcell_topology, apertures=None):
+    """
+    Compute product of normal vectors and tensors on a sub-cell level.
+    This is essentially defining Darcy's law for each sub-face in terms of
+    sub-cell gradients. Thus, we also implicitly define the global ordering
+    of sub-cell gradient variables (via the interpretation of the columns in
+    nk).
+    NOTE: In the local numbering below, in particular in the variables i and j,
+    it is tacitly assumed that g.dim == g.nodes.shape[0] ==
+    g.face_normals.shape[0] etc. See implementation note in main method.
+    Parameters:
+        g (core.grids.grid): Discretization grid
+        k (core.constit.second_order_tensor): The permeability tensor
+        subcell_topology (fvutils.SubcellTopology): Wrapper class containing
+            subcell numbering.
+    Returns:
+        nk: sub-face wise product of normal vector and permeability tensor.
+        cell_node_blocks pairings of node and cell indices, which together
+            define a sub-cell.
+        sub_cell_ind: index of all subcells
+    """
+
+    # Stack cell and nodes, and remove duplicate rows. Since subcell_mapping
+    # defines cno and nno (and others) working cell-wise, this will
+    # correspond to a unique rows (Matlab-style) from what I understand.
+    # This also means that the pairs in cell_node_blocks uniquely defines
+    # subcells, and can be used to index gradients etc.
+    cell_node_blocks, blocksz = pp.utils.matrix_compression.rlencode(
+        np.vstack((subcell_topology.cno, subcell_topology.nno))
+    )
+
+    nd = g.dim
+
+    # Duplicates in [cno, nno] corresponds to different faces meeting at the
+    # same node. There should be exactly nd of these. This test will fail
+    # for pyramids in 3D
+    if not np.all(blocksz == nd):
+        raise AssertionError()
+
+    # Define row and column indices to be used for normal_vectors * perm.
+    # Rows are based on sub-face numbers.
+    # Columns have nd elements for each sub-cell (to store a gradient) and
+    # is adjusted according to block sizes
+    _, j = np.meshgrid(subcell_topology.subhfno, np.arange(nd))
+    sum_blocksz = np.cumsum(blocksz)
+    j += pp.utils.matrix_compression.rldecode(sum_blocksz - blocksz[0], blocksz)
+
+    # Distribute faces equally on the sub-faces
+    num_nodes = np.diff(g.face_nodes.indptr)
+    normals = (
+        g.face_normals[:, subcell_topology.fno] / num_nodes[subcell_topology.fno]
+    )
+    if apertures is not None:
+        normals = normals * apertures[subcell_topology.cno]
+
+    # Represent normals and permeability on matrix form
+    ind_ptr = np.hstack((np.arange(0, j.size, nd), j.size))
+    normals_mat = sps.csr_matrix((normals.ravel("F"), j.ravel("F"), ind_ptr))
+    k_mat = sps.csr_matrix(
+        (k.values[::, ::, cell_node_blocks[0]].ravel("F"), j.ravel("F"), ind_ptr)
+    )
+
+    nk = normals_mat * k_mat
+
+    # Unique sub-cell indexes are pulled from column indices, we only need
+    # every nd column (since nd faces of the cell meet at each vertex)
+    sub_cell_ind = j[::, 0::nd]
+    return nk, cell_node_blocks, sub_cell_ind
 
 def zero_out_sparse_rows(A, rows, diag=None):
     """
