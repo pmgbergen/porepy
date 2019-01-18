@@ -119,7 +119,12 @@ class Biot:
 
         mech_rhs = np.zeros(g.dim * g.num_cells)
 
-        return np.hstack((mech_rhs, div_d_rhs + p_cmpr))
+        # The stabilization is the pressure contribution to the div u part of the
+        # fluid mass conservation, thus, it  need a right hand side in the implicit Euler
+        # discretization.
+        stab_time = matrix_dictionaries[self.flow_keyword]["biot_stabilization"] * p
+
+        return np.hstack((mech_rhs, div_d_rhs + p_cmpr + stab_time))
 
     def discretize(self, g, data):
         """ Discretize flow and mechanics equations using FV methods.
@@ -936,7 +941,7 @@ class DivD(
 
 
 class BiotStabilization(
-    pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization
+    pp.numerics.interface_laws.elliptic_discretization.EllipticDiscretization
 ):
     """ Class for the stabilization term of the Biot equation.
     """
@@ -1032,10 +1037,11 @@ class BiotStabilization(
         return matrix_dictionary["biot_stabilization"]
 
     def assemble_rhs(self, g, data):
-        """ Return the zero right-hand side for a discretization of the displacement
+        """ Return the right-hand side for the stabilization part of the displacement
         divergence term.
 
-        @Runar: Is it correct that this is zero.
+        For the time being, we assume an IE temporal discretization.
+
 
         Parameters:
             g (Grid): Computational grid.
@@ -1045,4 +1051,17 @@ class BiotStabilization(
             np.ndarray: Zero right hand side vector with representation of boundary
                 conditions.
         """
-        return np.zeros(self.ndof(g))
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        # The stabilization is the pressure contribution to the div u part of the
+        # fluid mass conservation, thus need a right hand side in the implicit Euler
+        # discretization.
+        pressure_0 = parameter_dictionary["state"]
+        A_stability = matrix_dictionary["biot_stabilization"]
+        rhs_time = A_stability * pressure_0
+
+        # The stabilization has no rhs.
+        rhs_bound = np.zeros(self.ndof(g))
+
+        return rhs_bound + rhs_time
