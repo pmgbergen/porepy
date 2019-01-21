@@ -23,7 +23,7 @@ logger = setup_custom_logger()
 # ------------------------------------------------------------------------------#
 
 def get_discr():
-    return { "MVEM": {"scheme": pp.MVEM, "dof": {"cells": 1, "faces": 1}},
+    return { #"MVEM": {"scheme": pp.MVEM, "dof": {"cells": 1, "faces": 1}}, }
              "RT0":  {"scheme": pp.RT0,  "dof": {"cells": 1, "faces": 1}},
              "Tpfa": {"scheme": pp.Tpfa, "dof": {"cells": 1}}}
              #"Mpfa": {"scheme": pp.Mpfa, "dof": {"cells": 1}}}
@@ -159,21 +159,10 @@ def flow(gb, discr, param, bc_flag):
     for g, d in gb:
         if g.dim == 2:
             d[pressure] = discr_scheme.extract_pressure(g, d[variable], d)
+            d[flux] = discr_scheme.extract_flux(g, d[variable], d)
         else:
             d[pressure] = np.zeros(g.num_cells)
-
-    # extract the flux from the solution
-    if discr["scheme"] is pp.MVEM or discr["scheme"] is pp.RT0:
-        for g, d in gb:
-            if g.dim == 2:
-                d[flux] = discr_scheme.extract_flux(g, d[variable], d)
-            else:
-                d[flux] = np.zeros(g.num_faces)
-    else:
-        pp.fvutils.compute_darcy_flux(gb, model_data, flux, pressure, mortar)
-        for g, d in gb:
-            if g.dim == 1:
-                d[flux] = np.zeros(g.num_faces)
+            d[flux] = np.zeros(g.num_faces)
 
     # export the P0 flux reconstruction only for some scheme
     if discr["scheme"] is pp.MVEM or discr["scheme"] is pp.RT0:
