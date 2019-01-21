@@ -29,9 +29,9 @@ def plot_multiple(file_name, legend, title, num_frac):
     for frac_id in np.arange(num_frac):
         plt.figure(frac_id)
         plt.plot(data[:, 0], data[:, frac_id+1], label=legend)
-        plt.title(title + " - " + str(frac_id))
+        plt.title(title + " - frac " + str(frac_id))
         plt.xlabel('$t$')
-        plt.ylabel('$c$')
+        plt.ylabel('$\\theta$')
         plt.grid(True)
         plt.legend()
 
@@ -39,18 +39,11 @@ def plot_multiple(file_name, legend, title, num_frac):
 
 def plot_num_cells(data, legend, title):
 
-    for frac_id, cells in enumerate(data.T[:-1]):
-        plt.figure(frac_id)
-        plt.plot(np.arange(cells.size), cells, label=legend)
-        plt.title(title + " - " + str(frac_id))
-        plt.xlabel('simulation')
-        plt.ylabel('number of cells')
-        plt.grid(True)
-        plt.legend()
+    data = np.loadtxt(data, delimiter=',')
 
-    plt.figure(frac_id+1)
-    plt.plot(np.arange(cells.size), data.T[-1], label=legend)
-    plt.title(title + " - total")
+    plt.figure(0)
+    plt.plot(np.arange(data.shape[0]), data[:, -1], label=legend)
+    plt.title(title)
     plt.xlabel('simulation')
     plt.ylabel('number of cells')
     plt.grid(True)
@@ -92,8 +85,9 @@ def main():
     num_cells = np.zeros((num_simul, num_frac+1))
     master_folder = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/"
 
-    methods_stefano = ["OPTxfem"]
-    methods_alessio = ["MVEM", "Tpfa", "RT0"]
+    methods_stefano = ["OPTxfem", "OPTfem"]
+    #methods_alessio = ["MVEM", "Tpfa", "RT0"]
+    methods_alessio = ["Tpfa", "RT0"]
 
     grids = {"grid_0": ("1k", "220"), "grid_1": ("3k", "650"), "grid_2": ("10k", "2100")}
 
@@ -103,7 +97,7 @@ def main():
             folder_in = master_folder
             folder_out = folder_in + "img/"
 
-            title = "average concentration over time - " + grid_name.replace("_", " ")
+            title = "average $\\theta$ - " + grid_name.replace("_", " ") + " - config " + str(simul)
             # Alessio
             for method in methods_alessio:
                 data = folder_in + method + "/" + method + "_Cmean_" + str(simul+1) + "_" + grid[0] + ".csv"
@@ -120,7 +114,7 @@ def main():
 
             ###########
 
-            title = "minimum concentration over time - " + grid_name.replace("_", " ")
+            title = "minimum $\\theta$ - " + grid_name.replace("_", " ") + " - config " + str(simul)
             # Alessio
             for method in methods_alessio:
                 data = folder_in + method + "/" + method + "_Cmin_" + str(simul+1) + "_" + grid[0] + ".csv"
@@ -137,7 +131,7 @@ def main():
 
             ###########
 
-            title = "maximum concentration over time - " + grid_name.replace("_", " ")
+            title = "maximum $\\theta$ - " + grid_name.replace("_", " ") + " - config " + str(simul)
             # Alessio
             for method in methods_alessio:
                 data = folder_in + method + "/" + method + "_Cmax_" + str(simul+1) + "_" + grid[0] + ".csv"
@@ -154,7 +148,7 @@ def main():
 
             ###########
 
-            title = "outflow over time - " + grid_name.replace("_", " ")
+            title = "production - " + grid_name.replace("_", " ")  + " - config " + str(simul)
             # Alessio
             for method in methods_alessio:
                 data = folder_in + method + "/" + method + "_production_" + str(simul+1) + "_" + grid[0] + ".csv"
@@ -171,17 +165,14 @@ def main():
 
             ########
 
-            #data = folder_in + "num_cells.csv"
-            #num_cells[simul-1] = np.loadtxt(data, delimiter=',')
-#
-#    label = "LABEL"
-#    title = "number of cells"
-#    plot_num_cells(num_cells, label, title)
-#
-#    name = "num_cells"
-#    folder_out = "./plot/"
-#    save_multiple(name, num_frac, folder_out)
-#    save_single(name, folder_out, num_frac)
+        title = "number of cells - " + grid_name.replace("_", " ")
+        # Alessio
+        for method in methods_alessio:
+            data = folder_in + method + "/" + method + "_num_cells_" + grid[0] + ".csv"
+            plot_num_cells(data, method, title)
+
+        name = grid_name + "_num_cells"
+        save_single(name, folder_out)
 
 #------------------------------------------------------------------------------#
 
