@@ -177,13 +177,13 @@ def main():
                 data = np.insert(cot_avg, 0, times, axis=1).T
                 write_csv(file_out, labels, data)
 
+                # count number of cells
+                num[simul, :] = num_cells(file_in, num_frac)
+
                 # copy outflow file
                 file_in = folder_in + "outflow.csv"
                 file_out = folder_out + method + "_production_" + str(simul+1) + "_" + grid + ".csv"
                 shutil.copy(file_in, file_out)
-
-                # count number of cells
-                num[simul, :] = num_cells(file_in, num_frac)
 
             file_out = folder_out + method + "_num_cells_" + grid + ".csv"
             np.savetxt(file_out, np.atleast_2d(num), delimiter=',', fmt="%d")
