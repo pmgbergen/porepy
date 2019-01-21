@@ -2,6 +2,7 @@ import numpy as np
 import porepy as pp
 
 import examples.papers.dfn_transport.discretization as compute
+from examples.papers.dfn_transport.grid_export import grid_export
 from examples.papers.dfn_transport.flux_trace import jump_flux
 
 def bc_flag(g, domain, tol):
@@ -41,6 +42,8 @@ def main():
                  "3k": 0.8375 * np.power(2., -4), # for 3k triangles
                  "10k": 0.91 * np.power(2., -5), # for 10k triangles
                  }
+
+    folder_grid = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/grid/"
 
     for mesh_size_key in mesh_sizes.keys():
 
@@ -83,6 +86,9 @@ def main():
 
                 # the flow problem
                 model_flow = compute.flow(gb, discr, param, bc_flag)
+
+                if discr_key == "MVEM":
+                    grid_export(gb, param["P0_flux"], folder_grid + folder + "/")
 
                 #jump_flux(gb, param["mortar_flux"])
 
