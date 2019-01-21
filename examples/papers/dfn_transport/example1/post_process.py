@@ -134,12 +134,16 @@ def main():
 
     grids = ["1k", "3k", "10k"]
 
-    folder_master = "/home/elle/simul/example1/"
+    #folder_master = "/home/elle/simul/example1/"
+    folder_master = "/home/elle/Dropbox/Work/PostDoc-Bergen/ANIGMA/porepy/examples/papers/dfn_transport/example1/"
     folder_master_out = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/"
-    methods = ["MVEM", "Mpfa", "Tpfa", "RT0"]
+    #methods = ["MVEM", "Tpfa", "RT0"]
+    methods = ["Tpfa", "RT0"]
 
     for method in methods:
         for grid in grids:
+            # store the number of cells
+            num = np.zeros((num_simul, num_frac+1), dtype=np.int)
             for simul in np.arange(num_simul):
 
                 folder_in = folder_master + "solution_" + method + "_" + grid + "_" + str(simul+1) + "/"
@@ -173,15 +177,16 @@ def main():
                 data = np.insert(cot_avg, 0, times, axis=1).T
                 write_csv(file_out, labels, data)
 
-                # count number of cells
-                num = num_cells(file_in, num_frac)
-                file_out = folder_out + method + "_num_cells_" + str(simul+1) + "_" + grid + ".csv"
-                np.savetxt(file_out, np.atleast_2d(num), delimiter=',')
-
                 # copy outflow file
                 file_in = folder_in + "outflow.csv"
                 file_out = folder_out + method + "_production_" + str(simul+1) + "_" + grid + ".csv"
                 shutil.copy(file_in, file_out)
+
+                # count number of cells
+                num[simul, :] = num_cells(file_in, num_frac)
+
+            file_out = folder_out + method + "_num_cells_" + grid + ".csv"
+            np.savetxt(file_out, np.atleast_2d(num), delimiter=',', fmt="%d")
 
 if __name__ == "__main__":
     main()
