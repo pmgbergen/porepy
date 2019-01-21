@@ -38,8 +38,8 @@ def main():
     # define the mesh sizes
     mesh_sizes = {
                  "1k": 0.095, # for 1k triangles
-                 #"3k": 0.9 * np.power(2., -4), # for 3k triangles
-                 #"10k": 0.875 * np.power(2., -5), # for 10k triangles
+                 "3k": 0.8375 * np.power(2., -4), # for 3k triangles
+                 "10k": 0.91 * np.power(2., -5), # for 10k triangles
                  }
 
     for mesh_size_key in mesh_sizes.keys():
@@ -48,7 +48,7 @@ def main():
 
             if discr_key == "MVEM":
                 if mesh_size_key == "1k":
-                    mesh_size =  1 / 16
+                    mesh_size = 1 / 16
                 elif mesh_size_key == "3k":
                     mesh_size = 0.9 * np.power(2., -4) / 1.55
                 elif mesh_size_key == "10k":
