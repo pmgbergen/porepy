@@ -196,9 +196,10 @@ class Biot:
         # Put together linear system
         A_flow = div_flow * matrices_f["flux"]
         A_mech = div_mech * matrices_m["stress"]
-        grad_p = div_mech * (matrices_m["grad_p_jumps"] + matrices_m["grad_p_force"])
         stabilization = matrices_f["biot_stabilization"]
 
+        grad_p = div_mech * matrices_m['grad_p']
+        
         # Time step size
         dt = param[self.flow_keyword]["time_step"]
 
@@ -273,9 +274,8 @@ class Biot:
                 Dirichlet, the values will be stresses induced by the prescribed
                 displacement.  Incorporation as a right hand side in linear system
                 by multiplication with divergence operator.
-            scipy.sparse.csr_matrix (shape num_cells * dim, num_cells): Forces from
-                the pressure gradient (I*p-term), represented as body forces.
-                TODO: Should rather be represented as forces on faces.
+            scipy.sparse.csr_matrix (shape num_faces * dim, num_cells): Forces from
+                the pressure gradient (I*p-term), represented as forces on the faces.
             scipy.sparse.csr_matrix (shape num_cells, num_cells * dim): Trace of
                 strain matrix, cell-wise.
             scipy.sparse.csr_matrix (shape num_cells x num_cells): Stabilization
@@ -305,6 +305,7 @@ class Biot:
             div_mech = fvutils.vector_divergence(g)
             div_flow = fvutils.scalar_divergence(g)
             a_mech = div_mech * stress
+            grad_p = div_mech * grad_p
             a_flow = div_flow * flux
 
             a_biot = sps.bmat([[a_mech, grad_p], [div_d, a_flow +
@@ -332,6 +333,8 @@ class Biot:
 
         eta = parameters_m.get("mpsa_eta", fvutils.determine_eta(g))
         inverter = parameters_m.get("inverter", None)
+
+        alpha = parameters_m["biot_alpha"]
 
         # The grid coordinates are always three-dimensional, even if the grid
         # is really 2D. This means that there is not a 1-1 relation between the
@@ -367,14 +370,6 @@ class Biot:
             subcell_topology, bound_flow_sub, nd
         )
 
-        num_subhfno = subcell_topology.subhfno.size
-
-        num_nodes = np.diff(g.face_nodes.indptr)
-
-        num_subfno_unique = subcell_topology.num_subfno_unique
-        num_subfno = subcell_topology.num_subfno
-        num_cno = subcell_topology.num_cno
-
         # Call core part of MPSA
         hook, igrad, rhs_cells, cell_node_blocks = mpsa.mpsa_elasticity(
             g, constit, subcell_topology, bound_exclusion_mech, eta, inverter
@@ -393,11 +388,12 @@ class Biot:
             bound_mech_sub, bound_exclusion_mech, subcell_topology, g, False
         )
         rhs_bound = rhs_bound * hf2f.T
+
         # Discretization of boundary values
         bound_stress = hf2f * hook * igrad * rhs_bound
 
+        # trace of strain matrix
         div = self._subcell_gradient_to_cell_scalar(g, cell_node_blocks)
-
         div_d = div * igrad * rhs_cells
 
         # The boundary discretization of the div_d term is represented directly
@@ -405,131 +401,171 @@ class Biot:
         bound_div_d = div * igrad * rhs_bound
         del rhs_cells
 
+        # Call discretization of grad_p-term
+        rhs_jumps, grad_p_face \
+            = self.discretize_biot_grad_p(g, subcell_topology,
+                                          alpha, bound_exclusion_mech)
+
+        grad_p = hf2f * (hook * igrad * rhs_jumps + grad_p_face)
+        stabilization = div * igrad * rhs_jumps
+      
         matrices_m["stress"] = stress
         matrices_m["bound_stress"] = bound_stress
         matrices_m["div_d"] = div_d
         matrices_m["bound_div_d"] = bound_div_d
+        matrices_m['grad_p'] = grad_p
+        matrices_f["biot_stabilization"] = stabilization
 
-        # ----------------------------------------------------------------------------
+    def discretize_biot_grad_p(self, g, subcell_topology, alpha, bound_exclusion):
 
-        # Biot discretization
+        """
+        Consistent discretization of grad_p-term in MPSA-W method.
 
-        # ----------------------------------------------------------------------------
+        Parameters:
+            g (core.grids.grid): grid to be discretized
+            subcell_topology: Wrapper class for numbering of subcell faces, cells
+                etc.
+            alpha: Biot's coupling coefficient, given as a scalar in input
+            bound_exclusion: Object that can eliminate faces related to boundary
+                conditions.
+
+        Returns:
+            scipy.sparse.csr_matrix (shape num_subcells * dim, num_cells):
+            discretization of the jumps in [n alpha p] term,
+            ready to be multiplied with inverse gradient
+            scipy.sparse.csr_matrix (shape num_subfaces * dim, num_cells):
+                discretization of the force on the face due to cell-centre
+                pressure from a unique side. 
+
+        Method properties and implementation details.
+        Basis functions, namely 'stress' and 'bound_stress', for the displacement
+        discretization are obtained as in standard MPSA-W method.
+        Pressure is represented as forces in the cells.
+        However, jumps in pressure forces over a cell face act as force
+        imbalance, and thus induce additional displacement gradients in the sub-cells.
+        An additional system is set up, which applies non-zero conditions to the
+        traction continuity equation. This can be expressed as a linear system on the form
+            (i)   A * grad_u            = I
+            (ii)  B * grad_u + C * u_cc = 0
+            (iii) 0            D * u_cc = 0
+        Thus (i)-(iii) can be inverted to express the additional displacement gradients
+        due to imbalance in pressure forces as in terms of the cell center variables.
+        Thus we can compute the basis functions 'grad_p_jumps' on the sub-cells.
+        To ensure traction continuity, as soon as a convention is chosen for what side
+        the force evaluation should be considered on, an additional term, called
+        'grad_p_face', is added to the full force. This latter term represnts the force
+        due to cell-center pressure acting on the face from the chosen side.
+        The pair subfno_unique-unique_subfno gives the side convention.
+        The full force on the face is therefore given by
+        t = stress * u + bound_stress * u_b + (grad_p_jumps + grad_p_face) * p
+
+        The strategy is as follows.
+        1. compute product normal_vector * alpha and get a map for vector problems
+        2. assemble r.h.s. for the new linear system, needed for the term 'grad_p_jumps'
+        3. compute term 'grad_p_face'
+        """
+        
+        nd = g.dim
+
+        num_subhfno = subcell_topology.subhfno.size
+        num_subfno_unique = subcell_topology.num_subfno_unique
+        num_subfno = subcell_topology.num_subfno
+        num_cno = subcell_topology.num_cno
+
+        num_nodes = np.diff(g.face_nodes.indptr)
+
+        # Step 1
 
         # Take Biot's alpha as a tensor
-        alpha = parameters_m["biot_alpha"]
-        alpha_tensor = pp.SecondOrderTensor(2, alpha * np.ones(g.num_cells))
+        alpha_tensor = tensor.SecondOrder(nd, alpha * np.ones(g.num_cells))
+        
+        if nd == 2:
+            alpha_tensor.perm = np.delete(alpha_tensor.perm, (2), axis=0)
+            alpha_tensor.perm = np.delete(alpha_tensor.perm, (2), axis=1)
 
-        if g.dim == 2:
-            alpha_tensor.values = np.delete(alpha_tensor.values, (2), axis=0)
-            alpha_tensor.values = np.delete(alpha_tensor.values, (2), axis=1)
-
-        # Compute nAlpha product same as nK in Darcy
-        nAlpha_grad, cell_node_blocks, sub_cell_index = fvutils.scalar_tensor_vector_prod(
-            g, alpha_tensor, subcell_topology
-        )
+        # Obtain normal_vector * alpha, pairings of cells and nodes (which together
+        # uniquely define sub-cells, and thus index for gradients)
+        nAlpha_grad, cell_node_blocks, \
+            sub_cell_index = fvutils.scalar_tensor_vector_prod(g, alpha_tensor, subcell_topology)
 
         # transfer nAlpha to a face-based
         unique_nAlpha_grad = subcell_topology.pair_over_subfaces(nAlpha_grad)
 
         # convenience method for reshaping nAlpha from face-based
-        # to component-based
-        def reshape(mat, nd, ind):
+        # to component-based. This is to build a block diagonal sparse matrix
+        # compatible with igrad * rhs_units, that is first all x-component, then y, and z
+        def map_tensor(mat, nd, ind):
             newmat = mat[:, ind[0]]
 
-            for i in range(1, nd):
+            for i in range (1, nd):
                 this_dim = mat[:, ind[i]]
                 newmat = sps.block_diag([newmat, this_dim])
 
             return newmat
 
         # Reshape nAlpha component-wise
-        nAlpha_grad = reshape(nAlpha_grad, nd, sub_cell_index)
-        unique_nAlpha_grad = reshape(unique_nAlpha_grad, nd, sub_cell_index)
+        nAlpha_grad = map_tensor(nAlpha_grad, nd, sub_cell_index)
+        unique_nAlpha_grad = map_tensor(unique_nAlpha_grad, nd, sub_cell_index)
+
+        # Step 2
 
         # The pressure term in the tractions continuity equation is discretized
         # as a force on the faces. The right hand side is thus formed of the
-        # unit vector.
+        # unit vector.       
         def build_rhs_units_single_dimension(dim):
             vals = np.ones(num_subfno_unique)
             ind = subcell_topology.subfno_unique
-            mat = sps.coo_matrix(
-                (vals, (ind, ind)), shape=(num_subfno_unique, num_subfno_unique)
-            )
+            mat = sps.coo_matrix((vals, (ind, ind)), 
+                                     shape=(num_subfno_unique,
+                                            num_subfno_unique))
             return mat
 
         rhs_units = build_rhs_units_single_dimension(0)
-
+        
         for i in range(1, nd):
             this_dim = build_rhs_units_single_dimension(i)
             rhs_units = sps.block_diag([rhs_units, this_dim])
 
-        rhs_units = bound_exclusion_mech.exclude_dirichlet(rhs_units)
+        rhs_units = bound_exclusion.exclude_dirichlet_nd(rhs_units)
 
-        num_dir_subface = (
-            bound_exclusion_mech.exclude_neu.shape[1]
-            - bound_exclusion_mech.exclude_neu.shape[0]
-        )
+        num_dir_subface = (bound_exclusion.exclude_neu.shape[1] -
+                           bound_exclusion.exclude_neu.shape[0]) * nd
 
         # No right hand side for cell displacement equations.
-        rhs_units_displ_var = sps.coo_matrix(
-            (nd * num_subfno - num_dir_subface, num_subfno_unique * nd)
-        )
+        rhs_units_displ_var = sps.coo_matrix((nd * num_subfno
+                                                - num_dir_subface,
+                                                num_subfno_unique * nd))
 
-        # Why minus?
         rhs_units = -sps.vstack([rhs_units, rhs_units_displ_var])
         del rhs_units_displ_var
 
-        # Mapping from sub-cell to cell-centre values
-        def build_sc2c_single_dimension(dim):
-            rows = np.arange(sub_cell_index[dim].size)
-            cols = cell_node_blocks[0]
-            vals = np.ones(rows.size)
-            mat = sps.coo_matrix(
-                (vals, (rows, cols)), shape=(sub_cell_index[dim].size, g.num_cells)
-            ).tocsr()
-            return mat
+        # Output should be on cell-level (not sub-cell)
+        sc2c = fvutils.map_sc_2_c(g.dim, sub_cell_index, cell_node_blocks[0])
 
-        sc2c = build_sc2c_single_dimension(0)
-        for i in range(1, nd):
-            this_dim = build_sc2c_single_dimension(i)
-            sc2c = sps.vstack([sc2c, this_dim])
+        # prepare for computation of imbalance coefficients,
+        # that is jumps in cell-centers pressures, ready to be
+        # multiplied with inverse gradients
+        rhs_jumps = rhs_units * unique_nAlpha_grad * sc2c
 
-        # computation of imbalance coefficients,
-        # that is jumps in cell-centers pressures
-        grad_p_jumps = hf2f * hook * igrad * rhs_units * unique_nAlpha_grad * sc2c
+        # Step 3
 
-        # mapping from subface to unique subface for multi-dim problems
+        # mapping from subface to unique subface for vector problems.
+        # This mapping gives the convention from which side
+        # the force should be evaluated on.
         vals = np.ones(num_subfno_unique * nd)
         rows = fvutils.expand_indices_nd(subcell_topology.subfno_unique, nd)
-        cols = fvutils.expand_indices_incr(
-            subcell_topology.unique_subfno, nd, num_subhfno
-        )
-        map_unique_subfno = sps.coo_matrix(
-            (vals, (rows, cols)), shape=(num_subfno_unique * nd, num_subhfno * nd)
-        )
+        cols = fvutils.expand_indices_incr(subcell_topology.unique_subfno, nd, num_subhfno)
+        map_unique_subfno = sps.coo_matrix((vals, (rows, cols)), 
+                                 shape=(num_subfno_unique * nd,
+                                        num_subhfno * nd))
 
         del vals, rows, cols
+        
+        # Prepare for computation of grad_p_face term  
+        grad_p_face = map_unique_subfno * nAlpha_grad * sc2c 
 
-        # Computation of the "hydrostatic" term,
-        # that is the actual force on the face
-        grad_p_force = hf2f * map_unique_subfno * nAlpha_grad * sc2c
-
-        matrices_m["grad_p_jumps"] = grad_p_jumps
-        matrices_m["grad_p_force"] = grad_p_force
-
-        stabilization = div * igrad * rhs_units * unique_nAlpha_grad * sc2c
-        # include in the stabilization term also the "hydrostatic term?
-        # I believe so but this needs some more testing
-        stabilization += div * nAlpha_grad * sc2c
-        matrices_f["biot_stabilization"] = stabilization
-
-        # ----------------------------------------------------------------------------
-
-        # End of Biot discretization
-
-        # ----------------------------------------------------------------------------
-
+        return rhs_jumps, grad_p_face
+           
     def _face_vector_to_scalar(self, nf, nd):
         """ Create a mapping from vector quantities on faces (stresses) to scalar
         quantities. The mapping is intended for the boundary discretization of the
