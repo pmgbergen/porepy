@@ -584,6 +584,41 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
     ).tocsr()
     return hf2f
 
+def map_sc_2_c(nd, sub_cell_index, cell_index):
+
+    """
+    Create mapping from sub-cells to cells for vector problems.
+    For example, discretization of grad_p-term in Biot
+
+    Parameters
+    ----------
+    nd: dimension
+    sub_cell_index: 
+    cell_index:
+
+
+    Returns
+    -------
+
+    """
+
+    num_cells = cell_index.max() + 1
+    
+    def build_sc2c_single_dimension(dim):
+        rows = np.arange(sub_cell_index[dim].size)
+        cols = cell_index
+        vals = np.ones(rows.size)
+        mat = sps.coo_matrix((vals, (rows, cols)),
+                                   shape=(sub_cell_index[dim].size,
+                                          num_cells)).tocsr()
+        return mat
+
+    sc2c = build_sc2c_single_dimension(0)
+    for i in range(1, nd):
+        this_dim = build_sc2c_single_dimension(i)
+        sc2c = sps.vstack([sc2c, this_dim])
+
+    return sc2c
 
 def scalar_divergence(g):
     """
