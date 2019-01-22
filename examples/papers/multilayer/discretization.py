@@ -40,12 +40,7 @@ def data_flow(gb, model, data, bc_flag):
         d["tol"] = tol
 
         # assign permeability
-        if g.dim == 2:
-            kxx = data["k"] * unity
-            perm = pp.SecondOrderTensor(2, kxx=kxx, kyy=kxx, kzz=1)
-            aperture = unity
-
-        elif "fault" in g.name:
+        if "fault" in g.name:
             data_fault = data["fault"]
             kxx = data_fault["kf_t"] * unity
             perm = pp.SecondOrderTensor(1, kxx=kxx, kyy=1, kzz=1)
@@ -58,7 +53,12 @@ def data_flow(gb, model, data, bc_flag):
             aperture = data_layer["aperture"] * unity
 
         else:
-            raise ValueError
+            kxx = data["k"] * unity
+            if g.dim == 2:
+                perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=kxx, kzz=1)
+            else:
+                perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=kxx, kzz=kxx)
+            aperture = unity
 
         param["second_order_tensor"] = perm
         param["aperture"] = aperture
@@ -92,7 +92,7 @@ def data_flow(gb, model, data, bc_flag):
         check_P = mg.slave_to_mortar_avg()
 
         aperture = gb.node_props(g_l, pp.PARAMETERS)[model_data]["aperture"]
-        gamma = check_P * aperture #np.power(aperture, 1/(2.-g.dim))
+        gamma = check_P * aperture
         kn = data_interface["kf_n"] * np.ones(mg.num_cells) / gamma
 
         param = {"normal_diffusivity": kn}
@@ -139,8 +139,8 @@ def flow(gb, param, bc_flag):
     for e, d in gb.edges():
         g_slave, g_master = gb.nodes_of_edge(e)
         d[pp.PRIMARY_VARIABLES] = {mortar: {"cells": 1}}
-        if g_master.dim == 2:
-            # classical 2d-1d coupling condition
+        if g_master.dim == gb.dim_max():
+            # classical 2d-1d/3d-2d coupling condition
             d[pp.COUPLING_DISCRETIZATION] = {
                 flux: {
                     g_slave:  (variable, flux_id),
@@ -148,7 +148,7 @@ def flow(gb, param, bc_flag):
                     e: (mortar, coupling)
                 }
             }
-        elif g_master.dim == 1:
+        elif g_master.dim < gb.dim_max():
             # the multilayer coupling condition
             d[pp.COUPLING_DISCRETIZATION] = {
                 flux: {
