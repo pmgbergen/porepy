@@ -78,6 +78,9 @@ class MortarGrid(object):
         self.cell_volumes = np.hstack(
             [g.cell_volumes for g in self.side_grids.values()]
         )
+        self.cell_centers = np.hstack(
+            [g.cell_centers for g in self.side_grids.values()]
+        )
 
         # face_cells mapping from the higher dimensional grid to the mortar grid
         # also here we assume that, in the beginning the mortar grids are equal
