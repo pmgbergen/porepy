@@ -99,7 +99,7 @@ def add_data(gb, data, solver_name):
             bc_val_t[b_faces[b_inflow]] = 0.01
         else:
             bc = pp.BoundaryCondition(g, empty, empty)
-            bc_t = pp.BoundaryCondition(g, b_faces, labels)
+            bc_t = pp.BoundaryCondition(g, empty, empty)
 
         if g.dim == 3:
             d["porosity"] = data["porosity_high"] * unity

@@ -79,10 +79,9 @@ def run_flow(gb, node_discretization, source_discretization, folder, is_FV):
         for g, d in gb:
             discr_scheme = d[pp.DISCRETIZATION][grid_variable][diffusion_term]
 
-            #            d["darcy_flux"] = discr_scheme.extract_flux(g, d[grid_variable], d)
             d[pp.PARAMETERS][kw_t]["darcy_flux"] = discr_scheme.extract_flux(
                 g, d[grid_variable], d
-            )  # d["darcy_flux"]
+            )
             # Note the order: we overwrite d["pressure"] so this has to be done after
             # extracting the flux
             d["pressure"] = discr_scheme.extract_pressure(g, d[grid_variable], d)
