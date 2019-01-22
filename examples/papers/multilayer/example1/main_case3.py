@@ -47,29 +47,54 @@ def main():
              "k": 1, "bc_inflow": 0, "bc_outflow": 1,
              "layer": {"aperture": 1e-2, "kf_t": None, "kf_n": None},
              "fault": {"aperture": 1e-2, "kf_t": None, "kf_n": None},
-             "folder": "case2"}
+             "folder": "case3"}
 
     # define the non-constant tangential permeability
     for g in gb_ml.grids_of_dimension(1):
+
         kf = np.ones(g.num_cells)
         mask = np.logical_and(g.cell_centers[0] < 0.75, g.cell_centers[0] > 0.25)
-        kf[mask] = 2e-3
 
         if "layer" in g.name:
+
+            # we assume that the first half of the cells belongs to a layer, which is normally true.
+            # set the permeability for the first layer
+            half_cells = int(g.num_cells/2)
+            layer1 = np.hstack((np.ones(half_cells), np.zeros(half_cells))).astype(bool)
+            kf[np.logical_and(mask, layer1)] = 2e-3
+
+            # set the permeability for the second layer
+            layer2 = np.logical_not(layer1)
+            kf[np.logical_and(mask, layer2)] = 1e2
+
             param["layer"]["kf_t"] = kf
+
         elif "fault" in g.name:
+
+            kf[mask] = 2e-3
             param["fault"]["kf_t"] = kf
 
     # define the non-constant normal permeability
     for e, d in gb_ml.edges():
         mg = d["mortar_grid"]
+        g_l, g_h = gb_ml.nodes_of_edge(e)
+
         kf = np.ones(mg.num_cells)
         mask = np.logical_and(mg.cell_centers[0] < 0.75, g.cell_centers[0] > 0.25)
-        kf[mask] = 2e-3
 
-        g_l, g_h = gb_ml.nodes_of_edge(e)
+        # we assume that the first half of the cells belongs to a layer, which is normally true.
+        # set the permeability for the first layer
+        half_cells = int(mg.num_cells/2)
+        layer1 = np.hstack((np.ones(half_cells), np.zeros(half_cells))).astype(bool)
+        kf[np.logical_and(mask, layer1)] = 2e-3
+
+        # set the permeability for the second layer
+        layer2 = np.logical_not(layer1)
+        kf[np.logical_and(mask, layer2)] = 1e2
+
         if "fault" in g_l.name or "fault" in g_h.name:
             param["fault"]["kf_n"] = kf
+
         else:
             param["layer"]["kf_n"] = kf
 
