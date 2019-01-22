@@ -1237,7 +1237,7 @@ def compute_darcy_flux(
         keyword_store = keyword
     if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
         parameter_dictionary = data[pp.PARAMETERS][keyword]
-        matrix_dictionary = data[pp.PARAMETERS][keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
         if "flux" in matrix_dictionary:
             dis = (
                 matrix_dictionary["flux"] * data[p_name]
@@ -1248,8 +1248,7 @@ def compute_darcy_flux(
                 """Darcy_Flux can only be computed if a flux-based
                                  discretization has been applied"""
             )
-        data[d_name] = dis
-        data[pp.PARAMETERS][keyword_store] = dis
+        data[pp.PARAMETERS][keyword_store][d_name] = dis
         return
 
     # Compute fluxes from pressures internal to the subdomain, and for global
@@ -1270,7 +1269,6 @@ def compute_darcy_flux(
                                  discretization has been applied"""
                 )
 
-            d[d_name] = dis
             d[pp.PARAMETERS][keyword_store][d_name] = dis
     # Compute fluxes over internal faces, induced by the mortar flux. These
     # are a critical part of what makes MPFA consistent, but will not be
@@ -1290,7 +1288,6 @@ def compute_darcy_flux(
         )
         # Remove contribution directly on the boundary faces.
         induced_flux[g_h.tags["fracture_faces"]] = 0
-        d_h[d_name] += induced_flux
         d_h[pp.PARAMETERS][keyword_store][d_name] += induced_flux
         d[pp.PARAMETERS][keyword_store][d_name] = d[lam_name].copy()
 
