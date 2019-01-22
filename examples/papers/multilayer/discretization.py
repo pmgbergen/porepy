@@ -68,18 +68,11 @@ def data_flow(gb, model, data, bc_flag):
 
         # Boundaries
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc_val = np.zeros(g.num_faces)
         if b_faces.size:
-            in_flow, out_flow = bc_flag(g, data["domain"], tol)
-
-            labels = np.array(["neu"] * b_faces.size)
-            labels[in_flow + out_flow] = "dir"
+            labels, bc_val = bc_flag(g, data, tol)
             param["bc"] = pp.BoundaryCondition(g, b_faces, labels)
-
-            bc_val = np.zeros(g.num_faces)
-            bc_val[b_faces[in_flow]] = data["bc_inflow"]
-            bc_val[b_faces[out_flow]] = data["bc_outflow"]
         else:
+            bc_val = np.zeros(g.num_faces)
             param["bc"] = pp.BoundaryCondition(g, empty, empty)
 
         param["bc_values"] = bc_val
@@ -99,7 +92,7 @@ def data_flow(gb, model, data, bc_flag):
         check_P = mg.slave_to_mortar_avg()
 
         aperture = gb.node_props(g_l, pp.PARAMETERS)[model_data]["aperture"]
-        gamma = check_P * np.power(aperture, 1/(2.-g.dim))
+        gamma = check_P * aperture #np.power(aperture, 1/(2.-g.dim))
         kn = data_interface["kf_n"] * np.ones(mg.num_cells) / gamma
 
         param = {"normal_diffusivity": kn}

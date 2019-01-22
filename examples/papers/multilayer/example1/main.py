@@ -5,101 +5,49 @@ import copy
 import porepy as pp
 
 import examples.papers.multilayer.discretization as compute
+from examples.papers.multilayer.multilayer_grid import multilayer_grid_bucket
 
 np.set_printoptions(linewidth=2000)
 
-def bc_flag(g, domain, tol):
+def bc_flag(g, data, tol):
     b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
     b_face_centers = g.face_centers[:, b_faces]
 
     # define outflow type boundary conditions
-    out_flow_y = b_face_centers[1] > 1 - tol
+    out_flow_y = b_face_centers[1] > 2 - tol
     #out_flow_x = b_face_centers[0] < tol
 
     #out_flow = np.logical_and(out_flow_x, out_flow_z)
     out_flow = out_flow_y
 
     # define inflow type boundary conditions
-    in_flow_y = b_face_centers[1] < 0 + tol
-    in_flow = in_flow_y
+    in_flow = b_face_centers[1] < 0 + tol
 
-    return in_flow, out_flow
+    # define the labels for the boundary faces
+    labels = np.array(["neu"] * b_faces.size)
+    if g.dim == 2:
+        labels[in_flow + out_flow] = "dir"
+    else:
+        labels[:] = "dir"
 
+    # define the values for the boundary faces
+    bc_val = np.zeros(g.num_faces)
+    if g.dim == 2:
+        bc_val[b_faces[in_flow]] = data["bc_inflow"]
+        bc_val[b_faces[out_flow]] = data["bc_outflow"]
+    else:
+        bc_val[b_faces] = (b_face_centers[0, :] < 0.5).astype(np.float)
 
-def unite_grids(gs):
-    # it's simple index transformation
-    gs = np.atleast_1d(gs)
-
-    # collect the nodes
-    nodes = np.hstack((g.nodes for g in gs))
-
-    # collect the face_nodes map
-    face_nodes = sps.block_diag([g.face_nodes for g in gs], "csc")
-
-    # collect the cell_faces map
-    cell_faces = sps.block_diag([g.cell_faces for g in gs], "csc")
-
-    # dimension and name
-    dim = gs[0].dim
-    name = "United grid"
-
-    # create the grid and give it back
-    g = pp.Grid(dim, nodes, face_nodes, cell_faces, name)
-    g.compute_geometry()
-    return g
-
-def multilayer_grid_bucket(gb):
-    # we assume conforming grids and no 0d grids
-
-    gb_new = pp.GridBucket()
-    gb_new.add_nodes([g for g, _ in gb])
-
-    for e, d in gb.edges():
-        mg = d["mortar_grid"]
-        gs, gm = gb.nodes_of_edge(e)
-
-        # we construct the grid for the new layer
-        g_new = unite_grids([g for g in mg.side_grids.values()])
-
-        # update the names
-        gs.name += ["fault"]
-        g_new.name += ["layer"]
-
-        # add the new grid to the grid bucket
-        gb_new.add_nodes(g_new)
-
-        # we store the master-grid with the new layer grid with the
-        # mortar mapping from the original edge
-        edge = [gm, g_new]
-        gb_new.add_edge(edge, None)
-
-        mg1 = copy.deepcopy(mg)
-        # the slave to mortar needs to be changed
-        mg1.slave_to_mortar_int = sps.identity(g_new.num_cells, format="csc")
-        gb_new.set_edge_prop(edge, "mortar_grid", mg1)
-
-        # we store the slave-grid with the new layer grid with the
-        # mortar mapping from the original edge
-        edge = [g_new, gs]
-        gb_new.add_edge(edge, None)
-
-        mg2 = copy.deepcopy(mg)
-        # the master to mortar needs to be changed
-        mg2.master_to_mortar_int = sps.identity(g_new.num_cells, format="csc")
-        gb_new.set_edge_prop(edge, "mortar_grid", mg2)
-
-    gb_new.assign_node_ordering()
-
-    return gb_new
+    return labels, bc_val
 
 def main():
 
-    h = 0.01
+    h = 0.025
     tol = 1e-6
     mesh_args = {'mesh_size_frac': h}
-    domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+    domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 2}
 
-    f = np.array([[0, 1], [0.5, 0.5]])
+    f = np.array([[0, 1], [1, 1]])
 
     gb = pp.meshing.simplex_grid([f], domain, **mesh_args)
 
@@ -118,10 +66,15 @@ def main():
     # the flow problem
     param = {"domain": gb_ml.bounding_box(as_dict=True), "tol": tol,
              "k": 1, "bc_inflow": 0, "bc_outflow": 1,
-             "layer": {"aperture": 1e-3, "kf_t": 1, "kf_n": 1e2},
-             "fault": {"aperture": 1e-3, "kf_t": 1, "kf_n": 1e-2},
-             "folder": "solution"}
+             "layer": {"aperture": 1e-2, "kf_t": 1e2, "kf_n": 1e2},
+             "fault": {"aperture": 1e-2, "kf_t": 1e2, "kf_n": 1e2},
+             "folder": "case1"}
     compute.flow(gb_ml, param, bc_flag)
+
+    for g, d in gb_ml:
+        if g.dim == 2:
+            pressure = param["pressure"]
+            np.savetxt("pressure.txt", d[pressure])
 
 if __name__ == "__main__":
     main()
