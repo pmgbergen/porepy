@@ -118,7 +118,7 @@ class Data(object):
 
             gamma = np.power(
                 check_P * self.gb.node_props(g_l, "param").get_aperture(),
-                1. / (2 - g_l.dim),
+                1.0 / (2 - g_l.dim),
             )
             if self.if_fracture(g_h):
                 d["kn"] = self.data["kf_h"] / gamma
@@ -134,8 +134,8 @@ class Data(object):
                 u = np.linalg.norm(d["P0u"], axis=0)
 
                 # to trick the code we need to do the following
-                coeff = 1. / self.eff_kf_h() + self.data["beta"] * u
-                kf = 1. / coeff / self.data["aperture"]
+                coeff = 1.0 / self.eff_kf_h() + self.data["beta"] * u
+                kf = 1.0 / coeff / self.data["aperture"]
 
                 perm = pp.SecondOrderTensor(1, kxx=kf, kyy=1, kzz=1)
                 d["param"].set_tensor("flow", perm)

@@ -4,7 +4,9 @@ Module contains superclass for mpfa and tpfa.
 import porepy as pp
 
 
-class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
+class FVElliptic(
+    pp.numerics.interface_laws.elliptic_discretization.EllipticDiscretization
+):
     """ Superclass for finite volume discretizations of the elliptic equation.
 
     Should not be used by itself, instead use a subclass that implements an
@@ -12,16 +14,10 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
 
     """
 
-    def __init__(self, keyword, physics=None):
-        self.keyword = keyword
+    def __init__(self, keyword):
 
-        # @ALL: We kee the physics keyword for now, or else we completely
-        # break the parameter assignment workflow. The physics keyword will go
-        # to be replaced by a more generalized approach, but one step at a time
-        if physics is None:
-            self.physics = keyword
-        else:
-            self.physics = physics
+        # Identify which parameters to use:
+        self.keyword = keyword
 
     def ndof(self, g):
         """
@@ -84,35 +80,53 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         order elliptic equation.
 
         Also discretize the necessary operators if the data dictionary does not
-        contain a transmissibility matrix.
+        contain a transmissibility matrix. In that case, we assume the following two
+        sub-dictionaries to be present in the data dictionary:
+            parameter_dictionary, storing all parameters.
+                Stored in data[pp.PARAMETERS][self.keyword].
+            matrix_dictionary, for storage of discretization matrices.
+                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        parameter_dictionary contains the entries:
+            second_order_tensor: (pp.SecondOrderTensor) Permeability defined cell-wise.
+            bc: (pp.BoundaryCondition) boundary conditions.
+            bc_values: array (self.num_faces) The boundary condition values.
+            aperture: (np.ndarray) apertures of the cells for scaling of the face
+                normals.
+            Optional parameters: See the discretize methods.
+
+        After discretization, matrix_dictionary will be updated with the following
+        entries:
+            flux: sps.csc_matrix (g.num_faces, g.num_cells)
+                Flux discretization, cell center contribution.
+            bound_flux: sps.csc_matrix (g.num_faces, g.num_faces)
+                Flux discretization, face contribution.
+            bound_pressure_cell: sps.csc_matrix (g.num_faces, g.num_cells)
+                Operator for reconstructing the pressure trace, cell center
+                contribution.
+            bound_pressure_face: sps.csc_matrix (g.num_faces, g.num_faces)
+                Operator for reconstructing the pressure trace, face contribution.
 
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
 
         Returns:
-            scipy.sparse.csr_matrix: System matrix of this discretization. The
-                size of the matrix will depend on the specific discretization.
+            scipy.sparse.csr_matrix: System matrix of this discretization. The size of
+                the matrix will depend on the specific discretization.
             np.ndarray: Right hand side vector with representation of boundary
-                conditions. The size of the vector will depend on the
-                discretization.
+                conditions. The size of the vector will depend on the discretization.
         """
 
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
     def assemble_matrix(self, g, data):
-        """
-        Return the matrix for a discretization of a second order elliptic equation
+        """ Return the matrix for a discretization of a second order elliptic equation
         using a FV method.
 
-        The name of data in the input dictionary (data) are:
-        k : second_order_tensor
-            Permeability defined cell-wise.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively.
+        Also discretize the necessary operators if the data dictionary does not contain
+        a discretization of the boundary equation. For the required fields of the data
+        dictionary, see the assemble_matrix_rhs and discretize methods.
 
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
@@ -121,13 +135,13 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         Returns:
             scipy.sparse.csr_matrix: System matrix of this discretization. The
                 size of the matrix will depend on the specific discretization.
-
         """
-        if not self._key() + "flux" in data.keys():
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        if not "flux" in matrix_dictionary:
             self.discretize(g, data)
 
         div = pp.fvutils.scalar_divergence(g)
-        flux = data[self._key() + "flux"]
+        flux = matrix_dictionary["flux"]
         M = div * flux
 
         return M
@@ -135,11 +149,12 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
     # ------------------------------------------------------------------------------#
 
     def assemble_rhs(self, g, data):
-        """ Return the right-hand side for a discretization of a second
-        order elliptic equation using a finite volume method.
+        """ Return the right-hand side for a discretization of a second order elliptic
+        equation using a finite volume method.
 
-        Also discretize the necessary operators if the data dictionary does not
-        contain a discretization of the boundary equation.
+        Also discretize the necessary operators if the data dictionary does not contain
+        a discretization of the boundary equation. For the required fields of the data
+        dictionary, see the assemble_matrix_rhs and discretize methods.
 
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
@@ -147,17 +162,17 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
 
         Returns:
             np.ndarray: Right hand side vector with representation of boundary
-                conditions. The size of the vector will depend on the
-                discretization.
+                conditions. The size of the vector will depend on the discretization.
         """
-        if not self._key() + "bound_flux" in data.keys():
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        if not "bound_flux" in matrix_dictionary:
             self.discretize(g, data)
 
-        bound_flux = data[self._key() + "bound_flux"]
+        bound_flux = matrix_dictionary["bound_flux"]
 
-        param = data["param"]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
-        bc_val = param.get_bc_val(self)
+        bc_val = parameter_dictionary["bc_values"]
 
         div = g.cell_faces.T
 
@@ -197,6 +212,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         """
         div = g.cell_faces.T
 
+        bound_flux = data[pp.DISCRETIZATION_MATRICES][self.keyword]["bound_flux"]
         # Projection operators to grid
         mg = data_edge["mortar_grid"]
 
@@ -205,7 +221,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         else:
             proj = mg.master_to_mortar_avg()
 
-        cc[self_ind, 2] += div * data[self._key() + "bound_flux"] * proj.T
+        cc[self_ind, 2] += div * bound_flux * proj.T
 
     def assemble_int_bound_source(
         self, g, data, data_edge, grid_swap, cc, matrix, self_ind
@@ -282,15 +298,15 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         """
         mg = data_edge["mortar_grid"]
 
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         # TODO: this should become first or second or something
         if grid_swap:
             proj = mg.slave_to_mortar_avg()
         else:
             proj = mg.master_to_mortar_avg()
 
-        bp = data[self._key() + "bound_pressure_cell"]
-        cc[2, self_ind] += proj * bp
-        cc[2, 2] += proj * data[self._key() + "bound_pressure_face"] * proj.T
+        cc[2, self_ind] += proj * matrix_dictionary["bound_pressure_cell"]
+        cc[2, 2] += proj * matrix_dictionary["bound_pressure_face"] * proj.T
 
     def assemble_int_bound_pressure_cell(
         self, g, data, data_edge, grid_swap, cc, matrix, self_ind
@@ -332,7 +348,9 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
 
         cc[2, self_ind] -= proj
 
-    def enforce_neumann_int_bound(self, g_master, data_edge, matrix, swap_grid, self_ind):
+    def enforce_neumann_int_bound(
+        self, g_master, data_edge, matrix, swap_grid, self_ind
+    ):
         """ Enforce Neumann boundary conditions on a given system matrix.
 
         The method is void for finite volume approaches, but is implemented

@@ -4,44 +4,15 @@ from scipy import sparse as sps
 from itertools import islice
 import csv
 
+import porepy as pp
+
 from porepy.grids import grid, grid_bucket
 from porepy.grids.gmsh import gmsh_interface
 from porepy.fracs import meshing, split_grid, simplex
-from porepy.fracs.fractures import Fracture, FractureNetwork, EllipticFracture
+from porepy.fracs.fractures import Fracture, EllipticFracture
 from porepy.utils.setmembership import unique_columns_tol
 from porepy.utils.sort_points import sort_point_pairs
 import porepy.utils.comp_geom as cg
-
-# ------------------------------------------------------------------------------#
-
-
-def dfm_3d_from_csv(file_name, tol=1e-4, elliptic_fractures=False, **mesh_kwargs):
-    """
-    Create the grid bucket from a set of 3d fractures stored in a csv file and
-    domain. In the csv file, we assume the following structure
-    - first line describes the domain as a rectangle with
-      X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX
-    - the other lines descibe the N fractures as a list of points
-      P0_X, P0_Y, P0_Z, ...,PN_X, PN_Y, PN_Z
-
-    Parameters:
-        file_name: name of the file
-        tol: (optional) tolerance for the methods
-        mesh_kwargs: kwargs for the gridding, see meshing.simplex_grid
-
-    Return:
-        gb: the grid bucket
-    """
-    if elliptic_fractures:
-        frac_list, network, domain = elliptic_network_3d_from_csv(file_name)
-    else:
-        frac_list, network, domain = network_3d_from_csv(file_name)
-
-    gb = meshing.simplex_grid(domain=domain, network=network, **mesh_kwargs)
-    return gb, domain
-
-
-# ------------------------------------------------------------------------------#
 
 
 def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
@@ -61,9 +32,8 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
         tol: (optional) tolerance for the methods
 
     Return:
-        frac_list: the list of fractures
         network: the fracture network
-        domain: (optional, returned if has_domain==True) the domain
+
     """
 
     # The first line of the csv file defines the bounding box for the domain
@@ -102,15 +72,10 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
             frac_list.append(Fracture(pts.reshape((3, -1), order="F")))
 
     # Create the network
-    network = FractureNetwork(frac_list, tol=tol)
-
     if has_domain:
-        return frac_list, network, domain
+        return pp.FractureNetwork3d(frac_list, tol=tol, domain=domain)
     else:
-        return frac_list, network
-
-
-# ------------------------------------------------------------------------------#
+        return pp.FractureNetwork3d(frac_list, tol=tol)
 
 
 def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=False):
@@ -133,9 +98,8 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
         tol: (optional) tolerance for the methods
 
     Return:
-        frac_list: the list of fractures
-        network: the fracture network
-        domain: (optional, returned if has_domain==True) the domain
+        FractureNetwork3d: the fracture network
+
     """
 
     # The first line of the csv file defines the bounding box for the domain
@@ -184,75 +148,20 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
                 )
             )
     # Create the network
-    network = FractureNetwork(frac_list, tol=tol)
-
     if has_domain:
-        return frac_list, network, domain
+        return pp.FractureNetwork3d(frac_list, tol=tol, domain=domain)
     else:
-        return frac_list, network
+        return pp.FractureNetwork3d(frac_list, tol=tol)
 
 
-# ------------------------------------------------------------------------------#
-
-
-def dfm_2d_from_csv(
-    f_name,
-    mesh_kwargs,
-    domain=None,
-    return_domain=False,
-    tol=1e-8,
-    polyline=False,
-    **kwargs
-):
-    """
-    Create the grid bucket from a set of fractures stored in a csv file and a
-    domain. In the csv file, we assume the following structure:
-    FID, START_X, START_Y, END_X, END_Y
-
-    Where FID is the fracture id, START_X and START_Y are the abscissa and
-    coordinate of the starting point, and END_X and END_Y are the abscissa and
-    coordinate of the ending point.
-    Note: the delimiter can be different.
-
-    Parameters:
-        f_name: the file name in CSV format
-        mesh_kwargs: list of additional arguments for the meshing
-        domain: rectangular domain, if not given the bounding-box is computed
-        kwargs: list of argument for the numpy function genfromtxt
-
-    Returns:
-        gb: grid bucket associated to the configuration.
-        domain: if the domain is not given as input parameter, the bounding box
-        is returned.
-
-    """
-    pts, edges = lines_from_csv(f_name, tol=tol, polyline=polyline, **kwargs)
-    f_set = np.array([pts[:, e] for e in edges.T])
-
-    # Define the domain as bounding-box if not defined
-    if domain is None:
-        overlap = kwargs.get("domain_overlap", 0)
-        domain = cg.bounding_box(pts, overlap)
-
-    if kwargs.get("assign_fracture_id", False):
-        mesh_kwargs["fracture_id"] = np.arange(edges.shape[1])
-
-    if return_domain:
-        return meshing.simplex_grid(f_set, domain, **mesh_kwargs), domain
-    else:
-        return meshing.simplex_grid(f_set, domain, **mesh_kwargs)
-
-
-# ------------------------------------------------------------------------------#
-
-
-def lines_from_csv(
+def network_2d_from_csv(
     f_name,
     tagcols=None,
     tol=1e-8,
     max_num_fracs=None,
     polyline=False,
     return_frac_id=False,
+    domain=None,
     **kwargs
 ):
     """ Read csv file with fractures to obtain fracture description.
@@ -290,11 +199,7 @@ def lines_from_csv(
         **kwargs: keyword arguments passed on to np.genfromtxt.
 
     Returns:
-        np.ndarray (2 x num_pts): Point coordinates used in the fracture
-            description.
-        np.ndarray (2+numtags x num_fracs): Fractures, described by their start
-            and endpoints (first and second row). If tags are assigned to the
-            fractures, these are stored in rows 2,...
+        FractureNetwork2d: Network representation of the fractures
 
     Raises:
         ValueError: If a fracture of a single point is specified.
@@ -307,13 +212,17 @@ def lines_from_csv(
 
     # Extract the data from the csv file
     data = np.genfromtxt(f_name, **npargs)
+    # Shortcut if no data is loaded
     if data.size == 0:
-        return np.empty((2, 0)), np.empty((2, 0), dtype=np.int)
+        return pp.FractureNetwork2d()
     data = np.atleast_2d(data)
 
     # Consider subset of fractures if asked for
     if max_num_fracs is not None:
-        data = data[:max_num_fracs]
+        if max_num_fracs == 0:
+            return pp.FractureNetwork2d()
+        else:
+            data = data[:max_num_fracs]
 
     num_fracs = data.shape[0] if data.size > 0 else 0
     num_data = data.shape[1] if data.size > 0 else 0
@@ -354,28 +263,54 @@ def lines_from_csv(
         edges = np.vstack(
             (np.arange(0, 2 * num_fracs, 2), np.arange(1, 2 * num_fracs, 2))
         )
+        # Fracture id is the first column of data
+        edges_frac_id = data[:, 0]
         if tagcols is not None:
             edges = np.vstack((edges, data[:, tagcols].T))
 
+    if domain is None:
+        overlap = kwargs.get("domain_overlap", 0)
+        domain = cg.bounding_box(pts, overlap)
+
     pts, _, old_2_new = unique_columns_tol(pts, tol=tol)
-    edges[:2] = old_2_new[edges[:2]]
+
+    edges[:2] = old_2_new[edges[:2].astype(np.int)]
 
     to_remove = np.where(edges[0, :] == edges[1, :])[0]
-    edges = np.delete(edges, to_remove, axis=1)
+    edges = np.delete(edges, to_remove, axis=1).astype(np.int)
 
     assert np.all(np.diff(edges[:2], axis=0) != 0)
 
+    network = pp.FractureNetwork2d(pts, edges, domain, tol=tol)
+
     if return_frac_id:
         edges_frac_id = np.delete(edges_frac_id, to_remove)
-        return pts, edges.astype(np.int), edges_frac_id.astype(np.int)
+        return network, edges_frac_id.astype(np.int)
     else:
-        return pts, edges.astype(np.int)
+        return network
 
 
 # ------------ End of CSV-based functions. Start of gmsh related --------------#
 
 
 def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
+    """ Generate a GridBucket from a gmsh file.
+
+    If the provided file is input for gmsh (.geo, not .msh), gmsh will be called
+    to generate the mesh before the GridBucket is constructed.
+
+    Parameters:
+        file_name (str): Name of gmsh in and out file. Should have extsion .geo
+            or .msh. In the latter case, gmsh will be called upon to generate the
+            mesh before the mixed-dimensional mesh is constructed.
+        dim (int): Dimension of the problem. Should be 2 or 3.
+        network (FractureNetwork3d, only if dim==3): FractureNetwork. Needed
+            for the post-processing from gmsh, but only in 3d.
+
+    Returns:
+        GridBucket: Mixed-dimensional grid as contained in the gmsh file.
+
+    """
 
     verbose = kwargs.get("verbose", 1)
 
@@ -396,17 +331,48 @@ def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
             print("Gmsh finished with status " + str(gmsh_status))
 
     if dim == 2:
-        raise NotImplementedError()
+        grids = simplex.triangle_grid_from_gmsh(out_file, **kwargs)
     elif dim == 3:
         assert (
             network is not None
         ), """Need access to the network used to
             produce the .geo file"""
         grids = simplex.tetrahedral_grid_from_gmsh(out_file, network, **kwargs)
-        return meshing.grid_list_to_grid_bucket(grids, **kwargs)
+    return meshing.grid_list_to_grid_bucket(grids, **kwargs)
 
 
 # ------------ End of gmsh-based functions, start of fab related --------------#
+
+
+def dfm_3d_from_fab(
+    file_name, tol=1e-4, domain=None, return_domain=False, **mesh_kwargs
+):
+    """
+    Create the grid bucket from a set of 3d fractures stored in a fab file and
+    domain.
+
+    Parameters:
+        file_name: name of the file
+        tol: (optional) tolerance for the methods
+        domain: (optional) the domain, otherwise a bounding box is considered
+        mesh_kwargs: kwargs for the gridding, see meshing.simplex_grid
+
+    Return:
+        gb: the grid bucket
+    """
+
+    network = network_3d_from_fab(file_name, return_all=False, tol=tol)
+
+    # Define the domain as bounding-box if not defined
+    if domain is None:
+        domain = network.bounding_box()
+
+    gb = meshing.simplex_grid(domain=domain, network=network, **mesh_kwargs)
+
+    if return_domain:
+        return gb, domain
+    else:
+        return gb
 
 
 def dfn_3d_from_fab(
@@ -538,15 +504,18 @@ def network_3d_from_fab(f_name, return_all=False, tol=None):
             elif line.strip() == "BEGIN TESSFRACTURE":
                 # Read tess_fractures
                 tess_fracs, tess_frac_ids, tess_sgn = read_fractures(f, is_tess=True)
+            elif line.strip() == "BEGIN ROCKBLOCK":
+                # Not considered block
+                pass
             elif line.strip()[:5] == "BEGIN":
                 # Check for keywords not yet implemented.
                 raise ValueError("Unknown section type " + line)
 
     fractures = [Fracture(f) for f in fracs]
     if tol is not None:
-        network = FractureNetwork(fractures, tol=tol)
+        network = pp.FractureNetwork3d(fractures, tol=tol)
     else:
-        network = FractureNetwork(fractures)
+        network = pp.FractureNetwork3d(fractures)
 
     if return_all:
         return network, tess_fracs, tess_sgn

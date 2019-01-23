@@ -17,8 +17,8 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         bc = pp.BoundaryConditionVectorial(g)
         basis_known = np.array(
             [
-                [[1., 1., 1., 1., 1.], [0., 0., 0., 0., 0.]],
-                [[0., 0., 0., 0., 0.], [1., 1., 1., 1., 1.]],
+                [[1.0, 1.0, 1.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0, 0.0]],
+                [[0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0, 1.0]],
             ]
         )
 
@@ -55,10 +55,15 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         boundary_faces_type = ["dir_x"] * 6 + ["dir"] * 3 + ["dir_y"] * 1
 
         bound = pp.BoundaryConditionVectorial(g, boundary_faces, boundary_faces_type)
-
         subcell_topology = pp.fvutils.SubcellTopology(g)
+        # Move the boundary conditions to sub-faces
+        bound.is_dir = bound.is_dir[:, subcell_topology.fno_unique]
+        bound.is_rob = bound.is_rob[:, subcell_topology.fno_unique]
+        bound.is_neu = bound.is_neu[:, subcell_topology.fno_unique]
+        bound.robin_weight = bound.robin_weight[:, :, subcell_topology.fno_unique]
+        bound.basis = bound.basis[:, :, subcell_topology.fno_unique]
+
         # Obtain the face number for each coordinate
-        fno = subcell_topology.fno_unique
         subfno = subcell_topology.subfno_unique
         subfno_nd = np.tile(subfno, (nd, 1)) * nd + np.atleast_2d(np.arange(0, nd)).T
 
@@ -74,7 +79,7 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         # Pick out the Neumann boundary
 
         is_neu_nd = (
-            bound_exclusion.exclude_robin_dirichlet(bound.is_neu[:, fno].ravel("C"))
+            bound_exclusion.exclude_robin_dirichlet(bound.is_neu.ravel("C"))
             .ravel("F")
             .astype(np.bool)
         )
@@ -116,7 +121,7 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
             "F"
         )
         is_dir_nd = (
-            bound_exclusion.exclude_neumann_robin(bound.is_dir[:, fno].ravel("C"))
+            bound_exclusion.exclude_neumann_robin(bound.is_dir.ravel("C"))
             .ravel("F")
             .astype(np.bool)
         )

@@ -28,9 +28,9 @@ def create_2d_grids(pts, cells, **kwargs):
     # List of 2D grids, one for each surface
     g_2d = []
     is_embedded = kwargs.get("is_embedded", False)
+    phys_names = kwargs.get("phys_names", False)
+    cell_info = kwargs.get("cell_info", False)
     if is_embedded:
-        phys_names = kwargs.get("phys_names", False)
-        cell_info = kwargs.get("cell_info", False)
         network = kwargs.get("network", False)
 
         # Check input
@@ -113,9 +113,59 @@ def create_2d_grids(pts, cells, **kwargs):
             g_2d.append(g)
 
     else:
+
         triangles = cells["triangle"].transpose()
         # Construct grid
         g_2d = simplex.TriangleGrid(pts.transpose(), triangles)
+
+        # we need to add the face tags from gmsh to the current mesh,
+        # first we add them as False and after we change for the correct
+        # faces. The new tag name become the lower version of what gmsh gives
+        # in the cell_info["line"]. The map phys_names recover the literal name.
+
+        # create all the extra tags for the grids, by default they're false
+        for tag in np.unique(cell_info["line"]["gmsh:physical"]):
+            tag_name = phys_names[tag].lower() + "_faces"
+            g_2d.tags[tag_name] = np.zeros(g_2d.num_faces, dtype=np.bool)
+
+        # since there is not a cell-face relation from gmsh but only a cell-node
+        # relation we need to recover the corresponding face.
+        for tag_id, tag in enumerate(cell_info["line"]["gmsh:physical"]):
+            tag_name = phys_names[tag].lower() + "_faces"
+            # check where is the first node indipendent on the position
+            # in the triangle, being first, second or third node
+            first = (triangles == cells["line"][tag_id, 0]).any(axis=0)
+            # check where is the second node, same approach as before
+            second = (triangles == cells["line"][tag_id, 1]).any(axis=0)
+            # select which are the cells that have this edge
+            tria = np.logical_and(first, second).astype(np.int)
+            # with the cell_faces map we get the faces associated to
+            # the selected triangles
+            face = np.abs(g_2d.cell_faces).dot(tria)
+            # we have two case, the face is internal or is at the boundary
+            # we consider them separately
+            if np.any(face > 1):
+                # select the face if it is internal
+                g_2d.tags[tag_name][face > 1] = True
+            else:
+                # the face is on a boundary
+                face = np.logical_and(face, g_2d.tags["domain_boundary_faces"])
+                if np.sum(face) == 2:
+                    # the triangle has two faces at the boundary, check if it
+                    # is the first otherwise it is the other.
+                    face_id = np.where(face)[0]
+
+                    first_face = np.zeros(face.size, dtype=np.bool)
+                    first_face[face_id[0]] = True
+
+                    nodes = g_2d.face_nodes.dot(first_face)
+                    # check if the nodes of the first face are the same
+                    if np.all(nodes[cells["line"][tag_id, :]]):
+                        face[face_id[1]] = False
+                    else:
+                        face[face_id[0]] = False
+
+                g_2d.tags[tag_name][face] = True
 
         # Create mapping to global numbering (will be a unit mapping, but is
         # crucial for consistency with lower dimensions)
@@ -208,28 +258,9 @@ def create_0d_grids(pts, cells):
 
 def create_embedded_line_grid(loc_coord, glob_id, tol=1e-4):
     loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
-    loc_coord -= loc_center
-    # Check that the points indeed form a line
-    if not cg.is_collinear(loc_coord, tol):
-        raise ValueError("Elements are not colinear")
-    # Find the tangent of the line
-    tangent = cg.compute_tangent(loc_coord)
-    # Projection matrix
-    rot = cg.project_line_matrix(loc_coord, tangent)
-
-    loc_coord_1d = rot.dot(loc_coord)
-    # The points are now 1d along one of the coordinate axis, but we
-    # don't know which yet. Find this.
-
-    sum_coord = np.sum(np.abs(loc_coord_1d), axis=1)
-    sum_coord /= np.amax(sum_coord)
-    active_dimension = np.logical_not(np.isclose(sum_coord, 0, atol=tol, rtol=0))
-    # Check that we are indeed in 1d
-    assert np.sum(active_dimension) == 1
-    # Sort nodes, and create grid
-    coord_1d = loc_coord_1d[active_dimension]
-    sort_ind = np.argsort(coord_1d)[0]
-    sorted_coord = coord_1d[0, sort_ind]
+    sorted_coord, rot, active_dimension, sort_ind = cg.project_points_to_line(
+        loc_coord, tol
+    )
     g = structured.TensorGrid(sorted_coord)
 
     # Project back to active dimension

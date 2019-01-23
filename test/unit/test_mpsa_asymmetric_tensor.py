@@ -21,6 +21,8 @@ class TestAsymmetricNeumann(unittest.TestCase):
         g = true_2d(g)
 
         subcell_topology = pp.fvutils.SubcellTopology(g)
+        # Mat boundary to subfaces
+        bc = pp.fvutils.boundary_to_sub_boundary(bc, subcell_topology)
         bound_exclusion = pp.fvutils.ExcludeBoundaries(subcell_topology, bc, g.dim)
         cell_node_blocks = np.array(
             [[0, 0, 0, 0, 1, 1, 1, 1], [0, 1, 3, 4, 1, 2, 4, 5]]
@@ -49,3 +51,7 @@ def true_2d(g, constit=None):
     constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=0)
     constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=1)
     return g, constit
+
+
+if __name__ == "__main__":
+    unittest.main()

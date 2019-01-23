@@ -1,10 +1,8 @@
 import numpy as np
 import scipy.sparse as sps
 import unittest
-
+import porepy as pp
 from porepy.numerics.fv import fvutils
-from porepy.grids import structured, simplex
-from porepy.params.data import Parameters
 
 
 class TestFvutils(unittest.TestCase):
@@ -133,23 +131,27 @@ class TestFvutils(unittest.TestCase):
                 # may change in the future.
                 pass
 
-    def test_compute_discharge_mono_grid(self):
-        g = structured.CartGrid([1, 1])
+    def test_compute_darcy_flux_mono_grid(self):
+        g = pp.CartGrid([1, 1])
         flux = sps.csc_matrix((4, 1))
         bound_flux = sps.csc_matrix(
             np.array([[0, 0, 0, 3], [5, 0, 0, 0], [1, 0, 0, 0], [3, 0, 0, 0]])
         )
-        data = {"param": Parameters(g)}
+
         bc_val = np.array([1, 2, 3, 4])
-        data["param"].set_bc_val("flow", bc_val)
-        data["flow_flux"] = flux
-        data["flow_bound_flux"] = bound_flux
+        specified_parameters = {"bc_values": bc_val}
+        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+        matrix_dictionary = data[pp.PARAMETERS]["flow"]
+        matrix_dictionary["flux"] = flux
+        matrix_dictionary["bound_flux"] = bound_flux
         data["pressure"] = np.array([3.14])
-        fvutils.compute_discharges(g, data=data)
-        dis = data["discharge"]
+        fvutils.compute_darcy_flux(g, data=data)
+
+        dis = data["darcy_flux"]
 
         dis_true = flux * data["pressure"] + bound_flux * bc_val
         self.assertTrue(np.allclose(dis, dis_true))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

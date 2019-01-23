@@ -72,7 +72,7 @@ def convergence_test(N, gb_ref, solver, solver_fct):
 
                 Pi_ref = sps.bmat(Pi_ref, format="csc")
 
-                inv_k = 1. / (2. * d_ref["kn"])
+                inv_k = 1.0 / (2.0 * d_ref["kn"])
                 M = sps.diags(inv_k / mg_ref.cell_volumes)
                 delta = m_ref - Pi_ref * m
                 delta_switched = m_ref - Pi_ref * m_switched

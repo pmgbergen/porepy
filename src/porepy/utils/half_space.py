@@ -146,7 +146,7 @@ def star_shape_cell_centers(g):
 
         x0, x1 = xn[:, nodes[loc_n]], xn[:, nodes[loc_n + 1]]
         coords = np.concatenate((x0, x1), axis=1)
-        cell_centers[:, c] = half_space_pt(normal, (x1 + x0) / 2., coords)
+        cell_centers[:, c] = half_space_pt(normal, (x1 + x0) / 2.0, coords)
 
     if g.dim == 2:
         cell_centers = np.dot(R.T, cell_centers)

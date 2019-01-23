@@ -5,6 +5,7 @@ import os, sys, glob
 def run_all():
     os.chdir("../../tutorials")
     failed = False
+    failed_files = []
     for file in glob.glob("*.ipynb"):
         new_file = file[:-6] + ".py"
         cmd_convert = "jupyter nbconvert --to script " + file
@@ -19,9 +20,18 @@ def run_all():
             print(file + " failed\n\n")
             print("********************\n")
             failed = True
+            failed_files.append(file)
         cmd_delete = "rm " + new_file
-        # os.system(cmd_delete)
-
+        os.system(cmd_delete)
+    if not failed:
+        print("********************\n")
+        print("All tutorials ran. \n")
+        print("********************\n")
+    else:
+        print("********************\n")
+        print("The following tutorials failed: \n")
+        print(*failed_files, sep=", ")
+        print("********************\n")
     assert not failed
 
 

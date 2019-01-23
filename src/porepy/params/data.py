@@ -1,54 +1,78 @@
 """ Contains class for storing data / parameters associated with a grid.
+
+At present, the Parameters class is a simple wrapper around a dictionary.
+
+The Parameters will be stored as a dictionary identified by pp.PARAMETERS in an
+"outer" dictionary (e.g. the data on the grid bucket nodes). In the Parameters object,
+there will be one dictionary containing parameters for each keyword. The keywords link
+parameters to discretization operators. For example, the operator
+
+discr = pp.Tpfa(keyword="flow")
+
+will access parameters under the keyword "flow". If outer_dictionary is the above
+mentioned outer dictionary, these parameters will be found in
+
+outer_dictionary[pp.PARAMETERS]["flow'],
+
+and the boundary values are extracted from this dictionary as
+
+bc = outer_dictionary[pp.PARAMETERS]["flow']["bc_values"]
+
+
+There is a (not entirely clear) distinction between two types of parameters:
+"Mathematical" parameters are those operated on by the discretization objects, and
+should be thought of as corresponding to the terms of the mathematical equation.
+"Physical" parameters are the actual physical properties of the media.
+As an example, the standard incompressible convection-diffusion equation for temperature
+
+    c \rho dT/dt + v \cdot \nabla T - \nabla \cdot (D \nabla T) = f
+
+has the physical parameters c (specific heat capacity) and \rho (density). But from the
+mathematical point of view, these combine to the parameter "mass_weight". Similarly,
+the heat diffusion tensor ("physical" name) corresponds to the "second_order_tensor"
+("mathematical" name).
+If we consider the Darcy equation as another example, the "second_order_tensor" is
+commonly termed the permeability ("physical"). Since the discretization schemes
+do not know the physical terminology, the dictionary passed to these has to have the
+_mathematical_ parameters defined. Solving (systems of) equations with multiple
+instances of the same mathematical parameter (e.g. both thermal diffusivity and
+permeability) is handled by the use of multiple keywords (e.g. "transport" and "flow").
+
+Some default inner dictionaries are provided in pp.params.parameter_dictionaries.
+
+For most instances, a convenient way to set up the parameters is:
+
+    specified_parameters = {pm_1: val_1, ..., pm_n: val_n}
+    data = pp.initialize_default_data(grid, {}, keyword, specified_parameters)
+
+This will assign val_i to the specified parameters pm_i and default parameters to other
+required parameters. If the data directory already exists as d (e.g. in the grid
+bucket), consider:
+
+    pp.initialize_default_data(grid, d, keyword, specified_parameters)
 """
-import warnings
 import numpy as np
+import porepy as pp
+import numbers
+import warnings
+import porepy.params.parameter_dictionaries as dicts
 
-from porepy.numerics.mixed_dim.solver import Solver
-from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
-from porepy.params.bc import BoundaryCondition, BoundaryConditionVectorial
 
-
-class Parameters(object):
+class Parameters(dict):
     """ Class to store all physical parameters used by solvers.
 
     The intention is to provide a unified way of passing around parameters, and
     also circumvent the issue of using a solver for multiple physical
     processes (e.g. different types of boundary conditions in multi-physics
-    applications).
+    applications). The keyword assigned to parameters and discretization operators ensures
+    that the right data is used: An operator will always use the parameters stored
+    with under the keyword it has been assigned.
 
-    List of possible attributes (implemented as properties, see respective
-    getter methods for further description):
-
-    General quantities (not physics specific)
-
-    Scalar quantities
-        biot_alpha: Biot's coefficient in poro-elasticity. Defaults to 1.
-        fluid_viscosity: In a single phase system. Defaults to 1.
-        fluid_compr: Fluid compressibility in a single phase system. Defaults
-            to 0.
-
-    Cell-wise quantities:
-        aperture (fracture width). Defaults to 1.
-        porosity
-
-    Physic-specific
-        tensor (Returns permeability, conductivtiy or stiffness)
-        bc (BoundaryCondition object)
-        bc_val (Boundary values)
-        sources (flow and transport)
-
-    Solvers will access data as needed. If a solver inquires for unassigned
-    data, this will result in a runtime error.
-
-    Attributes (in addition to parameters described above):
-
-    known_physics : list
-        List of keyword signifying physical processes. There are at least one
-        Solver that uses each of the keywords.
-
+    The parameter class is a thin wrapper around a dictionary. This dictionary contains
+    one sub-dictionary for each keyword.
     """
 
-    def __init__(self, g):
+    def __init__(self, g=None, keywords=None, dictionaries=None):
         """ Initialize Data object.
 
         Parameters:
@@ -56,712 +80,233 @@ class Parameters(object):
         g - grid:
             Grid where the data is valid. Currently, only number of cells and
             faces are accessed.
-
+        keywords: List of keywords to set parameters for. If none is passed, a
+            parameter class without specified keywords is initialized.
+        dictionaries: List of dictionaries with specified parameters, one for each
+            keyword in keywords.
         """
-        self._num_cells = g.num_cells
-        self._num_faces = g.num_faces
-        self.dim = g.dim
-        self.g = g
-
-        self.known_physics = ["flow", "transport", "mechanics"]
+        if not keywords:
+            keywords = []
+        if not dictionaries:
+            dictionaries = []
+        self.update_dictionaries(keywords, dictionaries)
+        self.grid = g
 
     def __repr__(self):
-        s = "Data object for grid with " + str(self._num_cells)
-        s += " cells and " + str(self._num_faces) + " faces \n"
-        s += "Assigned attributes / properties: \n"
-        s += str(list(self.__dict__.keys()))
+        s = "Data object for physical processes "
+        s += ", ".join(str(k) for k in self.keys())
+        for k in self.keys():
+            s += '\nThe keyword "{}" has the following parameters specified: '.format(k)
+            s += ", ".join(str(p) for p in self[k].keys())
         return s
 
-    def _get_physics(self, obj):
-        if isinstance(obj, Solver):
-            if not hasattr(obj, "physics"):
-                raise AttributeError("Solver object should have attribute physics")
-            s = obj.physics.strip().lower()
-        elif isinstance(obj, str):
-            s = obj.strip().lower()
-        else:
-            raise ValueError("Expected str or Solver object")
+    def update_dictionaries(self, keywords, dictionaries=None):
+        """ Update the dictionaries corresponding to some keywords.
 
-        if not s in self.known_physics:
-            # Give a warning if the physics keyword is unknown
-            warnings.warn("Unknown physics " + s)
-        return s
+        Use either the dictionaries OR the property_ids / values.
+        Properties:
+            keywords - list of n_phys different physical processes.
+            dictionaries - list of n_phys dictionaries with the properties to be
+                updated. If not provided, empty dictionaries are used for all keywords.
 
-    # ------------- Start of definition of parameters -------------------------
-
-    # ------------- Constants
-
-    # --------------- Biot Alpha ---------------------------------------
-    def get_biot_alpha(self):
-        if hasattr(self, "_biot_alpha"):
-            return self._biot_alpha
-        else:
-            return 1
-
-    def set_biot_alpha(self, val):
-        if val < 0 or val > 1:
-            raise ValueError("Biot's constant should be between 0 and 1")
-        self._biot_alpha = val
-
-    biot_alpha = property(get_biot_alpha, set_biot_alpha)
-
-    # --------------- Fluid viscosity ------------------------------------
-    def get_fluid_viscosity(self):
-        if hasattr(self, "_fluid_viscosity"):
-            return self._fluid_viscosity
-        else:
-            return 1
-
-    def set_fluid_viscosity(self, val):
-        if val <= 0:
-            raise ValueError("Fluid viscosity should be positive")
-        self._fluid_viscosity = val
-
-    fluid_viscosity = property(get_fluid_viscosity, set_fluid_viscosity)
-
-    # ----------- Fluid compressibility
-    def get_fluid_compr(self):
-        if hasattr(self, "_fluid_compr"):
-            return self._fluid_compr
-        else:
-            return 0.
-
-    def set_fluid_compr(self, val):
-        if val < 0:
-            raise ValueError("Fluid compressibility should be non-negative")
-        self._fluid_compr = val
-
-    fluid_compr = property(get_fluid_compr, set_fluid_compr)
-
-    # ----------- Fluid density - treated as constant for now
-    def get_fluid_density(self):
-        if hasattr(self, "_fluid_density"):
-            return self._fluid_density
-        else:
-            return 1
-
-    def set_fluid_density(self, val):
-        if val < 0:
-            raise ValueError("Fluid density should be non-negative")
-        self._fluid_density = val
-
-    fluid_density = property(get_fluid_density, set_fluid_density)
-
-    # ----------- Fluid specific heat - treated as constant for now
-    def get_fluid_specific_heat(self):
-        if hasattr(self, "_fluid_specific_heat"):
-            return self._fluid_specific_heat
-        else:
-            return 1
-
-    def set_fluid_specific_heat(self, val):
-        if val < 0:
-            raise ValueError("Fluid specific heat should be non-negative")
-        self._fluid_specific_heat = val
-
-    fluid_specific_heat = property(get_fluid_specific_heat, set_fluid_specific_heat)
-
-    # ----------- rock density - treated as constant for now
-    def get_rock_density(self):
-        if hasattr(self, "_rock_density"):
-            return self._rock_density
-        else:
-            return 1
-
-    def set_rock_density(self, val):
-        if val < 0:
-            raise ValueError("rock density should be non-negative")
-        self._rock_density = val
-
-    rock_density = property(get_rock_density, set_rock_density)
-
-    # ----------- rock specific heat - treated as constant for now
-    def get_rock_specific_heat(self):
-        if hasattr(self, "_rock_specific_heat"):
-            return self._rock_specific_heat
-        else:
-            return 1
-
-    def set_rock_specific_heat(self, val):
-        # if val < 0:
-        #    raise ValueError('rock specific heat should be non-negative')
-        self._rock_specific_heat = val
-
-    rock_specific_heat = property(get_rock_specific_heat, set_rock_specific_heat)
-
-    # -------------------- Cell-wise quantities below here --------------------
-
-    # ------------------ Aperture -----------------
-
-    def get_aperture(self, default=1):
-        """ double or array_like
-        Cell-wise quantity representing fracture aperture (really, height of
-        surpressed dimensions). Set as either a np.ndarray, or a scalar
-        (uniform) value. Always returned as np.ndarray.
+        Example:
+            keywords = ['flow', 'heat']
+            ones = np.ones(g.num_cells)
+            dicts = [{'porosity': 0.3 * ones, 'density': 42 * ones},
+                    {'heat_capacity': 1.5 * np.ones}]
+            param.upate(keywords, dicts)
         """
-        if not hasattr(self, "_apertures"):
-            return default * np.ones(self._num_cells)
+        if isinstance(keywords, str):
+            keywords = [keywords]
+        if isinstance(dictionaries, dict):
+            dictionaries = [dictionaries]
+        if dictionaries is None:
+            dictionaries = [{} for _ in range(len(keywords))]
 
-        if isinstance(self._apertures, np.ndarray):
-            # Hope that the user did not initialize as array with wrong size
-            return self._apertures
-        else:
-            return self._apertures * np.ones(self._num_cells)
+        for (i, key) in enumerate(keywords):
+            if key in self:
+                self[key].update(dictionaries[i])
+            else:
+                self[key] = dictionaries[i]
 
-    def set_aperture(self, val):
-        if np.any(val < 0):
-            raise ValueError("Negative aperture")
-        self._apertures = val
+    def set_from_other(self, keyword_add, keyword_get, parameters):
+        """ Add parameters from existing values for a different keyword.
 
-    aperture = property(get_aperture, set_aperture)
-
-    # ---------------- Porosity -------------------------------------------------
-
-    def get_porosity(self, default=1):
-        """ double or array-like
-        Cell-wise representation of porosity. Set as either a np.ndarary, or a
-        scalar (uniform) value. Always returned as np.ndarray.
-        """
-        if not hasattr(self, "_porosity"):
-            return default * np.ones(self._num_cells)
-
-        if isinstance(self._porosity, np.ndarray):
-            # Hope that the user did not initialize as array with wrong size
-            return self._porosity
-        else:
-            return self._porosity * np.ones(self._num_cells)
-
-    def set_porosity(self, val):
-        if isinstance(val, np.ndarray):
-            if np.any(val < 0) or np.any(val > 1):
-                raise ValueError("Porosity outside unit interval")
-        else:
-            if val < 0 or val > 1:
-                raise ValueError("Porosity outside unit interval")
-        self._porosity = val
-
-    porosity = property(get_porosity, set_porosity)
-
-    # -------------------- Face-wise quantities below here --------------------
-
-    # ------------------ slip_distance -----------------
-
-    # ------------------------------------
-    def get_slip_distance(self, default=0):
-        """ double or array-like
-        face-wise representation of slip distance. Set as either a np.ndarary, or a
-        scalar (uniform) value. Always returned as np.ndarray.
-        """
-        if not hasattr(self, "_slip_distance"):
-            return default * np.ones(self._num_faces * self.dim)
-
-        if isinstance(self._slip_distance, np.ndarray):
-            # Hope that the user did not initialize as array with wrong size
-            return self._slip_distance
-        else:
-            return self._slip_distance * np.ones(self._num_faces * self.dim)
-
-    def set_slip_distance(self, val):
-        """ Set physics-specific slip_distance
+        Typical usage: Ensure parameters like aperture and porosity are consistent
+        between keywords, by making reference the same object. Subsequent calls to
+        modify_parameters should update the parameters for both keywords. Note that this
+        will not work for Numbers, which are immutable in Python.
 
         Parameters:
+            keyword_add: The keyword to whose dictionary the parameters are to be
+                added.
+            keyword_get: The keyword from whose dictionary the parameters are to be
+            obtained.
+            parameters: List of parameters to be set.
+            """
+        for p in parameters:
+            self[keyword_add][p] = self[keyword_get][p]
 
-        val : slip distance, representing the difference in slip between left
-              and right fracture faces
+    def overwrite_shared_parameters(self, parameters, values):
+        """ Updates the given parameter for all keywords.
+
+        Brute force method to ensure a parameter is updated/overwritten for all
+        keywords where they are defined.
+        parameters: List of (existing) parameters to be overwritten.
+            values: List of new values.
         """
-        self._slip_distance = val
+        for kw in self.keys():
+            for (p, v) in zip(parameters, values):
+                if p in self[kw]:
+                    self[kw][p] = v
 
-    slip_distance = property(get_slip_distance, set_slip_distance)
+    def modify_parameters(self, keyword, parameters, values):
+        """ Modify the values of some parameters of a given keyword.
 
-    # ----------- Multi-physics (solver-/context-dependent) parameters below -----
-
-    # ------------------- Sources ---------------------------------------------
-
-    def get_source(self, obj):
-        """ Pick out physics-specific source.
-
-        Discretization methods should access this method.
-
+        Usage: Ensure consistent parameter updates, see set_from_other. Does not work
+        on Numbers.
         Parameters:
-
-        obj : Solver or str
-            Identification of physical regime. Either discretization object
-            with attribute 'physics' or a str.
-
-        Returns:
-
-        np.ndarray
-            Volume source if obj.physics equals 'flow'
-            Heat source if obj.physics equals 'transport'.
-
+            parameters: List of (existing) parameters to be updated.
+            values: List of new values. There are implicit assumptions on the values;
+                in particular that the type and length of the new and old values agree,
+                see modify_variable.
         """
-        physics = self._get_physics(obj)
-
-        if physics == "flow":
-            return self.get_source_flow()
-        elif physics == "transport":
-            return self.get_source_transport()
-        elif physics == "mechanics":
-            return self.get_source_mechanics()
-        else:
-            raise ValueError(
-                'Unknown physics "%s".\n Possible physics are: %s'
-                % (physics, self.known_physics)
-            )
-
-    def set_source(self, obj, val):
-        """ Set physics-specific source
-
-        Parameters:
-
-        obj: Solver or str
-            Identification of physical regime. Either discretization object
-            with attribute 'physics' or a str.
-
-        val: np.ndarray. Size self._num_cells
-            Source terms in each cell.
-
-        """
-        physics = self._get_physics(obj)
-
-        if physics == "flow":
-            self._source_flow = val
-        elif physics == "transport":
-            self._source_transport = val
-        elif physics == "mechanics":
-            self._source_mechanics = val
-        else:
-            raise ValueError(
-                'Unknown physics "%s".\n Possible physics are: %s'
-                % (physics, self.known_physics)
-            )
-
-    def get_source_flow(self):
-        """ array_like
-        Cell-wise quantity representing the volume source in a cell. Represent
-        total in/outflow in the cell (integrated over the cell volume).
-        Sources should be accessed via get_source / set_source
-        """
-        if hasattr(self, "_source_flow"):
-            return self._source_flow
-        else:
-            return np.zeros(self._num_cells)
-
-    source_flow = property(get_source_flow)
-
-    def get_source_transport(self):
-        """ array_like
-        Cell-wise quantity representing the concentration / temperature source
-        in a cell. Represent total in/outflow in the cell (integrated over the
-        cell volume).
-        Sources should be accessed via get_source / set_source
-        """
-        if hasattr(self, "_source_transport"):
-            return self._source_transport
-        else:
-            return np.zeros(self._num_cells)
-
-    source_transport = property(get_source_transport)
-
-    def get_source_mechanics(self):
-        if hasattr(self, "_source_mechanics"):
-            return self._source_mechanics
-        else:
-            return np.zeros(self._num_cells * self.dim)
-
-    source_mechanics = property(get_source_mechanics)
-
-    # -------------------- Backgound stress, ---------------------
-    def get_background_stress(self, obj):
-        """ Pick out physics-specific background_stress.
-
-        Discretization methods should access this method.
-
-        Parameters:
-
-        obj : Solver or str
-            Identification of physical regime. Either discretization object
-            with attribute 'physics' or a str.
-
-        Returns:
-
-        np.ndarray
-            stress matrix size = (g.dim, g.dim)
-
-        """
-        physics = self._get_physics(obj)
-
-        if physics == "flow":
-            return self.get_background_stress_flow()
-        elif physics == "transport":
-            return self.get_background_stress_transport()
-        elif physics == "mechanics":
-            return self.get_background_stress_mechanics()
-        else:
-            raise ValueError(
-                'Unknown physics "%s".\n Possible physics are: %s'
-                % (physics, self.known_physics)
-            )
-
-    def set_background_stress(self, obj, val):
-        """ Set physics-specific background_stress
-
-        Parameters:
-
-        obj: Solver or str
-            Identification of physical regime. Either discretization object
-            with attribute 'physics' or a str.
-
-        val: np.ndarray. Size (g.dim, g.dim)
-            background_stress for all cells
-
-        """
-        physics = self._get_physics(obj)
-
-        if physics == "flow":
-            self._background_stress_flow = val
-        elif physics == "transport":
-            self._background_stress_transport = val
-        elif physics == "mechanics":
-            self._background_stress_mechanics = val
-        else:
-            raise ValueError(
-                'Unknown physics "%s".\n Possible physics are: %s'
-                % (physics, self.known_physics)
-            )
-
-    def get_background_stress_flow(self):
-        """ array_like
-        Cell-wise quantity representing the volume background_stress in a cell. Represent
-        total in/outflow in the cell (integrated over the cell volume).
-        Background_Stresss should be accessed via get_background_stress / set_background_stress
-        """
-        if hasattr(self, "_background_stress_flow"):
-            return self._background_stress_flow
-        else:
-            return np.zeros(self._num_cells)
-
-    background_stress_flow = property(get_background_stress_flow)
-
-    def get_background_stress_transport(self):
-        """ array_like
-        Cell-wise quantity representing the concentration / temperature background_stress
-        in a cell. Represent total in/outflow in the cell (integrated over the
-        cell volume).
-        Background_Stresss should be accessed via get_background_stress / set_background_stress
-        """
-        if hasattr(self, "_background_stress_transport"):
-            return self._background_stress_transport
-        else:
-            return np.zeros(self._num_cells)
-
-    background_stress_transport = property(get_background_stress_transport)
-
-    def get_background_stress_mechanics(self):
-        if hasattr(self, "_background_stress_mechanics"):
-            return self._background_stress_mechanics
-        else:
-            return np.zeros(self._num_cells * self.dim)
-
-    background_stress_mechanics = property(get_background_stress_mechanics)
-
-    # -------------------- Permeability, conductivity, ---------------------
-
-    def get_tensor(self, obj):
-        """ Pick out physics-specific tensor.
-
-        Discretization methods considering second and fourth orrder tensors
-        (e.g. permeability, conductivity, stiffness) should access this method.
-
-        Parameters:
-
-        obj : Solver
-            Discretization object. Should have attribute 'physics'.
-
-        Returns:
-
-        tensor, representing
-            Permeability if obj.physics equals 'flow'
-            conductivity if obj.physics equals 'transport'
-            stiffness if physics equals 'mechanics'
-
-        """
-        physics = self._get_physics(obj)
-
-        if physics == "flow":
-            return self.get_permeability()
-        elif physics == "transport":
-            return self.get_conductivity()
-        elif physics == "mechanics":
-            return self.get_stiffness()
-        else:
-            raise ValueError(
-                'Unknown physics "%s".\n Possible physics are: %s'
-                % (physics, self.known_physics)
-            )
-
-    def set_tensor(self, obj, val):
-        """ Set physics-specific tensor
-
-        Parameters:
-
-        obj: Solver or str
-            Identification of physical regime. Either discretization object
-            with attribute 'physics' or a str.
-
-        val : tensor, representing
-            Permeability if obj.physics equals 'flow'
-            conductivity if obj.physics equals 'transport'
-            stiffness if physics equals 'mechanics'
-
-        """
-        physics = self._get_physics(obj)
-
-        if physics == "flow":
-            self._perm = val
-        elif physics == "transport":
-            self._conductivity = val
-        elif physics == "mechanics":
-            self._stiffness = val
-        else:
-            raise ValueError(
-                'Unknown physics "%s".\n Possible physics are: %s'
-                % (physics, self.known_physics)
-            )
-
-    def get_permeability(self):
-        """ tensor.SecondOrderTensor
-        Cell wise permeability, represented as a second order tensor.
-        Defaults to a unit tensor.
-        """
-        if hasattr(self, "_perm"):
-            return self._perm
-        else:
-            t = SecondOrderTensor(self.dim, np.ones(self._num_cells))
-            return t
-
-    perm = property(get_permeability)
-
-    def get_conductivity(self):
-        """ tensor.SecondOrderTensor
-        Cell wise conductivity, represented as a second order tensor.
-        Defaults to a unit tensor.
-        """
-        if hasattr(self, "_conductivity"):
-            return self._conductivity
-        else:
-            t = SecondOrderTensor(self.dim, np.ones(self._num_cells))
-            return t
-
-    conductivity = property(get_conductivity)
-
-    def get_stiffness(self):
-        """ Stiffness matrix, defined as fourth order tensor.
-        If not defined, a unit tensor is returned.
-        """
-        if hasattr(self, "_stiffness"):
-            return self._stiffness
-        else:
-            t = FourthOrderTensor(
-                self.dim, np.ones(self._num_cells), np.ones(self._num_cells)
-            )
-            return t
-
-    stiffness = property(get_stiffness)
-
-    # --------------------- Boundary conditions and values ------------------------
-
-    # Boundary condition
-
-    def get_bc(self, obj):
-        """ Pick out physics-specific boundary condition
-
-        Discretization methods should access this method.
-
-        Parameters:
-
-        obj : Solver
-            Discretization object. Should have attribute 'physics'.
-
-        Returns:
-
-        BoundaryCondition, for
-            flow/pressure equation y if physics equals 'flow'
-            transport equation if physics equals 'transport'
-            elasticity if physics equals 'mechanics'
-
-        """
-        physics = self._get_physics(obj)
-
-        if physics == "flow":
-            return self.get_bc_flow()
-        elif physics == "transport":
-            return self.get_bc_transport()
-        elif physics == "mechanics":
-            return self.get_bc_mechanics()
-        else:
-            raise ValueError(
-                'Unknown physics "%s".\n Possible physics are: %s'
-                % (physics, self.known_physics)
-            )
-
-    def set_bc(self, obj, val):
-        """ Set physics-specific boundary condition
-
-        Parameters:
-
-        obj: Solver or str
-            Identification of physical regime. Either discretization object
-            with attribute 'physics' or a str.
-
-        val : BoundaryCondition, representing
-            flow/pressure equation y if physics equals 'flow'
-            transport equation if physics equals 'transport'
-            elasticity if physics equals 'mechanics'
-
-        """
-        physics = self._get_physics(obj)
-
-        if physics == "flow":
-            self._bc_flow = val
-        elif physics == "transport":
-            self._bc_transport = val
-        elif physics == "mechanics":
-            self._bc_mechanics = val
-        else:
-            raise ValueError(
-                'Unknown physics "%s".\n Possible physics are: %s'
-                % (physics, self.known_physics)
-            )
-
-    def get_bc_flow(self):
-        """ BoundaryCondition object
-        Cell wise permeability, represented as a second order tensor.
-        Solvers should rather access get_tensor().
-        """
-        if hasattr(self, "_bc_flow"):
-            return self._bc_flow
-        else:
-            return BoundaryCondition(self.g)
-
-    bc_flow = property(get_bc_flow)
-
-    def get_bc_transport(self):
-        """ bc.BoundaryCondition
-        Cell wise conductivity, represented as a second order tensor.
-        Solvers should rather access tensor().
-        """
-        if hasattr(self, "_bc_transport"):
-            return self._bc_transport
-        else:
-            return BoundaryCondition(self.g)
-
-    bc_transport = property(get_bc_transport)
-
-    def get_bc_mechanics(self):
-        """ Stiffness matrix, defined as fourth order tensor
-        """
-        if hasattr(self, "_bc_mechanics"):
-            return self._bc_mechanics
-        else:
-            return BoundaryConditionVectorial(self.g)
-
-    bc_mechanics = property(get_bc_mechanics)
-
-    # Boundary value
-
-    def get_bc_val(self, obj):
-        """ Pick out physics-specific boundary condition
-
-        Discretization methods should access this method.
-
-        Parameters:
-
-        obj : Solver
-            Discretization object. Should have attribute 'physics'.
-
-        Returns:
-
-        BoundaryCondition, for
-            flow/pressure equation y if physics equals 'flow'
-            transport equation if physics equals 'transport'
-            elasticity if physics equals 'mechanics'
-            If the BoundaryCondition is not specified, Neumann conditions will
-            be assigned.
-        """
-        physics = self._get_physics(obj)
-
-        if physics == "flow":
-            return self.get_bc_val_flow()
-        elif physics == "transport":
-            return self.get_bc_val_transport()
-        elif physics == "mechanics":
-            return self.get_bc_val_mechanics()
-        else:
-            raise ValueError(
-                'Unknown physics "%s".\n Possible physics are: %s'
-                % (physics, self.known_physics)
-            )
-
-    def set_bc_val(self, obj, val):
-        """ Set physics-specific boundary condition
-
-        Parameters:
-
-        obj: Solver or str
-            Identification of physical regime. Either discretization object
-            with attribute 'physics' or a str.
-
-        val : np.array: Value for boundary condition, as specified by the
-            relevant numerical method.
-
-        """
-        physics = self._get_physics(obj)
-
-        if physics == "flow":
-            self._bc_val_flow = val
-        elif physics == "transport":
-            self._bc_val_transport = val
-        elif physics == "mechanics":
-            self._bc_val_mechanics = val
-        else:
-            raise ValueError(
-                'Unknown physics "%s".\n Possible physics are: %s'
-                % (physics, self.known_physics)
-            )
-
-    def get_bc_val_flow(self):
-        """ tensor.SecondOrderTensor
-        Cell wise permeability, represented as a second order tensor.
-        Solvers should rather access get_tensor().
-        """
-        if hasattr(self, "_bc_val_flow"):
-            return self._bc_val_flow
-        else:
-            return np.zeros(self._num_faces)
-
-    bc_val_flow = property(get_bc_val_flow)
-
-    def get_bc_val_transport(self):
-        """ tensor.SecondOrderTensor
-        Cell wise conductivity, represented as a second order tensor.
-        Solvers should rather access tensor().
-        """
-        if hasattr(self, "_bc_val_transport"):
-            return self._bc_val_transport
-        else:
-            return np.zeros(self._num_faces)
-
-    bc_val_transport = property(get_bc_val_transport)
-
-    def get_bc_val_mechanics(self):
-        """ tensor.FourthOrderTensor
-        Cell wise conductivity, represented as a fourth order tensor.
-        Solvers should rather access tensor().
-        """
-        if hasattr(self, "_bc_val_mechanics"):
-            return self._bc_val_mechanics
-        else:
-            return np.zeros(self._num_faces * self.dim)
-
-    bc_val_mechanics = property(get_bc_val_mechanics)
+        for (p, v) in zip(parameters, values):
+            modify_variable(self[keyword][p], v)
+
+
+"""
+Utility methods for handling of dictionaries.
+TODO: Improve/add/remove methods based on experience with setting up problems using the
+new Parameters class.
+"""
+
+
+def initialize_default_data(
+    g, data, parameter_type, specified_parameters=None, keyword=None
+):
+    """ Initialize a data dictionary for a single keyword.
+
+    The initialization consists of adding a parameter dictionary and initializing a
+    matrix dictionary in the proper fields of data. Default data are added for a certain
+    set of "basic" parameters, depending on the type chosen.
+
+    Args:
+        g: Grid object with computed geometry.
+        data: Outer data dictionary, to which the parameters will be added.
+        parameter_type: Which type of parameters to use for the default assignment.
+            Must be one of the following:
+                "flow", "transport" and "mechanics".
+        specified_parameters: A dictionary with specified parameters, overriding the
+            default values. Defualts to an empty dictionary (only default values).
+        keyword: String to identify the parameters. Defaults to the parameter type.
+
+     Returns:
+        data: The filled dictionary.
+
+    Raises:
+        KeyError if an unknown parameter type is passed.
+    """
+    if not specified_parameters:
+        specified_parameters = {}
+    if not keyword:
+        keyword = parameter_type
+    if parameter_type is "flow":
+        d = dicts.flow_dictionary(g, specified_parameters)
+    elif parameter_type is "transport":
+        d = dicts.transport_dictionary(g, specified_parameters)
+    elif parameter_type is "mechanics":
+        d = dicts.mechanics_dictionary(g, specified_parameters)
+    else:
+        raise KeyError(
+            'Default dictionaries only exist for the parameter types "flow", '
+            + '"transport" and "mechanics", not for '
+            + parameter_type
+            + "."
+        )
+    return initialize_data(g, data, keyword, d)
+
+
+def initialize_data(g, data, keyword, specified_parameters=None):
+    """ Initialize a data dictionary for a single keyword.
+
+    The initialization consists of adding a parameter dictionary and initializing a
+    matrix dictionary in the proper fields of data. If there is a Parameters object
+    in data, the new keyword is added using the update_dictionaries method.
+
+    Args:
+        data: Outer data dictionary, to which the parameters will be added.
+        g: The grid.
+        keyword: String identifying the parameters.
+        specified_parameters: A dictionary with specified parameters, defaults to empty
+            dictionary.
+
+    Returns:
+        data: The filled dictionary.
+    """
+    if not specified_parameters:
+        specified_parameters = {}
+    add_discretization_matrix_keyword(data, keyword)
+    if pp.PARAMETERS in data:
+        data[pp.PARAMETERS].update_dictionaries([keyword], [specified_parameters])
+    else:
+        data[pp.PARAMETERS] = pp.Parameters(g, [keyword], [specified_parameters])
+    return data
+
+
+def modify_variable(variable, new_value):
+    """ Changes the value (not id) of the stored parameter.
+
+    Mutes the value of a variable to new_value.
+    Note that this method cannot be extended to cover Numbers, as these are
+    immutable in Python.
+    Note that there are implicit assumptions on the arguments, in particular that
+    the new value is of the same type as the variable. Further, if variable is a
+        list, the lists should have the same length
+        np.ndarray, the arrays should have the same shape, and new_value must be
+            convertible to variable.dtype
+    Args:
+        variable: The variable.
+        new_value: The new value to be assigned to the variable.
+
+    Raises:
+        TypeError if the variable is a number.
+        NotImplementedError if a variable of unknown type is passed.
+    """
+    if isinstance(variable, np.ndarray):
+        if variable.dtype != new_value.dtype:
+            warnings.warn("Modifying array: new and old values have different dtypes.")
+        variable.setfield(new_value, variable.dtype)
+    elif isinstance(variable, list):
+        variable[:] = new_value
+    elif isinstance(variable, numbers.Number):
+        raise TypeError("Numbers are immutable.")
+    else:
+        raise NotImplementedError(
+            "No mute method implemented for variable of type " + str(type(variable))
+        )
+
+
+def add_nonpresent_dictionary(dictionary, key):
+    """
+    Check if key is in the dictionary, if not add it with an empty dictionary.
+    """
+    if key not in dictionary:
+        dictionary[key] = {}
+
+
+def add_discretization_matrix_keyword(dictionary, keyword):
+    """ Ensure presence of sub-dictionaries.
+
+    Specific method ensuring that there is a sub-dictionary for discretization matrices,
+    and that this contains a sub-sub-dictionary for the given key. Called previous to
+    discretization matrix storage in discretization operators (e.g. the storage of
+    "flux" by the Tpfa().discretize function).
+
+    Parameters:
+        dictionary: Main dictionary, typically stored on a grid bucket node.
+        keyword: The keyword used for linking parameters and discretization operators.
+    """
+    add_nonpresent_dictionary(dictionary, pp.DISCRETIZATION_MATRICES)
+    add_nonpresent_dictionary(dictionary[pp.DISCRETIZATION_MATRICES], keyword)
+    return dictionary[pp.DISCRETIZATION_MATRICES][keyword]

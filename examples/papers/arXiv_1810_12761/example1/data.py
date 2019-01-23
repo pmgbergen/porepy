@@ -98,7 +98,7 @@ class Data(object):
 
             gamma = np.power(
                 check_P * self.gb.node_props(g_l, "param").get_aperture(),
-                1. / (2 - g_l.dim),
+                1.0 / (2 - g_l.dim),
             )
 
             d["kn"] = self.data["kf_n"] / gamma

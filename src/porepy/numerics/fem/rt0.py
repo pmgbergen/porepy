@@ -16,45 +16,57 @@ import porepy as pp
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
-class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
+class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
     def __init__(self, keyword):
         super(RT0, self).__init__(keyword, "RT0")
 
     def discretize(self, g, data):
-        """
-        Return the matrix for a discretization of a second order elliptic equation
-        using RT0-P0 method. See self.matrix_rhs for a detaild
-        description.
+        """ Discretize a second order elliptic equation using using a RT0-P0 method.
 
-        Additional parameter:
+        We assume the following two sub-dictionaries to be present in the data
+        dictionary:
+            parameter_dictionary, storing all parameters.
+                Stored in data[pp.PARAMETERS][self.keyword].
+            matrix_dictionary, for storage of discretization matrices.
+                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        parameter_dictionary contains the entries:
+            second_order_tensor: (pp.SecondOrderTensor) Permeability defined cell-wise.
+            aperture: (np.ndarray) apertures of the cells for scaling of the face
+                normals.
+
+        matrix_dictionary will be updated with the following entries:
+            mass: sps.csc_matrix (g.num_faces, g.num_faces)
+                The mass matrix.
+            div: sps.csc_matrix (g.num_cells, g.num_faces)
+                The divergence matrix.
+
+        Optional parameter:
         --------------------
-        bc_weight: to compute the infinity norm of the matrix and use it as a
-            weight to impose the boundary conditions. Default True.
-
-        Additional return:
-        weight: if bc_weight is True return the weight computed.
-
+        is_tangential: Whether the lower-dimensional permeability tensor has been
+            rotated to the fracture plane. Defaults to False and stored in the data
+            dictionary.
         """
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
-        name = self._key() + self.name + "_"
-
-        # If a 0-d grid is given then we return an identity matrix
+        # Get dictionary for discretization matrix storage
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
             mass = sps.dia_matrix(([1], 0), (g.num_faces, g.num_faces))
-            data[name + "mass"] = mass
-            data[name + "div"] = sps.csr_matrix((g.num_faces, g.num_cells))
+            matrix_dictionary["mass"] = mass
+            matrix_dictionary["div"] = sps.csr_matrix((g.num_faces, g.num_cells))
             return
 
+        # Get dictionary for parameter storage
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
         # assumed unitary
-        param = data["param"]
-        k = param.get_tensor(self)
-        a = param.get_aperture()
+        k = parameter_dictionary["second_order_tensor"]
+        a = parameter_dictionary["aperture"]
 
         faces, cells, sign = sps.find(g.cell_faces)
         index = np.argsort(cells)
@@ -70,8 +82,8 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
                 k = k.copy()
                 k.rotate(R)
                 remove_dim = np.where(np.logical_not(dim))[0]
-                k.perm = np.delete(k.perm, (remove_dim), axis=0)
-                k.perm = np.delete(k.perm, (remove_dim), axis=1)
+                k.values = np.delete(k.values, (remove_dim), axis=0)
+                k.values = np.delete(k.values, (remove_dim), axis=1)
 
         # Allocate the data to store matrix entries, that's the most efficient
         # way to create a sparse matrix.
@@ -101,7 +113,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
             # Compute the H_div-mass local matrix
             A = RT0.massHdiv(
-                a[c] * k.perm[0 : g.dim, 0 : g.dim, c],
+                a[c] * k.values[0 : g.dim, 0 : g.dim, c],
                 g.cell_volumes[c],
                 coord_loc,
                 sign[loc],
@@ -121,11 +133,10 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         mass = sps.coo_matrix((dataIJ, (I, J)))
         div = -g.cell_faces.T
 
-        data[name + 'mass'] = mass
-        data[name + 'div'] = div
+        matrix_dictionary["mass"] = mass
+        matrix_dictionary["div"] = div
 
-    @staticmethod
-    def project_flux(g, u, data):
+    def project_flux(self, g, u, data):
         """  Project the velocity computed with a rt0 solver to obtain a
         piecewise constant vector field, one triplet for each cell.
 
@@ -145,8 +156,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         if g.dim == 0:
             return np.zeros(3).reshape((3, 1))
 
-        param = data["param"]
-        a = param.get_aperture()
+        a = data[pp.PARAMETERS][self.keyword]["aperture"]
 
         faces, cells, sign = sps.find(g.cell_faces)
         index = np.argsort(cells)
@@ -210,7 +220,6 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         C = np.diagflat(sign)
 
         return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K, np.dot(N, C)))))
-
 
     @staticmethod
     def opposite_side_node(face_nodes, nodes, faces_loc):

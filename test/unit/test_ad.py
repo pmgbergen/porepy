@@ -262,3 +262,7 @@ class AdTest(unittest.TestCase):
         a.jac[2] = 4
         self.assertTrue(np.allclose(b.val, np.ones((3, 1))))
         self.assertTrue(np.allclose(b.jac, np.ones((3, 1))))
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -11,8 +11,49 @@ import scipy.sparse as sps
 import porepy as pp
 
 
+def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
+    """
+    Save in the grid bucket a piece-wise vector representation of the flux
+    for each grid.
+
+    Parameters
+    ---------
+    gb: the grid bucket
+    discr: discretization class
+    flux: identifier of the flux, already split, in the grid bucket
+    P0_flux: identifier of the reconstructed flux which will be added to the grid bucket.
+    mortar_key (optional): identifier of the mortar variable, already split, in the
+        grid bucket. The default value is "mortar_solution".
+
+    """
+
+    for g, d in gb:
+        # we need to recover the flux from the mortar variable before
+        # the projection, only lower dimensional edges need to be considered.
+        edge_flux = np.zeros(d[flux].size)
+        faces = g.tags["fracture_faces"]
+        if np.any(faces):
+            # recover the sign of the flux, since the mortar is assumed
+            # to point from the higher to the lower dimensional problem
+            _, indices = np.unique(g.cell_faces.indices, return_index=True)
+            sign = sps.diags(g.cell_faces.data[indices], 0)
+
+            for _, d_e in gb.edges_of_node(g):
+                g_m = d_e["mortar_grid"]
+                if g_m.dim == g.dim:
+                    continue
+                # project the mortar variable back to the higher dimensional
+                # problem
+                edge_flux += sign * g_m.mortar_to_master_int() * d_e[mortar_key]
+
+        d[P0_flux] = discr.project_flux(g, edge_flux + d[flux], d)
+
+
+# ------------------------------------------------------------------------------#
+
+
 class DualElliptic(
-    pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscretization
+    pp.numerics.interface_laws.elliptic_discretization.EllipticDiscretization
 ):
     """ Parent class for methods based on the mixed variational form of the
     elliptic equation. The class should not be used by itself, but provides a
@@ -26,14 +67,9 @@ class DualElliptic(
         self.keyword = keyword
         self.name = name
 
-        # @ALL: We kee the physics keyword for now, or else we completely
-        # break the parameter assignment workflow. The physics keyword will go
-        # to be replaced by a more generalized approach, but one step at a time
-        self.physics = keyword
-
     def ndof(self, g):
-        """
-        Return the number of degrees of freedom associated to the method.
+        """ Return the number of degrees of freedom associated to the method.
+
         In this case number of faces (velocity dofs) plus the number of cells
         (pressure dof). If a mortar grid is given the number of dof are equal to
         the number of cells, we are considering an inter-dimensional interface
@@ -68,11 +104,10 @@ class DualElliptic(
         matrix: sparse csr (g.num_faces+g_num_cells, g.num_faces+g_num_cells)
             Saddle point matrix obtained from the discretization.
         rhs: array (g.num_faces+g_num_cells)
-            Right-hand side which contains the boundary conditions and the scalar
-            source term.
+            Right-hand side which contains the boundary conditions.
         """
-
-        if not self._key() + self.name + '_mass' in data.keys():
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        if "mass" not in matrix_dictionary:
             self.discretize(g, data)
 
         # First assemble the matrix
@@ -88,24 +123,23 @@ class DualElliptic(
     def assemble_matrix(self, g, data):
         """ Assemble matrix from an existing discretization.
         """
-        if not self._key() + self.name + '_mass' in data.keys():
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        if not "mass" in matrix_dictionary:
             self.discretize(g, data)
 
-        mass = data[self._key() + self.name + '_mass']
-        div = data[self._key() + self.name + '_div']
+        mass = matrix_dictionary["mass"]
+        div = matrix_dictionary["div"]
         return sps.bmat([[mass, div.T], [div, None]], format="csr")
 
     def assemble_neumann_robin(self, g, data, M, bc_weight=None):
         """ Impose Neumann and Robin boundary discretization on an already assembled
         system matrix.
-
         """
         # Obtain the mass matrix
-        mass = data[self._key() + self.name + '_mass']
+        mass = data[pp.DISCRETIZATION_MATRICES][self.keyword]["mass"]
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
-        param = data["param"]
-        bc = param.get_bc(self)
+        bc = data[pp.PARAMETERS][self.keyword]["bc"]
 
         # For mixed discretizations, internal boundaries
         # are handled by assigning Dirichlet conditions. Thus, we remove them
@@ -121,7 +155,7 @@ class DualElliptic(
             # set in an efficient way the essential boundary conditions, by
             # clear the rows and put norm in the diagonal
             for row in is_neu:
-                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.
+                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.0
 
             d = M.diagonal()
             d[is_neu] = norm
@@ -133,14 +167,13 @@ class DualElliptic(
             # it is assumed that the faces dof are put before the cell dof
             is_rob = np.where(is_rob)[0]
 
-            data = np.zeros(self.ndof(g))
-            data[is_rob] = 1./(bc.robin_weight[is_rob]*g.face_areas[is_rob])
-            M += sps.dia_matrix((data, 0), shape=(data.size, data.size))
+            rob_val = np.zeros(self.ndof(g))
+            rob_val[is_rob] = 1.0 / (bc.robin_weight[is_rob] * g.face_areas[is_rob])
+            M += sps.dia_matrix((rob_val, 0), shape=(rob_val.size, rob_val.size))
 
         if bc_weight:
             return M, norm
         return M
-
 
     def assemble_rhs(self, g, data, bc_weight=1):
         """
@@ -157,18 +190,18 @@ class DualElliptic(
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
-        param = data["param"]
-        f = param.get_source(self)
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+
+        rhs = np.zeros(self.ndof(g))
 
         if g.dim == 0:
-            return np.hstack(([0], f))
+            return rhs
 
-        bc = param.get_bc(self)
-        bc_val = param.get_bc_val(self)
+        bc = parameter_dictionary["bc"]
+        bc_val = parameter_dictionary["bc_values"]
 
         assert not bool(bc is None) != bool(bc_val is None)
 
-        rhs = np.zeros(self.ndof(g))
         if bc is None:
             return rhs
 
@@ -210,8 +243,8 @@ class DualElliptic(
 
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
-        param = data["param"]
-        bc = param.get_bc(self)
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        bc = parameter_dictionary["bc"]
 
         # assign the Neumann boundary conditions
         # For dual discretizations, internal boundaries
@@ -226,7 +259,7 @@ class DualElliptic(
             # set in an efficient way the essential boundary conditions, by
             # clear the rows and put norm in the diagonal
             for row in is_neu:
-                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.
+                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.0
 
             d = M.diagonal()
             d[is_neu] = norm
@@ -375,7 +408,6 @@ class DualElliptic(
         cc[2, self_ind] -= hat_E_int.T * matrix[self_ind, self_ind]
         cc[2, 2] -= hat_E_int.T * matrix[self_ind, self_ind] * hat_E_int
 
-
     def assemble_int_bound_pressure_cell(
         self, g, data, data_edge, grid_swap, cc, matrix, self_ind
     ):
@@ -409,7 +441,7 @@ class DualElliptic(
 
         """
         mg = data_edge["mortar_grid"]
-        #proj = mg.slave_to_mortar_avg()
+        # proj = mg.slave_to_mortar_avg()
 
         if grid_swap:
             proj = mg.master_to_mortar_avg()
@@ -445,11 +477,11 @@ class DualElliptic(
         for row in dof:
             matrix_indptr = matrix[self_ind, self_ind].indptr
             idx = slice(matrix_indptr[row], matrix_indptr[row + 1])
-            matrix[self_ind, self_ind].data[idx] = 0.
+            matrix[self_ind, self_ind].data[idx] = 0.0
 
             matrix_indptr = matrix[self_ind, 2].indptr
             idx = slice(matrix_indptr[row], matrix_indptr[row + 1])
-            matrix[self_ind, 2].data[idx] = 0.
+            matrix[self_ind, 2].data[idx] = 0.0
 
         d = matrix[self_ind, self_ind].diagonal()
         d[dof] = norm
@@ -473,7 +505,7 @@ class DualElliptic(
 
         """
         # pylint: disable=invalid-name
-        return solution_array[:g.num_faces]
+        return solution_array[: g.num_faces]
 
     def extract_pressure(self, g, solution_array, data=None):
         """  Extract the pressure from a dual virtual element solution.
@@ -493,4 +525,4 @@ class DualElliptic(
 
         """
         # pylint: disable=invalid-name
-        return solution_array[g.num_faces:]
+        return solution_array[g.num_faces :]
