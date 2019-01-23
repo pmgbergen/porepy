@@ -130,10 +130,9 @@ def star_shape_cell_centers(g):
     faces, _, sgn = sps.find(g.cell_faces)
     nodes, _, _ = sps.find(g.face_nodes)
 
-    xn = g.nodes
-    if g.dim == 2:
-        R = cg.project_plane_matrix(xn)
-        xn = np.dot(R, xn)
+    xn = g.nodes.copy()
+    xn_shift = np.average(xn, axis=1)
+    xn -= np.tile(xn_shift, (xn.shape[1], 1)).T
 
     cell_centers = np.zeros((3, g.num_cells))
     for c in np.arange(g.num_cells):
@@ -148,10 +147,7 @@ def star_shape_cell_centers(g):
         coords = np.concatenate((x0, x1), axis=1)
         cell_centers[:, c] = half_space_pt(normal, (x1 + x0) / 2.0, coords)
 
-    if g.dim == 2:
-        cell_centers = np.dot(R.T, cell_centers)
-
-    return cell_centers
+    return cell_centers + np.tile(xn_shift, (g.num_cells, 1)).T
 
 
 # ------------------------------------------------------------------------------#
