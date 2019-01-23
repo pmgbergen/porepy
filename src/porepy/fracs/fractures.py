@@ -1926,9 +1926,11 @@ class FractureNetwork3d(object):
         """
         Set an external boundary for the fracture set.
 
-        The boundary takes the form of a 3D box, described by its minimum and
-        maximum coordinates. If no bounding box is provided, a box will be
-        fited outside the fracture network.
+        There are two permissible data formats for the domain boundary:
+            1) A 3D box, described by its minimum and maximum coordinates.
+            2) A list of polygons, that together form a closed polyhedron.
+
+        If no bounding box is provided, a box will be fited outside the fracture network.
 
         If desired, the fratures will be truncated to lay within the bounding
         box; that is, Fracture.p will be modified. The orginal coordinates of
@@ -1951,10 +1953,10 @@ class FractureNetwork3d(object):
         if domain is not None:
             if isinstance(domain, dict):
                 polyhedron = self._make_bounding_planes_from_box(domain)
-         #       self.domain = polyhedron
             else:
                 polyhedron = domain
         else:
+            # Compute a bounding box from the extension of the fractures.
             OVERLAP = 0.15
             cmin = np.ones((3, 1)) * float("inf")
             cmax = -np.ones((3, 1)) * float("inf")
@@ -1982,12 +1984,14 @@ class FractureNetwork3d(object):
             }
             polyhedron = self._make_bounding_planes_from_box(box)
             self.domain = polyhedron
-        # No need to do anything if we already have a polyhedron
 
+        # Constrain the fractures to lie within the bounding polyhedron
         polys = [f.p for f in self._fractures]
+        constrained_polys, inds = pp.cg.constrain_polygons_by_polyhedron(
+            polys, polyhedron
+        )
 
-        constrained_polys, inds = pp.cg.constrain_polygons_by_polyhedron(polys, polyhedron)
-
+        # Delete fractures that are not member of any constrained fracture
         old_frac_ind = np.arange(len(self._fractures))
         delete_frac = np.setdiff1d(old_frac_ind, inds)
         if inds.size > 0:
@@ -1995,9 +1999,13 @@ class FractureNetwork3d(object):
         else:
             split_frac = np.zeros(0, dtype=np.int)
 
+        # Update the fractures with the new data format
         for poly, ind in zip(constrained_polys, inds):
             if ind not in split_frac:
                 self._fractures[ind].p = poly
+        # Special handling of fractures that are split in two
+        # TODO: This will destroy the numbering of the fractures that eventually is
+        # inserted into g_2d.frac_num. We should fix this.
         for fi in split_frac:
             hit = np.where(inds == fi)[0]
             for sub_i in hit:
@@ -2022,7 +2030,6 @@ class FractureNetwork3d(object):
         self.tags["boundary"] = boundary_tags
 
         self._reindex_fractures()
-
 
     def _make_bounding_planes_from_box(self, box, keep_box=True):
         """
