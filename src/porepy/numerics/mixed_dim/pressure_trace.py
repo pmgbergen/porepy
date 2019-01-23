@@ -8,9 +8,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-class PressureTrace(
-    pp.Assembler
-    ):
+
+class PressureTrace(pp.Assembler):
     """ Implement a pressure trace discretization, no PDE are associated with this discretization.
     Only the interface operator are given. A possible usage is for the co-dimensional objects in a
     DFN discretization.
@@ -183,4 +182,5 @@ class PressureTrace(
 
         cc[self_ind, 2] -= proj.T
 
-#-----------------------------------------------------------------------------#
+
+# -----------------------------------------------------------------------------#
