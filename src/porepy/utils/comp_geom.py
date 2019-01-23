@@ -1479,6 +1479,11 @@ def intersect_polygons_3d(polys, tol=1e-8):
                 hit = np.where(dot_prod_from_main[:-1] == 0)[0]
                 other_intersects_main_0 = other_p_expanded[:, hit[0]]
                 sign_change_full = np.where(np.abs(np.diff(dot_prod_from_main)) > 1)[0]
+                if sign_change_full.size == 0:
+                    # This corresponds to a point contact between one polygon and the
+                    # other (at least other plane, perhaps also other polygon)
+                    # Simply ignore this for now.S
+                    continue
                 other_intersects_main_1 = intersection(
                     other_p_expanded[:, sign_change_full[0]],
                     other_p_expanded[:, sign_change_full[0] + 1],
@@ -1591,6 +1596,11 @@ def intersect_polygons_3d(polys, tol=1e-8):
                 hit = np.where(dot_prod_from_other[:-1] == 0)[0]
                 main_intersects_other_0 = main_p_expanded[:, hit[0]]
                 sign_change_full = np.where(np.abs(np.diff(dot_prod_from_other)) > 1)[0]
+                if sign_change_full.size == 0:
+                    # This corresponds to a point contact between one polygon and the
+                    # other (at least other plane, perhaps also other polygon)
+                    # Simply ignore this for now.S
+                    continue
                 main_intersects_other_1 = intersection(
                     main_p_expanded[:, sign_change_full[0]],
                     main_p_expanded[:, sign_change_full[0] + 1],
