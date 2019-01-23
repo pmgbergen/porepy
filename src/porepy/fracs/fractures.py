@@ -1993,7 +1993,7 @@ class FractureNetwork3d(object):
         if inds.size > 0:
             split_frac = np.where(np.bincount(inds) > 1)[0]
         else:
-            split_frac = np.zeros(0)
+            split_frac = np.zeros(0, dtype=np.int)
 
         for poly, ind in zip(constrained_polys, inds):
             if ind not in split_frac:
