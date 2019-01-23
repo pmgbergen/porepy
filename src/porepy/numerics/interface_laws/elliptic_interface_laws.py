@@ -353,7 +353,9 @@ class FluxPressureContinuity(RobinCoupling):
 
         return matrix, rhs
 
+
 # ------------------------------------------------------------------------------
+
 
 class RobinContact(object):
     """
@@ -722,5 +724,6 @@ class StressDisplacementContinuity(RobinContact):
             )
 
         return matrix, rhs
+
 
 # ------------------------------------------------------------------------------
