@@ -15,7 +15,10 @@ import porepy as pp
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+
 from matplotlib.patches import FancyArrowPatch
+from matplotlib.collections import PolyCollection
+
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mpl_toolkits.mplot3d import proj3d
 
@@ -194,12 +197,16 @@ def plot_single(g, cell_value, vector_value, info, **kwargs):
     else:
         fig = plt.figure(figsize=figsize)
 
-    ax = fig.add_subplot(111, projection="3d")
+    if kwargs.get("plot_2d", False):
+        ax = fig.add_subplot(111)
+    else:
+        ax = fig.add_subplot(111, projection="3d")
 
     ax.set_title(" ".join(g.name))
     ax.set_xlabel("x")
     ax.set_ylabel("y")
-    ax.set_zlabel("z")
+    if not kwargs.get("plot_2d", False):
+        ax.set_zlabel("z")
 
     if cell_value is not None and g.dim != 3:
         if kwargs.get("color_map"):
@@ -210,13 +217,20 @@ def plot_single(g, cell_value, vector_value, info, **kwargs):
         kwargs["color_map"] = color_map(extr_value)
 
     plot_grid_xd(g, cell_value, vector_value, ax, **kwargs)
+
     x, y, z = lim(g.nodes)
-    if not np.isclose(x[0], x[1]):
-        ax.set_xlim3d(x)
-    if not np.isclose(y[0], y[1]):
-        ax.set_ylim3d(y)
-    if not np.isclose(z[0], z[1]):
-        ax.set_zlim3d(z)
+    if kwargs.get("plot_2d", False):
+        if not np.isclose(x[0], x[1]):
+            ax.set_xlim(x)
+        if not np.isclose(y[0], y[1]):
+            ax.set_ylim(y)
+    else:
+        if not np.isclose(x[0], x[1]):
+            ax.set_xlim3d(x)
+        if not np.isclose(y[0], y[1]):
+            ax.set_ylim3d(y)
+        if not kwargs.get("plot_2d", False):
+            ax.set_zlim3d(z)
 
     if info is not None:
         add_info(g, info, ax, **kwargs)
@@ -366,8 +380,9 @@ def add_info(g, info, ax, **kwargs):
         disp_loop(g.face_centers, "y", "d")
 
     if "O" in info.upper() and g.dim != 0:
-        normals = np.array([n / np.linalg.norm(n) for n in g.face_normals.T]).T
-        quiver(normals, ax, g, **kwargs)
+        # Plot face normals. Scaling set to reduce interference with other information
+        # and other face normals
+        quiver(g.face_normals * 0.4, ax, g, **kwargs)
 
 
 # ------------------------------------------------------------------------------#
@@ -446,12 +461,19 @@ def plot_grid_2d(g, cell_value, ax, **kwargs):
 
         pts = g.nodes[:, ordering]
         linewidth = kwargs.get("linewidth", 1)
-        poly = Poly3DCollection([pts.T], linewidth=linewidth)
-        poly.set_edgecolor("k")
-        poly.set_facecolors(color_face(cell_value[c]))
-        ax.add_collection3d(poly)
+        if kwargs.get("plot_2d", False):
+            poly = PolyCollection([pts[:2].T], linewidth=linewidth)
+            poly.set_edgecolor("k")
+            poly.set_facecolor(color_face(cell_value[c]))
+            ax.add_collection(poly)
+        else:
+            poly = Poly3DCollection([pts.T], linewidth=linewidth)
+            poly.set_edgecolor("k")
+            poly.set_facecolors(color_face(cell_value[c]))
+            ax.add_collection3d(poly)
 
-    ax.view_init(90, -90)
+    if not kwargs.get("plot_2d", False):
+        ax.view_init(90, -90)
 
 
 # ------------------------------------------------------------------------------#

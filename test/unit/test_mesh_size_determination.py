@@ -1,5 +1,5 @@
 """
-Tests of mesh size determination for simplex grids. 
+Tests of mesh size determination for simplex grids.
 """
 import unittest
 import numpy as np
@@ -11,25 +11,25 @@ class TestMeshSize(unittest.TestCase):
         """
         Fracture set:
             f_1 = np.array([[.5, 4], [1, 1]])
-       
+
         """
-        pts = np.array([[0., 5., 5., 0., 0.5, 4.], [0., 0., 5., 5., 1., 1.]])
+        pts = np.array([[0.0, 5.0, 5.0, 0.0, 0.5, 4.0], [0.0, 0.0, 5.0, 5.0, 1.0, 1.0]])
         on_boundary = np.array([True, True, True, True, False, False])
         lines = np.array(
             [[0, 3, 1, 2, 4], [1, 0, 2, 3, 5], [1, 1, 1, 1, 3], [0, 3, 1, 2, 4]]
         )
 
         mesh_sizes_known = np.array(
-            [1.11803399, 1.41421356, 2., 2., 0.5, 1., 0.5, 1., 1.80277564, 1., 1.]
+            [1.11803399, 1.41421356, 2.0, 2.0, 0.5, 1.0, 0.5, 1.0, 1.80277564, 1.0, 1.0]
         )
         pts_split_known = np.array(
             [
-                [0., 5., 5., 0., 0.5, 4., 0., 2.5, 5., 0., 2.25],
-                [0., 0., 5., 5., 1., 1., 1., 0., 2.5, 3., 1.],
+                [0.0, 5.0, 5.0, 0.0, 0.5, 4.0, 0.0, 2.5, 5.0, 0.0, 2.25],
+                [0.0, 0.0, 5.0, 5.0, 1.0, 1.0, 1.0, 0.0, 2.5, 3.0, 1.0],
             ]
         )
 
-        mesh_size_min = .2
+        mesh_size_min = 0.2
         mesh_size_frac = 1
         mesh_size_bound = 2
         mesh_sizes, pts_split, _ = pp.fracs.tools.determine_mesh_size(
@@ -50,7 +50,7 @@ class TestMeshSize(unittest.TestCase):
             f_1 = np.array([[.5, 5], [1.5, 1.5]])
 
         """
-        pts = np.array([[0., 5., 5., 0., 0.5, 5.], [0., 0., 5., 5., 1.5, 1.5]])
+        pts = np.array([[0.0, 5.0, 5.0, 0.0, 0.5, 5.0], [0.0, 0.0, 5.0, 5.0, 1.5, 1.5]])
         on_boundary = np.array([True, True, True, True, False, False])
         lines = np.array(
             [
@@ -62,16 +62,16 @@ class TestMeshSize(unittest.TestCase):
         )
 
         mesh_sizes_known = np.array(
-            [1.58113883, 1.5, 2., 2., 0.5, 1., 0.5, 1.5, 0.75, 1., 1.]
+            [1.58113883, 1.5, 2.0, 2.0, 0.5, 1.0, 0.5, 1.5, 0.75, 1.0, 1.0]
         )
         pts_split_known = np.array(
             [
-                [0., 5., 5., 0., 0.5, 5., 0., 2.5, 0., 0., 2.75],
-                [0., 0., 5., 5., 1.5, 1.5, 1.5, 0., 0.75, 3.25, 1.5],
+                [0.0, 5.0, 5.0, 0.0, 0.5, 5.0, 0.0, 2.5, 0.0, 0.0, 2.75],
+                [0.0, 0.0, 5.0, 5.0, 1.5, 1.5, 1.5, 0.0, 0.75, 3.25, 1.5],
             ]
         )
 
-        mesh_size_min = .2
+        mesh_size_min = 0.2
         mesh_size_frac = 1
         mesh_size_bound = 2
         mesh_sizes, pts_split, _ = pp.fracs.tools.determine_mesh_size(
@@ -94,13 +94,13 @@ class TestMeshSize(unittest.TestCase):
         f_1 = np.array([[1, 5, 5, 1], [1, 1, 1, 1], [1, 1, 3, 3]])
         f_set = [pp.Fracture(f_1)]
         domain = {"xmin": 0, "ymin": 0, "zmin": 0, "xmax": 5, "ymax": 5, "zmax": 5}
-        mesh_size_min = .1
-        mesh_size_frac = .1
+        mesh_size_min = 0.1
+        mesh_size_frac = 0.1
         mesh_size_bound = 2
         on_boundary = np.array(
             [False, False, False, False, True, True, True, True, True, True, True, True]
         )
-        network = pp.FractureNetwork(f_set)
+        network = pp.FractureNetwork3d(f_set)
         network.impose_external_boundary(domain)
         network.find_intersections()
         network.split_intersections()
@@ -114,7 +114,7 @@ class TestMeshSize(unittest.TestCase):
         # away from the fracture and the other values to domain corners
         # affected by the
         mesh_size_known = np.array(
-            [0.1, 0.1, 0.1, 0.1, 2., 1.73205081, 2., 2., 2., 1.41421356, 2., 2.]
+            [0.1, 0.1, 0.1, 0.1, 2.0, 1.73205081, 2.0, 2.0, 2.0, 1.41421356, 2.0, 2.0]
         )
         self.assertTrue(np.all(np.isclose(mesh_size, mesh_size_known)))
 
@@ -125,9 +125,9 @@ def make_bucket_2d():
         determine_mesh_size in 2d.
         """
 
-    f_1 = np.array([[.5, 5], [1.5, 1.5]])
+    f_1 = np.array([[0.5, 5], [1.5, 1.5]])
     f_set = [f_1]
-    mesh_size_min = .2
+    mesh_size_min = 0.2
     mesh_size_frac = 1
     mesh_size_bound = 2
     domain = {"xmin": 0, "ymin": 0, "xmax": 5, "ymax": 5}

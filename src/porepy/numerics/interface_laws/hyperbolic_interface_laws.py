@@ -18,7 +18,7 @@ class UpwindCoupling(object):
         return self.keyword + "_"
 
     def discretization_key(self):
-        return self.key() + pp.keywords.DISCRETIZATION
+        return self.key() + pp.DISCRETIZATION
 
     def ndof(self, mg):
         return mg.num_cells
@@ -53,7 +53,7 @@ class UpwindCoupling(object):
         # Normal component of the velocity from the higher dimensional grid
 
         # @ALL: This should perhaps be defined by a globalized keyword
-        lam_flux = data_edge["flux_field"]
+        lam_flux = data_edge[pp.PARAMETERS][self.keyword]["darcy_flux"]
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
         g_m = data_edge["mortar_grid"]
@@ -125,7 +125,7 @@ class UpwindCoupling(object):
         weighted with the face area, at each face.
 
         The name of data in the input dictionary (data) are:
-        discharge : array (g.num_faces)
+        darcy_flux : array (g.num_faces)
             Normal velocity at each face, weighted by the face area.
 
         Parameters:
@@ -144,23 +144,23 @@ class UpwindCoupling(object):
         Note: the design of this function has not been updated according
         to the mortar structure. Instead, mg.high_to_mortar_int.nonzero()[1]
         is used to map the 'mortar_solution' (one flux for each mortar dof) to
-        the old discharge (one flux for each g_master face).
+        the old darcy_flux (one flux for each g_master face).
 
         """
-        # Retrieve the discharge, which is mandatory
+        # Retrieve the darcy_flux, which is mandatory
 
         aperture_master = data_master["param"].get_aperture()
         aperture_slave = data_slave["param"].get_aperture()
         phi_slave = data_slave["param"].get_porosity()
         mg = data_edge["mortar_grid"]
-        discharge = np.zeros(g_master.num_faces)
-        discharge[mg.high_to_mortar_int.nonzero()[1]] = data_edge[d_name]
+        darcy_flux = np.zeros(g_master.num_faces)
+        darcy_flux[mg.high_to_mortar_int.nonzero()[1]] = data_edge[d_name]
         if g_master.dim == g_slave.dim:
             # More or less same as below, except we have cell_cells in the place
             # of face_cells (see grid_bucket.duplicate_without_dimension).
             phi_master = data_master["param"].get_porosity()
             cells_slave, cells_master = data_edge["face_cells"].nonzero()
-            not_zero = ~np.isclose(np.zeros(discharge.shape), discharge, atol=0)
+            not_zero = ~np.isclose(np.zeros(darcy_flux.shape), darcy_flux, atol=0)
             if not np.any(not_zero):
                 return np.Inf
 
@@ -178,14 +178,14 @@ class UpwindCoupling(object):
             coeff = np.minimum(phi_master, phi_slave) * np.minimum(
                 apt_master, apt_slave
             )
-            return np.amin(np.abs(np.divide(dist, discharge)) * coeff)
+            return np.amin(np.abs(np.divide(dist, darcy_flux)) * coeff)
 
         # Recover the information for the grid-grid mapping
         cells_slave, faces_master, _ = sps.find(data_edge["face_cells"])
 
-        # Detect and remove the faces which have zero in "discharge"
+        # Detect and remove the faces which have zero in "darcy_flux"
         not_zero = ~np.isclose(
-            np.zeros(faces_master.size), discharge[faces_master], atol=0
+            np.zeros(faces_master.size), darcy_flux[faces_master], atol=0
         )
         if not np.any(not_zero):
             return np.inf
@@ -202,10 +202,11 @@ class UpwindCoupling(object):
         # Compute discrete distance cell to face centers for the lower
         # dimensional grid
         dist = 0.5 * np.divide(aperture_slave, aperture_master)
-        # Since discharge is multiplied by the aperture wighted face areas, we
+        # Since darcy_flux is multiplied by the aperture wighted face areas, we
         # divide through that quantity to get velocities in [length/time]
         velocity = np.divide(
-            discharge[faces_master], g_master.face_areas[faces_master] * aperture_master
+            darcy_flux[faces_master],
+            g_master.face_areas[faces_master] * aperture_master,
         )
         # deltaT is deltaX/velocity with coefficient
         return np.amin(np.abs(np.divide(dist, velocity)) * phi_slave)

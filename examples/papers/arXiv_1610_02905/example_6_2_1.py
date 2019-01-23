@@ -80,7 +80,7 @@ def error_p(g, p):
 Nx = Ny = 20
 # g = structured.CartGrid([Nx, Ny], [1, 1])
 g = simplex.StructuredTriangleGrid([Nx, Ny], [1, 1])
-R = cg.rot(np.pi / 4., [1, 0, 0])
+R = cg.rot(np.pi / 4.0, [1, 0, 0])
 g.nodes = np.dot(R, g.nodes)
 g.compute_geometry()
 # co.coarsen(g, 'by_volume')

@@ -99,14 +99,14 @@ class MainTester(unittest.TestCase):
         """
         # Discretization. Use python inverter for speed
         discr = pp.Mpfa(keyword="flow")
-        param = pp.Parameters(g)
-        param.set_tensor(discr, k)
-        param.set_bc(discr, bound_cond)
-        data = {"param": param, "mpfa_eta": 0}
+        specified_parameters = {"second_order_tensor": k, "bc": bound_cond}
+        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+        data[pp.PARAMETERS]["flow"]["mpfa_eta"] = 0
         a = discr.assemble_matrix(g, data)
 
-        bound_flux = data["flow_bound_flux"]
-        flux = data["flow_flux"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
+        bound_flux = matrix_dictionary["bound_flux"]
+        flux = matrix_dictionary["flux"]
 
         # Set up linear system
         div = fvutils.scalar_divergence(g)
@@ -139,7 +139,7 @@ class MainTester(unittest.TestCase):
         single characteristic region.
         """
         # Compute permeability
-        char_func_cells = chi(g.cell_centers[0], g.cell_centers[1]) * 1.
+        char_func_cells = chi(g.cell_centers[0], g.cell_centers[1]) * 1.0
         perm_vec = (1 - char_func_cells) + kappa * char_func_cells
         perm = tensor.SecondOrderTensor(2, perm_vec)
 
@@ -148,14 +148,14 @@ class MainTester(unittest.TestCase):
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
 
         discr = pp.Mpfa(keyword="flow")
-        param = pp.Parameters(g)
-        param.set_tensor(discr, perm)
-        param.set_bc(discr, bound_cond)
-        data = {"param": param, "mpfa_eta": 0}
+        specified_parameters = {"second_order_tensor": perm, "bc": bound_cond}
+        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+        data[pp.PARAMETERS]["flow"]["mpfa_eta"] = 0
         a = discr.assemble_matrix(g, data)
 
-        bound_flux = data["flow_bound_flux"]
-        flux = data["flow_flux"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
+        bound_flux = matrix_dictionary["bound_flux"]
+        flux = matrix_dictionary["flux"]
 
         # Set up linear system
         div = fvutils.scalar_divergence(g)
@@ -181,7 +181,9 @@ class MainTester(unittest.TestCase):
     def solve_system_homogeneous_elasticity(
         self, g, bound_cond, bound_faces, k, an_sol
     ):
-        stress, bound_stress = mpsa.mpsa(g, k, bound_cond, inverter="python", eta=0)
+        stress, bound_stress, _, _ = mpsa.mpsa(
+            g, k, bound_cond, inverter="python", eta=0
+        )
         div = fvutils.vector_divergence(g)
         a = div * stress
 
@@ -206,11 +208,13 @@ class MainTester(unittest.TestCase):
         return u_num, stress_num
 
     def solve_system_chi_type_elasticity(self, g, bound_cond, an_sol, chi, kappa):
-        char_func_cells = chi(g.cell_centers[0], g.cell_centers[1]) * 1.
+        char_func_cells = chi(g.cell_centers[0], g.cell_centers[1]) * 1.0
         mat_vec = (1 - char_func_cells) + kappa * char_func_cells
 
         k = tensor.FourthOrderTensor(2, mat_vec, mat_vec)
-        stress, bound_stress = mpsa.mpsa(g, k, bound_cond, inverter="python", eta=0)
+        stress, bound_stress, _, _ = mpsa.mpsa(
+            g, k, bound_cond, inverter="python", eta=0
+        )
         div = fvutils.vector_divergence(g)
         a = div * stress
 
@@ -326,7 +330,7 @@ class CartGrid2D(MainTester):
         an_sol = _SolutionHomogeneousDomainFlow(u, x, y)
 
         perm = 1
-        k = tensor.SecondOrderTensor(2, perm * np.ones(self.g_nolines.num_cells))
+        k = pp.SecondOrderTensor(2, perm * np.ones(self.g_nolines.num_cells))
         u_num, flux_num = self.solve_system_homogeneous_perm(
             self.g_nolines, self.bc, self.bound_faces, k, an_sol
         )
@@ -606,12 +610,12 @@ class CartGrid2D(MainTester):
                 -2.90171573e-01,
                 -5.64748667e-01,
                 -5.95331084e-01,
-                7.16007640e+05,
-                7.52597195e+05,
+                7.16007640e05,
+                7.52597195e05,
                 -5.24438451e-01,
                 -7.22016098e-01,
-                4.95904641e+05,
-                5.32583312e+05,
+                4.95904641e05,
+                5.32583312e05,
             ]
         )
         flux_precomp = np.array(
@@ -823,101 +827,101 @@ class CartGrid2D(MainTester):
                 3.92175454e-01,
                 -4.61175691e-01,
                 -9.54876903e-02,
-                7.16825459e+05,
-                -1.16316129e+05,
-                7.47596763e+05,
-                1.37255259e+05,
+                7.16825459e05,
+                -1.16316129e05,
+                7.47596763e05,
+                1.37255259e05,
                 -4.88145864e-01,
                 -2.05122149e-02,
                 -6.50227511e-01,
                 2.10004595e-01,
-                5.11591679e+05,
-                6.36396262e+04,
-                5.40606333e+05,
-                -2.95726100e+05,
+                5.11591679e05,
+                6.36396262e04,
+                5.40606333e05,
+                -2.95726100e05,
             ]
         )
         stress_precomp = np.array(
             [
-                3.32923060e+00,
+                3.32923060e00,
                 4.80967293e-01,
                 4.75468311e-01,
                 9.79098447e-01,
-                -2.41353425e+00,
+                -2.41353425e00,
                 -8.25311645e-02,
                 4.92754427e-01,
                 -8.70707593e-01,
-                6.40562038e+00,
+                6.40562038e00,
                 -6.99251805e-01,
-                3.62887576e+00,
+                3.62887576e00,
                 1.24576479e-01,
                 7.41411040e-01,
-                -1.01589906e+00,
-                -4.62752910e+00,
+                -1.01589906e00,
+                -4.62752910e00,
                 -1.54194953e-01,
                 -8.81738306e-03,
                 9.75232315e-01,
-                2.03840198e+00,
+                2.03840198e00,
                 3.94212745e-01,
-                -2.40312366e+00,
+                -2.40312366e00,
                 -9.84146744e-04,
                 1.44439248e-01,
-                -1.26062693e+00,
-                4.01807150e+00,
+                -1.26062693e00,
+                4.01807150e00,
                 -2.18985536e-01,
                 6.69214843e-02,
                 9.75560080e-01,
-                -4.16164304e+00,
+                -4.16164304e00,
                 2.61832387e-01,
-                -4.78158572e+00,
+                -4.78158572e00,
                 4.00765626e-01,
                 -4.17553339e-01,
                 6.68855436e-01,
-                3.43078750e+00,
+                3.43078750e00,
                 1.76856058e-01,
                 -3.19126220e-03,
                 -8.16523644e-01,
-                -3.70740449e+00,
+                -3.70740449e00,
                 -3.94622916e-01,
-                1.88586720e+00,
+                1.88586720e00,
                 -8.33488229e-01,
                 9.75877417e-01,
                 3.12724793e-01,
-                -1.54364949e+00,
+                -1.54364949e00,
                 1.36688693e-06,
                 -3.99045087e-01,
                 1.75368137e-02,
                 7.52661873e-01,
-                1.77359758e+00,
+                1.77359758e00,
                 3.06531877e-01,
-                -1.61010433e+00,
+                -1.61010433e00,
                 9.96675947e-01,
                 -9.49588482e-01,
                 3.75235100e-01,
-                2.15856369e+00,
-                -1.84643256e+00,
+                2.15856369e00,
+                -1.84643256e00,
                 -5.28927672e-01,
-                -1.02791621e+00,
+                -1.02791621e00,
                 -5.48170356e-02,
-                1.33910753e+00,
+                1.33910753e00,
                 6.06184771e-02,
-                1.32712008e+00,
+                1.32712008e00,
                 7.05495950e-02,
                 4.51513684e-01,
-                -1.89761162e+00,
+                -1.89761162e00,
                 -2.70617671e-01,
-                1.52758689e+00,
+                1.52758689e00,
                 -6.39287873e-01,
-                1.14606454e+00,
+                1.14606454e00,
                 -6.98695191e-01,
-                -2.00244197e+00,
+                -2.00244197e00,
                 3.32888439e-01,
                 6.13216163e-01,
-                1.61829667e+00,
+                1.61829667e00,
                 -1.94315594e-01,
-                -1.25632372e+00,
+                -1.25632372e00,
                 -3.92829981e-01,
-                -1.20246999e+00,
+                -1.20246999e00,
                 -2.09484045e-01,
             ]
         )
@@ -1560,14 +1564,14 @@ class TriangleGrid2D(MainTester):
                 -1.05270256e-02,
                 -5.35178837e-01,
                 -1.53240133e-03,
-                5.68991037e+05,
-                1.89712057e+04,
-                5.04435224e+05,
-                -5.96455647e+04,
-                2.41985386e+05,
-                1.20387001e+05,
-                8.92815531e+05,
-                1.09523111e+05,
+                5.68991037e05,
+                1.89712057e04,
+                5.04435224e05,
+                -5.96455647e04,
+                2.41985386e05,
+                1.20387001e05,
+                8.92815531e05,
+                1.09523111e05,
                 -6.64055159e-01,
                 3.86014521e-02,
                 -1.78896900e-01,
@@ -1576,129 +1580,129 @@ class TriangleGrid2D(MainTester):
                 2.04419759e-01,
                 -4.35057023e-01,
                 9.56055537e-02,
-                6.83885576e+05,
-                3.93671133e+04,
-                2.26546428e+05,
-                2.56681115e+04,
-                4.47894042e+05,
-                -1.64651914e+05,
-                3.22225459e+05,
-                -1.77346295e+05,
+                6.83885576e05,
+                3.93671133e04,
+                2.26546428e05,
+                2.56681115e04,
+                4.47894042e05,
+                -1.64651914e05,
+                3.22225459e05,
+                -1.77346295e05,
             ]
         )
         stress_precomp = np.array(
             [
-                -1.61357268e+00,
+                -1.61357268e00,
                 2.80488162e-01,
-                -3.30186586e+00,
+                -3.30186586e00,
                 -3.96733690e-01,
-                -1.05855209e+00,
+                -1.05855209e00,
                 1.65972580e-01,
                 -8.69365614e-01,
                 -1.90711867e-01,
                 7.59404680e-01,
-                1.02477676e+00,
-                3.14402627e+00,
-                -1.18972497e+00,
-                1.52677689e+00,
+                1.02477676e00,
+                3.14402627e00,
+                -1.18972497e00,
+                1.52677689e00,
                 -1.16161943e-01,
-                -2.42805581e+00,
+                -2.42805581e00,
                 -1.44840056e-01,
-                1.53171831e+00,
+                1.53171831e00,
                 2.46034913e-03,
                 7.41828564e-02,
                 1.20733804e-01,
                 1.69615641e-01,
                 -8.19989892e-01,
-                -4.46900740e+00,
-                2.76955699e+00,
-                6.03830615e+00,
+                -4.46900740e00,
+                2.76955699e00,
+                6.03830615e00,
                 -8.54287340e-01,
-                1.23675204e+00,
-                1.65992898e+00,
-                -3.31236189e+00,
+                1.23675204e00,
+                1.65992898e00,
+                -3.31236189e00,
                 6.96835654e-02,
-                -3.25788011e+00,
-                2.08920433e+00,
+                -3.25788011e00,
+                2.08920433e00,
                 2.91195954e-01,
-                -1.48114864e+00,
+                -1.48114864e00,
                 3.95226369e-01,
                 -8.85307501e-01,
                 7.75764611e-01,
                 -1.39524507e-01,
                 9.74156517e-01,
                 -7.72101341e-01,
-                -4.46911828e+00,
+                -4.46911828e00,
                 -1.20590624e-01,
-                3.56645157e+00,
-                -1.45219055e+00,
+                3.56645157e00,
+                -1.45219055e00,
                 5.46701436e-01,
-                2.23513666e+00,
+                2.23513666e00,
                 1.74449458e-01,
                 9.48470755e-01,
                 -4.61535220e-01,
                 5.76862760e-01,
-                2.25326564e+00,
+                2.25326564e00,
                 2.67592513e-01,
-                -1.42268191e+00,
+                -1.42268191e00,
                 -9.04967778e-01,
-                2.31401211e+00,
+                2.31401211e00,
                 -1.04384062e-01,
-                1.75957149e+00,
-                -1.23059978e+00,
+                1.75957149e00,
+                -1.23059978e00,
                 -8.17646416e-01,
                 -1.93107738e-01,
                 1.12604490e-01,
-                -1.18117811e+00,
-                -4.17892656e+00,
-                1.64442921e+00,
-                1.21959672e+00,
+                -1.18117811e00,
+                -4.17892656e00,
+                1.64442921e00,
+                1.21959672e00,
                 3.24295237e-01,
-                4.00908758e+00,
+                4.00908758e00,
                 -2.61436595e-01,
-                -2.32261688e+00,
+                -2.32261688e00,
                 5.77455488e-01,
-                1.01131873e+00,
+                1.01131873e00,
                 4.80335366e-01,
                 4.96331808e-01,
                 8.74556628e-01,
-                3.55241411e+00,
-                -1.90608302e+00,
-                -3.78326576e+00,
+                3.55241411e00,
+                -1.90608302e00,
+                -3.78326576e00,
                 3.56825332e-01,
                 1.90782184e-01,
-                -1.84379643e+00,
-                4.58239048e+00,
+                -1.84379643e00,
+                4.58239048e00,
                 -4.07064626e-01,
-                3.61352071e+00,
-                -1.78284718e+00,
+                3.61352071e00,
+                -1.78284718e00,
                 -9.40026685e-03,
-                1.47155162e+00,
+                1.47155162e00,
                 -1.87760460e-01,
                 6.83596274e-01,
                 -8.73341300e-01,
                 1.50132399e-01,
                 -4.93138058e-01,
-                1.11662381e+00,
-                3.27912098e+00,
+                1.11662381e00,
+                3.27912098e00,
                 2.34849922e-01,
-                -3.00459720e+00,
-                1.34554429e+00,
+                -3.00459720e00,
+                1.34554429e00,
                 -8.86961989e-01,
-                -1.81949318e+00,
+                -1.81949318e00,
                 -1.79817871e-01,
                 -8.55922163e-01,
                 4.57786835e-01,
                 -4.04773077e-01,
-                -3.50647833e+00,
+                -3.50647833e00,
                 -2.74326653e-01,
                 7.54153110e-02,
                 6.31218484e-01,
-                1.48522376e+00,
+                1.48522376e00,
                 9.06961018e-02,
-                -1.11722601e+00,
+                -1.11722601e00,
                 -3.04826450e-01,
-                -1.17965266e+00,
+                -1.17965266e00,
                 -4.79898022e-01,
             ]
         )

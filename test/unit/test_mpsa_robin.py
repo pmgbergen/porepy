@@ -12,7 +12,7 @@ class RobinBoundTest(unittest.TestCase):
         g = pp.CartGrid([nx, ny], physdims=[1, 1])
         g.compute_geometry()
         c = pp.FourthOrderTensor(2, np.ones(g.num_cells), np.ones(g.num_cells))
-        robin_weight = np.pi
+        robin_weight = 1
 
         bot = g.face_centers[1] < 1e-10
         top = g.face_centers[1] > 1 - 1e-10
@@ -197,9 +197,10 @@ class RobinBoundTest(unittest.TestCase):
 
     def test_unstruct_tetrahedron(self):
         box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
-
-        g = pp.meshing.simplex_grid([], box, mesh_size_min=3, mesh_size_frac=3)
-        g = g.grids_of_dimension(3)[0]
+        network = pp.FractureNetwork3d([], domain=box)
+        mesh_args = {"mesh_size_frac": 3, "mesh_size_min": 3}
+        gb = network.mesh(mesh_args)
+        g = gb.grids_of_dimension(3)[0]
         c = pp.FourthOrderTensor(3, np.ones(g.num_cells), np.ones(g.num_cells))
         robin_weight = 1.0
 
@@ -246,7 +247,7 @@ class RobinBoundTest(unittest.TestCase):
 
     def solve_mpsa(self, g, c, robin_weight, bnd, u_bound):
         bnd.robin_weight *= robin_weight
-        stress, bound_stress = pp.numerics.fv.mpsa._mpsa_local(
+        stress, bound_stress, _, _ = pp.numerics.fv.mpsa._mpsa_local(
             g, c, bnd, inverter="python"
         )
         div = pp.fvutils.vector_divergence(g)
@@ -256,3 +257,7 @@ class RobinBoundTest(unittest.TestCase):
         u = np.linalg.solve(a.A, b)
         T = stress * u + bound_stress * u_bound.ravel("F")
         return u, T
+
+
+if __name__ == "__main__":
+    unittest.main()

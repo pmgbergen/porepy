@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Apr 27 08:14:33 2018
+Various checks of the FractureNetwork2d and 3d class
 
 @author: eke001
 """
@@ -10,17 +10,182 @@ import unittest
 import numpy as np
 
 import porepy as pp
+from test import test_utils
 
 
-class TestFractureNetworkBoundingBox(unittest.TestCase):
-    def test_sinle_fracture(self):
+class TestFractureNetwork2d(unittest.TestCase):
+    def compare_dictionaries(self, a, b):
+        ka = list(a.keys())
+        kb = list(b.keys())
+
+        if len(ka) != len(kb):
+            return False
+
+        common = set(a) - (set(a) - set(b))
+        if len(ka) != len(common):
+            return False
+        for k in common:
+            if a[k] != b[k]:
+                return False
+        return True
+
+    def setUp(self):
+        self.p = np.array([[0, 2, 1, 1], [0, 0, 0, 1]])
+        self.e = np.array([[0, 2], [1, 3]])
+        self.domain = {"xmin": 0, "xmax": 5, "ymin": -1, "ymax": 5}
+        self.small_domain = {"xmin": -1, "xmax": 1.5, "ymin": -1, "ymax": 5}
+
+    def test_snap_fractures(self):
+
+        p = np.array([[0, 2, 1, 1], [0, 0, 1e-3, 1]])
+        e = np.array([[0, 2], [1, 3]])
+
+        network = pp.FractureNetwork2d(p, e)
+        snapped = network.snap(tol=1e-2)
+
+        known_points = np.array([[0, 2, 1, 1], [0, 0, 0, 1]])
+        self.assertTrue(test_utils.compare_arrays(known_points, snapped.pts))
+
+        snapped_2 = network.snap(tol=1e-4)
+        self.assertTrue(test_utils.compare_arrays(p, snapped_2.pts))
+
+    def test_split_intersections(self):
+        network = pp.FractureNetwork2d(self.p, self.e)
+
+        split_network = network.split_intersections()
+        self.assertTrue(test_utils.compare_arrays(split_network.pts, self.p))
+        self.assertTrue(split_network.edges.shape[1] == 3)
+
+    def test_constrain_to_domain(self):
+        network = pp.FractureNetwork2d(self.p, self.e, self.domain)
+        new_network = network.constrain_to_domain()
+        self.assertTrue(test_utils.compare_arrays(self.p, new_network.pts))
+
+        small_network = network.constrain_to_domain(self.small_domain)
+        known_points = np.array([[0, 1.5, 1, 1], [0, 0, 0, 1]])
+        self.assertTrue(test_utils.compare_arrays(known_points, small_network.pts))
+
+    def test_get_points(self):
+        p = self.p
+        e = self.e
+
+        network = pp.FractureNetwork2d(p, e)
+
+        start = network.start_points()
+        self.assertTrue(test_utils.compare_arrays(start, p[:, e[0]]))
+        end = network.end_points()
+        self.assertTrue(test_utils.compare_arrays(end, p[:, e[1]]))
+
+        # Then index based
+        start = network.start_points(fi=0)
+        self.assertTrue(test_utils.compare_arrays(start, p[:, 0].reshape((-1, 1))))
+        end = network.end_points(fi=0)
+        self.assertTrue(test_utils.compare_arrays(end, p[:, 1].reshape((-1, 1))))
+
+    def test_length(self):
+        network = pp.FractureNetwork2d(self.p, self.e)
+        length = network.length()
+        known_length = np.array([2, 1])
+        self.assertTrue(np.allclose(length, known_length))
+
+    def test_angle_0_pi(self):
+        num_frac = 10
+        start = np.zeros((2, num_frac))
+
+        end = 2 * np.random.rand(2, num_frac) - 1
+        p = np.hstack((start, end))
+        e = np.vstack((np.arange(num_frac), num_frac + np.arange(num_frac)))
+        network = pp.FractureNetwork2d(p, e)
+        angle = network.orientation()
+
+        self.assertTrue(np.all(angle >= 0))
+        self.assertTrue(np.all(angle < np.pi))
+
+    def test_angle(self):
+        network = pp.FractureNetwork2d(self.p, self.e)
+        angle = network.orientation()
+        known_orientation = np.array([0, np.pi / 2])
+        self.assertTrue(
+            np.logical_or(
+                angle == known_orientation, angle - np.pi == known_orientation
+            ).all()
+        )
+
+    def test_add_networks_no_domain(self):
+        network_1 = pp.FractureNetwork2d(self.p, self.e)
+        p2 = np.array([[0, 2, 1, 1], [0, 0, 0, 1]]) + 2
+        e2 = np.array([[0, 2], [1, 3]])
+        network_2 = pp.FractureNetwork2d(p2, e2)
+
+        together = network_1.add_fractures(network_2)
+
+        p_known = np.hstack((self.p, p2))
+        self.assertTrue(test_utils.compare_arrays(p_known, together.pts))
+        # The known edges has 2 rows, thus by testing for equality, we implicitly
+        # verify there are no tags in the joint network
+        e_known = np.array([[0, 2, 4, 6], [1, 3, 5, 7]])
+        self.assertTrue(test_utils.compare_arrays(together.edges, e_known))
+
+    def test_add_networks_domains(self):
+        network_1 = pp.FractureNetwork2d(self.p, self.e, self.domain)
+        p2 = np.array([[0, 2, 1, 1], [0, 0, 0, 1]]) + 2
+        e2 = np.array([[0, 2], [1, 3]])
+        # A network with no domain
+        network_2 = pp.FractureNetwork2d(p2, e2)
+
+        # Add first to second, check domain
+        together = network_1.add_fractures(network_2)
+        self.assertTrue(self.compare_dictionaries(self.domain, together.domain))
+
+        # Add second to first, check domain
+        together = network_2.add_fractures(network_1)
+        self.assertTrue(self.compare_dictionaries(self.domain, together.domain))
+
+        # Assign domain, then add
+        network_2.domain = self.domain
+        together = network_1.add_fractures(network_2)
+        self.assertTrue(self.compare_dictionaries(self.domain, together.domain))
+
+        # Assign different domain, check that the sum has a combination of the
+        # domain dicts
+        network_2.domain = self.small_domain
+        together = network_1.add_fractures(network_2)
+        combined_domain = {"xmin": -1, "xmax": 5.0, "ymin": -1, "ymax": 5}
+        self.assertTrue(self.compare_dictionaries(combined_domain, together.domain))
+
+    def test_add_networks_preserve_tags(self):
+        network_1 = pp.FractureNetwork2d(self.p, self.e)
+        p2 = np.array([[0, 2, 1, 1], [0, 0, 0, 1]]) + 2
+        # Network 2 has tags
+        tag2 = 1
+        e2 = np.array([[0, 2], [1, 3], [1, 1]])
+        network_2 = pp.FractureNetwork2d(p2, e2)
+
+        # Add networks, check tags
+        together = network_1.add_fractures(network_2)
+        self.assertTrue(np.all(together.edges[2, 2:4] == tag2))
+
+        # Add networks reverse order
+        together = network_2.add_fractures(network_1)
+        self.assertTrue(np.all(together.edges[2, :2] == tag2))
+
+        # Assign tags to network1
+        tag1 = 2
+        network_1.edges = np.vstack((network_1.edges, tag1 * np.ones(2)))
+        together = network_1.add_fractures(network_2)
+        known_tags = np.array([tag1, tag1, tag2, tag2])
+        self.assertTrue(np.all(together.edges[2] == known_tags))
+
+
+class TestFractureNetwork3dBoundingBox(unittest.TestCase):
+    def test_single_fracture(self):
         # Test of method FractureNetwork.bounding_box() to inquire about
         # network extent
         f1 = pp.Fracture(
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 1, 1]]), check_convexity=False
         )
 
-        network = pp.FractureNetwork([f1])
+        network = pp.FractureNetwork3d([f1])
         d = network.bounding_box()
 
         self.assertTrue(d["xmin"] == 0)
@@ -37,7 +202,7 @@ class TestFractureNetworkBoundingBox(unittest.TestCase):
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]), check_convexity=False
         )
 
-        network = pp.FractureNetwork([f1])
+        network = pp.FractureNetwork3d([f1])
         d = network.bounding_box()
 
         self.assertTrue(d["xmin"] == 0)
@@ -59,7 +224,7 @@ class TestFractureNetworkBoundingBox(unittest.TestCase):
             check_convexity=False,
         )
 
-        network = pp.FractureNetwork([f1, f2])
+        network = pp.FractureNetwork3d([f1, f2])
         d = network.bounding_box()
 
         self.assertTrue(d["xmin"] == 0)
@@ -76,7 +241,7 @@ class TestFractureNetworkBoundingBox(unittest.TestCase):
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 1, 1]]), check_convexity=False
         )
 
-        network = pp.FractureNetwork([f1])
+        network = pp.FractureNetwork3d([f1])
 
         external_boundary = {
             "xmin": -1,

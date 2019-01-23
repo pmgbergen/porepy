@@ -11,8 +11,9 @@ import scipy.sparse as sps
 import unittest
 
 from porepy.grids.structured import TensorGrid
-from porepy.grids import refinement, mortar_grid
+from porepy.grids import refinement
 from porepy.fracs import meshing, mortars
+from test import test_utils
 
 
 class TestGridPerturbation(unittest.TestCase):
@@ -96,17 +97,6 @@ class TestGridRefinement2dSimplex(unittest.TestCase):
             self.dim = 2
             self.name = ["TwoGrid"]
 
-    def compare_arrays(self, a1, a2):
-        def cmp(a, b):
-            for i in range(a.shape[1]):
-                self.assertTrue(
-                    np.sum(np.sum((a[:, i].reshape((-1, 1)) - b) ** 2, axis=0) < 1e-5)
-                    == 1
-                )
-
-        cmp(a1, a2)
-        cmp(a2, a1)
-
     def test_refinement_single_cell(self):
         g = self.OneCellGrid()
         h, parent = refinement.refine_triangle_grid(g)
@@ -119,7 +109,7 @@ class TestGridRefinement2dSimplex(unittest.TestCase):
         self.assertTrue(np.allclose(h.cell_volumes, 1 / 8))
 
         known_nodes = np.array([[0, 0.5, 1, 0.5, 0, 0], [0, 0, 0, 0.5, 1, 0.5]])
-        self.compare_arrays(h.nodes[:2], known_nodes)
+        test_utils.compare_arrays(h.nodes[:2], known_nodes)
         self.assertTrue(np.all(parent == 0))
 
     def test_refinement_two_cells(self):
@@ -136,7 +126,7 @@ class TestGridRefinement2dSimplex(unittest.TestCase):
         known_nodes = np.array(
             [[0, 0.5, 1, 0.5, 0, 0, 1, 1, 0.5], [0, 0, 0, 0.5, 1, 0.5, 0.5, 1, 1]]
         )
-        self.compare_arrays(h.nodes[:2], known_nodes)
+        test_utils.compare_arrays(h.nodes[:2], known_nodes)
         self.assertTrue(np.sum(parent == 0) == 4)
         self.assertTrue(np.sum(parent == 1) == 4)
         self.assertTrue(np.allclose(np.bincount(parent, h.cell_volumes), 0.5))
@@ -286,7 +276,7 @@ class TestRefinementGridBucket(unittest.TestCase):
 class TestRefinementMortarGrid(unittest.TestCase):
     def test_mortar_grid_1d(self):
 
-        f1 = np.array([[0, 1], [.5, .5]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
 
         gb = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
         gb.compute_geometry()
@@ -296,13 +286,75 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
             high_to_mortar_known = np.matrix(
                 [
-                    [0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0.],
-                    [0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0.],
-                    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
-                    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0.],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                    ],
                 ]
             )
-            low_to_mortar_known = np.matrix([[1., 0.], [0., 1.], [1., 0.], [0., 1.]])
+            low_to_mortar_known = np.matrix(
+                [[1.0, 0.0], [0.0, 1.0], [1.0, 0.0], [0.0, 1.0]]
+            )
 
             mg = d["mortar_grid"]
             self.assertTrue(
@@ -316,7 +368,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
     def test_mortar_grid_1d_equally_refine_mortar_grids(self):
 
-        f1 = np.array([[0, 1], [.5, .5]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
 
         gb = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
         gb.compute_geometry()
@@ -333,25 +385,122 @@ class TestRefinementMortarGrid(unittest.TestCase):
             mortars.update_mortar_grid(mg, new_side_grids, 1e-4)
 
             high_to_mortar_known = (
-                1.
-                / 3.
+                1.0
+                / 3.0
                 * np.matrix(
                     [
-                        [0., 0., 0., 0., 0., 0., 0., 0., 2., 0., 0., 0., 0., 0.],
-                        [0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 0., 0., 0., 0.],
-                        [0., 0., 0., 0., 0., 0., 0., 0., 0., 2., 0., 0., 0., 0.],
-                        [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 2., 0.],
-                        [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 1.],
-                        [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 2.],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            2.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            2.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            2.0,
+                            0.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            2.0,
+                        ],
                     ]
                 )
             )
 
             low_to_mortar_known = (
-                1.
-                / 3.
+                1.0
+                / 3.0
                 * np.matrix(
-                    [[0., 2.], [1., 1.], [2., 0.], [0., 2.], [1., 1.], [2., 0.]]
+                    [
+                        [0.0, 2.0],
+                        [1.0, 1.0],
+                        [2.0, 0.0],
+                        [0.0, 2.0],
+                        [1.0, 1.0],
+                        [2.0, 0.0],
+                    ]
                 )
             )
 
@@ -366,7 +515,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
     def test_mortar_grid_1d_unequally_refine_mortar_grids(self):
 
-        f1 = np.array([[0, 1], [.5, .5]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
 
         gb = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
         gb.compute_geometry()
@@ -384,39 +533,129 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
             high_to_mortar_known = np.matrix(
                 [
-                    [0., 0., 0., 0., 0., 0., 0., 0., 0.66666667, 0., 0., 0., 0., 0.],
                     [
-                        0.,
-                        0.,
-                        0.,
-                        0.,
-                        0.,
-                        0.,
-                        0.,
-                        0.,
-                        0.33333333,
-                        0.33333333,
-                        0.,
-                        0.,
-                        0.,
-                        0.,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.66666667,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
                     ],
-                    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.66666667, 0., 0., 0., 0.],
-                    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.5, 0.],
-                    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.5, 0.],
-                    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.5],
-                    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.5],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.33333333,
+                        0.33333333,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.66666667,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.5,
+                        0.0,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.5,
+                        0.0,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.5,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.5,
+                    ],
                 ]
             )
             low_to_mortar_known = np.matrix(
                 [
-                    [0., 0.66666667],
+                    [0.0, 0.66666667],
                     [0.33333333, 0.33333333],
-                    [0.66666667, 0.],
-                    [0., 0.5],
-                    [0., 0.5],
-                    [0.5, 0.],
-                    [0.5, 0.],
+                    [0.66666667, 0.0],
+                    [0.0, 0.5],
+                    [0.0, 0.5],
+                    [0.5, 0.0],
+                    [0.5, 0.0],
                 ]
             )
 
@@ -434,7 +673,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
         higher dimensional grid.
         """
 
-        f1 = np.array([[0, 1], [.5, .5]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
 
         gb = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
         gb.compute_geometry()
@@ -454,18 +693,78 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
             high_to_mortar_known = np.matrix(
                 [
-                    [0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0.],
-                    [0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0.],
-                    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
-                    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0.],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                    ],
                 ]
             )
             low_to_mortar_known = np.matrix(
                 [
-                    [0., 0., 0.5, 0.5],
-                    [0.5, 0.5, 0., 0.],
-                    [0., 0., 0.5, 0.5],
-                    [0.5, 0.5, 0., 0.],
+                    [0.0, 0.0, 0.5, 0.5],
+                    [0.5, 0.5, 0.0, 0.0],
+                    [0.0, 0.0, 0.5, 0.5],
+                    [0.5, 0.5, 0.0, 0.0],
                 ]
             )
 
@@ -490,7 +789,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
         """ Refine the 1D grid so that it is no longer matching the 2D grid.
         """
 
-        f1 = np.array([[0, 1], [.5, .5]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
 
         gb = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
         gb.compute_geometry()
@@ -510,16 +809,78 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
             high_to_mortar_known = np.matrix(
                 [
-                    [0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0.],
-                    [0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0.],
-                    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
-                    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0.],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                    ],
                 ]
             )
             low_to_mortar_known = (
-                1.
-                / 3.
-                * np.matrix([[0., 1., 2.], [2., 1., 0.], [0., 1., 2.], [2., 1., 0.]])
+                1.0
+                / 3.0
+                * np.matrix(
+                    [[0.0, 1.0, 2.0], [2.0, 1.0, 0.0], [0.0, 1.0, 2.0], [2.0, 1.0, 0.0]]
+                )
             )
 
             self.assertTrue(
@@ -540,7 +901,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
     def test_mortar_grid_2d(self):
 
-        f = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [.5, .5, .5, .5]])
+        f = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
         gb = meshing.cart_grid([f], [2] * 3, **{"physdims": [1] * 3})
         gb.compute_geometry()
         meshing.create_mortar_grids(gb)
@@ -604,7 +965,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
                 np.array_equal(mg.master_to_mortar_int.indptr, indptr_known)
             )
 
-            data_known = np.array([1., 1., 1., 1., 1., 1., 1., 1.])
+            data_known = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
             self.assertTrue(np.array_equal(mg.master_to_mortar_int.data, data_known))
 
             indices_known = np.array([0, 4, 1, 5, 2, 6, 3, 7])
@@ -615,7 +976,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
             indptr_known = np.array([0, 2, 4, 6, 8])
             self.assertTrue(np.array_equal(mg.slave_to_mortar_int.indptr, indptr_known))
 
-            data_known = np.array([1., 1., 1., 1., 1., 1., 1., 1.])
+            data_known = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
             self.assertTrue(np.array_equal(mg.slave_to_mortar_int.data, data_known))
 
 

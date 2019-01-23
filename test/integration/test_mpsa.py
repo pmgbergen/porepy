@@ -1,9 +1,8 @@
 import numpy as np
 import scipy.sparse as sps
 import unittest
+import porepy as pp
 
-from porepy.params import tensor, bc
-from porepy.grids import structured, simplex
 from porepy.numerics.fv import mpsa, fvutils
 from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
@@ -11,7 +10,7 @@ from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 def setup_stiffness(g, mu=1, l=1):
     mu = np.ones(g.num_cells) * mu
     l = np.ones(g.num_cells) * l
-    return tensor.FourthOrderTensor(g.dim, mu, l)
+    return pp.FourthOrderTensor(g.dim, mu, l)
 
 
 class TestMpsa(unittest.TestCase):
@@ -22,7 +21,7 @@ class TestMpsa(unittest.TestCase):
             bound_faces = np.argwhere(
                 np.abs(g.cell_faces).sum(axis=1).A.ravel("F") == 1
             )
-            bound = bc.BoundaryConditionVectorial(
+            bound = pp.BoundaryConditionVectorial(
                 g, bound_faces.ravel("F"), ["dir"] * bound_faces.size
             )
             mu = 1
@@ -30,7 +29,7 @@ class TestMpsa(unittest.TestCase):
             constit = setup_stiffness(g, mu, l)
 
             # Python inverter is most efficient for small problems
-            stress, bound_stress = mpsa.mpsa(g, constit, bound, inverter="python")
+            stress, bound_stress, _, _ = mpsa.mpsa(g, constit, bound, inverter="python")
 
             div = fvutils.vector_divergence(g)
             a = div * stress
@@ -79,13 +78,13 @@ class TestMpsa(unittest.TestCase):
             bound_faces = np.argwhere(
                 np.abs(g.cell_faces).sum(axis=1).A.ravel("F") == 1
             )
-            bound = bc.BoundaryConditionVectorial(
+            bound = pp.BoundaryConditionVectorial(
                 g, bound_faces.ravel("F"), ["dir"] * bound_faces.size
             )
             constit = setup_stiffness(g)
 
             # Python inverter is most efficient for small problems
-            stress, bound_stress = mpsa.mpsa(g, constit, bound, inverter="python")
+            stress, bound_stress, _, _ = mpsa.mpsa(g, constit, bound, inverter="python")
 
             div = fvutils.vector_divergence(g)
             a = div * stress
@@ -109,20 +108,20 @@ class TestMpsa(unittest.TestCase):
     def test_uniform_displacement_neumann(self):
         physdims = [1, 1]
         g_size = [4, 8]
-        g_list = [structured.CartGrid([n, n], physdims=physdims) for n in g_size]
+        g_list = [pp.CartGrid([n, n], physdims=physdims) for n in g_size]
         [g.compute_geometry() for g in g_list]
         error = []
         for g in g_list:
             bot = np.ravel(np.argwhere(g.face_centers[1, :] < 1e-10))
             left = np.ravel(np.argwhere(g.face_centers[0, :] < 1e-10))
             dir_faces = np.hstack((left, bot))
-            bound = bc.BoundaryConditionVectorial(
+            bound = pp.BoundaryConditionVectorial(
                 g, dir_faces.ravel("F"), ["dir"] * dir_faces.size
             )
             constit = setup_stiffness(g)
 
             # Python inverter is most efficient for small problems
-            stress, bound_stress = mpsa.mpsa(g, constit, bound, inverter="python")
+            stress, bound_stress, _, _ = mpsa.mpsa(g, constit, bound, inverter="python")
 
             div = fvutils.vector_divergence(g)
             a = div * stress
@@ -151,8 +150,8 @@ class TestMpsa(unittest.TestCase):
             [0, 1, 0, 1, 0, 1, 0, 1],
         ]
         pts = np.hstack((corners, pts))
-        gt = simplex.TetrahedralGrid(pts)
-        gc = structured.CartGrid([3, 3, 3], physdims=[1, 1, 1])
+        gt = pp.TetrahedralGrid(pts)
+        gc = pp.CartGrid([3, 3, 3], physdims=[1, 1, 1])
         g_list = [gt, gc]
         [g.compute_geometry() for g in g_list]
         for g in g_list:
@@ -160,13 +159,13 @@ class TestMpsa(unittest.TestCase):
             bot = np.ravel(np.argwhere(g.face_centers[1, :] < 1e-10))
             left = np.ravel(np.argwhere(g.face_centers[0, :] < 1e-10))
             dir_faces = np.hstack((left, bot))
-            bound = bc.BoundaryConditionVectorial(
+            bound = pp.BoundaryConditionVectorial(
                 g, dir_faces.ravel("F"), ["dir"] * dir_faces.size
             )
             constit = setup_stiffness(g)
 
             # Python inverter is most efficient for small problems
-            stress, bound_stress = mpsa.mpsa(g, constit, bound, inverter="python")
+            stress, bound_stress, _, _ = mpsa.mpsa(g, constit, bound, inverter="python")
 
             div = fvutils.vector_divergence(g)
             a = div * stress
@@ -192,5 +191,4 @@ class TestMpsa(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    test_uniform_displacement()
-    test_uniform_strain()
+    unittest.main()

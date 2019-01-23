@@ -4,6 +4,7 @@ import scipy.sparse as sps
 from scipy.spatial.distance import cdist
 
 import porepy as pp
+from test import test_utils
 
 
 class TestTpfaCouplingDiffGrids(unittest.TestCase):
@@ -23,36 +24,30 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         gb = self.generate_grids(n, xmax, ymax, split)
         tol = 1e-6
         for g, d in gb:
-            d["param"] = pp.Parameters(g)
             left = g.face_centers[0] < tol
             right = g.face_centers[0] > xmax - tol
             dir_bc = left + right
-            d["param"].set_bc("flow", pp.BoundaryCondition(g, dir_bc, "dir"))
+            bound = pp.BoundaryCondition(g, dir_bc, "dir")
             bc_val = np.zeros(g.num_faces)
             bc_val[left] = xmax
             bc_val[right] = 0
-            d["param"].set_bc_val("flow", bc_val)
+            specified_parameters = {"bc": bound, "bc_values": bc_val}
+            pp.initialize_default_data(g, d, "flow", specified_parameters)
+
+        for e, d in gb.edges():
+            mg = d["mortar_grid"]
+            d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{}])
+            pp.params.data.add_discretization_matrix_keyword(d, "flow")
         # assign discretization
-        key = "flow"
-        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+        data_key = "flow"
+        tpfa = pp.Tpfa(data_key)
+        coupler = pp.FluxPressureContinuity(data_key, tpfa)
+        assembler = test_utils.setup_flow_assembler(gb, tpfa, data_key, coupler=coupler)
+        test_utils.solve_and_distribute_pressure(gb, assembler)
 
-        tpfa = pp.Tpfa(key)
-        for g, d in gb:
-            d[discretization_key] = tpfa
-
-        for _, d in gb.edges():
-            d[discretization_key] = pp.FluxPressureContinuity(key, tpfa)
-
-        assembler = pp.EllipticAssembler(key)
-
-        A, b = assembler.assemble_matrix_rhs(gb)
-
-        x = sps.linalg.spsolve(A, b)
-
-        assembler.split(gb, "flow", x)
         # test pressure
         for g, d in gb:
-            self.assertTrue(np.allclose(d["flow"], xmax - g.cell_centers[0]))
+            self.assertTrue(np.allclose(d["pressure"], xmax - g.cell_centers[0]))
 
         # test mortar solution
         for e, d_e in gb.edges():
@@ -64,8 +59,8 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
             master_area = master_to_m * g1.face_areas
             slave_area = slave_to_m * g2.face_areas
 
-            self.assertTrue(np.allclose(d_e["mortar_solution"] / master_area, 1))
-            self.assertTrue(np.allclose(d_e["mortar_solution"] / slave_area, 1))
+            self.assertTrue(np.allclose(d_e["mortar_flux"] / master_area, 1))
+            self.assertTrue(np.allclose(d_e["mortar_flux"] / slave_area, 1))
 
     def generate_grids(self, n, xmax, ymax, split):
         g1 = pp.CartGrid([split * n, ymax * n], physdims=[split, ymax])
@@ -103,10 +98,8 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         mg = pp.TensorGrid(np.array([split] * ((n + 1) * ymax)))
         mg.nodes[1] = np.linspace(0, ymax, (n + 1) * ymax)
         mg.compute_geometry()
-        side_g = {pp.grids.mortar_grid.LEFT_SIDE: mg}
-
         d_e = gb.edge_props((g1, g2))
-        d_e["mortar_grid"] = pp.BoundaryMortar(g1.dim - 1, side_g, face_faces)
+        d_e["mortar_grid"] = pp.BoundaryMortar(g1.dim - 1, mg, face_faces)
         d_e["edge_number"] = 0
 
         return gb
@@ -158,20 +151,20 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             return p, np.vstack([px, py]), pxx + pyy
 
         for g, d in gb:
-            d["param"] = pp.Parameters(g)
             left = g.face_centers[0] < tol
             right = g.face_centers[0] > xmax - tol
             dir_bc = left + right
-            d["param"].set_bc("flow", pp.BoundaryCondition(g, dir_bc, "dir"))
+            bound = pp.BoundaryCondition(g, dir_bc, "dir")
             bc_val = np.zeros(g.num_faces)
             bc_val[dir_bc], _, _ = analytic_p(g.face_centers[:, dir_bc])
 
-            d["param"].set_bc_val("flow", bc_val)
-
             pa, _, lpc = analytic_p(g.cell_centers)
             src = -lpc * g.cell_volumes
-            d["param"].set_source("flow", src)
+            specified_parameters = {"bc": bound, "bc_values": bc_val, "source": src}
+            pp.initialize_default_data(g, d, "flow", specified_parameters)
 
+        for _, d in gb.edges():
+            pp.params.data.add_discretization_matrix_keyword(d, "flow")
         self.solve(gb, analytic_p)
 
     def test_periodic_bc_with_fractues(self):
@@ -222,70 +215,77 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             return p, np.vstack([px, py]), pxx + pyy
 
         for g, d in gb:
-            d["param"] = pp.Parameters(g)
-            left = g.face_centers[0] < tol
             right = g.face_centers[0] > xmax - tol
+            left = g.face_centers[0] < tol
             dir_bc = left + right
-            d["param"].set_bc("flow", pp.BoundaryCondition(g, dir_bc, "dir"))
+            bound = pp.BoundaryCondition(g, dir_bc, "dir")
             bc_val = np.zeros(g.num_faces)
             bc_val[dir_bc], _, _ = analytic_p(g.face_centers[:, dir_bc])
 
-            d["param"].set_bc_val("flow", bc_val)
-            aperture = 1e-6 ** (2 - g.dim)
-            d["param"].set_aperture(aperture)
+            aperture = 1e-6 ** (2 - g.dim) * np.ones(g.num_cells)
 
             pa, _, lpc = analytic_p(g.cell_centers)
             src = -lpc * g.cell_volumes * aperture
-            d["param"].set_source("flow", src)
+            specified_parameters = {
+                "bc": bound,
+                "bc_values": bc_val,
+                "source": src,
+                "aperture": aperture,
+            }
+            pp.initialize_default_data(g, d, "flow", specified_parameters)
 
         for _, d in gb.edges():
-            d["kn"] = 1e10
+            pp.params.data.add_discretization_matrix_keyword(d, "flow")
+            d[pp.PARAMETERS] = pp.Parameters(
+                keywords=["flow"], dictionaries={"normal_diffusivity": 1e10}
+            )
 
         self.solve(gb, analytic_p)
 
     def solve(self, gb, analytic_p):
+
+        # Parameter-discretization keyword:
+        kw = "flow"
+        # Terms
         key_flux = "flux"
         key_src = "src"
-        # we need to specify physics because of legacy. Should change when
-        # parameter class is updated
-        key_p = "pressure" # pressure name
-        key_m = "mortar" # mortar name
+        # Primary variables
+        key_p = "pressure"  # pressure name
+        key_m = "mortar"  # mortar name
 
-        tpfa = pp.Tpfa(key_p, "flow")
-        src = pp.Integral(key_p, "flow")
+        tpfa = pp.Tpfa(kw)
+        src = pp.Integral(kw)
         for g, d in gb:
-            d[pp.keywords.DISCRETIZATION] = {
-                key_p: {key_src: src, key_flux: tpfa}
-            }
-            d[pp.keywords.PRIMARY_VARIABLES] = {key_p: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {key_p: {key_src: src, key_flux: tpfa}}
+            d[pp.PRIMARY_VARIABLES] = {key_p: {"cells": 1}}
 
         for e, d in gb.edges():
             g1, g2 = gb.nodes_of_edge(e)
-            d[pp.keywords.PRIMARY_VARIABLES] = {key_m: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {key_m: {"cells": 1}}
             if g1.dim == g2.dim:
-                mortar_disc = pp.FluxPressureContinuity(key_flux, tpfa)
+                mortar_disc = pp.FluxPressureContinuity(kw, tpfa)
             else:
-                mortar_disc = pp.RobinCoupling(key_flux, tpfa)
-            d[pp.keywords.COUPLING_DISCRETIZATION] = (
-                {key_flux: {
+                mortar_disc = pp.RobinCoupling(kw, tpfa)
+            d[pp.COUPLING_DISCRETIZATION] = {
+                key_flux: {
                     g1: (key_p, key_flux),
                     g2: (key_p, key_flux),
-                    e: (key_m, mortar_disc)
-                }}
-            )
+                    e: (key_m, mortar_disc),
+                }
+            }
 
         assembler = pp.Assembler()
         A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
         x = sps.linalg.spsolve(A, b)
 
         assembler.distribute_variable(gb, x, block_dof, full_dof)
+
         # test pressure
         for g, d in gb:
             ap, _, _ = analytic_p(g.cell_centers)
             self.assertTrue(np.max(np.abs(d[key_p] - ap)) < 5e-2)
 
         # test mortar solution
-        bnd_flx_key = key_p + "_bound_flux"
         for e, d_e in gb.edges():
             mg = d_e["mortar_grid"]
             g1, g2 = gb.nodes_of_edge(e)
@@ -299,13 +299,17 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
             _, analytic_flux, _ = analytic_p(g1.face_centers)
             # the aperture is assumed constant
-            a1 = np.max(d1["param"].aperture)
+            a1 = np.max(d1[pp.PARAMETERS][kw]["aperture"])
             left_flux = a1 * np.sum(analytic_flux * g1.face_normals[:2], 0)
-            left_flux = left_to_m * (d1[bnd_flx_key] * left_flux)
+            left_flux = left_to_m * (
+                d1[pp.DISCRETIZATION_MATRICES][kw]["bound_flux"] * left_flux
+            )
             # right flux is negative lambda
-            a2 = np.max(d2["param"].aperture)
+            a2 = np.max(d2[pp.PARAMETERS][kw]["aperture"])
             right_flux = a2 * np.sum(analytic_flux * g2.face_normals[:2], 0)
-            right_flux = -right_to_m * (d2[bnd_flx_key] * right_flux)
+            right_flux = -right_to_m * (
+                d2[pp.DISCRETIZATION_MATRICES][kw]["bound_flux"] * right_flux
+            )
             self.assertTrue(np.max(np.abs(d_e[key_m] - left_flux)) < 5e-2)
             self.assertTrue(np.max(np.abs(d_e[key_m] - right_flux)) < 5e-2)
 
@@ -329,10 +333,9 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         mg.nodes[1] = ymax
 
         mg.compute_geometry()
-        side_g = {pp.grids.mortar_grid.LEFT_SIDE: mg}
 
         d_e = gb.edge_props((g1, g1))
-        d_e["mortar_grid"] = pp.BoundaryMortar(g1.dim - 1, side_g, face_faces)
+        d_e["mortar_grid"] = pp.BoundaryMortar(g1.dim - 1, mg, face_faces)
         gb.assign_node_ordering()
         return gb
 
@@ -387,10 +390,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                             gi, gi.left, faces=True
                         )
 
-                    side_g = {pp.grids.mortar_grid.LEFT_SIDE: g_m}
-                    d_e["mortar_grid"] = pp.BoundaryMortar(
-                        gi.dim - 1, side_g, face_faces
-                    )
+                    d_e["mortar_grid"] = pp.BoundaryMortar(gi.dim - 1, g_m, face_faces)
 
         gb.compute_geometry()  # basically reset g.face_centers[,right]
         gb.assign_node_ordering()

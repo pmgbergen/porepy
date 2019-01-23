@@ -3,21 +3,20 @@ Discretization of the source term of an equation for FV methods.
 """
 import numpy as np
 import scipy.sparse as sps
+import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver
 
-
-class Integral(Solver):
+class Integral:
     """
     Discretization of the integrated source term
     int q * dx
     over each grid cell.
 
     All this function does is returning a zero lhs and
-    rhs = param.get_source.physics.
+    rhs = param.get_source.keyword.
     """
 
-    def __init__(self, keyword="flow", physics=None):
+    def __init__(self, keyword="flow"):
         """ Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
@@ -27,12 +26,6 @@ class Integral(Solver):
         """
         self.keyword = keyword
         self.known_keywords = ["flow", "transport", "mechanics"]
-
-        # The physics keyword is kept for consistency for now, but will soon be purged.
-        if physics is None:
-            self.physics = keyword
-        else:
-            self.physics = physics
 
     # ------------------------------------------------------------------------------#
 
@@ -60,11 +53,11 @@ class Integral(Solver):
             int: the number of degrees of freedom.
 
         """
-        if self.physics == "flow":
+        if self.keyword == "flow":
             return g.num_cells
-        elif self.physics == "transport":
+        elif self.keyword == "transport":
             return g.num_cells
-        elif self.physics == "mechanics":
+        elif self.keyword == "mechanics":
             return g.num_cells * g.dim
         else:
             raise ValueError(
@@ -108,10 +101,11 @@ class Integral(Solver):
             scipy.sparse.csr_matrix (self.ndof x self.ndof): Null system matrix of this
                 discretization.
         """
-        if not self._key() + "source" in data.keys():
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        if "source" not in matrix_dictionary:
             self.discretize(g, data)
 
-        return data[self._key() + "source"]
+        return matrix_dictionary["source"]
 
     # ------------------------------------------------------------------------------#
 
@@ -128,15 +122,16 @@ class Integral(Solver):
             scipy.sparse.csr_matrix (self.ndof): Right hand side vector representing the
                 source.
         """
-        if not self._key() + "bound_source" in data.keys():
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        if "bound_source" not in matrix_dictionary:
             self.discretize(g, data)
 
-        param = data["param"]
-        sources = param.get_source(self)
+        sources = parameter_dictionary["source"]
         assert sources.size == self.ndof(
             g
         ), "There should be one source value for each cell"
-        return data[self._key() + "bound_source"] * sources
+        return matrix_dictionary["bound_source"] * sources
 
     # ------------------------------------------------------------------------------#
 
@@ -159,5 +154,6 @@ class Integral(Solver):
         """
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
         rhs = sps.diags(np.ones(self.ndof(g))).tocsc()
-        data[self._key() + "source"] = lhs
-        data[self._key() + "bound_source"] = rhs
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary["source"] = lhs
+        matrix_dictionary["bound_source"] = rhs

@@ -9,9 +9,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
-
-from porepy.numerics.fv import fvutils
 from porepy.numerics.fv.fv_elliptic import FVElliptic
 
 
@@ -20,35 +17,45 @@ class Tpfa(FVElliptic):
 
     Attributes:
 
-    physics : str
-        Which physics is the solver intended flow. Will determine which data
+    keyword : str
+        Which keyword is the solver intended flow. Will determine which data
         will be accessed (e.g. flow specific, or conductivity / heat-related).
         See Data class for more details. Defaults to flow.
 
     """
 
-    def __init__(self, keyword, physics=None):
-        super(Tpfa, self).__init__(keyword, physics)
+    def __init__(self, keyword):
+        super(Tpfa, self).__init__(keyword)
 
     def discretize(self, g, data, faces=None):
         """
-        Discretize the second order elliptic equation using two-point flux
+        Discretize the second order elliptic equation using two-point flux approximation.
 
         The method computes fluxes over faces in terms of pressures in adjacent
         cells (defined as the two cells sharing the face).
 
-        The name of data in the input dictionary (data) are:
-        param : Parameter(Class). Contains the following parameters:
-            tensor : second_order_tensor
-                Permeability defined cell-wise. If not given a identity permeability
-                is assumed and a warning arised.
-            bc : boundary conditions (optional)
-            bc_val : dictionary (optional)
-                Values of the boundary conditions. The dictionary has at most the
-                following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-                conditions, respectively.
-            apertures : (np.ndarray) (optional) apertures of the cells for scaling of
+        We assume the following two sub-dictionaries to be present in the data
+        dictionary:
+            parameter_dictionary, storing all parameters.
+                Stored in data[pp.PARAMETERS][self.keyword].
+            matrix_dictionary, for storage of discretization matrices.
+                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        parameter_dictionary contains the entries:
+            second_order_tensor : (SecondOrderTensor) Permeability defined cell-wise.
+            bc : (BoundaryCondition) boundary conditions
+            apertures : (np.ndarray) apertures of the cells for scaling of
                 the face normals.
+
+        matrix_dictionary will be updated with the following entries:
+            flux: sps.csc_matrix (g.num_faces, g.num_cells)
+                flux discretization, cell center contribution
+            bound_flux: sps.csc_matrix (g.num_faces, g.num_faces)
+                flux discretization, face contribution
+            bound_pressure_cell: sps.csc_matrix (g.num_faces, g.num_cells)
+                Operator for reconstructing the pressure trace. Cell center contribution
+            bound_pressure_face: sps.csc_matrix (g.num_faces, g.num_faces)
+                Operator for reconstructing the pressure trace. Face contribution
 
         Hidden option (intended as "advanced" option that one should normally not
         care about):
@@ -58,17 +65,21 @@ class Tpfa(FVElliptic):
 
         Parameters
         ----------
-        g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data.
+        g (pp.Grid): grid, or a subclass, with geometry fields computed.
+        data (dict): For entries, see above.
+        faces (np.ndarray): optional. Defines active faces.
         """
-        param = data["param"]
-        k = param.get_tensor(self)
-        bnd = param.get_bc(self)
-        aperture = param.get_aperture()
+        # Get the dictionaries for storage of data and discretization matrices
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        # Extract parameters
+        k = parameter_dictionary["second_order_tensor"]
+        bnd = parameter_dictionary["bc"]
+        aperture = parameter_dictionary["aperture"]
 
         if g.dim == 0:
-            data[self._key() + "flux"] = sps.csr_matrix([0])
-            data[self._key() + "bound_flux"] = 0
+            matrix_dictionary["flux"] = sps.csr_matrix([0])
+            matrix_dictionary["bound_flux"] = 0
             return None
         if faces is None:
             is_not_active = np.zeros(g.num_faces, dtype=np.bool)
@@ -86,7 +97,7 @@ class Tpfa(FVElliptic):
         else:
             n = g.face_normals[:, fi] * aperture[ci]
         n *= sgn
-        perm = k.perm[::, ::, ci]
+        perm = k.values[::, ::, ci]
 
         # Distance from face center to cell center
         fc_cc = g.face_centers[::, fi] - g.cell_centers[::, ci]
@@ -137,9 +148,9 @@ class Tpfa(FVElliptic):
         bound_flux = sps.coo_matrix(
             (t_b * bndr_sgn, (bndr_ind, bndr_ind)), (g.num_faces, g.num_faces)
         )
-
-        data[self._key() + "flux"] = flux
-        data[self._key() + "bound_flux"] = bound_flux
+        # Store the matrix in the right dictionary:
+        matrix_dictionary["flux"] = flux
+        matrix_dictionary["bound_flux"] = bound_flux
 
         # Next, construct operator to reconstruct pressure on boundaries
         # Fields for data storage
@@ -155,5 +166,5 @@ class Tpfa(FVElliptic):
             (v_cell, (fi, ci)), (g.num_faces, g.num_cells)
         )
         bound_pressure_face = sps.dia_matrix((v_face, 0), (g.num_faces, g.num_faces))
-        data[self._key() + "bound_pressure_cell"] = bound_pressure_cell
-        data[self._key() + "bound_pressure_face"] = bound_pressure_face
+        matrix_dictionary["bound_pressure_cell"] = bound_pressure_cell
+        matrix_dictionary["bound_pressure_face"] = bound_pressure_face

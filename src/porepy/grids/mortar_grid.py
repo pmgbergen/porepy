@@ -5,7 +5,6 @@ import numpy as np
 from enum import Enum
 from scipy import sparse as sps
 
-
 # Module level constants, used to define sides of a mortar grid.
 # This is in essence an Enum, but that led to trouble in pickling a GridBucket.
 NONE_SIDE = 0
@@ -263,13 +262,13 @@ class MortarGrid(object):
 
     def master_to_mortar_avg(self):
         row_sum = self.master_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1. / row_sum) * self.master_to_mortar_int
+        return sps.diags(1.0 / row_sum) * self.master_to_mortar_int
 
     # ------------------------------------------------------------------------------#
 
     def slave_to_mortar_avg(self):
         row_sum = self.slave_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1. / row_sum) * self.slave_to_mortar_int
+        return sps.diags(1.0 / row_sum) * self.slave_to_mortar_int
 
     # ------------------------------------------------------------------------------#
 
@@ -297,26 +296,28 @@ class MortarGrid(object):
 # ------------------------------------------------------------------------------#
 
 
-class BoundaryMortar(object):
+class BoundaryMortar(MortarGrid):
     """
-    Parent class for a mortar grid between two grids of the same dimension.  It
-    contains a mortar grid and the weighted mapping from the LEFT_SIDE grid (as
-    set of faces) to the mortar grid and from the RIGHT_SIDE grid (as set of
-    faces) to the mortar grids.
+    Class for a mortar grid between two grids of the same dimension. This class
+    inherits from the MortarGrid class, however, one should be carefull when using
+    functions defined in MortarGrid and not BoundaryMortar as not all have been
+    thested thoroughly.BoundaryMortar contains a mortar grid and the weighted
+    mapping from the slave grid (as set of faces) to the mortar grid and from the
+    master grid (as set of faces) to the mortar grid.
 
     Attributes:
 
         dim (int): dimension. Should be 0 or 1 or 2.
-        side_grids (dictionary of Grid): grid for each side. The key is a
-            SideTag and the value is a Grid.
+        side_grids (dictionary of Grid): Contains the mortar grid under the key
+            "mortar_grid". Is included for consistency with MortarGrid
         sides (array of SideTag): ordering of the sides.
-        left_to_mortar_int (sps.csc-matrix): Face-cell relationships between the
-            LEFT_SIDE grid and the mortar grid. Matrix size:
+        slave_to_mortar_int (sps.csc-matrix): Face-cell relationships between the
+            slave grid and the mortar grid. Matrix size:
             num_faces x num_cells. In the beginning we assume matching grids,
             but it can be modified by calling refine_mortar(). The matrix
             elements represent the ratio between the geometrical objects.
-        right_to_mortar_int (sps.csc-matrix): face-cell relationships between
-            right mortar grid and the mortar grid. Matrix size:
+        master_to_mortar_int (sps.csc-matrix): face-cell relationships between
+            master mortar grid and the mortar grid. Matrix size:
             num_faces x num_cells. Matrix elements represent the ratio between
             the geometrical objects.
         name (list): Information on the formation of the grid, such as the
@@ -325,26 +326,30 @@ class BoundaryMortar(object):
 
     """
 
-    def __init__(self, dim, side_grids, face_faces, name=""):
+    def __init__(self, dim, mortar_grid, master_slave, name=""):
         """Initialize the mortar grid
 
         See class documentation for further description of parameters.
-        The left_to_mortar_int and right_to_mortar_int are identity mapping.
+        The slave_to_mortar_int and master_to_mortar_int are identity mapping.
 
         Parameters
         ----------
         dim (int): grid dimension
-        side_grids (dictionary of Grid): grid on each side.
-        face_faces (sps.csc_matrix): face-face relations between the left
-            grid and the right dimensional grid
+        mortar_grid (pp.Grids): mortar grid. It is assumed that there is a
+            one to one mapping between the cells of the mortar grid and the
+            faces of the slave grid given in master_slave
+        master_slave (sps.csc_matrix): face-face relations between the slave
+            grid and the master dimensional grid.
         name (str): Name of grid
         """
 
-        assert dim >= 0 and dim < 3
-        assert np.all([g.dim == dim for g in side_grids.values()])
+        if not dim >= 0 and dim < 3:
+            raise ValueError("Mortar grid dimension must be 0, 1 or 2")
+        if not mortar_grid.dim == dim:
+            raise ValueError("Dimension of mortar grid does not match given dimension")
 
         self.dim = dim
-        self.side_grids = side_grids
+        self.side_grids = {"mortar_grid": mortar_grid}
         self.sides = np.array(self.side_grids.keys)
 
         assert self.num_sides() == 1 or self.num_sides() == 2
@@ -354,25 +359,25 @@ class BoundaryMortar(object):
         else:
             self.name = [name]
 
-        # face_cells mapping from the Left_SIDE grid to the mortar grid
-        # also here we assume that, in the beginning the mortar grids are equal
-        # to the co-dimensional grid. If this assumption is not satisfied we
+        # master_slave is a mapping from the faces of the slave grid to the
+        # faces of the master grid.
+        # We assume that, in the beginning the mortar grids are equal
+        # to the slave grid. If this assumption is not satisfied we
         # need to change the following lines
-        # The face_faces gives a map from the LEFT_SIDE grid to the RIGHT_SIDE
-        # grid. The mortar cells are sorted after the rows of the face_faces
-        # mapping.
-        slave_f, master_f, data = sps.find(face_faces)
+        slave_f, master_f, data = sps.find(master_slave)
 
-        cells = np.argsort(master_f)
+        cells = np.argsort(slave_f)
         self.num_cells = cells.size
-        self.cell_volumes = np.hstack(
-            [g.cell_volumes for g in self.side_grids.values()]
-        )
-        #        self.cell_volumes = side_grids[MASTER_SIDE].face_areas[master_f]
-        #        self.cell_volumes = g.face_areas[master_f]
+        if not self.num_cells == mortar_grid.num_cells:
+            raise ValueError(
+                """In the construction of Boundary mortar it is assumed
+            to be a one to one mapping between the mortar grid and the contact faces of the slave
+            grid"""
+            )
+        self.cell_volumes = mortar_grid.cell_volumes
 
-        shape_master = (self.num_cells, face_faces.shape[1])
-        shape_slave = (self.num_cells, face_faces.shape[0])
+        shape_master = (self.num_cells, master_slave.shape[1])
+        shape_slave = (self.num_cells, master_slave.shape[0])
         self.master_to_mortar_int = sps.csc_matrix(
             (data.astype(np.float), (cells, master_f)), shape=shape_master
         )
@@ -451,13 +456,13 @@ class BoundaryMortar(object):
 
     def master_to_mortar_avg(self):
         row_sum = self.master_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1. / row_sum) * self.master_to_mortar_int
+        return sps.diags(1.0 / row_sum) * self.master_to_mortar_int
 
     # ------------------------------------------------------------------------------#
 
     def slave_to_mortar_avg(self):
         row_sum = self.slave_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1. / row_sum) * self.slave_to_mortar_int
+        return sps.diags(1.0 / row_sum) * self.slave_to_mortar_int
 
     # ------------------------------------------------------------------------------#
 
@@ -471,3 +476,5 @@ class BoundaryMortar(object):
         We assume that they are not aligned with x (1d) or x, y (2d).
         """
         [g.compute_geometry() for g in self.side_grids.values()]
+
+    # ------------------------------------------------------------------------------#

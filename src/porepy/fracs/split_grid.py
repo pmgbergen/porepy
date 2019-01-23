@@ -234,10 +234,12 @@ def duplicate_faces(gh, face_cells):
     # send in a logical array instead of frac_id.
     gh.tags["fracture_faces"][frac_id] = True
     gh.tags["tip_faces"][frac_id] = False
-    update_fields = tags.standard_face_tags()
+    update_fields = gh.tags.keys()
     update_values = [[]] * len(update_fields)
     for i, key in enumerate(update_fields):
-        update_values[i] = gh.tags[key][frac_id]
+        # faces related tags are doubled and the value is inherit from the original
+        if key.endswith("_faces"):
+            update_values[i] = gh.tags[key][frac_id]
     tags.append_tags(gh.tags, update_fields, update_values)
 
     return frac_id
@@ -316,9 +318,9 @@ def update_cell_connectivity(g, face_id, normal, x0):
 
     # Assume that fracture is either on boundary (above case) or completely
     # innside domain. Check that each face added two cells:
-    assert (
-        sum(left_cell) * 2 == left_cell.size
-    ), "Fractures must either be" "on boundary or completely innside domain"
+    assert sum(left_cell) * 2 == left_cell.size, (
+        "Fractures must either be" "on boundary or completely innside domain"
+    )
 
     # We create a cell_faces mapping for the new faces. This will be added
     # on the end of the excisting cell_faces mapping. We have here assumed

@@ -6,6 +6,8 @@ The functions in this module can be accesed through the meshing wrapper module.
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
+
 from porepy.grids.gmsh import mesh_2_grid
 from porepy.grids import constants
 from porepy.fracs import fractures
@@ -62,7 +64,7 @@ def cart_grid_3d(fracs, nx, physdims=None):
     g_0d = []
     # We set the tolerance for finding points in a plane. This can be any
     # small number, that is smaller than .25 of the cell sizes.
-    tol = .1 * physdims / nx
+    tol = 0.1 * physdims / nx
 
     # Create 2D grids
     for fi, f in enumerate(fracs):
@@ -126,7 +128,7 @@ def cart_grid_3d(fracs, nx, physdims=None):
     for f in fracs:
         frac_list.append(fractures.Fracture(f))
     # Combine the fractures into a network
-    network = fractures.FractureNetwork(frac_list)
+    network = pp.FractureNetwork3d(frac_list)
     # Impose domain boundary. For the moment, the network should be immersed in
     # the domain, or else gmsh will complain.
     box = {
@@ -304,7 +306,7 @@ def _create_embedded_2d_grid(loc_coord, glob_id):
 
 def _find_nodes_on_line(g, nx, s_pt, e_pt):
     """
-    We have the start and end point of the fracture. From this we find the 
+    We have the start and end point of the fracture. From this we find the
     start and end node and use the structure of the cartesian grid to find
     the intermediate nodes.
     """

@@ -16,28 +16,25 @@ def add_data(gb, domain, kf, mesh_value):
     """
     Define the permeability, apertures, boundary conditions and sources
     """
-    gb.add_node_props(["param"])
     tol = 1e-5
     a = 1e-4
 
     for g, d in gb:
-        param = pp.Parameters(g)
-
         # Assign apertures
         a_dim = np.power(a, gb.dim_max() - g.dim)
         aperture = np.ones(g.num_cells) * a_dim
-        param.set_aperture(aperture)
 
         # Permeability
         # Use fracture value in the fractures, i.e., the lower dimensional grids
         k_frac = np.power(kf, g.dim < gb.dim_max())
         p = pp.SecondOrderTensor(3, np.ones(g.num_cells) * k_frac)
-        param.set_tensor("flow", p)
-        param.set_tensor("flow", p)
 
         # Source term
-        param.set_source("flow", np.zeros(g.num_cells))
-
+        specified_parameters = {
+            "aperture": aperture,
+            "source": np.zeros(g.num_cells),
+            "second_order_tensor": p,
+        }
         # Boundaries
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if bound_faces.size != 0:
@@ -57,29 +54,30 @@ def add_data(gb, domain, kf, mesh_value):
                     np.absolute(g.face_centers[1, bound_faces[left]] - 0.5) < mesh_value
                 )
                 bc_val[bound_faces[left]] = (
-                    -g.face_areas[bound_faces[left]] + left_mid * .5 * a
+                    -g.face_areas[bound_faces[left]] + left_mid * 0.5 * a
                 )
             else:
                 bc_val[bound_faces[left]] = -g.face_areas[bound_faces[left]] * a
 
             bc_val[bound_faces[right]] = np.ones(np.sum(right))
 
-            param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val("flow", bc_val)
+            bound = pp.BoundaryCondition(g, bound_faces, labels)
+            specified_parameters.update({"bc": bound, "bc_values": bc_val})
         else:
-            param.set_bc("flow", pp.BoundaryCondition(g, np.empty(0), np.empty(0)))
+            bound = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
 
-        d["param"] = param
+        pp.initialize_default_data(g, d, "flow", specified_parameters)
 
     # Assign coupling permeability
-    gb.add_edge_props("kn")
     for e, d in gb.edges():
         g_l = gb.nodes_of_edge(e)[0]
         mg = d["mortar_grid"]
         check_P = mg.slave_to_mortar_avg()
-
-        gamma = check_P * gb.node_props(g_l, "param").get_aperture()
-        d["kn"] = kf * np.ones(mg.num_cells) / gamma
+        pa_l = gb.node_props(g_l, pp.PARAMETERS)
+        gamma = check_P * pa_l["flow"]["aperture"]
+        kn = kf * np.ones(mg.num_cells) / gamma
+        d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{"normal_diffusivity": kn}])
+        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
 
 # ------------------------------------------------------------------------------#
@@ -107,29 +105,35 @@ def main(kf, description, multi_point, if_export=False):
     add_data(gb, domain, kf, mesh_size)
 
     key = "flow"
-    discretization_key = key + "_" + pp.keywords.DISCRETIZATION
     if multi_point:
-        discr = pp.Mpfa(key)
+        method = pp.Mpfa(key)
     else:
-        discr = pp.Tpfa(key)
+        method = pp.Tpfa(key)
 
-    for _, d in gb:
-        d[discretization_key] = discr
+    coupler = pp.RobinCoupling(key, method)
 
-    for _, d in gb.edges():
-        d[discretization_key] = pp.RobinCoupling(key, discr)
+    for g, d in gb:
+        d[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1}}
+        d[pp.DISCRETIZATION] = {"pressure": {"diffusive": method}}
+    for e, d in gb.edges():
+        g1, g2 = gb.nodes_of_edge(e)
+        d[pp.PRIMARY_VARIABLES] = {"mortar_solution": {"cells": 1}}
+        d[pp.COUPLING_DISCRETIZATION] = {
+            "lambda": {
+                g1: ("pressure", "diffusive"),
+                g2: ("pressure", "diffusive"),
+                e: ("mortar_solution", coupler),
+            }
+        }
+        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-    assembler = pp.EllipticAssembler(key)
+    assembler = pp.Assembler()
 
     # Discretize
-    A, b = assembler.assemble_matrix_rhs(gb)
-
-    # Solve the linear system
+    A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
     p = sps.linalg.spsolve(A, b)
 
-    # Store the solution
-    gb.add_node_props(["pressure"])
-    assembler.split(gb, "pressure", p)
+    assembler.distribute_variable(gb, p, block_dof, full_dof)
 
     if if_export:
         save = pp.Exporter(gb, "fv", folder="fv_" + description)
