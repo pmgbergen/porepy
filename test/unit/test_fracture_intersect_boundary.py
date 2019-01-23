@@ -5,8 +5,8 @@ Since that algorithm uses fracture intersection methods, the tests functions as
 partial test for the wider fracture intersection framework as well. Full tests
 of the latter are too time consuming to fit into a unit test.
 
-Now the boundary is defined as set of "fake" fractures, all fracture network 
-have 2*dim additional fractures (hence the + 6 in the assertions) 
+Now the boundary is defined as set of "fake" fractures, all fracture network
+have 2*dim additional fractures (hence the + 6 in the assertions)
 """
 import unittest
 import numpy as np
@@ -102,5 +102,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         p_comp = network._fractures[0].p
         self.assertTrue(self._arrays_equal(p_known, p_comp))
 
-    if __name__ == "__main__":
-        unittest.main()
+
+if __name__ == "__main__":
+    TestFractureBoundaryIntersection().test_incline_in_plane()
+    unittest.main()
