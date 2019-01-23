@@ -268,11 +268,10 @@ class TestDFN(unittest.TestCase):
 def setup_data(gb, key="flow"):
     """ Setup the data
     """
-    gb.add_node_props(["param", "is_tangential"])
     for g, d in gb:
-        param = pp.Parameters(g)
+        param = {}
         kxx = np.ones(g.num_cells)
-        param.set_tensor("flow", pp.SecondOrderTensor(g.dim, kxx))
+        param["second_order_tensor"] = pp.SecondOrderTensor(g.dim, kxx)
 
         if g.dim == gb.dim_max():
             bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -281,29 +280,33 @@ def setup_data(gb, key="flow"):
             )
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces] = g.face_centers[1, bound_faces]
-            param.set_bc("flow", bound)
-            param.set_bc_val("flow", bc_val)
-        d["param"] = param
-        d["is_tangential"] = True
+            param["bc"] = bound
+            param["bc_values"] = bc_val
+            param["aperture"] = np.ones(g.num_cells)
+            d[pp.PARAMETERS] = pp.Parameters(g, key, param)
+            d[pp.DISCRETIZATION_MATRICES] = {key: {}}
+
+    for _, d in gb.edges():
+        d[pp.DISCRETIZATION_MATRICES] = {key: {}}
 
 def setup_discr_mvem(gb, key="flow"):
     """ Setup the discretization. """
     discr = pp.MVEM(key)
-    p_trace = pp.PressureTrace(key)
+    p_trace = pp.PressureTrace()
     interface = pp.FluxPressureContinuity(key, discr, p_trace)
 
     for g, d in gb:
         if g.dim == gb.dim_max():
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1, "faces": 1}}
-            d[pp.keywords.DISCRETIZATION] = {key: {"flux": discr}}
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1, "faces": 1}}
+            d[pp.DISCRETIZATION] = {key: {"flux": discr}}
         else:
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-            d[pp.keywords.DISCRETIZATION] = {key: {"flux": p_trace}}
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {key: {"flux": p_trace}}
 
     for e, d in gb.edges():
         g_slave, g_master = gb.nodes_of_edge(e)
-        d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-        d[pp.keywords.COUPLING_DISCRETIZATION] = {
+        d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+        d[pp.COUPLING_DISCRETIZATION] = {
             "flux": {
                 g_slave: (key, "flux"),
                 g_master: (key, "flux"),
@@ -316,21 +319,21 @@ def setup_discr_mvem(gb, key="flow"):
 def setup_discr_tpfa(gb, key="flow"):
     """ Setup the discretization. """
     discr = pp.Tpfa(key)
-    p_trace = pp.PressureTrace(key)
+    p_trace = pp.PressureTrace()
     interface = pp.FluxPressureContinuity(key, discr, p_trace)
 
     for g, d in gb:
         if g.dim == gb.dim_max():
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-            d[pp.keywords.DISCRETIZATION] = {key: {"flux": discr}}
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {key: {"flux": discr}}
         else:
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-            d[pp.keywords.DISCRETIZATION] = {key: {"flux": p_trace}}
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {key: {"flux": p_trace}}
 
     for e, d in gb.edges():
         g_slave, g_master = gb.nodes_of_edge(e)
-        d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-        d[pp.keywords.COUPLING_DISCRETIZATION] = {
+        d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+        d[pp.COUPLING_DISCRETIZATION] = {
             "flux": {
                 g_slave: (key, "flux"),
                 g_master: (key, "flux"),
