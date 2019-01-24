@@ -1750,6 +1750,7 @@ class FractureNetwork3d(object):
                 polyhedron = self._make_bounding_planes_from_box(domain)
             else:
                 polyhedron = domain
+            self.domain = domain
         else:
             # Compute a bounding box from the extension of the fractures.
             OVERLAP = 0.15
