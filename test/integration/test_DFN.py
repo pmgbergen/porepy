@@ -403,7 +403,7 @@ def setup_data(gb, key="flow"):
 def setup_discr_mvem(gb, key="flow"):
     """ Setup the discretization. """
     discr = pp.MVEM(key)
-    p_trace = pp.PressureTrace()
+    p_trace = pp.PressureTrace(key)
     interface = pp.FluxPressureContinuity(key, discr, p_trace)
 
     for g, d in gb:
@@ -431,7 +431,7 @@ def setup_discr_mvem(gb, key="flow"):
 def setup_discr_tpfa(gb, key="flow"):
     """ Setup the discretization. """
     discr = pp.Tpfa(key)
-    p_trace = pp.PressureTrace()
+    p_trace = pp.PressureTrace(key)
     interface = pp.FluxPressureContinuity(key, discr, p_trace)
 
     for g, d in gb:
