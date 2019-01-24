@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import porepy as pp
 
 def grid_export(gb, P0_flux, folder):
 
@@ -64,6 +65,12 @@ def grid_export(gb, P0_flux, folder):
         fname = "g_" + str(frac_num) + "_cell_data.txt"
         cell_data = np.vstack((g.cell_volumes, g.cell_centers)).T
         np.savetxt(folder + fname, cell_data, fmt="%10.14f", delimiter=",")
+
+        # save to file the bc type
+        fname = "g_" + str(frac_num) + "_face_data.txt"
+        bc = d[pp.PARAMETERS]["flow_data"]["bc"]
+        bc_tag = bc.is_dir.astype(np.int) + 2*bc.is_neu.astype(np.int)
+        np.savetxt(folder + fname, bc_tag, fmt="%d", delimiter=",")
 
     # export the connectivity maps
     for g, d in gb:
