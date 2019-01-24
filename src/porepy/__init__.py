@@ -51,8 +51,8 @@ from porepy.numerics.interface_laws.elliptic_interface_laws import (
     RobinContact,
     StressDisplacementContinuity,
 )
+from porepy.numerics.interface_laws.pressure_trace import PressureTrace
 from porepy.numerics.mixed_dim.assembler import Assembler
-from porepy.numerics.mixed_dim.pressure_trace import PressureTrace
 
 import porepy.numerics
 
