@@ -1,5 +1,6 @@
 import numpy as np
 import porepy as pp
+from shutil import copyfile
 
 import examples.papers.multilayer.discretization as compute
 from examples.papers.multilayer.multilayer_grid import multilayer_grid_bucket
@@ -42,12 +43,16 @@ def main():
     gb_ml = multilayer_grid_bucket(gb)
     #pp.plot_grid(gb_ml, alpha=0, info="cf")
 
+    folder_export = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/multilayer/results/"
+    case = "case3"
+    aperture = 10*1e-3 # 10*e-3, 5*1e-3, 2.5*1e-3
+
     # the flow problem
     param = {"domain": gb_ml.bounding_box(as_dict=True), "tol": tol,
              "k": 1, "bc_inflow": 0, "bc_outflow": 1,
-             "layer": {"aperture": 1e-2, "kf_t": None, "kf_n": None},
-             "fault": {"aperture": 1e-2, "kf_t": None, "kf_n": None},
-             "folder": "case3"}
+             "layer": {"aperture": aperture, "kf_t": None, "kf_n": None},
+             "fault": {"aperture": aperture, "kf_t": None, "kf_n": None},
+             "folder": case}
 
     # define the non-constant tangential permeability
     for g in gb_ml.grids_of_dimension(1):
@@ -104,7 +109,9 @@ def main():
     for g, d in gb_ml:
         if g.dim == 2:
             pressure = param["pressure"]
-            np.savetxt("pressure.txt", d[pressure])
+            name_root = folder_export + case + "_" + str(aperture)
+            np.savetxt(name_root + "_pressure.txt", d[pressure])
+            copyfile("gmsh_frac_file.msh", name_root + "_grid.msh")
 
 if __name__ == "__main__":
     main()
