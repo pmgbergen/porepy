@@ -40,16 +40,57 @@ def low_zones(g):
 def main():
 
     tol = 1e-6
-    gb, domain = import_grid("mesh1k.geo", tol)
+    gb, domain = import_grid("mesh10k.geo", tol)
 
     # construct the multi-layer grid bucket, we give also a name to the fault and layer grids
     gb_ml = multilayer_grid_bucket(gb)
+    case = "case1"
 
     # the flow problem
     param = {"domain": domain, "tol": tol, "k": None,
-             "layer": {"aperture": 1e-2, "kf_t": 1e-1, "kf_n": 1e-1},
-             "fault": {"aperture": 1e-2, "kf_t": 1e-7, "kf_n": 1e-7},
-             "folder": "case1"}
+             "layer": {"aperture": 1e-1, "kf_t": 1e-1, "kf_n": 1e-1},
+             "fault": {"aperture": 1e-3, "kf_t": 1e-7, "kf_n": 1e-7},
+             "folder": case}
+
+    # define the non-constant tangential permeability
+    for g in gb_ml.grids_of_dimension(2):
+
+        kf = np.ones(g.num_cells)
+
+        if "layer" in g.name:
+
+            # we assume that the first half of the cells belongs to a layer, which is normally true.
+            # set the permeability for the first layer
+            half_cells = int(g.num_cells/2)
+            layer1 = np.hstack((np.ones(half_cells), np.zeros(half_cells))).astype(bool)
+            kf[layer1] = 1e-2
+
+            # set the permeability for the second layer
+            layer2 = np.logical_not(layer1)
+            kf[layer2] = 1e-1
+
+            param["layer"]["kf_t"] = kf
+
+    # define the non-constant normal permeability
+    for e, d in gb_ml.edges():
+        mg = d["mortar_grid"]
+        g_l, g_h = gb_ml.nodes_of_edge(e)
+
+        kf = np.ones(mg.num_cells)
+
+        # we assume that the first half of the cells belongs to a layer, which is normally true.
+        # set the permeability for the first layer
+        half_cells = int(mg.num_cells/2)
+        layer1 = np.hstack((np.ones(half_cells), np.zeros(half_cells))).astype(bool)
+        kf[layer1] = 1e-2
+
+        # set the permeability for the second layer
+        layer2 = np.logical_not(layer1)
+        kf[layer2] = 1e-1
+
+        if not ("fault" in g_l.name or "fault" in g_h.name):
+            param["layer"]["kf_n"] = kf
+
 
     # set the low zone permeability for the rock matrix
     for g in gb_ml.grids_of_dimension(3):
