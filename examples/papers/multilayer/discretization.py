@@ -181,8 +181,24 @@ def flow(gb, param, bc_flag):
     param["P0_flux"] = P0_flux
     pp.project_flux(gb, discr, flux, P0_flux, mortar)
 
+    # identification of layer and fault
+    for g, d in gb:
+        # save the identification of the fault
+        if "fault" in g.name:
+            d["fault"] = np.ones(g.num_cells)
+            d["layer"] = np.zeros(g.num_cells)
+        # save the identification of the layer
+        elif "layer" in g.name:
+            d["fault"] = np.zeros(g.num_cells)
+            half_cells = int(g.num_cells/2)
+            d["layer"] = np.hstack((np.ones(half_cells), 2*np.ones(half_cells)))
+        # save zero for the other cases
+        else:
+            d["fault"] = np.zeros(g.num_cells)
+            d["layer"] = np.zeros(g.num_cells)
+
     save = pp.Exporter(gb, "solution", folder=param["folder"])
-    save.write_vtk([pressure, P0_flux])
+    save.write_vtk([pressure, P0_flux, "fault", "layer"])
 
     logger.info("done")
 
