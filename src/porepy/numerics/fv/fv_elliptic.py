@@ -142,6 +142,10 @@ class FVElliptic(
 
         div = pp.fvutils.scalar_divergence(g)
         flux = matrix_dictionary["flux"]
+        if flux.shape[0] != g.num_faces:
+            hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
+            flux = hf2f * flux
+
         M = div * flux
 
         return M
@@ -169,6 +173,9 @@ class FVElliptic(
             self.discretize(g, data)
 
         bound_flux = matrix_dictionary["bound_flux"]
+        if bound_flux.shape[0] != g.num_faces:
+            hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
+            bound_flux = hf2f * bound_flux
 
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
@@ -220,6 +227,17 @@ class FVElliptic(
             proj = mg.slave_to_mortar_avg()
         else:
             proj = mg.master_to_mortar_avg()
+
+        if bound_flux.shape[0] != g.num_faces:
+            # If bound flux is gven as sub-faces we have to map it from sub-faces
+            # to faces
+            hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
+            bound_flux = hf2f * bound_flux
+        if bound_flux.shape[1] != proj.shape[1]:
+            raise ValueError(
+                """Inconsistent shapes. Did you define a
+            sub-face boundary condition but only a face-wise mortar?"""
+            )
 
         cc[self_ind, 2] += div * bound_flux * proj.T
 

@@ -1422,6 +1422,7 @@ def boundary_to_sub_boundary(bound, subcell_topology):
     bound.is_dir = np.atleast_2d(bound.is_dir)[:, subcell_topology.fno_unique].squeeze()
     bound.is_rob = np.atleast_2d(bound.is_rob)[:, subcell_topology.fno_unique].squeeze()
     bound.is_neu = np.atleast_2d(bound.is_neu)[:, subcell_topology.fno_unique].squeeze()
+    bound.is_internal = np.atleast_2d(bound.is_internal)[:, subcell_topology.fno_unique].squeeze()
     if bound.robin_weight.ndim == 3:
         bound.robin_weight = bound.robin_weight[:, :, subcell_topology.fno_unique]
         bound.basis = bound.basis[:, :, subcell_topology.fno_unique]
