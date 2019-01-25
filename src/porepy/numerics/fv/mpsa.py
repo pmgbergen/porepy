@@ -384,6 +384,14 @@ class Mpsa(
                 * matrix_dictionary["bound_displacement_face"]
                 * proj_int.T
             )
+            cc[2, 2] -= (
+                proj_avg
+                * weight
+                * hf2f
+                * matrix_dictionary["bound_displacement_face"]
+                * proj_int_swap.T
+            )
+
         else:
             cc[2, self_ind] += proj_avg * bp
             cc[2, 2] += (
