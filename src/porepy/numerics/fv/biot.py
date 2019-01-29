@@ -198,7 +198,7 @@ class Biot:
         A_mech = div_mech * matrices_m["stress"]
         stabilization = matrices_f["biot_stabilization"]
 
-        grad_p = div_mech * matrices_m['grad_p']
+        grad_p = div_mech * (matrices_m["grad_p_jumps"] + matrices_m["grad_p_force"])
         
         # Time step size
         dt = param[self.flow_keyword]["time_step"]
@@ -406,14 +406,16 @@ class Biot:
             = self.discretize_biot_grad_p(g, subcell_topology,
                                           alpha, bound_exclusion_mech)
 
-        grad_p = hf2f * (hook * igrad * rhs_jumps + grad_p_face)
+        grad_p_jumps = hf2f * hook * igrad * rhs_jumps
+        grad_p_force = hf2f * grad_p_face
         stabilization = div * igrad * rhs_jumps
       
         matrices_m["stress"] = stress
         matrices_m["bound_stress"] = bound_stress
         matrices_m["div_d"] = div_d
         matrices_m["bound_div_d"] = bound_div_d
-        matrices_m['grad_p'] = grad_p
+        matrices_m["grad_p_jumps"] = grad_p_jumps
+        matrices_m["grad_p_force"] = grad_p_force
         matrices_f["biot_stabilization"] = stabilization
 
     def discretize_biot_grad_p(self, g, subcell_topology, alpha, bound_exclusion):
@@ -477,7 +479,7 @@ class Biot:
         # Step 1
 
         # Take Biot's alpha as a tensor
-        alpha_tensor = pp.SecondOrderTensor(2, alpha * np.ones(g.num_cells))
+        alpha_tensor = pp.SecondOrderTensor(nd, alpha * np.ones(g.num_cells))
         
         if nd == 2:
             alpha_tensor.values = np.delete(alpha_tensor.values, (2), axis=0)
