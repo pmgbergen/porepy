@@ -89,7 +89,6 @@ def main():
 
                 if discr_key == "MVEM":
                     grid_export(gb, param["P0_flux"], folder_grid + folder + "/")
-                    continue
 
                 #jump_flux(gb, param["mortar_flux"])
 
