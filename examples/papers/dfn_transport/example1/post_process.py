@@ -137,8 +137,7 @@ def main():
     #folder_master = "/home/elle/simul/example1/"
     folder_master = "/home/elle/Dropbox/Work/PostDoc-Bergen/ANIGMA/porepy/examples/papers/dfn_transport/example1/"
     folder_master_out = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/"
-    #methods = ["MVEM", "Tpfa", "RT0"]
-    methods = ["Tpfa", "RT0"]
+    methods = ["MVEM", "Tpfa", "RT0"]
 
     for method in methods:
         for grid in grids:
