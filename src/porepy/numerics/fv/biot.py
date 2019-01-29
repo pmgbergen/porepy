@@ -477,11 +477,11 @@ class Biot:
         # Step 1
 
         # Take Biot's alpha as a tensor
-        alpha_tensor = tensor.SecondOrder(nd, alpha * np.ones(g.num_cells))
+        alpha_tensor = pp.SecondOrderTensor(2, alpha * np.ones(g.num_cells))
         
         if nd == 2:
-            alpha_tensor.perm = np.delete(alpha_tensor.perm, (2), axis=0)
-            alpha_tensor.perm = np.delete(alpha_tensor.perm, (2), axis=1)
+            alpha_tensor.values = np.delete(alpha_tensor.values, (2), axis=0)
+            alpha_tensor.values = np.delete(alpha_tensor.values, (2), axis=1)
 
         # Obtain normal_vector * alpha, pairings of cells and nodes (which together
         # uniquely define sub-cells, and thus index for gradients)
@@ -526,10 +526,10 @@ class Biot:
             this_dim = build_rhs_units_single_dimension(i)
             rhs_units = sps.block_diag([rhs_units, this_dim])
 
-        rhs_units = bound_exclusion.exclude_dirichlet_nd(rhs_units)
+        rhs_units = bound_exclusion.exclude_dirichlet(rhs_units)
 
         num_dir_subface = (bound_exclusion.exclude_neu.shape[1] -
-                           bound_exclusion.exclude_neu.shape[0]) * nd
+                           bound_exclusion.exclude_neu.shape[0])
 
         # No right hand side for cell displacement equations.
         rhs_units_displ_var = sps.coo_matrix((nd * num_subfno
