@@ -198,7 +198,7 @@ class Biot:
         A_mech = div_mech * matrices_m["stress"]
         stabilization = matrices_f["biot_stabilization"]
 
-        grad_p = div_mech * (matrices_m["grad_p_jumps"] + matrices_m["grad_p_force"])
+        grad_p = div_mech * matrices_m["grad_p"]
         
         # Time step size
         dt = param[self.flow_keyword]["time_step"]
@@ -406,16 +406,14 @@ class Biot:
             = self.discretize_biot_grad_p(g, subcell_topology,
                                           alpha, bound_exclusion_mech)
 
-        grad_p_jumps = hf2f * hook * igrad * rhs_jumps
-        grad_p_force = hf2f * grad_p_face
+        grad_p = hf2f * (hook * igrad * rhs_jumps + grad_p_face)
         stabilization = div * igrad * rhs_jumps
       
         matrices_m["stress"] = stress
         matrices_m["bound_stress"] = bound_stress
         matrices_m["div_d"] = div_d
         matrices_m["bound_div_d"] = bound_div_d
-        matrices_m["grad_p_jumps"] = grad_p_jumps
-        matrices_m["grad_p_force"] = grad_p_force
+        matrices_m["grad_p"] = grad_p
         matrices_f["biot_stabilization"] = stabilization
 
     def discretize_biot_grad_p(self, g, subcell_topology, alpha, bound_exclusion):
@@ -819,13 +817,13 @@ class GradP(
             ValueError if the pressure gradient term has not already been discretized.
         """
         mat_dict = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "grad_p_jumps" in mat_dict:
+        if not "grad_p" in mat_dict:
             raise ValueError(
                 """GradP class requires a pre-computed discretization to be
                              stored in the matrix dictionary."""
             )
         div_mech = fvutils.vector_divergence(g)
-        return div_mech * (mat_dict["grad_p_jumps"] + mat_dict["grad_p_force"])
+        return div_mech * mat_dict["grad_p"]
 
     def assemble_rhs(self, g, data):
         """ Return the zero right-hand side for a discretization of the pressure
