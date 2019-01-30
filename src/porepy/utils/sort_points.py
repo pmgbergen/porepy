@@ -168,6 +168,7 @@ def sort_triangle_edges(t):
     # Bookkeeping of already processed triangles. Not sure if this is needed.
     is_ordered = np.zeros(nt, dtype=np.bool)
     is_ordered[0] = 1
+    orig_t = t.copy()
 
     while len(queue) > 0:
 
@@ -175,55 +176,80 @@ def sort_triangle_edges(t):
         q = queue.pop(0)
 
         # Find the other occurence of this edge
-        hit = np.logical_and.reduce(
+        hit_new = np.logical_and.reduce(
             (
                 np.logical_not(is_ordered),
                 np.any(t == q[0], axis=0),
                 np.any(t == q[1], axis=0),
             )
         )
-        ind = np.where(hit > 0)[0]
-
+        hit_old = np.logical_and.reduce(
+            (
+                is_ordered,
+                np.any(t == q[0], axis=0),
+                np.any(t == q[1], axis=0),
+            )
+        )
+        ind_old = np.where(hit_old > 0)[0]
+        ind_new = np.where(hit_new > 0)[0]
+        import pdb
+     #   pdb.set_trace()
         # Check if the edge occured at all among the non-processed triangles
-        if ind.size == 0:
+        if ind_new.size == 0:
             continue
         # It should at most occur once among non-processed triangles
-        elif ind.size > 1:
+        elif ind_new.size > 1:
             raise ValueError("Edges should only occur twice")
-
+        tcopy = t.copy()
         # Find the triangle to be processed
-        ti = ind[0]
+        ti_new = ind_new[0]
+        ti_old = ind_old[0]
         # Find row index of the first and second item of the pair q
-        hit_0 = np.where(t[:, ti] == q[0])[0][0]
-        hit_1 = np.where(t[:, ti] == q[1])[0][0]
+        hit_new_0 = np.where(t[:, ti_new] == q[0])[0][0]
+        hit_new_1 = np.where(t[:, ti_new] == q[1])[0][0]
+        # Find row index of the first and second item of the pair q
+        hit_old_0 = np.where(t[:, ti_old] == q[0])[0][0]
+        hit_old_1 = np.where(t[:, ti_old] == q[1])[0][0]
 
-        # The existing pair has the pairing (q[0], q[1])
-        # hit_0 is associated with q[0]. To generate the oposite pair, we may
-        # need to flip the elements
-        if hit_0 < hit_1 or hit_0 == 2 and hit_1 == 0:
-            t[[hit_1, hit_0], ti] = t[[hit_0, hit_1], ti]
+        if hit_old_0 < hit_old_1 or (hit_old_0 == 2 and hit_old_1 == 0):
+            # q0 comes before q1 in the already sorted column.
+            if hit_new_1 - hit_new_0 == 1 or (hit_new_0 == 2 and hit_new_1 == 0):
+                t[hit_new_0, ti_new] = q[1]
+                t[hit_new_1, ti_new] = q[0]
+            else:
+                t[hit_new_0, ti_new] = q[0]
+                t[hit_new_1, ti_new] = q[1]
+        else:
+            # q1 before q0 in the sorted column, reverse in the other
+            if hit_new_1 - hit_new_2 or (hit_new_0 == 2 and hit_new_1 == 0):
+                t[hit_new_0, ti_new] = q[0]
+                t[hit_new_1, ti_new] = q[1]
+            else:
+                t[hit_new_0, ti_new] = q[1]
+                t[hit_new_1, ti_new] = q[0]
+
 
         # Find the new pairs to be generated. This must be done in terms of
         # the content in t[:, ti], not the indices represented by hit_0 and _1.
         # The two pairs are formed by row hit_0 and hit_1, both combined with the
         # third element. First, the latter must be identified
-        if hit_0 + hit_1 == 1:
-            # Existing pair in rows 0 and 1
-            pair_0 = (t[1, ti], t[2, ti])
-            pair_1 = (t[2, ti], t[0, ti])
-        elif hit_0 + hit_1 == 2:
-            # Existing pair in rows 0 and 2
-            pair_0 = (t[1, ti], t[2, ti])
-            pair_1 = (t[0, ti], t[1, ti])
+        if hit_new_0 + hit_new_1 == 1:
+            # Existi_newng pair in rows 0 and 1
+            pair_0 = (t[1, ti_new], t[2, ti_new])
+            pair_1 = (t[2, ti_new], t[0, ti_new])
+        elif hit_new_0 + hit_new_1 == 2:
+            # Existi_newng pair in rows 0 and 2
+            pair_0 = (t[1, ti_new], t[2, ti_new])
+            pair_1 = (t[0, ti_new], t[1, ti_new])
         else:  # sum is 3
-            # Existing pair in rows 1 and 2
-            pair_0 = (t[0, ti], t[1, ti])
-            pair_1 = (t[2, ti], t[0, ti])
+            # Existi_newng pair in rows 1 and 2
+            pair_0 = (t[0, ti_new], t[1, ti_new])
+            pair_1 = (t[2, ti_new], t[0, ti_new])
         # Update the queue, either remove the pairs or add them
         update_queue(pair_0, pair_1)
 
         # Bookkeeping
-        is_ordered[ti] = 1
+        is_ordered[ti_new] = 1
 
         # Safeguarding
         num_iter += 1
