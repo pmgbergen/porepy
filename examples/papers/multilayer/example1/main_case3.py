@@ -30,7 +30,7 @@ def bc_flag(g, data, tol):
 
 def main():
 
-    h = 0.025
+    h = 0.025 # 0.0125
     tol = 1e-6
     mesh_args = {'mesh_size_frac': h}
     domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 2}
@@ -51,7 +51,7 @@ def main():
     gb_ml = multilayer_grid_bucket(gb)
     #pp.plot_grid(gb_ml, alpha=0, info="cf")
 
-    folder_export = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/multilayer/results/"
+    #folder_export = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/multilayer/results/"
     case = "case3"
     aperture = 10*1e-3 # 10*e-3, 5*1e-3, 2.5*1e-3
 
@@ -114,12 +114,12 @@ def main():
     # solve the Darcy problem
     compute.flow(gb_ml, param, bc_flag)
 
-    for g, d in gb_ml:
-        if g.dim == 2:
-            pressure = param["pressure"]
-            name_root = folder_export + case + "_" + str(aperture)
-            np.savetxt(name_root + "_pressure.txt", d[pressure])
-            copyfile("gmsh_frac_file.msh", name_root + "_grid.msh")
+    #for g, d in gb_ml:
+    #    if g.dim == 2:
+    #        pressure = param["pressure"]
+    #        name_root = folder_export + case + "_" + str(aperture)
+    #        np.savetxt(name_root + "_pressure.txt", d[pressure])
+    #        copyfile("gmsh_frac_file.msh", name_root + "_grid.msh")
 
 if __name__ == "__main__":
     main()
