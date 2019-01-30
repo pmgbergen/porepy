@@ -728,7 +728,7 @@ class TestDomainRestriction(unittest.TestCase):
 
         domain = {"xmin": -1, "xmax": 6, "ymin": -1, "ymax": 2}
 
-        fracs = FractureSet(p, e, domain)
+        fracs = pp.FractureNetwork2d(p, e, domain)
 
         new_frac = fracs.constrain_to_domain(domain)
 
@@ -743,7 +743,7 @@ class TestDomainRestriction(unittest.TestCase):
         # not be noted until we constrain the set
         domain = {"xmin": -1, "xmax": 0.7, "ymin": -1, "ymax": 2}
 
-        fracs = FractureSet(p, e, domain)
+        fracs = pp.FractureNetwork2d(p, e, domain)
 
         new_frac = fracs.constrain_to_domain(domain)
 
@@ -762,7 +762,7 @@ class TestDomainRestriction(unittest.TestCase):
         # not be noted until we constrain the set
         domain = {"xmin": -1, "xmax": 1, "ymin": -1, "ymax": 0.5}
 
-        fracs = FractureSet(p, e, domain)
+        fracs = pp.FractureNetwork2d(p, e, domain)
 
         new_frac = fracs.constrain_to_domain(domain)
 
@@ -781,7 +781,7 @@ class TestDomainRestriction(unittest.TestCase):
         # not be noted until we constrain the set
         domain = {"xmin": -1, "xmax": 1, "ymin": -5, "ymax": -0.5}
 
-        fracs = FractureSet(p, e, domain)
+        fracs = pp.FractureNetwork2d(p, e, domain)
 
         new_frac = fracs.constrain_to_domain(domain)
 

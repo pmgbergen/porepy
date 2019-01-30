@@ -3,15 +3,17 @@ Tests of class FracturedMpsa in module porepy.numerics.fv.mpsa.
 """
 import numpy as np
 import unittest
+
 import porepy as pp
 
 
 class BasicsTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
-        f = np.array([[1, 1, 4], [3, 4, 1], [2, 2, 4]])
+        f = pp.Fracture(np.array([[1, 1, 4], [3, 4, 1], [2, 2, 4]]))
         box = {"xmin": 0, "ymin": 0, "zmin": 0, "xmax": 5, "ymax": 5, "zmax": 5}
-
-        self.gb3d = pp.meshing.simplex_grid([f], box, mesh_size_min=5, mesh_size_frac=5)
+        network = pp.FractureNetwork3d([f], domain=box)
+        mesh_args = {"mesh_size_min": 5, "mesh_size_frac": 5}
+        self.gb3d = network.mesh(mesh_args)
         unittest.TestCase.__init__(self, *args, **kwargs)
 
     # ------------------------------------------------------------------------------#

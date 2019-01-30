@@ -34,7 +34,7 @@ from porepy.utils import comp_geom as cg
 from porepy.utils import setmembership, sort_points
 from porepy.grids.gmsh.gmsh_interface import GmshWriter
 from porepy.grids.constants import GmshConstants
-
+from porepy.grids.gmsh import gmsh_interface
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -543,211 +543,6 @@ class Fracture(object):
         on_boundary_other = point_on_segment(int_points, other.p)
         return int_points, on_boundary_self, on_boundary_other
 
-    def impose_boundary(self, box, tol):
-        """
-        Impose a boundary on a fracture, defined by a bounding box.
-
-        If the fracture extends outside the box, it will be truncated, and new
-        points are inserted on the intersection with the boundary. It is
-        assumed that the points defining the fracture defines a convex set (in
-        its natural plane) to begin with.
-
-        The attribute self.p will be changed if intersections are found. The
-        original vertexes can still be recovered from self.orig_p.
-
-        The box is specified by its extension in Cartesian coordinates.
-
-        Parameters:
-            box (dicitionary): The bounding box, specified by keywords xmin,
-                xmax, ymin, ymax, zmin, zmax.
-            tol (double): Tolerance, defines when two points are considered
-                equal.
-
-        """
-
-        # Maximal extent of the fracture
-        min_coord = self.p.min(axis=1)
-        max_coord = self.p.max(axis=1)
-
-        # Coordinates of the bounding box
-        x0_box = box["xmin"]
-        x1_box = box["xmax"]
-        y0_box = box["ymin"]
-        y1_box = box["ymax"]
-        z0_box = box["zmin"]
-        z1_box = box["zmax"]
-
-        # Gather the box coordinates in an array
-        box_array = np.array([[x0_box, x1_box], [y0_box, y1_box], [z0_box, z1_box]])
-
-        # We need to be a bit careful if the fracture extends outside the
-        # bounding box on two (non-oposite) sides. In addition to the insertion
-        # of points along the segments defined by self.p, this will also
-        # require the insertion of points at the meeting of the two sides. To
-        # capture this, we first look for the intersection between the fracture
-        # and planes that extends further than the plane, and then later
-        # move the intersection points to lay at the real bounding box
-        x0 = np.minimum(x0_box, min_coord[0] - 10 * tol)
-        x1 = np.maximum(x1_box, max_coord[0] + 10 * tol)
-        y0 = np.minimum(y0_box, min_coord[1] - 10 * tol)
-        y1 = np.maximum(y1_box, max_coord[1] + 10 * tol)
-        z0 = np.minimum(z0_box, min_coord[2] - 10 * tol)
-        z1 = np.maximum(z1_box, max_coord[2] + 10 * tol)
-
-        def outside_box(p, bound_i):
-            # Helper function to test if points are outside the bounding box
-            relative = np.amax(np.linalg.norm(p, axis=0))
-            p = cg.snap_to_grid(p, tol=tol / relative)
-            # snap_to_grid will impose a grid of size self.tol, thus points
-            # that are more than half that distance away from the boundary
-            # are deemed outside.
-            # To reduce if-else on the boundary index, we compute all bounds,
-            # and then return the relevant one, as specified by bound_i
-            west_of = p[0] < x0_box - tol / 2
-            east_of = p[0] > x1_box + tol / 2
-            south_of = p[1] < y0_box - tol / 2
-            north_of = p[1] > y1_box + tol / 2
-            beneath = p[2] < z0_box - tol / 2
-            above = p[2] > z1_box + tol / 2
-            outside = np.vstack((west_of, east_of, south_of, north_of, beneath, above))
-            return outside[bound_i]
-
-        # Represent the planes of the bounding box as fractures, to allow
-        # us to use the fracture intersection methods.
-        # For each plane, we keep the fixed coordinate to the value specified
-        # by the box, and extend the two others to cover segments that run
-        # through the extension of the plane only.
-
-        # Move these to FractureNetwork.impose_external_boundary.
-        # Doesn't immediately work. Depend on the fracture.
-        west = Fracture(
-            np.array(
-                [[x0_box, x0_box, x0_box, x0_box], [y0, y1, y1, y0], [z0, z0, z1, z1]]
-            ),
-            check_convexity=False,
-        )
-        east = Fracture(
-            np.array(
-                [[x1_box, x1_box, x1_box, x1_box], [y0, y1, y1, y0], [z0, z0, z1, z1]]
-            ),
-            check_convexity=False,
-        )
-        south = Fracture(
-            np.array(
-                [[x0, x1, x1, x0], [y0_box, y0_box, y0_box, y0_box], [z0, z0, z1, z1]]
-            ),
-            check_convexity=False,
-        )
-        north = Fracture(
-            np.array(
-                [[x0, x1, x1, x0], [y1_box, y1_box, y1_box, y1_box], [z0, z0, z1, z1]]
-            ),
-            check_convexity=False,
-        )
-        bottom = Fracture(
-            np.array(
-                [[x0, x1, x1, x0], [y0, y0, y1, y1], [z0_box, z0_box, z0_box, z0_box]]
-            ),
-            check_convexity=False,
-        )
-        top = Fracture(
-            np.array(
-                [[x0, x1, x1, x0], [y0, y0, y1, y1], [z1_box, z1_box, z1_box, z1_box]]
-            ),
-            check_convexity=False,
-        )
-        # Collect in a list to allow iteration
-        bound_planes = [west, east, south, north, bottom, top]
-
-        # Loop over all boundary sides and look for intersections
-        for bi, bf in enumerate(bound_planes):
-            # Dimensions that are not fixed by bf
-            active_dims = np.ones(3, dtype=np.bool)
-            active_dims[np.floor(bi / 2).astype("int")] = 0
-            # Convert to indices
-            active_dims = np.squeeze(np.argwhere(active_dims))
-
-            # Find intersection points
-            isect, _, _ = self.intersects(bf, tol, check_point_contact=False)
-            num_isect = isect.shape[1]
-            if len(isect) > 0 and num_isect > 0:
-                num_pts_orig = self.p.shape[1]
-                # Add extra points at the end of the point list.
-                self.p, _, _ = setmembership.unique_columns_tol(
-                    np.hstack((self.p, isect))
-                )
-                num_isect = self.p.shape[1] - num_pts_orig
-                if num_isect == 0:
-                    continue
-
-                # Sort fracture points in a ccw order.
-                # This must be done before sliding the intersection points
-                # (below), since the latter may break convexity of the
-                # fracture, thus violate the (current) implementation of
-                # points_2_ccw()
-                sort_ind = self.points_2_ccw()
-
-                # The next step is to decide whether and how to move the
-                # intersection points.
-                # The intersection points will lay on the bounding box on one
-                # of the dimensions (that of bf, specified by xyz_01_box), but
-                # may be outside the box for the other sides (xyz_01). We thus
-                # need to move the intersection points in the plane of bf and
-                # the fracture plane.
-                # The relevant tangent vector is perpendicular to both the
-                # fracture and bf
-                normal_self = cg.compute_normal(self.p)
-                normal_bf = cg.compute_normal(bf.p)
-                tangent = np.cross(normal_self, normal_bf)
-                # Unit vector
-                tangent *= 1.0 / np.linalg.norm(tangent)
-
-                isect_ind = np.argwhere(sort_ind >= num_pts_orig).ravel("F")
-                p_isect = self.p[:, isect_ind]
-
-                # Loop over all intersection points and active dimensions. If
-                # the point is outside the bounding box, move it.
-                for pi in range(num_isect):
-                    for dim, other_dim in zip(active_dims, active_dims[::-1]):
-                        # Test against lower boundary
-                        lower_diff = p_isect[dim, pi] - box_array[dim, 0]
-                        # Modify coordinates if necessary. This dimension is
-                        # simply set to the boundary, while the other should
-                        # slide along the tangent vector
-                        if lower_diff < 0:
-                            p_isect[dim, pi] = box_array[dim, 0]
-                            # We know lower_diff != 0, no division by zero.
-                            # We may need some tolerances, though.
-                            t = tangent[dim] / lower_diff
-                            p_isect[other_dim, pi] += t * tangent[other_dim]
-
-                        # Same treatment of the upper boundary
-                        upper_diff = p_isect[dim, pi] - box_array[dim, 1]
-                        # Modify coordinates if necessary. This dimension is
-                        # simply set to the boundary, while the other should
-                        # slide along the tangent vector
-                        if upper_diff > 0:
-                            p_isect[dim, pi] = box_array[dim, 1]
-                            t = tangent[dim] / upper_diff
-                            p_isect[other_dim, pi] -= t * tangent[other_dim]
-
-                # Finally, identify points that are outside the face bf
-                inside = np.logical_not(outside_box(self.p, bi))
-                # Dump points that are outside.
-                self.p = self.p[:, inside]
-                self.p, _, _ = setmembership.unique_columns_tol(self.p, tol=tol)
-                # We have modified the fractures, so re-calculate the centroid
-                self.compute_centroid()
-            else:
-                # No points exists, but the whole point set can still be
-                # outside the relevant boundary face.
-                outside = outside_box(self.p, bi)
-                if np.all(outside):
-                    self.p = np.empty((3, 0))
-            # There should be at least three points in a fracture.
-            if self.p.shape[1] < 3:
-                break
-
     def __repr__(self):
         return self.__str__()
 
@@ -973,7 +768,7 @@ class Intersection(object):
 # ----------------------------------------------------------------------------
 
 
-class FractureNetwork(object):
+class FractureNetwork3d(object):
     """
     Collection of Fractures with geometrical information. Facilitates
     computation of intersections of the fracture. Also incorporates the
@@ -1009,7 +804,7 @@ class FractureNetwork(object):
 
     """
 
-    def __init__(self, fractures=None, verbose=0, tol=1e-8):
+    def __init__(self, fractures=None, domain=None, verbose=0, tol=1e-8):
         """ Initialize fracture network.
 
         Generate network from specified fractures. The fractures will have
@@ -1024,8 +819,12 @@ class FractureNetwork(object):
             tol (double, optional): Geometric tolerance. Defaults to 1e-4.
 
         """
-
-        self._fractures = fractures
+        if fractures is None:
+            self._fractures = []
+        elif not isinstance(fractures, list):
+            self._fractures = [fractures]
+        else:
+            self._fractures = fractures
 
         for i, f in enumerate(self._fractures):
             f.set_index(i)
@@ -1038,7 +837,7 @@ class FractureNetwork(object):
 
         # Initialize with an empty domain. Can be modified later by a call to
         # 'impose_external_boundary()'
-        self.domain = None
+        self.domain = domain
 
         # Initialize mesh size parameters as empty
         self.mesh_size_min = None
@@ -1069,6 +868,65 @@ class FractureNetwork(object):
         else:
             f.set_index(0)
         self._fractures.append(f)
+
+    def mesh(self, mesh_args, subdomains=None, dfn=False, **kwargs):
+        """ Mesh the fracture network, and generate a mixed-dimensional grid.
+
+        The mesh itself is generated by Gmsh.
+
+        Parameters:
+            mesh_args (dict): Should contain fields 'mesh_size_frac', 'mesh_size_bound',
+                mesh_size_min, which represent the ideal mesh size at the fracture,
+                and boundary, and the minimum mesh size passed to gmsh.
+            subdomains: List of planes partitioning the 3d domain
+                into subdomains. The planes are defined in the same way as a fracture.
+            dfn (boolean, optional): If True, a DFN mesh (of the network, but not
+                the surrounding matrix) is created.
+
+        Returns:
+            GridBucket: Mixed-dimensional mesh.
+
+        """
+        # The implementation in this function is fairly straightforward, all
+        # technical difficulties are hidden in other functions.
+        if not dfn and not self.bounding_box_imposed:
+            self.impose_external_boundary(self.domain)
+
+        # Find intersections between fractures
+        if not self.has_checked_intersections:
+            self.find_intersections()
+        else:
+            logger.info("Use existing intersections")
+
+        mesh_size_frac = mesh_args.get("mesh_size_frac", None)
+        mesh_size_min = mesh_args.get("mesh_size_min", None)
+        mesh_size_bound = mesh_args.get("mesh_size_bound", None)
+        self.insert_auxiliary_points(mesh_size_frac, mesh_size_min, mesh_size_bound)
+
+        # Process intersections to get a description of the geometry in non-
+        # intersecting lines and polygons
+        self.split_intersections()
+
+        file_name = "gmsh_frac_file"
+        in_file = file_name + ".geo"
+        out_file = file_name + ".msh"
+
+        # Dump the network description to gmsh .geo format, and run gmsh to
+        # generate grid
+        in_3d = not dfn
+        self.to_gmsh(in_file, in_3d=in_3d)
+        gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3)
+        logger.info("Gmsh completed with status " + str(gmsh_status))
+
+        if dfn:
+            grid_list = pp.fracs.simplex.triangle_grid_embedded(self, out_file)
+        else:
+            # Process the gmsh .msh output file, to make a list of grids
+            grid_list = pp.fracs.simplex.tetrahedral_grid_from_gmsh(self, out_file)
+
+        # Merge the grids into a mixed-dimensional GridBucket
+        gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
+        return gb
 
     def __getitem__(self, position):
         return self._fractures[position]
@@ -1138,7 +996,7 @@ class FractureNetwork(object):
         # Obtain intersection points, indexes of intersection points for each fracture
         # information on whether the fracture is on the boundary, and pairs of fractures
         # that intersect.
-        isect, point_ind, bound_info, frac_pairs = pp.cg.intersect_polygons_3d(polys)
+        isect, point_ind, bound_info, frac_pairs, _ = pp.cg.intersect_polygons_3d(polys)
 
         # Loop over all pairs of intersection pairs, add the intersections to the
         # internal list.
@@ -1168,6 +1026,7 @@ class FractureNetwork(object):
             # must be divided by two.
             on_bound_0 = bound_info[ind_0][np.floor(i0[0] / 2).astype(np.int)]
             on_bound_1 = bound_info[ind_1][np.floor(i1[0] / 2).astype(np.int)]
+
             # Add the intersection to the internal list
             self.intersections.append(
                 Intersection(
@@ -1804,6 +1663,10 @@ class FractureNetwork(object):
         s = "Fracture set with " + str(len(self._fractures)) + " fractures"
         return s
 
+    def _reindex_fractures(self):
+        for fi, f in enumerate(self._fractures):
+            f.index = fi
+
     def bounding_box(self):
         """ Obtain bounding box for fracture network.
 
@@ -1853,14 +1716,16 @@ class FractureNetwork(object):
         self.tags["subdomain"] = subdomain_tags
 
     def impose_external_boundary(
-        self, box=None, truncate_fractures=True, keep_box=True
+        self, domain=None, truncate_fractures=True, keep_box=True
     ):
         """
         Set an external boundary for the fracture set.
 
-        The boundary takes the form of a 3D box, described by its minimum and
-        maximum coordinates. If no bounding box is provided, a box will be
-        fited outside the fracture network.
+        There are two permissible data formats for the domain boundary:
+            1) A 3D box, described by its minimum and maximum coordinates.
+            2) A list of polygons, that together form a closed polyhedron.
+
+        If no bounding box is provided, a box will be fited outside the fracture network.
 
         If desired, the fratures will be truncated to lay within the bounding
         box; that is, Fracture.p will be modified. The orginal coordinates of
@@ -1880,7 +1745,14 @@ class FractureNetwork(object):
         """
         self.bounding_box_imposed = True
 
-        if box is None:
+        if domain is not None:
+            if isinstance(domain, dict):
+                polyhedron = self._make_bounding_planes_from_box(domain)
+            else:
+                polyhedron = domain
+            self.domain = domain
+        else:
+            # Compute a bounding box from the extension of the fractures.
             OVERLAP = 0.15
             cmin = np.ones((3, 1)) * float("inf")
             cmax = -np.ones((3, 1)) * float("inf")
@@ -1906,41 +1778,56 @@ class FractureNetwork(object):
                 "zmin": cmin[2] - dx[2],
                 "zmax": cmax[2] + dx[2],
             }
+            polyhedron = self._make_bounding_planes_from_box(box)
+            self.domain = polyhedron
 
-        # Insert boundary in the form of a box, and kick out (parts of)
-        # fractures outside the box
-        self.domain = box
+        # Constrain the fractures to lie within the bounding polyhedron
+        polys = [f.p for f in self._fractures]
+        constrained_polys, inds = pp.cg.constrain_polygons_by_polyhedron(
+            polys, polyhedron
+        )
 
-        # Create fractures of box here.
-        # Store them self._fractures so that split_intersections work
-        # keep track of which fractures are really boundaries - perhaps attribute is_proxy?
+        # Delete fractures that are not member of any constrained fracture
+        old_frac_ind = np.arange(len(self._fractures))
+        delete_frac = np.setdiff1d(old_frac_ind, inds)
+        if inds.size > 0:
+            split_frac = np.where(np.bincount(inds) > 1)[0]
+        else:
+            split_frac = np.zeros(0, dtype=np.int)
 
-        if truncate_fractures:
-            # Keep track of fractures that are completely outside the domain.
-            # These will be deleted.
-            delete_frac = []
+        # Update the fractures with the new data format
+        for poly, ind in zip(constrained_polys, inds):
+            if ind not in split_frac:
+                self._fractures[ind].p = poly
+        # Special handling of fractures that are split in two
+        # TODO: This will destroy the numbering of the fractures that eventually is
+        # inserted into g_2d.frac_num. We should fix this.
+        for fi in split_frac:
+            hit = np.where(inds == fi)[0]
+            for sub_i in hit:
+                self.add(Fracture(constrained_polys[sub_i]))
 
-            # Loop over all fractures, use method in fractures to truncate if
-            # necessary.
-            for i, frac in enumerate(self._fractures):
-                frac.impose_boundary(box, self.tol)
-                if frac.p.shape[1] == 0:
-                    delete_frac.append(i)
+        # Delete fractures that have all points outside the bounding box
+        # There may be some uncovered cases here, with a fracture barely
+        # touching the box from the outside, but we leave that for now.
+        for i in np.unique(np.hstack((delete_frac, split_frac)))[::-1]:
+            del self._fractures[i]
 
-            # Delete fractures that have all points outside the bounding box
-            # There may be some uncovered cases here, with a fracture barely
-            # touching the box from the outside, but we leave that for now.
-            for i in np.unique(delete_frac)[::-1]:
-                del self._fractures[i]
+        # Final sanity check: All fractures should have at least three
+        # points at the end of the manipulations
+        for f in self._fractures:
+            assert f.p.shape[1] >= 3
 
-            # Final sanity check: All fractures should have at least three
-            # points at the end of the manipulations
-            for f in self._fractures:
-                assert f.p.shape[1] >= 3
+        boundary_tags = self.tags.get("boundary", [False] * len(self._fractures))
+        if keep_box:
+            for f in polyhedron:
+                self.add(Fracture(f))
+                boundary_tags.append(True)
+        self.tags["boundary"] = boundary_tags
 
-        self._make_bounding_planes(box, keep_box)
+        self._reindex_fractures()
 
-    def _make_bounding_planes(self, box, keep_box=True):
+    def _make_bounding_planes_from_box(self, box, keep_box=True):
         """
         Translate the bounding box into fractures. Tag them as boundaries.
         For now limited to a box consisting of six planes.
@@ -1951,40 +1838,24 @@ class FractureNetwork(object):
         y1 = box["ymax"]
         z0 = box["zmin"]
         z1 = box["zmax"]
-        west = Fracture(
-            np.array([[x0, x0, x0, x0], [y0, y1, y1, y0], [z0, z0, z1, z1]]),
-            check_convexity=False,
-        )
-        east = Fracture(
-            np.array([[x1, x1, x1, x1], [y0, y1, y1, y0], [z0, z0, z1, z1]]),
-            check_convexity=False,
-        )
-        south = Fracture(
-            np.array([[x0, x1, x1, x0], [y0, y0, y0, y0], [z0, z0, z1, z1]]),
-            check_convexity=False,
-        )
-        north = Fracture(
-            np.array([[x0, x1, x1, x0], [y1, y1, y1, y1], [z0, z0, z1, z1]]),
-            check_convexity=False,
-        )
-        bottom = Fracture(
-            np.array([[x0, x1, x1, x0], [y0, y0, y1, y1], [z0, z0, z0, z0]]),
-            check_convexity=False,
-        )
-        top = Fracture(
-            np.array([[x0, x1, x1, x0], [y0, y0, y1, y1], [z1, z1, z1, z1]]),
-            check_convexity=False,
-        )
-        # Collect in a list to allow iteration
-        bound_planes = [west, east, south, north, bottom, top]
-        boundary_tags = self.tags.get("boundary", [False] * len(self._fractures))
+        west = np.array([[x0, x0, x0, x0], [y0, y1, y1, y0], [z0, z0, z1, z1]])
+        east = np.array([[x1, x1, x1, x1], [y0, y1, y1, y0], [z0, z0, z1, z1]])
+        south = np.array([[x0, x1, x1, x0], [y0, y0, y0, y0], [z0, z0, z1, z1]])
+        north = np.array([[x0, x1, x1, x0], [y1, y1, y1, y1], [z0, z0, z1, z1]])
+        bottom = np.array([[x0, x1, x1, x0], [y0, y0, y1, y1], [z0, z0, z0, z0]])
+        top = np.array([[x0, x1, x1, x0], [y0, y0, y1, y1], [z1, z1, z1, z1]])
 
-        # Add the boundaries to the fracture network and tag them.
-        if keep_box:
-            for f in bound_planes:
-                self.add(f)
-                boundary_tags.append(True)
-        self.tags["boundary"] = boundary_tags
+        bound_planes = [west, east, south, north, bottom, top]
+        return bound_planes
+
+    #        boundary_tags = self.tags.get("boundary", [False] * len(self._fractures))
+
+    # Add the boundaries to the fracture network and tag them.
+    #        if keep_box:
+    #            for f in bound_planes:
+    #                self.add(f)
+    #               boundary_tags.append(True)
+    #       self.tags["boundary"] = boundary_tags
 
     def _classify_edges(self, polygon_edges):
         """
@@ -2356,13 +2227,22 @@ class FractureNetwork(object):
         # counteract this, we divide our (absolute) tolerance self.tol with the
         # domain size.
         if in_3d:
-            dx = np.array(
-                [
-                    [self.domain["xmax"] - self.domain["xmin"]],
-                    [self.domain["ymax"] - self.domain["ymin"]],
-                    [self.domain["zmax"] - self.domain["zmin"]],
-                ]
-            )
+            if isinstance(self.domain, dict):
+                dx = np.array(
+                    [
+                        [self.domain["xmax"] - self.domain["xmin"]],
+                        [self.domain["ymax"] - self.domain["ymin"]],
+                        [self.domain["zmax"] - self.domain["zmin"]],
+                    ]
+                )
+            else:  # Specified by planes
+                max_coord = -np.full(3, np.inf)
+                min_coord = np.full(3, np.inf)
+                for boundary_poly in self.domain:
+                    max_coord = np.maximum(max_coord, boundary_poly.max(axis=1))
+                    min_coord = np.minimum(min_coord, boundary_poly.min(axis=1))
+                dx = (max_coord - min_coord).reshape((3, 1))
+
             gmsh_tolerance = self.tol / dx.max()
         else:
             gmsh_tolerance = self.tol
@@ -2374,6 +2254,7 @@ class FractureNetwork(object):
             dom = self.domain
         else:
             dom = None
+
         writer = GmshWriter(
             p,
             edges,

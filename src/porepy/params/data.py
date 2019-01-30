@@ -231,7 +231,8 @@ def initialize_data(g, data, keyword, specified_parameters=None):
     """ Initialize a data dictionary for a single keyword.
 
     The initialization consists of adding a parameter dictionary and initializing a
-    matrix dictionary in the proper fields of data.
+    matrix dictionary in the proper fields of data. If there is a Parameters object
+    in data, the new keyword is added using the update_dictionaries method.
 
     Args:
         data: Outer data dictionary, to which the parameters will be added.
@@ -246,8 +247,10 @@ def initialize_data(g, data, keyword, specified_parameters=None):
     if not specified_parameters:
         specified_parameters = {}
     add_discretization_matrix_keyword(data, keyword)
-    parameters = pp.Parameters(g, [keyword], [specified_parameters])
-    data[pp.PARAMETERS] = parameters
+    if pp.PARAMETERS in data:
+        data[pp.PARAMETERS].update_dictionaries([keyword], [specified_parameters])
+    else:
+        data[pp.PARAMETERS] = pp.Parameters(g, [keyword], [specified_parameters])
     return data
 
 
