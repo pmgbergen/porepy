@@ -25,22 +25,19 @@ def permeability_upscaling(network, data, mesh_args, directions, do_viz=True):
 
         mpfa = pp.Tpfa(key)
         for g, d in gb:
-            d[pp.PRIMARY_VARIABLES] = {
-                'pressure': {"cells": 1},
-            }
-            d[pp.DISCRETIZATION] = {
-                'pressure': {"diffusive": pp.Tpfa('flow')},
-            }
-        coupler = pp.RobinCoupling('flow', pp.Tpfa('flow'))
+            d[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1}}
+            d[pp.DISCRETIZATION] = {"pressure": {"diffusive": pp.Tpfa("flow")}}
+        coupler = pp.RobinCoupling("flow", pp.Tpfa("flow"))
         for e, d in gb.edges():
             g1, g2 = gb.nodes_of_edge(e)
-            d[pp.PRIMARY_VARIABLES] = {'pressure': {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1}}
             d[pp.COUPLING_DISCRETIZATION] = {
-                'lambda': {
-                    g1: ('pressure', "diffusive"),
-                    g2: ('pressure', "diffusive"),
-                    e: ('pressure', coupler),
-                    }}
+                "lambda": {
+                    g1: ("pressure", "diffusive"),
+                    g2: ("pressure", "diffusive"),
+                    e: ("pressure", coupler),
+                }
+            }
 
             d[discretization_key] = pp.RobinCoupling(key, mpfa)
 
@@ -54,25 +51,30 @@ def permeability_upscaling(network, data, mesh_args, directions, do_viz=True):
         tot_inlet_flux = 0
 
         for g, d in gb:
-            inlet = d.get('inlet_faces', None)
+            inlet = d.get("inlet_faces", None)
             if inlet is None or inlet.size == 0:
                 continue
-            flux = d[pp.DISCRETIZATION_MATRICES][key]['flux'] * d['pressure']
-            flux += d[pp.DISCRETIZATION_MATRICES][key]['bound_flux'] * d['parameters'][key]['bc_values']
+            flux = d[pp.DISCRETIZATION_MATRICES][key]["flux"] * d["pressure"]
+            flux += (
+                d[pp.DISCRETIZATION_MATRICES][key]["bound_flux"]
+                * d["parameters"][key]["bc_values"]
+            )
             tot_inlet_flux += flux[inlet].sum()
             if g.dim == gb.dim_max():
                 dx = g.nodes[direct].max() - g.nodes[direct].min()
-                area = (g.nodes[:g.dim].max(axis=1) - g.nodes[:g.dim].min(axis=1)).prod() / dx
+                area = (
+                    g.nodes[: g.dim].max(axis=1) - g.nodes[: g.dim].min(axis=1)
+                ).prod() / dx
         upscaled_perm[di] = tot_inlet_flux * dx / area
 
         if do_viz:
-            exp = pp.Exporter(gb, 'direction_' + str(direct))
-            exp.write_vtk('pressure')
+            exp = pp.Exporter(gb, "direction_" + str(direct))
+            exp.write_vtk("pressure")
 
     return upscaled_perm
 
-def _setup_simulation(gb, data, direction):
 
+def _setup_simulation(gb, data, direction):
 
     min_coord = gb.bounding_box()[0][direction]
     max_coord = gb.bounding_box()[1][direction]
@@ -82,37 +84,39 @@ def _setup_simulation(gb, data, direction):
         if g.dim == gb.dim_max():
             kxx = np.ones(g.num_cells)
         else:
-            kxx = np.ones(g.num_cells) * data['fracture_perm']
+            kxx = np.ones(g.num_cells) * data["fracture_perm"]
 
         perm = pp.SecondOrderTensor(gb.dim_max(), kxx)
-        a = data['aperture']
+        a = data["aperture"]
         a = np.power(a, gb.dim_max() - g.dim) * np.ones(g.num_cells)
         specified_parameters = {"aperture": a, "permeability": perm}
 
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if bound_faces.size > 0:
-            hit_out = np.where(np.abs(g.face_centers[direction, bound_faces] - max_coord) < 1e-8)[0]
-            hit_in = np.where(np.abs(g.face_centers[direction, bound_faces] - min_coord) < 1e-8)[0]
+            hit_out = np.where(
+                np.abs(g.face_centers[direction, bound_faces] - max_coord) < 1e-8
+            )[0]
+            hit_in = np.where(
+                np.abs(g.face_centers[direction, bound_faces] - min_coord) < 1e-8
+            )[0]
             bound_type = np.array(["neu"] * bound_faces.size)
-            bound_type[hit_out] = 'dir'
-            bound_type[hit_in] = 'dir'
-            bound = pp.BoundaryCondition(
-                g, bound_faces.ravel("F"), bound_type
-            )
+            bound_type[hit_out] = "dir"
+            bound_type[hit_in] = "dir"
+            bound = pp.BoundaryCondition(g, bound_faces.ravel("F"), bound_type)
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces] = 0
             bc_val[bound_faces[hit_in]] = 1
 
             specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-            d['inlet_faces'] = bound_faces[hit_in]
+            d["inlet_faces"] = bound_faces[hit_in]
 
         pp.initialize_data(d, g, "flow", specified_parameters)
 
     for e, d in gb.edges():
         gl, _ = gb.nodes_of_edge(e)
         mg = d["mortar_grid"]
-        kn = data['fracture_perm']
+        kn = data["fracture_perm"]
         d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{"normal_diffusivity": kn}])
         d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
@@ -141,7 +145,9 @@ def connectivity_field(network, num_boxes):
     """
 
     # Partition the domain
-    _, _, dx, _ = cartesian_partition(network.domain, num_x=num_boxes[0], num_y=num_boxes[1])
+    _, _, dx, _ = cartesian_partition(
+        network.domain, num_x=num_boxes[0], num_y=num_boxes[1]
+    )
     # Graph representation of the network
     graph, split_network = network.as_graph()
 
@@ -157,7 +163,9 @@ def connectivity_field(network, num_boxes):
         loc_edges = np.array([[e[0], e[1]] for e in sg.edges()]).T
         # Use a pixelation algorithm to project fractures onto a Cartesian representation
         # of the domain
-        pixelated = segment_pixelation.pixelate(split_network.pts, loc_edges, num_boxes, dx)
+        pixelated = segment_pixelation.pixelate(
+            split_network.pts, loc_edges, num_boxes, dx
+        )
         is_connected[gi] = pixelated
 
     connectivity_field = np.zeros(num_boxes)
@@ -168,6 +176,7 @@ def connectivity_field(network, num_boxes):
 
     # Binary division of connected and non-connected components
     return connectivity_field
+
 
 def cartesian_partition(domain, num_x, num_y=None):
     """ Define a Cartesian partitioning of a domain.
@@ -191,15 +200,16 @@ def cartesian_partition(domain, num_x, num_y=None):
             domain is 2d.
 
     """
-    x0 = domain['xmin']
-    dx = (domain['xmax'] - domain['xmin']) / num_x
+    x0 = domain["xmin"]
+    dx = (domain["xmax"] - domain["xmin"]) / num_x
 
-    if 'ymin' in domain.keys() and 'ymax' in domain.keys():
-        y0 = domain['ymin']
-        dy = (domain['ymax'] - domain['ymin']) / num_y
+    if "ymin" in domain.keys() and "ymax" in domain.keys():
+        y0 = domain["ymin"]
+        dy = (domain["ymax"] - domain["ymin"]) / num_y
         return x0, y0, dx, dy
     else:
         return x0, dx
+
 
 def analyze_intersections_of_sets(set_1, set_2=None, tol=1e-4):
     """ Count the number of node types (I, X, Y) per fracture in one or two

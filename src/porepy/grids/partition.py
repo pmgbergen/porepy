@@ -377,7 +377,7 @@ def determine_coarse_dimensions(target, fine_size):
     return optimum.astype("int")
 
 
-def extract_subgrid(g, c, sort=True, faces=False):
+def extract_subgrid(g, c, sort=True, faces=False, is_planar=True):
     """
     Extract a subgrid based on cell/face indices.
 
@@ -399,6 +399,10 @@ def extract_subgrid(g, c, sort=True, faces=False):
         faces=False (bool): If true c are intrepetred as faces, and the
                             exptracted grid will be a lower dimensional grid
                             defined by the these faces
+        is_planar: (optional) defaults to True. Only used when extracting faces from a
+           3d grid. If True the faces f must be planar. Set to False to use this
+           function for extracting a non-planar 2D grid, but use at own risk.
+
     Returns:
         Grid: Extracted subgrid. Will share (note, *not* copy)
             geometric fileds with the parent grid. Also has an additional
@@ -426,7 +430,7 @@ def extract_subgrid(g, c, sort=True, faces=False):
         c = np.sort(np.atleast_1d(c))
 
     if faces:
-        return __extract_cells_from_faces(g, c)
+        return __extract_cells_from_faces(g, c, is_planar)
     # Local cell-face and face-node maps.
     cf_sub, unique_faces = __extract_submatrix(g.cell_faces, c)
     fn_sub, unique_nodes = __extract_submatrix(g.face_nodes, unique_faces)
@@ -469,13 +473,13 @@ def __extract_submatrix(mat, ind):
     return sps.csc_matrix((data, rows_sub, cols)), unique_rows
 
 
-def __extract_cells_from_faces(g, f):
+def __extract_cells_from_faces(g, f, is_planar):
     """
     Extracting a lower-dimensional grid from the fraces of the higher
     dimensional grid g. See extract_subgrid.
     """
     if g.dim == 3:
-        return __extract_cells_from_faces_3d(g, f)
+        return __extract_cells_from_faces_3d(g, f, is_planar)
     elif g.dim == 2:
         return __extract_cells_from_faces_2d(g, f)
     elif g.dim == 1:
@@ -532,18 +536,34 @@ def __extract_cells_from_faces_2d(g, f):
     return h, f, unique_nodes
 
 
-def __extract_cells_from_faces_3d(g, f):
+def __extract_cells_from_faces_3d(g, f, is_planar=True):
     """
     Extract a 2D grid from the faces of a 3D grid. One of the uses of this function
     is to obtain a 2D MortarGrid from the boundary of a 3D grid. The faces f
-    must for now be planar, however, this is mainly because compute_geometry does not
-    handle non-planar grids. If the compute_geometry and exceptions are removed
-    this function should handle non-planar grids, however, this has not
-    been tested thouroghly thoroughly.
+    is by default assumed to be planar, however, this is mainly because compute_geometry
+    does not handle non-planar grids. compute_geometry is used to do a sanity check
+    of the extracted grid. if is_planar is set to False, this function should handle
+    non-planar grids, however, this has not been tested thouroghly, and it does not
+    performe the geometric sanity checks.
+
+    Parameters:
+    ----------
+    g: (Grid) A 3d grid
+    f: (ndarray) faces of the 3d grid to by used as cells in the 2d grid
+    is_planar: (optional) defaults to True: If False the faces f must be planar.
+        Set to False to use this function for a non-planar 2D grid, but use at own risk
+
+    Returns:
+    -------
+    (Grid) A 2d grid extracted from the 3d grid g and the faces f.
+
+    Throws:
+    ------
+    ValueError: If the given faces is not planar and is_planar==True
     """
     # Local cell-face and face-node maps.
     cell_nodes, unique_nodes = __extract_submatrix(g.face_nodes, f)
-    if not pp.cg.is_planar(g.nodes[:, unique_nodes]):
+    if is_planar and not pp.cg.is_planar(g.nodes[:, unique_nodes]):
         raise ValueError("The faces extracted from a 3D grid must be planar")
     num_cell_nodes = cell_nodes.nnz
 
@@ -583,20 +603,21 @@ def __extract_cells_from_faces_3d(g, f):
 
     h = pp.Grid(g.dim - 1, g.nodes[:, unique_nodes], face_nodes, cell_faces, name)
 
-    #    We could now just copy the corresponding geometric values from g to h, but we
-    #    run h.compute_geometry() to check if everything went ok.
-    h.compute_geometry()
-    if not np.all(np.isclose(g.face_areas[f], h.cell_volumes)):
-        raise AssertionError(
-            """Somethign went wrong in extracting subgrid. Face area of
-        higher dim is not equal face centers of lower dim grid"""
-        )
+    if is_planar:
+        # We could now just copy the corresponding geometric values from g to h, but we
+        # run h.compute_geometry() to check if everything went ok.
+        h.compute_geometry()
+        if not np.all(np.isclose(g.face_areas[f], h.cell_volumes)):
+            raise AssertionError(
+                """Somethign went wrong in extracting subgrid. Face area of
+            higher dim is not equal face centers of lower dim grid"""
+            )
+        if not np.all(np.isclose(g.face_centers[:, f], h.cell_centers)):
+            raise AssertionError(
+                """Somethign went wrong in extracting subgrid. Face centers
+            of higher dim is not equal cell centers of lower dim grid"""
+            )
     h.cell_volumes = g.face_areas[f]
-    if not np.all(np.isclose(g.face_centers[:, f], h.cell_centers)):
-        raise AssertionError(
-            """Somethign went wrong in extracting subgrid. Face centers
-        of higher dim is not equal cell centers of lower dim grid"""
-        )
     h.cell_centers = g.face_centers[:, f]
 
     h.parent_face_ind = f

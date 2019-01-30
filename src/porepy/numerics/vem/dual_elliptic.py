@@ -53,7 +53,7 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
 
 
 class DualElliptic(
-    pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscretization
+    pp.numerics.interface_laws.elliptic_discretization.EllipticDiscretization
 ):
     """ Parent class for methods based on the mixed variational form of the
     elliptic equation. The class should not be used by itself, but provides a

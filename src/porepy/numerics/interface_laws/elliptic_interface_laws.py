@@ -57,7 +57,7 @@ class RobinCoupling(object):
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
-        parameter_dictionary_h = data_h[pp.PARAMETERS][self.keyword]
+        parameter_dictionary_h = data_h[pp.PARAMETERS][self.discr_master.keyword]
         # Mortar data structure.
         mg = data_edge["mortar_grid"]
 
@@ -240,9 +240,6 @@ class FluxPressureContinuity(RobinCoupling):
             internal boundary in some numerical methods (Read: VEM, RT0)
 
         """
-        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "Robin_discr" in matrix_dictionary_edge:
-            self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
         if not g_master.dim == g_slave.dim:
             raise AssertionError("Slave and master must have same dimension")
@@ -439,8 +436,7 @@ class RobinContact(object):
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
 
-        if not "mortar_weight" in matrix_dictionary_edge.keys():
-            self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
+        self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
         if not g_master.dim == g_slave.dim:
             raise AssertionError("Slave and master must have same dimension")

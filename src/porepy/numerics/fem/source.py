@@ -6,12 +6,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver
 
-# ------------------------------------------------------------------------------#
-
-
-class P1Source(Solver):
+class P1Source:
     """
     Discretization of the integrated source term
     int q * dx
@@ -23,7 +19,6 @@ class P1Source(Solver):
 
     def __init__(self, keyword="flow"):
         self.keyword = keyword
-        Solver.__init__(self)
 
     def ndof(self, g):
         return g.num_nodes
@@ -37,6 +32,3 @@ class P1Source(Solver):
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
 
         return lhs, M.dot(source)
-
-
-# ------------------------------------------------------------------------------#
