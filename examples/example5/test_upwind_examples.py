@@ -39,6 +39,8 @@ class BasicsTest(unittest.TestCase):
         data[pp.PARAMETERS]["transport"]["time_step"] = time_step
 
         U, rhs = advect.assemble_matrix_rhs(g, data)
+        rhs = time_step * rhs
+        U = time_step * U
         OF = advect.outflow(g, data)
         M, _ = pp.MassMatrix("transport").assemble_matrix_rhs(g, data)
 
@@ -91,6 +93,8 @@ class BasicsTest(unittest.TestCase):
         data[pp.PARAMETERS]["transport"]["time_step"] = time_step
 
         U, rhs = advect.assemble_matrix_rhs(g, data)
+        rhs = time_step * rhs
+        U = time_step * U
         M, _ = pp.MassMatrix("transport").assemble_matrix_rhs(g, data)
 
         conc = np.zeros(g.num_cells)
@@ -192,8 +196,10 @@ class BasicsTest(unittest.TestCase):
         advect = pp.Upwind("transport")
 
         U, rhs = advect.assemble_matrix_rhs(g, data)
-
         time_step = advect.cfl(g, data)
+        rhs = time_step * rhs
+        U = time_step * U
+
         data[pp.PARAMETERS]["transport"]["time_step"] = time_step
         M, _ = pp.MassMatrix("transport").assemble_matrix_rhs(g, data)
 

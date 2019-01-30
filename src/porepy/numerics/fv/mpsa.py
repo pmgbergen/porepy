@@ -1427,7 +1427,7 @@ def _mpsa_local(
     # Most of the work is done by submethod for elasticity (which is common for
     # elasticity and poro-elasticity).
 
-    hook, igrad, rhs_cells, _, _ = mpsa_elasticity(
+    hook, igrad, rhs_cells, _ = mpsa_elasticity(
         g, constit, subcell_topology, bound_exclusion, eta, inverter
     )
 
@@ -1507,18 +1507,6 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     ncsym_all, ncasym, cell_node_blocks, sub_cell_index = _tensor_vector_prod(
         g, constit, subcell_topology
     )
-
-    # Prepare for computation of forces due to cell center pressures (the term
-    # div(I*p) in poro-elasticity equations. hook_normal will be used as a right
-    # hand side by the biot disretization, but needs to be computed here, since
-    # this is where we have access to the relevant data.
-    ind_f = np.argsort(np.tile(subcell_topology.subhfno, nd), kind="mergesort")
-    hook_normal = sps.coo_matrix(
-        (np.ones(ind_f.size), (np.arange(ind_f.size), ind_f)),
-        shape=(ind_f.size, ind_f.size),
-    ) * (ncsym_all + ncasym)
-
-    del ind_f
 
     # To avoid singular matrices we are not abe to add the asymetric part of the stress
     # tensor to the Neumann and Robin boundaries for nodes that only has more
@@ -1601,7 +1589,7 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
 
     # Right hand side for cell center variables
     rhs_cells = -sps.vstack([hook_cell, rob_cell, d_cont_cell])
-    return hook, igrad, rhs_cells, cell_node_blocks, hook_normal
+    return hook, igrad, rhs_cells, cell_node_blocks
 
 
 def reconstruct_displacement(g, subcell_topology, eta=None):

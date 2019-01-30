@@ -228,7 +228,7 @@ class FractureNetwork2d(object):
 
         p_domain = self._domain_to_points(domain)
 
-        p, e = pp.cg.intersect_polygon_lines(p_domain, self.pts, self.edges)
+        p, e = pp.cg.constrain_lines_by_polygon(p_domain, self.pts, self.edges)
 
         return FractureNetwork2d(p, e, domain)
 
