@@ -32,7 +32,6 @@ def flow_dictionary(g, in_data=None):
         "second_order_tensor": pp.SecondOrderTensor(g.dim, np.ones(g.num_cells)),
         "bc": pp.BoundaryCondition(g),
         "bc_values": np.zeros(g.num_faces),
-        "fluid_compressibility": np.ones(g.num_cells),
         "time_step": 1,
     }
 

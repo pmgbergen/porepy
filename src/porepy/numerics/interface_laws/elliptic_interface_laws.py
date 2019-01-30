@@ -57,7 +57,7 @@ class RobinCoupling(object):
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
-        parameter_dictionary_h = data_h[pp.PARAMETERS][self.keyword]
+        parameter_dictionary_h = data_h[pp.PARAMETERS][self.discr_master.keyword]
         # Mortar data structure.
         mg = data_edge["mortar_grid"]
 
@@ -232,9 +232,6 @@ class FluxPressureContinuity(RobinCoupling):
             matrix_slave: original discretization for the slave subdomain
 
         """
-        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "Robin_discr" in matrix_dictionary_edge:
-            self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
         master_ind = 0
         slave_ind = 1

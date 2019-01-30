@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-import os, sys, glob
+import os, glob
 
 
 def run_all():
