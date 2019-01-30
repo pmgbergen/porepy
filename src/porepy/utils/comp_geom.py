@@ -3354,6 +3354,11 @@ def dist_two_segments(s1_start, s1_end, s2_start, s2_end):
         np.array (size nd): Closest point on the second segment
 
     """
+    s1_start = s1_start.ravel()
+    s2_start = s2_start.ravel()
+
+    s1_end = s1_end.ravel()
+    s2_end = s2_end.ravel()
 
     # For the rest of the algorithm, see the webpage referred to above for details.
     d1 = s1_end - s1_start
