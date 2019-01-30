@@ -7,7 +7,7 @@ import porepy as pp
 import examples.papers.multilayer.discretization as compute
 from examples.papers.multilayer.multilayer_grid import multilayer_grid_bucket
 
-from examples.papers.multilayer.example4.import_grid import import_grid
+from examples.papers.multilayer.example2.import_grid import import_grid
 
 np.set_printoptions(linewidth=2000)
 
@@ -100,10 +100,10 @@ def main():
     # solve the Darcy problem
     compute.flow(gb_ml, param, bc_flag)
 
-    for g, d in gb_ml:
-        if g.dim == 2:
-            pressure = param["pressure"]
-            np.savetxt("pressure.txt", d[pressure])
+    #for g, d in gb_ml:
+    #    if g.dim == 2:
+    #        pressure = param["pressure"]
+    #        np.savetxt("pressure.txt", d[pressure])
 
 if __name__ == "__main__":
     main()
