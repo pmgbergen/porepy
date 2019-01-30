@@ -35,9 +35,17 @@ def main():
     mesh_args = {'mesh_size_frac': h}
     domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 2}
 
-    f = np.array([[0, 1], [1, 1]])
+    # Point coordinates, as a 2xn array
+    p = np.array([[0, 1], [1, 1]])
 
-    gb = pp.meshing.simplex_grid([f], domain, **mesh_args)
+    # Point connections as a 2 x num_frac arary
+    e = np.array([[0], [1]])
+
+    # Define a fracture network in 2d
+    network_2d = pp.FractureNetwork2d(p, e, domain)
+
+    # Generate a mixed-dimensional mesh
+    gb = network_2d.mesh(mesh_args)
 
     # construct the multi-layer grid bucket, we give also a name to the fault and layer grids
     gb_ml = multilayer_grid_bucket(gb)
