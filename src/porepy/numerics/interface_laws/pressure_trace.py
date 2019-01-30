@@ -1,6 +1,9 @@
 """
-The module contains the class that implement pressure trace discretization,
-no PDE are associated with this discretization.
+This module is primarily thought for the elliptic part in DFN simulations,
+where the one codimensional domains are used as Lagrange
+multipliers for the interface law. Use this module for the co-dimensional objects.
+In this way no equations are explicitly associated
+and some of the interface operators are provided.
 """
 
 import numpy as np
@@ -9,10 +12,24 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class PressureTrace(object):
-    """ Implement a pressure trace discretization, no PDE are associated with this discretization.
-    Only the interface operator are given. A possible usage is for the co-dimensional objects in a
-    DFN discretization.
+class EmptyDiscretization(object):
+    """
+    Only the methods int_bound_source and int_bound_pressure_cell are implemented to allow
+    appropriate interface laws. No discretization is associated to the grid.
+    A possible usage is for the co-dimensional objects in a DFN discretization.
+
+    This implementation has been tested in connection with the elliptic discretizations for the
+    one higher dimensional grids:
+        Tpfa: Finite volume method using a two-point flux approximation.
+        RT0: Mixed finite element method, using the lowest order Raviart-Thomas
+            elements.
+        MVEM: Mixed formulation of the lowest order virtual element method.
+    And the the interface law between the higher and current grid:
+        FluxPressureContinuity
+
+    Attributes:
+        keyword (str): This is used to identify operators and parameters that
+            the discretization will work on.
 
     """
 
