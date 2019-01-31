@@ -3,6 +3,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+
 class RobinCouplingMultiLayer(object):
     """ A condition with resistance to flow between subdomains. Implementation
         of the model studied (though not originally proposed) by Martin et
@@ -137,10 +138,24 @@ class RobinCouplingMultiLayer(object):
         cc[2, 2] = matrix_dictionary_edge["Robin_discr"]
 
         self.discr_master.assemble_int_bound_pressure_cell(
-            g_master, data_master, data_edge, True, cc, matrix, master_ind, coefficient = 1.
+            g_master,
+            data_master,
+            data_edge,
+            True,
+            cc,
+            matrix,
+            master_ind,
+            coefficient=1.0,
         )
         self.discr_master.assemble_int_bound_source(
-            g_master, data_master, data_edge, True, cc, matrix, master_ind, coefficient = -1.
+            g_master,
+            data_master,
+            data_edge,
+            True,
+            cc,
+            matrix,
+            master_ind,
+            coefficient=-1.0,
         )
 
         self.discr_slave.assemble_int_bound_pressure_cell(
@@ -156,5 +171,3 @@ class RobinCouplingMultiLayer(object):
 
 
 # ------------------------------------------------------------------------------
-
-

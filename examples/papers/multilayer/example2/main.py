@@ -11,18 +11,15 @@ from examples.papers.multilayer.example2.import_grid import import_grid
 
 np.set_printoptions(linewidth=2000)
 
+
 def bc_flag(g, data, tol):
 
     b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
     b_face_centers = g.face_centers[:, b_faces]
 
-    b_top = np.logical_and(
-        b_face_centers[0] < 0 + tol, b_face_centers[2] > 90 - tol
-    )
+    b_top = np.logical_and(b_face_centers[0] < 0 + tol, b_face_centers[2] > 90 - tol)
 
-    b_bottom = np.logical_and(
-        b_face_centers[1] < 0 + tol, b_face_centers[2] < 10 + tol
-    )
+    b_bottom = np.logical_and(b_face_centers[1] < 0 + tol, b_face_centers[2] < 10 + tol)
 
     labels = np.array(["neu"] * b_faces.size)
     labels[b_top] = "dir"
@@ -34,8 +31,10 @@ def bc_flag(g, data, tol):
 
     return labels, bc_val
 
+
 def low_zones(g):
     return g.cell_centers[2, :] > 10
+
 
 def main():
 
@@ -47,10 +46,14 @@ def main():
     case = "case1"
 
     # the flow problem
-    param = {"domain": domain, "tol": tol, "k": None,
-             "layer": {"aperture": 1e-1, "kf_t": 1e-1, "kf_n": 1e-1},
-             "fault": {"aperture": 1e-3, "kf_t": 1e-7, "kf_n": 1e-7},
-             "folder": case}
+    param = {
+        "domain": domain,
+        "tol": tol,
+        "k": None,
+        "layer": {"aperture": 1e-1, "kf_t": 1e-1, "kf_n": 1e-1},
+        "fault": {"aperture": 1e-3, "kf_t": 1e-7, "kf_n": 1e-7},
+        "folder": case,
+    }
 
     # define the non-constant tangential permeability
     for g in gb_ml.grids_of_dimension(2):
@@ -61,7 +64,7 @@ def main():
 
             # we assume that the first half of the cells belongs to a layer, which is normally true.
             # set the permeability for the first layer
-            half_cells = int(g.num_cells/2)
+            half_cells = int(g.num_cells / 2)
             layer1 = np.hstack((np.ones(half_cells), np.zeros(half_cells))).astype(bool)
             kf[layer1] = 1e-2
 
@@ -80,7 +83,7 @@ def main():
 
         # we assume that the first half of the cells belongs to a layer, which is normally true.
         # set the permeability for the first layer
-        half_cells = int(mg.num_cells/2)
+        half_cells = int(mg.num_cells / 2)
         layer1 = np.hstack((np.ones(half_cells), np.zeros(half_cells))).astype(bool)
         kf[layer1] = 1e-2
 
@@ -91,7 +94,6 @@ def main():
         if not ("fault" in g_l.name or "fault" in g_h.name):
             param["layer"]["kf_n"] = kf
 
-
     # set the low zone permeability for the rock matrix
     for g in gb_ml.grids_of_dimension(3):
         param["k"] = 1e-5 * np.ones(g.num_cells)
@@ -100,10 +102,11 @@ def main():
     # solve the Darcy problem
     compute.flow(gb_ml, param, bc_flag)
 
-    #for g, d in gb_ml:
+    # for g, d in gb_ml:
     #    if g.dim == 2:
     #        pressure = param["pressure"]
     #        np.savetxt("pressure.txt", d[pressure])
+
 
 if __name__ == "__main__":
     main()

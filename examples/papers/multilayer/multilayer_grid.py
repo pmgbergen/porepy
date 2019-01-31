@@ -3,6 +3,7 @@ import numpy as np
 import scipy.sparse as sps
 import porepy as pp
 
+
 def unite_grids(gs):
     # it's simple index transformation
     gs = np.atleast_1d(gs)
@@ -24,6 +25,7 @@ def unite_grids(gs):
     g = pp.Grid(dim, nodes, face_nodes, cell_faces, name)
     g.compute_geometry()
     return g
+
 
 def multilayer_grid_bucket(gb):
     # we assume conforming grids and no 0d grids
@@ -68,4 +70,3 @@ def multilayer_grid_bucket(gb):
     gb_new.assign_node_ordering()
 
     return gb_new
-
