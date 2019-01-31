@@ -62,7 +62,7 @@ class MortarGrid(object):
         assert np.all([g.dim == dim for g in side_grids.values()])
 
         self.dim = dim
-        self.side_grids = side_grids
+        self.side_grids = side_grids.copy()
         self.sides = np.array(self.side_grids.keys)
 
         assert self.num_sides() == 1 or self.num_sides() == 2
@@ -72,6 +72,7 @@ class MortarGrid(object):
         else:
             self.name = [name]
 
+        # easy access attributes with a fixed ordering of the side grids
         self.num_cells = np.sum(
             [g.num_cells for g in self.side_grids.values()], dtype=np.int
         )
@@ -173,11 +174,23 @@ class MortarGrid(object):
         Compute the geometry of the mortar grids.
         We assume that they are not aligned with x (1d) or x, y (2d).
         """
+        # Update the actual side grids
         [g.compute_geometry() for g in self.side_grids.values()]
+
+        # Update the attributes
+        self.num_cells = np.sum(
+            [g.num_cells for g in self.side_grids.values()], dtype=np.int
+        )
+        self.cell_volumes = np.hstack(
+            [g.cell_volumes for g in self.side_grids.values()]
+        )
+        self.cell_centers = np.hstack(
+            [g.cell_centers for g in self.side_grids.values()]
+        )
 
     # ------------------------------------------------------------------------------#
 
-    def update_mortar(self, side_matrix):
+    def update_mortar(self, side_matrix, side_grids):
         """
         Update the low_to_mortar_int and high_to_mortar_int maps when the mortar grids
         are changed.
@@ -204,10 +217,13 @@ class MortarGrid(object):
         self.slave_to_mortar_int = matrix * self.slave_to_mortar_int
         self.master_to_mortar_int = matrix * self.master_to_mortar_int
 
-        self.num_cells = np.sum([g.num_cells for g in self.side_grids.values()])
-        self.cell_volumes = np.hstack(
-            [g.cell_volumes for g in self.side_grids.values()]
-        )
+        # Update the side grids
+        for side, g in side_grids.items():
+            self.side_grids[side] = g.copy()
+
+        # update the geometry
+        self.compute_geometry()
+
         self._check_mappings()
 
     # ------------------------------------------------------------------------------#
