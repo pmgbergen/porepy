@@ -375,8 +375,6 @@ class Exporter:
             data = np.atleast_1d(data).tolist()
         else:
             data = list()
-        # EK: How can this assertion ever be False?
-        assert isinstance(data, list) or data is None
 
         fields = Fields()
         if len(data) > 0:
