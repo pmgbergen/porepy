@@ -6,10 +6,12 @@ import porepy as pp
 from examples.papers.multilayer.multilayer_interface_law import RobinCouplingMultiLayer
 from examples.papers.multilayer.multilayer_rt0 import RT0Multilayer
 
+
 def setup_custom_logger():
-    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
-                                  datefmt='%Y-%m-%d %H:%M:%S')
-    handler = logging.FileHandler('log.txt', mode='w')
+    formatter = logging.Formatter(
+        fmt="%(asctime)s %(levelname)-8s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    handler = logging.FileHandler("log.txt", mode="w")
     handler.setFormatter(formatter)
     screen_handler = logging.StreamHandler(stream=sys.stdout)
     screen_handler.setFormatter(formatter)
@@ -21,9 +23,11 @@ def setup_custom_logger():
     logger.addHandler(screen_handler)
     return logger
 
+
 logger = setup_custom_logger()
 
 # ------------------------------------------------------------------------------#
+
 
 def data_flow(gb, model, data, bc_flag):
     tol = data["tol"]
@@ -103,7 +107,9 @@ def data_flow(gb, model, data, bc_flag):
 
     return model_data
 
+
 # ------------------------------------------------------------------------------#
+
 
 def flow(gb, param, bc_flag):
 
@@ -120,7 +126,7 @@ def flow(gb, param, bc_flag):
 
     # post process variables
     pressure = "pressure"
-    flux = "darcy_flux" # it has to be this one
+    flux = "darcy_flux"  # it has to be this one
 
     # save variable name for the advection-diffusion problem
     param["pressure"] = pressure
@@ -144,21 +150,20 @@ def flow(gb, param, bc_flag):
             # classical 2d-1d/3d-2d coupling condition
             d[pp.COUPLING_DISCRETIZATION] = {
                 flux: {
-                    g_slave:  (variable, flux_id),
+                    g_slave: (variable, flux_id),
                     g_master: (variable, flux_id),
-                    e: (mortar, coupling)
+                    e: (mortar, coupling),
                 }
             }
         elif g_master.dim < gb.dim_max():
             # the multilayer coupling condition
             d[pp.COUPLING_DISCRETIZATION] = {
                 flux: {
-                    g_slave:  (variable, flux_id),
+                    g_slave: (variable, flux_id),
                     g_master: (variable, flux_id),
-                    e: (mortar, coupling_multilayer)
+                    e: (mortar, coupling_multilayer),
                 }
             }
-
 
     # solution of the darcy problem
     assembler = pp.Assembler()
@@ -191,8 +196,8 @@ def flow(gb, param, bc_flag):
         # save the identification of the layer
         elif "layer" in g.name:
             d["fault"] = np.zeros(g.num_cells)
-            half_cells = int(g.num_cells/2)
-            d["layer"] = np.hstack((np.ones(half_cells), 2*np.ones(half_cells)))
+            half_cells = int(g.num_cells / 2)
+            d["layer"] = np.hstack((np.ones(half_cells), 2 * np.ones(half_cells)))
         # save zero for the other cases
         else:
             d["fault"] = np.zeros(g.num_cells)
@@ -202,5 +207,6 @@ def flow(gb, param, bc_flag):
     save.write_vtk([pressure, P0_flux, "fault", "layer"])
 
     logger.info("done")
+
 
 # ------------------------------------------------------------------------------#

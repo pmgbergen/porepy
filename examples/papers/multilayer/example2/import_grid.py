@@ -1,6 +1,7 @@
 import numpy as np
 import porepy as pp
 
+
 def import_grid(file_geo, tol):
 
     frac = pp.Fracture(np.array([[0, 10, 10, 0], [0, 0, 10, 10], [8, 2, 2, 8]]) * 10)

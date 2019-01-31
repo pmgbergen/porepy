@@ -20,8 +20,9 @@ class RT0Multilayer(pp.RT0):
     In this situation it will be essentially needed to couple two equi-dimensional domains.
     This implementation is done to not touch the core, it might be revised in the future.
     """
+
     def assemble_int_bound_flux(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind, coefficient = 1.
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind, coefficient=1.0
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
@@ -62,7 +63,7 @@ class RT0Multilayer(pp.RT0):
         cc[self_ind, 2] += coefficient * matrix[self_ind, self_ind] * hat_E_int
 
     def assemble_int_bound_source(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind, coefficient = 1.
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind, coefficient=1.0
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
@@ -107,7 +108,7 @@ class RT0Multilayer(pp.RT0):
         cc[self_ind, 2] += coefficient * sps.bmat([[sps.csr_matrix(shape)], [A]])
 
     def assemble_int_bound_pressure_trace(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind, coefficient = -1.
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind, coefficient=-1.0
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -148,7 +149,7 @@ class RT0Multilayer(pp.RT0):
         cc[2, 2] += coefficient * hat_E_int.T * matrix[self_ind, self_ind] * hat_E_int
 
     def assemble_int_bound_pressure_cell(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind, coefficient = -1.
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind, coefficient=-1.0
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
@@ -193,5 +194,3 @@ class RT0Multilayer(pp.RT0):
         shape = (g.num_faces, A.shape[1])
 
         cc[2, self_ind] += coefficient * sps.bmat([[sps.csr_matrix(shape)], [A]]).T
-
-
