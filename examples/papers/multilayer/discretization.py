@@ -4,6 +4,7 @@ import numpy as np
 import porepy as pp
 
 from examples.papers.multilayer.multilayer_interface_law import RobinCouplingMultiLayer
+from examples.papers.multilayer.multilayer_rt0 import RT0Multilayer
 
 def setup_custom_logger():
     formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
@@ -126,7 +127,7 @@ def flow(gb, param, bc_flag):
     param["flux"] = flux
     param["mortar_flux"] = mortar
 
-    discr = pp.RT0(model_data)
+    discr = RT0Multilayer(model_data)
     coupling = pp.RobinCoupling(model_data, discr)
     coupling_multilayer = RobinCouplingMultiLayer(model_data, discr)
 
