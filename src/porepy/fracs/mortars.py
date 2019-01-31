@@ -71,10 +71,8 @@ def update_mortar_grid(mg, new_side_grids, tol):
             # No 3d mortar grid
             raise ValueError
 
-        mg.side_grids[side] = new_g.copy()
-
     # Update the mortar grid class
-    mg.update_mortar(split_matrix)
+    mg.update_mortar(split_matrix, new_side_grids)
 
 
 # ------------------------------------------------------------------------------#
