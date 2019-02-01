@@ -31,27 +31,25 @@ def outlet_fluxes(gb):
     tol = 1e-3
 
     flux = d[pp.PARAMETERS]["transport"]["darcy_flux"]
-    b_out = problem_data.b_pressure(g)[1]
     bound_faces = np.where(g.tags["domain_boundary_faces"])[0]
 
-    xf = g.face_centers[:, bound_faces[b_out]]
-    oi = bound_faces[b_out].ravel()
+    xf = g.face_centers
+    # identify the regions
+    lower = np.logical_and.reduce(
+                (xf[0] + tol > 350, xf[1] - tol < 400, xf[2] - tol < 100)
+            )
 
-    lower = np.where(
-        np.logical_and.reduce((xf[0] + tol > 350, xf[1] - tol < 400, xf[2] - tol < 100))
-    )
+    upper = np.logical_and.reduce(
+                (xf[0] - tol < -500, xf[1] - tol < 400, xf[2] - tol < 100)
+            )
 
-    upper = np.where(
-        np.logical_and.reduce(
-            (xf[0] - tol < -500, xf[1] - tol < 400, xf[2] - tol < 100)
-        )
-    )
+    n = g.face_normals[0, :]
+    # on the upper boundary the outward normal has positive y component
+    outflow_upper = flux[upper] * np.sign(n[upper])
+    # on the lower boundary the outward normal has negative y component
+    outflow_lower = -flux[lower] * np.sign(n[lower])
 
-    n = g.face_normals[1, oi]
-    bf = flux[oi] * np.sign(n)
-
-    return np.sum(bf[lower[0]]), np.sum(bf[upper[0]])
-
+    return np.sum(outflow_lower), np.sum(outflow_upper)
 
 # ------------------------------------------------------------------------------#
 
@@ -102,7 +100,7 @@ def main(folder, solver, solver_name, dt):
         f.write(", ".join(map(str, results)))
 
     T, outflow, A, b, block_dof, full_dof = solvers.transport(
-        gb, data, solver_name, folder, save_every=20
+        gb, data, solver_name, folder, save_every=1
     )
 
     report_concentrations(gb)
