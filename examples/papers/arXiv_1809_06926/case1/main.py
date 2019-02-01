@@ -48,7 +48,7 @@ def main(file_geo, folder, solver, solver_name):
         f.write(", ".join(map(str, results)))
 
     T, outflow, A, b, block_dof, full_dof = solvers.transport(
-        gb, data, solver_name, folder, save_every=20
+        gb, data, solver_name, folder, save_every=1
     )
 
     np.savetxt(folder + "/outflow.csv", outflow)

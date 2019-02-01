@@ -12,7 +12,10 @@ if __name__ == "__main__":
     for refinement in refinements:
         for solver in solver_names:
             folder_in = folder_src + solver + "_results_" + refinement + "/"
-            folder_out = folder_dst + solver.upper() + "/"
+            if solver == 'vem':
+                folder_out = folder_dst + "MVEM/"
+            else:
+                folder_out = folder_dst + solver.upper() + "/"
 
             if not os.path.exists(folder_out):
                 os.makedirs(folder_out)
