@@ -1,4 +1,4 @@
-import logging, time, sys
+import logging, sys
 import scipy.sparse as sps
 import numpy as np
 import porepy as pp

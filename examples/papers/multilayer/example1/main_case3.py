@@ -1,6 +1,7 @@
 import numpy as np
 import porepy as pp
-from shutil import copyfile
+
+# from shutil import copyfile
 
 import examples.papers.multilayer.discretization as compute
 from examples.papers.multilayer.multilayer_grid import multilayer_grid_bucket

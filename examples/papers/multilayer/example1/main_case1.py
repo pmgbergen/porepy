@@ -1,7 +1,6 @@
 import numpy as np
-import scipy.sparse as sps
-import copy
-from shutil import copyfile
+
+# from shutil import copyfile
 
 import porepy as pp
 
