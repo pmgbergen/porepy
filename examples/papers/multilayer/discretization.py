@@ -133,21 +133,28 @@ def flow(gb, param, bc_flag):
     param["flux"] = flux
     param["mortar_flux"] = mortar
 
-    discr = RT0Multilayer(model_data)
-    coupling = pp.RobinCoupling(model_data, discr)
-    coupling_multilayer = RobinCouplingMultiLayer(model_data, discr)
-
     # define the dof and discretization for the grids
     for g, d in gb:
         d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1, "faces": 1}}
+        if g.dim == gb.dim_max():
+            discr = pp.RT0(model_data)
+        else:
+            discr = RT0Multilayer(model_data)
         d[pp.DISCRETIZATION] = {variable: {flux_id: discr}}
 
     # define the interface terms to couple the grids
     for e, d in gb.edges():
         g_slave, g_master = gb.nodes_of_edge(e)
         d[pp.PRIMARY_VARIABLES] = {mortar: {"cells": 1}}
+
+        # retrive the discretization of the master and slave grids
+        discr_master = gb.node_props(g_master, pp.DISCRETIZATION)[variable][flux_id]
+        discr_slave = gb.node_props(g_slave, pp.DISCRETIZATION)[variable][flux_id]
+
         if g_master.dim == gb.dim_max():
             # classical 2d-1d/3d-2d coupling condition
+            coupling = pp.RobinCoupling(model_data, discr_master, discr_slave)
+
             d[pp.COUPLING_DISCRETIZATION] = {
                 flux: {
                     g_slave: (variable, flux_id),
@@ -157,11 +164,13 @@ def flow(gb, param, bc_flag):
             }
         elif g_master.dim < gb.dim_max():
             # the multilayer coupling condition
+            coupling = RobinCouplingMultiLayer(model_data, discr_master, discr_slave)
+
             d[pp.COUPLING_DISCRETIZATION] = {
                 flux: {
                     g_slave: (variable, flux_id),
                     g_master: (variable, flux_id),
-                    e: (mortar, coupling_multilayer),
+                    e: (mortar, coupling),
                 }
             }
 
