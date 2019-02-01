@@ -28,7 +28,8 @@ class RobinCouplingMultiLayer(object):
     def _discretization_key(self):
         return self._key() + pp.DISCRETIZATION
 
-    def ndof(self, mg):
+    @staticmethod
+    def ndof(mg):
         return mg.num_cells
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
@@ -49,7 +50,6 @@ class RobinCouplingMultiLayer(object):
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
-        parameter_dictionary_h = data_h[pp.PARAMETERS][self.keyword]
         # Mortar data structure.
         mg = data_edge["mortar_grid"]
 
@@ -138,31 +138,17 @@ class RobinCouplingMultiLayer(object):
         cc[2, 2] = matrix_dictionary_edge["Robin_discr"]
 
         self.discr_master.assemble_int_bound_pressure_cell(
-            g_master,
-            data_master,
-            data_edge,
-            True,
-            cc,
-            matrix,
-            master_ind,
-            coefficient=1.0,
+            g_master, data_master, data_edge, True, cc, matrix, master_ind, 1.0
         )
         self.discr_master.assemble_int_bound_source(
-            g_master,
-            data_master,
-            data_edge,
-            True,
-            cc,
-            matrix,
-            master_ind,
-            coefficient=-1.0,
+            g_master, data_master, data_edge, True, cc, matrix, master_ind, -1.0
         )
 
         self.discr_slave.assemble_int_bound_pressure_cell(
-            g_slave, data_slave, data_edge, False, cc, matrix, slave_ind
+            g_slave, data_slave, data_edge, False, cc, matrix, slave_ind, -1.0
         )
         self.discr_slave.assemble_int_bound_source(
-            g_slave, data_slave, data_edge, False, cc, matrix, slave_ind
+            g_slave, data_slave, data_edge, False, cc, matrix, slave_ind, 1.0
         )
 
         matrix += cc
