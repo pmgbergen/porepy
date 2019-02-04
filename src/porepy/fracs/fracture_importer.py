@@ -1,4 +1,3 @@
-import warnings
 import numpy as np
 from scipy import sparse as sps
 from itertools import islice
@@ -491,19 +490,19 @@ def network_3d_from_fab(f_name, return_all=False, tol=None):
             if line.strip() == "BEGIN FORMAT":
                 # Read the format section, but disregard the information for
                 # now
-                formats = read_section(f, "FORMAT")
+                _ = read_section(f, "FORMAT")
             elif line.strip() == "BEGIN PROPERTIES":
                 # Read in properties section, but disregard information
-                props = read_section(f, "PROPERTIES")
+                _ = read_section(f, "PROPERTIES")
             elif line.strip() == "BEGIN SETS":
                 # Read set section, but disregard information.
-                sets = read_section(f, "SETS")
+                _ = read_section(f, "SETS")
             elif line.strip() == "BEGIN FRACTURE":
                 # Read fractures
-                fracs, frac_ids, trans = read_fractures(f, is_tess=False)
+                fracs, frac_ids, _ = read_fractures(f, is_tess=False)
             elif line.strip() == "BEGIN TESSFRACTURE":
                 # Read tess_fractures
-                tess_fracs, tess_frac_ids, tess_sgn = read_fractures(f, is_tess=True)
+                tess_fracs, _, tess_sgn = read_fractures(f, is_tess=True)
             elif line.strip() == "BEGIN ROCKBLOCK":
                 # Not considered block
                 pass
@@ -695,7 +694,7 @@ def _dfn_grid_2d(folder, post, **kwargs):
 
         lines = list(islice(f, num_faces))
         pos = 0
-        for face_id, line in enumerate(lines):
+        for line in lines:
             data = np.fromstring(line, dtype=np.int, sep=" ")
             index = slice(pos, pos + data.size)
             face_nodes_indices[index] = data
