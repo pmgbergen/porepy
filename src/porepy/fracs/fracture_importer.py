@@ -497,7 +497,7 @@ def network_3d_from_fab(f_name, return_all=False, tol=None):
                 _ = read_section(f, "SETS")
             elif line.strip() == "BEGIN FRACTURE":
                 # Read fractures
-                fracs, frac_ids, _ = read_fractures(f, is_tess=False)
+                fracs, _, _ = read_fractures(f, is_tess=False)
             elif line.strip() == "BEGIN TESSFRACTURE":
                 # Read tess_fractures
                 tess_fracs, _, tess_sgn = read_fractures(f, is_tess=True)
