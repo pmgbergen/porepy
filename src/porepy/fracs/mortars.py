@@ -34,7 +34,6 @@ from porepy.utils.matrix_compression import rldecode
 import porepy.utils.comp_geom as cg
 from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 from porepy.grids.structured import TensorGrid
-from porepy.grids import mortar_grid
 
 # ------------------------------------------------------------------------------#
 
@@ -58,7 +57,8 @@ def update_mortar_grid(mg, new_side_grids, tol):
     # grids, we store them in a dictionary with SideTag as key.
     for side, new_g in new_side_grids.items():
         g = mg.side_grids[side]
-        assert g.dim == new_g.dim
+        if g.dim != new_g.dim:
+            raise ValueError("Grid dimension has to be the same")
 
         if g.dim == 0:
             # Nothing to do
@@ -99,7 +99,8 @@ def update_physical_low_grid(mg, new_g, tol):
     # For each side we compute the mapping between the new lower dimensional
     # grid and the mortar grid, we store them in a dictionary with SideTag as key.
     for side, g in mg.side_grids.items():
-        assert g.dim == new_g.dim
+        if g.dim != new_g.dim:
+            raise ValueError("Grid dimension has to be the same")
 
         if mg.dim == 0:
             # Nothing to do
@@ -345,7 +346,7 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
 
     # refine the grids when specified
     for g_old, g_new in g_map.items():
-        for e, d in gb.edges_of_node(g_new):
+        for _, d in gb.edges_of_node(g_new):
             mg = d["mortar_grid"]
             if mg.dim == g_new.dim:
                 # update the mortar grid of the same dimension
@@ -389,16 +390,20 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
         # It is assumed that fi is on the boundary, e.g. there is a single
         # cell for each element in fi.
         f, ci, _ = sps.find(g.cell_faces[fi])
-        assert f.size == fi.size, "We assume fi are boundary faces"
+        if f.size != fi.size:
+            raise ValueError("We assume fi are boundary faces")
 
         ismem, ind_map = ismember_rows(fi, fi[f], sort=False)
-        assert np.all(ismem)
+        if not np.all(ismem):
+            raise ValueError
+
         return ci[ind_map]
 
     def create_1d_from_nodes(nodes):
         # From a set of nodes, create a 1d grid. duplicate nodes are removed
         # and we verify that the nodes are indeed colinear
-        assert cg.is_collinear(nodes, tol=tol)
+        if not cg.is_collinear(nodes, tol=tol):
+            raise ValueError("Nodes are not colinear")
         sort_ind = cg.argsort_point_on_line(nodes, tol=tol)
         n = nodes[:, sort_ind]
         unique_nodes, _, _ = unique_columns_tol(n, tol=tol)
@@ -443,7 +448,9 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
         # Find cell index of each face
         ismem, ind = ismember_rows(fn_loc, cn)
         # Quality check, the grids should be conforming
-        assert np.all(ismem)
+        if not np.all(ismem):
+            raise ValueError
+
         return ind
 
     # First create a virtual 1d grid along the line, using nodes from the old grid
@@ -480,7 +487,8 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
     # in cells_from_faces
     pos_side_old = np.where(side_old > 0)[0]
     neg_side_old = np.where(side_old < 0)[0]
-    assert pos_side_old.size + neg_side_old.size == side_old.size
+    if pos_side_old.size + neg_side_old.size != side_old.size:
+        raise ValueError
 
     both_sides_old = [pos_side_old, neg_side_old]
 
@@ -521,7 +529,8 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
 
     pos_side_new = np.where(side_new > 0)[0]
     neg_side_new = np.where(side_new < 0)[0]
-    assert pos_side_new.size + neg_side_new.size == side_new.size
+    if pos_side_new.size + neg_side_new.size != side_new.size:
+        raise ValueError
 
     both_sides_new = [pos_side_new, neg_side_new]
 
