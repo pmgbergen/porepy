@@ -658,19 +658,11 @@ class Mpfa(FVElliptic):
         bound_flux = darcy * igrad * rhs_bound
 
         # Below here, fields necessary for reconstruction of boundary pressures
-
-        # Diagonal matrix that divides by number of sub-faces per face
-        half_face_per_face = sps.diags(1.0 / (hf2f * np.ones(hf2f.shape[1])))
-
-        # Contribution to face pressure from sub-cell gradients, calculated as
-        # gradient times distance. Then further map to faces, and divide by number
-        # of contributions per face
         dp = (
             pr_cont_grad_all
             * igrad
             * (-sps.vstack([nk_cell, pr_trace_cell, pr_cont_cell]))
         )
-
         # Internal faces, and boundary faces with a Dirichle condition do not need
         # information on the gradient.
         # Implementation note: This can be expanded to pressure recovery also
@@ -691,11 +683,14 @@ class Mpfa(FVElliptic):
         cell_contrib = remove_not_neumann * hf2f.T * cell_contrib
 
         bound_pressure_cell = dp + cell_contrib
+        # Contribution to face pressure from sub-cell gradients, calculated as
+        # gradient times distance. Then further map to faces, and divide by number
+        # of contributions per face
 
         sgn_arr = np.zeros(g.num_faces)
         sgn_arr[bound_faces] = g.cell_faces[bound_faces].sum(axis=1).A.ravel()
+        sgn_mat = sps.diags(hf2f.T * (sgn_arr) )
 
-        sgn_mat = sps.diags(hf2f.T * sgn_arr)
         bound_pressure_face_neu = (
             sgn_mat * pr_cont_grad_all * igrad * rhs_bound
         )
@@ -712,10 +707,17 @@ class Mpfa(FVElliptic):
         )
 
         if not subface_rhs:
+            # In this case we set the value at a face, thus, we need to distribute the
+            # face values to the subfaces. We do this by an area-weighted average. The flux
+            # will in this case be integrated over the faces, that is:
+            # flux *\cdot * normal * face_area
+            area_scaling = 1.0 / (hf2f * np.ones(hf2f.shape[1]))
+            area_mat = sps.diags(hf2f.T * area_scaling)
+
             bound_flux = hf2f * bound_flux * hf2f.T
             flux = hf2f * flux
-            bound_pressure_face = hf2f * bound_pressure_face * hf2f.T
-            bound_pressure_cell = hf2f * bound_pressure_cell
+            bound_pressure_face = hf2f * area_mat * bound_pressure_face * hf2f.T
+            bound_pressure_cell = hf2f * area_mat * bound_pressure_cell
         return flux, bound_flux, bound_pressure_cell, bound_pressure_face
 
     """
