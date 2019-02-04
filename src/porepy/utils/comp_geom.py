@@ -1134,7 +1134,7 @@ def remove_edge_crossings2(p, e, tol=1e-4):
         # for an intersection.
         for ri in relevant:
             ipt = pp.cg.lines_intersect(
-                start_main, end_main, pt(start_other, ri), pt(end_other, ri)
+                start_main, end_main, pt(start_other, ri), pt(end_other, ri), tol
             )
             # Add the intersection point, if any.
             # If two intersection points are found, that is the edges are overlapping
