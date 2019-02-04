@@ -251,7 +251,7 @@ class TestFractureNetwork3dBoundingBox(unittest.TestCase):
             "zmin": -1,
             "zmax": 2,
         }
-        network.impose_external_boundary(external_boundary)
+        network.impose_external_boundary(domain=external_boundary)
         d = network.bounding_box()
 
         self.assertTrue(d["xmin"] == external_boundary["xmin"])
