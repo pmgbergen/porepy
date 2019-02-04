@@ -51,6 +51,7 @@ from porepy.numerics.interface_laws.elliptic_interface_laws import (
     RobinContact,
     StressDisplacementContinuity,
 )
+from porepy.numerics.interface_laws.empty_discretization import EmptyDiscretization
 from porepy.numerics.mixed_dim.assembler import Assembler
 
 import porepy.numerics
