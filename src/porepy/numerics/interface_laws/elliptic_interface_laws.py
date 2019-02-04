@@ -722,7 +722,11 @@ class RobinContactBiotPressure(RobinContact):
     centere fluid pressure (p):
         A * u + B * p + C * lam = u_slave/u_master
     This class adds the contribution B.
+    
+    To enforce the full continuity this interface law must be used in combination with
+    the RobinContact conditions which adds the contributions A and C
     """
+
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """ Discretize the robin weight (RW)
         
@@ -844,8 +848,9 @@ class DivU_StressMortar(RobinContactBiotPressure):
     present the divergence of u (div_u) will be a function of cell centere displacement,
     boundary conditions and the stress mortar (lambda):
         div_u = A * u + B * u_bc_val + C * lambda
-    The class adds the contribution C.
+    The class adds the contribution C, while the DivD discretization adds A and B.
     """
+
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """ Nothing really to do here
 
@@ -907,7 +912,7 @@ class DivU_StressMortar(RobinContactBiotPressure):
         rhs_slave[master_ind] = np.zeros(matrix[master_ind, master_ind].shape[1])
         rhs_slave[slave_ind] = np.zeros(matrix[slave_ind, slave_ind].shape[1])
         rhs_slave[2] = np.zeros(self.ndof(mg))
-        # Got some problems with pointers when doing rhs_master = rhs_slave.copy()
+        # I got some problems with pointers when doing rhs_master = rhs_slave.copy()
         # so just reconstruct everything.
         rhs_master = np.empty(3, dtype=np.object)
         rhs_master[master_ind] = np.zeros(matrix[master_ind, master_ind].shape[1])
@@ -928,7 +933,14 @@ class DivU_StressMortar(RobinContactBiotPressure):
 
         # lambda acts as a boundary condition on the div_u term. Assemble it for the master.
         self.discr_master.assemble_int_bound_stress(
-            g_master, data_master, data_edge, False, cc_master, matrix, rhs_master, master_ind
+            g_master,
+            data_master,
+            data_edge,
+            False,
+            cc_master,
+            matrix,
+            rhs_master,
+            master_ind,
         )
         # Equivalent for the slave
         self.discr_slave.assemble_int_bound_stress(
