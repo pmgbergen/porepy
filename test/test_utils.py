@@ -123,6 +123,9 @@ def compare_arrays(a, b, tol=1e-4, sort=True):
     Returns:
         True if there is a permutation ind so that all(a[:, ind] == b).
     """
+    a = np.atleast_2d(a)
+    b = np.atleast_2d(b)
+
     if not np.all(a.shape == b.shape):
         return False
 

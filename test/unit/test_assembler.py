@@ -213,7 +213,7 @@ class TestAssembler(unittest.TestCase):
 
         general_assembler = pp.Assembler()
         # Give a false variable name
-        A, b, *_ = general_assembler.assemble_matrix_rhs(gb, variables="var_11")
+        A, b, *_ = general_assembler.assemble_matrix_rhs(gb, active_variables="var_11")
         self.assertTrue(A.shape == (0, 0))
         self.assertTrue(b.size == 0)
 
@@ -403,7 +403,7 @@ class TestAssembler(unittest.TestCase):
 
         general_assembler = pp.Assembler()
         A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(
-            gb, variables=[variable_name_2]
+            gb, active_variables=[variable_name_2]
         )
 
         A_known = np.zeros((3, 3))
@@ -458,7 +458,7 @@ class TestAssembler(unittest.TestCase):
 
         general_assembler = pp.Assembler()
         A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(
-            gb, variables=[variable_name_2, "variable_name_not_among_defined_variables"]
+            gb, active_variables=[variable_name_2, "variable_name_not_among_defined_variables"]
         )
 
         A_known = np.zeros((3, 3))
@@ -561,7 +561,7 @@ class TestAssembler(unittest.TestCase):
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
         A_2, b_2, block_dof_2, full_dof_2 = general_assembler.assemble_matrix_rhs(
-            gb, variables=[variable_name_1, variable_name_2]
+            gb, active_variables=[variable_name_1, variable_name_2]
         )
         A_2_permuted, _ = permute_matrix_vector(
             A_2, b_2, block_dof_2, full_dof_2, grids, variables
@@ -619,7 +619,7 @@ class TestAssembler(unittest.TestCase):
 
         general_assembler = pp.Assembler()
         A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(
-            gb, variables=variable_name_1
+            gb, active_variables=variable_name_1
         )
 
         A_known = np.zeros((3, 3))
@@ -718,7 +718,7 @@ class TestAssembler(unittest.TestCase):
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
         A_2, b_2, block_dof_2, full_dof_2 = general_assembler.assemble_matrix_rhs(
-            gb, variables=[variable_name_1, variable_name_2]
+            gb, active_variables=[variable_name_1, variable_name_2]
         )
         A_2_permuted, _ = permute_matrix_vector(
             A_2, b_2, block_dof_2, full_dof_2, grids, variables
@@ -791,7 +791,7 @@ class TestAssembler(unittest.TestCase):
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
         A_2, b_2, block_dof_2, full_dof_2 = general_assembler.assemble_matrix_rhs(
-            gb, variables=[key_1, key_2]
+            gb, active_variables=[key_1, key_2]
         )
         A_2_permuted, _ = permute_matrix_vector(
             A_2, b_2, block_dof_2, full_dof_2, grids, variables
@@ -869,7 +869,7 @@ class TestAssembler(unittest.TestCase):
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
         A_2, b_2, block_dof_2, full_dof_2 = general_assembler.assemble_matrix_rhs(
-            gb, variables=[key_1, key_2]
+            gb, active_variables=[key_1, key_2]
         )
         A_2_permuted, _ = permute_matrix_vector(
             A_2, b_2, block_dof_2, full_dof_2, grids, variables
@@ -953,7 +953,7 @@ class TestAssembler(unittest.TestCase):
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
         A_2, b_2, block_dof_2, full_dof_2 = general_assembler.assemble_matrix_rhs(
-            gb, variables=[key_1, key_2]
+            gb, active_variables=[key_1, key_2]
         )
         A_2_permuted, _ = permute_matrix_vector(
             A_2, b_2, block_dof_2, full_dof_2, grids, variables
@@ -1039,7 +1039,7 @@ class TestAssembler(unittest.TestCase):
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
         A_2, b_2, block_dof_2, full_dof_2 = general_assembler.assemble_matrix_rhs(
-            gb, variables=[key_1, key_2]
+            gb, active_variables=[key_1, key_2]
         )
         A_2_permuted, _ = permute_matrix_vector(
             A_2, b_2, block_dof_2, full_dof_2, grids, variables
