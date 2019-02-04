@@ -188,7 +188,8 @@ class RobinCoupling(object):
 
 
 class FluxPressureContinuity(RobinCoupling):
-    """ A condition for flux and pressure continuity between two domains of equal
+    """ A condition for flux and pressure continuity between two domains. A particular
+    attention is devoted in the case if these domanins are of equal
     dimension. This can be used to specify full continuity between fractures,
     two domains or a periodic boundary condition for a single domain. The faces
     coupled by flux and pressure condition must be specified by a MortarGrid on
@@ -200,11 +201,6 @@ class FluxPressureContinuity(RobinCoupling):
     where subscript m and s is for master and slave, v is the flux, p the pressure,
     and lambda the mortar variable.
 
-    @Allesio, Eirik:
-    TODO: It might only works for methods that do not change the discretization
-          matrix. We flip the sign of the pressure and flux on the slave side,
-          and I don't know if this will effect the changed to the discretization
-          matrix.
     """
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
@@ -235,14 +231,7 @@ class FluxPressureContinuity(RobinCoupling):
             matrix_master: original discretization for the master subdomain
             matrix_slave: original discretization for the slave subdomain
 
-            The discretization matrices must be included since they will be
-            changed by the imposition of Neumann boundary conditions on the
-            internal boundary in some numerical methods (Read: VEM, RT0)
-
         """
-
-        if not g_master.dim == g_slave.dim:
-            raise AssertionError("Slave and master must have same dimension")
 
         master_ind = 0
         slave_ind = 1
@@ -260,7 +249,7 @@ class FluxPressureContinuity(RobinCoupling):
             in FluxPressureContinuity must match the number of dofs given by the matrix
             """
             )
-        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
+        elif not dof_slave == matrix[slave_ind, slave_ind].shape[1]:
             raise ValueError(
                 """The number of dofs of the slave discretization given
             in FluxPressureContinuity must match the number of dofs given by the matrix
@@ -311,23 +300,38 @@ class FluxPressureContinuity(RobinCoupling):
             g_master, data_master, data_edge, False, cc_master, matrix, master_ind
         )
 
-        self.discr_slave.assemble_int_bound_pressure_trace(
-            g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
-        )
+        if g_master.dim == g_slave.dim:
+            # Consider this terms only if the grids are of the same dimension, by
+            # imposing the same condition with a different sign, due to the normal
+            self.discr_slave.assemble_int_bound_pressure_trace(
+                g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
+            )
 
-        self.discr_slave.assemble_int_bound_flux(
-            g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
-        )
-        # We now have to flip the sign of some of the matrices
-        # First we flip the sign of the slave flux because the mortar flux points
-        # from the master to the slave, i.e., flux_s = -mortar_flux
-        cc_slave[slave_ind, 2] = -cc_slave[slave_ind, 2]
-        # Then we flip the sign for the pressure continuity since we have
-        # We have that p_m - p_s = 0.
-        cc_slave[2, slave_ind] = -cc_slave[2, slave_ind]
+            self.discr_slave.assemble_int_bound_flux(
+                g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
+            )
+            # We now have to flip the sign of some of the matrices
+            # First we flip the sign of the slave flux because the mortar flux points
+            # from the master to the slave, i.e., flux_s = -mortar_flux
+            cc_slave[slave_ind, 2] = -cc_slave[slave_ind, 2]
+            # Then we flip the sign for the pressure continuity since we have
+            # We have that p_m - p_s = 0.
+            cc_slave[2, slave_ind] = -cc_slave[2, slave_ind]
 
-        # Note that cc_slave[2, 2] is fliped twice, first for pressure continuity
-        # now, the matrix cc = cc_slave + cc_master expresses the flux and pressure
+            # Note that cc_slave[2, 2] is fliped twice, first for pressure continuity
+        else:
+            # Consider this terms only if the grids are of different dimension, by
+            # imposing pressure trace continuity and conservation of the normal flux
+            # through the lower dimensional object.
+            self.discr_slave.assemble_int_bound_pressure_cell(
+                g_slave, data_slave, data_edge, False, cc_slave, matrix, slave_ind
+            )
+
+            self.discr_slave.assemble_int_bound_source(
+                g_slave, data_slave, data_edge, False, cc_slave, matrix, slave_ind
+            )
+
+        # Now, the matrix cc = cc_slave + cc_master expresses the flux and pressure
         # continuities over the mortars.
         # cc[0] -> flux_m = mortar_flux
         # cc[1] -> flux_s = -mortar_flux
@@ -337,11 +341,17 @@ class FluxPressureContinuity(RobinCoupling):
         self.discr_master.enforce_neumann_int_bound(
             g_master, data_edge, matrix, False, master_ind
         )
-        self.discr_slave.enforce_neumann_int_bound(
-            g_slave, data_edge, matrix, True, slave_ind
-        )
+
+        # Consider this terms only if the grids are of the same dimension
+        if g_master.dim == g_slave.dim:
+            self.discr_slave.enforce_neumann_int_bound(
+                g_slave, data_edge, matrix, True, slave_ind
+            )
 
         return matrix, rhs
+
+
+# ------------------------------------------------------------------------------
 
 
 class RobinContact(object):
@@ -703,9 +713,12 @@ class StressDisplacementContinuity(RobinContact):
         self.discr_master.enforce_neumann_int_bound(
             g_master, data_edge, matrix, False, master_ind
         )
-        self.discr_slave.enforce_neumann_int_bound(
-            g_slave, data_edge, matrix, True, slave_ind
-        )
+
+        # Consider this terms only if the grids are of the same dimension
+        if g_master.dim == g_slave.dim:
+            self.discr_slave.enforce_neumann_int_bound(
+                g_slave, data_edge, matrix, True, slave_ind
+            )
 
         return matrix, rhs
 
