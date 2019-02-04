@@ -45,7 +45,6 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
         # Read the domain first
         if has_domain:
             domain = np.asarray(next(spam_reader), dtype=np.float)
-            assert domain.size == 6
             domain = {
                 "xmin": domain[0],
                 "xmax": domain[3],
@@ -62,7 +61,8 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
 
             # Read the points
             pts = np.asarray(row, dtype=np.float)
-            assert pts.size % 3 == 0
+            if not pts.size % 3 == 0:
+                raise ValueError("Points are always 3d")
 
             # Skip empty lines. Useful if the file ends with a blank line.
             if pts.size == 0:
@@ -111,7 +111,6 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
         # Read the domain first
         if has_domain:
             domain = np.asarray(next(spam_reader), dtype=np.float)
-            assert domain.size == 6
             domain = {
                 "xmin": domain[0],
                 "xmax": domain[3],
@@ -128,7 +127,8 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
 
             # Read the data
             data = np.asarray(row, dtype=np.float)
-            assert data.size % 9 == 0
+            if not data.size % 9 == 0:
+                raise ValueError("Data has to have size 9")
 
             # Skip empty lines. Useful if the file ends with a blank line.
             if data.size == 0:
@@ -278,7 +278,8 @@ def network_2d_from_csv(
     to_remove = np.where(edges[0, :] == edges[1, :])[0]
     edges = np.delete(edges, to_remove, axis=1).astype(np.int)
 
-    assert np.all(np.diff(edges[:2], axis=0) != 0)
+    if not np.all(np.diff(edges[:2], axis=0) != 0):
+        raise ValueError
 
     network = pp.FractureNetwork2d(pts, edges, domain, tol=tol)
 
@@ -332,10 +333,8 @@ def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
     if dim == 2:
         grids = simplex.triangle_grid_from_gmsh(out_file, **kwargs)
     elif dim == 3:
-        assert (
-            network is not None
-        ), """Need access to the network used to
-            produce the .geo file"""
+        if network is None:
+            raise ValueError("Need access to the network used to produce the .geo file")
         grids = simplex.tetrahedral_grid_from_gmsh(network, out_file, **kwargs)
     return meshing.grid_list_to_grid_bucket(grids, **kwargs)
 
@@ -436,7 +435,6 @@ def network_3d_from_fab(f_name, return_all=False, tol=None):
     def read_keyword(line):
         # Read a single keyword, on the form  key = val
         words = line.split("=")
-        assert len(words) == 2
         key = words[0].strip()
         val = words[1].strip()
         return key, val
