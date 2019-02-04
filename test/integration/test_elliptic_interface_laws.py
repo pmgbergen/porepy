@@ -74,10 +74,15 @@ class TestTwoGridCoupling(unittest.TestCase):
         # We need to rearange the solutions because the ordering of the dofs are not the same
         # Also, we don't have equality because the weak symmetry breaks when a cell has to many
         # Neumann conditions (see comments in mpsa)
+        us = []
+        ID = []  # to appease porpy 3.5
+        for g, d in gb:
+            us.append(d[self.kw])
+            ID.append(g.grid_num - 1)
+        us = np.hstack([np.array(us)[ID].ravel()])
         IA = np.array([0, 1, 4, 5, 2, 3, 6, 7])
-        self.assertTrue(
-            np.all(np.abs(u[: (gb.dim_max()) * gb.num_cells()][IA] - u_full) < 1e-4)
-        )
+        sol = us[IA]
+        self.assertTrue(np.all(np.abs(sol - u_full) < 1e-4))
 
     def check_solution(self, gb):
         for e, d in gb.edges():
@@ -258,12 +263,15 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
         # We need to rearange the solutions because the ordering of the dofs are not the same
         # Also, we don't have equality because the weak symmetry breaks when a cell has to many
         # Neumann conditions (see comments in mpsa)
-        us = np.array([])
-        ps = np.array([])
+        us = []
+        ps = []
+        ID = []  # to appease porpy 3.5
         for g, d in gb:
-            us = np.hstack((us, d["u"]))
-            ps = np.hstack((ps, d["p"]))
-
+            us.append(d["u"])
+            ps.append(d["p"])
+            ID.append(g.grid_num - 1)
+        us = np.hstack([np.array(us)[ID].ravel()])
+        ps = np.hstack([np.array(ps)[ID].ravel()])
         IA = np.array([0, 1, 4, 5, 2, 3, 6, 7])
         IAp = np.array([0, 2, 1, 3])
         sol = np.hstack([us[IA], ps[IAp]])
