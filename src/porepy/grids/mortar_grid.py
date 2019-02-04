@@ -2,7 +2,6 @@
 """
 from __future__ import division
 import numpy as np
-from enum import Enum
 from scipy import sparse as sps
 
 # Module level constants, used to define sides of a mortar grid.
