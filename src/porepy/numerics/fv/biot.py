@@ -437,11 +437,10 @@ class Biot:
             g, subcell_topology, alpha, bound_exclusion_mech
         )
 
-        # Note that sgn_diag_F only flips the sign of boundary terms, see comment above.
         if subface_rhs:
-            grad_p = hook * igrad * rhs_jumps + sgn_diag_F * grad_p_face
+            grad_p = hook * igrad * rhs_jumps + grad_p_face
         else:
-            grad_p = hf2f * (hook * igrad * rhs_jumps + sgn_diag_F * grad_p_face)
+            grad_p = hf2f * (hook * igrad * rhs_jumps + grad_p_face)
         stabilization = div * igrad * rhs_jumps
 
         # We obtain the reconstruction of displacments. This is equivalent as for
@@ -603,13 +602,13 @@ class Biot:
         # Then the stress equilibrium for the Neumann subfaces.
         # Then the Robin subfaces.
         # And last, the displacement continuity on both internal and external subfaces.
-        rhs_int = bound_exclusion_mech.exclude_boundary(rhs_units)
-        rhs_neu = bound_exclusion_mech.keep_neumann(sgn_diag_C * rhs_units)
-        rhs_rob = bound_exclusion_mech.keep_robin(sgn_diag_C * rhs_units)
+        rhs_int = bound_exclusion.exclude_boundary(rhs_units)
+        rhs_neu = bound_exclusion.keep_neumann(sgn_diag_C * rhs_units)
+        rhs_rob = bound_exclusion.keep_robin(sgn_diag_C * rhs_units)
 
         num_dir_subface = (
-            bound_exclusion_mech.exclude_neu_rob.shape[1]
-            - bound_exclusion_mech.exclude_neu_rob.shape[0]
+            bound_exclusion.exclude_neu_rob.shape[1]
+            - bound_exclusion.exclude_neu_rob.shape[0]
         )
 
         # No right hand side for cell displacement equations.
@@ -646,7 +645,8 @@ class Biot:
         del vals, rows, cols
         
         # Prepare for computation of grad_p_face term  
-        grad_p_face = map_unique_subfno * nAlpha_grad * sc2c 
+        # Note that sgn_diag_F might only flip the boundary signs. See comment above.
+        grad_p_face = sgn_diag_F * map_unique_subfno * nAlpha_grad * sc2c 
 
         return rhs_jumps, grad_p_face
            
