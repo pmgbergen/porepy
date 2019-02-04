@@ -7,13 +7,12 @@ import examples.papers.arXiv_1809_06926.solvers as solvers
 # ------------------------------------------------------------------------------#
 
 
-def report_concentrations(gb, grid_variable):
+def report_concentrations(gb):
     mean = np.zeros(8)
-    porosity = 0.2
     for g, d in gb:
         if g.dim == 2:
-            pv = porosity * g.cell_volumes
-            mean[g.frac_num] = np.sum(pv * d[grid_variable]) / np.sum(pv)
+            pv = d[pp.PARAMETERS]["transport"]["porosity"] * g.cell_volumes
+            mean[g.frac_num] = np.sum(pv * d["tracer"]) / np.sum(pv)
 
     file_name = folder + "/mean_concentration.txt"
     with open(file_name, "a") as f:
