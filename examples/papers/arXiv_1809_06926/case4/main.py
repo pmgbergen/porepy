@@ -10,7 +10,6 @@ import examples.papers.arXiv_1809_06926.solvers as solvers
 
 
 def report_concentrations(gb):
-    #    problem.split() this should be done by the transport solver
     mean = np.zeros(52)
     for g, d in gb:
         if g.dim == 2:
@@ -100,10 +99,8 @@ def main(folder, solver, solver_name, dt):
         f.write(", ".join(map(str, results)))
 
     T, outflow, A, b, block_dof, full_dof = solvers.transport(
-        gb, data, solver_name, folder, save_every=1
+        gb, data, solver_name, folder, callback=report_concentrations, save_every=1
     )
-
-    report_concentrations(gb)
 
 
 # ------------------------------------------------------------------------------#
