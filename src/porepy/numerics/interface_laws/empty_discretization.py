@@ -9,8 +9,6 @@ and some of the interface operators are provided.
 import numpy as np
 import scipy.sparse as sps
 
-import porepy as pp
-
 
 class EmptyDiscretization(object):
     """

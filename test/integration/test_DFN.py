@@ -61,7 +61,7 @@ class TestDFN(unittest.TestCase):
 
         global_dof = np.cumsum(np.append(0, np.asarray(full_dof)))
 
-        for g, d in gb:
+        for g, _ in gb:
             block = block_dof[(g, "flow")]
             dof = np.arange(global_dof[block], global_dof[block + 1])
 
@@ -234,7 +234,7 @@ class TestDFN(unittest.TestCase):
 
         b_e2 = np.array([0.0, 0.0])
 
-        for e, d in gb.edges():
+        for e, _ in gb.edges():
             gl, gh = gb.nodes_of_edge(e)
 
             block_e = block_dof[(e, "flow")]
@@ -314,23 +314,23 @@ class TestDFN(unittest.TestCase):
                 elif np.all(g.cell_centers[0] == 0.5 * N):  # f2
                     known = np.array([7.5, 6.5, 5.5, 4.5, 3.5, 2.5, 1.5, 0.5])
                 elif np.all(g.cell_centers[0] == 0.625 * N):  # f3
-                    known = np.array([4, 4])
+                    known = np.array([4., 4.])
                 elif np.all(g.cell_centers[1] == 0.25 * N):  # f4
-                    known = np.array([2, 2, 2, 2])
+                    known = np.array([2., 2., 2., 2.])
                 elif np.all(g.cell_centers[0] == 0.75 * N):  # f5
-                    known = np.array([2, 2])
+                    known = np.array([2., 2.])
                 else:
                     raise ValueError
 
             else:  # g.dim == 0
-                if np.allclose(g.cell_centers, np.array([[0.5], [0.5], [0]]) * N):
-                    known = np.array([4])
-                elif np.allclose(g.cell_centers, np.array([[0.625], [0.5], [0]]) * N):
-                    known = np.array([4])
-                elif np.allclose(g.cell_centers, np.array([[0.5], [0.25], [0]]) * N):
-                    known = np.array([2])
-                elif np.allclose(g.cell_centers, np.array([[0.75], [0.25], [0]]) * N):
-                    known = np.array([2])
+                if np.allclose(g.cell_centers, np.array([[0.5], [0.5], [0.]]) * N):
+                    known = np.array([4.])
+                elif np.allclose(g.cell_centers, np.array([[0.625], [0.5], [0.]]) * N):
+                    known = np.array([4.])
+                elif np.allclose(g.cell_centers, np.array([[0.5], [0.25], [0.]]) * N):
+                    known = np.array([2.])
+                elif np.allclose(g.cell_centers, np.array([[0.75], [0.25], [0.]]) * N):
+                    known = np.array([2.])
                 else:
                     raise ValueError
 
@@ -358,7 +358,7 @@ class TestDFN(unittest.TestCase):
 
         # setup data and assembler
         setup_data(gb)
-        assembler, (discr, _) = setup_discr_tpfa(gb)
+        assembler, _ = setup_discr_tpfa(gb)
 
         A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
         x = sps.linalg.spsolve(A, b)
@@ -493,4 +493,5 @@ def create_dfn(gb, dim):
         gb.update_node_ordering(node_number)
 
 if __name__ == "__main__":
-    unittest.main()
+    TestDFN().test_mvem_1()
+    #unittest.main()
