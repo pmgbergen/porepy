@@ -337,11 +337,9 @@ class Exporter:
         name = self._make_folder(self.folder, self.name)
         name = self._make_file_name(name, time_step)
 
-        # Convert data to list, or provide an empty list
-        if data is not None:
-            data = np.atleast_1d(data).tolist()
-        else:
-            data = list()
+        # Provide an empty dict if data is None
+        if data is None:
+            data = dict()
 
         fields = Fields()
         if len(data) > 0:
