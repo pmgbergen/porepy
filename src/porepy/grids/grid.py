@@ -771,7 +771,6 @@ class Grid(object):
                 closest to the point.
         """
         p = np.atleast_2d(p)
-        dim_p = p.shape[0]
         if p.shape[0] < 3:
             z = np.zeros((3 - p.shape[0], p.shape[1]))
             p = np.vstack((p, z))
@@ -802,7 +801,8 @@ class Grid(object):
         values = [np.zeros(self.num_nodes, dtype=bool) for _ in keys]
         tags.add_tags(self, dict(zip(keys, values)))
 
-    def __indices(self, true_false):
+    @staticmethod
+    def __indices(true_false):
         """ Shorthand for np.argwhere.
         """
         return np.argwhere(true_false).ravel("F")
