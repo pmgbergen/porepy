@@ -63,7 +63,7 @@ def run_flow(gb, node_discretization, source_discretization, folder, is_FV):
 
     # Assemble the linear system, using the information stored in the GridBucket
     A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(
-        gb, variables=[grid_variable, mortar_variable]
+        gb, active_variables=[grid_variable, mortar_variable]
     )
     logger.info("Done. Elapsed time: " + str(time.time() - tic))
 
@@ -215,7 +215,7 @@ def transport(gb, data, solver_name, folder, callback=None, save_every=1):
     # not adding the matrices, we can arrange them at will to obtain the efficient
     # solver defined below, which LU factorizes the system only once for all time steps.
     A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(
-        gb, variables=[grid_variable, mortar_variable], add_matrices=False
+        gb, active_variables=[grid_variable, mortar_variable], add_matrices=False
     )
 
     advection_coupling_term += (
