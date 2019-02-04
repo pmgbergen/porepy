@@ -264,7 +264,7 @@ def transport(gb, data, solver_name, folder, callback=None, save_every=1):
 
         outflow = compute_flow_rate(gb, grid_variable, outflow)
         if callback is not None:
-            callback(gb, grid_variable)
+            callback(gb)
 
     exporter.write_vtk(export_fields, time_step=(n_steps // save_every))
     time_steps = np.arange(
