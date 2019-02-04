@@ -88,7 +88,9 @@ class Grid(object):
         cell_faces (sps.csc_matrix): Cell-face relations
         name (str): Name of grid
         """
-        assert dim >= 0 and dim <= 3
+        if not (dim >= 0 and dim <= 3):
+            raise ValueError("A grid has to be 0, 1, 2, or 3.")
+
         self.dim = dim
         self.nodes = nodes
         self.cell_faces = cell_faces
@@ -516,7 +518,8 @@ class Grid(object):
         # Sometimes the sub-tet volumes can have a volume of numerical zero.
         # Why this is so is not clear, but for the moment, we allow for a
         # slightly negative value.
-        assert np.all(tet_volumes > -1e-12)  # On the fly test
+        if not np.all(tet_volumes > -1e-12):  # On the fly test
+            raise ValueError("Some tets have negative volume")
 
         # The cell volumes are now found by summing sub-tetrahedra
         cell_volumes = np.bincount(cell_numbers, weights=tet_volumes)

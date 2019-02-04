@@ -57,14 +57,17 @@ class MortarGrid(object):
         name (str): Name of grid
         """
 
-        assert dim >= 0 and dim < 3
-        assert np.all([g.dim == dim for g in side_grids.values()])
+        if dim == 3:
+            raise ValueError("A mortar grid cannot be 3d")
+        if not np.all([g.dim == dim for g in side_grids.values()]):
+            raise ValueError("All the mortar grids have to have the same dimension")
 
         self.dim = dim
         self.side_grids = side_grids.copy()
         self.sides = np.array(self.side_grids.keys)
 
-        assert self.num_sides() == 1 or self.num_sides() == 2
+        if not (self.num_sides() == 1 or self.num_sides() == 2):
+            raise ValueError("The number of sides have to be 1 or 2")
 
         if isinstance(name, list):
             self.name = name
@@ -300,15 +303,12 @@ class MortarGrid(object):
 
     def _check_mappings(self, tol=1e-4):
         row_sum = self.master_to_mortar_int.sum(axis=1)
-        assert row_sum.min() > tol
-        #        assert row_sum.max() < 1 + tol
+        if not (row_sum.min() > tol):
+            raise ValueError("Check not satisfied for the master grid")
 
         row_sum = self.slave_to_mortar_int.sum(axis=1)
-        assert row_sum.min() > tol
-
-
-#        assert row_sum.max() < 1 + tol
-
+        if not (row_sum.min() > tol):
+            raise ValueError("Check not satisfied for the slave grid")
 
 # ------------------------------------------------------------------------------#
 # ------------------------------------------------------------------------------#
@@ -370,7 +370,8 @@ class BoundaryMortar(MortarGrid):
         self.side_grids = {"mortar_grid": mortar_grid}
         self.sides = np.array(self.side_grids.keys)
 
-        assert self.num_sides() == 1 or self.num_sides() == 2
+        if not (self.num_sides() == 1 or self.num_sides() == 2):
+            raise ValueError("The number of sides have to be 1 or 2")
 
         if isinstance(name, list):
             self.name = name
