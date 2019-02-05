@@ -103,6 +103,8 @@ def add_data(gb, data, solver_name):
                 bc = pp.BoundaryCondition(g, b_faces, labels)
                 g.tags["inlet_faces"] = np.zeros(g.num_faces, dtype=np.bool)
                 g.tags["inlet_faces"][b_faces[b_in]] = True
+            else:
+                bc = pp.BoundaryCondition(g, b_faces, "neu")
 
             # Transport
             bc_t = pp.BoundaryCondition(g, b_faces, "dir")
