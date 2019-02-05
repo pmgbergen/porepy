@@ -315,7 +315,7 @@ def match_grids_2d(new_g, old_g, tol):
 # ------------------------------------------------------------------------------#
 
 
-def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
+def replace_grids_in_bucket(gb, g_map=None, mg_map=None, tol=1e-6):
     """ Replace grids and / or mortar grids in a grid_bucket. Recompute mortar
     mappings as needed.
 
@@ -335,14 +335,19 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
             replaced, but can we keep untouched grids?
 
     """
+    if mg_map is None:
+        mg_map = {}
+
     # refine the mortar grids when specified
     for mg_old, mg_new in mg_map.items():
         update_mortar_grid(mg_old, mg_new, tol)
 
     # update the grid bucket considering the new grids instead of the old one
     # valid only for physical grids and not for mortar grids
-    if g_map:
+    if g_map is not None:
         gb.update_nodes(g_map)
+    else:
+        g_map = {}
 
     # refine the grids when specified
     for g_old, g_new in g_map.items():
