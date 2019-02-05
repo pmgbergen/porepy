@@ -259,13 +259,13 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
 
         matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb_full)
         u_full = sps.linalg.spsolve(matrix, rhs)
-        # compare solutions
-        # We need to rearange the solutions because the ordering of the dofs are not the same
-        # Also, we don't have equality because the weak symmetry breaks when a cell has to many
-        # Neumann conditions (see comments in mpsa)
+        assembler.distribute_variable(gb_full, u_full, block_dof, full_dof)
+        # Compare solutions:
+        # We need to rearange the solutions because the ordering of the dofs are not the
+        # same for the two grids.
         us = []
         ps = []
-        ID = []  # to appease porpy 3.5
+        ID = []
         for g, d in gb:
             us.append(d["u"])
             ps.append(d["p"])
@@ -276,7 +276,15 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
         IAp = np.array([0, 2, 1, 3])
         sol = np.hstack([us[IA], ps[IAp]])
 
-        self.assertTrue(np.all(np.abs(sol - u_full) < 5e-4))
+        us = []
+        ps = []
+        for g, d in gb_full:
+            us.append(d["u"])
+            ps.append(d["p"])
+        sol_full = np.hstack([np.array(us), np.array(ps)])
+        # Note, we don't have equality because the weak symmetry breaks when a cell has to many
+        # Neumann conditions (see comments in mpsa)
+        self.assertTrue(np.all(np.abs(sol - sol_full) < 5e-4))
 
     def check_solution(self, gb):
         for e, d in gb.edges():
