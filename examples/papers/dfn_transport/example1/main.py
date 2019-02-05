@@ -87,8 +87,8 @@ def main():
                 # the flow problem
                 model_flow = compute.flow(gb, discr, param, bc_flag)
 
-                if discr_key == "MVEM":
-                    grid_export(gb, param["P0_flux"], folder_grid + folder + "/")
+                #if discr_key == "MVEM":
+                #    grid_export(gb, param["P0_flux"], folder_grid + folder + "/")
 
                 #jump_flux(gb, param["mortar_flux"])
 
