@@ -3,11 +3,11 @@ import os
 
 if __name__ == "__main__":
 
-    folder_src = "/Home/siv28/afu082/porepy/examples/papers/arXiv_1809_06926/case1/"
+    folder_src = "/Home/siv28/afu082/porepy/examples/papers/arXiv_1809_06926/case3/"
     folder_dst = folder_src + "/CSV/"
 
     solver_names = ['tpfa', 'vem', 'rt0', 'mpfa']
-    refinements = ['0', '1', '2']
+    refinements = ['0', '1']
 
     for refinement in refinements:
         for solver in solver_names:
@@ -21,7 +21,12 @@ if __name__ == "__main__":
                 os.makedirs(folder_out)
 
             # copy a file
-            name_src = "dol_refinement_" + refinement + ".csv"
+            name_src = "dol_line_0_refinement_" + refinement + ".csv"
+            name_dst = name_src
+            copyfile(folder_in + name_src, folder_out + name_dst)
+
+            # copy a file
+            name_src = "dol_line_1_refinement_" + refinement + ".csv"
             name_dst = name_src
             copyfile(folder_in + name_src, folder_out + name_dst)
 
