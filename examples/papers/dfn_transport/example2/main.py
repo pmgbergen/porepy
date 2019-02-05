@@ -46,10 +46,19 @@ def main():
                  "40k": 0.49*0.875 * np.power(2., -5) # for 40k triangles
                  }
 
-    for mesh_size_key, mesh_size in mesh_sizes.items():
-        mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
+    for mesh_size_key in mesh_sizes.keys():
 
         for discr_key, discr in discretizations.items():
+
+            if discr_key == "MVEM":
+                if mesh_size_key == "3k":
+                    mesh_size = 0.9 * np.power(2., -4) * 0.675
+                elif mesh_size_key == "40k":
+                    mesh_size = 0.49*0.875 * np.power(2., -5) * 0.7
+            else:
+                mesh_size = mesh_sizes[mesh_size_key]
+
+            mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
 
             folder = "solution_" + discr_key + "_" + mesh_size_key
 
@@ -58,6 +67,9 @@ def main():
             gb.remove_nodes(lambda g: g.dim == 0)
             gb.compute_geometry()
             gb.assign_node_ordering()
+
+            if discr_key == "MVEM":
+                pp.coarsening.coarsen(gb, "by_volume")
 
             domain = gb.bounding_box(as_dict=True)
 
