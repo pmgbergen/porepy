@@ -612,6 +612,8 @@ class StressDisplacementContinuity(RobinContact):
 
         """
 
+        self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
+
         if not g_master.dim == g_slave.dim:
             raise AssertionError("Slave and master must have same dimension")
 
@@ -774,6 +776,8 @@ class RobinContactBiotPressure(RobinContact):
 
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
         if not g_master.dim == g_slave.dim:
             raise AssertionError("Slave and master must have same dimension")
