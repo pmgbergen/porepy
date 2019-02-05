@@ -16,7 +16,7 @@ def plot_single(file_name, legend, title):
     plt.plot(data[:, 0], data[:, 1], label=legend)
     plt.title(title)
     plt.xlabel('$t$')
-    plt.ylabel('$c$')
+    plt.ylabel('$\\theta$')
     plt.grid(True)
     plt.legend()
 
@@ -25,11 +25,14 @@ def plot_single(file_name, legend, title):
 def plot_multiple(file_name, legend, title, num_frac):
 
     data = np.loadtxt(file_name, delimiter=',')
+    frac_label = {0: "$\\Omega_l$", 1: "$\\Omega_m$", 2: "$\\Omega_r$"}
 
     for frac_id in np.arange(num_frac):
         plt.figure(frac_id)
         plt.plot(data[:, 0], data[:, frac_id+1], label=legend)
-        plt.title(title + " - frac " + str(frac_id))
+        plt_title = title[0] + " on " + frac_label[frac_id] + " " + title[1] + \
+                    " - " + " config " + str(title[2])
+        plt.title(plt_title)
         plt.xlabel('$t$')
         plt.ylabel('$\\theta$')
         plt.grid(True)
@@ -44,8 +47,8 @@ def plot_num_cells(data, legend, title):
     plt.figure(0)
     plt.plot(np.arange(data.shape[0]), data[:, -1], label=legend)
     plt.title(title)
-    plt.xlabel('simulation')
-    plt.ylabel('number of cells')
+    plt.xlabel('config.')
+    plt.ylabel('num. cells')
     plt.grid(True)
     plt.legend()
 
@@ -89,14 +92,16 @@ def main():
     methods_alessio = ["MVEM", "Tpfa", "RT0"]
 
     grids = {"grid_0": ("1k", "220"), "grid_1": ("3k", "650"), "grid_2": ("10k", "2100")}
+    grids_label = {"grid_0": "coarse", "grid_1": "medium", "grid_2": "fine"}
 
     for grid_name, grid in grids.items():
+        grid_label = grids_label[grid_name]
         for simul in np.arange(num_simul):
 
             folder_in = master_folder
             folder_out = folder_in + "img/"
 
-            title = "average $\\theta$ - " + grid_name.replace("_", " ") + " - config " + str(simul)
+            title = ["avg $\\theta$", grid_label, simul]
             # Alessio
             for method in methods_alessio:
                 data = folder_in + method + "/" + method + "_Cmean_" + str(simul+1) + "_" + grid[0] + ".csv"
@@ -108,12 +113,12 @@ def main():
                 plot_multiple(data, method, title, num_frac)
 
             # save
-            name = grid_name + "_cot_avg_" + str(simul)
+            name = grid_label + "_cot_avg_" + str(simul)
             save_multiple(name, num_frac, folder_out)
 
             ###########
 
-            title = "minimum $\\theta$ - " + grid_name.replace("_", " ") + " - config " + str(simul)
+            title = ["min $\\theta$", grid_label, simul]
             # Alessio
             for method in methods_alessio:
                 data = folder_in + method + "/" + method + "_Cmin_" + str(simul+1) + "_" + grid[0] + ".csv"
@@ -125,12 +130,12 @@ def main():
                 plot_multiple(data, method, title, num_frac)
 
             # save
-            name = grid_name + "_cot_min_" + str(simul)
+            name = grid_label + "_cot_min_" + str(simul)
             save_multiple(name, num_frac, folder_out)
 
             ###########
 
-            title = "maximum $\\theta$ - " + grid_name.replace("_", " ") + " - config " + str(simul)
+            title = ["max $\\theta$", grid_label, simul]
             # Alessio
             for method in methods_alessio:
                 data = folder_in + method + "/" + method + "_Cmax_" + str(simul+1) + "_" + grid[0] + ".csv"
@@ -142,12 +147,12 @@ def main():
                 plot_multiple(data, method, title, num_frac)
 
             # save
-            name = grid_name + "_cot_max_" + str(simul)
+            name = grid_label + "_cot_max_" + str(simul)
             save_multiple(name, num_frac, folder_out)
 
             ###########
 
-            title = "production - " + grid_name.replace("_", " ")  + " - config " + str(simul)
+            title = "production on " + grid_label  + " - config " + str(simul)
             # Alessio
             for method in methods_alessio:
                 data = folder_in + method + "/" + method + "_production_" + str(simul+1) + "_" + grid[0] + ".csv"
@@ -159,18 +164,18 @@ def main():
                 plot_single(data, method, title)
 
             # save
-            name = grid_name + "_outflow_" + str(simul)
+            name = grid_label + "_outflow_" + str(simul)
             save_single(name, folder_out)
 
             ########
 
-        title = "number of cells - " + grid_name.replace("_", " ")
+        title = "number of cells - " + grid_label
         # Alessio
         for method in methods_alessio:
             data = folder_in + method + "/" + method + "_num_cells_" + grid[0] + ".csv"
             plot_num_cells(data, method, title)
 
-        name = grid_name + "_num_cells"
+        name = grid_label + "_num_cells"
         save_single(name, folder_out)
 
 #------------------------------------------------------------------------------#
