@@ -45,6 +45,7 @@ def data_flow(gb, discr, model, data, bc_flag):
         d["frac_num"] = (g.frac_num if g.dim == 2 else -1) * unity
         d["cell_volumes"] = g.cell_volumes
         d["is_tangential"] = True
+        d["Aavatsmark_transmissibilities"] = True
         d["tol"] = tol
 
         # assign permeability
@@ -189,6 +190,7 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
         param_adv = {}
         param_diff = {}
 
+        d["Aavatsmark_transmissibilities"] = True
         unity = np.ones(g.num_cells)
         zeros = np.zeros(g.num_cells)
         empty = np.empty(0)
