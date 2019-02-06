@@ -744,7 +744,7 @@ class RobinContactBiotPressure(RobinContact):
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """ Discretize the robin weight (RW)
-        
+
         Parameters:
             g_h: Grid of the master domanin.
             g_l: Grid of the slave domain.
@@ -897,7 +897,6 @@ class DivU_StressMortar(RobinContactBiotPressure):
             matrix_slave: original discretization for the slave subdomain
 
         """
-        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         if not g_master.dim == g_slave.dim:
             raise AssertionError("Slave and master must have same dimension")

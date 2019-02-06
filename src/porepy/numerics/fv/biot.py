@@ -951,7 +951,7 @@ class GradP(
         else:
             cc[2, self_ind] += proj_avg * bp
 
-    def enforce_neumann_int_bound(self, *vargs):
+    def enforce_neumann_int_bound(self, _, _, _, _, _):
         pass
 
 
@@ -1148,7 +1148,7 @@ class DivD(
         cc[self_ind, 2] += biot_alpha * bound_div_d * proj_int.T
         rhs[self_ind] += biot_alpha * bound_div_d * proj_int.T * lam_k
 
-    def enforce_neumann_int_bound(self, *vargs):
+    def enforce_neumann_int_bound(self, _, _, _, _, _):
         pass
 
 
