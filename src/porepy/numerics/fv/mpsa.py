@@ -384,6 +384,11 @@ class Mpsa(
                 * matrix_dictionary["bound_displacement_face"]
                 * proj_int.T
             )
+            # Add the contibution to the displacement for the other side (master/slave).
+            # This can typically happen if you simulate the contact between the two
+            # sides of a fracture. The interaction region around the nodes on the end of
+            # the fracture will then get a contribution from both sides. We need a
+            # negative sign because the tractions T_s = -T_m has different sign.
             cc[2, 2] -= (
                 proj_avg
                 * weight
@@ -391,17 +396,12 @@ class Mpsa(
                 * matrix_dictionary["bound_displacement_face"]
                 * proj_int_swap.T
             )
-
         else:
+            # For comments look above
             cc[2, self_ind] += proj_avg * bp
             cc[2, 2] += (
                 proj_avg * matrix_dictionary["bound_displacement_face"] * proj_int.T
             )
-            # Add the contibution to the displacement for the other mortar. This can
-            # typically happen if you simulate the contact between the two sides of a
-            # fracture. The interaction region around the nodes on the edge will then
-            # get a contribution from both sides. We need a negative sign because the
-            # tractions T_s = -T_m has different sign.
             cc[2, 2] -= (
                 proj_avg
                 * matrix_dictionary["bound_displacement_face"]
