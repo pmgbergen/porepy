@@ -47,13 +47,14 @@ def add_data(gb, data, solver_name):
 
     is_fv = solver_name == "tpfa" or solver_name == "mpfa"
 
-    gb.add_node_props(["is_tangential", "frac_num"])
+    gb.add_node_props(["is_tangential", "frac_num", "Aavatsmark_transmissibilities"])
     for g, d in gb:
 
         one_vec = np.ones(g.num_cells)
         empty_vec = np.empty(0)
 
         d["is_tangential"] = True
+        d["Aavatsmark_transmissibilities"] = True
         d["aperture"] = aperture * one_vec
 
         if g.dim == 2:
