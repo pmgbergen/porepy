@@ -403,6 +403,9 @@ class Mpfa(FVElliptic):
         Neumann conditions will have a non-zero right hand side for (i), while
         Dirichlet gives a right hand side for (iii).
         """
+        # Implementational note on boundary conditions: A note on the possibility of
+        # subface boundary conditions in mpfa/mpsa can be found in the function
+        # _mpsa_local() in the mpsa.py module.
 
         if eta is None:
             eta = fvutils.determine_eta(g)
@@ -463,6 +466,15 @@ class Mpfa(FVElliptic):
         # discretization.
         subcell_topology = fvutils.SubcellTopology(g)
 
+        # Below, the boundary conditions should be defined on the subfaces.
+        if bnd.num_faces == subcell_topology.num_subfno_unique:
+            # The boundary conditions is already given on the subfaces
+            subface_rhs = True
+        else:
+            # If bnd is not already a sub-face_bound we extend it
+            bnd = pp.fvutils.boundary_to_sub_boundary(bnd, subcell_topology)
+            subface_rhs = False
+
         # Obtain normal_vector * k, pairings of cells and nodes (which together
         # uniquely define sub-cells, and thus index for gradients. See comment
         # below for the ordering of elements in the subcell gradient.
@@ -501,7 +513,7 @@ class Mpfa(FVElliptic):
         num_nodes = np.diff(g.face_nodes.indptr)
         sgn = g.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
         scaled_sgn = (
-            bnd.robin_weight[subcell_topology.fno_unique]
+            bnd.robin_weight
             * sgn[0]
             * g.face_areas[subcell_topology.fno_unique]
             / num_nodes[subcell_topology.fno_unique]
@@ -510,7 +522,7 @@ class Mpfa(FVElliptic):
         pr_trace_grad_all = sps.diags(scaled_sgn) * pr_cont_grad_all
         pr_trace_cell_all = sps.coo_matrix(
             (
-                bnd.robin_weight[subcell_topology.fno]
+                bnd.robin_weight[subcell_topology.subfno]
                 * g.face_areas[subcell_topology.fno]
                 / num_nodes[subcell_topology.fno],
                 (subcell_topology.subfno, subcell_topology.cno),
@@ -532,21 +544,10 @@ class Mpfa(FVElliptic):
             subcell_topology.fno_unique, subcell_topology.cno_unique
         ].A.ravel("F")
 
-        # Expand the boundary conditions to the subfaces
-        # This is only needed for the ExcludeBoundaries since this is formulated
-        # on a subface level. We could continue to use the sub-face boundary,
-        # but we keep the original because of legacy.
-        bnd_sub = bnd.copy()
-        bnd_sub.is_dir = bnd_sub.is_dir[subcell_topology.fno_unique]
-        bnd_sub.is_rob = bnd_sub.is_rob[subcell_topology.fno_unique]
-        bnd_sub.is_neu = bnd_sub.is_neu[subcell_topology.fno_unique]
-        bnd_sub.robin_weight = bnd_sub.robin_weight[subcell_topology.fno_unique]
-        bnd_sub.basis = bnd_sub.basis[subcell_topology.fno_unique]
-
         # The boundary faces will have either a Dirichlet or Neumann condition, or
         # Robin condition
         # Obtain mappings to exclude boundary faces.
-        bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bnd_sub, g.dim)
+        bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bnd, g.dim)
 
         # No flux conditions for Dirichlet boundary faces
         nk_grad_n = bound_exclusion.exclude_robin_dirichlet(nk_grad_all)
@@ -636,14 +637,8 @@ class Mpfa(FVElliptic):
 
         # Flux discretization:
         # The negative in front of pr_trace_cell comes from the grad_egs
-        flux = (
-            hf2f
-            * darcy
-            * igrad
-            * (-sps.vstack([nk_cell, -pr_trace_cell, pr_cont_cell]))
-        )
+        flux = darcy * igrad * (-sps.vstack([nk_cell, -pr_trace_cell, pr_cont_cell]))
 
-        ####
         # Boundary conditions
         rhs_bound = self._create_bound_rhs(
             bnd,
@@ -654,26 +649,17 @@ class Mpfa(FVElliptic):
             num_nk_cell,
             num_nk_rob,
             num_pr_cont_grad,
+            subface_rhs,
         )
         # Discretization of boundary values
-        bound_flux = hf2f * darcy * igrad * rhs_bound
+        bound_flux = darcy * igrad * rhs_bound
 
         # Below here, fields necessary for reconstruction of boundary pressures
-
-        # Diagonal matrix that divides by number of sub-faces per face
-        half_face_per_face = sps.diags(1.0 / (hf2f * np.ones(hf2f.shape[1])))
-
-        # Contribution to face pressure from sub-cell gradients, calculated as
-        # gradient times distance. Then further map to faces, and divide by number
-        # of contributions per face
         dp = (
-            half_face_per_face
-            * hf2f
-            * pr_cont_grad_all
+            pr_cont_grad_all
             * igrad
             * (-sps.vstack([nk_cell, pr_trace_cell, pr_cont_cell]))
         )
-
         # Internal faces, and boundary faces with a Dirichle condition do not need
         # information on the gradient.
         # Implementation note: This can be expanded to pressure recovery also
@@ -691,17 +677,23 @@ class Mpfa(FVElliptic):
             (np.ones_like(bound_faces), (bound_faces, bound_cells)),
             shape=(g.num_faces, g.num_cells),
         )
-        cell_contrib = remove_not_neumann * cell_contrib
+        cell_contrib = remove_not_neumann * hf2f.T * cell_contrib
 
         bound_pressure_cell = dp + cell_contrib
+        # Contribution to face pressure from sub-cell gradients, calculated as
+        # gradient times distance. Then further map to faces, and divide by number
+        # of contributions per face
 
         sgn_arr = np.zeros(g.num_faces)
         sgn_arr[bound_faces] = g.cell_faces[bound_faces].sum(axis=1).A.ravel()
-        sgn_mat = sps.diags(sgn_arr)
+        sgn_mat = sps.diags(hf2f.T * (sgn_arr))
 
-        bound_pressure_face_neu = (
-            sgn_mat * half_face_per_face * hf2f * pr_cont_grad_all * igrad * rhs_bound
-        )
+        bound_pressure_face_neu = sgn_mat * pr_cont_grad_all * igrad * rhs_bound
+
+        # sgn_mat = sps.diags(sgn_arr)
+        # bound_pressure_face_neu = (
+        #     sgn_mat * hf2f * pr_cont_grad_all * igrad * rhs_bound
+        # )
         # For Dirichlet faces, simply recover the boundary condition
         bound_pressure_face_dir = sps.diags(bnd.is_dir.astype(np.int))
 
@@ -709,6 +701,18 @@ class Mpfa(FVElliptic):
             bound_pressure_face_dir + remove_not_neumann * bound_pressure_face_neu
         )
 
+        if not subface_rhs:
+            # In this case we set the value at a face, thus, we need to distribute the
+            # face values to the subfaces. We do this by an area-weighted average. The flux
+            # will in this case be integrated over the faces, that is:
+            # flux *\cdot * normal * face_area
+            area_scaling = 1.0 / (hf2f * np.ones(hf2f.shape[1]))
+            area_mat = sps.diags(hf2f.T * area_scaling)
+
+            bound_flux = hf2f * bound_flux * hf2f.T
+            flux = hf2f * flux
+            bound_pressure_face = hf2f * area_mat * bound_pressure_face * hf2f.T
+            bound_pressure_cell = hf2f * area_mat * bound_pressure_cell
         return flux, bound_flux, bound_pressure_cell, bound_pressure_face
 
     """
@@ -749,7 +753,6 @@ class Mpfa(FVElliptic):
         # Not covered yet is various fields on subcell topology, mapping matrices
         # between local and block ordering etc.
         return total_size
-
 
     def _block_diagonal_structure(
         self, sub_cell_index, cell_node_blocks, nno, bound_exclusion
@@ -801,7 +804,16 @@ class Mpfa(FVElliptic):
         return rows2blk_diag, cols2blk_diag, size_of_blocks
 
     def _create_bound_rhs(
-        self, bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, num_rob, num_pr
+        self,
+        bnd,
+        bound_exclusion,
+        subcell_topology,
+        sgn,
+        g,
+        num_flux,
+        num_rob,
+        num_pr,
+        subface_rhs,
     ):
         """
         Define rhs matrix to get basis functions for incorporates boundary
@@ -828,9 +840,9 @@ class Mpfa(FVElliptic):
         is_rob = np.logical_and(bnd.is_rob, np.logical_not(bnd.is_internal))
 
         fno = subcell_topology.fno_unique
-        num_neu = np.sum(is_neu[fno])
-        num_dir = np.sum(is_dir[fno])
-        if not num_rob == np.sum(is_rob[fno]):
+        num_neu = np.sum(is_neu)
+        num_dir = np.sum(is_dir)
+        if not num_rob == np.sum(is_rob):
             raise AssertionError()
 
         num_bound = num_neu + num_dir + num_rob
@@ -843,24 +855,22 @@ class Mpfa(FVElliptic):
         # Find Neumann and Robin faces, exclude Dirichlet faces (since these are excluded
         # from the right hand side linear system), and do necessary formating.
         neu_ind = np.argwhere(
-            bound_exclusion.exclude_robin_dirichlet(is_neu[fno].astype("int64"))
+            bound_exclusion.exclude_robin_dirichlet(is_neu.astype("int64"))
         ).ravel("F")
-        rob_ind = np.argwhere(
-            bound_exclusion.keep_robin(is_rob[fno].astype("int64"))
-        ).ravel("F")
+        rob_ind = np.argwhere(bound_exclusion.keep_robin(is_rob.astype("int64"))).ravel(
+            "F"
+        )
         neu_rob_ind = np.argwhere(
-            bound_exclusion.exclude_dirichlet(
-                (is_rob[fno] + is_neu[fno]).astype("int64")
-            )
+            bound_exclusion.exclude_dirichlet((is_rob + is_neu).astype("int64"))
         ).ravel("F")
 
         # We also need to map the respective Neumann, Robin, and Dirichlet half-faces to
         # the global half-face numbering (also interior faces). The latter should
         # not have Dirichlet and Neumann excluded (respectively), and thus we need
         # new fields
-        neu_ind_all = np.argwhere(is_neu[fno].astype("int")).ravel("F")
-        rob_ind_all = np.argwhere(is_rob[fno].astype("int")).ravel("F")
-        dir_ind_all = np.argwhere(is_dir[fno].astype("int")).ravel("F")
+        neu_ind_all = np.argwhere(is_neu.astype("int")).ravel("F")
+        rob_ind_all = np.argwhere(is_rob.astype("int")).ravel("F")
+        dir_ind_all = np.argwhere(is_dir.astype("int")).ravel("F")
         num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(order="F")
 
         # We now merge the neuman and robin indices since they are treated equivalent
@@ -877,7 +887,18 @@ class Mpfa(FVElliptic):
         # therefore set the matrix indices to -1. We also have to scale it with
         # the number of nodes per face because the flux of face is the sum of its
         # half-faces.
-        scaled_sgn = -1 / num_face_nodes[fno[neu_rob_ind_all]]
+        if subface_rhs:
+            # In this case we set the rhs for the sub-faces. Note that the rhs values
+            # should be integrated over the subfaces, that is
+            # flux_neumann *\cdot * normal * subface_area
+            scaled_sgn = -1 * np.ones(neu_rob_ind_all.size)
+        else:
+            # In this case we set the value at a face, thus, we need to distribute the
+            #  face values to the subfaces. We do this by an area-weighted average. Note
+            # that the rhs values should in this case be integrated over the faces, that is:
+            # flux_neumann *\cdot * normal * face_area
+            scaled_sgn = -1 / num_face_nodes[fno[neu_rob_ind_all]]
+
         if neu_rob_ind.size > 0:
             neu_rob_cell = sps.coo_matrix(
                 (scaled_sgn, (neu_rob_ind, np.arange(neu_rob_ind.size))),
@@ -890,7 +911,7 @@ class Mpfa(FVElliptic):
 
         # Dirichlet boundary conditions
         dir_ind = np.argwhere(
-            bound_exclusion.exclude_neumann_robin(is_dir[fno].astype("int64"))
+            bound_exclusion.exclude_neumann_robin(is_dir.astype("int64"))
         ).ravel("F")
         if dir_ind.size > 0:
             dir_cell = sps.coo_matrix(
@@ -933,6 +954,6 @@ class Mpfa(FVElliptic):
             ),
             shape=(num_subfno, g.num_faces),
         )
-        rhs_bound = sps.vstack([neu_rob_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
+        rhs_bound = sps.vstack([neu_rob_cell, dir_cell]) * bnd_2_all_hf
 
         return rhs_bound

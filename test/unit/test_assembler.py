@@ -458,7 +458,11 @@ class TestAssembler(unittest.TestCase):
 
         general_assembler = pp.Assembler()
         A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(
-            gb, active_variables=[variable_name_2, "variable_name_not_among_defined_variables"]
+            gb,
+            active_variables=[
+                variable_name_2,
+                "variable_name_not_among_defined_variables",
+            ],
         )
 
         A_known = np.zeros((3, 3))
