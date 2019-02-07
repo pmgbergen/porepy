@@ -55,6 +55,8 @@ def remove_plots(fn):
                 continue
             if "Exporter" in line:
                 continue
+            if "exporter" in line:
+                continue
             if "import plot_grid" in line:
                 continue
             f.write(line)
