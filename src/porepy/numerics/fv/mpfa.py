@@ -403,6 +403,9 @@ class Mpfa(FVElliptic):
         Neumann conditions will have a non-zero right hand side for (i), while
         Dirichlet gives a right hand side for (iii).
         """
+        # Implementational note on boundary conditions: A note on the possibility of
+        # subface boundary conditions in mpfa/mpsa can be found in the function
+        # _mpsa_local() in the mpsa.py module.
 
         if eta is None:
             eta = fvutils.determine_eta(g)
