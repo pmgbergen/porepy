@@ -1394,6 +1394,32 @@ def _mpsa_local(
     Neumann condition, mainly for legacy reasons. This meens that Dirichlet
     faces and internal faces are mixed together, decided by their face ordering.
     """
+    # Implementational note on boundary conditions: In Porepy we have defined
+    # nodes, faces and cells in our grid. The mpsa/mpfa methods, however, needs
+    # access to the local subgrids around each node (see any mpfa paper) to formulate
+    # the local problems. In Porepy we obtain these subgrids through the the class
+    # SubcellTopology (in fvutils). Since the user usually don't have access to/care
+    # about the subcells, she will define the boundary conditions on the faces of the
+    # grid. But as you can see in the method documentation above, the boundary
+    # conditions should in fact be applied to the subfaces. Porepy handles this by
+    # distribute the given face-boundary condition to the sub-faces automatically.
+    # In some cases, users that are experts in mpsa/mpsa might want to specify
+    # the boundary conditions on the subfaces (e.g. to specify different values on
+    # each subface or even different conditions). So far this is handled in the
+    # implementation by checking the length of the boundary conditions to see
+    # if they are the length of faces or subfaces. If the user gives a subface
+    # boundary conditions, mpsa/mpfa will also return the discretization on a subface
+    # level (instead of the usuall face-wise level). The intrigued user might find
+    # the function fvutils.boundary_to_sub_boundary(..) helpfull. As a final note,
+    # the continuity points defaults to the face centers (eta=0) on the boundary.
+    # This will happen as long as a scalar eta is given. eta defaults to the face
+    # centers on the boundary since most user will specify the boundary conditions
+    # on the faces (thus, the face-centers). The expert user that specify subface
+    # boundary conditions might also want eta!=0 also on the boundary. This is
+    # facilitated by supplying the method with eta beeing a ndArray equal the
+    # number of subfaces (SubcellTopology.num_subfno_unique) giving the eta value
+    # for each subface.
+
     if eta is None:
         eta = pp.fvutils.determine_eta(g)
 
