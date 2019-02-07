@@ -184,16 +184,13 @@ def sort_triangle_edges(t):
             )
         )
         hit_old = np.logical_and.reduce(
-            (
-                is_ordered,
-                np.any(t == q[0], axis=0),
-                np.any(t == q[1], axis=0),
-            )
+            (is_ordered, np.any(t == q[0], axis=0), np.any(t == q[1], axis=0))
         )
         ind_old = np.where(hit_old > 0)[0]
         ind_new = np.where(hit_new > 0)[0]
         import pdb
-     #   pdb.set_trace()
+
+        #   pdb.set_trace()
         # Check if the edge occured at all among the non-processed triangles
         if ind_new.size == 0:
             continue
@@ -227,7 +224,6 @@ def sort_triangle_edges(t):
             else:
                 t[hit_new_0, ti_new] = q[1]
                 t[hit_new_1, ti_new] = q[0]
-
 
         # Find the new pairs to be generated. This must be done in terms of
         # the content in t[:, ti], not the indices represented by hit_0 and _1.

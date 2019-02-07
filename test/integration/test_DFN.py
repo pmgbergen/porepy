@@ -314,23 +314,23 @@ class TestDFN(unittest.TestCase):
                 elif np.all(g.cell_centers[0] == 0.5 * N):  # f2
                     known = np.array([7.5, 6.5, 5.5, 4.5, 3.5, 2.5, 1.5, 0.5])
                 elif np.all(g.cell_centers[0] == 0.625 * N):  # f3
-                    known = np.array([4., 4.])
+                    known = np.array([4.0, 4.0])
                 elif np.all(g.cell_centers[1] == 0.25 * N):  # f4
-                    known = np.array([2., 2., 2., 2.])
+                    known = np.array([2.0, 2.0, 2.0, 2.0])
                 elif np.all(g.cell_centers[0] == 0.75 * N):  # f5
-                    known = np.array([2., 2.])
+                    known = np.array([2.0, 2.0])
                 else:
                     raise ValueError
 
             else:  # g.dim == 0
-                if np.allclose(g.cell_centers, np.array([[0.5], [0.5], [0.]]) * N):
-                    known = np.array([4.])
-                elif np.allclose(g.cell_centers, np.array([[0.625], [0.5], [0.]]) * N):
-                    known = np.array([4.])
-                elif np.allclose(g.cell_centers, np.array([[0.5], [0.25], [0.]]) * N):
-                    known = np.array([2.])
-                elif np.allclose(g.cell_centers, np.array([[0.75], [0.25], [0.]]) * N):
-                    known = np.array([2.])
+                if np.allclose(g.cell_centers, np.array([[0.5], [0.5], [0.0]]) * N):
+                    known = np.array([4.0])
+                elif np.allclose(g.cell_centers, np.array([[0.625], [0.5], [0.0]]) * N):
+                    known = np.array([4.0])
+                elif np.allclose(g.cell_centers, np.array([[0.5], [0.25], [0.0]]) * N):
+                    known = np.array([2.0])
+                elif np.allclose(g.cell_centers, np.array([[0.75], [0.25], [0.0]]) * N):
+                    known = np.array([2.0])
                 else:
                     raise ValueError
 
@@ -492,6 +492,7 @@ def create_dfn(gb, dim):
         gb.remove_node(g)
         gb.update_node_ordering(node_number)
 
+
 if __name__ == "__main__":
     TestDFN().test_mvem_1()
-    #unittest.main()
+    # unittest.main()
