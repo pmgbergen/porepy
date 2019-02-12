@@ -107,12 +107,13 @@ def main(folder, solver, solver_name, dt):
 
 if __name__ == "__main__":
     solver_list = [
-        solvers.solve_tpfa,
-        solvers.solve_mpfa,
+#        solvers.solve_tpfa,
+#        solvers.solve_mpfa,
         solvers.solve_vem,
         solvers.solve_rt0,
     ]
-    solver_names = ["tpfa", "mpfa", "vem", "rt0"]
+    #solver_names = ["tpfa", "mpfa", "vem", "rt0"]
+    solver_names = ["vem", "rt0"]
 
     time_step = 50
     for solver, solver_name in zip(solver_list, solver_names):
