@@ -34,6 +34,6 @@ if __name__ == "__main__":
         copyfile(folder_in + name_src, folder_out + name_dst)
 
         # copy a file
-        name_src = solver + "_results.csv"
-        name_dst = "results.csv"
-        copyfile(folder_src + name_src, folder_out + name_dst)
+        name_src = "results.csv"
+        name_dst = name_src
+        copyfile(folder_in + name_src, folder_out + name_dst)
