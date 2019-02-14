@@ -75,10 +75,23 @@ class Biot:
         matrices_m = data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]
         matrices_f = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
 
+        bound_stress = matrices_m["bound_stress"]
+        bound_flux = matrices_f["bound_flux"]
+        if bound_stress.shape[0] != g.dim * g.num_faces:
+            # If the boundary conditions are given on the
+            # subfaces we have to map them to the faces
+            hf2f_nd = pp.fvutils.map_hf_2_f(g=g)
+            hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
+            bound_stress = hf2f_nd * bound_stress
+            bound_flux = hf2f * bound_flux
+
         dt = data[pp.PARAMETERS][self.flow_keyword]["time_step"]
-        p_bound = -div_flow * matrices_f["bound_flux"] * p * dt
-        s_bound = -div_mech * matrices_m["bound_stress"] * d
-        return np.hstack((s_bound, p_bound))
+        p_bound = -div_flow * bound_flux * p * dt
+        s_bound = -div_mech * bound_stress * d
+        # Note that the following is zero only if the previous time step is zero.
+        # See comment in the DivD class
+        div_d_rhs = -0 * matrices_m["bound_div_d"] * d
+        return np.hstack((s_bound, p_bound + div_d_rhs))
 
     def rhs_time(self, g, data):
         """ Time component of the right hand side (dependency on previous time
@@ -194,12 +207,25 @@ class Biot:
         matrices_m = data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]
         matrices_f = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
         # Put together linear system
-        A_flow = div_flow * matrices_f["flux"]
-        A_mech = div_mech * matrices_m["stress"]
+        if matrices_m["stress"].shape[0] != g.dim * g.num_faces:
+            # If we give the boundary conditions for subfaces, the discretization
+            # will also be returned for the subfaces. We therefore have to map
+            # everything to faces before we proceeds.
+            hf2f_nd = pp.fvutils.map_hf_2_f(g=g)
+            hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
+            stress = hf2f_nd * matrices_m["stress"]
+            flux = hf2f * matrices_f["flux"]
+            grad_p = hf2f_nd * matrices_m["grad_p"]
+        else:
+            stress = matrices_m["stress"]
+            flux = matrices_f["flux"]
+            grad_p = matrices_m["grad_p"]
+
+        A_flow = div_flow * flux
+        A_mech = div_mech * stress
+        grad_p = div_mech * grad_p
         stabilization = matrices_f["biot_stabilization"]
 
-        grad_p = div_mech * matrices_m["grad_p"]
-        
         # Time step size
         dt = param[self.flow_keyword]["time_step"]
 
@@ -243,8 +269,7 @@ class Biot:
         Discretization of poro-elasticity by the MPSA-W method.
 
         Implementation needs (in addition to those mentioned in mpsa function):
-            1) Fields for non-zero boundary conditions. Should be simple.
-            2) Split return value grad_p into forces and a divergence operator,
+            1) Split return value grad_p into forces and a divergence operator,
             so that we can compute Biot forces on a face.
 
         Parameters:
@@ -263,11 +288,11 @@ class Biot:
                 cython or python. See fvutils.invert_diagonal_blocks for details.
 
         Returns:
-            scipy.sparse.csr_matrix (shape num_faces * dim, num_cells * dim): stres
+            scipy.sparse.csr_matrix (shape num_faces * dim, num_cells * dim): stress
                 discretization, in the form of mapping from cell displacement to
                 face stresses.
             scipy.sparse.csr_matrix (shape num_faces * dim, num_faces * dim):
-                discretization of boundary conditions. Interpreted as istresses
+                discretization of boundary conditions. Interpreted as stresses
                 induced by the boundary condition (both Dirichlet and Neumann). For
                 Neumann, this will be the prescribed stress over the boundary face,
                 and possibly stress on faces having nodes on the boundary. For
@@ -280,49 +305,7 @@ class Biot:
                 strain matrix, cell-wise.
             scipy.sparse.csr_matrix (shape num_cells x num_cells): Stabilization
                 term.
-
-        Example:
-            # Set up a Cartesian grid
-            g = structured.CartGrid([5, 5])
-            c = tensor.FourthOrderTensor(g.dim, np.ones(g.num_cells))
-            k = tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
-
-            # Dirirchlet boundary conditions for mechanics
-            bound_faces = g.get_all_boundary_faces().ravel()
-            bnd = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
-
-            # Use no boundary conditions for flow, will default to homogeneous
-            # Neumann.
-
-            # Discretization
-            stress, bound_stress, grad_p, div_d, stabilization = biot(g, c, bnd)
-            flux, bound_flux = mpfa(g, k, None)
-
-            # Source in the middle of the domain
-            q_mech = np.zeros(g.num_cells * g.dim)
-
-            # Divergence operator for the grid
-            div_mech = fvutils.vector_divergence(g)
-            div_flow = fvutils.scalar_divergence(g)
-            a_mech = div_mech * stress
-            grad_p = div_mech * grad_p
-            a_flow = div_flow * flux
-
-            a_biot = sps.bmat([[a_mech, grad_p], [div_d, a_flow +
-                                                           stabilization]])
-
-            # Zero boundary conditions by default.
-
-            # Injection in the middle of the domain
-            rhs = np.zeros(g.num_cells * (g.dim + 1))
-            rhs[g.num_cells * g.dim + np.ceil(g.num_cells / 2)] = 1
-            x = sps.linalg.spsolve(A, rhs)
-
-            u_x = x[0:g.num_cells * g.dim: g.dim]
-            u_y = x[1:g.num_cells * g.dim: g.dim]
-            p = x[g.num_cells * gdim:]
-
-        """
+       """
         parameters_m = data[pp.PARAMETERS][self.mechanics_keyword]
         parameters_f = data[pp.PARAMETERS][self.flow_keyword]
         matrices_m = data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]
@@ -359,15 +342,19 @@ class Biot:
 
         # Define subcell topology
         subcell_topology = fvutils.SubcellTopology(g)
+        # The boundary conditions must be given on the subfaces
+        if bound_mech.num_faces == subcell_topology.num_subfno_unique:
+            subface_rhs = True
+        else:
+            #  If they har given on the faces, expand the boundary conditions them
+            bound_mech = pp.fvutils.boundary_to_sub_boundary(
+                bound_mech, subcell_topology
+            )
+            subface_rhs = False
+
         # Obtain mappings to exclude boundary faces for mechanics
-        bound_mech_sub = fvutils.boundary_to_sub_boundary(bound_mech, subcell_topology)
         bound_exclusion_mech = fvutils.ExcludeBoundaries(
-            subcell_topology, bound_mech_sub, nd
-        )
-        # ... and flow
-        bound_flow_sub = fvutils.boundary_to_sub_boundary(bound_flow, subcell_topology)
-        bound_exclusion_flow = fvutils.ExcludeBoundaries(
-            subcell_topology, bound_flow_sub, nd
+            subcell_topology, bound_mech, nd
         )
 
         # Call core part of MPSA
@@ -375,22 +362,25 @@ class Biot:
             g, constit, subcell_topology, bound_exclusion_mech, eta, inverter
         )
 
-        # Output should be on face-level (not sub-face)
-        hf2f = fvutils.map_hf_2_f(
-            subcell_topology.fno_unique, subcell_topology.subfno_unique, nd
-        )
-
         # Stress discretization
-        stress = hf2f * hook * igrad * rhs_cells
+        stress = hook * igrad * rhs_cells
 
         # Right hand side for boundary discretization
         rhs_bound = mpsa.create_bound_rhs(
-            bound_mech_sub, bound_exclusion_mech, subcell_topology, g, False
+            bound_mech, bound_exclusion_mech, subcell_topology, g, subface_rhs
         )
-        rhs_bound = rhs_bound * hf2f.T
-
         # Discretization of boundary values
-        bound_stress = hf2f * hook * igrad * rhs_bound
+        bound_stress = hook * igrad * rhs_bound
+
+        if not subface_rhs:
+            # If the boundary condition is given for faces we return the discretization
+            # on for the face values. Otherwise it is defined for the subfaces.
+            hf2f = fvutils.map_hf_2_f(
+                subcell_topology.fno_unique, subcell_topology.subfno_unique, nd
+            )
+            bound_stress = hf2f * bound_stress * hf2f.T
+            stress = hf2f * stress
+            rhs_bound = rhs_bound * hf2f.T
 
         # trace of strain matrix
         div = self._subcell_gradient_to_cell_scalar(g, cell_node_blocks)
@@ -399,25 +389,43 @@ class Biot:
         # The boundary discretization of the div_d term is represented directly
         # on the cells, instead of going via the faces.
         bound_div_d = div * igrad * rhs_bound
-        del rhs_cells
 
         # Call discretization of grad_p-term
-        rhs_jumps, grad_p_face \
-            = self.discretize_biot_grad_p(g, subcell_topology,
-                                          alpha, bound_exclusion_mech)
+        rhs_jumps, grad_p_face = self.discretize_biot_grad_p(
+            g, subcell_topology, alpha, bound_exclusion_mech
+        )
 
-        grad_p = hf2f * (hook * igrad * rhs_jumps + grad_p_face)
+        if subface_rhs:
+            # If boundary conditions are given on subfaces we keep the subface
+            # discretization
+            grad_p = hook * igrad * rhs_jumps + grad_p_face
+        else:
+            # otherwise we map it to faces
+            grad_p = hf2f * (hook * igrad * rhs_jumps + grad_p_face)
         stabilization = div * igrad * rhs_jumps
-      
+
+        # We obtain the reconstruction of displacments. This is equivalent as for
+        # mpsa, but we get a contribution from the pressures.
+        dist_grad, cell_centers = pp.numerics.fv.mpsa.reconstruct_displacement(
+            g, subcell_topology, eta
+        )
+
+        disp_cell = dist_grad * igrad * rhs_cells + cell_centers
+        disp_bound = dist_grad * igrad * rhs_bound
+        disp_pressure = dist_grad * igrad * rhs_jumps
+
+        # Add discretizations to data
         matrices_m["stress"] = stress
         matrices_m["bound_stress"] = bound_stress
         matrices_m["div_d"] = div_d
         matrices_m["bound_div_d"] = bound_div_d
         matrices_m["grad_p"] = grad_p
         matrices_f["biot_stabilization"] = stabilization
+        matrices_m["bound_displacement_cell"] = disp_cell
+        matrices_m["bound_displacement_face"] = disp_bound
+        matrices_m["bound_displacement_pressure"] = disp_pressure
 
     def discretize_biot_grad_p(self, g, subcell_topology, alpha, bound_exclusion):
-
         """
         Consistent discretization of grad_p-term in MPSA-W method.
 
@@ -464,7 +472,7 @@ class Biot:
         2. assemble r.h.s. for the new linear system, needed for the term 'grad_p_jumps'
         3. compute term 'grad_p_face'
         """
-        
+
         nd = g.dim
 
         num_subhfno = subcell_topology.subhfno.size
@@ -478,16 +486,16 @@ class Biot:
 
         # Take Biot's alpha as a tensor
         alpha_tensor = pp.SecondOrderTensor(nd, alpha * np.ones(g.num_cells))
-        
+
         if nd == 2:
             alpha_tensor.values = np.delete(alpha_tensor.values, (2), axis=0)
             alpha_tensor.values = np.delete(alpha_tensor.values, (2), axis=1)
 
         # Obtain normal_vector * alpha, pairings of cells and nodes (which together
         # uniquely define sub-cells, and thus index for gradients)
-        nAlpha_grad, cell_node_blocks, \
-            sub_cell_index = fvutils.scalar_tensor_vector_prod(g, alpha_tensor, subcell_topology)
-
+        nAlpha_grad, cell_node_blocks, sub_cell_index = fvutils.scalar_tensor_vector_prod(
+            g, alpha_tensor, subcell_topology
+        )
         # transfer nAlpha to a face-based
         unique_nAlpha_grad = subcell_topology.pair_over_subfaces(nAlpha_grad)
 
@@ -497,7 +505,7 @@ class Biot:
         def map_tensor(mat, nd, ind):
             newmat = mat[:, ind[0]]
 
-            for i in range (1, nd):
+            for i in range(1, nd):
                 this_dim = mat[:, ind[i]]
                 newmat = sps.block_diag([newmat, this_dim])
 
@@ -511,32 +519,66 @@ class Biot:
 
         # The pressure term in the tractions continuity equation is discretized
         # as a force on the faces. The right hand side is thus formed of the
-        # unit vector.       
+        # unit vector.
         def build_rhs_units_single_dimension(dim):
             vals = np.ones(num_subfno_unique)
             ind = subcell_topology.subfno_unique
-            mat = sps.coo_matrix((vals, (ind, ind)), 
-                                     shape=(num_subfno_unique,
-                                            num_subfno_unique))
+            mat = sps.coo_matrix(
+                (vals, (ind, ind)), shape=(num_subfno_unique, num_subfno_unique)
+            )
             return mat
 
         rhs_units = build_rhs_units_single_dimension(0)
-        
+
         for i in range(1, nd):
             this_dim = build_rhs_units_single_dimension(i)
             rhs_units = sps.block_diag([rhs_units, this_dim])
 
-        rhs_units = bound_exclusion.exclude_dirichlet(rhs_units)
+        # We get the sign of the subfaces. This will be needed for the boundary
+        # faces if the normal vector points inn. This is because boundary
+        # conditions always are set as if the normals point out.
+        sgn = g.cell_faces[
+            subcell_topology.fno_unique, subcell_topology.cno_unique
+        ].A.ravel("F")
+        # NOTE: For some reason one should not multiply with the sign, but I don't
+        # understand why. It should not matter much for the Biot alpha term since
+        # by construction the biot_alpha_jumps and biot_alpha_force will cancell for
+        # Neumann boundaries. We keep the sign matrix as an Identity matrix to remember
+        # where it should be multiplied:
+        sgn_nd = np.tile(np.abs(sgn), (g.dim, 1))
 
-        num_dir_subface = (bound_exclusion.exclude_neu.shape[1] -
-                           bound_exclusion.exclude_neu.shape[0])
+        # In the local systems the coordinates are C ordered (first all x, then all y,
+        # etc.), while they are ordered as F (first x,y,z of subface 1 then x,y,z of
+        # subface 2) elsewhere. If there is a problem with the stabilization or the
+        # boundary, this might be the place to start debugging. The fno_unique
+        # and cno_unique is chosen such that the face normal of fno points out of cno
+        # for internal faces, thus, sgn_diag_F/C will only flip the sign at the boundary.
+        sgn_diag_F = sps.diags(sgn_nd.ravel("F"))
+        sgn_diag_C = sps.diags(sgn_nd.ravel("C"))
+
+        # Remembering the ordering of the local equations:
+        # First stress equilibrium for the internal subfaces.
+        # Then the stress equilibrium for the Neumann subfaces.
+        # Then the Robin subfaces.
+        # And last, the displacement continuity on both internal and external subfaces.
+        rhs_int = bound_exclusion.exclude_boundary(rhs_units)
+        rhs_neu = bound_exclusion.keep_neumann(sgn_diag_C * rhs_units)
+        rhs_rob = bound_exclusion.keep_robin(sgn_diag_C * rhs_units)
+
+        num_dir_subface = (
+            bound_exclusion.exclude_neu_rob.shape[1]
+            - bound_exclusion.exclude_neu_rob.shape[0]
+        )
 
         # No right hand side for cell displacement equations.
-        rhs_units_displ_var = sps.coo_matrix((nd * num_subfno
-                                                - num_dir_subface,
-                                                num_subfno_unique * nd))
+        rhs_units_displ_var = sps.coo_matrix(
+            (nd * num_subfno - num_dir_subface, num_subfno_unique * nd)
+        )
 
-        rhs_units = -sps.vstack([rhs_units, rhs_units_displ_var])
+        # We get a minus because the n * I * alpha * p term is moved over to the rhs
+        # in the local systems
+        rhs_units = -sps.vstack([rhs_int, rhs_neu, rhs_rob, rhs_units_displ_var])
+
         del rhs_units_displ_var
 
         # Output should be on cell-level (not sub-cell)
@@ -554,18 +596,21 @@ class Biot:
         # the force should be evaluated on.
         vals = np.ones(num_subfno_unique * nd)
         rows = fvutils.expand_indices_nd(subcell_topology.subfno_unique, nd)
-        cols = fvutils.expand_indices_incr(subcell_topology.unique_subfno, nd, num_subhfno)
-        map_unique_subfno = sps.coo_matrix((vals, (rows, cols)), 
-                                 shape=(num_subfno_unique * nd,
-                                        num_subhfno * nd))
+        cols = fvutils.expand_indices_incr(
+            subcell_topology.unique_subfno, nd, num_subhfno
+        )
+        map_unique_subfno = sps.coo_matrix(
+            (vals, (rows, cols)), shape=(num_subfno_unique * nd, num_subhfno * nd)
+        )
 
         del vals, rows, cols
-        
-        # Prepare for computation of grad_p_face term  
-        grad_p_face = map_unique_subfno * nAlpha_grad * sc2c 
+
+        # Prepare for computation of grad_p_face term
+        # Note that sgn_diag_F might only flip the boundary signs. See comment above.
+        grad_p_face = sgn_diag_F * map_unique_subfno * nAlpha_grad * sc2c
 
         return rhs_jumps, grad_p_face
-           
+
     def _face_vector_to_scalar(self, nf, nd):
         """ Create a mapping from vector quantities on faces (stresses) to scalar
         quantities. The mapping is intended for the boundary discretization of the
@@ -733,7 +778,7 @@ class Biot:
 class GradP(
     pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization
 ):
-    """ Class for the pressure gradientdivergence term of the Biot equation.
+    """ Class for the pressure gradient term of the Biot equation.
     """
 
     def ndof(self, g):
@@ -823,7 +868,13 @@ class GradP(
                              stored in the matrix dictionary."""
             )
         div_mech = fvutils.vector_divergence(g)
-        return div_mech * mat_dict["grad_p"]
+        # Put together linear system
+        if mat_dict["grad_p"].shape[0] != g.dim * g.num_faces:
+            hf2f_nd = pp.fvutils.map_hf_2_f(g=g)
+            grad_p = hf2f_nd * mat_dict["grad_p"]
+        else:
+            grad_p = mat_dict["grad_p"]
+        return div_mech * grad_p
 
     def assemble_rhs(self, g, data):
         """ Return the zero right-hand side for a discretization of the pressure
@@ -840,6 +891,68 @@ class GradP(
                 conditions.
         """
         return np.zeros(self.ndof(g))
+
+    def assemble_int_bound_displacement_trace(
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+    ):
+        """ Assemble the contribution from the pressure to the the trace of the
+        displacement on internal boundaries.
+
+        The intended use is when the internal boundary is coupled to another
+        node in the GridBucket sence. Specific usage depends on the
+        interface condition between the nodes; this method will typically be
+        used to impose displacement continuity on an interface.
+
+        Implementations of this method will use an interplay between the grid on
+        the node and the mortar grid on the relevant edge.
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+            data_edge (dictionary): Data dictionary for the edge in the
+                mixed-dimensional grid.
+            grid_swap (boolean): If True, the grid g is identified with the @
+                slave side of the mortar grid in data_adge.
+            cc (block matrix, 3x3): Block matrix for the coupling condition.
+                The first and second rows and columns are identified with the
+                master and slave side; the third belongs to the edge variable.
+                The discretization of the relevant term is done in-place in cc.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            self_ind (int): Index in cc and matrix associated with this node.
+                Should be either 1 or 2.
+
+        """
+        mg = data_edge["mortar_grid"]
+
+        # TODO: this should become first or second or something
+        if grid_swap:
+            proj = mg.slave_to_mortar_avg()
+        else:
+            proj = mg.master_to_mortar_avg()
+
+        # Expand indices as Fortran indexes
+        proj_avg = sps.kron(proj, sps.eye(g.dim)).tocsr()
+
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        bp = matrix_dictionary["bound_displacement_pressure"]
+
+        if proj_avg.shape[1] == g.dim * g.num_faces:
+            # In this case we projection is from faces to cells.
+            # The bound_displacement_pressure gives the pressure contribution to the
+            # subface displacement. We therefore need to map it to faces.
+            hf2f = pp.fvutils.map_hf_2_f(g=g)
+            num_nodes = np.diff(g.face_nodes.indptr)
+            weight = sps.kron(sps.eye(g.dim), sps.diags(1 / num_nodes))
+            # hf2f adds all subface values to one face values. For the displacement we want
+            # to take the average, therefore we divide each face by the number of subfaces.
+            cc[2, self_ind] += proj_avg * weight * hf2f * bp
+        else:
+            cc[2, self_ind] += proj_avg * bp
+
+    def enforce_neumann_int_bound(self, *_):
+        pass
 
 
 class DivD(
@@ -974,6 +1087,69 @@ class DivD(
         rhs_time = np.squeeze(biot_alpha * div_d * d_cell * d_scaling)
 
         return rhs_bound + rhs_time
+
+    def assemble_int_bound_stress(
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
+    ):
+        """Assemble the contribution the stress mortar on an internal boundary,
+        manifested as a stress boundary condition.
+
+        The intended use is when the internal boundary is coupled to another
+        node by an interface law. Specific usage depends on the
+        interface condition between the nodes; this method will typically be
+        used to impose the effect of the stress mortar on the divergence term.
+
+        Implementations of this method will use an interplay between the grid
+        on the node and the mortar grid on the relevant edge.
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+            data_edge (dictionary): Data dictionary for the edge in the
+                mixed-dimensional grid.
+            grid_swap (boolean): If True, the grid g is identified with the @
+                slave side of the mortar grid in data_adge.
+            cc (block matrix, 3x3): Block matrix for the coupling condition.
+                The first and second rows and columns are identified with the
+                master and slave side; the third belongs to the edge variable.
+                The discretization of the relevant term is done in-place in cc.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            self_ind (int): Index in cc and matrix associated with this node.
+                Should be either 1 or 2.
+
+        """
+        # Projection operators to grid
+        mg = data_edge["mortar_grid"]
+
+        if grid_swap:
+            proj = mg.slave_to_mortar_avg()
+        else:
+            proj = mg.master_to_mortar_avg()
+        # Expand indices as Fortran.
+        proj_int = sps.kron(proj, sps.eye(g.dim)).tocsr()
+
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        biot_alpha = data[pp.PARAMETERS][self.keyword]["biot_alpha"]
+        bound_div_d = matrix_dictionary["bound_div_d"]
+
+        lam_k = data_edge[pp.PARAMETERS][self.keyword]["state"]
+
+        if bound_div_d.shape[1] != proj_int.shape[1]:
+            raise ValueError(
+                """Inconsistent shapes. Did you define a
+            sub-face boundary condition but only a face-wise mortar?"""
+            )
+        # The mortar will act as a boundary condition for the div_d term.
+        # We assume implicit Euler in Biot, thus the div_d term appares
+        # on the rhs as div_d^{k-1}. This result in a contribution to the
+        # rhs for the coupling variable also.
+        cc[self_ind, 2] += biot_alpha * bound_div_d * proj_int.T
+        rhs[self_ind] += biot_alpha * bound_div_d * proj_int.T * lam_k
+
+    def enforce_neumann_int_bound(self, *_):
+        pass
 
 
 class BiotStabilization(

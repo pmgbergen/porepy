@@ -31,7 +31,9 @@ class Assembler:
         else:
             return row + "_" + col
 
-    def _variable_term_key(self, term: str, key_1: str, key_2: str, key_3: str=None) -> str:
+    def _variable_term_key(
+        self, term: str, key_1: str, key_2: str, key_3: str = None
+    ) -> str:
         """ Get the key-variable combination used to identify a specific term in the equation.
 
         For nodes and internally to edges in the GridBucket (i.e. fixed-dimensional grids),
@@ -592,7 +594,9 @@ class Assembler:
                     key_master = key_master[0]
                 else:
                     key_master = ""
-                variable_combinations.append(self._variable_term_key(term, key_edge, key_slave, key_master))
+                variable_combinations.append(
+                    self._variable_term_key(term, key_edge, key_slave, key_master)
+                )
 
         # By now, we have identified all active variables on nodes and edges in
         # the GridBucket, and assigned a block index to ecah variable on each

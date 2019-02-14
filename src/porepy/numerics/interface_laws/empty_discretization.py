@@ -303,4 +303,5 @@ class EmptyDiscretization(object):
         """
         raise NotImplementedError("Method not implemented")
 
+
 # -----------------------------------------------------------------------------#
