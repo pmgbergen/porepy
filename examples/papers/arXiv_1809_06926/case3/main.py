@@ -1,4 +1,5 @@
 import numpy as np
+import porepy as pp
 
 import data as problem_data
 import examples.papers.arXiv_1809_06926.solvers as solvers
@@ -6,13 +7,12 @@ import examples.papers.arXiv_1809_06926.solvers as solvers
 # ------------------------------------------------------------------------------#
 
 
-def report_concentrations(problem):
-    problem.split()
+def report_concentrations(gb):
     mean = np.zeros(8)
-    for g, d in problem.grid():
+    for g, d in gb:
         if g.dim == 2:
-            pv = d["param"].porosity * g.cell_volumes
-            mean[g.frac_num] = np.sum(pv * d["solution"]) / np.sum(pv)
+            pv = d[pp.PARAMETERS]["transport"]["porosity"] * g.cell_volumes
+            mean[g.frac_num] = np.sum(pv * d["tracer"]) / np.sum(pv)
 
     file_name = folder + "/mean_concentration.txt"
     with open(file_name, "a") as f:
@@ -26,7 +26,7 @@ def outlet_fluxes(gb):
     g = gb.grids_of_dimension(3)[0]
     d = gb.node_props(g)
 
-    flux = d["discharge"]
+    flux = d[pp.PARAMETERS]["transport"]["darcy_flux"]
     _, b_out = problem_data.b_pressure(g)
     bound_faces = np.where(g.tags["domain_boundary_faces"])[0]
     xf = g.face_centers[:, bound_faces[b_out]]
@@ -48,9 +48,12 @@ def mean_inlet_pressure(gb, solver_name):
 
     inlet = g.tags["inlet_faces"]
     if solver_name == "tpfa" or solver_name == "mpfa":
-        face_pressure = d["bound_pressure_cell"] * d["pressure"] + d[
-            "bound_pressure_face"
-        ] * d["param"].get_bc_val("flow")
+        bc_values = d[pp.PARAMETERS]["flow"]["bc_values"]
+        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES]["flow"]
+        face_pressure = (
+            matrix_dictionary["bound_pressure_cell"] * d["pressure"]
+            + matrix_dictionary["bound_pressure_face"] * bc_values
+        )
     else:
         face_pressure = np.abs(g.cell_faces) * d["pressure"]
 
@@ -79,8 +82,7 @@ def main(grid_file, folder, solver, solver_name, dt):
 
     gb, domain = problem_data.create_grid(grid_file)
 
-    data = {"domain": domain, "t_max": 1}
-    data["dt"] = dt
+    data = {"domain": domain, "t_max": 1, "time_step": dt}
 
     problem_data.add_data(gb, data, solver_name)
 
@@ -106,13 +108,8 @@ def main(grid_file, folder, solver, solver_name, dt):
     with open(file_name, "w") as f:
         f.write(", ".join(map(str, results)))
 
-    solvers.transport(
-        gb,
-        data,
-        solver_name,
-        folder,
-        problem_data.AdvectiveDataAssigner,
-        callback=report_concentrations,
+    T, outflow, A, b, block_dof, full_dof = solvers.transport(
+        gb, data, solver_name, folder, callback=report_concentrations, save_every=1
     )
 
 
