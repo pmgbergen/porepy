@@ -255,7 +255,11 @@ def plot_gb(gb, cell_value, vector_value, info, **kwargs):
 
     See documentation of plot_single.
     """
-    fig = plt.figure()
+    figsize = kwargs.get("figsize", None)
+    if figsize is None:
+        fig = plt.figure()
+    else:
+        fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
 
     ax.set_title(" ".join(gb.name))

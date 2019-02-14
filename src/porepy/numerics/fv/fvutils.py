@@ -584,6 +584,7 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
     ).tocsr()
     return hf2f
 
+
 def map_sc_2_c(nd, sub_cell_index, cell_index):
 
     """
@@ -603,14 +604,14 @@ def map_sc_2_c(nd, sub_cell_index, cell_index):
     """
 
     num_cells = cell_index.max() + 1
-    
+
     def build_sc2c_single_dimension(dim):
         rows = np.arange(sub_cell_index[dim].size)
         cols = cell_index
         vals = np.ones(rows.size)
-        mat = sps.coo_matrix((vals, (rows, cols)),
-                                   shape=(sub_cell_index[dim].size,
-                                          num_cells)).tocsr()
+        mat = sps.coo_matrix(
+            (vals, (rows, cols)), shape=(sub_cell_index[dim].size, num_cells)
+        ).tocsr()
         return mat
 
     sc2c = build_sc2c_single_dimension(0)
@@ -619,6 +620,7 @@ def map_sc_2_c(nd, sub_cell_index, cell_index):
         sc2c = sps.vstack([sc2c, this_dim])
 
     return sc2c
+
 
 def scalar_divergence(g):
     """
@@ -666,6 +668,7 @@ def vector_divergence(g):
     block_div = sps.kron(scalar_div, sps.eye(g.dim)).tocsr()
 
     return block_div.transpose()
+
 
 def scalar_tensor_vector_prod(g, k, subcell_topology, apertures=None):
     """
@@ -716,9 +719,7 @@ def scalar_tensor_vector_prod(g, k, subcell_topology, apertures=None):
 
     # Distribute faces equally on the sub-faces
     num_nodes = np.diff(g.face_nodes.indptr)
-    normals = (
-        g.face_normals[:, subcell_topology.fno] / num_nodes[subcell_topology.fno]
-    )
+    normals = g.face_normals[:, subcell_topology.fno] / num_nodes[subcell_topology.fno]
     if apertures is not None:
         normals = normals * apertures[subcell_topology.cno]
 
@@ -735,6 +736,7 @@ def scalar_tensor_vector_prod(g, k, subcell_topology, apertures=None):
     # every nd column (since nd faces of the cell meet at each vertex)
     sub_cell_ind = j[::, 0::nd]
     return nk, cell_node_blocks, sub_cell_ind
+
 
 def zero_out_sparse_rows(A, rows, diag=None):
     """
@@ -1430,6 +1432,9 @@ def boundary_to_sub_boundary(bound, subcell_topology):
     bound.is_dir = np.atleast_2d(bound.is_dir)[:, subcell_topology.fno_unique].squeeze()
     bound.is_rob = np.atleast_2d(bound.is_rob)[:, subcell_topology.fno_unique].squeeze()
     bound.is_neu = np.atleast_2d(bound.is_neu)[:, subcell_topology.fno_unique].squeeze()
+    bound.is_internal = np.atleast_2d(bound.is_internal)[
+        :, subcell_topology.fno_unique
+    ].squeeze()
     if bound.robin_weight.ndim == 3:
         bound.robin_weight = bound.robin_weight[:, :, subcell_topology.fno_unique]
         bound.basis = bound.basis[:, :, subcell_topology.fno_unique]

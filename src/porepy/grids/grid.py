@@ -88,7 +88,9 @@ class Grid(object):
         cell_faces (sps.csc_matrix): Cell-face relations
         name (str): Name of grid
         """
-        assert dim >= 0 and dim <= 3
+        if not (dim >= 0 and dim <= 3):
+            raise ValueError("A grid has to be 0, 1, 2, or 3.")
+
         self.dim = dim
         self.nodes = nodes
         self.cell_faces = cell_faces
@@ -180,6 +182,8 @@ class Grid(object):
             s = "Structured tetrahedral grid.\n"
         elif "TetrahedralGrid" in self.name:
             s = "Tetrahedral grid.\n"
+        else:
+            s = " ".join(self.name) + "\n"
         s = s + "Number of cells " + str(self.num_cells) + "\n"
         s = s + "Number of faces " + str(self.num_faces) + "\n"
         s = s + "Number of nodes " + str(self.num_nodes) + "\n"
@@ -514,7 +518,8 @@ class Grid(object):
         # Sometimes the sub-tet volumes can have a volume of numerical zero.
         # Why this is so is not clear, but for the moment, we allow for a
         # slightly negative value.
-        assert np.all(tet_volumes > -1e-12)  # On the fly test
+        if not np.all(tet_volumes > -1e-12):  # On the fly test
+            raise ValueError("Some tets have negative volume")
 
         # The cell volumes are now found by summing sub-tetrahedra
         cell_volumes = np.bincount(cell_numbers, weights=tet_volumes)
@@ -766,7 +771,6 @@ class Grid(object):
                 closest to the point.
         """
         p = np.atleast_2d(p)
-        dim_p = p.shape[0]
         if p.shape[0] < 3:
             z = np.zeros((3 - p.shape[0], p.shape[1]))
             p = np.vstack((p, z))
@@ -797,7 +801,8 @@ class Grid(object):
         values = [np.zeros(self.num_nodes, dtype=bool) for _ in keys]
         tags.add_tags(self, dict(zip(keys, values)))
 
-    def __indices(self, true_false):
+    @staticmethod
+    def __indices(true_false):
         """ Shorthand for np.argwhere.
         """
         return np.argwhere(true_false).ravel("F")
