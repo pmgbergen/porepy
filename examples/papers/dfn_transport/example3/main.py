@@ -89,6 +89,10 @@ def main():
     # effective thermal conductivity
     l = np.power(lw, phi)*np.power(lm, 1-phi)
 
+    # reaction coefficient \gamma * (T - T_rock)
+    gamma = 0.1
+    theta_rock = theta
+
     # boundary conditions
     bc_flow = 5 * pp.BAR
     bc_trans = 30 * pp.CELSIUS
@@ -116,6 +120,7 @@ def main():
             param = {"domain": domain, "tol": tol,
                      "k": k, "bc_flow": bc_flow,
                      "diff": l, "mass_weight": ce,
+                     "src": gamma*theta_rock, "reaction": gamma,
                      "flux_weight": rhow * cw,
                      "bc_trans": bc_trans, "init_trans": theta,
                      "time_step": time_step, "n_steps": n_steps,
