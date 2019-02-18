@@ -2,19 +2,25 @@ import numpy as np
 import unittest
 
 import porepy as pp
+from test import test_utils
 
 
 def setup_2d_1d(nx, simplex_grid=False):
-    frac1 = np.array([[0.2, 0.8], [0.5, 0.5]])
-    frac2 = np.array([[0.5, 0.5], [0.8, 0.2]])
-    fracs = [frac1, frac2]
     if not simplex_grid:
+        frac1 = np.array([[0.2, 0.8], [0.5, 0.5]])
+        frac2 = np.array([[0.5, 0.5], [0.8, 0.2]])
+        fracs = [frac1, frac2]
+
         gb = pp.meshing.cart_grid(fracs, nx, physdims=[1, 1])
     else:
+        p = np.array([[0.2, 0.8, 0.5, 0.5], [0.5, 0.5, 0.8, 0.2]])
+        e = np.array([[0, 2], [1, 3]])
+        domain = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
+        network = pp.FractureNetwork2d(p, e, domain)
         mesh_size = 0.08
         mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
-        domain = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
-        gb = pp.meshing.simplex_grid(fracs, domain, **mesh_kwargs)
+
+        gb = network.mesh(mesh_kwargs)
 
     gb.compute_geometry()
     gb.assign_node_ordering()
@@ -66,23 +72,10 @@ class BasicsTest(unittest.TestCase):
         # Structured Cartesian grid
         gb = setup_2d_1d(np.array([10, 10]))
 
-        # Python inverter is most efficient for small problems
         key = "flow"
-        discretization_key = key + "_" + pp.DISCRETIZATION
-
         tpfa = pp.Tpfa(key)
-        for g, d in gb:
-            d[discretization_key] = tpfa
-
-        for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key, tpfa)
-
-        assembler = pp.EllipticAssembler(key)
-
-        # Discretize
-        A, b = assembler.assemble_matrix_rhs(gb)
-        p = np.linalg.solve(A.A, b)
-        assembler.split(gb, "pressure", p)
+        assembler = test_utils.setup_flow_assembler(gb, tpfa, key)
+        test_utils.solve_and_distribute_pressure(gb, assembler)
 
         self.assertTrue(check_pressures(gb))
 
@@ -90,23 +83,10 @@ class BasicsTest(unittest.TestCase):
         # Unstructured simplex grid
         gb = setup_2d_1d(np.array([10, 10]), simplex_grid=True)
 
-        # Python inverter is most efficient for small problems
         key = "flow"
-        discretization_key = key + "_" + pp.DISCRETIZATION
-
         tpfa = pp.Tpfa(key)
-        for g, d in gb:
-            d[discretization_key] = tpfa
-
-        for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key, tpfa)
-
-        assembler = pp.EllipticAssembler(key)
-
-        # Discretize
-        A, b = assembler.assemble_matrix_rhs(gb)
-        p = np.linalg.solve(A.A, b)
-        assembler.split(gb, "pressure", p)
+        assembler = test_utils.setup_flow_assembler(gb, tpfa, key)
+        test_utils.solve_and_distribute_pressure(gb, assembler)
         self.assertTrue(check_pressures(gb))
 
 

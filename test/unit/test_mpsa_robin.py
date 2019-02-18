@@ -197,9 +197,10 @@ class RobinBoundTest(unittest.TestCase):
 
     def test_unstruct_tetrahedron(self):
         box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
-
-        g = pp.meshing.simplex_grid([], box, mesh_size_min=3, mesh_size_frac=3)
-        g = g.grids_of_dimension(3)[0]
+        network = pp.FractureNetwork3d([], domain=box)
+        mesh_args = {"mesh_size_frac": 3, "mesh_size_min": 3}
+        gb = network.mesh(mesh_args)
+        g = gb.grids_of_dimension(3)[0]
         c = pp.FourthOrderTensor(3, np.ones(g.num_cells), np.ones(g.num_cells))
         robin_weight = 1.0
 

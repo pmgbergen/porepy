@@ -17,7 +17,9 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
+class Mpsa(
+    pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization
+):
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
@@ -35,8 +37,9 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
         return g.dim * g.num_cells
 
     def extract_displacement(self, g, solution_array, d):
-        """ Extract the pressure part of a solution.
-        The method is trivial for finite volume methods, with the pressure
+        """ Extract the displacement part of a solution.
+
+        The method is trivial for finite volume methods, with the displacement
         being the only primary variable.
 
         Parameters:
@@ -66,8 +69,8 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         parameter_dictionary contains the entries:
-            fourth_order_tensor : (pp.FourthOrderTensor) Stiffness tensor defined cell-wise.
-            bc : (BoundaryConditionVectorial) boundary conditions
+            fourth_order_tensor: (pp.FourthOrderTensor) Stiffness tensor defined cell-wise.
+            bc: (BoundaryConditionVectorial) boundary conditions
             mpsa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of
                 displacement continuity point: eta. eta = 0 gives cont. pt. at face midpoint,
                 eta = 1 at the vertex. If not given, porepy tries to set an optimal
@@ -80,22 +83,23 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
                 stress discretization, cell center contribution
             bound_flux: sps.csc_matrix (g.dim * g.num_faces, g.dim * g.num_faces)
                 stress discretization, face contribution
-            bound_displacement_cell: sps.csc_matrix (g.dim * g.num_faces, g.dim * g.num_cells)
-                Operator for reconstructing the displacement trace. Cell center contribution
-            bound_displacement_face: sps.csc_matrix (g.dim * g.num_faces, g.dim * g.num_faces)
-                Operator for reconstructing the displacement trace. Face contribution
-
-        Hidden option (intended as "advanced" option that one should normally not
-        care about):
-            Half transmissibility calculation according to Ivar Aavatsmark, see
-            folk.uib.no/fciia/elliptisk.pdf. Activated by adding the entry
-            Aavatsmark_transmissibilities: True   to the data dictionary.
+            bound_displacement_cell: sps.csc_matrix (g.dim * g.num_faces,
+                                                     g.dim * g.num_cells)
+                Operator for reconstructing the displacement trace. Cell center
+                contribution.
+            bound_displacement_face: sps.csc_matrix (g.dim * g.num_faces,
+                                                     g.dim * g.num_faces)
+                Operator for reconstructing the displacement trace. Face contribution.
 
         Parameters
         ----------
         g (pp.Grid): grid, or a subclass, with geometry fields computed.
         data (dict): For entries, see above.
         faces (np.ndarray): optional. Defines active faces.
+
+        Raises
+        ------
+        NotImplementedError for partial discretization
         """
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
@@ -148,17 +152,13 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
 
     def assemble_matrix(self, g, data):
         """
-        Return the matrix for a discretization of a second order elliptic equation
-        using a FV method.
+        Return the matrix for a discretization of a second order elliptic vector
+        equation using a FV method.
 
         The name of data in the input dictionary (data) are:
-        k : FourthOrderTensor
-            stiffness tensor defined cell-wise.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir', 'neu' 'rob', for Dirichlet, Neumann and Robin
-            boundary conditions, respectively.
+        fourth_order_tensor: FourthOrderTensor stiffness tensor defined cell-wise.
+        bc: boundary conditions, pp.BoundaryConditionVectorial.
+        bc_values: (g.dim * g.num_faces) Values of the boundary conditions.
 
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
@@ -384,16 +384,24 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
                 * matrix_dictionary["bound_displacement_face"]
                 * proj_int.T
             )
+            # Add the contibution to the displacement for the other side (master/slave).
+            # This can typically happen if you simulate the contact between the two
+            # sides of a fracture. The interaction region around the nodes on the end of
+            # the fracture will then get a contribution from both sides. We need a
+            # negative sign because the tractions T_s = -T_m has different sign.
+            cc[2, 2] -= (
+                proj_avg
+                * weight
+                * hf2f
+                * matrix_dictionary["bound_displacement_face"]
+                * proj_int_swap.T
+            )
         else:
+            # For comments look above
             cc[2, self_ind] += proj_avg * bp
             cc[2, 2] += (
                 proj_avg * matrix_dictionary["bound_displacement_face"] * proj_int.T
             )
-            # Add the contibution to the displacement for the other mortar. This can
-            # typically happen if you simulate the contact between the two sides of a
-            # fracture. The interaction region around the nodes on the edge will then
-            # get a contribution from both sides. We need a negative sign because the
-            # tractions T_s = -T_m has different sign.
             cc[2, 2] -= (
                 proj_avg
                 * matrix_dictionary["bound_displacement_face"]
@@ -1386,6 +1394,32 @@ def _mpsa_local(
     Neumann condition, mainly for legacy reasons. This meens that Dirichlet
     faces and internal faces are mixed together, decided by their face ordering.
     """
+    # Implementational note on boundary conditions: In Porepy we have defined
+    # nodes, faces and cells in our grid. The mpsa/mpfa methods, however, needs
+    # access to the local subgrids around each node (see any mpfa paper) to formulate
+    # the local problems. In Porepy we obtain these subgrids through the the class
+    # SubcellTopology (in fvutils). Since the user usually don't have access to/care
+    # about the subcells, she will define the boundary conditions on the faces of the
+    # grid. But as you can see in the method documentation above, the boundary
+    # conditions should in fact be applied to the subfaces. Porepy handles this by
+    # distribute the given face-boundary condition to the sub-faces automatically.
+    # In some cases, users that are experts in mpsa/mpsa might want to specify
+    # the boundary conditions on the subfaces (e.g. to specify different values on
+    # each subface or even different conditions). So far this is handled in the
+    # implementation by checking the length of the boundary conditions to see
+    # if they are the length of faces or subfaces. If the user gives a subface
+    # boundary conditions, mpsa/mpfa will also return the discretization on a subface
+    # level (instead of the usuall face-wise level). The intrigued user might find
+    # the function fvutils.boundary_to_sub_boundary(..) helpfull. As a final note,
+    # the continuity points defaults to the face centers (eta=0) on the boundary.
+    # This will happen as long as a scalar eta is given. eta defaults to the face
+    # centers on the boundary since most user will specify the boundary conditions
+    # on the faces (thus, the face-centers). The expert user that specify subface
+    # boundary conditions might also want eta!=0 also on the boundary. This is
+    # facilitated by supplying the method with eta beeing a ndArray equal the
+    # number of subfaces (SubcellTopology.num_subfno_unique) giving the eta value
+    # for each subface.
+
     if eta is None:
         eta = pp.fvutils.determine_eta(g)
 
@@ -1427,7 +1461,7 @@ def _mpsa_local(
     # Most of the work is done by submethod for elasticity (which is common for
     # elasticity and poro-elasticity).
 
-    hook, igrad, rhs_cells, _, _ = mpsa_elasticity(
+    hook, igrad, rhs_cells, _ = mpsa_elasticity(
         g, constit, subcell_topology, bound_exclusion, eta, inverter
     )
 
@@ -1507,18 +1541,6 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     ncsym_all, ncasym, cell_node_blocks, sub_cell_index = _tensor_vector_prod(
         g, constit, subcell_topology
     )
-
-    # Prepare for computation of forces due to cell center pressures (the term
-    # div(I*p) in poro-elasticity equations. hook_normal will be used as a right
-    # hand side by the biot disretization, but needs to be computed here, since
-    # this is where we have access to the relevant data.
-    ind_f = np.argsort(np.tile(subcell_topology.subhfno, nd), kind="mergesort")
-    hook_normal = sps.coo_matrix(
-        (np.ones(ind_f.size), (np.arange(ind_f.size), ind_f)),
-        shape=(ind_f.size, ind_f.size),
-    ) * (ncsym_all + ncasym)
-
-    del ind_f
 
     # To avoid singular matrices we are not abe to add the asymetric part of the stress
     # tensor to the Neumann and Robin boundaries for nodes that only has more
@@ -1601,7 +1623,7 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
 
     # Right hand side for cell center variables
     rhs_cells = -sps.vstack([hook_cell, rob_cell, d_cont_cell])
-    return hook, igrad, rhs_cells, cell_node_blocks, hook_normal
+    return hook, igrad, rhs_cells, cell_node_blocks
 
 
 def reconstruct_displacement(g, subcell_topology, eta=None):

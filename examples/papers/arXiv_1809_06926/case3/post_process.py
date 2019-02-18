@@ -110,7 +110,7 @@ if __name__ == "__main__":
 
             # 5)
             file_in = folder+"/mean_concentration.txt"
-            file_out = folder+"/cot_refinement_"+idx+".csv"
+            file_out = folder+"/dot_refinement_"+idx+".csv"
             data = np.array(read_csv(file_in), dtype=np.float)[-100:, :]
 
             time = np.arange(1, 101)*0.01
