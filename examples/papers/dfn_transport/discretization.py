@@ -181,6 +181,7 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
 
     model_data_adv = model + "_data_adv"
     model_data_diff = model + "_data_diff"
+    model_data_src = model + "_data_src"
 
     flux_discharge_name = data["flux"]
     flux_mortar_name = data["mortar_flux"]
@@ -188,6 +189,7 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
     for g, d in gb:
         param_adv = {}
         param_diff = {}
+        param_src = {}
 
         d["Aavatsmark_transmissibilities"] = True
         unity = np.ones(g.num_cells)
@@ -207,6 +209,9 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
 
         # Flux
         param_adv[flux_discharge_name] = data.get("flux_weight", 1) * d[flux_discharge_name]
+
+        # Source
+        param_src["source"] = data.get("src", 0) * g.cell_volumes
 
         # Boundaries
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -232,9 +237,11 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
         param_adv["bc_values"] = bc_val
         param_diff["bc_values"] = bc_val
 
-        param = pp.Parameters(g, [model_data_adv, model_data_diff], [param_adv, param_diff])
+        param = pp.Parameters(g, [model_data_adv, model_data_diff, model_data_src],
+                                 [param_adv, param_diff, param_src])
         d[pp.PARAMETERS] = param
-        d[pp.DISCRETIZATION_MATRICES] = {model_data_adv: {}, model_data_diff: {}}
+        d[pp.DISCRETIZATION_MATRICES] = {model_data_adv: {}, model_data_diff: {},
+                                         model_data_src: {}}
 
     for e, d in gb.edges():
         param_adv = {}
@@ -246,7 +253,7 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
         d[pp.PARAMETERS] = param
         d[pp.DISCRETIZATION_MATRICES] = {model_data_adv: {}, model_data_diff: {}}
 
-    return model_data_adv, model_data_diff
+    return model_data_adv, model_data_diff, model_data_src
 
 # ------------------------------------------------------------------------------#
 
@@ -254,11 +261,12 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
 
     model = "transport"
 
-    model_data_adv, model_data_diff = data_advdiff(gb, model, model_flow, param, bc_flag)
+    model_data_adv, model_data_diff, model_data_src = data_advdiff(gb, model, model_flow, param, bc_flag)
 
     # discretization operator names
     adv_id = "advection"
     diff_id = "diffusion"
+    src_id = "source"
 
     # variable names
     variable = "scalar"
@@ -280,10 +288,12 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
     coupling_adv = pp.UpwindCoupling(model_data_adv)
     coupling_diff = pp.FluxPressureContinuity(model_data_diff, discr_diff, discr_diff_interface)
 
+    discr_src = pp.ScalarSource(model_data_src)
+
     for g, d in gb:
         d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
         if g.dim == gb.dim_max():
-            d[pp.DISCRETIZATION] = {variable: {adv_id: discr_adv, diff_id: discr_diff}}
+            d[pp.DISCRETIZATION] = {variable: {adv_id: discr_adv, diff_id: discr_diff, src_id: discr_src}}
         else:
             d[pp.DISCRETIZATION] = {variable: {adv_id: discr_adv_interface, diff_id: discr_diff_interface}}
 
@@ -332,11 +342,12 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
 
     logger.info("Assemble the mass term of the transport problem")
     M, _, _, _ = assembler.assemble_matrix_rhs(gb)
-    M /= param["time_step"]
+    M_t = M.copy() / param["time_step"]
+    M_r = M.copy() * param.get("reaction", 0)
     logger.info("done")
 
     # Perform an LU factorization to speedup the solver
-    IE_solver = sps.linalg.factorized((M + A).tocsc())
+    IE_solver = sps.linalg.factorized((M_t + A + M_r).tocsc())
 
     # time loop
     logger.info("Prepare the exporting")
@@ -361,7 +372,7 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
     logger.info("Start the time loop with " + str(param["n_steps"]) + " steps")
     for i in np.arange(param["n_steps"]):
         logger.info("Solve the linear system for time step " + str(i))
-        x = IE_solver(b + M.dot(x))
+        x = IE_solver(b + M_t.dot(x))
         logger.info("done")
 
         logger.info("Variable post-process")
