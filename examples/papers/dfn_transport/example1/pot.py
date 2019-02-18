@@ -89,7 +89,7 @@ def main():
     master_folder = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/"
 
     methods_stefano = ["OPTxfem", "OPTfem"]
-    methods_alessio = ["MVEM", "Tpfa", "RT0"]
+    methods_alessio = ["MVEM_UPWIND", "Tpfa_UPWIND", "RT0_UPWIND"]
 
     grids = {"grid_0": ("1k", "220"), "grid_1": ("3k", "650"), "grid_2": ("10k", "2100")}
     grids_label = {"grid_0": "coarse", "grid_1": "medium", "grid_2": "fine"}
@@ -104,8 +104,8 @@ def main():
             title = ["avg $\\theta$", grid_label, simul]
             # Alessio
             for method in methods_alessio:
-                data = folder_in + method + "/" + method + "_Cmean_" + str(simul+1) + "_" + grid[0] + ".csv"
-                plot_multiple(data, method, title, num_frac)
+                data = folder_in + method + "/" + "Cmean_" + str(simul+1) + "_" + grid[0] + ".csv"
+                plot_multiple(data, method.replace("_", " "), title, num_frac)
 
             # Stefano
             for method in methods_stefano:
@@ -121,8 +121,8 @@ def main():
             title = ["min $\\theta$", grid_label, simul]
             # Alessio
             for method in methods_alessio:
-                data = folder_in + method + "/" + method + "_Cmin_" + str(simul+1) + "_" + grid[0] + ".csv"
-                plot_multiple(data, method, title, num_frac)
+                data = folder_in + method + "/" + "Cmin_" + str(simul+1) + "_" + grid[0] + ".csv"
+                plot_multiple(data, method.replace("_", " "), title, num_frac)
 
             # Stefano
             for method in methods_stefano:
@@ -138,8 +138,8 @@ def main():
             title = ["max $\\theta$", grid_label, simul]
             # Alessio
             for method in methods_alessio:
-                data = folder_in + method + "/" + method + "_Cmax_" + str(simul+1) + "_" + grid[0] + ".csv"
-                plot_multiple(data, method, title, num_frac)
+                data = folder_in + method + "/" + "Cmax_" + str(simul+1) + "_" + grid[0] + ".csv"
+                plot_multiple(data, method.replace("_", " "), title, num_frac)
 
             # Stefano
             for method in methods_stefano:
@@ -155,8 +155,8 @@ def main():
             title = "production on " + grid_label  + " - config " + str(simul)
             # Alessio
             for method in methods_alessio:
-                data = folder_in + method + "/" + method + "_production_" + str(simul+1) + "_" + grid[0] + ".csv"
-                plot_single(data, method, title)
+                data = folder_in + method + "/" + "production_" + str(simul+1) + "_" + grid[0] + ".csv"
+                plot_single(data, method.replace("_", " "), title)
 
             # Stefano
             for method in methods_stefano:
@@ -172,8 +172,8 @@ def main():
         title = "number of cells - " + grid_label
         # Alessio
         for method in methods_alessio:
-            data = folder_in + method + "/" + method + "_num_cells_" + grid[0] + ".csv"
-            plot_num_cells(data, method, title)
+            data = folder_in + method + "/" + "num_cells_" + grid[0] + ".csv"
+            plot_num_cells(data, method.replace("_", " "), title)
 
         name = grid_label + "_num_cells"
         save_single(name, folder_out)
