@@ -32,7 +32,6 @@ def main():
 
     input_folder = "../geometries/"
     file_name = input_folder + "example2.fab"
-    file_inters = None #input_folder + "example2.dat"
 
     # define the discretizations for the Darcy part
     discretizations = compute.get_discr()
@@ -62,7 +61,8 @@ def main():
 
             folder = "solution_" + discr_key + "_" + mesh_size_key
 
-            gb = pp.importer.dfn_3d_from_fab(file_name, file_inters, tol=tol, **mesh_kwargs)
+            network = pp.fracture_importer.network_3d_from_fab(file_name)
+            gb = network.mesh(mesh_kwargs, dfn=True)
 
             gb.remove_nodes(lambda g: g.dim == 0)
             gb.compute_geometry()
