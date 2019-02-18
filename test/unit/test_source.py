@@ -7,7 +7,7 @@ import porepy as pp
 class TestSource(unittest.TestCase):
     def test_integral(self):
         g, d = setup_3d_grid()
-        src_disc = pp.Integral()
+        src_disc = pp.ScalarSource()
         lhs, rhs = src_disc.assemble_matrix_rhs(g, d)
 
         rhs_t = np.array([0, 0, 0, 0, 1, 0, 0, 0])
