@@ -5,7 +5,7 @@ from .mpfa import Mpfa
 
 from .mpsa import FracturedMpsa, Mpsa
 
-from .source import Integral
+from .source import ScalarSource
 
 from .upwind import Upwind
 from .mass_matrix import MassMatrix, InvMassMatrix

@@ -31,7 +31,7 @@ from porepy.numerics.fv.mpsa import Mpsa, FracturedMpsa
 from porepy.numerics.fv.tpfa import Tpfa
 from porepy.numerics.fv.mpfa import Mpfa
 from porepy.numerics.fv.biot import Biot, GradP, DivD, BiotStabilization
-from porepy.numerics.fv.source import Integral
+from porepy.numerics.fv.source import ScalarSource
 
 # Virtual elements, elliptic
 from porepy.numerics.vem.dual_elliptic import project_flux
