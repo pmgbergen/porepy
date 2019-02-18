@@ -101,8 +101,8 @@ def main(N):
 
     up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
 
-    u = solver_flow.extract_flux(g, up)
-    p = solver_flow.extract_pressure(g, up)
+    u = solver_flow.extract_flux(g, up, data)
+    p = solver_flow.extract_pressure(g, up, data)
     #    P0u = solver_flow.project_flux(g, u, data, keyword="flow")
 
     diam = np.amax(g.cell_diameters())
