@@ -2,8 +2,6 @@ import numpy as np
 from scipy import sparse as sps
 from itertools import islice
 import csv
-import time
-import logging
 
 import porepy as pp
 
@@ -15,7 +13,6 @@ from porepy.utils.setmembership import unique_columns_tol
 from porepy.utils.sort_points import sort_point_pairs
 import porepy.utils.comp_geom as cg
 
-logger = logging.getLogger(__name__)
 
 def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
     """
