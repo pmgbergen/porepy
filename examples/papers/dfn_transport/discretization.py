@@ -26,7 +26,6 @@ def get_discr():
     return { "MVEM": {"scheme": pp.MVEM, "dof": {"cells": 1, "faces": 1}},
              "RT0":  {"scheme": pp.RT0,  "dof": {"cells": 1, "faces": 1}},
              "Tpfa": {"scheme": pp.Tpfa, "dof": {"cells": 1}}}
-             #"Mpfa": {"scheme": pp.Mpfa, "dof": {"cells": 1}}}
 
 # ------------------------------------------------------------------------------#
 
@@ -53,7 +52,7 @@ def data_flow(gb, discr, model, data, bc_flag):
         if discr["scheme"] is pp.MVEM or discr["scheme"] is pp.RT0:
             perm = pp.SecondOrderTensor(2, kxx=kxx, kyy=kxx, kzz=1)
 
-        elif discr["scheme"] is pp.Tpfa or discr["scheme"] is pp.Mpfa:
+        elif discr["scheme"] is pp.Tpfa:
             perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=kxx)
 
         else:
