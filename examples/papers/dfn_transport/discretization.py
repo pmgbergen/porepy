@@ -116,9 +116,9 @@ def flow(gb, discr, param, bc_flag):
     param["mortar_flux"] = mortar
 
     discr_scheme = discr["scheme"](model_data)
-    trace = pp.PressureTrace(model_data)
+    discr_empty = pp.EmptyDiscretization(model_data)
 
-    coupling = pp.FluxPressureContinuity(model_data, discr_scheme, trace)
+    coupling = pp.FluxPressureContinuity(model_data, discr_scheme, discr_empty)
 
     # define the dof and discretization for the grids
     for g, d in gb:
@@ -127,7 +127,7 @@ def flow(gb, discr, param, bc_flag):
             d[pp.DISCRETIZATION] = {variable: {flux_id: discr_scheme}}
         else:
             d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
-            d[pp.DISCRETIZATION] = {variable: {flux_id: trace}}
+            d[pp.DISCRETIZATION] = {variable: {flux_id: discr_empty}}
 
     # define the interface terms to couple the grids
     for e, d in gb.edges():
@@ -275,20 +275,20 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
     diff = "diffusion"
 
     discr_adv = pp.Upwind(model_data_adv)
-    trace_adv = pp.PressureTrace(model_data_adv)
+    discr_adv_empty = pp.EmptyDiscretization(model_data_adv)
 
     discr_diff = pp.Tpfa(model_data_diff)
-    trace_diff = pp.PressureTrace(model_data_diff)
+    discr_diff_empty = pp.EmptyDiscretization(model_data_diff)
 
     coupling_adv = pp.UpwindCoupling(model_data_adv)
-    coupling_diff = pp.FluxPressureContinuity(model_data_diff, discr_diff, trace_diff)
+    coupling_diff = pp.FluxPressureContinuity(model_data_diff, discr_diff, discr_diff_empty)
 
     for g, d in gb:
         d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
         if g.dim == gb.dim_max():
             d[pp.DISCRETIZATION] = {variable: {adv_id: discr_adv, diff_id: discr_diff}}
         else:
-            d[pp.DISCRETIZATION] = {variable: {adv_id: trace_adv, diff_id: trace_diff}}
+            d[pp.DISCRETIZATION] = {variable: {adv_id: discr_adv_empty, diff_id: discr_diff_empty}}
 
     for e, d in gb.edges():
         g_slave, g_master = gb.nodes_of_edge(e)
@@ -317,14 +317,14 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
     # mass term
     mass_id = "mass"
     discr_mass = pp.MassMatrix(model_data_adv)
-    trace_mass = pp.PressureTrace(model_data_adv)
+    discr_mass_empty = pp.EmptyDiscretization(model_data_adv)
 
     for g, d in gb:
         d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
         if g.dim == gb.dim_max():
             d[pp.DISCRETIZATION] = {variable: {mass_id: discr_mass}}
         else:
-            d[pp.DISCRETIZATION] = {variable: {mass_id: trace_mass}}
+            d[pp.DISCRETIZATION] = {variable: {mass_id: discr_mass_empty}}
 
     gb.remove_edge_props(pp.COUPLING_DISCRETIZATION)
 
