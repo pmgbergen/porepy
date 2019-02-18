@@ -232,9 +232,6 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
         param_adv["bc_values"] = bc_val
         param_diff["bc_values"] = bc_val
 
-        # Assign time step
-        param_adv["time_step"] = data["time_step"]
-
         param = pp.Parameters(g, [model_data_adv, model_data_diff], [param_adv, param_diff])
         d[pp.PARAMETERS] = param
         d[pp.DISCRETIZATION_MATRICES] = {model_data_adv: {}, model_data_diff: {}}
@@ -335,6 +332,7 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
 
     logger.info("Assemble the mass term of the transport problem")
     M, _, _, _ = assembler.assemble_matrix_rhs(gb)
+    M /= param["time_step"]
     logger.info("done")
 
     # Perform an LU factorization to speedup the solver
