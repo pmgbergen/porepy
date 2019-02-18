@@ -51,8 +51,8 @@ class TestImport2dCsv(unittest.TestCase):
         file_name = "frac.csv"
         np.savetxt(file_name, [], delimiter=",")
         network = pp.fracture_importer.network_2d_from_csv(file_name, skip_header=0)
-        self.assertTrue(network.pts is None)
-        self.assertTrue(network.edges is None)
+        self.assertTrue(network.pts.shape == (2, 0))
+        self.assertTrue(network.edges.shape == (2, 0))
         self.assertTrue(network.domain is None)
         self.assertTrue(network.num_frac == 0)
         test_utils.delete_file(file_name)
@@ -76,8 +76,8 @@ class TestImport2dCsv(unittest.TestCase):
         network = pp.fracture_importer.network_2d_from_csv(
             file_name, skip_header=0, max_num_fracs=0
         )
-        self.assertTrue(network.pts is None)
-        self.assertTrue(network.edges is None)
+        self.assertTrue(network.pts.shape == (2, 0))
+        self.assertTrue(network.edges.shape == (2, 0))
         self.assertTrue(network.domain is None)
         self.assertTrue(network.num_frac == 0)
 

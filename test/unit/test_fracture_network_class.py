@@ -117,7 +117,7 @@ class TestFractureNetwork2d(unittest.TestCase):
         e2 = np.array([[0, 2], [1, 3]])
         network_2 = pp.FractureNetwork2d(p2, e2)
 
-        together = network_1.add_fractures(network_2)
+        together = network_1.add_network(network_2)
 
         p_known = np.hstack((self.p, p2))
         self.assertTrue(test_utils.compare_arrays(p_known, together.pts))
@@ -134,22 +134,22 @@ class TestFractureNetwork2d(unittest.TestCase):
         network_2 = pp.FractureNetwork2d(p2, e2)
 
         # Add first to second, check domain
-        together = network_1.add_fractures(network_2)
+        together = network_1.add_network(network_2)
         self.assertTrue(self.compare_dictionaries(self.domain, together.domain))
 
         # Add second to first, check domain
-        together = network_2.add_fractures(network_1)
+        together = network_2.add_network(network_1)
         self.assertTrue(self.compare_dictionaries(self.domain, together.domain))
 
         # Assign domain, then add
         network_2.domain = self.domain
-        together = network_1.add_fractures(network_2)
+        together = network_1.add_network(network_2)
         self.assertTrue(self.compare_dictionaries(self.domain, together.domain))
 
         # Assign different domain, check that the sum has a combination of the
         # domain dicts
         network_2.domain = self.small_domain
-        together = network_1.add_fractures(network_2)
+        together = network_1.add_network(network_2)
         combined_domain = {"xmin": -1, "xmax": 5.0, "ymin": -1, "ymax": 5}
         self.assertTrue(self.compare_dictionaries(combined_domain, together.domain))
 
@@ -162,17 +162,17 @@ class TestFractureNetwork2d(unittest.TestCase):
         network_2 = pp.FractureNetwork2d(p2, e2)
 
         # Add networks, check tags
-        together = network_1.add_fractures(network_2)
+        together = network_1.add_network(network_2)
         self.assertTrue(np.all(together.edges[2, 2:4] == tag2))
 
         # Add networks reverse order
-        together = network_2.add_fractures(network_1)
+        together = network_2.add_network(network_1)
         self.assertTrue(np.all(together.edges[2, :2] == tag2))
 
         # Assign tags to network1
         tag1 = 2
         network_1.edges = np.vstack((network_1.edges, tag1 * np.ones(2)))
-        together = network_1.add_fractures(network_2)
+        together = network_1.add_network(network_2)
         known_tags = np.array([tag1, tag1, tag2, tag2])
         self.assertTrue(np.all(together.edges[2] == known_tags))
 
