@@ -2,6 +2,7 @@ import numpy as np
 import unittest
 
 from porepy.utils import comp_geom as cg
+from test import test_utils
 
 
 class SplitIntersectingLines2DTest(unittest.TestCase):
@@ -13,22 +14,6 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
     fairly well covered by unit tests, in the form of doctests.
 
     """
-
-    def compare_arrays(self, a, b):
-        if not np.all(a.shape == b.shape):
-            return False
-        a.sort(axis=0)
-        b.sort(axis=0)
-
-        for i in range(a.shape[1]):
-            dist = np.sum((b - a[:, i].reshape((-1, 1))) ** 2, axis=0)
-            if dist.min() > 1e-3:
-                return False
-        for i in range(b.shape[1]):
-            dist = np.sum((a - b[:, i].reshape((-1, 1))) ** 2, axis=0)
-            if dist.min() > 1e-3:
-                return False
-        return True
 
     def test_lines_crossing_origin(self):
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
@@ -43,7 +28,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         lines_known = np.array([[0, 4, 2, 4], [4, 1, 4, 3], [1, 1, 2, 2], [3, 3, 4, 4]])
 
         self.assertTrue(np.allclose(new_pts, p_known))
-        self.assertTrue(self.compare_arrays(new_lines, lines_known))
+        self.assertTrue(test_utils.compare_arrays(new_lines, lines_known))
 
     def test_lines_no_crossing(self):
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
@@ -64,7 +49,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         new_pts, new_lines = cg.remove_edge_crossings2(p, lines)
 
         self.assertTrue(np.allclose(new_pts, p))
-        self.assertTrue(self.compare_arrays(new_lines, lines))
+        self.assertTrue(test_utils.compare_arrays(new_lines, lines))
 
     def test_three_lines_one_crossing(self):
         # This test gave an error at some point
@@ -77,7 +62,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p_known = np.hstack((p, np.array([[0.4], [0.4]])))
         lines_known = np.array([[0, 3], [2, 6], [6, 5], [1, 6], [6, 4]]).T
         self.assertTrue(np.allclose(new_pts, p_known))
-        self.assertTrue(self.compare_arrays(new_lines, lines_known))
+        self.assertTrue(test_utils.compare_arrays(new_lines, lines_known))
 
     def test_split_segment_partly_overlapping(self):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
@@ -114,7 +99,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
 
         self.assertTrue(np.allclose(new_pts, p))
-        self.assertTrue(self.compare_arrays(new_lines, lines_known))
+        self.assertTrue(test_utils.compare_arrays(new_lines, lines_known))
 
     def test_split_segment_fully_overlapping_common_start(self):
         p = np.array([[0, 1, 2], [0, 0, 0]])
@@ -126,7 +111,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         lines_known = np.array([[0, 1], [1, 2]]).T
 
         self.assertTrue(np.allclose(new_pts, p))
-        self.assertTrue(self.compare_arrays(new_lines, lines_known))
+        self.assertTrue(test_utils.compare_arrays(new_lines, lines_known))
 
     def test_split_segment_fully_overlapping_common_endt(self):
         p = np.array([[0, 1, 2], [0, 0, 0]])
@@ -138,7 +123,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         lines_known = np.array([[0, 1], [1, 2]]).T
 
         self.assertTrue(np.allclose(new_pts, p))
-        self.assertTrue(self.compare_arrays(new_lines, lines_known))
+        self.assertTrue(test_utils.compare_arrays(new_lines, lines_known))
 
     def test_split_segment_fully_overlapping_switched_order(self):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
@@ -150,7 +135,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
 
         self.assertTrue(np.allclose(new_pts, p))
-        self.assertTrue(self.compare_arrays(new_lines, lines_known))
+        self.assertTrue(test_utils.compare_arrays(new_lines, lines_known))
 
 
 class SnapToGridTest(unittest.TestCase):

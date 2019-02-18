@@ -538,6 +538,19 @@ def expand_indices_nd(ind, nd, direction="F"):
     return new_ind
 
 
+def expand_indices_incr(ind, dim, increment):
+
+    # Convenience method for duplicating a list, with a certain increment
+
+    # Duplicate rows
+    ind_nd = np.tile(ind, (dim, 1))
+    # Add same increment to each row (0*incr, 1*incr etc.)
+    ind_incr = ind_nd + increment * np.array([np.arange(dim)]).transpose()
+    # Back to row vector
+    ind_new = ind_incr.reshape(-1, order="F")
+    return ind_new
+
+
 def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
     """
     Create mapping from half-faces to faces for vector problems.
@@ -570,6 +583,43 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
         (np.ones(hf.size), (hf, hfi)), shape=(hf.max() + 1, hfi.max() + 1)
     ).tocsr()
     return hf2f
+
+
+def map_sc_2_c(nd, sub_cell_index, cell_index):
+
+    """
+    Create mapping from sub-cells to cells for vector problems.
+    For example, discretization of grad_p-term in Biot
+
+    Parameters
+    ----------
+    nd: dimension
+    sub_cell_index: 
+    cell_index:
+
+
+    Returns
+    -------
+
+    """
+
+    num_cells = cell_index.max() + 1
+
+    def build_sc2c_single_dimension(dim):
+        rows = np.arange(sub_cell_index[dim].size)
+        cols = cell_index
+        vals = np.ones(rows.size)
+        mat = sps.coo_matrix(
+            (vals, (rows, cols)), shape=(sub_cell_index[dim].size, num_cells)
+        ).tocsr()
+        return mat
+
+    sc2c = build_sc2c_single_dimension(0)
+    for i in range(1, nd):
+        this_dim = build_sc2c_single_dimension(i)
+        sc2c = sps.vstack([sc2c, this_dim])
+
+    return sc2c
 
 
 def scalar_divergence(g):
@@ -618,6 +668,74 @@ def vector_divergence(g):
     block_div = sps.kron(scalar_div, sps.eye(g.dim)).tocsr()
 
     return block_div.transpose()
+
+
+def scalar_tensor_vector_prod(g, k, subcell_topology, apertures=None):
+    """
+    Compute product of normal vectors and tensors on a sub-cell level.
+    This is essentially defining Darcy's law for each sub-face in terms of
+    sub-cell gradients. Thus, we also implicitly define the global ordering
+    of sub-cell gradient variables (via the interpretation of the columns in
+    nk).
+    NOTE: In the local numbering below, in particular in the variables i and j,
+    it is tacitly assumed that g.dim == g.nodes.shape[0] ==
+    g.face_normals.shape[0] etc. See implementation note in main method.
+    Parameters:
+        g (core.grids.grid): Discretization grid
+        k (core.constit.second_order_tensor): The permeability tensor
+        subcell_topology (fvutils.SubcellTopology): Wrapper class containing
+            subcell numbering.
+    Returns:
+        nk: sub-face wise product of normal vector and permeability tensor.
+        cell_node_blocks pairings of node and cell indices, which together
+            define a sub-cell.
+        sub_cell_ind: index of all subcells
+    """
+
+    # Stack cell and nodes, and remove duplicate rows. Since subcell_mapping
+    # defines cno and nno (and others) working cell-wise, this will
+    # correspond to a unique rows (Matlab-style) from what I understand.
+    # This also means that the pairs in cell_node_blocks uniquely defines
+    # subcells, and can be used to index gradients etc.
+    cell_node_blocks, blocksz = pp.utils.matrix_compression.rlencode(
+        np.vstack((subcell_topology.cno, subcell_topology.nno))
+    )
+
+    nd = g.dim
+
+    # Duplicates in [cno, nno] corresponds to different faces meeting at the
+    # same node. There should be exactly nd of these. This test will fail
+    # for pyramids in 3D
+    if not np.all(blocksz == nd):
+        raise AssertionError()
+
+    # Define row and column indices to be used for normal_vectors * perm.
+    # Rows are based on sub-face numbers.
+    # Columns have nd elements for each sub-cell (to store a gradient) and
+    # is adjusted according to block sizes
+    _, j = np.meshgrid(subcell_topology.subhfno, np.arange(nd))
+    sum_blocksz = np.cumsum(blocksz)
+    j += pp.utils.matrix_compression.rldecode(sum_blocksz - blocksz[0], blocksz)
+
+    # Distribute faces equally on the sub-faces
+    num_nodes = np.diff(g.face_nodes.indptr)
+    normals = g.face_normals[:, subcell_topology.fno] / num_nodes[subcell_topology.fno]
+    if apertures is not None:
+        normals = normals * apertures[subcell_topology.cno]
+
+    # Represent normals and permeability on matrix form
+    ind_ptr = np.hstack((np.arange(0, j.size, nd), j.size))
+    normals_mat = sps.csr_matrix((normals.ravel("F"), j.ravel("F"), ind_ptr))
+    k_mat = sps.csr_matrix(
+        (k.values[::, ::, cell_node_blocks[0]].ravel("F"), j.ravel("F"), ind_ptr)
+    )
+
+    nk = normals_mat * k_mat
+
+    # Unique sub-cell indexes are pulled from column indices, we only need
+    # every nd column (since nd faces of the cell meet at each vertex)
+    sub_cell_ind = j[::, 0::nd]
+    return nk, cell_node_blocks, sub_cell_ind
 
 
 def zero_out_sparse_rows(A, rows, diag=None):
@@ -1194,6 +1312,7 @@ def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
 def compute_darcy_flux(
     gb,
     keyword="flow",
+    keyword_store=None,
     d_name="darcy_flux",
     p_name="pressure",
     lam_name="mortar_solution",
@@ -1211,28 +1330,32 @@ def compute_darcy_flux(
         'bc_val': Boundary condition values.
             and the following edge property field for all connected grids:
         'coupling_flux': Discretization of the coupling fluxes.
-    keyword (string): defaults to 'flow'. The physic regime
-    d_name (string): defaults to 'darcy_flux'. The keyword which the computed
-                     darcy_flux will be stored by in the dictionary.
+    keyword (string): defaults to 'flow'. The parameter keyword used to obtain the
+        data necessary to compute the fluxes.
+    keyword_store (string): defaults to keyword. The parameter keyword determining
+        where the data will be stored
+    d_name (string): defaults to 'darcy_flux'. The parameter name which the computed
+        darcy_flux will be stored by in the dictionary.
     p_name (string): defaults to 'pressure'. The keyword that the pressure
-                     field is stored by in the dictionary
-    data (dictionary): defaults to None. If gb is mono-dimensional grid the
-                       data dictionary must be given. If gb is a
-                       multi-dimensional grid, this variable has no effect
+        field is stored by in the dictionary
+    data (dictionary): defaults to None. If gb is mono-dimensional grid the data
+        dictionary must be given. If gb is a multi-dimensional grid, this variable has
+        no effect.
 
     Returns:
         gb, the same grid bucket with the added field 'darcy_flux' added to all
         node data fields. Note that the fluxes between grids will be added only
-        at the gb edge, not at the node fields. The sign of the darcy_flux
+        at the gb edge, not at the node fields. The signs of the darcy_flux
         correspond to the directions of the normals, in the edge/coupling case
         those of the higher grid. For edges beteween grids of equal dimension,
         there is an implicit assumption that all normals point from the second
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
     """
-    keyword = keyword
+    if keyword_store is None:
+        keyword_store = keyword
     if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
         parameter_dictionary = data[pp.PARAMETERS][keyword]
-        matrix_dictionary = data[pp.PARAMETERS][keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
         if "flux" in matrix_dictionary:
             dis = (
                 matrix_dictionary["flux"] * data[p_name]
@@ -1243,8 +1366,7 @@ def compute_darcy_flux(
                 """Darcy_Flux can only be computed if a flux-based
                                  discretization has been applied"""
             )
-        data[d_name] = dis
-        parameter_dictionary[d_name] = dis
+        data[pp.PARAMETERS][keyword_store][d_name] = dis
         return
 
     # Compute fluxes from pressures internal to the subdomain, and for global
@@ -1265,9 +1387,7 @@ def compute_darcy_flux(
                                  discretization has been applied"""
                 )
 
-            d[d_name] = dis
-            parameter_dictionary[d_name] = dis
-
+            d[pp.PARAMETERS][keyword_store][d_name] = dis
     # Compute fluxes over internal faces, induced by the mortar flux. These
     # are a critical part of what makes MPFA consistent, but will not be
     # present for TPFA.
@@ -1275,13 +1395,19 @@ def compute_darcy_flux(
     # these are already accounted for in the mortar solution.
     for e, d in gb.edges():
         g_h = gb.nodes_of_edge(e)[1]
+        d_h = gb.node_props(g_h)
         # The mapping mortar_to_hat_bc contains is composed of a mapping to
         # faces on the higher-dimensional grid, and computation of the induced
         # fluxes.
-        induced_flux = d["mortar_grid"].master_to_mortar_int.T * d[lam_name]
+
+        bound_flux = d_h[pp.DISCRETIZATION_MATRICES][keyword]["bound_flux"]
+        induced_flux = (
+            bound_flux * d["mortar_grid"].master_to_mortar_int.T * d[lam_name]
+        )
         # Remove contribution directly on the boundary faces.
         induced_flux[g_h.tags["fracture_faces"]] = 0
-        gb.node_props(g_h)[d_name] += induced_flux
+        d_h[pp.PARAMETERS][keyword_store][d_name] += induced_flux
+        d[pp.PARAMETERS][keyword_store][d_name] = d[lam_name].copy()
 
 
 def boundary_to_sub_boundary(bound, subcell_topology):
@@ -1306,6 +1432,9 @@ def boundary_to_sub_boundary(bound, subcell_topology):
     bound.is_dir = np.atleast_2d(bound.is_dir)[:, subcell_topology.fno_unique].squeeze()
     bound.is_rob = np.atleast_2d(bound.is_rob)[:, subcell_topology.fno_unique].squeeze()
     bound.is_neu = np.atleast_2d(bound.is_neu)[:, subcell_topology.fno_unique].squeeze()
+    bound.is_internal = np.atleast_2d(bound.is_internal)[
+        :, subcell_topology.fno_unique
+    ].squeeze()
     if bound.robin_weight.ndim == 3:
         bound.robin_weight = bound.robin_weight[:, :, subcell_topology.fno_unique]
         bound.basis = bound.basis[:, :, subcell_topology.fno_unique]

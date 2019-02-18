@@ -11,8 +11,9 @@ import scipy.sparse as sps
 import unittest
 
 from porepy.grids.structured import TensorGrid
-from porepy.grids import refinement, mortar_grid
+from porepy.grids import refinement
 from porepy.fracs import meshing, mortars
+from test import test_utils
 
 
 class TestGridPerturbation(unittest.TestCase):
@@ -96,17 +97,6 @@ class TestGridRefinement2dSimplex(unittest.TestCase):
             self.dim = 2
             self.name = ["TwoGrid"]
 
-    def compare_arrays(self, a1, a2):
-        def cmp(a, b):
-            for i in range(a.shape[1]):
-                self.assertTrue(
-                    np.sum(np.sum((a[:, i].reshape((-1, 1)) - b) ** 2, axis=0) < 1e-5)
-                    == 1
-                )
-
-        cmp(a1, a2)
-        cmp(a2, a1)
-
     def test_refinement_single_cell(self):
         g = self.OneCellGrid()
         h, parent = refinement.refine_triangle_grid(g)
@@ -119,7 +109,7 @@ class TestGridRefinement2dSimplex(unittest.TestCase):
         self.assertTrue(np.allclose(h.cell_volumes, 1 / 8))
 
         known_nodes = np.array([[0, 0.5, 1, 0.5, 0, 0], [0, 0, 0, 0.5, 1, 0.5]])
-        self.compare_arrays(h.nodes[:2], known_nodes)
+        test_utils.compare_arrays(h.nodes[:2], known_nodes)
         self.assertTrue(np.all(parent == 0))
 
     def test_refinement_two_cells(self):
@@ -136,7 +126,7 @@ class TestGridRefinement2dSimplex(unittest.TestCase):
         known_nodes = np.array(
             [[0, 0.5, 1, 0.5, 0, 0, 1, 1, 0.5], [0, 0, 0, 0.5, 1, 0.5, 0.5, 1, 1]]
         )
-        self.compare_arrays(h.nodes[:2], known_nodes)
+        test_utils.compare_arrays(h.nodes[:2], known_nodes)
         self.assertTrue(np.sum(parent == 0) == 4)
         self.assertTrue(np.sum(parent == 1) == 4)
         self.assertTrue(np.allclose(np.bincount(parent, h.cell_volumes), 0.5))

@@ -16,7 +16,7 @@ import porepy as pp
 def make_dictionary(g, bc, bc_values=None):
     if bc_values is None:
         bc_values = np.zeros(g.num_faces)
-    d = {"bc": bc, "bc_values": bc_values}
+    d = {"bc": bc, "bc_values": bc_values, "mpfa_inverter": "python"}
     return pp.initialize_default_data(g, {}, "flow", d)
 
 
@@ -538,9 +538,8 @@ class TestMpfaSimplexGrid(unittest.TestCase):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
 
         mesh_size = {"value": 0.3, "bound_value": 0.3}
-        gb = pp.meshing.simplex_grid(
-            fracs=[], domain=domain, mesh_size=mesh_size, verbose=0
-        )
+        network = pp.FractureNetwork2d(domain=domain)
+        gb = network.mesh(mesh_size)
         return gb.grids_of_dimension(2)[0]
 
     def test_linear_flow(self):
@@ -577,4 +576,5 @@ class TestMpfaSimplexGrid(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    TestMpfaSimplexGrid().test_linear_flow()
     unittest.main()

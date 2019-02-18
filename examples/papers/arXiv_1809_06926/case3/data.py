@@ -83,7 +83,7 @@ def create_grid(fn):
             ).T
         )
 
-        network = pp.FractureNetwork([f1, f2, f3, f4, f5, f6, f7, f8])
+        network = pp.FractureNetwork3d([f1, f2, f3, f4, f5, f6, f7, f8])
 
         network.impose_external_boundary(domain)
         network.find_intersections()
@@ -92,7 +92,7 @@ def create_grid(fn):
 
         tm = time.time()
 
-        gb = pp.importer.dfm_from_gmsh(fn, 3, network)
+        gb = pp.fracture_importer.dfm_from_gmsh(fn, 3, network)
         print("Elapsed time " + str(time.time() - tm))
     elif ext == ".grid":
         gb = pickle.load(open(fn, "rb"))
@@ -116,55 +116,51 @@ def add_data(gb, data, solver_name):
     data["matrix_perm"] = matrix_perm
     data["fracture_perm"] = fracture_perm
     data["kn"] = kn
+    data["porosity"] = 0.2
 
     is_fv = solver_name == "tpfa" or solver_name == "mpfa"
 
-    gb.add_node_props(["is_tangential", "param", "frac_num"])
+    gb.add_node_props(["is_tangential", "frac_num", "Aavatsmark_transmissibilities"])
     for g, d in gb:
+        d["Aavatsmark_transmissibilities"] = True
 
-        one_vec = np.ones(g.num_cells)
-        zero_vec = np.zeros(g.num_cells)
+        unity = np.ones(g.num_cells)
         empty = np.empty(0)
 
-        param = pp.Parameters(g)
         d["is_tangential"] = True
-        d["aperture"] = aperture * one_vec
 
         if g.dim == 2:
-            d["frac_num"] = g.frac_num * one_vec
+            d["frac_num"] = g.frac_num * unity
         else:
-            d["frac_num"] = -1 * one_vec
+            d["frac_num"] = -1 * unity
 
         # set the permeability
         if g.dim == 3:
-            kxx = matrix_perm * one_vec
+            kxx = matrix_perm * unity
             if is_fv:
                 perm = pp.SecondOrderTensor(3, kxx=kxx)
             else:
                 perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=kxx, kzz=kxx)
         elif g.dim == 2:
-            kxx = fracture_perm * one_vec
+            kxx = fracture_perm * unity
             if is_fv:
                 perm = pp.SecondOrderTensor(3, kxx=kxx)
             else:
                 perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=kxx, kzz=1)
         else:  # dim == 1
-            kxx = fracture_perm * one_vec
+            kxx = fracture_perm * unity
             if is_fv:
                 perm = pp.SecondOrderTensor(3, kxx=kxx)
             else:
                 perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=1, kzz=1)
-        param.set_tensor("flow", perm)
-
-        # Source term
-        param.set_source("flow", zero_vec)
 
         # Assign apertures
-        aperture = np.power(data["aperture"], 3 - g.dim)
-        param.set_aperture(aperture)
+        aperture_dim = np.power(data["aperture"], 3 - g.dim)
 
         # Boundaries
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+        bc_val = np.zeros(g.num_faces)
+        bc_val_t = np.zeros(g.num_faces)
         if b_faces.size != 0:
 
             b_in, b_out = b_pressure(g)
@@ -172,30 +168,48 @@ def add_data(gb, data, solver_name):
             labels = np.array(["neu"] * b_faces.size)
             labels[b_out] = "dir"
 
-            bc_val = np.zeros(g.num_faces)
             bc_val[b_faces[b_in]] = -g.face_areas[b_faces[b_in]]
             bc_val[b_faces[b_out]] = 0
 
-            param.set_bc("flow", pp.BoundaryCondition(g, b_faces, labels))
-            param.set_bc_val("flow", bc_val)
+            bc = pp.BoundaryCondition(g, b_faces, labels)
 
             g.tags["inlet_faces"] = np.zeros(g.num_faces, dtype=np.bool)
             g.tags["inlet_faces"][b_faces[b_in]] = True
 
+            # Transport
+            bc_t = pp.BoundaryCondition(g, b_faces, "dir")
+            bc_val_t[b_faces[b_in]] = 1
         else:
-            param.set_bc("flow", pp.BoundaryCondition(g, empty, empty))
+            bc = pp.BoundaryCondition(g, empty, empty)
+            bc_t = pp.BoundaryCondition(g, empty, empty)
 
-        d["param"] = param
-
+        specified_parameters_f = {
+            "second_order_tensor": perm,
+            "aperture": aperture_dim * unity,
+            "bc": bc,
+            "bc_values": bc_val,
+        }
+        specified_parameters_t = {
+            "aperture": aperture_dim * unity,
+            "bc": bc_t,
+            "bc_values": bc_val_t,
+            "time_step": data["time_step"],
+            "mass_weight": data["porosity"] * unity,
+        }
+        pp.initialize_default_data(g, d, "flow", specified_parameters_f)
+        pp.initialize_default_data(g, d, "transport", specified_parameters_t)
     # Assign coupling permeability, the aperture is read from the lower dimensional grid
-    gb.add_edge_props("kn")
     for e, d in gb.edges():
         g_l = gb.nodes_of_edge(e)[0]
         mg = d["mortar_grid"]
-        check_P = mg.low_to_mortar_avg()
-
-        gamma = check_P * gb.node_props(g_l, "param").get_aperture()
-        d["kn"] = kn * np.ones(mg.num_cells) / gamma
+        check_P = mg.slave_to_mortar_avg()
+        pa_l = gb.node_props(g_l, pp.PARAMETERS)
+        gamma = check_P * pa_l["flow"]["aperture"]
+        normal_perm = kn * np.ones(mg.num_cells) / gamma
+        d[pp.PARAMETERS] = pp.Parameters(
+            mg, ["flow", "transport"], [{"normal_diffusivity": normal_perm}, {}]
+        )
+        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}, "transport": {}}
 
 
 # ------------------------------------------------------------------------------#
@@ -228,35 +242,3 @@ def b_pressure(g):
 
 
 # ------------------------------------------------------------------------------#
-
-
-class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
-    def __init__(self, g, data, physics="transport", **kwargs):
-        self.domain = kwargs["domain"]
-        self.max_dim = kwargs.get("max_dim", 3)
-        self.phi_f = 0.2
-
-        # define two pieces of the boundary, useful to impose boundary conditions
-        self.inflow = np.empty(0)
-
-        b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
-        if b_faces.size > 0:
-            self.inflow = b_pressure(g)[0]
-
-        pp.ParabolicDataAssigner.__init__(self, g, data, physics)
-
-    def bc(self):
-        b_faces = self.grid().tags["domain_boundary_faces"].nonzero()[0]
-        if b_faces.size == 0:
-            return pp.BoundaryCondition(self.grid(), np.empty(0), np.empty(0))
-        return pp.BoundaryCondition(self.grid(), b_faces, "dir")
-
-    def bc_val(self, _):
-        bc_val = np.zeros(self.grid().num_faces)
-        b_faces = self.grid().tags["domain_boundary_faces"].nonzero()[0]
-        if b_faces.size > 0:
-            bc_val[b_faces[self.inflow]] = 1
-        return bc_val
-
-    def porosity(self):
-        return self.phi_f * np.ones(self.grid().num_cells)

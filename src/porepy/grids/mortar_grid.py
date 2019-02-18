@@ -2,7 +2,6 @@
 """
 from __future__ import division
 import numpy as np
-from enum import Enum
 from scipy import sparse as sps
 
 # Module level constants, used to define sides of a mortar grid.
@@ -58,25 +57,32 @@ class MortarGrid(object):
         name (str): Name of grid
         """
 
-        assert dim >= 0 and dim < 3
-        assert np.all([g.dim == dim for g in side_grids.values()])
+        if dim == 3:
+            raise ValueError("A mortar grid cannot be 3d")
+        if not np.all([g.dim == dim for g in side_grids.values()]):
+            raise ValueError("All the mortar grids have to have the same dimension")
 
         self.dim = dim
-        self.side_grids = side_grids
+        self.side_grids = side_grids.copy()
         self.sides = np.array(self.side_grids.keys)
 
-        assert self.num_sides() == 1 or self.num_sides() == 2
+        if not (self.num_sides() == 1 or self.num_sides() == 2):
+            raise ValueError("The number of sides have to be 1 or 2")
 
         if isinstance(name, list):
             self.name = name
         else:
             self.name = [name]
 
+        # easy access attributes with a fixed ordering of the side grids
         self.num_cells = np.sum(
             [g.num_cells for g in self.side_grids.values()], dtype=np.int
         )
         self.cell_volumes = np.hstack(
             [g.cell_volumes for g in self.side_grids.values()]
+        )
+        self.cell_centers = np.hstack(
+            [g.cell_centers for g in self.side_grids.values()]
         )
 
         # face_cells mapping from the higher dimensional grid to the mortar grid
@@ -152,13 +158,13 @@ class MortarGrid(object):
             + " the cells of the mortar grid.\nRows indicate the mortar"
             + " cell id, columns indicate the (higher dimensional) face id"
             + "\n"
-            + str(self.high_to_mortar_int)
+            + str(self.master_to_mortar_int)
             + "\n"
             + "Mapping from the cells of the mortar grid to the cells"
             + " of the lower dimensional grid.\nRows indicate the mortar"
             + " cell id, columns indicate the (lower dimensional) cell id"
             + "\n"
-            + str(self.low_to_mortar_int)
+            + str(self.slave_to_mortar_int)
         )
 
         return s
@@ -170,11 +176,23 @@ class MortarGrid(object):
         Compute the geometry of the mortar grids.
         We assume that they are not aligned with x (1d) or x, y (2d).
         """
+        # Update the actual side grids
         [g.compute_geometry() for g in self.side_grids.values()]
+
+        # Update the attributes
+        self.num_cells = np.sum(
+            [g.num_cells for g in self.side_grids.values()], dtype=np.int
+        )
+        self.cell_volumes = np.hstack(
+            [g.cell_volumes for g in self.side_grids.values()]
+        )
+        self.cell_centers = np.hstack(
+            [g.cell_centers for g in self.side_grids.values()]
+        )
 
     # ------------------------------------------------------------------------------#
 
-    def update_mortar(self, side_matrix):
+    def update_mortar(self, side_matrix, side_grids):
         """
         Update the low_to_mortar_int and high_to_mortar_int maps when the mortar grids
         are changed.
@@ -201,10 +219,13 @@ class MortarGrid(object):
         self.slave_to_mortar_int = matrix * self.slave_to_mortar_int
         self.master_to_mortar_int = matrix * self.master_to_mortar_int
 
-        self.num_cells = np.sum([g.num_cells for g in self.side_grids.values()])
-        self.cell_volumes = np.hstack(
-            [g.cell_volumes for g in self.side_grids.values()]
-        )
+        # Update the side grids
+        for side, g in side_grids.items():
+            self.side_grids[side] = g.copy()
+
+        # update the geometry
+        self.compute_geometry()
+
         self._check_mappings()
 
     # ------------------------------------------------------------------------------#
@@ -282,15 +303,12 @@ class MortarGrid(object):
 
     def _check_mappings(self, tol=1e-4):
         row_sum = self.master_to_mortar_int.sum(axis=1)
-        assert row_sum.min() > tol
-        #        assert row_sum.max() < 1 + tol
+        if not (row_sum.min() > tol):
+            raise ValueError("Check not satisfied for the master grid")
 
         row_sum = self.slave_to_mortar_int.sum(axis=1)
-        assert row_sum.min() > tol
-
-
-#        assert row_sum.max() < 1 + tol
-
+        if not (row_sum.min() > tol):
+            raise ValueError("Check not satisfied for the slave grid")
 
 # ------------------------------------------------------------------------------#
 # ------------------------------------------------------------------------------#
@@ -352,7 +370,8 @@ class BoundaryMortar(MortarGrid):
         self.side_grids = {"mortar_grid": mortar_grid}
         self.sides = np.array(self.side_grids.keys)
 
-        assert self.num_sides() == 1 or self.num_sides() == 2
+        if not (self.num_sides() == 1 or self.num_sides() == 2):
+            raise ValueError("The number of sides have to be 1 or 2")
 
         if isinstance(name, list):
             self.name = name
@@ -366,7 +385,15 @@ class BoundaryMortar(MortarGrid):
         # need to change the following lines
         slave_f, master_f, data = sps.find(master_slave)
 
-        cells = np.argsort(slave_f)
+        # It is assumed that the cells of the given mortar grid are ordered
+        # by the face numbers of the slave side
+        ix = np.argsort(slave_f)
+        slave_f = slave_f[ix]
+        master_f = master_f[ix]
+        data = data[ix]
+
+        # Define mappings
+        cells = np.arange(slave_f.size)
         self.num_cells = cells.size
         if not self.num_cells == mortar_grid.num_cells:
             raise ValueError(

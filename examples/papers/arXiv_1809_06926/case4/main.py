@@ -1,5 +1,6 @@
 import numpy as np
 import data as problem_data
+import porepy as pp
 
 from examples.papers.arXiv_1809_06926.case3.main import mean_inlet_pressure
 
@@ -8,13 +9,12 @@ import examples.papers.arXiv_1809_06926.solvers as solvers
 # ------------------------------------------------------------------------------#
 
 
-def report_concentrations(problem):
-    problem.split()
+def report_concentrations(gb):
     mean = np.zeros(52)
-    for g, d in problem.grid():
+    for g, d in gb:
         if g.dim == 2:
-            pv = d["param"].porosity * g.cell_volumes
-            mean[g.frac_num] = np.sum(pv * d["solution"]) / np.sum(pv)
+            pv = d[pp.PARAMETERS]["transport"]["porosity"] * g.cell_volumes
+            mean[g.frac_num] = np.sum(pv * d["tracer"]) / np.sum(pv)
 
     file_name = folder + "/mean_concentration.txt"
     with open(file_name, "a") as f:
@@ -29,28 +29,26 @@ def outlet_fluxes(gb):
     d = gb.node_props(g)
     tol = 1e-3
 
-    flux = d["discharge"]
-    b_out = problem_data.b_pressure(g)[1]
+    flux = d[pp.PARAMETERS]["transport"]["darcy_flux"]
     bound_faces = np.where(g.tags["domain_boundary_faces"])[0]
 
-    xf = g.face_centers[:, bound_faces[b_out]]
-    oi = bound_faces[b_out].ravel()
+    xf = g.face_centers
+    # identify the regions
+    lower = np.logical_and.reduce(
+                (xf[0] + tol > 350, xf[1] - tol < 400, xf[2] - tol < 100)
+            )
 
-    lower = np.where(
-        np.logical_and.reduce((xf[0] + tol > 350, xf[1] - tol < 400, xf[2] - tol < 100))
-    )
+    upper = np.logical_and.reduce(
+                (xf[0] - tol < -500, xf[1] - tol < 400, xf[2] - tol < 100)
+            )
 
-    upper = np.where(
-        np.logical_and.reduce(
-            (xf[0] - tol < -500, xf[1] - tol < 400, xf[2] - tol < 100)
-        )
-    )
+    n = g.face_normals[0, :]
+    # on the upper boundary the outward normal has positive y component
+    outflow_upper = flux[upper] * np.sign(n[upper])
+    # on the lower boundary the outward normal has negative y component
+    outflow_lower = -flux[lower] * np.sign(n[lower])
 
-    n = g.face_normals[1, oi]
-    bf = flux[oi] * np.sign(n)
-
-    return np.sum(bf[lower[0]]), np.sum(bf[upper[0]])
-
+    return np.sum(outflow_lower), np.sum(outflow_upper)
 
 # ------------------------------------------------------------------------------#
 
@@ -74,7 +72,7 @@ def main(folder, solver, solver_name, dt):
     gb, domain = problem_data.create_grid(from_file=True)
 
     data = {"domain": domain, "t_max": 5000}
-    data["dt"] = dt
+    data["time_step"] = dt
 
     problem_data.add_data(gb, data, solver_name)
 
@@ -100,13 +98,8 @@ def main(folder, solver, solver_name, dt):
     with open(file_name, "w") as f:
         f.write(", ".join(map(str, results)))
 
-    solvers.transport(
-        gb,
-        data,
-        solver_name,
-        folder,
-        problem_data.AdvectiveDataAssigner,
-        callback=report_concentrations,
+    T, outflow, A, b, block_dof, full_dof = solvers.transport(
+        gb, data, solver_name, folder, callback=report_concentrations, save_every=1
     )
 
 
@@ -114,12 +107,13 @@ def main(folder, solver, solver_name, dt):
 
 if __name__ == "__main__":
     solver_list = [
-        solvers.solve_tpfa,
-        solvers.solve_mpfa,
+#        solvers.solve_tpfa,
+#        solvers.solve_mpfa,
         solvers.solve_vem,
         solvers.solve_rt0,
     ]
-    solver_names = ["tpfa", "mpfa", "vem", "rt0"]
+    #solver_names = ["tpfa", "mpfa", "vem", "rt0"]
+    solver_names = ["vem", "rt0"]
 
     time_step = 50
     for solver, solver_name in zip(solver_list, solver_names):

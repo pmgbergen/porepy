@@ -1,11 +1,21 @@
+"""
+Module for testing the discrete fracture network (DFN) with continuous pressure and normal flux at the intersection.
+"""
+
 import unittest
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 
+
 class TestDFN(unittest.TestCase):
     def test_mvem_0(self):
+        """
+        In this test we set up a network with 2 1d fractures that intersect in a point.
+        We validate the resulting matrices and right hand side.
+        We use the numerical scheme MVEM.
+        """
         dfn_dim = 1
         f1 = np.array([[1.0, 1.0], [0.0, 2.0]])
         f2 = np.array([[0.0, 2.0], [1.0, 1.0]])
@@ -19,33 +29,140 @@ class TestDFN(unittest.TestCase):
         setup_data(gb)
         assembler, _ = setup_discr_mvem(gb)
 
-        A, b, _, _ = assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        A = A.todense()
 
-        A_known = np.matrix(\
-           [[0.75, 0.  , 0.  ,-0.25, 1, 0,0.  , 0.  , 0.  , 0.  ,0, 0, 0, 0.  ,-0.25, 0.  ,0.   ],
-            [0.  , 0.75, 0.  , 0.  , 0, 0,0.  , 0.  , 0.  , 0.  ,0, 0, 0, 0.  , 0.  , 0.  ,0.   ],
-            [0.  ,-0.25, 0.75, 0.  , 0,-1,0.  , 0.  , 0.  , 0.  ,0, 0, 0, 0.25, 0.  , 0.  ,0.   ],
-            [0.  , 0.  , 0.  , 0.75, 0, 0,0.  , 0.  , 0.  , 0.  ,0, 0, 0, 0.  , 0.  , 0.  ,0.   ],
-            [1.  , 0.  , 0.  ,-1.  , 0, 0,0.  , 0.  , 0.  , 0.  ,0, 0, 0, 0.  ,-1.  , 0.  ,0.   ],
-            [0.  , 1.  ,-1.  , 0.  , 0, 0,0.  , 0.  , 0.  , 0.  ,0, 0, 0,-1.  , 0.  , 0.  ,0.   ],
-            [0.  , 0.  , 0.  , 0.  , 0, 0,0.75, 0.  , 0.  ,-0.25,1, 0, 0, 0.  , 0.  , 0.  ,-0.25],
-            [0.  , 0.  , 0.  , 0.  , 0, 0,0.  , 0.75, 0.  , 0.  ,0, 0, 0, 0.  , 0.  , 0.  ,0.   ],
-            [0.  , 0.  , 0.  , 0.  , 0, 0,0.  ,-0.25, 0.75, 0.  ,0,-1, 0, 0.  , 0.  , 0.25,0.   ],
-            [0.  , 0.  , 0.  , 0.  , 0, 0,0.  , 0.  , 0.  , 0.75,0, 0, 0, 0.  , 0.  , 0.  ,0.   ],
-            [0.  , 0.  , 0.  , 0.  , 0, 0,1.  , 0.  , 0.  ,-1.  ,0, 0, 0, 0.  , 0.  , 0.  ,-1.  ],
-            [0.  , 0.  , 0.  , 0.  , 0, 0,0.  , 1.  ,-1.  , 0.  ,0, 0, 0, 0.  , 0.  ,-1.  ,0.   ],
-            [0.  , 0.  , 0.  , 0.  , 0, 0,0.  , 0.  , 0.  , 0.  ,0, 0, 0,-1.  ,-1.  ,-1.  ,-1.  ],
-            [0.  , 0.75,-0.25, 0.  , 0, 1,0.  , 0.  , 0.  , 0.  ,0, 0,-1,-0.75, 0.  , 0.  ,0.   ],
-            [0.25, 0.  , 0.  ,-0.75, 1, 0,0.  , 0.  , 0.  , 0.  ,0, 0,-1, 0.  ,-0.75, 0.  ,0.   ],
-            [0.  , 0.  , 0.  , 0.  , 0, 0,0.  , 0.75,-0.25, 0.  ,0, 1,-1, 0.  , 0.  ,-0.75,0.   ],
-            [0.  , 0.  , 0.  , 0.  , 0, 0,0.25, 0.  , 0.  ,-0.75,1, 0,-1, 0.  , 0.  , 0.  ,-0.75]])
+        A_f1 = np.matrix(
+            [
+                [0.75, 0.0, 0.0, -0.25, 1, 0],
+                [0.0, 0.75, 0.0, 0.0, 0, 0],
+                [0.0, -0.25, 0.75, 0.0, 0, -1],
+                [0.0, 0.0, 0.0, 0.75, 0, 0],
+                [1.0, 0.0, 0.0, -1.0, 0, 0],
+                [0.0, 1.0, -1.0, 0.0, 0, 0],
+            ]
+        )
+        b_f1 = np.array([2, 0, 0, 0, 0, 0])
 
-        b_known = np.array([2,0,0,0,0,0,1,0,-1,0,0,0,0,0,0,0,0])
+        A_f2 = np.matrix(
+            [
+                [0.75, 0.0, 0.0, -0.25, 1, 0],
+                [0.0, 0.75, 0.0, 0.0, 0, 0],
+                [0.0, -0.25, 0.75, 0.0, 0, -1],
+                [0.0, 0.0, 0.0, 0.75, 0, 0],
+                [1.0, 0.0, 0.0, -1.0, 0, 0],
+                [0.0, 1.0, -1.0, 0.0, 0, 0],
+            ]
+        )
+        b_f2 = np.array([1, 0, -1, 0, 0, 0])
 
-        self.assertTrue(np.allclose(A.todense(), A_known))
-        self.assertTrue(np.allclose(b, b_known))
+        A_0 = np.matrix([[0.0]])
+        b_0 = np.array([0])
+
+        global_dof = np.cumsum(np.append(0, np.asarray(full_dof)))
+
+        for g, _ in gb:
+            block = block_dof[(g, "flow")]
+            dof = np.arange(global_dof[block], global_dof[block + 1])
+
+            if g.dim == 1 and np.allclose(g.nodes[0], 1):  # f1
+                self.assertTrue(np.allclose(A[dof, :][:, dof], A_f1))
+                self.assertTrue(np.allclose(b[dof], b_f1))
+            elif g.dim == 1 and np.allclose(g.nodes[1], 1):  # f2
+                self.assertTrue(np.allclose(A[dof, :][:, dof], A_f2))
+                self.assertTrue(np.allclose(b[dof], b_f2))
+            elif g.dim == 0:  # intersection
+                self.assertTrue(np.allclose(A[dof, :][:, dof], A_0))
+                self.assertTrue(np.allclose(b[dof], b_0))
+
+        # known matrices associate to the edge where f1 is involved
+        A_e1_gh_e = np.matrix(
+            [
+                [0.0, -0.25],
+                [0.0, 0.0],
+                [0.25, 0.0],
+                [0.0, 0.0],
+                [0.0, -1.0],
+                [-1.0, 0.0],
+            ]
+        )
+
+        A_e1_e_gh = np.matrix(
+            [[0.0, 0.75, -0.25, 0.0, 0, 1], [0.25, 0.0, 0.0, -0.75, 1, 0]]
+        )
+
+        A_e1_gh_gl = np.matrix([[0.0], [0.0], [0.0], [0.0], [0.0], [0.0]])
+        A_e1_gl_gh = np.matrix([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
+
+        A_e1_e_e = np.matrix([[-0.75, 0.0], [0.0, -0.75]])
+
+        A_e1_e_gl = np.matrix([[-1.0], [-1.0]])
+        A_e1_gl_e = np.matrix([[-1.0, -1.0]])
+
+        b_e1 = np.array([0.0, 0.0])
+
+        A_e2_gh_e = np.matrix(
+            [
+                [0.0, -0.25],
+                [0.0, 0.0],
+                [0.25, 0.0],
+                [0.0, 0.0],
+                [0.0, -1.0],
+                [-1.0, 0.0],
+            ]
+        )
+
+        A_e2_e_gh = np.matrix(
+            [[0.0, 0.75, -0.25, 0.0, 0.0, 1.0], [0.25, 0.0, 0.0, -0.75, 1.0, 0.0]]
+        )
+
+        A_e2_gh_gl = np.matrix([[0.0], [0.0], [0.0], [0.0], [0.0], [0.0]])
+        A_e2_gl_gh = np.matrix([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
+
+        A_e2_e_e = np.matrix([[-0.75, 0.0], [0.0, -0.75]])
+
+        A_e2_e_gl = np.matrix([[-1.0], [-1.0]])
+        A_e2_gl_e = np.matrix([[-1.0, -1.0]])
+
+        b_e2 = np.array([0.0, 0.0])
+
+        for e, d in gb.edges():
+            gl, gh = gb.nodes_of_edge(e)
+
+            block_e = block_dof[(e, "flow")]
+            block_gl = block_dof[(gl, "flow")]
+            block_gh = block_dof[(gh, "flow")]
+
+            dof_e = np.arange(global_dof[block_e], global_dof[block_e + 1])
+            dof_gl = np.arange(global_dof[block_gl], global_dof[block_gl + 1])
+            dof_gh = np.arange(global_dof[block_gh], global_dof[block_gh + 1])
+
+            if np.allclose(gh.nodes[0], 1):  # f1
+                self.assertTrue(np.allclose(A[dof_gh, :][:, dof_e], A_e1_gh_e))
+                self.assertTrue(np.allclose(A[dof_e, :][:, dof_gh], A_e1_e_gh))
+                self.assertTrue(np.allclose(A[dof_gh, :][:, dof_gl], A_e1_gh_gl))
+                self.assertTrue(np.allclose(A[dof_gl, :][:, dof_gh], A_e1_gl_gh))
+                self.assertTrue(np.allclose(A[dof_e, :][:, dof_e], A_e1_e_e))
+                self.assertTrue(np.allclose(A[dof_e, :][:, dof_gl], A_e1_e_gl))
+                self.assertTrue(np.allclose(A[dof_gl, :][:, dof_e], A_e1_gl_e))
+                self.assertTrue(np.allclose(b[dof_e], b_e1))
+
+            elif np.allclose(gh.nodes[1], 1):  # f2
+                self.assertTrue(np.allclose(A[dof_gh, :][:, dof_e], A_e2_gh_e))
+                self.assertTrue(np.allclose(A[dof_e, :][:, dof_gh], A_e2_e_gh))
+                self.assertTrue(np.allclose(A[dof_gh, :][:, dof_gl], A_e2_gh_gl))
+                self.assertTrue(np.allclose(A[dof_gl, :][:, dof_gh], A_e2_gl_gh))
+                self.assertTrue(np.allclose(A[dof_e, :][:, dof_e], A_e2_e_e))
+                self.assertTrue(np.allclose(A[dof_e, :][:, dof_gl], A_e2_e_gl))
+                self.assertTrue(np.allclose(A[dof_gl, :][:, dof_e], A_e2_gl_e))
+                self.assertTrue(np.allclose(b[dof_e], b_e2))
 
     def test_tpfa_0(self):
+        """
+        In this test we set up a network with 2 1d fractures that intersect in a point.
+        We validate the resulting matrices and right hand side.
+        We use the numerical scheme Tpfa.
+        """
         dfn_dim = 1
         f1 = np.array([[1.0, 1.0], [0.0, 2.0]])
         f2 = np.array([[0.0, 2.0], [1.0, 1.0]])
@@ -59,25 +176,110 @@ class TestDFN(unittest.TestCase):
         setup_data(gb)
         assembler, _ = setup_discr_tpfa(gb)
 
-        A, b, _, _ = assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        A = A.todense()
 
-        A_known = np.matrix(\
-           [[ 2. ,  0. ,  0. ,  0. ,  0. ,  0. ,  1. ,  0. ,  0. ],
-            [ 0. ,  2. ,  0. ,  0. ,  0. ,  1. ,  0. ,  0. ,  0. ],
-            [ 0. ,  0. ,  2. ,  0. ,  0. ,  0. ,  0. ,  0. ,  1. ],
-            [ 0. ,  0. ,  0. ,  2. ,  0. ,  0. ,  0. ,  1. ,  0. ],
-            [ 0. ,  0. ,  0. ,  0. ,  0. , -1. , -1. , -1. , -1. ],
-            [ 0. ,  1. ,  0. ,  0. , -1. , -0.5,  0. ,  0. ,  0. ],
-            [ 1. ,  0. ,  0. ,  0. , -1. ,  0. , -0.5,  0. ,  0. ],
-            [ 0. ,  0. ,  0. ,  1. , -1. ,  0. ,  0. , -0.5,  0. ],
-            [ 0. ,  0. ,  1. ,  0. , -1. ,  0. ,  0. ,  0. , -0.5]])
+        A_f1 = np.matrix([[2, 0], [0, 2]])
+        b_f1 = np.array([4, 0])
 
-        b_known = np.array([4., 0., 2., 2., 0., 0., 0., 0., 0.])
+        A_f2 = np.matrix([[2, 0], [0, 2]])
+        b_f2 = np.array([2, 2])
 
-        self.assertTrue(np.allclose(A.todense(), A_known))
-        self.assertTrue(np.allclose(b, b_known))
+        A_0 = np.matrix([[0.0]])
+        b_0 = np.array([0])
+
+        global_dof = np.cumsum(np.append(0, np.asarray(full_dof)))
+
+        for g, _ in gb:
+            block = block_dof[(g, "flow")]
+            dof = np.arange(global_dof[block], global_dof[block + 1])
+
+            if g.dim == 1 and np.allclose(g.nodes[0], 1):  # f1
+
+                self.assertTrue(np.allclose(A[dof, :][:, dof], A_f1))
+                self.assertTrue(np.allclose(b[dof], b_f1))
+            elif g.dim == 1 and np.allclose(g.nodes[1], 1):  # f2
+                self.assertTrue(np.allclose(A[dof, :][:, dof], A_f2))
+                self.assertTrue(np.allclose(b[dof], b_f2))
+            elif g.dim == 0:  # intersection
+                self.assertTrue(np.allclose(A[dof, :][:, dof], A_0))
+                self.assertTrue(np.allclose(b[dof], b_0))
+
+        # known matrices associate to the edge where f1 is involved
+        A_e1_gh_e = np.matrix([[0, 1], [1, 0]])
+
+        A_e1_e_gh = np.matrix([[0, 1], [1, 0]])
+
+        A_e1_gh_gl = np.matrix([[0.0], [0.0]])
+        A_e1_gl_gh = np.matrix([[0.0, 0.0]])
+
+        A_e1_e_e = np.matrix([[-0.5, 0.0], [0.0, -0.5]])
+
+        A_e1_e_gl = np.matrix([[-1.0], [-1.0]])
+        A_e1_gl_e = np.matrix([[-1.0, -1.0]])
+
+        b_e1 = np.array([0.0, 0.0])
+
+        A_e2_gh_e = np.matrix([[0, 1], [1, 0]])
+
+        A_e2_e_gh = np.matrix([[0, 1], [1, 0]])
+
+        A_e2_gh_gl = np.matrix([[0.0], [0.0]])
+        A_e2_gl_gh = np.matrix([[0.0, 0.0]])
+
+        A_e2_e_e = np.matrix([[-0.5, 0.0], [0.0, -0.5]])
+
+        A_e2_e_gl = np.matrix([[-1.0], [-1.0]])
+        A_e2_gl_e = np.matrix([[-1.0, -1.0]])
+
+        b_e2 = np.array([0.0, 0.0])
+
+        for e, _ in gb.edges():
+            gl, gh = gb.nodes_of_edge(e)
+
+            block_e = block_dof[(e, "flow")]
+            block_gl = block_dof[(gl, "flow")]
+            block_gh = block_dof[(gh, "flow")]
+
+            dof_e = np.arange(global_dof[block_e], global_dof[block_e + 1])
+            dof_gl = np.arange(global_dof[block_gl], global_dof[block_gl + 1])
+            dof_gh = np.arange(global_dof[block_gh], global_dof[block_gh + 1])
+
+            if np.allclose(gh.nodes[0], 1):  # f1
+                print(A[dof_gh, :][:, dof_e])
+                print(A[dof_e, :][:, dof_gh])
+                print(A[dof_gh, :][:, dof_gl])
+                print(A[dof_gl, :][:, dof_gh])
+                print(A[dof_e, :][:, dof_e])
+                print(A[dof_e, :][:, dof_gl])
+                print(A[dof_gl, :][:, dof_e])
+                print(b[dof_e])
+
+                self.assertTrue(np.allclose(A[dof_gh, :][:, dof_e], A_e1_gh_e))
+                self.assertTrue(np.allclose(A[dof_e, :][:, dof_gh], A_e1_e_gh))
+                self.assertTrue(np.allclose(A[dof_gh, :][:, dof_gl], A_e1_gh_gl))
+                self.assertTrue(np.allclose(A[dof_gl, :][:, dof_gh], A_e1_gl_gh))
+                self.assertTrue(np.allclose(A[dof_e, :][:, dof_e], A_e1_e_e))
+                self.assertTrue(np.allclose(A[dof_e, :][:, dof_gl], A_e1_e_gl))
+                self.assertTrue(np.allclose(A[dof_gl, :][:, dof_e], A_e1_gl_e))
+                self.assertTrue(np.allclose(b[dof_e], b_e1))
+
+            elif np.allclose(gh.nodes[1], 1):  # f2
+                self.assertTrue(np.allclose(A[dof_gh, :][:, dof_e], A_e2_gh_e))
+                self.assertTrue(np.allclose(A[dof_e, :][:, dof_gh], A_e2_e_gh))
+                self.assertTrue(np.allclose(A[dof_gh, :][:, dof_gl], A_e2_gh_gl))
+                self.assertTrue(np.allclose(A[dof_gl, :][:, dof_gh], A_e2_gl_gh))
+                self.assertTrue(np.allclose(A[dof_e, :][:, dof_e], A_e2_e_e))
+                self.assertTrue(np.allclose(A[dof_e, :][:, dof_gl], A_e2_e_gl))
+                self.assertTrue(np.allclose(A[dof_gl, :][:, dof_e], A_e2_gl_e))
+                self.assertTrue(np.allclose(b[dof_e], b_e2))
 
     def test_mvem_1(self):
+        """
+        In this test we set up a network with 5 1d fractures that intersect in a point.
+        We validate the resulting solution.
+        We use the numerical scheme MVEM.
+        """
         dfn_dim = 1
 
         N = 8
@@ -94,7 +296,7 @@ class TestDFN(unittest.TestCase):
 
         # setup data and assembler
         setup_data(gb)
-        assembler, (discr, p_trace) = setup_discr_mvem(gb)
+        assembler, (discr, _) = setup_discr_mvem(gb)
 
         A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
         x = sps.linalg.spsolve(A, b)
@@ -107,35 +309,39 @@ class TestDFN(unittest.TestCase):
         for g, d in gb:
 
             if g.dim == 1:
-                if np.all(g.cell_centers[1] == 0.5 * N): #f1
-                    known = np.array([4., 4., 4., 4., 4., 4., 4., 4.])
-                elif np.all(g.cell_centers[0] == 0.5 * N): #f2
+                if np.all(g.cell_centers[1] == 0.5 * N):  # f1
+                    known = np.array([4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0])
+                elif np.all(g.cell_centers[0] == 0.5 * N):  # f2
                     known = np.array([7.5, 6.5, 5.5, 4.5, 3.5, 2.5, 1.5, 0.5])
-                elif np.all(g.cell_centers[0] == 0.625 * N): #f3
-                    known = np.array([4, 4])
-                elif np.all(g.cell_centers[1] == 0.25 * N): #f4
-                    known = np.array([2, 2, 2, 2])
-                elif np.all(g.cell_centers[0] == 0.75 * N): #f5
-                    known = np.array([2, 2])
+                elif np.all(g.cell_centers[0] == 0.625 * N):  # f3
+                    known = np.array([4.0, 4.0])
+                elif np.all(g.cell_centers[1] == 0.25 * N):  # f4
+                    known = np.array([2.0, 2.0, 2.0, 2.0])
+                elif np.all(g.cell_centers[0] == 0.75 * N):  # f5
+                    known = np.array([2.0, 2.0])
                 else:
                     raise ValueError
 
-            else: #g.dim == 0
-                if np.allclose(g.cell_centers, np.array([[0.5], [0.5], [0]]) * N):
-                    known = np.array([4])
-                elif np.allclose(g.cell_centers, np.array([[0.625], [0.5], [0]]) * N):
-                    known = np.array([4])
-                elif np.allclose(g.cell_centers, np.array([[0.5], [0.25], [0]]) * N):
-                    known = np.array([2])
-                elif np.allclose(g.cell_centers, np.array([[0.75], [0.25], [0]]) * N):
-                    known = np.array([2])
+            else:  # g.dim == 0
+                if np.allclose(g.cell_centers, np.array([[0.5], [0.5], [0.0]]) * N):
+                    known = np.array([4.0])
+                elif np.allclose(g.cell_centers, np.array([[0.625], [0.5], [0.0]]) * N):
+                    known = np.array([4.0])
+                elif np.allclose(g.cell_centers, np.array([[0.5], [0.25], [0.0]]) * N):
+                    known = np.array([2.0])
+                elif np.allclose(g.cell_centers, np.array([[0.75], [0.25], [0.0]]) * N):
+                    known = np.array([2.0])
                 else:
                     raise ValueError
 
             self.assertTrue(np.allclose(d["pressure"], known))
 
-
     def test_tpfa_1(self):
+        """
+        In this test we set up a network with 5 1d fractures that intersect in a point.
+        We validate the resulting solution.
+        We use the numerical scheme Tpfa.
+        """
         dfn_dim = 1
 
         N = 8
@@ -152,7 +358,7 @@ class TestDFN(unittest.TestCase):
 
         # setup data and assembler
         setup_data(gb)
-        assembler, (discr, p_trace) = setup_discr_tpfa(gb)
+        assembler, _ = setup_discr_tpfa(gb)
 
         A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
         x = sps.linalg.spsolve(A, b)
@@ -162,20 +368,20 @@ class TestDFN(unittest.TestCase):
         for g, d in gb:
 
             if g.dim == 1:
-                if np.all(g.cell_centers[1] == 0.5 * N): #f1
-                    known = np.array([4., 4., 4., 4., 4., 4., 4., 4.])
-                elif np.all(g.cell_centers[0] == 0.5 * N): #f2
+                if np.all(g.cell_centers[1] == 0.5 * N):  # f1
+                    known = np.array([4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0])
+                elif np.all(g.cell_centers[0] == 0.5 * N):  # f2
                     known = np.array([7.5, 6.5, 5.5, 4.5, 3.5, 2.5, 1.5, 0.5])
-                elif np.all(g.cell_centers[0] == 0.625 * N): #f3
+                elif np.all(g.cell_centers[0] == 0.625 * N):  # f3
                     known = np.array([4, 4])
-                elif np.all(g.cell_centers[1] == 0.25 * N): #f4
+                elif np.all(g.cell_centers[1] == 0.25 * N):  # f4
                     known = np.array([2, 2, 2, 2])
-                elif np.all(g.cell_centers[0] == 0.75 * N): #f5
+                elif np.all(g.cell_centers[0] == 0.75 * N):  # f5
                     known = np.array([2, 2])
                 else:
                     raise ValueError
 
-            else: #g.dim == 0
+            else:  # g.dim == 0
                 if np.allclose(g.cell_centers, np.array([[0.5], [0.5], [0]]) * N):
                     known = np.array([4])
                 elif np.allclose(g.cell_centers, np.array([[0.625], [0.5], [0]]) * N):
@@ -189,90 +395,17 @@ class TestDFN(unittest.TestCase):
 
             self.assertTrue(np.allclose(d["flow"], known))
 
-    def test_mvem_2(self):
-        dfn_dim = 2
-        f1 = np.array([[1.0, 1.0, 1.0, 1.0],
-                       [0.0, 2.0, 2.0, 0.0],
-                       [0.0, 0.0, 2.0, 2.0]])
-        f2 = np.array([[0.0, 2.0, 2.0, 0.0],
-                       [1.0, 1.0, 1.0, 1.0],
-                       [0.0, 0.0, 2.0, 2.0]])
 
-        # create the grid bucket
-        gb = pp.meshing.cart_grid([f1, f2], [2, 2, 2])
-        gb.compute_geometry()
-        create_dfn(gb, dfn_dim)
+# ------------------------- HELP FUNCTIONS --------------------------------#
 
-        # setup data and assembler
-        setup_data(gb)
-        assembler, _ = setup_discr_mvem(gb)
-
-        A, b, _, _ = assembler.assemble_matrix_rhs(gb)
-
-        #np.savetxt('matrix.txt', A.todense(), fmt="%1.2f", delimiter=',', newline='],\n[')
-        A_known = test_mvem_2_matrix()
-        b_known = np.array([0.5, 0, -0.5, 1.5, 0, -1.5, 0, 0, 0, 0, -2, -2, 0, 0, 0, 0, \
-                            0, 0, 1, 0, -1, 1, 0, -1, 1, 1, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0, \
-                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-
-        self.assertTrue(np.allclose(A.todense(), A_known))
-        self.assertTrue(np.allclose(b, b_known))
-
-    def test_tpfa_2(self):
-        dfn_dim = 2
-        f1 = np.array([[1.0, 1.0, 1.0, 1.0],
-                       [0.0, 2.0, 2.0, 0.0],
-                       [0.0, 0.0, 2.0, 2.0]])
-        f2 = np.array([[0.0, 2.0, 2.0, 0.0],
-                       [1.0, 1.0, 1.0, 1.0],
-                       [0.0, 0.0, 2.0, 2.0]])
-
-        # create the grid bucket
-        gb = pp.meshing.cart_grid([f1, f2], [2, 2, 2])
-        gb.compute_geometry()
-        create_dfn(gb, dfn_dim)
-
-        # setup data and assembler
-        setup_data(gb)
-        assembler, _ = setup_discr_tpfa(gb)
-
-        A, b, _, _ = assembler.assemble_matrix_rhs(gb)
-
-        A_known = np.matrix([\
-        [ 5. , -1. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  1. ,  0. ,  0. ,  0. ,  0. ],
-        [-1. ,  5. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  1. ,  0. ,  0. ,  0. ,  0. ,  0. ],
-        [ 0. ,  0. ,  5. , -1. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  1. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ],
-        [ 0. ,  0. , -1. ,  5. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  1. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ],
-        [ 0. ,  0. ,  0. ,  0. ,  5. ,  0. , -1. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  1. ,  0. ],
-        [ 0. ,  0. ,  0. ,  0. ,  0. ,  5. ,  0. , -1. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  1. ,  0. ,  0. ,  0. ],
-        [ 0. ,  0. ,  0. ,  0. , -1. ,  0. ,  5. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  1. ],
-        [ 0. ,  0. ,  0. ,  0. ,  0. , -1. ,  0. ,  5. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  1. ,  0. ,  0. ],
-        [ 0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. , -1. ,  0. , -1. ,  0. , -1. ,  0. , -1. ,  0. ],
-        [ 0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. , -1. ,  0. , -1. ,  0. , -1. ,  0. , -1. ],
-        [ 0. ,  0. ,  0. ,  1. ,  0. ,  0. ,  0. ,  0. , -1. ,  0. , -0.5,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ],
-        [ 0. ,  0. ,  1. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. , -1. ,  0. , -0.5,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ],
-        [ 0. ,  1. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. , -1. ,  0. ,  0. ,  0. , -0.5,  0. ,  0. ,  0. ,  0. ,  0. ],
-        [ 1. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. , -1. ,  0. ,  0. ,  0. , -0.5,  0. ,  0. ,  0. ,  0. ],
-        [ 0. ,  0. ,  0. ,  0. ,  0. ,  1. ,  0. ,  0. , -1. ,  0. ,  0. ,  0. ,  0. ,  0. , -0.5,  0. ,  0. ,  0. ],
-        [ 0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  1. ,  0. , -1. ,  0. ,  0. ,  0. ,  0. ,  0. , -0.5,  0. ,  0. ],
-        [ 0. ,  0. ,  0. ,  0. ,  1. ,  0. ,  0. ,  0. , -1. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. , -0.5,  0. ],
-        [ 0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  1. ,  0. ,  0. , -1. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. , -0.5]])
-
-        b_known = np.array([1., 1., 7., 7., 4., 4., 4., 4., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
-
-        self.assertTrue(np.allclose(A.todense(), A_known))
-        self.assertTrue(np.allclose(b, b_known))
-
-#------------------------- HELP FUNCTIONS --------------------------------#
 
 def setup_data(gb, key="flow"):
     """ Setup the data
     """
-    gb.add_node_props(["param", "is_tangential"])
     for g, d in gb:
-        param = pp.Parameters(g)
+        param = {}
         kxx = np.ones(g.num_cells)
-        param.set_tensor("flow", pp.SecondOrderTensor(g.dim, kxx))
+        param["second_order_tensor"] = pp.SecondOrderTensor(g.dim, kxx)
 
         if g.dim == gb.dim_max():
             bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -281,127 +414,85 @@ def setup_data(gb, key="flow"):
             )
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces] = g.face_centers[1, bound_faces]
-            param.set_bc("flow", bound)
-            param.set_bc_val("flow", bc_val)
-        d["param"] = param
-        d["is_tangential"] = True
+            param["bc"] = bound
+            param["bc_values"] = bc_val
+            param["aperture"] = np.ones(g.num_cells)
+            d[pp.PARAMETERS] = pp.Parameters(g, key, param)
+            d[pp.DISCRETIZATION_MATRICES] = {key: {}}
+
+    for _, d in gb.edges():
+        d[pp.DISCRETIZATION_MATRICES] = {key: {}}
+
 
 def setup_discr_mvem(gb, key="flow"):
-    """ Setup the discretization. """
+    """ Setup the discretization MVEM. """
     discr = pp.MVEM(key)
-    p_trace = pp.PressureTrace(key)
+    p_trace = pp.EmptyDiscretization(key)
     interface = pp.FluxPressureContinuity(key, discr, p_trace)
 
     for g, d in gb:
         if g.dim == gb.dim_max():
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1, "faces": 1}}
-            d[pp.keywords.DISCRETIZATION] = {key: {"flux": discr}}
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1, "faces": 1}}
+            d[pp.DISCRETIZATION] = {key: {"flux": discr}}
         else:
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-            d[pp.keywords.DISCRETIZATION] = {key: {"flux": p_trace}}
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {key: {"flux": p_trace}}
 
     for e, d in gb.edges():
         g_slave, g_master = gb.nodes_of_edge(e)
-        d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-        d[pp.keywords.COUPLING_DISCRETIZATION] = {
+        d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+        d[pp.COUPLING_DISCRETIZATION] = {
             "flux": {
                 g_slave: (key, "flux"),
                 g_master: (key, "flux"),
-                e: (key, interface)
+                e: (key, interface),
             }
         }
 
     return pp.Assembler(), (discr, p_trace)
+
 
 def setup_discr_tpfa(gb, key="flow"):
-    """ Setup the discretization. """
+    """ Setup the discretization Tpfa. """
     discr = pp.Tpfa(key)
-    p_trace = pp.PressureTrace(key)
+    p_trace = pp.EmptyDiscretization(key)
     interface = pp.FluxPressureContinuity(key, discr, p_trace)
 
     for g, d in gb:
         if g.dim == gb.dim_max():
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-            d[pp.keywords.DISCRETIZATION] = {key: {"flux": discr}}
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {key: {"flux": discr}}
         else:
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-            d[pp.keywords.DISCRETIZATION] = {key: {"flux": p_trace}}
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {key: {"flux": p_trace}}
 
     for e, d in gb.edges():
         g_slave, g_master = gb.nodes_of_edge(e)
-        d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-        d[pp.keywords.COUPLING_DISCRETIZATION] = {
+        d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+        d[pp.COUPLING_DISCRETIZATION] = {
             "flux": {
                 g_slave: (key, "flux"),
                 g_master: (key, "flux"),
-                e: (key, interface)
+                e: (key, interface),
             }
         }
 
     return pp.Assembler(), (discr, p_trace)
+
 
 def create_dfn(gb, dim):
     """ given a GridBucket remove the higher dimensional node and
     fix the internal mapping. """
     # remove the +1 and -2 dimensional grids with respect to the
     # considered dfn, and re-write the node number
-    gd = np.hstack((gb.grids_of_dimension(dim + 1),
-                    gb.grids_of_dimension(dim - 2)))
+    gd = np.hstack((gb.grids_of_dimension(dim + 1), gb.grids_of_dimension(dim - 2)))
 
     for g in gd:
         node_number = gb.node_props(g, "node_number")
         gb.remove_node(g)
         gb.update_node_ordering(node_number)
 
-def test_mvem_2_matrix():
-    return np.array([\
-    [0.75,-0.25,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [-0.25,1.50,-0.25,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.00,-1.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,-0.25,0.75,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.75,-0.25,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,-0.25,1.50,-0.25,0.00,0.00,0.00,0.00,0.00,-0.00,0.00,0.00,0.00,0.00,-1.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,-0.25,0.75,0.00,0.00,0.00,0.00,0.00,-0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.75,0.00,0.00,0.00,0.00,0.00,-0.25,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.25,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.75,0.00,0.00,0.00,0.00,0.00,-0.25,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.25,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.50,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.50,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.25,0.00,0.75,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.25,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,-0.00,-0.00,0.00,0.00,0.00,-0.25,0.00,0.75,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.25,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.50,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.50,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [1.00,-1.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00],
-    [0.00,1.00,-1.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,1.00,-1.00,0.00,0.00,0.00,1.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,1.00,-1.00,0.00,0.00,0.00,1.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.75,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.25,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.25,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.50,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.25,0.75,0.00,0.00,0.00,0.00,-0.00,0.00,-0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.25,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.75,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.25,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.25],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.50,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.25,0.75,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.25,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.75,0.00,-0.25,0.00,0.00,0.00,-0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.00,0.00,0.00,0.00,0.00,0.75,0.00,-0.25,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.25,0.00,1.50,0.00,-0.25,0.00,-0.00,0.00,-1.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.00,0.00,0.00,0.00,0.00,-0.25,0.00,1.50,0.00,-0.25,0.00,0.00,0.00,-1.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.25,0.00,0.75,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.25,0.00,0.75,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.50,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.50,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,-1.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.00,-1.00,0.00,0.00,0.00,0.00,1.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,1.00,0.00,-1.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-1.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.00,-1.00,0.00,0.00,0.00,1.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,-1.00,0.00,-1.00,0.00,-1.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,-1.00,0.00,-1.00,0.00,-1.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.75,0.00,-0.25,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,-0.75,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.75,0.00,-0.25,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,-0.75,0.00,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.25,0.00,0.00,0.00,0.00,0.00,-0.75,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,-0.75,0.00,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.25,0.00,0.00,0.00,0.00,0.00,-0.75,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,-0.75,0.00,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.75,-0.25,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,-0.75,0.00,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.75,-0.25,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,-0.75,0.00,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.25,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.75,0.00,1.00,0.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.75,0.00],
-    [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.25,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.75,0.00,0.00,1.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,-0.75]])
-
 
 if __name__ == "__main__":
-    unittest.main()
+    TestDFN().test_mvem_1()
+    # unittest.main()

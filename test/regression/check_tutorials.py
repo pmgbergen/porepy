@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-import os, sys, glob
+import os, glob
 
 
 def run_all():
@@ -54,6 +54,8 @@ def remove_plots(fn):
             if "vtk" in line:
                 continue
             if "Exporter" in line:
+                continue
+            if "exporter" in line:
                 continue
             if "import plot_grid" in line:
                 continue

@@ -6,18 +6,17 @@ import porepy as pp
 
 
 def import_grid(file_geo, tol):
-
     # define the mesh size
     file_csv = "fracture_geometry.csv"
     domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
 
-    _, network, _ = pp.importer.network_3d_from_csv(file_csv, tol=tol)
+    network = pp.fracture_importer.network_3d_from_csv(file_csv, tol=tol)
     network.impose_external_boundary(domain)
     network.find_intersections()
     network.split_intersections()
     network.to_gmsh("dummy.geo")
 
-    gb = pp.importer.dfm_from_gmsh(file_geo, 3, network)
+    gb = pp.fracture_importer.dfm_from_gmsh(file_geo, 3, network)
     gb.compute_geometry()
 
     return gb, domain
@@ -27,7 +26,6 @@ def import_grid(file_geo, tol):
 
 
 def make_grid_cart(N):
-
     file_csv = "fracture_geometry.csv"
 
     frac_list = []
@@ -172,17 +170,15 @@ def add_data(gb, data, solver_name):
 
     is_fv = solver_name == "tpfa" or solver_name == "mpfa"
 
-    gb.add_node_props(
-        ["is_tangential", "param", "frac_num", "low_zones", "porosity", "color"]
-    )
+    gb.add_node_props(["is_tangential", "frac_num", "low_zones",
+                       "porosity", "color", "Aavatsmark_transmissibilities"])
     for g, d in gb:
-        param = pp.Parameters(g)
         d["is_tangential"] = True
         d["low_zones"] = low_zones(g)
+        d["Aavatsmark_transmissibilities"] = True
         d["color"] = color(g)
 
         unity = np.ones(g.num_cells)
-        zeros = np.zeros(g.num_cells)
         empty = np.empty(0)
 
         if g.dim == 2:
@@ -210,107 +206,78 @@ def add_data(gb, data, solver_name):
                 perm = pp.SecondOrderTensor(3, kxx=kxx)
             else:
                 perm = pp.SecondOrderTensor(1, kxx=kxx, kyy=1, kzz=1)
-        param.set_tensor("flow", perm)
-
-        # Source term
-        param.set_source("flow", zeros)
 
         # Assign apertures
         aperture = np.power(data["aperture"], 3 - g.dim)
-        param.set_aperture(aperture * unity)
-        d["aperture"] = aperture * unity
 
         # Boundaries
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+        bc_val = np.zeros(g.num_faces)
+        bc_val_t = np.zeros(g.num_faces)
+
         if b_faces.size != 0:
 
             b_face_centers = g.face_centers[:, b_faces]
-            b_flux = np.logical_and.reduce(
+            b_inflow = np.logical_and.reduce(
                 tuple(b_face_centers[i, :] < 0.25 - tol for i in range(3))
             )
-            b_pressure = np.logical_and.reduce(
+            b_outflow = np.logical_and.reduce(
                 tuple(b_face_centers[i, :] > 0.875 + tol for i in range(3))
             )
 
             labels = np.array(["neu"] * b_faces.size)
-            labels[b_pressure] = "dir"
-            param.set_bc("flow", pp.BoundaryCondition(g, b_faces, labels))
+            labels[b_outflow] = "dir"
+            bc = pp.BoundaryCondition(g, b_faces, labels)
 
-            bc_val = np.zeros(g.num_faces)
-            f_faces = b_faces[b_flux]
+            f_faces = b_faces[b_inflow]
             bc_val[f_faces] = -aperture * g.face_areas[f_faces]
-            bc_val[b_faces[b_pressure]] = 1
-            param.set_bc_val("flow", bc_val)
-        else:
-            param.set_bc("flow", pp.BoundaryCondition(g, empty, empty))
+            bc_val[b_faces[b_outflow]] = 1
 
-        d["param"] = param
+            # Transport
+            labels = np.array(["neu"] * b_faces.size)
+            labels[np.logical_or(b_inflow, b_outflow)] = "dir"
+            bc_t = pp.BoundaryCondition(g, b_faces, labels)
+
+            bc_val_t[b_faces[b_inflow]] = 1
+
+        else:
+            bc = pp.BoundaryCondition(g, empty, empty)
+            bc_t = pp.BoundaryCondition(g, empty, empty)
 
         if g.dim == 3:
             d["porosity"] = data["porosity_m"] * unity
         else:
             d["porosity"] = data["porosity_f"] * unity
 
+        specified_parameters_f = {
+            "second_order_tensor": perm,
+            "aperture": aperture * unity,
+            "bc": bc,
+            "bc_values": bc_val,
+        }
+        specified_parameters_t = {
+            "aperture": aperture * unity,
+            "bc": bc_t,
+            "bc_values": bc_val_t,
+            "time_step": data["time_step"],
+            "mass_weight": d["porosity"],
+        }
+        pp.initialize_default_data(g, d, "flow", specified_parameters_f)
+        pp.initialize_default_data(g, d, "transport", specified_parameters_t)
+
     # Assign coupling permeability, the aperture is read from the lower dimensional grid
-    gb.add_edge_props("kn")
     for e, d in gb.edges():
         g_l = gb.nodes_of_edge(e)[0]
         mg = d["mortar_grid"]
-        check_P = mg.low_to_mortar_avg()
+        check_P = mg.slave_to_mortar_avg()
 
-        gamma = check_P * gb.node_props(g_l, "param").get_aperture()
-        d["kn"] = data["kf"] * np.ones(mg.num_cells) / gamma
+        pa_l = gb.node_props(g_l, pp.PARAMETERS)
+        gamma = check_P * pa_l["flow"]["aperture"]
+        kn = data["kf"] * np.ones(mg.num_cells) / gamma
+        d[pp.PARAMETERS] = pp.Parameters(
+            mg, ["flow", "transport"], [{"normal_diffusivity": kn}, {}]
+        )
+        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}, "transport": {}}
 
 
 # ------------------------------------------------------------------------------#
-
-
-class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
-    def __init__(self, g, data, physics="transport", **kwargs):
-        self.domain = kwargs["domain"]
-        self.tol = kwargs["tol"]
-        self.max_dim = kwargs.get("max_dim", 3)
-        self.porosity_f = kwargs["porosity_f"]
-        self.porosity_m = kwargs["porosity_m"]
-
-        # define two pieces of the boundary, useful to impose boundary conditions
-        self.inflow = np.empty(0)
-
-        b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
-        if b_faces.size > 0:
-            b_face_centers = g.face_centers[:, b_faces]
-
-            self.inflow = np.logical_and.reduce(
-                tuple(b_face_centers[i, :] < 0.25 - self.tol for i in range(3))
-            )
-            self.outflow = np.logical_and.reduce(
-                tuple(b_face_centers[i, :] > 0.875 + self.tol for i in range(3))
-            )
-
-        pp.ParabolicDataAssigner.__init__(self, g, data, physics)
-
-    def porosity(self):
-        if self.grid().dim == 3:
-            return self.porosity_m * np.ones(self.grid().num_cells)
-        else:
-            return self.porosity_f * np.ones(self.grid().num_cells)
-
-    def rock_specific_heat(self):
-        # hack to remove the rock part
-        return 0
-
-    def bc(self):
-        b_faces = self.grid().tags["domain_boundary_faces"].nonzero()[0]
-        if b_faces.size == 0:
-            return pp.BoundaryCondition(self.grid(), np.empty(0), np.empty(0))
-        else:
-            labels = np.array(["neu"] * b_faces.size)
-            labels[np.logical_or(self.inflow, self.outflow)] = "dir"
-        return pp.BoundaryCondition(self.grid(), b_faces, labels)
-
-    def bc_val(self, _):
-        bc_val = np.zeros(self.grid().num_faces)
-        b_faces = self.grid().tags["domain_boundary_faces"].nonzero()[0]
-        if b_faces.size > 0:
-            bc_val[b_faces[self.inflow]] = 1
-        return bc_val

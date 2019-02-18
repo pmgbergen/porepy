@@ -4,7 +4,9 @@ Module contains superclass for mpfa and tpfa.
 import porepy as pp
 
 
-class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
+class FVElliptic(
+    pp.numerics.interface_laws.elliptic_discretization.EllipticDiscretization
+):
     """ Superclass for finite volume discretizations of the elliptic equation.
 
     Should not be used by itself, instead use a subclass that implements an
@@ -145,6 +147,10 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
 
         div = pp.fvutils.scalar_divergence(g)
         flux = matrix_dictionary["flux"]
+        if flux.shape[0] != g.num_faces:
+            hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
+            flux = hf2f * flux
+
         M = div * flux
 
         return M
@@ -172,6 +178,9 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
             self.discretize(g, data)
 
         bound_flux = matrix_dictionary["bound_flux"]
+        if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
+            hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
+            bound_flux = hf2f * bound_flux
 
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
@@ -223,6 +232,17 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
             proj = mg.slave_to_mortar_avg()
         else:
             proj = mg.master_to_mortar_avg()
+
+        if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
+            # If bound flux is gven as sub-faces we have to map it from sub-faces
+            # to faces
+            hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
+            bound_flux = hf2f * bound_flux
+        if g.dim > 0 and bound_flux.shape[1] != proj.shape[1]:
+            raise ValueError(
+                """Inconsistent shapes. Did you define a
+            sub-face boundary condition but only a face-wise mortar?"""
+            )
 
         cc[self_ind, 2] += div * bound_flux * proj.T
 
