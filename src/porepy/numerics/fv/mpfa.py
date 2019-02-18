@@ -99,7 +99,7 @@ class Mpfa(FVElliptic):
         g,
         k,
         bnd,
-        tol,
+        tol=1e-5,
         eta=None,
         inverter=None,
         apertures=None,
@@ -250,7 +250,7 @@ class Mpfa(FVElliptic):
         g,
         k,
         bnd,
-        tol,
+        tol=1e-5,
         eta=0,
         inverter="numba",
         cells=None,
@@ -373,7 +373,7 @@ class Mpfa(FVElliptic):
             active_faces,
         )
 
-    def _local_discr(self, g, k, bnd, tol, eta=None, inverter="numba", apertures=None):
+    def _local_discr(self, g, k, bnd, tol=1e-5, eta=None, inverter="numba", apertures=None):
         """
         Actual implementation of the MPFA O-method. To calculate MPFA on a grid
         directly, either call this method, or, to respect the privacy of this
