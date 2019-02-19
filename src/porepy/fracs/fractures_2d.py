@@ -484,7 +484,7 @@ class FractureNetwork2d(object):
         if self.pts is not None:
             s += ", consisting of " + str(self.pts.shape[1]) + " points.\n"
         else:
-            s += '.\n'
+            s += ".\n"
         if self.domain is not None:
             s += "Domain: "
             s += str(self.domain)
