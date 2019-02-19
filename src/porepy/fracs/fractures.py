@@ -2143,7 +2143,7 @@ class FractureNetwork3d(object):
         point_counter = 0
         pts_vtk = vtk.vtkPoints()
         for fi, f in enumerate(self._fractures):
-            if not export_domain_boundary and self.tags['boundary'][fi]:
+            if not export_domain_boundary and self.tags["boundary"][fi]:
                 continue
 
             # Add local points
