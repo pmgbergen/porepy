@@ -3,7 +3,6 @@ import csv
 
 import porepy as pp
 
-from porepy.grids import grid
 from porepy.grids.gmsh import gmsh_interface
 from porepy.fracs import meshing, simplex
 from porepy.fracs.fractures import Fracture, EllipticFracture
