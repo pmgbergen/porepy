@@ -1,15 +1,10 @@
-import numpy as np
-import scipy.sparse as sps
-import porepy as pp
-
 def jump_flux(gb, flux_mortar):
 
     # loop on the lagrange multiplier nodes
     for g in gb.grids_of_dimension(1):
-        d = gb.node_props(g)
 
         # loop on the associated edges
-        for e, d_e in gb.edges_of_node(g):
+        for _, d_e in gb.edges_of_node(g):
 
             # get the projector from the mortar grid to the slave
             proj = d_e["mortar_grid"].mortar_to_slave_int()

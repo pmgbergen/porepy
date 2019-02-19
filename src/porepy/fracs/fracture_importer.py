@@ -1,16 +1,13 @@
 import numpy as np
-from scipy import sparse as sps
-from itertools import islice
 import csv
 
 import porepy as pp
 
-from porepy.grids import grid, grid_bucket
+from porepy.grids import grid
 from porepy.grids.gmsh import gmsh_interface
-from porepy.fracs import meshing, split_grid, simplex
+from porepy.fracs import meshing, simplex
 from porepy.fracs.fractures import Fracture, EllipticFracture
 from porepy.utils.setmembership import unique_columns_tol
-from porepy.utils.sort_points import sort_point_pairs
 import porepy.utils.comp_geom as cg
 
 

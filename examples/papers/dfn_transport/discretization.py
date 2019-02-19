@@ -1,4 +1,4 @@
-import logging, time, sys
+import logging, sys
 import scipy.sparse as sps
 import numpy as np
 import porepy as pp
@@ -193,8 +193,6 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
 
         d["Aavatsmark_transmissibilities"] = True
         unity = np.ones(g.num_cells)
-        zeros = np.zeros(g.num_cells)
-        empty = np.empty(0)
 
         # weight for the mass matrix
         param_adv["mass_weight"] = data.get("mass_weight", 1) * unity
@@ -275,9 +273,6 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
 
     # save variable name for the post-process
     param["scalar"] = variable
-
-    adv = "advection"
-    diff = "diffusion"
 
     discr_adv = pp.Upwind(model_data_adv)
     discr_adv_interface = pp.Cell_dof_face_dof_map(model_data_adv)

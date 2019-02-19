@@ -2,8 +2,8 @@ import numpy as np
 import porepy as pp
 
 import examples.papers.dfn_transport.discretization as compute
-from examples.papers.dfn_transport.grid_export import grid_export
-from examples.papers.dfn_transport.flux_trace import jump_flux
+#from examples.papers.dfn_transport.grid_export import grid_export
+#from examples.papers.dfn_transport.flux_trace import jump_flux
 
 def bc_flag(g, domain, tol):
     b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -43,7 +43,7 @@ def main():
                  "10k": 0.91 * np.power(2., -5), # for 10k triangles
                  }
 
-    folder_grid = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/grid/"
+    #folder_grid = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/grid/"
 
     for mesh_size_key in mesh_sizes.keys():
 

@@ -8,7 +8,6 @@ import os
 import shutil
 
 import numpy as np
-from scipy.io import mmread
 
 #------------------------------------------------------------------------------#
 

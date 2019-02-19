@@ -3,7 +3,6 @@ import numpy as np
 import scipy.sparse as sps
 import scipy.optimize as opt
 
-from porepy.utils import comp_geom as cg
 from porepy.utils.sort_points import sort_point_pairs
 
 
