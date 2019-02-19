@@ -81,11 +81,8 @@ def save_multiple(filename, num_frac, folder):
 def main():
 
     num_simul = 21
-
-    n_step = 300
     num_frac = 3
 
-    num_cells = np.zeros((num_simul, num_frac+1))
     master_folder = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/"
 
     methods_stefano = ["OPTxfem", "OPTfem"]

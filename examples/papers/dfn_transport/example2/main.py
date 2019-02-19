@@ -2,7 +2,7 @@ import numpy as np
 import porepy as pp
 
 import examples.papers.dfn_transport.discretization as compute
-from examples.papers.dfn_transport.flux_trace import jump_flux
+#from examples.papers.dfn_transport.flux_trace import jump_flux
 
 def bc_flag(g, domain, tol):
     b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
