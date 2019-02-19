@@ -2116,7 +2116,7 @@ class FractureNetwork3d(object):
                         if d_1 > mesh_size_min and d_2 > mesh_size_min:
                             np.insert(f.p, (si + 1) % nfp, cp_f[:, mi], axis=1)
 
-    def to_vtk(self, file_name, data=None, binary=True):
+    def to_vtk(self, file_name, data=None, binary=True, export_domain_boundary=True):
         """
         Export the fracture network to vtk.
 
@@ -2134,13 +2134,18 @@ class FractureNetwork3d(object):
                 data is supported. Fracture numbers are always exported.
             binary (boolean, optional): Use binary export format. Defaults to
                 True.
+            export_domain_boundary (boolean, optional): If True (defalut) bounding
+                planes of the domain are included in the export.
 
         """
         network_vtk = vtk.vtkUnstructuredGrid()
 
         point_counter = 0
         pts_vtk = vtk.vtkPoints()
-        for f in self._fractures:
+        for fi, f in enumerate(self._fractures):
+            if not export_domain_boundary and self.tags['boundary'][fi]:
+                continue
+
             # Add local points
             [pts_vtk.InsertNextPoint(*p) for p in f.p.T]
 
