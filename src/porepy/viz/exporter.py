@@ -231,6 +231,12 @@ class Exporter:
         if self.fixed_grid:
             self._update_gb_VTK()
 
+        # Counter for time step. Will be used to identify files of individual time step,
+        # unless this is overridden by optional parameters in write_vtk
+        self._time_step_counter = 0
+        # Storage for file name extensions for time steps
+        self._exported_time_step_file_names = []
+
     # ------------------------------------------------------------------------------#
 
     def change_name(self, name):
@@ -260,8 +266,9 @@ class Exporter:
         data: if g is a single grid then data is a dictionary (see example)
               if g is a grid bucket then list of names for optional data,
               they are the keys in the grid bucket (see example).
-        time_step: (optional) in a time dependent problem defines the full name of
-            the file.
+        time_step: (optional) in a time dependent problem defines the part of the file
+                   name associated with this time step. If not provided, subsequent
+                   time steps will have file names ending with 0, 1, etc.
         grid: (optional) in case of changing grid set a new one.
         point_data: ***
 
@@ -276,6 +283,12 @@ class Exporter:
             self.is_GridBucket = isinstance(self.gb, pp.GridBucket)
             self._update_gVTK()
 
+        if time_step is None:
+            time_step = self._time_step_counter
+            self._time_step_counter += 1
+
+        self._exported_time_step_file_names.append(time_step)
+
         if self.is_GridBucket:
             self._export_vtk_gb(data, time_step, point_data)
         else:
@@ -283,7 +296,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def write_pvd(self, time):
+    def write_pvd(self, timestep, file_extension=None):
         """
         Interface function to export in PVD file the time loop information.
         The user should open only this file in paraview.
@@ -292,11 +305,21 @@ class Exporter:
         We assume that the VTU associated files are in the same folder.
 
         Parameters:
-        time: vector of times.
+        timestep: vector of times to be exported. These will be the time associated with
+            indivdiual time steps in, say, Paraview. By default, the times will be
+            associated with the order in which the time steps were exported. This can
+            be overridden by the file_extension argument.
+        file_extension (np.array-like, optional): End of file names used in the export
+            of individual time steps, see self.write_vtk(). If provided, it should have
+            the same length as time. If not provided, the file names will be picked
+            from those used when writing individual time steps.
 
         """
         if self.is_not_vtk:
             return
+
+        if file_extension is None:
+            file_extension = self._exported_time_step_file_names
 
         o_file = open(self._make_folder(self.folder, self.name) + ".pvd", "w")
         b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
@@ -310,19 +333,13 @@ class Exporter:
         o_file.write(header)
         fm = '\t<DataSet group="" part="" timestep="%f" file="%s"/>\n'
 
-        time_step = np.arange(np.atleast_1d(time).size)
-
         if self.is_GridBucket:
-            [
-                o_file.write(fm % (time[t], self._make_file_name(self.name, t, dim)))
-                for t in time_step
-                for dim in self.dims
-            ]
+            for time, fn in zip(timestep, file_extension):
+                for dim in self.dims:
+                    o_file.write(fm % (time, self._make_file_name(self.name, fn, dim)))
         else:
-            [
-                o_file.write(fm % (time[t], self._make_file_name(self.name, t)))
-                for t in time_step
-            ]
+            for time, fn in zip(timestep, file_extension):
+                o_file.write(fm % (time, self._make_file_name(self.name, fn)))
 
         o_file.write("</Collection>\n" + "</VTKFile>")
         o_file.close()
