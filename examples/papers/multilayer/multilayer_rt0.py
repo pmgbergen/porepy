@@ -66,7 +66,6 @@ class RT0Multilayer(pp.RT0):
         shape = (g.num_faces, A.shape[1])
         cc[self_ind, 2] += coefficient * sps.bmat([[sps.csr_matrix(shape)], [A]])
 
-
     def assemble_int_bound_pressure_cell(
         self, g, data, data_edge, grid_swap, cc, matrix, self_ind, coefficient=-1.0
     ):

@@ -7,16 +7,16 @@ if __name__ == "__main__":
     file_geo = "algeroyna_1to10.csv"
     folder = "solution"
 
-    mesh_args = {'mesh_size_frac': 10}
+    mesh_args = {"mesh_size_frac": 10}
     tol = {"geo": 1e-4, "snap": 1e-3}
 
     # define the physical data
     aperture = pp.MILLIMETER
     data = {
         "aperture": aperture,
-        "kf": aperture**2 / 12,
+        "kf": aperture ** 2 / 12,
         "km": 1e-14,
-        "tol": tol["geo"]
+        "tol": tol["geo"],
     }
 
     dfn = False

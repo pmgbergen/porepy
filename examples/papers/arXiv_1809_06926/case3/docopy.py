@@ -6,13 +6,13 @@ if __name__ == "__main__":
     folder_src = "/Home/siv28/afu082/porepy/examples/papers/arXiv_1809_06926/case3/"
     folder_dst = folder_src + "/CSV/"
 
-    solver_names = ['tpfa', 'vem', 'rt0', 'mpfa']
-    refinements = ['0', '1']
+    solver_names = ["tpfa", "vem", "rt0", "mpfa"]
+    refinements = ["0", "1"]
 
     for refinement in refinements:
         for solver in solver_names:
             folder_in = folder_src + solver + "_results_" + refinement + "/"
-            if solver == 'vem':
+            if solver == "vem":
                 folder_out = folder_dst + "MVEM/"
             else:
                 folder_out = folder_dst + solver.upper() + "/"

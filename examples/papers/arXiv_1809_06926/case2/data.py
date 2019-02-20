@@ -170,8 +170,16 @@ def add_data(gb, data, solver_name):
 
     is_fv = solver_name == "tpfa" or solver_name == "mpfa"
 
-    gb.add_node_props(["is_tangential", "frac_num", "low_zones",
-                       "porosity", "color", "Aavatsmark_transmissibilities"])
+    gb.add_node_props(
+        [
+            "is_tangential",
+            "frac_num",
+            "low_zones",
+            "porosity",
+            "color",
+            "Aavatsmark_transmissibilities",
+        ]
+    )
     for g, d in gb:
         d["is_tangential"] = True
         d["low_zones"] = low_zones(g)

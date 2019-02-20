@@ -372,7 +372,7 @@ class Mpsa(
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         bp = matrix_dictionary["bound_displacement_cell"]
-        bc_values = data[pp.PARAMETERS][self.keyword]['bc_values']
+        bc_values = data[pp.PARAMETERS][self.keyword]["bc_values"]
         if proj_avg.shape[1] == g.dim * g.num_faces:
             # In this case we the projection is from faces to cells
             # We therefore need to map the boundary displacements which is given as
@@ -407,8 +407,9 @@ class Mpsa(
                 proj_avg
                 * weight
                 * hf2f
-                * matrix_dictionary["bound_displacement_face"] * bc_values
-                )
+                * matrix_dictionary["bound_displacement_face"]
+                * bc_values
+            )
         else:
             # For comments look above
             cc[2, self_ind] += proj_avg * bp
@@ -421,9 +422,7 @@ class Mpsa(
                 * proj_int_swap.T
             )
             # Add contribution from  boundary conditions to displacement trace
-            rhs[2] = (
-                proj_avg * matrix_dictionary["bound_displacement_face"] * bc_values
-                )
+            rhs[2] = proj_avg * matrix_dictionary["bound_displacement_face"] * bc_values
 
     def assemble_int_bound_displacement_cell(
         self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind

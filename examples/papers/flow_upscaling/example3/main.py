@@ -6,13 +6,14 @@ from examples.papers.flow_upscaling.import_grid import grid, square_grid, raw_fr
 
 from mpfa_upscalig import MpfaUpscaling
 
+
 def global_data(g, keyword="flow"):
-    km = 1.
+    km = 1.0
 
     param = {}
 
     # set the permeability
-    perm = pp.SecondOrderTensor(3, km*np.ones(g.num_cells))
+    perm = pp.SecondOrderTensor(3, km * np.ones(g.num_cells))
     param["second_order_tensor"] = perm
 
     # Assign apertures
@@ -29,16 +30,19 @@ def global_data(g, keyword="flow"):
 
     param["bc_values"] = bc_val
 
-    data = {pp.PARAMETERS: pp.Parameters(g, keyword, param),
-            pp.DISCRETIZATION_MATRICES: {keyword: {}}}
+    data = {
+        pp.PARAMETERS: pp.Parameters(g, keyword, param),
+        pp.DISCRETIZATION_MATRICES: {keyword: {}},
+    }
     return data
+
 
 def local_node_data(g, d, gb, **kwargs):
     # do not set the boundary conditions,
     # the local grid bucket is different than the global one
 
     kf = 1e4
-    km = 1.
+    km = 1.0
     aperture = 1e-3
     keyword = kwargs.get("keyword", "flow")
     param = {}
@@ -46,17 +50,20 @@ def local_node_data(g, d, gb, **kwargs):
     # set the permeability and aperture
     if g.dim == 2:
         kxx = km
-    else: #g.dim == 1:
+    else:  # g.dim == 1:
         kxx = kf
-    perm = pp.SecondOrderTensor(3, kxx*np.ones(g.num_cells))
+    perm = pp.SecondOrderTensor(3, kxx * np.ones(g.num_cells))
     param["second_order_tensor"] = perm
 
     # Assign apertures
-    param["aperture"] = np.power(aperture, 2-g.dim)*np.ones(g.num_cells)
+    param["aperture"] = np.power(aperture, 2 - g.dim) * np.ones(g.num_cells)
 
-    data = {pp.PARAMETERS: pp.Parameters(g, keyword, param),
-            pp.DISCRETIZATION_MATRICES: {keyword: {}}}
+    data = {
+        pp.PARAMETERS: pp.Parameters(g, keyword, param),
+        pp.DISCRETIZATION_MATRICES: {keyword: {}},
+    }
     return data
+
 
 def local_edge_data(e, d, gb, **kwargs):
     kf = 1e4
@@ -66,8 +73,9 @@ def local_edge_data(e, d, gb, **kwargs):
     check_P = mg.slave_to_mortar_avg()
 
     aperture = gb.node_props(g_l, "param").get_aperture()
-    gamma = check_P * np.power(aperture, 1./(2.-g_l.dim))
+    gamma = check_P * np.power(aperture, 1.0 / (2.0 - g_l.dim))
     return {"kn": kf * np.ones(mg.num_cells) / gamma}
+
 
 def compute_discharge(gb, **kwargs):
 
@@ -91,9 +99,9 @@ def compute_discharge(gb, **kwargs):
         d[pp.PRIMARY_VARIABLES] = {mortar: {"cells": 1}}
         d[pp.COUPLING_DISCRETIZATION] = {
             flux: {
-                g_slave:  (variable, discr_id),
+                g_slave: (variable, discr_id),
                 g_master: (variable, discr_id),
-                e: (mortar, coupling)
+                e: (mortar, coupling),
             }
         }
 
@@ -108,36 +116,37 @@ def compute_discharge(gb, **kwargs):
     flux_name = "darcy_flux"
     pp.fvutils.compute_darcy_flux(gb, keyword, flux_name, variable, mortar)
 
-#    for g, d in gb:
-#        if g.dim == 2:
-#            print(d["pressure"].size, g.num_cells)
-#            pp.plot_grid(g, d["pressure"])
+    #    for g, d in gb:
+    #        if g.dim == 2:
+    #            print(d["pressure"].size, g.num_cells)
+    #            pp.plot_grid(g, d["pressure"])
 
     # extract the discharge and return it
     return gb.node_props(gb.grids_of_dimension(gb.dim_max())[0], flux_name)
 
+
 if __name__ == "__main__":
     file_geo = "network.csv"
-    #file_geo = "../example2/algeroyna_1to10.csv"
+    # file_geo = "../example2/algeroyna_1to10.csv"
     folder = "solution"
     tol = 1e-3
     tol_small = 1e-5
 
-    mesh_args = {'mesh_size_frac': 0.25, "tol": tol}
+    mesh_args = {"mesh_size_frac": 0.25, "tol": tol}
 
     g = pp.StructuredTriangleGrid([2, 2], [1, 1])
     g.compute_geometry()
 
-    #gb, domain = square_grid(mesh_args)
-    #g = gb.grids_of_dimension(2)[0]
+    # gb, domain = square_grid(mesh_args)
+    # g = gb.grids_of_dimension(2)[0]
     pp.plot_grid(g, alpha=0, info="fc")
 
     np.set_printoptions(linewidth=9999)
 
     # read the background fractures
     fracs_pts, fracs_edges = pp.importer.lines_from_csv(file_geo)
-    #fracs_pts, fracs_edges, _ = raw_from_csv(file_geo, mesh_args)
-    #fracs_pts /= np.linalg.norm(np.amax(fracs_pts, axis=1))
+    # fracs_pts, fracs_edges, _ = raw_from_csv(file_geo, mesh_args)
+    # fracs_pts /= np.linalg.norm(np.amax(fracs_pts, axis=1))
 
     # the data for the local problem
     data_local = {
@@ -145,16 +154,16 @@ if __name__ == "__main__":
         "edge_data": local_edge_data,
         "tol": tol,
         "fractures": {"points": fracs_pts, "edges": fracs_edges},
-        "mesh_args": {'mesh_size_frac': 1},
-        "compute_discharge": compute_discharge
-        }
+        "mesh_args": {"mesh_size_frac": 1},
+        "compute_discharge": compute_discharge,
+    }
 
     data = global_data(g)
     data.update({"tol": tol, "local_problem": data_local})
 
-    #discr = pp.Mpfa("flow")
-    #discr.assemble_matrix_rhs(g, data)
-    #print(data["flow_flux"])
+    # discr = pp.Mpfa("flow")
+    # discr.assemble_matrix_rhs(g, data)
+    # print(data["flow_flux"])
 
     discr = MpfaUpscaling("flow")
     discr.assemble_matrix_rhs(g, data)
