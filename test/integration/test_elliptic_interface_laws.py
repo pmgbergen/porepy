@@ -123,7 +123,6 @@ class TestTwoGridCoupling(unittest.TestCase):
                 * (bdcm * um - bdfm * (bc_val_m + mstr2mrt_nd.T * lam))
             ).reshape((gs.dim, -1), order="F")
             lam_nd = lam.reshape((gs.dim, -1), order="F")
-
             for i in range(len(RW)):
                 rhs_robin = MW[i].dot(lam_nd[:, i]) + RW[i].dot(jump_u[:, i])
                 self.assertTrue(np.allclose(rhs_robin, rhs[:, i]))
@@ -333,7 +332,6 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
                 * (bdcm * um - bdfm * (bc_val_m + mstr2mrt_nd.T * lam) + bdpm * pm)
             ).reshape((gs.dim, -1), order="F")
             lam_nd = lam.reshape((gs.dim, -1), order="F")
-
             for i in range(len(RW)):
                 rhs_robin = MW[i].dot(lam_nd[:, i]) + RW[i].dot(jump_u[:, i])
                 self.assertTrue(np.allclose(rhs_robin, rhs[:, i]))
