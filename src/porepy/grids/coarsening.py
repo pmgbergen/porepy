@@ -274,6 +274,7 @@ def generate_coarse_grid_gb(gb, subdiv):
             # update the map
             d["face_cells"] = face_cells.tocsc()
 
+
 # ------------------------------------------------------------------------------#
 
 

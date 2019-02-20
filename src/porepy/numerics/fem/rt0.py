@@ -179,7 +179,9 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
         deviation_from_plane_tol = data.get("deviation_from_plane_tol", 1e-5)
-        c_centers, f_normals, f_centers, R, dim, node_coords = pp.cg.map_grid(g, deviation_from_plane_tol)
+        c_centers, f_normals, f_centers, R, dim, node_coords = pp.cg.map_grid(
+            g, deviation_from_plane_tol
+        )
 
         nodes, _, _ = sps.find(g.face_nodes)
 

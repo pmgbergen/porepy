@@ -2,57 +2,72 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
 
-plt.rc('text', usetex=True)
-plt.rc('font', family='serif')
-plt.rc('font', size=15)
+plt.rc("text", usetex=True)
+plt.rc("font", family="serif")
+plt.rc("font", size=15)
+
 
 def plot_single(file_name, legend, title):
 
-    data = np.loadtxt(file_name, delimiter=',')
+    data = np.loadtxt(file_name, delimiter=",")
 
     plt.figure(0)
     plt.plot(data[:, 0], data[:, 1], label=legend)
     plt.title(title)
-    plt.xlabel('$t$')
-    plt.ylabel('$\\theta$')
+    plt.xlabel("$t$")
+    plt.ylabel("$\\theta$")
     plt.grid(True)
     plt.legend()
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def plot_multiple(file_name, legend, title, num_frac):
 
-    data = np.loadtxt(file_name, delimiter=',')
+    data = np.loadtxt(file_name, delimiter=",")
     frac_label = {0: "$\\Omega_l$", 1: "$\\Omega_m$", 2: "$\\Omega_r$"}
 
     for frac_id in np.arange(num_frac):
         plt.figure(frac_id)
-        plt.plot(data[:, 0], data[:, frac_id+1], label=legend)
-        plt_title = title[0] + " on " + frac_label[frac_id] + " " + title[1] + \
-                    " - " + " config " + str(title[2])
+        plt.plot(data[:, 0], data[:, frac_id + 1], label=legend)
+        plt_title = (
+            title[0]
+            + " on "
+            + frac_label[frac_id]
+            + " "
+            + title[1]
+            + " - "
+            + " config "
+            + str(title[2])
+        )
         plt.title(plt_title)
-        plt.xlabel('$t$')
-        plt.ylabel('$\\theta$')
+        plt.xlabel("$t$")
+        plt.ylabel("$\\theta$")
         plt.grid(True)
         plt.legend()
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def plot_num_cells(data, legend, title):
 
-    data = np.loadtxt(data, delimiter=',')
+    data = np.loadtxt(data, delimiter=",")
 
     plt.figure(0)
     plt.plot(np.arange(data.shape[0]), data[:, -1], label=legend)
     plt.title(title)
-    plt.xlabel('config.')
-    plt.ylabel('num. cells')
+    plt.xlabel("config.")
+    plt.ylabel("num. cells")
     plt.grid(True)
     plt.legend()
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def save_single(filename, folder, figure_id=0):
 
@@ -60,10 +75,12 @@ def save_single(filename, folder, figure_id=0):
         os.makedirs(folder)
 
     plt.figure(figure_id)
-    plt.savefig(folder+filename, bbox_inches='tight')
+    plt.savefig(folder + filename, bbox_inches="tight")
     plt.gcf().clear()
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def save_multiple(filename, num_frac, folder):
 
@@ -73,10 +90,12 @@ def save_multiple(filename, num_frac, folder):
     for frac_id in np.arange(num_frac):
         plt.figure(frac_id)
         name = filename + "_frac_" + str(frac_id)
-        plt.savefig(folder+name, bbox_inches='tight')
+        plt.savefig(folder + name, bbox_inches="tight")
         plt.gcf().clear()
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def main():
 
@@ -88,7 +107,11 @@ def main():
     methods_stefano = ["OPTxfem", "OPTfem"]
     methods_alessio = ["MVEM_UPWIND", "Tpfa_UPWIND", "RT0_UPWIND"]
 
-    grids = {"grid_0": ("1k", "220"), "grid_1": ("3k", "650"), "grid_2": ("10k", "2100")}
+    grids = {
+        "grid_0": ("1k", "220"),
+        "grid_1": ("3k", "650"),
+        "grid_2": ("10k", "2100"),
+    }
     grids_label = {"grid_0": "coarse", "grid_1": "medium", "grid_2": "fine"}
 
     for grid_name, grid in grids.items():
@@ -101,12 +124,31 @@ def main():
             title = ["avg $\\theta$", grid_label, simul]
             # Alessio
             for method in methods_alessio:
-                data = folder_in + method + "/" + "Cmean_" + str(simul+1) + "_" + grid[0] + ".csv"
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + "Cmean_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[0]
+                    + ".csv"
+                )
                 plot_multiple(data, method.replace("_", " "), title, num_frac)
 
             # Stefano
             for method in methods_stefano:
-                data = folder_in + method + "/" + method + "_Cmean_" + str(simul+1) + "_" + grid[1] + ".csv"
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + method
+                    + "_Cmean_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[1]
+                    + ".csv"
+                )
                 plot_multiple(data, method, title, num_frac)
 
             # save
@@ -118,12 +160,31 @@ def main():
             title = ["min $\\theta$", grid_label, simul]
             # Alessio
             for method in methods_alessio:
-                data = folder_in + method + "/" + "Cmin_" + str(simul+1) + "_" + grid[0] + ".csv"
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + "Cmin_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[0]
+                    + ".csv"
+                )
                 plot_multiple(data, method.replace("_", " "), title, num_frac)
 
             # Stefano
             for method in methods_stefano:
-                data = folder_in + method + "/" + method + "_Cmin_" + str(simul+1) + "_" + grid[1] + ".csv"
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + method
+                    + "_Cmin_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[1]
+                    + ".csv"
+                )
                 plot_multiple(data, method, title, num_frac)
 
             # save
@@ -135,12 +196,31 @@ def main():
             title = ["max $\\theta$", grid_label, simul]
             # Alessio
             for method in methods_alessio:
-                data = folder_in + method + "/" + "Cmax_" + str(simul+1) + "_" + grid[0] + ".csv"
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + "Cmax_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[0]
+                    + ".csv"
+                )
                 plot_multiple(data, method.replace("_", " "), title, num_frac)
 
             # Stefano
             for method in methods_stefano:
-                data = folder_in + method + "/" + method + "_Cmax_" + str(simul+1) + "_" + grid[1] + ".csv"
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + method
+                    + "_Cmax_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[1]
+                    + ".csv"
+                )
                 plot_multiple(data, method, title, num_frac)
 
             # save
@@ -149,15 +229,34 @@ def main():
 
             ###########
 
-            title = "production on " + grid_label  + " - config " + str(simul)
+            title = "production on " + grid_label + " - config " + str(simul)
             # Alessio
             for method in methods_alessio:
-                data = folder_in + method + "/" + "production_" + str(simul+1) + "_" + grid[0] + ".csv"
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + "production_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[0]
+                    + ".csv"
+                )
                 plot_single(data, method.replace("_", " "), title)
 
             # Stefano
             for method in methods_stefano:
-                data = folder_in + method + "/" + method + "_production_" + str(simul+1) + "_" + grid[1] + ".csv"
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + method
+                    + "_production_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[1]
+                    + ".csv"
+                )
                 plot_single(data, method, title)
 
             # save
@@ -175,7 +274,8 @@ def main():
         name = grid_label + "_num_cells"
         save_single(name, folder_out)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
     main()

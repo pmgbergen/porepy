@@ -3,10 +3,12 @@ import scipy.sparse as sps
 import numpy as np
 import porepy as pp
 
+
 def setup_custom_logger():
-    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
-                                  datefmt='%Y-%m-%d %H:%M:%S')
-    handler = logging.FileHandler('log.txt', mode='w')
+    formatter = logging.Formatter(
+        fmt="%(asctime)s %(levelname)-8s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    handler = logging.FileHandler("log.txt", mode="w")
     handler.setFormatter(formatter)
     screen_handler = logging.StreamHandler(stream=sys.stdout)
     screen_handler.setFormatter(formatter)
@@ -18,16 +20,22 @@ def setup_custom_logger():
     logger.addHandler(screen_handler)
     return logger
 
+
 logger = setup_custom_logger()
 
 # ------------------------------------------------------------------------------#
 
+
 def get_discr():
-    return { "MVEM": {"scheme": pp.MVEM, "dof": {"cells": 1, "faces": 1}},
-             "RT0":  {"scheme": pp.RT0,  "dof": {"cells": 1, "faces": 1}},
-             "Tpfa": {"scheme": pp.Tpfa, "dof": {"cells": 1}}}
+    return {
+        "MVEM": {"scheme": pp.MVEM, "dof": {"cells": 1, "faces": 1}},
+        "RT0": {"scheme": pp.RT0, "dof": {"cells": 1, "faces": 1}},
+        "Tpfa": {"scheme": pp.Tpfa, "dof": {"cells": 1}},
+    }
+
 
 # ------------------------------------------------------------------------------#
+
 
 def data_flow(gb, discr, model, data, bc_flag):
     tol = data["tol"]
@@ -91,7 +99,9 @@ def data_flow(gb, discr, model, data, bc_flag):
 
     return model_data
 
+
 # ------------------------------------------------------------------------------#
+
 
 def flow(gb, discr, param, bc_flag):
 
@@ -108,7 +118,7 @@ def flow(gb, discr, param, bc_flag):
 
     # post process variables
     pressure = "pressure"
-    flux = "darcy_flux" # it has to be this one
+    flux = "darcy_flux"  # it has to be this one
 
     # save variable name for the advection-diffusion problem
     param["pressure"] = pressure
@@ -135,9 +145,9 @@ def flow(gb, discr, param, bc_flag):
         d[pp.PRIMARY_VARIABLES] = {mortar: {"cells": 1}}
         d[pp.COUPLING_DISCRETIZATION] = {
             flux: {
-                g_slave:  (variable, flux_id),
+                g_slave: (variable, flux_id),
                 g_master: (variable, flux_id),
-                e: (mortar, coupling)
+                e: (mortar, coupling),
             }
         }
 
@@ -174,7 +184,9 @@ def flow(gb, discr, param, bc_flag):
 
     return model_data
 
+
 # ------------------------------------------------------------------------------#
+
 
 def data_advdiff(gb, model, model_flow, data, bc_flag):
     tol = data["tol"]
@@ -206,7 +218,9 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
         param_adv["aperture"] = unity
 
         # Flux
-        param_adv[flux_discharge_name] = data.get("flux_weight", 1) * d[flux_discharge_name]
+        param_adv[flux_discharge_name] = (
+            data.get("flux_weight", 1) * d[flux_discharge_name]
+        )
 
         # Source
         param_src["source"] = data.get("src", 0) * g.cell_volumes
@@ -235,31 +249,45 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
         param_adv["bc_values"] = bc_val
         param_diff["bc_values"] = bc_val
 
-        param = pp.Parameters(g, [model_data_adv, model_data_diff, model_data_src],
-                                 [param_adv, param_diff, param_src])
+        param = pp.Parameters(
+            g,
+            [model_data_adv, model_data_diff, model_data_src],
+            [param_adv, param_diff, param_src],
+        )
         d[pp.PARAMETERS] = param
-        d[pp.DISCRETIZATION_MATRICES] = {model_data_adv: {}, model_data_diff: {},
-                                         model_data_src: {}}
+        d[pp.DISCRETIZATION_MATRICES] = {
+            model_data_adv: {},
+            model_data_diff: {},
+            model_data_src: {},
+        }
 
     for e, d in gb.edges():
         param_adv = {}
         param_diff = {}
 
-        param_adv[flux_discharge_name] = data.get("flux_weight", 1) * d[flux_mortar_name]
+        param_adv[flux_discharge_name] = (
+            data.get("flux_weight", 1) * d[flux_mortar_name]
+        )
 
-        param = pp.Parameters(e, [model_data_adv, model_data_diff], [param_adv, param_diff])
+        param = pp.Parameters(
+            e, [model_data_adv, model_data_diff], [param_adv, param_diff]
+        )
         d[pp.PARAMETERS] = param
         d[pp.DISCRETIZATION_MATRICES] = {model_data_adv: {}, model_data_diff: {}}
 
     return model_data_adv, model_data_diff, model_data_src
 
+
 # ------------------------------------------------------------------------------#
+
 
 def advdiff(gb, discr, param, model_flow, bc_flag):
 
     model = "transport"
 
-    model_data_adv, model_data_diff, model_data_src = data_advdiff(gb, model, model_flow, param, bc_flag)
+    model_data_adv, model_data_diff, model_data_src = data_advdiff(
+        gb, model, model_flow, param, bc_flag
+    )
 
     # discretization operator names
     adv_id = "advection"
@@ -281,34 +309,39 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
     discr_diff_interface = pp.CellDofFaceDofMap(model_data_diff)
 
     coupling_adv = pp.UpwindCoupling(model_data_adv)
-    coupling_diff = pp.FluxPressureContinuity(model_data_diff, discr_diff, discr_diff_interface)
+    coupling_diff = pp.FluxPressureContinuity(
+        model_data_diff, discr_diff, discr_diff_interface
+    )
 
     discr_src = pp.ScalarSource(model_data_src)
 
     for g, d in gb:
         d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
         if g.dim == gb.dim_max():
-            d[pp.DISCRETIZATION] = {variable: {adv_id: discr_adv, diff_id: discr_diff, src_id: discr_src}}
+            d[pp.DISCRETIZATION] = {
+                variable: {adv_id: discr_adv, diff_id: discr_diff, src_id: discr_src}
+            }
         else:
-            d[pp.DISCRETIZATION] = {variable: {adv_id: discr_adv_interface, diff_id: discr_diff_interface}}
+            d[pp.DISCRETIZATION] = {
+                variable: {adv_id: discr_adv_interface, diff_id: discr_diff_interface}
+            }
 
     for e, d in gb.edges():
         g_slave, g_master = gb.nodes_of_edge(e)
-        d[pp.PRIMARY_VARIABLES] = {mortar_adv: {"cells": 1},
-                                   mortar_diff: {"cells": 1}}
+        d[pp.PRIMARY_VARIABLES] = {mortar_adv: {"cells": 1}, mortar_diff: {"cells": 1}}
 
         d[pp.COUPLING_DISCRETIZATION] = {
-                adv_id: {
-                    g_slave: (variable, adv_id),
-                    g_master: (variable, adv_id),
-                    e: (mortar_adv, coupling_adv)
-                },
-                diff_id: {
-                    g_slave: (variable, diff_id),
-                    g_master: (variable, diff_id),
-                    e: (mortar_diff, coupling_diff)
-                }
-            }
+            adv_id: {
+                g_slave: (variable, adv_id),
+                g_master: (variable, adv_id),
+                e: (mortar_adv, coupling_adv),
+            },
+            diff_id: {
+                g_slave: (variable, diff_id),
+                g_master: (variable, diff_id),
+                e: (mortar_diff, coupling_diff),
+            },
+        }
 
     # setup the advection-diffusion problem
     assembler = pp.Assembler()
@@ -332,8 +365,7 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
 
     for e, d in gb.edges():
         g_slave, g_master = gb.nodes_of_edge(e)
-        d[pp.PRIMARY_VARIABLES] = {mortar_adv: {"cells": 1},
-                                   mortar_diff: {"cells": 1}}
+        d[pp.PRIMARY_VARIABLES] = {mortar_adv: {"cells": 1}, mortar_diff: {"cells": 1}}
 
     logger.info("Assemble the mass term of the transport problem")
     M, _, _, _ = assembler.assemble_matrix_rhs(gb)
@@ -382,16 +414,18 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
         outflow[i] = compute_outflow(gb, param)
         logger.info("done")
 
-    time = np.arange(param["n_steps"])*param["time_step"]
+    time = np.arange(param["n_steps"]) * param["time_step"]
     save.write_pvd(time)
 
     logger.info("Save outflow on file")
     file_out = param["folder"] + "/outflow.csv"
     data = np.vstack((time, outflow)).T
-    np.savetxt(file_out, data, delimiter=',')
+    np.savetxt(file_out, data, delimiter=",")
     logger.info("done")
 
+
 # ------------------------------------------------------------------------------#
+
 
 def compute_outflow(gb, param):
     outflow = 0.0
@@ -408,11 +442,12 @@ def compute_outflow(gb, param):
         flux[faces] *= sign
         flux[g.get_internal_faces()] = 0
         flux[flux < 0] = 0
-        #outflow += np.dot(flux, np.abs(g.cell_faces).dot(scalar))
+        # outflow += np.dot(flux, np.abs(g.cell_faces).dot(scalar))
 
         flux[flux != 0] = 1
-        outflow += np.dot(flux*g.face_areas, np.abs(g.cell_faces).dot(scalar))
+        outflow += np.dot(flux * g.face_areas, np.abs(g.cell_faces).dot(scalar))
 
     return outflow
+
 
 # ------------------------------------------------------------------------------#
