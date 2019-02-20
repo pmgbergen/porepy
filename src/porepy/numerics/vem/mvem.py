@@ -35,6 +35,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
                 Stored in data[pp.PARAMETERS][self.keyword].
             matrix_dictionary, for storage of discretization matrices.
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
+            deviation_from_plane_tol: The geometrical tolerance, used in the check to rotate 2d and 1d grids
 
         parameter_dictionary contains the entries:
             second_order_tensor: (pp.SecondOrderTensor) Permeability defined cell-wise.
@@ -77,8 +78,8 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
-        tol = data.get("tol", 1e-5)
-        c_centers, f_normals, f_centers, R, dim, _ = pp.cg.map_grid(g, tol)
+        deviation_from_plane_tol = data.get("deviation_from_plane_tol", 1e-5)
+        c_centers, f_normals, f_centers, R, dim, _ = pp.cg.map_grid(g, deviation_from_plane_tol)
 
         if not data.get("is_tangential", False):
             # Rotate the permeability tensor and delete last dimension
@@ -140,6 +141,18 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         """  Project the velocity computed with a dual vem solver to obtain a
         piecewise constant vector field, one triplet for each cell.
 
+        We assume the following two sub-dictionaries to be present in the data
+        dictionary:
+            parameter_dictionary, storing all parameters.
+                Stored in data[pp.PARAMETERS][self.keyword].
+            matrix_dictionary, for storage of discretization matrices.
+                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
+            deviation_from_plane_tol: The geometrical tolerance, used in the check to rotate 2d and 1d grids
+
+        parameter_dictionary contains the entries:
+            aperture: (np.ndarray) apertures of the cells for scaling of the face
+                normals.
+
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
@@ -167,8 +180,8 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
-        tol = data.get("tol", 1e-5)
-        c_centers, f_normals, f_centers, R, dim, _ = pp.cg.map_grid(g, tol)
+        deviation_from_plane_tol = data.get("deviation_from_plane_tol", 1e-5)
+        c_centers, f_normals, f_centers, R, dim, _ = pp.cg.map_grid(g, deviation_from_plane_tol)
 
         # In the virtual cell approach the cell diameters should involve the
         # apertures, however to keep consistency with the hybrid-dimensional
