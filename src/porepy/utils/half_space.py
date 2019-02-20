@@ -122,30 +122,45 @@ def half_space_pt(n, x0, pts, recompute=True):
 
 
 def star_shape_cell_centers(g):
+    """
+    For a given grid compute the star shape center for each cell.
+    The algorithm computes the half space intersections, by using the above method half_space_pt,
+    of the spaces defined by the cell faces and the face normals.
+    This is a wrapper method that operate on a grid.
+    """
 
+    # no need for 1d or 0d grids
     if g.dim < 2:
         return g.cell_centers
 
+    # retrieve the faces and nodes
     faces, _, sgn = sps.find(g.cell_faces)
     nodes, _, _ = sps.find(g.face_nodes)
 
+    # shift the nodes close to the origin, to avoid numerical problems when coordinates are
+    # too big
     xn = g.nodes.copy()
     xn_shift = np.average(xn, axis=1)
     xn -= np.tile(xn_shift, (xn.shape[1], 1)).T
 
+    # compute the star shape cell centers by constructing the half spaces of each cell
+    # given by its faces and related normals
     cell_centers = np.zeros((3, g.num_cells))
     for c in np.arange(g.num_cells):
         loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
         faces_loc = faces[loc]
         loc_n = g.face_nodes.indptr[faces_loc]
+        # make the normals coherent
         normal = np.multiply(
             sgn[loc], np.divide(g.face_normals[:, faces_loc], g.face_areas[faces_loc])
         )
 
         x0, x1 = xn[:, nodes[loc_n]], xn[:, nodes[loc_n + 1]]
         coords = np.concatenate((x0, x1), axis=1)
+        # compute a point in the half space intersection of all cell faces
         cell_centers[:, c] = half_space_pt(normal, (x1 + x0) / 2.0, coords)
 
+    # shift back the computed cell centers and return them
     return cell_centers + np.tile(xn_shift, (g.num_cells, 1)).T
 
 
