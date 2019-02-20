@@ -335,7 +335,7 @@ class FVElliptic(
         # faces. For TPFA this will be zero, but for MPFA we will get a contribution
         # on the fractures extending to the boundary due to the interaction region
         # around a node.
-        bc_val = data[pp.PARAMETERS][self.keyword]['bc_values']
+        bc_val = data[pp.PARAMETERS][self.keyword]["bc_values"]
         rhs[2] -= proj * matrix_dictionary["bound_pressure_face"] * bc_val
 
     def assemble_int_bound_pressure_cell(

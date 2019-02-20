@@ -10,15 +10,24 @@ def create_grid(from_file=True, generate_network=False, tol=1e-3):
     """
     if generate_network:
         file_csv = "fracture_network.csv"
-        domain = {"xmin": -500, "xmax": 350, "ymin": 100, "ymax": 1500, "zmin": -100, "zmax": 500}
+        domain = {
+            "xmin": -500,
+            "xmax": 350,
+            "ymin": 100,
+            "ymax": 1500,
+            "zmin": -100,
+            "zmax": 500,
+        }
 
-        network = pp.fracture_importer.network_3d_from_csv(file_csv, has_domain=False, tol=tol)
+        network = pp.fracture_importer.network_3d_from_csv(
+            file_csv, has_domain=False, tol=tol
+        )
         network.impose_external_boundary(domain)
         network.find_intersections()
         network.split_intersections()
         network.to_gmsh("dummy.geo")
 
-        pickle.dump(network, open("network_52_fracs","wb"))
+        pickle.dump(network, open("network_52_fracs", "wb"))
 
     network = pickle.load(open("network_52_fracs", "rb"))
     domain = network.domain
@@ -31,6 +40,7 @@ def create_grid(from_file=True, generate_network=False, tol=1e-3):
         pickle.dump(gb, open("gridbucket_case4.grid", "wb"))
 
     return gb, domain
+
 
 def add_data(gb, data, solver_name):
 

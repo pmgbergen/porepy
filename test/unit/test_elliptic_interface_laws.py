@@ -307,7 +307,7 @@ def get_variables(gb):
     rhs = np.empty(3, dtype=np.object)
     rhs[0] = np.zeros(g_master.dim * g_master.num_cells)
     rhs[1] = np.zeros(g_slave.dim * g_slave.num_cells)
-    rhs[2] = np.zeros(data_edge['mortar_grid'].num_cells * g_slave.dim)
+    rhs[2] = np.zeros(data_edge["mortar_grid"].num_cells * g_slave.dim)
 
     return g_master, g_slave, data_master, data_slave, data_edge, matrix
 

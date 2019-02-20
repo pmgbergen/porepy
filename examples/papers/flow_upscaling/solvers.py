@@ -7,10 +7,12 @@ import data
 
 # ------------------------------------------------------------------------------#
 
+
 def setup_custom_logger():
-    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
-                                  datefmt='%Y-%m-%d %H:%M:%S')
-    handler = logging.FileHandler('log.txt', mode='w')
+    formatter = logging.Formatter(
+        fmt="%(asctime)s %(levelname)-8s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    handler = logging.FileHandler("log.txt", mode="w")
     handler.setFormatter(formatter)
     screen_handler = logging.StreamHandler(stream=sys.stdout)
     screen_handler.setFormatter(formatter)
@@ -22,9 +24,11 @@ def setup_custom_logger():
     logger.addHandler(screen_handler)
     return logger
 
+
 logger = setup_custom_logger()
 
 # ------------------------------------------------------------------------------#
+
 
 def flow(gb, param):
 
@@ -41,7 +45,7 @@ def flow(gb, param):
 
     # post process variables
     pressure = "pressure"
-    flux = "darcy_flux" # it has to be this one
+    flux = "darcy_flux"  # it has to be this one
     P0_flux = "P0_flux"
 
     # save variable name for the advection-diffusion problem
@@ -65,9 +69,9 @@ def flow(gb, param):
         d[pp.PRIMARY_VARIABLES] = {mortar: {"cells": 1}}
         d[pp.COUPLING_DISCRETIZATION] = {
             variable: {
-                g_slave:  (variable, flux_id),
+                g_slave: (variable, flux_id),
                 g_master: (variable, flux_id),
-                e: (mortar, coupling)
+                e: (mortar, coupling),
             }
         }
 
@@ -93,7 +97,9 @@ def flow(gb, param):
 
     return model_data
 
+
 # ------------------------------------------------------------------------------#
+
 
 def advdiff(gb, param, model_flow):
 
@@ -119,26 +125,24 @@ def advdiff(gb, param, model_flow):
 
     for g, d in gb:
         d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
-        d[pp.DISCRETIZATION] = {variable: {adv_id: discr_adv,
-                                           diff_id: discr_diff}}
+        d[pp.DISCRETIZATION] = {variable: {adv_id: discr_adv, diff_id: discr_diff}}
 
     for e, d in gb.edges():
         g_slave, g_master = gb.nodes_of_edge(e)
-        d[pp.PRIMARY_VARIABLES] = {mortar_adv: {"cells": 1},
-                                   mortar_diff: {"cells": 1}}
+        d[pp.PRIMARY_VARIABLES] = {mortar_adv: {"cells": 1}, mortar_diff: {"cells": 1}}
 
         d[pp.COUPLING_DISCRETIZATION] = {
-                adv_id: {
-                    g_slave: (variable, adv_id),
-                    g_master: (variable, adv_id),
-                    e: (mortar_adv, coupling_adv)
-                },
-                diff_id: {
-                    g_slave: (variable, diff_id),
-                    g_master: (variable, diff_id),
-                    e: (mortar_diff, coupling_diff)
-                }
-            }
+            adv_id: {
+                g_slave: (variable, adv_id),
+                g_master: (variable, adv_id),
+                e: (mortar_adv, coupling_adv),
+            },
+            diff_id: {
+                g_slave: (variable, diff_id),
+                g_master: (variable, diff_id),
+                e: (mortar_diff, coupling_diff),
+            },
+        }
 
     # setup the advection-diffusion problem
     assembler = pp.Assembler()
@@ -158,15 +162,14 @@ def advdiff(gb, param, model_flow):
 
     for e, d in gb.edges():
         g_slave, g_master = gb.nodes_of_edge(e)
-        d[pp.PRIMARY_VARIABLES] = {mortar_adv: {"cells": 1},
-                                   mortar_diff: {"cells": 1}}
+        d[pp.PRIMARY_VARIABLES] = {mortar_adv: {"cells": 1}, mortar_diff: {"cells": 1}}
 
     logger.info("Assemble the mass term of the transport problem")
     M, _, _, _ = assembler.assemble_matrix_rhs(gb)
     logger.info("done")
 
     # Perform an LU factorization to speedup the solver
-    #IE_solver = sps.linalg.factorized((M + A).tocsc())
+    # IE_solver = sps.linalg.factorized((M + A).tocsc())
 
     # time loop
     logger.info("Prepare the exporting")
@@ -177,7 +180,7 @@ def advdiff(gb, param, model_flow):
     x = np.ones(A.shape[0]) * param["initial_advdiff"]
     logger.info("Start the time loop with " + str(param["n_steps"]) + " steps")
     for i in np.arange(param["n_steps"]):
-        #x = IE_solver(b + M.dot(x))
+        # x = IE_solver(b + M.dot(x))
         logger.info("Solve the linear system for time step " + str(i))
         x = sps.linalg.spsolve(M + A, b + M.dot(x))
         logger.info("done")
@@ -190,5 +193,4 @@ def advdiff(gb, param, model_flow):
         save.write_vtk(variables, time_step=i)
         logger.info("done")
 
-    save.write_pvd(np.arange(param["n_steps"])*param["time_step"])
-
+    save.write_pvd(np.arange(param["n_steps"]) * param["time_step"])

@@ -91,7 +91,7 @@ class Biot:
         # Note that the following is zero only if the previous time step is zero.
         # See comment in the DivD class
         biot_alpha = data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
-        div_d_rhs = - 0 * biot_alpha * matrices_m["bound_div_d"] * d
+        div_d_rhs = -0 * biot_alpha * matrices_m["bound_div_d"] * d
         return np.hstack((s_bound, p_bound + div_d_rhs))
 
     def rhs_time(self, g, data):
