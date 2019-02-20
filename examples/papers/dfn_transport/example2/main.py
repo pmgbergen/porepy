@@ -2,7 +2,9 @@ import numpy as np
 import porepy as pp
 
 import examples.papers.dfn_transport.discretization as compute
-#from examples.papers.dfn_transport.flux_trace import jump_flux
+
+# from examples.papers.dfn_transport.flux_trace import jump_flux
+
 
 def bc_flag(g, domain, tol):
     b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -15,7 +17,7 @@ def bc_flag(g, domain, tol):
     # detect all the points aligned with the segment
     dist, _ = pp.cg.dist_points_segments(b_face_centers, out_flow_start, out_flow_end)
     dist = dist.flatten()
-    out_flow = np.logical_and(dist < tol, dist >=-tol)
+    out_flow = np.logical_and(dist < tol, dist >= -tol)
 
     # define outflow type boundary conditions
     in_flow_start = np.array([0.206507, 0.896131, 0.183632])
@@ -24,9 +26,10 @@ def bc_flag(g, domain, tol):
     # detect all the points aligned with the segment
     dist, _ = pp.cg.dist_points_segments(b_face_centers, in_flow_start, in_flow_end)
     dist = dist.flatten()
-    in_flow = np.logical_and(dist < tol, dist >=-tol)
+    in_flow = np.logical_and(dist < tol, dist >= -tol)
 
     return in_flow, out_flow
+
 
 def main():
 
@@ -41,9 +44,9 @@ def main():
 
     # define the mesh sizes
     mesh_sizes = {
-                 "3k": 0.9 * np.power(2., -4), # for 3k triangles
-                 "40k": 0.49*0.875 * np.power(2., -5) # for 40k triangles
-                 }
+        "3k": 0.9 * np.power(2.0, -4),  # for 3k triangles
+        "40k": 0.49 * 0.875 * np.power(2.0, -5),  # for 40k triangles
+    }
 
     for mesh_size_key in mesh_sizes.keys():
 
@@ -51,9 +54,9 @@ def main():
 
             if discr_key == "MVEM":
                 if mesh_size_key == "3k":
-                    mesh_size = 0.9 * np.power(2., -4) * 0.675
+                    mesh_size = 0.9 * np.power(2.0, -4) * 0.675
                 elif mesh_size_key == "40k":
-                    mesh_size = 0.49*0.875 * np.power(2., -5) * 0.7
+                    mesh_size = 0.49 * 0.875 * np.power(2.0, -5) * 0.7
             else:
                 mesh_size = mesh_sizes[mesh_size_key]
 
@@ -73,17 +76,24 @@ def main():
 
             domain = gb.bounding_box(as_dict=True)
 
-            param = {"domain": domain, "tol": tol, "k": 1,
-                     "diff": 1e-4, "time_step": 0.05, "n_steps": 500,
-                     "folder": folder}
+            param = {
+                "domain": domain,
+                "tol": tol,
+                "k": 1,
+                "diff": 1e-4,
+                "time_step": 0.05,
+                "n_steps": 500,
+                "folder": folder,
+            }
 
             # the flow problem
             model_flow = compute.flow(gb, discr, param, bc_flag)
 
-            #jump_flux(gb, param["mortar_flux"])
+            # jump_flux(gb, param["mortar_flux"])
 
             # the advection-diffusion problem
             compute.advdiff(gb, discr, param, model_flow, bc_flag)
+
 
 if __name__ == "__main__":
     main()

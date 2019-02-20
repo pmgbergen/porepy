@@ -2,6 +2,7 @@ import numpy as np
 import os
 import porepy as pp
 
+
 def grid_export(gb, P0_flux, folder):
 
     if not os.path.exists(folder):
@@ -24,8 +25,8 @@ def grid_export(gb, P0_flux, folder):
         for cell in np.arange(g.num_cells):
             indices = g.cell_faces.indices
             indptr = g.cell_faces.indptr
-            faces = indices[indptr[cell] : indptr[cell+1]]
-            cell_faces_I.append([cell]*faces.size)
+            faces = indices[indptr[cell] : indptr[cell + 1]]
+            cell_faces_I.append([cell] * faces.size)
             cell_faces_J.append(faces.tolist())
 
         # convert to numpy array
@@ -44,8 +45,8 @@ def grid_export(gb, P0_flux, folder):
         for face in np.arange(g.num_faces):
             indices = g.face_nodes.indices
             indptr = g.face_nodes.indptr
-            nodes = indices[indptr[face] : indptr[face+1]]
-            face_nodes_I.append([face]*nodes.size)
+            nodes = indices[indptr[face] : indptr[face + 1]]
+            face_nodes_I.append([face] * nodes.size)
             face_nodes_J.append(nodes.tolist())
 
         # convert to numpy array
@@ -69,7 +70,7 @@ def grid_export(gb, P0_flux, folder):
         # save to file the bc type
         fname = "g_" + str(frac_num) + "_face_data.txt"
         bc = d[pp.PARAMETERS]["flow_data"]["bc"]
-        bc_tag = bc.is_dir.astype(np.int) + 2*bc.is_neu.astype(np.int)
+        bc_tag = bc.is_dir.astype(np.int) + 2 * bc.is_neu.astype(np.int)
         np.savetxt(folder + fname, bc_tag, fmt="%d", delimiter=",")
 
     # export the connectivity maps
@@ -93,14 +94,18 @@ def grid_export(gb, P0_flux, folder):
             for cell in np.arange(g.num_cells):
                 indices = face_cells.indices
                 indptr = face_cells.indptr
-                faces[cell, (2*frac_id):(2*frac_id+2)] = indices[indptr[cell] : indptr[cell+1]]
+                faces[cell, (2 * frac_id) : (2 * frac_id + 2)] = indices[
+                    indptr[cell] : indptr[cell + 1]
+                ]
 
             frac_id += 1
 
         faces_sorted = np.empty((g.num_cells, 4), dtype=np.int)
         sort = np.argsort(frac_num)
         for idx, idx_sorted in enumerate(sort):
-            faces_sorted[:, (2*idx):(2*idx+2)] = faces[:, (2*idx_sorted):(2*idx_sorted+2)]
+            faces_sorted[:, (2 * idx) : (2 * idx + 2)] = faces[
+                :, (2 * idx_sorted) : (2 * idx_sorted + 2)
+            ]
 
         # save to file
         trace_id = "_".join([str(f) for f in frac_num[sort]])

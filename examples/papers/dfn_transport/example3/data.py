@@ -1,6 +1,7 @@
 import numpy as np
 import porepy as pp
 
+
 def flow(gb, data, tol):
     physics = data["physics"]
 
@@ -37,7 +38,9 @@ def flow(gb, data, tol):
 
         d["param"] = param
 
+
 # ------------------------------------------------------------------------------#
+
 
 def advdiff(gb, data, tol):
     physics = data["physics"]
@@ -69,7 +72,9 @@ def advdiff(gb, data, tol):
     for _, d in gb.edges():
         d["flux_field"] = d[lambda_flux]
 
+
 # ------------------------------------------------------------------------------#
+
 
 def bc_flag(g, domain, tol):
     b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -82,7 +87,7 @@ def bc_flag(g, domain, tol):
     # detect all the points aligned with the segment
     dist, _ = pp.cg.dist_points_segments(b_face_centers, out_flow_start, out_flow_end)
     dist = dist.flatten()
-    out_flow = np.logical_and(dist < tol, dist >=-tol)
+    out_flow = np.logical_and(dist < tol, dist >= -tol)
 
     # define outflow type boundary conditions
     in_flow_start = np.array([0.206507, 0.896131, 0.183632])
@@ -91,6 +96,6 @@ def bc_flag(g, domain, tol):
     # detect all the points aligned with the segment
     dist, _ = pp.cg.dist_points_segments(b_face_centers, in_flow_start, in_flow_end)
     dist = dist.flatten()
-    in_flow = np.logical_and(dist < tol, dist >=-tol)
+    in_flow = np.logical_and(dist < tol, dist >= -tol)
 
     return in_flow, out_flow
