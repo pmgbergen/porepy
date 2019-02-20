@@ -275,7 +275,7 @@ class MockZero(object):
         pass
 
 
-def identity_mapping(RC, g, data, data_edge, swap, cc, matrix, ind):
+def identity_mapping(RC, g, data, data_edge, swap, cc, matrix, rhs, ind):
     dof_master = g.dim * g.num_cells
     dof_slave = g.dim * g.num_cells
     dof_mortar = g.dim * data_edge["mortar_grid"].num_cells
@@ -303,6 +303,12 @@ def get_variables(gb):
     )
     matrix = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
     matrix = matrix.reshape((3, 3))
+
+    rhs = np.empty(3, dtype=np.object)
+    rhs[0] = np.zeros(g_master.dim * g_master.num_cells)
+    rhs[1] = np.zeros(g_slave.dim * g_slave.num_cells)
+    rhs[2] = np.zeros(data_edge['mortar_grid'].num_cells * g_slave.dim)
+
     return g_master, g_slave, data_master, data_slave, data_edge, matrix
 
 
