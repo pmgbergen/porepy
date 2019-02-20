@@ -51,7 +51,7 @@ from porepy.numerics.interface_laws.elliptic_interface_laws import (
     RobinContact,
     StressDisplacementContinuity,
 )
-from porepy.numerics.interface_laws.cell_dof_face_dof_map import Cell_dof_face_dof_map
+from porepy.numerics.interface_laws.cell_dof_face_dof_map import CellDofFaceDofMap
 from porepy.numerics.mixed_dim.assembler import Assembler
 
 import porepy.numerics

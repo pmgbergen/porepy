@@ -116,7 +116,7 @@ def flow(gb, discr, param, bc_flag):
     param["mortar_flux"] = mortar
 
     discr_scheme = discr["scheme"](model_data)
-    discr_interface = pp.Cell_dof_face_dof_map(model_data)
+    discr_interface = pp.CellDofDaceDofMap(model_data)
 
     coupling = pp.FluxPressureContinuity(model_data, discr_scheme, discr_interface)
 
@@ -275,10 +275,10 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
     param["scalar"] = variable
 
     discr_adv = pp.Upwind(model_data_adv)
-    discr_adv_interface = pp.Cell_dof_face_dof_map(model_data_adv)
+    discr_adv_interface = pp.CellDofFaceDofMap(model_data_adv)
 
     discr_diff = pp.Tpfa(model_data_diff)
-    discr_diff_interface = pp.Cell_dof_face_dof_map(model_data_diff)
+    discr_diff_interface = pp.CellDofFaceDofMap(model_data_diff)
 
     coupling_adv = pp.UpwindCoupling(model_data_adv)
     coupling_diff = pp.FluxPressureContinuity(model_data_diff, discr_diff, discr_diff_interface)
@@ -319,7 +319,7 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
     # mass term
     mass_id = "mass"
     discr_mass = pp.MassMatrix(model_data_adv)
-    discr_mass_interface = pp.Cell_dof_face_dof_map(model_data_adv)
+    discr_mass_interface = pp.CellDofFaceDofMap(model_data_adv)
 
     for g, d in gb:
         d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
