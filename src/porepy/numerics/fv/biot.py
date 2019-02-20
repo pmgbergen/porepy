@@ -90,7 +90,8 @@ class Biot:
         s_bound = -div_mech * bound_stress * d
         # Note that the following is zero only if the previous time step is zero.
         # See comment in the DivD class
-        div_d_rhs = -0 * matrices_m["bound_div_d"] * d
+        biot_alpha = data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
+        div_d_rhs = - 0 * biot_alpha * matrices_m["bound_div_d"] * d
         return np.hstack((s_bound, p_bound + div_d_rhs))
 
     def rhs_time(self, g, data):
@@ -402,6 +403,7 @@ class Biot:
         else:
             # otherwise we map it to faces
             grad_p = hf2f * (hook * igrad * rhs_jumps + grad_p_face)
+
         stabilization = div * igrad * rhs_jumps
 
         # We obtain the reconstruction of displacments. This is equivalent as for
@@ -893,7 +895,7 @@ class GradP(
         return np.zeros(self.ndof(g))
 
     def assemble_int_bound_displacement_trace(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Assemble the contribution from the pressure to the the trace of the
         displacement on internal boundaries.
@@ -919,6 +921,8 @@ class GradP(
                 master and slave side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.

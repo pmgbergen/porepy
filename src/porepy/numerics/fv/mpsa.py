@@ -215,7 +215,7 @@ class Mpsa(
         return -div * bound_stress * bc_val + parameter_dictionary["source"]
 
     def assemble_int_bound_stress(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """Assemble the contribution from an internal boundary, manifested as a
         stress boundary condition.
@@ -241,6 +241,8 @@ class Mpsa(
                 master and slave side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
@@ -274,7 +276,7 @@ class Mpsa(
         cc[self_ind, 2] += div * bound_stress * proj_int.T
 
     def assemble_int_bound_source(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a body force term.
@@ -301,6 +303,8 @@ class Mpsa(
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                Should be either 1 or 2.
 
@@ -316,7 +320,7 @@ class Mpsa(
         cc[self_ind, 2] -= proj.T
 
     def assemble_int_bound_displacement_trace(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary displacement.
@@ -343,6 +347,8 @@ class Mpsa(
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
 
@@ -366,7 +372,7 @@ class Mpsa(
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         bp = matrix_dictionary["bound_displacement_cell"]
-
+        bc_values = data[pp.PARAMETERS][self.keyword]['bc_values']
         if proj_avg.shape[1] == g.dim * g.num_faces:
             # In this case we the projection is from faces to cells
             # We therefore need to map the boundary displacements which is given as
@@ -396,6 +402,13 @@ class Mpsa(
                 * matrix_dictionary["bound_displacement_face"]
                 * proj_int_swap.T
             )
+            # Add contribution from  boundary conditions to displacement trace
+            rhs[2] = (
+                proj_avg
+                * weight
+                * hf2f
+                * matrix_dictionary["bound_displacement_face"] * bc_values
+                )
         else:
             # For comments look above
             cc[2, self_ind] += proj_avg * bp
@@ -407,9 +420,13 @@ class Mpsa(
                 * matrix_dictionary["bound_displacement_face"]
                 * proj_int_swap.T
             )
+            # Add contribution from  boundary conditions to displacement trace
+            rhs[2] = (
+                proj_avg * matrix_dictionary["bound_displacement_face"] * bc_values
+                )
 
     def assemble_int_bound_displacement_cell(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell displacement.
@@ -434,6 +451,8 @@ class Mpsa(
                 The first and second rows and columns are identified with the
                 master and slave side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
