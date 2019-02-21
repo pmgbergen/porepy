@@ -487,7 +487,7 @@ class DualElliptic(
         d[dof] = norm
         matrix[self_ind, self_ind].setdiag(d)
 
-    def extract_flux(self, g, solution_array, data=None):
+    def extract_flux(self, g, solution_array, data):
         """  Extract the velocity from a dual virtual element solution.
 
         Parameters
@@ -507,7 +507,7 @@ class DualElliptic(
         # pylint: disable=invalid-name
         return solution_array[: g.num_faces]
 
-    def extract_pressure(self, g, solution_array, data=None):
+    def extract_pressure(self, g, solution_array, data):
         """  Extract the pressure from a dual virtual element solution.
 
         Parameters

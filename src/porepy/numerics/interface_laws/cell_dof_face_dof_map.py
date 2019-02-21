@@ -10,7 +10,7 @@ import numpy as np
 import scipy.sparse as sps
 
 
-class EmptyDiscretization(object):
+class CellDofFaceDofMap(object):
     """
     Only the methods int_bound_source and int_bound_pressure_cell are implemented to allow
     appropriate interface laws. No discretization is associated to the grid.

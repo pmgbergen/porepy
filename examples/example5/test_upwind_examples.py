@@ -175,7 +175,7 @@ class BasicsTest(unittest.TestCase):
 
         up = sps.linalg.spsolve(D_flow + D_source, b_flow + b_source)
 
-        p, u = solver.extract_pressure(g, up), solver.extract_flux(g, up)
+        p, u = solver.extract_pressure(g, up, data), solver.extract_flux(g, up, data)
         P0u = solver.project_flux(g, u, data)
 
         save = pp.Exporter(g, "darcy", folder)

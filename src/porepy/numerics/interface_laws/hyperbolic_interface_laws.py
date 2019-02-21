@@ -60,7 +60,7 @@ class UpwindCoupling(object):
 
         # We know the number of dofs from the master and slave side from their
         # discretizations
-        dof = np.array([matrix[0, 0].shape[1], matrix[0, 1].shape[1], g_m.num_cells])
+        dof = np.array([matrix[0, 0].shape[1], matrix[1, 1].shape[1], g_m.num_cells])
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((3, 3))
 
