@@ -715,9 +715,12 @@ class StressDisplacementContinuity(RobinContact):
         self.discr_master.enforce_neumann_int_bound(
             g_master, data_edge, matrix, False, master_ind
         )
-        self.discr_slave.enforce_neumann_int_bound(
-            g_slave, data_edge, matrix, True, slave_ind
-        )
+
+        # Consider this terms only if the grids are of the same dimension
+        if g_master.dim == g_slave.dim:
+            self.discr_slave.enforce_neumann_int_bound(
+                g_slave, data_edge, matrix, True, slave_ind
+            )
 
         return matrix, rhs
 
