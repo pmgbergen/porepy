@@ -224,9 +224,9 @@ class FVElliptic(
         mg = data_edge["mortar_grid"]
 
         if grid_swap:
-            proj = mg.slave_to_mortar_avg()
+            proj = mg.slave_to_mortar_int
         else:
-            proj = mg.master_to_mortar_avg()
+            proj = mg.master_to_mortar_int
 
         if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
             # If bound flux is gven as sub-faces we have to map it from sub-faces
@@ -276,9 +276,9 @@ class FVElliptic(
         mg = data_edge["mortar_grid"]
 
         if grid_swap:
-            proj = mg.master_to_mortar_avg()
+            proj = mg.master_to_mortar_int
         else:
-            proj = mg.slave_to_mortar_avg()
+            proj = mg.slave_to_mortar_int
 
         cc[self_ind, 2] -= proj.T
 
