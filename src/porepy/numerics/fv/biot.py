@@ -301,7 +301,7 @@ class Biot:
                 displacement.  Incorporation as a right hand side in linear system
                 by multiplication with divergence operator.
             scipy.sparse.csr_matrix (shape num_faces * dim, num_cells): Forces from
-                the pressure gradient (I*p-term), represented as forces on the faces.
+                the pressure gradient (-I*p-term), represented as forces on the faces.
             scipy.sparse.csr_matrix (shape num_cells, num_cells * dim): Trace of
                 strain matrix, cell-wise.
             scipy.sparse.csr_matrix (shape num_cells x num_cells): Stabilization
@@ -577,9 +577,9 @@ class Biot:
             (nd * num_subfno - num_dir_subface, num_subfno_unique * nd)
         )
 
-        # We get a minus because the n * I * alpha * p term is moved over to the rhs
+        # We get a pluss because the -n * I * alpha * p term is moved over to the rhs
         # in the local systems
-        rhs_units = -sps.vstack([rhs_int, rhs_neu, rhs_rob, rhs_units_displ_var])
+        rhs_units = sps.vstack([rhs_int, rhs_neu, rhs_rob, rhs_units_displ_var])
 
         del rhs_units_displ_var
 
@@ -607,9 +607,9 @@ class Biot:
 
         del vals, rows, cols
 
-        # Prepare for computation of grad_p_face term
+        # Prepare for computation of -grad_p_face term
         # Note that sgn_diag_F might only flip the boundary signs. See comment above.
-        grad_p_face = sgn_diag_F * map_unique_subfno * nAlpha_grad * sc2c
+        grad_p_face = -sgn_diag_F * map_unique_subfno * nAlpha_grad * sc2c
 
         return rhs_jumps, grad_p_face
 
