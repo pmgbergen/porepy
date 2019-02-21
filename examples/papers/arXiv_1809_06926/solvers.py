@@ -136,7 +136,7 @@ def solve_rt0(gb, folder):
 def solve_tpfa(gb, folder):
     # Choose and define the solvers and coupler
     flow_discretization = pp.Tpfa("flow")
-    source_discretization = pp.Integral("flow")
+    source_discretization = pp.ScalarSource("flow")
     run_flow(gb, flow_discretization, source_discretization, folder, is_FV=True)
 
 
@@ -146,7 +146,7 @@ def solve_tpfa(gb, folder):
 def solve_mpfa(gb, folder):
     # Choose and define the solvers and coupler
     flow_discretization = pp.Mpfa("flow")
-    source_discretization = pp.Integral("flow")
+    source_discretization = pp.ScalarSource("flow")
     run_flow(gb, flow_discretization, source_discretization, folder, is_FV=True)
 
 
@@ -177,7 +177,7 @@ def transport(gb, data, solver_name, folder, callback=None, save_every=1):
 
     # Discretization objects
     node_discretization = pp.Upwind(kw)
-    source_discretization = pp.Integral(kw)
+    source_discretization = pp.ScalarSource(kw)
     mass_discretization = pp.MassMatrix(kw)
     edge_discretization = pp.UpwindCoupling(kw)
 
