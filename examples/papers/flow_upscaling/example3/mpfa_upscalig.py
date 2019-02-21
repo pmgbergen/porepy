@@ -43,14 +43,15 @@ class MpfaUpscaling(FVElliptic):
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
-        #k = param.get_tensor(self)
+        # k = param.get_tensor(self)
         k = 1
         bnd = parameter_dictionary["bc"]
 
         data_patch = data["local_problem"]
 
-        flux, bound_flux, bound_pressure_cell, bound_pressure_face = \
-            self._local_discr(g, k, bnd, data_patch)
+        flux, bound_flux, bound_pressure_cell, bound_pressure_face = self._local_discr(
+            g, k, bnd, data_patch
+        )
 
         matrix_dictionary["flux"] = flux
         matrix_dictionary["bound_flux"] = bound_flux
@@ -66,9 +67,9 @@ class MpfaUpscaling(FVElliptic):
         mesh_args = data["mesh_args"]
 
         # map of faces connected to a face via its nodes
-        patch_face_faces = g.face_nodes.T*g.face_nodes
+        patch_face_faces = g.face_nodes.T * g.face_nodes
         # map of cells connected to a face via its nodes
-        patch_face_cells = g.face_nodes.T*g.cell_nodes()
+        patch_face_cells = g.face_nodes.T * g.cell_nodes()
 
         node_faces = g.face_nodes.tocsr().T
         face_cells = g.cell_faces.tocsr().T
@@ -78,8 +79,10 @@ class MpfaUpscaling(FVElliptic):
 
         # count the number of data that has to be saved in the flux matrix
         internal_faces = g.get_internal_faces()
-        size = np.sum(patch_face_cells.indptr[internal_faces+1]-\
-                      patch_face_cells.indptr[internal_faces])
+        size = np.sum(
+            patch_face_cells.indptr[internal_faces + 1]
+            - patch_face_cells.indptr[internal_faces]
+        )
 
         I = np.zeros(size)
         J = np.zeros(size)
@@ -96,19 +99,25 @@ class MpfaUpscaling(FVElliptic):
             # the 3) local fractures
 
             # 1) get the patch composed by a list of ordered points
-            patch_pts, bc_type, bc_corner = self._patch(g, f, bnd, patch_face_faces, patch_face_cells, node_faces, face_cells)
+            patch_pts, bc_type, bc_corner = self._patch(
+                g, f, bnd, patch_face_faces, patch_face_cells, node_faces, face_cells
+            )
 
             # 2) to make the grid conforming consider the current face as "subdomain"
             # with auxiliary as tag
-            subdom = {"points": f_nodes_coord[:g.dim],
-                      "edges": np.arange(f_nodes.size).reshape((g.dim, 1))}
+            subdom = {
+                "points": f_nodes_coord[: g.dim],
+                "edges": np.arange(f_nodes.size).reshape((g.dim, 1)),
+            }
 
             # 3) consider the background fractures only limited to the current region
             patch_fracs = self._patch_fracs(patch_pts, fracs)
 
             # construct the patch grid bucket
-            patch_gb = self._patch_gb(patch_fracs, patch_pts[:g.dim], subdom, mesh_args)
-            #pp.plot_grid(patch_gb, alpha=0, info="f")
+            patch_gb = self._patch_gb(
+                patch_fracs, patch_pts[: g.dim], subdom, mesh_args
+            )
+            # pp.plot_grid(patch_gb, alpha=0, info="f")
 
             # we need to identify the faces in the gb_patch that belong to the original face
             # this is used afterward to compute the discharge
@@ -118,7 +127,9 @@ class MpfaUpscaling(FVElliptic):
             f_loc = np.where(f_loc)[0]
 
             # compute the sign with respect to f and normalize the result
-            sign = np.sign(np.einsum('ij,i->j', g_h.face_normals[:, f_loc], g.face_normals[:, f]))
+            sign = np.sign(
+                np.einsum("ij,i->j", g_h.face_normals[:, f_loc], g.face_normals[:, f])
+            )
 
             # assign common data, defined by the user. Mostly it's the aperture and
             # permeability for all the objects
@@ -143,11 +154,15 @@ class MpfaUpscaling(FVElliptic):
                     J[idx] = bc_corner[2, pt]
                     idx += 1
 
-        import pdb; pdb.set_trace()
+        import pdb
+
+        pdb.set_trace()
         shape = (g.num_faces, g.num_cells)
         flux = sps.csr_matrix((dataIJ, (I, J)), shape=shape)
 
-    def _patch(self, g, f, bnd, patch_face_faces, patch_face_cells, node_faces, face_cells):
+    def _patch(
+        self, g, f, bnd, patch_face_faces, patch_face_cells, node_faces, face_cells
+    ):
         """
         Construct the local patch of the input face f
         """
@@ -188,9 +203,11 @@ class MpfaUpscaling(FVElliptic):
         # save the type of boundary condition associate with the current
         # face
         if b_faces[face]:
-            bc_tag = bnd.is_dir[face] * "dir" + \
-                     bnd.is_neu[face] * "neu" + \
-                     bnd.is_rob[face] * "rob"
+            bc_tag = (
+                bnd.is_dir[face] * "dir"
+                + bnd.is_neu[face] * "neu"
+                + bnd.is_rob[face] * "rob"
+            )
             bc_type[:, pts_pos] = [bc_tag, True]
 
         while f_loc.size:
@@ -200,7 +217,7 @@ class MpfaUpscaling(FVElliptic):
             face = faces[mask]
 
             # we add the face in the list
-            pts[:g.dim, pts_pos] = g.face_centers[:g.dim, face]
+            pts[: g.dim, pts_pos] = g.face_centers[: g.dim, face]
             f_loc = f_loc[f_loc != face]
             pts_pos += 1
 
@@ -218,7 +235,7 @@ class MpfaUpscaling(FVElliptic):
                 n_loc = n_loc[n_loc != node]
 
                 # save the node in the list of points
-                pts[:g.dim, pts_pos] = g.nodes[:g.dim, node]
+                pts[: g.dim, pts_pos] = g.nodes[: g.dim, node]
 
                 # find the next connected faces at the boundary
                 faces = self._slice_out(node, node_faces)
@@ -228,9 +245,11 @@ class MpfaUpscaling(FVElliptic):
                 # save the fact that it is a boundary corner
                 bc_corner[:, pts_pos] = [1, 1, node]
 
-                bc_tag = bnd.is_dir[face] * "dir" + \
-                         bnd.is_neu[face] * "neu" + \
-                         bnd.is_rob[face] * "rob"
+                bc_tag = (
+                    bnd.is_dir[face] * "dir"
+                    + bnd.is_neu[face] * "neu"
+                    + bnd.is_rob[face] * "rob"
+                )
                 bc_type[:, pts_pos] = [bc_tag, True]
 
             else:
@@ -243,7 +262,7 @@ class MpfaUpscaling(FVElliptic):
                 c_loc = c_loc[c_loc != cell]
 
                 # save the cell center in the list of points
-                pts[:g.dim, pts_pos] = g.cell_centers[:g.dim, cell]
+                pts[: g.dim, pts_pos] = g.cell_centers[: g.dim, cell]
 
                 # identify among the faces related to the current cell
                 # the single one that is also in the patch
@@ -262,16 +281,18 @@ class MpfaUpscaling(FVElliptic):
         Intersect the fractures to get only the one related to the current patch
         """
         # intersect the local fractures with the patch
-        pts, edges = pp.cg.intersect_polygon_lines(pts_patch, \
-                                                   fracs["points"], fracs["edges"])
+        pts, edges = pp.cg.intersect_polygon_lines(
+            pts_patch, fracs["points"], fracs["edges"]
+        )
         return {"points": pts, "edges": edges}
 
     def _patch_gb(self, fracs, patch, subdom, mesh_args):
         """
         Construct the grid bucket for the current patch
         """
-        return pp.fracs.meshing.simplex_grid(fracs, domain=patch, \
-                                             subdomains=subdom, **mesh_args)
+        return pp.fracs.meshing.simplex_grid(
+            fracs, domain=patch, subdomains=subdom, **mesh_args
+        )
 
     def _patch_set_data(self, gb, data):
         # the data are user specific, in principle only the permeability and aperture
@@ -284,10 +305,14 @@ class MpfaUpscaling(FVElliptic):
 
     def _patch_set_bc(self, gb, pts, pt, bc_type, tol):
 
-        bd = np.array([[pt, (pt+1)%pts.shape[1], (pt+2)%pts.shape[1]],
-                       [pt, (pt-1)%pts.shape[1], (pt-2)%pts.shape[1]]])
+        bd = np.array(
+            [
+                [pt, (pt + 1) % pts.shape[1], (pt + 2) % pts.shape[1]],
+                [pt, (pt - 1) % pts.shape[1], (pt - 2) % pts.shape[1]],
+            ]
+        )
 
-        dist = lambda i, j: np.linalg.norm(pts[:, bd[j, i]] - pts[:, bd[j, i+1]])
+        dist = lambda i, j: np.linalg.norm(pts[:, bd[j, i]] - pts[:, bd[j, i + 1]])
         length = np.array([[dist(i, j) for i in np.arange(2)] for j in np.arange(2)])
         sum_length = np.sum(length, axis=1)
 
@@ -306,23 +331,29 @@ class MpfaUpscaling(FVElliptic):
                 for j in np.arange(2):
                     x_0 = np.array([0, length[j, 0]])
                     x_1 = np.array([length[j, 0], sum_length[j]])
-                    y_0 = np.array([1, length[j, 0]/sum_length[j]])
-                    y_1 = np.array([length[j, 0]/sum_length[j], 0])
+                    y_0 = np.array([1, length[j, 0] / sum_length[j]])
+                    y_1 = np.array([length[j, 0] / sum_length[j], 0])
 
                     for i in np.arange(2):
                         start = pts[:, bd[j, i]]
-                        end = pts[:, bd[j, i+1]]
+                        end = pts[:, bd[j, i + 1]]
 
                         # detect all the points aligned with the segment
-                        dist, _ = pp.cg.dist_points_segments(b_face_centers[:2], start, end)
-                        mask = np.where(np.logical_and(dist < tol, dist >=-tol))[0]
+                        dist, _ = pp.cg.dist_points_segments(
+                            b_face_centers[:2], start, end
+                        )
+                        mask = np.where(np.logical_and(dist < tol, dist >= -tol))[0]
 
                         # compute the distance
-                        delta = np.tile(start, (mask.size, 1)).T - b_face_centers[:2, mask]
+                        delta = (
+                            np.tile(start, (mask.size, 1)).T - b_face_centers[:2, mask]
+                        )
 
                         # define the boundary conditions
-                        val = (y_1[i] - y_0[i])/(x_1[i] - x_0[i])
-                        bc_val[b_faces[mask]] = np.linalg.norm(delta, axis=0)*val + y_0[i]
+                        val = (y_1[i] - y_0[i]) / (x_1[i] - x_0[i])
+                        bc_val[b_faces[mask]] = (
+                            np.linalg.norm(delta, axis=0) * val + y_0[i]
+                        )
 
             else:
                 param["bc"] = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
@@ -332,5 +363,4 @@ class MpfaUpscaling(FVElliptic):
             d[pp.PARAMETERS].update_dictionaries("flow", param)
 
     def _slice_out(self, f, m):
-        return m.indices[m.indptr[f]: m.indptr[f+1]]
-
+        return m.indices[m.indptr[f] : m.indptr[f + 1]]

@@ -211,7 +211,7 @@ class EllipticDiscretization:
         raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_source(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
@@ -245,7 +245,7 @@ class EllipticDiscretization:
         raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_pressure_trace(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -272,6 +272,8 @@ class EllipticDiscretization:
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
 
@@ -279,7 +281,7 @@ class EllipticDiscretization:
         raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_pressure_cell(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
@@ -306,6 +308,8 @@ class EllipticDiscretization:
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
 
@@ -326,7 +330,6 @@ class EllipticDiscretization:
             g (Grid): On which the equation is discretized
             data (dictionary): Of data related to the discretization.
             matrix (scipy.sparse.matrix): Discretization matrix to be modified.
-
         """
         raise NotImplementedError("Method not implemented")
 
@@ -467,7 +470,7 @@ class VectorEllipticDiscretization:
         raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_stress(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """Assemble the contribution from an internal boundary, manifested as a
         stress boundary condition.
@@ -494,6 +497,8 @@ class VectorEllipticDiscretization:
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
 
@@ -501,7 +506,7 @@ class VectorEllipticDiscretization:
         raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_source(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a body force term.
@@ -528,13 +533,15 @@ class VectorEllipticDiscretization:
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                Should be either 1 or 2.
         """
         raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_displacement_trace(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary displacement.
@@ -561,6 +568,8 @@ class VectorEllipticDiscretization:
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
 
@@ -568,7 +577,7 @@ class VectorEllipticDiscretization:
         raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_displacement_cell(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell displacement.
@@ -594,6 +603,8 @@ class VectorEllipticDiscretization:
                 master and slave side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.

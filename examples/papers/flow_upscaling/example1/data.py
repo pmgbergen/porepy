@@ -20,15 +20,15 @@ def flow(gb, model, data):
 
         # set the permeability
         if g.dim == 2:
-            kxx = data['km'] / mu * unity
+            kxx = data["km"] / mu * unity
             perm = pp.SecondOrderTensor(2, kxx=kxx, kyy=kxx, kzz=1)
-        else: #g.dim == 1:
-            kxx = data['kf'] / mu * unity
+        else:  # g.dim == 1:
+            kxx = data["kf"] / mu * unity
             perm = pp.SecondOrderTensor(1, kxx=kxx, kyy=1, kzz=1)
         param["second_order_tensor"] = perm
 
         # Assign apertures
-        param["aperture"] = np.power(data['aperture'], 2-g.dim) * unity
+        param["aperture"] = np.power(data["aperture"], 2 - g.dim) * unity
 
         # Boundaries
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -55,7 +55,7 @@ def flow(gb, model, data):
         check_P = mg.slave_to_mortar_avg()
 
         aperture = gb.node_props(g_l, pp.PARAMETERS)[model_data]["aperture"]
-        gamma = check_P * np.power(aperture, 1/(2.-g.dim))
+        gamma = check_P * np.power(aperture, 1 / (2.0 - g.dim))
         kn = data["kf"] / mu * np.ones(mg.num_cells) / gamma
 
         param = {"normal_diffusivity": kn}
@@ -65,7 +65,9 @@ def flow(gb, model, data):
 
     return model_data
 
+
 # ------------------------------------------------------------------------------#
+
 
 def advdiff(gb, model, model_flow, data):
     tol = data["tol"]
@@ -99,11 +101,11 @@ def advdiff(gb, model, model_flow, data):
         else:
             phi = data["porosity_f"]
 
-        ce = phi * rhow * cw + (1-phi) * rhom * cm
+        ce = phi * rhow * cw + (1 - phi) * rhom * cm
         param_adv["mass_weight"] = ce
 
         # Assign the diffusivity
-        l = np.power(lw, phi)*np.power(lm, 1-phi) * unity
+        l = np.power(lw, phi) * np.power(lm, 1 - phi) * unity
         param_diff["second_order_tensor"] = pp.SecondOrderTensor(3, l)
 
         # Assign apertures
@@ -139,7 +141,9 @@ def advdiff(gb, model, model_flow, data):
         # Assign time step
         param_adv["time_step"] = data["time_step"]
 
-        param = pp.Parameters(g, [model_data_adv, model_data_diff], [param_adv, param_diff])
+        param = pp.Parameters(
+            g, [model_data_adv, model_data_diff], [param_adv, param_diff]
+        )
         d[pp.PARAMETERS] = param
         d[pp.DISCRETIZATION_MATRICES] = {model_data_adv: {}, model_data_diff: {}}
 
@@ -155,19 +159,23 @@ def advdiff(gb, model, model_flow, data):
         check_P = mg.slave_to_mortar_avg()
 
         aperture = gb.node_props(g_l, pp.PARAMETERS)[model_data_diff]["aperture"]
-        gamma = np.power(aperture, 1/(2.-g.dim))
+        gamma = np.power(aperture, 1 / (2.0 - g.dim))
 
         k = gb.node_props(g_l, pp.PARAMETERS)[model_data_diff]["second_order_tensor"]
 
         param_diff["normal_diffusivity"] = check_P.dot(k.values[0, 0, :] / gamma)
 
-        param = pp.Parameters(e, [model_data_adv, model_data_diff], [param_adv, param_diff])
+        param = pp.Parameters(
+            e, [model_data_adv, model_data_diff], [param_adv, param_diff]
+        )
         d[pp.PARAMETERS] = param
         d[pp.DISCRETIZATION_MATRICES] = {model_data_adv: {}, model_data_diff: {}}
 
     return model_data_adv, model_data_diff
 
+
 # ------------------------------------------------------------------------------#
+
 
 def bc_flag(g, domain, tol):
     b_faces = g.tags["domain_boundary_faces"].nonzero()[0]

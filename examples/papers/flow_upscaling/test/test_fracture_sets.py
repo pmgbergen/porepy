@@ -112,7 +112,7 @@ class TestFractureSetGeneration(unittest.TestCase):
 
         # Force all parents to have exactly three children
         child.fraction_of_parents_with_child = 1
-        child.dist_num_children = make_dummy_distribution(3/5)
+        child.dist_num_children = make_dummy_distribution(3 / 5)
 
         # All children will be isolated
         child.fraction_isolated = 1
@@ -160,7 +160,7 @@ class TestFractureSetGeneration(unittest.TestCase):
         original_parent = FractureSet(p, e, domain)
 
         p_children = np.array(
-            [[1, 2, 3, 4, 1, 2, 3, 4], [0., 0., 0., 0., 1, 1, 1, 1]], dtype=np.float
+            [[1, 2, 3, 4, 1, 2, 3, 4], [0.0, 0.0, 0.0, 0.0, 1, 1, 1, 1]], dtype=np.float
         )
 
         # Children length from a lognormal distribution
@@ -171,7 +171,7 @@ class TestFractureSetGeneration(unittest.TestCase):
 
         # Force all parents to have exactly three children
         child.fraction_of_parents_with_child = 1
-        child.dist_num_children = make_dummy_distribution(3./5)
+        child.dist_num_children = make_dummy_distribution(3.0 / 5)
 
         # All children will be isolated
         child.fraction_isolated = 0
@@ -206,7 +206,7 @@ class TestFractureSetGeneration(unittest.TestCase):
         # make be put on either side of the center
         dy = known_length * np.sin(angle)
         self.assertTrue(np.sum(np.abs(np.abs(p[1]) - dy) < 1e-3) == 3)
-        self.assertTrue(np.sum(np.abs(p[1])  < 1e-3) == 3)
+        self.assertTrue(np.sum(np.abs(p[1]) < 1e-3) == 3)
 
     def atest_one_parent_all_both_y_children(self):
         # Only one constraint, no fractures should be generated
@@ -218,7 +218,7 @@ class TestFractureSetGeneration(unittest.TestCase):
         original_parent = FractureSet(p, e, domain)
 
         p_children = np.array(
-            [[1, 2, 3, 4, 1, 2, 3, 4], [0., 0., 0., 0., 1, 1, 1, 1]], dtype=np.float
+            [[1, 2, 3, 4, 1, 2, 3, 4], [0.0, 0.0, 0.0, 0.0, 1, 1, 1, 1]], dtype=np.float
         )
 
         # Children length from a lognormal distribution
@@ -266,7 +266,7 @@ class TestFractureSetGeneration(unittest.TestCase):
         original_parent = FractureSet(p, e, domain)
 
         p_children = np.array(
-            [[1, 2, 3, 4, 1, 2, 3, 4], [0., 0., 0., 0., 1, 1, 1, 1]], dtype=np.float
+            [[1, 2, 3, 4, 1, 2, 3, 4], [0.0, 0.0, 0.0, 0.0, 1, 1, 1, 1]], dtype=np.float
         )
 
         # Children length from a lognormal distribution
@@ -301,7 +301,9 @@ class TestFractureSetGeneration(unittest.TestCase):
         p = realiz.pts
         e = realiz.edges
         # There should be no points in the generated child
-        self.assertTrue(np.all(np.logical_or(np.abs(p[1]) < 1e-3, np.abs(p[1] - 1) < 1e-3)))
+        self.assertTrue(
+            np.all(np.logical_or(np.abs(p[1]) < 1e-3, np.abs(p[1] - 1) < 1e-3))
+        )
 
         self.assertTrue(np.allclose(realiz.length(), realiz.length().mean()))
 
@@ -315,7 +317,7 @@ class TestFractureSetGeneration(unittest.TestCase):
         original_parent = FractureSet(p, e, domain)
 
         p_children = np.array(
-            [[1, 2, 3, 4, 1, 2, 3, 4], [0., 0., 0., 0., 1, 1, 1, 1]], dtype=np.float
+            [[1, 2, 3, 4, 1, 2, 3, 4], [0.0, 0.0, 0.0, 0.0, 1, 1, 1, 1]], dtype=np.float
         )
 
         # Children length from a lognormal distribution
@@ -327,8 +329,8 @@ class TestFractureSetGeneration(unittest.TestCase):
         # Force all parents to have exactly three children
         child.fraction_of_parents_with_child = 1
         child.dist_num_children = make_dummy_distribution(10)
-        child.points_along_fracture = 'random'
-        child.dist_side = {'dist': stats.randint, 'param': {'low': 1, 'high': 2}}
+        child.points_along_fracture = "random"
+        child.dist_side = {"dist": stats.randint, "param": {"low": 1, "high": 2}}
 
         # All children will be isolated
         child.fraction_isolated = 0
@@ -484,7 +486,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         parent = FractureSet(p_parent, e_parent, domain)
 
         p_children = np.array(
-            [[1, 2, 3, 4, 1, 2, 3, 4], [0., 0., 0., 0., 1, 1, 1, 1]], dtype=np.float
+            [[1, 2, 3, 4, 1, 2, 3, 4], [0.0, 0.0, 0.0, 0.0, 1, 1, 1, 1]], dtype=np.float
         )
 
         # Children length from a lognormal distribution
@@ -514,7 +516,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         parent_length = parent.length()[0]
 
         p_children = np.array(
-            [[1, 2, 3, 4, 1, 2, 3, 4], [0., 0., 0., 0., 1, 1, 1, 1]], dtype=np.float
+            [[1, 2, 3, 4, 1, 2, 3, 4], [0.0, 0.0, 0.0, 0.0, 1, 1, 1, 1]], dtype=np.float
         )
 
         # Children length from a lognormal distribution
@@ -545,7 +547,8 @@ class TestParentChildrenRelations(unittest.TestCase):
         # Define children points. The edge p1-p5 (second child) will be associated
         # with the second parent
         p_children = np.array(
-            [[1, 2, 3, 4, 1, 2, 3, 4], [0., -0.5, 0., 0., 1, 1, 1, 1]], dtype=np.float
+            [[1, 2, 3, 4, 1, 2, 3, 4], [0.0, -0.5, 0.0, 0.0, 1, 1, 1, 1]],
+            dtype=np.float,
         )
 
         # Children length from a lognormal distribution
@@ -583,7 +586,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         # The edges p0-p4 and p3-p7 will be closest to first parent, as
         # I and Y-nodes, respectively
         p_children = np.array(
-            [[1, 2, 3, 4, 1, 2, 3, 4], [0.1, -0.5, -0.6, 0., 1, 1, 1, 1]],
+            [[1, 2, 3, 4, 1, 2, 3, 4], [0.1, -0.5, -0.6, 0.0, 1, 1, 1, 1]],
             dtype=np.float,
         )
 
@@ -656,25 +659,25 @@ class TestDensityCounting(unittest.TestCase):
 
     def test_measure_computation_1d(self):
         n = np.random.rand(1)
-        domain = {'xmin': 0, 'xmax': n}
+        domain = {"xmin": 0, "xmax": n}
         f = FractureSet(domain=domain)
         self.assertTrue(f.domain_measure() == n)
 
     def test_measure_computation_2d(self):
         n = np.random.rand(2)
-        domain = {'xmin': 0, 'ymin': 0, 'xmax': n[0], 'ymax': n[1]}
+        domain = {"xmin": 0, "ymin": 0, "xmax": n[0], "ymax": n[1]}
         f = FractureSet(domain=domain)
         self.assertTrue(f.domain_measure() == n.prod())
         self.assertTrue(f.domain_measure(domain) == n.prod())
 
-class TestFractureProlongationPruning(unittest.TestCase):
 
+class TestFractureProlongationPruning(unittest.TestCase):
     def compare_points(self, a, b, tol=1e-4):
         sz = a.shape[1]
         ind = np.empty(sz)
         self.assertTrue(np.all(a.shape == b.shape))
         for i in range(sz):
-            dist = np.sqrt(np.sum((a[:, i].reshape((-1, 1)) - b)**2, axis=0))
+            dist = np.sqrt(np.sum((a[:, i].reshape((-1, 1)) - b) ** 2, axis=0))
             mi = np.argmin(dist)
             self.assertTrue(dist[mi] < tol)
             ind[i] = mi
@@ -717,11 +720,12 @@ class TestFractureProlongationPruning(unittest.TestCase):
         ind = self.compare_points(p_split, p_known)
 
         e_known = np.array([[0, 1, 2, 3, 4], [6, 6, 6, 6, 5]])
-        self.assertTrue(np.allclose(np.sort(ind[e_split[:2]], axis=0),
-                                    np.sort(e_known, axis=0)))
+        self.assertTrue(
+            np.allclose(np.sort(ind[e_split[:2]], axis=0), np.sort(e_known, axis=0))
+        )
+
 
 class TestDomainRestriction(unittest.TestCase):
-
     def test_no_change(self):
         p = np.array([[0, 1, 0.5, 0.5], [0, 0, 0.1, 1]])
         e = np.array([[0, 2], [1, 3]])
@@ -801,11 +805,11 @@ def make_dummy_distribution(value):
     return {"dist": DummyDistribution(value), "param": {}}
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
 # TestParentChildrenRelations().test_only_isolated_two_parents_one_far_away()
-#TestFractureSetGeneration().test_two_parents_one_far_away_all_both_y_children()
-#TestDensityCounting().test_measure_computation_2d()
-#unittest.main()
-#TestDomainRestriction().test_both_disapear()
+# TestFractureSetGeneration().test_two_parents_one_far_away_all_both_y_children()
+# TestDensityCounting().test_measure_computation_2d()
+# unittest.main()
+# TestDomainRestriction().test_both_disapear()
 # TestDensityCounting().test_1d_counting_two_boxes()
