@@ -6,17 +6,17 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class Integral:
+class ScalarSource(object):
     """
     Discretization of the integrated source term
     int q * dx
-    over each grid cell.
+    over each grid cell for scalar equations.
 
     All this function does is returning a zero lhs and
     rhs = param.get_source.keyword.
     """
 
-    def __init__(self, keyword="flow"):
+    def __init__(self, keyword):
         """ Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
@@ -25,7 +25,6 @@ class Integral:
                 discretization.
         """
         self.keyword = keyword
-        self.known_keywords = ["flow", "transport", "mechanics"]
 
     # ------------------------------------------------------------------------------#
 
@@ -43,8 +42,6 @@ class Integral:
 
     def ndof(self, g):
         """ Return the number of degrees of freedom associated to the method.
-        For scalar equations, the ndof equals the number of cells. For vector equations,
-        we multiply by the dimension.
 
         Parameter:
             g: grid, or a subclass.
@@ -53,17 +50,7 @@ class Integral:
             int: the number of degrees of freedom.
 
         """
-        if self.keyword == "flow":
-            return g.num_cells
-        elif self.keyword == "transport":
-            return g.num_cells
-        elif self.keyword == "mechanics":
-            return g.num_cells * g.dim
-        else:
-            raise ValueError(
-                'Unknown keyword "%s".\n Possible keywords are: %s'
-                % (self.keyword, self.known_keywords)
-            )
+        return g.num_cells
 
     # ------------------------------------------------------------------------------#
 

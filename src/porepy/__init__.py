@@ -31,7 +31,7 @@ from porepy.numerics.fv.mpsa import Mpsa, FracturedMpsa
 from porepy.numerics.fv.tpfa import Tpfa
 from porepy.numerics.fv.mpfa import Mpfa
 from porepy.numerics.fv.biot import Biot, GradP, DivD, BiotStabilization
-from porepy.numerics.fv.source import Integral
+from porepy.numerics.fv.source import ScalarSource
 
 # Virtual elements, elliptic
 from porepy.numerics.vem.dual_elliptic import project_flux
@@ -51,7 +51,7 @@ from porepy.numerics.interface_laws.elliptic_interface_laws import (
     RobinContact,
     StressDisplacementContinuity,
 )
-from porepy.numerics.interface_laws.empty_discretization import EmptyDiscretization
+from porepy.numerics.interface_laws.cell_dof_face_dof_map import CellDofFaceDofMap
 from porepy.numerics.mixed_dim.assembler import Assembler
 
 import porepy.numerics

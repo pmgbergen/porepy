@@ -46,6 +46,7 @@ class Mpfa(FVElliptic):
                 Stored in data[pp.PARAMETERS][self.keyword].
             matrix_dictionary, for storage of discretization matrices.
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
+            deviation_from_plane_tol: The geometrical tolerance, used in the check to rotate 2d grids
 
         parameter_dictionary contains the entries:
             second_order_tensor: (SecondOrderTensor) Permeability defined cell-wise.
@@ -74,6 +75,8 @@ class Mpfa(FVElliptic):
         data (dict): For entries, see above.
         faces (np.ndarray): optional. Defines active faces.
         """
+        deviation_from_plane_tol = data.get("deviation_from_plane_tol", 1e-5)
+
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         # Extract parameters
@@ -85,7 +88,13 @@ class Mpfa(FVElliptic):
         inverter = parameter_dictionary.get("mpfa_inverter", None)
 
         trm, bound_flux, bp_cell, bp_face = self.mpfa(
-            g, k, bnd, eta=eta, apertures=aperture, inverter=inverter
+            g,
+            k,
+            bnd,
+            deviation_from_plane_tol,
+            eta=eta,
+            apertures=aperture,
+            inverter=inverter,
         )
         matrix_dictionary["flux"] = trm
         matrix_dictionary["bound_flux"] = bound_flux
@@ -97,6 +106,7 @@ class Mpfa(FVElliptic):
         g,
         k,
         bnd,
+        deviation_from_plane_tol=1e-5,
         eta=None,
         inverter=None,
         apertures=None,
@@ -123,6 +133,7 @@ class Mpfa(FVElliptic):
             g (core.grids.grid): grid to be discretized
             k (core.constit.second_order_tensor) permeability tensor
             bnd (core.bc.bc) class for boundary values
+            deviation_from_plane_tol: The geometrical tolerance, used in the check to rotate 2d grids
             eta Location of pressure continuity point. Defaults to 1/3 for simplex
                 grids, 0 otherwise. On boundary faces with Dirichlet conditions,
                 eta=0 will be enforced.
@@ -187,7 +198,13 @@ class Mpfa(FVElliptic):
             # TODO: We may want to estimate the memory need, and give a warning if
             # this seems excessive
             flux, bound_flux, bound_pressure_cell, bound_pressure_face = self._local_discr(
-                g, k, bnd, eta=eta, inverter=inverter, apertures=apertures
+                g,
+                k,
+                bnd,
+                deviation_from_plane_tol,
+                eta=eta,
+                inverter=inverter,
+                apertures=apertures,
             )
         else:
             # Estimate number of partitions necessary based on prescribed memory
@@ -223,7 +240,13 @@ class Mpfa(FVElliptic):
 
                 # Perform local discretization.
                 loc_flux, loc_bound_flux, loc_bp_cell, loc_bp_face, loc_faces = self.partial_discr(
-                    g, k, bnd, eta=eta, inverter=inverter, nodes=active_nodes
+                    g,
+                    k,
+                    bnd,
+                    deviation_from_plane_tol,
+                    eta=eta,
+                    inverter=inverter,
+                    nodes=active_nodes,
                 )
 
                 # Eliminate contribution from faces already covered
@@ -246,6 +269,7 @@ class Mpfa(FVElliptic):
         g,
         k,
         bnd,
+        deviation_from_plane_tol=1e-5,
         eta=0,
         inverter="numba",
         cells=None,
@@ -270,6 +294,7 @@ class Mpfa(FVElliptic):
             bnd (porepy.params.bc.BoundarCondition) class for boundary conditions
             faces (np.ndarray) faces to be considered. Intended for partial
                 discretization, may change in the future
+            deviation_from_plane_tol: The geometrical tolerance, used in the check to rotate 2d grids
             eta Location of pressure continuity point. Should be 1/3 for simplex
                 grids, 0 otherwise. On boundary faces with Dirichlet conditions,
                 eta=0 will be enforced.
@@ -339,7 +364,13 @@ class Mpfa(FVElliptic):
 
         # Discretization of sub-problem
         flux_loc, bound_flux_loc, bound_pressure_cell, bound_pressure_face = self._local_discr(
-            sub_g, loc_k, loc_bnd, eta=eta, inverter=inverter, apertures=apertures
+            sub_g,
+            loc_k,
+            loc_bnd,
+            deviation_from_plane_tol,
+            eta=eta,
+            inverter=inverter,
+            apertures=apertures,
         )
 
         # Map to global indices
@@ -367,7 +398,16 @@ class Mpfa(FVElliptic):
             active_faces,
         )
 
-    def _local_discr(self, g, k, bnd, eta=None, inverter="numba", apertures=None):
+    def _local_discr(
+        self,
+        g,
+        k,
+        bnd,
+        deviation_from_plane_tol=1e-5,
+        eta=None,
+        inverter="numba",
+        apertures=None,
+    ):
         """
         Actual implementation of the MPFA O-method. To calculate MPFA on a grid
         directly, either call this method, or, to respect the privacy of this
@@ -449,7 +489,9 @@ class Mpfa(FVElliptic):
             # Rotate the grid into the xy plane and delete third dimension. First
             # make a copy to avoid alterations to the input grid
             g = g.copy()
-            cell_centers, face_normals, face_centers, R, _, nodes = pp.cg.map_grid(g)
+            cell_centers, face_normals, face_centers, R, _, nodes = pp.cg.map_grid(
+                g, deviation_from_plane_tol
+            )
             g.cell_centers = cell_centers
             g.face_normals = face_normals
             g.face_centers = face_centers

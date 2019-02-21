@@ -100,7 +100,7 @@ def main(N):
     # Choose and define the solvers
     solver = pp.Mpfa("flow")
     A, b_flux = solver.assemble_matrix_rhs(g, data)
-    _, b_source = pp.Integral("flow").assemble_matrix_rhs(g, data)
+    _, b_source = pp.ScalarSource("flow").assemble_matrix_rhs(g, data)
     p = sps.linalg.spsolve(A, b_flux + b_source)
 
     diam = np.amax(g.cell_diameters())
