@@ -182,8 +182,8 @@ class BasicsTest(unittest.TestCase):
         M, rhs = solver.assemble_matrix_rhs(g, data)
         up = sps.linalg.spsolve(M, rhs)
 
-        p = solver.extract_pressure(g, up)
-        u = solver.extract_flux(g, up)
+        p = solver.extract_pressure(g, up, data)
+        u = solver.extract_flux(g, up, data)
         P0u = solver.project_flux(g, u, data)
 
         p_ex = 1 - g.cell_centers[0, :]
@@ -1073,7 +1073,7 @@ class BasicsTest(unittest.TestCase):
             M, rhs = solver.assemble_matrix_rhs(g, data)
 
             up = sps.linalg.spsolve(M, rhs)
-            p = solver.extract_pressure(g, up)
+            p = solver.extract_pressure(g, up, data)
             err = np.sum(np.abs(p - p_ex(g.cell_centers)))
 
             self.assertTrue(np.isclose(err, 0))
@@ -1125,7 +1125,7 @@ class BasicsTest(unittest.TestCase):
             _, rhs = solver_rhs.assemble_matrix_rhs(g, data)
 
             up = sps.linalg.spsolve(M, rhs_bc + rhs)
-            p = solver.extract_pressure(g, up)
+            p = solver.extract_pressure(g, up, data)
             err = np.sqrt(
                 np.sum(
                     np.multiply(g.cell_volumes, np.power(p - p_ex(g.cell_centers), 2))
@@ -1182,7 +1182,7 @@ class BasicsTest(unittest.TestCase):
             _, rhs = solver_rhs.assemble_matrix_rhs(g, data)
 
             up = sps.linalg.spsolve(M, rhs_bc + rhs)
-            p = solver.extract_pressure(g, up)
+            p = solver.extract_pressure(g, up, data)
             err = np.sqrt(
                 np.sum(
                     np.multiply(g.cell_volumes, np.power(p - p_ex(g.cell_centers), 2))

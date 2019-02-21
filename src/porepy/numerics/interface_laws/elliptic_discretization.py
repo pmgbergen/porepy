@@ -74,7 +74,7 @@ class EllipticDiscretization:
         """
         raise NotImplementedError("Method not implemented")
 
-    def extract_pressure(self, g, solution_array, d):
+    def extract_pressure(self, g, solution_array, data):
         """ Abstract method. Extract the pressure part of a solution.
 
         The implementation will depend what the primary variables of the specific
@@ -84,7 +84,7 @@ class EllipticDiscretization:
             g (grid): To which the solution array belongs.
             solution_array (np.array): Solution for this grid obtained from
                 either a mono-dimensional or a mixed-dimensional problem.
-            d (dictionary): Data dictionary associated with the grid. Not used,
+            data (dictionary): Data dictionary associated with the grid. Not used,
                 but included for consistency reasons.
 
         Returns:
@@ -94,7 +94,7 @@ class EllipticDiscretization:
         """
         raise NotImplementedError("Method not implemented")
 
-    def extract_flux(self, g, solution_array, d):
+    def extract_flux(self, g, solution_array, data):
         """ Abstract method. Extract the pressure part of a solution.
 
         The implementation will depend what are the primary variables of the specific implementation.
@@ -106,7 +106,7 @@ class EllipticDiscretization:
             solution_array (np.array): Solution for this grid obtained from
                 either a mono-dimensional or a mixed-dimensional problem. Will
                 correspond to the pressure solution.
-            d (dictionary): Data dictionary associated with the grid.
+            data (dictionary): Data dictionary associated with the grid.
 
         Returns:
             np.array (g.num_faces): Flux vector.

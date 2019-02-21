@@ -829,7 +829,7 @@ class RobinContactBiotPressure(RobinContact):
     centere fluid pressure (p):
         A * u + B * p + C * lam = u_slave/u_master
     This class adds the contribution B.
-    
+
     To enforce the full continuity this interface law must be used in combination with
     the RobinContact conditions which adds the contributions A and C
     """

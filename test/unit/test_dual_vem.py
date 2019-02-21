@@ -332,8 +332,8 @@ class BasicsTest(unittest.TestCase):
         M, rhs = solver.assemble_matrix_rhs(g, data)
         up = sps.linalg.spsolve(M, rhs)
 
-        p = solver.extract_pressure(g, up)
-        u = solver.extract_flux(g, up)
+        p = solver.extract_pressure(g, up, data)
+        u = solver.extract_flux(g, up, data)
         P0u = solver.project_flux(g, u, data)
 
         p_ex = 1 - g.cell_centers[0, :]

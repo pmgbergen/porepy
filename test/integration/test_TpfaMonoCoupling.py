@@ -254,7 +254,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         key_m = "mortar"  # mortar name
 
         tpfa = pp.Tpfa(kw)
-        src = pp.Integral(kw)
+        src = pp.ScalarSource(kw)
         for g, d in gb:
             d[pp.DISCRETIZATION] = {key_p: {key_src: src, key_flux: tpfa}}
             d[pp.PRIMARY_VARIABLES] = {key_p: {"cells": 1}}

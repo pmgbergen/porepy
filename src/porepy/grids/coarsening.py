@@ -245,6 +245,7 @@ def generate_coarse_grid_gb(gb, subdiv):
         face_map = generate_coarse_grid_single(g, partition, True)
 
         # Update all the master_to_mortar_int for all the 'edges' connected to the grid
+        # We update also all the face_cells
         for e, d in gb.edges_of_node(g):
             # The indices that need to be mapped to the new grid
             m2m = d["mortar_grid"].master_to_mortar_int.tocsr()
@@ -260,6 +261,18 @@ def generate_coarse_grid_gb(gb, subdiv):
             shape = (m2m.shape[0], g.num_faces)
             new_m2m = sps.csr_matrix((m2m.data, indices, m2m.indptr), shape=shape)
             d["mortar_grid"].master_to_mortar_int = new_m2m.tocsc()
+
+            # update also the face_cells map
+            face_cells = d["face_cells"].tocsr()
+            indices = face_cells.indices
+
+            # map indices
+            mask = np.argsort(indices)
+            indices = np.in1d(face_map[0, :], indices[mask]).nonzero()[0]
+            face_cells.indices = indices[np.argsort(mask)]
+
+            # update the map
+            d["face_cells"] = face_cells.tocsc()
 
 
 # ------------------------------------------------------------------------------#
