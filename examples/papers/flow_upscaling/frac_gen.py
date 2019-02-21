@@ -22,14 +22,18 @@ def fit(pts, edges, frac, family, ks_size=100, p_val_min=0.05):
     1) so far this implementation does not take care of the family
     """
 
-    dist_l = fit_length_distribution(pts, edges, frac, family, ks_size=ks_size,
-                                     p_val_min=p_val_min)
-    dist_a = fit_angle_distribution(pts, edges, frac, family, ks_size=ks_size,
-                                     p_val_min=p_val_min)
+    dist_l = fit_length_distribution(
+        pts, edges, frac, family, ks_size=ks_size, p_val_min=p_val_min
+    )
+    dist_a = fit_angle_distribution(
+        pts, edges, frac, family, ks_size=ks_size, p_val_min=p_val_min
+    )
     return dist_l, dist_a
 
 
-def fit_length_distribution(pts, edges, frac=None, family=None, ks_size=100, p_val_min = 0.05):
+def fit_length_distribution(
+    pts, edges, frac=None, family=None, ks_size=100, p_val_min=0.05
+):
     """
     Compute the distribution from a set of fracture families for the length and angle.
 
@@ -76,7 +80,10 @@ def fit_length_distribution(pts, edges, frac=None, family=None, ks_size=100, p_v
 
     return dist_l
 
-def fit_angle_distribution(pts, edges, frac=None, family=None, ks_size=100, p_val_min = 0.05):
+
+def fit_angle_distribution(
+    pts, edges, frac=None, family=None, ks_size=100, p_val_min=0.05
+):
     """
     Compute the distribution from a set of fracture families for the length and angle.
 
@@ -142,7 +149,7 @@ def fracture_from_center_angle_length(c, l, a):
     # generate the new set of pts and edges
     num_frac = l.size
 
-    pts_n = np.empty((2, l.size*2))
+    pts_n = np.empty((2, l.size * 2))
     delta = 0.5 * l * np.array([np.cos(a), np.sin(a)])
     for i in np.arange(num_frac):
         pts_n[:, 2 * i] = c[:, i] + delta[:, i]
@@ -152,8 +159,9 @@ def fracture_from_center_angle_length(c, l, a):
 
     return pts_n, edges_n
 
+
 def generate_from_distribution(num_fracs, dist_a):
-    if isinstance(dist_a['param'], dict):
+    if isinstance(dist_a["param"], dict):
         return dist_a["dist"].rvs(**dist_a["param"], size=num_fracs)
     else:
         return dist_a["dist"].rvs(*dist_a["param"], size=num_fracs)
@@ -181,6 +189,7 @@ def length(pts, edges, frac):
     # compute the total length based on the fracture id
     tot_l = lambda f: np.sum(l[np.isin(frac, f)])
     return np.array([tot_l(f) for f in np.unique(frac)])
+
 
 def angle(pts, edges, frac):
     """
@@ -244,8 +253,9 @@ def count_center_point_densities(p, e, domain, nx=10, ny=10, **kwargs):
         x0, dx = _decompose_domain(domain, nx, ny)
         num_occ = np.zeros(nx)
         for i in range(nx):
-            hit = np.logical_and.reduce([pc[0] > (x0 + i * dx),
-                                         pc[0] <= (x0 + (i + 1) * dx)])
+            hit = np.logical_and.reduce(
+                [pc[0] > (x0 + i * dx), pc[0] <= (x0 + (i + 1) * dx)]
+            )
             num_occ[i] = hit.sum()
 
         return num_occ.astype(np.int)
@@ -256,8 +266,14 @@ def count_center_point_densities(p, e, domain, nx=10, ny=10, **kwargs):
         # Can probably do this more vectorized, but for now, a for loop will suffice
         for i in range(nx):
             for j in range(ny):
-                hit = np.logical_and.reduce([pc[0] > (x0 + i * dx), pc[0] < (x0 + (i + 1) * dx),
-                                             pc[1] > (y0 + j * dy), pc[1] < (y0 + (j + 1) * dy)])
+                hit = np.logical_and.reduce(
+                    [
+                        pc[0] > (x0 + i * dx),
+                        pc[0] < (x0 + (i + 1) * dx),
+                        pc[1] > (y0 + j * dy),
+                        pc[1] < (y0 + (j + 1) * dy),
+                    ]
+                )
                 num_occ[i, j] = hit.sum()
 
         return num_occ
@@ -266,7 +282,7 @@ def count_center_point_densities(p, e, domain, nx=10, ny=10, **kwargs):
         raise ValueError("Have not yet implemented 3D geometries")
 
 
-def define_centers_by_boxes(domain, intensity, distribution='poisson'):
+def define_centers_by_boxes(domain, intensity, distribution="poisson"):
     """ Define center points of fractures, intended used in a marked point
     process.
 
@@ -299,9 +315,8 @@ def define_centers_by_boxes(domain, intensity, distribution='poisson'):
 
     """
 
-
-    if distribution != 'poisson':
-        return ValueError('Only Poisson point processes have been implemented')
+    if distribution != "poisson":
+        return ValueError("Only Poisson point processes have been implemented")
 
     nx, ny = intensity.shape
     num_boxes = intensity.size
@@ -312,7 +327,7 @@ def define_centers_by_boxes(domain, intensity, distribution='poisson'):
 
     # It is assumed that the intensities are computed relative to boxes of the
     # same size that are assigned in here
-    area_of_box=1
+    area_of_box = 1
 
     pts = np.empty(num_boxes, dtype=np.object)
 
@@ -338,23 +353,25 @@ def define_centers_by_boxes(domain, intensity, distribution='poisson'):
             pts[counter] = np.delete(p_loc, delete, axis=1)
             counter += 1
 
-    return np.array([pts[i][:, j] for i in range(pts.size) for j in range(pts[i].shape[1])]).T
+    return np.array(
+        [pts[i][:, j] for i in range(pts.size) for j in range(pts[i].shape[1])]
+    ).T
 
 
 def _compute_center(p, edges):
     # first compute the fracture centres and then generate them
-    avg = lambda e0, e1: 0.5*(np.atleast_2d(p)[:, e0] + np.atleast_2d(p)[:, e1])
+    avg = lambda e0, e1: 0.5 * (np.atleast_2d(p)[:, e0] + np.atleast_2d(p)[:, e1])
     pts_c = np.array([avg(e[0], e[1]) for e in edges.T]).T
     return pts_c
 
-def _decompose_domain(domain, nx, ny=None):
-    x0 = domain['xmin']
-    dx = (domain['xmax'] - domain['xmin']) / nx
 
-    if 'ymin' in domain.keys() and 'ymax' in domain.keys():
-        y0 = domain['ymin']
-        dy = (domain['ymax'] - domain['ymin']) / ny
+def _decompose_domain(domain, nx, ny=None):
+    x0 = domain["xmin"]
+    dx = (domain["xmax"] - domain["xmin"]) / nx
+
+    if "ymin" in domain.keys() and "ymax" in domain.keys():
+        y0 = domain["ymin"]
+        dy = (domain["ymax"] - domain["ymin"]) / ny
         return x0, y0, dx, dy
     else:
         return x0, dx
-

@@ -162,17 +162,17 @@ class RobinCoupling(object):
         cc[2, 2] = matrix_dictionary_edge["Robin_discr"]
 
         self.discr_master.assemble_int_bound_pressure_trace(
-            g_master, data_master, data_edge, grid_swap, cc, matrix, master_ind
+            g_master, data_master, data_edge, grid_swap, cc, matrix, rhs, master_ind
         )
         self.discr_master.assemble_int_bound_flux(
-            g_master, data_master, data_edge, grid_swap, cc, matrix, master_ind
+            g_master, data_master, data_edge, grid_swap, cc, matrix, rhs, master_ind
         )
 
         self.discr_slave.assemble_int_bound_pressure_cell(
-            g_slave, data_slave, data_edge, grid_swap, cc, matrix, slave_ind
+            g_slave, data_slave, data_edge, grid_swap, cc, matrix, rhs, slave_ind
         )
         self.discr_slave.assemble_int_bound_source(
-            g_slave, data_slave, data_edge, grid_swap, cc, matrix, slave_ind
+            g_slave, data_slave, data_edge, grid_swap, cc, matrix, rhs, slave_ind
         )
 
         matrix += cc
@@ -276,10 +276,16 @@ class FluxPressureContinuity(RobinCoupling):
 
         # The rhs is just zeros
         # EK: For some reason, the following lines were necessary to apease python
-        rhs = np.empty(3, dtype=np.object)
-        rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[2] = np.zeros(mg.num_cells)
+        rhs_slave = np.empty(3, dtype=np.object)
+        rhs_slave[master_ind] = np.zeros(dof_master)
+        rhs_slave[slave_ind] = np.zeros(dof_slave)
+        rhs_slave[2] = np.zeros(mg.num_cells)
+        # I got some problems with pointers when doing rhs_master = rhs_slave.copy()
+        # so just reconstruct everything.
+        rhs_master = np.empty(3, dtype=np.object)
+        rhs_master[master_ind] = np.zeros(dof_master)
+        rhs_master[slave_ind] = np.zeros(dof_slave)
+        rhs_master[2] = np.zeros(mg.num_cells)
 
         # The convention, for now, is to put the master grid information
         # in the first column and row in matrix, slave grid in the second
@@ -294,21 +300,49 @@ class FluxPressureContinuity(RobinCoupling):
             master_ind = 0
 
         self.discr_master.assemble_int_bound_pressure_trace(
-            g_master, data_master, data_edge, False, cc_master, matrix, master_ind
+            g_master,
+            data_master,
+            data_edge,
+            False,
+            cc_master,
+            matrix,
+            rhs_master,
+            master_ind,
         )
         self.discr_master.assemble_int_bound_flux(
-            g_master, data_master, data_edge, False, cc_master, matrix, master_ind
+            g_master,
+            data_master,
+            data_edge,
+            False,
+            cc_master,
+            matrix,
+            rhs_master,
+            master_ind,
         )
 
         if g_master.dim == g_slave.dim:
             # Consider this terms only if the grids are of the same dimension, by
             # imposing the same condition with a different sign, due to the normal
             self.discr_slave.assemble_int_bound_pressure_trace(
-                g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
+                g_slave,
+                data_slave,
+                data_edge,
+                True,
+                cc_slave,
+                matrix,
+                rhs_slave,
+                slave_ind,
             )
 
             self.discr_slave.assemble_int_bound_flux(
-                g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
+                g_slave,
+                data_slave,
+                data_edge,
+                True,
+                cc_slave,
+                matrix,
+                rhs_slave,
+                slave_ind,
             )
             # We now have to flip the sign of some of the matrices
             # First we flip the sign of the slave flux because the mortar flux points
@@ -317,18 +351,32 @@ class FluxPressureContinuity(RobinCoupling):
             # Then we flip the sign for the pressure continuity since we have
             # We have that p_m - p_s = 0.
             cc_slave[2, slave_ind] = -cc_slave[2, slave_ind]
-
+            rhs_slave[2] = -rhs_slave[2]
             # Note that cc_slave[2, 2] is fliped twice, first for pressure continuity
         else:
             # Consider this terms only if the grids are of different dimension, by
             # imposing pressure trace continuity and conservation of the normal flux
             # through the lower dimensional object.
             self.discr_slave.assemble_int_bound_pressure_cell(
-                g_slave, data_slave, data_edge, False, cc_slave, matrix, slave_ind
+                g_slave,
+                data_slave,
+                data_edge,
+                False,
+                cc_slave,
+                matrix,
+                rhs_slave,
+                slave_ind,
             )
 
             self.discr_slave.assemble_int_bound_source(
-                g_slave, data_slave, data_edge, False, cc_slave, matrix, slave_ind
+                g_slave,
+                data_slave,
+                data_edge,
+                False,
+                cc_slave,
+                matrix,
+                rhs_slave,
+                slave_ind,
             )
 
         # Now, the matrix cc = cc_slave + cc_master expresses the flux and pressure
@@ -337,6 +385,7 @@ class FluxPressureContinuity(RobinCoupling):
         # cc[1] -> flux_s = -mortar_flux
         # cc[2] -> p_m - p_s = 0
         matrix += cc_master + cc_slave
+        rhs = rhs_master + rhs_slave
 
         self.discr_master.enforce_neumann_int_bound(
             g_master, data_edge, matrix, False, master_ind
@@ -494,11 +543,16 @@ class RobinContact(object):
         cc_mortar = cc_master.copy()
 
         # EK: For some reason, the following lines were necessary to apease python
-        rhs = np.empty(3, dtype=np.object)
-        rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
-        # For the robin condition we assign a rhs
-        rhs[2] = matrix_dictionary_edge["robin_rhs"]
+        rhs_slave = np.empty(3, dtype=np.object)
+        rhs_slave[master_ind] = np.zeros(dof_master)
+        rhs_slave[slave_ind] = np.zeros(dof_slave)
+        rhs_slave[2] = np.zeros(self.ndof(mg))
+        # I got some problems with pointers when doing rhs_master = rhs_slave.copy()
+        # so just reconstruct everything.
+        rhs_master = np.empty(3, dtype=np.object)
+        rhs_master[master_ind] = np.zeros(dof_master)
+        rhs_master[slave_ind] = np.zeros(dof_slave)
+        rhs_master[2] = np.zeros(self.ndof(mg))
 
         # The convention, for now, is to put the master grid information
         # in the first column and row in matrix, slave grid in the second
@@ -514,19 +568,33 @@ class RobinContact(object):
 
         # Obtain the displacement trace u_master
         self.discr_master.assemble_int_bound_displacement_trace(
-            g_master, data_master, data_edge, False, cc_master, matrix, master_ind
+            g_master,
+            data_master,
+            data_edge,
+            False,
+            cc_master,
+            matrix,
+            rhs_master,
+            master_ind,
         )
         # set \sigma_master = -\lamba
         self.discr_master.assemble_int_bound_stress(
-            g_master, data_master, data_edge, False, cc_master, matrix, master_ind
+            g_master,
+            data_master,
+            data_edge,
+            False,
+            cc_master,
+            matrix,
+            rhs_master,
+            master_ind,
         )
         # Obtain the displacement trace u_slave
         self.discr_slave.assemble_int_bound_displacement_trace(
-            g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
+            g_slave, data_slave, data_edge, True, cc_slave, matrix, rhs_slave, slave_ind
         )
         # set \sigma_slave = \lamba
         self.discr_slave.assemble_int_bound_stress(
-            g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
+            g_slave, data_slave, data_edge, True, cc_slave, matrix, rhs_slave, slave_ind
         )
         # We now have to flip the sign of some of the matrices
         # First we flip the sign of the master stress because the mortar stress
@@ -535,6 +603,7 @@ class RobinContact(object):
         # Then we flip the sign for the master displacement since the displacement
         # jump is defined as u_slave - u_master
         cc_master[2, master_ind] = -cc_master[2, master_ind]
+        rhs_master[2] = -rhs_master[2]
         # Note that cc_master[2, 2] is fliped twice, first in Newton's third law,
         # then for the displacement jump.
 
@@ -542,7 +611,7 @@ class RobinContact(object):
         # continuities over the mortar grid.
         # cc[0] -> stress_master = mortar_stress
         # cc[1] -> stress_slave = -mortar_stress
-        # cc[2] -> u_slave - u_master = 0
+        # cc[2] -> mortar_weight * lambda + robin_weight * (u_slave - u_master) = robin_rhs
 
         # We don't want to enforce the displacement jump, but a Robin condition.
         # We therefore add the mortar variable to the last equation.
@@ -550,14 +619,16 @@ class RobinContact(object):
 
         # The displacement jump is scaled by a matrix in the Robin condition:
         robin_weight = matrix_dictionary_edge["robin_weight"]
-
         cc_sm = cc_master + cc_slave
+        rhs = rhs_slave + rhs_master
+        rhs[2] = robin_weight * rhs[2]
         for i in range(3):
             cc_sm[2, i] = robin_weight * cc_sm[2, i]
 
         # Now define the complete Robin condition:
         # mortar_weight * \lambda + "robin_weight" * [u] = robin_rhs
         matrix += cc_sm + cc_mortar
+        rhs[2] += matrix_dictionary_edge["robin_rhs"]
 
         # The following two functions might or might not be needed when using
         # a finite element discretization (see RobinCoupling for flow).
@@ -659,10 +730,16 @@ class StressDisplacementContinuity(RobinContact):
         cc_slave = cc_master.copy()
         # The rhs is just zeros
         # EK: For some reason, the following lines were necessary to apease python
-        rhs = np.empty(3, dtype=np.object)
-        rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[2] = np.zeros(self.ndof(mg))
+        rhs_slave = np.empty(3, dtype=np.object)
+        rhs_slave[master_ind] = np.zeros(dof_master)
+        rhs_slave[slave_ind] = np.zeros(dof_slave)
+        rhs_slave[2] = np.zeros(self.ndof(mg))
+        # I got some problems with pointers when doing rhs_master = rhs_slave.copy()
+        # so just reconstruct everything.
+        rhs_master = np.empty(3, dtype=np.object)
+        rhs_master[master_ind] = np.zeros(dof_master)
+        rhs_master[slave_ind] = np.zeros(dof_slave)
+        rhs_master[2] = np.zeros(self.ndof(mg))
 
         # The convention, for now, is to put the master grid information
         # in the first column and row in matrix, slave grid in the second
@@ -678,19 +755,33 @@ class StressDisplacementContinuity(RobinContact):
 
         # Obtain the displacement trace u_master
         self.discr_master.assemble_int_bound_displacement_trace(
-            g_master, data_master, data_edge, False, cc_master, matrix, master_ind
+            g_master,
+            data_master,
+            data_edge,
+            False,
+            cc_master,
+            matrix,
+            rhs_master,
+            master_ind,
         )
         # set \sigma_master = -\lamba
         self.discr_master.assemble_int_bound_stress(
-            g_master, data_master, data_edge, False, cc_master, matrix, master_ind
+            g_master,
+            data_master,
+            data_edge,
+            False,
+            cc_master,
+            matrix,
+            rhs_master,
+            master_ind,
         )
         # Obtain the displacement trace u_slave
         self.discr_slave.assemble_int_bound_displacement_trace(
-            g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
+            g_slave, data_slave, data_edge, True, cc_slave, matrix, rhs_slave, slave_ind
         )
         # set \sigma_slave = \lamba
         self.discr_slave.assemble_int_bound_stress(
-            g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
+            g_slave, data_slave, data_edge, True, cc_slave, matrix, rhs_slave, slave_ind
         )
         # We now have to flip the sign of some of the matrices
         # First we flip the sign of the master stress because the mortar stress
@@ -699,6 +790,7 @@ class StressDisplacementContinuity(RobinContact):
         # Then we flip the sign for the master displacement since the displacement
         # jump is defined as u_slave - u_master
         cc_master[2, master_ind] = -cc_master[2, master_ind]
+        rhs_master[2] = -rhs_master[2]
         # Note that cc_master[2, 2] is fliped twice, first in Newton's third law,
         # then for the displacement jump.
 
@@ -709,7 +801,7 @@ class StressDisplacementContinuity(RobinContact):
         # cc[2] -> u_slave - u_master = 0
 
         matrix += cc_master + cc_slave
-
+        rhs = rhs_slave + rhs_master
         # The following two functions might or might not be needed when using
         # a finite element discretization (see RobinCoupling for flow).
         self.discr_master.enforce_neumann_int_bound(
@@ -824,11 +916,11 @@ class RobinContactBiotPressure(RobinContact):
         # Obtain the contribution of the cell centered pressure on the displacement
         # trace u_master
         self.discr_master.assemble_int_bound_displacement_trace(
-            g_master, data_master, data_edge, False, cc_master, matrix, master_ind
+            g_master, data_master, data_edge, False, cc_master, matrix, rhs, master_ind
         )
         # Equivalent for u_slave
         self.discr_slave.assemble_int_bound_displacement_trace(
-            g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
+            g_slave, data_slave, data_edge, True, cc_slave, matrix, rhs, slave_ind
         )
         # We now have to flip the sign of some of the matrices
         # First we flip the sign of the master stress because the mortar stress

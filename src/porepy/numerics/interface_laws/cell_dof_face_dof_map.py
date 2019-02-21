@@ -136,7 +136,7 @@ class CellDofFaceDofMap(object):
         return np.zeros(self.ndof(g))
 
     def assemble_int_bound_flux(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
@@ -163,6 +163,8 @@ class CellDofFaceDofMap(object):
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
 
@@ -170,7 +172,7 @@ class CellDofFaceDofMap(object):
         raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_source(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Assemble the contribution from an internal boundary,
         manifested as a source term.
@@ -197,6 +199,8 @@ class CellDofFaceDofMap(object):
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 0 or 1.
 
@@ -211,7 +215,7 @@ class CellDofFaceDofMap(object):
         cc[self_ind, 2] -= proj.T
 
     def assemble_int_bound_pressure_trace(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -238,6 +242,8 @@ class CellDofFaceDofMap(object):
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
 
@@ -245,7 +251,7 @@ class CellDofFaceDofMap(object):
         raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_pressure_cell(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
@@ -271,6 +277,8 @@ class CellDofFaceDofMap(object):
                 master and slave side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 0 or 1.

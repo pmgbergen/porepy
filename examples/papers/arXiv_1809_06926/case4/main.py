@@ -35,12 +35,12 @@ def outlet_fluxes(gb):
     xf = g.face_centers
     # identify the regions
     lower = np.logical_and.reduce(
-                (xf[0] + tol > 350, xf[1] - tol < 400, xf[2] - tol < 100)
-            )
+        (xf[0] + tol > 350, xf[1] - tol < 400, xf[2] - tol < 100)
+    )
 
     upper = np.logical_and.reduce(
-                (xf[0] - tol < -500, xf[1] - tol < 400, xf[2] - tol < 100)
-            )
+        (xf[0] - tol < -500, xf[1] - tol < 400, xf[2] - tol < 100)
+    )
 
     n = g.face_normals[0, :]
     # on the upper boundary the outward normal has positive y component
@@ -49,6 +49,7 @@ def outlet_fluxes(gb):
     outflow_lower = -flux[lower] * np.sign(n[lower])
 
     return np.sum(outflow_lower), np.sum(outflow_upper)
+
 
 # ------------------------------------------------------------------------------#
 
@@ -107,12 +108,12 @@ def main(folder, solver, solver_name, dt):
 
 if __name__ == "__main__":
     solver_list = [
-#        solvers.solve_tpfa,
-#        solvers.solve_mpfa,
+        #        solvers.solve_tpfa,
+        #        solvers.solve_mpfa,
         solvers.solve_vem,
         solvers.solve_rt0,
     ]
-    #solver_names = ["tpfa", "mpfa", "vem", "rt0"]
+    # solver_names = ["tpfa", "mpfa", "vem", "rt0"]
     solver_names = ["vem", "rt0"]
 
     time_step = 50

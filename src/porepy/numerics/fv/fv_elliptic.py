@@ -191,7 +191,7 @@ class FVElliptic(
         return -div * bound_flux * bc_val
 
     def assemble_int_bound_flux(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """Assemble the contribution from an internal boundary, manifested as a
         flux boundary condition.
@@ -217,6 +217,8 @@ class FVElliptic(
                 master and slave side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
@@ -247,7 +249,7 @@ class FVElliptic(
         cc[self_ind, 2] += div * bound_flux * proj.T
 
     def assemble_int_bound_source(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
@@ -274,6 +276,8 @@ class FVElliptic(
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
 
@@ -288,9 +292,9 @@ class FVElliptic(
         cc[self_ind, 2] -= proj.T
 
     def assemble_int_bound_pressure_trace(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
-        """ Abstract method. Assemble the contribution from an internal
+        """ Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
         The intended use is when the internal boundary is coupled to another
@@ -315,6 +319,8 @@ class FVElliptic(
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
 
@@ -330,9 +336,15 @@ class FVElliptic(
 
         cc[2, self_ind] += proj * matrix_dictionary["bound_pressure_cell"]
         cc[2, 2] += proj * matrix_dictionary["bound_pressure_face"] * proj.T
+        # Add contribution from boundary conditions to the pressure at the fracture
+        # faces. For TPFA this will be zero, but for MPFA we will get a contribution
+        # on the fractures extending to the boundary due to the interaction region
+        # around a node.
+        bc_val = data[pp.PARAMETERS][self.keyword]["bc_values"]
+        rhs[2] -= proj * matrix_dictionary["bound_pressure_face"] * bc_val
 
     def assemble_int_bound_pressure_cell(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
@@ -358,6 +370,8 @@ class FVElliptic(
                 master and slave side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.

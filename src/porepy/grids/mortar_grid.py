@@ -310,6 +310,7 @@ class MortarGrid(object):
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the slave grid")
 
+
 # ------------------------------------------------------------------------------#
 # ------------------------------------------------------------------------------#
 
