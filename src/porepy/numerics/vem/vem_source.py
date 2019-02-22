@@ -8,7 +8,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class DualIntegral:
+class DualScalarSource:
     """
     Discretization of the integrated source term
     int q * dx
