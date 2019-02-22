@@ -231,22 +231,22 @@ class FVElliptic(
         mg = data_edge["mortar_grid"]
 
         if grid_swap:
-            proj = mg.slave_to_mortar_avg()
+            proj = mg.mortar_to_slave_int()
         else:
-            proj = mg.master_to_mortar_avg()
+            proj = mg.mortar_to_master_int()
 
         if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
             # If bound flux is gven as sub-faces we have to map it from sub-faces
             # to faces
             hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
             bound_flux = hf2f * bound_flux
-        if g.dim > 0 and bound_flux.shape[1] != proj.shape[1]:
+        if g.dim > 0 and bound_flux.shape[1] != proj.shape[0]:
             raise ValueError(
                 """Inconsistent shapes. Did you define a
             sub-face boundary condition but only a face-wise mortar?"""
             )
 
-        cc[self_ind, 2] += div * bound_flux * proj.T
+        cc[self_ind, 2] += div * bound_flux * proj
 
     def assemble_int_bound_source(
         self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
@@ -285,11 +285,11 @@ class FVElliptic(
         mg = data_edge["mortar_grid"]
 
         if grid_swap:
-            proj = mg.master_to_mortar_avg()
+            proj = mg.mortar_to_master_int()
         else:
-            proj = mg.slave_to_mortar_avg()
+            proj = mg.mortar_to_slave_int()
 
-        cc[self_ind, 2] -= proj.T
+        cc[self_ind, 2] -= proj
 
     def assemble_int_bound_pressure_trace(
         self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
@@ -331,11 +331,13 @@ class FVElliptic(
         # TODO: this should become first or second or something
         if grid_swap:
             proj = mg.slave_to_mortar_avg()
+            proj_int = mg.mortar_to_slave_int()
         else:
             proj = mg.master_to_mortar_avg()
+            proj_int = mg.mortar_to_master_int()
 
         cc[2, self_ind] += proj * matrix_dictionary["bound_pressure_cell"]
-        cc[2, 2] += proj * matrix_dictionary["bound_pressure_face"] * proj.T
+        cc[2, 2] += proj * matrix_dictionary["bound_pressure_face"] * proj_int
         # Add contribution from boundary conditions to the pressure at the fracture
         # faces. For TPFA this will be zero, but for MPFA we will get a contribution
         # on the fractures extending to the boundary due to the interaction region

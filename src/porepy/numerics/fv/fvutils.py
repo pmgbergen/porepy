@@ -594,7 +594,7 @@ def map_sc_2_c(nd, sub_cell_index, cell_index):
     Parameters
     ----------
     nd: dimension
-    sub_cell_index: 
+    sub_cell_index:
     cell_index:
 
 
@@ -1402,7 +1402,7 @@ def compute_darcy_flux(
 
         bound_flux = d_h[pp.DISCRETIZATION_MATRICES][keyword]["bound_flux"]
         induced_flux = (
-            bound_flux * d["mortar_grid"].master_to_mortar_int.T * d[lam_name]
+            bound_flux * d["mortar_grid"].mortar_to_master_int() * d[lam_name]
         )
         # Remove contribution directly on the boundary faces.
         induced_flux[g_h.tags["fracture_faces"]] = 0

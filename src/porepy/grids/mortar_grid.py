@@ -106,7 +106,7 @@ class MortarGrid(object):
             cells[faces > np.median(faces)] += num_cells
 
         shape = (num_cells * self.num_sides(), face_cells.shape[1])
-        self.master_to_mortar_int = sps.csc_matrix(
+        self._master_to_mortar_int = sps.csc_matrix(
             (data.astype(np.float), (cells, faces)), shape=shape
         )
 
@@ -114,7 +114,7 @@ class MortarGrid(object):
         # It is composed by two identity matrices since we are assuming matching
         # grids here.
         identity = [[sps.identity(num_cells)]] * self.num_sides()
-        self.slave_to_mortar_int = sps.bmat(identity, format="csc")
+        self._slave_to_mortar_int = sps.bmat(identity, format="csc")
 
     # ------------------------------------------------------------------------------#
 
@@ -216,8 +216,8 @@ class MortarGrid(object):
         # Once the global matrix is constructed the new low_to_mortar_int and
         # high_to_mortar_int maps are updated.
         matrix = sps.bmat(matrix)
-        self.slave_to_mortar_int = matrix * self.slave_to_mortar_int
-        self.master_to_mortar_int = matrix * self.master_to_mortar_int
+        self._slave_to_mortar_int = matrix * self._slave_to_mortar_int
+        self._master_to_mortar_int = matrix * self._master_to_mortar_int
 
         # Update the side grids
         for side, g in side_grids.items():
@@ -250,14 +250,14 @@ class MortarGrid(object):
             matrix[pos, 0] = side_matrix[side]
 
         # Update the low_to_mortar_int map. No need to update the high_to_mortar_int.
-        self.slave_to_mortar_int = sps.bmat(matrix, format="csc")
+        self._slave_to_mortar_int = sps.bmat(matrix, format="csc")
         self._check_mappings()
 
     # ------------------------------------------------------------------------------#
 
     def update_master(self, matrix):
         # Make a comment here
-        self.master_to_mortar_int = self.master_to_mortar_int * matrix
+        self._master_to_mortar_int = self._master_to_mortar_int * matrix
         self._check_mappings()
 
     # ------------------------------------------------------------------------------#
@@ -273,23 +273,152 @@ class MortarGrid(object):
 
     # ------------------------------------------------------------------------------#
 
+    def master_to_mortar_int(self):
+        """ Project values from faces of master to the mortar, by summing quantities
+        from the master side.
+
+        The projection matrix is scaled so that the column sum is unity, that is, values
+        on the master side are distributed to the mortar according to the overlap
+        between a master face and generally several mortar cells.
+
+        This mapping is intended for extensive properties, e.g. fluxes.
+
+        Returns:
+            sps.matrix: Projection matrix with column sum unity.
+                Size: g_master.num_faces x mortar_grid.num_cells.
+
+        """
+        return self._master_to_mortar_int
+
+    def slave_to_mortar_int(self):
+        """ Project values from cells on the slave side to the mortar, by
+        summing quantities from the slave side.
+
+        The projection matrix is scaled so that the column sum is unity, that is, values
+        on the slave side are distributed to the mortar according to the overlap
+        between a slave cell and generally several mortar cells.
+
+        This mapping is intended for extensive properties, e.g. sources.
+
+        Returns:
+            sps.matrix: Projection matrix with column sum unity.
+                Size: g_slave.num_cells x mortar_grid.num_cells.
+
+        """
+        return self._slave_to_mortar_int
+
+    def master_to_mortar_avg(self):
+        """ Project values from faces of master to the mortar, by averaging quantities
+        from the master side.
+
+        The projection matrix is scaled so that the row sum is unity, that is, values
+        on the mortar side are computed as averages of values from the master side,
+        according to the overlap between, general several, master faces and a mortar
+        cell.
+
+        This mapping is intended for intensive properties, e.g. pressures.
+
+        Returns:
+            sps.matrix: Projection matrix with row sum unity.
+                Size: g_master.num_faces x mortar_grid.num_cells.
+
+        """
+        row_sum = self._master_to_mortar_int.sum(axis=1).A.ravel()
+        return sps.diags(1.0 / row_sum) * self._master_to_mortar_int
+
+    def slave_to_mortar_avg(self):
+        """ Project values from cells at the slave to the mortar, by averaging
+        quantities from the slave side.
+
+        The projection matrix is scaled so that the row sum is unity, that is, values
+        on the mortar side are computed as averages of values from the slave side,
+        according to the overlap between, generally several master cells and the mortar
+        cells.
+
+        This mapping is intended for intensive properties, e.g. pressures.
+
+        Returns:
+            sps.matrix: Projection matrix with row sum unity.
+                Size: g_slave.num_cells x mortar_grid.num_cells.
+
+        """
+        row_sum = self._slave_to_mortar_int.sum(axis=1).A.ravel()
+        return sps.diags(1.0 / row_sum) * self._slave_to_mortar_int
+
+    # IMPLEMENTATION NOTE: The reverse projections, from mortar to master/slave are
+    # found by taking transposes, and switching average and integration (since we are
+    # changing which side we are taking the area relative to.
+
+
     def mortar_to_master_int(self):
+        """ Project values from the mortar to faces of master, by summing quantities
+        from the mortar side.
+
+        The projection matrix is scaled so that the column sum is unity, that is, values
+        on the mortar side are distributed to the master according to the overlap
+        between a mortar cell and, generally several master faces.
+
+        This mapping is intended for extensive properties, e.g. fluxes.
+
+        Returns:
+            sps.matrix: Projection matrix with column sum unity.
+                Size: mortar_grid.num_cells x g_master.num_faces.
+
+        """
         return self.master_to_mortar_avg().T
 
     def mortar_to_slave_int(self):
+        """ Project values from the mortar to cells at the slave, by summing quantities
+        from the mortar side.
+
+        The projection matrix is scaled so that the column sum is unity, that is, values
+        on the mortar side are distributed to the slave according to the overlap
+        between a mortar cell and, generally several slave cells.
+
+        This mapping is intended for extensive properties, e.g. fluxes.
+
+        Returns:
+            sps.matrix: Projection matrix with column sum unity.
+                Size: mortar_grid.num_cells x g_slave_num_faces.
+
+        """
         return self.slave_to_mortar_avg().T
 
-    # ------------------------------------------------------------------------------#
+    def mortar_to_master_avg(self):
+        """ Project values from the mortar to faces of master, by averaging
+        quantities from the mortar side.
 
-    def master_to_mortar_avg(self):
-        row_sum = self.master_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1.0 / row_sum) * self.master_to_mortar_int
+        The projection matrix is scaled so that the row sum is unity, that is, values
+        on the master side are computed as averages of values from the mortar side,
+        according to the overlap between, general several, mortar cell and a master
+        face.
 
-    # ------------------------------------------------------------------------------#
+        This mapping is intended for intensive properties, e.g. pressures.
 
-    def slave_to_mortar_avg(self):
-        row_sum = self.slave_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1.0 / row_sum) * self.slave_to_mortar_int
+        Returns:
+            sps.matrix: Projection matrix with row sum unity.
+                Size: mortar_grid.num_cells x g_master.num_faces.
+
+        """
+        return self.master_to_mortar_int().T
+
+    def mortar_to_slave_avg(self):
+        """ Project values from the mortar to slave, by averaging quantities from the
+        mortar side.
+
+        The projection matrix is scaled so that the row sum is unity, that is, values
+        on the slave side are computed as averages of values from the mortar side,
+        according to the overlap between, general several, mortar cell and a slave
+        cell.
+
+        This mapping is intended for intensive properties, e.g. pressures.
+
+        Returns:
+            sps.matrix: Projection matrix with row sum unity.
+                Size: mortar_grid.num_cells x g_slave.num_faces.
+
+        """
+        return self.slave_to_mortar_int().T
 
     # ------------------------------------------------------------------------------#
 
@@ -302,11 +431,11 @@ class MortarGrid(object):
     # ------------------------------------------------------------------------------#
 
     def _check_mappings(self, tol=1e-4):
-        row_sum = self.master_to_mortar_int.sum(axis=1)
+        row_sum = self._master_to_mortar_int.sum(axis=1)
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the master grid")
 
-        row_sum = self.slave_to_mortar_int.sum(axis=1)
+        row_sum = self._slave_to_mortar_int.sum(axis=1)
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the slave grid")
 
@@ -406,10 +535,10 @@ class BoundaryMortar(MortarGrid):
 
         shape_master = (self.num_cells, master_slave.shape[1])
         shape_slave = (self.num_cells, master_slave.shape[0])
-        self.master_to_mortar_int = sps.csc_matrix(
+        self._master_to_mortar_int = sps.csc_matrix(
             (data.astype(np.float), (cells, master_f)), shape=shape_master
         )
-        self.slave_to_mortar_int = sps.csc_matrix(
+        self._slave_to_mortar_int = sps.csc_matrix(
             (data.astype(np.float), (cells, slave_f)), shape=shape_slave
         )
 
@@ -473,29 +602,6 @@ class BoundaryMortar(MortarGrid):
             Number of sides.
         """
         return len(self.side_grids)
-
-    # ------------------------------------------------------------------------------#
-
-    def mortar_to_master_int(self):
-
-        return self.master_to_mortar_avg().T
-
-    # ------------------------------------------------------------------------------#
-
-    def master_to_mortar_avg(self):
-        row_sum = self.master_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1.0 / row_sum) * self.master_to_mortar_int
-
-    # ------------------------------------------------------------------------------#
-
-    def slave_to_mortar_avg(self):
-        row_sum = self.slave_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1.0 / row_sum) * self.slave_to_mortar_int
-
-    # ------------------------------------------------------------------------------#
-
-    def mortar_to_slave_int(self):
-        return self.slave_to_mortar_avg().T
 
     # ------------------------------------------------------------------------------#
     def compute_geometry(self):
