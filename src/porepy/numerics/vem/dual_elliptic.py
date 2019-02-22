@@ -47,8 +47,8 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
                     continue
                 # project the mortar variable back to the higher dimensional
                 # problem
-                edge_flux += sign * g_m.mortar_to_master_int() * d_e[mortar_key]
-                #edge_flux += sign * g_m.master_to_mortar_avg().T * d_e[mortar_key]
+                #edge_flux += sign * g_m.mortar_to_master_int() * d_e[mortar_key]
+                edge_flux += sign * g_m.master_to_mortar_avg().T * d_e[mortar_key]
 
         d[P0_flux] = discr.project_flux(g, edge_flux + d[flux], d)
 
@@ -285,11 +285,9 @@ class DualElliptic(
 
         shape = (g.num_cells, g_m.num_cells)
         if grid_swap:
-            hat_E_int = g_m.mortar_to_slave_avg()
-            hat_E_int = g_m.master_to_mortar_avg().T
+            hat_E_int = g_m.mortar_to_slave_int()
         else:
             hat_E_int = g_m.mortar_to_master_int()
-            hat_E_int = g_m.master_to_mortar_avg().T
 
         hat_E_int = sps.bmat([[U * hat_E_int], [sps.csr_matrix(shape)]])
         return hat_E_int
