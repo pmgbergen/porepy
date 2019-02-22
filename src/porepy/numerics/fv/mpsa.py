@@ -358,12 +358,12 @@ class Mpsa(
         # TODO: this should become first or second or something
         if grid_swap:
             proj = mg.slave_to_mortar_avg()
-            proj_int = mg.slave_to_mortar_int
-            proj_int_swap = mg.master_to_mortar_int
+            proj_int = mg.slave_to_mortar_int()
+            proj_int_swap = mg.master_to_mortar_int()
         else:
             proj = mg.master_to_mortar_avg()
-            proj_int = mg.master_to_mortar_int
-            proj_int_swap = mg.slave_to_mortar_int
+            proj_int = mg.master_to_mortar_int()
+            proj_int_swap = mg.slave_to_mortar_int()
 
         # Expand indices as Fortran indexes
         proj_avg = sps.kron(proj, sps.eye(g.dim)).tocsr()

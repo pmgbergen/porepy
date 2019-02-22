@@ -109,8 +109,8 @@ class TestTwoGridCoupling(unittest.TestCase):
             rhs = d[pp.PARAMETERS][self.kw]["robin_rhs"].reshape(
                 (gs.dim, -1), order="F"
             )
-            slv2mrt_nd = sps.kron(mg.slave_to_mortar_int, sps.eye(gs.dim)).tocsr()
-            mstr2mrt_nd = sps.kron(mg.master_to_mortar_int, sps.eye(gs.dim)).tocsr()
+            slv2mrt_nd = sps.kron(mg.slave_to_mortar_int(), sps.eye(gs.dim)).tocsr()
+            mstr2mrt_nd = sps.kron(mg.master_to_mortar_int(), sps.eye(gs.dim)).tocsr()
 
             hf2fs = pp.fvutils.map_hf_2_f(g=gs) / 2
             hf2fm = pp.fvutils.map_hf_2_f(g=gm) / 2
@@ -318,8 +318,8 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
             rhs = d[pp.PARAMETERS][self.kw]["robin_rhs"].reshape(
                 (gs.dim, -1), order="F"
             )
-            slv2mrt_nd = sps.kron(mg.slave_to_mortar_int, sps.eye(gs.dim)).tocsr()
-            mstr2mrt_nd = sps.kron(mg.master_to_mortar_int, sps.eye(gs.dim)).tocsr()
+            slv2mrt_nd = sps.kron(mg.slave_to_mortar_int(), sps.eye(gs.dim)).tocsr()
+            mstr2mrt_nd = sps.kron(mg.master_to_mortar_int(), sps.eye(gs.dim)).tocsr()
 
             hf2fs = pp.fvutils.map_hf_2_f(g=gs) / 2
             hf2fm = pp.fvutils.map_hf_2_f(g=gm) / 2

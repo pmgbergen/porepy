@@ -641,7 +641,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         kn = 1e4
         gb = self.set_grids(
-            N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2, physdims=[2, 1]
+            N=[2, 2], num_nodes_mortar=4, num_nodes_1d=2, physdims=[2, 1]
         )
         self.set_param_flow(gb, no_flow=False, method='mvem', kn=kn)
 
@@ -1219,5 +1219,5 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 #        self.verify_cv(gb)
 
 if __name__ == "__main__":
-    #TestMortar2dSingleFractureCartesianGrid().test_mvem_matching_grids_refine_1d_no_flow()
+    TestMortar2DSimplexGridStandardMeshing().test_vem_one_frac_refine_2d()
     unittest.main()
