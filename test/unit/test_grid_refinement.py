@@ -776,7 +776,9 @@ class TestRefinementMortarGrid(unittest.TestCase):
             # some systems; therefore allow two configurations
             self.assertTrue(
                 np.logical_or(
-                    np.allclose(low_to_mortar_known, mg.slave_to_mortar_int().todense()),
+                    np.allclose(
+                        low_to_mortar_known, mg.slave_to_mortar_int().todense()
+                    ),
                     np.allclose(
                         low_to_mortar_known, mg.slave_to_mortar_int().todense()[::-1]
                     ),
@@ -890,7 +892,9 @@ class TestRefinementMortarGrid(unittest.TestCase):
             # some systems; therefore allow two configurations
             self.assertTrue(
                 np.logical_or(
-                    np.allclose(low_to_mortar_known, mg.slave_to_mortar_int().todense()),
+                    np.allclose(
+                        low_to_mortar_known, mg.slave_to_mortar_int().todense()
+                    ),
                     np.allclose(
                         low_to_mortar_known, mg.slave_to_mortar_int().todense()[::-1]
                     ),
@@ -974,7 +978,9 @@ class TestRefinementMortarGrid(unittest.TestCase):
             )
 
             indptr_known = np.array([0, 2, 4, 6, 8])
-            self.assertTrue(np.array_equal(mg.slave_to_mortar_int().indptr, indptr_known))
+            self.assertTrue(
+                np.array_equal(mg.slave_to_mortar_int().indptr, indptr_known)
+            )
 
             data_known = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
             self.assertTrue(np.array_equal(mg.slave_to_mortar_int().data, data_known))

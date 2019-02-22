@@ -349,7 +349,6 @@ class MortarGrid(object):
     # found by taking transposes, and switching average and integration (since we are
     # changing which side we are taking the area relative to.
 
-
     def mortar_to_master_int(self):
         """ Project values from the mortar to faces of master, by summing quantities
         from the mortar side.
