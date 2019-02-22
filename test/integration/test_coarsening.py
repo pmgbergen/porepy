@@ -373,7 +373,9 @@ class BasicsTest(unittest.TestCase):
 
             # Test
             for e_d in gb.edges():
-                indices, faces, _ = sps.find(e_d[1]["mortar_grid"].master_to_mortar_int())
+                indices, faces, _ = sps.find(
+                    e_d[1]["mortar_grid"].master_to_mortar_int()
+                )
 
                 if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) or (
                     e_d[0][0].dim == 2 and e_d[0][1].dim == 1
@@ -879,7 +881,9 @@ class BasicsTest(unittest.TestCase):
 
             # Test
             for e_d in gb.edges():
-                indices, faces, _ = sps.find(e_d[1]["mortar_grid"].master_to_mortar_int())
+                indices, faces, _ = sps.find(
+                    e_d[1]["mortar_grid"].master_to_mortar_int()
+                )
 
                 if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) or (
                     e_d[0][0].dim == 1 and e_d[0][1].dim == 0
@@ -940,7 +944,9 @@ class BasicsTest(unittest.TestCase):
 
             # Test
             for e_d in gb.edges():
-                indices, faces, _ = sps.find(e_d[1]["mortar_grid"].master_to_mortar_int())
+                indices, faces, _ = sps.find(
+                    e_d[1]["mortar_grid"].master_to_mortar_int()
+                )
 
                 if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) or (
                     e_d[0][0].dim == 1 and e_d[0][1].dim == 0
@@ -1116,7 +1122,9 @@ class BasicsTest(unittest.TestCase):
 
             # Test
             for e_d in gb.edges():
-                indices, faces, _ = sps.find(e_d[1]["mortar_grid"].master_to_mortar_int())
+                indices, faces, _ = sps.find(
+                    e_d[1]["mortar_grid"].master_to_mortar_int()
+                )
 
                 if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) or (
                     e_d[0][0].dim == 1 and e_d[0][1].dim == 0
