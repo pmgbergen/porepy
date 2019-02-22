@@ -14,7 +14,7 @@ from test import test_utils
 
 
 class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
-    def set_param_flow(self, gb, no_flow=False, kn=1e3, multi_point=True):
+    def set_param_flow(self, gb, no_flow=False, kn=1e3, method='mpfa'):
         # Set up flow field with uniform flow in y-direction
         kw = "flow"
         for g, d in gb:
@@ -61,8 +61,10 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         for g, d in gb:
             # Choose discretization and define the solver
-            if multi_point:
+            if method == 'mpfa':
                 discr = pp.Mpfa(kw)
+            elif method == 'mvem':
+                discr = pp.MVEM(kw)
             else:
                 discr = pp.Tpfa(kw)
 
@@ -100,19 +102,31 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
     def solve(self, gb, method=None):
         key = "flow"
         if method is None:
-            method = pp.Tpfa(key)
+            discretization = pp.Tpfa(key)
         elif method == "mpfa":
-            method = pp.Mpfa(key)
-        assembler = test_utils.setup_flow_assembler(gb, method, key)
+            discretization = pp.Mpfa(key)
+        elif method == 'mvem':
+            discretization = pp.MVEM(key)
+        assembler = test_utils.setup_flow_assembler(gb, discretization, key)
         A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(gb, p, block_dof, full_dof)
 
+        if method == 'mvem':
+            g2d = gb.grids_of_dimension(2)[0]
+            p_n = np.zeros(gb.num_cells())
+            for g, d in gb:
+                if g.dim == 2:
+                    p_n[:g2d.num_cells] = d['pressure'][g.num_faces:]
+                else:
+                    p_n[g2d.num_cells:] = d['pressure'][g.num_faces:]
+                d['pressure'] = d['pressure'][g.num_faces:]
+            p = p_n
         return p
 
     def test_tpfa_matching_grids_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
-        self.set_param_flow(gb, no_flow=True, multi_point=False)
+        self.set_param_flow(gb, no_flow=True, method='tpfa')
 
         p = self.solve(gb)
 
@@ -121,7 +135,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
     def test_tpfa_matching_grids_refine_1d_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
-        self.set_param_flow(gb, no_flow=True, multi_point=False)
+        self.set_param_flow(gb, no_flow=True, method='tpfa')
 
         p = self.solve(gb)
         self.assertTrue(np.all(p[:4] == 1))
@@ -129,7 +143,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
     def test_tpfa_matching_grids_refine_mortar_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
-        self.set_param_flow(gb, no_flow=True, multi_point=False)
+        self.set_param_flow(gb, no_flow=True, method='tpfa')
 
         p = self.solve(gb)
         self.assertTrue(np.all(p[:3] == 1))
@@ -139,7 +153,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         kn = 1e4
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
-        self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='tpfa', kn=kn)
 
         self.solve(gb)
 
@@ -157,7 +171,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         kn = 1e4
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
-        self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='tpfa', kn=kn)
 
         self.solve(gb)
         g_2d = gb.grids_of_dimension(2)[0]
@@ -174,7 +188,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         kn = 1e4
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
-        self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='tpfa', kn=kn)
 
         self.solve(gb)
 
@@ -192,7 +206,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         kn = 1e4
         gb = self.set_grids(N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2)
-        self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='tpfa', kn=kn)
 
         self.solve(gb)
 
@@ -212,7 +226,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(
             N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2, physdims=[2, 1]
         )
-        self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='tpfa', kn=kn)
 
         self.solve(gb)
 
@@ -232,7 +246,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(
             N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3, physdims=[2, 1]
         )
-        self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='tpfa', kn=kn)
 
         self.solve(gb)
 
@@ -252,7 +266,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(
             N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2, physdims=[2, 1]
         )
-        self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='tpfa', kn=kn)
 
         self.solve(gb)
 
@@ -272,7 +286,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(
             N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2, physdims=[2, 1]
         )
-        self.set_param_flow(gb, no_flow=False, multi_point=False, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='tpfa', kn=kn)
 
         self.solve(gb)
 
@@ -288,38 +302,82 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
     def test_mpfa_matching_grids_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
-        self.set_param_flow(gb, no_flow=True, multi_point=True)
+        self.set_param_flow(gb, no_flow=True, method='mpfa')
 
         p = self.solve(gb, "mpfa")
+
+        self.assertTrue(np.all(p[:3] == 1))
+        self.assertTrue(np.all(p[3:] == 0))
+
+    def test_mvem_matching_grids_no_flow(self):
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
+        self.set_param_flow(gb, no_flow=True, method='mvem')
+
+        p = self.solve(gb, "mvem")
 
         self.assertTrue(np.all(p[:3] == 1))
         self.assertTrue(np.all(p[3:] == 0))
 
     def test_mpfa_matching_grids_refine_1d_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
-        self.set_param_flow(gb, no_flow=True, multi_point=True)
+        self.set_param_flow(gb, no_flow=True, method='mpfa')
 
         p = self.solve(gb, "mpfa")
 
         self.assertTrue(np.all(p[:4] == 1))
         self.assertTrue(np.all(p[4:] == 0))
 
+    def test_mvem_matching_grids_refine_1d_no_flow(self):
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
+        self.set_param_flow(gb, no_flow=True, method='mvem')
+
+        p = self.solve(gb, "mvem")
+
+        self.assertTrue(np.allclose(p[:4], 1))
+
     def test_mpfa_matching_grids_refine_mortar_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
-        self.set_param_flow(gb, no_flow=True, multi_point=True)
+        self.set_param_flow(gb, no_flow=True, method='mpfa')
 
         p = self.solve(gb, "mpfa")
 
         self.assertTrue(np.all(p[:3] == 1))
         self.assertTrue(np.all(p[3:] == 0))
 
+    def test_mvem_matching_grids_refine_mortar_no_flow(self):
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
+        self.set_param_flow(gb, no_flow=True, method='mvem')
+
+        p = self.solve(gb, "mvem")
+
+        self.assertTrue(np.allclose(p[:3], 1))
+
+
     def test_mpfa_matching_grids_uniform_flow(self):
 
         kn = 1e4
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
-        self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='mpfa', kn=kn)
 
         self.solve(gb, "mpfa")
+
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_props(g_2d, "pressure")
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=kn))
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_props(g_1d, "pressure")
+        # NOTE: This will not be entirely correct,
+        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn))
+
+    def test_mvem_matching_grids_uniform_flow(self):
+
+        kn = 1e4
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
+        self.set_param_flow(gb, no_flow=False, method='mvem', kn=kn)
+
+        self.solve(gb, "mvem")
 
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
@@ -335,9 +393,27 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         kn = 1e4
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
-        self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='mpfa', kn=kn)
 
         self.solve(gb, "mpfa")
+
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_props(g_2d, "pressure")
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1.0 / kn))
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_props(g_1d, "pressure")
+        # NOTE: This will not be entirely correct,
+        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+
+    def test_mvem_matching_grids_refine_1d_uniform_flow(self):
+
+        kn = 1e4
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
+        self.set_param_flow(gb, no_flow=False, method='mvem', kn=kn)
+
+        self.solve(gb, "mvem")
 
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
@@ -353,9 +429,27 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         kn = 1e4
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
-        self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='mpfa', kn=kn)
 
         self.solve(gb, "mpfa")
+
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_props(g_2d, "pressure")
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_props(g_1d, "pressure")
+        # NOTE: This will not be entirely correct,
+        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+
+    def test_mvem_matching_grids_refine_mortar_uniform_flow(self):
+
+        kn = 1e4
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
+        self.set_param_flow(gb, no_flow=False, method='mvem', kn=kn)
+
+        self.solve(gb, "mvem")
 
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
@@ -371,9 +465,27 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         kn = 1e4
         gb = self.set_grids(N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2)
-        self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='mpfa', kn=kn)
 
         self.solve(gb, "mpfa")
+
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_props(g_2d, "pressure")
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_props(g_1d, "pressure")
+        # NOTE: This will not be entirely correct,
+        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+
+    def test_mvem_matching_grids_refine_2d_uniform_flow(self):
+
+        kn = 1e4
+        gb = self.set_grids(N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2)
+        self.set_param_flow(gb, no_flow=False, method='mvem', kn=kn)
+
+        self.solve(gb, "mvem")
 
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
@@ -391,9 +503,29 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(
             N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2, physdims=[2, 1]
         )
-        self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='mpfa', kn=kn)
 
         self.solve(gb, "mpfa")
+
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_props(g_2d, "pressure")
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=kn))
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_props(g_1d, "pressure")
+        # NOTE: This will not be entirely correct,
+        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn))
+
+    def test_mvem_matching_grids_uniform_flow_larger_domain(self):
+
+        kn = 1e4
+        gb = self.set_grids(
+            N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2, physdims=[2, 1]
+        )
+        self.set_param_flow(gb, no_flow=False, method='mvem', kn=kn)
+
+        self.solve(gb, "mvem")
 
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
@@ -411,9 +543,29 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(
             N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3, physdims=[2, 1]
         )
-        self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='mpfa', kn=kn)
 
         self.solve(gb, "mpfa")
+
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_props(g_2d, "pressure")
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1.0 / kn))
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_props(g_1d, "pressure")
+        # NOTE: This will not be entirely correct,
+        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+
+    def test_mvem_matching_grids_refine_1d_uniform_flow_larger_domain(self):
+
+        kn = 1e4
+        gb = self.set_grids(
+            N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3, physdims=[2, 1]
+        )
+        self.set_param_flow(gb, no_flow=False, method='mvem', kn=kn)
+
+        self.solve(gb, "mvem")
 
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
@@ -431,9 +583,29 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(
             N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2, physdims=[2, 1]
         )
-        self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='mpfa', kn=kn)
 
         self.solve(gb, "mpfa")
+
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_props(g_2d, "pressure")
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_props(g_1d, "pressure")
+        # NOTE: This will not be entirely correct,
+        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+
+    def test_mvem_matching_grids_refine_mortar_uniform_flow_larger_domain(self):
+
+        kn = 1e4
+        gb = self.set_grids(
+            N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2, physdims=[2, 1]
+        )
+        self.set_param_flow(gb, no_flow=False, method='mvem', kn=kn)
+
+        self.solve(gb, "mvem")
 
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
@@ -451,7 +623,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb = self.set_grids(
             N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2, physdims=[2, 1]
         )
-        self.set_param_flow(gb, no_flow=False, multi_point=True, kn=kn)
+        self.set_param_flow(gb, no_flow=False, method='mpfa', kn=kn)
 
         self.solve(gb, "mpfa")
 
@@ -465,6 +637,25 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         # NOTE: This will not be entirely correct,
         self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
 
+    def test_mvem_matching_grids_refine_2d_uniform_flow_larger_domain(self):
+
+        kn = 1e4
+        gb = self.set_grids(
+            N=[2, 2], num_nodes_mortar=4, num_nodes_1d=2, physdims=[2, 1]
+        )
+        self.set_param_flow(gb, no_flow=False, method='mvem', kn=kn)
+
+        self.solve(gb, "mvem")
+
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_props(g_2d, "pressure")
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_props(g_1d, "pressure")
+        # NOTE: This will not be entirely correct,
+        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
 
 class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
     def setup(
@@ -1028,4 +1219,5 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 #        self.verify_cv(gb)
 
 if __name__ == "__main__":
+    TestMortar2DSimplexGridStandardMeshing().test_vem_one_frac_refine_2d()
     unittest.main()
