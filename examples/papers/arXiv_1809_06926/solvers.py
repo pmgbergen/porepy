@@ -126,7 +126,7 @@ def export_flow(gb, folder):
 def solve_rt0(gb, folder):
     # Choose and define the solvers and coupler
     flow_discretization = pp.RT0("flow")
-    source_discretization = pp.DualIntegral("flow")
+    source_discretization = pp.DualScalarSource("flow")
     run_flow(gb, flow_discretization, source_discretization, folder, is_FV=False)
 
 
@@ -156,7 +156,7 @@ def solve_mpfa(gb, folder):
 def solve_vem(gb, folder):
     # Choose and define the solvers and coupler
     flow_discretization = pp.MVEM("flow")
-    source_discretization = pp.DualIntegral("flow")
+    source_discretization = pp.DualScalarSource("flow")
     run_flow(gb, flow_discretization, source_discretization, folder, is_FV=False)
 
 
