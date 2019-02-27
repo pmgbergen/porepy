@@ -8,18 +8,40 @@ plt.rc("text", usetex=True)
 plt.rc("font", family="serif")
 plt.rc("font", size=15)
 
-main_folder = "./plots/"
 
-
-def plot(file_name, legend, title, num_frac):
+def plot_single(file_name, legend, title):
 
     data = np.loadtxt(file_name, delimiter=",")
+
+    plt.figure(0)
+    plt.plot(data[:, 0], data[:, 1], label=legend)
+    plt.title(title)
+    plt.xlabel("$t$")
+    plt.ylabel("$\\theta$")
+    plt.grid(True)
+    plt.legend()
+
+
+# ------------------------------------------------------------------------------#
+
+
+def plot_multiple(file_name, legend, title, num_frac):
+
+    data = np.loadtxt(file_name, delimiter=",")
+
     for frac_id in np.arange(num_frac):
         plt.figure(frac_id)
         plt.plot(data[:, 0], data[:, frac_id + 1], label=legend)
-        plt.title(title + " - " + str(frac_id))
+        plt_title = (
+            title[0]
+            + " on "
+            + "$\\Omega_{" + str(frac_id) + "}$"
+            + " "
+            + title[1]
+        )
+        plt.title(plt_title)
         plt.xlabel("$t$")
-        plt.ylabel("$c$")
+        plt.ylabel("$\\theta$")
         plt.grid(True)
         plt.legend()
 
@@ -27,12 +49,20 @@ def plot(file_name, legend, title, num_frac):
 # ------------------------------------------------------------------------------#
 
 
-def save(filename, num_frac):
+def save_single(filename, folder, figure_id=0):
 
-    if not os.path.exists(main_folder):
-        os.makedirs(main_folder)
+    if not os.path.exists(folder):
+        os.makedirs(folder)
 
-    folder = main_folder + "/"
+    plt.figure(figure_id)
+    plt.savefig(folder + filename, bbox_inches="tight")
+    plt.gcf().clear()
+
+
+# ------------------------------------------------------------------------------#
+
+
+def save_multiple(filename, num_frac, folder):
 
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -46,34 +76,204 @@ def save(filename, num_frac):
 
 # ------------------------------------------------------------------------------#
 
-num_frac = 10
 
-data = "./solution/dot_avg.csv"
-label = "LABEL"
-title = "average cot"
-plot(data, label, title, num_frac)
+def main():
 
-name = "cot_avg"
-save(name, num_frac)
+    num_frac = 10
 
-###########
+    master_folder = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example2/"
 
-data = "./solution/dot_min.csv"
-label = "LABEL"
-title = "min cot"
-plot(data, label, title, num_frac)
+    methods_stefano = ["OPTxfem", "OPTfem"]
+    methods_alessio = ["MVEM_UPWIND", "Tpfa_UPWIND", "RT0_UPWIND"]
+    methods_andrea = ["MVEM_VEMSUPG"]
 
-name = "cot_min"
-save(name, num_frac)
+    grids = {
+        "grid_0": ("3k", "200", "0.005"),
+        "grid_1": ("40k", "2500", "0.001"),
+    }
+    grids_label = {"grid_0": "coarse", "grid_1": "fine"}
 
-###########
+    for grid_name, grid in grids.items():
+        grid_label = grids_label[grid_name]
 
-data = "./solution/dot_max.csv"
-label = "LABEL"
-title = "max cot"
-plot(data, label, title, num_frac)
+        folder_in = master_folder
+        folder_out = folder_in + "img/"
 
-name = "cot_max"
-save(name, num_frac)
+        title = ["avg $\\theta$", grid_label]
+        # Alessio
+        for method in methods_alessio:
+            data = (
+                folder_in
+                + method
+                + "/"
+                + "Cmean_"
+                + grid[0]
+                + ".csv"
+            )
+            plot_multiple(data, method.replace("_", " "), title, num_frac)
+
+        # Stefano
+        for method in methods_stefano:
+            data = (
+                folder_in
+                + method
+                + "/"
+                + method
+                + "_Cmean_"
+                + grid[1]
+                + ".csv"
+            )
+            plot_multiple(data, method, title, num_frac)
+
+        # Andrea
+        for method in methods_andrea:
+            data = (
+                folder_in
+                + method
+                + "/"
+                + "Cmean_"
+                + grid[2]
+                + ".csv"
+            )
+            plot_multiple(data, method.replace("_", " "), title, num_frac)
+
+        # save
+        name = grid_label + "_cot_avg"
+        save_multiple(name, num_frac, folder_out)
+
+        ###########
+
+        title = ["min $\\theta$", grid_label]
+        # Alessio
+        for method in methods_alessio:
+            data = (
+                folder_in
+                + method
+                + "/"
+                + "Cmin_"
+                + grid[0]
+                + ".csv"
+            )
+            plot_multiple(data, method.replace("_", " "), title, num_frac)
+
+        # Stefano
+        for method in methods_stefano:
+            data = (
+                folder_in
+                + method
+                + "/"
+                + method
+                + "_Cmin_"
+                + grid[1]
+                + ".csv"
+            )
+            plot_multiple(data, method, title, num_frac)
+
+        # Andrea
+        for method in methods_andrea:
+            data = (
+                folder_in
+                + method
+                + "/"
+                + "Cmin_"
+                + grid[2]
+                + ".csv"
+            )
+            plot_multiple(data, method.replace("_", " "), title, num_frac)
+
+        # save
+        name = grid_label + "_cot_min"
+        save_multiple(name, num_frac, folder_out)
+
+        ###########
+
+        title = ["max $\\theta$", grid_label]
+        # Alessio
+        for method in methods_alessio:
+            data = (
+                folder_in
+                + method
+                + "/"
+                + "Cmax_"
+                + grid[0]
+                + ".csv"
+            )
+            plot_multiple(data, method.replace("_", " "), title, num_frac)
+
+        # Stefano
+        for method in methods_stefano:
+            data = (
+                folder_in
+                + method
+                + "/"
+                + method
+                + "_Cmax_"
+                + grid[1]
+                + ".csv"
+            )
+            plot_multiple(data, method, title, num_frac)
+
+        # Andrea
+        for method in methods_andrea:
+            data = (
+                folder_in
+                + method
+                + "/"
+                + "Cmax_"
+                + grid[2]
+                + ".csv"
+            )
+            plot_multiple(data, method.replace("_", " "), title, num_frac)
+
+        # save
+        name = grid_label + "_cot_max"
+        save_multiple(name, num_frac, folder_out)
+
+        ###########
+
+        title = "production on " + grid_label
+        # Alessio
+        for method in methods_alessio:
+            data = (
+                folder_in
+                + method
+                + "/"
+                + "production_"
+                + grid[0]
+                + ".csv"
+            )
+            plot_single(data, method.replace("_", " "), title)
+
+        # Stefano
+        for method in methods_stefano:
+            data = (
+                folder_in
+                + method
+                + "/"
+                + method
+                + "_production_"
+                + grid[1]
+                + ".csv"
+            )
+            plot_single(data, method, title)
+
+        # Andrea
+        for method in methods_andrea:
+            data = (
+                folder_in
+                + method
+                + "/"
+                + "productionmean_"
+                + grid[2]
+                + ".csv"
+            )
+            plot_single(data, method.replace("_", " "), title)
+
+        # save
+        name = grid_label + "_outflow"
+        save_single(name, folder_out)
 
 # ------------------------------------------------------------------------------#
+
+if __name__ == "__main__":
+    main()

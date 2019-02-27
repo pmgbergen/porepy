@@ -64,10 +64,11 @@ def plot_num_cells(data, legend, title):
     plt.ylabel("num. cells")
     plt.grid(True)
     plt.legend()
-
+    # useful to plot the legend as flat
+    #ncol = 5 # number of methods
+    #plt.legend(bbox_to_anchor=(1, -0.2), ncol=5)
 
 # ------------------------------------------------------------------------------#
-
 
 def save_single(filename, folder, figure_id=0):
 
@@ -106,11 +107,12 @@ def main():
 
     methods_stefano = ["OPTxfem", "OPTfem"]
     methods_alessio = ["MVEM_UPWIND", "Tpfa_UPWIND", "RT0_UPWIND"]
+    methods_andrea = ["MVEM_VEMSUPG"]
 
     grids = {
-        "grid_0": ("1k", "220"),
-        "grid_1": ("3k", "650"),
-        "grid_2": ("10k", "2100"),
+        "grid_0": ("1k", "220", "0.005"),
+        "grid_1": ("3k", "650", "0.001"),
+        "grid_2": ("10k", "2100", "0.0003"),
     }
     grids_label = {"grid_0": "coarse", "grid_1": "medium", "grid_2": "fine"}
 
@@ -151,6 +153,20 @@ def main():
                 )
                 plot_multiple(data, method, title, num_frac)
 
+            # Andrea
+            for method in methods_andrea:
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + "Cmean_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[2]
+                    + ".csv"
+                )
+                plot_multiple(data, method.replace("_", " "), title, num_frac)
+
             # save
             name = grid_label + "_cot_avg_" + str(simul)
             save_multiple(name, num_frac, folder_out)
@@ -186,6 +202,20 @@ def main():
                     + ".csv"
                 )
                 plot_multiple(data, method, title, num_frac)
+
+            # Andrea
+            for method in methods_andrea:
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + "Cmin_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[2]
+                    + ".csv"
+                )
+                plot_multiple(data, method.replace("_", " "), title, num_frac)
 
             # save
             name = grid_label + "_cot_min_" + str(simul)
@@ -223,6 +253,20 @@ def main():
                 )
                 plot_multiple(data, method, title, num_frac)
 
+            # Andrea
+            for method in methods_andrea:
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + "Cmax_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[2]
+                    + ".csv"
+                )
+                plot_multiple(data, method.replace("_", " "), title, num_frac)
+
             # save
             name = grid_label + "_cot_max_" + str(simul)
             save_multiple(name, num_frac, folder_out)
@@ -259,6 +303,20 @@ def main():
                 )
                 plot_single(data, method, title)
 
+            # Andrea
+            for method in methods_andrea:
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + "productionmean_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[2]
+                    + ".csv"
+                )
+                plot_single(data, method.replace("_", " "), title)
+
             # save
             name = grid_label + "_outflow_" + str(simul)
             save_single(name, folder_out)
@@ -271,9 +329,18 @@ def main():
             data = folder_in + method + "/" + "num_cells_" + grid[0] + ".csv"
             plot_num_cells(data, method.replace("_", " "), title)
 
+        # Stefano
+        for method in methods_stefano:
+            data = folder_in + method + "/" + "num_cells_" + grid[1] + ".csv"
+            plot_num_cells(data, method.replace("_", " "), title)
+
+        # Andrea
+        #for method in methods_andrea:
+        #    data = folder_in + method + "/" + "num_cells_" + grid[2] + ".csv"
+        #    plot_num_cells(data, method.replace("_", " "), title)
+
         name = grid_label + "_num_cells"
         save_single(name, folder_out)
-
 
 # ------------------------------------------------------------------------------#
 
