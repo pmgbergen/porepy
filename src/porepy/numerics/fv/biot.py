@@ -1078,14 +1078,18 @@ class DivD(
         # successive timesteps (n and n+1) appear on the rhs with opposite signs. For
         # transient BCs, use the below with the appropriate version of d_bound_i.
         d_bound_1 = parameter_dictionary["bc_values"]
-        d_bound_0 = parameter_dictionary["bc_values"]
+
+        if "bc_values" in parameter_dictionary["state"]:
+            d_bound_0 = parameter_dictionary["state"]["bc_values"]
+        else:
+            d_bound = parameter_dictionary["bc_values"]
         biot_alpha = parameter_dictionary["biot_alpha"]
         rhs_bound = (
             -matrix_dictionary["bound_div_d"] * (d_bound_1 - d_bound_0) * biot_alpha
         )
 
         # Time part
-        d_cell = parameter_dictionary["state"]
+        d_cell = parameter_dictionary["state"]["displacement"]
         d_scaling = parameter_dictionary.get("displacement_scaling", 1)
         div_d = matrix_dictionary["div_d"]
         rhs_time = np.squeeze(biot_alpha * div_d * d_cell * d_scaling)
