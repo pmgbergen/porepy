@@ -126,7 +126,7 @@ def flow(gb, discr, param, bc_flag):
     param["mortar_flux"] = mortar
 
     discr_scheme = discr["scheme"](model_data)
-    discr_interface = pp.CellDofDaceDofMap(model_data)
+    discr_interface = pp.CellDofFaceDofMap(model_data)
 
     coupling = pp.FluxPressureContinuity(model_data, discr_scheme, discr_interface)
 
