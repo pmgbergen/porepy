@@ -4,6 +4,9 @@ import vtk
 from vtk.util.numpy_support import vtk_to_numpy
 
 import csv
+import os
+import shutil
+
 import numpy as np
 
 #------------------------------------------------------------------------------#
@@ -101,35 +104,58 @@ def cot_domain(file_in, step, field, num_frac, padding=6):
 
 #------------------------------------------------------------------------------#
 
-if __name__ == "__main__":
+def main():
 
-    folder = "./solution/"
     field = "scalar"
-    step = 1000
+    n_step = 500
+    time_step = 0.05
     num_frac = 10
 
-    # in this file the constant data are saved
-    file_in = folder+"solution_2_"
+    grids = ["3k", "40k"]
 
-    cot_avg, cot_min, cot_max = cot_domain(file_in, step, field, num_frac)
+    #folder_master = "/home/elle/simul/example1/"
+    folder_master = "./"
+    folder_master_out = "./CSV/"
+    methods = ["MVEM", "Tpfa", "RT0"]
 
-    times = np.arange(step)
-    labels = np.arange(num_frac).astype(np.str)
-    labels = np.core.defchararray.add("cot_", labels)
-    labels = np.insert(labels, 0, 'time')
+    for method in methods:
+        for grid in grids:
 
-    # create the output files
-    file_out = folder + "dot_min.csv"
-    data = np.insert(cot_min, 0, times, axis=1).T
-    write_csv(file_out, labels, data)
+            folder_in = folder_master + "solution_" + method + "_" + grid + "/"
+            folder_out = folder_master_out + method + "/"
 
-    # create the output files
-    file_out = folder + "dot_max.csv"
-    data = np.insert(cot_max, 0, times, axis=1).T
-    write_csv(file_out, labels, data)
+            # in this file the constant data are saved
+            file_in = folder_in + "solution_2_"
 
-    # create the output files
-    file_out = folder + "dot_avg.csv"
-    data = np.insert(cot_avg, 0, times, axis=1).T
-    write_csv(file_out, labels, data)
+            cot_avg, cot_min, cot_max = cot_domain(file_in, n_step, field, num_frac)
 
+            times = np.arange(n_step) * time_step
+            labels = np.arange(num_frac).astype(np.str)
+            labels = np.core.defchararray.add("cot_", labels)
+            labels = np.insert(labels, 0, 'time')
+
+            if not os.path.exists(folder_out):
+                os.makedirs(folder_out)
+
+            # create the output files
+            file_out = folder_out + "Cmin_" + grid + ".csv"
+            data = np.insert(cot_min, 0, times, axis=1).T
+            write_csv(file_out, labels, data)
+
+            # create the output files
+            file_out = folder_out + "Cmax_" + grid + ".csv"
+            data = np.insert(cot_max, 0, times, axis=1).T
+            write_csv(file_out, labels, data)
+
+            # create the output files
+            file_out = folder_out + "Cmean_" + grid + ".csv"
+            data = np.insert(cot_avg, 0, times, axis=1).T
+            write_csv(file_out, labels, data)
+
+            # copy outflow file
+            file_in = folder_in + "outflow.csv"
+            file_out = folder_out + "production_" + grid + ".csv"
+            shutil.copy(file_in, file_out)
+
+if __name__ == "__main__":
+    main()
