@@ -489,14 +489,15 @@ class Exporter:
             if self.m_gb_VTK[dim] is not None:
                 self._write_vtk(extra_fields, file_name, self.m_gb_VTK[dim])
 
-        name = self._make_folder(self.folder, self.name) + ".pvd"
-        self._export_pvd_gb(name)
+        file_name = self._make_file_name(self.name, time_step, extension=".pvd")
+        file_name = self._make_folder(self.folder, file_name)
+        self._export_pvd_gb(file_name, time_step)
 
         self.gb.remove_edge_props(extra_fields.names())
 
     # ------------------------------------------------------------------------------#
 
-    def _export_pvd_gb(self, name):
+    def _export_pvd_gb(self, name, time_step):
         o_file = open(name, "w")
         b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
         c = ' compressor="vtkZLibDataCompressor"'
@@ -510,12 +511,12 @@ class Exporter:
         fm = '\t<DataSet group="" part="" file="%s"/>\n'
 
         [
-            o_file.write(fm % self._make_file_name(self.name, dim=dim))
+            o_file.write(fm % self._make_file_name(self.name, time_step, dim=dim))
             for dim in self.dims
         ]
 
         [
-            o_file.write(fm % self._make_file_name_mortar(self.name, dim=dim))
+            o_file.write(fm % self._make_file_name_mortar(self.name, time_step, dim=dim))
             for dim in self.m_dims
         ]
 
@@ -679,9 +680,8 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _make_file_name(self, name, time_step=None, dim=None):
+    def _make_file_name(self, name, time_step=None, dim=None, extension=".vtu"):
 
-        extension = ".vtu"
         padding = 6
         if dim is None:  # normal grid
             if time_step is None:
