@@ -327,11 +327,15 @@ class Assembler:
                     # The edge column and row should be assigned to mat_key
                     matrix[mat_key][(ei), (mi, si, ei)] = tmp_mat[(2), (0, 1, 2)]
                     matrix[mat_key][(mi, si), (ei)] = tmp_mat[(0, 1), (2)]
-
                     # Also update the discretization on the master and slave
                     # nodes
                     matrix[mat_key_master][mi, mi] = tmp_mat[0, 0]
                     matrix[mat_key_slave][si, si] = tmp_mat[1, 1]
+
+                    # And add coupling directly between master and slave
+                    # nodes
+                    matrix[mat_key_master][mi, si] = tmp_mat[0, 1]
+                    matrix[mat_key_slave][si, mi] = tmp_mat[1, 0]
 
                     # Finally take care of the right hand side
                     rhs[mat_key][[mi, si, ei]] += loc_rhs
