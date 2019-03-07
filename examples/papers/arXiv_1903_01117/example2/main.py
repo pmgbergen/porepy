@@ -1,10 +1,10 @@
 import numpy as np
 import porepy as pp
 
-import examples.papers.multilayer.discretization as compute
-from examples.papers.multilayer.multilayer_grid import multilayer_grid_bucket
+import examples.papers.arXiv_1903_01117.discretization as compute
+from examples.papers.arXiv_1903_01117.multilayer_grid import multilayer_grid_bucket
 
-from examples.papers.multilayer.example2.import_grid import import_grid
+from examples.papers.arXiv_1903_01117.example2.import_grid import import_grid
 
 np.set_printoptions(linewidth=2000)
 
