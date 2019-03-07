@@ -3,8 +3,8 @@ import porepy as pp
 
 # from shutil import copyfile
 
-import examples.papers.multilayer.discretization as compute
-from examples.papers.multilayer.multilayer_grid import multilayer_grid_bucket
+import examples.papers.arXiv_1903_01117.discretization as compute
+from examples.papers.arXiv_1903_01117.multilayer_grid import multilayer_grid_bucket
 
 np.set_printoptions(linewidth=2000)
 
