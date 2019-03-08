@@ -51,8 +51,8 @@ class TestMpfaMultiDim(unittest.TestCase):
         gb = setup_cart_2d(np.array([10, 10]))
 
         key = "flow"
-        tpfa = pp.Tpfa(key)
-        assembler = test_utils.setup_flow_assembler(gb, tpfa, key)
+        mpfa = pp.Mpfa(key)
+        assembler = test_utils.setup_flow_assembler(gb, mpfa, key)
         test_utils.solve_and_distribute_pressure(gb, assembler)
         for g, d in gb:
             pressure = d["pressure"]
