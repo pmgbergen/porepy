@@ -694,6 +694,7 @@ class Mpfa(FVElliptic):
             subface_rhs,
         )
         # Discretization of boundary values
+
         bound_flux = darcy * igrad * rhs_bound
 
         # Below here, fields necessary for reconstruction of boundary pressures
@@ -721,7 +722,6 @@ class Mpfa(FVElliptic):
         )
         cell_contrib = remove_not_neumann * hf2f.T * cell_contrib
 
-        bound_pressure_cell = dp + cell_contrib
         # Contribution to face pressure from sub-cell gradients, calculated as
         # gradient times distance. Then further map to faces, and divide by number
         # of contributions per face
@@ -730,6 +730,7 @@ class Mpfa(FVElliptic):
         sgn_arr[bound_faces] = g.cell_faces[bound_faces].sum(axis=1).A.ravel()
         sgn_mat = sps.diags(hf2f.T * (sgn_arr))
 
+        bound_pressure_cell = sgn_mat * dp + cell_contrib
         bound_pressure_face_neu = sgn_mat * pr_cont_grad_all * igrad * rhs_bound
 
         # sgn_mat = sps.diags(sgn_arr)
