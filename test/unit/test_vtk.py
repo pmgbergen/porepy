@@ -2692,5 +2692,4 @@ class BasicsTest(unittest.TestCase):
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
-    BasicsTest().test_gb_1()
-    #unittest.main()
+    unittest.main()
