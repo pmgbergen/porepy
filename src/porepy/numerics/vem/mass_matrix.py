@@ -321,7 +321,7 @@ class MixedInvMassMatrix:
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         M, rhs = MixedMassMatrix(keyword=self.keyword).assemble_matrix_rhs(g, data)
         coeff = M.diagonal()
-        coeff[g.num_faces:] = 1.0 / coeff
+        coeff[g.num_faces:] = 1.0 / coeff[g.num_faces:]
 
         matrix_dictionary["inv_mixed_mass"] = sps.dia_matrix((coeff, 0), shape=M.shape)
         matrix_dictionary["bound_inv_mixed_mass"] = rhs
