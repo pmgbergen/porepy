@@ -67,7 +67,7 @@ def add_data_darcy(gb, domain, tol):
         check_P = mg.slave_to_mortar_avg()
 
         gamma = check_P * aperture
-        kn = kf * np.ones(mg.num_cells) / gamma
+        kn = 2 * kf * np.ones(mg.num_cells) / gamma
         flow_dictionary = {"normal_diffusivity": kn, "aperture": aperture}
         d[pp.PARAMETERS] = pp.Parameters(
             keywords=["flow"], dictionaries=[flow_dictionary]
@@ -135,7 +135,7 @@ def add_data_advection_diffusion(gb, domain, tol):
         check_P = mg.slave_to_mortar_avg()
         aperture = d[pp.PARAMETERS]["flow"]["aperture"]
         gamma = check_P * aperture
-        kn = diffusion_coefficient * np.ones(mg.num_cells) / gamma
+        kn = 2 * diffusion_coefficient * np.ones(mg.num_cells) / gamma
         transport_dictionary = {"normal_diffusivity": kn}
         d["darcy_flux"] = mg.master_to_mortar_int * darcy_flux
         d[pp.PARAMETERS].update_dictionaries("transport", transport_dictionary)

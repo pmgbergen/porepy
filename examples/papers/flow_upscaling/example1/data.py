@@ -50,13 +50,11 @@ def flow(gb, model, data):
         d[pp.DISCRETIZATION_MATRICES] = {model_data: {}}
 
     for e, d in gb.edges():
-        g_l = gb.nodes_of_edge(e)[0]
         mg = d["mortar_grid"]
         check_P = mg.slave_to_mortar_avg()
-
-        aperture = gb.node_props(g_l, pp.PARAMETERS)[model_data]["aperture"]
-        gamma = check_P * np.power(aperture, 1 / (2.0 - g.dim))
-        kn = data["kf"] / mu * np.ones(mg.num_cells) / gamma
+        aperture = data["aperture"]
+        gamma = check_P * aperture
+        kn = 2 * data["kf"] / mu * np.ones(mg.num_cells) / gamma
 
         param = {"normal_diffusivity": kn}
 
@@ -151,7 +149,6 @@ def advdiff(gb, model, model_flow, data):
     for e, d in gb.edges():
         param_adv = {}
         param_diff = {}
-
         param_adv[flux_discharge_name] = d[flux_mortar_name] * rhow * cw
 
         g_l = gb.nodes_of_edge(e)[0]
@@ -159,11 +156,11 @@ def advdiff(gb, model, model_flow, data):
         check_P = mg.slave_to_mortar_avg()
 
         aperture = gb.node_props(g_l, pp.PARAMETERS)[model_data_diff]["aperture"]
-        gamma = np.power(aperture, 1 / (2.0 - g.dim))
+        gamma = np.power(aperture, 1 / (2.0 - g_l.dim))
 
         k = gb.node_props(g_l, pp.PARAMETERS)[model_data_diff]["second_order_tensor"]
 
-        param_diff["normal_diffusivity"] = check_P.dot(k.values[0, 0, :] / gamma)
+        param_diff["normal_diffusivity"] = 2 * check_P.dot(k.values[0, 0, :] / gamma)
 
         param = pp.Parameters(
             e, [model_data_adv, model_data_diff], [param_adv, param_diff]

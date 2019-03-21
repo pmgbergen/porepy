@@ -98,7 +98,7 @@ def data_flow(gb, model, data, bc_flag):
 
         aperture = gb.node_props(g_l, pp.PARAMETERS)[model_data]["aperture"]
         gamma = check_P * aperture
-        kn = data_interface["kf_n"] * np.ones(mg.num_cells) / gamma
+        kn = 2 * data_interface["kf_n"] * np.ones(mg.num_cells) / gamma
 
         param = {"normal_diffusivity": kn}
 
