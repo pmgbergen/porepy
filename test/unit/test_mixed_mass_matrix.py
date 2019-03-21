@@ -6,7 +6,6 @@ import porepy as pp
 """
 Test the mass matrix for numerical schemes that solve elliptic equations in mixed form (e.g. MVEM, RT0)
 The test simply check the computed matrices against knonw ones.
-
 """
 
 
