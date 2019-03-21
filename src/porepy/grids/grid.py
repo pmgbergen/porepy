@@ -629,9 +629,8 @@ class Grid(object):
         zeros = np.zeros(self.num_faces, dtype=np.bool)
         self.tags["domain_boundary_faces"] = zeros
         if self.dim > 0:  # by default no 0d grid at the boundary of the domain
-            bd_faces = np.argwhere(
-                np.abs(self.cell_faces).sum(axis=1).A.ravel("F") == 1
-            ).ravel("F")
+            count_faces = np.abs(self.cell_faces).toarray().sum(axis=1)
+            bd_faces = np.argwhere(count_faces == 1).ravel("F")
             self.tags["domain_boundary_faces"][bd_faces] = True
 
     def update_boundary_node_tag(self):
