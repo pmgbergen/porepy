@@ -1,12 +1,12 @@
 """
 Mass matrix classes for a discretization of a L2-mass bilinear form with constant test
-and trial functions for mixed methods.
+and trial functions for mixed methods (e.g. RT0, MVEM).
 
 The discretization takes into account cell volumes, porosity, time step and aperture,
 so that the mass matrix (shape (g.num_faces + g.num_cells)^2) has the following diagonal
 for the cell dof:
 g.cell_volumes * porosity * aperture / deltaT
-The right hand side is null.
+The block related to the face dofs is empty. The right hand side is null.
 There is also a class for the inverse of the mass matrix.
 
 Note that the matrix equals the discretization operator in this case, and so is stored
@@ -22,7 +22,7 @@ import porepy as pp
 
 class MixedMassMatrix:
     """ Class that provides the discretization of a L2-mass bilinear form with constant
-    test and trial functions for mixed methods (RT0, MVEM).
+    test and trial functions for mixed methods (e.g. RT0, MVEM).
     """
 
     # ------------------------------------------------------------------------------#
@@ -81,14 +81,8 @@ class MixedMassMatrix:
                 discretization.
             rhs (array, self.ndof): Null right-hand side.
 
-        The names of data in the input dictionary (data) are:
-        param (Parameter Class): Contains the following parameters:
-            porosity: (array, self.g.num_cells): Scalar values which represent the
-                porosity. If not given assumed unitary.
-            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
-                the face normals. If not given assumed unitary.
-        deltaT: Time step for a possible temporal discretization scheme. If not given
-            assumed unitary.
+        The names of data in the input dictionary (data) are given in the documentation of
+        discretize, see there.
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
@@ -141,9 +135,6 @@ class MixedMassMatrix:
     def discretize(self, g, data):
         """ Discretize a L2-mass bilinear form with constant test and trial functions.
 
-        Note that the porosity is not included in the volumes, and should be included
-        in the mass weight if appropriate.
-
         We assume the following two sub-dictionaries to be present in the data
         dictionary:
             parameter_dictionary, storing all parameters.
@@ -184,8 +175,8 @@ class MixedMassMatrix:
 
 
 class MixedInvMassMatrix:
-    """ Class that provides the discretization of a L2-mass bilinear form with constant
-    test and trial functions for mixed methods (RT0, MVEM).
+    """ Class that provides the discretization of an inverse L2-mass bilinear form with constant
+    test and trial functions for mixed methods (e.g. RT0, MVEM).
     """
 
     def __init__(self, keyword="flow"):
@@ -246,12 +237,8 @@ class MixedInvMassMatrix:
             rhs (array, self.ndof):
                 Null right-hand side.
 
-        The names of data in the input dictionary (data) are:
-        param (Parameter Class): Contains the following parameters:
-            porosity: (array, self.g.num_cells): Scalar values which represent the
-                porosity. If not given assumed unitary.
-            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
-                the face normals. If not given assumed unitary.
+        The names of data in the input dictionary (data) are given in the documentation of
+        discretize, see there.
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
@@ -305,25 +292,31 @@ class MixedInvMassMatrix:
 
     def discretize(self, g, data, faces=None):
         """ Discretize the inverse of a L2-mass bilinear form with constant test and
-        trial functions. Calls the MassMatrix().discretize() method and takes the
-        inverse for the lhs.
+        trial functions.
+
+        We assume the following two sub-dictionaries to be present in the data
+        dictionary:
+            parameter_dictionary, storing all parameters.
+                Stored in data[pp.PARAMETERS][self.keyword].
+            matrix_dictionary, for storage of discretization matrices.
+                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        parameter_dictionary contains the entries:
+            mass_weight: (array, self.g.num_cells): Scalar values which may e.g.
+                represent the porosity or heat capacity.
+            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
+                the face normals.
+
+        matrix_dictionary will be updated with the following entries:
+            mixed_mass: sps.dia_matrix (sparse dia, self.ndof x self.ndof): Mass matrix
+                obtained from the discretization.
+            bound_mass: all zero np.ndarray (self.ndof)
 
         Parameters:
             g : grid, or a subclass, with geometry fields computed.
             data: dictionary to store the data.
 
-        Stores:
-            matrix (sparse dia, self.ndof x self.ndof): Mass matrix obtained from the
-                discretization, stored as           self._key() + "inv_mixed_mass".
-            rhs (array, self.ndof):
-                Null right-hand side, stored as     self._key() + "bound_inv_mixed_mass".
 
-        The names of data in the input dictionary (data) are:
-        param (Parameter Class): Contains the following parameters:
-            porosity: (array, self.g.num_cells): Scalar values which represent the
-                porosity. If not given assumed unitary.
-            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
-                the face normals. If not given assumed unitary.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         M, rhs = MixedMassMatrix(keyword=self.keyword).assemble_matrix_rhs(g, data)
