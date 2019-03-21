@@ -68,7 +68,7 @@ class RobinCoupling(object):
         inv_M = sps.diags(1.0 / mg.cell_volumes)
 
         # Normal permeability and aperture of the intersection
-        inv_k = 1.0 / (2.0 * parameter_dictionary_edge["normal_diffusivity"])
+        inv_k = 1.0 / (parameter_dictionary_edge["normal_diffusivity"])
         aperture_h = parameter_dictionary_h["aperture"]
 
         proj = mg.master_to_mortar_avg()

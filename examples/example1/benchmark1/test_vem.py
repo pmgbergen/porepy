@@ -54,13 +54,9 @@ def add_data(gb, domain, kf):
         pp.initialize_default_data(g, d, "flow", specified_parameters)
 
     # Assign coupling permeability
-    for e, d in gb.edges():
-        g_l = gb.nodes_of_edge(e)[0]
+    for _, d in gb.edges():
         mg = d["mortar_grid"]
-        check_P = mg.slave_to_mortar_avg()
-        pa_l = gb.node_props(g_l, pp.PARAMETERS)
-        gamma = check_P * pa_l["flow"]["aperture"]
-        kn = kf * np.ones(mg.num_cells) / gamma
+        kn = 2 * kf * np.ones(mg.num_cells) / a
         d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{"normal_diffusivity": kn}])
         d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 

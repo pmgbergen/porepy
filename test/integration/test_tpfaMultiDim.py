@@ -24,11 +24,11 @@ def setup_2d_1d(nx, simplex_grid=False):
 
     gb.compute_geometry()
     gb.assign_node_ordering()
+    aperture = 0.01 / np.max(nx)
     for g, d in gb:
         kxx = np.ones(g.num_cells)
         perm = pp.SecondOrderTensor(gb.dim_max(), kxx)
-        a = 0.01 / np.max(nx)
-        a = np.power(a, gb.dim_max() - g.dim) * np.ones(g.num_cells)
+        a = np.power(aperture, gb.dim_max() - g.dim) * np.ones(g.num_cells)
         specified_parameters = {"aperture": a, "second_order_tensor": perm}
         if g.dim == 2:
             bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -43,9 +43,8 @@ def setup_2d_1d(nx, simplex_grid=False):
 
     for e, d in gb.edges():
         gl, _ = gb.nodes_of_edge(e)
-        d_l = gb.node_props(gl)
         mg = d["mortar_grid"]
-        kn = 1.0 / np.mean(d_l[pp.PARAMETERS]["flow"]["aperture"])
+        kn = 1.0 / aperture
         d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{"normal_diffusivity": kn}])
         d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
     return gb

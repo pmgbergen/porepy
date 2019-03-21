@@ -116,7 +116,7 @@ def _setup_simulation(gb, data, direction):
     for e, d in gb.edges():
         gl, _ = gb.nodes_of_edge(e)
         mg = d["mortar_grid"]
-        kn = data["fracture_perm"]
+        kn = 2 * data["fracture_perm"]
         d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{"normal_diffusivity": kn}])
         d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
