@@ -1,27 +1,28 @@
 """
 Mass matrix classes for a discretization of a L2-mass bilinear form with constant test
-and trial functions.
+and trial functions for mixed methods (e.g. RT0, MVEM).
 
 The discretization takes into account cell volumes, porosity, time step and aperture,
-so that the mass matrix (shape g.num_cells^2) has the following diagonal:
+so that the mass matrix (shape (g.num_faces + g.num_cells)^2) has the following diagonal
+for the cell dof:
 g.cell_volumes * mass_weight * aperture
-The right hand side is null.
+The block related to the face dofs is empty. The right hand side is null.
 There is also a class for the inverse of the mass matrix.
 
 Note that the matrix equals the discretization operator in this case, and so is stored
 directly in the data as
-self._key() + "mass" or self._key() + "inv_mass".
+self._key() + "mixed_mass" or self._key() + "inv_mixed_mass".
 The corresponding (null) rhs vectors are stored as
-self._key() + "bound_mass" or self._key() + "bound_inv_mass", respectively.
+self._key() + "bound_mixed_mass" or self._key() + "bound_inv_mixed_mass", respectively.
 """
 import numpy as np
 import scipy.sparse as sps
 import porepy as pp
 
 
-class MassMatrix:
+class MixedMassMatrix:
     """ Class that provides the discretization of a L2-mass bilinear form with constant
-    test and trial functions.
+    test and trial functions for mixed methods (e.g. RT0, MVEM).
     """
 
     # ------------------------------------------------------------------------------#
@@ -52,7 +53,7 @@ class MassMatrix:
 
     def ndof(self, g):
         """ Return the number of degrees of freedom associated to the method.
-        In this case number of cells.
+        In this case number of faces plus number of cells.
 
         Parameter:
             g: grid, or a subclass.
@@ -61,7 +62,7 @@ class MassMatrix:
             int: the number of degrees of freedom.
 
         """
-        return g.num_cells
+        return g.num_faces + g.num_cells
 
     # ------------------------------------------------------------------------------#
 
@@ -80,14 +81,8 @@ class MassMatrix:
                 discretization.
             rhs (array, self.ndof): zero right-hand side.
 
-        The names of data in the input dictionary (data) are:
-        param (Parameter Class): Contains the following parameters:
-            porosity: (array, self.g.num_cells): Scalar values which represent the
-                porosity. If not given assumed unitary.
-            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
-                the face normals. If not given assumed unitary.
-        deltaT: Time step for a possible temporal discretization scheme. If not given
-            assumed unitary.
+        The names of data in the input dictionary (data) are given in the documentation of
+        discretize, see there.
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
@@ -107,9 +102,9 @@ class MassMatrix:
                 discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if "mass" not in matrix_dictionary:
+        if "mixed_mass" not in matrix_dictionary:
             self.discretize(g, data)
-        M = matrix_dictionary["mass"]
+        M = matrix_dictionary["mixed_mass"]
         return M
 
     # ------------------------------------------------------------------------------#
@@ -129,19 +124,16 @@ class MassMatrix:
                 boundary conditions.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if "bound_mass" not in matrix_dictionary:
+        if "bound_mixed_mass" not in matrix_dictionary:
             self.discretize(g, data)
 
-        rhs = matrix_dictionary["bound_mass"]
+        rhs = matrix_dictionary["bound_mixed_mass"]
         return rhs
 
     # ------------------------------------------------------------------------------#
 
-    def discretize(self, g, data, faces=None):
+    def discretize(self, g, data):
         """ Discretize a L2-mass bilinear form with constant test and trial functions.
-
-        Note that the porosity is not included in the volumes, and should be included
-        in the mass weight if appropriate.
 
         We assume the following two sub-dictionaries to be present in the data
         dictionary:
@@ -157,7 +149,7 @@ class MassMatrix:
                 the face normals.
 
         matrix_dictionary will be updated with the following entries:
-            mass: sps.dia_matrix (sparse dia, self.ndof x self.ndof): Mass matrix
+            mixed_mass: sps.dia_matrix (sparse dia, self.ndof x self.ndof): Mass matrix
                 obtained from the discretization.
             bound_mass: all zero np.ndarray (self.ndof)
 
@@ -173,18 +165,18 @@ class MassMatrix:
         w = parameter_dictionary["mass_weight"]
         aperture = parameter_dictionary["aperture"]
         volumes = g.cell_volumes * aperture
-        coeff = volumes * w
+        coeff = np.hstack((np.zeros(g.num_faces), volumes * w))
 
-        matrix_dictionary["mass"] = sps.dia_matrix((coeff, 0), shape=(ndof, ndof))
-        matrix_dictionary["bound_mass"] = np.zeros(ndof)
+        matrix_dictionary["mixed_mass"] = sps.dia_matrix((coeff, 0), shape=(ndof, ndof))
+        matrix_dictionary["bound_mixed_mass"] = np.zeros(ndof)
 
 
 ##########################################################################
 
 
-class InvMassMatrix:
-    """ Class that provides the discretization of a L2-mass bilinear form with constant
-    test and trial functions.
+class MixedInvMassMatrix:
+    """ Class that provides the discretization of an inverse L2-mass bilinear form with constant
+    test and trial functions for mixed methods (e.g. RT0, MVEM).
     """
 
     def __init__(self, keyword="flow"):
@@ -214,7 +206,7 @@ class InvMassMatrix:
 
     def ndof(self, g):
         """ Return the number of degrees of freedom associated to the method.
-        In this case number of cells.
+        In this case number of faces plus number of cells.
 
         Parameter
         ---------
@@ -225,7 +217,7 @@ class InvMassMatrix:
         dof: the number of degrees of freedom.
 
         """
-        return g.num_cells
+        return g.num_faces + g.num_cells
 
     # ------------------------------------------------------------------------------#
 
@@ -245,12 +237,8 @@ class InvMassMatrix:
             rhs (array, self.ndof):
                 zero right-hand side.
 
-        The names of data in the input dictionary (data) are:
-        param (Parameter Class): Contains the following parameters:
-            porosity: (array, self.g.num_cells): Scalar values which represent the
-                porosity. If not given assumed unitary.
-            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
-                the face normals. If not given assumed unitary.
+        The names of data in the input dictionary (data) are given in the documentation of
+        discretize, see there.
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
@@ -271,10 +259,10 @@ class InvMassMatrix:
                 discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if "inv_mass" not in matrix_dictionary:
+        if "inv_mixed_mass" not in matrix_dictionary:
             self.discretize(g, data)
 
-        M = matrix_dictionary["inv_mass"]
+        M = matrix_dictionary["inv_mixed_mass"]
         return M
 
     # ------------------------------------------------------------------------------#
@@ -294,39 +282,46 @@ class InvMassMatrix:
                 conditions: A null vector of length g.num_faces.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if "bound_inv_mass" not in matrix_dictionary:
+        if "bound_inv_mixed_mass" not in matrix_dictionary:
             self.discretize(g, data)
 
-        rhs = matrix_dictionary["bound_inv_mass"]
+        rhs = matrix_dictionary["bound_inv_mixed_mass"]
         return rhs
 
     # ------------------------------------------------------------------------------#
 
     def discretize(self, g, data, faces=None):
         """ Discretize the inverse of a L2-mass bilinear form with constant test and
-        trial functions. Calls the MassMatrix().discretize() method and takes the
-        inverse for the lhs.
+        trial functions.
+
+        We assume the following two sub-dictionaries to be present in the data
+        dictionary:
+            parameter_dictionary, storing all parameters.
+                Stored in data[pp.PARAMETERS][self.keyword].
+            matrix_dictionary, for storage of discretization matrices.
+                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        parameter_dictionary contains the entries:
+            mass_weight: (array, self.g.num_cells): Scalar values which may e.g.
+                represent the porosity or heat capacity.
+            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
+                the face normals.
+
+        matrix_dictionary will be updated with the following entries:
+            mixed_mass: sps.dia_matrix (sparse dia, self.ndof x self.ndof): Mass matrix
+                obtained from the discretization.
+            bound_mass: all zero np.ndarray (self.ndof)
 
         Parameters:
             g : grid, or a subclass, with geometry fields computed.
             data: dictionary to store the data.
 
-        Stores:
-            matrix (sparse dia, self.ndof x self.ndof): Mass matrix obtained from the
-                discretization, stored as           self._key() + "inv_mass".
-            rhs (array, self.ndof):
-                zero right-hand side, stored as     self._key() + "bound_inv_mass".
 
-        The names of data in the input dictionary (data) are:
-        param (Parameter Class): Contains the following parameters:
-            porosity: (array, self.g.num_cells): Scalar values which represent the
-                porosity. If not given assumed unitary.
-            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
-                the face normals. If not given assumed unitary.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        M, rhs = MassMatrix(keyword=self.keyword).assemble_matrix_rhs(g, data)
-        matrix_dictionary["inv_mass"] = sps.dia_matrix(
-            (1.0 / M.diagonal(), 0), shape=M.shape
-        )
-        matrix_dictionary["bound_inv_mass"] = rhs
+        M, rhs = MixedMassMatrix(keyword=self.keyword).assemble_matrix_rhs(g, data)
+        coeff = M.diagonal()
+        coeff[g.num_faces :] = 1.0 / coeff[g.num_faces :]
+
+        matrix_dictionary["inv_mixed_mass"] = sps.dia_matrix((coeff, 0), shape=M.shape)
+        matrix_dictionary["bound_inv_mixed_mass"] = rhs
