@@ -209,7 +209,8 @@ def network_2d_from_csv(
     data = np.genfromtxt(f_name, **npargs)
     # Shortcut if no data is loaded
     if data.size == 0:
-        return pp.FractureNetwork2d()
+        # we still consider the possibility that a domain is given
+        return pp.FractureNetwork2d(domain=domain)
     data = np.atleast_2d(data)
 
     # Consider subset of fractures if asked for
