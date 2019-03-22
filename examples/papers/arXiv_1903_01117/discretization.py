@@ -3,7 +3,9 @@ import scipy.sparse as sps
 import numpy as np
 import porepy as pp
 
-from examples.papers.arXiv_1903_01117.multilayer_interface_law import RobinCouplingMultiLayer
+from examples.papers.arXiv_1903_01117.multilayer_interface_law import (
+    RobinCouplingMultiLayer,
+)
 from examples.papers.arXiv_1903_01117.multilayer_rt0 import RT0Multilayer
 
 

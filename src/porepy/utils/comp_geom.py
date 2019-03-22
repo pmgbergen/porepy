@@ -2096,11 +2096,13 @@ def is_inside_polyhedron(polyhedron, test_points, tol=1e-8):
     try:
         import robust_point_in_polyhedron
     except:
-        raise ImportError("""Cannot import robust_points_inside_polyhedron.
+        raise ImportError(
+            """Cannot import robust_points_inside_polyhedron.
                           Read documentation of
                           pp.utils.comp_geom.is_inside_polyhedron for install
                           instructions.
-                          """)
+                          """
+        )
 
     # The actual test requires that the polyhedra surface is described by
     # a triangulation. To that end, loop over all polygons and compute
