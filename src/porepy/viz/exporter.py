@@ -516,7 +516,9 @@ class Exporter:
         ]
 
         [
-            o_file.write(fm % self._make_file_name_mortar(self.name, time_step, dim=dim))
+            o_file.write(
+                fm % self._make_file_name_mortar(self.name, time_step, dim=dim)
+            )
             for dim in self.m_dims
         ]
 

@@ -65,10 +65,12 @@ def plot_num_cells(data, legend, title):
     plt.grid(True)
     plt.legend()
     # useful to plot the legend as flat
-    #ncol = 5 # number of methods
-    #plt.legend(bbox_to_anchor=(1, -0.2), ncol=5)
+    # ncol = 5 # number of methods
+    # plt.legend(bbox_to_anchor=(1, -0.2), ncol=5)
+
 
 # ------------------------------------------------------------------------------#
+
 
 def save_single(filename, folder, figure_id=0):
 
@@ -335,12 +337,13 @@ def main():
             plot_num_cells(data, method.replace("_", " "), title)
 
         # Andrea
-        #for method in methods_andrea:
+        # for method in methods_andrea:
         #    data = folder_in + method + "/" + "num_cells_" + grid[2] + ".csv"
         #    plot_num_cells(data, method.replace("_", " "), title)
 
         name = grid_label + "_num_cells"
         save_single(name, folder_out)
+
 
 # ------------------------------------------------------------------------------#
 
