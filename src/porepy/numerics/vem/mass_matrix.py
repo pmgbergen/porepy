@@ -5,7 +5,7 @@ and trial functions for mixed methods (e.g. RT0, MVEM).
 The discretization takes into account cell volumes, porosity, time step and aperture,
 so that the mass matrix (shape (g.num_faces + g.num_cells)^2) has the following diagonal
 for the cell dof:
-g.cell_volumes * porosity * aperture / deltaT
+g.cell_volumes * mass_weight * aperture
 The block related to the face dofs is empty. The right hand side is null.
 There is also a class for the inverse of the mass matrix.
 
@@ -79,7 +79,7 @@ class MixedMassMatrix:
         Returns:
             matrix (sparse dia, self.ndof x self.ndof): Mass matrix obtained from the
                 discretization.
-            rhs (array, self.ndof): Null right-hand side.
+            rhs (array, self.ndof): zero right-hand side.
 
         The names of data in the input dictionary (data) are given in the documentation of
         discretize, see there.
@@ -120,7 +120,7 @@ class MixedMassMatrix:
             data (dictionary): With data stored.
 
         Returns:
-            np.ndarray (self.ndof): Null right hand side vector with representation of
+            np.ndarray (self.ndof): zero right hand side vector with representation of
                 boundary conditions.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
@@ -235,7 +235,7 @@ class MixedInvMassMatrix:
             matrix (sparse dia, self.ndof x self.ndof): Mass matrix obtained from the
                 discretization.
             rhs (array, self.ndof):
-                Null right-hand side.
+                zero right-hand side.
 
         The names of data in the input dictionary (data) are given in the documentation of
         discretize, see there.

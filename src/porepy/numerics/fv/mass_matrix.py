@@ -4,7 +4,7 @@ and trial functions.
 
 The discretization takes into account cell volumes, porosity, time step and aperture,
 so that the mass matrix (shape g.num_cells^2) has the following diagonal:
-g.cell_volumes * porosity * aperture / deltaT
+g.cell_volumes * mass_weight * aperture
 The right hand side is null.
 There is also a class for the inverse of the mass matrix.
 
@@ -78,7 +78,7 @@ class MassMatrix:
         Returns:
             matrix (sparse dia, self.ndof x self.ndof): Mass matrix obtained from the
                 discretization.
-            rhs (array, self.ndof): Null right-hand side.
+            rhs (array, self.ndof): zero right-hand side.
 
         The names of data in the input dictionary (data) are:
         param (Parameter Class): Contains the following parameters:
@@ -125,7 +125,7 @@ class MassMatrix:
             data (dictionary): With data stored.
 
         Returns:
-            np.ndarray (self.ndof): Null right hand side vector with representation of
+            np.ndarray (self.ndof): zero right hand side vector with representation of
                 boundary conditions.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
@@ -243,7 +243,7 @@ class InvMassMatrix:
             matrix (sparse dia, self.ndof x self.ndof): Mass matrix obtained from the
                 discretization.
             rhs (array, self.ndof):
-                Null right-hand side.
+                zero right-hand side.
 
         The names of data in the input dictionary (data) are:
         param (Parameter Class): Contains the following parameters:
@@ -315,7 +315,7 @@ class InvMassMatrix:
             matrix (sparse dia, self.ndof x self.ndof): Mass matrix obtained from the
                 discretization, stored as           self._key() + "inv_mass".
             rhs (array, self.ndof):
-                Null right-hand side, stored as     self._key() + "bound_inv_mass".
+                zero right-hand side, stored as     self._key() + "bound_inv_mass".
 
         The names of data in the input dictionary (data) are:
         param (Parameter Class): Contains the following parameters:
