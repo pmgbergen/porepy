@@ -334,9 +334,15 @@ class Assembler:
 
                     # And add coupling directly between master and slave
                     # nodes
-                    matrix[mat_key_master][mi, si] = tmp_mat[0, 1]
-                    matrix[mat_key_slave][si, mi] = tmp_mat[1, 0]
+                    if matrix[mat_key_master][mi, si] is None:
+                        matrix[mat_key_master][mi, si] = tmp_mat[0, 1]
+                    else:
+                        matrix[mat_key_master][mi, si] += tmp_mat[0, 1]
 
+                    if matrix[mat_key_slave][si, mi] is None:
+                        matrix[mat_key_slave][si, mi] = tmp_mat[1, 0]
+                    else:
+                        matrix[mat_key_slave][si, mi] += tmp_mat[1, 0]
                     # Finally take care of the right hand side
                     rhs[mat_key][[mi, si, ei]] += loc_rhs
 
