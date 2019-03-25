@@ -134,8 +134,8 @@ def main():
     grids = ["1k", "3k", "10k"]
 
     #folder_master = "/home/elle/simul/example1/"
-    folder_master = "/home/elle/Dropbox/Work/PostDoc-Bergen/ANIGMA/porepy/examples/papers/dfn_transport/example1/"
-    folder_master_out = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/"
+    folder_master = "./"
+    folder_master_out = folder_master + "CSV/"
     methods = ["MVEM", "Tpfa", "RT0"]
 
     for method in methods:
@@ -161,17 +161,17 @@ def main():
                     os.makedirs(folder_out)
 
                 # create the output files
-                file_out = folder_out + method + "_Cmin_" + str(simul+1) + "_" + grid + ".csv"
+                file_out = folder_out + "Cmin_" + str(simul+1) + "_" + grid + ".csv"
                 data = np.insert(cot_min, 0, times, axis=1).T
                 write_csv(file_out, labels, data)
 
                 # create the output files
-                file_out = folder_out + method + "_Cmax_" + str(simul+1) + "_" + grid + ".csv"
+                file_out = folder_out + "Cmax_" + str(simul+1) + "_" + grid + ".csv"
                 data = np.insert(cot_max, 0, times, axis=1).T
                 write_csv(file_out, labels, data)
 
                 # create the output files
-                file_out = folder_out + method + "_Cmean_" + str(simul+1) + "_" + grid + ".csv"
+                file_out = folder_out + "Cmean_" + str(simul+1) + "_" + grid + ".csv"
                 data = np.insert(cot_avg, 0, times, axis=1).T
                 write_csv(file_out, labels, data)
 
@@ -180,10 +180,10 @@ def main():
 
                 # copy outflow file
                 file_in = folder_in + "outflow.csv"
-                file_out = folder_out + method + "_production_" + str(simul+1) + "_" + grid + ".csv"
+                file_out = folder_out + "production_" + str(simul+1) + "_" + grid + ".csv"
                 shutil.copy(file_in, file_out)
 
-            file_out = folder_out + method + "_num_cells_" + grid + ".csv"
+            file_out = folder_out + "num_cells_" + grid + ".csv"
             np.savetxt(file_out, np.atleast_2d(num), delimiter=',', fmt="%d")
 
 if __name__ == "__main__":
