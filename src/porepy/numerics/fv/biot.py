@@ -1089,7 +1089,11 @@ class DivD(
         )
 
         # Time part
-        d_cell = parameter_dictionary["state"]["displacement"]
+        if "bc_values" in parameter_dictionary["state"]:
+            d_cell = parameter_dictionary["state"]["displacement"]
+        else:
+            d_cell = parameter_dictionary["state"]
+
         d_scaling = parameter_dictionary.get("displacement_scaling", 1)
         div_d = matrix_dictionary["div_d"]
         rhs_time = np.squeeze(biot_alpha * div_d * d_cell * d_scaling)
