@@ -1082,7 +1082,7 @@ class DivD(
         if "bc_values" in parameter_dictionary["state"]:
             d_bound_0 = parameter_dictionary["state"]["bc_values"]
         else:
-            d_bound = parameter_dictionary["bc_values"]
+            d_bound_0 = parameter_dictionary["bc_values"]
         biot_alpha = parameter_dictionary["biot_alpha"]
         rhs_bound = (
             -matrix_dictionary["bound_div_d"] * (d_bound_1 - d_bound_0) * biot_alpha
