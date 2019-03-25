@@ -36,7 +36,8 @@ from porepy.numerics.fv.source import ScalarSource
 # Virtual elements, elliptic
 from porepy.numerics.vem.dual_elliptic import project_flux
 from porepy.numerics.vem.mvem import MVEM
-from porepy.numerics.vem.vem_source import DualIntegral
+from porepy.numerics.vem.mass_matrix import MixedMassMatrix, MixedInvMassMatrix
+from porepy.numerics.vem.vem_source import DualScalarSource
 
 # Finite elements, elliptic
 from porepy.numerics.fem.p1 import P1

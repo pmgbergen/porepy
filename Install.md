@@ -32,7 +32,7 @@ To make this work, you need gmsh installed on your system, and PorePy needs to k
 First, visit the [Gmsh webpage](http://gmsh.info) and download a suitable version. 
 Extract, and move the binary (probably located in the subfolder gmsh-x.x.x-Linux/bin or similar) to whereever you prefer.
 
-NOTE: For complex fracture geometries, our experience is that Gmsh sometimes fails, but the result may depend on which gmsh version is applied. To cope with this, we have ended up switching between Gmsh versions when relevant, always trying to apply an as updated version as possible. The situation is not ideal, but for now this appears to be the best option.
+Our exprience is that version 4 of Gmsh is much improved compared to earlier versions, in particular for complex geometries.
 
 Note to Linux users: Although Gmsh is available through the standard packaging tools, it tends to be hopelessly outdated, 
 and resulted in severe issues for the fracture meshing last time we checked. Use the GMSH web page instead.
@@ -44,6 +44,10 @@ So, open a file called `porepy_config.py`, and place the line
 config = {'gmsh_path': 'path/to/gmsh/executable'} # example config = {'gmsh_path': '/usr/bin/gmsh'}
 ```
 Note that the path should be set as a string. To read more about the config system, see `porepy.utils.read_config.py`.
+
+# Point-in-polyhedron test
+Some functionality depends on a point-in-polyhedron test. The PorePy function that provides this is located in pp.utils.comp_geom.is_inside_polyhedron(). 
+The only robust test, with reasonable installation, we are aware of is available [here](https://github.com/mdickinson/polyhedron/blob/master/polyhedron.py). Unfortunately, the file is not available through pip or conda. Instead, download the file, and place it somewhere in PYTHONPATH with the name robust_point_in_polyhedron.py. The PorePy function is_inside_polyhedron() then acts as a wrapper around this external package.
 
 # Other packages
 Others libraries that should be installed are numpy (available on both conda and pip), scipy (conda and pip), networkx (conda and pip, NOTE: version number 1.10, NOT 2 - will be updated), meshio (pip only), sympy (conda and pip). In addition libraries like cython, numba, vtk, pymetis and pyamg should be installed to get full functionality.
