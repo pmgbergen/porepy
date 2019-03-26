@@ -301,7 +301,7 @@ class Biot:
                 displacement.  Incorporation as a right hand side in linear system
                 by multiplication with divergence operator.
             scipy.sparse.csr_matrix (shape num_faces * dim, num_cells): Forces from
-                the pressure gradient (I*p-term), represented as forces on the faces.
+                the pressure gradient (-I*p-term), represented as forces on the faces.
             scipy.sparse.csr_matrix (shape num_cells, num_cells * dim): Trace of
                 strain matrix, cell-wise.
             scipy.sparse.csr_matrix (shape num_cells x num_cells): Stabilization
@@ -577,9 +577,9 @@ class Biot:
             (nd * num_subfno - num_dir_subface, num_subfno_unique * nd)
         )
 
-        # We get a minus because the n * I * alpha * p term is moved over to the rhs
+        # We get a pluss because the -n * I * alpha * p term is moved over to the rhs
         # in the local systems
-        rhs_units = -sps.vstack([rhs_int, rhs_neu, rhs_rob, rhs_units_displ_var])
+        rhs_units = sps.vstack([rhs_int, rhs_neu, rhs_rob, rhs_units_displ_var])
 
         del rhs_units_displ_var
 
@@ -607,9 +607,9 @@ class Biot:
 
         del vals, rows, cols
 
-        # Prepare for computation of grad_p_face term
+        # Prepare for computation of -grad_p_face term
         # Note that sgn_diag_F might only flip the boundary signs. See comment above.
-        grad_p_face = sgn_diag_F * map_unique_subfno * nAlpha_grad * sc2c
+        grad_p_face = -sgn_diag_F * map_unique_subfno * nAlpha_grad * sc2c
 
         return rhs_jumps, grad_p_face
 
@@ -1078,14 +1078,16 @@ class DivD(
         # successive timesteps (n and n+1) appear on the rhs with opposite signs. For
         # transient BCs, use the below with the appropriate version of d_bound_i.
         d_bound_1 = parameter_dictionary["bc_values"]
-        d_bound_0 = parameter_dictionary["bc_values"]
+
+        d_bound_0 = parameter_dictionary["state"]["bc_values"]
         biot_alpha = parameter_dictionary["biot_alpha"]
         rhs_bound = (
             -matrix_dictionary["bound_div_d"] * (d_bound_1 - d_bound_0) * biot_alpha
         )
 
         # Time part
-        d_cell = parameter_dictionary["state"]
+        d_cell = parameter_dictionary["state"]["displacement"]
+
         d_scaling = parameter_dictionary.get("displacement_scaling", 1)
         div_d = matrix_dictionary["div_d"]
         rhs_time = np.squeeze(biot_alpha * div_d * d_cell * d_scaling)

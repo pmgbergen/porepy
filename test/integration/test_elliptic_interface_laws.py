@@ -404,6 +404,10 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
                 gb.dim_max(), np.ones(g.num_cells), np.ones(g.num_cells)
             )
             alpha = 1 / np.pi
+            state_mech = {
+                "displacement": np.zeros(g.dim * g.num_cells),
+                "bc_values": bc_val.ravel("F"),
+            }
             data = {
                 "bc": bc,
                 "bc_values": bc_val.ravel("F"),
@@ -411,7 +415,7 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
                 "source": np.zeros(g.num_cells * g.dim),
                 "inverter": "python",
                 "biot_alpha": alpha,
-                "state": np.zeros(g.dim * g.num_cells),
+                "state": state_mech,
             }
             data_f = {
                 "bc": pp.BoundaryCondition(g, g.get_boundary_faces(), "dir"),
