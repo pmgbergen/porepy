@@ -274,14 +274,9 @@ def add_data(gb, data, solver_name):
         pp.initialize_default_data(g, d, "transport", specified_parameters_t)
 
     # Assign coupling permeability, the aperture is read from the lower dimensional grid
-    for e, d in gb.edges():
-        g_l = gb.nodes_of_edge(e)[0]
+    for _, d in gb.edges():
         mg = d["mortar_grid"]
-        check_P = mg.slave_to_mortar_avg()
-
-        pa_l = gb.node_props(g_l, pp.PARAMETERS)
-        gamma = check_P * pa_l["flow"]["aperture"]
-        kn = data["kf"] * np.ones(mg.num_cells) / gamma
+        kn = 2 * data["kf"] * np.ones(mg.num_cells) / data["aperture"]
         d[pp.PARAMETERS] = pp.Parameters(
             mg, ["flow", "transport"], [{"normal_diffusivity": kn}, {}]
         )

@@ -51,7 +51,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb.add_edge_props("kn")
         for e, d in gb.edges():
             mg = d["mortar_grid"]
-            flow_dictionary = {"normal_diffusivity": kn * np.ones(mg.num_cells)}
+            flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(mg.num_cells)}
             d[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries=[flow_dictionary]
             )
@@ -762,7 +762,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-            flow_dictionary = {"normal_diffusivity": kn * np.ones(mg.num_cells)}
+            flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(mg.num_cells)}
             d[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries=[flow_dictionary]
             )
@@ -981,7 +981,7 @@ class TestMortar3D(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-            flow_dictionary = {"normal_diffusivity": kn * np.ones(mg.num_cells)}
+            flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(mg.num_cells)}
             d[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries=[flow_dictionary]
             )
@@ -1151,7 +1151,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-            flow_dictionary = {"normal_diffusivity": kn * np.ones(mg.num_cells)}
+            flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(mg.num_cells)}
             d[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries=[flow_dictionary]
             )
