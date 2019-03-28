@@ -56,7 +56,7 @@ class RobinCouplingMultiLayer(object):
         inv_M = sps.diags(1.0 / mg.cell_volumes)
 
         # Normal permeability and aperture of the intersection
-        inv_k = 1.0 / (2.0 * parameter_dictionary_edge["normal_diffusivity"])
+        inv_k = 1.0 / (parameter_dictionary_edge["normal_diffusivity"])
         Eta = sps.diags(inv_k)
 
         matrix_dictionary_edge["Robin_discr"] = -inv_M * Eta

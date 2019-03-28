@@ -16,8 +16,8 @@ def setup_cart_2d(nx):
     for g, d in gb:
         kxx = np.ones(g.num_cells)
         perm = pp.SecondOrderTensor(gb.dim_max(), kxx)
-        a = 0.01 / np.max(nx)
-        a = np.power(a, gb.dim_max() - g.dim) * np.ones(g.num_cells)
+        aperture = 0.01 / np.max(nx)
+        a = np.power(aperture, gb.dim_max() - g.dim) * np.ones(g.num_cells)
         specified_parameters = {"aperture": a, "second_order_tensor": perm}
 
         if g.dim == 2:
@@ -34,9 +34,7 @@ def setup_cart_2d(nx):
     for e, d in gb.edges():
         # Compute normal permeability
         gl, _ = gb.nodes_of_edge(e)
-
-        d_l = gb.node_props(gl)
-        kn = 1.0 / np.mean(d_l[pp.PARAMETERS][kw]["aperture"])
+        kn = 1.0 / aperture
         data = {"normal_diffusivity": kn}
         # Add parameters
         d[pp.PARAMETERS] = pp.Parameters(keywords=[kw], dictionaries=[data])
