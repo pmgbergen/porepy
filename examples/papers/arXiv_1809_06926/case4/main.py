@@ -70,7 +70,7 @@ def summarize_data(solver_names):
 
 def main(folder, solver, solver_name, dt):
 
-    gb, domain = problem_data.create_grid(from_file=True)
+    gb, domain = problem_data.create_grid(from_file=False, generate_network=True)
 
     data = {"domain": domain, "t_max": 5000}
     data["time_step"] = dt
@@ -108,13 +108,12 @@ def main(folder, solver, solver_name, dt):
 
 if __name__ == "__main__":
     solver_list = [
-        #        solvers.solve_tpfa,
-        #        solvers.solve_mpfa,
+        solvers.solve_tpfa,
+        solvers.solve_mpfa,
         solvers.solve_vem,
         solvers.solve_rt0,
     ]
-    # solver_names = ["tpfa", "mpfa", "vem", "rt0"]
-    solver_names = ["vem", "rt0"]
+    solver_names = ["tpfa", "mpfa", "vem", "rt0"]
 
     time_step = 50
     for solver, solver_name in zip(solver_list, solver_names):
