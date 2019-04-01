@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
         field = "pressure"
         # file of the matrix
-        file_in = folder+"sol_3.vtu"
+        file_in = folder+"sol_3_000000.vtu"
 
         file_out = folder+"dol_line_0.csv"
         pts = [[350, 100, -100], [-500, 1500, 500]]
