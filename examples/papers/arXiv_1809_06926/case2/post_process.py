@@ -140,7 +140,7 @@ if __name__ == "__main__":
 
                 field = "pressure"
                 # file of both the matrix and the fracture
-                file_in = folder + "sol_3.vtu"
+                file_in = folder + "sol_3_000000.vtu"
                 file_out = folder + "dol_perm_"+ perm + "_refinement_" + refinement + ".csv"
                 pts = [[0, 0, 0], [1, 1, 1]]
 
@@ -151,7 +151,7 @@ if __name__ == "__main__":
                 # 4) for the coarsest mesh the averaged concentration on each matrix block
                 if refinement == "1":
                     transport_root = folder+"tracer_3_"
-                    file_in = folder+"sol_3.vtu"
+                    file_in = folder+"sol_3_000000.vtu"
                     fields = ["cell_volumes"]
                     field = "tracer"
                     step = 101

@@ -121,7 +121,7 @@ if __name__ == "__main__":
             transport_root = folder+"tracer_3_"
 
             # in this file the constant data are saved
-            file_in = folder+"sol_3.vtu"
+            file_in = folder+"sol_3_000000.vtu"
             fields = ["cell_volumes", "aperture", "bottom_domain"]
             phi = 0.25
             cot_matrix = phi * cot_domain(transport_root, file_in, step, field, fields)
@@ -131,7 +131,7 @@ if __name__ == "__main__":
             transport_root = folder+"tracer_2_"
 
             # in this file the constant data are saved
-            file_in = folder+"sol_2.vtu"
+            file_in = folder+"sol_2_000000.vtu"
             fields = ["cell_volumes", "aperture"]
             phi = 0.4
             cot_fracture = phi * cot_domain(transport_root, file_in, step, field, fields)
@@ -155,7 +155,7 @@ if __name__ == "__main__":
 
             field_0 = "pressure"
             # file of the matrix
-            file_in = folder+"sol_3.vtu"
+            file_in = folder+"sol_3_000000.vtu"
             file_tmp = folder+"tmp0.csv"
             pts = [[0, 100, 100], [100, 0, 0]]
 
