@@ -31,7 +31,7 @@ We recommend installing from source (see below), rather than pulling from pypi. 
 For more detailed install instructions, including how to access GMSH (for meshing), see
 [Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
 
-PorePy is developed under Python 3. It should also be compatible with Python 2.7, however, apart from unit testing, it is not being used with Python 2, so be cautious.
+PorePy is developed under Python >=3.6. 
 
 # From source
 To get the most current version, install from github:
