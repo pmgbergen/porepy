@@ -48,6 +48,7 @@ def grid(file_geo, mesh_args, tol, enlarge=None, xi=0.1):
     network = pp.FractureNetwork2d(p, e, domain, tol=tol)
     return network.mesh(mesh_args), domain
 
+
 # ------------------------------------------------------------------------------#
 
 
