@@ -195,6 +195,7 @@ def advdiff(gb, param, model_flow):
 
 # ------------------------------------------------------------------------------#
 
+
 def compute_outflow(gb, param):
     outflow = 0.0
     for g, d in gb:
@@ -214,7 +215,7 @@ def compute_outflow(gb, param):
 
         flux[flux != 0] = 1
         area = np.dot(flux, g.face_areas)
-        outflow += np.dot(flux * g.face_areas, np.abs(g.cell_faces).dot(scalar))/area
+        outflow += np.dot(flux * g.face_areas, np.abs(g.cell_faces).dot(scalar)) / area
 
     return outflow
 
