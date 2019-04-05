@@ -47,12 +47,6 @@ def grid(file_geo, mesh_args, tol, enlarge=None, xi=0.1):
     frac_dict = {"points": p, "edges": e}
     network = pp.FractureNetwork2d(p, e, domain, tol=tol)
     return network.mesh(mesh_args), domain
-    #gb = pp.meshing.simplex_grid(
-    #    frac_dict, domain, tol=tol["geo"], subdomains=subdom, **mesh_args
-    #)
-
-    #return gb, domain
-
 
 # ------------------------------------------------------------------------------#
 
