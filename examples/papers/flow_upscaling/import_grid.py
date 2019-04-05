@@ -45,11 +45,13 @@ def grid(file_geo, mesh_args, tol, enlarge=None, xi=0.1):
             raise ValueError
 
     frac_dict = {"points": p, "edges": e}
-    gb = pp.meshing.simplex_grid(
-        frac_dict, domain, tol=tol["geo"], subdomains=subdom, **mesh_args
-    )
+    network = pp.FractureNetwork2d(p, e, domain, tol=tol)
+    return network.mesh(mesh_args), domain
+    #gb = pp.meshing.simplex_grid(
+    #    frac_dict, domain, tol=tol["geo"], subdomains=subdom, **mesh_args
+    #)
 
-    return gb, domain
+    #return gb, domain
 
 
 # ------------------------------------------------------------------------------#
