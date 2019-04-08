@@ -12,6 +12,8 @@ import numpy as np
 import scipy.sparse as sps
 import logging
 import porepy as pp
+import numpy.matlib as np_matlib
+
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -554,7 +556,7 @@ class FracturedMpsa(Mpsa):
 
         bc_val = parameter_dictionary["bc_values"]
 
-        frac_faces = np.matlib.repmat(g.tags["fracture_faces"], g.dim, 1)
+        frac_faces = np_matlib.repmat(g.tags["fracture_faces"], g.dim, 1)
         if parameter_dictionary["bc"].bc_type == "scalar":
             frac_faces = frac_faces.ravel("F")
         elif parameter_dictionary["bc"].bc_type == "vectorial":
@@ -607,7 +609,7 @@ class FracturedMpsa(Mpsa):
 
         bc_val = parameter_dictionary["bc_values"]
 
-        frac_faces = np.matlib.repmat(g.tags["fracture_faces"], 3, 1)
+        frac_faces = np_matlib.repmat(g.tags["fracture_faces"], 3, 1)
         if parameter_dictionary["bc"].bc_type == "scalar":
             frac_faces = frac_faces.ravel("F")
 
