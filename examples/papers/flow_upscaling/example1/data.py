@@ -3,7 +3,6 @@ import porepy as pp
 
 # ------------------------------------------------------------------------------#
 
-
 def flow(gb, model, data):
     tol = data["tol"]
 
@@ -34,13 +33,13 @@ def flow(gb, model, data):
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         bc_val = np.zeros(g.num_faces)
         if b_faces.size:
-            (top, bottom, left, right), boundary = bc_flag(g, data["domain"], tol)
+            out_flow, in_flow = bc_flag(g, data["domain"], data["flow_direction"], tol)
 
             labels = np.array(["neu"] * b_faces.size)
-            labels[left + right] = "dir"
+            labels[out_flow + in_flow] = "dir"
             param["bc"] = pp.BoundaryCondition(g, b_faces, labels)
 
-            bc_val[b_faces[right]] = data["bc_flow"]
+            bc_val[b_faces[in_flow]] = data["bc_flow"]
         else:
             param["bc"] = pp.BoundaryCondition(g, empty, empty)
 
@@ -51,14 +50,8 @@ def flow(gb, model, data):
 
     for e, d in gb.edges():
         mg = d["mortar_grid"]
-        check_P = mg.slave_to_mortar_avg()
-        aperture = data["aperture"]
-        gamma = check_P * aperture
-        kn = 2 * data["kf"] / mu * np.ones(mg.num_cells) / gamma
-
-        param = {"normal_diffusivity": kn}
-
-        d[pp.PARAMETERS] = pp.Parameters(e, model_data, param)
+        kn = 2 * data["kf"] / mu * np.ones(mg.num_cells) / data["aperture"]
+        d[pp.PARAMETERS] = pp.Parameters(e, model_data, {"normal_diffusivity": kn})
         d[pp.DISCRETIZATION_MATRICES] = {model_data: {}}
 
     return model_data
@@ -100,7 +93,7 @@ def advdiff(gb, model, model_flow, data):
             phi = data["porosity_f"]
 
         ce = phi * rhow * cw + (1 - phi) * rhom * cm
-        param_adv["mass_weight"] = ce
+        param_adv["mass_weight"] = ce / data["time_step"]
 
         # Assign the diffusivity
         l = np.power(lw, phi) * np.power(lm, 1 - phi) * unity
@@ -117,27 +110,24 @@ def advdiff(gb, model, model_flow, data):
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         bc_val = np.zeros(g.num_faces)
         if b_faces.size:
-            (top, bottom, left, right), boundary = bc_flag(g, data["domain"], tol)
+            out_flow, in_flow = bc_flag(g, data["domain"], data["flow_direction"], tol)
 
             labels_adv = np.array(["neu"] * b_faces.size)
-            labels_adv[left + right] = ["dir"]
+            labels_adv[out_flow + in_flow] = ["dir"]
 
             labels_diff = np.array(["neu"] * b_faces.size)
-            labels_diff[right] = ["dir"]
+            labels_diff[in_flow] = ["dir"]
 
             param_adv["bc"] = pp.BoundaryCondition(g, b_faces, labels_adv)
             param_diff["bc"] = pp.BoundaryCondition(g, b_faces, labels_diff)
 
-            bc_val[b_faces[right]] = data["bc_advdiff"]
+            bc_val[b_faces[in_flow]] = data["bc_advdiff"]
         else:
             param_adv["bc"] = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
             param_diff["bc"] = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
 
         param_adv["bc_values"] = bc_val
         param_diff["bc_values"] = bc_val
-
-        # Assign time step
-        param_adv["time_step"] = data["time_step"]
 
         param = pp.Parameters(
             g, [model_data_adv, model_data_diff], [param_adv, param_diff]
@@ -173,15 +163,20 @@ def advdiff(gb, model, model_flow, data):
 
 # ------------------------------------------------------------------------------#
 
+def bc_flag(g, domain, flow_direction, tol):
+    # the domain is the unite square
 
-def bc_flag(g, domain, tol):
+    # define the labels and values for the boundary faces
     b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
-    b_face_centers = g.face_centers[:, b_faces]
 
-    top = b_face_centers[1] > domain["ymax"] - tol
-    bottom = b_face_centers[1] < domain["ymin"] + tol
-    left = b_face_centers[0] < domain["xmin"] + tol
-    right = b_face_centers[0] > domain["xmax"] - tol
-    boundary = top + bottom + left + right
+    # define outflow type boundary conditions
+    out_flow_dir = domain["ymax"] if flow_direction else domain["xmax"]
+    out_flow = g.face_centers[flow_direction, b_faces] > out_flow_dir - tol
 
-    return (top, bottom, left, right), boundary
+    # define inflow type boundary conditions
+    in_flow_dir = domain["ymin"] if flow_direction else domain["xmin"]
+    in_flow = g.face_centers[flow_direction, b_faces] < in_flow_dir + tol
+
+    return out_flow, in_flow
+
+# ------------------------------------------------------------------------------#
