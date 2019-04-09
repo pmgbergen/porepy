@@ -69,44 +69,16 @@ def main():
 
     # initial condition and type of fluid/rock
     theta = 80 * pp.CELSIUS
-    fluid = pp.Water(theta)
-    rock = pp.Granite(theta)
-
-    aperture = 2 * pp.MILLIMETER
-
-    # permeability which follow the cubic law
-    k = aperture * aperture / 12.0 / fluid.dynamic_viscosity()
-
-    # fracture porosity
-    phi = 0.95
-
-    # specific heat capacity
-    cm = rock.specific_heat_capacity()
-    cw = fluid.specific_heat_capacity()
-
-    # density
-    rhom = rock.DENSITY
-    rhow = fluid.density()
-
-    # thermal conductivity
-    lm = rock.thermal_conductivity()
-    lw = fluid.thermal_conductivity()
-
-    # effective thermal capacity
-    ce = phi * rhow * cw + (1 - phi) * rhom * cm
-
-    # effective thermal conductivity
-    l = np.power(lw, phi) * np.power(lm, 1 - phi)
 
     # reaction coefficient \gamma * (T - T_rock)
     gamma = 0.1
     theta_rock = theta
 
     # boundary conditions
-    bc_flow = 5 * pp.BAR
+    bc_flow = 510 * pp.METER
     bc_trans = 30 * pp.CELSIUS
 
-    end_time = 1e7
+    end_time = 3.154e+7
     n_steps = 1000
     time_step = end_time / n_steps
 
@@ -129,13 +101,13 @@ def main():
             param = {
                 "domain": domain,
                 "tol": tol,
-                "k": k,
+                "k": 1.84e-6,
                 "bc_flow": bc_flow,
-                "diff": l,
-                "mass_weight": ce,
-                "src": gamma * theta_rock,
-                "reaction": gamma,
-                "flux_weight": rhow * cw,
+                "diff": 0.35e-9,
+                "mass_weight": 1.95e-3,
+                "src": gamma * theta_rock*0,
+                "reaction": gamma*0,
+                "flux_weight": 1.,
                 "bc_trans": bc_trans,
                 "init_trans": theta,
                 "time_step": time_step,
