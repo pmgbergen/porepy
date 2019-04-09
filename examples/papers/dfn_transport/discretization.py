@@ -182,13 +182,11 @@ def flow(gb, discr, param, bc_flag):
 
     logger.info("done")
 
-    return model_data
-
 
 # ------------------------------------------------------------------------------#
 
 
-def data_advdiff(gb, model, model_flow, data, bc_flag):
+def data_advdiff(gb, model, data, bc_flag):
     tol = data["tol"]
 
     model_data_adv = model + "_data_adv"
@@ -281,12 +279,12 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
 # ------------------------------------------------------------------------------#
 
 
-def advdiff(gb, discr, param, model_flow, bc_flag):
+def advdiff(gb, discr, param, bc_flag):
 
     model = "transport"
 
     model_data_adv, model_data_diff, model_data_src = data_advdiff(
-        gb, model, model_flow, param, bc_flag
+        gb, model, param, bc_flag
     )
 
     # discretization operator names
