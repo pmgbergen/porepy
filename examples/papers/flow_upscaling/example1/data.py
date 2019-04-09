@@ -11,11 +11,14 @@ def flow(gb, model, data):
 
     for g, d in gb:
         param = {}
-        d["is_tangential"] = True
 
         unity = np.ones(g.num_cells)
         zeros = np.zeros(g.num_cells)
         empty = np.empty(0)
+
+        d["is_tangential"] = True
+        d["frac_num"] = (g.frac_num if g.dim == 1 else -1) * unity
+        d["cell_volumes"] = g.cell_volumes
 
         # set the permeability
         if g.dim == 2:
