@@ -76,7 +76,7 @@ def flow(gb, param):
 
     logger.info("Exporting the solution")
     save = pp.Exporter(gb, "solution", folder=param["folder"])
-    save.write_vtk([pressure, P0_flux])
+    save.write_vtk([pressure, P0_flux, "frac_num", "cell_volumes"])
     logger.info("done")
 
     return model_data
@@ -159,7 +159,7 @@ def advdiff(gb, param, model_flow):
     logger.info("Prepare the exporting")
     save = pp.Exporter(gb, "solution", folder=param["folder"])
     logger.info("done")
-    variables = [variable, param["pressure"], param["P0_flux"]]
+    variables = [variable, param["pressure"], param["P0_flux"], "frac_num", "cell_volumes"]
 
     x = np.ones(A.shape[0]) * param["initial_advdiff"]
     outflow = np.zeros(param["n_steps"])
