@@ -48,12 +48,17 @@ class MortarGrid(object):
         See class documentation for further description of parameters.
         The high_to_mortar_int and low_to_mortar_int are identity mapping.
 
+        If faces the higher-dimensional grid is split along the mortar grid (e.g. room
+        is made for a fracture grid), it is assumed that the extra faces are added 
+        to the end of the face list. That is, for face pairs {(a1, b1), (a2, b2), ...}
+        max(a_i) should be less than min(b_j).
+
         Parameters
         ----------
         dim (int): grid dimension
         side_grids (dictionary of Grid): grid on each side.
         face_cells (sps.csc_matrix): Cell-face relations between the higher
-            dimensional grid and the lower dimensional grid
+            dimensional grid and the lower dimensional grid.
         name (str): Name of grid
         """
 
@@ -103,6 +108,9 @@ class MortarGrid(object):
         num_cells = list(self.side_grids.values())[0].num_cells
         cells, faces, data = sps.find(face_cells)
         if self.num_sides() == 2:
+            # This is a tacit assumption on the numbering scheme for split faces,
+            # all faces on one side of the mortar grid should be indexed first,
+            # the their duplicate on the other side of the fracture.
             cells[faces > np.median(faces)] += num_cells
 
         shape = (num_cells * self.num_sides(), face_cells.shape[1])
