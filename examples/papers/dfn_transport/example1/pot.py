@@ -107,7 +107,7 @@ def main():
 
     master_folder = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/"
 
-    methods_stefano = ["OPTxfem", "OPTfem"]
+    methods_stefano = ["OPTxfem", "OPTfem", "GCmfem"]
     methods_alessio = ["MVEM_UPWIND", "Tpfa_UPWIND", "RT0_UPWIND"]
     methods_andrea = ["MVEM_VEMSUPG"]
 
@@ -311,7 +311,7 @@ def main():
                     folder_in
                     + method
                     + "/"
-                    + "productionmean_"
+                    + "production_"
                     + str(simul + 1)
                     + "_"
                     + grid[2]
@@ -337,9 +337,9 @@ def main():
             plot_num_cells(data, method.replace("_", " "), title)
 
         # Andrea
-        # for method in methods_andrea:
-        #    data = folder_in + method + "/" + "num_cells_" + grid[2] + ".csv"
-        #    plot_num_cells(data, method.replace("_", " "), title)
+        for method in methods_andrea:
+            data = folder_in + method + "/" + "num_cells_" + grid[2] + ".csv"
+            plot_num_cells(data, method.replace("_", " "), title)
 
         name = grid_label + "_num_cells"
         save_single(name, folder_out)
