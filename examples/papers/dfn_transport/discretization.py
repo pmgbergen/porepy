@@ -207,7 +207,7 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
         unity = np.ones(g.num_cells)
 
         # weight for the mass matrix
-        param_adv["mass_weight"] = data.get("mass_weight", 1) * unity
+        param_adv["mass_weight"] = unity
 
         # diffusion term
         kxx = data["diff"] * unity
@@ -369,7 +369,7 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
 
     logger.info("Assemble the mass term of the transport problem")
     M, _, _, _ = assembler.assemble_matrix_rhs(gb)
-    M_t = M.copy() / param["time_step"]
+    M_t = M.copy() / param["time_step"] * param.get("mass_weight", 1)
     M_r = M.copy() * param.get("reaction", 0)
     logger.info("done")
 
