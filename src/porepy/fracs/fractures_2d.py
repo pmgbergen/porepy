@@ -157,7 +157,7 @@ class FractureNetwork2d(object):
         else:
             domain = None
 
-        return FractureNetwork2d(p, e, domain)
+        return FractureNetwork2d(p, e, domain, self.tol)
 
     def mesh(self, mesh_args, tol=None, do_snap=True, constraints=None, **kwargs):
 
@@ -205,7 +205,7 @@ class FractureNetwork2d(object):
         # Prolong
         p = pp.cg.snap_points_to_segments(p, e, tol)
 
-        return FractureNetwork2d(p, e, self.domain)
+        return FractureNetwork2d(p, e, self.domain, self.tol)
 
     def constrain_to_domain(self, domain=None):
         """ Constrain the fracture network to lay within a specified domain.
@@ -233,7 +233,7 @@ class FractureNetwork2d(object):
 
         p, e = pp.cg.constrain_lines_by_polygon(p_domain, self.pts, self.edges)
 
-        return FractureNetwork2d(p, e, domain)
+        return FractureNetwork2d(p, e, domain, self.tol)
 
     def _domain_to_points(self, domain):
         """ Helper function to convert a domain specification in the form of
@@ -296,7 +296,7 @@ class FractureNetwork2d(object):
 
         """
         p, e = pp.cg.remove_edge_crossings2(self.pts, self.edges, tol=self.tol)
-        return FractureNetwork2d(p, e, self.domain)
+        return FractureNetwork2d(p, e, self.domain, self.tol)
 
     # --------- Utility functions below here
 
