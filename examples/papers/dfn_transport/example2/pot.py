@@ -79,11 +79,11 @@ def main():
 
     master_folder = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example2/"
 
-    methods_stefano = ["OPTxfem", "OPTfem"]
+    methods_stefano = ["OPTxfem", "OPTfem", "GCmfem"]
     methods_alessio = ["MVEM_UPWIND", "Tpfa_UPWIND", "RT0_UPWIND"]
     methods_andrea = ["MVEM_VEMSUPG"]
 
-    grids = {"grid_0": ("3k", "200", "0.005"), "grid_1": ("40k", "2500", "0.001")}
+    grids = {"grid_0": ("3k", "200", "0.005"), "grid_1": ("40k", "2600", "0.001")}
     grids_label = {"grid_0": "coarse", "grid_1": "fine"}
 
     for grid_name, grid in grids.items():
@@ -171,7 +171,7 @@ def main():
 
         # Andrea
         for method in methods_andrea:
-            data = folder_in + method + "/" + "productionmean_" + grid[2] + ".csv"
+            data = folder_in + method + "/" + "production_" + grid[2] + ".csv"
             plot_single(data, method.replace("_", " "), title)
 
         # save
