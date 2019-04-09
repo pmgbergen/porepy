@@ -2,18 +2,46 @@ import numpy as np
 import porepy as pp
 
 import examples.papers.flow_upscaling.solvers as solvers
-from examples.papers.flow_upscaling.import_grid import grid, square_grid
-
+from examples.papers.flow_upscaling.logger import logger
+import functions as fct
 
 def main(file_geo, param, mesh_args, tol):
 
-    # import the grid and the domain
-    gb, param["domain"] = grid(file_geo, mesh_args, tol)
+    # import the network
+    network = pp.fracture_importer.network_2d_from_csv(file_geo, polyline=True, tol=tol["geo"])
+    #network.plot(pts_coord=True)
 
-    # solve the pressure problem
-    model_flow = solvers.flow(gb, param)
+    # shift the network to use reasonable numbers and snap the fractures
+    fct.center_network(network)
+    network = network.split_intersections().snap(tol["snap"])
 
-    solvers.advdiff(gb, param, model_flow)
+    # Generate a mixed-dimensional mesh
+    gb = network.mesh(mesh_args, do_snap=False)
+    param["domain"] = network.domain
+
+    # Do the computation in both directions: left-to-right and bottom-to-top
+    flow_directions = {"left_to_right": 0, "bottom_to_top": 1}
+    t = np.zeros(len(flow_directions))
+    folder = param["folder"]
+
+    for flow_direction_name, flow_direction in flow_directions.items():
+        logger.info("Solve the problem in the direction " + flow_direction_name)
+        # solve the pressure problem
+        param["flow_direction"] = flow_direction
+        param["folder"] = folder + "_" + flow_direction_name
+        model_flow = solvers.flow(gb, param)
+
+        # compute the upscaled transmissibility
+        t[flow_direction], out_flow = fct.transmissibility(gb, param, flow_direction)
+        logger.info("done")
+
+        # compute the pore-volume
+        pv = fct.pore_volume(gb, param)
+
+        # compute the actual ending time base on equivalent PVI
+        param["time_step"] = 10 * pv / out_flow / param["n_steps"]
+
+        solvers.advdiff(gb, param, model_flow)
 
 
 if __name__ == "__main__":
@@ -39,97 +67,73 @@ if __name__ == "__main__":
             tol = {"geo": 2.5 * 1e-3, "snap": 0.75 * 2.5 * 1e-3}
             folder = "algeroyna_1to1"
 
-            delta_x = 0.13
             bc_flow = 3 * pp.BAR
             km = 1e-14
 
-            t_max = 1e3  # 1e-3 * delta_x * delta_x * mu / (bc_flow * km)
-
         elif id_frac == 1:
-            h = 0.0390625
+            h = 0.025
             file_geo = folder_fractures + "Algeroyna_1to10.csv"
-            tol = {"geo": 1e-8, "snap": 1e-3}
+            tol = {"geo": 5*1e-3, "snap": 1e-2}
             folder = "algeroyna_1to10"
 
-            delta_x = 2.8
             bc_flow = pp.BAR
             km = 1e-14
 
-            t_max = 1e5  # delta_x * delta_x * mu / (bc_flow * km)
-
         elif id_frac == 2:
-            h = 0.25
+            h = 0.16
             file_geo = folder_fractures + "Algeroyna_1to100.csv"
             tol = {"geo": 1e-2, "snap": 1e-2}
             folder = "algeroyna_1to100"
 
-            delta_x = 15.5
             bc_flow = 4 * pp.BAR
             km = 1e-14
 
-            t_max = delta_x * delta_x * mu / (bc_flow * km) / 2
-
         elif id_frac == 3:
-            h = 5
+            h = 2.5
             file_geo = folder_fractures + "Algeroyna_1to1000.csv"
             tol = {"geo": 1e-2, "snap": 1e-2}
             folder = "algeroyna_1to1000"
 
-            delta_x = 245
             bc_flow = pp.BAR
             km = 1e-14
-
-            t_max = 1e4  # delta_x * delta_x * mu / (bc_flow * km)
 
         elif id_frac == 4:
-            h = 30
+            h = 15
             file_geo = folder_fractures + "Algeroyna_1to10000.csv"
-            tol = {"geo": 1e-3, "snap": 1e-3}
+            tol = {"geo": 1e-2, "snap": 5}
             folder = "algeroyna_1to10000"
 
-            delta_x = 3160
             bc_flow = pp.BAR
             km = 1e-14
 
-            t_max = delta_x * delta_x * mu / (bc_flow * km)
-
         elif id_frac == 5:
-            h = 0.75 * 1e-1
+            h = 0.04
             file_geo = folder_fractures + "Vikso_1to10.csv"
             tol = {"geo": 1e-3, "snap": 0.75 * 1e-3}
             folder = "vikso_1to10"
 
-            delta_x = 4
             bc_flow = pp.BAR
             km = 1e-14
-
-            t_max = delta_x * delta_x * mu / (bc_flow * km)
 
         elif id_frac == 6:
-            h = 0.375
+            h = 0.10
             file_geo = folder_fractures + "Vikso_1to100.csv"
-            tol = {"geo": 1e-3, "snap": 0.75 * 1e-3}
+            tol = {"geo": 1e-3, "snap": 5 * 1e-3}
             folder = "vikso_1to100"
 
-            delta_x = 30
             bc_flow = pp.BAR
             km = 1e-14
 
-            t_max = delta_x * delta_x * mu / (bc_flow * km)
-
         elif id_frac == 7:
-            h = 2.5
+            h = 1.45
             file_geo = folder_fractures + "/Vikso_1to1000.csv"
             tol = {"geo": 1e-2, "snap": 1e-2}
             folder = "vikso_1to1000"
 
-            delta_x = 295
             bc_flow = pp.BAR
             km = 1e-14
 
-            t_max = delta_x * delta_x * mu / (bc_flow * km)
-
-        mesh_args = {"mesh_size_frac": h, "mesh_size_min": h / 2}
+        mesh_args = {"mesh_size_frac": h, "mesh_size_min": h / 20, "mesh_size_bound": h*2}
 
         # select the permeability depending on the selected test case
         param = {
@@ -137,7 +141,7 @@ if __name__ == "__main__":
             "kf": aperture ** 2 / 12,
             "km": km,
             "porosity_f": 0.85,
-            "time_step": t_max / n_steps,
+            "time_step": None,
             "n_steps": n_steps,
             "fluid": fluid,
             "rock": rock,
