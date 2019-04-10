@@ -2,6 +2,7 @@ import numpy as np
 import porepy as pp
 
 import examples.papers.dfn_transport.discretization as compute
+from examples.papers.dfn_transport.grid_export import grid_export
 
 # from examples.papers.dfn_transport.flux_trace import jump_flux
 
@@ -40,7 +41,7 @@ def main():
     discretizations = compute.get_discr()
 
     # geometric tolerance
-    tol = 1e-4
+    tol = 1e-5
 
     # define the mesh sizes
     mesh_sizes = {
@@ -64,7 +65,7 @@ def main():
 
             folder = "solution_" + discr_key + "_" + mesh_size_key
 
-            network = pp.fracture_importer.network_3d_from_fab(file_name)
+            network = pp.fracture_importer.network_3d_from_fab(file_name, tol=tol)
             gb = network.mesh(mesh_kwargs, dfn=True)
 
             gb.remove_nodes(lambda g: g.dim == 0)
@@ -87,12 +88,15 @@ def main():
             }
 
             # the flow problem
-            model_flow = compute.flow(gb, discr, param, bc_flag)
+            compute.flow(gb, discr, param, bc_flag)
+
+            #if discr_key == "Tpfa":
+            #    grid_export(gb, None, "grid_" + mesh_size_key + "/")
 
             # jump_flux(gb, param["mortar_flux"])
 
             # the advection-diffusion problem
-            compute.advdiff(gb, discr, param, model_flow, bc_flag)
+            compute.advdiff(gb, discr, param, bc_flag)
 
 
 if __name__ == "__main__":
