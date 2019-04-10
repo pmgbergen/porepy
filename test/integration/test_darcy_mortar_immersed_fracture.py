@@ -3,12 +3,11 @@
 Test of Robin-type coupling for a grid with immersed fractures.
 The non-immersed case is kind of tested in the module 
     test/unit/test_darcy_mortar.
-    
+
 """
 import numpy as np
 import unittest
 import scipy.sparse as sps
-import debug
 
 import porepy as pp
 from test import test_utils, test_grids
