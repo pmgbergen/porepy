@@ -2,6 +2,7 @@ import numpy as np
 import porepy as pp
 
 import examples.papers.dfn_transport.discretization as compute
+from examples.papers.dfn_transport.grid_export import grid_export
 
 # from examples.papers.dfn_transport.flux_trace import jump_flux
 
@@ -62,7 +63,7 @@ def main():
     discretizations = compute.get_discr()
 
     # geometric tolerance
-    tol = 1e-2
+    tol = 1e-4
 
     # initial condition and type of fluid/rock
     theta = 80 * pp.CELSIUS
@@ -93,7 +94,7 @@ def main():
 
             folder = "solution_" + discr_key + "_" + bc_type_key
 
-            network = pp.fracture_importer.network_3d_from_fab(file_name)
+            network = pp.fracture_importer.network_3d_from_fab(file_name, tol=tol)
             gb = network.mesh(mesh_kwargs, dfn=True)
 
             gb.remove_nodes(lambda g: g.dim == 0)
@@ -124,6 +125,9 @@ def main():
 
             # the flow problem
             compute.flow(gb, discr, param, bc_type)
+
+            #if discr_key == "Tpfa":
+            #    grid_export(gb, None, folder + "/grid/")
 
             # jump_flux(gb, param["mortar_flux"])
 
