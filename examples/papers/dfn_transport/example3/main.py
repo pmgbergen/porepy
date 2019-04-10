@@ -64,28 +64,32 @@ def main():
     # geometric tolerance
     tol = 1e-2
 
-    mesh_size = 1e2  # np.power(2., -4)
-    mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
-
     # initial condition and type of fluid/rock
     theta = 80 * pp.CELSIUS
 
     # reaction coefficient \gamma * (T - T_rock)
-    gamma = 0.1
+    gamma = 2.44e-9*0.5
     theta_rock = theta
 
     # boundary conditions
-    bc_flow = 510 * pp.METER
+    bc_flow = 2500 * pp.METER
     bc_trans = 30 * pp.CELSIUS
 
-    end_time = 3.154e+7
-    n_steps = 1000
+    end_time = 0.5*3.154e+7
+    n_steps = 200
     time_step = end_time / n_steps
 
     bc_types = {"same": bc_same, "different": bc_different}
     for bc_type_key, bc_type in bc_types.items():
 
         for discr_key, discr in discretizations.items():
+
+            if discr_key == "MVEM":
+                mesh_size = 0.17*1e2
+            else:
+                mesh_size = 1e2  # np.power(2., -4)
+
+            mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
 
             folder = "solution_" + discr_key + "_" + bc_type_key
 
@@ -96,6 +100,9 @@ def main():
             gb.compute_geometry()
             gb.assign_node_ordering()
 
+            if discr_key == "MVEM":
+                pp.coarsening.coarsen(gb, "by_volume")
+
             domain = gb.bounding_box(as_dict=True)
 
             param = {
@@ -105,8 +112,8 @@ def main():
                 "bc_flow": bc_flow,
                 "diff": 0.35e-9,
                 "mass_weight": 1.95e-3,
-                "src": gamma * theta_rock*0,
-                "reaction": gamma*0,
+                "src": gamma * theta_rock,
+                "reaction": gamma,
                 "flux_weight": 1.,
                 "bc_trans": bc_trans,
                 "init_trans": theta,
@@ -116,12 +123,12 @@ def main():
             }
 
             # the flow problem
-            model_flow = compute.flow(gb, discr, param, bc_type)
+            compute.flow(gb, discr, param, bc_type)
 
             # jump_flux(gb, param["mortar_flux"])
 
             # the advection-diffusion problem
-            compute.advdiff(gb, discr, param, model_flow, bc_type)
+            compute.advdiff(gb, discr, param, bc_type)
 
 
 if __name__ == "__main__":
