@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Module contains hard coded grid geometries that can be used for several 
+Module contains hard coded grid geometries that can be used for several
 tests.
 """
 import numpy as np
@@ -11,9 +11,9 @@ import porepy as pp
 
 
 class SimplexGrid2dDomainOneImmersedFracture:
-    """ Grid of 18 cells, that contains a single fully immersed fracture, 
+    """ Grid of 18 cells, that contains a single fully immersed fracture,
         initially aligned with the y-axis.
-    
+
     By tuning parameters, the fracture can be rotated, nodes in the 2d grids
     on the fracture surface can be perturbed, and normal vectors on the fracture
     surface can be flipped.
@@ -24,7 +24,7 @@ class SimplexGrid2dDomainOneImmersedFracture:
                 surface are rotated. Divergence operator is modified accordingly.
                 The solution should be invariant under this change.
             perturb_node: One node in 2d grid on the fracture surface is shifted.
-                This breaks symmetry of the grid across the fracture. 
+                This breaks symmetry of the grid across the fracture.
                 Should not be combined with rotate_fracture.
             rotate_fracture: Fracture is rotated from aligned with the y-axis
                 to a slightly tilted position. Should not be combined with
@@ -51,10 +51,10 @@ class SimplexGrid2dDomainOneImmersedFracture:
         ).T
 
         if pert_node:
-            assert not rotate_fracture
+            if rotate_fracture:
+                raise ValueError('Incompatible options to grid construction')
             nodes[1, 13] = 0.6
         if rotate_fracture:
-            assert not pert_node
             nodes[0, 10] = 0.4
             nodes[0, 12] = 0.6
 
@@ -192,7 +192,7 @@ class SimplexGrid2dDomainOneImmersedFracture:
         gb = pp.meshing._assemble_in_bucket([[g2], [g1]])
 
         gb.add_edge_props("face_cells")
-        for e, d in gb.edges():
+        for _, d in gb.edges():
             a = np.zeros((g2.num_faces, g1.num_cells))
             a[28, 0] = 1
             a[29, 1] = 1

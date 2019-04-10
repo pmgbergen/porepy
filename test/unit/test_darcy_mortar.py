@@ -1033,11 +1033,11 @@ class TestMortar3D(unittest.TestCase):
 
 class TestMortar2DSimplexGrid(unittest.TestCase):
     """ Simplex grid with a hardcoded geometry. The domain is a unit cell, cut
-    in two by a fracture at y=0.5. There are three cells in the lower half 
+    in two by a fracture at y=0.5. There are three cells in the lower half
     of the domain, with two of them having a face towards the fracture.
     The grid in the upper half is mirrored from the lower half, however,
     some of the tests pertub the node geometry.
-    
+
     The flow regime imposed is uniform in the y-direction. The computed pressure
     should then be equal to the y-coordinates of the cells.
     """

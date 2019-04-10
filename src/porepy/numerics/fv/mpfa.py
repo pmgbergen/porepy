@@ -413,7 +413,7 @@ class Mpfa(FVElliptic):
         directly, either call this method, or, to respect the privacy of this
         method, the main mpfa method with no memory constraints.
         Method properties and implementation details.
-        
+
         The pressure is discretized as a linear function on sub-cells (see
         reference paper). In this implementation, the pressure is represented by
         its cell center value and the sub-cell gradients (this is in contrast to
@@ -422,7 +422,7 @@ class Mpfa(FVElliptic):
         The method will give continuous fluxes over the faces, and pressure
         continuity for certain points (controlled by the parameter eta). This can
         be expressed as a linear system on the form
-        
+
             (i)    A * grad_p              = 0
             (ii)   Ar * grad_p + Cr * p_cc = 0
             (iii)  B * grad_p + C * p_cc   = 0
@@ -627,7 +627,7 @@ class Mpfa(FVElliptic):
         # below (in computation of pr_cont_grad).
         num_nodes = np.diff(g.face_nodes.indptr)
         sgn_scaled_by_subface_area = (
-            bnd.robin_weight  
+            bnd.robin_weight
             * sgn_unique
             * g.face_areas[subcell_topology.fno_unique]
             / num_nodes[subcell_topology.fno_unique]
@@ -677,9 +677,9 @@ class Mpfa(FVElliptic):
         # The discretization is now in a sense complete: We have discretized
         # the flux and pressure continuity equations, with the necessary
         # adjustments for boundary conditions. The resulting linear system
-        # takes the form 
+        # takes the form
         #
-        #  (nk_grad_n                , nk_cell  )                     
+        #  (nk_grad_n                , nk_cell  )
         #  (nk_grad_r - pr_trace_grad, -pr_trace_cell) (subcell_grad)= RHS
         #  (pr_cont_grad             , pr_cont_cell  ) (center_pressure)
         #
@@ -688,20 +688,20 @@ class Mpfa(FVElliptic):
         # The third equation enforces pressure continuity.
         # RHS is detailed below, this enforces calculation of the discrete
         # basis function.
-        # 
+        #
         # The next step is to compute the subcell gradients as a function of
         # the ultimate degrees of freedom in the discretization scheme, that is
-        # cell center pressures and boundary conditions. For cell center 
-        # pressures, assign a unit pressure in one cell center at the time 
+        # cell center pressures and boundary conditions. For cell center
+        # pressures, assign a unit pressure in one cell center at the time
         # while assigning zero pressures in other cells (this is implemented
         # as moving the second column in the above matrix to the right hand side).
         # When solving for subcell_grad, this gives the gradients, in effect,
         # the boundary conditions.
         #
-        # Implementation of boundary conditions need special mentioning: 
+        # Implementation of boundary conditions need special mentioning:
         # First, the rows corresponding to boundary subfaces are modified:
         #
-        #  i) On Neumann subfaces, only the first block row is kept, second and 
+        #  i) On Neumann subfaces, only the first block row is kept, second and
         #     third row are eliminated (there is no Robin or pressure continuity
         #     condition). 
         #  ii) Robin conditions has dedicated rows, these subfaces are eliminated
@@ -713,14 +713,14 @@ class Mpfa(FVElliptic):
         # on a subface, with all subfaces having zero value, the subscale
         # gradient for this boundary condition is found [in practice this means
         # continuity of flux and pressure for internal subfaces, on boundary
-        # subfaces it enforces zero flux (Neumann), pressure (Dirichlet) or 
-        # combination (Robin). That is, the boundary dofs do not interfere with 
+        # subfaces it enforces zero flux (Neumann), pressure (Dirichlet) or
+        # combination (Robin). That is, the boundary dofs do not interfere with
         # each other].
         #
         # As an implementation note, the fastest approach found is to explicitly
-        # calculate the inverse of the matrix 
+        # calculate the inverse of the matrix
         #
-        #  (nk_grad_n)                     
+        #  (nk_grad_n)
         #  (nk_grad_r - pr_trace_grad)
         #  (pr_cont_grad)
         #
@@ -740,7 +740,7 @@ class Mpfa(FVElliptic):
         # instead of how we would expect: -nk_grad_r + pr_trace_grad +pr_trace_cell= rhs.
         # This is also why we multiply with -1 in scaled_sgn in _create_bound_rhs
         # EK: Not really, The nk_grad terms are calculated according to what 
-        # happens to be the normal vector of the face. 
+        # happens to be the normal vector of the face.
         grad_eqs = sps.vstack([nk_grad_n, nk_grad_r - pr_trace_grad, pr_cont_grad])
 
         num_nk_cell = nk_cell.shape[0]
@@ -1073,7 +1073,7 @@ class Mpfa(FVElliptic):
         #    normal vector points into the cell.
         # 2) During global assembly, the flux matrix is hit by the divergence
         #    operator, which will give another -1 for cells with inwards pointing
-        #    normal vector. 
+        #    normal vector.
         # NOW WHAT?
         if subface_rhs:
             # In this case we set the rhs for the sub-faces. Note that the rhs values

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Test of Robin-type coupling for a grid with immersed fractures.
-The non-immersed case is kind of tested in the module 
+The non-immersed case is kind of tested in the module
     test/unit/test_darcy_mortar.
 
 """
@@ -67,7 +67,7 @@ class TestImmersedFracture(unittest.TestCase):
             d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
         gb.add_edge_props("kn")
-        for e, d in gb.edges():
+        for _, d in gb.edges():
             mg = d["mortar_grid"]
             flow_dictionary = {"normal_diffusivity": kn * np.ones(mg.num_cells)}
             d[pp.PARAMETERS] = pp.Parameters(
