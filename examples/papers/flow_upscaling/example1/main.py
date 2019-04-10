@@ -18,6 +18,8 @@ def main(file_geo, param, mesh_args, tol):
     # Generate a mixed-dimensional mesh
     gb = network.mesh(mesh_args, do_snap=False)
     param["domain"] = network.domain
+    domain_length = np.array([network.domain["xmax"] - network.domain["xmin"],
+                              network.domain["ymax"] - network.domain["ymin"]])
 
     # Do the computation in both directions: left-to-right and bottom-to-top
     flow_directions = {"left_to_right": 0, "bottom_to_top": 1}
@@ -29,6 +31,7 @@ def main(file_geo, param, mesh_args, tol):
         # solve the pressure problem
         param["flow_direction"] = flow_direction
         param["folder"] = folder + "_" + flow_direction_name
+        param["bc_flow"] = param["given_flux"] * domain_length[flow_direction] / param["km"]
         model_flow = solvers.flow(gb, param)
 
         # compute the upscaled transmissibility
@@ -52,6 +55,8 @@ if __name__ == "__main__":
 
     aperture = 2 * pp.MILLIMETER
     n_steps = 200
+    given_flux = 1e-7
+    km = 1e-14
 
     mu = fluid.dynamic_viscosity()
 
@@ -67,17 +72,11 @@ if __name__ == "__main__":
             tol = {"geo": 2.5 * 1e-3, "snap": 0.75 * 2.5 * 1e-3}
             folder = "algeroyna_1to1"
 
-            bc_flow = 3 * pp.BAR
-            km = 1e-14
-
         elif id_frac == 1:
             h = 0.025
             file_geo = folder_fractures + "Algeroyna_1to10.csv"
             tol = {"geo": 5*1e-3, "snap": 1e-2}
             folder = "algeroyna_1to10"
-
-            bc_flow = pp.BAR
-            km = 1e-14
 
         elif id_frac == 2:
             h = 0.16
@@ -85,17 +84,11 @@ if __name__ == "__main__":
             tol = {"geo": 1e-2, "snap": 1e-2}
             folder = "algeroyna_1to100"
 
-            bc_flow = 4 * pp.BAR
-            km = 1e-14
-
         elif id_frac == 3:
             h = 2.5
             file_geo = folder_fractures + "Algeroyna_1to1000.csv"
             tol = {"geo": 1e-2, "snap": 1e-2}
             folder = "algeroyna_1to1000"
-
-            bc_flow = pp.BAR
-            km = 1e-14
 
         elif id_frac == 4:
             h = 15
@@ -103,17 +96,11 @@ if __name__ == "__main__":
             tol = {"geo": 1e-2, "snap": 5}
             folder = "algeroyna_1to10000"
 
-            bc_flow = pp.BAR
-            km = 1e-14
-
         elif id_frac == 5:
             h = 0.04
             file_geo = folder_fractures + "Vikso_1to10.csv"
             tol = {"geo": 1e-3, "snap": 0.75 * 1e-3}
             folder = "vikso_1to10"
-
-            bc_flow = pp.BAR
-            km = 1e-14
 
         elif id_frac == 6:
             h = 0.10
@@ -121,17 +108,11 @@ if __name__ == "__main__":
             tol = {"geo": 1e-3, "snap": 5 * 1e-3}
             folder = "vikso_1to100"
 
-            bc_flow = pp.BAR
-            km = 1e-14
-
         elif id_frac == 7:
             h = 1.45
             file_geo = folder_fractures + "/Vikso_1to1000.csv"
             tol = {"geo": 1e-2, "snap": 1e-2}
             folder = "vikso_1to1000"
-
-            bc_flow = pp.BAR
-            km = 1e-14
 
         mesh_args = {"mesh_size_frac": h, "mesh_size_min": h / 20, "mesh_size_bound": h*2}
 
@@ -141,9 +122,9 @@ if __name__ == "__main__":
             "kf": aperture ** 2 / 12,
             "km": km,
             "porosity_f": 0.85,
-            "time_step": None,
             "n_steps": n_steps,
             "fluid": fluid,
+            "given_flux": given_flux,
             "rock": rock,
             "tol": tol["geo"],
             "folder": folder,
