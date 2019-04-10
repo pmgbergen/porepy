@@ -44,22 +44,28 @@ def plot_fractures(d, p, c, colortag=None, **kwargs):
         else:
             raise NotImplementedError("Have not thought of more than six colors")
 
-    plt.figure(kwargs.get("fig_id", 1))
-    plt.axis([d["xmin"], d["xmax"], d["ymin"], d["ymax"]])
+    fig = plt.figure(kwargs.get("fig_id", 1), dpi=kwargs.get("dpi", 100))
+
+    if kwargs.get("domain", True):
+        domain_color = "red"
+    else:
+        domain_color = "white"
+
     plt.plot(
         [d["xmin"], d["xmax"], d["xmax"], d["xmin"], d["xmin"]],
         [d["ymin"], d["ymin"], d["ymax"], d["ymax"], d["ymin"]],
         "-",
-        color="red",
+        color=domain_color,
     )
 
     # Simple for-loop to draw one fracture after another. Not fancy, but it
     # serves its purpose.
+    line_style = kwargs.get("line_style", "o-")
     for i in range(c.shape[1]):
         plt.plot(
             [p[0, c[0, i]], p[0, c[1, i]]],
             [p[1, c[0, i]], p[1, c[1, i]]],
-            "o-",
+            line_style,
             color=col[tagmap[i]],
         )
 
@@ -69,12 +75,18 @@ def plot_fractures(d, p, c, colortag=None, **kwargs):
 
     if kwargs.get("axis_equal", True):
         plt.axis("equal")
+        plt.gca().set_aspect('equal', adjustable='box')
+
+    if kwargs.get("axis", "on") == "on":
+        plt.axis([d["xmin"], d["xmax"], d["ymin"], d["ymax"]])
+    else:
+        plt.axis("off")
 
     # Finally set axis
     if kwargs.get("plot", True):
         plt.show()
     if kwargs.get("save", None) is not None:
-        plt.savefig(kwargs.get("save"))
+        plt.savefig(kwargs.get("save"), bbox_inches="tight", pad_inches = 0.0)
 
 
 def plot_wells(d, w, colortag=None, **kwargs):
