@@ -713,7 +713,7 @@ class Mpfa(FVElliptic):
         if eta_reconstruction is None:
             # If no reconstruction eta is given, use the continuity points
             eta_reconstruction = eta
-        dist_grad, cell_centers = reconstruct_presssures(g, subcell_topology, eta_reconstruction)
+        dist_grad, cell_centers = reconstruct_presssure(g, subcell_topology, eta_reconstruction)
 
         pressure_trace_cell = dist_grad * igrad * rhs_cells + cell_centers
         pressure_trace_bound = dist_grad * igrad * rhs_bound
@@ -977,7 +977,7 @@ class Mpfa(FVElliptic):
 
         return rhs_bound
 
-def reconstruct_presssures(g, subcell_topology, eta):
+def reconstruct_presssure(g, subcell_topology, eta):
     """
     Function for reconstructing the pressure at the half faces given the
     local gradients. For a subcell Ks associated with cell K and node s, the
