@@ -73,6 +73,7 @@ class MortarGrid(object):
             self.name = name
         else:
             self.name = [name]
+        self.name.append('mortar_grid')
 
         # easy access attributes with a fixed ordering of the side grids
         self.num_cells = np.sum(
@@ -496,7 +497,7 @@ class BoundaryMortar(MortarGrid):
             raise ValueError("Dimension of mortar grid does not match given dimension")
 
         self.dim = dim
-        self.side_grids = {"mortar_grid": mortar_grid}
+        self.side_grids = {0: mortar_grid}
         self.sides = np.array(self.side_grids.keys)
 
         if not (self.num_sides() == 1 or self.num_sides() == 2):
@@ -506,7 +507,7 @@ class BoundaryMortar(MortarGrid):
             self.name = name
         else:
             self.name = [name]
-
+        self.name.append('mortar_grid')
         # master_slave is a mapping from the faces of the slave grid to the
         # faces of the master grid.
         # We assume that, in the beginning the mortar grids are equal

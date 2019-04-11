@@ -642,10 +642,42 @@ class Assembler:
 
         return matrix, rhs
 
-    def assemble_operator(self, gb, operator_name):
+    def assemble_operator(self, gb, keyword, operator_name):
         """ @RUNAR: Placeholder method for use for non-linear problems
         """
-        pass
+        operator = []
+        def _get_operator(d, keyword, operator_name):
+            loc_disc = d[pp.DISCRETIZATION_MATRICES].get(keyword,None)
+            if loc_disc is None:
+                return None
+            loc_op = loc_disc.get(operator_name, None)
+            return loc_op
+
+        for g, d in gb:
+            op = _get_operator(d, keyword, operator_name)
+            if op is None:
+                continue
+            operator.append(op)
+
+        for e, d in gb.edges():
+            op = _get_operator(d, keyword, operator_name)
+            if op is None:
+                continue
+            operator.append(op)
+
+        if len(operator)==0:
+            raise ValueError(
+                'Could not find operator: ' + operator_name +' for keyword: ' + keyword
+            )
+        return sps.block_diag(operator)
+
+    def assemble_parameter(self, gb, keyword, parameter_name):
+        """ @RUNAR: Placeholder method for use for non-linear problems
+        """
+        parameter = []
+        for g, d in gb:
+            parameter.append(d[pp.PARAMETERS][keyword][parameter_name])
+        return np.hstack(parameter)
 
     def _local_variables(self, d, active_variables):
         """ Find variables defined in a data dictionary, and do intersection
