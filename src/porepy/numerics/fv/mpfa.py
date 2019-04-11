@@ -679,7 +679,8 @@ class Mpfa(FVElliptic):
 
         # Flux discretization:
         # The negative in front of pr_trace_cell comes from the grad_egs
-        flux = darcy * igrad * (-sps.vstack([nk_cell, -pr_trace_cell, pr_cont_cell]))
+        rhs_cells = (-sps.vstack([nk_cell, -pr_trace_cell, pr_cont_cell]))
+        flux = darcy * igrad * rhs_cells
 
         # Boundary conditions
         rhs_bound = self._create_bound_rhs(
@@ -697,52 +698,11 @@ class Mpfa(FVElliptic):
 
         bound_flux = darcy * igrad * rhs_bound
 
-        # Below here, fields necessary for reconstruction of boundary pressures
-        dp = (
-            pr_cont_grad_all
-            * igrad
-            * (-sps.vstack([nk_cell, pr_trace_cell, pr_cont_cell]))
-        )
-        # Internal faces, and boundary faces with a Dirichle condition do not need
-        # information on the gradient.
-        # Implementation note: This can be expanded to pressure recovery also
-        # on internal faces by including them here, and below.
-        remove_not_neumann = sps.diags(bnd.is_neu.astype(np.int))
-        dp = remove_not_neumann * dp
+        # Optain the reconstruction of 
+        dist_grad, cell_centers = reconstruct_presssures(g, subcell_topology, eta)
 
-        # We also need pressure in the cell next to the boundary face.
-        bound_faces = g.get_all_boundary_faces()
-        # A trick to get the boundary face: We know that one element is -1 (e.g.
-        # outside the domain). Add 1, sum cell indices (will only contain the
-        # internal cell; the one outside is now zero), and then subtract 1 again.
-        bound_cells = np.sum(g.cell_face_as_dense()[:, bound_faces] + 1, axis=0) - 1
-        cell_contrib = sps.coo_matrix(
-            (np.ones_like(bound_faces), (bound_faces, bound_cells)),
-            shape=(g.num_faces, g.num_cells),
-        )
-        cell_contrib = remove_not_neumann * hf2f.T * cell_contrib
-
-        # Contribution to face pressure from sub-cell gradients, calculated as
-        # gradient times distance. Then further map to faces, and divide by number
-        # of contributions per face
-
-        sgn_arr = np.zeros(g.num_faces)
-        sgn_arr[bound_faces] = g.cell_faces[bound_faces].sum(axis=1).A.ravel()
-        sgn_mat = sps.diags(hf2f.T * (sgn_arr))
-
-        bound_pressure_cell = sgn_mat * dp + cell_contrib
-        bound_pressure_face_neu = sgn_mat * pr_cont_grad_all * igrad * rhs_bound
-
-        # sgn_mat = sps.diags(sgn_arr)
-        # bound_pressure_face_neu = (
-        #     sgn_mat * hf2f * pr_cont_grad_all * igrad * rhs_bound
-        # )
-        # For Dirichlet faces, simply recover the boundary condition
-        bound_pressure_face_dir = sps.diags(bnd.is_dir.astype(np.int))
-
-        bound_pressure_face = (
-            bound_pressure_face_dir + remove_not_neumann * bound_pressure_face_neu
-        )
+        pressure_trace_cell = dist_grad * igrad * rhs_cells + cell_centers
+        pressure_trace_bound = dist_grad * igrad * rhs_bound
 
         if not subface_rhs:
             # In this case we set the value at a face, thus, we need to distribute the
@@ -754,15 +714,17 @@ class Mpfa(FVElliptic):
 
             bound_flux = hf2f * bound_flux * hf2f.T
             flux = hf2f * flux
-            bound_pressure_face = hf2f * area_mat * bound_pressure_face * hf2f.T
-            bound_pressure_cell = hf2f * area_mat * bound_pressure_cell
-        return flux, bound_flux, bound_pressure_cell, bound_pressure_face
+            pressure_trace_bound = hf2f * area_mat * pressure_trace_bound * hf2f.T
+            pressure_trace_cell = hf2f * area_mat * pressure_trace_cell
+
+        return flux, bound_flux, pressure_trace_cell, pressure_trace_bound
 
     """
      The functions below are helper functions, which are not really necessary to
      understand in detail to use the method. They also tend to be less well
      documented.
     """
+
 
     def _estimate_peak_memory(self, g):
         """
@@ -1000,3 +962,60 @@ class Mpfa(FVElliptic):
         rhs_bound = sps.vstack([neu_rob_cell, dir_cell]) * bnd_2_all_hf
 
         return rhs_bound
+
+def reconstruct_presssures(g, subcell_topology, eta):
+    """
+    Function for reconstructing the pressure at the half faces given the
+    local gradients. For a subcell Ks associated with cell K and node s, the
+    pressure at a point x is given by
+    p_Ks + G_Ks (x - x_k),
+    x_K is the cell center of cell k. The point at which we evaluate the pressure
+    is given by eta, which is equivalent to the continuity points in mpfa.
+    For an internal subface we will obtain two values for the pressure,
+    one for each of the cells associated with the subface. The pressure given
+    here is the average of the two. Note that at the continuity points the two
+    pressures will by construction be equal.
+
+    Parameters:
+        g: Grid
+        subcell_topology: Wrapper class for numbering of subcell faces, cells
+            etc.
+        eta (float or ndarray, range=[0,1)): Optional. Parameter determining the point
+            at which the pressures is evaluated. If eta is a nd-array it should be on
+            the size of subcell_topology.num_subfno. If eta is not given the method will
+            call fvutils.determine_eta(g) to set it.
+    Returns:
+        scipy.sparse.csr_matrix (num_sub_faces, num_cells):
+            pressure reconstruction for the displacement at the half faces. This is
+            the contribution from the cell-center pressures.
+        scipy.sparse.csr_matrix (num_sub_faces, num_faces):
+            Pressure reconstruction for the pressures at the half faces.
+            This is the contribution from the boundary conditions.
+    """
+
+    if eta is None:
+        eta = pp.fvutils.determine_eta(g)
+
+    # Calculate the distance from the cell centers to continuity points
+    D_g = pp.fvutils.compute_dist_face_cell(
+        g, subcell_topology, eta, return_paired=False
+    )
+    # We here average the contribution on internal sub-faces.
+    # If you want to get out both displacements on a sub-face your can remove
+    # the averaging.
+    _, IC, counts = np.unique(
+        subcell_topology.subfno, return_inverse=True, return_counts=True
+    )
+
+    avg_over_subfaces = sps.coo_matrix(
+        (1 / counts[IC], (subcell_topology.subfno, subcell_topology.subhfno))
+    )
+    D_g = avg_over_subfaces * D_g
+    D_g = D_g.tocsr()
+
+    # Get a mapping from cell centers to half-faces
+    D_c = sps.coo_matrix(
+        (1 / counts[IC], (subcell_topology.subfno, subcell_topology.cno))
+    ).tocsr()
+
+    return D_g, D_c
