@@ -54,8 +54,10 @@ class Mpfa(FVElliptic):
             aperture: (np.ndarray) apertures of the cells for scaling of
                 the face normals.
             mpfa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of
-            pressure continuity point. If not given, porepy tries to set an optimal
-            value.
+                pressure continuity point. If not given, porepy tries to set an optimal
+                value.
+            reconstruction_eta: (float/np.ndarray) Optional. Range [0, 1]. Location of
+                pressure reconstruction point at faces. If not given, mpfa_eta is used.
             mpfa_inverter (str): Optional. Inverter to apply for local problems.
                 Can take values 'numba' (default), 'cython' or 'python'.
 
@@ -85,6 +87,7 @@ class Mpfa(FVElliptic):
         aperture = parameter_dictionary["aperture"]
 
         eta = parameter_dictionary.get("mpfa_eta", None)
+        eta_reconstruction = parameter_dictionary.get("reconstruction_eta", None)
         inverter = parameter_dictionary.get("mpfa_inverter", None)
 
         trm, bound_flux, bp_cell, bp_face = self.mpfa(
@@ -93,6 +96,7 @@ class Mpfa(FVElliptic):
             bnd,
             deviation_from_plane_tol,
             eta=eta,
+            eta_reconstruction=eta_reconstruction,
             apertures=aperture,
             inverter=inverter,
         )
@@ -108,6 +112,7 @@ class Mpfa(FVElliptic):
         bnd,
         deviation_from_plane_tol=1e-5,
         eta=None,
+        eta_reconstruction=None,
         inverter=None,
         apertures=None,
         max_memory=None,
@@ -137,6 +142,7 @@ class Mpfa(FVElliptic):
             eta Location of pressure continuity point. Defaults to 1/3 for simplex
                 grids, 0 otherwise. On boundary faces with Dirichlet conditions,
                 eta=0 will be enforced.
+            eta_reconstruction Location of pressure reconstruction point on faces.
             inverter (string) Block inverter to be used, either numba (default),
                 cython or python. See fvutils.invert_diagonal_blocks for details.
             apertures (np.ndarray) apertures of the cells for scaling of the face
@@ -203,6 +209,7 @@ class Mpfa(FVElliptic):
                 bnd,
                 deviation_from_plane_tol,
                 eta=eta,
+                eta_reconstruction=eta_reconstruction,
                 inverter=inverter,
                 apertures=apertures,
             )
@@ -245,6 +252,7 @@ class Mpfa(FVElliptic):
                     bnd,
                     deviation_from_plane_tol,
                     eta=eta,
+                    eta_reconstruction=eta_reconstruction,
                     inverter=inverter,
                     nodes=active_nodes,
                 )
@@ -298,6 +306,7 @@ class Mpfa(FVElliptic):
             eta Location of pressure continuity point. Should be 1/3 for simplex
                 grids, 0 otherwise. On boundary faces with Dirichlet conditions,
                 eta=0 will be enforced.
+            eta_reconstruction Location of pressure reconstruction point on faces.
             inverter (string) Block inverter to be used, either numba (default),
                 cython or python. See fvutils.invert_diagonal_blocks for details.
             cells (np.array, int, optional): Index of cells on which to base the
@@ -369,6 +378,7 @@ class Mpfa(FVElliptic):
             loc_bnd,
             deviation_from_plane_tol,
             eta=eta,
+            eta_reconstruction = eta_reconstruction,
             inverter=inverter,
             apertures=apertures,
         )
@@ -405,6 +415,7 @@ class Mpfa(FVElliptic):
         bnd,
         deviation_from_plane_tol=1e-5,
         eta=None,
+        eta_reconstruction = None,
         inverter="numba",
         apertures=None,
     ):
@@ -698,8 +709,11 @@ class Mpfa(FVElliptic):
 
         bound_flux = darcy * igrad * rhs_bound
 
-        # Optain the reconstruction of 
-        dist_grad, cell_centers = reconstruct_presssures(g, subcell_topology, eta)
+        # Optain the reconstruction of the pressure
+        if eta_reconstruction is None:
+            # If no reconstruction eta is given, use the continuity points
+            eta_reconstruction = eta
+        dist_grad, cell_centers = reconstruct_presssures(g, subcell_topology, eta_reconstruction)
 
         pressure_trace_cell = dist_grad * igrad * rhs_cells + cell_centers
         pressure_trace_bound = dist_grad * igrad * rhs_bound
