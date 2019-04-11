@@ -38,9 +38,14 @@ class BasicsTest(unittest.TestCase):
                 [0, 0, 0, 0, 0, 0],
             ]
         )
+        known_pt = np.array([1.0 / 6.0, 1.0 / 6.0, 0.0]).reshape((-1, 1))
         pts = np.array([[0, 2.0 / 3.0], [0, 1.0 / 3.0], [0, 0]])
-        pt = half_space.half_space_pt(n, x0, pts)
-        self.assertTrue(np.allclose(pt, [1.0 / 6.0, 1.0 / 6.0, 0.0]))
+        pt = half_space.half_space_pt(n, x0, pts).reshape((-1, 1))
+        self.assertTrue(
+            np.all(
+                np.sign(np.sum(n * pt, axis=0)) == np.sign(np.sum(n * known_pt, axis=0))
+            )
+        )
 
     # ------------------------------------------------------------------------------#
 
@@ -85,9 +90,20 @@ class BasicsTest(unittest.TestCase):
                 [0, 0, 0, 0, 0, 0, 0, 0, 1],
             ]
         )
+        known_pt = np.array([5.0 / 6.0, 1.0 / 2.0, 1.0 / 6.0]).reshape((-1, 1))
         pts = np.array([[0, 1], [0, 2.0 / 3.0], [0, 1]])
-        pt = half_space.half_space_pt(n, x0, pts)
-        self.assertTrue(np.allclose(pt, [5.0 / 6.0, 1.0 / 2.0, 1.0 / 6.0]))
+        pt = half_space.half_space_pt(n, x0, pts).reshape((-1, 1))
+        import pdb
+
+        #        pdb.set_trace()
+        self.assertTrue(
+            np.all(
+                np.sign(np.sum(n * (pt - x0), axis=0))
+                == np.sign(np.sum(n * (known_pt - x0), axis=0))
+            )
+        )
+
+    #        self.assertTrue(np.allclose(pt [5.0 / 6.0, 1.0 / 2.0, 1.0 / 6.0])),
 
     # ------------------------------------------------------------------------------#
 
