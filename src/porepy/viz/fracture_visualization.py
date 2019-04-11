@@ -87,6 +87,7 @@ def plot_fractures(d, p, c, colortag=None, **kwargs):
         plt.show()
     if kwargs.get("save", None) is not None:
         plt.savefig(kwargs.get("save"), bbox_inches="tight", pad_inches = 0.0)
+        plt.close()
 
 
 def plot_wells(d, w, colortag=None, **kwargs):
