@@ -128,7 +128,6 @@ if __name__ == "__main__":
             "rock": rock,
             "tol": tol["geo"],
             "folder": folder,
-            "bc_flow": bc_flow,
             "initial_advdiff": theta_ref,
             "bc_advdiff": 20 * pp.CELSIUS,
         }
