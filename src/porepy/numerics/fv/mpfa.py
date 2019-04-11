@@ -378,7 +378,7 @@ class Mpfa(FVElliptic):
             loc_bnd,
             deviation_from_plane_tol,
             eta=eta,
-            eta_reconstruction = eta_reconstruction,
+            eta_reconstruction=eta_reconstruction,
             inverter=inverter,
             apertures=apertures,
         )
@@ -415,7 +415,7 @@ class Mpfa(FVElliptic):
         bnd,
         deviation_from_plane_tol=1e-5,
         eta=None,
-        eta_reconstruction = None,
+        eta_reconstruction=None,
         inverter="numba",
         apertures=None,
     ):
@@ -690,7 +690,7 @@ class Mpfa(FVElliptic):
 
         # Flux discretization:
         # The negative in front of pr_trace_cell comes from the grad_egs
-        rhs_cells = (-sps.vstack([nk_cell, -pr_trace_cell, pr_cont_cell]))
+        rhs_cells = -sps.vstack([nk_cell, -pr_trace_cell, pr_cont_cell])
         flux = darcy * igrad * rhs_cells
 
         # Boundary conditions
@@ -713,7 +713,9 @@ class Mpfa(FVElliptic):
         if eta_reconstruction is None:
             # If no reconstruction eta is given, use the continuity points
             eta_reconstruction = eta
-        dist_grad, cell_centers = reconstruct_presssure(g, subcell_topology, eta_reconstruction)
+        dist_grad, cell_centers = reconstruct_presssure(
+            g, subcell_topology, eta_reconstruction
+        )
 
         pressure_trace_cell = dist_grad * igrad * rhs_cells + cell_centers
         pressure_trace_bound = dist_grad * igrad * rhs_bound
@@ -738,7 +740,6 @@ class Mpfa(FVElliptic):
      understand in detail to use the method. They also tend to be less well
      documented.
     """
-
 
     def _estimate_peak_memory(self, g):
         """
@@ -976,6 +977,7 @@ class Mpfa(FVElliptic):
         rhs_bound = sps.vstack([neu_rob_cell, dir_cell]) * bnd_2_all_hf
 
         return rhs_bound
+
 
 def reconstruct_presssure(g, subcell_topology, eta):
     """
