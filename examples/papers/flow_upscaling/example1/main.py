@@ -23,7 +23,6 @@ def main(file_geo, param, mesh_args, tol):
 
     # Do the computation in both directions: left-to-right and bottom-to-top
     flow_directions = {"left_to_right": 0, "bottom_to_top": 1}
-    t = np.zeros(len(flow_directions))
     folder = param["folder"]
 
     for flow_direction_name, flow_direction in flow_directions.items():
@@ -35,7 +34,9 @@ def main(file_geo, param, mesh_args, tol):
         model_flow = solvers.flow(gb, param)
 
         # compute the upscaled transmissibility
-        t[flow_direction], out_flow = fct.transmissibility(gb, param, flow_direction)
+        t, out_flow = fct.transmissibility(gb, param, flow_direction)
+        # save the transmissibility
+        np.savetxt(param["folder"] + "/transmissibility.txt", [t])
         logger.info("done")
 
         # compute the pore-volume
