@@ -279,6 +279,7 @@ class Mpfa(FVElliptic):
         bnd,
         deviation_from_plane_tol=1e-5,
         eta=0,
+        eta_reconstruction=None,
         inverter="numba",
         cells=None,
         faces=None,
