@@ -8,6 +8,7 @@ Created on Mon Dec 10 09:24:49 2018
 import numpy as np
 import logging
 import networkx as nx
+import csv
 
 import porepy as pp
 
@@ -478,6 +479,27 @@ class FractureNetwork2d(object):
 
         """
         pp.plot_fractures(self.domain, self.pts, self.edges, **kwargs)
+
+    def to_csv(self, file_name):
+        """
+        Save the 2d network on a csv file with comma , as separator.
+        Note: the file is overwritten if present.
+        The format is
+        FID, START_X, START_Y, END_X, END_Y
+
+        Parameters:
+            file_name: name of the file
+            domain: (optional) the bounding box of the problem
+        """
+
+        with open(file_name, "w") as csv_file:
+            csv_writer = csv.writer(csv_file, delimiter=",")
+            # write all the fractures
+            for edge_id, edge in enumerate(self.edges.T):
+                data = [edge_id]
+                data.extend(self.pts[:, edge[0]])
+                data.extend(self.pts[:, edge[1]])
+                csv_writer.writerow(data)
 
     def __str__(self):
         s = "Fracture set consisting of " + str(self.num_frac) + " fractures"
