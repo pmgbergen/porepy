@@ -745,7 +745,6 @@ class MpfaReconstructPressure(unittest.TestCase):
         self.assertTrue(np.all(np.abs(CC - CC_known) < 1e-12))
 
 
-
 class TestTpfaBoundaryPressure(unittest.TestCase):
     def grid(self, nx=[2, 2], physdims=None):
         if physdims is None:
