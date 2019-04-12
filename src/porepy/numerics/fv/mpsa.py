@@ -109,13 +109,14 @@ class Mpsa(
         bnd = parameter_dictionary["bc"]
 
         eta = parameter_dictionary.get("mpsa_eta", None)
+        hf_eta = parameter_dictionary.get("reconstruction_eta", None)
 
         partial = parameter_dictionary.get("partial_update", False)
         inverter = parameter_dictionary.get("inverter", None)
 
         if not partial:
             stress, bound_stress, bound_displacement_cell, bound_displacement_face = mpsa(
-                g, c, bnd, eta=eta, inverter=inverter
+                g, c, bnd, eta=eta, hf_eta=hf_eta, inverter=inverter
             )
             matrix_dictionary["stress"] = stress
             matrix_dictionary["bound_stress"] = bound_stress
