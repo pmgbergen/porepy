@@ -83,7 +83,7 @@ def main():
     methods_alessio = ["MVEM_UPWIND", "Tpfa_UPWIND", "RT0_UPWIND"]
     methods_andrea = ["MVEM_VEMSUPG"]
 
-    grids = {"grid_0": ("3k", "200", "0.005"), "grid_1": ("40k", "2600", "0.001")}
+    grids = {"grid_0": ("3k", "200", "9e-05"), "grid_1": ("40k", "2600", "0.0015")}
     grids_label = {"grid_0": "coarse", "grid_1": "fine"}
 
     for grid_name, grid in grids.items():
