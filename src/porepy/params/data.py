@@ -55,6 +55,8 @@ import numpy as np
 import porepy as pp
 import numbers
 import warnings
+import copy
+
 import porepy.params.parameter_dictionaries as dicts
 
 
@@ -171,9 +173,15 @@ class Parameters(dict):
                 in particular that the type and length of the new and old values agree,
                 see modify_variable.
         """
-        for (p, v) in zip(parameters, values):
-            modify_variable(self[keyword][p], v)
+        # ensure that both parameters are vectors
+        parameters = np.atleast_1d(parameters)
+        values = np.atleast_1d(values)
 
+        if parameters.size != values.size:
+            raise ValueError("Not consistent size")
+
+        for (p, v) in zip(parameters, values):
+            self[keyword][p] = copy.deepcopy(v)
 
 """
 Utility methods for handling of dictionaries.
