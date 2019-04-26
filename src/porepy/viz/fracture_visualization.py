@@ -44,7 +44,7 @@ def plot_fractures(d, p, c, colortag=None, **kwargs):
         else:
             raise NotImplementedError("Have not thought of more than six colors")
 
-    fig = plt.figure(kwargs.get("fig_id", 1), dpi=kwargs.get("dpi", 100))
+    plt.figure(kwargs.get("fig_id", 1), dpi=kwargs.get("dpi", 100))
 
     if kwargs.get("domain", True):
         domain_color = "red"

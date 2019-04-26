@@ -17,7 +17,7 @@ def center_network(network):
 def pore_volume(gb, param):
 
     pv = 0
-    for g, d in gb:
+    for g, _ in gb:
         # get the porosity
         if g.dim == 2:
             phi = param["rock"].POROSITY
@@ -50,7 +50,6 @@ def transmissibility(gb, param, flow_direction):
 
             # it's ok since we consider only the boundary
             aperture = np.power(param["aperture"], 2 - g.dim) * np.ones(g.num_cells)
-            measure = delta/(np.abs(g.cell_faces) * aperture)
 
             out_flow = g.face_centers[flow_direction, :] > param["domain"][dmax] - param["tol"]
             out_flow_u = np.sum(u[out_flow])
