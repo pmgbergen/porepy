@@ -86,6 +86,12 @@ def data_flow(gb, discr, model, data, bc_flag):
 
             bc_val = np.zeros(g.num_faces)
             bc_val[b_faces[in_flow]] = data.get("bc_flow", 1)
+
+            # save the tags outflow and inflow
+            g.tags["bc_flow_id"] = np.zeros(g.num_faces)
+            g.tags["bc_flow_id"][b_faces[in_flow]] = 1 # it's just a flag
+            g.tags["bc_flow_id"][b_faces[out_flow]] = 2
+
         else:
             param["bc"] = pp.BoundaryCondition(g, empty, empty)
 

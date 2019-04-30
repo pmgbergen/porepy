@@ -97,7 +97,8 @@ def grid_export(gb, P0_flux, folder):
         fname = "g_" + str(frac_num) + "_face_data.txt"
         bc = d[pp.PARAMETERS]["flow_data"]["bc"]
         bc_tag = bc.is_dir.astype(np.int) + 2 * bc.is_neu.astype(np.int)
-        np.savetxt(folder + fname, bc_tag, fmt="%d", delimiter=",")
+        bc_tags = np.vstack((bc_tag, g.tags["bc_flow_id"])).T
+        np.savetxt(folder + fname, bc_tags, fmt="%d", delimiter=",")
 
     # export the connectivity maps
     for g, d in gb:
