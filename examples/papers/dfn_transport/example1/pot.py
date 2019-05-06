@@ -56,6 +56,7 @@ def plot_multiple(file_name, legend, title, num_frac):
 def plot_num_cells(data, legend, title):
 
     data = np.loadtxt(data, delimiter=",")
+    data = np.atleast_2d(data)
 
     plt.figure(0)
     plt.plot(np.arange(data.shape[0]), data[:, -1], label=legend)
@@ -107,14 +108,15 @@ def main():
 
     master_folder = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example1/"
 
-    methods_stefano = ["OPTxfem", "OPTfem", "GCmfem"]
+    methods_stefano_1 = ["OPTxfem", "OPTfem"]
+    methods_stefano_2 = ["GCmfem"]
     methods_alessio = ["MVEM_UPWIND", "Tpfa_UPWIND", "RT0_UPWIND"]
     methods_andrea = ["MVEM_VEMSUPG"]
 
     grids = {
-        "grid_0": ("1k", "220", "0.005"),
-        "grid_1": ("3k", "650", "0.001"),
-        "grid_2": ("10k", "2100", "0.0003"),
+        "grid_0": ("1k", "220", "1", "0.005"),
+        "grid_1": ("3k", "650", "3", "0.001"),
+        "grid_2": ("10k", "2100", "10", "0.0003"),
     }
     grids_label = {"grid_0": "coarse", "grid_1": "medium", "grid_2": "fine"}
 
@@ -141,7 +143,7 @@ def main():
                 plot_multiple(data, method.replace("_", " "), title, num_frac)
 
             # Stefano
-            for method in methods_stefano:
+            for method in methods_stefano_1:
                 data = (
                     folder_in
                     + method
@@ -155,6 +157,20 @@ def main():
                 )
                 plot_multiple(data, method, title, num_frac)
 
+            for method in methods_stefano_2:
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + method
+                    + "_Cmean_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[2]
+                    + ".csv"
+                )
+                plot_multiple(data, method, title, num_frac)
+
             # Andrea
             for method in methods_andrea:
                 data = (
@@ -164,7 +180,7 @@ def main():
                     + "Cmean_"
                     + str(simul + 1)
                     + "_"
-                    + grid[2]
+                    + grid[3]
                     + ".csv"
                 )
                 plot_multiple(data, method.replace("_", " "), title, num_frac)
@@ -191,7 +207,7 @@ def main():
                 plot_multiple(data, method.replace("_", " "), title, num_frac)
 
             # Stefano
-            for method in methods_stefano:
+            for method in methods_stefano_1:
                 data = (
                     folder_in
                     + method
@@ -205,6 +221,21 @@ def main():
                 )
                 plot_multiple(data, method, title, num_frac)
 
+            # Stefano
+            for method in methods_stefano_2:
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + method
+                    + "_Cmin_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[2]
+                    + ".csv"
+                )
+                plot_multiple(data, method, title, num_frac)
+
             # Andrea
             for method in methods_andrea:
                 data = (
@@ -214,7 +245,7 @@ def main():
                     + "Cmin_"
                     + str(simul + 1)
                     + "_"
-                    + grid[2]
+                    + grid[3]
                     + ".csv"
                 )
                 plot_multiple(data, method.replace("_", " "), title, num_frac)
@@ -241,7 +272,7 @@ def main():
                 plot_multiple(data, method.replace("_", " "), title, num_frac)
 
             # Stefano
-            for method in methods_stefano:
+            for method in methods_stefano_1:
                 data = (
                     folder_in
                     + method
@@ -255,6 +286,20 @@ def main():
                 )
                 plot_multiple(data, method, title, num_frac)
 
+            for method in methods_stefano_2:
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + method
+                    + "_Cmax_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[2]
+                    + ".csv"
+                )
+                plot_multiple(data, method, title, num_frac)
+
             # Andrea
             for method in methods_andrea:
                 data = (
@@ -264,7 +309,7 @@ def main():
                     + "Cmax_"
                     + str(simul + 1)
                     + "_"
-                    + grid[2]
+                    + grid[3]
                     + ".csv"
                 )
                 plot_multiple(data, method.replace("_", " "), title, num_frac)
@@ -291,7 +336,7 @@ def main():
                 plot_single(data, method.replace("_", " "), title)
 
             # Stefano
-            for method in methods_stefano:
+            for method in methods_stefano_1:
                 data = (
                     folder_in
                     + method
@@ -305,6 +350,20 @@ def main():
                 )
                 plot_single(data, method, title)
 
+            for method in methods_stefano_2:
+                data = (
+                    folder_in
+                    + method
+                    + "/"
+                    + method
+                    + "_production_"
+                    + str(simul + 1)
+                    + "_"
+                    + grid[2]
+                    + ".csv"
+                )
+                plot_single(data, method, title)
+
             # Andrea
             for method in methods_andrea:
                 data = (
@@ -314,7 +373,7 @@ def main():
                     + "production_"
                     + str(simul + 1)
                     + "_"
-                    + grid[2]
+                    + grid[3]
                     + ".csv"
                 )
                 plot_single(data, method.replace("_", " "), title)
@@ -332,13 +391,17 @@ def main():
             plot_num_cells(data, method.replace("_", " "), title)
 
         # Stefano
-        for method in methods_stefano:
+        for method in methods_stefano_1:
             data = folder_in + method + "/" + "num_cells_" + grid[1] + ".csv"
+            plot_num_cells(data, method.replace("_", " "), title)
+
+        for method in methods_stefano_2:
+            data = folder_in + method + "/" + method + "_cells_" + grid[2] + ".csv"
             plot_num_cells(data, method.replace("_", " "), title)
 
         # Andrea
         for method in methods_andrea:
-            data = folder_in + method + "/" + "num_cells_" + grid[2] + ".csv"
+            data = folder_in + method + "/" + "num_cells_" + grid[3] + ".csv"
             plot_num_cells(data, method.replace("_", " "), title)
 
         name = grid_label + "_num_cells"

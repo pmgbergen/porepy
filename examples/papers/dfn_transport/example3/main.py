@@ -63,7 +63,7 @@ def main():
     discretizations = compute.get_discr()
 
     # geometric tolerance
-    tol = 1e-4
+    tol = 1e-3
 
     # initial condition and type of fluid/rock
     theta = 80 * pp.CELSIUS
