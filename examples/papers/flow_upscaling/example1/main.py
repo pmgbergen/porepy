@@ -17,35 +17,42 @@ def main(file_geo, param, mesh_args, tol):
 
     # Generate a mixed-dimensional mesh
     gb = network.mesh(mesh_args, do_snap=False)
-    param["domain"] = network.domain
-    domain_length = np.array([network.domain["xmax"] - network.domain["xmin"],
-                              network.domain["ymax"] - network.domain["ymin"]])
 
     # Do the computation in both directions: left-to-right and bottom-to-top
     flow_directions = {"left_to_right": 0, "bottom_to_top": 1}
     folder = param["folder"]
 
     for flow_direction_name, flow_direction in flow_directions.items():
+
+        logger.info("Rescale the problem such that in the direction the lenght is 2, from -1 to 1")
+        gb_scaled = fct.rescale_gb(gb)
+
+        domain = gb_scaled.bounding_box(as_dict=True)
+        param["domain"] = domain
+        domain_length = np.array([domain["xmax"] - domain["xmin"],
+                                  domain["ymax"] - domain["ymin"]])
+        logger.info("done")
+
         logger.info("Solve the problem in the direction " + flow_direction_name)
         # solve the pressure problem
         param["flow_direction"] = flow_direction
         param["folder"] = folder + "_" + flow_direction_name
         param["bc_flow"] = param["given_flux"] * domain_length[flow_direction] / param["km"]
-        model_flow = solvers.flow(gb, param)
+        model_flow = solvers.flow(gb_scaled, param)
 
         # compute the upscaled transmissibility
-        t, out_flow = fct.transmissibility(gb, param, flow_direction)
+        t, out_flow = fct.transmissibility(gb_scaled, param, flow_direction)
         # save the transmissibility
         np.savetxt(param["folder"] + "/transmissibility.txt", [t])
         logger.info("done")
 
         # compute the pore-volume
-        pv = fct.pore_volume(gb, param)
+        pv = fct.pore_volume(gb_scaled, param)
 
         # compute the actual ending time base on equivalent PVI
-        param["time_step"] = 10 * pv / out_flow / param["n_steps"]
+        param["time_step"] = 1e-2 / param["given_flux"] / param["n_steps"]
 
-        solvers.advdiff(gb, param, model_flow)
+        solvers.advdiff(gb_scaled, param, model_flow)
 
 
 if __name__ == "__main__":

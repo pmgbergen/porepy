@@ -79,11 +79,12 @@ def main():
 
     master_folder = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example2/"
 
-    methods_stefano = ["OPTxfem", "OPTfem", "GCmfem"]
+    methods_stefano_1 = ["OPTxfem", "OPTfem"]
+    methods_stefano_2 = ["GCmfem"]
     methods_alessio = ["MVEM_UPWIND", "Tpfa_UPWIND", "RT0_UPWIND"]
     methods_andrea = ["MVEM_VEMSUPG"]
 
-    grids = {"grid_0": ("3k", "200", "9e-05"), "grid_1": ("40k", "2600", "0.0015")}
+    grids = {"grid_0": ("3k", "200", "3", "9e-05"), "grid_1": ("40k", "2600", "40", "0.0015")}
     grids_label = {"grid_0": "coarse", "grid_1": "fine"}
 
     for grid_name, grid in grids.items():
@@ -99,13 +100,17 @@ def main():
             plot_multiple(data, method.replace("_", " "), title, num_frac)
 
         # Stefano
-        for method in methods_stefano:
+        for method in methods_stefano_1:
             data = folder_in + method + "/" + method + "_Cmean_" + grid[1] + ".csv"
+            plot_multiple(data, method, title, num_frac)
+
+        for method in methods_stefano_2:
+            data = folder_in + method + "/" + method + "_Cmean_" + grid[2] + ".csv"
             plot_multiple(data, method, title, num_frac)
 
         # Andrea
         for method in methods_andrea:
-            data = folder_in + method + "/" + "Cmean_" + grid[2] + ".csv"
+            data = folder_in + method + "/" + "Cmean_" + grid[3] + ".csv"
             plot_multiple(data, method.replace("_", " "), title, num_frac)
 
         # save
@@ -121,13 +126,17 @@ def main():
             plot_multiple(data, method.replace("_", " "), title, num_frac)
 
         # Stefano
-        for method in methods_stefano:
+        for method in methods_stefano_1:
             data = folder_in + method + "/" + method + "_Cmin_" + grid[1] + ".csv"
+            plot_multiple(data, method, title, num_frac)
+
+        for method in methods_stefano_2:
+            data = folder_in + method + "/" + method + "_Cmin_" + grid[2] + ".csv"
             plot_multiple(data, method, title, num_frac)
 
         # Andrea
         for method in methods_andrea:
-            data = folder_in + method + "/" + "Cmin_" + grid[2] + ".csv"
+            data = folder_in + method + "/" + "Cmin_" + grid[3] + ".csv"
             plot_multiple(data, method.replace("_", " "), title, num_frac)
 
         # save
@@ -143,13 +152,17 @@ def main():
             plot_multiple(data, method.replace("_", " "), title, num_frac)
 
         # Stefano
-        for method in methods_stefano:
+        for method in methods_stefano_1:
             data = folder_in + method + "/" + method + "_Cmax_" + grid[1] + ".csv"
+            plot_multiple(data, method, title, num_frac)
+
+        for method in methods_stefano_2:
+            data = folder_in + method + "/" + method + "_Cmax_" + grid[2] + ".csv"
             plot_multiple(data, method, title, num_frac)
 
         # Andrea
         for method in methods_andrea:
-            data = folder_in + method + "/" + "Cmax_" + grid[2] + ".csv"
+            data = folder_in + method + "/" + "Cmax_" + grid[3] + ".csv"
             plot_multiple(data, method.replace("_", " "), title, num_frac)
 
         # save
@@ -165,13 +178,17 @@ def main():
             plot_single(data, method.replace("_", " "), title)
 
         # Stefano
-        for method in methods_stefano:
+        for method in methods_stefano_1:
             data = folder_in + method + "/" + method + "_production_" + grid[1] + ".csv"
+            plot_single(data, method, title)
+
+        for method in methods_stefano_2:
+            data = folder_in + method + "/" + method + "_production_" + grid[2] + ".csv"
             plot_single(data, method, title)
 
         # Andrea
         for method in methods_andrea:
-            data = folder_in + method + "/" + "production_" + grid[2] + ".csv"
+            data = folder_in + method + "/" + "production_" + grid[3] + ".csv"
             plot_single(data, method.replace("_", " "), title)
 
         # save
