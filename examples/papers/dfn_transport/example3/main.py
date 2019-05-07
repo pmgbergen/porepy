@@ -63,20 +63,20 @@ def main():
     discretizations = compute.get_discr()
 
     # geometric tolerance
-    tol = 1e-4
+    tol = 1e-3
 
     # initial condition and type of fluid/rock
     theta = 80 * pp.CELSIUS
 
     # reaction coefficient \gamma * (T - T_rock)
-    gamma = 2.44e-9*0.5
+    gamma = 2.44e-9*0.125
     theta_rock = theta
 
     # boundary conditions
-    bc_flow = 2500 * pp.METER
+    bc_flow = 2500 * pp.METER / 5
     bc_trans = 30 * pp.CELSIUS
 
-    end_time = 0.5*3.154e+7
+    end_time = 3.154e+7
     n_steps = 200
     time_step = end_time / n_steps
 
