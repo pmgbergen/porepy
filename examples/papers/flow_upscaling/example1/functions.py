@@ -14,6 +14,28 @@ def center_network(network):
 
 # ------------------------------------------------------------------------------#
 
+def rescale_gb(gb):
+
+    domain = gb.bounding_box(as_dict=True)
+
+    dx = domain["xmax"] - domain["xmin"]
+    dy = domain["ymax"] - domain["ymin"]
+    ratio = dx/dy
+
+    dx_new = 2
+    dy_new = dx_new / ratio
+
+    S = np.diag([dx_new/dx, dy_new/dy, 1])
+
+    for g, _ in gb:
+        g.nodes = S.dot(g.nodes)
+
+    gb.compute_geometry()
+    return gb
+
+# ------------------------------------------------------------------------------#
+
+
 def pore_volume(gb, param):
 
     pv = 0
