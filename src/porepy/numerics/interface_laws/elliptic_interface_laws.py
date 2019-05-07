@@ -23,7 +23,6 @@ class RobinCoupling(object):
     """
 
     def __init__(self, keyword, discr_master, discr_slave=None):
-        # @ALL should the node discretization default to Tpfa?
         self.keyword = keyword
         if discr_slave is None:
             discr_slave = discr_master
@@ -75,8 +74,6 @@ class RobinCoupling(object):
 
         Eta = sps.diags(np.divide(inv_k, proj * aperture_h[cells_h]))
 
-        # @ALESSIO, @EIRIK: the tpfa and vem couplers use different sign
-        # conventions here. We should be very careful.
         matrix_dictionary_edge["Robin_discr"] = -inv_M * Eta
 
     def assemble_matrix_rhs(
@@ -401,7 +398,6 @@ class FluxPressureContinuity(RobinCoupling):
 
 
 # ------------------------------------------------------------------------------
-
 
 class RobinContact(object):
     """
