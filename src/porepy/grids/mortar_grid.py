@@ -95,7 +95,7 @@ class MortarGrid(object):
         # to the co-dimensional grid. If this assumption is not satisfied we
         # need to change the following lines
 
-        # Creation of the high_to_mortar_int, besically we start from the face_cells
+        # Creation of the high_to_mortar_int, basically we start from the face_cells
         # map and we split the relation
         # low_dimensional_cell -> 2 high_dimensional_face
         # as
@@ -198,7 +198,7 @@ class MortarGrid(object):
             [g.cell_centers for g in self.side_grids.values()]
         )
 
-    # ------------------------------------------------------------------------------#
+    ### Methods to update the mortar grid, or the neighboring grids.
 
     def update_mortar(self, side_matrix, side_grids):
         """
@@ -236,8 +236,6 @@ class MortarGrid(object):
 
         self._check_mappings()
 
-    # ------------------------------------------------------------------------------#
-
     def update_slave(self, side_matrix):
         """
         Update the low_to_mortar_int map when the lower dimensional grid is changed.
@@ -261,14 +259,10 @@ class MortarGrid(object):
         self._slave_to_mortar_int = sps.bmat(matrix, format="csc")
         self._check_mappings()
 
-    # ------------------------------------------------------------------------------#
-
     def update_master(self, matrix):
         # Make a comment here
         self._master_to_mortar_int = self._master_to_mortar_int * matrix
         self._check_mappings()
-
-    # ------------------------------------------------------------------------------#
 
     def num_sides(self):
         """
@@ -279,7 +273,31 @@ class MortarGrid(object):
         """
         return len(self.side_grids)
 
-    # ------------------------------------------------------------------------------#
+    ###
+    def project_to_side_grids(self):
+        """ Generator for the side grids (pp.Grid) representation of the mortar
+        cells, and projection operators from the mortar cells, combining cells on all
+        the sides, to the specific side grids.
+
+        Yields:
+            grid (pp.Grid): PorePy grid representing one of the sides of the
+                mortar grid. Can be used for standard discretizations.
+            proj (sps.csc_matrix): Projection from the mortar cells to this
+                side grid.
+
+        """
+        counter = 0
+        for grid in self.side_grids.values():
+            nc = grid.num_cells
+            rows = np.arange(nc)
+            cols = rows + counter
+            data = np.ones(nc)
+            proj = sps.coo_matrix((data, (rows, cols)), shape=(nc, self.num_cells)).tocsc()
+
+            counter += nc
+            yield proj, grid
+
+    ## Methods to construct projection matrices
 
     def master_to_mortar_int(self, nd=1):
         """ Project values from faces of master to the mortar, by summing quantities
