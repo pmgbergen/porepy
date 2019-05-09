@@ -486,7 +486,7 @@ class MortarGrid(object):
         dimension is 1 (default for all the above methods), the projection matrix
         will in effect not be altered.
         """
-        return sps.kron(matrix, sps.eye(nd))
+        return sps.kron(matrix, sps.eye(nd)).tocsc()
 
     # ------------------------------------------------------------------------------#
 
