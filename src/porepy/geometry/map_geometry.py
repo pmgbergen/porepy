@@ -31,13 +31,18 @@ def force_point_collinearity(pts):
     return pts[:, 0, np.newaxis] * (1 - dist) + pts[:, end, np.newaxis] * dist
 
 
-def map_grid(g, tol=1e-5):
+def map_grid(g, tol=1e-5, R=None):
     """ If a 2d or a 1d grid is passed, the function return the cell_centers,
     face_normals, and face_centers using local coordinates. If a 3d grid is
     passed nothing is applied. The return vectors have a reduced number of rows.
 
     Parameters:
     g (grid): the grid.
+    tol (double, optional): Tolerance used to check that the grid is linear or planar.
+        Defaults to 1e-5.
+    R (np.array size 3x3, optional ): Rotation matrix. The first dim rows should map
+        vectors onto the tangential space of the grid. If not provided, a rotation
+        matrix will be computed.
 
     Returns:
     cell_centers: (g.dim x g.num_cells) the mapped centers of the cells.
@@ -52,9 +57,11 @@ def map_grid(g, tol=1e-5):
     face_normals = g.face_normals
     face_centers = g.face_centers
     nodes = g.nodes
-    R = np.eye(3)
 
     if g.dim == 0 or g.dim == 3:
+        if R is None:
+            R = np.eye(3)
+
         return (
             cell_centers,
             face_normals,
@@ -64,12 +71,12 @@ def map_grid(g, tol=1e-5):
             nodes,
         )
 
-    if g.dim == 1 or g.dim == 2:
-
-        if g.dim == 2:
-            R = project_plane_matrix(g.nodes, tol=tol)
-        else:
-            R = project_line_matrix(g.nodes, tol=tol)
+    else:  # g.dim == 1 or g.dim == 2:
+        if R is None:
+            if g.dim == 2:
+                R = project_plane_matrix(g.nodes, tol=tol)
+            else:
+                R = project_line_matrix(g.nodes, tol=tol)
 
         face_centers = np.dot(R, face_centers)
 
