@@ -108,9 +108,9 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         elif method == "mvem":
             discretization = pp.MVEM(key)
         assembler = test_utils.setup_flow_assembler(gb, discretization, key)
-        A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        A_flow, b_flow = assembler.assemble_matrix_rhs()
         p = sps.linalg.spsolve(A_flow, b_flow)
-        assembler.distribute_variable(gb, p, block_dof, full_dof)
+        assembler.distribute_variable(p)
 
         if method == "mvem":
             g2d = gb.grids_of_dimension(2)[0]
@@ -783,17 +783,17 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         key = "flow"
         method = pp.Mpfa(key)
         assembler = test_utils.setup_flow_assembler(gb, method, key)
-        A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        A_flow, b_flow = assembler.assemble_matrix_rhs()
         p = sps.linalg.spsolve(A_flow, b_flow)
-        assembler.distribute_variable(gb, p, block_dof, full_dof)
+        assembler.distribute_variable(p)
 
     def run_vem(self, gb):
         key = "flow"
         method = pp.MVEM(key)
         assembler = test_utils.setup_flow_assembler(gb, method, key)
-        A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        A_flow, b_flow = assembler.assemble_matrix_rhs()
         p = sps.linalg.spsolve(A_flow, b_flow)
-        assembler.distribute_variable(gb, p, block_dof, full_dof)
+        assembler.distribute_variable(p)
         for g, d in gb:
             d["pressure"] = d["pressure"][g.num_faces :]
 
@@ -996,9 +996,9 @@ class TestMortar3D(unittest.TestCase):
         key = "flow"
         method = pp.Mpfa(key)
         assembler = test_utils.setup_flow_assembler(gb, method, key)
-        A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        A_flow, b_flow = assembler.assemble_matrix_rhs()
         p = sps.linalg.spsolve(A_flow, b_flow)
-        assembler.distribute_variable(gb, p, block_dof, full_dof)
+        assembler.distribute_variable(p)
 
     def run_vem(self, gb):
         solver_flow = pp.MVEM("flow")

@@ -123,13 +123,13 @@ def main(kf, description, multi_point, if_export=False):
         }
         d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-    assembler = pp.Assembler()
+    assembler = pp.Assembler(gb)
 
     # Discretize
-    A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+    A, b = assembler.assemble_matrix_rhs()
     p = sps.linalg.spsolve(A, b)
 
-    assembler.distribute_variable(gb, p, block_dof, full_dof)
+    assembler.distribute_variable(p)
 
     if if_export:
         save = pp.Exporter(gb, "fv", folder="fv_" + description)

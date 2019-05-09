@@ -36,10 +36,10 @@ class TestTwoGridCoupling(unittest.TestCase):
         rhs = np.random.rand(gb.dim_max())
         self.assign_parameters(gb, mortar_weight, robin_weight, rhs)
         self.assign_discretization(gb)
-        assembler = pp.Assembler()
-        matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        assembler = pp.Assembler(gb)
+        matrix, rhs = assembler.assemble_matrix_rhs()
         u = sps.linalg.spsolve(matrix, rhs)
-        assembler.distribute_variable(gb, u, block_dof, full_dof)
+        assembler.distribute_variable(u)
         self.check_solution(gb)
 
     def test_continuity_coupling(self):
@@ -62,13 +62,14 @@ class TestTwoGridCoupling(unittest.TestCase):
         self.assign_parameters(gb_full, mortar_weight, robin_weight, rhs)
         self.assign_discretization(gb_full, robin=False)
 
-        assembler = pp.Assembler()
-        matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        assembler = pp.Assembler(gb)
+        matrix, rhs = assembler.assemble_matrix_rhs()
         u = sps.linalg.spsolve(matrix, rhs)
-        assembler.distribute_variable(gb, u, block_dof, full_dof)
+        assembler.distribute_variable(u)
         self.check_solution(gb)
 
-        matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb_full)
+        assembler_full = pp.Assembler(gb_full)
+        matrix, rhs = assembler_full.assemble_matrix_rhs()
         u_full = sps.linalg.spsolve(matrix, rhs)
         # compare solutions
         # We need to rearange the solutions because the ordering of the dofs are not the same
@@ -217,10 +218,10 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
         for g, d in gb:
             pp.Biot(self.kw, self.kw_f).discretize(g, d)
 
-        assembler = pp.Assembler()
-        matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        assembler = pp.Assembler(gb)
+        matrix, rhs = assembler.assemble_matrix_rhs()
         u = sps.linalg.spsolve(matrix, rhs)
-        assembler.distribute_variable(gb, u, block_dof, full_dof)
+        assembler.distribute_variable(u)
         self.check_solution(gb)
 
     def test_continuity_coupling(self):
@@ -250,15 +251,16 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
             pp.Biot(self.kw, self.kw_f).discretize(g, d)
 
         # Assemble and solve
-        assembler = pp.Assembler()
-        matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        assembler = pp.Assembler(gb)
+        matrix, rhs = assembler.assemble_matrix_rhs()
         u = sps.linalg.spsolve(matrix, rhs)
-        assembler.distribute_variable(gb, u, block_dof, full_dof)
+        assembler.distribute_variable(u)
         self.check_solution(gb)
 
-        matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb_full)
+        assembler_full = pp.Assembler(gb_full)
+        matrix, rhs = assembler_full.assemble_matrix_rhs()
         u_full = sps.linalg.spsolve(matrix, rhs)
-        assembler.distribute_variable(gb_full, u_full, block_dof, full_dof)
+        assembler_full.distribute_variable(u_full)
         # Compare solutions:
         # We need to rearange the solutions because the ordering of the dofs are not the
         # same for the two grids.

@@ -274,11 +274,11 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                 }
             }
 
-        assembler = pp.Assembler()
-        A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        assembler = pp.Assembler(gb)
+        A, b = assembler.assemble_matrix_rhs()
         x = sps.linalg.spsolve(A, b)
 
-        assembler.distribute_variable(gb, x, block_dof, full_dof)
+        assembler.distribute_variable(x)
 
         # test pressure
         for g, d in gb:
@@ -417,4 +417,5 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    TestTpfaCouplingDiffGrids().test_two_cart_grids()
     unittest.main()
