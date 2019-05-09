@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Test of pp.Assembler().
+Test of pp.Assembler(gb).
 
 The tests together set up several combinations of variables. The grid always
 consists of two nodes, joined by a single edge. There is one cell per grid
@@ -95,12 +95,12 @@ class TestAssembler(unittest.TestCase):
                 }
             }
 
-        general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs()
 
         A_known = np.array([[0, 0, 1], [0, 0, 1], [-1, -1, 1]])
-        g1_ind = block_dof[(g1, variable_name)]
-        g2_ind = block_dof[(g2, variable_name)]
+        g1_ind = general_assembler.block_dof[(g1, variable_name)]
+        g2_ind = general_assembler.block_dof[(g2, variable_name)]
         A_known[g1_ind, g1_ind] = 1
         A_known[g2_ind, g2_ind] = 2
         self.assertTrue(np.allclose(A_known, A.todense()))
@@ -132,12 +132,12 @@ class TestAssembler(unittest.TestCase):
                 }
             }
 
-        general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs()
 
         A_known = np.array([[0, 0, 1], [0, 0, 1], [-1, -1, 1]])
-        g1_ind = block_dof[(g1, "variable_1")]
-        g2_ind = block_dof[(g2, "variable_2")]
+        g1_ind = general_assembler.block_dof[(g1, "variable_1")]
+        g2_ind = general_assembler.block_dof[(g2, "variable_2")]
         A_known[g1_ind, g1_ind] = 2
         A_known[g2_ind, g2_ind] = 4
 
@@ -172,11 +172,11 @@ class TestAssembler(unittest.TestCase):
                 }
             }
 
-        general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs()
 
         A_known = np.array([[0, 0, 1], [0, 0, 1], [-1, -1, 1]])
-        g1_ind = block_dof[(g1, variable_name)]
+        g1_ind = general_assembler.block_dof[(g1, variable_name)]
         A_known[g1_ind, g1_ind] = 1
         self.assertTrue(np.allclose(A_known, A.todense()))
 
@@ -211,9 +211,9 @@ class TestAssembler(unittest.TestCase):
                 }
             }
 
-        general_assembler = pp.Assembler()
+        general_assembler = pp.Assembler(gb, active_variables="var_11")
         # Give a false variable name
-        A, b, *_ = general_assembler.assemble_matrix_rhs(gb, active_variables="var_11")
+        A, b = general_assembler.assemble_matrix_rhs()
         self.assertTrue(A.shape == (0, 0))
         self.assertTrue(b.size == 0)
 
@@ -251,12 +251,12 @@ class TestAssembler(unittest.TestCase):
                 }
             }
 
-        general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs()
 
         A_known = np.array([[0, 0, 1], [0, 0, 1], [-1, -1, 1]])
-        g1_ind = block_dof[(g1, variable_name)]
-        g2_ind = block_dof[(g2, variable_name)]
+        g1_ind = general_assembler.block_dof[(g1, variable_name)]
+        g2_ind = general_assembler.block_dof[(g2, variable_name)]
         A_known[g1_ind, g1_ind] = 5
         A_known[g2_ind, g2_ind] = 2
         self.assertTrue(np.allclose(A_known, A.todense()))
@@ -297,12 +297,12 @@ class TestAssembler(unittest.TestCase):
                 },
             }
 
-        general_assembler = pp.Assembler()
-        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, _ = general_assembler.assemble_matrix_rhs()
 
         A_known = np.array([[0, 0, 2], [0, 0, 2], [-2, -2, -2]])
-        g1_ind = block_dof[(g1, variable_name)]
-        g2_ind = block_dof[(g2, variable_name)]
+        g1_ind = general_assembler.block_dof[(g1, variable_name)]
+        g2_ind = general_assembler.block_dof[(g2, variable_name)]
         A_known[g1_ind, g1_ind] = 1
         A_known[g2_ind, g2_ind] = 2
         assert np.allclose(A_known, A.todense())
@@ -345,17 +345,17 @@ class TestAssembler(unittest.TestCase):
                 variable_name_edge_2: {operator_1: MockNodeDiscretization(6)},
             }
 
-        general_assembler = pp.Assembler()
-        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, _ = general_assembler.assemble_matrix_rhs()
 
         A_known = np.zeros((6, 6))
 
-        g11_ind = block_dof[(g1, variable_name_1)]
-        g12_ind = block_dof[(g1, variable_name_2)]
-        g21_ind = block_dof[(g2, variable_name_1)]
-        g22_ind = block_dof[(g2, variable_name_2)]
-        e1_ind = block_dof[(e, variable_name_edge_1)]
-        e2_ind = block_dof[(e, variable_name_edge_2)]
+        g11_ind = general_assembler.block_dof[(g1, variable_name_1)]
+        g12_ind = general_assembler.block_dof[(g1, variable_name_2)]
+        g21_ind = general_assembler.block_dof[(g2, variable_name_1)]
+        g22_ind = general_assembler.block_dof[(g2, variable_name_2)]
+        e1_ind = general_assembler.block_dof[(e, variable_name_edge_1)]
+        e2_ind = general_assembler.block_dof[(e, variable_name_edge_2)]
         A_known[g11_ind, g11_ind] = 1
         A_known[g12_ind, g12_ind] = 2
         A_known[g21_ind, g21_ind] = 3
@@ -401,16 +401,14 @@ class TestAssembler(unittest.TestCase):
                 variable_name_2: {operator: MockNodeDiscretization(6)},
             }
 
-        general_assembler = pp.Assembler()
-        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(
-            gb, active_variables=[variable_name_2]
-        )
+        general_assembler = pp.Assembler(gb, active_variables=[variable_name_2])
+        A, _ = general_assembler.assemble_matrix_rhs()
 
         A_known = np.zeros((3, 3))
 
-        g12_ind = block_dof[(g1, variable_name_2)]
-        g22_ind = block_dof[(g2, variable_name_2)]
-        e2_ind = block_dof[(e, variable_name_2)]
+        g12_ind = general_assembler.block_dof[(g1, variable_name_2)]
+        g22_ind = general_assembler.block_dof[(g2, variable_name_2)]
+        e2_ind = general_assembler.block_dof[(e, variable_name_2)]
 
         A_known[g12_ind, g12_ind] = 2
         A_known[g22_ind, g22_ind] = 4
@@ -456,20 +454,20 @@ class TestAssembler(unittest.TestCase):
                 variable_name_2: {operator: MockNodeDiscretization(6)},
             }
 
-        general_assembler = pp.Assembler()
-        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(
+        general_assembler = pp.Assembler(
             gb,
             active_variables=[
                 variable_name_2,
                 "variable_name_not_among_defined_variables",
             ],
         )
+        A, _ = general_assembler.assemble_matrix_rhs()
 
         A_known = np.zeros((3, 3))
 
-        g12_ind = block_dof[(g1, variable_name_2)]
-        g22_ind = block_dof[(g2, variable_name_2)]
-        e2_ind = block_dof[(e, variable_name_2)]
+        g12_ind = general_assembler.block_dof[(g1, variable_name_2)]
+        g22_ind = general_assembler.block_dof[(g2, variable_name_2)]
+        e2_ind = general_assembler.block_dof[(e, variable_name_2)]
 
         A_known[g12_ind, g12_ind] = 2
         A_known[g22_ind, g22_ind] = 4
@@ -527,8 +525,8 @@ class TestAssembler(unittest.TestCase):
             }
 
         # Assemble the global matrix
-        general_assembler = pp.Assembler()
-        A, b, block_dof, full_dof = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs()
 
         # Define "known" node/variable ordering and the corresponding solution matrix
         grids = [g1, g1, g2, g2, e, e]
@@ -558,17 +556,29 @@ class TestAssembler(unittest.TestCase):
 
         # Permute the assembled matrix to the order defined above.
         A_permuted, _ = permute_matrix_vector(
-            A, b, block_dof, full_dof, grids, variables
+            A,
+            b,
+            general_assembler.block_dof,
+            general_assembler.full_dof,
+            grids,
+            variables,
         )
         self.assertTrue(np.allclose(A_known, A_permuted.todense()))
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b_2, block_dof_2, full_dof_2 = general_assembler.assemble_matrix_rhs(
+        permuted_assembler = pp.Assembler(
             gb, active_variables=[variable_name_1, variable_name_2]
         )
+
+        A_2, b_2 = permuted_assembler.assemble_matrix_rhs()
         A_2_permuted, _ = permute_matrix_vector(
-            A_2, b_2, block_dof_2, full_dof_2, grids, variables
+            A_2,
+            b_2,
+            permuted_assembler.block_dof,
+            permuted_assembler.full_dof,
+            grids,
+            variables,
         )
         self.assertTrue(np.allclose(A_known, A_2_permuted.todense()))
 
@@ -621,16 +631,14 @@ class TestAssembler(unittest.TestCase):
                 + variable_name_1: {operator_edge: MockNodeDiscretization(1)},
             }
 
-        general_assembler = pp.Assembler()
-        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(
-            gb, active_variables=variable_name_1
-        )
+        general_assembler = pp.Assembler(gb, active_variables=variable_name_1)
+        A, _ = general_assembler.assemble_matrix_rhs()
 
         A_known = np.zeros((3, 3))
 
-        g11_ind = block_dof[(g1, variable_name_1)]
-        g21_ind = block_dof[(g2, variable_name_1)]
-        e1_ind = block_dof[(e, variable_name_1)]
+        g11_ind = general_assembler.block_dof[(g1, variable_name_1)]
+        g21_ind = general_assembler.block_dof[(g2, variable_name_1)]
+        e1_ind = general_assembler.block_dof[(e, variable_name_1)]
         A_known[g11_ind, g11_ind] = 1
 
         A_known[g21_ind, g21_ind] = 3
@@ -684,8 +692,8 @@ class TestAssembler(unittest.TestCase):
             }
 
         # Assemble the global matrix
-        general_assembler = pp.Assembler()
-        A, b, block_dof, full_dof = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs()
 
         # Define "known" node/variable ordering and the corresponding solution matrix
         grids = [g1, g1, g2, g2, e, e]
@@ -715,17 +723,28 @@ class TestAssembler(unittest.TestCase):
 
         # Permute the assembled matrix to the order defined above.
         A_permuted, _ = permute_matrix_vector(
-            A, b, block_dof, full_dof, grids, variables
+            A,
+            b,
+            general_assembler.block_dof,
+            general_assembler.full_dof,
+            grids,
+            variables,
         )
         self.assertTrue(np.allclose(A_known, A_permuted.todense()))
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b_2, block_dof_2, full_dof_2 = general_assembler.assemble_matrix_rhs(
+        permuted_assembler = pp.Assembler(
             gb, active_variables=[variable_name_1, variable_name_2]
         )
+        A_2, b_2 = permuted_assembler.assemble_matrix_rhs()
         A_2_permuted, _ = permute_matrix_vector(
-            A_2, b_2, block_dof_2, full_dof_2, grids, variables
+            A_2,
+            b_2,
+            permuted_assembler.block_dof,
+            permuted_assembler.full_dof,
+            grids,
+            variables,
         )
         self.assertTrue(np.allclose(A_known, A_2_permuted.todense()))
 
@@ -764,8 +783,8 @@ class TestAssembler(unittest.TestCase):
             }
 
         # Assemble the global matrix
-        general_assembler = pp.Assembler()
-        A, b, block_dof, full_dof = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs()
 
         # Define "known" node/variable ordering and the corresponding solution matrix
         grids = [g1, g1, g2, g2, e, e]
@@ -788,17 +807,26 @@ class TestAssembler(unittest.TestCase):
 
         # Permute the assembled matrix to the order defined above.
         A_permuted, _ = permute_matrix_vector(
-            A, b, block_dof, full_dof, grids, variables
+            A,
+            b,
+            general_assembler.block_dof,
+            general_assembler.full_dof,
+            grids,
+            variables,
         )
         self.assertTrue(np.allclose(A_known, A_permuted.todense()))
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b_2, block_dof_2, full_dof_2 = general_assembler.assemble_matrix_rhs(
-            gb, active_variables=[key_1, key_2]
-        )
+        permuted_assembler = pp.Assembler(gb, active_variables=[key_1, key_2])
+        A_2, b_2 = permuted_assembler.assemble_matrix_rhs()
         A_2_permuted, _ = permute_matrix_vector(
-            A_2, b_2, block_dof_2, full_dof_2, grids, variables
+            A_2,
+            b_2,
+            permuted_assembler.block_dof,
+            permuted_assembler.full_dof,
+            grids,
+            variables,
         )
         self.assertTrue(np.allclose(A_known, A_2_permuted.todense()))
 
@@ -843,8 +871,8 @@ class TestAssembler(unittest.TestCase):
             }
 
         # Assemble the global matrix
-        general_assembler = pp.Assembler()
-        A, b, block_dof, full_dof = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs()
 
         # Define "known" node/variable ordering and the corresponding solution matrix
         grids = [g1, g1, g2, e, e]
@@ -866,17 +894,26 @@ class TestAssembler(unittest.TestCase):
 
         # Permute the assembled matrix to the order defined above.
         A_permuted, _ = permute_matrix_vector(
-            A, b, block_dof, full_dof, grids, variables
+            A,
+            b,
+            general_assembler.block_dof,
+            general_assembler.full_dof,
+            grids,
+            variables,
         )
         self.assertTrue(np.allclose(A_known, A_permuted.todense()))
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b_2, block_dof_2, full_dof_2 = general_assembler.assemble_matrix_rhs(
-            gb, active_variables=[key_1, key_2]
-        )
+        permuted_assembler = pp.Assembler(gb, active_variables=[key_1, key_2])
+        A_2, b_2 = permuted_assembler.assemble_matrix_rhs()
         A_2_permuted, _ = permute_matrix_vector(
-            A_2, b_2, block_dof_2, full_dof_2, grids, variables
+            A_2,
+            b_2,
+            permuted_assembler.block_dof,
+            permuted_assembler.full_dof,
+            grids,
+            variables,
         )
         self.assertTrue(np.allclose(A_known, A_2_permuted.todense()))
 
@@ -927,8 +964,8 @@ class TestAssembler(unittest.TestCase):
             }
 
         # Assemble the global matrix
-        general_assembler = pp.Assembler()
-        A, b, block_dof, full_dof = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs()
 
         # Define "known" node/variable ordering and the corresponding solution matrix
         grids = [g1, g1, g2, e, e]
@@ -950,17 +987,26 @@ class TestAssembler(unittest.TestCase):
 
         # Permute the assembled matrix to the order defined above.
         A_permuted, _ = permute_matrix_vector(
-            A, b, block_dof, full_dof, grids, variables
+            A,
+            b,
+            general_assembler.block_dof,
+            general_assembler.full_dof,
+            grids,
+            variables,
         )
         self.assertTrue(np.allclose(A_known, A_permuted.todense()))
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b_2, block_dof_2, full_dof_2 = general_assembler.assemble_matrix_rhs(
-            gb, active_variables=[key_1, key_2]
-        )
+        permuted_assembler = pp.Assembler(gb, active_variables=[key_1, key_2])
+        A_2, b_2 = permuted_assembler.assemble_matrix_rhs()
         A_2_permuted, _ = permute_matrix_vector(
-            A_2, b_2, block_dof_2, full_dof_2, grids, variables
+            A_2,
+            b_2,
+            permuted_assembler.block_dof,
+            permuted_assembler.full_dof,
+            grids,
+            variables,
         )
         self.assertTrue(np.allclose(A_known, A_2_permuted.todense()))
 
@@ -1011,8 +1057,8 @@ class TestAssembler(unittest.TestCase):
             }
 
         # Assemble the global matrix
-        general_assembler = pp.Assembler()
-        A, b, block_dof, full_dof = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs()
 
         # Define "known" node/variable ordering and the corresponding solution matrix
         grids = [g1, g1, g2, e, e]
@@ -1036,17 +1082,21 @@ class TestAssembler(unittest.TestCase):
 
         # Permute the assembled matrix to the order defined above.
         A_permuted, _ = permute_matrix_vector(
-            A, b, block_dof, full_dof, grids, variables
+            A,
+            b,
+            general_assembler.block_dof,
+            general_assembler.full_dof,
+            grids,
+            variables,
         )
         self.assertTrue(np.allclose(A_known, A_permuted.todense()))
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b_2, block_dof_2, full_dof_2 = general_assembler.assemble_matrix_rhs(
-            gb, active_variables=[key_1, key_2]
-        )
+        new_assembler = pp.Assembler(gb, active_variables=[key_1, key_2])
+        A_2, b_2 = general_assembler.assemble_matrix_rhs()
         A_2_permuted, _ = permute_matrix_vector(
-            A_2, b_2, block_dof_2, full_dof_2, grids, variables
+            A_2, b_2, new_assembler.block_dof, new_assembler.full_dof, grids, variables
         )
         self.assertTrue(np.allclose(A_known, A_2_permuted.todense()))
 
@@ -1075,14 +1125,14 @@ class TestAssembler(unittest.TestCase):
                 }
             }
 
-        general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs()
 
         A_known = np.zeros((3, 3))
 
-        g11_ind = block_dof[(g1, key)]
-        g22_ind = block_dof[(g2, key)]
-        e1_ind = block_dof[(e, key)]
+        g11_ind = general_assembler.block_dof[(g1, key)]
+        g22_ind = general_assembler.block_dof[(g2, key)]
+        e1_ind = general_assembler.block_dof[(e, key)]
 
         A_known[g11_ind, g11_ind] = 1
         A_known[g22_ind, g22_ind] = 3
@@ -1122,14 +1172,14 @@ class TestAssembler(unittest.TestCase):
                 }
             }
 
-        general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs()
 
         A_known = np.zeros((3, 3))
 
-        g11_ind = block_dof[(g1, "var1")]
-        g22_ind = block_dof[(g2, "var1")]
-        e1_ind = block_dof[(e, "vare")]
+        g11_ind = general_assembler.block_dof[(g1, "var1")]
+        g22_ind = general_assembler.block_dof[(g2, "var1")]
+        e1_ind = general_assembler.block_dof[(e, "vare")]
 
         A_known[g11_ind, g11_ind] = 2
         A_known[g22_ind, g22_ind] = 3
@@ -1181,17 +1231,15 @@ class TestAssembler(unittest.TestCase):
                 key_2 + "_" + key_1: {term: MockNodeDiscretization(1)},
             }
 
-        general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(
-            gb, add_matrices=False
-        )
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs(add_matrices=False)
 
-        g11_ind = block_dof[(g1, key_1)]
-        g12_ind = block_dof[(g1, key_2)]
-        g21_ind = block_dof[(g2, key_1)]
-        g22_ind = block_dof[(g2, key_2)]
-        e1_ind = block_dof[(e, key_1)]
-        e2_ind = block_dof[(e, key_2)]
+        g11_ind = general_assembler.block_dof[(g1, key_1)]
+        g12_ind = general_assembler.block_dof[(g1, key_2)]
+        g21_ind = general_assembler.block_dof[(g2, key_1)]
+        g22_ind = general_assembler.block_dof[(g2, key_2)]
+        e1_ind = general_assembler.block_dof[(e, key_1)]
+        e2_ind = general_assembler.block_dof[(e, key_2)]
 
         # First check first variable, which has only one term
         A_1_1 = np.zeros((6, 6))
@@ -1323,5 +1371,5 @@ class MockEdgeDiscretizationOneSidedModifiesNode(object):
 
 
 if __name__ == "__main__":
-    TestAssembler().test_two_variables_no_coupling()
+    TestAssembler().test_single_variable_no_node_disretization()
     unittest.main()
