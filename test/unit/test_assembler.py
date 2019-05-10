@@ -211,11 +211,140 @@ class TestAssembler(unittest.TestCase):
                 }
             }
 
-        general_assembler = pp.Assembler(gb, active_variables="var_11")
         # Give a false variable name
+        general_assembler = pp.Assembler(gb, active_variables="var_11")
         A, b = general_assembler.assemble_matrix_rhs()
         self.assertTrue(A.shape == (0, 0))
         self.assertTrue(b.size == 0)
+
+    def test_explicitly_define_edge_variable_active(self):
+        """ Explicitly define edge and node variables as active. The result should
+        be the same as if no active variable was defined.
+        
+        """
+
+        gb = self.define_gb()
+        variable_name = "variable_1"
+        variable_name_edge = "variable_edge"
+        discretization_operator = "operator_discr"
+        for g, d in gb:
+            d[pp.PRIMARY_VARIABLES] = {variable_name: {"cells": 1}}
+            if g.grid_num == 1:
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {discretization_operator: MockNodeDiscretization(1)}
+                }
+                g1 = g
+            else:
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {discretization_operator: MockNodeDiscretization(2)}
+                }
+                g2 = g
+
+        for e, d in gb.edges():
+            d[pp.PRIMARY_VARIABLES] = {variable_name_edge: {"cells": 1}}
+            d[pp.COUPLING_DISCRETIZATION] = {
+                "coupling_discretization": {
+                    g1: (variable_name, discretization_operator),
+                    g2: (variable_name, discretization_operator),
+                    e: (variable_name_edge, MockEdgeDiscretization(1, 1)),
+                }
+            }
+
+        general_assembler = pp.Assembler(
+            gb, active_variables=[variable_name, variable_name_edge]
+        )
+        A, b = general_assembler.assemble_matrix_rhs()
+
+        A_known = np.array([[1, 0, 1], [0, 2, 1], [-1, -1, 1]])
+        g1_ind = general_assembler.block_dof[(g1, variable_name)]
+        A_known[g1_ind, g1_ind] = 1
+        self.assertTrue(np.allclose(A_known, A.todense()))
+
+    def test_define_edge_variable_inactive(self):
+        """ Define edge-variable as inactive. The resulting system should have
+        no coupling term.
+        
+        """
+
+        gb = self.define_gb()
+        variable_name = "variable_1"
+        variable_name_edge = "variable_edge"
+        discretization_operator = "operator_discr"
+        for g, d in gb:
+            d[pp.PRIMARY_VARIABLES] = {variable_name: {"cells": 1}}
+            if g.grid_num == 1:
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {discretization_operator: MockNodeDiscretization(1)}
+                }
+                g1 = g
+            else:
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {discretization_operator: MockNodeDiscretization(2)}
+                }
+                g2 = g
+
+        for e, d in gb.edges():
+            d[pp.PRIMARY_VARIABLES] = {variable_name_edge: {"cells": 1}}
+            d[pp.COUPLING_DISCRETIZATION] = {
+                "coupling_discretization": {
+                    g1: (variable_name, discretization_operator),
+                    g2: (variable_name, discretization_operator),
+                    e: (variable_name_edge, MockEdgeDiscretization(1, 1)),
+                }
+            }
+
+        general_assembler = pp.Assembler(gb, active_variables=[variable_name])
+        A, b = general_assembler.assemble_matrix_rhs()
+
+        A_known = np.array([[1, 0], [0, 2]])
+        g1_ind = general_assembler.block_dof[(g1, variable_name)]
+        A_known[g1_ind, g1_ind] = 1
+        self.assertTrue(np.allclose(A_known, A.todense()))
+
+    def test_define_edge_variable_active_node_variable_inactive(self):
+        """ Define edge-variable as inactive. The resulting system should have
+        no coupling term.
+        
+        """
+
+        gb = self.define_gb()
+        variable_name = "variable_1"
+        node_variable_2 = "node_variable_2"
+        variable_name_edge = "variable_edge"
+        discretization_operator = "operator_discr"
+        for g, d in gb:
+
+            if g.grid_num == 1:
+                d[pp.PRIMARY_VARIABLES] = {variable_name: {"cells": 1}}
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {discretization_operator: MockNodeDiscretization(1)}
+                }
+                g1 = g
+            else:
+                d[pp.PRIMARY_VARIABLES] = {node_variable_2: {"cells": 1}}
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {discretization_operator: MockNodeDiscretization(2)}
+                }
+                g2 = g
+
+        for e, d in gb.edges():
+            d[pp.PRIMARY_VARIABLES] = {variable_name_edge: {"cells": 1}}
+            d[pp.COUPLING_DISCRETIZATION] = {
+                "coupling_discretization": {
+                    g1: (variable_name, discretization_operator),
+                    g2: (node_variable_2, discretization_operator),
+                    e: (variable_name_edge, MockEdgeDiscretization(1, 1)),
+                }
+            }
+        with self.assertRaises(ValueError) as context:
+            _ = pp.Assembler(gb, active_variables=[variable_name, variable_name_edge])
+            self.assertTrue(
+                "Edge variable "
+                + variable_name_edge
+                + " is coupled to an inactive node variable "
+                + node_variable_2
+                in context.exception
+            )
 
     def test_single_variable_multiple_node_discretizations(self):
         """ A single variable, with multiple discretizations for one of the nodes
@@ -646,6 +775,8 @@ class TestAssembler(unittest.TestCase):
         A_known[e1_ind, e1_ind] = 7
 
         self.assertTrue(np.allclose(A_known, A.todense()))
+
+    # Tests with node-edge couplings
 
     def test_two_variables_coupling_between_node_and_edge(self):
         """ Two variables, coupling between the variables internal to each node.
@@ -1371,5 +1502,5 @@ class MockEdgeDiscretizationOneSidedModifiesNode(object):
 
 
 if __name__ == "__main__":
-    TestAssembler().test_single_variable_no_node_disretization()
+    TestAssembler().test_two_variables_coupling_between_node_and_edge_mixed_dependencies()
     unittest.main()
