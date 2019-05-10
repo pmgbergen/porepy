@@ -827,3 +827,28 @@ class Assembler:
                 loc_value = 0
             values[dof[bi] : dof[bi + 1]] = loc_value
         return values
+    
+    def dof_ind(self, g, name):
+        """ Get the indices in the global system of variables associated with a
+        given node / edge (in the GridBucket sense) and a given variable.
+        
+        Parameters:
+            g (pp.Grid or pp.GridBucket edge): Either a grid, or an edge in the
+                GridBucket.
+            name (str): Name of a variable. Should be an active variable.
+            
+        Returns:
+            np.array (int): Index of degrees of freedom for this variable.
+        
+        """
+        block_ind = self.block_dof[(g, name)]
+        dof_start = np.hstack((0, np.cumsum(self.full_dof)))
+        return np.arange(dof_start[block_ind], dof_start[block_ind + 1])
+        
+    def num_dof(self):
+        """ Get total number of unknowns of the identified variables.
+        
+        Returns:
+            int: Number of unknowns. Size of solution vector.
+        """
+        return self.full_dof.sum()
