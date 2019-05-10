@@ -1202,7 +1202,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         key = "flow"
         method = pp.Mpfa(key)
         self._solve(gb, method, key)
-            
+
     def run_vem(self, gb):
         key = "flow"
         method = pp.MVEM(key)
@@ -1293,6 +1293,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         gb = self.setup(False, num_1d=4)
         self.run_RT0(gb)
         self.verify_cv(gb)
+
 
 if __name__ == "__main__":
     unittest.main()

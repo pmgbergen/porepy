@@ -220,7 +220,7 @@ class TestAssembler(unittest.TestCase):
     def test_explicitly_define_edge_variable_active(self):
         """ Explicitly define edge and node variables as active. The result should
         be the same as if no active variable was defined.
-        
+
         """
 
         gb = self.define_gb()
@@ -263,7 +263,7 @@ class TestAssembler(unittest.TestCase):
     def test_define_edge_variable_inactive(self):
         """ Define edge-variable as inactive. The resulting system should have
         no coupling term.
-        
+
         """
 
         gb = self.define_gb()
@@ -304,7 +304,7 @@ class TestAssembler(unittest.TestCase):
     def test_define_edge_variable_active_node_variable_inactive(self):
         """ Define edge-variable as inactive. The resulting system should have
         no coupling term.
-        
+
         """
 
         gb = self.define_gb()
