@@ -22,8 +22,23 @@ class Assembler:
 
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, gb, active_variables=None):
+        """ Construct an assembler for a given GridBucket on a given set of variables.
+
+        Parameters:
+            self.gb (pp.GridBucket): Mixed-dimensional grid where the equations are
+                discretized. The data dictionaries on nodes and edges should contain
+                variable and discretization information, see tutorial for details.
+            matrix_format (str, optional): Matrix format used for the system matrix.
+                Defaults to CSR.
+            active_variables (list of str, optional): Names of variables to be assembled.
+                If provided, only decleared primary variables with a name found in the
+                list will be assembled, and the size of the matrix will be reduced
+                accordingly.
+        """
+        self.gb = gb
+        self.active_variables = active_variables
+        self._identify_dofs()
 
     def discretization_key(self, row, col=None):
         if col is None or row == col:
@@ -74,9 +89,7 @@ class Assembler:
             # Coupling between edge and node
             return "_".join([term, key_1, key_2, key_3])
 
-    def assemble_matrix_rhs(
-        self, gb, matrix_format="csr", active_variables=None, add_matrices=True
-    ):
+    def assemble_matrix_rhs(self, matrix_format="csr", add_matrices=True):
         """ Assemble the system matrix and right hand side for a general linear
         multi-physics problem, and return a block matrix and right hand side.
 
@@ -100,15 +113,8 @@ class Assembler:
         well posed.
 
         Parameters:
-            gb (pp.GridBucket): Mixed-dimensional grid where the equations are
-                discretized. The data dictionaries on nodes and edges should contain
-                variable and discretization information, see tutorial for details.
             matrix_format (str, optional): Matrix format used for the system matrix.
                 Defaults to CSR.
-            active_variables (list of str, optional): Names of variables to be assembled.
-                If provided, only decleared primary variables with a name found in the
-                list will be assembled, and the size of the matrix will be reduced
-                accordingly.
             add_matrices (boolean, optional): If True, a single system matrix is added,
                 else, separate matrices for each variable and term are returned in a
                 dictionary.
@@ -137,29 +143,27 @@ class Assembler:
         # dofs per local variable.
         # For details, and some nuances, see documentation of the funciton
         # _initialize_matrix_rhs.
-        matrix, rhs, block_dof, full_dof = self._initialize_matrix_rhs(
-            gb, active_variables, sps_matrix
-        )
+        matrix, rhs = self._initialize_matrix_rhs(sps_matrix)
         # If there are no variables - most likely if the active_variables do not
         # match any of the decleared variables, we can return now.
-        if len(full_dof) == 0:
+        if len(self.full_dof) == 0:
             if add_matrices:
                 # If a single returned value is expected, (summed matrices) it is most easy
                 # to generate a new, empty matrix, of the right size.
-                mat, vec = self._assign_matrix_vector(full_dof, sps_matrix)
-                return mat, vec, block_dof, full_dof
+                mat, vec = self._assign_matrix_vector(self.full_dof, sps_matrix)
+                return mat, vec
             else:
-                return matrix, rhs, block_dof, full_dof
+                return matrix, rhs
 
         # Loop over all grids, discretize (if necessary) and assemble. This
         # will populate the main diagonal of the equation.
-        for g, data in gb:
-            loc_var = self._local_variables(data, active_variables)
+        for g, data in self.gb:
+            loc_var = self._local_variables(data, self.active_variables)
             for row in loc_var.keys():
                 for col in loc_var.keys():
                     # Block indices, row and column
-                    ri = block_dof[(g, row)]
-                    ci = block_dof[(g, col)]
+                    ri = self.block_dof[(g, row)]
+                    ci = self.block_dof[(g, col)]
 
                     # Get the specified discretization, if any.
                     discr_data = data.get(pp.DISCRETIZATION, None)
@@ -193,23 +197,23 @@ class Assembler:
                             rhs[var_key_name][ri] += loc_b
 
         # Loop over all edges
-        for e, data_edge in gb.edges():
+        for e, data_edge in self.gb.edges():
 
             # Grids and data dictionaries for master and slave
-            g_slave, g_master = gb.nodes_of_edge(e)
-            data_slave = gb.node_props(g_slave)
-            data_master = gb.node_props(g_master)
+            g_slave, g_master = self.gb.nodes_of_edge(e)
+            data_slave = self.gb.node_props(g_slave)
+            data_master = self.gb.node_props(g_master)
 
             # Extract the active local variables for edge
-            active_edge_var = self._local_variables(data_edge, active_variables)
+            active_edge_var = self._local_variables(data_edge, self.active_variables)
 
             # First discretize interaction between edge variables locally.
             # This is in direct analogue with the corresponding operation on
             # nodes.
             for row in active_edge_var.keys():
                 for col in active_edge_var.keys():
-                    ri = block_dof[(e, row)]
-                    ci = block_dof[(e, col)]
+                    ri = self.block_dof[(e, row)]
+                    ci = self.block_dof[(e, col)]
 
                     discr_data = data_edge.get(pp.DISCRETIZATION)
                     if discr_data is None:
@@ -247,7 +251,7 @@ class Assembler:
                 edge_key = edge_vals[0]
 
                 # Global block index associated with this edge variable
-                ei = block_dof[(e, edge_key)]
+                ei = self.block_dof[(e, edge_key)]
 
                 # Get variable name and block index of the master variable.
                 # NOTE: We do no test on whether the master variable is among
@@ -266,7 +270,7 @@ class Assembler:
                     # Name of the relevant variable on the master grid
                     master_key = master_vals[0]
                     # Global index associated with the master variable
-                    mi = block_dof.get((g_master, master_key))
+                    mi = self.block_dof.get((g_master, master_key))
 
                     # Also define the key to access the matrix of the discretization of
                     # the master variable on the master node.
@@ -280,7 +284,7 @@ class Assembler:
                     si = None
                 else:
                     slave_key = slave_vals[0]
-                    si = block_dof.get((g_slave, slave_key))
+                    si = self.block_dof.get((g_slave, slave_key))
                     # Also define the key to access the matrix of the discretization of
                     # the slave variable on the slave node.
                     mat_key_slave = self._variable_term_key(
@@ -308,7 +312,7 @@ class Assembler:
                     # Associate the first variable with master, the second with
                     # slave, and the final with edge.
                     loc_mat, _ = self._assign_matrix_vector(
-                        full_dof[[mi, si, ei]], sps_matrix
+                        self.full_dof[[mi, si, ei]], sps_matrix
                     )
 
                     # Pick out the discretizations on the master and slave node
@@ -339,7 +343,7 @@ class Assembler:
                     # si is None
                     # The operation is a simplified version of the full option above.
                     loc_mat, _ = self._assign_matrix_vector(
-                        full_dof[[mi, ei]], sps_matrix
+                        self.full_dof[[mi, ei]], sps_matrix
                     )
                     loc_mat[0, 0] = matrix[mat_key_master][mi, mi]
                     tmp_mat, loc_rhs = e_discr.assemble_matrix_rhs(
@@ -358,7 +362,7 @@ class Assembler:
                     # mi is None
                     # The operation is a simplified version of the full option above.
                     loc_mat, _ = self._assign_matrix_vector(
-                        full_dof[[si, ei]], sps_matrix
+                        self.full_dof[[si, ei]], sps_matrix
                     )
                     loc_mat[0, 0] = matrix[mat_key_slave][si, si]
                     tmp_mat, loc_rhs = e_discr.assemble_matrix_rhs(
@@ -382,7 +386,7 @@ class Assembler:
         # add the matrices associated with different terms, and anyhow convert
         # the matrix to a sps. block matrix.
         if add_matrices:
-            size = np.sum(full_dof)
+            size = np.sum(self.full_dof)
             full_matrix = sps_matrix((size, size))
             full_rhs = np.zeros(size)
 
@@ -392,7 +396,7 @@ class Assembler:
             for vec in rhs.values():
                 full_rhs += np.concatenate(tuple(vec))
 
-            return full_matrix, full_rhs, block_dof, full_dof
+            return full_matrix, full_rhs
 
         else:
             for k, v in matrix.items():
@@ -400,9 +404,9 @@ class Assembler:
             for k, v in rhs.items():
                 rhs[k] = np.concatenate(tuple(v))
 
-            return matrix, rhs, block_dof, full_dof
+            return matrix, rhs
 
-    def _initialize_matrix_rhs(self, gb, active_variables, sps_matrix):
+    def _identify_dofs(self):
         """
         Initialize local matrices for all combinations of variables and operators.
 
@@ -430,7 +434,7 @@ class Assembler:
         the effort to split the matrix even further.
 
         Parameters:
-            gb (GridBukcet): Mixed-dimensional grid.
+            self.gb (GridBukcet): Mixed-dimensional grid.
             active_variables (list of str): Name of active variables. If empty,
                 or None, all variables are considered active.
             sps_matrix (class): Class for sparse matrices, used to initialize
@@ -448,6 +452,8 @@ class Assembler:
                 needed.
 
         """
+        active_variables = self.active_variables
+
         # Implementation note: To fully understand the structure of this function
         # it is useful to consider an example of a data dictionary with decleared
         # primary variables and discretization operators.
@@ -470,7 +476,7 @@ class Assembler:
 
         # Loop over all nodes in the grid bucket, identify its local and active
         # variables.
-        for g, d in gb:
+        for g, d in self.gb:
 
             # Loop over variables, count dofs and identify variable-term
             # combinations internal to the node
@@ -525,7 +531,7 @@ class Assembler:
         # Next do the equivalent operation for edges in the grid.
         # Most steps are identical to the operations on the nodes, we comment
         # only on edge-specific aspects; see above loop for more information
-        for e, d in gb.edges():
+        for e, d in self.gb.edges():
             mg = d["mortar_grid"]
 
             for key_1, v in self._local_variables(d, active_variables).items():
@@ -559,7 +565,7 @@ class Assembler:
 
             # Finally, identify variable combinations for coupling terms.
             # This involves both the neighboring grids
-            g_slave, g_master = gb.nodes_of_edge(e)
+            g_slave, g_master = self.gb.nodes_of_edge(e)
             discr = d.get(pp.COUPLING_DISCRETIZATION, None)
             if discr is None:
                 continue
@@ -570,7 +576,7 @@ class Assembler:
                 # Identify this term in the discretization by the variable names
                 # on the edge, the variable names of the slave and master grid
                 # in that order, and finally the term name.
-                # There is a tacit assumption here that gb.nodes_of_edge return the
+                # There is a tacit assumption here that self.gb.nodes_of_edge return the
                 # grids in the same order here and in the assembly. This should be
                 # okay. The consequences for the methods if this is no longer the case is unclear.
 
@@ -597,21 +603,51 @@ class Assembler:
                     self._variable_term_key(term, key_edge, key_slave, key_master)
                 )
 
-        # By now, we have identified all active variables on nodes and edges in
-        # the GridBucket, and assigned a block index to ecah variable on each
-        # node/edge. Finally, we need to assign matrix and right hand sides
-        # for these terms.
+        # Array version of the number of dofs per node/edge and variable
+        self.full_dof = np.array(full_dof)
+        self.block_dof = block_dof
+        self.variable_combinations = variable_combinations
+
+    def _initialize_matrix_rhs(self, sps_matrix):
+        """
+        Initialize a set of matrices (for left hand sides) and vectors (rhs)
+        for all operators associated with a variable (example: a temperature
+        variable in an advection-diffusion problem will typically have two
+        operators, one for advection, one for diffusion).
+
+        It is useful to differ between the discretization matrices of different
+        variables and terms for at least two reasons:
+          1) It is useful in time stepping methods, where only some terms
+             are time dependent
+          2) In some discretization schemes, the coupling discretization can
+             override discretizations on the neighboring nodes. It is critical
+             that this only overrides values associated with the relevant terms.
+        We therefore generate one discretization matrix and right hand side
+        per term, as identified in variable_combinations.
+        NOTE: It is possible to construct cases where variable and discretization
+        names give unfortunate consequences. However, it does not seem worth
+        the effort to split the matrix even further.
+
+        Parameters:
+            sps_matrix (class): Class for sparse matrices, used to initialize
+                individual blokcs in the matrix.
+
+        Returns:
+            dict: Global system matrices, on block form (one per node/edge per
+                variable). There is one item per term (e.g. diffusion/advection)
+                per variable.
+            dict: Right hand sides. Similar to the system matrix.
+
+        """
         # We will have one discretization matrix per variable
         matrix_dict = {}
         rhs_dict = {}
 
-        # Array version of the number of dofs per node/edge and variable
-        full_dof = np.array(full_dof)
-        num_blocks = len(full_dof)
+        num_blocks = len(self.full_dof)
 
         # Uniquify list of variable combinations. Then iterate over all variable
         # combinations and initialize matrices of the right size
-        for var in list(set(variable_combinations)):
+        for var in list(set(self.variable_combinations)):
 
             # Generate a block matrix
             matrix_dict[var] = np.empty((num_blocks, num_blocks), dtype=np.object)
@@ -623,10 +659,12 @@ class Assembler:
             for di in np.arange(num_blocks):
                 # Initilize the block diagonal parts, this is useful for the bmat done
                 # at the end of assemble_matrix_rhs to know the correct shape of the full_matrix
-                matrix_dict[var][di, di] = sps_matrix((full_dof[di], full_dof[di]))
-                rhs_dict[var][di] = np.zeros(full_dof[di])
+                matrix_dict[var][di, di] = sps_matrix(
+                    (self.full_dof[di], self.full_dof[di])
+                )
+                rhs_dict[var][di] = np.zeros(self.full_dof[di])
 
-        return matrix_dict, rhs_dict, block_dof, full_dof
+        return matrix_dict, rhs_dict
 
     def _assign_matrix_vector(self, dof, sps_matrix):
 
@@ -641,11 +679,6 @@ class Assembler:
                 matrix[ri, ci] = sps_matrix((dof[ri], dof[ci]))
 
         return matrix, rhs
-
-    def assemble_operator(self, gb, operator_name):
-        """ @RUNAR: Placeholder method for use for non-linear problems
-        """
-        pass
 
     def _local_variables(self, d, active_variables):
         """ Find variables defined in a data dictionary, and do intersection
@@ -678,23 +711,16 @@ class Assembler:
                     var[key] = val
             return var
 
-    def distribute_variable(self, gb, values, block_dof, full_dof, variable_names=None):
+    def distribute_variable(self, values, variable_names=None):
         """ Distribute a vector to the nodes and edges in the GridBucket.
 
         The intended use is to split a multi-physics solution vector into its
         component parts.
 
         Parameters:
-            gb (GridBucket): Where the variables should be distributed
             values (np.array): Vector to be split. It is assumed that it corresponds
                 to the ordering implied in block_dof and full_dof, e.g. that it is
                 the solution of a linear system assembled with the assembler.
-            block_dof (dictionary from tuples, each item on the form (grid, str), to ints):
-                The Grid (or MortarGrid) identifies GridBucket elements, the
-                string the local variable name. The values signifies the block
-                index of this grid-variable combination.
-            full_dof (list of ints): Number of dofs for a variable combination.
-                The ordering of the list corresponds to block_dof.
             variable_names (list of str, optional): Names of the variable to be
                 distributed. If not provided, all variables found in block_dof
                 will be distributed
@@ -702,51 +728,44 @@ class Assembler:
         """
         if variable_names is None:
             variable_names = []
-            for pair in block_dof.keys():
+            for pair in self.block_dof.keys():
                 variable_names.append(pair[1])
 
-        dof = np.cumsum(np.append(0, np.asarray(full_dof)))
+        dof = np.cumsum(np.append(0, np.asarray(self.full_dof)))
 
         for var_name in set(variable_names):
-            for pair, bi in block_dof.items():
+            for pair, bi in self.block_dof.items():
                 g = pair[0]
                 name = pair[1]
                 if name != var_name:
                     continue
                 if isinstance(g, pp.Grid):
-                    data = gb.node_props(g)
+                    data = self.gb.node_props(g)
                 else:  # This is really an edge
-                    data = gb.edge_props(g)
+                    data = self.gb.edge_props(g)
                 data[var_name] = values[dof[bi] : dof[bi + 1]]
 
-    def merge_variable(self, gb, var, block_dof, full_dof):
+    def merge_variable(self, var):
         """ Merge a vector to the nodes and edges in the GridBucket.
 
         The intended use is to merge the component parts of a vector into
         its correct position in the global solution vector.
 
         Parameters:
-            gb (GridBucket): Where the variables should be distributed
             var ('string'): Name of vector to be merged. Should be located at the nodes and
                 edges.
-            block_dof (dictionary from tuples, each item on the form (grid, str), to ints):
-                The Grid (or MortarGrid) identifies GridBucket elements, the
-                string the local variable name. The values signifies the block
-                index of this grid-variable combination.
-            full_dof (list of ints): Number of dofs for a variable combination.
-                The ordering of the list corresponds to block_dof.
 
         """
-        dof = np.cumsum(np.append(0, np.asarray(full_dof)))
+        dof = np.cumsum(np.append(0, np.asarray(self.full_dof)))
 
         values = np.zeros(dof[-1])
-        for pair, bi in block_dof.items():
+        for pair, bi in self.block_dof.items():
             g = pair[0]
             var_name = pair[1]
             if isinstance(g, pp.Grid):
-                data = gb.node_props(g)
+                data = self.gb.node_props(g)
             else:  # This is really an edge
-                data = gb.edge_props(g)
+                data = self.gb.edge_props(g)
             if var_name == var:
                 loc_value = data[var_name]
             else:

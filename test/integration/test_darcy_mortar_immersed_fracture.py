@@ -86,21 +86,21 @@ class TestImmersedFracture(unittest.TestCase):
             p = gb.node_props(g, "pressure")
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
 
+    def _solve(self, gb, method, key):
+        assembler = test_utils.setup_flow_assembler(gb, method, key)
+        A_flow, b_flow = assembler.assemble_matrix_rhs()
+        up = sps.linalg.spsolve(A_flow, b_flow)
+        assembler.distribute_variable(up)
+
     def run_mpfa(self, gb):
         key = "flow"
         method = pp.Mpfa(key)
-        assembler = test_utils.setup_flow_assembler(gb, method, key)
-        A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        assembler.distribute_variable(gb, p, block_dof, full_dof)
-
+        self._solve(gb, method, key)
+        
     def run_vem(self, gb):
         key = "flow"
         method = pp.MVEM(key)
-        assembler = test_utils.setup_flow_assembler(gb, method, key)
-        A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
-        up = sps.linalg.spsolve(A_flow, b_flow)
-        assembler.distribute_variable(gb, up, block_dof, full_dof)
+        self._solve(gb, method, key)
         for g, d in gb:
             d["darcy_flux"] = d["pressure"][: g.num_faces]
             d["pressure"] = d["pressure"][g.num_faces :]
@@ -108,10 +108,7 @@ class TestImmersedFracture(unittest.TestCase):
     def run_RT0(self, gb):
         key = "flow"
         method = pp.RT0(key)
-        assembler = test_utils.setup_flow_assembler(gb, method, key)
-        A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
-        up = sps.linalg.spsolve(A_flow, b_flow)
-        assembler.distribute_variable(gb, up, block_dof, full_dof)
+        self._solve(gb, method, key)
         for g, d in gb:
             d["darcy_flux"] = d["pressure"][: g.num_faces]
             d["pressure"] = d["pressure"][g.num_faces :]
