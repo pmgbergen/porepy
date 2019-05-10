@@ -1032,7 +1032,21 @@ class TestMortar3D(unittest.TestCase):
 
 
 class TestMortar2DSimplexGrid(unittest.TestCase):
-    def grid_2d(self, pert_node=False):
+    """ Simplex grid with a hardcoded geometry. The domain is a unit cell, cut
+    in two by a fracture at y=0.5. There are three cells in the lower half
+    of the domain, with two of them having a face towards the fracture.
+    The grid in the upper half is mirrored from the lower half, however,
+    some of the tests pertub the node geometry.
+
+    The flow regime imposed is uniform in the y-direction. The computed pressure
+    should then be equal to the y-coordinates of the cells.
+    """
+
+    def grid_2d(self, pert_node=False, flip_normal=False):
+        # pert_node pertubes one node in the grid. Leads to non-matching cells.
+        # flip_normal flips one normal vector in 2d grid adjacent to the fracture.
+        #   Tests that there is no assumptions on direction of fluxes in the
+        #   mortar coupling.
         nodes = np.array(
             [
                 [0, 0, 0],
@@ -1076,13 +1090,16 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 
         cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
         data = np.array([1, 1, 1, 1, -1, -1, 1, 1, 1, 1, -1, 1, 1, 1, -1, 1, 1, -1])
+
         cell_faces = sps.csc_matrix((data, (cf.ravel("F"), cols)))
 
         g = pp.Grid(2, nodes, face_nodes, cell_faces, "TriangleGrid")
         g.compute_geometry()
         g.tags["fracture_faces"][[2, 3, 7, 8]] = 1
-        # g.face_normals[1, [2, 3]] = -0.5
-        # g.face_normals[1, [7, 8]] = 0.5
+
+        if flip_normal:
+            g.face_normals[:, [2]] *= -1
+            g.cell_faces[2, 2] *= -1
         g.global_point_ind = np.arange(nodes.shape[1])
 
         return g
@@ -1096,7 +1113,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         g.global_point_ind = np.arange(g.num_nodes)
         return g
 
-    def setup(self, remove_tags=False, num_1d=3, pert_node=False):
+    def setup(self, remove_tags=False, num_1d=3, pert_node=False, flip_normal=False):
         g2 = self.grid_2d()
         g1 = self.grid_1d()
         gb = pp.meshing._assemble_in_bucket([[g2], [g1]])
@@ -1111,7 +1128,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
             d["face_cells"] = sps.csc_matrix(a.T)
         pp.meshing.create_mortar_grids(gb)
 
-        g_new_2d = self.grid_2d(pert_node)
+        g_new_2d = self.grid_2d(pert_node=pert_node, flip_normal=flip_normal)
         g_new_1d = self.grid_1d(num_1d)
         pp.mortars.replace_grids_in_bucket(gb, g_map={g2: g_new_2d, g1: g_new_1d})
 
@@ -1120,44 +1137,51 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         self.set_params(gb)
         return gb
 
-    def set_params(self, gb):
+    def set_params(self, gb, no_flow=False):
+        # Set up flow field with uniform flow in y-direction
         kw = "flow"
+        kn = 1e6
         for g, d in gb:
             parameter_dictionary = {}
 
             perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
-            parameter_dictionary["bc_values"] = perm
+            parameter_dictionary["second_order_tensor"] = perm
 
-            aperture = np.power(1e-3, gb.dim_max() - g.dim)
+            aperture = np.power(1e-4, gb.dim_max() - g.dim)
             parameter_dictionary["aperture"] = aperture * np.ones(g.num_cells)
 
-            bv = np.zeros(g.num_faces)
+            b_val = np.zeros(g.num_faces)
             if g.dim == 2:
-                bound_faces = np.array([0, 10])
+                bound_faces = pp.face_on_side(g, ["ymin", "ymax"])
+                if no_flow:
+                    b_val[bound_faces[0]] = 1
+                    b_val[bound_faces[1]] = 1
+                bound_faces = np.hstack((bound_faces[0], bound_faces[1]))
                 labels = np.array(["dir"] * bound_faces.size)
                 parameter_dictionary["bc"] = pp.BoundaryCondition(
                     g, bound_faces, labels
                 )
-                bound_faces = 10
-                bv[bound_faces] = 1
+
+                y_max_faces = pp.face_on_side(g, "ymax")[0]
+                b_val[y_max_faces] = 1
             else:
                 parameter_dictionary["bc"] = pp.BoundaryCondition(g)
-            parameter_dictionary["bc_values"] = bv
+            parameter_dictionary["bc_values"] = b_val
+            parameter_dictionary["mpfa_inverter"] = "python"
 
             d[pp.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
-            d[pp.DISCRETIZATION_MATRICES] = {}
+            d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
+
         gb.add_edge_props("kn")
-        kn = 1e7
         for e, d in gb.edges():
             mg = d["mortar_grid"]
-
             flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(mg.num_cells)}
             d[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries=[flow_dictionary]
             )
             d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-    def verify_cv(self, gb, tol=1e-5):
+    def verify_cv(self, gb, tol=1e-6):
         # The tolerance level here is a bit touchy: With an unstructured grid,
         # and with the flux between subdomains computed as differences between
         # point pressures, uniform flow may not be reproduced if the meshes
@@ -1166,57 +1190,109 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         # tests considered herein.
         for g, _ in gb.nodes():
             p = gb.node_props(g, "pressure")
-            #            print(p)
-            #            print(g.cell_centers[1])
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
+
+    def _solve(self, gb, method, key):
+        assembler = test_utils.setup_flow_assembler(gb, method, key)
+        A_flow, b_flow = assembler.assemble_matrix_rhs()
+        up = sps.linalg.spsolve(A_flow, b_flow)
+        assembler.distribute_variable(up)
 
     def run_mpfa(self, gb):
         key = "flow"
         method = pp.Mpfa(key)
-        assembler = test_utils.setup_flow_assembler(gb, method, key)
-        A_flow, b_flow, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
-        p = sps.linalg.spsolve(A_flow, b_flow)
-        assembler.distribute_variable(gb, p, "pressure", block_dof, full_dof)
-        assembler.distribute_variable(gb, p, "mortar_solution", block_dof, full_dof)
-
+        self._solve(gb, method, key)
+            
     def run_vem(self, gb):
-        solver_flow = pp.MVEM("flow")
-        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+        key = "flow"
+        method = pp.MVEM(key)
+        self._solve(gb, method, key)
+        for g, d in gb:
+            d["darcy_flux"] = d["pressure"][: g.num_faces]
+            d["pressure"] = d["pressure"][g.num_faces :]
 
-        up = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "up", up)
-        solver_flow.extract_p(gb, "up", "pressure")
+    def run_RT0(self, gb):
+        key = "flow"
+        method = pp.RT0(key)
+        self._solve(gb, method, key)
+        for g, d in gb:
+            d["darcy_flux"] = d["pressure"][: g.num_faces]
+            d["pressure"] = d["pressure"][g.num_faces :]
 
+    def test_mpfa(self):
+        gb = self.setup(False)
+        self.run_mpfa(gb)
+        self.verify_cv(gb)
 
-#    def test_mpfa_one_frac(self):
-#        gb = self.setup(False)
-#        self.run_mpfa(gb)
-#        self.verify_cv(gb)
-#
-#    def test_mpfa_one_frac_pert_2d_node(self):
-#        gb = self.setup(False, pert_node=True)
-#        self.run_mpfa(gb)
-#        self.verify_cv(gb)
-#
-#    def test_mpfa_one_frac_refined_1d(self):
-#        gb = self.setup(False, num_1d=4)
-#        self.run_mpfa(gb)
-#        self.verify_cv(gb)
-#
-#    def test_mpfa_one_frac_refined_1d_pert_2d_node(self):
-#        gb = self.setup(False, num_1d=4, pert_node=True)
-#        self.run_mpfa(gb)
-#        self.verify_cv(gb)
-#
-#    def test_mpfa_one_frac_coarsened_1d(self):
-#        gb = self.setup(False, num_1d=2)
-#        self.run_mpfa(gb)
-#        self.verify_cv(gb)
-#
-#    def test_mpfa_one_frac_coarsened_1d_pert_2d_node(self):
-#        gb = self.setup(False, num_1d=2, pert_node=True)
-#        self.run_mpfa(gb)
-#        self.verify_cv(gb)
+    def test_mpfa_pert_2d_node(self):
+        # Perturb one node facing the fracture in the lower half. This breaks
+        # symmetry of the grid, and lead to non-mathching grids.
+        gb = self.setup(False, pert_node=True)
+        self.run_mpfa(gb)
+        self.verify_cv(gb)
+
+    def test_mpfa_flip_normal(self):
+        # Perturb one node facing the fracture in the lower half. This breaks
+        # symmetry of the grid, and lead to non-mathching grids.
+        gb = self.setup(False, flip_normal=True)
+        self.run_mpfa(gb)
+        self.verify_cv(gb)
+
+    def test_mpfa_refined_1d(self):
+        # Refine grid in the fracture.
+        gb = self.setup(False, num_1d=4)
+        self.run_mpfa(gb)
+        self.verify_cv(gb)
+
+    def test_vem(self):
+        gb = self.setup(False)
+        self.run_vem(gb)
+        self.verify_cv(gb)
+
+    def test_vem_pert_2d_node(self):
+        # Perturb one node facing the fracture in the lower half. This breaks
+        # symmetry of the grid, and lead to non-mathching grids.
+        gb = self.setup(False, pert_node=True)
+        self.run_vem(gb)
+        self.verify_cv(gb)
+
+    def test_vem_flip_normal(self):
+        # Perturb one node facing the fracture in the lower half. This breaks
+        # symmetry of the grid, and lead to non-mathching grids.
+        gb = self.setup(False, flip_normal=True)
+        self.run_vem(gb)
+        self.verify_cv(gb)
+
+    def test_vem_refined_1d(self):
+        # Refine grid in the fracture.
+        gb = self.setup(False, num_1d=4)
+        self.run_vem(gb)
+        self.verify_cv(gb)
+
+    def test_RT0(self):
+        gb = self.setup(False)
+        self.run_RT0(gb)
+        self.verify_cv(gb)
+
+    def test_RT0_pert_2d_node(self):
+        # Perturb one node facing the fracture in the lower half. This breaks
+        # symmetry of the grid, and lead to non-mathching grids.
+        gb = self.setup(False, pert_node=True)
+        self.run_RT0(gb)
+        self.verify_cv(gb)
+
+    def test_RT0_flip_normal(self):
+        # Perturb one node facing the fracture in the lower half. This breaks
+        # symmetry of the grid, and lead to non-mathching grids.
+        gb = self.setup(False, flip_normal=True)
+        self.run_RT0(gb)
+        self.verify_cv(gb)
+
+    def test_RT0_refined_1d(self):
+        # Refine grid in the fracture.
+        gb = self.setup(False, num_1d=4)
+        self.run_RT0(gb)
+        self.verify_cv(gb)
 
 if __name__ == "__main__":
-    unittest.main()    
+    unittest.main()

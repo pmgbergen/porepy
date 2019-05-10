@@ -46,7 +46,8 @@ class Mpfa(FVElliptic):
                 Stored in data[pp.PARAMETERS][self.keyword].
             matrix_dictionary, for storage of discretization matrices.
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
-            deviation_from_plane_tol: The geometrical tolerance, used in the check to rotate 2d grids
+            deviation_from_plane_tol: The geometrical tolerance, used in the check to
+                rotate 2d grids
 
         parameter_dictionary contains the entries:
             second_order_tensor: (SecondOrderTensor) Permeability defined cell-wise.
@@ -138,7 +139,8 @@ class Mpfa(FVElliptic):
             g (core.grids.grid): grid to be discretized
             k (core.constit.second_order_tensor) permeability tensor
             bnd (core.bc.bc) class for boundary values
-            deviation_from_plane_tol: The geometrical tolerance, used in the check to rotate 2d grids
+            deviation_from_plane_tol: The geometrical tolerance, used in the check to
+                rotate 2d grids
             eta Location of pressure continuity point. Defaults to 1/3 for simplex
                 grids, 0 otherwise. On boundary faces with Dirichlet conditions,
                 eta=0 will be enforced.
@@ -303,7 +305,8 @@ class Mpfa(FVElliptic):
             bnd (porepy.params.bc.BoundarCondition) class for boundary conditions
             faces (np.ndarray) faces to be considered. Intended for partial
                 discretization, may change in the future
-            deviation_from_plane_tol: The geometrical tolerance, used in the check to rotate 2d grids
+            deviation_from_plane_tol: The geometrical tolerance, used in the check to
+                rotate 2d grids
             eta Location of pressure continuity point. Should be 1/3 for simplex
                 grids, 0 otherwise. On boundary faces with Dirichlet conditions,
                 eta=0 will be enforced.
@@ -316,8 +319,8 @@ class Mpfa(FVElliptic):
                 subgrid computation. Defaults to None.
             nodes (np.array, int, optional): Index of nodes on which to base the
                 subgrid computation. Defaults to None.
-            apertures (np.ndarray, float, optional) apertures of the cells for scaling of the face
-                normals. Defaults to None.
+            apertures (np.ndarray, float, optional) apertures of the cells for scaling
+                of the face normals. Defaults to None.
 
             Note that if all of {cells, faces, nodes} are None, empty matrices will
             be returned.
@@ -424,7 +427,9 @@ class Mpfa(FVElliptic):
         Actual implementation of the MPFA O-method. To calculate MPFA on a grid
         directly, either call this method, or, to respect the privacy of this
         method, the main mpfa method with no memory constraints.
+
         Method properties and implementation details.
+
         The pressure is discretized as a linear function on sub-cells (see
         reference paper). In this implementation, the pressure is represented by
         its cell center value and the sub-cell gradients (this is in contrast to
@@ -433,18 +438,20 @@ class Mpfa(FVElliptic):
         The method will give continuous fluxes over the faces, and pressure
         continuity for certain points (controlled by the parameter eta). This can
         be expressed as a linear system on the form
+
             (i)    A * grad_p              = 0
-            (ii)   Ar * grad_p + Cr * P_cc = 0
-            (iii)  B * grad_p + C * p_cc   = 0
-            (iv)   0            D * p_cc   = I
+            (ii)   Ar * grad_p + Cr * p_cc = 0
+            (iii)  B  * grad_p + C  * p_cc = 0
+            (iv)   0             D  * p_cc = I
+
         Here, the first equation represents flux continuity, and involves only the
         pressure gradients (grad_p). The second equation gives the Robin conditions,
         relating flux to the pressure. The third equation gives pressure continuity
-        over cell faces, thus B will contain distances between cell centers and the
+        over interior faces, thus B will contain distances between cell centers and the
         face continuity points, while C consists of +- 1 (depending on which side
         the cell is relative to the face normal vector). The fourth equation
         enforces the pressure to be unity in one cell at a time. Thus (i)-(iv) can
-        be inverted to express the pressure gradients as in terms of the cell
+        be inverted to express the pressure gradients in terms of the cell
         center variables, that is, we can compute the basis functions on the
         sub-cells. Because of the method construction (again see reference paper),
         the basis function of a cell c will be non-zero on all sub-cells sharing
@@ -528,52 +535,123 @@ class Mpfa(FVElliptic):
             # If bnd is not already a sub-face_bound we extend it
             bnd = pp.fvutils.boundary_to_sub_boundary(bnd, subcell_topology)
             subface_rhs = False
-
+        # IS: Correct this paragraph!
         # Obtain normal_vector * k, pairings of cells and nodes (which together
         # uniquely define sub-cells, and thus index for gradients. See comment
         # below for the ordering of elements in the subcell gradient.
+
+        # The normal vectors used in the product are simply the face normals
+        # (with areas downscaled to account for subfaces). The sign of
+        # nk_grad_all coincides with the direction of the normal vector.
         nk_grad_all, cell_node_blocks, sub_cell_index = fvutils.scalar_tensor_vector_prod(
             g, k, subcell_topology, apertures
         )
 
-        # Distance from cell centers to face centers, this will be the
-        # contribution from gradient unknown to equations for pressure continuity
-        pr_cont_grad_all = fvutils.compute_dist_face_cell(g, subcell_topology, eta)
+        ## Contribution from subcell gradients to local system.
+        # The pressure at a subface continuity point is given by the subcell
+        # pressure plus a deviation computed as the distance
+        # from cell center to continuity point times the (by construction constant)
 
-        # Darcy's law
+        # Contribution from subcell gradient to pressure continuity condition.
+        # The operation consists of two parts:
+        # 1) The cell-face distances from subcells that share a subface
+        #    are paired (put on the same row).
+        # 2) The sign of the distance is changed for those subcells where the
+        #    subface normal vector points into the cell. This happens both on
+        #    interior subfaces, and on faces on the boundary.
+        # NOTE: The second operation is reversed for Robin boundary conditions,
+        #       see below.
+        pr_cont_grad_paired = fvutils.compute_dist_face_cell(g, subcell_topology, eta)
+
+        # Discretized Darcy's law: The flux over a subface is given by the
+        # area weighted normal vector, multiplied with the subcell permeability,
+        # and expressed in terms of the subcell gradient (to be computed)
+        # For interior subfaces, Darcy's law is only computed for one adjacent
+        # subcell.
+        # Minus sign to get flow from high to low potential.
         darcy = -nk_grad_all[subcell_topology.unique_subfno]
 
-        # Pair fluxes over subfaces, that is, enforce conservation
-        nk_grad_all = subcell_topology.pair_over_subfaces(nk_grad_all)
+        # Pair fluxes over subfaces, that is, enforce conservation.
+        # The operation consists of two parts:
+        # 1) The expression nK computed from subcells that share a subface
+        #    is paired (put on the same row). That is, the number of rows in
+        #    nk_grad is reduced.
+        # 2) The sign of the nK products is changed for those subcells where the
+        #    subface normal vector points into the cell. This happens both on
+        #    interior subfaces, and on faces on the boundary.
+        nk_grad_paired = subcell_topology.pair_over_subfaces(nk_grad_all)
 
-        # Contribution from cell center potentials to local systems
-        # For pressure continuity, +-1 (Depending on whether the cell is on the
-        # positive or negative side of the face.
-        # The .A suffix is necessary to get a numpy array, instead of a scipy
-        # matrix.
-        sgn = g.cell_faces[subcell_topology.fno, subcell_topology.cno].A
-        pr_cont_cell_all = sps.coo_matrix(
-            (sgn[0], (subcell_topology.subfno, subcell_topology.cno))
-        ).tocsr()
-        # The cell centers give zero contribution to flux continuity
+        ### Contribution from cell center potentials to local systems.
+
+        # Cell center pressure contribution to flux continuity on subfaces:
+        # There is no contribution (fluxes are driven by gradients only).
+        # Construct a zero matrix of the right size, that is, a mapping from
+        # cells to subfaces.
         nk_cell = sps.coo_matrix(
             (np.zeros(1), (np.zeros(1), np.zeros(1))),
             shape=(subcell_topology.num_subfno, subcell_topology.num_cno),
         ).tocsr()
 
-        # For the Robin condition the distance from the cell centers to face centers
-        # will be the contribution from the gradients. We integrate over the subface
-        # and multiply by the area
+        # Cell center pressure contribution to pressure continuity on subfaces:
+        # The contributions will be unity. For (sub)cells where the subface normal vector
+        # points inwards, the contribution is -1, that is, we do the same
+        # modification as for nk_grad_paired.
+
+        # Recover the sign of the subface normal vectors relative to
+        # subcells (positive if normal vector points out of subcell).
+        # The information can be obtained from g.cell_faces, which doubles as a
+        # discrete divergence operator.
+        # The .A suffix is necessary to get a numpy array, instead of a scipy
+        # matrix.
+        sgn = g.cell_faces[subcell_topology.fno, subcell_topology.cno].A
+        # Then insert the signs into a matrix that maps cells to subfaces
+        pr_cont_cell_all = sps.coo_matrix(
+            (sgn[0], (subcell_topology.subfno, subcell_topology.cno))
+        ).tocsr()
+
+        # Create a sign array that only contains one side (subcell) of each subface.
+        # This will be used at various points below.
+        sgn_unique = g.cell_faces[
+            subcell_topology.fno_unique, subcell_topology.cno_unique
+        ].A.ravel("F")
+
+        ## Discretize the Robin condition.
+        # This takes the form
+        #
+        #   f + bnd.robin_weight * pressure_face * subface_area = something.
+        #
+        # The scaling is important here: The f is a flux integrated over the
+        # half face, thus the scaling with the subface area is necessary.
+        #
+        # The pressure at face (pressure trace) is reconstructed from the cell center
+        # pressure plus a deviation given by the cell-face distance times the subcell
+        # gradient. For the local system, these terms contribute to cell center
+        # and gradient terms, respectively.
+        #
+        # NOTE: In this implementation, the computation of the subface pressure
+        # replaces the already discretized pressure continuity condition (the
+        # relevant rows are modified). As part of the modification, the change
+        # of sign in pr_cont_grad_paired and pr_cont_cell_all is reversed.
+        # That is, the cell pressure is scaled by a positive number, while
+        # the gradient is multiplied with the vector from cell center to
+        # face continuity point.
+
+        # Compute the sign of the subcells relative to the normal vector of the
+        # subface. The sign is scaled by the Robin weight, and the area of the
+        # subface.
+        # The conditions for subfaces not on a Robin boundary will be eliminated
+        # below (in computation of pr_cont_grad).
         num_nodes = np.diff(g.face_nodes.indptr)
-        sgn = g.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
-        scaled_sgn = (
+        sgn_scaled_by_subface_area = (
             bnd.robin_weight
-            * sgn[0]
+            * sgn_unique
             * g.face_areas[subcell_topology.fno_unique]
             / num_nodes[subcell_topology.fno_unique]
         )
         # pair_over_subfaces flips the sign so we flip it back
-        pr_trace_grad_all = sps.diags(scaled_sgn) * pr_cont_grad_all
+        # Contribution from cell centers.
+        pr_trace_grad_all = sps.diags(sgn_scaled_by_subface_area) * pr_cont_grad_paired
+        # Contribution from gradient.
         pr_trace_cell_all = sps.coo_matrix(
             (
                 bnd.robin_weight[subcell_topology.subfno]
@@ -583,7 +661,7 @@ class Mpfa(FVElliptic):
             )
         ).tocsr()
 
-        del sgn, scaled_sgn
+        del sgn, sgn_scaled_by_subface_area
 
         # Mapping from sub-faces to faces
         hf2f = sps.coo_matrix(
@@ -593,36 +671,107 @@ class Mpfa(FVElliptic):
             )
         )
 
-        # Update signs
-        sgn_unique = g.cell_faces[
-            subcell_topology.fno_unique, subcell_topology.cno_unique
-        ].A.ravel("F")
-
         # The boundary faces will have either a Dirichlet or Neumann condition, or
         # Robin condition
         # Obtain mappings to exclude boundary faces.
         bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bnd, g.dim)
 
-        # No flux conditions for Dirichlet boundary faces
-        nk_grad_n = bound_exclusion.exclude_robin_dirichlet(nk_grad_all)
+        # No flux conditions for Dirichlet and Robin boundary faces
+        nk_grad_n = bound_exclusion.exclude_robin_dirichlet(nk_grad_paired)
         nk_cell = bound_exclusion.exclude_robin_dirichlet(nk_cell)
 
         # Robin condition is only applied to Robin boundary faces
-        nk_grad_r = bound_exclusion.keep_robin(nk_grad_all)
+        nk_grad_r = bound_exclusion.keep_robin(nk_grad_paired)
         pr_trace_grad = bound_exclusion.keep_robin(pr_trace_grad_all)
         pr_trace_cell = bound_exclusion.keep_robin(pr_trace_cell_all)
 
-        del nk_grad_all
+        del nk_grad_paired
         # No pressure condition for Neumann or Robin boundary faces
-        pr_cont_grad = bound_exclusion.exclude_neumann_robin(pr_cont_grad_all)
+        pr_cont_grad = bound_exclusion.exclude_neumann_robin(pr_cont_grad_paired)
         pr_cont_cell = bound_exclusion.exclude_neumann_robin(pr_cont_cell_all)
+
+        # The discretization is now in a sense complete: We have discretized
+        # the flux and pressure continuity equations, with the necessary
+        # adjustments for boundary conditions. The resulting linear system
+        # takes the form
+        #
+        #  (nk_grad_n                , nk_cell  )
+        #  (nk_grad_r - pr_trace_grad, -pr_trace_cell) (subcell_grad)    = RHS
+        #  (pr_cont_grad             , pr_cont_cell  ) (center_pressure)
+        #
+        # The first equation enforces flux continuity (with nk_cell=0)
+        # The second equation enforces Robin boundary conditions
+        # The third equation enforces pressure continuity.
+        # RHS is detailed below, this enforces calculation of the discrete
+        # basis function.
+        #
+        # The next step is to compute the subcell gradients as a function of
+        # the ultimate degrees of freedom in the discretization scheme, that is
+        # cell center pressures and boundary conditions. For cell center
+        # pressures, assign a unit pressure in one cell center at a time
+        # while assigning zero pressures in other cells (this is implemented
+        # as moving the second column in the above matrix to the right hand side).
+        # When solving for subcell_grad, this gives the gradients, in effect,
+        # the boundary conditions.
+        #
+        # Implementation of boundary conditions need special mentioning:
+        # First, the rows corresponding to boundary subfaces are modified:
+        #
+        #  i) On Neumann subfaces, only the first block row is kept, second and
+        #     third row are eliminated (there is no Robin or pressure continuity
+        #     condition).
+        #  ii) Robin conditions have dedicated rows, these subfaces are eliminated
+        #      from the first and third row.
+        #  iii) For Dirichlet subfaces, only the third block row is kept.
+        #
+        # In each case, the boundary subface only has contribution from one
+        # IS: Close the parenthesis!
+        # adjacent cell. By defining an appropriate RHS column (say, unit flux
+        # on a subface, with all subfaces having zero value, the subscale
+        # gradient for this boundary condition is found [in practice this means
+        # continuity of flux and pressure for internal subfaces, on boundary
+        # subfaces it enforces zero flux (Neumann), pressure (Dirichlet) or
+        # combination (Robin). That is, the boundary dofs do not interfere with
+        # each other].
+        #
+        # As an implementation note, the fastest approach found is to explicitly
+        # calculate the inverse of the matrix
+        #
+        #  (nk_grad_n)
+        #  (nk_grad_r - pr_trace_grad)
+        #  (pr_cont_grad)
+        #
+        # The calculation exploits the block diagonal structure of the matrix
+        # (after a permutation that gathers all columns and rows associated
+        # with a single vertex, that is, an interaction region). Fast inverses
+        # can then be used. After inversion, subscale gradients can be found
+        # for any right hand side by a matrix-vector product.
+
+
+        # System of equations for the subcell gradient variables. On block diagonal
+        # form.
+        # NOTE: I think in the discretization for sub_cells a flow out of the cell is
+        # negative. This is a contradiction to what is done for the boundary conditions
+        # where we want to set dot(n, flux) where n is the normal pointing outwards.
+        # thats why we need +nk_grad_r - pr_trace_grad -pr_trace_cell = rhs
+        # instead of how we would expect: -nk_grad_r + pr_trace_grad +pr_trace_cell= rhs.
+        # This is also why we multiply with -1 in scaled_sgn in _create_bound_rhs
+        # EK: Not really, The nk_grad terms are calculated according to what
+        # happens to be the normal vector of the face.
+        # IS: Should we delete these two comments?
+        grad_eqs = sps.vstack([nk_grad_n, nk_grad_r - pr_trace_grad, pr_cont_grad])
+
+        num_nk_cell = nk_cell.shape[0]
+        num_nk_rob = nk_grad_r.shape[0]
+        num_pr_cont_grad = pr_cont_grad.shape[0]
+
+        del nk_grad_n, nk_grad_r, pr_trace_grad
 
         # So far, the local numbering has been based on the numbering scheme
         # implemented in SubcellTopology (which treats one cell at a time). For
         # efficient inversion (below), it is desirable to get the system over to a
         # block-diagonal structure, with one block centered around each vertex.
         # Obtain the necessary mappings.
-
         rows2blk_diag, cols2blk_diag, size_of_blocks = self._block_diagonal_structure(
             sub_cell_index,
             cell_node_blocks,
@@ -632,25 +781,11 @@ class Mpfa(FVElliptic):
 
         del cell_node_blocks, sub_cell_index
 
-        # System of equations for the subcell gradient variables. On block diagonal
-        # form.
-        # NOTE: I think in the discretization for sub_cells a flow out of the cell is
-        # negative. This is a contradiction to what is done for the boundary conditions
-        # where we want to set dot(n, flux) where n is the normal pointing outwards.
-        # thats why we need +nk_grad_r - pr_trace_grad -pr_trace_cell instead of = rhs
-        # instead of how we would expect: -nk_grad_r + pr_trace_grad +pr_trace_cell= rhs.
-        # This is also why we multiply with -1 in scaled_sgn in _create_bound_rhs
-        grad_eqs = sps.vstack([nk_grad_n, nk_grad_r - pr_trace_grad, pr_cont_grad])
-
-        num_nk_cell = nk_cell.shape[0]
-        num_nk_rob = nk_grad_r.shape[0]
-        num_pr_cont_grad = pr_cont_grad.shape[0]
-
-        del nk_grad_n, nk_grad_r, pr_trace_grad
-
+        # Re-organize system into a block-diagonal form
         grad = rows2blk_diag * grad_eqs * cols2blk_diag
 
         del grad_eqs
+        # Invert the system, and map back to the original form
         igrad = (
             cols2blk_diag
             * fvutils.invert_diagonal_blocks(grad, size_of_blocks, method=inverter)
@@ -670,7 +805,7 @@ class Mpfa(FVElliptic):
         # that contain ci and ni, respectively. The first of these indexes give the
         # row of the x-component of the gradient, the second the y-component etc.
         #
-        # The columns of igrad corresponds to the ordering of the equations in
+        # The columns of igrad correspond to the ordering of the equations in
         # grad; as recovered in _block_diagonal_structure. In practice, the first
         # columns correspond to unit pressures assigned to faces (as used for
         # boundary conditions or to discretize discontinuities over internal faces,
@@ -690,7 +825,9 @@ class Mpfa(FVElliptic):
         # it would require quite deep changes to the code.
 
         # Flux discretization:
-        # The negative in front of pr_trace_cell comes from the grad_egs
+        # Negative in front of sps.vstack comes from moving the cell center
+        # unknown in the discretized sytsem to the right hand side.
+        # The negative in front of pr_trace_cell comes from the grad_eqs
         rhs_cells = -sps.vstack([nk_cell, -pr_trace_cell, pr_cont_cell])
         flux = darcy * igrad * rhs_cells
 
@@ -707,13 +844,13 @@ class Mpfa(FVElliptic):
             subface_rhs,
         )
         # Discretization of boundary values
-
         bound_flux = darcy * igrad * rhs_bound
 
-        # Optain the reconstruction of the pressure
+        # Obtain the reconstruction of the pressure
         if eta_reconstruction is None:
             # If no reconstruction eta is given, use the continuity points
             eta_reconstruction = eta
+
         dist_grad, cell_centers = reconstruct_presssure(
             g, subcell_topology, eta_reconstruction
         )
@@ -737,9 +874,9 @@ class Mpfa(FVElliptic):
         return flux, bound_flux, pressure_trace_cell, pressure_trace_bound
 
     """
-     The functions below are helper functions, which are not really necessary to
-     understand in detail to use the method. They also tend to be less well
-     documented.
+    The functions below are helper functions, which are not really necessary to
+    understand in detail to use the method. They also tend to be less well
+    documented.
     """
 
     def _estimate_peak_memory(self, g):
@@ -908,6 +1045,14 @@ class Mpfa(FVElliptic):
         # therefore set the matrix indices to -1. We also have to scale it with
         # the number of nodes per face because the flux of face is the sum of its
         # half-faces.
+        #
+        # EK: My understanding of the multiple -1s in the flux equation for boundary conditions:
+        # 1) -nk_grad in the local system gets its sign changed if the boundary
+        #    normal vector points into the cell.
+        # 2) During global assembly, the flux matrix is hit by the divergence
+        #    operator, which will give another -1 for cells with inwards pointing
+        #    normal vector.
+        # NOW WHAT?
         if subface_rhs:
             # In this case we set the rhs for the sub-faces. Note that the rhs values
             # should be integrated over the subfaces, that is
@@ -966,15 +1111,7 @@ class Mpfa(FVElliptic):
             (np.ones(num_bound), (np.arange(num_bound), neu_rob_dir_ind)),
             shape=(num_bound, num_subfno),
         )
-        # The user of the discretization should now nothing about half faces,
-        # thus map from half face to face indices.
-        hf_2_f = sps.coo_matrix(
-            (
-                np.ones(subcell_topology.subfno_unique.size),
-                (subcell_topology.subfno_unique, subcell_topology.fno_unique),
-            ),
-            shape=(num_subfno, g.num_faces),
-        )
+
         rhs_bound = sps.vstack([neu_rob_cell, dir_cell]) * bnd_2_all_hf
 
         return rhs_bound
