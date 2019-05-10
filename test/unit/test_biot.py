@@ -159,8 +159,8 @@ class BiotTest(unittest.TestCase):
             v_1 + "_" + v_0: {term_10: pp.DivD(kw_m)},
         }
         # Assemble. Also discretizes the flow terms (fluid_mass and fluid_flux)
-        general_assembler = pp.Assembler()
-        A, b, block_dof, full_dof = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs()
 
         # Re-discretize and assemble using the Biot class
         A_class, b_class = biot_discretizer.matrix_rhs(g, d, discretize=False)
@@ -169,7 +169,14 @@ class BiotTest(unittest.TestCase):
         # matches that of the Biot class.
         grids = [g, g]
         variables = [v_0, v_1]
-        A, b = permute_matrix_vector(A, b, block_dof, full_dof, grids, variables)
+        A, b = permute_matrix_vector(
+            A,
+            b,
+            general_assembler.block_dof,
+            general_assembler.full_dof,
+            grids,
+            variables,
+        )
 
         # Compare the matrices and rhs vectors
         self.assertTrue(np.all(np.isclose(A.A, A_class.A)))
@@ -249,8 +256,8 @@ class BiotTest(unittest.TestCase):
         times = np.arange(5)
         for _ in times:
             # Assemble. Also discretizes the flow terms (fluid_mass and fluid_flux)
-            general_assembler = pp.Assembler()
-            A, b, block_dof, full_dof = general_assembler.assemble_matrix_rhs(gb)
+            general_assembler = pp.Assembler(gb)
+            A, b = general_assembler.assemble_matrix_rhs()
 
             # Assemble using the Biot class
             A_class, b_class = biot_discretizer.matrix_rhs(g, d, discretize=False)
@@ -259,7 +266,14 @@ class BiotTest(unittest.TestCase):
             # matches that of the Biot class.
             grids = [g, g]
             variables = [v_0, v_1]
-            A, b = permute_matrix_vector(A, b, block_dof, full_dof, grids, variables)
+            A, b = permute_matrix_vector(
+                A,
+                b,
+                general_assembler.block_dof,
+                general_assembler.full_dof,
+                grids,
+                variables,
+            )
 
             # Compare the matrices and rhs vectors
             self.assertTrue(np.all(np.isclose(A.A, A_class.A)))

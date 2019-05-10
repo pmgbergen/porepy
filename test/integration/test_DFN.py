@@ -29,7 +29,7 @@ class TestDFN(unittest.TestCase):
         setup_data(gb)
         assembler, _ = setup_discr_mvem(gb)
 
-        A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        A, b = assembler.assemble_matrix_rhs()
         A = A.todense()
 
         A_f1 = np.matrix(
@@ -59,10 +59,10 @@ class TestDFN(unittest.TestCase):
         A_0 = np.matrix([[0.0]])
         b_0 = np.array([0])
 
-        global_dof = np.cumsum(np.append(0, np.asarray(full_dof)))
+        global_dof = np.cumsum(np.append(0, np.asarray(assembler.full_dof)))
 
         for g, _ in gb:
-            block = block_dof[(g, "flow")]
+            block = assembler.block_dof[(g, "flow")]
             dof = np.arange(global_dof[block], global_dof[block + 1])
 
             if g.dim == 1 and np.allclose(g.nodes[0], 1):  # f1
@@ -129,9 +129,9 @@ class TestDFN(unittest.TestCase):
         for e, d in gb.edges():
             gl, gh = gb.nodes_of_edge(e)
 
-            block_e = block_dof[(e, "flow")]
-            block_gl = block_dof[(gl, "flow")]
-            block_gh = block_dof[(gh, "flow")]
+            block_e = assembler.block_dof[(e, "flow")]
+            block_gl = assembler.block_dof[(gl, "flow")]
+            block_gh = assembler.block_dof[(gh, "flow")]
 
             dof_e = np.arange(global_dof[block_e], global_dof[block_e + 1])
             dof_gl = np.arange(global_dof[block_gl], global_dof[block_gl + 1])
@@ -176,7 +176,7 @@ class TestDFN(unittest.TestCase):
         setup_data(gb)
         assembler, _ = setup_discr_tpfa(gb)
 
-        A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        A, b = assembler.assemble_matrix_rhs()
         A = A.todense()
 
         A_f1 = np.matrix([[2, 0], [0, 2]])
@@ -188,10 +188,10 @@ class TestDFN(unittest.TestCase):
         A_0 = np.matrix([[0.0]])
         b_0 = np.array([0])
 
-        global_dof = np.cumsum(np.append(0, np.asarray(full_dof)))
+        global_dof = np.cumsum(np.append(0, np.asarray(assembler.full_dof)))
 
         for g, _ in gb:
-            block = block_dof[(g, "flow")]
+            block = assembler.block_dof[(g, "flow")]
             dof = np.arange(global_dof[block], global_dof[block + 1])
 
             if g.dim == 1 and np.allclose(g.nodes[0], 1):  # f1
@@ -237,9 +237,9 @@ class TestDFN(unittest.TestCase):
         for e, _ in gb.edges():
             gl, gh = gb.nodes_of_edge(e)
 
-            block_e = block_dof[(e, "flow")]
-            block_gl = block_dof[(gl, "flow")]
-            block_gh = block_dof[(gh, "flow")]
+            block_e = assembler.block_dof[(e, "flow")]
+            block_gl = assembler.block_dof[(gl, "flow")]
+            block_gh = assembler.block_dof[(gh, "flow")]
 
             dof_e = np.arange(global_dof[block_e], global_dof[block_e + 1])
             dof_gl = np.arange(global_dof[block_gl], global_dof[block_gl + 1])
@@ -298,10 +298,10 @@ class TestDFN(unittest.TestCase):
         setup_data(gb)
         assembler, (discr, _) = setup_discr_mvem(gb)
 
-        A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        A, b = assembler.assemble_matrix_rhs()
         x = sps.linalg.spsolve(A, b)
 
-        assembler.distribute_variable(gb, x, block_dof, full_dof)
+        assembler.distribute_variable(x)
         for g, d in gb:
             discr = d["discretization"]["flow"]["flux"]
             d["pressure"] = discr.extract_pressure(g, d["flow"], d)
@@ -360,10 +360,10 @@ class TestDFN(unittest.TestCase):
         setup_data(gb)
         assembler, _ = setup_discr_tpfa(gb)
 
-        A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        A, b = assembler.assemble_matrix_rhs()
         x = sps.linalg.spsolve(A, b)
 
-        assembler.distribute_variable(gb, x, block_dof, full_dof)
+        assembler.distribute_variable(x)
 
         for g, d in gb:
 
@@ -449,7 +449,7 @@ def setup_discr_mvem(gb, key="flow"):
             }
         }
 
-    return pp.Assembler(), (discr, p_trace)
+    return pp.Assembler(gb), (discr, p_trace)
 
 
 def setup_discr_tpfa(gb, key="flow"):
@@ -477,7 +477,7 @@ def setup_discr_tpfa(gb, key="flow"):
             }
         }
 
-    return pp.Assembler(), (discr, p_trace)
+    return pp.Assembler(gb), (discr, p_trace)
 
 
 def create_dfn(gb, dim):
@@ -495,4 +495,4 @@ def create_dfn(gb, dim):
 
 if __name__ == "__main__":
     TestDFN().test_mvem_1()
-    # unittest.main()
+    unittest.main()
