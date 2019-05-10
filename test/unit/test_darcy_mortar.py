@@ -1219,5 +1219,4 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 #        self.verify_cv(gb)
 
 if __name__ == "__main__":
-    TestMortar2DSimplexGridStandardMeshing().test_vem_one_frac_refine_2d()
-    unittest.main()
+    unittest.main()    
