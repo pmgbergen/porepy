@@ -37,11 +37,11 @@ class Assembler:
                 accordingly.
                 NOTE: For edge coupling terms where the edge variable is defined
                 as active, all involved node variables must also be active.
-                
+
         Raises:
             ValueError: If an edge_coupling is defined with an active edge variable
                  but with an inactive node variable.
-                
+
         """
         self.gb = gb
 
@@ -751,15 +751,15 @@ class Assembler:
 
     def _is_active_variable(self, key):
         """ Check if a key denotes an active variable
-        
+
         Parameters:
             key (str): Variable identifier.
             active_variables (list of str, or str): Active variables.
-            
+
         Returns:
             boolean: True if key is in active_variables, or active_variables
                 is None.
-        
+
         """
         if self.active_variables is None:
             return True
