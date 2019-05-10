@@ -118,15 +118,15 @@ class TangentialNormalProjection:
         """
         # Find type and size of projection.
         if num is None:
-            size_proj = self.dim * self.num_vecs
-        else:
-            size_proj = self.dim * num
+            num = self.num_vecs
+        
+        size_proj = self.dim * num
 
         # Construct the full projection matrix - tangential and normal
         full_projection = self.project_tangential_normal(num)
 
         # Generate restriction matrix to the tangential space only
-        rows = np.arange(self.num_vecs * (self.dim - 1))
+        rows = np.arange(num * (self.dim - 1))
         cols = np.setdiff1d(
             np.arange(size_proj), np.arange(self.dim - 1, size_proj, self.dim)
         )
@@ -168,15 +168,15 @@ class TangentialNormalProjection:
         """
         # Find mode and size of projection
         if num is None:
-            size_proj = self.dim * self.num_vecs
-        else:
-            size_proj = self.dim * num
+            num = self.num_vecs
+        
+        size_proj = self.dim * num
 
         # Generate full projection matrix
-        full_projection = self.project_tangential_normal()
+        full_projection = self.project_tangential_normal(num)
 
         # Construct restriction matrix to normal space.
-        rows = np.arange(self.num_vecs)
+        rows = np.arange(num)
         cols = np.arange(self.dim - 1, size_proj, self.dim)
         data = np.ones_like(rows)
         remove_tangential_components = sps.csc_matrix(
@@ -185,6 +185,23 @@ class TangentialNormalProjection:
 
         # Return the restricted matrix
         return remove_tangential_components * full_projection
+    
+    def local_projection(self, ind=None):
+        """ Get the local projection matrix (refe)
+
+        Paremeters:
+            ind (int, optional): Index (referring to the order of the normal vectors
+                provided to __init__) of the basis to return. Defaults to the first one.
+
+        Returns:
+            np.array (self.dim x self.dim): Local projection matrix. Multiplication
+                gives projection to the tangential space (first self.dim - 1 rows)
+                and normal space (last)
+            
+        """
+        if ind is None:
+            ind = 0
+        return self.projection[:, :, ind]
 
     ### Helper functions below
 
