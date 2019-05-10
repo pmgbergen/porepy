@@ -1173,7 +1173,7 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler(gb)
-        A, b = general_assembler.assemble_matrix_rhs()
+        A, _ = general_assembler.assemble_matrix_rhs()
 
         A_known = np.zeros((3, 3))
 
@@ -1232,7 +1232,7 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler(gb)
-        A, b = general_assembler.assemble_matrix_rhs(add_matrices=False)
+        A, _ = general_assembler.assemble_matrix_rhs(add_matrices=False)
 
         g11_ind = general_assembler.block_dof[(g1, key_1)]
         g12_ind = general_assembler.block_dof[(g1, key_2)]

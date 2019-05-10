@@ -24,7 +24,7 @@ class Assembler:
 
     def __init__(self, gb, active_variables=None):
         """ Construct an assembler for a given GridBucket on a given set of variables.
-        
+
         Parameters:
             self.gb (pp.GridBucket): Mixed-dimensional grid where the equations are
                 discretized. The data dictionaries on nodes and edges should contain
