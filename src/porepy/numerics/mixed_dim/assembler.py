@@ -35,9 +35,23 @@ class Assembler:
                 If provided, only decleared primary variables with a name found in the
                 list will be assembled, and the size of the matrix will be reduced
                 accordingly.
+                NOTE: For edge coupling terms where the edge variable is defined
+                as active, all involved node variables must also be active.
+                
+        Raises:
+            ValueError: If an edge_coupling is defined with an active edge variable
+                 but with an inactive node variable.
+                
         """
         self.gb = gb
-        self.active_variables = active_variables
+
+        if active_variables is None:
+            self.active_variables = active_variables
+        else:
+            if not isinstance(active_variables, list):
+                active_variables = [active_variables]
+            self.active_variables = active_variables
+
         self._identify_dofs()
 
     def discretization_key(self, row, col=None):
@@ -158,7 +172,7 @@ class Assembler:
         # Loop over all grids, discretize (if necessary) and assemble. This
         # will populate the main diagonal of the equation.
         for g, data in self.gb:
-            loc_var = self._local_variables(data, self.active_variables)
+            loc_var = self._local_variables(data)
             for row in loc_var.keys():
                 for col in loc_var.keys():
                     # Block indices, row and column
@@ -205,7 +219,7 @@ class Assembler:
             data_master = self.gb.node_props(g_master)
 
             # Extract the active local variables for edge
-            active_edge_var = self._local_variables(data_edge, self.active_variables)
+            active_edge_var = self._local_variables(data_edge)
 
             # First discretize interaction between edge variables locally.
             # This is in direct analogue with the corresponding operation on
@@ -250,6 +264,10 @@ class Assembler:
                 edge_vals = terms.get(e)
                 edge_key = edge_vals[0]
 
+                # Only continue if this is an active variable
+                if not self._is_active_variable(edge_key):
+                    continue
+
                 # Global block index associated with this edge variable
                 ei = self.block_dof[(e, edge_key)]
 
@@ -269,6 +287,11 @@ class Assembler:
                 else:
                     # Name of the relevant variable on the master grid
                     master_key = master_vals[0]
+
+                    # Only continue if this is an active variable
+                    if not self._is_active_variable(master_key):
+                        continue
+
                     # Global index associated with the master variable
                     mi = self.block_dof.get((g_master, master_key))
 
@@ -284,6 +307,10 @@ class Assembler:
                     si = None
                 else:
                     slave_key = slave_vals[0]
+                    # Only continue if this is an active variable
+                    if not self._is_active_variable(slave_key):
+                        continue
+
                     si = self.block_dof.get((g_slave, slave_key))
                     # Also define the key to access the matrix of the discretization of
                     # the slave variable on the slave node.
@@ -415,10 +442,6 @@ class Assembler:
                and edges in the GridBucket
             2. To each combination of a node / edge, and a variable, assign an
                index. This will define the ordering of the blocks in the system matrix.
-            3. Initialize a set of matrices (for left hand sides) and vectors (rhs)
-               for all operators associated with a variable (example: a temperature
-               variable in an advection-diffusion problem will typically have two
-               operators, one for advection, one for diffusion).
 
         It is useful to differ between the discretization matrices of different
         variables and terms for at least two reasons:
@@ -452,8 +475,6 @@ class Assembler:
                 needed.
 
         """
-        active_variables = self.active_variables
-
         # Implementation note: To fully understand the structure of this function
         # it is useful to consider an example of a data dictionary with decleared
         # primary variables and discretization operators.
@@ -480,7 +501,7 @@ class Assembler:
 
             # Loop over variables, count dofs and identify variable-term
             # combinations internal to the node
-            for key_1, v in self._local_variables(d, active_variables).items():
+            for key_1, v in self._local_variables(d).items():
 
                 # First assign a block index.
                 # Note that the keys in the dictionary is a tuple, with a grid
@@ -500,7 +521,7 @@ class Assembler:
                 # Do a second loop over the variables of the grid, the combination
                 # of the two keys givs us all coupling terms (e.g. an off-diagonal
                 # block in the global matrix)
-                for key_2 in self._local_variables(d, active_variables).keys():
+                for key_2 in self._local_variables(d).keys():
                     # We need to identify identify individual discretization terms
                     # defined for this equaton. This are identified either by
                     # the key k (for variable dependence on itself), or the
@@ -534,7 +555,7 @@ class Assembler:
         for e, d in self.gb.edges():
             mg = d["mortar_grid"]
 
-            for key_1, v in self._local_variables(d, active_variables).items():
+            for key_1, v in self._local_variables(d).items():
 
                 # First count the number of dofs per variable. Note that the
                 # identifier here is a tuple of the edge and a variable str.
@@ -547,7 +568,7 @@ class Assembler:
                 full_dof.append(loc_dof)
 
                 # Then identify all discretization terms for this variable
-                for key_2 in self._local_variables(d, active_variables).keys():
+                for key_2 in self._local_variables(d).keys():
                     if key_1 == key_2:
                         merged_key = key_1
                     else:
@@ -583,10 +604,21 @@ class Assembler:
                 # Get the name of the edge variable (it is the first item in
                 # a tuple)
                 key_edge = val.get(e)[0]
+                if not self._is_active_variable(key_edge):
+                    continue
+
                 # Get name of the edge variable, if it exists
                 key_slave = val.get(g_slave)
                 if key_slave is not None:
                     key_slave = key_slave[0]
+                    if not self._is_active_variable(key_slave):
+                        raise ValueError(
+                            "Edge variable "
+                            + key_edge
+                            + " is coupled to an inactive node variable "
+                            + key_slave
+                        )
+
                 else:
                     # This can happen if the the coupling is one-sided, e.g.
                     # it does not consider the slave grid.
@@ -597,8 +629,16 @@ class Assembler:
                 key_master = val.get(g_master)
                 if key_master is not None:
                     key_master = key_master[0]
+                    if not self._is_active_variable(key_master):
+                        raise ValueError(
+                            "Edge variable "
+                            + key_edge
+                            + " is coupled to an inactive node variable "
+                            + key_master
+                        )
                 else:
                     key_master = ""
+
                 variable_combinations.append(
                     self._variable_term_key(term, key_edge, key_slave, key_master)
                 )
@@ -680,7 +720,7 @@ class Assembler:
 
         return matrix, rhs
 
-    def _local_variables(self, d, active_variables):
+    def _local_variables(self, d):
         """ Find variables defined in a data dictionary, and do intersection
         with defined active variables.
 
@@ -698,18 +738,33 @@ class Assembler:
 
         # Active variables
         loc_variables = d.get(pp.PRIMARY_VARIABLES, None)
-        if active_variables is None:
+        if self.active_variables is None:
             # No restriction necessary.
             return loc_variables
         else:
             # Find intersection with decleared active variables.
-            if not isinstance(active_variables, list):
-                active_variables = [active_variables]
             var = {}
             for key, val in loc_variables.items():
-                if key in active_variables:
+                if key in self.active_variables:
                     var[key] = val
             return var
+
+    def _is_active_variable(self, key):
+        """ Check if a key denotes an active variable
+        
+        Parameters:
+            key (str): Variable identifier.
+            active_variables (list of str, or str): Active variables.
+            
+        Returns:
+            boolean: True if key is in active_variables, or active_variables
+                is None.
+        
+        """
+        if self.active_variables is None:
+            return True
+        else:
+            return key in self.active_variables
 
     def distribute_variable(self, values, variable_names=None):
         """ Distribute a vector to the nodes and edges in the GridBucket.
