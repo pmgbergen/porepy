@@ -148,14 +148,14 @@ class FractureSet(object):
 
     def mesh(self, tol, mesh_args, do_snap=True):
 
-        p = self.pts
-        e = self.edges
+        pts = self.pts
+        edges = self.edges
 
-        if do_snap:
-            p, _ = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=tol)
-        frac_dict = {"points": p, "edges": e}
-        gb = pp.meshing.simplex_grid(frac_dict, self.domain, tol=tol, **mesh_args)
-        return gb
+        if pts is not None and do_snap:
+            pts, _ = pp.frac_utils.snap_fracture_set_2d(pts, edges, snap_tol=tol)
+
+        network = pp.FractureNetwork2d(pts, edges, self.domain, tol=tol)
+        return network.mesh(mesh_args)
 
     def fit_distributions(self, **kwargs):
         """ Fit statistical distributions to describe the fracture set.

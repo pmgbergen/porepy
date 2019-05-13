@@ -86,6 +86,12 @@ def data_flow(gb, discr, model, data, bc_flag):
 
             bc_val = np.zeros(g.num_faces)
             bc_val[b_faces[in_flow]] = data.get("bc_flow", 1)
+
+            # save the tags outflow and inflow
+            g.tags["bc_flow_id"] = np.zeros(g.num_faces)
+            g.tags["bc_flow_id"][b_faces[in_flow]] = 1 # it's just a flag
+            g.tags["bc_flow_id"][b_faces[out_flow]] = 2
+
         else:
             param["bc"] = pp.BoundaryCondition(g, empty, empty)
 
@@ -182,13 +188,11 @@ def flow(gb, discr, param, bc_flag):
 
     logger.info("done")
 
-    return model_data
-
 
 # ------------------------------------------------------------------------------#
 
 
-def data_advdiff(gb, model, model_flow, data, bc_flag):
+def data_advdiff(gb, model, data, bc_flag):
     tol = data["tol"]
 
     model_data_adv = model + "_data_adv"
@@ -207,7 +211,7 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
         unity = np.ones(g.num_cells)
 
         # weight for the mass matrix
-        param_adv["mass_weight"] = data.get("mass_weight", 1) * unity
+        param_adv["mass_weight"] = unity
 
         # diffusion term
         kxx = data["diff"] * unity
@@ -281,12 +285,12 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
 # ------------------------------------------------------------------------------#
 
 
-def advdiff(gb, discr, param, model_flow, bc_flag):
+def advdiff(gb, discr, param, bc_flag):
 
     model = "transport"
 
     model_data_adv, model_data_diff, model_data_src = data_advdiff(
-        gb, model, model_flow, param, bc_flag
+        gb, model, param, bc_flag
     )
 
     # discretization operator names
@@ -369,7 +373,7 @@ def advdiff(gb, discr, param, model_flow, bc_flag):
 
     logger.info("Assemble the mass term of the transport problem")
     M, _, _, _ = assembler.assemble_matrix_rhs(gb)
-    M_t = M.copy() / param["time_step"]
+    M_t = M.copy() / param["time_step"] * param.get("mass_weight", 1)
     M_r = M.copy() * param.get("reaction", 0)
     logger.info("done")
 

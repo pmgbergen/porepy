@@ -3,29 +3,8 @@ import scipy.sparse as sps
 import numpy as np
 import porepy as pp
 
+from examples.papers.flow_upscaling.logger import logger
 import data
-
-# ------------------------------------------------------------------------------#
-
-
-def setup_custom_logger():
-    formatter = logging.Formatter(
-        fmt="%(asctime)s %(levelname)-8s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-    )
-    handler = logging.FileHandler("log.txt", mode="w")
-    handler.setFormatter(formatter)
-    screen_handler = logging.StreamHandler(stream=sys.stdout)
-    screen_handler.setFormatter(formatter)
-
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-
-    logger.addHandler(handler)
-    logger.addHandler(screen_handler)
-    return logger
-
-
-logger = setup_custom_logger()
 
 # ------------------------------------------------------------------------------#
 
@@ -89,10 +68,15 @@ def flow(gb, param):
     logger.info("Variable post-process")
     assembler.distribute_variable(gb, up, block_dof, full_dof)
     for g, d in gb:
-        d[pressure] = discr.extract_pressure(g, d[variable])
-        d[flux] = discr.extract_flux(g, d[variable])
+        d[pressure] = discr.extract_pressure(g, d[variable], d)
+        d[flux] = discr.extract_flux(g, d[variable], d)
 
     pp.project_flux(gb, discr, flux, P0_flux, mortar)
+    logger.info("done")
+
+    logger.info("Exporting the solution")
+    save = pp.Exporter(gb, "solution", folder=param["folder"])
+    save.write_vtk([pressure, P0_flux, "frac_num", "cell_volumes"])
     logger.info("done")
 
     return model_data
@@ -175,9 +159,11 @@ def advdiff(gb, param, model_flow):
     logger.info("Prepare the exporting")
     save = pp.Exporter(gb, "solution", folder=param["folder"])
     logger.info("done")
-    variables = [variable, param["pressure"], param["P0_flux"]]
+    variables = [variable, param["pressure"], param["P0_flux"], "frac_num", "cell_volumes"]
 
     x = np.ones(A.shape[0]) * param["initial_advdiff"]
+    outflow = np.zeros(param["n_steps"])
+
     logger.info("Start the time loop with " + str(param["n_steps"]) + " steps")
     for i in np.arange(param["n_steps"]):
         # x = IE_solver(b + M.dot(x))
@@ -193,4 +179,45 @@ def advdiff(gb, param, model_flow):
         save.write_vtk(variables, time_step=i)
         logger.info("done")
 
-    save.write_pvd(np.arange(param["n_steps"]) * param["time_step"])
+        logger.info("Compute the production")
+        outflow[i] = compute_outflow(gb, param)
+        logger.info("done")
+
+    time = np.arange(param["n_steps"]) * param["time_step"]
+    save.write_pvd(time)
+
+    logger.info("Save outflow on file")
+    file_out = param["folder"] + "/outflow.csv"
+    data_outflow = np.vstack((time, outflow)).T
+    np.savetxt(file_out, data_outflow, delimiter=",")
+    logger.info("done")
+
+
+# ------------------------------------------------------------------------------#
+
+
+def compute_outflow(gb, param):
+    outflow = 0.0
+    for g, d in gb:
+        if g.dim < 2:
+            continue
+        faces, cells, sign = sps.find(g.cell_faces)
+        index = np.argsort(cells)
+        faces, sign = faces[index], sign[index]
+
+        flux = d["darcy_flux"].copy()
+        scalar = d["scalar"].copy()
+
+        flux[faces] *= sign
+        flux[g.get_internal_faces()] = 0
+        flux[flux < 0] = 0
+        # outflow += np.dot(flux, np.abs(g.cell_faces).dot(scalar))
+
+        flux[flux != 0] = 1
+        area = np.dot(flux, g.face_areas)
+        outflow += np.dot(flux * g.face_areas, np.abs(g.cell_faces).dot(scalar)) / area
+
+    return outflow
+
+
+# ------------------------------------------------------------------------------#
