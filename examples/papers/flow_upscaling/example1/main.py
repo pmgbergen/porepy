@@ -41,13 +41,10 @@ def main(file_geo, param, mesh_args, tol):
         model_flow = solvers.flow(gb_scaled, param)
 
         # compute the upscaled transmissibility
-        t, out_flow = fct.transmissibility(gb_scaled, param, flow_direction)
+        t, _ = fct.transmissibility(gb_scaled, param, flow_direction)
         # save the transmissibility
         np.savetxt(param["folder"] + "/transmissibility.txt", [t])
         logger.info("done")
-
-        # compute the pore-volume
-        pv = fct.pore_volume(gb_scaled, param)
 
         # compute the actual ending time base on equivalent PVI
         param["time_step"] = 10 / param["given_flux"] / param["n_steps"]

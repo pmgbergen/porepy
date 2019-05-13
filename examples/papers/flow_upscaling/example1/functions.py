@@ -70,9 +70,6 @@ def transmissibility(gb, param, flow_direction):
             u[np.logical_not(b_faces)] = 0
             u[faces] *= sign
 
-            # it's ok since we consider only the boundary
-            aperture = np.power(param["aperture"], 2 - g.dim) * np.ones(g.num_cells)
-
             out_flow = g.face_centers[flow_direction, :] > param["domain"][dmax] - param["tol"]
             out_flow_u = np.sum(u[out_flow])
 
