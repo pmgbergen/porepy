@@ -22,7 +22,7 @@ def rescale_gb(gb):
     dy = domain["ymax"] - domain["ymin"]
     ratio = dx/dy
 
-    dx_new = 2
+    dx_new = 2e2
     dy_new = dx_new / ratio
 
     S = np.diag([dx_new/dx, dy_new/dy, 1])

@@ -50,7 +50,7 @@ def main(file_geo, param, mesh_args, tol):
         pv = fct.pore_volume(gb_scaled, param)
 
         # compute the actual ending time base on equivalent PVI
-        param["time_step"] = 1e-2 / param["given_flux"] / param["n_steps"]
+        param["time_step"] = 10 / param["given_flux"] / param["n_steps"]
 
         solvers.advdiff(gb_scaled, param, model_flow)
 
@@ -63,7 +63,7 @@ if __name__ == "__main__":
 
     aperture = 2 * pp.MILLIMETER
     n_steps = 200
-    given_flux = 1e-7
+    given_flux = 1e-6
     km = 1e-14
 
     mu = fluid.dynamic_viscosity()
