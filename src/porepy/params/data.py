@@ -175,6 +175,7 @@ class Parameters(dict):
             modify_variable(self[keyword][p], v)
 
 
+
 """
 Utility methods for handling of dictionaries.
 TODO: Improve/add/remove methods based on experience with setting up problems using the
@@ -279,6 +280,8 @@ def modify_variable(variable, new_value):
         variable.setfield(new_value, variable.dtype)
     elif isinstance(variable, list):
         variable[:] = new_value
+    elif isinstance(variable, pp.SecondOrderTensor):
+        variable.values[:] = new_value.values
     elif isinstance(variable, numbers.Number):
         raise TypeError("Numbers are immutable.")
     else:

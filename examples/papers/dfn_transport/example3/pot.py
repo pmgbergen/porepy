@@ -75,124 +75,107 @@ def save_multiple(filename, num_frac, folder):
 
 def main():
 
-    num_frac = 10
+    num_frac = 86
 
-    master_folder = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example2/"
+    master_folder = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example3/"
 
-    methods_stefano_1 = ["OPTxfem", "OPTfem"]
-    methods_stefano_2 = ["GCmfem"]
+    methods_stefano = [] #["OPTxfem", "OPTfem", "GCmfem"]
     methods_alessio = ["MVEM_UPWIND", "Tpfa_UPWIND", "RT0_UPWIND"]
-    methods_andrea = ["MVEM_VEMSUPG"]
+    methods_andrea = [] #["MVEM_VEMSUPG"]
 
-    grids = {"grid_0": ("3k", "200", "3", "9e-05"), "grid_1": ("40k", "2600", "40", "0.0015")}
-    grids_label = {"grid_0": "coarse", "grid_1": "fine"}
+    cases = {"case_0": ("different", "200", "0.005"), "case_1": ("same", "2600", "0.001")}
+    cases_label = {"case_0": "different", "case_1": "same"}
 
-    for grid_name, grid in grids.items():
-        grid_label = grids_label[grid_name]
+    for case_name, case in cases.items():
+        case_label = cases_label[case_name]
 
         folder_in = master_folder
         folder_out = folder_in + "img/"
 
-        title = ["avg $\\theta$", grid_label]
+        title = ["avg $\\theta$", case_label]
         # Alessio
         for method in methods_alessio:
-            data = folder_in + method + "/" + "Cmean_" + grid[0] + ".csv"
+            data = folder_in + method + "/" + "Cmean_" + case[0] + ".csv"
             plot_multiple(data, method.replace("_", " "), title, num_frac)
 
         # Stefano
-        for method in methods_stefano_1:
-            data = folder_in + method + "/" + method + "_Cmean_" + grid[1] + ".csv"
-            plot_multiple(data, method, title, num_frac)
-
-        for method in methods_stefano_2:
-            data = folder_in + method + "/" + method + "_Cmean_" + grid[2] + ".csv"
+        for method in methods_stefano:
+            data = folder_in + method + "/" + method + "_Cmean_" + case[1] + ".csv"
             plot_multiple(data, method, title, num_frac)
 
         # Andrea
         for method in methods_andrea:
-            data = folder_in + method + "/" + "Cmean_" + grid[3] + ".csv"
+            data = folder_in + method + "/" + "Cmean_" + case[2] + ".csv"
             plot_multiple(data, method.replace("_", " "), title, num_frac)
 
         # save
-        name = grid_label + "_cot_avg"
+        name = case_label + "_cot_avg"
         save_multiple(name, num_frac, folder_out)
 
         ###########
 
-        title = ["min $\\theta$", grid_label]
+        title = ["min $\\theta$", case_label]
         # Alessio
         for method in methods_alessio:
-            data = folder_in + method + "/" + "Cmin_" + grid[0] + ".csv"
+            data = folder_in + method + "/" + "Cmin_" + case[0] + ".csv"
             plot_multiple(data, method.replace("_", " "), title, num_frac)
 
         # Stefano
-        for method in methods_stefano_1:
-            data = folder_in + method + "/" + method + "_Cmin_" + grid[1] + ".csv"
-            plot_multiple(data, method, title, num_frac)
-
-        for method in methods_stefano_2:
-            data = folder_in + method + "/" + method + "_Cmin_" + grid[2] + ".csv"
+        for method in methods_stefano:
+            data = folder_in + method + "/" + method + "_Cmin_" + case[1] + ".csv"
             plot_multiple(data, method, title, num_frac)
 
         # Andrea
         for method in methods_andrea:
-            data = folder_in + method + "/" + "Cmin_" + grid[3] + ".csv"
+            data = folder_in + method + "/" + "Cmin_" + case[2] + ".csv"
             plot_multiple(data, method.replace("_", " "), title, num_frac)
 
         # save
-        name = grid_label + "_cot_min"
+        name = case_label + "_cot_min"
         save_multiple(name, num_frac, folder_out)
 
         ###########
 
-        title = ["max $\\theta$", grid_label]
+        title = ["max $\\theta$", case_label]
         # Alessio
         for method in methods_alessio:
-            data = folder_in + method + "/" + "Cmax_" + grid[0] + ".csv"
+            data = folder_in + method + "/" + "Cmax_" + case[0] + ".csv"
             plot_multiple(data, method.replace("_", " "), title, num_frac)
 
         # Stefano
-        for method in methods_stefano_1:
-            data = folder_in + method + "/" + method + "_Cmax_" + grid[1] + ".csv"
-            plot_multiple(data, method, title, num_frac)
-
-        for method in methods_stefano_2:
-            data = folder_in + method + "/" + method + "_Cmax_" + grid[2] + ".csv"
+        for method in methods_stefano:
+            data = folder_in + method + "/" + method + "_Cmax_" + case[1] + ".csv"
             plot_multiple(data, method, title, num_frac)
 
         # Andrea
         for method in methods_andrea:
-            data = folder_in + method + "/" + "Cmax_" + grid[3] + ".csv"
+            data = folder_in + method + "/" + "Cmax_" + case[2] + ".csv"
             plot_multiple(data, method.replace("_", " "), title, num_frac)
 
         # save
-        name = grid_label + "_cot_max"
+        name = case_label + "_cot_max"
         save_multiple(name, num_frac, folder_out)
 
         ###########
 
-        title = "production on " + grid_label
+        title = "production on " + case_label
         # Alessio
         for method in methods_alessio:
-            data = folder_in + method + "/" + "production_" + grid[0] + ".csv"
+            data = folder_in + method + "/" + "production_" + case[0] + ".csv"
             plot_single(data, method.replace("_", " "), title)
 
         # Stefano
-        for method in methods_stefano_1:
-            data = folder_in + method + "/" + method + "_production_" + grid[1] + ".csv"
-            plot_single(data, method, title)
-
-        for method in methods_stefano_2:
-            data = folder_in + method + "/" + method + "_production_" + grid[2] + ".csv"
+        for method in methods_stefano:
+            data = folder_in + method + "/" + method + "_production_" + case[1] + ".csv"
             plot_single(data, method, title)
 
         # Andrea
         for method in methods_andrea:
-            data = folder_in + method + "/" + "production_" + grid[3] + ".csv"
+            data = folder_in + method + "/" + "production_" + case[2] + ".csv"
             plot_single(data, method.replace("_", " "), title)
 
         # save
-        name = grid_label + "_outflow"
+        name = case_label + "_outflow"
         save_single(name, folder_out)
 
 

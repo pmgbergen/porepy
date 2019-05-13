@@ -2,6 +2,7 @@ import numpy as np
 import porepy as pp
 
 import examples.papers.dfn_transport.discretization as compute
+#from examples.papers.dfn_transport.grid_export import grid_export
 
 # from examples.papers.dfn_transport.flux_trace import jump_flux
 
@@ -62,52 +63,21 @@ def main():
     discretizations = compute.get_discr()
 
     # geometric tolerance
-    tol = 1e-2
-
-    mesh_size = 1e2  # np.power(2., -4)
-    mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
+    tol = 1e-3
 
     # initial condition and type of fluid/rock
     theta = 80 * pp.CELSIUS
-    fluid = pp.Water(theta)
-    rock = pp.Granite(theta)
-
-    aperture = 2 * pp.MILLIMETER
-
-    # permeability which follow the cubic law
-    k = aperture * aperture / 12.0 / fluid.dynamic_viscosity()
-
-    # fracture porosity
-    phi = 0.95
-
-    # specific heat capacity
-    cm = rock.specific_heat_capacity()
-    cw = fluid.specific_heat_capacity()
-
-    # density
-    rhom = rock.DENSITY
-    rhow = fluid.density()
-
-    # thermal conductivity
-    lm = rock.thermal_conductivity()
-    lw = fluid.thermal_conductivity()
-
-    # effective thermal capacity
-    ce = phi * rhow * cw + (1 - phi) * rhom * cm
-
-    # effective thermal conductivity
-    l = np.power(lw, phi) * np.power(lm, 1 - phi)
 
     # reaction coefficient \gamma * (T - T_rock)
-    gamma = 0.1
+    gamma = 2.44e-9*0.125
     theta_rock = theta
 
     # boundary conditions
-    bc_flow = 5 * pp.BAR
+    bc_flow = 2500 * pp.METER / 5
     bc_trans = 30 * pp.CELSIUS
 
-    end_time = 1e7
-    n_steps = 1000
+    end_time = 3.154e+7
+    n_steps = 200
     time_step = end_time / n_steps
 
     bc_types = {"same": bc_same, "different": bc_different}
@@ -115,27 +85,37 @@ def main():
 
         for discr_key, discr in discretizations.items():
 
+            if discr_key == "MVEM":
+                mesh_size = 0.17*1e2
+            else:
+                mesh_size = 1e2  # np.power(2., -4)
+
+            mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
+
             folder = "solution_" + discr_key + "_" + bc_type_key
 
-            network = pp.fracture_importer.network_3d_from_fab(file_name)
+            network = pp.fracture_importer.network_3d_from_fab(file_name, tol=tol)
             gb = network.mesh(mesh_kwargs, dfn=True)
 
             gb.remove_nodes(lambda g: g.dim == 0)
             gb.compute_geometry()
             gb.assign_node_ordering()
 
+            if discr_key == "MVEM":
+                pp.coarsening.coarsen(gb, "by_volume")
+
             domain = gb.bounding_box(as_dict=True)
 
             param = {
                 "domain": domain,
                 "tol": tol,
-                "k": k,
+                "k": 1.84e-6,
                 "bc_flow": bc_flow,
-                "diff": l,
-                "mass_weight": ce,
+                "diff": 0.35e-9,
+                "mass_weight": 1.95e-3,
                 "src": gamma * theta_rock,
                 "reaction": gamma,
-                "flux_weight": rhow * cw,
+                "flux_weight": 1.,
                 "bc_trans": bc_trans,
                 "init_trans": theta,
                 "time_step": time_step,
@@ -144,12 +124,15 @@ def main():
             }
 
             # the flow problem
-            model_flow = compute.flow(gb, discr, param, bc_type)
+            compute.flow(gb, discr, param, bc_type)
+
+            #if discr_key == "Tpfa":
+            #    grid_export(gb, None, folder + "/grid/")
 
             # jump_flux(gb, param["mortar_flux"])
 
             # the advection-diffusion problem
-            compute.advdiff(gb, discr, param, model_flow, bc_type)
+            compute.advdiff(gb, discr, param, bc_type)
 
 
 if __name__ == "__main__":
