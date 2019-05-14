@@ -246,8 +246,8 @@ def initialize_data(g, data, keyword, specified_parameters=None):
     in data, the new keyword is added using the update_dictionaries method.
 
     Args:
+        g: The grid. Can be either standard grid, or mortar grid.
         data: Outer data dictionary, to which the parameters will be added.
-        g: The grid.
         keyword: String identifying the parameters.
         specified_parameters: A dictionary with specified parameters, defaults to empty
             dictionary.
