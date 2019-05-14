@@ -1446,26 +1446,27 @@ def _mpsa_local(
 
     if bound.bc_type != "vectorial":
         raise AttributeError("MPSA must be given a vectorial boundary condition")
-    
+
     if g.dim == 1:
         tpfa_key = "tpfa_elasticity"
         discr = pp.Tpfa(tpfa_key)
         params = pp.Parameters(g)
-        
+
         # Implicitly set Neumann boundary conditions on the whole domain.
         # More general values should be permissible, but it will require handling
         # of rotated boundary conditions.
-        if not np.all(bound.is_neu):
+        if np.any(bound.is_dir):
             # T
             raise ValueError("have not considered Dirichlet boundary values here")
-        
+
         bnd = pp.BoundaryCondition(g)
         params["bc"] = bnd
-        
+
         # The elasticity tensor here is set to 2*mu + lmbda, that is, the standard
         # diagonal term in the stiffness matrix
         k = pp.SecondOrderTensor(3, 2 * constit.mu + constit.lmbda)
         params["second_order_tensor"] = k
+        params["aperture"] = np.ones(g.num_cells)
 
         d = {
             pp.PARAMETERS: {tpfa_key: params},
@@ -1478,8 +1479,8 @@ def _mpsa_local(
             matrix_dictionary["bound_flux"],
             matrix_dictionary["bound_pressure_cell"],
             matrix_dictionary["bound_pressure_face"],
-            )        
-    
+        )
+
     # The grid coordinates are always three-dimensional, even if the grid is
     # really 2D. This means that there is not a 1-1 relation between the number
     # of coordinates of a point / vector and the real dimension. This again
@@ -1491,25 +1492,22 @@ def _mpsa_local(
     # proper 2D.
     if g.dim == 2:
         g = g.copy()
-        
-        cell_centers, face_normals, face_centers, R, _, nodes = pp.cg.map_grid(
-            g
-        )
+
+        cell_centers, face_normals, face_centers, R, _, nodes = pp.cg.map_grid(g)
         g.cell_centers = cell_centers
         g.face_normals = face_normals
         g.face_centers = face_centers
         g.nodes = nodes
-        
-        # The stiffness matrix should also be rotated before deleting rows and 
-        # columns. However, for isotropic media, the standard __init__ for the 
+
+        # The stiffness matrix should also be rotated before deleting rows and
+        # columns. However, for isotropic media, the standard __init__ for the
         # FourthOrderTensor, followed by the below deletions will in effect generate
-        # just what we wanted (assuming we are happy with the Lame parameters, 
+        # just what we wanted (assuming we are happy with the Lame parameters,
         # and do not worry about plane-strain / plane-stress consistency).
         # That is all to say, this is a bit inconsistent, but it may just end up okay.
         constit = constit.copy()
         constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=0)
         constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=1)
-        
 
     nd = g.dim
 
