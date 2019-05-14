@@ -37,7 +37,7 @@ class PrimalContactCoupling(object):
 
         self.discr_master = discr_master
         self.discr_slave = discr_slave
-        
+
         self.SURFACE_DISCRETIZATION_KEY = "surface_smoother"
 
     def _key(self):
@@ -67,9 +67,9 @@ class PrimalContactCoupling(object):
         # Tangential_normal projection
         tangential_normal_projection = data_edge["tangential_normal_projection"]
 
-        tangential_projection = tangential_normal_projection.project_tangential()
+
         normal_projection = tangential_normal_projection.project_normal()
-        
+
         discretize_surface = parameter_dictionary_edge.get("discretize_surface", True)
 
         # The right hand side of the normal diffusion considers only the tangential part
@@ -77,80 +77,85 @@ class PrimalContactCoupling(object):
         matrix_dictionary_edge["contact_force_map"] = normal_projection
 
         if discretize_surface:
-    
+
             # Lame parameters to be used for discretizing the surface elliptic equation.
             mu = parameter_dictionary_edge["mu"]
             lmbda = parameter_dictionary_edge["lambda"]
-    
+
             deviation_from_plane_tol = 1e-5
-    
+
             A_list = []
-    
+
             for proj, side_grid in mg.project_to_side_grids():
-    
+
                 unity = np.ones(side_grid.num_cells)
-    
+
                 # Create an finite volume discretization for elasticity.
                 # Define parameters for the surface diffusion in an appropriate form.
                 mpsa = pp.Mpsa(self.keyword)
-    
+
                 # The stiffness matrix is istropic, thus we need not care about the
                 # basis used for mapping grid coordinates into the tangential space.
                 # Simply define the parameters directly in 2d space.
                 stiffness = pp.FourthOrderTensor(side_grid.dim, mu * unity, lmbda * unity)
-                mpsa_parameters= pp.initialize_data(side_grid, {}, self.keyword, {'fourth_order_tensor': stiffness})
-    
-    
+
+                bc = pp.BoundaryConditionVectorial(side_grid)
+
+                mpsa_parameters = pp.initialize_data(side_grid, {}, self.keyword, {'fourth_order_tensor': stiffness, 'bc': bc})
+
+
                 # Project the side grid into its natural dimension.
                 g = side_grid.copy()
                 # Use the same projection matrix as in the projections used on the
                 # variables.
+                rot = tangential_normal_projection.projection[:, :, 0]
+                if rot.shape == (2, 2):
+                    rot = np.vstack((np.hstack((rot, np.zeros((2, 1)))),
+                                     np.zeros((3))))
                 cell_centers, face_normals, face_centers, _, _, nodes = pp.cg.map_grid(
-                    g, deviation_from_plane_tol, R=tangential_normal_projection.inv_basis[:, :, 0]
+                    g, deviation_from_plane_tol, R=rot
                 )
                 g.cell_centers = cell_centers
                 g.face_normals = face_normals
                 g.face_centers = face_centers
                 g.nodes = nodes
-    
+
                 mpsa.discretize(g, mpsa_parameters)
-    
+
                 # We are only interested in the elasticity discretization as a smoother.
                 # Construct the discretiation matrix, and disregard all other output.
-                A_loc = pp.fvutils.vector_divergence(side_grid) * mpsa_parameters["stress"]
-    
+                A_loc = pp.fvutils.vector_divergence(side_grid) * mpsa_parameters[pp.DISCRETIZATION_MATRICES][self.keyword]["stress"]
+
                 # The local discretization must be mapped to the full mortar degrees of freedom.
                 # This entails a projection onto the normal plane, followed by a restriction to this
                 # side grid
-    
-                # Project vector variables onto the side grid
-                restrict_to_side_grid = sps.kron(proj, sps.eye(mg.dim))
-    
+
                 # Projection to remove degrees of freedom in the normal direction to the grid
                 # This should be used after the projection to the tangent space,
                 # when we know which rows are
-                A_list.append(A_loc * restrict_to_side_grid * tangential_projection)
-    
+                tangential_projection = tangential_normal_projection.project_tangential(side_grid.num_cells)
+                A_list.append(A_loc * tangential_projection)
+
             # Concatenate discretization matrices
-            A = sps.bmat([[mat] for mat in A_list])
-    
+            A = sps.block_diag([mat for mat in A_list])
+
             # The discretization is still a non-square matrix, it needs to be expanded to
             # be compatible with the block assembler.
             # The final equations should relate to continuity of the normal froces
             matrix_dictionary_edge[self.SURFACE_DISCRETIZATION_KEY] = A
-        
+
         # Discretization of the contact mechanics is done externally.
         # The resulting equations are located at the lower-dimensional grid,
         # however, the discretization is inherently linked to the mortar grid.
         # It is therefore constructed here.
-        
+
         self.discr_slave.discretize(g_h, g_l, data_h, data_l, data_edge)
-        
+
 
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
     ):
-        
+
         """ Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
         Parameters:
@@ -164,10 +169,12 @@ class PrimalContactCoupling(object):
 
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-        
+
 
         if not "surface_smoother" in matrix_dictionary_edge:
             self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
+
+        ambient_dimension = g_master.dim
 
         master_ind = 0
         slave_ind = 1
@@ -192,10 +199,10 @@ class PrimalContactCoupling(object):
             in RobinCoupling must match the number of dofs given by the matrix
             """
             )
-        elif not mg.num_cells == matrix[master_ind, 2].shape[1]:
+        elif not mg.num_cells * ambient_dimension == matrix[master_ind, 2].shape[1]:
             raise ValueError(
                 """The number of dofs of the edge discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
+            in the PrimalContactCoupling must match the number of dofs given by the matrix
             """
             )
 
@@ -215,55 +222,59 @@ class PrimalContactCoupling(object):
         rhs = np.empty(3, dtype=np.object)
         rhs[master_ind] = np.zeros(dof_master)
         rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[mortar_ind] = np.zeros(mg.num_cells)
-                
-        ambient_dimension = g_master.dim
-        
+        rhs[mortar_ind] = np.zeros(mg.num_cells * ambient_dimension)
+
         # IMPLEMENTATION NOTE: The current implementation is geared towards
-        # using mpsa for the mechanics problem. A more general approach would 
+        # using mpsa for the mechanics problem. A more general approach would
         # be possible - for an example see the flow problem with the RobinCoupling
         # and EllipticDiscretization and its subclasses. However, at present such a general
         # framework currently seems over the top, hence this more mundane approach.
-        
+
         ### Equation for the master side
         # The mortar variable acts as a Dirichlet boundary condition for the master.
         master_bound_stress = data_master[pp.DISCRETIZATION_MATRICES][self.discr_master.keyword]["bound_stress"]
         master_stress = data_master[pp.DISCRETIZATION_MATRICES][self.discr_master.keyword]["stress"]
         master_divergence = pp.fvutils.vector_divergence(g_master)
-        
-        proj_vector_master = mg.master_to_mortar_avg(nd=ambient_dimension)
-        
+
+        proj_vector_master = mg.mortar_to_master_avg(nd=ambient_dimension)
+
         cc[master_ind, mortar_ind] = master_divergence * master_bound_stress * proj_vector_master
 
-        
+
         ### Equation for the slave side
         # These are the contact conditions, which dictate relations between
         # the contact forces on the slave, and the displacement jumps.
         # NOTE: Some more projcetions may be needed here for non-matching grids
-        self.discr_slave(g_master, g_slave, data_master, data_slave, data_edge, matrix)
-        
+        traction_discr, displacement_jump_discr, rhs_slave = self.discr_slave.assemble_matrix_rhs(g_slave, data_slave)
+        cc[slave_ind, slave_ind] = traction_discr
+        cc[slave_ind, mortar_ind] = displacement_jump_discr
+        rhs[slave_ind] = rhs_slave
+
         ## Equation for the mortar side.
         # The first nd-1 sets of equations are formed by the surface pde, which
         # acts in the tangential direction of the mortar grid.
         # The final equation is continuity of forces in the normal direction.
         stress_from_mortar = mg.master_to_mortar_int(nd=ambient_dimension) * master_bound_stress
         stress_from_master = mg.master_to_mortar_int(nd=ambient_dimension) * master_stress
-        
+
         contact_stress = mg.slave_to_mortar_int(nd=ambient_dimension)
-        
-        restrict_to_tangential_direction = None
-        restrict_to_normal_direction = None
-        
-        
-        ## Equation for the 
+
+        projection = data_edge['tangential_normal_projection']
+        restrict_to_tangential_direction = projection.project_tangential(mg.num_cells)
+        restrict_to_normal_direction = projection.project_normal(mg.num_cells)
+
+
+        ## Equation for the
         surface_discr = matrix_dictionary_edge[self.SURFACE_DISCRETIZATION_KEY]
-        
-        cc[mortar_ind, master_ind] = sps.bmat([[sps.csc_matrix(surface_discr.shape)],
+
+        cc[mortar_ind, master_ind] = sps.bmat([[sps.csc_matrix((mg.num_cells * mg.dim, self.discr_master.ndof(g_master)))],
                               [restrict_to_normal_direction * stress_from_master]])
         cc[mortar_ind, slave_ind] = sps.bmat([[restrict_to_tangential_direction * contact_stress],
                                               [restrict_to_normal_direction * contact_stress]])
         cc[mortar_ind, mortar_ind] = sps.bmat([[surface_discr],
                                                [restrict_to_normal_direction * stress_from_mortar * proj_vector_master]])
-        
 
+        matrix += cc
+
+        return matrix, rhs
 
