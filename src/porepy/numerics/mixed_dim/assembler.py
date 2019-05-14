@@ -191,24 +191,51 @@ class Assembler:
     def discretize(self, variable_filter=None, term_filter=None):
         """ Run the discretization operation on discretizations specified in
         the mixed-dimensional grid.
-        
+
         Only active variables will be considered. Moreover, the discretization
         operation can be filtered to only consider specified variables, or terms.
         If the variable filter is active, only discretizations where all variables
         survive the filter will be discretized (for diagonal terms, the variable
-        must survive, for off-diagonal terms, both terms must survive). 
+        must survive, for off-diagonal terms, both terms must survive).
+
         Filtering on terms works on the more detailed levels of indivdiual terms
-        in a multi-physics discretization (say, zoom-in on the advection term 
-        in a advection-diffusion system). The filters can be combined to select
-        specified terms for specified equations.
-        
+        in a multi-physics discretization (say, zoom-in on the advection term
+        in a advection-diffusion system).
+
+        The filters can be combined to select specified terms for specified equations.
+
+        Example (discretization internal to a node or edge:
+            For a discretizaiton of the form
+
+            data[pp.DISCRETIZATION] = {'temp': {'advection': Foo(), 'diffusion': Bar()},
+                                       'pressure' : {'diffusion': FlowFoo()}}
+
+            variable_filter = ['temp'] will discretize all temp terms
+
+            term_filter = ['diffusion'] will discretize duffusion for both the temp and
+                pressure variable
+
+            variable_filter = ['temp'], term_filter = ['diffusion'] will only discretize
+                the diffusion term for variable temp
+
+        Example (coupling terms):
+            Variable filter works as intenal to nodes / edges.
+            The term filter acts on the identifier of a coupling, so
+
+            dd[[pp.COUPLING_DISCRETIZATION]] = {'coupling_id' : {g1: {'temp': 'diffusion'},
+                                                                 g2:  {'pressure': diffusion'},
+                                                                 (g1, g2): {'coupling_variable': FooBar()}}}
+
+            will survive term_filter = ['coupling_id']
+
+
         Parameters:
             variable_filter (optional): List of variables to be discretized. If
                 None (default), all active variables are discretized.
             term_filter (optional): List of terms to be discretized. If None
                 (default), all terms for all active variables are discretized.
-        
-        """ 
+
+        """
         self._operate_on_gb(
             "discretize", variable_filter=variable_filter, term_filter=term_filter
         )
@@ -216,9 +243,9 @@ class Assembler:
     def _operate_on_gb(self, operation, **kwargs):
         """ Helper method, loop over the GridBucket, identify nodes / edges
         variables and discretizations, and perform an operation on these.
-        
-        Implemented actions are discretizaiton and assembly. 
-        
+
+        Implemented actions are discretizaiton and assembly.
+
         """
 
         if operation == "discretize":
@@ -362,7 +389,7 @@ class Assembler:
             if discr is None:
                 continue
 
-            for key, terms in discr.items():
+            for coupling_key, terms in discr.items():
                 edge_vals = terms.get(e)
                 edge_key = edge_vals[0]
 
@@ -422,7 +449,7 @@ class Assembler:
 
                 # Key to the matrix dictionary used to access this coupling
                 # discretization.
-                mat_key = self._variable_term_key(key, edge_key, slave_key, master_key)
+                mat_key = self._variable_term_key(coupling_key, edge_key, slave_key, master_key)
 
                 # Edge discretization object
                 e_discr = edge_vals[1]
@@ -950,15 +977,15 @@ class Assembler:
     def dof_ind(self, g, name):
         """ Get the indices in the global system of variables associated with a
         given node / edge (in the GridBucket sense) and a given variable.
-        
+
         Parameters:
             g (pp.Grid or pp.GridBucket edge): Either a grid, or an edge in the
                 GridBucket.
             name (str): Name of a variable. Should be an active variable.
-            
+
         Returns:
             np.array (int): Index of degrees of freedom for this variable.
-        
+
         """
         block_ind = self.block_dof[(g, name)]
         dof_start = np.hstack((0, np.cumsum(self.full_dof)))
@@ -966,7 +993,7 @@ class Assembler:
 
     def num_dof(self):
         """ Get total number of unknowns of the identified variables.
-        
+
         Returns:
             int: Number of unknowns. Size of solution vector.
         """
