@@ -26,6 +26,8 @@ __version__ = "0.5.0"
 __all__ = []
 
 # Numerics
+from porepy.numerics.discretization import VoidDiscretization
+
 # Control volume, elliptic
 from porepy.numerics.fv.mpsa import Mpsa, FracturedMpsa
 from porepy.numerics.fv.tpfa import Tpfa
