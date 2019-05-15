@@ -292,7 +292,9 @@ class MortarGrid(object):
             rows = np.arange(nc)
             cols = rows + counter
             data = np.ones(nc)
-            proj = sps.coo_matrix((data, (rows, cols)), shape=(nc, self.num_cells)).tocsc()
+            proj = sps.coo_matrix(
+                (data, (rows, cols)), shape=(nc, self.num_cells)
+            ).tocsc()
 
             counter += nc
             yield proj, grid
@@ -488,15 +490,48 @@ class MortarGrid(object):
         """
         return sps.kron(matrix, sps.eye(nd)).tocsc()
 
-    # ------------------------------------------------------------------------------#
+    def sign_of_mortar_sides(self, nd=1):
+        """ Assign positive or negative weight to the two sides of a mortar grid.
+
+        This is needed e.g. to make projection operators into signed projections,
+        for variables that have no particular defined sign conventions.
+
+        Example: Take the difference between right and left variables, and
+        project to the slave grid by
+
+            mortar_to_slave_avg() * sign_of_mortar_sides()
+
+        NOTE: The flux variables in flow and transport equations are defined as
+        positive from master to slave. Hence the two sides have different
+        conventions, and there is no need to adjust the signs further.
+
+        Parameters:
+            nd (int, optional): Spatial dimension of the projected quantity.
+                Defaults to 1 (mapping for scalar quantities).
+
+        Returns:
+            sps.diag_matrix: Diagonal matrix with positive signs on variables
+                belonging to the first of the side_grids.
+                Size: mortar_grid.num_cells x mortar_grid.num_cells
+
+        """
+        nc = self.num_cells
+        if self.num_sides() == 1:
+            return sps.dia_matrix((np.ones(nc * nd), 0), shape=(nd * nc, nd * nc))
+        elif self.num_sides() == 2:
+            data = np.hstack(
+                (
+                    np.ones(self.side_grids[1].num_cells * nd),
+                    -np.ones(self.side_grids[2].num_cells * nd),
+                )
+            )
+            return sps.dia_matrix((data, 0), shape=(nd * nc, nd * nc))
 
     def cell_diameters(self):
         diams = np.empty(self.num_sides(), dtype=np.object)
         for pos, (_, g) in enumerate(self.side_grids.items()):
             diams[pos] = g.cell_diameters()
         return np.concatenate(diams).ravel()
-
-    # ------------------------------------------------------------------------------#
 
     def _check_mappings(self, tol=1e-4):
         row_sum = self._master_to_mortar_int.sum(axis=1)
