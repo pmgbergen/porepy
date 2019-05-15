@@ -460,13 +460,11 @@ class Assembler:
                 # used. The fourth alternative, none of them are active, is not
                 # considered valid, and raises an error message.
                 if mi is not None and si is not None:
-
                     if operation == "discretize":
                         if (
                             variable_filter(master_key)
                             and variable_filter(slave_key)
                             and variable_filter(edge_key)
-                            and term_filter(term)
                         ):
                             e_discr.discretize(
                                 g_master, g_slave, data_master, data_slave, data_edge
