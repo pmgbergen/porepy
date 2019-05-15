@@ -12,16 +12,25 @@ submodule. The access via pp.will remain.
 
 Define unified keywords used throughout the software.
 """
+# Used in data dictionary to identify discretization objects internally to a
+# grid or mortar grid
 DISCRETIZATION = "discretization"
 
+# Used in data dictionary to identify discretization objects on couplings
+# between grids and mortar grids
 COUPLING_DISCRETIZATION = "coupling_discretization"
 
+# Used in data dictionary to declear and keep track of primary variables
 PRIMARY_VARIABLES = "primary_variables"
 
+# Used in data dictionary to store parameters for discretizations
 PARAMETERS = "parameters"
 
+# Used in data dictionary to store computed discretization matrices
 DISCRETIZATION_MATRICES = "discretization_matrices"
 
+# Used in data dictionary to store the system state, e.g. primary variables.
+STATE = "state"
 
 """ Units """
 # SI Prefixes
