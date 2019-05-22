@@ -2354,7 +2354,7 @@ def __unique_hooks_law(csym, casym, subcell_topology, nd):
     num_eqs = csym.shape[0] / nd
     ind_single = np.tile(subcell_topology.unique_subfno, (nd, 1))
     increments = np.arange(nd) * num_eqs
-    ind_all = np.reshape(ind_single + increments[:, np.newaxis], -1)
+    ind_all = np.reshape(ind_single + increments[:, np.newaxis], -1).astype(np.int)
 
     # Unique part of symmetric and asymmetric products
     hook_sym = csym[ind_all, ::]
