@@ -8,7 +8,13 @@ from porepy.numerics.fv import fvutils, mpsa
 
 
 class Biot:
-    def __init__(self, mechanics_keyword="mechanics", flow_keyword="flow"):
+    def __init__(
+        self,
+        mechanics_keyword="mechanics",
+        flow_keyword="flow",
+        vector_variable="displacement",
+        scalar_variable="pressure",
+    ):
         """ Set the two keywords.
 
         The keywords are used to access and store parameters and discretization
@@ -16,6 +22,9 @@ class Biot:
         """
         self.mechanics_keyword = mechanics_keyword
         self.flow_keyword = flow_keyword
+        # Set variable names for the vector and scalar variable
+        self.vector_variable = vector_variable
+        self.scalar_variable = scalar_variable
 
     def ndof(self, g):
         """ Return the number of degrees of freedom associated wiht the method.
@@ -59,11 +68,9 @@ class Biot:
             g: grid, or subclass, with geometry fields computed.
             data: dictionary to store the data terms. Must have been through a
                 call to discretize() to discretization of right hand side.
-            state: np.ndarray, solution vector from previous time step.
 
         Returns:
-            np.ndarray: Contribution to right hand side given the current
-            state.
+            np.ndarray: Contribution to right hand side.
 
         """
         d = data[pp.PARAMETERS][self.mechanics_keyword]["bc_values"]
@@ -104,21 +111,23 @@ class Biot:
         Parameters:
             g: grid, or subclass, with geometry fields computed.
             data: dictionary to store the data terms. Must have been through a
-                call to discretize() to discretization of right hand side.
-            state: np.ndarray optional, solution vector from previous time
-                step. Defaults to zero.
+                call to discretize() to discretization of right hand side. May
+                contain the field "STATE", storing the solution vectors from previous
+                time step. Defaults to zero.
 
         Returns:
-            np.ndarray: Contribution to right hand side given the current
-            state.
+            np.ndarray: Contribution to right hand side given the current state.
 
         """
-        state = data.get("state", None)
+        state = data.get(pp.STATE, None)
         if state is None:
-            state = np.zeros((g.dim + 1) * g.num_cells)
+            state = {
+                self.vector_variable: np.zeros(g.dim * g.num_cells),
+                self.scalar_variable: np.zeros(g.num_cells),
+            }
 
-        d = self.extractD(g, state, as_vector=True)
-        p = self.extractP(g, state)
+        d = self.extractD(g, state[self.vector_variable], as_vector=True)
+        p = state[self.scalar_variable]
 
         parameter_dictionary = data[pp.PARAMETERS][self.mechanics_keyword]
         matrix_dictionaries = data[pp.DISCRETIZATION_MATRICES]
@@ -445,7 +454,7 @@ class Biot:
             ready to be multiplied with inverse gradient
             scipy.sparse.csr_matrix (shape num_subfaces * dim, num_cells):
                 discretization of the force on the face due to cell-centre
-                pressure from a unique side. 
+                pressure from a unique side.
 
         Method properties and implementation details.
         Basis functions, namely 'stress' and 'bound_stress', for the displacement
@@ -965,6 +974,21 @@ class DivD(
     """ Class for the displacement divergence term of the Biot equation.
     """
 
+    def __init__(
+        self, keyword="mechanics", variable="displacement", mortar_variable="traction"
+    ):
+        """ Set the two keywords.
+
+        The keywords are used to access and store parameters and discretization
+        matrices.
+        """
+        self.keyword = keyword
+        # Set variable name for the vector variable (displacement)
+        self.variable = variable
+        # The following is only used for mixed-dimensional problems.
+        # Set the variable used for contact mechanics.
+        self.mortar_variable = mortar_variable
+
     def ndof(self, g):
         """ Return the number of degrees of freedom associated to the method.
 
@@ -1079,14 +1103,14 @@ class DivD(
         # transient BCs, use the below with the appropriate version of d_bound_i.
         d_bound_1 = parameter_dictionary["bc_values"]
 
-        d_bound_0 = parameter_dictionary["state"]["bc_values"]
+        d_bound_0 = data[pp.STATE][self.keyword]["bc_values"]
         biot_alpha = parameter_dictionary["biot_alpha"]
         rhs_bound = (
             -matrix_dictionary["bound_div_d"] * (d_bound_1 - d_bound_0) * biot_alpha
         )
 
         # Time part
-        d_cell = parameter_dictionary["state"]["displacement"]
+        d_cell = data[pp.STATE][self.variable]
 
         d_scaling = parameter_dictionary.get("displacement_scaling", 1)
         div_d = matrix_dictionary["div_d"]
@@ -1140,7 +1164,7 @@ class DivD(
         biot_alpha = data[pp.PARAMETERS][self.keyword]["biot_alpha"]
         bound_div_d = matrix_dictionary["bound_div_d"]
 
-        lam_k = data_edge[pp.PARAMETERS][self.keyword]["state"]
+        lam_k = data_edge[pp.STATE][self.mortar_variable]
 
         if bound_div_d.shape[1] != proj_int.shape[1]:
             raise ValueError(
@@ -1149,7 +1173,7 @@ class DivD(
             )
         # The mortar will act as a boundary condition for the div_d term.
         # We assume implicit Euler in Biot, thus the div_d term appares
-        # on the rhs as div_d^{k-1}. This result in a contribution to the
+        # on the rhs as div_d^{k-1}. This results in a contribution to the
         # rhs for the coupling variable also.
         cc[self_ind, 2] += biot_alpha * bound_div_d * proj_int.T
         rhs[self_ind] += biot_alpha * bound_div_d * proj_int.T * lam_k
@@ -1163,6 +1187,16 @@ class BiotStabilization(
 ):
     """ Class for the stabilization term of the Biot equation.
     """
+
+    def __init__(self, keyword="mechanics", variable="pressure"):
+        """ Set the two keywords.
+
+        The keywords are used to access and store parameters and discretization
+        matrices.
+        """
+        self.keyword = keyword
+        # Set variable name for the scalar variable (pressure)
+        self.variable = variable
 
     def ndof(self, g):
         """ Return the number of degrees of freedom associated to the method.
@@ -1269,13 +1303,12 @@ class BiotStabilization(
             np.ndarray: Zero right hand side vector with representation of boundary
                 conditions.
         """
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         # The stabilization is the pressure contribution to the div u part of the
-        # fluid mass conservation, thus need a right hand side in the implicit Euler
+        # fluid mass conservation, thus needs a right hand side in the implicit Euler
         # discretization.
-        pressure_0 = parameter_dictionary["state"]
+        pressure_0 = data[pp.STATE][self.variable]
         A_stability = matrix_dictionary["biot_stabilization"]
         rhs_time = A_stability * pressure_0
 
