@@ -63,7 +63,7 @@ setup(
     version="0.5.0",
     license="GPL",
     keywords=["porous media simulation fractures deformable"],
-    author="Runar Berge, Alessio Fumagalli, Eirik Keilegavlen and Ivar Stefansson",
+    author="Eirik Keilegavlen, Runar Berge, Alessio Fumagalli, Michele Starnoni, Ivar Stefansson and Jhabriel Varela",
     install_requires=required,
     description="Simulation tool for fractured and deformable porous media",
     long_description=long_description,
