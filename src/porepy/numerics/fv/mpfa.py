@@ -747,7 +747,6 @@ class Mpfa(FVElliptic):
         # can then be used. After inversion, subscale gradients can be found
         # for any right hand side by a matrix-vector product.
 
-
         # System of equations for the subcell gradient variables. On block diagonal
         # form.
         # NOTE: I think in the discretization for sub_cells a flow out of the cell is
