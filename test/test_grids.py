@@ -52,7 +52,7 @@ class SimplexGrid2dDomainOneImmersedFracture:
 
         if pert_node:
             if rotate_fracture:
-                raise ValueError('Incompatible options to grid construction')
+                raise ValueError("Incompatible options to grid construction")
             nodes[1, 13] = 0.6
         if rotate_fracture:
             nodes[0, 10] = 0.4
