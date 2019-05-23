@@ -37,6 +37,8 @@ class ColoumbContact:
         return g.num_cells * self.dim
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+        import pdb
+        pdb.set_trace()
 
         parameters_l = data_l[pp.PARAMETERS]
 
@@ -53,7 +55,9 @@ class ColoumbContact:
         projection = pp.TangentialNormalProjection(nc_mortar[:, 0].reshape((-1, 1)))
 
         displacement_jump = (
-            mg.mortar_to_slave_avg(nd=self.dim) * data_edge[self.surface_variable]
+            mg.mortar_to_slave_avg(nd=self.dim)
+            * mg.sign_of_mortar_sides(nd=self.dim)
+            * data_edge[self.surface_variable]
         )
 
         contact_force = data_l[self.contact_variable]
@@ -150,7 +154,6 @@ class ColoumbContact:
                 # Unit contribution from tangential force
                 MW = np.eye(nd)
                 # Contribution from normal force
-                MW[-1, -1] = 0
                 MW[:-1, -1] = -friction_coefficient[i] * v.ravel()
 
             elif ~sliding_bc[i] & penetration_bc[i]:  # In contact and sticking
@@ -201,21 +204,17 @@ class ColoumbContact:
         ] = displacement_coefficients * mg.mortar_to_slave_avg(nd=nd)
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_discretization] = rhs
 
-    def assemble_matrix_rhs(
-        self, g, data
-    ):
+    def assemble_matrix_rhs(self, g, data):
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         traction_coefficient = data[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.traction_discretization
         ]
-        displacement_coefficient= data[pp.DISCRETIZATION_MATRICES][self.keyword][
+        displacement_coefficient = data[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.displacement_discretization
         ]
 
-        rhs = data[pp.DISCRETIZATION_MATRICES][self.keyword][
-            self.rhs_discretization
-        ]
+        rhs = data[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_discretization]
 
         return traction_coefficient, displacement_coefficient, rhs
 
