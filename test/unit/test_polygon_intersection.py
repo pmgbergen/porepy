@@ -1136,7 +1136,9 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [2, 2, 2, 2]]),
         ]
 
-        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(f_1, polyhedron)
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            f_1, polyhedron
+        )
         self.assertTrue(test_utils.compare_arrays(f_1, constrained_poly[0]))
 
     #        self.assertTrue(test_utils.compare_arrays(f_2, constrained_poly[1]))
@@ -1154,7 +1156,9 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [2, 2, 2, 2]]),
         ]
 
-        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(f_1, polyhedron)
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            f_1, polyhedron
+        )
         known_poly = np.array([[-1, 2, 2, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
 
         self.assertTrue(test_utils.compare_arrays(constrained_poly[0], known_poly))
@@ -1172,7 +1176,9 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [2, 2, 2, 2]]),
         ]
 
-        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(f_1, polyhedron)
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            f_1, polyhedron
+        )
         known_poly = f_1
 
         self.assertTrue(test_utils.compare_arrays(constrained_poly[0], known_poly))

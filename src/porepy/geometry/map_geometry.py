@@ -31,8 +31,6 @@ def force_point_collinearity(pts):
     return pts[:, 0, np.newaxis] * (1 - dist) + pts[:, end, np.newaxis] * dist
 
 
-
-
 def map_grid(g, tol=1e-5):
     """ If a 2d or a 1d grid is passed, the function return the cell_centers,
     face_normals, and face_centers using local coordinates. If a 3d grid is
@@ -117,6 +115,7 @@ def sort_points_on_line(pts, tol=1e-5):
     assert active_dim.size == 1, "Points should be co-linear"
     return np.argsort(p[active_dim])[0]
 
+
 def project_points_to_line(p, tol=1e-4):
     """ Project a set of colinear points onto a line.
 
@@ -167,8 +166,6 @@ def project_points_to_line(p, tol=1e-4):
     sorted_coord = coord_1d[0, sort_ind]
 
     return sorted_coord, rot, active_dimension, sort_ind
-
-
 
 
 def project_plane_matrix(

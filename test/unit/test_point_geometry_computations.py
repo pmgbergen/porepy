@@ -8,7 +8,6 @@ import porepy as pp
 
 
 class BasicsTest(unittest.TestCase):
-
     def test_compute_normal_2d(self):
         pts = np.array([[0.0, 2.0, -1.0], [0.0, 4.0, 2.0], [0.0, 0.0, 0.0]])
         normal = pp.map_geometry.compute_normal(pts)

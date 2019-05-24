@@ -1067,5 +1067,6 @@ class TagClass:
         values = [np.zeros(n_tags, dtype=bool) for _ in range(len(keys))]
         tags.add_tags(self, dict(zip(keys, values)))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -135,31 +135,41 @@ class TestPointInPolyhedron(unittest.TestCase):
 
     def test_point_inside_box(self):
         p = np.array([0.3, 0.5, 0.5])
-        is_inside = pp.geometry_property_checks.point_in_polyhedron(self.cart_polyhedron, p)
+        is_inside = pp.geometry_property_checks.point_in_polyhedron(
+            self.cart_polyhedron, p
+        )
         self.assertTrue(is_inside.size == 1)
         self.assertTrue(is_inside[0] == 1)
 
     def test_two_points_inside_box(self):
         p = np.array([[0.3, 0.5, 0.5], [0.5, 0.5, 0.5]]).T
-        is_inside = pp.geometry_property_checks.point_in_polyhedron(self.cart_polyhedron, p)
+        is_inside = pp.geometry_property_checks.point_in_polyhedron(
+            self.cart_polyhedron, p
+        )
         self.assertTrue(is_inside.size == 2)
         self.assertTrue(np.all(is_inside[0] == 1))
 
     def test_point_outside_box(self):
         p = np.array([1.5, 0.5, 0.5])
-        is_inside = pp.geometry_property_checks.point_in_polyhedron(self.cart_polyhedron, p)
+        is_inside = pp.geometry_property_checks.point_in_polyhedron(
+            self.cart_polyhedron, p
+        )
         self.assertTrue(is_inside.size == 1)
         self.assertTrue(is_inside[0] == 0)
 
     def test_point_inside_non_convex(self):
         p = np.array([0.5, 0.5, 0.7])
-        is_inside = pp.geometry_property_checks.point_in_polyhedron(self.non_convex_polyhedron, p)
+        is_inside = pp.geometry_property_checks.point_in_polyhedron(
+            self.non_convex_polyhedron, p
+        )
         self.assertTrue(is_inside.size == 1)
         self.assertTrue(is_inside[0] == 1)
 
     def test_point_outside_non_convex_inside_box(self):
         p = np.array([0.5, 0.5, 0.3])
-        is_inside = pp.geometry_property_checks.point_in_polyhedron(self.non_convex_polyhedron, p)
+        is_inside = pp.geometry_property_checks.point_in_polyhedron(
+            self.non_convex_polyhedron, p
+        )
         self.assertTrue(is_inside.size == 1)
         self.assertTrue(is_inside[0] == 0)
 

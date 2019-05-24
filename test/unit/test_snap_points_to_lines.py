@@ -67,5 +67,6 @@ class TestPointSnapping(unittest.TestCase):
         p_known = np.array([[0, 1, 0.5, 0.5], [0, 0, 0, 1], [0, 1, 0.5, 1]])
         self.assertTrue(np.allclose(p_new, p_known))
 
+
 if __name__ == "__main__":
     unittest.main()
