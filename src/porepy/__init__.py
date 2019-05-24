@@ -97,7 +97,7 @@ from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 # Modules
 from porepy.utils import permutations
 from porepy.utils import comp_geom as cg
-from porepy.geometry import intersections, distances, constrain_geometry
+from porepy.geometry import intersections, distances, constrain_geometry, map_geometry
 from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer, mortars
 from porepy.grids import structured, simplex, coarsening, partition, refinement

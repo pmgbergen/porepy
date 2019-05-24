@@ -509,7 +509,7 @@ def polygons_3d(polys, tol=1e-8):
 
         # Center point and normal vector of the main fracture
         main_center = center(polys[main])
-        main_normal = pp.cg.compute_normal(polys[main]).reshape((-1, 1))
+        main_normal = pp.map_geometry.compute_normal(polys[main]).reshape((-1, 1))
 
         # Create an expanded version of the main points, so that the start
         # and end points are the same. Thus the segments can be formed by
@@ -526,7 +526,7 @@ def polygons_3d(polys, tol=1e-8):
             other_p_expanded = polys[o][:, ind_other_cyclic]
 
             # Normal vector and cetner of the other polygon
-            other_normal = pp.cg.compute_normal(polys[o]).reshape((-1, 1))
+            other_normal = pp.map_geometry.compute_normal(polys[o]).reshape((-1, 1))
             other_center = center(polys[o])
 
             # Point a vector from the main center to the vertexes of the

@@ -253,7 +253,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_upwind_1d_surf_darcy_flux_positive(self):
         g = structured.CartGrid(3, 1)
-        R = cg.rot(-np.pi / 5.0, [0, 1, -1])
+        R = pp.map_geometry.rotation_matrix(-np.pi / 5.0, [0, 1, -1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
@@ -279,7 +279,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_upwind_1d_surf_darcy_flux_negative(self):
         g = structured.CartGrid(3, 1)
-        R = cg.rot(-np.pi / 8.0, [-1, 1, -1])
+        R = pp.map_geometry.rotation_matrix(-np.pi / 8.0, [-1, 1, -1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
@@ -305,7 +305,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_upwind_2d_cart_surf_darcy_flux_positive(self):
         g = structured.CartGrid([3, 2], [1, 1])
-        R = cg.rot(np.pi / 4.0, [0, 1, 0])
+        R = pp.map_geometry.rotation_matrix(np.pi / 4.0, [0, 1, 0])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
@@ -341,7 +341,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_upwind_2d_cart_surf_darcy_flux_negative(self):
         g = structured.CartGrid([3, 2], [1, 1])
-        R = cg.rot(np.pi / 6.0, [1, 1, 0])
+        R = pp.map_geometry.rotation_matrix(np.pi / 6.0, [1, 1, 0])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
@@ -377,7 +377,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_upwind_2d_simplex_surf_darcy_flux_positive(self):
         g = simplex.StructuredTriangleGrid([2, 1], [1, 1])
-        R = cg.rot(np.pi / 2.0, [1, 1, 0])
+        R = pp.map_geometry.rotation_matrix(np.pi / 2.0, [1, 1, 0])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
@@ -403,7 +403,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_upwind_2d_simplex_surf_darcy_flux_negative(self):
         g = simplex.StructuredTriangleGrid([2, 1], [1, 1])
-        R = cg.rot(-np.pi / 5.0, [1, 1, -1])
+        R = pp.map_geometry.rotation_matrix(-np.pi / 5.0, [1, 1, -1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 

@@ -1,0 +1,359 @@
+"""
+Collection of functions related to geometry mappings, rotations etc.
+
+"""
+import numpy as np
+
+import porepy as pp
+
+
+def force_point_collinearity(pts):
+    """
+    Given a set of points, return them aligned on a line.
+    Useful to enforce collinearity for almost collinear points. The order of the
+    points remain the same.
+    NOTE: The first point in the list has to be on the extrema of the line.
+
+    Parameter:
+        pts: (3 x num_pts) the input points.
+
+    Return:
+        pts: (3 x num_pts) the corrected points.
+    """
+    assert pts.shape[1] > 1
+
+    delta = pts - np.tile(pts[:, 0], (pts.shape[1], 1)).T
+    dist = np.sqrt(np.einsum("ij,ij->j", delta, delta))
+    end = np.argmax(dist)
+
+    dist /= dist[end]
+
+    return pts[:, 0, np.newaxis] * (1 - dist) + pts[:, end, np.newaxis] * dist
+
+
+
+
+def map_grid(g, tol=1e-5):
+    """ If a 2d or a 1d grid is passed, the function return the cell_centers,
+    face_normals, and face_centers using local coordinates. If a 3d grid is
+    passed nothing is applied. The return vectors have a reduced number of rows.
+
+    Parameters:
+    g (grid): the grid.
+
+    Returns:
+    cell_centers: (g.dim x g.num_cells) the mapped centers of the cells.
+    face_normals: (g.dim x g.num_faces) the mapped normals of the faces.
+    face_centers: (g.dim x g.num_faces) the mapped centers of the faces.
+    R: (3 x 3) the rotation matrix used.
+    dim: indicates which are the dimensions active.
+    nodes: (g.dim x g.num_nodes) the mapped nodes.
+
+    """
+    cell_centers = g.cell_centers
+    face_normals = g.face_normals
+    face_centers = g.face_centers
+    nodes = g.nodes
+    R = np.eye(3)
+
+    if g.dim == 0 or g.dim == 3:
+        return (
+            cell_centers,
+            face_normals,
+            face_centers,
+            R,
+            np.ones(3, dtype=bool),
+            nodes,
+        )
+
+    if g.dim == 1 or g.dim == 2:
+
+        if g.dim == 2:
+            R = project_plane_matrix(g.nodes, tol=tol)
+        else:
+            R = project_line_matrix(g.nodes, tol=tol)
+
+        face_centers = np.dot(R, face_centers)
+
+        check = np.sum(np.abs(face_centers.T - face_centers[:, 0]), axis=0)
+        check /= np.sum(check)
+        dim = np.logical_not(np.isclose(check, 0, atol=tol, rtol=0))
+        assert g.dim == np.sum(dim)
+        face_centers = face_centers[dim, :]
+        cell_centers = np.dot(R, cell_centers)[dim, :]
+        face_normals = np.dot(R, face_normals)[dim, :]
+        nodes = np.dot(R, nodes)[dim, :]
+
+    return cell_centers, face_normals, face_centers, R, dim, nodes
+
+
+def sort_points_on_line(pts, tol=1e-5):
+    """
+    Return the indexes of the point according to their position on a line.
+
+    Parameters:
+        pts: the list of points
+    Returns:
+        argsort: the indexes of the points
+
+    """
+    if pts.shape[1] == 1:
+        return np.array([0])
+    assert pp.cg.is_collinear(pts, tol)
+
+    nd, n_pts = pts.shape
+
+    # Project into single coordinate
+    rot = project_line_matrix(pts)
+    p = rot.dot(pts)
+
+    # Isolate the active coordinate
+
+    mean = np.mean(p, axis=1)
+    p -= mean.reshape((nd, 1))
+
+    dx = p.max(axis=1) - p.min(axis=1)
+    active_dim = np.where(dx > tol)[0]
+    assert active_dim.size == 1, "Points should be co-linear"
+    return np.argsort(p[active_dim])[0]
+
+def project_points_to_line(p, tol=1e-4):
+    """ Project a set of colinear points onto a line.
+
+    The points should be co-linear such that a 1d description is meaningful.
+
+    Parameters:
+        p (np.ndarray, nd x n_pt): Coordinates of the points. Should be
+            co-linear, but can have random ordering along the common line.
+        tol (double, optional): Tolerance used for testing of co-linearity.
+
+    Returns:
+        np.ndarray, n_pt: 1d coordinates of the points, sorted along the line.
+        np.ndarray (3x3): Rotation matrix used for mapping the points onto a
+            coordinate axis.
+        int: The dimension which onto which the point coordinates were mapped.
+        np.ndarary (n_pt): Index array used to sort the points onto the line.
+
+    Raises:
+        ValueError if the points are not aligned on a line.
+
+    """
+    center = np.mean(p, axis=1).reshape((-1, 1))
+    p -= center
+
+    if p.shape[0] == 2:
+        p = np.vstack((p, np.zeros(p.shape[1])))
+
+    # Check that the points indeed form a line
+    if not pp.cg.is_collinear(p, tol):
+        raise ValueError("Elements are not colinear")
+    # Find the tangent of the line
+    tangent = compute_tangent(p)
+    # Projection matrix
+    rot = project_line_matrix(p, tangent)
+
+    p_1d = rot.dot(p)
+    # The points are now 1d along one of the coordinate axis, but we
+    # don't know which yet. Find this.
+    sum_coord = np.sum(np.abs(p_1d), axis=1)
+    sum_coord /= np.amax(sum_coord)
+    active_dimension = np.logical_not(np.isclose(sum_coord, 0, atol=tol, rtol=0))
+
+    # Check that we are indeed in 1d
+    assert np.sum(active_dimension) == 1
+    # Sort nodes, and create grid
+    coord_1d = p_1d[active_dimension]
+    sort_ind = np.argsort(coord_1d)[0]
+    sorted_coord = coord_1d[0, sort_ind]
+
+    return sorted_coord, rot, active_dimension, sort_ind
+
+
+
+
+def project_plane_matrix(
+    pts, normal=None, tol=1e-5, reference=[0, 0, 1], check_planar=True
+):
+    """ Project the points on a plane using local coordinates.
+
+    The projected points are computed by a dot product.
+    example: np.dot( R, pts )
+
+    Parameters:
+    pts (np.ndarray, 3xn): the points.
+    normal: (optional) the normal of the plane, otherwise three points are
+        required.
+    tol: (optional, float) tolerance to assert the planarity of the cloud of
+        points. Default value 1e-5.
+    reference: (optional, np.array, 3x1) reference vector to compute the angles.
+        Default value [0, 0, 1].
+
+    Returns:
+    np.ndarray, 3x3, projection matrix.
+
+    """
+
+    if normal is None:
+        normal = compute_normal(pts)
+    else:
+        normal = np.asarray(normal)
+        normal = normal.flatten() / np.linalg.norm(normal)
+
+    if check_planar:
+        assert pp.cg.is_planar(pts, normal, tol)
+
+    reference = np.asarray(reference, dtype=np.float)
+    angle = np.arccos(np.dot(normal, reference))
+    vect = np.cross(normal, reference)
+    return rotation_matrix(angle, vect)
+
+
+def project_line_matrix(pts, tangent=None, tol=1e-5, reference=[0, 0, 1]):
+    """ Project the points on a line using local coordinates.
+
+    The projected points are computed by a dot product.
+    example: np.dot( R, pts )
+
+    Parameters:
+    pts (np.ndarray, 3xn): the points.
+    tangent: (optional) the tangent unit vector of the plane, otherwise two
+        points are required.
+
+    Returns:
+    np.ndarray, 3x3, projection matrix.
+
+    """
+
+    if tangent is None:
+        tangent = compute_tangent(pts)
+    else:
+        tangent = tangent.flatten() / np.linalg.norm(tangent)
+
+    reference = np.asarray(reference, dtype=np.float)
+    angle = np.arccos(np.dot(tangent, reference))
+    vect = np.cross(tangent, reference)
+    return rotation_matrix(angle, vect)
+
+
+def rotation_matrix(a, vect):
+    """ Compute the rotation matrix about a vector by an angle using the matrix
+    form of Rodrigues formula.
+
+    Parameters:
+    a: double, the angle.
+    vect: np.array, 1x3, the vector.
+
+    Returns:
+    matrix: np.ndarray, 3x3, the rotation matrix.
+
+    """
+    if np.allclose(vect, [0.0, 0.0, 0.0]):
+        return np.identity(3)
+    vect = vect / np.linalg.norm(vect)
+
+    # Prioritize readability over PEP0008 whitespaces.
+    # pylint: disable=bad-whitespace
+    W = np.array(
+        [[0.0, -vect[2], vect[1]], [vect[2], 0.0, -vect[0]], [-vect[1], vect[0], 0.0]]
+    )
+    return (
+        np.identity(3)
+        + np.sin(a) * W
+        + (1.0 - np.cos(a)) * np.linalg.matrix_power(W, 2)
+    )
+
+
+def normal_matrix(pts=None, normal=None):
+    """ Compute the normal projection matrix of a plane.
+
+    The algorithm assume that the points lie on a plane.
+    Three non-aligned points are required.
+
+    Either points or normal are mandatory.
+
+    Parameters:
+    pts (optional): np.ndarray, 3xn, the points. Need n > 2.
+    normal (optional): np.array, 1x3, the normal.
+
+    Returns:
+    normal matrix: np.array, 3x3, the normal matrix.
+
+    """
+    if normal is not None:
+        normal = normal / np.linalg.norm(normal)
+    elif pts is not None:
+        normal = compute_normal(pts)
+    else:
+        assert False, "Points or normal are mandatory"
+
+    return np.tensordot(normal, normal, axes=0)
+
+
+def tangent_matrix(pts=None, normal=None):
+    """ Compute the tangential projection matrix of a plane.
+
+    The algorithm assume that the points lie on a plane.
+    Three non-aligned points are required.
+
+    Either points or normal are mandatory.
+
+    Parameters:
+    pts (optional): np.ndarray, 3xn, the points. Need n > 2.
+    normal (optional): np.array, 1x3, the normal.
+
+    Returns:
+    tangential matrix: np.array, 3x3, the tangential matrix.
+
+    """
+    return np.eye(3) - normal_matrix(pts, normal)
+
+
+def compute_normal(pts):
+    """ Compute the normal of a set of points.
+
+    The algorithm assume that the points lie on a plane.
+    Three non-aligned points are required.
+
+    Parameters:
+    pts: np.ndarray, 3xn, the points. Need n > 2.
+
+    Returns:
+    normal: np.array, 1x3, the normal.
+
+    """
+
+    assert pts.shape[1] > 2
+    normal = np.cross(pts[:, 0] - pts[:, 1], compute_tangent(pts))
+    if np.allclose(normal, np.zeros(3)):
+        return compute_normal(pts[:, 1:])
+    return normal / np.linalg.norm(normal)
+
+
+def compute_normals_1d(pts):
+    t = compute_tangent(pts)
+    n = np.array([t[1], -t[0], 0]) / np.sqrt(t[0] ** 2 + t[1] ** 2)
+    return np.r_["1,2,0", n, np.dot(rotation_matrix(np.pi / 2.0, t), n)]
+
+
+def compute_tangent(pts):
+    """ Compute a tangent vector of a set of points.
+
+    The algorithm assume that the points lie on a plane.
+
+    Parameters:
+    pts: np.ndarray, 3xn, the points.
+
+    Returns:
+    tangent: np.array, 1x3, the tangent.
+
+    """
+
+    mean_pts = np.mean(pts, axis=1).reshape((-1, 1))
+    # Set of possible tangent vector. We can pick any of these, as long as it
+    # is nonzero
+    tangent = pts - mean_pts
+    # Find the point that is furthest away from the mean point
+    max_ind = np.argmax(np.sum(tangent ** 2, axis=0))
+    tangent = tangent[:, max_ind]
+    assert not np.allclose(tangent, np.zeros(3))
+    return tangent / np.linalg.norm(tangent)

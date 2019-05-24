@@ -3,6 +3,7 @@ import numpy as np
 
 import porepy as pp
 
+
 class TestSegmentDistance(unittest.TestCase):
     def setup_2d_unit_square(self):
         p00 = np.array([0, 0])

@@ -240,7 +240,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_p1_1d_iso_line(self):
         g = pp.structured.CartGrid(3, 1)
-        R = cg.rot(np.pi / 6.0, [0, 0, 1])
+        R = pp.map_geometry.rotation_matrix(np.pi / 6.0, [0, 0, 1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
@@ -289,7 +289,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_p1_2d_iso_simplex_surf(self):
         g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
-        R = cg.rot(-np.pi / 4.0, [1, 1, -1])
+        R = pp.map_geometry.rotation_matrix(-np.pi / 4.0, [1, 1, -1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
@@ -346,7 +346,7 @@ class BasicsTest(unittest.TestCase):
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
         perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
-        R = cg.rot(np.pi / 3.0, [1, 1, 0])
+        R = pp.map_geometry.rotation_matrix(np.pi / 3.0, [1, 1, 0])
         perm.rotate(R)
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()

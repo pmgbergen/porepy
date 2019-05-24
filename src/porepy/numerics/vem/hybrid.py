@@ -110,7 +110,7 @@ class HybridDualVEM:
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
-        c_centers, f_normals, f_centers, _, _, _ = cg.map_grid(g)
+        c_centers, f_normals, f_centers, _, _, _ = pp.map_geometry.map_grid(g)
 
         # Weight for the stabilization term
         diams = g.cell_diameters()
