@@ -75,7 +75,7 @@ def plot_fractures(d, p, c, colortag=None, **kwargs):
 
     if kwargs.get("axis_equal", True):
         plt.axis("equal")
-        plt.gca().set_aspect('equal', adjustable='box')
+        plt.gca().set_aspect("equal", adjustable="box")
 
     if kwargs.get("axis", "on") == "on":
         plt.axis([d["xmin"], d["xmax"], d["ymin"], d["ymax"]])
@@ -86,7 +86,7 @@ def plot_fractures(d, p, c, colortag=None, **kwargs):
     if kwargs.get("plot", True):
         plt.show()
     if kwargs.get("save", None) is not None:
-        plt.savefig(kwargs.get("save"), bbox_inches="tight", pad_inches = 0.0)
+        plt.savefig(kwargs.get("save"), bbox_inches="tight", pad_inches=0.0)
         plt.close()
 
 
