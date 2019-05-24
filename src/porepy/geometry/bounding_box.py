@@ -1,20 +1,8 @@
 """
-Various utility functions related to computational geometry.
-
-Some functions (add_point, split_edges, ...?) are mainly aimed at finding
-intersection between lines, with grid generation in mind, and should perhaps
-be moved to a separate module.
-
+Compute bounding boxes of geometric objects.
 """
-from __future__ import division
-import logging
 
-# Module level logger
-logger = logging.getLogger(__name__)
-
-
-
-def bounding_box(pts, overlap=0):
+def from_points(pts, overlap=0):
     """ Obtain a bounding box for a point cloud.
 
     Parameters:
@@ -42,11 +30,3 @@ def bounding_box(pts, overlap=0):
         domain["zmin"] = min_coord[2] - dx[2] * overlap
         domain["zmax"] = max_coord[2] + dx[2] * overlap
     return domain
-
-
-# ------------------------------------------------------------------------------#
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()

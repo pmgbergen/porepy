@@ -10,8 +10,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from porepy.utils import comp_geom as cg
-
 
 class HybridDualVEM:
     """ Implementation of mixed virtual element method, using hybridization to
