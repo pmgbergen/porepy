@@ -34,6 +34,7 @@ from porepy.utils.matrix_compression import rldecode
 import porepy.utils.comp_geom as cg
 from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 from porepy.grids.structured import TensorGrid
+import porepy as pp
 
 # ------------------------------------------------------------------------------#
 
@@ -294,7 +295,7 @@ def match_grids_2d(new_g, old_g, tol):
     shape = (old_g.dim + 1, old_g.num_cells)
     cn_old_g = old_g.cell_nodes().indices.reshape(shape, order="F")
     cc = np.mean(new_g.nodes, axis=1).reshape((3, 1))
-    isect = cg.intersect_triangulations(
+    isect = pp.intersections.triangulations(
         proj_pts(new_g.nodes, cc), proj_pts(old_g.nodes, cc), cn_new_g, cn_old_g
     )
 

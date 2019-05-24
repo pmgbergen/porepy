@@ -1000,7 +1000,7 @@ class FractureNetwork3d(object):
         # Obtain intersection points, indexes of intersection points for each fracture
         # information on whether the fracture is on the boundary, and pairs of fractures
         # that intersect.
-        isect, point_ind, bound_info, frac_pairs, _ = pp.cg.intersect_polygons_3d(polys)
+        isect, point_ind, bound_info, frac_pairs, _ = pp.intersections.polygons_3d(polys)
 
         # Loop over all pairs of intersection pairs, add the intersections to the
         # internal list.
@@ -1406,7 +1406,9 @@ class FractureNetwork3d(object):
             # It seems necessary to increase the tolerance here somewhat to
             # obtain a more robust algorithm. Not sure about how to do this
             # consistent.
-            p_new, edges_new = cg.remove_edge_crossings(p_2d, edges_2d, tol=self.tol)
+            p_new, edges_new = pp.intersections.split_intersecting_segments_2d(
+                p_2d, edges_2d, tol=self.tol
+            )
             # Then, patch things up by converting new points to 3D,
 
             # From the design of the functions in cg, we know that new points
@@ -1459,7 +1461,7 @@ class FractureNetwork3d(object):
                 # original edges under splitting. However, in cases of
                 # overlapping segments, in which case the index of the one edge
                 # may completely override the index of the other (this is
-                # caused by the implementation of remove_edge_crossings).
+                # caused by the implementation of split_intersection_segments_2d.
                 # We therefore compare the new edge to the old ones (before
                 # splitting). If found, use the old information; if not, use
                 # index as tracked by splitting.
