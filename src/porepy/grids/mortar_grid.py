@@ -447,10 +447,6 @@ class MortarGrid(object):
             raise ValueError("Check not satisfied for the slave grid")
 
 
-# ------------------------------------------------------------------------------#
-# ------------------------------------------------------------------------------#
-
-
 class BoundaryMortar(MortarGrid):
     """
     Class for a mortar grid between two grids of the same dimension. This class
