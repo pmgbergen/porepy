@@ -96,7 +96,7 @@ class TestImmersedFracture(unittest.TestCase):
         key = "flow"
         method = pp.Mpfa(key)
         self._solve(gb, method, key)
-        
+
     def run_vem(self, gb):
         key = "flow"
         method = pp.MVEM(key)

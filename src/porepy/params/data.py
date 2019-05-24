@@ -50,6 +50,17 @@ required parameters. If the data directory already exists as d (e.g. in the grid
 bucket), consider:
 
     pp.initialize_default_data(grid, d, keyword, specified_parameters)
+
+
+Also contains a function for setting the state. The state is all data associated with
+the previous time step or iteration, and is stored in data[pp.STATE]. The solution of a
+variable is stored in
+
+data[pp.STATE][variable_name],
+
+whereas data such as BC values are stored similarly to in the Parameters class, in
+
+data[pp.STATE][keyword]["bc_values"].
 """
 import numpy as np
 import porepy as pp
@@ -175,7 +186,6 @@ class Parameters(dict):
             modify_variable(self[keyword][p], v)
 
 
-
 """
 Utility methods for handling of dictionaries.
 TODO: Improve/add/remove methods based on experience with setting up problems using the
@@ -252,6 +262,29 @@ def initialize_data(g, data, keyword, specified_parameters=None):
         data[pp.PARAMETERS].update_dictionaries([keyword], [specified_parameters])
     else:
         data[pp.PARAMETERS] = pp.Parameters(g, [keyword], [specified_parameters])
+    return data
+
+
+def set_state(data, state=None):
+    """ Initialize or update a state dictionary.
+
+    The initialization consists of adding a state dictionary in the proper field of the
+    data dictionary. If there is a state dictionary in data, the new state is added
+    using the update method of dictionaries.
+
+    Args:
+        data: Outer data dictionary, to which the parameters will be added.
+        state: A dictionary with the state, set to an empty dictionary if not provided.
+
+    Returns:
+        data: The filled dictionary.
+    """
+    if not state:
+        state = {}
+    if pp.STATE in data:
+        data[pp.STATE].update(state)
+    else:
+        data[pp.STATE] = state
     return data
 
 
