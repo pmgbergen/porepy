@@ -619,14 +619,14 @@ class EllipticFracture(Fracture):
         z = np.zeros_like(angs)
         ref_pts = np.vstack((x, y, z))
 
-        assert pp.cg.is_planar(ref_pts)
+        assert pp.geometry_property_checks.points_are_planar(ref_pts)
 
         # Rotate reference points so that the major axis has the right
         # orientation
         major_axis_rot = pp.map_geometry.rotation_matrix(major_axis_angle, [0, 0, 1])
         rot_ref_pts = major_axis_rot.dot(ref_pts)
 
-        assert pp.cg.is_planar(rot_ref_pts)
+        assert pp.geometry_property_checks.points_are_planar(rot_ref_pts)
 
         # Then the dip
         # Rotation matrix of the strike angle
@@ -637,7 +637,7 @@ class EllipticFracture(Fracture):
 
         dip_pts = dip_rot.dot(rot_ref_pts)
 
-        assert pp.cg.is_planar(dip_pts)
+        assert pp.geometry_property_checks.points_are_planar(dip_pts)
 
         # Set the points, and store them in a backup.
         self.p = center + dip_pts
@@ -646,7 +646,7 @@ class EllipticFracture(Fracture):
         # Compute normal vector
         self.normal = pp.map_geometry.compute_normal(self.p)[:, None]
 
-        assert pp.cg.is_planar(self.orig_p, self.normal)
+        assert pp.geometry_property_checks.points_are_planar(self.orig_p, self.normal)
 
 
 # -------------------------------------------------------------------------

@@ -563,7 +563,7 @@ def __extract_cells_from_faces_3d(g, f, is_planar=True):
     """
     # Local cell-face and face-node maps.
     cell_nodes, unique_nodes = __extract_submatrix(g.face_nodes, f)
-    if is_planar and not pp.cg.is_planar(g.nodes[:, unique_nodes]):
+    if is_planar and not pp.geometry_property_checks.points_are_planar(g.nodes[:, unique_nodes]):
         raise ValueError("The faces extracted from a 3D grid must be planar")
     num_cell_nodes = cell_nodes.nnz
 

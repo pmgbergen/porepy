@@ -99,7 +99,7 @@ def sort_points_on_line(pts, tol=1e-5):
     """
     if pts.shape[1] == 1:
         return np.array([0])
-    assert pp.cg.is_collinear(pts, tol)
+    assert pp.geometry_property_checks.points_are_collinear(pts, tol)
 
     nd, n_pts = pts.shape
 
@@ -145,7 +145,7 @@ def project_points_to_line(p, tol=1e-4):
         p = np.vstack((p, np.zeros(p.shape[1])))
 
     # Check that the points indeed form a line
-    if not pp.cg.is_collinear(p, tol):
+    if not pp.geometry_property_checks.points_are_collinear(p, tol):
         raise ValueError("Elements are not colinear")
     # Find the tangent of the line
     tangent = compute_tangent(p)
@@ -200,7 +200,7 @@ def project_plane_matrix(
         normal = normal.flatten() / np.linalg.norm(normal)
 
     if check_planar:
-        assert pp.cg.is_planar(pts, normal, tol)
+        assert pp.geometry_property_checks.points_are_planar(pts, normal, tol)
 
     reference = np.asarray(reference, dtype=np.float)
     angle = np.arccos(np.dot(normal, reference))

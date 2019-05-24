@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 
-from porepy.utils import comp_geom as cg
+import porepy as pp
 
 
 class TestInsidePolygon(unittest.TestCase):
@@ -12,13 +12,13 @@ class TestInsidePolygon(unittest.TestCase):
         poly = self.setup()
 
         p = np.array([0.5, 0.5])
-        self.assertTrue(np.all(cg.is_inside_polygon(poly, p)))
+        self.assertTrue(np.all(pp.geometry_property_checks.point_in_polygon(poly, p)))
 
     def test_outside(self):
         poly = self.setup()
         p = np.array([2, 2])
 
-        inside = cg.is_inside_polygon(poly, p)
+        inside = pp.geometry_property_checks.point_in_polygon(poly, p)
 
         self.assertTrue(not inside[0])
 
@@ -27,26 +27,26 @@ class TestInsidePolygon(unittest.TestCase):
         poly = self.setup()
         p = np.array([2, 0])
 
-        inside = cg.is_inside_polygon(poly, p)
+        inside = pp.geometry_property_checks.point_in_polygon(poly, p)
         self.assertTrue(not inside[0])
 
     def test_on_boundary(self):
         poly = self.setup()
         p = np.array([0, 0.5])
 
-        inside = cg.is_inside_polygon(poly, p)
+        inside = pp.geometry_property_checks.point_in_polygon(poly, p)
         self.assertTrue(not inside[0])
 
     def test_just_inside(self):
         poly = self.setup()
         p = np.array([0.5, 1e-6])
-        self.assertTrue(cg.is_inside_polygon(poly, p))
+        self.assertTrue(pp.geometry_property_checks.point_in_polygon(poly, p))
 
     def test_multiple_points(self):
         poly = self.setup()
         p = np.array([[0.5, 0.5], [0.5, 1.5]])
 
-        inside = cg.is_inside_polygon(poly, p)
+        inside = pp.geometry_property_checks.point_in_polygon(poly, p)
 
         self.assertTrue(inside[0])
         self.assertTrue(not inside[1])
@@ -97,7 +97,7 @@ class TestInsidePolygon(unittest.TestCase):
             ]
         )
         b = np.array([[0.1281648, 0.04746067], [-0.22076491, 0.16421546]])
-        inside = cg.is_inside_polygon(a, b)
+        inside = pp.geometry_property_checks.point_in_polygon(a, b)
         self.assertTrue(not inside[0])
         self.assertTrue(inside[1])
 
@@ -135,31 +135,31 @@ class TestPointInPolyhedron(unittest.TestCase):
 
     def test_point_inside_box(self):
         p = np.array([0.3, 0.5, 0.5])
-        is_inside = cg.is_inside_polyhedron(self.cart_polyhedron, p)
+        is_inside = pp.geometry_property_checks.point_in_polyhedron(self.cart_polyhedron, p)
         self.assertTrue(is_inside.size == 1)
         self.assertTrue(is_inside[0] == 1)
 
     def test_two_points_inside_box(self):
         p = np.array([[0.3, 0.5, 0.5], [0.5, 0.5, 0.5]]).T
-        is_inside = cg.is_inside_polyhedron(self.cart_polyhedron, p)
+        is_inside = pp.geometry_property_checks.point_in_polyhedron(self.cart_polyhedron, p)
         self.assertTrue(is_inside.size == 2)
         self.assertTrue(np.all(is_inside[0] == 1))
 
     def test_point_outside_box(self):
         p = np.array([1.5, 0.5, 0.5])
-        is_inside = cg.is_inside_polyhedron(self.cart_polyhedron, p)
+        is_inside = pp.geometry_property_checks.point_in_polyhedron(self.cart_polyhedron, p)
         self.assertTrue(is_inside.size == 1)
         self.assertTrue(is_inside[0] == 0)
 
     def test_point_inside_non_convex(self):
         p = np.array([0.5, 0.5, 0.7])
-        is_inside = cg.is_inside_polyhedron(self.non_convex_polyhedron, p)
+        is_inside = pp.geometry_property_checks.point_in_polyhedron(self.non_convex_polyhedron, p)
         self.assertTrue(is_inside.size == 1)
         self.assertTrue(is_inside[0] == 1)
 
     def test_point_outside_non_convex_inside_box(self):
         p = np.array([0.5, 0.5, 0.3])
-        is_inside = cg.is_inside_polyhedron(self.non_convex_polyhedron, p)
+        is_inside = pp.geometry_property_checks.point_in_polyhedron(self.non_convex_polyhedron, p)
         self.assertTrue(is_inside.size == 1)
         self.assertTrue(is_inside[0] == 0)
 

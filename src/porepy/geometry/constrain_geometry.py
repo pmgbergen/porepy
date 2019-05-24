@@ -128,7 +128,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
             # for in-polyhedron testing is more mature, we do some safeguarding:
             # Test for all points in the polygon, they should all be on the
             # inside or outside.
-            inside = pp.cg.is_inside_polyhedron(polyhedron, poly)
+            inside = pp.geometry_property_checks.point_in_polyhedron(polyhedron, poly)
 
             if inside.all():
                 # Add the polygon to the constrained ones and continue
@@ -188,7 +188,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         prev_ind[0] = num_vert - 1
 
         # Case 2): Find segments that are defined by two interior points
-        points_inside_polyhedron = pp.cg.is_inside_polyhedron(polyhedron, poly)
+        points_inside_polyhedron = pp.geometry_property_checks.point_in_polyhedron(polyhedron, poly)
         # segment_inside[0] tells whehter the point[:, -1] - point[:, 0] is fully inside
         # the remaining elements are point[:, 0] - point[:, 1] etc.
         segments_inside = np.logical_and(
@@ -295,7 +295,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
             end = poly[:, next_ind[seg_ind]].reshape((-1, 1))
 
             # Sanity check
-            assert pp.cg.is_collinear(np.hstack((start, isect_coord, end)))
+            assert pp.geometry_property_checks.points_are_collinear(np.hstack((start, isect_coord, end)))
             # Sort the intersection points according to their distance from the start
             sorted_ind = np.argsort(np.sum((isect_coord - start) ** 2, axis=0))
 
