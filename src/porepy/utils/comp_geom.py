@@ -294,7 +294,7 @@ def _intersect_pairs(p1, p2):
         return pairs
 
 
-def remove_edge_crossings2(p, e, tol=1e-4):
+def remove_edge_crossings(p, e, tol=1e-4):
     """ Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
 

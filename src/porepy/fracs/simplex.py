@@ -215,16 +215,7 @@ def triangle_grid(
     logger.info("Remove edge crossings")
     tm = time.time()
 
-    # The functionality for identification of intersections between fractures
-    # is currently being rewritten. For a while, both versions are available.
-    # The new, faster one, is default, while the old one can be invoked by
-    # passing the keyword argument use_stable=True.
-    if kwargs.get("use_stable", False):
-        pts_split, lines_split = pp.cg.remove_edge_crossings(
-            pts_all, lines, tol=tol, snap=do_snap_to_grid, box=domain
-        )
-    else:
-        pts_split, lines_split = pp.cg.remove_edge_crossings2(pts_all, lines, tol=tol)
+    pts_split, lines_split = pp.cg.remove_edge_crossings(pts_all, lines, tol=tol)
     logger.info("Done. Elapsed time " + str(time.time() - tm))
 
     # Ensure unique description of points
