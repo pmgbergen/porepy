@@ -205,8 +205,8 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
 
     # The tolerance should not be larger than the smallest distance between
     # two points on any of the grids.
-    diff_gp = np.min(cg.dist_pointset(gp, True))
-    diff_hp = np.min(cg.dist_pointset(hp, True))
+    diff_gp = np.min(pp.distances.pointset(gp, True))
+    diff_hp = np.min(pp.distances.pointset(hp, True))
     min_diff = np.minimum(tol, 0.5 * np.minimum(diff_gp, diff_hp))
 
     # Uniquify points
@@ -584,9 +584,9 @@ def update_cell_faces(
         fi_coord = g.nodes[:, fn[:, new_faces_loc[0]]]
 
         # Distance between the new nodes and the first node of the old face.
-        dist = cg.dist_point_pointset(ci_coord[:, 0], fi_coord)
+        dist = pp.distances.point_pointset(ci_coord[:, 0], fi_coord)
         # Length of the old face.
-        length_face = cg.dist_point_pointset(ci_coord[:, 0], ci_coord[:, 1])[0]
+        length_face = pp.distances.point_pointset(ci_coord[:, 0], ci_coord[:, 1])[0]
         # If the minimum distance is larger than a (scaled) tolerance, the new
         # faces were defined from the second to the first node. Switch order.
         # This will create trouble if one of the new faces are very small.

@@ -181,7 +181,7 @@ def cart_grid_3d(fracs, nx, physdims=None):
     for p in intersection_points:
         if auxiliary_points[p]:
             continue
-        node = np.argmin(cg.dist_point_pointset(pts[:, p], g_3d.nodes))
+        node = np.argmin(pp.distances.point_pointset(pts[:, p], g_3d.nodes))
         assert np.allclose(g_3d.nodes[:, node], pts[:, p])
         g = point_grid.PointGrid(g_3d.nodes[:, node])
         g.global_point_ind = np.asarray(node)
@@ -310,8 +310,8 @@ def _find_nodes_on_line(g, nx, s_pt, e_pt):
     start and end node and use the structure of the cartesian grid to find
     the intermediate nodes.
     """
-    s_node = np.argmin(cg.dist_point_pointset(s_pt, g.nodes))
-    e_node = np.argmin(cg.dist_point_pointset(e_pt, g.nodes))
+    s_node = np.argmin(pp.distances.point_pointset(s_pt, g.nodes))
+    e_node = np.argmin(pp.distances.point_pointset(e_pt, g.nodes))
 
     # We make sure the nodes are ordered from low to high.
     if s_node > e_node:
