@@ -204,7 +204,7 @@ class FractureNetwork2d(object):
         e = self.edges.copy()
 
         # Prolong
-        p = pp.cg.snap_points_to_segments(p, e, tol)
+        p = pp.constrain_geometry.snap_points_to_segments(p, e, tol)
 
         return FractureNetwork2d(p, e, self.domain, self.tol)
 
@@ -232,7 +232,7 @@ class FractureNetwork2d(object):
 
         p_domain = self._domain_to_points(domain)
 
-        p, e = pp.cg.constrain_lines_by_polygon(p_domain, self.pts, self.edges)
+        p, e = pp.constrain_geometry.lines_by_polygon(p_domain, self.pts, self.edges)
 
         return FractureNetwork2d(p, e, domain, self.tol)
 

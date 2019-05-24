@@ -1000,7 +1000,9 @@ class FractureNetwork3d(object):
         # Obtain intersection points, indexes of intersection points for each fracture
         # information on whether the fracture is on the boundary, and pairs of fractures
         # that intersect.
-        isect, point_ind, bound_info, frac_pairs, _ = pp.intersections.polygons_3d(polys)
+        isect, point_ind, bound_info, frac_pairs, _ = pp.intersections.polygons_3d(
+            polys
+        )
 
         # Loop over all pairs of intersection pairs, add the intersections to the
         # internal list.
@@ -1789,7 +1791,7 @@ class FractureNetwork3d(object):
 
         # Constrain the fractures to lie within the bounding polyhedron
         polys = [f.p for f in self._fractures]
-        constrained_polys, inds = pp.cg.constrain_polygons_by_polyhedron(
+        constrained_polys, inds = pp.constrain_geometry.polygons_by_polyhedron(
             polys, polyhedron
         )
 
@@ -2107,7 +2109,9 @@ class FractureNetwork3d(object):
                     # and find the closest segment on the other fracture
                     fs = f_start[:, si].squeeze()  # .reshape((-1, 1))
                     fe = f_end[:, si].squeeze()  # .reshape((-1, 1))
-                    d, cp_f, _ = pp.distances.segment_segment_set(fs, fe, of_start, of_end)
+                    d, cp_f, _ = pp.distances.segment_segment_set(
+                        fs, fe, of_start, of_end
+                    )
                     mi = np.argmin(d)
                     # If the distance is smaller than ideal length, but the
                     # closets point is not too close to the segment endpoints,
