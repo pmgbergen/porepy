@@ -1085,8 +1085,6 @@ class FractureNetwork3d(object):
             edges.shape[1],
         )
 
-        #        all_p = cg.snap_to_grid(all_p, tol=self.tol)
-
         # We now need to find points that occur in multiple places
         p_unique, unique_ind_p, all_2_unique_p = setmembership.unique_columns_tol(
             all_p, tol=self.tol * np.sqrt(3)

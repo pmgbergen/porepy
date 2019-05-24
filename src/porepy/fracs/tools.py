@@ -71,29 +71,6 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     # If the latter happens, we introduce a new point (useful to determine the
     # grid size) on the corresponding pair of points with a corresponding
     # distance.
-    #    # Loop on all the original points
-    #    for pt_id, pt in enumerate(pts.T):
-    #        # Loop on all the original lines
-    #        for line in lines.T:
-    #            start, end = pts[:, line[0]], pts[:, line[1]]
-    #            # Compute the distance between the point and the current line
-    #            dist, pt_int = pp.cg.distance_point_segment(pt, start, end)
-    #            # If the distance is small than the input value we need to consider
-    #            # it
-    #            if dist < vals[pt_id] and not np.isclose(dist, 0.0):
-    #                dist_pts[pt_id] = min(dist_pts[pt_id], dist)
-    #
-    #                dist_start = np.linalg.norm(pt_int - start)
-    #                dist_end = np.linalg.norm(pt_int - end)
-    #                # Given the internal point on the line, associated to the
-    #                # distance with the current point, if its distance with the
-    #                # endings of the line is greater than the distance computed
-    #                # then we need to keep the point to balance the grid generation.
-    #                if dist < dist_start and dist < dist_end:
-    #                    dist_extra = np.r_[dist_extra, min(dist, vals[pt_id])]
-    #                    pts_extra = np.c_[pts_extra, pt_int]
-    #                    pts_id_extra = np.r_[pts_id_extra, line[3]]
-    #                    vals_extra = np.r_[vals_extra, vals[pt_id]]
 
     # Loop over all lines
     for line in lines.T:
@@ -242,23 +219,11 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
             # Update the minimum mesh size if any dist1 is less than the current value
             mesh_size = np.minimum(mesh_size, dist1.min())
 
-            #            for old_seg in old_lines.T:
-            #                start, end = old_pts[:, old_seg[0]], old_pts[:, old_seg[1]]
-            #                # Compute the distance between the point and the current line
-            #                dist1, pt_int = pp.cg.distance_point_segment(new_pt, start, end)
-            #                # If the distance is small than the input value we need to consider
-            #                # it
-            #                if dist1 < mesh_size and not np.isclose(dist1, 0.0):
-            #                    mesh_size = dist1
-
             dist_pts = np.r_[dist_pts, mesh_size]
             vals = np.r_[vals, mesh_size]
             lines = np.c_[
                 lines, [seg[0], pt_id, seg[2], seg[3]], [pt_id, seg[1], seg[2], seg[3]]
             ]
-    # Make sure no mesh size assignments are below minimum value.
-    #    if val_min is not None:
-    #        dist_pts[dist_pts < val_min] = val_min
 
     return dist_pts, pts, lines
 
