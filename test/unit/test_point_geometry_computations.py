@@ -1,3 +1,6 @@
+""" Test of geometry operations on point clouds: normal computations, planarity.
+"""
+
 import numpy as np
 import unittest
 
@@ -43,7 +46,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_is_planar_2d(self):
         pts = np.array([[0.0, 2.0, -1.0], [0.0, 4.0, 2.0], [2.0, 2.0, 2.0]])
-        self.assertTrue(pp.cg.is_planar(pts))
+        self.assertTrue(pp.geometry_property_checks.points_are_planar(pts))
 
     def test_is_planar_3d(self):
         pts = np.array(
@@ -53,7 +56,7 @@ class BasicsTest(unittest.TestCase):
                 [5.0 / 8.0, 7.0 / 8.0, 7.0 / 4.0, 1.0 / 8.0],
             ]
         )
-        self.assertTrue(pp.cg.is_planar(pts))
+        self.assertTrue(pp.geometry_property_checks.points_are_planar(pts))
 
     def test_project_plane(self):
         pts = np.array(

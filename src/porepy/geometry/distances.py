@@ -400,7 +400,7 @@ def points_polygon(p, poly, tol=1e-5):
     # Rotate the point set, using the same coordinate system.
     p = rot_p.dot(p)
 
-    in_poly = pp.cg.is_inside_polygon(poly_xy, p)
+    in_poly = pp.geometry_property_checks.point_in_polygon(poly_xy, p)
 
     # Distances
     d = np.zeros(num_p)
@@ -503,7 +503,7 @@ def segments_polygon(start, end, poly, tol=1e-5):
 
     x0 = start + (end - start) * t
     # Check if zero point is inside the polygon
-    inside = pp.cg.is_inside_polygon(poly_xy, x0[:2])
+    inside = pp.geometry_property_checks.point_in_polygon(poly_xy, x0[:2])
     crosses = np.logical_and(inside, zero_along_segment)
 
     # For points with zero incline, the z-coordinate should be zero for the
@@ -515,8 +515,8 @@ def segments_polygon(start, end, poly, tol=1e-5):
     # option of the segment crossing the polygon within the plane, but this
     # will be handled by the crossing of segments below
     endpoint_in_polygon = np.logical_or(
-        pp.cg.is_inside_polygon(poly_xy, start[:2]),
-        pp.cg.is_inside_polygon(poly_xy, end[:2]),
+        pp.geometry_property_checks.point_in_polygon(poly_xy, start[:2]),
+        pp.geometry_property_checks.point_in_polygon(poly_xy, end[:2]),
     )
 
     segment_in_polygon = np.logical_and(segment_in_plane, endpoint_in_polygon)

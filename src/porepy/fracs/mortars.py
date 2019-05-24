@@ -31,7 +31,6 @@ import scipy.sparse as sps
 
 from porepy.fracs import non_conforming
 from porepy.utils.matrix_compression import rldecode
-import porepy.utils.comp_geom as cg
 from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 from porepy.grids.structured import TensorGrid
 import porepy as pp
@@ -408,7 +407,7 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
     def create_1d_from_nodes(nodes):
         # From a set of nodes, create a 1d grid. duplicate nodes are removed
         # and we verify that the nodes are indeed colinear
-        if not cg.is_collinear(nodes, tol=tol):
+        if not pp.geometry_property_checks.points_are_collinear(nodes, tol=tol):
             raise ValueError("Nodes are not colinear")
         sort_ind = pp.map_geometry.sort_points_on_line(nodes, tol=tol)
         n = nodes[:, sort_ind]
