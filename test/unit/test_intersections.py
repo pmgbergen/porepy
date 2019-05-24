@@ -15,21 +15,6 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
 
     """
 
-    def test_lines_crossing_origin(self):
-        p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
-        lines = np.array([[0, 2], [1, 3], [1, 2], [3, 4]])
-        box = np.array([[2], [2]])
-
-        new_pts, new_lines = cg.remove_edge_crossings2(p, lines)
-
-        p_known = np.hstack((p, np.array([[0], [0]])))
-        p_known = cg.snap_to_grid(p_known, box=box)
-
-        lines_known = np.array([[0, 4, 2, 4], [4, 1, 4, 3], [1, 1, 2, 2], [3, 3, 4, 4]])
-
-        self.assertTrue(np.allclose(new_pts, p_known))
-        self.assertTrue(test_utils.compare_arrays(new_lines, lines_known))
-
     def test_lines_no_crossing(self):
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
 
@@ -136,21 +121,6 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
 
         self.assertTrue(np.allclose(new_pts, p))
         self.assertTrue(test_utils.compare_arrays(new_lines, lines_known))
-
-
-class SnapToGridTest(unittest.TestCase):
-    def setUp(self):
-        self.box = np.array([1, 1])
-        self.anisobox = np.array([2, 1])
-        self.p = np.array([0.6, 0.6])
-
-    def test_snapping(self):
-        p_snapped = cg.snap_to_grid(self.p, box=self.box, tol=1)
-        self.assertTrue(np.allclose(p_snapped, np.array([1, 1])))
-
-    def test_aniso_snapping(self):
-        p_snapped = cg.snap_to_grid(self.p, box=self.anisobox, tol=1)
-        self.assertTrue(np.allclose(p_snapped, np.array([0, 1])))
 
 
 class LinesIntersectTest(unittest.TestCase):

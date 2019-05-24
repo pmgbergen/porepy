@@ -230,7 +230,7 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
 
         lines = np.array([[0, 1], [2, 3]])
         box = np.array([[2], [2]])
-        new_pts, new_lines = pp.cg.remove_edge_crossings(p, lines, box=box)
+        new_pts, new_lines = pp.cg.remove_edge_crossings2(p, lines)
         self.assertTrue(np.allclose(new_pts, p))
         self.assertTrue(np.allclose(new_lines, lines))
 
