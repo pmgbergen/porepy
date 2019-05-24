@@ -296,7 +296,7 @@ class FractureNetwork2d(object):
                 the set only contains non-intersecting branches.
 
         """
-        p, e = pp.cg.remove_edge_crossings2(self.pts, self.edges, tol=self.tol)
+        p, e = pp.cg.remove_edge_crossings(self.pts, self.edges, tol=self.tol)
         return FractureNetwork2d(p, e, self.domain, self.tol)
 
     # --------- Utility functions below here
