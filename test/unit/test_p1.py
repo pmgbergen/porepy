@@ -5,9 +5,6 @@ import unittest
 import porepy as pp
 
 
-
-
-
 class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
@@ -550,7 +547,6 @@ def matrix_for_test_p1_3d():
             [0.0, 0.0, 0.0, -0.16666667, 0.0, -0.16666667, -0.16666667, 0.5],
         ]
     )
-
 
 
 if __name__ == "__main__":

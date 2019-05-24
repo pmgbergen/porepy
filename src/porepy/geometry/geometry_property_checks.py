@@ -287,8 +287,6 @@ def points_are_planar(pts, normal=None, tol=1e-5):
     return np.all(check_all)
 
 
-
-
 def point_in_cell(poly, p, if_make_planar=True):
     """
     Check whatever a point is inside a cell. Note a similar behaviour could be
@@ -332,7 +330,6 @@ def point_in_cell(poly, p, if_make_planar=True):
     return is_odd
 
 
-
 def points_are_collinear(pts, tol=1e-5):
     """ Check if the points lie on a line.
 
@@ -362,7 +359,3 @@ def points_are_collinear(pts, tol=1e-5):
         / dist
     )
     return np.allclose(coll, np.zeros(coll.size), atol=tol, rtol=0)
-
-
-
-

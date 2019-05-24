@@ -2,6 +2,7 @@
 Compute bounding boxes of geometric objects.
 """
 
+
 def from_points(pts, overlap=0):
     """ Obtain a bounding box for a point cloud.
 

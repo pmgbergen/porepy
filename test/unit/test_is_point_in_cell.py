@@ -4,10 +4,7 @@ import unittest
 import porepy as pp
 
 
-
 class BasicsTest(unittest.TestCase):
-
-
     def test_planar_square(self):
         pts = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]], dtype=np.float)
 
@@ -37,7 +34,6 @@ class BasicsTest(unittest.TestCase):
 
         pt = np.array([1.1, -0.1, 0])
         self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
-
 
     def test_planar_square_1(self):
         pts = np.array(
@@ -70,7 +66,6 @@ class BasicsTest(unittest.TestCase):
 
         pt = np.array([1.1, -0.1, 0])
         self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
-
 
     def test_planar_convex(self):
         pts = np.array(
@@ -135,5 +130,5 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
