@@ -82,7 +82,7 @@ class BasicsTest(unittest.TestCase):
         fc = g.face_centers[:2]
 
         tag = g.tags["auxiliary_4_faces"]
-        dist, _ = pp.cg.dist_points_segments(fc, subdomain_start, subdomain_end)
+        dist, _ = pp.distances.points_segments(fc, subdomain_start, subdomain_end)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
         self.assertTrue(
@@ -120,7 +120,7 @@ class BasicsTest(unittest.TestCase):
         fc = g.face_centers[:2]
 
         tag = g.tags["auxiliary_4_faces"]
-        dist, _ = pp.cg.dist_points_segments(fc, subdomain_start, subdomain_end)
+        dist, _ = pp.distances.points_segments(fc, subdomain_start, subdomain_end)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
         self.assertTrue(
@@ -162,7 +162,7 @@ class BasicsTest(unittest.TestCase):
         fc = g.face_centers[:2]
 
         tag = g.tags["auxiliary_4_faces"]
-        dist, _ = pp.cg.dist_points_segments(fc, subdomain_start_0, subdomain_end_0)
+        dist, _ = pp.distances.points_segments(fc, subdomain_start_0, subdomain_end_0)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
         self.assertTrue(
@@ -170,7 +170,7 @@ class BasicsTest(unittest.TestCase):
         )
 
         tag = g.tags["auxiliary_5_faces"]
-        dist, _ = pp.cg.dist_points_segments(fc, subdomain_start_1, subdomain_end_1)
+        dist, _ = pp.distances.points_segments(fc, subdomain_start_1, subdomain_end_1)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
         self.assertTrue(
@@ -240,7 +240,7 @@ class BasicsTest(unittest.TestCase):
         fc = g.face_centers[:2]
         tag = g.tags["fracture_4_faces"]
 
-        dist, _ = pp.cg.dist_points_segments(fc, frac_start, frac_end)
+        dist, _ = pp.distances.points_segments(fc, frac_start, frac_end)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
         self.assertTrue(
@@ -277,7 +277,7 @@ class BasicsTest(unittest.TestCase):
         fc = g.face_centers[:2]
         tag = g.tags["fracture_4_faces"]
 
-        dist, _ = pp.cg.dist_points_segments(fc, frac_start, frac_end)
+        dist, _ = pp.distances.points_segments(fc, frac_start, frac_end)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
         self.assertTrue(
@@ -316,7 +316,7 @@ class BasicsTest(unittest.TestCase):
         fc = g.face_centers[:2]
         tag = g.tags["fracture_4_faces"]
 
-        dist, _ = pp.cg.dist_points_segments(fc, frac_start_0, frac_end_0)
+        dist, _ = pp.distances.points_segments(fc, frac_start_0, frac_end_0)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
         self.assertTrue(
@@ -325,7 +325,7 @@ class BasicsTest(unittest.TestCase):
 
         tag = g.tags["fracture_5_faces"]
 
-        dist, _ = pp.cg.dist_points_segments(fc, frac_start_1, frac_end_1)
+        dist, _ = pp.distances.points_segments(fc, frac_start_1, frac_end_1)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
         self.assertTrue(
@@ -371,7 +371,7 @@ class BasicsTest(unittest.TestCase):
         fc = g.face_centers[:2]
         tag = g.tags["fracture_4_faces"]
 
-        dist, _ = pp.cg.dist_points_segments(fc, frac_start, frac_end)
+        dist, _ = pp.distances.points_segments(fc, frac_start, frac_end)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
         self.assertTrue(
@@ -379,7 +379,7 @@ class BasicsTest(unittest.TestCase):
         )
 
         tag = g.tags["auxiliary_5_faces"]
-        dist, _ = pp.cg.dist_points_segments(fc, subdomain_start, subdomain_end)
+        dist, _ = pp.distances.points_segments(fc, subdomain_start, subdomain_end)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
         self.assertTrue(
@@ -421,7 +421,7 @@ class BasicsTest(unittest.TestCase):
         fc = g.face_centers[:2]
 
         tag = g.tags["auxiliary_4_faces"]
-        dist, _ = pp.cg.dist_points_segments(fc, subdomain_start_0, subdomain_end_0)
+        dist, _ = pp.distances.points_segments(fc, subdomain_start_0, subdomain_end_0)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
         self.assertTrue(
@@ -429,7 +429,7 @@ class BasicsTest(unittest.TestCase):
         )
 
         tag = g.tags["auxiliary_5_faces"]
-        dist, _ = pp.cg.dist_points_segments(fc, subdomain_start_1, subdomain_end_1)
+        dist, _ = pp.distances.points_segments(fc, subdomain_start_1, subdomain_end_1)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
         self.assertTrue(

@@ -1,9 +1,8 @@
+""" Functions to sort points and edges belonging to geometric objects.
+"""
 import numpy as np
 
-from porepy.utils.comp_geom import project_plane_matrix
-
-
-# ------------------------------------------------------------------------------#
+import porepy as pp
 
 
 def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=True):
@@ -110,7 +109,7 @@ def sort_point_plane(pts, centre, normal=None):
     map_pts: np.array, 1xn, sorted point ids.
 
     """
-    R = project_plane_matrix(pts, normal)
+    R = pp.map_geometryproject_plane_matrix(pts, normal)
     pts = np.array([np.dot(R, p) for p in pts.T]).T
     centre = np.dot(R, centre)
     delta = np.array([p - centre for p in pts.T]).T[0:2, :]
@@ -168,7 +167,6 @@ def sort_triangle_edges(t):
     # Bookkeeping of already processed triangles. Not sure if this is needed.
     is_ordered = np.zeros(nt, dtype=np.bool)
     is_ordered[0] = 1
-    orig_t = t.copy()
 
     while len(queue) > 0:
 
@@ -188,7 +186,6 @@ def sort_triangle_edges(t):
         )
         ind_old = np.where(hit_old > 0)[0]
         ind_new = np.where(hit_new > 0)[0]
-        import pdb
 
         #   pdb.set_trace()
         # Check if the edge occured at all among the non-processed triangles
@@ -197,7 +194,7 @@ def sort_triangle_edges(t):
         # It should at most occur once among non-processed triangles
         elif ind_new.size > 1:
             raise ValueError("Edges should only occur twice")
-        tcopy = t.copy()
+
         # Find the triangle to be processed
         ti_new = ind_new[0]
         ti_old = ind_old[0]
