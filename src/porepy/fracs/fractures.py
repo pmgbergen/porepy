@@ -262,7 +262,7 @@ class Fracture(object):
             np.array (2xn): The 2d coordinates of the vertexes.
 
         """
-        rotation = cg.project_plane_matrix(self.p)
+        rotation = pp.map_geometry.project_plane_matrix(self.p)
         points_2d = rotation.dot(self.p)
 
         return points_2d[:2]
@@ -295,7 +295,7 @@ class Fracture(object):
             boolean, True if the polygon is planar. False if not.
         """
         p = self.p - np.mean(self.p, axis=1).reshape((-1, 1))
-        rot = cg.project_plane_matrix(p)
+        rot = pp.map_geometry.project_plane_matrix(p)
         p_2d = rot.dot(p)
         return np.max(np.abs(p_2d[2])) < tol
 
@@ -308,7 +308,7 @@ class Fracture(object):
 
         """
         # Rotate to 2d coordinates
-        rot = cg.project_plane_matrix(self.p)
+        rot = pp.map_geometry.project_plane_matrix(self.p)
         p = rot.dot(self.p)
         z = p[2, 0]
         p = p[:2]
@@ -331,7 +331,7 @@ class Fracture(object):
     def compute_normal(self):
         """ Compute normal to the polygon.
         """
-        self.normal = cg.compute_normal(self.p)[:, None]
+        self.normal = pp.map_geometry.compute_normal(self.p)[:, None]
 
     def as_sp_polygon(self, p=None):
         """ Represent polygon as a sympy object.
@@ -619,34 +619,34 @@ class EllipticFracture(Fracture):
         z = np.zeros_like(angs)
         ref_pts = np.vstack((x, y, z))
 
-        assert cg.is_planar(ref_pts)
+        assert pp.cg.is_planar(ref_pts)
 
         # Rotate reference points so that the major axis has the right
         # orientation
-        major_axis_rot = cg.rot(major_axis_angle, [0, 0, 1])
+        major_axis_rot = pp.map_geometry.rotation_matrix(major_axis_angle, [0, 0, 1])
         rot_ref_pts = major_axis_rot.dot(ref_pts)
 
-        assert cg.is_planar(rot_ref_pts)
+        assert pp.cg.is_planar(rot_ref_pts)
 
         # Then the dip
         # Rotation matrix of the strike angle
-        strike_rot = cg.rot(strike_angle, np.array([0, 0, 1]))
+        strike_rot = pp.map_geometry.rotation_matrix(strike_angle, np.array([0, 0, 1]))
         # Compute strike direction
         strike_dir = strike_rot.dot(np.array([1, 0, 0]))
-        dip_rot = cg.rot(dip_angle, strike_dir)
+        dip_rot = pp.map_geometry.rotation_matrix(dip_angle, strike_dir)
 
         dip_pts = dip_rot.dot(rot_ref_pts)
 
-        assert cg.is_planar(dip_pts)
+        assert pp.cg.is_planar(dip_pts)
 
         # Set the points, and store them in a backup.
         self.p = center + dip_pts
         self.orig_p = self.p.copy()
 
         # Compute normal vector
-        self.normal = cg.compute_normal(self.p)[:, None]
+        self.normal = pp.map_geometry.compute_normal(self.p)[:, None]
 
-        assert cg.is_planar(self.orig_p, self.normal)
+        assert pp.cg.is_planar(self.orig_p, self.normal)
 
 
 # -------------------------------------------------------------------------
@@ -1640,7 +1640,7 @@ class FractureNetwork3d(object):
         p_loc -= p_loc_c
 
         # Project the points onto the local plane defined by the fracture
-        rot = cg.project_plane_matrix(p_loc, tol=self.tol)
+        rot = pp.map_geometry.project_plane_matrix(p_loc, tol=self.tol)
         p_2d = rot.dot(p_loc)
 
         extent = p_2d.max(axis=1) - p_2d.min(axis=1)
@@ -2376,7 +2376,7 @@ class FractureNetwork3d(object):
         frac = self._fractures[frac_num]
         cp = frac.center.reshape((-1, 1))
 
-        rot = cg.project_plane_matrix(frac.p)
+        rot = pp.map_geometry.project_plane_matrix(frac.p)
 
         def rot_translate(pts):
             # Convenience method to translate and rotate a point.

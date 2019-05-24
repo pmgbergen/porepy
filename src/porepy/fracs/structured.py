@@ -12,7 +12,7 @@ from porepy.grids.gmsh import mesh_2_grid
 from porepy.grids import constants
 from porepy.fracs import fractures
 from porepy.utils import half_space
-from porepy.grids import structured, point_grid, constants
+from porepy.grids import structured, point_grid
 from porepy.utils import comp_geom as cg
 
 
@@ -93,7 +93,7 @@ def cart_grid_3d(fracs, nx, physdims=None):
         # construct normal vectors. If the rectangle is ordered
         # clockwise we need to flip the normals so they point
         # outwards.
-        sign = 2 * cg.is_ccw_polygon(f_s[active_dim]) - 1
+        sign = 2 * pp.cg.is_ccw_polygon(f_s[active_dim]) - 1
         tangent = f_s.take(np.arange(f_s.shape[1]) + 1, axis=1, mode="wrap") - f_s
         normal = tangent
         normal[active_dim] = tangent[active_dim[1::-1]]
@@ -267,10 +267,10 @@ def _create_embedded_2d_grid(loc_coord, glob_id):
     loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
     loc_coord -= loc_center
     # Check that the points indeed form a line
-    assert cg.is_planar(loc_coord)
+    assert pp.cg.is_planar(loc_coord)
     # Find the tangent of the line
     # Projection matrix
-    rot = cg.project_plane_matrix(loc_coord)
+    rot = pp.map_geometry.project_plane_matrix(loc_coord)
     loc_coord_2d = rot.dot(loc_coord)
     # The points are now 2d along two of the coordinate axis, but we
     # don't know which yet. Find this.

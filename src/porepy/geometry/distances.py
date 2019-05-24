@@ -388,7 +388,7 @@ def points_polygon(p, poly, tol=1e-5):
     p = p - center
 
     # Obtain the rotation matrix that projects p1 to the xy-plane
-    rot_p = pp.cg.project_plane_matrix(poly)
+    rot_p = pp.map_geometry.project_plane_matrix(poly)
     irot = rot_p.transpose()
     poly_rot = rot_p.dot(poly)
 
@@ -475,7 +475,7 @@ def segments_polygon(start, end, poly, tol=1e-5):
     end = end - center
 
     # Obtain the rotation matrix that projects p1 to the xy-plane
-    rot_p = pp.cg.project_plane_matrix(poly)
+    rot_p = pp.map_geometry.project_plane_matrix(poly)
     irot = rot_p.transpose()
     poly_rot = rot_p.dot(poly)
 

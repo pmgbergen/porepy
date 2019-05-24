@@ -508,7 +508,7 @@ class Mpfa(FVElliptic):
             # Rotate the grid into the xy plane and delete third dimension. First
             # make a copy to avoid alterations to the input grid
             g = g.copy()
-            cell_centers, face_normals, face_centers, R, _, nodes = pp.cg.map_grid(
+            cell_centers, face_normals, face_centers, R, _, nodes = pp.map_geometry.map_grid(
                 g, deviation_from_plane_tol
             )
             g.cell_centers = cell_centers

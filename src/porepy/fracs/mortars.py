@@ -286,7 +286,7 @@ def match_grids_2d(new_g, old_g, tol):
     """
 
     def proj_pts(p, cc):
-        rot = cg.project_plane_matrix(p - cc)
+        rot = pp.map_geometry.project_plane_matrix(p - cc)
         return rot.dot(p - cc)[:2]
 
     shape = (new_g.dim + 1, new_g.num_cells)
@@ -410,7 +410,7 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
         # and we verify that the nodes are indeed colinear
         if not cg.is_collinear(nodes, tol=tol):
             raise ValueError("Nodes are not colinear")
-        sort_ind = cg.argsort_point_on_line(nodes, tol=tol)
+        sort_ind = pp.map_geometry.sort_points_on_line(nodes, tol=tol)
         n = nodes[:, sort_ind]
         unique_nodes, _, _ = unique_columns_tol(n, tol=tol)
         g = TensorGrid(np.arange(unique_nodes.shape[1]))

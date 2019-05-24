@@ -1,10 +1,9 @@
 import numpy as np
 import unittest
+
 import porepy as pp
 
 from porepy.numerics.vem import hybrid
-
-# ------------------------------------------------------------------------------#
 
 
 def make_dictionary(g, perm, bc, bc_val=None):
@@ -22,8 +21,6 @@ def make_dictionary(g, perm, bc, bc_val=None):
 
 
 class BasicsTest(unittest.TestCase):
-
-    # ------------------------------------------------------------------------------#
 
     def test_dual_hybrid_vem_1d_iso(self):
         g = pp.CartGrid(3, 1)
@@ -48,7 +45,7 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(M, M.T, rtol, atol))
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
-    # ------------------------------------------------------------------------------#
+
 
     def test_dual_hybrid_vem_1d_ani(self):
         g = pp.CartGrid(3, 1)
@@ -79,7 +76,6 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(M, M.T, rtol, atol))
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
-    # ------------------------------------------------------------------------------#
 
     def test_dual_hybrid_vem_2d_iso_cart(self):
         g = pp.CartGrid([2, 1], [1, 1])
@@ -113,7 +109,6 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(M, M.T, rtol, atol))
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
-    # ------------------------------------------------------------------------------#
 
     def test_dual_hybrid_vem_2d_ani_cart(self):
         g = pp.CartGrid([2, 1], [1, 1])
@@ -205,7 +200,6 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(M, M.T, rtol, atol))
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
-    # ------------------------------------------------------------------------------#
 
     def test_dual_hybrid_vem_2d_iso_simplex(self):
         g = pp.StructuredTriangleGrid([1, 1], [1, 1])
@@ -262,7 +256,6 @@ class BasicsTest(unittest.TestCase):
         # We test only the mass-Hdiv part
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
-    # ------------------------------------------------------------------------------#
 
     def test_dual_hybrid_vem_2d_ani_simplex(self):
         g = pp.StructuredTriangleGrid([1, 1], [1, 1])
@@ -309,7 +302,6 @@ class BasicsTest(unittest.TestCase):
         # We test only the mass-Hdiv part
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
-    # ------------------------------------------------------------------------------#
 
     def test_dual_hybrid_vem_3d_iso_cart(self):
         g = pp.CartGrid([2, 2, 2], [1, 1, 1])
@@ -334,7 +326,6 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(M, M.T, rtol, atol))
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
-    # ------------------------------------------------------------------------------#
 
     def test_dual_hybrid_vem_3d_ani_cart(self):
         g = pp.CartGrid([2, 2, 2], [1, 1, 1])
@@ -361,11 +352,10 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(M, M.T, rtol, atol))
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
-    # ------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_iso_cart_surf(self):
         g = pp.CartGrid([2, 1], [1, 1])
-        R = pp.cg.rot(np.pi / 4.0, [0, 1, 0])
+        R = pp.map_geometry.rotation_matrix(np.pi / 4.0, [0, 1, 0])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
@@ -395,11 +385,10 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(M, M.T, rtol, atol))
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
-    # ------------------------------------------------------------------------------#
 
     def test_dual_vem_1d_iso_line(self):
         g = pp.CartGrid(3, 1)
-        R = pp.cg.rot(np.pi / 6.0, [0, 0, 1])
+        R = pp.map_geometry.rotation_matrix(np.pi / 6.0, [0, 0, 1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
@@ -428,7 +417,6 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
 
-# ------------------------------------------------------------------------------#
 
 
 def matrix_for_test_dual_hybrid_vem_3d_iso_cart():
@@ -1806,7 +1794,6 @@ def matrix_for_test_dual_hybrid_vem_3d_iso_cart():
     )
 
 
-# ------------------------------------------------------------------------------#
 
 
 def matrix_for_test_dual_hybrid_vem_3d_ani_cart():
@@ -3184,7 +3171,6 @@ def matrix_for_test_dual_hybrid_vem_3d_ani_cart():
     )
 
 
-# ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
     unittest.main()
