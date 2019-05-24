@@ -215,7 +215,9 @@ def triangle_grid(
     logger.info("Remove edge crossings")
     tm = time.time()
 
-    pts_split, lines_split = pp.cg.remove_edge_crossings(pts_all, lines, tol=tol)
+    pts_split, lines_split = pp.intersections.split_intersecting_segments_2d(
+        pts_all, lines, tol=tol
+    )
     logger.info("Done. Elapsed time " + str(time.time() - tm))
 
     # Ensure unique description of points
