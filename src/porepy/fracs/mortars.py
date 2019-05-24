@@ -31,9 +31,9 @@ import scipy.sparse as sps
 
 from porepy.fracs import non_conforming
 from porepy.utils.matrix_compression import rldecode
-import porepy.utils.comp_geom as cg
 from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 from porepy.grids.structured import TensorGrid
+import porepy as pp
 
 # ------------------------------------------------------------------------------#
 
@@ -135,7 +135,7 @@ def update_physical_high_grid(mg, g_new, g_old, tol):
         new_nodes = g_new.face_centers[:, new_faces]
 
         # we assume only one old node
-        mask = cg.dist_point_pointset(old_nodes, new_nodes) < tol
+        mask = pp.distances.point_pointset(old_nodes, new_nodes) < tol
         new_faces = new_faces[mask]
 
         shape = (g_old.num_faces, g_new.num_faces)
@@ -285,7 +285,7 @@ def match_grids_2d(new_g, old_g, tol):
     """
 
     def proj_pts(p, cc):
-        rot = cg.project_plane_matrix(p - cc)
+        rot = pp.map_geometry.project_plane_matrix(p - cc)
         return rot.dot(p - cc)[:2]
 
     shape = (new_g.dim + 1, new_g.num_cells)
@@ -294,7 +294,7 @@ def match_grids_2d(new_g, old_g, tol):
     shape = (old_g.dim + 1, old_g.num_cells)
     cn_old_g = old_g.cell_nodes().indices.reshape(shape, order="F")
     cc = np.mean(new_g.nodes, axis=1).reshape((3, 1))
-    isect = cg.intersect_triangulations(
+    isect = pp.intersections.triangulations(
         proj_pts(new_g.nodes, cc), proj_pts(old_g.nodes, cc), cn_new_g, cn_old_g
     )
 
@@ -407,9 +407,9 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
     def create_1d_from_nodes(nodes):
         # From a set of nodes, create a 1d grid. duplicate nodes are removed
         # and we verify that the nodes are indeed colinear
-        if not cg.is_collinear(nodes, tol=tol):
+        if not pp.geometry_property_checks.points_are_collinear(nodes, tol=tol):
             raise ValueError("Nodes are not colinear")
-        sort_ind = cg.argsort_point_on_line(nodes, tol=tol)
+        sort_ind = pp.map_geometry.sort_points_on_line(nodes, tol=tol)
         n = nodes[:, sort_ind]
         unique_nodes, _, _ = unique_columns_tol(n, tol=tol)
         g = TensorGrid(np.arange(unique_nodes.shape[1]))
@@ -506,7 +506,7 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
     # Represent the 1d line by its start and end point, as pulled
     # from the old 1d grid (known coordinates)
     # Find distance from the
-    dist, _ = cg.dist_points_segments(nodes_new, start, end)
+    dist, _ = pp.distances.points_segments(nodes_new, start, end)
     # Look for points in the new grid with a small distance to the
     # line
     hit = np.argwhere(dist.ravel() < tol).reshape((1, -1))[0]

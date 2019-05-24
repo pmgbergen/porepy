@@ -15,9 +15,8 @@ import numpy as np
 import itertools
 from scipy import sparse as sps
 
+import porepy as pp
 from porepy.utils import matrix_compression, mcolon, tags
-
-from porepy.utils import comp_geom as cg
 
 
 class Grid(object):
@@ -231,7 +230,9 @@ class Grid(object):
         n = fn.size
         self.face_centers = self.nodes[:, fn]
 
-        self.face_normals = np.tile(cg.compute_tangent(self.nodes), (n, 1)).T
+        self.face_normals = np.tile(
+            pp.map_geometry.compute_tangent(self.nodes), (n, 1)
+        ).T
 
         cf = self.cell_faces.indices
         xf1 = self.face_centers[:, cf[::2]]
@@ -264,7 +265,7 @@ class Grid(object):
     def __compute_geometry_2d(self):
         "Compute 2D geometry, with method motivated by similar MRST function"
 
-        R = cg.project_plane_matrix(self.nodes, check_planar=False)
+        R = pp.map_geometry.project_plane_matrix(self.nodes, check_planar=False)
         self.nodes = np.dot(R, self.nodes)
 
         fn = self.face_nodes.indices
