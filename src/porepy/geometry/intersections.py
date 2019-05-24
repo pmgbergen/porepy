@@ -1189,7 +1189,7 @@ def split_intersecting_segments_2d(p, e, tol=1e-4):
     # Loop through all candidate pairs of intersecting fractures, check if
     # they do intersect. If so, store the point, and for each crossing fracture
     # take note of the index of the cross point.
-    for di, line_ind in enumerate(start_inds):
+    for _, line_ind in enumerate(start_inds):
         # First fracture in the candidate pair
         main = line_ind
         # Find all other fractures that is in a pair with the main as the first one.
