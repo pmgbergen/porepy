@@ -136,7 +136,7 @@ def update_physical_high_grid(mg, g_new, g_old, tol):
         new_nodes = g_new.face_centers[:, new_faces]
 
         # we assume only one old node
-        mask = cg.dist_point_pointset(old_nodes, new_nodes) < tol
+        mask = pp.distances.point_pointset(old_nodes, new_nodes) < tol
         new_faces = new_faces[mask]
 
         shape = (g_old.num_faces, g_new.num_faces)
@@ -507,7 +507,7 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
     # Represent the 1d line by its start and end point, as pulled
     # from the old 1d grid (known coordinates)
     # Find distance from the
-    dist, _ = cg.dist_points_segments(nodes_new, start, end)
+    dist, _ = pp.distances.points_segments(nodes_new, start, end)
     # Look for points in the new grid with a small distance to the
     # line
     hit = np.argwhere(dist.ravel() < tol).reshape((1, -1))[0]

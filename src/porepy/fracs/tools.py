@@ -102,7 +102,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
         # Compute the distacne between this line and all points in the domain
         # This will also include the start and endpoint of this line, but we
         # deal with that later
-        dist, cp = pp.cg.dist_points_segments(pts, start, end)
+        dist, cp = pp.distances.points_segments(pts, start, end)
 
         # We know there is a single segment, thus the distance vector can be reduced
         dist = dist[:, 0]
@@ -118,8 +118,8 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
         # Compute the distance from cp to the start and endpoint of this
         # line
         # Transposes are needed here because that is how numpy works
-        dist_start = pp.cg.dist_point_pointset(start, cp[hit, 0].T)
-        dist_end = pp.cg.dist_point_pointset(end, cp[hit, 0].T)
+        dist_start = pp.distances.point_pointset(start, cp[hit, 0].T)
+        dist_end = pp.distances.point_pointset(end, cp[hit, 0].T)
 
         # Now, the cp points are added if they are closer to another point than
         # to the start and end point of its line, and if the distance from the
@@ -233,7 +233,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
             end_old = old_pts[:, old_lines[1]]
 
             # Compute the ditsacne between the current point and all old lines
-            dist1, cp = pp.cg.dist_points_segments(new_pt, start_old, end_old)
+            dist1, cp = pp.distances.points_segments(new_pt, start_old, end_old)
             # Disregard points that lie on the old segment by assigning a value so high
             # that it will not be picked up by the minimum.
             dist1[np.isclose(dist1, 0.0)] = mesh_size * 10

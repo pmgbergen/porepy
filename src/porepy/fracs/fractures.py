@@ -226,7 +226,7 @@ class Fracture(object):
 
         if enforce_pt_tol is not None:
             to_enforce = np.where(to_enforce[mask])[0]
-            dist = cg.dist_pointset(self.p)
+            dist = pp.distances.pointset(self.p)
             dist /= np.amax(dist)
             np.fill_diagonal(dist, np.inf)
             mask = np.where(dist < enforce_pt_tol)[0]
@@ -505,7 +505,7 @@ class Fracture(object):
             start = poly
             end = np.roll(poly, 1, axis=1)
             for si in range(start.shape[1]):
-                dist, cp = cg.dist_points_segments(ip, start[:, si], end[:, si])
+                dist, cp = pp.distances.points_segments(ip, start[:, si], end[:, si])
                 if np.all(dist < tol):
                     return True
             return False
@@ -1538,7 +1538,7 @@ class FractureNetwork3d(object):
             hit = np.ones(num_points, dtype=np.bool)
             for i in range(num_points):
                 hit[i] = False
-                dist_loc = cg.dist_point_pointset(p[:, i], p[:, hit])
+                dist_loc = pp.distances.point_pointset(p[:, i], p[:, hit])
                 dist = np.minimum(dist, dist_loc.min())
                 hit[i] = True
             s += "Minimal disance between points " + str(dist) + "\n"
@@ -1596,7 +1596,7 @@ class FractureNetwork3d(object):
 
         pt = self.decomposition["points"]
         for pi in range(pt.shape[1]):
-            d = cg.dist_point_pointset(pt[:, pi], pt[:, pi + 1 :])
+            d = pp.distances.point_pointset(pt[:, pi], pt[:, pi + 1 :])
             ind = np.argwhere(d < dist).ravel("F")
             for i in ind:
                 # Indices of close points, with an offset to compensate for
@@ -1983,7 +1983,7 @@ class FractureNetwork3d(object):
 
         p = self.decomposition["points"]
         num_pts = p.shape[1]
-        dist = cg.dist_pointset(p, max_diag=True)
+        dist = pp.distances.pointset(p, max_diag=True)
         mesh_size_dist = np.min(dist, axis=1)
         logger.info(
             "Minimal distance between points encountered is " + str(np.min(dist))
@@ -2065,7 +2065,7 @@ class FractureNetwork3d(object):
                     isect_f.append(i.first.index)
 
                 # Assuming the fracture is convex, the closest point for
-                dist, cp = cg.dist_points_segments(
+                dist, cp = pp.distances.points_segments(
                     i.coord, f.p, np.roll(f.p, 1, axis=1)
                 )
                 # Insert a (candidate) point only at the segment closest to the
@@ -2107,7 +2107,7 @@ class FractureNetwork3d(object):
                     # and find the closest segment on the other fracture
                     fs = f_start[:, si].squeeze()  # .reshape((-1, 1))
                     fe = f_end[:, si].squeeze()  # .reshape((-1, 1))
-                    d, cp_f, _ = cg.dist_segment_segment_set(fs, fe, of_start, of_end)
+                    d, cp_f, _ = pp.distances.segment_segment_set(fs, fe, of_start, of_end)
                     mi = np.argmin(d)
                     # If the distance is smaller than ideal length, but the
                     # closets point is not too close to the segment endpoints,
