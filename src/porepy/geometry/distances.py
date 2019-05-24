@@ -544,8 +544,8 @@ def segments_polygon(start, end, poly, tol=1e-5):
     end = orig_end
 
     # Distance from endpoints to
-    d_start_poly, cp_s_p, s_in_poly = points_polygon(start, poly)
-    d_end_poly, cp_e_p, e_in_poly = points_polygon(end, poly)
+    d_start_poly, cp_s_p, _ = points_polygon(start, poly)
+    d_end_poly, cp_e_p, _ = points_polygon(end, poly)
 
     # Loop over all segments that did not cross the polygon. The minimum is
     # found either by the endpoints, or as between two segments.

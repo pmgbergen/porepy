@@ -99,7 +99,7 @@ def sort_points_on_line(pts, tol=1e-5):
         return np.array([0])
     assert pp.geometry_property_checks.points_are_collinear(pts, tol)
 
-    nd, n_pts = pts.shape
+    nd, _ = pts.shape
 
     # Project into single coordinate
     rot = project_line_matrix(pts)
@@ -169,7 +169,7 @@ def project_points_to_line(p, tol=1e-4):
 
 
 def project_plane_matrix(
-    pts, normal=None, tol=1e-5, reference=[0, 0, 1], check_planar=True
+    pts, normal=None, tol=1e-5, reference=None, check_planar=True
 ):
     """ Project the points on a plane using local coordinates.
 
@@ -189,6 +189,8 @@ def project_plane_matrix(
     np.ndarray, 3x3, projection matrix.
 
     """
+    if reference is None:
+        reference = [0, 0, 1]
 
     if normal is None:
         normal = compute_normal(pts)
@@ -205,7 +207,7 @@ def project_plane_matrix(
     return rotation_matrix(angle, vect)
 
 
-def project_line_matrix(pts, tangent=None, tol=1e-5, reference=[0, 0, 1]):
+def project_line_matrix(pts, tangent=None, tol=1e-5, reference=None):
     """ Project the points on a line using local coordinates.
 
     The projected points are computed by a dot product.
@@ -225,6 +227,9 @@ def project_line_matrix(pts, tangent=None, tol=1e-5, reference=[0, 0, 1]):
         tangent = compute_tangent(pts)
     else:
         tangent = tangent.flatten() / np.linalg.norm(tangent)
+
+    if reference is None:
+        reference = [0, 0, 1]
 
     reference = np.asarray(reference, dtype=np.float)
     angle = np.arccos(np.dot(tangent, reference))
