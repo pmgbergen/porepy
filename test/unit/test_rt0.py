@@ -3,9 +3,6 @@ import scipy.sparse as sps
 import unittest
 
 import porepy as pp
-from porepy import cg
-
-# ------------------------------------------------------------------------------#
 
 
 class BasicsTest(unittest.TestCase):
@@ -1191,9 +1188,6 @@ class BasicsTest(unittest.TestCase):
             self.assertTrue(np.isclose(err, err_known))
 
 
-# ------------------------------------------------------------------------------#
-
-
 if __name__ == "__main__":
     unittest.main()
 
@@ -1827,6 +1821,3 @@ def matrix_for_test_rt0_3d():
             ],
         ]
     )
-
-
-# ------------------------------------------------------------------------------#

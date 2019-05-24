@@ -14,8 +14,7 @@ import porepy as pp
 
 from porepy.grids.grid import Grid
 from porepy.grids.structured import TensorGrid
-from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
-from porepy.utils import comp_geom as cg
+from porepy.grids.simplex import TriangleGrid
 
 
 def distort_grid_1d(g, ratio=0.1, fixed_nodes=None):

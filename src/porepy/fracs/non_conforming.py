@@ -16,7 +16,6 @@ from porepy.utils.matrix_compression import rldecode
 from porepy.utils.setmembership import unique_columns_tol, ismember_rows
 
 from porepy.fracs import tools as fractools
-import porepy.utils.comp_geom as cg
 
 
 def merge_grids(grids, intersections, tol=1e-4):

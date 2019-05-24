@@ -2,15 +2,12 @@ from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 import unittest
+
 from porepy.fracs import meshing
-import porepy.utils.comp_geom as cg
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
-
 from porepy.numerics.fv import mpfa, tpfa
 
-
-# ------------------------------------------------------------------------------#
 
 
 class BasicsTest(unittest.TestCase):
@@ -490,7 +487,6 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(p, p_known, rtol, atol))
 
 
-# ------------------------------------------------------------------------------#
 
 
 def amatrix_rhs_pressure_for_test_mpfa_coupling_3d_2d_1d_0d():
@@ -1348,7 +1344,6 @@ def amatrix_rhs_pressure_for_test_mpfa_coupling_3d_2d_1d_0d():
     return A, rhs, pressure
 
 
-# ------------------------------------------------------------------------------#
 
 
 def matrix_rhs_for_2d_1d_cross():

@@ -3,10 +3,9 @@ import scipy.sparse as sps
 import unittest
 
 import porepy as pp
-from porepy import cg
 
 
-# ------------------------------------------------------------------------------#
+
 
 
 class BasicsTest(unittest.TestCase):
@@ -484,9 +483,6 @@ class BasicsTest(unittest.TestCase):
             self.assertTrue(np.isclose(err, 0))
 
 
-# ------------------------------------------------------------------------------#
-
-
 def matrix_for_test_p1_3d():
     return np.matrix(
         [
@@ -556,7 +552,6 @@ def matrix_for_test_p1_3d():
     )
 
 
-# ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
     unittest.main()
