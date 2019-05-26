@@ -116,7 +116,7 @@ class PrimalContactCoupling(object):
                 rot = tangential_normal_projection.projection[:, :, 0]
                 if rot.shape == (2, 2):
                     rot = np.vstack((np.hstack((rot, np.zeros((2, 1)))), np.zeros((3))))
-                cell_centers, face_normals, face_centers, _, _, nodes = pp.cg.map_grid(
+                cell_centers, face_normals, face_centers, _, _, nodes = pp.map_geometry.map_grid(
                     g, deviation_from_plane_tol, R=rot
                 )
                 g.cell_centers = cell_centers
