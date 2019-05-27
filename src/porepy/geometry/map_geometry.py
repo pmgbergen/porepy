@@ -248,6 +248,9 @@ def rotation_matrix(a, vect):
     Returns:
     matrix: np.ndarray, 3x3, the rotation matrix.
 
+    NOTE: If vect is a zero vector, the returned rotation matrix will be the
+    identify matrix.
+
     """
     if np.allclose(vect, [0.0, 0.0, 0.0]):
         return np.identity(3)
