@@ -52,18 +52,12 @@ or for editable installs into the user directory:
 
 
 # Using Docker
-A docker image is available, courtesy of Davide Baroli. To pull the docker.io/pmgbergen/porepylib with tag py27 image from cloud infrastructure:
+A docker image is available from docker.io/keileg/porepy:
 ```bash
->  docker pull docker.io/pmgbergen/porepylib:py27
+>  docker pull docker.io/keileg/porepy
 ```
-Docker will pull the py27 tag of the image pmgbergen/porepylib from docker.io based on python 2.7. The download is around 4.085 GB. The  image is a great place to start experimenting with porepy and includes all dependencies already compiled for you.
-Once the download is complete you can start porepy for the first time. Just run:
-```bash
->  docker run -ti  docker.io/pmgbergen/porepy:py27
-```
-The image is auto-deployed at each push in the branch "develop".
 
-For more details see the [docker md](./Docker.md).
+For the moment, Docker support should be considered experimental.
 
 # (Semi-) Optional packages
 To function optimally, PorePy should have access to the pypi packages:
