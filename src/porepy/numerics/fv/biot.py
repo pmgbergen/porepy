@@ -112,7 +112,7 @@ class Biot:
             g: grid, or subclass, with geometry fields computed.
             data: dictionary to store the data terms. Must have been through a
                 call to discretize() to discretization of right hand side. May
-                contain the field "STATE", storing the solution vectors from previous
+                contain the field pp.STATE, storing the solution vectors from previous
                 time step. Defaults to zero.
 
         Returns:
@@ -982,7 +982,7 @@ class DivD(
         The keywords are used to access and store parameters and discretization
         matrices.
         """
-        self.keyword = keyword
+        super().__init__(keyword)
         # Set variable name for the vector variable (displacement)
         self.variable = variable
         # The following is only used for mixed-dimensional problems.
@@ -1194,7 +1194,7 @@ class BiotStabilization(
         The keywords are used to access and store parameters and discretization
         matrices.
         """
-        self.keyword = keyword
+        super().__init__(keyword)
         # Set variable name for the scalar variable (pressure)
         self.variable = variable
 
