@@ -130,7 +130,7 @@ class ColoumbContact:
 
         import pdb
 
-     #  pdb.set_trace()
+        #  pdb.set_trace()
 
         for i in range(num_cells):
             if sliding_bc[i] & penetration_bc[i]:  # in contact and sliding

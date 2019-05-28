@@ -399,6 +399,7 @@ class FluxPressureContinuity(RobinCoupling):
 
 # ------------------------------------------------------------------------------
 
+
 class RobinContact(object):
     """
     Contact condition for elastic problem. This condition defines a Robin condition

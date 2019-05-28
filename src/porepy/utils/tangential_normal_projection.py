@@ -119,7 +119,7 @@ class TangentialNormalProjection:
         # Find type and size of projection.
         if num is None:
             num = self.num_vecs
-        
+
         size_proj = self.dim * num
 
         # Construct the full projection matrix - tangential and normal
@@ -169,7 +169,7 @@ class TangentialNormalProjection:
         # Find mode and size of projection
         if num is None:
             num = self.num_vecs
-        
+
         size_proj = self.dim * num
 
         # Generate full projection matrix
@@ -185,7 +185,7 @@ class TangentialNormalProjection:
 
         # Return the restricted matrix
         return remove_tangential_components * full_projection
-    
+
     def local_projection(self, ind=None):
         """ Get the local projection matrix (refe)
 
