@@ -37,8 +37,6 @@ class ColoumbContact:
         return g.num_cells * self.dim
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
-        import pdb
-        pdb.set_trace()
 
         parameters_l = data_l[pp.PARAMETERS]
 
@@ -106,10 +104,10 @@ class ColoumbContact:
 
         # Contact region is determined from the normal direction, stored in the
         # last row of the projected stress and deformation.
-        penetration_bc = self._active_penetration(
+        penetration_bc = self._penetration(
             normal_contact_force, normal_displacement_jump, c_num
         )
-        sliding_bc = self._active_sliding(
+        sliding_bc = self._sliding(
             tangential_contact_force,
             tangential_displacement_jump,
             friction_bound,
@@ -129,6 +127,10 @@ class ColoumbContact:
         #   the coefficient in a Robin boundary condition (using the terminology of
         #   the mpsa implementation)
         # r is the right hand side term
+
+        import pdb
+
+     #  pdb.set_trace()
 
         for i in range(num_cells):
             if sliding_bc[i] & penetration_bc[i]:  # in contact and sliding
@@ -160,14 +162,14 @@ class ColoumbContact:
                 # Mortar weight computed according to (23)
                 mw = (
                     -friction_coefficient[i]
-                    * tangential_displacement_jump[:-1, i].ravel("F")
+                    * tangential_displacement_jump[:, i].ravel("F")
                     / friction_bound[i]
                 )
                 # Unit coefficient for all displacement jumps
                 L = np.eye(nd)
                 MW = np.zeros((nd, nd))
                 MW[:-1, -1] = mw
-                r = np.hstack((tangential_displacement_jump[:-1, i], 0)).T
+                r = np.hstack((tangential_displacement_jump[:, i], 0)).T
 
             elif ~penetration_bc[i]:  # not in contact
                 # This is a free boundary, no conditions on u
@@ -219,7 +221,7 @@ class ColoumbContact:
         return traction_coefficient, displacement_coefficient, rhs
 
     # Active and inactive boundary faces
-    def _active_sliding(self, Tt, ut, bf, ct):
+    def _sliding(self, Tt, ut, bf, ct):
         """ Find faces where the frictional bound is exceeded, that is, the face is
         sliding.
 
@@ -239,7 +241,7 @@ class ColoumbContact:
         # Not sure about the sensitivity to the tolerance parameter here.
         return self._l2(-Tt + ct * ut) - bf > 1e-10
 
-    def _active_penetration(self, Tn, un, cn):
+    def _penetration(self, Tn, un, cn):
         """ Find faces that are in contact.
 
         Arguments:
