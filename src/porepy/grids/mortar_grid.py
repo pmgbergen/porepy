@@ -1,8 +1,10 @@
 """ Module containing the class for the mortar grid.
 """
 from __future__ import division
+import warnings
 import numpy as np
 from scipy import sparse as sps
+
 
 # Module level constants, used to define sides of a mortar grid.
 # This is in essence an Enum, but that led to trouble in pickling a GridBucket.
@@ -517,6 +519,9 @@ class MortarGrid(object):
         """
         nc = self.num_cells
         if self.num_sides() == 1:
+            warnings.warn(
+                "Is it really meaningful to ask for signs of a one sided mortar grid?"
+            )
             return sps.dia_matrix((np.ones(nc * nd), 0), shape=(nd * nc, nd * nc))
         elif self.num_sides() == 2:
             data = np.hstack(
