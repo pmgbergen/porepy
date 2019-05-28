@@ -111,7 +111,7 @@ def snap_fracture_set_2d(pts, edges, snap_tol, termination_tol=1e-2, max_iter=10
     counter = 0
     pn = 0 * pts
     while counter < max_iter:
-        pn = pp.cg.snap_points_to_segments(pts, edges, tol=snap_tol)
+        pn = pp.constrain_geometry.snap_points_to_segments(pts, edges, tol=snap_tol)
         diff = np.max(np.abs(pn - pts))
         logger.debug("Iteration " + str(counter) + ", max difference" + str(diff))
         pts = pn

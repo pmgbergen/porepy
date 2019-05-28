@@ -30,7 +30,6 @@ except ImportError:
 import porepy as pp
 
 # Import of internally developed packages.
-from porepy.utils import comp_geom as cg
 from porepy.utils import setmembership, sort_points
 from porepy.grids.gmsh.gmsh_interface import GmshWriter
 from porepy.grids.constants import GmshConstants
@@ -226,7 +225,7 @@ class Fracture(object):
 
         if enforce_pt_tol is not None:
             to_enforce = np.where(to_enforce[mask])[0]
-            dist = cg.dist_pointset(self.p)
+            dist = pp.distances.pointset(self.p)
             dist /= np.amax(dist)
             np.fill_diagonal(dist, np.inf)
             mask = np.where(dist < enforce_pt_tol)[0]
@@ -262,7 +261,7 @@ class Fracture(object):
             np.array (2xn): The 2d coordinates of the vertexes.
 
         """
-        rotation = cg.project_plane_matrix(self.p)
+        rotation = pp.map_geometry.project_plane_matrix(self.p)
         points_2d = rotation.dot(self.p)
 
         return points_2d[:2]
@@ -295,7 +294,7 @@ class Fracture(object):
             boolean, True if the polygon is planar. False if not.
         """
         p = self.p - np.mean(self.p, axis=1).reshape((-1, 1))
-        rot = cg.project_plane_matrix(p)
+        rot = pp.map_geometry.project_plane_matrix(p)
         p_2d = rot.dot(p)
         return np.max(np.abs(p_2d[2])) < tol
 
@@ -308,7 +307,7 @@ class Fracture(object):
 
         """
         # Rotate to 2d coordinates
-        rot = cg.project_plane_matrix(self.p)
+        rot = pp.map_geometry.project_plane_matrix(self.p)
         p = rot.dot(self.p)
         z = p[2, 0]
         p = p[:2]
@@ -331,7 +330,7 @@ class Fracture(object):
     def compute_normal(self):
         """ Compute normal to the polygon.
         """
-        self.normal = cg.compute_normal(self.p)[:, None]
+        self.normal = pp.map_geometry.compute_normal(self.p)[:, None]
 
     def as_sp_polygon(self, p=None):
         """ Represent polygon as a sympy object.
@@ -350,199 +349,6 @@ class Fracture(object):
         sp = [sympy.geometry.Point(p[:, i]) for i in range(p.shape[1])]
         return sympy.geometry.Polygon(*sp)
 
-    def intersects(self, other, tol, check_point_contact=True):
-        """
-        Find intersections between self and another polygon.
-
-        The function checks for both intersection between the interior of one
-        polygon with the boundary of the other, and pure boundary
-        intersections. Intersection types supported so far are
-            X (full intersection, possibly involving boundaries)
-            L (Two fractures intersect at a boundary)
-            T (Boundary segment of one fracture lies partly or completely in
-                the plane of another)
-        Parameters:
-            other (Fracture): To test intersection with.
-            tol (double): Geometric tolerance
-            check_point_contact (boolean, optional): If True, we check if a
-                single point (e.g. a vertex) of one fracture lies in the plane
-                of the other. This is usually an error, thus the test should be
-                on, but may be allowed when imposing external boundaries.
-
-        """
-
-        # Find intersections between self and other. Note that the algorithms
-        # for intersections are not fully reflexive in terms of argument
-        # order, so we need to do two tests.
-
-        # Array for intersections with the interior of one polygon (as opposed
-        # to full boundary intersection, below)
-        int_points = np.empty((3, 0))
-
-        # Keep track of whether the intersection points are on the boundary of
-        # the polygons.
-        on_boundary_self = False
-        on_boundary_other = False
-
-        ####
-        # First compare max/min coordinates. If the bounding boxes of the
-        # fractures do not intersect, there is nothing to do.
-        min_self = self.p.min(axis=1)
-        max_self = self.p.max(axis=1)
-        min_other = other.p.min(axis=1)
-        max_other = other.p.max(axis=1)
-
-        # Account for a tolerance in the following test
-        max_self *= 1 + np.sign(max_self) * tol
-        min_self *= 1 - np.sign(min_self) * tol
-
-        max_other *= 1 + np.sign(max_other) * tol
-        min_other *= 1 - np.sign(min_other) * tol
-
-        if np.any(max_self < min_other) or np.any(min_self > max_other):
-            return int_points, on_boundary_self, on_boundary_other
-
-        #####
-        # Next screening: To intersect, both fractures must have vertexes
-        # either on both sides of each others plane, or close to the plane (T,
-        # L, Y)-type intersections.
-
-        # Vectors from centers of the fractures to the vertexes of the other
-        # fratures.
-        s_2_o = other.p - self.center.reshape((-1, 1))
-        o_2_s = self.p - other.center.reshape((-1, 1))
-
-        # Take the dot product of distance and normal vectors. Different signs
-        # for different vertexes signifies fractures that potentially cross.
-        other_from_self = np.sum(s_2_o * self.normal, axis=0)
-        self_from_other = np.sum(o_2_s * other.normal, axis=0)
-
-        # To avoid ruling out vertexes that lie on the plane of another
-        # fracture, we introduce a threshold for almost-zero values.
-        # The scaling factor is somewhat arbitrary here, and probably
-        # safeguards too much, but better safe than sorry. False positives will
-        # be corrected by the more accurate, but costly, computations below.
-        scaled_tol = tol * max(1, max(np.max(np.abs(s_2_o)), np.max(np.abs(o_2_s))))
-
-        # We can terminate only if no vertexes are close to the plane of the
-        # other fractures.
-        if (
-            np.min(np.abs(other_from_self)) > scaled_tol
-            and np.min(np.abs(self_from_other)) > scaled_tol
-        ):
-            # If one of the fractures has all of its points on a single side of
-            # the other, there can be no intersections.
-            if (
-                np.all(np.sign(other_from_self) == 1)
-                or np.all(np.sign(other_from_self) == -1)
-                or np.all(np.sign(self_from_other) == 1)
-                or np.all(np.sign(self_from_other) == -1)
-            ):
-                return int_points, on_boundary_self, on_boundary_other
-
-        ####
-        # Check for intersection between interior of one polygon with
-        # segment of the other.
-
-        # Compute intersections, with both polygons as first argument
-        isect_self_other = cg.polygon_segment_intersect(
-            self.p, other.p, tol=tol, include_bound_pt=True
-        )
-        isect_other_self = cg.polygon_segment_intersect(
-            other.p, self.p, tol=tol, include_bound_pt=True
-        )
-
-        # Process data
-        if isect_self_other is not None:
-            int_points = np.hstack((int_points, isect_self_other))
-
-            # An intersection between self and other (in that order) is defined
-            # as being between interior of self and boundary of other. See
-            # polygon_segment_intersect for details.
-            on_boundary_self = False
-            on_boundary_other = False
-
-        if isect_other_self is not None:
-            int_points = np.hstack((int_points, isect_other_self))
-
-            # Interior of other intersected by boundary of self
-            on_boundary_self = False
-            on_boundary_other = False
-
-        if int_points.shape[1] > 1:
-            int_points, _, _ = setmembership.unique_columns_tol(int_points, tol=tol)
-
-        # There should be at most two of these points.
-        # In some cases, likely involving extrusion, several segments may lay
-        # essentially in the fracture plane, producing more than two segments.
-        # Thus, if more than two colinear points are found, pick out the first
-        # and last one.
-        if int_points.shape[1] > 2:
-            if cg.is_collinear(int_points, tol):
-                sort_ind = cg.argsort_point_on_line(int_points, tol)
-                int_points = int_points[:, [sort_ind[0], sort_ind[-1]]]
-            else:
-                # This is a bug
-                raise ValueError(
-                    """ Found more than two intersection between
-                                 fracture polygons.
-                                 """
-                )
-
-        ####
-        # Next, check for intersections between the polygon boundaries
-        bound_sect_self_other = cg.polygon_boundaries_intersect(
-            self.p, other.p, tol=tol
-        )
-        bound_sect_other_self = cg.polygon_boundaries_intersect(
-            other.p, self.p, tol=tol
-        )
-
-        def point_on_segment(ip, poly, need_two=True):
-            # Check if a set of points are located on a single segment
-            if need_two and ip.shape[1] < 2 or ((not need_two) and ip.shape[1] < 1):
-                return False
-            start = poly
-            end = np.roll(poly, 1, axis=1)
-            for si in range(start.shape[1]):
-                dist, cp = cg.dist_points_segments(ip, start[:, si], end[:, si])
-                if np.all(dist < tol):
-                    return True
-            return False
-
-        # Short cut: If no boundary intersections, we return the interior
-        # points
-        if len(bound_sect_self_other) == 0 and len(bound_sect_other_self) == 0:
-            if check_point_contact and int_points.shape[1] == 1:
-                #  contacts are not implemented. Give a warning, return no
-                # interseciton, and hope the meshing software is merciful
-                if hasattr(self, "index") and hasattr(other, "index"):
-                    logger.warning(
-                        """Found a point contact between fracture
-                                   %i
-                                   and %i at (%.5f, %.5f, %.5f)""",
-                        self.index,
-                        other.index,
-                        *int_points
-                    )
-                else:
-                    logger.warning(
-                        """Found point contact between fractures
-                                   with no index. Coordinate: (%.5f, %.5f,
-                                   %.5f)""",
-                        *int_points
-                    )
-                return np.empty((3, 0)), on_boundary_self, on_boundary_other
-            # None of the intersection points lay on the boundary
-
-        # The 'interior' points can still be on the boundary (naming
-        # of variables should be updated). The points form a boundary
-        # segment if they all lie on the a single segment of the
-        # fracture.
-        on_boundary_self = point_on_segment(int_points, self.p)
-        on_boundary_other = point_on_segment(int_points, other.p)
-        return int_points, on_boundary_self, on_boundary_other
-
     def __repr__(self):
         return self.__str__()
 
@@ -551,9 +357,6 @@ class Fracture(object):
         s += str(self.p) + "\n"
         s += "Center: " + str(self.center)
         return s
-
-
-# --------------------------------------------------------------------
 
 
 class EllipticFracture(Fracture):
@@ -619,34 +422,34 @@ class EllipticFracture(Fracture):
         z = np.zeros_like(angs)
         ref_pts = np.vstack((x, y, z))
 
-        assert cg.is_planar(ref_pts)
+        assert pp.geometry_property_checks.points_are_planar(ref_pts)
 
         # Rotate reference points so that the major axis has the right
         # orientation
-        major_axis_rot = cg.rot(major_axis_angle, [0, 0, 1])
+        major_axis_rot = pp.map_geometry.rotation_matrix(major_axis_angle, [0, 0, 1])
         rot_ref_pts = major_axis_rot.dot(ref_pts)
 
-        assert cg.is_planar(rot_ref_pts)
+        assert pp.geometry_property_checks.points_are_planar(rot_ref_pts)
 
         # Then the dip
         # Rotation matrix of the strike angle
-        strike_rot = cg.rot(strike_angle, np.array([0, 0, 1]))
+        strike_rot = pp.map_geometry.rotation_matrix(strike_angle, np.array([0, 0, 1]))
         # Compute strike direction
         strike_dir = strike_rot.dot(np.array([1, 0, 0]))
-        dip_rot = cg.rot(dip_angle, strike_dir)
+        dip_rot = pp.map_geometry.rotation_matrix(dip_angle, strike_dir)
 
         dip_pts = dip_rot.dot(rot_ref_pts)
 
-        assert cg.is_planar(dip_pts)
+        assert pp.geometry_property_checks.points_are_planar(dip_pts)
 
         # Set the points, and store them in a backup.
         self.p = center + dip_pts
         self.orig_p = self.p.copy()
 
         # Compute normal vector
-        self.normal = cg.compute_normal(self.p)[:, None]
+        self.normal = pp.map_geometry.compute_normal(self.p)[:, None]
 
-        assert cg.is_planar(self.orig_p, self.normal)
+        assert pp.geometry_property_checks.points_are_planar(self.orig_p, self.normal)
 
 
 # -------------------------------------------------------------------------
@@ -1000,7 +803,9 @@ class FractureNetwork3d(object):
         # Obtain intersection points, indexes of intersection points for each fracture
         # information on whether the fracture is on the boundary, and pairs of fractures
         # that intersect.
-        isect, point_ind, bound_info, frac_pairs, _ = pp.cg.intersect_polygons_3d(polys)
+        isect, point_ind, bound_info, frac_pairs, _ = pp.intersections.polygons_3d(
+            polys
+        )
 
         # Loop over all pairs of intersection pairs, add the intersections to the
         # internal list.
@@ -1280,8 +1085,6 @@ class FractureNetwork3d(object):
             edges.shape[1],
         )
 
-        #        all_p = cg.snap_to_grid(all_p, tol=self.tol)
-
         # We now need to find points that occur in multiple places
         p_unique, unique_ind_p, all_2_unique_p = setmembership.unique_columns_tol(
             all_p, tol=self.tol * np.sqrt(3)
@@ -1406,7 +1209,9 @@ class FractureNetwork3d(object):
             # It seems necessary to increase the tolerance here somewhat to
             # obtain a more robust algorithm. Not sure about how to do this
             # consistent.
-            p_new, edges_new = cg.remove_edge_crossings2(p_2d, edges_2d, tol=self.tol)
+            p_new, edges_new = pp.intersections.split_intersecting_segments_2d(
+                p_2d, edges_2d, tol=self.tol
+            )
             # Then, patch things up by converting new points to 3D,
 
             # From the design of the functions in cg, we know that new points
@@ -1459,7 +1264,7 @@ class FractureNetwork3d(object):
                 # original edges under splitting. However, in cases of
                 # overlapping segments, in which case the index of the one edge
                 # may completely override the index of the other (this is
-                # caused by the implementation of remove_edge_crossings).
+                # caused by the implementation of split_intersection_segments_2d.
                 # We therefore compare the new edge to the old ones (before
                 # splitting). If found, use the old information; if not, use
                 # index as tracked by splitting.
@@ -1536,7 +1341,7 @@ class FractureNetwork3d(object):
             hit = np.ones(num_points, dtype=np.bool)
             for i in range(num_points):
                 hit[i] = False
-                dist_loc = cg.dist_point_pointset(p[:, i], p[:, hit])
+                dist_loc = pp.distances.point_pointset(p[:, i], p[:, hit])
                 dist = np.minimum(dist, dist_loc.min())
                 hit[i] = True
             s += "Minimal disance between points " + str(dist) + "\n"
@@ -1594,7 +1399,7 @@ class FractureNetwork3d(object):
 
         pt = self.decomposition["points"]
         for pi in range(pt.shape[1]):
-            d = cg.dist_point_pointset(pt[:, pi], pt[:, pi + 1 :])
+            d = pp.distances.point_pointset(pt[:, pi], pt[:, pi + 1 :])
             ind = np.argwhere(d < dist).ravel("F")
             for i in ind:
                 # Indices of close points, with an offset to compensate for
@@ -1636,7 +1441,7 @@ class FractureNetwork3d(object):
         p_loc -= p_loc_c
 
         # Project the points onto the local plane defined by the fracture
-        rot = cg.project_plane_matrix(p_loc, tol=self.tol)
+        rot = pp.map_geometry.project_plane_matrix(p_loc, tol=self.tol)
         p_2d = rot.dot(p_loc)
 
         extent = p_2d.max(axis=1) - p_2d.min(axis=1)
@@ -1787,7 +1592,7 @@ class FractureNetwork3d(object):
 
         # Constrain the fractures to lie within the bounding polyhedron
         polys = [f.p for f in self._fractures]
-        constrained_polys, inds = pp.cg.constrain_polygons_by_polyhedron(
+        constrained_polys, inds = pp.constrain_geometry.polygons_by_polyhedron(
             polys, polyhedron
         )
 
@@ -1981,7 +1786,7 @@ class FractureNetwork3d(object):
 
         p = self.decomposition["points"]
         num_pts = p.shape[1]
-        dist = cg.dist_pointset(p, max_diag=True)
+        dist = pp.distances.pointset(p, max_diag=True)
         mesh_size_dist = np.min(dist, axis=1)
         logger.info(
             "Minimal distance between points encountered is " + str(np.min(dist))
@@ -2063,7 +1868,7 @@ class FractureNetwork3d(object):
                     isect_f.append(i.first.index)
 
                 # Assuming the fracture is convex, the closest point for
-                dist, cp = cg.dist_points_segments(
+                dist, cp = pp.distances.points_segments(
                     i.coord, f.p, np.roll(f.p, 1, axis=1)
                 )
                 # Insert a (candidate) point only at the segment closest to the
@@ -2105,7 +1910,9 @@ class FractureNetwork3d(object):
                     # and find the closest segment on the other fracture
                     fs = f_start[:, si].squeeze()  # .reshape((-1, 1))
                     fe = f_end[:, si].squeeze()  # .reshape((-1, 1))
-                    d, cp_f, _ = cg.dist_segment_segment_set(fs, fe, of_start, of_end)
+                    d, cp_f, _ = pp.distances.segment_segment_set(
+                        fs, fe, of_start, of_end
+                    )
                     mi = np.argmin(d)
                     # If the distance is smaller than ideal length, but the
                     # closets point is not too close to the segment endpoints,
@@ -2370,7 +2177,7 @@ class FractureNetwork3d(object):
         frac = self._fractures[frac_num]
         cp = frac.center.reshape((-1, 1))
 
-        rot = cg.project_plane_matrix(frac.p)
+        rot = pp.map_geometry.project_plane_matrix(frac.p)
 
         def rot_translate(pts):
             # Convenience method to translate and rotate a point.

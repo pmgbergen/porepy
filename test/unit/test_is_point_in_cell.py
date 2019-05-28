@@ -1,46 +1,39 @@
 import numpy as np
 import unittest
 
-import porepy.utils.comp_geom as cg
-
-# ------------------------------------------------------------------------------#
+import porepy as pp
 
 
 class BasicsTest(unittest.TestCase):
-
-    # ------------------------------------------------------------------------------#
-
     def test_planar_square(self):
         pts = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]], dtype=np.float)
 
         pt = np.array([0.2, 0.3, 0])
-        self.assertTrue(cg.is_point_in_cell(pts, pt))
+        self.assertTrue(pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([1.1, 0.5, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([-0.1, 0.5, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([0.5, 1.1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([0.5, -0.1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([1.1, 1.1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([-0.1, 1.1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([-0.1, -0.1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([1.1, -0.1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
-
-    # ------------------------------------------------------------------------------#
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
     def test_planar_square_1(self):
         pts = np.array(
@@ -48,33 +41,31 @@ class BasicsTest(unittest.TestCase):
         )
 
         pt = np.array([0.2, 0.3, 0])
-        self.assertTrue(cg.is_point_in_cell(pts, pt))
+        self.assertTrue(pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([1.1, 0.5, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([-0.1, 0.5, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([0.5, 1.1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([0.5, -0.1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([1.1, 1.1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([-0.1, 1.1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([-0.1, -0.1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([1.1, -0.1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
-
-    # ------------------------------------------------------------------------------#
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
     def test_planar_convex(self):
         pts = np.array(
@@ -82,21 +73,19 @@ class BasicsTest(unittest.TestCase):
         )
 
         pt = np.array([0.2, 0.3, 0])
-        self.assertTrue(cg.is_point_in_cell(pts, pt))
+        self.assertTrue(pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([0.5, 1, 0])
-        self.assertTrue(cg.is_point_in_cell(pts, pt))
+        self.assertTrue(pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([1.3, 0.5, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([-0.1, 0.5, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([1.1, -0.1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
-
-    # ------------------------------------------------------------------------------#
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
     def test_planar_convex_1(self):
         pts = np.array(
@@ -105,21 +94,19 @@ class BasicsTest(unittest.TestCase):
         )
 
         pt = np.array([0.2, 0.3, 0])
-        self.assertTrue(cg.is_point_in_cell(pts, pt))
+        self.assertTrue(pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([0.5, 1, 0])
-        self.assertTrue(cg.is_point_in_cell(pts, pt))
+        self.assertTrue(pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([1.3, 0.5, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([-0.1, 0.5, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([1.1, -0.1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
-
-    # ------------------------------------------------------------------------------#
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
     def test_planar_concave(self):
         pts = np.array(
@@ -128,19 +115,20 @@ class BasicsTest(unittest.TestCase):
         )
 
         pt = np.array([0.2, 0.3, 0])
-        self.assertTrue(cg.is_point_in_cell(pts, pt))
+        self.assertTrue(pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([0.5, 1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([1.3, 0.5, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([-0.1, 0.5, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
         pt = np.array([1.1, -0.1, 0])
-        self.assertTrue(not cg.is_point_in_cell(pts, pt))
+        self.assertTrue(not pp.geometry_property_checks.point_in_cell(pts, pt))
 
 
-# ------------------------------------------------------------------------------#
+if __name__ == "__main__":
+    unittest.main()

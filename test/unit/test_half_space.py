@@ -61,8 +61,17 @@ class BasicsTest(unittest.TestCase):
             ]
         )
         pts = np.array([[0, 1], [0, 2.0 / 3.0], [0, 0]])
-        pt = half_space.half_space_pt(n, x0, pts)
-        self.assertTrue(np.allclose(pt, [5.0 / 6.0, 1.0 / 2.0, 0.0]))
+        pt = half_space.half_space_pt(n, x0, pts).reshape((-1, 1))
+
+        # Verify that the computed point is on the same side of the all normal
+        # vectors as a point known to be in the interior.
+        known_pt = np.array([5.0 / 6.0, 1.0 / 2.0, 0.0]).reshape((-1, 1))
+        self.assertTrue(
+            np.all(
+                np.sign(np.sum(n * (pt - x0), axis=0))
+                == np.sign(np.sum(n * (known_pt - x0), axis=0))
+            )
+        )
 
     # ------------------------------------------------------------------------------#
 
@@ -70,8 +79,17 @@ class BasicsTest(unittest.TestCase):
         n = np.array([[1, -1, 0, 0, 0, 0], [0, 0, 1, -1, 0, 0], [0, 0, 0, 0, 1, -1]])
         x0 = np.array([[0, 1, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 1]])
         pts = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-        pt = half_space.half_space_pt(n, x0, pts)
-        self.assertTrue(np.allclose(pt, [1.0 / 2.0, 1.0 / 2.0, 1.0 / 2.0]))
+        pt = half_space.half_space_pt(n, x0, pts).reshape((-1, 1))
+
+        # Verify that the computed point is on the same side of the all normal
+        # vectors as a point known to be in the interior.
+        known_pt = np.array([1.0 / 2.0, 1.0 / 2.0, 1.0 / 2.0]).reshape((-1, 1))
+        self.assertTrue(
+            np.all(
+                np.sign(np.sum(n * (pt - x0), axis=0))
+                == np.sign(np.sum(n * (known_pt - x0), axis=0))
+            )
+        )
 
     # ------------------------------------------------------------------------------#
 
@@ -93,17 +111,12 @@ class BasicsTest(unittest.TestCase):
         known_pt = np.array([5.0 / 6.0, 1.0 / 2.0, 1.0 / 6.0]).reshape((-1, 1))
         pts = np.array([[0, 1], [0, 2.0 / 3.0], [0, 1]])
         pt = half_space.half_space_pt(n, x0, pts).reshape((-1, 1))
-        import pdb
-
-        #        pdb.set_trace()
         self.assertTrue(
             np.all(
                 np.sign(np.sum(n * (pt - x0), axis=0))
                 == np.sign(np.sum(n * (known_pt - x0), axis=0))
             )
         )
-
-    #        self.assertTrue(np.allclose(pt [5.0 / 6.0, 1.0 / 2.0, 1.0 / 6.0])),
 
     # ------------------------------------------------------------------------------#
 
