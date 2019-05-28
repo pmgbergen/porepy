@@ -279,10 +279,12 @@ class PrimalContactCoupling(object):
 
         ## Equation for the mortar rows
         # This is first a stress balance: stress from the higher dimensional
-        # domain (both interior and bound_stress) should match with the contact stress.
+        # domain (both interior and bound_stress) should match with the contact stress:
+        # -\lambda_slave + \lambda_mortar = 0.
         # Optionally, a diffusion term can be added in the tangential direction
         # of the stresses.
 
+        # First, we obtain \lambda_mortar = stress * u_master + bound_stress * u_mortar
         # Stress contribution from the higher dimensional domain, projected onto
         # the mortar grid
         stress_from_master = (
@@ -294,14 +296,22 @@ class PrimalContactCoupling(object):
         # dimensional domain via a boundary condition, and back again by a
         # projection operator.
         stress_from_mortar = (
-            mg.master_to_mortar_int(nd=ambient_dimension) * master_bound_stress * proj_vector_master
+            mg.master_to_mortar_int(nd=ambient_dimension)
+            * master_bound_stress
+            * proj_vector_master
         )
         cc[mortar_ind, mortar_ind] = stress_from_mortar
 
         # The contact stress is mapped to the mortar grid
-        # TODO: Signs must be switched here
-        contact_stress_to_mortar = mg.slave_to_mortar_int(nd=ambient_dimension)
-        cc[mortar_ind, slave_ind] = contact_stress_to_mortar
+        # We have for the positive (first) and negative (second) side of the mortar that
+        # \lambda_slave = \lambda_mortar_pos = -\lambda_mortar_neg,
+        # so we need to map the slave traction with the corresponding signs to match the
+        # mortar tractions.
+        contact_stress_to_mortar = mg.sign_of_mortar_sides(
+            nd=ambient_dimension
+        ) * mg.slave_to_mortar_int(nd=ambient_dimension)
+        # Minus to obtain -\lambda_slave + \lambda_mortar = 0.
+        cc[mortar_ind, slave_ind] = -contact_stress_to_mortar
 
         if self.use_surface_discr:
             projection = data_edge["tangential_normal_projection"]
