@@ -294,7 +294,7 @@ class PrimalContactCoupling(object):
         # dimensional domain via a boundary condition, and back again by a
         # projection operator.
         stress_from_mortar = (
-            mg.master_to_mortar_int(nd=ambient_dimension) * master_bound_stress
+            mg.master_to_mortar_int(nd=ambient_dimension) * master_bound_stress * proj_vector_master
         )
         cc[mortar_ind, mortar_ind] = stress_from_mortar
 
