@@ -32,13 +32,15 @@ class PrimalContactCoupling(object):
 
     """
 
-    def __init__(self, keyword, discr_master, discr_slave):
+    def __init__(self, keyword, discr_master, discr_slave, use_surface_discr=False):
         self.keyword = keyword
 
         self.discr_master = discr_master
         self.discr_slave = discr_slave
 
         self.SURFACE_DISCRETIZATION_KEY = "surface_smoother"
+
+        self.use_surface_discr = use_surface_discr
 
     def _key(self):
         return self.keyword + "_"
@@ -69,20 +71,27 @@ class PrimalContactCoupling(object):
 
         normal_projection = tangential_normal_projection.project_normal()
 
-        discretize_surface = parameter_dictionary_edge.get("discretize_surface", True)
-
         # The right hand side of the normal diffusion considers only the tangential part
         # of the normal forces.
         matrix_dictionary_edge["contact_force_map"] = normal_projection
 
-        if discretize_surface:
+        # Keyword to control if the surface discretization should be rediscretized
+        # It is a linear term, so we may save time during Newton iterations here
+        discretize_surface = parameter_dictionary_edge.get("discretize_surface", True)
+
+        if self.use_surface_discr and discretize_surface:
+            # Discretize the surface pde if asked for.
 
             # Lame parameters to be used for discretizing the surface elliptic equation.
             mu = parameter_dictionary_edge["mu"]
             lmbda = parameter_dictionary_edge["lambda"]
 
+            # Parameter used when mapping surface grids to their lower-dimensional planes.
+            # This is necessary for the mapping function, but at this point in the
+            # simulation workflow, it should not really be an issue.
             deviation_from_plane_tol = 1e-5
 
+            # List of surface diffusion discretizations - one per side.
             A_list = []
 
             for proj, side_grid in mg.project_to_side_grids():
@@ -251,8 +260,6 @@ class PrimalContactCoupling(object):
 
         proj_vector_master = mg.mortar_to_master_avg(nd=ambient_dimension)
 
-        sign_of_mortar_variables = mg.sign_of_mortar_sides(nd=ambient_dimension)
-
         # The mortar variable (boundary displacement) takes the form of a Dirichlet
         # condition for the master side.
         cc[master_ind, mortar_ind] = (
@@ -270,75 +277,47 @@ class PrimalContactCoupling(object):
         cc[slave_ind, mortar_ind] = displacement_jump_discr
         rhs[slave_ind] = rhs_slave
 
-        ## Equation for the mortar side.
-        # The first nd-1 sets of equations are formed by the surface pde, which
-        # acts in the tangential direction of the mortar grid.
-        # The final equation is continuity of forces in the normal direction.
-        stress_from_mortar = (
-            mg.master_to_mortar_int(nd=ambient_dimension) * master_bound_stress
-        )
+        ## Equation for the mortar rows
+        # This is first a stress balance: stress from the higher dimensional
+        # domain (both interior and bound_stress) should match with the contact stress.
+        # Optionally, a diffusion term can be added in the tangential direction
+        # of the stresses.
+
+        # Stress contribution from the higher dimensional domain, projected onto
+        # the mortar grid
         stress_from_master = (
             mg.master_to_mortar_int(nd=ambient_dimension) * master_stress
         )
+        cc[mortar_ind, master_ind] = stress_from_master
 
+        # The stress contribution from the mortar variables, mapped to the higher
+        # dimensional domain via a boundary condition, and back again by a
+        # projection operator.
+        stress_from_mortar = (
+            mg.master_to_mortar_int(nd=ambient_dimension) * master_bound_stress
+        )
+        cc[mortar_ind, mortar_ind] = stress_from_mortar
+
+        # The contact stress is mapped to the mortar grid
+        # TODO: Signs must be switched here
         contact_stress_to_mortar = mg.slave_to_mortar_int(nd=ambient_dimension)
+        cc[mortar_ind, slave_ind] = contact_stress_to_mortar
 
-        projection = data_edge["tangential_normal_projection"]
-        restrict_to_tangential_direction = projection.project_tangential(mg.num_cells)
-        restrict_to_normal_direction = projection.project_normal(mg.num_cells)
+        if self.use_surface_discr:
+            projection = data_edge["tangential_normal_projection"]
+            restrict_to_tangential_direction = projection.project_tangential(
+                mg.num_cells
+            )
 
-        ## Equations for the mortars, in a block system:
-        # The first block contains the surface diffusion component. This has
-        # the surface diffusion operator for the mortar variables, and a
-        # mapping of contact forces on the slave variables.
-        # The second block gives continuity of forces in the normal direction.
-        surface_discr = matrix_dictionary_edge[self.SURFACE_DISCRETIZATION_KEY]
+            # The first block contains the surface diffusion component. This has
+            # the surface diffusion operator for the mortar variables, and a
+            # mapping of contact forces on the slave variables.
+            # The second block gives continuity of forces in the normal direction.
+            surface_discr = matrix_dictionary_edge[self.SURFACE_DISCRETIZATION_KEY]
 
-        # Master component: No contribution to the surface diffusion equation.
-        # For the normal component, use the discretization of stress from the
-        # master side.
-        cc[mortar_ind, master_ind] = sps.bmat(
-            [
-                [
-                    sps.csc_matrix(
-                        (mg.num_cells * mg.dim, self.discr_master.ndof(g_master))
-                    )
-                ],
-                [restrict_to_normal_direction * stress_from_master],
-            ]
-        )
-        # Contribution from the slave variable (contact forces).
-        # The stresses are mapped to the mortar grid, restricted to the tangential
-        # and normal direction (for surface diffusion and force continuity, respectively)
-        # and the signs are flipped on one side of the fracture (Newton's third law).
-        cc[mortar_ind, slave_ind] = sps.bmat(
-            [
-                [
-                    mg.sign_of_mortar_sides(ambient_dimension - 1)
-                    * restrict_to_tangential_direction
-                    * contact_stress_to_mortar
-                ],
-                [
-                    mg.sign_of_mortar_sides(1)
-                    * restrict_to_normal_direction
-                    * contact_stress_to_mortar
-                ],
-            ]
-        )
-        # Finally the mortar variables: The first block is the surface diffusion.
-        # The second block (normal forces) translates the mortar variable into
-        # stresses in master, mapped back again to the mortar (see definition of
-        # stress_from_mortar) and then restricted to normal direction.
-        cc[mortar_ind, mortar_ind] = sps.bmat(
-            [
-                [surface_discr],
-                [
-                    restrict_to_normal_direction
-                    * stress_from_mortar
-                    * proj_vector_master
-                ],
-            ]
-        )
+            cc[mortar_ind, mortar_ind] += (
+                restrict_to_tangential_direction.T * surface_discr
+            )
 
         matrix += cc
 
