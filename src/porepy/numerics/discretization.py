@@ -9,7 +9,7 @@ import numpy as np
 import scipy.sparse as sps
 
 
-class VoidDiscretization():
+class VoidDiscretization:
     """ Do-nothing discretization object. Used if a discretizaiton object
     is needed for technical reasons, but not really necessary.
 
@@ -63,7 +63,11 @@ class VoidDiscretization():
             int: the number of degrees of freedom.
 
         """
-        return g.num_cells * self.ndof_cell + g.num_faces * self.ndof_face + g.num_nodes * self.ndof_node
+        return (
+            g.num_cells * self.ndof_cell
+            + g.num_faces * self.ndof_face
+            + g.num_nodes * self.ndof_node
+        )
 
     def discretize(self, g, data):
         """ Construct discretization matrices.
@@ -90,4 +94,3 @@ class VoidDiscretization():
         ndof = self.ndof(g)
 
         return sps.csc_matrix((ndof, ndof)), np.zeros(ndof)
-

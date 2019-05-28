@@ -263,7 +263,6 @@ class FourthOrderTensor(object):
                 ]
             )
 
-
         if dim == 2:
             mu_mat = np.array(
                 [

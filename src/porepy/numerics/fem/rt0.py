@@ -76,7 +76,9 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
         deviation_from_plane_tol = data.get("deviation_from_plane_tol", 1e-5)
-        _, _, _, R, dim, node_coords = pp.map_geometry.map_grid(g, deviation_from_plane_tol)
+        _, _, _, R, dim, node_coords = pp.map_geometry.map_grid(
+            g, deviation_from_plane_tol
+        )
 
         if not data.get("is_tangential", False):
             # Rotate the permeability tensor and delete last dimension

@@ -66,7 +66,9 @@ from porepy.numerics.fv.mass_matrix import MassMatrix
 from porepy.numerics.fv.mass_matrix import InvMassMatrix
 
 # Contact mechanics
-from porepy.numerics.interface_laws.contact_mechanics_interface_laws import PrimalContactCoupling
+from porepy.numerics.interface_laws.contact_mechanics_interface_laws import (
+    PrimalContactCoupling,
+)
 from porepy.numerics.contact_mechanics.contact_conditions import ColoumbContact
 
 # Grids
@@ -113,7 +115,7 @@ from porepy.geometry import (
     constrain_geometry,
     map_geometry,
     geometry_property_checks,
-    bounding_box
+    bounding_box,
 )
 from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer, mortars

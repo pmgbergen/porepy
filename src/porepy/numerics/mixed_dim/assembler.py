@@ -449,7 +449,9 @@ class Assembler:
 
                 # Key to the matrix dictionary used to access this coupling
                 # discretization.
-                mat_key = self._variable_term_key(coupling_key, edge_key, slave_key, master_key)
+                mat_key = self._variable_term_key(
+                    coupling_key, edge_key, slave_key, master_key
+                )
 
                 # Edge discretization object
                 e_discr = edge_vals[1]
