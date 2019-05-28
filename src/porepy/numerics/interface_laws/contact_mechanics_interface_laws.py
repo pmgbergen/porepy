@@ -302,7 +302,7 @@ class PrimalContactCoupling(object):
         )
         cc[mortar_ind, mortar_ind] = stress_from_mortar
 
-        # The contact stress is mapped to the mortar grid
+        # Second, the contact stress is mapped to the mortar grid.
         # We have for the positive (first) and negative (second) side of the mortar that
         # \lambda_slave = \lambda_mortar_pos = -\lambda_mortar_neg,
         # so we need to map the slave traction with the corresponding signs to match the
