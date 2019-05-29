@@ -44,7 +44,15 @@ class ColoumbContact:
 
         mg = data_edge["mortar_grid"]
 
+        # TODO: Implement a single method to get the normal vector with right sign
+        # thus the right local coordinate system.
+
+        sgn = pp.numerics.fracture_deformation.sign_of_faces(
+            g_h, g_h.get_all_boundary_faces()
+        )
+
         nc = g_h.face_normals[: g_h.dim] / g_h.face_areas
+        nc[:, g_h.get_all_boundary_faces()] *= sgn
 
         # Map normal vector to the mortar grid
         nc_mortar = mg.master_to_mortar_int().dot(nc.T).T
@@ -130,7 +138,7 @@ class ColoumbContact:
 
         import pdb
 
-        #  pdb.set_trace()
+        #        pdb.set_trace()
 
         for i in range(num_cells):
             if sliding_bc[i] & penetration_bc[i]:  # in contact and sliding
