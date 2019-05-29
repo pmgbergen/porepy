@@ -274,7 +274,12 @@ class PrimalContactCoupling(object):
             g_slave, data_slave
         )
         cc[slave_ind, slave_ind] = traction_discr
-        cc[slave_ind, mortar_ind] = displacement_jump_discr
+        # The contact condition discretization gives coefficients for the mortar
+        # variables. We also need to make it into an actual jump (this is not included)
+        # in the discretization.
+        cc[slave_ind, mortar_ind] = displacement_jump_discr * mg.sign_of_mortar_sides(
+            nd=ambient_dimension
+        )
         rhs[slave_ind] = rhs_slave
 
         ## Equation for the mortar rows
