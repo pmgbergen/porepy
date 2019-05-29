@@ -498,6 +498,9 @@ class MortarGrid(object):
         This is needed e.g. to make projection operators into signed projections,
         for variables that have no particular defined sign conventions.
 
+        This function defines a convention for what is a positive jump between
+        the mortar sides.
+
         Example: Take the difference between right and left variables, and
         project to the slave grid by
 
@@ -506,6 +509,9 @@ class MortarGrid(object):
         NOTE: The flux variables in flow and transport equations are defined as
         positive from master to slave. Hence the two sides have different
         conventions, and there is no need to adjust the signs further.
+
+        IMPLEMENTATION NOTE: This method will probably not be meaningful if
+        applied to mortar grids where the two side grids are non-matching.
 
         Parameters:
             nd (int, optional): Spatial dimension of the projected quantity.
@@ -524,6 +530,9 @@ class MortarGrid(object):
             )
             return sps.dia_matrix((np.ones(nc * nd), 0), shape=(nd * nc, nd * nc))
         elif self.num_sides() == 2:
+            # From the numbering of the mortar cells (see __init__, the case
+            # num_sides() == 2)), we know that the cells are numbered first
+            # on one side, then on the other.
             data = np.hstack(
                 (
                     np.ones(self.side_grids[1].num_cells * nd),
