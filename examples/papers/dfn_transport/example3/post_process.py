@@ -108,12 +108,12 @@ def main():
 
     field = "scalar"
     n_step = 200
-    time_step = 0.5*3.154e+7/200
+    time_step = 3.154e+7/200
     num_frac = 89
 
     grids = ["different", "same"]
 
-    folder_master = "/home/elle/tmp/tipetut++/"
+    folder_master = "/home/elle/tmp/tipetut++/new/"
     #folder_master = "./"
     folder_master_out = "./CSV/"
     methods = ["MVEM", "Tpfa", "RT0"]

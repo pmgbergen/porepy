@@ -9,12 +9,33 @@ plt.rc("font", family="serif")
 plt.rc("font", size=15)
 
 
-def plot_single(file_name, legend, title):
+def plot_single(file_name, legend, title, **kwargs):
 
     data = np.loadtxt(file_name, delimiter=",")
+    reference = kwargs.get("reference", None)
 
-    plt.figure(0)
-    plt.plot(data[:, 0], data[:, 1], label=legend)
+    fig = plt.figure(0)
+    ax = fig.add_subplot(111)
+
+    # if the data is a reference
+    if reference:
+        data_p = data[:, 1] + data[:, 1] * reference / 100
+        plt.plot(data[:, 0], data_p, label=legend, linestyle="--", color="gray")
+        text = "ref + " + str(reference) + "\%"
+        pos = (np.median(data[:, 0]), np.median(data_p))
+        pos_t = (pos[0], pos[1]+5*pos[1]/100)
+        ax.annotate(text, xy=pos, xytext=pos_t)
+
+        data_m = data[:, 1] - data[:, 1] * reference / 100
+        plt.plot(data[:, 0], data_m, label=legend, linestyle="--", color="gray")
+        text = "ref - " + str(reference) + "\%"
+        pos = (np.median(data[:, 0]), np.median(data_m))
+        pos_t = (pos[0], pos[1]-5*pos[1]/100)
+        ax.annotate(text, xy=pos, xytext=pos_t)
+
+    else:
+        plt.plot(data[:, 0], data[:, 1], label=legend)
+
     plt.title(title)
     plt.xlabel("$t$")
     plt.ylabel("$\\theta$")
@@ -25,14 +46,36 @@ def plot_single(file_name, legend, title):
 # ------------------------------------------------------------------------------#
 
 
-def plot_multiple(file_name, legend, title, num_frac):
+def plot_multiple(file_name, legend, title, num_frac, **kwargs):
 
     data = np.loadtxt(file_name, delimiter=",")
     frac_label = {0: "$\\Omega_l$", 1: "$\\Omega_m$", 2: "$\\Omega_r$"}
 
+    reference = kwargs.get("reference", None)
+
     for frac_id in np.arange(num_frac):
-        plt.figure(frac_id)
-        plt.plot(data[:, 0], data[:, frac_id + 1], label=legend)
+        fig = plt.figure(frac_id)
+        ax = fig.add_subplot(111)
+
+        # if the data is a reference
+        if reference:
+            data_p = data[:, frac_id + 1] + data[:, frac_id + 1] * reference / 100
+            plt.plot(data[:, 0], data_p, label=legend, linestyle="--", color="gray")
+            text = "ref + " + str(reference) + "\%"
+            pos = (np.median(data[:, 0]), np.median(data_p))
+            pos_t = (pos[0], pos[1]+5*pos[1]/100)
+            ax.annotate(text, xy=pos, xytext=pos_t)
+
+            data_m = data[:, frac_id + 1] - data[:, frac_id + 1] * reference / 100
+            plt.plot(data[:, 0], data_m, label=legend, linestyle="--", color="gray")
+            text = "ref - " + str(reference) + "\%"
+            pos = (np.median(data[:, 0]), np.median(data_m))
+            pos_t = (pos[0], pos[1]-5*pos[1]/100)
+            ax.annotate(text, xy=pos, xytext=pos_t)
+
+        else:
+            plt.plot(data[:, 0], data[:, frac_id + 1], label=legend)
+
         plt_title = (
             title[0]
             + " on "
@@ -113,12 +156,16 @@ def main():
     methods_alessio = ["MVEM_UPWIND", "Tpfa_UPWIND", "RT0_UPWIND"]
     methods_andrea = ["MVEM_VEMSUPG"]
 
+    method_reference = "GCmfem"
+    reference = {"grid_0": 10, "grid_1": 5, "grid_2": 3.5}
+
     grids = {
         "grid_0": ("1k", "220", "1", "0.005"),
-        "grid_1": ("3k", "650", "3", "0.001"),
-        "grid_2": ("10k", "2100", "10", "0.0003"),
+        "grid_1": ("3k", "650", "3", "0.0015"),
+        "grid_2": ("10k", "2100", "10", "0.00045"),
     }
     grids_label = {"grid_0": "coarse", "grid_1": "medium", "grid_2": "fine"}
+
 
     for grid_name, grid in grids.items():
         grid_label = grids_label[grid_name]
@@ -128,6 +175,20 @@ def main():
             folder_out = folder_in + "img/"
 
             title = ["avg $\\theta$", grid_label, simul]
+
+            # Reference
+            data = (
+                folder_in
+                + method_reference
+                + "/"
+                + method_reference
+                + "_Cmean_"
+                + str(simul + 1)
+                + "_big"
+                + ".csv"
+            )
+            plot_multiple(data, None, title, num_frac, reference=reference[grid_name])
+
             # Alessio
             for method in methods_alessio:
                 data = (
@@ -192,6 +253,20 @@ def main():
             ###########
 
             title = ["min $\\theta$", grid_label, simul]
+
+            # Reference
+            data = (
+                folder_in
+                + method_reference
+                + "/"
+                + method_reference
+                + "_Cmin_"
+                + str(simul + 1)
+                + "_big"
+                + ".csv"
+            )
+            plot_multiple(data, None, title, num_frac, reference=reference[grid_name])
+
             # Alessio
             for method in methods_alessio:
                 data = (
@@ -257,6 +332,20 @@ def main():
             ###########
 
             title = ["max $\\theta$", grid_label, simul]
+
+            # Reference
+            data = (
+                folder_in
+                + method_reference
+                + "/"
+                + method_reference
+                + "_Cmax_"
+                + str(simul + 1)
+                + "_big"
+                + ".csv"
+            )
+            plot_multiple(data, None, title, num_frac, reference=reference[grid_name])
+
             # Alessio
             for method in methods_alessio:
                 data = (
@@ -321,6 +410,20 @@ def main():
             ###########
 
             title = "production on " + grid_label + " - config " + str(simul)
+
+            # Reference
+            data = (
+                folder_in
+                + method_reference
+                + "/"
+                + method_reference
+                + "_production_"
+                + str(simul + 1)
+                + "_big"
+                + ".csv"
+            )
+            plot_single(data, None, title, reference=reference[grid_name])
+
             # Alessio
             for method in methods_alessio:
                 data = (
