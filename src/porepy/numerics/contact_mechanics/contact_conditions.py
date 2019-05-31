@@ -37,9 +37,50 @@ class ColoumbContact:
         return g.num_cells * self.dim
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+        """ Discretize the contact conditions using a semi-smooth Newton
+        approach.
 
+        The function relates the contact forces, represented on the
+        lower-dimensional grid, to the jump in displacement between the two
+        adjacent mortar grids. The function provides a (linearized)
+        disrcetizaiton of the contact conditions, as described in Berge et al.
+
+        The discertization is stated in the coordinate system defined by the
+        projection operator associated with the surface. The contact forces
+        should be interpreted as tangential and normal to this plane.
+
+        NOTE: Quantities stated in the global coordinate system (e.g.
+        displacements on the adjacent mortar grids) must be projected to the
+        local system, using the same projection operator, when paired with the
+        produced discretization (that is, in the global assembly).
+
+        Assumptions and other noteworthy aspects:  TODO: Rewrite this when the
+        implementation is ready.
+            * The contact surface is planar, so that all cells on the surface can
+            be described by a single normal vector.
+            * The contact forces are represented directly in the local
+            coordinate system of the surface. The first self.dim - 1 elements
+            of the contact vector are the tangential components of the first
+            cell, then the normal component, then tangential of the second cell
+            etc.
+
+        """
+
+        # CLARIFICATIONS NEEDED:
+        #   1) Do projection and rotation commute on non-matching grids? The
+        #   gut feel says yet, but I'm not sure.
+
+        # Process input
         parameters_l = data_l[pp.PARAMETERS]
+        friction_coefficient = parameters_l[self.friction_parameter_key][
+            "friction_coefficient"
+        ]
 
+        if np.asarray(friction_coefficient).size == 1:
+            friction_coefficient = friction_coefficient * np.ones(g_l.num_cells)
+
+        # Numerical parameter, value and sensitivity is currently unknown.
+        # The thesis of Huber is probably a good place to look for information.
         c_num = 100
 
         mg = data_edge["mortar_grid"]
@@ -47,85 +88,82 @@ class ColoumbContact:
         # TODO: Implement a single method to get the normal vector with right sign
         # thus the right local coordinate system.
 
-        sgn = pp.numerics.fracture_deformation.sign_of_faces(
-            g_h, g_h.get_all_boundary_faces()
+        # Pick the projection operator (defined elsewhere) for this surface.
+        # IMPLEMENATION NOTE: It is paramount that this projection is used for all
+        # operations relating to this surface, or else directions of normal vectors
+        # will get confused.
+        projection = data_edge["tangential_normal_projection"]
+
+        # The contact force is already computed in local coordinates
+        contact_force = data_l[self.contact_variable]
+
+        # Pick out the tangential and normal direction of the contact force.
+        # The contact force of the first cell is in the first self.dim elements
+        # of the vector, second cell has the next self.dim etc.
+        # By design the tangential force is the first self.dim-1 components of
+        # each cell, while the normal force is the last component.
+        normal_indices = np.arange(self.dim - 1, contact_force.size, self.dim)
+        tangential_indices = np.setdiff1d(np.arange(contact_force.size), normal_indices)
+        contact_force_normal = contact_force[normal_indices]
+        contact_force_tangential = contact_force[tangential_indices].reshape(
+            (self.dim - 1, g_l.num_cells), order="F"
         )
 
-        nc = g_h.face_normals[: g_h.dim] / g_h.face_areas
-        nc[:, g_h.get_all_boundary_faces()] *= sgn
-
-        # Map normal vector to the mortar grid
-        nc_mortar = mg.master_to_mortar_int().dot(nc.T).T
-
-        # Use a single normal vector to span the tangential and normal space.
-        projection = pp.TangentialNormalProjection(nc_mortar[:, 0].reshape((-1, 1)))
-
-        displacement_jump = (
+        # The displacement jump (in global coordinates) is found by switching the
+        # sign of the second mortar grid, and then sum the displacements on the
+        # two sides (which is really a difference since one of the sides have
+        # its sign switched).
+        displacement_jump_global_coord = (
             mg.mortar_to_slave_avg(nd=self.dim)
             * mg.sign_of_mortar_sides(nd=self.dim)
             * data_edge[self.surface_variable]
         )
 
-        contact_force = data_l[self.contact_variable]
+        # Rotated displacement jumps. these are in the local coordinates, on
+        # the lower-dimensional grid
+        displacement_jump_normal = (
+            projection.project_normal(g_l.num_cells) * displacement_jump_global_coord
+        )
+        # The jump in the tangential direction is in g_l.dim columns, one per
+        # dimension in the tangential direction.
+        displacement_jump_tangential = (
+            projection.project_tangential(g_l.num_cells)
+            * displacement_jump_global_coord
+        ).reshape((self.dim - 1, g_l.num_cells), order="F")
 
-        friction_coefficient = parameters_l[self.friction_parameter_key][
-            "friction_coefficient"
-        ]
-
+        # The friction bound is computed from the previous state of the contact
+        # force and normal component of the displacement jump.
+        # Note that the displacement jump is rotated before adding to the contact force
         friction_bound = friction_coefficient * np.clip(
-            projection.project_normal(g_l.num_cells)
-            * (-contact_force + c_num * displacement_jump),
-            0,
-            np.inf,
+            -contact_force_normal + c_num * displacement_jump_normal, 0, np.inf
         )
 
         num_cells = friction_coefficient.size
-        nd = projection.dim
-
-        # Process input
-        if np.asarray(friction_coefficient).size == 1:
-            friction_coefficient = friction_coefficient * np.ones(num_cells)
-
-        # Structures for storing the computed coefficients.
-        robin_weight = []  # Multiplies displacement jump
-        mortar_weight = []  # Multiplies the normal forces
-        rhs = np.array([])  # Goes to the right hand side.
-
-        # Change coordinate system to the one alligned to the fractures
-        # The rotation matrix is structured so that in the rotated coordinates, the
-        # tangential direction is defined in the first mg.dim rows, while the final
-        # row is associated with the normal direction.
-        tangential_projection = projection.project_tangential(num_cells)
-        normal_projection = projection.project_normal(num_cells)
-
-        normal_contact_force = normal_projection * contact_force
-        tangential_contact_force = (tangential_projection * contact_force).reshape(
-            (nd - 1, num_cells), order="F"
-        )
-
-        normal_displacement_jump = normal_projection * displacement_jump
-        tangential_displacement_jump = (
-            tangential_projection * displacement_jump
-        ).reshape((nd - 1, num_cells), order="F")
 
         # Find contact and sliding region
 
         # Contact region is determined from the normal direction, stored in the
         # last row of the projected stress and deformation.
         penetration_bc = self._penetration(
-            normal_contact_force, normal_displacement_jump, c_num
+            contact_force_normal, displacement_jump_normal, c_num
         )
         sliding_bc = self._sliding(
-            tangential_contact_force,
-            tangential_displacement_jump,
+            contact_force_tangential,
+            displacement_jump_tangential,
             friction_bound,
             c_num,
         )
 
+        # Structures for storing the computed coefficients.
+        displacement_weight = []  # Multiplies displacement jump
+        traction_weight = []  # Multiplies the normal forces
+        rhs = np.array([])  # Goes to the right hand side.
+
         # Zero vectors of the size of the tangential space and the full space,
-        # respectively
-        zer = np.array([0] * (nd - 1))
-        zer1 = np.array([0] * (nd))
+        # respectively. These are needed to complement the discretization
+        # coefficients to be determined below.
+        zer = np.array([0] * (self.dim - 1))
+        zer1 = np.array([0] * (self.dim))
         zer1[-1] = 1
 
         # Loop over all mortar cells, discretize according to the current state of
@@ -136,82 +174,81 @@ class ColoumbContact:
         #   the mpsa implementation)
         # r is the right hand side term
 
-        import pdb
-
-        #        pdb.set_trace()
-
         for i in range(num_cells):
             if sliding_bc[i] & penetration_bc[i]:  # in contact and sliding
                 # The equation for the normal direction is computed from equation
                 # (24)-(25) in Berge et al.
                 # Compute coeffecients L, r, v
-                L, r, v = self._L_r(
-                    tangential_contact_force[:, i],
-                    tangential_displacement_jump[:, i],
+                loc_displacement_tangential, r, v = self._L_r(
+                    contact_force_tangential[:, i],
+                    displacement_jump_tangential[:, i],
                     friction_bound[i],
                     c_num,
                 )
 
                 # There is no interaction between displacement jumps in normal and
                 # tangential direction
-                L = np.hstack((L, np.atleast_2d(zer).T))
-                L = np.vstack((L, zer1))
+                L = np.hstack((loc_displacement_tangential, np.atleast_2d(zer).T))
+                loc_displacement_weight = np.vstack((L, zer1))
                 # Right hand side is computed from (24-25). In the normal
                 # direction, zero displacement is enforced.
                 # This assumes that the original distance, g, between the fracture
                 # walls is zero.
                 r = np.vstack((r + friction_bound[i] * v, 0))
                 # Unit contribution from tangential force
-                MW = np.eye(nd)
+                loc_traction_weight = np.eye(self.dim)
                 # Contribution from normal force
-                MW[:-1, -1] = -friction_coefficient[i] * v.ravel()
+                loc_traction_weight[:-1, -1] = -friction_coefficient[i] * v.ravel()
 
             elif ~sliding_bc[i] & penetration_bc[i]:  # In contact and sticking
-                # Mortar weight computed according to (23)
-                mw = (
+                # Weight for contact force computed according to (23)
+                loc_traction_tangential = (
                     -friction_coefficient[i]
-                    * tangential_displacement_jump[:, i].ravel("F")
+                    * displacement_jump_tangential[:, i].ravel("F")
                     / friction_bound[i]
                 )
                 # Unit coefficient for all displacement jumps
-                L = np.eye(nd)
-                MW = np.zeros((nd, nd))
-                MW[:-1, -1] = mw
-                r = np.hstack((tangential_displacement_jump[:, i], 0)).T
+                loc_displacement_weight = np.eye(self.dim)
+
+                # Tangential traction dependent on normal one
+                loc_traction_weight = np.zeros((self.dim, self.dim))
+                loc_traction_weight[:-1, -1] = loc_traction_tangential
+
+                r = np.hstack((displacement_jump_tangential[:, i], 0)).T
 
             elif ~penetration_bc[i]:  # not in contact
-                # This is a free boundary, no conditions on u
-                L = np.zeros((nd, nd))
+                # This is a free boundary, no conditions on displacement
+                loc_displacement_weight = np.zeros((self.dim, self.dim))
+
                 # Free boundary conditions on the forces.
-                MW = np.eye(nd)
-                r = np.zeros(nd)
+                loc_traction_weight = np.eye(self.dim)
+                r = np.zeros(self.dim)
+
             else:  # should never happen
                 raise AssertionError("Should not get here")
 
-            #  Append a mapping from global to the local coordinate system.
-            # The coefficients are already computed in the local coordinates.
-            L = L.dot(projection.local_projection(0))
-            MW = MW.dot(projection.local_projection(0))
             # Scale equations (helps iterative solver)
-            w_diag = np.diag(L) + np.diag(MW)
+            # TODO: Find out what happens here
+            w_diag = np.diag(loc_displacement_weight) + np.diag(loc_traction_weight)
             W_inv = np.diag(1 / w_diag)
-            L = W_inv.dot(L)
-            MW = W_inv.dot(MW)
+            loc_displacement_weight = W_inv.dot(loc_displacement_weight)
+            loc_traction_weight = W_inv.dot(loc_traction_weight)
             r = r.ravel() / w_diag
+
             # Append to the list of global coefficients.
-            robin_weight.append(L)
-            mortar_weight.append(MW)
+            displacement_weight.append(loc_displacement_weight)
+            traction_weight.append(loc_traction_weight)
             rhs = np.hstack((rhs, r))
 
-        traction_coefficients = sps.block_diag(mortar_weight)
-        displacement_coefficients = sps.block_diag(robin_weight)
+        traction_discretization_coefficients = sps.block_diag(traction_weight)
+        displacement_discretization_coefficients = sps.block_diag(displacement_weight)
 
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.traction_discretization
-        ] = traction_coefficients
+        ] = traction_discretization_coefficients
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.displacement_discretization
-        ] = displacement_coefficients * mg.mortar_to_slave_avg(nd=nd)
+        ] = displacement_discretization_coefficients
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_discretization] = rhs
 
     def assemble_matrix_rhs(self, g, data):
