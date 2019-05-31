@@ -12,6 +12,8 @@ import numpy as np
 import scipy.sparse as sps
 import logging
 import porepy as pp
+import numpy.matlib as np_matlib
+
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -107,13 +109,14 @@ class Mpsa(
         bnd = parameter_dictionary["bc"]
 
         eta = parameter_dictionary.get("mpsa_eta", None)
+        hf_eta = parameter_dictionary.get("reconstruction_eta", None)
 
         partial = parameter_dictionary.get("partial_update", False)
         inverter = parameter_dictionary.get("inverter", None)
 
         if not partial:
             stress, bound_stress, bound_displacement_cell, bound_displacement_face = mpsa(
-                g, c, bnd, eta=eta, inverter=inverter
+                g, c, bnd, eta=eta, hf_eta=hf_eta, inverter=inverter
             )
             matrix_dictionary["stress"] = stress
             matrix_dictionary["bound_stress"] = bound_stress
@@ -554,7 +557,7 @@ class FracturedMpsa(Mpsa):
 
         bc_val = parameter_dictionary["bc_values"]
 
-        frac_faces = np.matlib.repmat(g.tags["fracture_faces"], g.dim, 1)
+        frac_faces = np_matlib.repmat(g.tags["fracture_faces"], g.dim, 1)
         if parameter_dictionary["bc"].bc_type == "scalar":
             frac_faces = frac_faces.ravel("F")
         elif parameter_dictionary["bc"].bc_type == "vectorial":
@@ -607,7 +610,7 @@ class FracturedMpsa(Mpsa):
 
         bc_val = parameter_dictionary["bc_values"]
 
-        frac_faces = np.matlib.repmat(g.tags["fracture_faces"], 3, 1)
+        frac_faces = np_matlib.repmat(g.tags["fracture_faces"], 3, 1)
         if parameter_dictionary["bc"].bc_type == "scalar":
             frac_faces = frac_faces.ravel("F")
 
@@ -2351,7 +2354,7 @@ def __unique_hooks_law(csym, casym, subcell_topology, nd):
     num_eqs = csym.shape[0] / nd
     ind_single = np.tile(subcell_topology.unique_subfno, (nd, 1))
     increments = np.arange(nd) * num_eqs
-    ind_all = np.reshape(ind_single + increments[:, np.newaxis], -1)
+    ind_all = np.reshape(ind_single + increments[:, np.newaxis], -1).astype(np.int)
 
     # Unique part of symmetric and asymmetric products
     hook_sym = csym[ind_all, ::]

@@ -166,7 +166,9 @@ class Granite(UnitRock):
         self.LAMBDA, self.MU = lame_from_young_poisson(
             self.YOUNG_MODULUS, self.POISSON_RATIO
         )
-
+        self.THERMAL_EXPANSION = (
+            8e-6 * pp.METER / (pp.METER * pp.CELSIUS)
+        )  # from engineeringtoolbox.com
         if theta_ref is None:
             self.theta_ref = 20.0 * pp.CELSIUS
         else:

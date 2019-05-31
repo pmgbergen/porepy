@@ -7,7 +7,6 @@ from porepy.grids.gmsh import gmsh_interface
 from porepy.fracs import meshing, simplex
 from porepy.fracs.fractures import Fracture, EllipticFracture
 from porepy.utils.setmembership import unique_columns_tol
-import porepy.utils.comp_geom as cg
 
 
 def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
@@ -210,13 +209,13 @@ def network_2d_from_csv(
     # Shortcut if no data is loaded
     if data.size == 0:
         # we still consider the possibility that a domain is given
-        return pp.FractureNetwork2d(domain=domain)
+        return pp.FractureNetwork2d(domain=domain, tol=tol)
     data = np.atleast_2d(data)
 
     # Consider subset of fractures if asked for
     if max_num_fracs is not None:
         if max_num_fracs == 0:
-            return pp.FractureNetwork2d()
+            return pp.FractureNetwork2d(tol=tol)
         else:
             data = data[:max_num_fracs]
 
@@ -266,7 +265,7 @@ def network_2d_from_csv(
 
     if domain is None:
         overlap = kwargs.get("domain_overlap", 0)
-        domain = cg.bounding_box(pts, overlap)
+        domain = pp.bounding_box.from_points(pts, overlap)
 
     pts, _, old_2_new = unique_columns_tol(pts, tol=tol)
 

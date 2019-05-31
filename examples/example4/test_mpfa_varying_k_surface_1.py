@@ -77,7 +77,7 @@ def main(N):
     Nx = Ny = N
     # g = structured.CartGrid([Nx, Ny], [1, 1])
     g = pp.StructuredTriangleGrid([Nx, Ny], [1, 1])
-    R = pp.cg.rot(np.pi / 2.0, [1, 0, 0])
+    R = pp.map_geometry.rotation_matrix(np.pi / 2.0, [1, 0, 0])
     g.nodes = np.dot(R, g.nodes)
     g.compute_geometry()
 
