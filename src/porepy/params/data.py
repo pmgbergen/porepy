@@ -50,6 +50,17 @@ required parameters. If the data directory already exists as d (e.g. in the grid
 bucket), consider:
 
     pp.initialize_default_data(grid, d, keyword, specified_parameters)
+
+
+Also contains a function for setting the state. The state is all data associated with
+the previous time step or iteration, and is stored in data[pp.STATE]. The solution of a
+variable is stored in
+
+data[pp.STATE][variable_name],
+
+whereas data such as BC values are stored similarly to in the Parameters class, in
+
+data[pp.STATE][keyword]["bc_values"].
 """
 import numpy as np
 import porepy as pp
@@ -254,6 +265,29 @@ def initialize_data(g, data, keyword, specified_parameters=None):
     return data
 
 
+def set_state(data, state=None):
+    """ Initialize or update a state dictionary.
+
+    The initialization consists of adding a state dictionary in the proper field of the
+    data dictionary. If there is a state dictionary in data, the new state is added
+    using the update method of dictionaries.
+
+    Args:
+        data: Outer data dictionary, to which the parameters will be added.
+        state: A dictionary with the state, set to an empty dictionary if not provided.
+
+    Returns:
+        data: The filled dictionary.
+    """
+    if not state:
+        state = {}
+    if pp.STATE in data:
+        data[pp.STATE].update(state)
+    else:
+        data[pp.STATE] = state
+    return data
+
+
 def modify_variable(variable, new_value):
     """ Changes the value (not id) of the stored parameter.
 
@@ -279,6 +313,8 @@ def modify_variable(variable, new_value):
         variable.setfield(new_value, variable.dtype)
     elif isinstance(variable, list):
         variable[:] = new_value
+    elif isinstance(variable, pp.SecondOrderTensor):
+        variable.values[:] = new_value.values
     elif isinstance(variable, numbers.Number):
         raise TypeError("Numbers are immutable.")
     else:

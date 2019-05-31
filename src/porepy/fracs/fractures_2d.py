@@ -8,6 +8,7 @@ Created on Mon Dec 10 09:24:49 2018
 import numpy as np
 import logging
 import networkx as nx
+import csv
 
 import porepy as pp
 
@@ -157,7 +158,7 @@ class FractureNetwork2d(object):
         else:
             domain = None
 
-        return FractureNetwork2d(p, e, domain)
+        return FractureNetwork2d(p, e, domain, self.tol)
 
     def mesh(self, mesh_args, tol=None, do_snap=True, constraints=None, **kwargs):
 
@@ -203,9 +204,9 @@ class FractureNetwork2d(object):
         e = self.edges.copy()
 
         # Prolong
-        p = pp.cg.snap_points_to_segments(p, e, tol)
+        p = pp.constrain_geometry.snap_points_to_segments(p, e, tol)
 
-        return FractureNetwork2d(p, e, self.domain)
+        return FractureNetwork2d(p, e, self.domain, self.tol)
 
     def constrain_to_domain(self, domain=None):
         """ Constrain the fracture network to lay within a specified domain.
@@ -231,9 +232,9 @@ class FractureNetwork2d(object):
 
         p_domain = self._domain_to_points(domain)
 
-        p, e = pp.cg.constrain_lines_by_polygon(p_domain, self.pts, self.edges)
+        p, e = pp.constrain_geometry.lines_by_polygon(p_domain, self.pts, self.edges)
 
-        return FractureNetwork2d(p, e, domain)
+        return FractureNetwork2d(p, e, domain, self.tol)
 
     def _domain_to_points(self, domain):
         """ Helper function to convert a domain specification in the form of
@@ -295,8 +296,10 @@ class FractureNetwork2d(object):
                 the set only contains non-intersecting branches.
 
         """
-        p, e = pp.cg.remove_edge_crossings2(self.pts, self.edges, tol=self.tol)
-        return FractureNetwork2d(p, e, self.domain)
+        p, e = pp.intersections.split_intersecting_segments_2d(
+            self.pts, self.edges, tol=self.tol
+        )
+        return FractureNetwork2d(p, e, self.domain, self.tol)
 
     # --------- Utility functions below here
 
@@ -478,6 +481,27 @@ class FractureNetwork2d(object):
 
         """
         pp.plot_fractures(self.domain, self.pts, self.edges, **kwargs)
+
+    def to_csv(self, file_name):
+        """
+        Save the 2d network on a csv file with comma , as separator.
+        Note: the file is overwritten if present.
+        The format is
+        FID, START_X, START_Y, END_X, END_Y
+
+        Parameters:
+            file_name: name of the file
+            domain: (optional) the bounding box of the problem
+        """
+
+        with open(file_name, "w") as csv_file:
+            csv_writer = csv.writer(csv_file, delimiter=",")
+            # write all the fractures
+            for edge_id, edge in enumerate(self.edges.T):
+                data = [edge_id]
+                data.extend(self.pts[:, edge[0]])
+                data.extend(self.pts[:, edge[1]])
+                csv_writer.writerow(data)
 
     def __str__(self):
         s = "Fracture set consisting of " + str(self.num_frac) + " fractures"

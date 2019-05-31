@@ -14,8 +14,7 @@ import porepy as pp
 
 from porepy.grids.grid import Grid
 from porepy.grids.structured import TensorGrid
-from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
-from porepy.utils import comp_geom as cg
+from porepy.grids.simplex import TriangleGrid
 
 
 def distort_grid_1d(g, ratio=0.1, fixed_nodes=None):
@@ -250,7 +249,7 @@ def remesh_1d(g_old, num_nodes, tol=1e-6):
     for f_old in np.arange(g_old.num_faces):
         # detect in the new grid which face is geometrically the same (upon a tolerance)
         # as in the old grid
-        dist = cg.dist_point_pointset(g_old.face_centers[:, f_old], g.face_centers)
+        dist = pp.distances.point_pointset(g_old.face_centers[:, f_old], g.face_centers)
         f_new = np.where(dist < tol)[0]
 
         # if you find a match transfer all the tags from the face in the old grid to

@@ -10,8 +10,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from porepy.utils import comp_geom as cg
-
 
 class HybridDualVEM:
     """ Implementation of mixed virtual element method, using hybridization to
@@ -110,7 +108,7 @@ class HybridDualVEM:
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
-        c_centers, f_normals, f_centers, _, _, _ = cg.map_grid(g)
+        c_centers, f_normals, f_centers, _, _, _ = pp.map_geometry.map_grid(g)
 
         # Weight for the stabilization term
         diams = g.cell_diameters()

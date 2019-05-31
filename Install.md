@@ -50,7 +50,7 @@ Some functionality depends on a point-in-polyhedron test. The PorePy function th
 The only robust test, with reasonable installation, we are aware of is available [here](https://github.com/mdickinson/polyhedron/blob/master/polyhedron.py). Unfortunately, the file is not available through pip or conda. Instead, download the file, and place it somewhere in PYTHONPATH with the name robust_point_in_polyhedron.py. The PorePy function is_inside_polyhedron() then acts as a wrapper around this external package.
 
 # Other packages
-Others libraries that should be installed are numpy (available on both conda and pip), scipy (conda and pip), networkx (conda and pip, NOTE: version number 1.10, NOT 2 - will be updated), meshio (pip only), sympy (conda and pip). In addition libraries like cython, numba, vtk, pymetis and pyamg should be installed to get full functionality.
+Others libraries that should be installed are numpy (available on both conda and pip), scipy (conda and pip), networkx (conda and pip, NOTE: version 2.x), meshio (pip only), sympy (conda and pip). In addition libraries like cython, numba, vtk, pymetis and pyamg should be installed to get full functionality.
 
 # Fast unique arrays
 Improvements in Numpy's unique function, introduced in numpy version 1.13, can in certain cases speed up PorePy's performance immensely

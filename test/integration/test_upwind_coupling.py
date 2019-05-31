@@ -54,9 +54,9 @@ class BasicsTest(unittest.TestCase):
             pp.initialize_default_data(g, d, "transport", specified_parameters)
         add_constant_darcy_flux(gb, upwind, [0, 1, 0], a)
 
-        assembler = pp.Assembler()
+        assembler = pp.Assembler(gb)
 
-        U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        U_tmp, rhs = assembler.assemble_matrix_rhs()
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
         variables = np.empty_like(grids)
@@ -68,7 +68,7 @@ class BasicsTest(unittest.TestCase):
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
         U, rhs = permute_matrix_vector(
-            U_tmp, rhs, block_dof, full_dof, grids, variables
+            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
         )
 
         theta = np.linalg.solve(U.A, rhs)
@@ -141,9 +141,9 @@ class BasicsTest(unittest.TestCase):
 
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
-        assembler = pp.Assembler()
+        assembler = pp.Assembler(gb)
 
-        U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        U_tmp, rhs = assembler.assemble_matrix_rhs()
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
         variables = np.empty_like(grids)
@@ -155,7 +155,7 @@ class BasicsTest(unittest.TestCase):
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
         U, rhs = permute_matrix_vector(
-            U_tmp, rhs, block_dof, full_dof, grids, variables
+            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
         )
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
@@ -277,9 +277,9 @@ class BasicsTest(unittest.TestCase):
 
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
-        assembler = pp.Assembler()
+        assembler = pp.Assembler(gb)
 
-        U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        U_tmp, rhs = assembler.assemble_matrix_rhs()
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
         variables = np.empty_like(grids)
@@ -290,7 +290,7 @@ class BasicsTest(unittest.TestCase):
             grids[d["edge_number"] + gb.num_graph_nodes()] = e
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
         U, rhs = permute_matrix_vector(
-            U_tmp, rhs, block_dof, full_dof, grids, variables
+            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
         )
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
@@ -866,9 +866,9 @@ class BasicsTest(unittest.TestCase):
 
         add_constant_darcy_flux(gb, upwind, [0, 0, 1], a)
 
-        assembler = pp.Assembler()
+        assembler = pp.Assembler(gb)
 
-        U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        U_tmp, rhs = assembler.assemble_matrix_rhs()
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
         variables = np.empty_like(grids)
@@ -880,7 +880,7 @@ class BasicsTest(unittest.TestCase):
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
         U, rhs = permute_matrix_vector(
-            U_tmp, rhs, block_dof, full_dof, grids, variables
+            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
         )
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
@@ -949,9 +949,9 @@ class BasicsTest(unittest.TestCase):
 
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
-        assembler = pp.Assembler()
+        assembler = pp.Assembler(gb)
 
-        U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        U_tmp, rhs = assembler.assemble_matrix_rhs()
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
         variables = np.empty_like(grids)
@@ -963,7 +963,7 @@ class BasicsTest(unittest.TestCase):
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
         U, rhs = permute_matrix_vector(
-            U_tmp, rhs, block_dof, full_dof, grids, variables
+            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
         )
 
         theta = np.linalg.solve(U.A, rhs)
@@ -1124,9 +1124,9 @@ class BasicsTest(unittest.TestCase):
             pp.initialize_default_data(g, d, "transport", specified_parameters)
 
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
-        assembler = pp.Assembler()
+        assembler = pp.Assembler(gb)
 
-        U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        U_tmp, rhs = assembler.assemble_matrix_rhs()
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
         variables = np.empty_like(grids)
@@ -1137,7 +1137,7 @@ class BasicsTest(unittest.TestCase):
             grids[d["edge_number"] + gb.num_graph_nodes()] = e
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
         U, rhs = permute_matrix_vector(
-            U_tmp, rhs, block_dof, full_dof, grids, variables
+            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
         )
 
         theta = np.linalg.solve(U.A, rhs)
@@ -1266,9 +1266,9 @@ class BasicsTest(unittest.TestCase):
             pp.initialize_default_data(g, d, "transport", specified_parameters)
 
         add_constant_darcy_flux(gb, upwind, [2, 0, 0], a)
-        assembler = pp.Assembler()
+        assembler = pp.Assembler(gb)
 
-        U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        U_tmp, rhs = assembler.assemble_matrix_rhs()
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
         variables = np.empty_like(grids)
@@ -1280,7 +1280,7 @@ class BasicsTest(unittest.TestCase):
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
         M, rhs = permute_matrix_vector(
-            U_tmp, rhs, block_dof, full_dof, grids, variables
+            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
         )
 
         # add generic mass matrix to solve system
@@ -1425,9 +1425,9 @@ class BasicsTest(unittest.TestCase):
 
         add_constant_darcy_flux(gb, upwind, [1, 1, 0], a)
 
-        assembler = pp.Assembler()
+        assembler = pp.Assembler(gb)
 
-        U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        U_tmp, rhs = assembler.assemble_matrix_rhs()
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
         variables = np.empty_like(grids)
@@ -1439,7 +1439,7 @@ class BasicsTest(unittest.TestCase):
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
         M, rhs = permute_matrix_vector(
-            U_tmp, rhs, block_dof, full_dof, grids, variables
+            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
         )
         theta = np.linalg.solve(M.A, rhs)
         M_known = np.array(

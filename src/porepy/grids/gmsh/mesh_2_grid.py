@@ -4,9 +4,9 @@ Maybe we will add the reverse mapping.
 """
 import numpy as np
 
+import porepy as pp
 from porepy.grids import simplex, structured, point_grid
 from porepy.grids import constants
-import porepy.utils.comp_geom as cg
 
 
 def create_3d_grids(pts, cells):
@@ -51,8 +51,6 @@ def create_2d_grids(pts, cells, **kwargs):
         # Map from split polygons and fractures, as defined by the network
         # decomposition
         poly_2_frac = network.decomposition["polygon_frac"]
-
-        num_tri = tri_cells.shape[0]
 
         phys_name_ind_tri = np.unique(cell_info["triangle"]["gmsh:physical"])
 
@@ -258,7 +256,7 @@ def create_0d_grids(pts, cells):
 
 def create_embedded_line_grid(loc_coord, glob_id, tol=1e-4):
     loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
-    sorted_coord, rot, active_dimension, sort_ind = cg.project_points_to_line(
+    sorted_coord, rot, active_dimension, sort_ind = pp.map_geometry.project_points_to_line(
         loc_coord, tol
     )
     g = structured.TensorGrid(sorted_coord)

@@ -1,8 +1,9 @@
 import numpy as np
 import unittest
 
-from porepy.utils import comp_geom as cg
 from test import test_utils
+
+import porepy as pp
 
 
 class SplitIntersectingLines2DTest(unittest.TestCase):
@@ -15,27 +16,11 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
 
     """
 
-    def test_lines_crossing_origin(self):
-        p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
-        lines = np.array([[0, 2], [1, 3], [1, 2], [3, 4]])
-        box = np.array([[2], [2]])
-
-        new_pts, new_lines = cg.remove_edge_crossings2(p, lines)
-
-        p_known = np.hstack((p, np.array([[0], [0]])))
-        p_known = cg.snap_to_grid(p_known, box=box)
-
-        lines_known = np.array([[0, 4, 2, 4], [4, 1, 4, 3], [1, 1, 2, 2], [3, 3, 4, 4]])
-
-        self.assertTrue(np.allclose(new_pts, p_known))
-        self.assertTrue(test_utils.compare_arrays(new_lines, lines_known))
-
     def test_lines_no_crossing(self):
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
 
         lines = np.array([[0, 1], [2, 3]])
-        box = np.array([[2], [2]])
-        new_pts, new_lines = cg.remove_edge_crossings2(p, lines)
+        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
         self.assertTrue(np.allclose(new_pts, p))
         self.assertTrue(np.allclose(new_lines, lines))
 
@@ -46,7 +31,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         )
         lines = np.array([[0, 3], [1, 4], [2, 5]]).T
 
-        new_pts, new_lines = cg.remove_edge_crossings2(p, lines)
+        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
 
         self.assertTrue(np.allclose(new_pts, p))
         self.assertTrue(test_utils.compare_arrays(new_lines, lines))
@@ -58,7 +43,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         )
         lines = np.array([[0, 3], [2, 5], [1, 4]]).T
 
-        new_pts, new_lines = cg.remove_edge_crossings2(p, lines)
+        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
         p_known = np.hstack((p, np.array([[0.4], [0.4]])))
         lines_known = np.array([[0, 3], [2, 6], [6, 5], [1, 6], [6, 4]]).T
         self.assertTrue(np.allclose(new_pts, p_known))
@@ -68,7 +53,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
         lines = np.array([[0, 2], [1, 3]]).T
 
-        new_pts, new_lines = cg.remove_edge_crossings2(p, lines)
+        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
 
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
 
@@ -81,7 +66,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
         lines = np.array([[0, 2], [3, 1]]).T
 
-        new_pts, new_lines = cg.remove_edge_crossings2(p, lines)
+        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
 
         new_lines = np.sort(new_lines, axis=0)
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
@@ -93,7 +78,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
         lines = np.array([[0, 3], [1, 2]]).T
 
-        new_pts, new_lines = cg.remove_edge_crossings2(p, lines)
+        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
 
         new_lines = np.sort(new_lines, axis=0)
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
@@ -105,7 +90,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2], [0, 0, 0]])
         lines = np.array([[0, 2], [0, 1]]).T
 
-        new_pts, new_lines = cg.remove_edge_crossings2(p, lines)
+        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
 
         new_lines = np.sort(new_lines, axis=0)
         lines_known = np.array([[0, 1], [1, 2]]).T
@@ -117,7 +102,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2], [0, 0, 0]])
         lines = np.array([[0, 2], [1, 2]]).T
 
-        new_pts, new_lines = cg.remove_edge_crossings2(p, lines)
+        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
 
         new_lines = np.sort(new_lines, axis=0)
         lines_known = np.array([[0, 1], [1, 2]]).T
@@ -129,7 +114,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
         lines = np.array([[0, 3], [2, 1]]).T
 
-        new_pts, new_lines = cg.remove_edge_crossings2(p, lines)
+        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
         new_lines = np.sort(new_lines, axis=0)
 
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
@@ -138,28 +123,13 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         self.assertTrue(test_utils.compare_arrays(new_lines, lines_known))
 
 
-class SnapToGridTest(unittest.TestCase):
-    def setUp(self):
-        self.box = np.array([1, 1])
-        self.anisobox = np.array([2, 1])
-        self.p = np.array([0.6, 0.6])
-
-    def test_snapping(self):
-        p_snapped = cg.snap_to_grid(self.p, box=self.box, tol=1)
-        self.assertTrue(np.allclose(p_snapped, np.array([1, 1])))
-
-    def test_aniso_snapping(self):
-        p_snapped = cg.snap_to_grid(self.p, box=self.anisobox, tol=1)
-        self.assertTrue(np.allclose(p_snapped, np.array([0, 1])))
-
-
 class LinesIntersectTest(unittest.TestCase):
     def test_lines_intersect_segments_do_not(self):
         s0 = np.array([0.3, 0.3])
         e0 = np.array([0.5, 0.5])
         s1 = np.array([0, 2 / 3])
         e1 = np.array([1, 2 / 3])
-        pi = cg.lines_intersect(s0, e0, s1, e1)
+        pi = pp.intersections.segments_2d(s0, e0, s1, e1)
         self.assertTrue(pi is None or len(pi) == 0)
 
     def test_parallel_not_colinear(self):
@@ -168,7 +138,7 @@ class LinesIntersectTest(unittest.TestCase):
         s1 = np.array([0, 1])
         e1 = np.array([1, 1])
 
-        pi = cg.lines_intersect(s0, e0, s1, e1)
+        pi = pp.intersections.segments_2d(s0, e0, s1, e1)
         self.assertTrue(pi is None)
 
     def test_colinear_not_intersecting(self):
@@ -177,7 +147,7 @@ class LinesIntersectTest(unittest.TestCase):
         s1 = np.array([2, 0])
         e1 = np.array([3, 0])
 
-        pi = cg.lines_intersect(s0, e0, s1, e1)
+        pi = pp.intersections.segments_2d(s0, e0, s1, e1)
         self.assertTrue(pi is None)
 
     def test_partly_overlapping_segments(self):
@@ -186,26 +156,26 @@ class LinesIntersectTest(unittest.TestCase):
         s1 = np.array([1, 0])
         e1 = np.array([3, 0])
 
-        pi = cg.lines_intersect(s0, e0, s1, e1)
+        pi = pp.intersections.segments_2d(s0, e0, s1, e1)
         self.assertTrue(
             (pi[0, 0] == 1 and pi[0, 1] == 2) or (pi[0, 0] == 2 and pi[0, 1] == 1)
         )
         self.assertTrue(np.allclose(pi[1], 0))
 
         # Then test order of arguments
-        pi = cg.lines_intersect(e0, s0, s1, e1)
+        pi = pp.intersections.segments_2d(e0, s0, s1, e1)
         self.assertTrue(
             (pi[0, 0] == 1 and pi[0, 1] == 2) or (pi[0, 0] == 2 and pi[0, 1] == 1)
         )
         self.assertTrue(np.allclose(pi[1], 0))
 
-        pi = cg.lines_intersect(s0, e0, e1, s1)
+        pi = pp.intersections.segments_2d(s0, e0, e1, s1)
         self.assertTrue(
             (pi[0, 0] == 1 and pi[0, 1] == 2) or (pi[0, 0] == 2 and pi[0, 1] == 1)
         )
         self.assertTrue(np.allclose(pi[1], 0))
 
-        pi = cg.lines_intersect(e0, s0, e1, s1)
+        pi = pp.intersections.segments_2d(e0, s0, e1, s1)
         self.assertTrue(
             (pi[0, 0] == 1 and pi[0, 1] == 2) or (pi[0, 0] == 2 and pi[0, 1] == 1)
         )
@@ -217,7 +187,7 @@ class LinesIntersectTest(unittest.TestCase):
         s1 = np.array([1, 0])
         e1 = np.array([2, 0])
 
-        pi = cg.lines_intersect(s0, e0, s1, e1)
+        pi = pp.intersections.segments_2d(s0, e0, s1, e1)
         self.assertTrue(
             (pi[0, 0] == 1 and pi[0, 1] == 2) or (pi[0, 0] == 2 and pi[0, 1] == 1)
         )
@@ -229,7 +199,7 @@ class LinesIntersectTest(unittest.TestCase):
         s1 = np.array([1, 0])
         e1 = np.array([2, 0])
 
-        pi = cg.lines_intersect(s0, e0, s1, e1)
+        pi = pp.intersections.segments_2d(s0, e0, s1, e1)
         self.assertTrue(pi[0, 0] == 1 and pi[1, 0] == 0)
 
 

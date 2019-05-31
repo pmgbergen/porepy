@@ -119,28 +119,31 @@ class BiotTest(unittest.TestCase):
         # Parameters identified by two keywords
         kw_m = "mechanics"
         kw_f = "flow"
+        variable_m = "displacement"
+        variable_f = "pressure"
         bound_mech, bound_flow = self.make_boundary_conditions(g)
         initial_disp, initial_pressure, initial_state = self.make_initial_conditions(
             g, x0=0, y0=0, p0=0
         )
         state = {
-            "displacement": initial_disp,
-            "bc_values": np.zeros(g.num_faces * g.dim),
+            variable_f: initial_pressure,
+            variable_m: initial_disp,
+            kw_m: {"bc_values": np.zeros(g.num_faces * g.dim)},
         }
-        parameters_m = {"bc": bound_mech, "biot_alpha": 1, "state": state}
+        parameters_m = {"bc": bound_mech, "biot_alpha": 1}
 
-        parameters_f = {"bc": bound_flow, "biot_alpha": 1, "state": initial_pressure}
+        parameters_f = {"bc": bound_flow, "biot_alpha": 1}
         pp.initialize_default_data(g, d, kw_m, parameters_m)
         pp.initialize_default_data(g, d, kw_f, parameters_f)
+        pp.set_state(d, state)
         # Discretize the mechanics related terms using the Biot class
-        d["state"] = initial_state
         biot_discretizer = pp.Biot()
         biot_discretizer._discretize_mech(g, d)
 
         # Set up the structure for the assembler. First define variables and equation
         # term names.
-        v_0 = "displacement"
-        v_1 = "pressure"
+        v_0 = variable_m
+        v_1 = variable_f
         term_00 = "stress_divergence"
         term_01 = "pressure_gradient"
         term_10 = "displacement_divergence"
@@ -159,8 +162,8 @@ class BiotTest(unittest.TestCase):
             v_1 + "_" + v_0: {term_10: pp.DivD(kw_m)},
         }
         # Assemble. Also discretizes the flow terms (fluid_mass and fluid_flux)
-        general_assembler = pp.Assembler()
-        A, b, block_dof, full_dof = general_assembler.assemble_matrix_rhs(gb)
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs()
 
         # Re-discretize and assemble using the Biot class
         A_class, b_class = biot_discretizer.matrix_rhs(g, d, discretize=False)
@@ -169,7 +172,14 @@ class BiotTest(unittest.TestCase):
         # matches that of the Biot class.
         grids = [g, g]
         variables = [v_0, v_1]
-        A, b = permute_matrix_vector(A, b, block_dof, full_dof, grids, variables)
+        A, b = permute_matrix_vector(
+            A,
+            b,
+            general_assembler.block_dof,
+            general_assembler.full_dof,
+            grids,
+            variables,
+        )
 
         # Compare the matrices and rhs vectors
         self.assertTrue(np.all(np.isclose(A.A, A_class.A)))
@@ -189,6 +199,8 @@ class BiotTest(unittest.TestCase):
         # arbitrary values are assigned to make the test more revealing.
         kw_m = "mechanics"
         kw_f = "flow"
+        variable_m = "displacement"
+        variable_f = "pressure"
         bound_mech, bound_flow = self.make_boundary_conditions(g)
         val_mech = np.ones(g.dim * g.num_faces)
         val_flow = np.ones(g.num_faces)
@@ -197,28 +209,29 @@ class BiotTest(unittest.TestCase):
         )
         dt = 1e0
         biot_alpha = 0.6
-
-        state = {"displacement": initial_disp, "bc_values": val_mech}
+        state = {
+            variable_f: initial_pressure,
+            variable_m: initial_disp,
+            kw_m: {"bc_values": val_mech},
+        }
         parameters_m = {
             "bc": bound_mech,
             "bc_values": val_mech,
             "time_step": dt,
             "biot_alpha": biot_alpha,
-            "state": state,
         }
         parameters_f = {
             "bc": bound_flow,
             "bc_values": val_flow,
             "time_step": dt,
             "biot_alpha": biot_alpha,
-            "state": initial_pressure,
             "mass_weight": 0.1 * np.ones(g.num_cells),
         }
         pp.initialize_default_data(g, d, kw_m, parameters_m)
         pp.initialize_default_data(g, d, kw_f, parameters_f)
-
+        pp.set_state(d, state)
         # Initial condition fot the Biot class
-        d["state"] = initial_state
+        #        d["state"] = initial_state
 
         # Discretize the mechanics related terms using the Biot class
         biot_discretizer = pp.Biot()
@@ -226,8 +239,8 @@ class BiotTest(unittest.TestCase):
 
         # Set up the structure for the assembler. First define variables and equation
         # term names.
-        v_0 = "displacement"
-        v_1 = "pressure"
+        v_0 = variable_m
+        v_1 = variable_f
         term_00 = "stress_divergence"
         term_01 = "pressure_gradient"
         term_10 = "displacement_divergence"
@@ -238,7 +251,7 @@ class BiotTest(unittest.TestCase):
         d[pp.DISCRETIZATION] = {
             v_0: {term_00: pp.Mpsa(kw_m)},
             v_1: {
-                term_11_0: ImplicitMassMatrix(kw_f),
+                term_11_0: ImplicitMassMatrix(kw_f, v_1),
                 term_11_1: ImplicitMpfa(kw_f),
                 term_11_2: pp.BiotStabilization(kw_f),
             },
@@ -249,8 +262,8 @@ class BiotTest(unittest.TestCase):
         times = np.arange(5)
         for _ in times:
             # Assemble. Also discretizes the flow terms (fluid_mass and fluid_flux)
-            general_assembler = pp.Assembler()
-            A, b, block_dof, full_dof = general_assembler.assemble_matrix_rhs(gb)
+            general_assembler = pp.Assembler(gb)
+            A, b = general_assembler.assemble_matrix_rhs()
 
             # Assemble using the Biot class
             A_class, b_class = biot_discretizer.matrix_rhs(g, d, discretize=False)
@@ -259,21 +272,25 @@ class BiotTest(unittest.TestCase):
             # matches that of the Biot class.
             grids = [g, g]
             variables = [v_0, v_1]
-            A, b = permute_matrix_vector(A, b, block_dof, full_dof, grids, variables)
+            A, b = permute_matrix_vector(
+                A,
+                b,
+                general_assembler.block_dof,
+                general_assembler.full_dof,
+                grids,
+                variables,
+            )
 
             # Compare the matrices and rhs vectors
             self.assertTrue(np.all(np.isclose(A.A, A_class.A)))
             self.assertTrue(np.all(np.isclose(b, b_class)))
 
             # Store the current solution for the next time step.
-            # First for the assembler version
             x_i = sps.linalg.spsolve(A_class, b_class)
             u_i = x_i[: (g.dim * g.num_cells)]
             p_i = x_i[(g.dim * g.num_cells) :]
-            d[pp.PARAMETERS][kw_m]["state"]["displacement"] = u_i
-            d[pp.PARAMETERS][kw_f]["state"] = p_i
-            # ... and then for the Biot class
-            d["state"] = x_i
+            state = {variable_f: p_i, variable_m: u_i}
+            pp.set_state(d, state)
 
         # Check that the solution has converged to the expected, uniform steady state
         # dictated by the BCs.
@@ -281,15 +298,26 @@ class BiotTest(unittest.TestCase):
 
 
 class ImplicitMassMatrix(pp.MassMatrix):
+    def __init__(self, keyword="flow", variable="pressure"):
+        """ Set the discretization, with the keyword used for storing various
+        information associated with the discretization. The time discretisation also
+        requires the previous solution, thus the variable needs to be specified.
+
+        Paramemeters:
+            keyword (str): Identifier of all information used for this
+                discretization.
+        """
+        self.keyword = keyword
+        self.variable = variable
+
     def assemble_rhs(self, g, data):
         """ Overwrite MassMatrix method to return the correct rhs for an IE time
         discretization of the Biot problem.
 
         TODO: Implement a more general solution.
         """
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        previous_pressure = parameter_dictionary["state"]
+        previous_pressure = data[pp.STATE][self.variable]
         return matrix_dictionary["mass"] * previous_pressure
 
 
