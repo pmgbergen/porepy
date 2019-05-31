@@ -82,7 +82,7 @@ def main():
     methods_stefano_1 = ["OPTxfem", "OPTfem"]
     methods_stefano_2 = ["GCmfem"]
     methods_alessio = ["MVEM_UPWIND", "Tpfa_UPWIND", "RT0_UPWIND"]
-    methods_andrea = ["MVEM_VEMSUPG"]
+    methods_andrea = ["MVEM_VEMSUPG", "MVEM_VEMSUPG_POWERTAU"]
 
     grids = {"grid_0": ("3k", "200", "3", "9e-05"), "grid_1": ("40k", "2600", "40", "0.0015")}
     grids_label = {"grid_0": "coarse", "grid_1": "fine"}
