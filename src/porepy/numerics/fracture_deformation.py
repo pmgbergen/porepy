@@ -9,21 +9,29 @@ import scipy.sparse as sps
 
 
 def sign_of_faces(g, faces):
-    """
-    returns the sign of faces as defined by g.cell_faces. 
+    """ Get the direction of the normal vector (inward or outwards from a cell)
+    of faces. Only boundary faces are permissible.
+
     Parameters:
-    g: (Grid Object)
-    faces: (ndarray) indices of faces that you want to know the sign for. The 
-           faces must be boundary faces.
+        g: (Grid Object)
+        faces: (ndarray) indices of faces that you want to know the sign for. The
+            faces must be boundary faces.
+
     Returns:
-    sgn: (ndarray) the sign of the faces
+        (ndarray) the sign of the faces
+
+    Raises:
+        ValueError if a target face is internal.
+
     """
 
     IA = np.argsort(faces)
     IC = np.argsort(IA)
 
     fi, _, sgn = sps.find(g.cell_faces[faces[IA], :])
-    assert fi.size == faces.size, "sign of internal faces does not make sense"
+    if fi.size != faces.size:
+        raise ValueError("sign of internal faces does not make sense")
+
     I = np.argsort(fi)
     sgn = sgn[I]
     sgn = sgn[IC]
