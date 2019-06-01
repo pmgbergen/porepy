@@ -259,7 +259,9 @@ class PrimalContactCoupling(object):
         # The mortar variable (boundary displacement) takes the form of a Dirichlet
         # condition for the master side.
         cc[master_ind, mortar_ind] = (
-            master_divergence * master_bound_stress * mg.mortar_to_master_avg(nd=ambient_dimension)
+            master_divergence
+            * master_bound_stress
+            * mg.mortar_to_master_avg(nd=ambient_dimension)
         )
 
         ### Equation for the slave side
@@ -280,13 +282,13 @@ class PrimalContactCoupling(object):
         # The contact condition discretization gives coefficients for the mortar
         # variables. To finalize the relation with the contact conditions, we
         # (from the right) 1) assign +- signs to the two sides of the mortar, so that
-        # summation in reality is a difference, 2) project to the local coordinates
-        # of the fracture, 3) project to the mortar grid, 4) assign the
+        # summation in reality is a difference, 2) project to the mortar grid
+        # 3) project to the local coordinates of the fracture, 4) assign the
         # coefficients of the displacement jump.
         cc[slave_ind, mortar_ind] = (
             displacement_jump_discr
+            * projection.project_tangential_normal(g_slave.num_cells)
             * mg.mortar_to_slave_avg(nd=ambient_dimension)
-            * projection.project_tangential_normal(mg.num_cells)
             * mg.sign_of_mortar_sides(nd=ambient_dimension)
         )
 
@@ -300,6 +302,14 @@ class PrimalContactCoupling(object):
         # Optionally, a diffusion term can be added in the tangential direction
         # of the stresses, this is currently under implementation.
 
+        # Operator to switch the sign of vectors on higher-dimensional faces
+        # that point out of the surface. This is used to switch direction of the
+        # stress on boundary for the higher dimensional domain: The contact forces
+        # are defined as negative in contact, whereas the sign of the higher
+        # dimensional stresses are defined according to the direction of the
+        # normal vector, or equivalently the divergence operator.
+        # Multiplication by this operator leaves all higher dimensional
+        # stresses positive if directed outwards.
         sign_switcher_master = data_edge["outwards_vector_enforcer"]
 
         # First, we obtain \lambda_mortar = stress * u_master + bound_stress * u_mortar
@@ -334,12 +344,19 @@ class PrimalContactCoupling(object):
         # mortar tractions.
 
         # The contact force are defined in the surface coordinate system.
-        # Rotate back again to the global coordinates after projection
-        contact_stress_to_mortar = projection.project_tangential_normal(
-            mg.num_cells
-        ).T * mg.slave_to_mortar_int(nd=ambient_dimension)
+        # Map to the mortar grid, and rotate back again to the global coordinates
+        # (note the inverse rotation is given by a transpose).
+        # Finally, the contact stresses will be felt in different directions by
+        # the two sides of the mortar grids (Newton's third law), hence
+        # adjust the signs
+        contact_stress_to_mortar = (
+            -mg.sign_of_mortar_sides(nd=ambient_dimension)
+            * projection.project_tangential_normal(mg.num_cells).T
+            * mg.slave_to_mortar_int(nd=ambient_dimension)
+        )
         # Minus to obtain -\lambda_slave + \lambda_mortar = 0.
-        cc[mortar_ind, slave_ind] = -contact_stress_to_mortar
+        cc[mortar_ind, slave_ind] = contact_stress_to_mortar
+        # breakpoint()
 
         if self.use_surface_discr:
             restrict_to_tangential_direction = projection.project_tangential(
