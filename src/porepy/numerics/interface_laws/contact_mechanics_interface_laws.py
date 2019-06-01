@@ -189,9 +189,6 @@ class PrimalContactCoupling(object):
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
 
-        if not "surface_smoother" in matrix_dictionary_edge:
-            self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
-
         ambient_dimension = g_master.dim
 
         master_ind = 0
@@ -201,6 +198,7 @@ class PrimalContactCoupling(object):
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
+        projection = data_edge["tangential_normal_projection"]
 
         dof_master = self.discr_master.ndof(g_master)
         dof_slave = self.discr_slave.ndof(g_slave)
@@ -258,28 +256,41 @@ class PrimalContactCoupling(object):
         ]["stress"]
         master_divergence = pp.fvutils.vector_divergence(g_master)
 
-        proj_vector_master = mg.mortar_to_master_avg(nd=ambient_dimension)
-
         # The mortar variable (boundary displacement) takes the form of a Dirichlet
         # condition for the master side.
         cc[master_ind, mortar_ind] = (
-            master_divergence * master_bound_stress * proj_vector_master
+            master_divergence * master_bound_stress * mg.mortar_to_master_avg(nd=ambient_dimension)
         )
 
         ### Equation for the slave side
+        #
         # These are the contact conditions, which dictate relations between
         # the contact forces on the slave, and the displacement jumps.
-        # NOTE: Some more projcetions may be needed here for non-matching grids
+        #
+        # NOTE: Both the contact conditions and the contact stresses are defined in the
+        # local coordinate system of the surface. The displacements must therefore
+        # be rotated to this local coordinate system during assembly.
         traction_discr, displacement_jump_discr, rhs_slave = self.discr_slave.assemble_matrix_rhs(
             g_slave, data_slave
         )
+        # The contact forces. Can be applied directly, these are in their own
+        # local coordinate systems.
         cc[slave_ind, slave_ind] = traction_discr
+
         # The contact condition discretization gives coefficients for the mortar
-        # variables. We also need to make it into an actual jump (this is not included)
-        # in the discretization.
-        cc[slave_ind, mortar_ind] = displacement_jump_discr * mg.sign_of_mortar_sides(
-            nd=ambient_dimension
+        # variables. To finalize the relation with the contact conditions, we
+        # (from the right) 1) assign +- signs to the two sides of the mortar, so that
+        # summation in reality is a difference, 2) project to the local coordinates
+        # of the fracture, 3) project to the mortar grid, 4) assign the
+        # coefficients of the displacement jump.
+        cc[slave_ind, mortar_ind] = (
+            displacement_jump_discr
+            * mg.mortar_to_slave_avg(nd=ambient_dimension)
+            * projection.project_tangential_normal(mg.num_cells)
+            * mg.sign_of_mortar_sides(nd=ambient_dimension)
         )
+
+        # Right hand side system. In the local (surface) coordinate system.
         rhs[slave_ind] = rhs_slave
 
         ## Equation for the mortar rows
@@ -287,23 +298,32 @@ class PrimalContactCoupling(object):
         # domain (both interior and bound_stress) should match with the contact stress:
         # -\lambda_slave + \lambda_mortar = 0.
         # Optionally, a diffusion term can be added in the tangential direction
-        # of the stresses.
+        # of the stresses, this is currently under implementation.
+
+        sign_switcher_master = data_edge["outwards_vector_enforcer"]
 
         # First, we obtain \lambda_mortar = stress * u_master + bound_stress * u_mortar
         # Stress contribution from the higher dimensional domain, projected onto
         # the mortar grid
+        # Switch the direction of the vectors, so that for all faces, a positive
+        # force points into the surface.
         stress_from_master = (
-            mg.master_to_mortar_int(nd=ambient_dimension) * master_stress
+            mg.master_to_mortar_int(nd=ambient_dimension)
+            * sign_switcher_master
+            * master_stress
         )
         cc[mortar_ind, master_ind] = stress_from_master
 
         # The stress contribution from the mortar variables, mapped to the higher
         # dimensional domain via a boundary condition, and back again by a
         # projection operator.
+        # Switch the direction of the vectors, so that for all faces, a positive
+        # force points into the surface.
         stress_from_mortar = (
             mg.master_to_mortar_int(nd=ambient_dimension)
+            * sign_switcher_master
             * master_bound_stress
-            * proj_vector_master
+            * mg.mortar_to_master_avg(nd=ambient_dimension)
         )
         cc[mortar_ind, mortar_ind] = stress_from_mortar
 
@@ -312,14 +332,16 @@ class PrimalContactCoupling(object):
         # \lambda_slave = \lambda_mortar_pos = -\lambda_mortar_neg,
         # so we need to map the slave traction with the corresponding signs to match the
         # mortar tractions.
-        contact_stress_to_mortar = mg.sign_of_mortar_sides(
-            nd=ambient_dimension
-        ) * mg.slave_to_mortar_int(nd=ambient_dimension)
+
+        # The contact force are defined in the surface coordinate system.
+        # Rotate back again to the global coordinates after projection
+        contact_stress_to_mortar = projection.project_tangential_normal(
+            mg.num_cells
+        ).T * mg.slave_to_mortar_int(nd=ambient_dimension)
         # Minus to obtain -\lambda_slave + \lambda_mortar = 0.
         cc[mortar_ind, slave_ind] = -contact_stress_to_mortar
 
         if self.use_surface_discr:
-            projection = data_edge["tangential_normal_projection"]
             restrict_to_tangential_direction = projection.project_tangential(
                 mg.num_cells
             )
