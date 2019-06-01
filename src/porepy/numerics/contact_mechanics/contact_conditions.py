@@ -380,3 +380,106 @@ class ColoumbContact:
     def _l2(self, x):
         x = np.atleast_2d(x)
         return np.sqrt(np.sum(x ** 2, axis=0))
+
+
+def set_projections(gb):
+    """ Define a local coordinate system, and projection matrices, for all
+    grids of co-dimension 1.
+
+    Also generate a matrix that makes vectors on the faces neighboring the
+    co-dimension 1 grids comply with the normal vector, that is, vectors on
+    faces with inwards pointing normal vectors are turned.
+
+    The function adds two items to the data dictionary of all GridBucket edges
+    that neighbors a co-dimension 1 grid:
+        key: tangential_normal_projection, value: pp.TangentialNormalProjection
+            provides projection to the surface of the lower-dimensional grid
+        key: outwards_vector_enforcer: Value: sparse diagonal matrix which acts on
+            vector face quantites in the high-dimesional grid: Vectors on the faces
+            neighboring the edge have their direction switched if the normal vector
+            is pointing inwards. Vectors on faces not neighboring the edge are
+            zeroed out.
+
+    TODO: This function needs a better name that also reflects that the direction
+    switching matrix is produced.
+
+    Note that grids of co-dimension 2 and higher are ignored in this construction,
+    as we do not plan to do contact mechanics on these objects.
+
+    The fields are stored in
+
+    It is assumed that the surface is planar.
+
+    """
+
+    ambient_dim = gb.dim_max()
+
+    # Information on the vector normal to the surface is not available directly
+    # from the surface grid (it could be constructed from the surface geometry,
+    # which spans the tangential plane). We instead get the normal vector from
+    # the adjacent higher dimensional grid.
+    # We therefore access the grids via the edges of the mixed-dimensional grid.
+    for e, d_m in gb.edges():
+
+        mg = d_m["mortar_grid"]
+        # Only consider edges where the lower-dimensional neighbor is of co-dimension 1
+        if not mg.dim == ambient_dim - 1:
+            continue
+
+        # Neigboring grids
+        _, g_h = gb.nodes_of_edge(e)
+
+        # Find faecs of the higher dimensional grid that coincide with the mortar
+        # grid. Go via the master to mortar projection
+        # Convert matrix to csr, then the relevant face indices are found from
+        # the row indices
+        faces_on_surface = mg.master_to_mortar_int().tocsr().indices
+
+        # Find out whether the boundary faces have outwards pointing normal vectors
+        # Negative sign implies that the normal vector points inwards.
+        sgn = g_h.sign_of_faces(faces_on_surface)
+
+        # Unit normal vector
+        nc = g_h.face_normals[: g_h.dim] / g_h.face_areas
+        # Ensure all normal vectors on the relevant surface points outwards
+        nc[:, faces_on_surface] *= sgn
+
+        # Now we need to pick out a normal vector of the higher dimensional grid
+        # which coincides with this mortar grid. This could probably have been
+        # done with face tags, but we instead project the normal vectors onto the
+        # mortar grid to kill off all irrelevant grids.
+        nc_mortar = mg.master_to_mortar_int().dot(nc.T).T
+
+        # Use a single normal vector to span the tangential and normal space,
+        # assuming the surface is planar.
+
+        # NOTE: The normal vector is based on the first cell in the mortar grid,
+        # and will be pointing from that cell towards the other side of the
+        # mortar grid. This defines the positive direction in the normal direction.
+        # Although a simpler implementation seems to be possible, going via the
+        # first element in faces_on_surface, there is no guarantee that this will
+        # give us a face on the positive (or negative) side, hence the more general
+        # approach is preferred.
+        #
+        # NOTE: The basis for the tangential direction is determined by the
+        # construction internally in TangentialNormalProjection.
+        projection = pp.TangentialNormalProjection(nc_mortar[:, 0].reshape((-1, 1)))
+
+        # Store the projection operator in the mortar data
+        d_m["tangential_normal_projection"] = projection
+
+        # Also define a matrix to switch the sign of of vectors on the faces on the
+        # higher dimensional grid that 1) neighbors the mortar grid 2) has an
+        # inwards pointing normal vector
+        # Zero elements in all other faces - this operator should only be used
+        # in connection with a mapping to the mortar grid
+        sgn_mat = np.zeros(g_h.num_faces)
+        sgn_mat[faces_on_surface] = sgn
+        # Dpulicate the numbers, the operator is intended for vector quantities
+        sgn_mat = np.tile(sgn_mat, (ambient_dim, 1)).ravel(order="F")
+
+        # Create the diagonal matrix.
+        # TODO: A better name is needed
+        d_m["outwards_vector_enforcer"] = sps.dia_matrix(
+            (sgn_mat, 0), shape=(sgn_mat.size, sgn_mat.size)
+        )
