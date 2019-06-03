@@ -501,6 +501,8 @@ class Assembler:
 
             # Loop over variables, count dofs and identify variable-term
             # combinations internal to the node
+            if self._local_variables(d) is None:
+                continue
             for key_1, v in self._local_variables(d).items():
 
                 # First assign a block index.
@@ -555,6 +557,8 @@ class Assembler:
         for e, d in self.gb.edges():
             mg = d["mortar_grid"]
 
+            if self._local_variables(d) is None:
+                continue
             for key_1, v in self._local_variables(d).items():
 
                 # First count the number of dofs per variable. Note that the
