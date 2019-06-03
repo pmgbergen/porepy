@@ -471,7 +471,9 @@ def set_projections(gb):
         #
         # NOTE: The basis for the tangential direction is determined by the
         # construction internally in TangentialNormalProjection.
-        projection = pp.TangentialNormalProjection(outwards_unit_vector_mortar[:, 0].reshape((-1, 1)))
+        projection = pp.TangentialNormalProjection(
+            outwards_unit_vector_mortar[:, 0].reshape((-1, 1))
+        )
 
         # Store the projection operator in the mortar data
         d_m["tangential_normal_projection"] = projection

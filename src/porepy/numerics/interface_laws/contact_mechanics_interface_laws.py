@@ -254,9 +254,9 @@ class PrimalContactCoupling(object):
         master_stress = data_master[pp.DISCRETIZATION_MATRICES][
             self.discr_master.keyword
         ]["stress"]
-        master_bc_values = data_master[pp.PARAMETERS][
-            self.discr_master.keyword
-        ]["bc_values"]
+        master_bc_values = data_master[pp.PARAMETERS][self.discr_master.keyword][
+            "bc_values"
+        ]
         master_divergence = pp.fvutils.vector_divergence(g_master)
 
         # The mortar variable (boundary displacement) takes the form of a Dirichlet
@@ -310,34 +310,28 @@ class PrimalContactCoupling(object):
         # Optionally, a diffusion term can be added in the tangential direction
         # of the stresses, this is currently under implementation.
 
-        # Operator to switch the sign of vectors on higher-dimensional faces
-        # that point out of the surface. This is used to switch direction of the
-        # stress on boundary for the higher dimensional domain: The contact forces
-        # are defined as negative in contact, whereas the sign of the higher
+        # The master divergence operator is needed to switch the sign of vectors on
+        # higher-dimensional faces that point into the fracture surface. The effect is to
+        # switch direction of the stress on boundary for the higher dimensional domain: The
+        # contact forces are defined as negative in contact, whereas the sign of the higher
         # dimensional stresses are defined according to the direction of the
-        # normal vector, or equivalently the divergence operator.
-        # Multiplication by this operator leaves all higher dimensional
-        # stresses positive if directed outwards.
-        sign_switcher_master = data_edge["outwards_vector_enforcer"]
-        # IS: Am I right that this is nothing but a local div operator? If so, I suggest
-        # to i) construct it directly from master_divergence, or ii) use that for the
-        # keyword for storage in data_edge.
+        # normal vector, as reflected in the divergence operator.
 
         ## First, we obtain \lambda_mortar = stress * u_master + bound_stress * u_mortar
         # Stress contribution from the higher dimensional domain, projected onto
         # the mortar grid
         # Switch the direction of the vectors, so that for all faces, a positive
-        # force points into the surface.
-        # IS: It says positive if outwards ten lines up.
+        # force points into the fracture surface.
         stress_from_master = (
             mg.master_to_mortar_int(nd=ambient_dimension)
-            * sign_switcher_master
+            * master_divergence
             * master_stress
         )
         cc[mortar_ind, master_ind] = stress_from_master
         # Stress contribution from boundary conditions.
-        rhs[mortar_ind] = - (mg.master_to_mortar_int(nd=ambient_dimension)
-            * sign_switcher_master
+        rhs[mortar_ind] = -(
+            mg.master_to_mortar_int(nd=ambient_dimension)
+            * master_divergence
             * master_bound_stress
             * master_bc_values
         )
@@ -345,11 +339,10 @@ class PrimalContactCoupling(object):
         # dimensional domain via a boundary condition, and back again by a
         # projection operator.
         # Switch the direction of the vectors, so that for all faces, a positive
-        # force points into the surface.
-        # IS: See previous comment.
+        # force points into the fracture surface.
         stress_from_mortar = (
             mg.master_to_mortar_int(nd=ambient_dimension)
-            * sign_switcher_master
+            * master_divergence
             * master_bound_stress
             * mg.mortar_to_master_avg(nd=ambient_dimension)
         )
@@ -373,7 +366,7 @@ class PrimalContactCoupling(object):
             * mg.slave_to_mortar_int(nd=ambient_dimension)
         )
         # Minus to obtain -\lambda_slave + \lambda_mortar = 0.
-        cc[mortar_ind, slave_ind] = - contact_stress_to_mortar
+        cc[mortar_ind, slave_ind] = -contact_stress_to_mortar
 
         if self.use_surface_discr:
             restrict_to_tangential_direction = projection.project_tangential(
