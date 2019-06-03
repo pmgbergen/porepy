@@ -4,6 +4,11 @@
 Created on Mon May 13 08:53:05 2019
 
 @author: eke001
+
+For details on the conditions discretized herein, see
+
+Berge et al., 2019: Finite volume discretization for poroelastic media with fractures
+modeled by contact mechanics.
 """
 import numpy as np
 import scipy.sparse as sps
@@ -49,10 +54,13 @@ class ColoumbContact:
         projection operator associated with the surface. The contact forces
         should be interpreted as tangential and normal to this plane.
 
-        NOTE: Quantities stated in the global coordinate system (e.g.
+        NOTES:
+            Quantities stated in the global coordinate system (e.g.
         displacements on the adjacent mortar grids) must be projected to the
         local system, using the same projection operator, when paired with the
         produced discretization (that is, in the global assembly).
+            There is a numerical parameter c_num. The sensitivity is currently
+        unknown.
 
         Assumptions and other noteworthy aspects:  TODO: Rewrite this when the
         implementation is ready.
@@ -68,7 +76,7 @@ class ColoumbContact:
 
         # CLARIFICATIONS NEEDED:
         #   1) Do projection and rotation commute on non-matching grids? The
-        #   gut feel says yet, but I'm not sure.
+        #   gut feel says yes, but I'm not sure.
 
         # Process input
         parameters_l = data_l[pp.PARAMETERS]
@@ -119,7 +127,7 @@ class ColoumbContact:
             * data_edge[self.surface_variable]
         )
 
-        # Rotated displacement jumps. these are in the local coordinates, on
+        # Rotated displacement jumps. These are in the local coordinates, on
         # the lower-dimensional grid
         displacement_jump_normal = (
             projection.project_normal(g_l.num_cells) * displacement_jump_global_coord
@@ -142,8 +150,7 @@ class ColoumbContact:
 
         # Find contact and sliding region
 
-        # Contact region is determined from the normal direction, stored in the
-        # last row of the projected stress and deformation.
+        # Contact region is determined from the normal direction.
         penetration_bc = self._penetration(
             contact_force_normal, displacement_jump_normal, c_num
         )
@@ -173,6 +180,7 @@ class ColoumbContact:
         #   the coefficient in a Robin boundary condition (using the terminology of
         #   the mpsa implementation)
         # r is the right hand side term
+        # IS: Comment about the traction weight?
 
         for i in range(num_cells):
             if sliding_bc[i] & penetration_bc[i]:  # in contact and sliding
@@ -429,7 +437,7 @@ def set_projections(gb):
         # Neigboring grids
         _, g_h = gb.nodes_of_edge(e)
 
-        # Find faecs of the higher dimensional grid that coincide with the mortar
+        # Find faces of the higher dimensional grid that coincide with the mortar
         # grid. Go via the master to mortar projection
         # Convert matrix to csr, then the relevant face indices are found from
         # the row indices
@@ -440,15 +448,15 @@ def set_projections(gb):
         sgn = g_h.sign_of_faces(faces_on_surface)
 
         # Unit normal vector
-        nc = g_h.face_normals[: g_h.dim] / g_h.face_areas
+        unit_normal = g_h.face_normals[: g_h.dim] / g_h.face_areas
         # Ensure all normal vectors on the relevant surface points outwards
-        nc[:, faces_on_surface] *= sgn
+        unit_normal[:, faces_on_surface] *= sgn
 
         # Now we need to pick out a normal vector of the higher dimensional grid
         # which coincides with this mortar grid. This could probably have been
         # done with face tags, but we instead project the normal vectors onto the
         # mortar grid to kill off all irrelevant grids.
-        nc_mortar = mg.master_to_mortar_int().dot(nc.T).T
+        outwards_unit_vector_mortar = mg.master_to_mortar_int().dot(unit_normal.T).T
 
         # Use a single normal vector to span the tangential and normal space,
         # assuming the surface is planar.
@@ -463,19 +471,21 @@ def set_projections(gb):
         #
         # NOTE: The basis for the tangential direction is determined by the
         # construction internally in TangentialNormalProjection.
-        projection = pp.TangentialNormalProjection(nc_mortar[:, 0].reshape((-1, 1)))
+        projection = pp.TangentialNormalProjection(outwards_unit_vector_mortar[:, 0].reshape((-1, 1)))
 
         # Store the projection operator in the mortar data
         d_m["tangential_normal_projection"] = projection
 
-        # Also define a matrix to switch the sign of of vectors on the faces on the
-        # higher dimensional grid that 1) neighbors the mortar grid 2) has an
+        # Also define a matrix to switch the sign of vectors on the faces on the
+        # higher dimensional grid that 1) neighbor the mortar grid 2) have an
         # inwards pointing normal vector
         # Zero elements in all other faces - this operator should only be used
         # in connection with a mapping to the mortar grid
+        # IS: I don't understand exactly which purposes this serves. See comments in
+        # contact_mechanics_interface_laws
         sgn_mat = np.zeros(g_h.num_faces)
         sgn_mat[faces_on_surface] = sgn
-        # Dpulicate the numbers, the operator is intended for vector quantities
+        # Duplicate the numbers, the operator is intended for vector quantities
         sgn_mat = np.tile(sgn_mat, (ambient_dim, 1)).ravel(order="F")
 
         # Create the diagonal matrix.
