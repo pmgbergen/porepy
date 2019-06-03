@@ -254,9 +254,9 @@ class PrimalContactCoupling(object):
         master_stress = data_master[pp.DISCRETIZATION_MATRICES][
             self.discr_master.keyword
         ]["stress"]
-        master_bc_values = data_master[pp.PARAMETERS][
-            self.discr_master.keyword
-        ]["bc_values"]
+        master_bc_values = data_master[pp.PARAMETERS][self.discr_master.keyword][
+            "bc_values"
+        ]
         master_divergence = pp.fvutils.vector_divergence(g_master)
 
         # The mortar variable (boundary displacement) takes the form of a Dirichlet
@@ -329,7 +329,8 @@ class PrimalContactCoupling(object):
         )
         cc[mortar_ind, master_ind] = stress_from_master
         # Stress contribution from boundary conditions.
-        rhs[mortar_ind] = - (mg.master_to_mortar_int(nd=ambient_dimension)
+        rhs[mortar_ind] = -(
+            mg.master_to_mortar_int(nd=ambient_dimension)
             * master_divergence
             * master_bound_stress
             * master_bc_values
@@ -365,7 +366,7 @@ class PrimalContactCoupling(object):
             * mg.slave_to_mortar_int(nd=ambient_dimension)
         )
         # Minus to obtain -\lambda_slave + \lambda_mortar = 0.
-        cc[mortar_ind, slave_ind] = - contact_stress_to_mortar
+        cc[mortar_ind, slave_ind] = -contact_stress_to_mortar
 
         if self.use_surface_discr:
             restrict_to_tangential_direction = projection.project_tangential(
