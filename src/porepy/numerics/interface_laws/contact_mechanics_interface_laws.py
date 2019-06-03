@@ -254,10 +254,17 @@ class PrimalContactCoupling(object):
         master_stress = data_master[pp.DISCRETIZATION_MATRICES][
             self.discr_master.keyword
         ]["stress"]
+        master_bc_values = data_master[pp.PARAMETERS][
+            self.discr_master.keyword
+        ]["bc_values"]
         master_divergence = pp.fvutils.vector_divergence(g_master)
 
         # The mortar variable (boundary displacement) takes the form of a Dirichlet
-        # condition for the master side.
+        # condition for the master side. The MPSA convention is to have
+        # - div * bound_stress * bc_values
+        # on the rhs. Accordingly, the contribution from the mortar variable (boundary
+        # displacement) on the left hand side is positive:
+        # div * bound_stress * u_mortar
         cc[master_ind, mortar_ind] = (
             master_divergence
             * master_bound_stress
@@ -295,7 +302,8 @@ class PrimalContactCoupling(object):
         # Right hand side system. In the local (surface) coordinate system.
         rhs[slave_ind] = rhs_slave
 
-        ## Equation for the mortar rows
+        ### Equation for the mortar rows
+
         # This is first a stress balance: stress from the higher dimensional
         # domain (both interior and bound_stress) should match with the contact stress:
         # -\lambda_slave + \lambda_mortar = 0.
@@ -311,24 +319,34 @@ class PrimalContactCoupling(object):
         # Multiplication by this operator leaves all higher dimensional
         # stresses positive if directed outwards.
         sign_switcher_master = data_edge["outwards_vector_enforcer"]
+        # IS: Am I right that this is nothing but a local div operator? If so, I suggest
+        # to i) construct it directly from master_divergence, or ii) use that for the
+        # keyword for storage in data_edge.
 
-        # First, we obtain \lambda_mortar = stress * u_master + bound_stress * u_mortar
+        ## First, we obtain \lambda_mortar = stress * u_master + bound_stress * u_mortar
         # Stress contribution from the higher dimensional domain, projected onto
         # the mortar grid
         # Switch the direction of the vectors, so that for all faces, a positive
         # force points into the surface.
+        # IS: It says positive if outwards ten lines up.
         stress_from_master = (
             mg.master_to_mortar_int(nd=ambient_dimension)
             * sign_switcher_master
             * master_stress
         )
         cc[mortar_ind, master_ind] = stress_from_master
-
+        # Stress contribution from boundary conditions.
+        rhs[mortar_ind] = - (mg.master_to_mortar_int(nd=ambient_dimension)
+            * sign_switcher_master
+            * master_bound_stress
+            * master_bc_values
+        )
         # The stress contribution from the mortar variables, mapped to the higher
         # dimensional domain via a boundary condition, and back again by a
         # projection operator.
         # Switch the direction of the vectors, so that for all faces, a positive
         # force points into the surface.
+        # IS: See previous comment.
         stress_from_mortar = (
             mg.master_to_mortar_int(nd=ambient_dimension)
             * sign_switcher_master
@@ -337,26 +355,25 @@ class PrimalContactCoupling(object):
         )
         cc[mortar_ind, mortar_ind] = stress_from_mortar
 
-        # Second, the contact stress is mapped to the mortar grid.
+        ## Second, the contact stress is mapped to the mortar grid.
         # We have for the positive (first) and negative (second) side of the mortar that
         # \lambda_slave = \lambda_mortar_pos = -\lambda_mortar_neg,
         # so we need to map the slave traction with the corresponding signs to match the
         # mortar tractions.
 
-        # The contact force are defined in the surface coordinate system.
+        # The contact forces are defined in the surface coordinate system.
         # Map to the mortar grid, and rotate back again to the global coordinates
         # (note the inverse rotation is given by a transpose).
         # Finally, the contact stresses will be felt in different directions by
         # the two sides of the mortar grids (Newton's third law), hence
         # adjust the signs
         contact_stress_to_mortar = (
-            -mg.sign_of_mortar_sides(nd=ambient_dimension)
+            mg.sign_of_mortar_sides(nd=ambient_dimension)
             * projection.project_tangential_normal(mg.num_cells).T
             * mg.slave_to_mortar_int(nd=ambient_dimension)
         )
         # Minus to obtain -\lambda_slave + \lambda_mortar = 0.
-        cc[mortar_ind, slave_ind] = contact_stress_to_mortar
-        # breakpoint()
+        cc[mortar_ind, slave_ind] = - contact_stress_to_mortar
 
         if self.use_surface_discr:
             restrict_to_tangential_direction = projection.project_tangential(
