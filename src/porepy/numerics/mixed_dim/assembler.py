@@ -501,6 +501,8 @@ class Assembler:
 
             # Loop over variables, count dofs and identify variable-term
             # combinations internal to the node
+            if self._local_variables(d) is None:
+                continue
             for key_1, v in self._local_variables(d).items():
 
                 # First assign a block index.
@@ -555,6 +557,8 @@ class Assembler:
         for e, d in self.gb.edges():
             mg = d["mortar_grid"]
 
+            if self._local_variables(d) is None:
+                continue
             for key_1, v in self._local_variables(d).items():
 
                 # First count the number of dofs per variable. Note that the
@@ -719,6 +723,70 @@ class Assembler:
                 matrix[ri, ci] = sps_matrix((dof[ri], dof[ci]))
 
         return matrix, rhs
+
+    def assemble_operator(self, keyword, operator_name):
+        """
+        Assemble a global agebraic operator from the local algebraic operators on
+        the nodes or edges of a grid bucket. The global operator is a block diagonal
+        matrix with the local operators on the diagonal.
+
+        Parameters:
+        keyword (string): Keyword for the dictionary in
+            d[pp.DISCRETIZATION_MATRICES] for which the operator is stored.
+        operator_name (string): keyword for the operator in the
+            d[pp.DISCRETIZATION_MATRICES][keyword] dictionary.
+        Returns:
+        Operator (sps.block_diag): Global algebraic operator.
+        """
+        operator = []
+
+        def _get_operator(d, keyword, operator_name):
+            loc_disc = d[pp.DISCRETIZATION_MATRICES].get(keyword, None)
+            if loc_disc is None:  # Return if keyword is not found
+                return None
+            loc_op = loc_disc.get(operator_name, None)
+            return loc_op
+
+        # Loop ever nodes in the gb to find the local operators
+        for _, d in self.gb:
+            op = _get_operator(d, keyword, operator_name)
+            # If a node does not have the keyword or operator, do not add it.
+            if op is None:
+                continue
+            operator.append(op)
+
+        # Loop over edges in the gb to find the local operators
+        for _, d in self.gb.edges():
+            op = _get_operator(d, keyword, operator_name)
+            # If an edge does not have the keyword or operator, do not add it.
+            if op is None:
+                continue
+            operator.append(op)
+
+        if len(operator) == 0:
+            raise ValueError(
+                "Could not find operator: " + operator_name + " for keyword: " + keyword
+            )
+        return sps.block_diag(operator)
+
+    def assemble_parameter(self, keyword, parameter_name):
+        """
+        Assemble a global parameter from the local parameters defined on
+        the nodes or edges of a grid bucket. The global parameter is a nd-vector
+        of the stacked local parameters.
+
+        Parameters:
+        keyword (string): Keyword to access the dictionary
+            d[pp.PARAMETERS][keyword] for which the parameters are stored.
+        operator_name (string): keyword of the parameter. Will access
+            d[pp.DISCRETIZATION_MATRICES][keyword][parameter.
+        Returns:
+        Operator (sps.block_diag): Global parameter.
+        """
+        parameter = []
+        for _, d in self.gb:
+            parameter.append(d[pp.PARAMETERS][keyword][parameter_name])
+        return np.hstack(parameter)
 
     def _local_variables(self, d):
         """ Find variables defined in a data dictionary, and do intersection

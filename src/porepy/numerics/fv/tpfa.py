@@ -80,6 +80,8 @@ class Tpfa(FVElliptic):
         if g.dim == 0:
             matrix_dictionary["flux"] = sps.csr_matrix([0])
             matrix_dictionary["bound_flux"] = 0
+            matrix_dictionary["bound_pressure_cell"] = sps.csr_matrix([1])
+            matrix_dictionary["bound_pressure_face"] = sps.csr_matrix([0])
             return None
         if faces is None:
             is_not_active = np.zeros(g.num_faces, dtype=np.bool)
