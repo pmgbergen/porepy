@@ -122,7 +122,7 @@ from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer, mortars
 from porepy.grids import structured, simplex, coarsening, partition, refinement
 from porepy.numerics.fv import fvutils
-from porepy.utils import error
+from porepy.utils import error, grid_utils
 from porepy.utils.tangential_normal_projection import TangentialNormalProjection
 
 # Constants, units and keywords
