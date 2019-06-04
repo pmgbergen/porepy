@@ -102,7 +102,9 @@ class P1MassMatrix:
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
-        c_centers, f_normals, f_centers, R, dim, node_coords = pp.map_geometry.map_grid(g)
+        c_centers, f_normals, f_centers, R, dim, node_coords = pp.map_geometry.map_grid(
+            g
+        )
 
         # Allocate the data to store matrix entries, that's the most efficient
         # way to create a sparse matrix.

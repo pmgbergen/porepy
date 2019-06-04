@@ -1121,9 +1121,15 @@ class GridBucket(object):
         """
         if cond is None:
             cond = lambda g: True
-        if self.num_mortar_cells(cond)==0:
+        if self.num_mortar_cells(cond) == 0:
             return np.array([])
-        return np.hstack([d['mortar_grid'].cell_volumes for e,d in self.edges() if cond(d['mortar_grid'])])    
+        return np.hstack(
+            [
+                d["mortar_grid"].cell_volumes
+                for e, d in self.edges()
+                if cond(d["mortar_grid"])
+            ]
+        )
 
     def num_cells(self, cond=None):
         """

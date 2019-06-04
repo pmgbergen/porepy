@@ -78,7 +78,7 @@ class MortarGrid(object):
             self.name = name
         else:
             self.name = [name]
-        self.name.append('mortar_grid')
+        self.name.append("mortar_grid")
 
         # easy access attributes with a fixed ordering of the side grids
         self.num_cells = np.sum(
@@ -511,7 +511,7 @@ class BoundaryMortar(MortarGrid):
             self.name = name
         else:
             self.name = [name]
-        self.name.append('mortar_grid')
+        self.name.append("mortar_grid")
         # master_slave is a mapping from the faces of the slave grid to the
         # faces of the master grid.
         # We assume that, in the beginning the mortar grids are equal

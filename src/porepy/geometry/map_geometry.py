@@ -168,9 +168,7 @@ def project_points_to_line(p, tol=1e-4):
     return sorted_coord, rot, active_dimension, sort_ind
 
 
-def project_plane_matrix(
-    pts, normal=None, tol=1e-5, reference=None, check_planar=True
-):
+def project_plane_matrix(pts, normal=None, tol=1e-5, reference=None, check_planar=True):
     """ Project the points on a plane using local coordinates.
 
     The projected points are computed by a dot product.

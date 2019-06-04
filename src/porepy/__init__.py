@@ -107,7 +107,7 @@ from porepy.geometry import (
     constrain_geometry,
     map_geometry,
     geometry_property_checks,
-    bounding_box
+    bounding_box,
 )
 from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer, mortars

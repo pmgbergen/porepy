@@ -2,7 +2,8 @@ import numpy as np
 import porepy as pp
 
 import examples.papers.dfn_transport.discretization as compute
-#from examples.papers.dfn_transport.grid_export import grid_export
+
+# from examples.papers.dfn_transport.grid_export import grid_export
 
 # from examples.papers.dfn_transport.flux_trace import jump_flux
 
@@ -90,7 +91,7 @@ def main():
             # the flow problem
             compute.flow(gb, discr, param, bc_flag)
 
-            #if discr_key == "Tpfa":
+            # if discr_key == "Tpfa":
             #    grid_export(gb, None, "grid_" + mesh_size_key + "/")
 
             # jump_flux(gb, param["mortar_flux"])

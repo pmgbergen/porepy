@@ -1410,13 +1410,13 @@ class TestAssembler(unittest.TestCase):
         for g, d in gb:
             if g.grid_num == 1:
                 A, _ = MockNodeDiscretization(1).assemble_matrix_rhs(g, d)
-                d[pp.DISCRETIZATION_MATRICES] = {key_1: {term:A}}
+                d[pp.DISCRETIZATION_MATRICES] = {key_1: {term: A}}
                 g1_ind = i
             else:
                 A, _ = MockNodeDiscretization(-1).assemble_matrix_rhs(g, d)
-                d[pp.DISCRETIZATION_MATRICES] = {key_1: {term:A}}
+                d[pp.DISCRETIZATION_MATRICES] = {key_1: {term: A}}
                 g2_ind = i
-            i+=1
+            i += 1
         for e, d in gb.edges():
             d[pp.DISCRETIZATION_MATRICES] = {}
 
@@ -1438,7 +1438,7 @@ class TestAssembler(unittest.TestCase):
         # Variable name assigned on nodes. Same for both grids
         for _, d in gb.edges():
             A = sps.csc_matrix(np.array([[1, 2, 3]]))
-            d[pp.DISCRETIZATION_MATRICES] = {key_1: {term:A}}
+            d[pp.DISCRETIZATION_MATRICES] = {key_1: {term: A}}
         for _, d in gb:
             d[pp.DISCRETIZATION_MATRICES] = {}
 
@@ -1458,24 +1458,24 @@ class TestAssembler(unittest.TestCase):
         i = 0
         for g, d in gb:
             if g.grid_num == 1:
-                param = np.array([1,3,4])
+                param = np.array([1, 3, 4])
                 d[pp.PARAMETERS] = {key_1: {term: param}}
                 g1_ind = i
             else:
-                param = np.array([5,6,7])
-                d[pp.PARAMETERS] = {key_1: {term:param}}
+                param = np.array([5, 6, 7])
+                d[pp.PARAMETERS] = {key_1: {term: param}}
                 g2_ind = i
-            i+=1
+            i += 1
         for e, d in gb.edges():
             d[pp.PARAMETERS] = {}
 
         general_assembler = pp.Assembler(gb)
         P = general_assembler.assemble_parameter(key_1, term)
 
-        if g1_ind==0:
-            param_known = np.array([1,3,4,5,6,7])
+        if g1_ind == 0:
+            param_known = np.array([1, 3, 4, 5, 6, 7])
         else:
-            param_known = np.array([5,6,7,1,3,4])
+            param_known = np.array([5, 6, 7, 1, 3, 4])
         self.assertTrue(np.allclose(param_known, P))
 
 
