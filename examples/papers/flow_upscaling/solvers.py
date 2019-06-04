@@ -159,7 +159,13 @@ def advdiff(gb, param, model_flow):
     logger.info("Prepare the exporting")
     save = pp.Exporter(gb, "solution", folder=param["folder"])
     logger.info("done")
-    variables = [variable, param["pressure"], param["P0_flux"], "frac_num", "cell_volumes"]
+    variables = [
+        variable,
+        param["pressure"],
+        param["P0_flux"],
+        "frac_num",
+        "cell_volumes",
+    ]
 
     x = np.ones(A.shape[0]) * param["initial_advdiff"]
     outflow = np.zeros(param["n_steps"])
