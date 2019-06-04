@@ -724,14 +724,13 @@ class Assembler:
 
         return matrix, rhs
 
-    def assemble_operator(self, gb, keyword, operator_name):
+    def assemble_operator(self, keyword, operator_name):
         """
         Assemble a global agebraic operator from the local algebraic operators on
         the nodes or edges of a grid bucket. The global operator is a block diagonal
         matrix with the local operators on the diagonal.
 
         Parameters:
-        gb (GridBucket)
         keyword (string): Keyword for the dictionary in
             d[pp.DISCRETIZATION_MATRICES] for which the operator is stored.
         operator_name (string): keyword for the operator in the
@@ -748,7 +747,7 @@ class Assembler:
             return loc_op
 
         # Loop ever nodes in the gb to find the local operators
-        for g, d in gb:
+        for _, d in self.gb:
             op = _get_operator(d, keyword, operator_name)
             # If a node does not have the keyword or operator, do not add it.
             if op is None:
@@ -756,7 +755,7 @@ class Assembler:
             operator.append(op)
 
         # Loop over edges in the gb to find the local operators
-        for e, d in gb.edges():
+        for _, d in self.gb.edges():
             op = _get_operator(d, keyword, operator_name)
             # If an edge does not have the keyword or operator, do not add it.
             if op is None:
@@ -769,14 +768,13 @@ class Assembler:
             )
         return sps.block_diag(operator)
 
-    def assemble_parameter(self, gb, keyword, parameter_name):
+    def assemble_parameter(self, keyword, parameter_name):
         """
         Assemble a global parameter from the local parameters defined on
         the nodes or edges of a grid bucket. The global parameter is a nd-vector
         of the stacked local parameters.
 
         Parameters:
-        gb (GridBucket)
         keyword (string): Keyword to access the dictionary
             d[pp.PARAMETERS][keyword] for which the parameters are stored.
         operator_name (string): keyword of the parameter. Will access
@@ -785,7 +783,7 @@ class Assembler:
         Operator (sps.block_diag): Global parameter.
         """
         parameter = []
-        for g, d in gb:
+        for _, d in self.gb:
             parameter.append(d[pp.PARAMETERS][keyword][parameter_name])
         return np.hstack(parameter)
 
