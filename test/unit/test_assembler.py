@@ -20,7 +20,7 @@ Cases covered are:
 7. Same as 6, but also including cross-variable coupling on the edge.
 8. Mixture of 6 and 7; one edge variable is depends on both node variables,
     the other only depends on 'itself' on the node.
-
+9. Assemble opertors and parameters on grids.
 
 NOTE: Throughout the tests, the indexing of the known disrcetization matrices
 assumes that the order of the variables are the same as they are defined on the
@@ -1398,6 +1398,85 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(
             np.allclose(A_1_2, A[term + "_" + key_1 + "_" + key_2].todense())
         )
+
+    def test_assemble_operator_nodes(self):
+        """ Test assembly of operator on nodes
+        """
+        gb = self.define_gb()
+        key_1 = "var_1"
+        term = "op"
+        # Variable name assigned on nodes. Same for both grids
+        i = 0
+        for g, d in gb:
+            if g.grid_num == 1:
+                A, _ = MockNodeDiscretization(1).assemble_matrix_rhs(g, d)
+                d[pp.DISCRETIZATION_MATRICES] = {key_1: {term:A}}
+                g1_ind = i
+            else:
+                A, _ = MockNodeDiscretization(-1).assemble_matrix_rhs(g, d)
+                d[pp.DISCRETIZATION_MATRICES] = {key_1: {term:A}}
+                g2_ind = i
+            i+=1
+        for e, d in gb.edges():
+            d[pp.DISCRETIZATION_MATRICES] = {}
+
+        general_assembler = pp.Assembler(gb)
+        Op = general_assembler.assemble_operator(key_1, term)
+
+        A_known = np.array([[0, 0], [0, 0]])
+        A_known[g1_ind, g1_ind] = 1
+        A_known[g2_ind, g2_ind] = -1
+
+        self.assertTrue(np.allclose(A_known, Op.todense()))
+
+    def test_assemble_operator_edges(self):
+        """ Test assembly of operator on edges
+        """
+        gb = self.define_gb()
+        key_1 = "var_1"
+        term = "op"
+        # Variable name assigned on nodes. Same for both grids
+        for _, d in gb.edges():
+            A = sps.csc_matrix(np.array([[1, 2, 3]]))
+            d[pp.DISCRETIZATION_MATRICES] = {key_1: {term:A}}
+        for _, d in gb:
+            d[pp.DISCRETIZATION_MATRICES] = {}
+
+        general_assembler = pp.Assembler(gb)
+        Op = general_assembler.assemble_operator(key_1, term)
+
+        A_known = np.array([[1, 2, 3]])
+        self.assertTrue(np.allclose(A_known, Op.todense()))
+
+    def test_assemble_parameters_node(self):
+        """ Test assembly of operator on nodes
+        """
+        gb = self.define_gb()
+        key_1 = "var_1"
+        term = "op"
+        # Variable name assigned on nodes. Same for both grids
+        i = 0
+        for g, d in gb:
+            if g.grid_num == 1:
+                param = np.array([1,3,4])
+                d[pp.PARAMETERS] = {key_1: {term: param}}
+                g1_ind = i
+            else:
+                param = np.array([5,6,7])
+                d[pp.PARAMETERS] = {key_1: {term:param}}
+                g2_ind = i
+            i+=1
+        for e, d in gb.edges():
+            d[pp.PARAMETERS] = {}
+
+        general_assembler = pp.Assembler(gb)
+        P = general_assembler.assemble_parameter(key_1, term)
+
+        if g1_ind==0:
+            param_known = np.array([1,3,4,5,6,7])
+        else:
+            param_known = np.array([5,6,7,1,3,4])
+        self.assertTrue(np.allclose(param_known, P))
 
 
 class MockNodeDiscretization(object):

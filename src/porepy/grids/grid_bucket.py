@@ -1069,7 +1069,7 @@ class GridBucket(object):
             cond: optional, predicate with a grid as input.
 
         Return:
-            num_cells: the total number of cells of the grid bucket.
+            cell_volumes (ndArray): The volume of all cells in the GridBucket
         """
         if cond is None:
             cond = lambda g: True
@@ -1085,7 +1085,7 @@ class GridBucket(object):
             cond: optional, predicate with a grid as input.
 
         Return:
-            num_cells: the total number of cells of the grid bucket.
+            face_centers (ndArray): The face centers of all faces in the GridBucket.
         """
         if cond is None:
             cond = lambda g: True
@@ -1101,7 +1101,7 @@ class GridBucket(object):
             cond: optional, predicate with a grid as input.
 
         Return:
-            num_cells: the total number of cells of the grid bucket.
+            cell_centers (ndArray): The cell centers of all cells in the GridBucket.
         """
         if cond is None:
             cond = lambda g: True
@@ -1117,7 +1117,7 @@ class GridBucket(object):
             cond: optional, predicate with a grid as input.
 
         Return:
-            num_cells: the total number of cells of the grid bucket.
+            cell_volumes (ndArray): The cell volumes of all mortar cells in the GridBucket.
         """
         if cond is None:
             cond = lambda g: True
@@ -1135,7 +1135,7 @@ class GridBucket(object):
             cond: optional, predicate with a grid as input.
 
         Return:
-            num_cells: the total number of cells of the grid bucket.
+            num_cells (int): the total number of cells of the grid bucket.
         """
         if cond is None:
             cond = lambda g: True
@@ -1151,7 +1151,7 @@ class GridBucket(object):
             cond: optional, predicate with a grid as input.
 
         Return:
-            num_cells: the total number of cells of the grid bucket.
+            num_cells (int): the total number of mortar cells of the grid bucket.
         """
         if cond is None:
             cond = lambda g: True
@@ -1174,7 +1174,7 @@ class GridBucket(object):
             cond: optional, predicate with a grid as input.
 
         Return:
-            num_faces: the total number of faces of the grid bucket.
+            num_faces (int): the total number of faces of the grid bucket.
         """
         if cond is None:
             cond = lambda g: True
@@ -1190,7 +1190,7 @@ class GridBucket(object):
             cond: optional, predicate with a grid as input.
 
         Return:
-            num_nodes: the total number of nodes of the grid bucket.
+            num_nodes (int): the total number of nodes of the grid bucket.
         """
         if cond is None:
             cond = lambda g: True
