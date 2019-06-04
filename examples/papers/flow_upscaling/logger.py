@@ -1,7 +1,7 @@
 import logging, sys
 
-class Logger(object):
 
+class Logger(object):
     def __init__(self, file_name="log.txt", stream=sys.stdout, level=logging.DEBUG):
 
         fmt = "%(asctime)s %(levelname)-8s %(message)s"
@@ -33,5 +33,6 @@ class Logger(object):
 
     def remove_tab(self):
         self.pre = self.pre[:-1]
+
 
 logger = Logger()

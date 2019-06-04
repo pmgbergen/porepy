@@ -739,9 +739,10 @@ class Assembler:
         Operator (sps.block_diag): Global algebraic operator.
         """
         operator = []
+
         def _get_operator(d, keyword, operator_name):
-            loc_disc = d[pp.DISCRETIZATION_MATRICES].get(keyword,None)
-            if loc_disc is None: # Return if keyword is not found
+            loc_disc = d[pp.DISCRETIZATION_MATRICES].get(keyword, None)
+            if loc_disc is None:  # Return if keyword is not found
                 return None
             loc_op = loc_disc.get(operator_name, None)
             return loc_op
@@ -762,9 +763,9 @@ class Assembler:
                 continue
             operator.append(op)
 
-        if len(operator)==0:
+        if len(operator) == 0:
             raise ValueError(
-                'Could not find operator: ' + operator_name +' for keyword: ' + keyword
+                "Could not find operator: " + operator_name + " for keyword: " + keyword
             )
         return sps.block_diag(operator)
 
