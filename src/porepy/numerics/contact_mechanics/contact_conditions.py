@@ -394,27 +394,13 @@ def set_projections(gb):
     """ Define a local coordinate system, and projection matrices, for all
     grids of co-dimension 1.
 
-    Also generate a matrix that makes vectors on the faces neighboring the
-    co-dimension 1 grids comply with the normal vector, that is, vectors on
-    faces with inwards pointing normal vectors are turned.
-
-    The function adds two items to the data dictionary of all GridBucket edges
-    that neighbors a co-dimension 1 grid:
+    The function adds one item to the data dictionary of all GridBucket edges
+    that neighbors a co-dimension 1 grid, defined as:
         key: tangential_normal_projection, value: pp.TangentialNormalProjection
             provides projection to the surface of the lower-dimensional grid
-        key: outwards_vector_enforcer: Value: sparse diagonal matrix which acts on
-            vector face quantites in the high-dimesional grid: Vectors on the faces
-            neighboring the edge have their direction switched if the normal vector
-            is pointing inwards. Vectors on faces not neighboring the edge are
-            zeroed out.
-
-    TODO: This function needs a better name that also reflects that the direction
-    switching matrix is produced.
 
     Note that grids of co-dimension 2 and higher are ignored in this construction,
     as we do not plan to do contact mechanics on these objects.
-
-    The fields are stored in
 
     It is assumed that the surface is planar.
 
@@ -477,21 +463,3 @@ def set_projections(gb):
 
         # Store the projection operator in the mortar data
         d_m["tangential_normal_projection"] = projection
-
-        # Also define a matrix to switch the sign of vectors on the faces on the
-        # higher dimensional grid that 1) neighbor the mortar grid 2) have an
-        # inwards pointing normal vector
-        # Zero elements in all other faces - this operator should only be used
-        # in connection with a mapping to the mortar grid
-        # IS: I don't understand exactly which purposes this serves. See comments in
-        # contact_mechanics_interface_laws
-        sgn_mat = np.zeros(g_h.num_faces)
-        sgn_mat[faces_on_surface] = sgn
-        # Duplicate the numbers, the operator is intended for vector quantities
-        sgn_mat = np.tile(sgn_mat, (ambient_dim, 1)).ravel(order="F")
-
-        # Create the diagonal matrix.
-        # TODO: A better name is needed
-        d_m["outwards_vector_enforcer"] = sps.dia_matrix(
-            (sgn_mat, 0), shape=(sgn_mat.size, sgn_mat.size)
-        )
