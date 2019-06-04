@@ -310,12 +310,15 @@ class PrimalContactCoupling(object):
         # Optionally, a diffusion term can be added in the tangential direction
         # of the stresses, this is currently under implementation.
 
-        # The master divergence operator is needed to switch the sign of vectors on
+        # A diagonal operator is needed to switch the sign of vectors on
         # higher-dimensional faces that point into the fracture surface. The effect is to
         # switch direction of the stress on boundary for the higher dimensional domain: The
         # contact forces are defined as negative in contact, whereas the sign of the higher
-        # dimensional stresses are defined according to the direction of the
-        # normal vector, as reflected in the divergence operator.
+        # dimensional stresses are defined according to the direction of the normal vector.
+        faces_on_fracture_surface = mg.master_to_mortar_int().tocsr().indices
+        sign_switcher = pp.grid_utils.switch_sign_if_inwards_normal(
+            g_master, ambient_dimension, faces_on_fracture_surface
+        )
 
         ## First, we obtain \lambda_mortar = stress * u_master + bound_stress * u_mortar
         # Stress contribution from the higher dimensional domain, projected onto
@@ -324,14 +327,14 @@ class PrimalContactCoupling(object):
         # force points into the fracture surface.
         stress_from_master = (
             mg.master_to_mortar_int(nd=ambient_dimension)
-            * master_divergence
+            * sign_switcher
             * master_stress
         )
         cc[mortar_ind, master_ind] = stress_from_master
         # Stress contribution from boundary conditions.
         rhs[mortar_ind] = -(
             mg.master_to_mortar_int(nd=ambient_dimension)
-            * master_divergence
+            * sign_switcher
             * master_bound_stress
             * master_bc_values
         )
@@ -342,7 +345,7 @@ class PrimalContactCoupling(object):
         # force points into the fracture surface.
         stress_from_mortar = (
             mg.master_to_mortar_int(nd=ambient_dimension)
-            * master_divergence
+            * sign_switcher
             * master_bound_stress
             * mg.mortar_to_master_avg(nd=ambient_dimension)
         )
