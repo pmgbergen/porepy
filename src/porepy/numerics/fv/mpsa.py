@@ -113,15 +113,31 @@ class Mpsa(
 
         partial = parameter_dictionary.get("partial_update", False)
         inverter = parameter_dictionary.get("inverter", None)
+        max_memory = parameter_dictionary.get("max_memory", None)
 
         if not partial:
-            stress, bound_stress, bound_displacement_cell, bound_displacement_face = mpsa(
-                g, c, bnd, eta=eta, hf_eta=hf_eta, inverter=inverter
-            )
-            matrix_dictionary["stress"] = stress
-            matrix_dictionary["bound_stress"] = bound_stress
-            matrix_dictionary["bound_displacement_cell"] = bound_displacement_cell
-            matrix_dictionary["bound_displacement_face"] = bound_displacement_face
+            if max_memory is None:
+                stress, bound_stress, bound_displacement_cell, bound_displacement_face = mpsa(
+                    g, c, bnd, eta=eta, hf_eta=hf_eta, inverter=inverter
+                )
+                matrix_dictionary["stress"] = stress
+                matrix_dictionary["bound_stress"] = bound_stress
+                matrix_dictionary["bound_displacement_cell"] = bound_displacement_cell
+                matrix_dictionary["bound_displacement_face"] = bound_displacement_face
+
+            else:
+                stress, bound_stress = mpsa(
+                    g,
+                    c,
+                    bnd,
+                    eta=eta,
+                    hf_eta=hf_eta,
+                    inverter=inverter,
+                    max_memory=max_memory,
+                )
+                matrix_dictionary["stress"] = stress
+                matrix_dictionary["bound_stress"] = bound_stress
+                # This option
         else:
             raise NotImplementedError(
                 """Partial discretiation for the Mpsa class is not
@@ -1024,7 +1040,7 @@ def mpsa(
         # entire grid.
         # TODO: We may want to estimate the memory need, and give a warning if
         # this seems excessive
-        stress, bound_stress, hf_cell, hf_bound = _mpsa_local(
+        return _mpsa_local(
             g,
             constit,
             bound,
@@ -1033,16 +1049,20 @@ def mpsa(
             hf_disp=hf_disp,
             hf_eta=hf_eta,
         )
+
     else:
+        if hf_disp:
+            raise ValueError("Mpsa options max_memory and hf_disp are incompatible")
+
         # Estimate number of partitions necessary based on prescribed memory
         # usage
         peak_mem = _estimate_peak_memory_mpsa(g)
-        num_part = np.ceil(peak_mem / max_memory)
+        num_part = np.ceil(peak_mem / max_memory).astype(np.int)
 
         logger.info("Split MPSA discretization into " + str(num_part) + " parts")
 
         # Let partitioning module apply the best available method
-        part = pp.grid.partition.partition_metis(g, num_part)
+        part = pp.partition.partition_metis(g, num_part)
 
         # Empty fields for stress and bound_stress. Will be expanded as we go.
         # Implementation note: It should be relatively straightforward to
@@ -1067,7 +1087,13 @@ def mpsa(
 
             # Perform local discretization.
             loc_stress, loc_bound_stress, loc_faces = mpsa_partial(
-                g, constit, bound, eta=eta, inverter=inverter, nodes=active_nodes
+                g,
+                constit,
+                bound,
+                eta=eta,
+                inverter=inverter,
+                nodes=active_nodes,
+                hf_disp=False,
             )
 
             # Eliminate contribution from faces already covered
@@ -1080,7 +1106,7 @@ def mpsa(
             stress += loc_stress
             bound_stress += loc_bound_stress
 
-    return stress, bound_stress, hf_cell, hf_bound
+        return stress, bound_stress
 
 
 def mpsa_update_partial(
@@ -1321,42 +1347,45 @@ def mpsa_partial(
     pp.fvutils.zero_out_sparse_rows(stress_glob, eliminate_ind)
     pp.fvutils.zero_out_sparse_rows(bound_stress_glob, eliminate_ind)
 
-    # If we are returning the subface displacement reconstruction matrices we have
-    # to do some more work. The following is equivalent to what is done for the stresses,
-    # but as they are working on faces, the displacement reconstruction has to work on
-    # subfaces.
-    # First, we find the mappings from local subfaces to global subfaces
-    subcell_topology = pp.fvutils.SubcellTopology(g)
-    l2g_sub_faces = np.where(np.in1d(subcell_topology.fno_unique, l2g_faces))[0]
-    # We now create a fake grid, just to be able to use the function map_subgrid_to_grid.
-    subgrid = pp.CartGrid([1] * g.dim)
-    subgrid.num_faces = subcell_topology.fno_unique.size
-    subgrid.num_cells = g.num_cells
-    sub_face_map, _ = pp.fvutils.map_subgrid_to_grid(
-        subgrid, l2g_sub_faces, l2g_cells, is_vector=True
-    )
-    # The sub_face_map is now a map from local sub_faces to global subfaces.
-    # Next we need to mat the the local sub face reconstruction "hf_cell_loc"
-    # onto the global grid. The cells are ordered the same, so we can use the
-    # cell_map from the stress computation. Similarly for the faces.
-    hf_cell_glob = sub_face_map * hf_cell_loc * cell_map
-    hf_bound_glob = sub_face_map * hf_bound_loc * face_map.T
-    # Next we need to eliminate the subfaces outside the active faces.
-    # We map from outside faces to outside subfaces
-    sub_outside = np.where(np.in1d(subcell_topology.fno_unique, outside))[0]
-    # Then expand the indices.
-    # The indices are ordered as first all variables of subface 1 then all variables
-    # of subface 2, etc. Duplicate indices for each dimension and multipy by g.dim to
-    # obtain correct x-index.
-    sub_eliminate_ind = g.dim * np.tile(sub_outside, (g.dim, 1))
-    # Next add an increment to the y (and possible z) dimension to obtain correct index
-    # For them
-    sub_eliminate_ind += np.atleast_2d(np.arange(0, g.dim)).T
-    sub_eliminate_ind = sub_eliminate_ind.ravel("F")
-    # now kill the contribution of these faces
-    pp.fvutils.zero_out_sparse_rows(hf_cell_glob, sub_eliminate_ind)
-    pp.fvutils.zero_out_sparse_rows(hf_bound_glob, sub_eliminate_ind)
-    return stress_glob, bound_stress_glob, hf_cell_glob, hf_bound_glob, active_faces
+    if hf_disp:
+        # If we are returning the subface displacement reconstruction matrices we have
+        # to do some more work. The following is equivalent to what is done for the stresses,
+        # but as they are working on faces, the displacement reconstruction has to work on
+        # subfaces.
+        # First, we find the mappings from local subfaces to global subfaces
+        subcell_topology = pp.fvutils.SubcellTopology(g)
+        l2g_sub_faces = np.where(np.in1d(subcell_topology.fno_unique, l2g_faces))[0]
+        # We now create a fake grid, just to be able to use the function map_subgrid_to_grid.
+        subgrid = pp.CartGrid([1] * g.dim)
+        subgrid.num_faces = subcell_topology.fno_unique.size
+        subgrid.num_cells = g.num_cells
+        sub_face_map, _ = pp.fvutils.map_subgrid_to_grid(
+            subgrid, l2g_sub_faces, l2g_cells, is_vector=True
+        )
+        # The sub_face_map is now a map from local sub_faces to global subfaces.
+        # Next we need to mat the the local sub face reconstruction "hf_cell_loc"
+        # onto the global grid. The cells are ordered the same, so we can use the
+        # cell_map from the stress computation. Similarly for the faces.
+        hf_cell_glob = sub_face_map * hf_cell_loc * cell_map
+        hf_bound_glob = sub_face_map * hf_bound_loc * face_map.T
+        # Next we need to eliminate the subfaces outside the active faces.
+        # We map from outside faces to outside subfaces
+        sub_outside = np.where(np.in1d(subcell_topology.fno_unique, outside))[0]
+        # Then expand the indices.
+        # The indices are ordered as first all variables of subface 1 then all variables
+        # of subface 2, etc. Duplicate indices for each dimension and multipy by g.dim to
+        # obtain correct x-index.
+        sub_eliminate_ind = g.dim * np.tile(sub_outside, (g.dim, 1))
+        # Next add an increment to the y (and possible z) dimension to obtain correct index
+        # For them
+        sub_eliminate_ind += np.atleast_2d(np.arange(0, g.dim)).T
+        sub_eliminate_ind = sub_eliminate_ind.ravel("F")
+        # now kill the contribution of these faces
+        pp.fvutils.zero_out_sparse_rows(hf_cell_glob, sub_eliminate_ind)
+        pp.fvutils.zero_out_sparse_rows(hf_bound_glob, sub_eliminate_ind)
+        return stress_glob, bound_stress_glob, hf_cell_glob, hf_bound_glob, active_faces
+    else:
+        return stress_glob, bound_stress_glob, active_faces
 
 
 def _mpsa_local(
