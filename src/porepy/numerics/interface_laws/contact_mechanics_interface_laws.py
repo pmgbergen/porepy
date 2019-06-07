@@ -183,8 +183,8 @@ class PrimalContactCoupling(object):
             data_master: Data dictionary for the master suddomain
             data_slave: Data dictionary for the slave subdomain.
             data_edge: Data dictionary for the edge between the subdomains
-            matrix_master: original discretization for the master subdomain
-            matrix_slave: original discretization for the slave subdomain
+            matrix: original discretization matrix, to which the coupling terms will be
+                added.
 
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
@@ -386,6 +386,111 @@ class PrimalContactCoupling(object):
                 restrict_to_tangential_direction.T * surface_discr
             )
 
+        matrix += cc
+
+        return matrix, rhs
+
+
+class DivUCoupling:
+    """
+    Coupling conditions for DivU term.
+
+    For mixed-dimensional flow in coupled to matrix mechanics, i.e. Biot in the matrix
+    and mass conservation in matrix and fractures.
+    We have assume a primal displacement mortar variable, which will contribute
+    to the div u term in fracture ("div aperture") and matrix.
+    """
+
+    def __init__(self, variable, discr_master, discr_slave):
+        self.mechanics_keyword = discr_master.keyword
+        # Set variable names for the vector and scalar variable, used to access
+        # solutions from previous time steps
+        self.variable = variable
+
+        self.discr_master = discr_master
+        self.discr_slave = discr_slave
+
+    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+        """
+        Nothing to do
+        """
+        pass
+
+    def assemble_matrix_rhs(
+        self, g_master, g_slave, data_master, data_slave, data_edge, matrix
+    ):
+        """
+        Assemble the dicretization of the interface law, and its impact on
+        the neighboring domains, namely the mortar displacement's contribution as a
+            internal dirichlet contribution for the higher dimension, and
+            source term for the lower dimension.
+        Parameters:
+            g_master: Grid on one neighboring subdomain.
+            g_slave: Grid on the other neighboring subdomain.
+            data_master: Data dictionary for the master suddomain
+            data_slave: Data dictionary for the slave subdomain.
+            data_edge: Data dictionary for the edge between the subdomains
+            matrix: original discretization matrix, to which the coupling terms will be
+                added.
+        """
+        ambient_dimension = g_master.dim
+
+        master_ind = 0
+        slave_ind = 1
+        mortar_ind = 2
+
+        # Generate matrix for the coupling. This can probably be generalized
+        # once we have decided on a format for the general variables
+        mg = data_edge["mortar_grid"]
+
+        dof_master = self.discr_master.ndof(g_master)
+        dof_slave = self.discr_slave.ndof(g_slave)
+
+        if not dof_master == matrix[master_ind, master_ind].shape[1]:
+            raise ValueError(
+                """The number of dofs of the master discretization given
+            in RobinCoupling must match the number of dofs given by the matrix
+            """
+            )
+        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
+            raise ValueError(
+                """The number of dofs of the slave discretization given
+            in RobinCoupling must match the number of dofs given by the matrix
+            """
+            )
+        elif not mg.num_cells * ambient_dimension == matrix[master_ind, 2].shape[1]:
+            raise ValueError(
+                """The number of dofs of the edge discretization given
+            in the PrimalContactCoupling must match the number of dofs given by the matrix
+            """
+            )
+
+        # We know the number of dofs from the master and slave side from their
+        # discretizations
+        #        dof = np.array([dof_master, dof_slave, mg.num_cells])
+        dof = np.array(
+            [
+                matrix[master_ind, master_ind].shape[1],
+                matrix[slave_ind, slave_ind].shape[1],
+                mg.num_cells * ambient_dimension,
+            ]
+        )
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+        cc = cc.reshape((3, 3))
+        rhs = np.empty(3, dtype=np.object)
+        rhs[master_ind] = np.zeros(dof_master)
+        rhs[slave_ind] = np.zeros(dof_slave)
+        rhs[mortar_ind] = np.zeros(mg.num_cells * ambient_dimension)
+
+        grid_swap = False
+        # Let the DivU class assemble the contribution from mortar to master
+        self.discr_master.assemble_int_bound_displacement_trace(
+            g_master, data_master, data_edge, grid_swap, cc, matrix, rhs, master_ind
+        )
+        # and from mortar to slave.
+        self.discr_slave.assemble_int_bound_displacement_source(
+            g_slave, data_slave, data_edge, cc, matrix, rhs, slave_ind
+        )
         matrix += cc
 
         return matrix, rhs
