@@ -93,7 +93,7 @@ def setup_flow_assembler(gb, method, data_key=None, coupler=None):
         }
         d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-    assembler = pp.Assembler()
+    assembler = pp.Assembler(gb)
     return assembler
 
 
@@ -105,9 +105,9 @@ def solve_and_distribute_pressure(gb, assembler):
         GridBucket: Of problem to be solved
         assembler (Assembler):
     """
-    A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+    A, b = assembler.assemble_matrix_rhs()
     p = np.linalg.solve(A.A, b)
-    assembler.distribute_variable(gb, p, block_dof, full_dof)
+    assembler.distribute_variable(p)
 
 
 def compare_arrays(a, b, tol=1e-4, sort=True):

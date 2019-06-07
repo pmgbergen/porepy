@@ -122,13 +122,13 @@ def main(kf, description, is_coarse=False, if_export=False):
         }
         d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-    assembler = pp.Assembler()
+    assembler = pp.Assembler(gb)
 
     # Discretize
-    A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+    A, b = assembler.assemble_matrix_rhs()
     p = sps.linalg.spsolve(A, b)
 
-    assembler.distribute_variable(gb, p, block_dof, full_dof)
+    assembler.distribute_variable(p)
 
     for g, d in gb:
         d["darcy_flux"] = d["pressure"][: g.num_faces]

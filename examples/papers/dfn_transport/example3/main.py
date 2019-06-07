@@ -2,7 +2,8 @@ import numpy as np
 import porepy as pp
 
 import examples.papers.dfn_transport.discretization as compute
-#from examples.papers.dfn_transport.grid_export import grid_export
+
+# from examples.papers.dfn_transport.grid_export import grid_export
 
 # from examples.papers.dfn_transport.flux_trace import jump_flux
 
@@ -69,14 +70,14 @@ def main():
     theta = 80 * pp.CELSIUS
 
     # reaction coefficient \gamma * (T - T_rock)
-    gamma = 2.44e-9*0.125
+    gamma = 2.44e-9 * 0.125
     theta_rock = theta
 
     # boundary conditions
     bc_flow = 2500 * pp.METER / 5
     bc_trans = 30 * pp.CELSIUS
 
-    end_time = 3.154e+7
+    end_time = 3.154e7
     n_steps = 200
     time_step = end_time / n_steps
 
@@ -86,7 +87,7 @@ def main():
         for discr_key, discr in discretizations.items():
 
             if discr_key == "MVEM":
-                mesh_size = 0.17*1e2
+                mesh_size = 0.17 * 1e2
             else:
                 mesh_size = 1e2  # np.power(2., -4)
 
@@ -115,7 +116,7 @@ def main():
                 "mass_weight": 1.95e-3,
                 "src": gamma * theta_rock,
                 "reaction": gamma,
-                "flux_weight": 1.,
+                "flux_weight": 1.0,
                 "bc_trans": bc_trans,
                 "init_trans": theta,
                 "time_step": time_step,
@@ -126,7 +127,7 @@ def main():
             # the flow problem
             compute.flow(gb, discr, param, bc_type)
 
-            #if discr_key == "Tpfa":
+            # if discr_key == "Tpfa":
             #    grid_export(gb, None, folder + "/grid/")
 
             # jump_flux(gb, param["mortar_flux"])

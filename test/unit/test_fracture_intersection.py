@@ -24,14 +24,14 @@ class TestSweepAndPrune(unittest.TestCase):
         x_min = np.array([0, 2])
         x_max = np.array([1, 3])
 
-        pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
+        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
         self.assertTrue(pairs.size == 0)
 
     def test_intersection_two_lines(self):
         x_min = np.array([0, 1])
         x_max = np.array([2, 3])
 
-        pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
+        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
 
         self.assertTrue(pairs.size == 2)
         self.assertTrue(pairs[0, 0] == 0)
@@ -41,7 +41,7 @@ class TestSweepAndPrune(unittest.TestCase):
         x_min = np.array([1, 0])
         x_max = np.array([3, 2])
 
-        pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
+        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
 
         self.assertTrue(pairs.size == 2)
         self.assertTrue(pairs[0, 0] == 0)
@@ -51,7 +51,7 @@ class TestSweepAndPrune(unittest.TestCase):
         x_min = np.array([0, 0])
         x_max = np.array([3, 2])
 
-        pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
+        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
 
         self.assertTrue(pairs.size == 2)
         self.assertTrue(pairs[0, 0] == 0)
@@ -61,7 +61,7 @@ class TestSweepAndPrune(unittest.TestCase):
         x_min = np.array([0, 1])
         x_max = np.array([3, 3])
 
-        pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
+        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
 
         self.assertTrue(pairs.size == 2)
         self.assertTrue(pairs[0, 0] == 0)
@@ -71,7 +71,7 @@ class TestSweepAndPrune(unittest.TestCase):
         x_min = np.array([0, 0])
         x_max = np.array([3, 3])
 
-        pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
+        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
 
         self.assertTrue(pairs.size == 2)
         self.assertTrue(pairs[0, 0] == 0)
@@ -81,7 +81,7 @@ class TestSweepAndPrune(unittest.TestCase):
         x_min = np.array([0, 1])
         x_max = np.array([0, 2])
 
-        pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
+        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
 
         self.assertTrue(pairs.size == 0)
 
@@ -89,7 +89,7 @@ class TestSweepAndPrune(unittest.TestCase):
         x_min = np.array([1, 0])
         x_max = np.array([1, 2])
 
-        pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
+        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
 
         self.assertTrue(pairs.size == 2)
         self.assertTrue(pairs[0, 0] == 0)
@@ -99,7 +99,7 @@ class TestSweepAndPrune(unittest.TestCase):
         x_min = np.array([1, 0, 3])
         x_max = np.array([2, 2, 4])
 
-        pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
+        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
 
         self.assertTrue(pairs.size == 2)
         self.assertTrue(pairs[0, 0] == 0)
@@ -109,7 +109,7 @@ class TestSweepAndPrune(unittest.TestCase):
         x_min = np.array([1, 0, 1])
         x_max = np.array([2, 2, 3])
 
-        pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
+        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
 
         self.assertTrue(pairs.size == 6)
         self.assertTrue(self.pairs_contain(pairs, [0, 1]))
@@ -120,7 +120,7 @@ class TestSweepAndPrune(unittest.TestCase):
         x_min = np.array([0, 0, 2])
         x_max = np.array([1, 3, 3])
 
-        pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
+        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
 
         self.assertTrue(pairs.size == 4)
         self.assertTrue(self.pairs_contain(pairs, [0, 1]))
@@ -139,12 +139,12 @@ class TestBoundingBoxIntersection(unittest.TestCase):
         x_min = np.array([0, 2])
         x_max = np.array([1, 3])
 
-        x_pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
-        y_pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
-        pairs_1 = pp.cg._intersect_pairs(x_pairs, y_pairs)
+        x_pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
+        y_pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
+        pairs_1 = pp.intersections._intersect_pairs(x_pairs, y_pairs)
         self.assertTrue(pairs_1.size == 0)
 
-        combined_pairs = pp.cg._identify_overlapping_rectangles(
+        combined_pairs = pp.intersections._identify_overlapping_rectangles(
             x_min, x_max, x_min, x_max
         )
         self.assertTrue(combined_pairs.size == 0)
@@ -157,12 +157,12 @@ class TestBoundingBoxIntersection(unittest.TestCase):
         y_min = np.array([0, 5])
         y_max = np.array([2, 7])
 
-        x_pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
-        y_pairs = pp.cg._identify_overlapping_intervals(y_min, y_max)
-        pairs_1 = pp.cg._intersect_pairs(x_pairs, y_pairs)
+        x_pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
+        y_pairs = pp.intersections._identify_overlapping_intervals(y_min, y_max)
+        pairs_1 = pp.intersections._intersect_pairs(x_pairs, y_pairs)
         self.assertTrue(pairs_1.size == 0)
 
-        combined_pairs = pp.cg._identify_overlapping_rectangles(
+        combined_pairs = pp.intersections._identify_overlapping_rectangles(
             x_min, x_max, y_min, y_max
         )
         self.assertTrue(combined_pairs.size == 0)
@@ -175,13 +175,16 @@ class TestBoundingBoxIntersection(unittest.TestCase):
         y_min = np.array([0, 1])
         y_max = np.array([2, 3])
 
-        x_pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
-        y_pairs = pp.cg._identify_overlapping_intervals(y_min, y_max)
-        pairs_1 = np.sort(pp.cg._intersect_pairs(x_pairs, y_pairs), axis=0)
+        x_pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
+        y_pairs = pp.intersections._identify_overlapping_intervals(y_min, y_max)
+        pairs_1 = np.sort(pp.intersections._intersect_pairs(x_pairs, y_pairs), axis=0)
         self.assertTrue(pairs_1.size == 2)
 
         combined_pairs = np.sort(
-            pp.cg._identify_overlapping_rectangles(x_min, x_max, y_min, y_max), axis=0
+            pp.intersections._identify_overlapping_rectangles(
+                x_min, x_max, y_min, y_max
+            ),
+            axis=0,
         )
         self.assertTrue(combined_pairs.size == 2)
 
@@ -195,13 +198,16 @@ class TestBoundingBoxIntersection(unittest.TestCase):
         y_min = np.array([0, 0, 1, 0])
         y_max = np.array([0, 1, 1, 1])
 
-        x_pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
-        y_pairs = pp.cg._identify_overlapping_intervals(y_min, y_max)
-        pairs_1 = np.sort(pp.cg._intersect_pairs(x_pairs, y_pairs), axis=0)
+        x_pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
+        y_pairs = pp.intersections._identify_overlapping_intervals(y_min, y_max)
+        pairs_1 = np.sort(pp.intersections._intersect_pairs(x_pairs, y_pairs), axis=0)
         self.assertTrue(pairs_1.shape[1] == 4)
 
         combined_pairs = np.sort(
-            pp.cg._identify_overlapping_rectangles(x_min, x_max, y_min, y_max), axis=0
+            pp.intersections._identify_overlapping_rectangles(
+                x_min, x_max, y_min, y_max
+            ),
+            axis=0,
         )
         self.assertTrue(combined_pairs.shape[1] == 4)
 
@@ -213,9 +219,11 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
         lines = np.array([[0, 2], [1, 3], [1, 2], [3, 4]])
 
-        x_min, x_max, y_min, y_max = pp.cg._axis_aligned_bounding_box_2d(p, lines)
+        x_min, x_max, y_min, y_max = pp.intersections._axis_aligned_bounding_box_2d(
+            p, lines
+        )
 
-        new_pts, new_lines = pp.cg.remove_edge_crossings2(p, lines)
+        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
 
         p_known = np.hstack((p, np.array([[0], [0]])))
         #        p_known = cg.snap_to_grid(p_known, box=box)
@@ -230,7 +238,7 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
 
         lines = np.array([[0, 1], [2, 3]])
         box = np.array([[2], [2]])
-        new_pts, new_lines = pp.cg.remove_edge_crossings(p, lines, box=box)
+        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
         self.assertTrue(np.allclose(new_pts, p))
         self.assertTrue(np.allclose(new_lines, lines))
 
@@ -241,7 +249,7 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
         )
         lines = np.array([[0, 3], [1, 4], [2, 5]]).T
 
-        new_pts, new_lines = pp.cg.remove_edge_crossings2(p, lines)
+        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
         p_known = p
         self.assertTrue(np.allclose(new_pts, p_known))
         self.assertTrue(np.allclose(new_lines, lines))
@@ -253,7 +261,7 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
         )
         lines = np.array([[0, 3], [2, 5], [1, 4]]).T
 
-        new_pts, new_lines = pp.cg.remove_edge_crossings2(p, lines)
+        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
         p_known = np.hstack((p, np.array([[0.4], [0.4]])))
         lines_known = np.array([[0, 3], [2, 6], [6, 5], [1, 6], [6, 4]]).T
         self.assertTrue(np.allclose(new_pts, p_known))
@@ -262,7 +270,7 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
     def test_overlapping_lines(self):
         p = np.array([[-0.6, 0.4, 0.4, -0.6, 0.4], [-0.5, -0.5, 0.5, 0.5, 0.0]])
         lines = np.array([[0, 0, 1, 1, 2], [1, 3, 2, 4, 3]])
-        new_pts, new_lines = pp.cg.remove_edge_crossings2(p, lines)
+        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
         lines_known = np.array([[0, 1], [0, 3], [1, 4], [2, 4], [2, 3]]).T
         self.assertTrue(np.allclose(new_pts, p))
         self.assertTrue(test_utils.compare_arrays(new_lines, lines_known))

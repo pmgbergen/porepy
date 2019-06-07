@@ -8,7 +8,7 @@ Created on Mon Nov 27 13:01:04 2017
 import numpy as np
 import unittest
 
-import porepy.utils.comp_geom as cg
+import porepy as pp
 
 
 class TestTriangulationMatching(unittest.TestCase):
@@ -16,7 +16,7 @@ class TestTriangulationMatching(unittest.TestCase):
         p = np.array([[0, 1, 0], [0, 0, 1]])
         t = np.array([[0, 1, 2]]).T
 
-        l = cg.intersect_triangulations(p, p, t, t)
+        l = pp.intersections.triangulations(p, p, t, t)
         self.assertTrue(len(l) == 1)
         self.assertTrue(l[0][0] == 0)
         self.assertTrue(l[0][1] == 0)
@@ -29,7 +29,7 @@ class TestTriangulationMatching(unittest.TestCase):
         p2 = np.array([[0, 1, 0], [0, 1, 1]])
         t2 = np.array([[0, 1, 2]]).T
 
-        l = cg.intersect_triangulations(p1, p2, t1, t2)
+        l = pp.intersections.triangulations(p1, p2, t1, t2)
         self.assertTrue(len(l) == 2)
         self.assertTrue(l[0][0] == 0)
         self.assertTrue(l[0][1] == 0)
@@ -45,7 +45,7 @@ class TestTriangulationMatching(unittest.TestCase):
         p2 = np.array([[0, 1, 0], [0, 1, 1]])
         t2 = np.array([[0, 1, 2]]).T
 
-        l = cg.intersect_triangulations(p2, p1, t2, t1)
+        l = pp.intersections.triangulations(p2, p1, t2, t1)
         self.assertTrue(len(l) == 2)
         self.assertTrue(l[0][0] == 0)
         self.assertTrue(l[0][1] == 0)
@@ -54,5 +54,6 @@ class TestTriangulationMatching(unittest.TestCase):
         self.assertTrue(l[1][0] == 0)
         self.assertTrue(l[1][2] == 0.25)
 
-    if __name__ == "__main__":
-        unittest.main()
+
+if __name__ == "__main__":
+    unittest.main()

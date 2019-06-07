@@ -36,10 +36,10 @@ class TestTwoGridCoupling(unittest.TestCase):
         rhs = np.random.rand(gb.dim_max())
         self.assign_parameters(gb, mortar_weight, robin_weight, rhs)
         self.assign_discretization(gb)
-        assembler = pp.Assembler()
-        matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        assembler = pp.Assembler(gb)
+        matrix, rhs = assembler.assemble_matrix_rhs()
         u = sps.linalg.spsolve(matrix, rhs)
-        assembler.distribute_variable(gb, u, block_dof, full_dof)
+        assembler.distribute_variable(u)
         self.check_solution(gb)
 
     def test_continuity_coupling(self):
@@ -62,13 +62,14 @@ class TestTwoGridCoupling(unittest.TestCase):
         self.assign_parameters(gb_full, mortar_weight, robin_weight, rhs)
         self.assign_discretization(gb_full, robin=False)
 
-        assembler = pp.Assembler()
-        matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        assembler = pp.Assembler(gb)
+        matrix, rhs = assembler.assemble_matrix_rhs()
         u = sps.linalg.spsolve(matrix, rhs)
-        assembler.distribute_variable(gb, u, block_dof, full_dof)
+        assembler.distribute_variable(u)
         self.check_solution(gb)
 
-        matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb_full)
+        assembler_full = pp.Assembler(gb_full)
+        matrix, rhs = assembler_full.assemble_matrix_rhs()
         u_full = sps.linalg.spsolve(matrix, rhs)
         # compare solutions
         # We need to rearange the solutions because the ordering of the dofs are not the same
@@ -215,12 +216,14 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
 
         # Discretize
         for g, d in gb:
-            pp.Biot(self.kw, self.kw_f).discretize(g, d)
+            pp.Biot(
+                self.kw, self.kw_f, vector_variable="u", scalar_variable="p"
+            ).discretize(g, d)
 
-        assembler = pp.Assembler()
-        matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        assembler = pp.Assembler(gb)
+        matrix, rhs = assembler.assemble_matrix_rhs()
         u = sps.linalg.spsolve(matrix, rhs)
-        assembler.distribute_variable(gb, u, block_dof, full_dof)
+        assembler.distribute_variable(u)
         self.check_solution(gb)
 
     def test_continuity_coupling(self):
@@ -250,15 +253,16 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
             pp.Biot(self.kw, self.kw_f).discretize(g, d)
 
         # Assemble and solve
-        assembler = pp.Assembler()
-        matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        assembler = pp.Assembler(gb)
+        matrix, rhs = assembler.assemble_matrix_rhs()
         u = sps.linalg.spsolve(matrix, rhs)
-        assembler.distribute_variable(gb, u, block_dof, full_dof)
+        assembler.distribute_variable(u)
         self.check_solution(gb)
 
-        matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb_full)
+        assembler_full = pp.Assembler(gb_full)
+        matrix, rhs = assembler_full.assemble_matrix_rhs()
         u_full = sps.linalg.spsolve(matrix, rhs)
-        assembler.distribute_variable(gb_full, u_full, block_dof, full_dof)
+        assembler_full.distribute_variable(u_full)
         # Compare solutions:
         # We need to rearange the solutions because the ordering of the dofs are not the
         # same for the two grids.
@@ -337,27 +341,29 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
                 self.assertTrue(np.allclose(rhs_robin, rhs[:, i]))
 
     def assign_discretization(self, gb):
+        gradP_disc = pp.GradP(self.kw)
+        divU_disc = pp.DivD(self.kw, variable="u", mortar_variable="lam_u")
+
         for g, d in gb:
             d[pp.DISCRETIZATION] = {
                 "u": {"div_sigma": pp.Mpsa(self.kw)},
                 "p": {
                     "flux": pp.Mpfa(self.kw_f),
                     "mass": pp.MassMatrix(self.kw_f),
-                    "stab": pp.BiotStabilization(self.kw_f),
+                    "stab": pp.BiotStabilization(self.kw_f, variable="p"),
                 },
-                "u_p": {"grad_p": pp.GradP(self.kw)},
-                "p_u": {"div_u": pp.DivD(self.kw)},
+                "u_p": {"grad_p": gradP_disc},
+                "p_u": {"div_u": divU_disc},
             }
 
             d[pp.PRIMARY_VARIABLES] = {"u": {"cells": g.dim}, "p": {"cells": 1}}
 
         gradP_disp = pp.numerics.interface_laws.elliptic_interface_laws.RobinContactBiotPressure(
-            self.kw, pp.numerics.fv.biot.GradP(self.kw)
+            self.kw, gradP_disc
         )
         div_u_lam = pp.numerics.interface_laws.elliptic_interface_laws.DivU_StressMortar(
-            self.kw, pp.numerics.fv.biot.DivD(self.kw)
+            self.kw, divU_disc
         )
-
         for e, d in gb.edges():
             g1, g2 = gb.nodes_of_edge(e)
             d[pp.PRIMARY_VARIABLES] = {"lam_u": {"cells": 2}, "lam_p": {"cells": 1}}
@@ -404,10 +410,6 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
                 gb.dim_max(), np.ones(g.num_cells), np.ones(g.num_cells)
             )
             alpha = 1 / np.pi
-            state_mech = {
-                "displacement": np.zeros(g.dim * g.num_cells),
-                "bc_values": bc_val.ravel("F"),
-            }
             data = {
                 "bc": bc,
                 "bc_values": bc_val.ravel("F"),
@@ -415,7 +417,6 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
                 "source": np.zeros(g.num_cells * g.dim),
                 "inverter": "python",
                 "biot_alpha": alpha,
-                "state": state_mech,
             }
             data_f = {
                 "bc": pp.BoundaryCondition(g, g.get_boundary_faces(), "dir"),
@@ -427,10 +428,15 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
                 "aperture": np.ones(g.num_cells),
                 "biot_alpha": alpha,
                 "mass_weight": 1e-1,
-                "state": np.zeros(g.num_cells),
             }
             pp.initialize_data(g, d, self.kw, data)
             pp.initialize_data(g, d, self.kw_f, data_f)
+            state = {
+                "u": np.zeros(g.dim * g.num_cells),
+                "p": np.zeros(g.num_cells),
+                self.kw: {"bc_values": bc_val.ravel("F")},
+            }
+            pp.set_state(d, state)
 
         for _, d in gb.edges():
             mg = d["mortar_grid"]
@@ -440,9 +446,9 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
                 "mortar_weight": [MW] * mg.num_cells,
                 "robin_weight": [RW] * mg.num_cells,
                 "robin_rhs": np.tile(rhs, (mg.num_cells)),
-                "state": np.zeros((mg.dim + 1) * mg.num_cells),
             }
             pp.initialize_data(mg, d, self.kw, data)
+            pp.set_state(d, {"lam_u": np.zeros((mg.dim + 1) * mg.num_cells)})
 
 
 def define_gb():
