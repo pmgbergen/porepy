@@ -342,7 +342,7 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
 
     def assign_discretization(self, gb):
         gradP_disc = pp.GradP(self.kw)
-        divU_disc = pp.DivD(self.kw, variable="u", mortar_variable="lam_u")
+        divU_disc = pp.DivU(self.kw, variable="u", mortar_variable="lam_u")
 
         for g, d in gb:
             d[pp.DISCRETIZATION] = {

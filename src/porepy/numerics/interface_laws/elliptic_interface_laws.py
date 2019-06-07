@@ -954,7 +954,7 @@ class DivU_StressMortar(RobinContactBiotPressure):
     present the divergence of u (div_u) will be a function of cell centere displacement,
     boundary conditions and the stress mortar (lambda):
         div_u = A * u + B * u_bc_val + C * lambda
-    The class adds the contribution C, while the DivD discretization adds A and B.
+    The class adds the contribution C, while the DivU discretization adds A and B.
     """
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):

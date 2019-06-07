@@ -1,6 +1,7 @@
 import scipy.sparse as sps
 import scipy.sparse.linalg as la
 import numpy as np
+import warnings
 
 import porepy as pp
 
@@ -22,7 +23,8 @@ class Biot:
         """
         self.mechanics_keyword = mechanics_keyword
         self.flow_keyword = flow_keyword
-        # Set variable names for the vector and scalar variable
+        # Set variable names for the vector and scalar variable, used to access
+        # solutions from previous time steps
         self.vector_variable = vector_variable
         self.scalar_variable = scalar_variable
 
@@ -62,7 +64,7 @@ class Biot:
 
         TODO: Boundary effects of coupling terms.
 
-        There is an assumption on constant mechanics BCs, see DivD.assemble_matrix().
+        There is an assumption on constant mechanics BCs, see DivU.assemble_matrix().
 
         Parameters:
             g: grid, or subclass, with geometry fields computed.
@@ -96,10 +98,10 @@ class Biot:
         p_bound = -div_flow * bound_flux * p * dt
         s_bound = -div_mech * bound_stress * d
         # Note that the following is zero only if the previous time step is zero.
-        # See comment in the DivD class
+        # See comment in the DivU class
         biot_alpha = data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
-        div_d_rhs = -0 * biot_alpha * matrices_m["bound_div_d"] * d
-        return np.hstack((s_bound, p_bound + div_d_rhs))
+        div_u_rhs = -0 * biot_alpha * matrices_m["bound_div_u"] * d
+        return np.hstack((s_bound, p_bound + div_u_rhs))
 
     def rhs_time(self, g, data):
         """ Time component of the right hand side (dependency on previous time
@@ -126,17 +128,17 @@ class Biot:
                 self.scalar_variable: np.zeros(g.num_cells),
             }
 
-        d = self.extractD(g, state[self.vector_variable], as_vector=True)
+        d = self.extract_vector(g, state[self.vector_variable], as_vector=True)
         p = state[self.scalar_variable]
 
         parameter_dictionary = data[pp.PARAMETERS][self.mechanics_keyword]
         matrix_dictionaries = data[pp.DISCRETIZATION_MATRICES]
 
         d_scaling = parameter_dictionary.get("displacement_scaling", 1)
-        div_d = matrix_dictionaries[self.mechanics_keyword]["div_d"]
+        div_u = matrix_dictionaries[self.mechanics_keyword]["div_u"]
 
-        div_d_rhs = np.squeeze(
-            parameter_dictionary["biot_alpha"] * div_d * d * d_scaling
+        div_u_rhs = np.squeeze(
+            parameter_dictionary["biot_alpha"] * div_u * d * d_scaling
         )
         p_cmpr = matrix_dictionaries[self.flow_keyword]["mass"] * p
 
@@ -147,7 +149,7 @@ class Biot:
         # discretization.
         stab_time = matrix_dictionaries[self.flow_keyword]["biot_stabilization"] * p
 
-        return np.hstack((mech_rhs, div_d_rhs + p_cmpr + stab_time))
+        return np.hstack((mech_rhs, div_u_rhs + p_cmpr + stab_time))
 
     def discretize(self, g, data):
         """ Discretize flow and mechanics equations using FV methods.
@@ -245,7 +247,7 @@ class Biot:
             [
                 [A_mech, grad_p],
                 [
-                    matrices_m["div_d"] * biot_alpha * d_scaling,
+                    matrices_m["div_u"] * biot_alpha * d_scaling,
                     matrices_f["mass"] + dt * A_flow + stabilization,
                 ],
             ]
@@ -394,11 +396,11 @@ class Biot:
 
         # trace of strain matrix
         div = self._subcell_gradient_to_cell_scalar(g, cell_node_blocks)
-        div_d = div * igrad * rhs_cells
+        div_u = div * igrad * rhs_cells
 
-        # The boundary discretization of the div_d term is represented directly
+        # The boundary discretization of the div_u term is represented directly
         # on the cells, instead of going via the faces.
-        bound_div_d = div * igrad * rhs_bound
+        bound_div_u = div * igrad * rhs_bound
 
         # Call discretization of grad_p-term
         rhs_jumps, grad_p_face = self.discretize_biot_grad_p(
@@ -428,8 +430,8 @@ class Biot:
         # Add discretizations to data
         matrices_m["stress"] = stress
         matrices_m["bound_stress"] = bound_stress
-        matrices_m["div_d"] = div_d
-        matrices_m["bound_div_d"] = bound_div_d
+        matrices_m["div_u"] = div_u
+        matrices_m["bound_div_u"] = bound_div_u
         matrices_m["grad_p"] = grad_p
         matrices_f["biot_stabilization"] = stabilization
         matrices_m["bound_displacement_cell"] = disp_cell
@@ -476,7 +478,7 @@ class Biot:
         due to cell-center pressure acting on the face from the chosen side.
         The pair subfno_unique-unique_subfno gives the side convention.
         The full force on the face is therefore given by
-        t = stress * u + bound_stress * u_b + (grad_p_jumps + grad_p_face) * p
+        t = stress * u + bound_stress * u_b + alpha * (grad_p_jumps + grad_p_face) * p
 
         The strategy is as follows.
         1. compute product normal_vector * alpha and get a map for vector problems
@@ -697,7 +699,7 @@ class Biot:
         return slv
 
     # ----------------------- Methods for post processing -------------------------
-    def extractD(self, g, u, dims=None, as_vector=False):
+    def extract_vector(self, g, u, dims=None, as_vector=False):
         """ Extract displacement field from solution.
 
         Parameters:
@@ -725,7 +727,7 @@ class Biot:
         else:
             return vals
 
-    def extractP(self, g, u):
+    def extract_scalar(self, g, u):
         """ Extract pressure field from solution.
 
         Parameters:
@@ -757,7 +759,7 @@ class Biot:
         flux_discr = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]["flux"]
         bound_flux = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]["bound_flux"]
         bound_val = data[pp.PARAMETERS][self.flow_keyword]["bc_values"]
-        p = self.extractP(g, u)
+        p = self.extract_scalar(g, u)
         flux = flux_discr * p + bound_flux * bound_val
         return flux
 
@@ -781,7 +783,7 @@ class Biot:
         stress_discr = matrix_dictionary["stress"]
         bound_stress = matrix_dictionary["bound_stress"]
         bound_val = data[pp.PARAMETERS][self.mechanics_keyword]["bc_values"]
-        d = self.extractD(g, u, as_vector=True)
+        d = self.extract_vector(g, u, as_vector=True)
         stress = np.squeeze(stress_discr * d) + (bound_stress * bound_val)
         return stress
 
@@ -910,7 +912,7 @@ class GradP(
         displacement on internal boundaries.
 
         The intended use is when the internal boundary is coupled to another
-        node in the GridBucket sence. Specific usage depends on the
+        node in the GridBucket sense. Specific usage depends on the
         interface condition between the nodes; this method will typically be
         used to impose displacement continuity on an interface.
 
@@ -958,7 +960,7 @@ class GradP(
             hf2f = pp.fvutils.map_hf_2_f(g=g)
             num_nodes = np.diff(g.face_nodes.indptr)
             weight = sps.kron(sps.eye(g.dim), sps.diags(1 / num_nodes))
-            # hf2f adds all subface values to one face values. For the displacement we want
+            # hf2f adds all subface values to one face value. For the displacement we want
             # to take the average, therefore we divide each face by the number of subfaces.
             cc[2, self_ind] += proj_avg * weight * hf2f * bp
         else:
@@ -968,26 +970,33 @@ class GradP(
         pass
 
 
-class DivD(
+class DivU(
     pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization
 ):
     """ Class for the displacement divergence term of the Biot equation.
     """
 
     def __init__(
-        self, keyword="mechanics", variable="displacement", mortar_variable="traction"
+        self, keyword="mechanics", variable="displacement",
+        mortar_variable="mortar_displacement"
     ):
-        """ Set the two keywords.
+        """ Set the mechanics keyword and specify the variables.
 
         The keywords are used to access and store parameters and discretization
         matrices.
+        The variable names are used to obtain the previous solution for the time
+        discretization. Consequently, they are those of the unknowns contributing to
+        the DivU term (displacements), not the scalar variable.
         """
         super().__init__(keyword)
-        # Set variable name for the vector variable (displacement)
+        # We also need to specify the names of the displacement variables on the node
+        # and adjacent edges. T
+        # Set variable name for the vector variable (displacement).
         self.variable = variable
         # The following is only used for mixed-dimensional problems.
         # Set the variable used for contact mechanics.
         self.mortar_variable = mortar_variable
+
 
     def ndof(self, g):
         """ Return the number of degrees of freedom associated to the method.
@@ -1072,13 +1081,13 @@ class DivD(
             discretized.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "div_d" in matrix_dictionary:
+        if not "div_u" in matrix_dictionary:
             raise ValueError(
-                """DivD class requires a pre-computed discretization to be
+                """DivU class requires a pre-computed discretization to be
                              stored in the matrix dictionary."""
             )
         biot_alpha = data[pp.PARAMETERS][self.keyword]["biot_alpha"]
-        return matrix_dictionary["div_d"] * biot_alpha
+        return matrix_dictionary["div_u"] * biot_alpha
 
     def assemble_rhs(self, g, data):
         """ Return the right-hand side for a discretization of the displacement
@@ -1106,28 +1115,29 @@ class DivD(
         d_bound_0 = data[pp.STATE][self.keyword]["bc_values"]
         biot_alpha = parameter_dictionary["biot_alpha"]
         rhs_bound = (
-            -matrix_dictionary["bound_div_d"] * (d_bound_1 - d_bound_0) * biot_alpha
+            -matrix_dictionary["bound_div_u"] * (d_bound_1 - d_bound_0) * biot_alpha
         )
 
         # Time part
         d_cell = data[pp.STATE][self.variable]
 
-        d_scaling = parameter_dictionary.get("displacement_scaling", 1)
-        div_d = matrix_dictionary["div_d"]
-        rhs_time = np.squeeze(biot_alpha * div_d * d_cell * d_scaling)
+#        d_scaling = parameter_dictionary.get("displacement_scaling", 1)
+        div_u = matrix_dictionary["div_u"]
+        rhs_time = np.squeeze(biot_alpha * div_u * d_cell) # * d_scaling)
 
         return rhs_bound + rhs_time
 
-    def assemble_int_bound_stress(
+    def assemble_int_bound_displacement_trace(
         self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
-        """Assemble the contribution the stress mortar on an internal boundary,
-        manifested as a stress boundary condition.
+        """Assemble the contribution from the displacement mortar on an internal boundary,
+        manifested as a displacement boundary condition.
 
         The intended use is when the internal boundary is coupled to another
         node by an interface law. Specific usage depends on the
         interface condition between the nodes; this method will typically be
-        used to impose the effect of the stress mortar on the divergence term.
+        used to impose the effect of the displacement mortar on the divergence term on
+        the higher-dimensional grid.
 
         Implementations of this method will use an interplay between the grid
         on the node and the mortar grid on the relevant edge.
@@ -1154,29 +1164,105 @@ class DivD(
         mg = data_edge["mortar_grid"]
 
         if grid_swap:
-            proj = mg.slave_to_mortar_avg()
+            proj = mg.mortar_to_slave_avg(nd=g.dim)
         else:
-            proj = mg.master_to_mortar_avg()
-        # Expand indices as Fortran.
-        proj_int = sps.kron(proj, sps.eye(g.dim)).tocsr()
+            proj = mg.mortar_to_master_avg(nd=g.dim)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         biot_alpha = data[pp.PARAMETERS][self.keyword]["biot_alpha"]
-        bound_div_d = matrix_dictionary["bound_div_d"]
+        bound_div_u = matrix_dictionary["bound_div_u"]
 
-        lam_k = data_edge[pp.STATE][self.mortar_variable]
+        u_bound_previous = data_edge[pp.STATE][self.mortar_variable]
 
-        if bound_div_d.shape[1] != proj_int.shape[1]:
+        if bound_div_u.shape[1] != proj.shape[0]:
             raise ValueError(
                 """Inconsistent shapes. Did you define a
             sub-face boundary condition but only a face-wise mortar?"""
             )
-        # The mortar will act as a boundary condition for the div_d term.
-        # We assume implicit Euler in Biot, thus the div_d term appares
-        # on the rhs as div_d^{k-1}. This results in a contribution to the
+        # The mortar will act as a boundary condition for the div_u term.
+        # We assume implicit Euler in Biot, thus the div_u term appares
+        # on the rhs as div_u^{k-1}. This results in a contribution to the
         # rhs for the coupling variable also.
-        cc[self_ind, 2] += biot_alpha * bound_div_d * proj_int.T
-        rhs[self_ind] += biot_alpha * bound_div_d * proj_int.T * lam_k
+        cc[self_ind, 2] += biot_alpha * bound_div_u * proj
+        rhs[self_ind] += biot_alpha * bound_div_u * proj * u_bound_previous
+
+    def assemble_int_bound_displacement_source(
+            self, g, data, data_edge, cc, matrix, rhs, self_ind
+    ):
+        """Assemble the contribution from the displacement mortar on an internal boundary,
+        manifested as a source term. Only the normal component of the mortar displacement
+        is considered.
+
+        The intended use is when the internal boundary is coupled to another
+        node by an interface law. Specific usage depends on the
+        interface condition between the nodes; this method will typically be
+        used to impose the effect of the displacement mortar on the divergence term on
+        the lower-dimensional grid.
+
+        Implementations of this method will use an interplay between the grid
+        on the node and the mortar grid on the relevant edge.
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+            data_edge (dictionary): Data dictionary for the edge in the
+                mixed-dimensional grid.
+            grid_swap (boolean): If True, the grid g is identified with the @
+                slave side of the mortar grid in data_adge.
+            cc (block matrix, 3x3): Block matrix for the coupling condition.
+                The first and second rows and columns are identified with the
+                master and slave side; the third belongs to the edge variable.
+                The discretization of the relevant term is done in-place in cc.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            self_ind (int): Index in cc and matrix associated with this node.
+                Should be either 1 or 2.
+
+        """
+
+        mg = data_edge["mortar_grid"]
+
+        # From the mortar displacements, we want to
+        # 1) Take the jump between the two mortar sides,
+        # 2) Project to the slave grid and
+        # 3) Extract the normal component.
+
+        # Define projections and rotations
+        nd = (g.dim+1)
+        proj = mg.mortar_to_slave_avg(nd=nd)
+        jump_on_slave = proj * mg.sign_of_mortar_sides(nd=nd)
+        rotation = data_edge["tangential_normal_projection"]
+        normal_component = rotation.project_normal(g.num_cells)
+
+
+        biot_alpha = data[pp.PARAMETERS][self.keyword]["biot_alpha"]
+        if biot_alpha != 1:
+            warnings.warn('Are you sure you want a non-unitary biot alpha for the fracture?')
+
+        # Project the previous solution to the slave grid
+        previous_displacement_jump_global_coord = (
+            jump_on_slave
+            * data_edge[pp.STATE][self.mortar_variable]
+        )
+        # Rotated displacement jumps. These are in the local coordinates, on
+        # the lower-dimensional grid
+        previous_displacement_jump_normal = (
+                 normal_component * previous_displacement_jump_global_coord
+        )
+        # The same procedure is applied to the unknown displacements, by assembling the
+        # jump operator, projection and normal component extraction in the coupling matrix.
+        # Finally, we integrate over the cell volume.
+        # The jump on the slave is defined to be negative for an open fracture (!),
+        # hence the negative sign.
+        vol = sps.dia_matrix((g.cell_volumes, 0), shape=(g.num_cells, g.num_cells))
+        cc[self_ind, 2] -= biot_alpha * vol * normal_component * jump_on_slave
+
+        # We assume implicit Euler in Biot, thus the div_u term appears
+        # on the rhs as div_u^{k-1}. This results in a contribution to the
+        # rhs for the coupling variable also.
+        # See note above on sign. This term is on the rhs, yielding the opposite sign.
+        rhs[self_ind] += biot_alpha * vol * previous_displacement_jump_normal
 
     def enforce_neumann_int_bound(self, *_):
         pass
@@ -1244,7 +1330,7 @@ class BiotStabilization(
             discretize method of the Biot class.
         """
         raise NotImplementedError(
-            """No discretize method implemented for the DivD
+            """No discretize method implemented for the DivU
                                   class. See the Biot class."""
         )
 

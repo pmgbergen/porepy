@@ -77,20 +77,20 @@ class BiotTest(unittest.TestCase):
     #
     #            a_flow = div_flow * flux
     #
-    #            stress, bound_stress, grad_p, div_d, \
-    #                stabilization, bound_div_d, div_mech = self.mpsa_discr(g, bound)
+    #            stress, bound_stress, grad_p, div_u, \
+    #                stabilization, bound_div_u, div_mech = self.mpsa_discr(g, bound)
     #
     #            a_mech = div_mech * stress
     #
     #            a_biot = sps.bmat([[a_mech, grad_p],
-    #                               [div_d, a_flow + stabilization]])
+    #                               [div_u, a_flow + stabilization]])
     #
     #            const_bound_val_mech = 1
     #            bval_mech = const_bound_val_mech * np.ones(g.num_faces * g.dim)
     #            bval_flow = np.ones(g.num_faces)
     #            rhs = np.hstack((-div_mech * bound_stress * bval_mech,
     #                             div_flow * bound_flux * bval_flow\
-    #                             + div_flow * bound_div_d * bval_mech))
+    #                             + div_flow * bound_div_u * bval_mech))
     #            sol = np.linalg.solve(a_biot.todense(), rhs)
     #
     #            sz_mech = g.num_cells * g.dim
@@ -159,7 +159,7 @@ class BiotTest(unittest.TestCase):
                 term_11_2: pp.BiotStabilization(kw_f),
             },
             v_0 + "_" + v_1: {term_01: pp.GradP(kw_m)},
-            v_1 + "_" + v_0: {term_10: pp.DivD(kw_m)},
+            v_1 + "_" + v_0: {term_10: pp.DivU(kw_m)},
         }
         # Assemble. Also discretizes the flow terms (fluid_mass and fluid_flux)
         general_assembler = pp.Assembler(gb)
@@ -256,7 +256,7 @@ class BiotTest(unittest.TestCase):
                 term_11_2: pp.BiotStabilization(kw_f),
             },
             v_0 + "_" + v_1: {term_01: pp.GradP(kw_m)},
-            v_1 + "_" + v_0: {term_10: pp.DivD(kw_m)},
+            v_1 + "_" + v_0: {term_10: pp.DivU(kw_m)},
         }
 
         times = np.arange(5)
