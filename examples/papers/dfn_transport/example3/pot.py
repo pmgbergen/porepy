@@ -75,17 +75,16 @@ def save_multiple(filename, num_frac, folder):
 
 def main():
 
-    num_frac = 86
+    num_frac = 86-7
 
     master_folder = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example3/"
 
-    methods_stefano = ["OPTfem"] #["OPTxfem", , "GCmfem"]
+    methods_stefano = ["OPTfem", "OPTxfem", "GCmfem"]
     methods_alessio = ["MVEM_UPWIND", "Tpfa_UPWIND", "RT0_UPWIND"]
     methods_andrea = [] #["MVEM_VEMSUPG"]
 
-    cases = {"case_0": ("different", "different", "0.005"), "case_1": ("same", "2600", "0.001")}
+    cases = {"case_0": ("different", "different", "0.005"), "case_1": ("same", "same", "0.001")}
     cases_label = {"case_0": "different", "case_1": "same"}
-    cases_label = {"case_0": "different"}
 
     for case_name, case in cases.items():
         case_label = cases_label[case_name]

@@ -100,7 +100,8 @@ def cot_domain(file_in, step, field, num_frac, padding=6):
             cot_min[i, frac_id] = np.amin(c[is_loc])
             cot_max[i, frac_id] = np.amax(c[is_loc])
 
-    return cot_avg, cot_min, cot_max
+    zero = 273.15
+    return cot_avg + zero, cot_min + zero, cot_max + zero
 
 #------------------------------------------------------------------------------#
 
@@ -109,11 +110,11 @@ def main():
     field = "scalar"
     n_step = 200
     time_step = 3.154e+7/200
-    num_frac = 89
+    num_frac = 89-7
 
     grids = ["different", "same"]
 
-    folder_master = "/home/elle/tmp/tipetut++/new/"
+    folder_master = "/home/elle/tmp/tipetut++/example3/"
     #folder_master = "./"
     folder_master_out = "./CSV/"
     methods = ["MVEM", "Tpfa", "RT0"]

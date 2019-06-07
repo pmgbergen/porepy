@@ -57,7 +57,7 @@ def bc_different(g, domain, tol):
 def main():
 
     input_folder = "../geometries/"
-    file_name = input_folder + "example3.fab"
+    file_name = input_folder + "example3_connected.fab"
 
     # define the discretizations for the Darcy part
     discretizations = compute.get_discr()
