@@ -32,7 +32,7 @@ from porepy.numerics.discretization import VoidDiscretization
 from porepy.numerics.fv.mpsa import Mpsa, FracturedMpsa
 from porepy.numerics.fv.tpfa import Tpfa
 from porepy.numerics.fv.mpfa import Mpfa
-from porepy.numerics.fv.biot import Biot, GradP, DivD, BiotStabilization
+from porepy.numerics.fv.biot import Biot, GradP, DivU, BiotStabilization
 from porepy.numerics.fv.source import ScalarSource
 
 # Virtual elements, elliptic
@@ -67,7 +67,7 @@ from porepy.numerics.fv.mass_matrix import InvMassMatrix
 
 # Contact mechanics
 from porepy.numerics.interface_laws.contact_mechanics_interface_laws import (
-    PrimalContactCoupling,
+    PrimalContactCoupling, DivUCoupling
 )
 from porepy.numerics.contact_mechanics.contact_conditions import ColoumbContact
 from porepy.numerics.contact_mechanics import contact_conditions

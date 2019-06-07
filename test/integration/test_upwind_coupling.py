@@ -3,7 +3,6 @@ import numpy as np
 import unittest
 
 import porepy as pp
-from porepy.utils.grid_util import sign_of_boundary_faces
 from test.integration import _helper_test_upwind_coupling
 from test.test_utils import permute_matrix_vector
 
@@ -1607,7 +1606,7 @@ def add_constant_darcy_flux(gb, upwind, flux, a):
         p_h = gb.node_props(g_h, pp.PARAMETERS)
         darcy_flux = p_h["transport"]["darcy_flux"]
         sign = np.zeros(g_h.num_faces)
-        sign[g_h.get_all_boundary_faces()] = sign_of_boundary_faces(g_h)
+        sign[g_h.get_all_boundary_faces()] = g_h.sign_of_faces(g_h.get_all_boundary_faces())
         mg = d["mortar_grid"]
         sign = mg.master_to_mortar_avg() * sign
         #        d["param"] = pp.Parameters(g_h)
