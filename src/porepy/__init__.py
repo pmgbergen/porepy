@@ -86,7 +86,12 @@ from porepy.params.bc import (
     face_on_side,
 )
 from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
-from porepy.params.data import Parameters, initialize_data, initialize_default_data
+from porepy.params.data import (
+    Parameters,
+    initialize_data,
+    initialize_default_data,
+    set_state,
+)
 from porepy.params.rock import UnitRock, Shale, SandStone, Granite
 from porepy.params.water import Water
 
@@ -97,9 +102,16 @@ from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
 # Modules
 from porepy.utils import permutations
-from porepy.utils import comp_geom as cg
+from porepy.geometry import (
+    intersections,
+    distances,
+    constrain_geometry,
+    map_geometry,
+    geometry_property_checks,
+    bounding_box,
+)
 from porepy.fracs import utils as frac_utils
-from porepy.fracs import meshing, fracture_importer, extrusion, mortars
+from porepy.fracs import meshing, fracture_importer, mortars
 from porepy.grids import structured, simplex, coarsening, partition, refinement
 from porepy.numerics.fv import fvutils
 from porepy.utils import error

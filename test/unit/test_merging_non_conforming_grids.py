@@ -1030,9 +1030,6 @@ class TestMeshMerging(unittest.TestCase):
         self.assertTrue(ismem.sum() == g_1d.num_nodes)
         self.assertTrue(np.allclose(gyz.nodes[:, maps], g_1d.nodes))
 
-    if __name__ == "__main__":
-        unittest.main()
-
 
 class MockGrid:
     """ Class with attributes similar to (some of) those in a real grid. Used
@@ -1069,3 +1066,7 @@ class TagClass:
         keys = tags.standard_face_tags()
         values = [np.zeros(n_tags, dtype=bool) for _ in range(len(keys))]
         tags.add_tags(self, dict(zip(keys, values)))
+
+
+if __name__ == "__main__":
+    unittest.main()

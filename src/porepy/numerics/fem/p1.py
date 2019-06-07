@@ -122,7 +122,9 @@ class P1:
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
-        c_centers, f_normals, f_centers, R, dim, node_coords = pp.cg.map_grid(g)
+        c_centers, f_normals, f_centers, R, dim, node_coords = pp.map_geometry.map_grid(
+            g
+        )
 
         if not data.get("is_tangential", False):
             # Rotate the permeability tensor and delete last dimension

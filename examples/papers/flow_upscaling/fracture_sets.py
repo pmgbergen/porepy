@@ -543,7 +543,7 @@ class FractureSet(object):
         e = self.edges.copy()
 
         # Prolong
-        p = pp.cg.snap_points_to_segments(p, e, threshold)
+        p = pp.constrain_geometry.snap_points_to_segments(p, e, threshold)
 
         return FractureSet(p, e, self.domain)
 
@@ -562,7 +562,7 @@ class FractureSet(object):
         """
         p = self.pts.copy()
         e = np.vstack((self.edges.copy(), np.arange(self.num_frac)))
-        return pp.cg.remove_edge_crossings(p, e, tol=self.tol)
+        return pp.intersections.split_intersecting_segments_2d(p, e, tol=self.tol)
 
     def constrain_to_domain(self, domain=None):
         """ Constrain the fracture network to lay within a specified domain.
@@ -588,7 +588,7 @@ class FractureSet(object):
 
         p_domain = self._domain_to_points(domain)
 
-        p, e = pp.cg.constrain_lines_by_polygon(p_domain, self.pts, self.edges)
+        p, e = pp.constrain_geometry.lines_by_polygon(p_domain, self.pts, self.edges)
 
         return FractureSet(p, e, domain)
 
@@ -652,7 +652,9 @@ class FractureSet(object):
                 the set only contains non-intersecting branches.
 
         """
-        p, e = pp.cg.remove_edge_crossings2(self.pts, self.edges, tol=self.tol)
+        p, e = pp.intersections.split_intersecting_segments_2d(
+            self.pts, self.edges, tol=self.tol
+        )
         return FractureSet(p, e, self.domain)
 
     # --------- Utility functions below here
@@ -1267,7 +1269,7 @@ class ChildFractureSet(FractureSet):
         for ci in range(num_children):
             start = p[:, edges[0, ci]].reshape((-1, 1))
             end = p[:, edges[1, ci]].reshape((-1, 1))
-            d, cp, cg_seg = pp.cg.dist_segment_segment_set(
+            d, cp, cg_seg = pp.distances.segment_segment_set(
                 start, end, start_parent, end_parent
             )
 
@@ -1527,7 +1529,7 @@ class ChildFractureSet(FractureSet):
         dist_start, closest_pt_start = pp.cg.dist_points_segments(
             start_y, start_parent, end_parent
         )
-        dist_end, closest_pt_end = pp.cg.dist_points_segments(
+        dist_end, closest_pt_end = pp.distances.points_segments(
             end_y, start_parent, end_parent
         )
 
@@ -1591,7 +1593,7 @@ class ChildFractureSet(FractureSet):
         center_of_isolated = 0.5 * (
             self.pts[:, self.edges[0, isolated]] + self.pts[:, self.edges[1, isolated]]
         )
-        dist_isolated, closest_pt_isolated = pp.cg.dist_points_segments(
+        dist_isolated, closest_pt_isolated = pp.distances.points_segments(
             center_of_isolated, start_parent, end_parent
         )
 
@@ -1685,6 +1687,6 @@ class ChildFractureSet(FractureSet):
         e = self.edges.copy()
 
         # Prolong
-        p = pp.cg.snap_points_to_segments(p, e, threshold)
+        p = pp.constrain_geometry.snap_points_to_segments(p, e, threshold)
 
         return ChildFractureSet(p, e, self.domain, self.parent)

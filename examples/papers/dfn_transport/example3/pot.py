@@ -81,7 +81,7 @@ def main():
 
     methods_stefano = ["OPTfem", "OPTxfem", "GCmfem"]
     methods_alessio = ["MVEM_UPWIND", "Tpfa_UPWIND", "RT0_UPWIND"]
-    methods_andrea = [] #["MVEM_VEMSUPG"]
+    methods_andrea = []  # ["MVEM_VEMSUPG"]
 
     cases = {"case_0": ("different", "different", "0.005"), "case_1": ("same", "same", "0.001")}
     cases_label = {"case_0": "different", "case_1": "same"}
