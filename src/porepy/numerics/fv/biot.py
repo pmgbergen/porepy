@@ -134,11 +134,10 @@ class Biot:
         parameter_dictionary = data[pp.PARAMETERS][self.mechanics_keyword]
         matrix_dictionaries = data[pp.DISCRETIZATION_MATRICES]
 
-        d_scaling = parameter_dictionary.get("displacement_scaling", 1)
         div_u = matrix_dictionaries[self.mechanics_keyword]["div_u"]
 
         div_u_rhs = np.squeeze(
-            parameter_dictionary["biot_alpha"] * div_u * d * d_scaling
+            parameter_dictionary["biot_alpha"] * div_u * d
         )
         p_cmpr = matrix_dictionaries[self.flow_keyword]["mass"] * p
 
@@ -241,13 +240,12 @@ class Biot:
         # Time step size
         dt = param[self.flow_keyword]["time_step"]
 
-        d_scaling = param[self.mechanics_keyword].get("displacement_scaling", 1)
         # Matrix for left hand side
         A_biot = sps.bmat(
             [
                 [A_mech, grad_p],
                 [
-                    matrices_m["div_u"] * biot_alpha * d_scaling,
+                    matrices_m["div_u"] * biot_alpha,
                     matrices_f["mass"] + dt * A_flow + stabilization,
                 ],
             ]
@@ -977,8 +975,10 @@ class DivU(
     """
 
     def __init__(
-        self, keyword="mechanics", variable="displacement",
-        mortar_variable="mortar_displacement"
+        self,
+        keyword="mechanics",
+        variable="displacement",
+        mortar_variable="mortar_displacement",
     ):
         """ Set the mechanics keyword and specify the variables.
 
@@ -996,7 +996,6 @@ class DivU(
         # The following is only used for mixed-dimensional problems.
         # Set the variable used for contact mechanics.
         self.mortar_variable = mortar_variable
-
 
     def ndof(self, g):
         """ Return the number of degrees of freedom associated to the method.
@@ -1121,9 +1120,8 @@ class DivU(
         # Time part
         d_cell = data[pp.STATE][self.variable]
 
-#        d_scaling = parameter_dictionary.get("displacement_scaling", 1)
         div_u = matrix_dictionary["div_u"]
-        rhs_time = np.squeeze(biot_alpha * div_u * d_cell) # * d_scaling)
+        rhs_time = np.squeeze(biot_alpha * div_u * d_cell)
 
         return rhs_bound + rhs_time
 
@@ -1187,7 +1185,7 @@ class DivU(
         rhs[self_ind] += biot_alpha * bound_div_u * proj * u_bound_previous
 
     def assemble_int_bound_displacement_source(
-            self, g, data, data_edge, cc, matrix, rhs, self_ind
+        self, g, data, data_edge, cc, matrix, rhs, self_ind
     ):
         """Assemble the contribution from the displacement mortar on an internal boundary,
         manifested as a source term. Only the normal component of the mortar displacement
@@ -1229,26 +1227,26 @@ class DivU(
         # 3) Extract the normal component.
 
         # Define projections and rotations
-        nd = (g.dim+1)
+        nd = g.dim + 1
         proj = mg.mortar_to_slave_avg(nd=nd)
         jump_on_slave = proj * mg.sign_of_mortar_sides(nd=nd)
         rotation = data_edge["tangential_normal_projection"]
         normal_component = rotation.project_normal(g.num_cells)
 
-
         biot_alpha = data[pp.PARAMETERS][self.keyword]["biot_alpha"]
         if biot_alpha != 1:
-            warnings.warn('Are you sure you want a non-unitary biot alpha for the fracture?')
+            warnings.warn(
+                "Are you sure you want a non-unitary biot alpha for the fracture?"
+            )
 
         # Project the previous solution to the slave grid
         previous_displacement_jump_global_coord = (
-            jump_on_slave
-            * data_edge[pp.STATE][self.mortar_variable]
+            jump_on_slave * data_edge[pp.STATE][self.mortar_variable]
         )
         # Rotated displacement jumps. These are in the local coordinates, on
         # the lower-dimensional grid
         previous_displacement_jump_normal = (
-                 normal_component * previous_displacement_jump_global_coord
+            normal_component * previous_displacement_jump_global_coord
         )
         # The same procedure is applied to the unknown displacements, by assembling the
         # jump operator, projection and normal component extraction in the coupling matrix.
