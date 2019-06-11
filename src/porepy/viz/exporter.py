@@ -184,9 +184,10 @@ class Exporter:
             save.write_vtk({"conc": conc}, time_step=i)
         save.write_pvd(steps*deltaT)
 
-        if you need to export the grid bucket
+        if you need to export the state of variables as stored in the GridBucket:
         save = Exporter(gb, "solution", folder="results")
-        save.write_vtk(gb, ["cells_id", "pressure"])
+        # export the field stored in data[pp.STATE]["pressure"]
+        save.write_vtk(gb, ["pressure"])
 
         In a time loop:
         while time:
@@ -430,7 +431,10 @@ class Exporter:
                 grids = self.gb.get_grids(lambda g: g.dim == dim)
                 values = np.empty(grids.size, dtype=np.object)
                 for i, g in enumerate(grids):
-                    values[i] = self.gb.graph.node[g][field.name]
+                    if field.name in data:
+                        values[i] = self.gb.graph.node[g][pp.STATE][field.name]
+                    else:
+                        values[i] = self.gb.graph.node[g][field.name]
                     field.check(values[i], g)
                 field.set_values(np.hstack(values))
 

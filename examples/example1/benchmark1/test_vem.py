@@ -131,8 +131,8 @@ def main(kf, description, is_coarse=False, if_export=False):
     assembler.distribute_variable(p)
 
     for g, d in gb:
-        d["darcy_flux"] = d["pressure"][: g.num_faces]
-        d["pressure"] = d["pressure"][g.num_faces :]
+        d[pp.STATE]["darcy_flux"] = d[pp.STATE]["pressure"][: g.num_faces]
+        d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
 
     if if_export:
         save = pp.Exporter(gb, "vem", folder="vem_" + description)
