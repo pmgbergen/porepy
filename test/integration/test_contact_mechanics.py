@@ -11,8 +11,6 @@ import porepy as pp
 
 
 class TestContactMechanics(unittest.TestCase):
-
-
     def _solve(self, model):
         sol = solve_contact_mechanics(model)
         gb = model.gb
@@ -31,17 +29,15 @@ class TestContactMechanics(unittest.TestCase):
         contact_force = d_1[pp.STATE][model.contact_variable]
 
         displacement_jump_global_coord = (
-            mg.mortar_to_slave_avg(nd=nd)
-            * mg.sign_of_mortar_sides(nd=nd)
-            * u_mortar
+            mg.mortar_to_slave_avg(nd=nd) * mg.sign_of_mortar_sides(nd=nd) * u_mortar
         )
         projection = d_m["tangential_normal_projection"]
 
         project_to_local = projection.project_tangential_normal(int(mg.num_cells / 2))
         u_mortar_local = project_to_local * displacement_jump_global_coord
-        u_mortar_local_decomposed = u_mortar_local.reshape((2, -1),order='F')
+        u_mortar_local_decomposed = u_mortar_local.reshape((2, -1), order="F")
 
-        contact_force = contact_force.reshape((2, -1), order='F')
+        contact_force = contact_force.reshape((2, -1), order="F")
 
         return u_mortar_local_decomposed, contact_force
 
@@ -149,7 +145,7 @@ def solve_contact_mechanics(setup):
     pp.contact_conditions.set_projections(gb)
 
     # Set up assembler and discretize
-    #setup.discretize(gb)
+    # setup.discretize(gb)
 
     assembler = pp.Assembler(gb)
     setup.assembler = assembler
@@ -162,9 +158,12 @@ def solve_contact_mechanics(setup):
 
     def l2_error_cell(g, u, uref=None):
         if uref is None:
-            norm = np.reshape(u**2, (g.dim, g.num_cells), order='F') * g.cell_volumes
+            norm = np.reshape(u ** 2, (g.dim, g.num_cells), order="F") * g.cell_volumes
         else:
-            norm = np.reshape((u - uref)**2, (g.dim, g.num_cells), order='F') * g.cell_volumes
+            norm = (
+                np.reshape((u - uref) ** 2, (g.dim, g.num_cells), order="F")
+                * g.cell_volumes
+            )
         return np.sum(norm)
 
     counter_newton = 0
@@ -180,7 +179,7 @@ def solve_contact_mechanics(setup):
 
         assembler.discretize(term_filter=setup.friction_coupling_term)
 
-        #assembler.discretize(term_filter=)
+        # assembler.discretize(term_filter=)
 
         # Re-discretize and solve
         A, b = assembler.assemble_matrix_rhs()
@@ -192,7 +191,9 @@ def solve_contact_mechanics(setup):
 
         for g, d in gb:
             if g.dim == ambient_dim:
-                d[pp.STATE][setup.displacement_variable] = d[setup.displacement_variable]
+                d[pp.STATE][setup.displacement_variable] = d[
+                    setup.displacement_variable
+                ]
             elif g.dim == ambient_dim - 1:
                 d[pp.STATE][setup.contact_variable] = d[setup.contact_variable]
 
@@ -209,7 +210,7 @@ def solve_contact_mechanics(setup):
         if iterate_difference / solution_norm < 1e-10:
             converged_newton = True
 
-        errors.append(np.sum((u - u0)**2) / np.sum(u**2))
+        errors.append(np.sum((u - u0) ** 2) / np.sum(u ** 2))
 
         # Prepare for next iteration
         u0 = u
@@ -219,8 +220,8 @@ def solve_contact_mechanics(setup):
 
     return sol
 
-class SetupContactMechanics(unittest.TestCase):
 
+class SetupContactMechanics(unittest.TestCase):
     def __init__(self, ux_bottom, uy_bottom, ux_top, uy_top):
         self.ux_bottom = ux_bottom
         self.uy_bottom = uy_bottom
@@ -238,9 +239,9 @@ class SetupContactMechanics(unittest.TestCase):
         self.friction_coupling_term = "contact_conditions"
 
         self.mesh_args = {
-        "mesh_size_frac": 0.5,
-        "mesh_size_min": 0.023,
-        "mesh_size_bound": 0.5,
+            "mesh_size_frac": 0.5,
+            "mesh_size_min": 0.023,
+            "mesh_size_bound": 0.5,
         }
 
     def create_grid(self, rotate_fracture=False):
@@ -250,11 +251,9 @@ class SetupContactMechanics(unittest.TestCase):
         mortar grid.
         """
         if rotate_fracture:
-            self.frac_pts = np.array([[0.7, 0.3],
-                                      [0.3, 0.7]])
+            self.frac_pts = np.array([[0.7, 0.3], [0.3, 0.7]])
         else:
-            self.frac_pts = np.array([[0.3, 0.7],
-                                      [0.5, 0.5]])
+            self.frac_pts = np.array([[0.3, 0.7], [0.5, 0.5]])
         frac_edges = np.array([[0], [1]])
 
         box = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
@@ -327,14 +326,10 @@ class SetupContactMechanics(unittest.TestCase):
                     {"friction_coefficient": friction},
                 )
 
-
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-
-            pp.initialize_data(
-                mg, d, self.friction_parameter_key, {}
-            )
+            pp.initialize_data(mg, d, self.friction_parameter_key, {})
 
         # Define discretization
         # For the 2D domain we solve linear elasticity with mpsa.
@@ -384,7 +379,6 @@ class SetupContactMechanics(unittest.TestCase):
             else:
                 d[pp.PRIMARY_VARIABLES] = {}
 
-
     def discretize(self, gb):
         g_max = gb.grids_of_dimension(gb.dim_max())[0]
         d = gb.node_props(g_max)
@@ -411,8 +405,9 @@ class SetupContactMechanics(unittest.TestCase):
                 # Initialize contact variable
                 ind = assembler.dof_ind(g, self.contact_variable)
 
-                traction = np.vstack((np.zeros(g.num_cells),
-                                      -100 * np.ones(g.num_cells))).ravel(order='F')
+                traction = np.vstack(
+                    (np.zeros(g.num_cells), -100 * np.ones(g.num_cells))
+                ).ravel(order="F")
 
                 d[pp.STATE][self.contact_variable] = traction
 
@@ -430,7 +425,5 @@ class SetupContactMechanics(unittest.TestCase):
         return friction_coefficient
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
-
