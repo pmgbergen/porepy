@@ -3,6 +3,7 @@ import scipy.sparse as sps
 
 # ------------------------------------------------------------------------------#
 
+
 def center_network(network):
     # shift the network to use reasonable numbers
     shift = 0.5 * (np.amax(network.pts, axis=1) + np.amin(network.pts, axis=1))
@@ -12,7 +13,9 @@ def center_network(network):
     network.domain["ymin"] -= shift[1]
     network.domain["ymax"] -= shift[1]
 
+
 # ------------------------------------------------------------------------------#
+
 
 def rescale_gb(gb):
 
@@ -20,18 +23,19 @@ def rescale_gb(gb):
 
     dx = domain["xmax"] - domain["xmin"]
     dy = domain["ymax"] - domain["ymin"]
-    ratio = dx/dy
+    ratio = dx / dy
 
     dx_new = 2e2
     dy_new = dx_new / ratio
 
-    S = np.diag([dx_new/dx, dy_new/dy, 1])
+    S = np.diag([dx_new / dx, dy_new / dy, 1])
 
     for g, _ in gb:
         g.nodes = S.dot(g.nodes)
 
     gb.compute_geometry()
     return gb
+
 
 # ------------------------------------------------------------------------------#
 
@@ -48,14 +52,16 @@ def pore_volume(gb, param):
         pv += phi * np.sum(g.cell_volumes)
     return pv
 
+
 # ------------------------------------------------------------------------------#
+
 
 def transmissibility(gb, param, flow_direction):
 
     # compute the thickness of the domain
     dmin = "ymin" if flow_direction else "xmin"
     dmax = "ymax" if flow_direction else "xmax"
-    delta = (param["domain"][dmax] - param["domain"][dmin])
+    delta = param["domain"][dmax] - param["domain"][dmin]
 
     t = 0
     total_out_flow = 0
@@ -70,12 +76,15 @@ def transmissibility(gb, param, flow_direction):
             u[np.logical_not(b_faces)] = 0
             u[faces] *= sign
 
-            out_flow = g.face_centers[flow_direction, :] > param["domain"][dmax] - param["tol"]
+            out_flow = (
+                g.face_centers[flow_direction, :] > param["domain"][dmax] - param["tol"]
+            )
             out_flow_u = np.sum(u[out_flow])
 
             t += out_flow_u * delta / param["bc_flow"]
             total_out_flow += out_flow_u
 
     return t, total_out_flow
+
 
 # ------------------------------------------------------------------------------#
