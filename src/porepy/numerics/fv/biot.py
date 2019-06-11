@@ -136,9 +136,7 @@ class Biot:
 
         div_u = matrix_dictionaries[self.mechanics_keyword]["div_u"]
 
-        div_u_rhs = np.squeeze(
-            parameter_dictionary["biot_alpha"] * div_u * d
-        )
+        div_u_rhs = np.squeeze(parameter_dictionary["biot_alpha"] * div_u * d)
         p_cmpr = matrix_dictionaries[self.flow_keyword]["mass"] * p
 
         mech_rhs = np.zeros(g.dim * g.num_cells)
@@ -456,6 +454,9 @@ class Biot:
                 discretization of the force on the face due to cell-centre
                 pressure from a unique side.
 
+        """
+
+        """
         Method properties and implementation details.
         Basis functions, namely 'stress' and 'bound_stress', for the displacement
         discretization are obtained as in standard MPSA-W method.
@@ -464,24 +465,28 @@ class Biot:
         imbalance, and thus induce additional displacement gradients in the sub-cells.
         An additional system is set up, which applies non-zero conditions to the
         traction continuity equation. This can be expressed as a linear system on the form
+
             (i)   A * grad_u            = I
             (ii)  B * grad_u + C * u_cc = 0
             (iii) 0            D * u_cc = 0
+
         Thus (i)-(iii) can be inverted to express the additional displacement gradients
         due to imbalance in pressure forces as in terms of the cell center variables.
         Thus we can compute the basis functions 'grad_p_jumps' on the sub-cells.
         To ensure traction continuity, as soon as a convention is chosen for what side
         the force evaluation should be considered on, an additional term, called
-        'grad_p_face', is added to the full force. This latter term represnts the force
+        'grad_p_face', is added to the full force. This latter term represents the force
         due to cell-center pressure acting on the face from the chosen side.
         The pair subfno_unique-unique_subfno gives the side convention.
         The full force on the face is therefore given by
+
         t = stress * u + bound_stress * u_b + alpha * (grad_p_jumps + grad_p_face) * p
 
         The strategy is as follows.
         1. compute product normal_vector * alpha and get a map for vector problems
         2. assemble r.h.s. for the new linear system, needed for the term 'grad_p_jumps'
         3. compute term 'grad_p_face'
+
         """
 
         nd = g.dim
@@ -489,12 +494,11 @@ class Biot:
         num_subhfno = subcell_topology.subhfno.size
         num_subfno_unique = subcell_topology.num_subfno_unique
         num_subfno = subcell_topology.num_subfno
-        num_cno = subcell_topology.num_cno
-
-        num_nodes = np.diff(g.face_nodes.indptr)
 
         # Step 1
 
+        # The implementation is valid for tensor Biot coefficients, but for the
+        # moment, we only allow for scalar inputs.
         # Take Biot's alpha as a tensor
         alpha_tensor = pp.SecondOrderTensor(nd, alpha * np.ones(g.num_cells))
 
@@ -507,7 +511,8 @@ class Biot:
         nAlpha_grad, cell_node_blocks, sub_cell_index = fvutils.scalar_tensor_vector_prod(
             g, alpha_tensor, subcell_topology
         )
-        # transfer nAlpha to a face-based
+        # transfer nAlpha to a subface-based quantity by pairing expressions on the
+        # two sides of the subface
         unique_nAlpha_grad = subcell_topology.pair_over_subfaces(nAlpha_grad)
 
         # convenience method for reshaping nAlpha from face-based
@@ -532,6 +537,7 @@ class Biot:
         # as a force on the faces. The right hand side is thus formed of the
         # unit vector.
         def build_rhs_units_single_dimension(dim):
+            # EK: Can we skip argument dim?
             vals = np.ones(num_subfno_unique)
             ind = subcell_topology.subfno_unique
             mat = sps.coo_matrix(
@@ -553,7 +559,7 @@ class Biot:
         ].A.ravel("F")
         # NOTE: For some reason one should not multiply with the sign, but I don't
         # understand why. It should not matter much for the Biot alpha term since
-        # by construction the biot_alpha_jumps and biot_alpha_force will cancell for
+        # by construction the biot_alpha_jumps and biot_alpha_force will cancel for
         # Neumann boundaries. We keep the sign matrix as an Identity matrix to remember
         # where it should be multiplied:
         sgn_nd = np.tile(np.abs(sgn), (g.dim, 1))
@@ -567,7 +573,7 @@ class Biot:
         sgn_diag_F = sps.diags(sgn_nd.ravel("F"))
         sgn_diag_C = sps.diags(sgn_nd.ravel("C"))
 
-        # Remembering the ordering of the local equations:
+        # Recall the ordering of the local equations:
         # First stress equilibrium for the internal subfaces.
         # Then the stress equilibrium for the Neumann subfaces.
         # Then the Robin subfaces.
