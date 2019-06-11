@@ -869,7 +869,7 @@ class Assembler:
                     data = self.gb.node_props(g)
                 else:  # This is really an edge
                     data = self.gb.edge_props(g)
-                    
+
                 if pp.STATE in data.keys():
                     data[pp.STATE][var_name] = values[dof[bi] : dof[bi + 1]]
                 else:
