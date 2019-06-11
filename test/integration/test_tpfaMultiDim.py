@@ -58,7 +58,7 @@ def check_pressures(gb):
     the tpfa half transmissibilities are computed.
     """
     for g, d in gb:
-        pressure = d["pressure"]
+        pressure = d[pp.STATE]["pressure"]
         pressure_analytic = g.cell_centers[1]
         p_diff = pressure - pressure_analytic
         if np.max(np.abs(p_diff)) >= 2e-2:
