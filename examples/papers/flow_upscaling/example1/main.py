@@ -5,11 +5,14 @@ import examples.papers.flow_upscaling.solvers as solvers
 from examples.papers.flow_upscaling.logger import logger
 import functions as fct
 
+
 def main(file_geo, param, mesh_args, tol):
 
     # import the network
-    network = pp.fracture_importer.network_2d_from_csv(file_geo, polyline=True, tol=tol["geo"])
-    #network.plot(pts_coord=True)
+    network = pp.fracture_importer.network_2d_from_csv(
+        file_geo, polyline=True, tol=tol["geo"]
+    )
+    # network.plot(pts_coord=True)
 
     # shift the network to use reasonable numbers and snap the fractures
     fct.center_network(network)
@@ -24,20 +27,25 @@ def main(file_geo, param, mesh_args, tol):
 
     for flow_direction_name, flow_direction in flow_directions.items():
 
-        logger.info("Rescale the problem such that in the direction the lenght is 2, from -1 to 1")
+        logger.info(
+            "Rescale the problem such that in the direction the lenght is 2, from -1 to 1"
+        )
         gb_scaled = fct.rescale_gb(gb)
 
         domain = gb_scaled.bounding_box(as_dict=True)
         param["domain"] = domain
-        domain_length = np.array([domain["xmax"] - domain["xmin"],
-                                  domain["ymax"] - domain["ymin"]])
+        domain_length = np.array(
+            [domain["xmax"] - domain["xmin"], domain["ymax"] - domain["ymin"]]
+        )
         logger.info("done")
 
         logger.info("Solve the problem in the direction " + flow_direction_name)
         # solve the pressure problem
         param["flow_direction"] = flow_direction
         param["folder"] = folder + "_" + flow_direction_name
-        param["bc_flow"] = param["given_flux"] * domain_length[flow_direction] / param["km"]
+        param["bc_flow"] = (
+            param["given_flux"] * domain_length[flow_direction] / param["km"]
+        )
         model_flow = solvers.flow(gb_scaled, param)
 
         # compute the upscaled transmissibility
@@ -80,7 +88,7 @@ if __name__ == "__main__":
         elif id_frac == 1:
             h = 0.025
             file_geo = folder_fractures + "Algeroyna_1to10.csv"
-            tol = {"geo": 5*1e-3, "snap": 1e-2}
+            tol = {"geo": 5 * 1e-3, "snap": 1e-2}
             folder = "algeroyna_1to10"
 
         elif id_frac == 2:
@@ -119,7 +127,11 @@ if __name__ == "__main__":
             tol = {"geo": 1e-2, "snap": 1e-2}
             folder = "vikso_1to1000"
 
-        mesh_args = {"mesh_size_frac": h, "mesh_size_min": h / 20, "mesh_size_bound": h*2}
+        mesh_args = {
+            "mesh_size_frac": h,
+            "mesh_size_min": h / 20,
+            "mesh_size_bound": h * 2,
+        }
 
         # select the permeability depending on the selected test case
         param = {
