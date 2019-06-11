@@ -1035,10 +1035,10 @@ def polygons_3d(polys, tol=1e-8):
 
     # Cleanup and return. Puh!
     if len(new_pt) > 0:
-        new_pt = np.hstack((v for v in new_pt))
+        new_pt = np.hstack([v for v in new_pt])
         for i in range(isect_pt.size):
             if len(isect_pt[i]) > 0:
-                isect_pt[i] = np.hstack((v for v in isect_pt[i]))
+                isect_pt[i] = np.hstack([v for v in isect_pt[i]])
             else:
                 isect_pt[i] = np.empty(0)
 
@@ -1308,7 +1308,7 @@ def split_intersecting_segments_2d(p, e, tol=1e-4):
     # shorter segments.
     else:
         # The full set of points, both original and newly found intersection points
-        all_pt = np.hstack((p, np.vstack((i for i in new_pts)).T))
+        all_pt = np.hstack((p, np.vstack([i for i in new_pts]).T))
         # Remove duplicates in the point set.
         # NOTE: The tolerance used here is a bit sensitive, if set too loose, this
         # may merge non-intersecting fractures.
