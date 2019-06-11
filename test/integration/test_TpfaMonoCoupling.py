@@ -47,7 +47,9 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
 
         # test pressure
         for g, d in gb:
-            self.assertTrue(np.allclose(d[pp.STATE]["pressure"], xmax - g.cell_centers[0]))
+            self.assertTrue(
+                np.allclose(d[pp.STATE]["pressure"], xmax - g.cell_centers[0])
+            )
 
         # test mortar solution
         for e, d_e in gb.edges():

@@ -847,7 +847,7 @@ class Assembler:
             variable_names (list of str, optional): Names of the variable to be
                 distributed. If not provided, all variables found in block_dof
                 will be distributed
-            use_state (boolean, optional): If True (default), the data will be stored in 
+            use_state (boolean, optional): If True (default), the data will be stored in
                 data[pp.STATE][variable_name]. If not, store it directly in the data
                 dictionary on the components of the GridBucket.
 

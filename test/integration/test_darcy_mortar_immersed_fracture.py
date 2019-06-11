@@ -161,7 +161,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_mpfa(gb)
         g_2d = gb.grids_of_dimension(2)[0]
         d = gb.node_props(g_2d)
-        p_flipped = d[pp.STATE]["pressure"]        
+        p_flipped = d[pp.STATE]["pressure"]
 
         self.assertTrue(np.allclose(p, p_flipped, rtol=1e-10))
 
@@ -180,7 +180,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_vem(gb)
         g_2d = gb.grids_of_dimension(2)[0]
         d = gb.node_props(g_2d)
-        p_flipped = d[pp.STATE]["pressure"]        
+        p_flipped = d[pp.STATE]["pressure"]
 
         self.assertTrue(np.allclose(p, p_flipped, rtol=1e-10))
 
@@ -192,7 +192,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_RT0(gb)
         g_2d = gb.grids_of_dimension(2)[0]
         d = gb.node_props(g_2d)
-        p = d[pp.STATE]["pressure"]        
+        p = d[pp.STATE]["pressure"]
 
         gb = self.create_grid()
         self.set_params(gb, kn=1e4, kf=1e3)
@@ -200,7 +200,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_RT0(gb)
         g_2d = gb.grids_of_dimension(2)[0]
         d = gb.node_props(g_2d)
-        p_flipped = d[pp.STATE]["pressure"]        
+        p_flipped = d[pp.STATE]["pressure"]
 
         self.assertTrue(np.allclose(p, p_flipped, rtol=1e-10))
 
