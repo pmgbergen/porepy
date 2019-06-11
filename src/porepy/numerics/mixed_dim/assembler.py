@@ -834,7 +834,7 @@ class Assembler:
         else:
             return key in self.active_variables
 
-    def distribute_variable(self, values, variable_names=None):
+    def distribute_variable(self, values, variable_names=None, use_state=True):
         """ Distribute a vector to the nodes and edges in the GridBucket.
 
         The intended use is to split a multi-physics solution vector into its
@@ -847,6 +847,9 @@ class Assembler:
             variable_names (list of str, optional): Names of the variable to be
                 distributed. If not provided, all variables found in block_dof
                 will be distributed
+            use_state (boolean, optional): If True (default), the data will be stored in 
+                data[pp.STATE][variable_name]. If not, store it directly in the data
+                dictionary on the components of the GridBucket.
 
         """
         if variable_names is None:
@@ -866,7 +869,11 @@ class Assembler:
                     data = self.gb.node_props(g)
                 else:  # This is really an edge
                     data = self.gb.edge_props(g)
-                data[var_name] = values[dof[bi] : dof[bi + 1]]
+                    
+                if pp.STATE in data.keys():
+                    data[pp.STATE][var_name] = values[dof[bi] : dof[bi + 1]]
+                else:
+                    data[pp.STATE] = {var_name: values[dof[bi] : dof[bi + 1]]}
 
     def merge_variable(self, var):
         """ Merge a vector to the nodes and edges in the GridBucket.

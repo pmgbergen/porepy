@@ -117,12 +117,17 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
             p_n = np.zeros(gb.num_cells())
             for g, d in gb:
                 if g.dim == 2:
-                    p_n[: g2d.num_cells] = d["pressure"][g.num_faces :]
+                    p_n[: g2d.num_cells] = d[pp.STATE]["pressure"][g.num_faces :]
                 else:
-                    p_n[g2d.num_cells :] = d["pressure"][g.num_faces :]
-                d["pressure"] = d["pressure"][g.num_faces :]
+                    p_n[g2d.num_cells :] = d[pp.STATE]["pressure"][g.num_faces :]
+                d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
             p = p_n
         return p
+    
+    def verify_cv(self, gb):
+        for g, d in gb.nodes():
+            p = d[pp.STATE]["pressure"]
+            self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=1e-3, atol=1e-3))
 
     def test_tpfa_matching_grids_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
@@ -157,15 +162,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         self.solve(gb)
 
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=kn))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn))
+        self.verify_cv(gb)
 
     def test_tpfa_matching_grids_refine_1d_uniform_flow(self):
 
@@ -174,15 +171,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="tpfa", kn=kn)
 
         self.solve(gb)
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1.0 / kn))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+        self.verify_cv(gb)
 
     def test_tpfa_matching_grids_refine_mortar_uniform_flow(self):
 
@@ -191,17 +180,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="tpfa", kn=kn)
 
         self.solve(gb)
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
-
+        self.verify_cv(gb)
+        
     def test_tpfa_matching_grids_refine_2d_uniform_flow(self):
 
         kn = 1e4
@@ -209,16 +189,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="tpfa", kn=kn)
 
         self.solve(gb)
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+        self.verify_cv(gb)
 
     def test_tpfa_matching_grids_uniform_flow_larger_domain(self):
 
@@ -229,16 +200,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="tpfa", kn=kn)
 
         self.solve(gb)
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=kn))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn))
+        self.verify_cv(gb)
 
     def test_tpfa_matching_grids_refine_1d_uniform_flow_larger_domain(self):
 
@@ -249,16 +211,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="tpfa", kn=kn)
 
         self.solve(gb)
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1.0 / kn))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+        self.verify_cv(gb)
 
     def test_tpfa_matching_grids_refine_mortar_uniform_flow_larger_domain(self):
 
@@ -269,16 +222,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="tpfa", kn=kn)
 
         self.solve(gb)
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+        self.verify_cv(gb)
 
     def test_tpfa_matching_grids_refine_2d_uniform_flow_larger_domain(self):
 
@@ -289,17 +233,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="tpfa", kn=kn)
 
         self.solve(gb)
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
-
+        self.verify_cv(gb)
+        
     def test_mpfa_matching_grids_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
         self.set_param_flow(gb, no_flow=True, method="mpfa")
@@ -359,16 +294,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="mpfa", kn=kn)
 
         self.solve(gb, "mpfa")
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=kn))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn))
+        self.verify_cv(gb)
 
     def test_mvem_matching_grids_uniform_flow(self):
 
@@ -377,16 +303,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="mvem", kn=kn)
 
         self.solve(gb, "mvem")
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=kn))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn))
+        self.verify_cv(gb)
 
     def test_mpfa_matching_grids_refine_1d_uniform_flow(self):
 
@@ -395,16 +312,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="mpfa", kn=kn)
 
         self.solve(gb, "mpfa")
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1.0 / kn))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+        self.verify_cv(gb)
 
     def test_mvem_matching_grids_refine_1d_uniform_flow(self):
 
@@ -413,16 +321,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="mvem", kn=kn)
 
         self.solve(gb, "mvem")
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1.0 / kn))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+        self.verify_cv(gb)
 
     def test_mpfa_matching_grids_refine_mortar_uniform_flow(self):
 
@@ -431,17 +330,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="mpfa", kn=kn)
 
         self.solve(gb, "mpfa")
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
-
+        self.verify_cv(gb)
     def test_mvem_matching_grids_refine_mortar_uniform_flow(self):
 
         kn = 1e4
@@ -449,17 +338,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="mvem", kn=kn)
 
         self.solve(gb, "mvem")
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
-
+        self.verify_cv(gb)
+        
     def test_mpfa_matching_grids_refine_2d_uniform_flow(self):
 
         kn = 1e4
@@ -467,16 +347,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="mpfa", kn=kn)
 
         self.solve(gb, "mpfa")
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+        self.verify_cv(gb)
 
     def test_mvem_matching_grids_refine_2d_uniform_flow(self):
 
@@ -486,15 +357,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         self.solve(gb, "mvem")
 
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+        self.verify_cv(gb)
 
     def test_mpfa_matching_grids_uniform_flow_larger_domain(self):
 
@@ -505,16 +368,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="mpfa", kn=kn)
 
         self.solve(gb, "mpfa")
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=kn))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn))
+        self.verify_cv(gb)
 
     def test_mvem_matching_grids_uniform_flow_larger_domain(self):
 
@@ -525,17 +379,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="mvem", kn=kn)
 
         self.solve(gb, "mvem")
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=kn))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn))
-
+        self.verify_cv(gb)
+        
     def test_mpfa_matching_grids_refine_1d_uniform_flow_larger_domain(self):
 
         kn = 1e4
@@ -545,16 +390,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="mpfa", kn=kn)
 
         self.solve(gb, "mpfa")
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1.0 / kn))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+        self.verify_cv(gb)
 
     def test_mvem_matching_grids_refine_1d_uniform_flow_larger_domain(self):
 
@@ -565,16 +401,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="mvem", kn=kn)
 
         self.solve(gb, "mvem")
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1.0 / kn))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+        self.verify_cv(gb)
 
     def test_mpfa_matching_grids_refine_mortar_uniform_flow_larger_domain(self):
 
@@ -585,16 +412,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="mpfa", kn=kn)
 
         self.solve(gb, "mpfa")
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+        self.verify_cv(gb)
 
     def test_mvem_matching_grids_refine_mortar_uniform_flow_larger_domain(self):
 
@@ -605,16 +423,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="mvem", kn=kn)
 
         self.solve(gb, "mvem")
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+        self.verify_cv(gb)
 
     def test_mpfa_matching_grids_refine_2d_uniform_flow_larger_domain(self):
 
@@ -625,16 +434,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="mpfa", kn=kn)
 
         self.solve(gb, "mpfa")
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
+        self.verify_cv(gb)
 
     def test_mvem_matching_grids_refine_2d_uniform_flow_larger_domain(self):
 
@@ -645,17 +445,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, method="mvem", kn=kn)
 
         self.solve(gb, "mvem")
-
-        g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_props(g_2d, "pressure")
-        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4))
-
-        g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_props(g_1d, "pressure")
-        # NOTE: This will not be entirely correct,
-        self.assertTrue(np.allclose(p_1d, g_1d.cell_centers[1]))
-
+        self.verify_cv(gb)
 
 class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
     def setup(
@@ -775,8 +565,8 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         # are not matching (one may get lucky, though). Thus the coarse error
         # tolerance. The current value turned out to be sufficient for all
         # tests considered herein.
-        for g, _ in gb.nodes():
-            p = gb.node_props(g, "pressure")
+        for g, d in gb.nodes():
+            p = d[pp.STATE]["pressure"]
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
 
     def run_mpfa(self, gb):
@@ -795,7 +585,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(p)
         for g, d in gb:
-            d["pressure"] = d["pressure"][g.num_faces :]
+            d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
 
     def test_mpfa_one_frac(self):
         gb = self.setup(num_fracs=1)
@@ -988,8 +778,8 @@ class TestMortar3D(unittest.TestCase):
             d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
     def verify_cv(self, gb):
-        for g, _ in gb.nodes():
-            p = gb.node_props(g, "pressure")
+        for g, d in gb.nodes():
+            p = d[pp.STATE]["pressure"]
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=1e-3, atol=1e-3))
 
     def run_mpfa(self, gb):
@@ -1007,6 +797,7 @@ class TestMortar3D(unittest.TestCase):
         up = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "up", up)
         solver_flow.extract_p(gb, "up", "pressure")
+        self.verify_cv(gb)
 
     def test_mpfa_no_fracs(self):
         gb = self.setup(num_fracs=0)
@@ -1188,8 +979,8 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         # are not matching (one may get lucky, though). Thus the coarse error
         # tolerance. The current value turned out to be sufficient for all
         # tests considered herein.
-        for g, _ in gb.nodes():
-            p = gb.node_props(g, "pressure")
+        for g, d in gb.nodes():
+            p = d[pp.STATE]["pressure"]
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
 
     def _solve(self, gb, method, key):
@@ -1208,16 +999,16 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         method = pp.MVEM(key)
         self._solve(gb, method, key)
         for g, d in gb:
-            d["darcy_flux"] = d["pressure"][: g.num_faces]
-            d["pressure"] = d["pressure"][g.num_faces :]
+            d[pp.STATE]["darcy_flux"] = d[pp.STATE]["pressure"][: g.num_faces]
+            d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
 
     def run_RT0(self, gb):
         key = "flow"
         method = pp.RT0(key)
         self._solve(gb, method, key)
         for g, d in gb:
-            d["darcy_flux"] = d["pressure"][: g.num_faces]
-            d["pressure"] = d["pressure"][g.num_faces :]
+            d[pp.STATE]["darcy_flux"] = d[pp.STATE]["pressure"][: g.num_faces]
+            d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
 
     def test_mpfa(self):
         gb = self.setup(False)

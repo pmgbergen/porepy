@@ -78,7 +78,7 @@ class TestTwoGridCoupling(unittest.TestCase):
         us = []
         ID = []  # to appease porpy 3.5
         for g, d in gb:
-            us.append(d[self.kw])
+            us.append(d[pp.STATE][self.kw])
             ID.append(g.grid_num - 1)
         us = np.hstack([np.array(us)[ID].ravel()])
         IA = np.array([0, 1, 4, 5, 2, 3, 6, 7])
@@ -93,9 +93,9 @@ class TestTwoGridCoupling(unittest.TestCase):
             ds = gb.node_props(gs)
             dm = gb.node_props(gm)
 
-            us = ds[self.kw]
-            um = dm[self.kw]
-            lam = d[self.kw]
+            us = ds[pp.STATE][self.kw]
+            um = dm[pp.STATE][self.kw]
+            lam = d[pp.STATE][self.kw]
 
             bdcs = ds[pp.DISCRETIZATION_MATRICES][self.kw]["bound_displacement_cell"]
             bdcm = dm[pp.DISCRETIZATION_MATRICES][self.kw]["bound_displacement_cell"]
@@ -270,8 +270,8 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
         ps = []
         ID = []
         for g, d in gb:
-            us.append(d["u"])
-            ps.append(d["p"])
+            us.append(d[pp.STATE]["u"])
+            ps.append(d[pp.STATE]["p"])
             ID.append(g.grid_num - 1)
         us = np.hstack([np.array(us)[ID].ravel()])
         ps = np.hstack([np.array(ps)[ID].ravel()])
@@ -282,8 +282,8 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
         us = []
         ps = []
         for g, d in gb_full:
-            us.append(d["u"])
-            ps.append(d["p"])
+            us.append(d[pp.STATE]["u"])
+            ps.append(d[pp.STATE]["p"])
         sol_full = np.hstack([np.array(us), np.array(ps)])
         # Note, we don't have equality because the weak symmetry breaks when a cell has to many
         # Neumann conditions (see comments in mpsa)
@@ -297,11 +297,11 @@ class TestBiotTwoGridCoupling(unittest.TestCase):
             ds = gb.node_props(gs)
             dm = gb.node_props(gm)
 
-            us = ds["u"]
-            um = dm["u"]
-            lam = d["lam_u"]
-            ps = ds["p"]
-            pm = dm["p"]
+            us = ds[pp.STATE]["u"]
+            um = dm[pp.STATE]["u"]
+            lam = d[pp.STATE]["lam_u"]
+            ps = ds[pp.STATE]["p"]
+            pm = dm[pp.STATE]["p"]
 
             bdcs = ds[pp.DISCRETIZATION_MATRICES][self.kw]["bound_displacement_cell"]
             bdcm = dm[pp.DISCRETIZATION_MATRICES][self.kw]["bound_displacement_cell"]

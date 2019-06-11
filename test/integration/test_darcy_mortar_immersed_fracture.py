@@ -82,8 +82,8 @@ class TestImmersedFracture(unittest.TestCase):
         # are not matching (one may get lucky, though). Thus the coarse error
         # tolerance. The current value turned out to be sufficient for all
         # tests considered herein.
-        for g, _ in gb.nodes():
-            p = gb.node_props(g, "pressure")
+        for g, d in gb.nodes():
+            p = d[pp.STATE]["pressure"]
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
 
     def _solve(self, gb, method, key):
@@ -102,16 +102,16 @@ class TestImmersedFracture(unittest.TestCase):
         method = pp.MVEM(key)
         self._solve(gb, method, key)
         for g, d in gb:
-            d["darcy_flux"] = d["pressure"][: g.num_faces]
-            d["pressure"] = d["pressure"][g.num_faces :]
+            d[pp.STATE]["darcy_flux"] = d[pp.STATE]["pressure"][: g.num_faces]
+            d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
 
     def run_RT0(self, gb):
         key = "flow"
         method = pp.RT0(key)
         self._solve(gb, method, key)
         for g, d in gb:
-            d["darcy_flux"] = d["pressure"][: g.num_faces]
-            d["pressure"] = d["pressure"][g.num_faces :]
+            d[pp.STATE]["darcy_flux"] = d[pp.STATE]["pressure"][: g.num_faces]
+            d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
 
     def test_mpfa_blocking_fracture(self):
         # blocking fracture, essentially uniform flow in a 2d domain
@@ -120,7 +120,8 @@ class TestImmersedFracture(unittest.TestCase):
 
         self.run_mpfa(gb)
         g_2d = gb.grids_of_dimension(2)[0]
-        p = gb.node_props(g_2d, "pressure")
+        d = gb.node_props(g_2d)
+        p = d[pp.STATE]["pressure"]
         self.assertTrue(np.allclose(p, g_2d.cell_centers[1], rtol=1e-5))
 
     def test_mvem_blocking_fracture(self):
@@ -130,7 +131,8 @@ class TestImmersedFracture(unittest.TestCase):
 
         self.run_vem(gb)
         g_2d = gb.grids_of_dimension(2)[0]
-        p = gb.node_props(g_2d, "pressure")
+        d = gb.node_props(g_2d)
+        p = d[pp.STATE]["pressure"]
         self.assertTrue(np.allclose(p, g_2d.cell_centers[1], rtol=1e-5))
 
     def test_rt0_blocking_fracture(self):
@@ -140,7 +142,8 @@ class TestImmersedFracture(unittest.TestCase):
 
         self.run_RT0(gb)
         g_2d = gb.grids_of_dimension(2)[0]
-        p = gb.node_props(g_2d, "pressure")
+        d = gb.node_props(g_2d)
+        p = d[pp.STATE]["pressure"]
         self.assertTrue(np.allclose(p, g_2d.cell_centers[1], rtol=1e-5))
 
     def test_mpfa_flip_normal(self):
@@ -150,14 +153,16 @@ class TestImmersedFracture(unittest.TestCase):
 
         self.run_mpfa(gb)
         g_2d = gb.grids_of_dimension(2)[0]
-        p = gb.node_props(g_2d, "pressure")
-
+        d = gb.node_props(g_2d)
+        p = d[pp.STATE]["pressure"]
         gb = self.create_grid()
         self.set_params(gb, kn=1e4, kf=1e3)
 
         self.run_mpfa(gb)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_flipped = gb.node_props(g_2d, "pressure")
+        d = gb.node_props(g_2d)
+        p_flipped = d[pp.STATE]["pressure"]        
+
         self.assertTrue(np.allclose(p, p_flipped, rtol=1e-10))
 
     def test_mvem_flip_normal(self):
@@ -167,14 +172,16 @@ class TestImmersedFracture(unittest.TestCase):
 
         self.run_vem(gb)
         g_2d = gb.grids_of_dimension(2)[0]
-        p = gb.node_props(g_2d, "pressure")
-
+        d = gb.node_props(g_2d)
+        p = d[pp.STATE]["pressure"]
         gb = self.create_grid()
         self.set_params(gb, kn=1e4, kf=1e3)
 
         self.run_vem(gb)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_flipped = gb.node_props(g_2d, "pressure")
+        d = gb.node_props(g_2d)
+        p_flipped = d[pp.STATE]["pressure"]        
+
         self.assertTrue(np.allclose(p, p_flipped, rtol=1e-10))
 
     def test_RT0_flip_normal(self):
@@ -184,14 +191,17 @@ class TestImmersedFracture(unittest.TestCase):
 
         self.run_RT0(gb)
         g_2d = gb.grids_of_dimension(2)[0]
-        p = gb.node_props(g_2d, "pressure")
+        d = gb.node_props(g_2d)
+        p = d[pp.STATE]["pressure"]        
 
         gb = self.create_grid()
         self.set_params(gb, kn=1e4, kf=1e3)
 
         self.run_RT0(gb)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_flipped = gb.node_props(g_2d, "pressure")
+        d = gb.node_props(g_2d)
+        p_flipped = d[pp.STATE]["pressure"]        
+
         self.assertTrue(np.allclose(p, p_flipped, rtol=1e-10))
 
 
