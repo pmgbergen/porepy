@@ -391,23 +391,209 @@ class PrimalContactCoupling(object):
         return matrix, rhs
 
 
+class PressureContributionToForceBalance:
+    """
+    This class adds pressure contributions to the force balance posed on the mortar grid
+    by PrimalContactCoupling.
+
+    First, we account for the grad P contribution to the forces on the higher-dimensional
+    internal boundary, i.e. the last term of:
+        boundary_traction_hat = stress * u_hat + bound_stress * u_mortar + gradP * p_hat
+
+
+    For the contact mechanics, we only want to consider the _contact_ traction. Thus, we
+    have to subtract the pressure contribution, i.e.
+        \lambda_contact - p_check I \dot n = boundary_traction_hat
+
+    W
+    """
+
+    def __init__(self, keyword, discr_master, discr_slave):
+        """
+        Parameters:
+            keyword used for storage of the gradP discretization. If the GradP class is
+                used, this is the keyword associated with the mechanical parameters.
+            discr_master and
+            discr_slave are the discretization objects operating on the master and slave
+                pressure, respectively. Used for #DOFs. In FV, one cell variable is
+                expected.
+        """
+        # Set iscretizations
+        self.discr_master = discr_master
+        self.discr_slave = discr_slave
+        # Keyword used to retrieve gradP discretization.
+        self.keyword = keyword
+
+
+    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+        """
+        Nothing to do
+        """
+        pass
+
+    def assemble_matrix_rhs(
+        self, g_master, g_slave, data_master, data_slave, data_edge, matrix
+    ):
+        """
+        Assemble the pressure contributions of the interface force balance law.
+
+        Parameters:
+            g_master: Grid on one neighboring subdomain.
+            g_slave: Grid on the other neighboring subdomain.
+            data_master: Data dictionary for the master suddomain
+            data_slave: Data dictionary for the slave subdomain.
+            data_edge: Data dictionary for the edge between the subdomains
+            matrix: original discretization matrix, to which the coupling terms will be
+                added.
+        """
+
+        ambient_dimension = g_master.dim
+
+        master_ind = 0
+        slave_ind = 1
+        mortar_ind = 2
+
+        # Generate matrix for the coupling. This can probably be generalized
+        # once we have decided on a format for the general variables
+        mg = data_edge["mortar_grid"]
+
+        dof_master = self.discr_master.ndof(g_master)
+        dof_slave = self.discr_slave.ndof(g_slave)
+
+        if not dof_master == matrix[master_ind, master_ind].shape[1]:
+            raise ValueError(
+                """The number of dofs of the master discretization given
+            in RobinCoupling must match the number of dofs given by the matrix
+            """
+            )
+        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
+            raise ValueError(
+                """The number of dofs of the slave discretization given
+            in RobinCoupling must match the number of dofs given by the matrix
+            """
+            )
+        elif not mg.num_cells * ambient_dimension == matrix[master_ind, 2].shape[1]:
+            raise ValueError(
+                """The number of dofs of the edge discretization given
+            in the PrimalContactCoupling must match the number of dofs given by the matrix
+            """
+            )
+
+        # We know the number of dofs from the master and slave side from their
+        # discretizations
+        dof = np.array(
+            [
+                matrix[master_ind, master_ind].shape[1],
+                matrix[slave_ind, slave_ind].shape[1],
+                mg.num_cells * ambient_dimension,
+            ]
+        )
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+        cc = cc.reshape((3, 3))
+
+        rhs = np.empty(3, dtype=np.object)
+        rhs[master_ind] = np.zeros(dof_master)
+        rhs[slave_ind] = np.zeros(dof_slave)
+        rhs[mortar_ind] = np.zeros(mg.num_cells * ambient_dimension)
+
+        master_scalar_gradient = data_master[pp.DISCRETIZATION_MATRICES][
+            self.keyword
+        ]["grad_p"]
+
+        # We want to modify the stress balance posed on the edge to account for the
+        # scalar (usually pressure) contribution.
+        # In the purely mechanical case, stress from the higher dimensional
+        # domain (both interior and bound_stress) should match the contact stress:
+        # -\lambda_slave + \lambda_master = 0,
+        # see PrimalContactCoupling.
+        # Now, two modifications are needed:
+        # 1) Add the scalar gradient contribution to the traction on the master
+        # boundary.
+        # 2) Ensure that the contact variable is only the force from the contact of the
+        # two sides of the fracture. This requires subtraction of the pressure force.
+
+        ## 1) GradP contribution to the stress trace in the higher dimension.
+
+        # A diagonal operator is needed to switch the sign of vectors on
+        # higher-dimensional faces that point into the fracture surface, see
+        # PrimalContactCoupling.
+        faces_on_fracture_surface = mg.master_to_mortar_int().tocsr().indices
+        sign_switcher = pp.grid_utils.switch_sign_if_inwards_normal(
+            g_master, ambient_dimension, faces_on_fracture_surface
+        )
+
+        # i) Obtain pressure stress contribution from the higher dimensional domain.
+        # ii) Switch the direction of the vectors, so that for all faces, a positive
+        # force points into the fracture surface (along the outwards normal on the
+        # boundary).
+        # iii) Map to the mortar grid.
+        # iv) Minus according to - alpha grad p
+        master_scalar_stress_to_master_traction = -(
+            mg.master_to_mortar_int(nd=ambient_dimension)
+            * sign_switcher
+            * master_scalar_gradient
+        )
+        cc[mortar_ind, master_ind] = master_scalar_stress_to_master_traction
+
+
+        ## 2)
+        # Construct the dot product between normals on fracture faces and the identity
+        # matrix. Similar sign switching as above is needed (this one operating on
+        # fracture faces only).
+        sgn = g_master.sign_of_faces(faces_on_fracture_surface)
+        fracture_normals = g_master.face_normals[:ambient_dimension,faces_on_fracture_surface]
+        outwards_fracture_normals = sgn * fracture_normals
+
+        data = outwards_fracture_normals.ravel('F')
+        row = np.arange(g_master.dim * mg.num_cells)
+        col = np.tile(np.arange(mg.num_cells), (g_master.dim, 1)).ravel('F')
+        n_dot_I = sps.csc_matrix((data, (row, col)))
+        # i) The scalar contribution to the contact stress is mapped to the mortar grid
+        # and multiplied by n \dot I.
+        # ii) We have for the positive (first) and negative (second) side of the mortar
+        # that
+        # \lambda_slave = \lambda_mortar_pos = -\lambda_mortar_neg,
+        # so we need to adjust the slave pressure with the corresponding signs by
+        # applying sign_of_mortar_sides.
+        # iii) The contribution should be subtracted so that we balance the master
+        # forces by
+        # \lambda_contact - n dot I p,
+        # hence the minus.
+        slave_pressure_stress_to_contact_traction = -(
+            mg.sign_of_mortar_sides(nd=ambient_dimension)
+            * n_dot_I
+            * mg.slave_to_mortar_int(nd=1)
+        )
+        # Minus to obtain -\lambda_slave + \lambda_mortar = 0, i.e. from placing the two
+        # terms on the same side of the equation, as also done in PrimalContactCoupling.
+        cc[mortar_ind, slave_ind] = -slave_pressure_stress_to_contact_traction
+
+        matrix += cc
+
+        return matrix, rhs
+"""
+Account for the displacement effects on the scalar variable in the mass balance on both
+higher- and lower-dimensional nodes.
+"""
 class DivUCoupling:
     """
     Coupling conditions for DivU term.
 
     For mixed-dimensional flow in coupled to matrix mechanics, i.e. Biot in the matrix
-    and mass conservation in matrix and fractures.
-    We have assume a primal displacement mortar variable, which will contribute
+    and conservation of a scalar quantity (usually fluid mass) in matrix and fractures.
+    We have assumed a primal displacement mortar variable, which will contribute
     to the div u term in fracture ("div aperture") and matrix.
     """
 
     def __init__(self, variable, discr_master, discr_slave):
         self.mechanics_keyword = discr_master.keyword
-        # Set variable names for the vector and scalar variable, used to access
+        # Set variable names for the vector variable (displacement), used to access
         # solutions from previous time steps
         self.variable = variable
-
+        # The terms are added by calls to assemble methods of DivU discretizations,
+        # namely assemble_int_bound_displacement_trace for the master and
         self.discr_master = discr_master
+        # assemble_int_bound_displacement_source for the slave.
         self.discr_slave = discr_slave
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
@@ -420,10 +606,8 @@ class DivUCoupling:
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
     ):
         """
-        Assemble the dicretization of the interface law, and its impact on
-        the neighboring domains, namely the mortar displacement's contribution as a
-            internal dirichlet contribution for the higher dimension, and
-            source term for the lower dimension.
+        Assemble the mortar displacement's contribution as a internal Dirichlet
+        contribution for the higher dimension, and source term for the lower dimension.
         Parameters:
             g_master: Grid on one neighboring subdomain.
             g_slave: Grid on the other neighboring subdomain.
@@ -467,7 +651,6 @@ class DivUCoupling:
 
         # We know the number of dofs from the master and slave side from their
         # discretizations
-        #        dof = np.array([dof_master, dof_slave, mg.num_cells])
         dof = np.array(
             [
                 matrix[master_ind, master_ind].shape[1],

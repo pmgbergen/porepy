@@ -69,6 +69,7 @@ from porepy.numerics.fv.mass_matrix import InvMassMatrix
 from porepy.numerics.interface_laws.contact_mechanics_interface_laws import (
     PrimalContactCoupling,
     DivUCoupling,
+    PressureContributionToForceBalance,
 )
 from porepy.numerics.contact_mechanics.contact_conditions import ColoumbContact
 from porepy.numerics.contact_mechanics import contact_conditions
