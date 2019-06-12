@@ -399,7 +399,8 @@ class PressureContributionToForceBalance:
     First, we account for the grad P contribution to the forces on the higher-dimensional
     internal boundary, i.e. the last term of:
         boundary_traction_hat = stress * u_hat + bound_stress * u_mortar + gradP * p_hat
-
+    Note that with this approach to discretization of the boundary pressure force, it
+    will only be included for nonzero values of the biot_alpha.
 
     For the contact mechanics, we only want to consider the _contact_ traction. Thus, we
     have to subtract the pressure contribution, i.e.
@@ -423,7 +424,6 @@ class PressureContributionToForceBalance:
         self.discr_slave = discr_slave
         # Keyword used to retrieve gradP discretization.
         self.keyword = keyword
-
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """
@@ -496,9 +496,9 @@ class PressureContributionToForceBalance:
         rhs[slave_ind] = np.zeros(dof_slave)
         rhs[mortar_ind] = np.zeros(mg.num_cells * ambient_dimension)
 
-        master_scalar_gradient = data_master[pp.DISCRETIZATION_MATRICES][
-            self.keyword
-        ]["grad_p"]
+        master_scalar_gradient = data_master[pp.DISCRETIZATION_MATRICES][self.keyword][
+            "grad_p"
+        ]
 
         # We want to modify the stress balance posed on the edge to account for the
         # scalar (usually pressure) contribution.
@@ -511,6 +511,8 @@ class PressureContributionToForceBalance:
         # boundary.
         # 2) Ensure that the contact variable is only the force from the contact of the
         # two sides of the fracture. This requires subtraction of the pressure force.
+        # For a constant pressure field, this nulls out the pressure contribution added
+        # above.
 
         ## 1) GradP contribution to the stress trace in the higher dimension.
 
@@ -522,6 +524,7 @@ class PressureContributionToForceBalance:
             g_master, ambient_dimension, faces_on_fracture_surface
         )
 
+        #        sgn_nd = sps.diags(np.tile(sgn, (ambient_dimension,1)).ravel('F'))
         # i) Obtain pressure stress contribution from the higher dimensional domain.
         # ii) Switch the direction of the vectors, so that for all faces, a positive
         # force points into the fracture surface (along the outwards normal on the
@@ -535,34 +538,31 @@ class PressureContributionToForceBalance:
         )
         cc[mortar_ind, master_ind] = master_scalar_stress_to_master_traction
 
-
         ## 2)
         # Construct the dot product between normals on fracture faces and the identity
         # matrix. Similar sign switching as above is needed (this one operating on
         # fracture faces only).
         sgn = g_master.sign_of_faces(faces_on_fracture_surface)
-        fracture_normals = g_master.face_normals[:ambient_dimension,faces_on_fracture_surface]
+        fracture_normals = g_master.face_normals[
+            :ambient_dimension, faces_on_fracture_surface
+        ]
         outwards_fracture_normals = sgn * fracture_normals
 
-        data = outwards_fracture_normals.ravel('F')
+        data = outwards_fracture_normals.ravel("F")
         row = np.arange(g_master.dim * mg.num_cells)
-        col = np.tile(np.arange(mg.num_cells), (g_master.dim, 1)).ravel('F')
+        col = np.tile(np.arange(mg.num_cells), (g_master.dim, 1)).ravel("F")
         n_dot_I = sps.csc_matrix((data, (row, col)))
         # i) The scalar contribution to the contact stress is mapped to the mortar grid
-        # and multiplied by n \dot I.
-        # ii) We have for the positive (first) and negative (second) side of the mortar
-        # that
-        # \lambda_slave = \lambda_mortar_pos = -\lambda_mortar_neg,
-        # so we need to adjust the slave pressure with the corresponding signs by
-        # applying sign_of_mortar_sides.
+        # and multiplied by n \dot I, with n being the outwards normals on the two sides.
+        # Note that by using different normals for the two sides, we do not need to
+        # adjust the slave pressure with the corresponding signs by applying
+        # sign_of_mortar_sides as done in PrimalContactCoupling.
         # iii) The contribution should be subtracted so that we balance the master
         # forces by
         # \lambda_contact - n dot I p,
         # hence the minus.
         slave_pressure_stress_to_contact_traction = -(
-            mg.sign_of_mortar_sides(nd=ambient_dimension)
-            * n_dot_I
-            * mg.slave_to_mortar_int(nd=1)
+            n_dot_I * mg.slave_to_mortar_int(nd=1)
         )
         # Minus to obtain -\lambda_slave + \lambda_mortar = 0, i.e. from placing the two
         # terms on the same side of the equation, as also done in PrimalContactCoupling.
@@ -571,10 +571,14 @@ class PressureContributionToForceBalance:
         matrix += cc
 
         return matrix, rhs
+
+
 """
 Account for the displacement effects on the scalar variable in the mass balance on both
 higher- and lower-dimensional nodes.
 """
+
+
 class DivUCoupling:
     """
     Coupling conditions for DivU term.
