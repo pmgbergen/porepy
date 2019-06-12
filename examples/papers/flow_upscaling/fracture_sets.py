@@ -652,7 +652,9 @@ class FractureSet(object):
                 the set only contains non-intersecting branches.
 
         """
-        p, e = pp.intersections.split_intersecting_segments_2d(self.pts, self.edges, tol=self.tol)
+        p, e = pp.intersections.split_intersecting_segments_2d(
+            self.pts, self.edges, tol=self.tol
+        )
         return FractureSet(p, e, self.domain)
 
     # --------- Utility functions below here

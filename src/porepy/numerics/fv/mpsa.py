@@ -113,15 +113,31 @@ class Mpsa(
 
         partial = parameter_dictionary.get("partial_update", False)
         inverter = parameter_dictionary.get("inverter", None)
+        max_memory = parameter_dictionary.get("max_memory", None)
 
         if not partial:
-            stress, bound_stress, bound_displacement_cell, bound_displacement_face = mpsa(
-                g, c, bnd, eta=eta, hf_eta=hf_eta, inverter=inverter
-            )
-            matrix_dictionary["stress"] = stress
-            matrix_dictionary["bound_stress"] = bound_stress
-            matrix_dictionary["bound_displacement_cell"] = bound_displacement_cell
-            matrix_dictionary["bound_displacement_face"] = bound_displacement_face
+            if max_memory is None:
+                stress, bound_stress, bound_displacement_cell, bound_displacement_face = mpsa(
+                    g, c, bnd, eta=eta, hf_eta=hf_eta, inverter=inverter
+                )
+                matrix_dictionary["stress"] = stress
+                matrix_dictionary["bound_stress"] = bound_stress
+                matrix_dictionary["bound_displacement_cell"] = bound_displacement_cell
+                matrix_dictionary["bound_displacement_face"] = bound_displacement_face
+
+            else:
+                stress, bound_stress = mpsa(
+                    g,
+                    c,
+                    bnd,
+                    eta=eta,
+                    hf_eta=hf_eta,
+                    inverter=inverter,
+                    max_memory=max_memory,
+                )
+                matrix_dictionary["stress"] = stress
+                matrix_dictionary["bound_stress"] = bound_stress
+                # This option
         else:
             raise NotImplementedError(
                 """Partial discretiation for the Mpsa class is not
@@ -487,416 +503,6 @@ class Mpsa(
         pass
 
 
-class FracturedMpsa(Mpsa):
-    """
-    Subclass of MPSA for discretizing a fractured domain. Adds DOFs on each
-    fracture face which describe the fracture deformation.
-    """
-
-    def __init__(self, keyword, given_traction=False, **kwargs):
-        Mpsa.__init__(self, keyword, **kwargs)
-        if not hasattr(self, "keyword"):
-            raise AttributeError("Mpsa must assign keyword")
-        self.given_traction_flag = given_traction
-
-    def ndof(self, g):
-        """
-        Return the number of degrees of freedom associated to the method.
-        In this case number of cells times dimension (stress dof).
-
-        Parameter
-        ---------
-        g: grid, or a subclass.
-
-        Return
-        ------
-        dof: the number of degrees of freedom.
-
-        """
-        num_fracs = np.sum(g.tags["fracture_faces"])
-        return g.dim * (g.num_cells + num_fracs)
-
-    def assemble_matrix_rhs(self, g, data, discretize=True, **kwargs):
-        """
-        Return the matrix and right-hand side for a discretization of a second
-        order elliptic equation using a FV method with a multi-point stress
-        approximation with dofs added on the fracture interfaces.
-
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data. For details on necessary keywords,
-            see method discretize()
-        discretize (boolean, optional): default True. Whether to discetize
-            prior to matrix assembly. If False, data should already contain
-            discretization.
-
-        Return
-        ------
-        matrix: sparse csr (g.dim * g_num_cells + 2 * {#of fracture faces},
-                            2 * {#of fracture faces})
-            Discretization matrix.
-        rhs: array (g.dim * g_num_cells  + g.dim * num_frac_faces)
-            Right-hand side which contains the boundary conditions and the scalar
-            source term.
-        """
-        if discretize:
-            self.discretize_fractures(g, data, **kwargs)
-
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        stress = matrix_dictionary["stress"]
-        bound_stress = matrix_dictionary["bound_stress"]
-        b_e = matrix_dictionary["b_e"]
-        A_e = matrix_dictionary["A_e"]
-
-        if self.given_traction_flag:
-            L, b_l = self.given_traction(g, stress, bound_stress)
-        else:
-            L, b_l = self.given_slip_distance(g, stress, bound_stress)
-
-        bc_val = parameter_dictionary["bc_values"]
-
-        frac_faces = np_matlib.repmat(g.tags["fracture_faces"], g.dim, 1)
-        if parameter_dictionary["bc"].bc_type == "scalar":
-            frac_faces = frac_faces.ravel("F")
-        elif parameter_dictionary["bc"].bc_type == "vectorial":
-            bc_val = bc_val.ravel("F")
-        else:
-            raise ValueError("Unknown boundary type")
-
-        slip_distance = parameter_dictionary["slip_distance"]
-
-        A = sps.vstack((A_e, L), format="csr")
-        rhs = np.hstack((b_e * bc_val, b_l * (slip_distance + bc_val)))
-
-        return A, rhs
-
-    def rhs(self, g, data):
-        """
-        Return the matrix and right-hand side for a discretization of a second
-        order elliptic equation using a FV method with a multi-point stress
-        approximation with dofs added on the fracture interfaces.
-
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data. For details on necessary keywords,
-            see method discretize()
-        discretize (boolean, optional): default True. Whether to discetize
-            prior to matrix assembly. If False, data should already contain
-            discretization.
-
-        Return
-        ------
-        matrix: sparse csr (g.dim * g_num_cells + 2 * {#of fracture faces},
-                            2 * {#of fracture faces})
-            Discretization matrix.
-        rhs: array (g.dim * g_num_cells  + g.dim * num_frac_faces)
-            Right-hand side which contains the boundary conditions and the scalar
-            source term.
-        """
-
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        stress = matrix_dictionary["stress"]
-        bound_stress = matrix_dictionary["bound_stress"]
-        b_e = matrix_dictionary["b_e"]
-
-        if self.given_traction_flag:
-            _, b_l = self.given_traction(g, stress, bound_stress)
-        else:
-            _, b_l = self.given_slip_distance(g, stress, bound_stress)
-
-        bc_val = parameter_dictionary["bc_values"]
-
-        frac_faces = np_matlib.repmat(g.tags["fracture_faces"], 3, 1)
-        if parameter_dictionary["bc"].bc_type == "scalar":
-            frac_faces = frac_faces.ravel("F")
-
-        elif parameter_dictionary["bc"].bc_type == "vectorial":
-            bc_val = bc_val.ravel("F")
-        else:
-            raise ValueError("Unknown boundary type")
-
-        slip_distance = parameter_dictionary["slip_distance"]
-
-        rhs = np.hstack((b_e * bc_val, b_l * (slip_distance + bc_val)))
-
-        return rhs
-
-    def traction(self, g, data, sol):
-        """
-        Extract the traction on the faces from fractured fv solution.
-
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        sol : array (g.dim * (g.num_cells + {#of fracture faces}))
-            Solution, stored as [cell_disp, fracture_disp]
-
-        Return
-        ------
-        T : array (g.dim * g.num_faces)
-            traction on each face
-
-        """
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        bc_val = parameter_dictionary["bc_values"].copy()
-        frac_disp = self.extract_frac_u(g, sol)
-        cell_disp = self.extract_u(g, sol)
-
-        frac_faces = (g.frac_pairs).ravel("C")
-
-        if parameter_dictionary["bc"].bc_type == "vectorial":
-            bc_val = bc_val.ravel("F")
-
-        frac_ind = pp.utils.mcolon.mcolon(
-            g.dim * frac_faces, g.dim * frac_faces + g.dim
-        )
-        bc_val[frac_ind] = frac_disp
-
-        T = (
-            matrix_dictionary["stress"] * cell_disp
-            + matrix_dictionary["bound_stress"] * bc_val
-        )
-
-        return T
-
-    def extract_u(self, g, sol):
-        """  Extract the cell displacement from fractured fv solution.
-
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        sol : array (g.dim * (g.num_cells + {#of fracture faces}))
-            Solution, stored as [cell_disp, fracture_disp]
-
-        Return
-        ------
-        u : array (g.dim * g.num_cells)
-            displacement at each cell
-
-        """
-        # pylint: disable=invalid-name
-        return sol[: g.dim * g.num_cells]
-
-    def extract_frac_u(self, g, sol):
-        """  Extract the fracture displacement from fractured fv solution.
-
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        sol : array (g.dim * (g.num_cells + {#of fracture faces}))
-            Solution, stored as [cell_disp, fracture_disp]
-
-        Return
-        ------
-        u : array (g.dim *{#of fracture faces})
-            displacement at each fracture face
-
-        """
-        # pylint: disable=invalid-name
-        return sol[g.dim * g.num_cells :]
-
-    def discretize_fractures(self, g, data, faces=None, **kwargs):
-        """
-        Discretize the vector elliptic equation by the multi-point stress and added
-        degrees of freedom on the fracture faces
-
-        The method computes fluxes over faces in terms of displacements in
-        adjacent cells (defined as the two cells sharing the face).
-
-        The name of data in the input dictionary (data) are:
-        param : Parameter(Class). Contains the following parameters:
-            tensor : fourth_order_tensor
-                Permeability defined cell-wise. If not given a identity permeability
-                is assumed and a warning arised.
-            bc : boundary conditions (optional)
-            bc_val : dictionary (optional)
-                Values of the boundary conditions. The dictionary has at most the
-                following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-                conditions, respectively.
-            apertures : (np.ndarray) (optional) apertures of the cells for scaling of
-                the face normals.
-
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data.
-        """
-
-        #    dir_bound = g.get_all_boundary_faces()
-        #    bound = bc.BoundaryCondition(g, dir_bound, ['dir'] * dir_bound.size)
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-
-        frac_faces = g.tags["fracture_faces"]
-
-        bound = parameter_dictionary["bc"]
-
-        if bound.bc_type == "scalar":
-            bound.is_dir[frac_faces] = True
-            bound.is_neu[frac_faces] = False
-        elif bound.bc_type == "vectorial":
-            bound.is_dir[:, frac_faces] = True
-            bound.is_neu[:, frac_faces] = False
-        else:
-            raise ValueError("Unknow boundary condition type: " + bound.bc_type)
-        if np.sum(bound.is_dir * bound.is_neu) != 0:
-            raise AssertionError("Found faces that are both dirichlet and neuman")
-        # Discretize with normal mpsa
-        self.discretize(g, data, **kwargs)
-
-        stress, bound_stress = (
-            matrix_dictionary["stress"],
-            matrix_dictionary["bound_stress"],
-        )
-
-        # Create A and rhs
-        div = pp.fvutils.vector_divergence(g)
-        a = div * stress
-        b = div * bound_stress
-
-        # we find the matrix indices of the fracture
-        if faces is None:
-            frac_faces = g.frac_pairs
-            frac_faces_left = frac_faces[0]
-            frac_faces_right = frac_faces[1]
-        else:
-            raise NotImplementedError("not implemented given faces")
-
-        int_b_left = pp.utils.mcolon.mcolon(
-            g.dim * frac_faces_left, g.dim * frac_faces_left + g.dim
-        )
-        int_b_right = pp.utils.mcolon.mcolon(
-            g.dim * frac_faces_right, g.dim * frac_faces_right + g.dim
-        )
-        int_b_ind = np.ravel((int_b_left, int_b_right), "C")
-
-        # We find the sign of the left and right faces.
-        sgn_left = _sign_matrix(g, frac_faces_left)
-        sgn_right = _sign_matrix(g, frac_faces_right)
-        # The displacement on the internal boundary face are considered unknowns,
-        # so we move them over to the lhs. The rhs now only consists of the
-        # external boundary faces
-        b_internal = b[:, int_b_ind]
-        b_external = b.copy()
-        pp.utils.sparse_mat.zero_columns(b_external, int_b_ind)
-
-        bound_stress_external = bound_stress.copy().tocsc()
-        pp.utils.sparse_mat.zero_columns(bound_stress_external, int_b_ind)
-        # We assume that the traction on the left hand side is equal but
-        # opisite
-
-        frac_stress_diff = (
-            sgn_left * bound_stress[int_b_left, :]
-            + sgn_right * bound_stress[int_b_right, :]
-        )[:, int_b_ind]
-        internal_stress = sps.hstack(
-            (
-                sgn_left * stress[int_b_left, :] + sgn_right * stress[int_b_right, :],
-                frac_stress_diff,
-            )
-        )
-
-        A = sps.vstack((sps.hstack((a, b_internal)), internal_stress), format="csr")
-        # negative sign since we have moved b_external from lhs to rhs
-        d_b = -b_external
-        # sps.csr_matrix((int_b_left.size, g.num_faces * g.dim))
-        d_t = (
-            -sgn_left * bound_stress_external[int_b_left]
-            - sgn_right * bound_stress_external[int_b_right]
-        )
-
-        b_matrix = sps.vstack((d_b, d_t), format="csr")
-
-        matrix_dictionary["b_e"] = b_matrix
-        matrix_dictionary["A_e"] = A
-
-    def given_traction(self, g, stress, bound_stress, faces=None, **kwargs):
-        # we find the matrix indices of the fracture
-        if faces is None:
-            frac_faces = g.frac_pairs
-            frac_faces_left = frac_faces[0]
-            frac_faces_right = frac_faces[1]
-        else:
-            raise NotImplementedError("not implemented given faces")
-
-        int_b_left = pp.utils.mcolon.mcolon(
-            g.dim * frac_faces_left, g.dim * frac_faces_left + g.dim
-        )
-        int_b_right = pp.utils.mcolon.mcolon(
-            g.dim * frac_faces_right, g.dim * frac_faces_right + g.dim
-        )
-        int_b_ind = np.ravel((int_b_left, int_b_right), "C")
-
-        # We find the sign of the left and right faces.
-        sgn_left = _sign_matrix(g, frac_faces_left)
-        sgn_right = _sign_matrix(g, frac_faces_right)
-
-        # We obtain the stress from boundary conditions on the domain boundary
-        bound_stress_external = bound_stress.copy().tocsc()
-        pp.utils.sparse_mat.zero_columns(bound_stress_external, int_b_ind)
-        bound_stress_external = bound_stress_external.tocsc()
-
-        # We construct the L matrix, i.e., we set the traction on the left
-        # fracture side
-        frac_stress = (sgn_left * bound_stress[int_b_left, :])[:, int_b_ind]
-
-        L = sps.hstack((sgn_left * stress[int_b_left, :], frac_stress))
-
-        # negative sign since we have moved b_external from lhs to rhs
-        d_t = (
-            sps.csr_matrix(
-                (np.ones(int_b_left.size), (np.arange(int_b_left.size), int_b_left)),
-                (int_b_left.size, g.num_faces * g.dim),
-            )
-            - sgn_left * bound_stress_external[int_b_left]
-        )  # \
-        #        + sgn_right * bound_stress_external[int_b_right]
-
-        return L, d_t
-
-    def given_slip_distance(self, g, stress, bound_stress, faces=None):
-        # we find the matrix indices of the fracture
-        if faces is None:
-            frac_faces = g.frac_pairs
-            frac_faces_left = frac_faces[0]
-            frac_faces_right = frac_faces[1]
-        else:
-            raise NotImplementedError("not implemented given faces")
-
-        int_b_left = pp.utils.mcolon.mcolon(
-            g.dim * frac_faces_left, g.dim * frac_faces_left + g.dim
-        )
-        int_b_right = pp.utils.mcolon.mcolon(
-            g.dim * frac_faces_right, g.dim * frac_faces_right + g.dim
-        )
-        int_b_ind = np.ravel((int_b_left, int_b_right), "C")
-
-        # We construct the L matrix, by assuming that the relative displacement
-        # is given
-        L = sps.hstack(
-            (
-                sps.csr_matrix((int_b_left.size, g.dim * g.num_cells)),
-                sps.identity(int_b_left.size),
-                -sps.identity(int_b_right.size),
-            )
-        )
-
-        d_f = sps.csr_matrix(
-            (np.ones(int_b_left.size), (np.arange(int_b_left.size), int_b_left)),
-            (int_b_left.size, g.num_faces * g.dim),
-        )
-
-        return L, d_f
-
-
-# ------------------------------------------------------------------------------#
-
-
 def mpsa(
     g,
     constit,
@@ -1024,7 +630,7 @@ def mpsa(
         # entire grid.
         # TODO: We may want to estimate the memory need, and give a warning if
         # this seems excessive
-        stress, bound_stress, hf_cell, hf_bound = _mpsa_local(
+        return _mpsa_local(
             g,
             constit,
             bound,
@@ -1033,16 +639,20 @@ def mpsa(
             hf_disp=hf_disp,
             hf_eta=hf_eta,
         )
+
     else:
+        if hf_disp:
+            raise ValueError("Mpsa options max_memory and hf_disp are incompatible")
+
         # Estimate number of partitions necessary based on prescribed memory
         # usage
         peak_mem = _estimate_peak_memory_mpsa(g)
-        num_part = np.ceil(peak_mem / max_memory)
+        num_part = np.ceil(peak_mem / max_memory).astype(np.int)
 
         logger.info("Split MPSA discretization into " + str(num_part) + " parts")
 
         # Let partitioning module apply the best available method
-        part = pp.grid.partition.partition_metis(g, num_part)
+        part = pp.partition.partition_metis(g, num_part)
 
         # Empty fields for stress and bound_stress. Will be expanded as we go.
         # Implementation note: It should be relatively straightforward to
@@ -1067,7 +677,13 @@ def mpsa(
 
             # Perform local discretization.
             loc_stress, loc_bound_stress, loc_faces = mpsa_partial(
-                g, constit, bound, eta=eta, inverter=inverter, nodes=active_nodes
+                g,
+                constit,
+                bound,
+                eta=eta,
+                inverter=inverter,
+                nodes=active_nodes,
+                hf_disp=False,
             )
 
             # Eliminate contribution from faces already covered
@@ -1080,7 +696,7 @@ def mpsa(
             stress += loc_stress
             bound_stress += loc_bound_stress
 
-    return stress, bound_stress, hf_cell, hf_bound
+        return stress, bound_stress
 
 
 def mpsa_update_partial(
@@ -1321,42 +937,45 @@ def mpsa_partial(
     pp.fvutils.zero_out_sparse_rows(stress_glob, eliminate_ind)
     pp.fvutils.zero_out_sparse_rows(bound_stress_glob, eliminate_ind)
 
-    # If we are returning the subface displacement reconstruction matrices we have
-    # to do some more work. The following is equivalent to what is done for the stresses,
-    # but as they are working on faces, the displacement reconstruction has to work on
-    # subfaces.
-    # First, we find the mappings from local subfaces to global subfaces
-    subcell_topology = pp.fvutils.SubcellTopology(g)
-    l2g_sub_faces = np.where(np.in1d(subcell_topology.fno_unique, l2g_faces))[0]
-    # We now create a fake grid, just to be able to use the function map_subgrid_to_grid.
-    subgrid = pp.CartGrid([1] * g.dim)
-    subgrid.num_faces = subcell_topology.fno_unique.size
-    subgrid.num_cells = g.num_cells
-    sub_face_map, _ = pp.fvutils.map_subgrid_to_grid(
-        subgrid, l2g_sub_faces, l2g_cells, is_vector=True
-    )
-    # The sub_face_map is now a map from local sub_faces to global subfaces.
-    # Next we need to mat the the local sub face reconstruction "hf_cell_loc"
-    # onto the global grid. The cells are ordered the same, so we can use the
-    # cell_map from the stress computation. Similarly for the faces.
-    hf_cell_glob = sub_face_map * hf_cell_loc * cell_map
-    hf_bound_glob = sub_face_map * hf_bound_loc * face_map.T
-    # Next we need to eliminate the subfaces outside the active faces.
-    # We map from outside faces to outside subfaces
-    sub_outside = np.where(np.in1d(subcell_topology.fno_unique, outside))[0]
-    # Then expand the indices.
-    # The indices are ordered as first all variables of subface 1 then all variables
-    # of subface 2, etc. Duplicate indices for each dimension and multipy by g.dim to
-    # obtain correct x-index.
-    sub_eliminate_ind = g.dim * np.tile(sub_outside, (g.dim, 1))
-    # Next add an increment to the y (and possible z) dimension to obtain correct index
-    # For them
-    sub_eliminate_ind += np.atleast_2d(np.arange(0, g.dim)).T
-    sub_eliminate_ind = sub_eliminate_ind.ravel("F")
-    # now kill the contribution of these faces
-    pp.fvutils.zero_out_sparse_rows(hf_cell_glob, sub_eliminate_ind)
-    pp.fvutils.zero_out_sparse_rows(hf_bound_glob, sub_eliminate_ind)
-    return stress_glob, bound_stress_glob, hf_cell_glob, hf_bound_glob, active_faces
+    if hf_disp:
+        # If we are returning the subface displacement reconstruction matrices we have
+        # to do some more work. The following is equivalent to what is done for the stresses,
+        # but as they are working on faces, the displacement reconstruction has to work on
+        # subfaces.
+        # First, we find the mappings from local subfaces to global subfaces
+        subcell_topology = pp.fvutils.SubcellTopology(g)
+        l2g_sub_faces = np.where(np.in1d(subcell_topology.fno_unique, l2g_faces))[0]
+        # We now create a fake grid, just to be able to use the function map_subgrid_to_grid.
+        subgrid = pp.CartGrid([1] * g.dim)
+        subgrid.num_faces = subcell_topology.fno_unique.size
+        subgrid.num_cells = g.num_cells
+        sub_face_map, _ = pp.fvutils.map_subgrid_to_grid(
+            subgrid, l2g_sub_faces, l2g_cells, is_vector=True
+        )
+        # The sub_face_map is now a map from local sub_faces to global subfaces.
+        # Next we need to mat the the local sub face reconstruction "hf_cell_loc"
+        # onto the global grid. The cells are ordered the same, so we can use the
+        # cell_map from the stress computation. Similarly for the faces.
+        hf_cell_glob = sub_face_map * hf_cell_loc * cell_map
+        hf_bound_glob = sub_face_map * hf_bound_loc * face_map.T
+        # Next we need to eliminate the subfaces outside the active faces.
+        # We map from outside faces to outside subfaces
+        sub_outside = np.where(np.in1d(subcell_topology.fno_unique, outside))[0]
+        # Then expand the indices.
+        # The indices are ordered as first all variables of subface 1 then all variables
+        # of subface 2, etc. Duplicate indices for each dimension and multipy by g.dim to
+        # obtain correct x-index.
+        sub_eliminate_ind = g.dim * np.tile(sub_outside, (g.dim, 1))
+        # Next add an increment to the y (and possible z) dimension to obtain correct index
+        # For them
+        sub_eliminate_ind += np.atleast_2d(np.arange(0, g.dim)).T
+        sub_eliminate_ind = sub_eliminate_ind.ravel("F")
+        # now kill the contribution of these faces
+        pp.fvutils.zero_out_sparse_rows(hf_cell_glob, sub_eliminate_ind)
+        pp.fvutils.zero_out_sparse_rows(hf_bound_glob, sub_eliminate_ind)
+        return stress_glob, bound_stress_glob, hf_cell_glob, hf_bound_glob, active_faces
+    else:
+        return stress_glob, bound_stress_glob, active_faces
 
 
 def _mpsa_local(
@@ -2123,7 +1742,7 @@ def _inverse_gradient(
         * pp.fvutils.invert_diagonal_blocks(grad, size_of_blocks, method=inverter)
         * rows2blk_diag
     )
-    print("max igrad: ", np.max(np.abs(igrad)))
+    logger.debug("max igrad: ", np.max(np.abs(igrad)))
     return igrad
 
 
@@ -2638,7 +2257,7 @@ def _eliminate_ncasym_neumann(
     dof_elim = subfno_nd.ravel("C")[remove_singular]
     # and eliminate the rows corresponding to these subfaces
     pp.utils.sparse_mat.zero_rows(ncasym, dof_elim)
-    print("number of ncasym eliminated: ", np.sum(dof_elim.size))
+    logger.debug("number of ncasym eliminated: ", np.sum(dof_elim.size))
     ## the following is some code to enforce symmetric G. Comment for now
     # # Find the equations for the x-values
     # x_row = np.arange(0, round(ncasym.shape[0]/nd))

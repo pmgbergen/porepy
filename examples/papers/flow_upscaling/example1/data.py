@@ -3,6 +3,7 @@ import porepy as pp
 
 # ------------------------------------------------------------------------------#
 
+
 def flow(gb, model, data):
     tol = data["tol"]
 
@@ -166,6 +167,7 @@ def advdiff(gb, model, model_flow, data):
 
 # ------------------------------------------------------------------------------#
 
+
 def bc_flag(g, domain, flow_direction, tol):
     # the domain is the unite square
 
@@ -181,5 +183,6 @@ def bc_flag(g, domain, flow_direction, tol):
     in_flow = g.face_centers[flow_direction, b_faces] < in_flow_dir + tol
 
     return out_flow, in_flow
+
 
 # ------------------------------------------------------------------------------#

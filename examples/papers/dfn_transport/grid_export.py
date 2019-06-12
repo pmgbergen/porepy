@@ -82,7 +82,7 @@ def grid_export(gb, P0_flux, folder):
             cells = np.setdiff1d(cells, cell, assume_unique=True)
             # in case of boundary cell put -1 as flag
             if cells.size < 3:
-                cells = np.append(cells, [-1]*(3-cells.size))
+                cells = np.append(cells, [-1] * (3 - cells.size))
             cell_cell_map[cell, :] = cells.copy()
 
         fname = "g_" + str(frac_num) + "_cell_cells.txt"

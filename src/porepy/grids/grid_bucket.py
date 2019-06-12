@@ -1059,6 +1059,78 @@ class GridBucket(object):
         """
         return np.unique([g.dim for g, _ in self])
 
+    def cell_volumes(self, cond=None):
+        """
+        Get the cell volumes of all cells of the grid bucket, considering a loop
+        on all the grids.  It is possible to specify a condition based on the
+        grid to select some of them.
+
+        Parameter:
+            cond: optional, predicate with a grid as input.
+
+        Return:
+            cell_volumes (ndArray): The volume of all cells in the GridBucket
+        """
+        if cond is None:
+            cond = lambda g: True
+        return np.hstack([g.cell_volumes for g in self.graph if cond(g)])
+
+    def face_centers(self, cond=None):
+        """
+        Get the face centers of all faces of the grid bucket, considering a loop
+        on all the graph nodes.  It is possible to specify a condition based on the
+        grid to select some of them.
+
+        Parameter:
+            cond: optional, predicate with a grid as input.
+
+        Return:
+            face_centers (ndArray): The face centers of all faces in the GridBucket.
+        """
+        if cond is None:
+            cond = lambda g: True
+        return np.hstack([g.face_centers for g in self.graph if cond(g)])
+
+    def cell_centers(self, cond=None):
+        """
+        Get the cell centers of all cells of the grid bucket, considering a loop
+        on all the graph nodes.  It is possible to specify a condition based on the
+        grid to select some of them.
+
+        Parameter:
+            cond: optional, predicate with a grid as input.
+
+        Return:
+            cell_centers (ndArray): The cell centers of all cells in the GridBucket.
+        """
+        if cond is None:
+            cond = lambda g: True
+        return np.hstack([g.cell_centers for g in self.graph if cond(g)])
+
+    def cell_volumes_mortar(self, cond=None):
+        """
+        Get the cell volumes of all mortar cellse of the grid bucket, considering a loop
+        on all the grids.  It is possible to specify a condition based on the
+        grid to select some of them.
+
+        Parameter:
+            cond: optional, predicate with a grid as input.
+
+        Return:
+            cell_volumes (ndArray): The cell volumes of all mortar cells in the GridBucket.
+        """
+        if cond is None:
+            cond = lambda g: True
+        if self.num_mortar_cells(cond) == 0:
+            return np.array([])
+        return np.hstack(
+            [
+                d["mortar_grid"].cell_volumes
+                for e, d in self.edges()
+                if cond(d["mortar_grid"])
+            ]
+        )
+
     def num_cells(self, cond=None):
         """
         Compute the total number of cells of the grid bucket, considering a loop
@@ -1069,7 +1141,7 @@ class GridBucket(object):
             cond: optional, predicate with a grid as input.
 
         Return:
-            num_cells: the total number of cells of the grid bucket.
+            num_cells (int): the total number of cells of the grid bucket.
         """
         if cond is None:
             cond = lambda g: True
@@ -1085,7 +1157,7 @@ class GridBucket(object):
             cond: optional, predicate with a grid as input.
 
         Return:
-            num_cells: the total number of cells of the grid bucket.
+            num_cells (int): the total number of mortar cells of the grid bucket.
         """
         if cond is None:
             cond = lambda g: True
@@ -1108,7 +1180,7 @@ class GridBucket(object):
             cond: optional, predicate with a grid as input.
 
         Return:
-            num_faces: the total number of faces of the grid bucket.
+            num_faces (int): the total number of faces of the grid bucket.
         """
         if cond is None:
             cond = lambda g: True
@@ -1124,7 +1196,7 @@ class GridBucket(object):
             cond: optional, predicate with a grid as input.
 
         Return:
-            num_nodes: the total number of nodes of the grid bucket.
+            num_nodes (int): the total number of nodes of the grid bucket.
         """
         if cond is None:
             cond = lambda g: True
