@@ -53,7 +53,7 @@ class TestMpfaMultiDim(unittest.TestCase):
         assembler = test_utils.setup_flow_assembler(gb, mpfa, key)
         test_utils.solve_and_distribute_pressure(gb, assembler)
         for g, d in gb:
-            pressure = d["pressure"]
+            pressure = d[pp.STATE]["pressure"]
             pressure_analytic = g.cell_centers[1]
             p_diff = pressure - pressure_analytic
             self.assertTrue(np.max(np.abs(p_diff)) < 0.05)

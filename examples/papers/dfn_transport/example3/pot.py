@@ -79,11 +79,14 @@ def main():
 
     master_folder = "/home/elle/Dropbox/Work/PresentazioniArticoli/2019/Articles/tipetut++/Results/example3/"
 
-    methods_stefano = [] #["OPTxfem", "OPTfem", "GCmfem"]
+    methods_stefano = []  # ["OPTxfem", "OPTfem", "GCmfem"]
     methods_alessio = ["MVEM_UPWIND", "Tpfa_UPWIND", "RT0_UPWIND"]
-    methods_andrea = [] #["MVEM_VEMSUPG"]
+    methods_andrea = []  # ["MVEM_VEMSUPG"]
 
-    cases = {"case_0": ("different", "200", "0.005"), "case_1": ("same", "2600", "0.001")}
+    cases = {
+        "case_0": ("different", "200", "0.005"),
+        "case_1": ("same", "2600", "0.001"),
+    }
     cases_label = {"case_0": "different", "case_1": "same"}
 
     for case_name, case in cases.items():

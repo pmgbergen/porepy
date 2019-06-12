@@ -47,7 +47,9 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
 
         # test pressure
         for g, d in gb:
-            self.assertTrue(np.allclose(d["pressure"], xmax - g.cell_centers[0]))
+            self.assertTrue(
+                np.allclose(d[pp.STATE]["pressure"], xmax - g.cell_centers[0])
+            )
 
         # test mortar solution
         for e, d_e in gb.edges():
@@ -59,8 +61,8 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
             master_area = master_to_m * g1.face_areas
             slave_area = slave_to_m * g2.face_areas
 
-            self.assertTrue(np.allclose(d_e["mortar_flux"] / master_area, 1))
-            self.assertTrue(np.allclose(d_e["mortar_flux"] / slave_area, 1))
+            self.assertTrue(np.allclose(d_e[pp.STATE]["mortar_flux"] / master_area, 1))
+            self.assertTrue(np.allclose(d_e[pp.STATE]["mortar_flux"] / slave_area, 1))
 
     def generate_grids(self, n, xmax, ymax, split):
         g1 = pp.CartGrid([split * n, ymax * n], physdims=[split, ymax])
@@ -283,7 +285,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         # test pressure
         for g, d in gb:
             ap, _, _ = analytic_p(g.cell_centers)
-            self.assertTrue(np.max(np.abs(d[key_p] - ap)) < 5e-2)
+            self.assertTrue(np.max(np.abs(d[pp.STATE][key_p] - ap)) < 5e-2)
 
         # test mortar solution
         for e, d_e in gb.edges():
@@ -310,8 +312,8 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             right_flux = -right_to_m * (
                 d2[pp.DISCRETIZATION_MATRICES][kw]["bound_flux"] * right_flux
             )
-            self.assertTrue(np.max(np.abs(d_e[key_m] - left_flux)) < 5e-2)
-            self.assertTrue(np.max(np.abs(d_e[key_m] - right_flux)) < 5e-2)
+            self.assertTrue(np.max(np.abs(d_e[pp.STATE][key_m] - left_flux)) < 5e-2)
+            self.assertTrue(np.max(np.abs(d_e[pp.STATE][key_m] - right_flux)) < 5e-2)
 
     def generate_2d_grid(self, n, xmax, ymax):
         g1 = pp.CartGrid([xmax * n, ymax * n], physdims=[xmax, ymax])

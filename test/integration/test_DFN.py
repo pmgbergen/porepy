@@ -246,15 +246,6 @@ class TestDFN(unittest.TestCase):
             dof_gh = np.arange(global_dof[block_gh], global_dof[block_gh + 1])
 
             if np.allclose(gh.nodes[0], 1):  # f1
-                print(A[dof_gh, :][:, dof_e])
-                print(A[dof_e, :][:, dof_gh])
-                print(A[dof_gh, :][:, dof_gl])
-                print(A[dof_gl, :][:, dof_gh])
-                print(A[dof_e, :][:, dof_e])
-                print(A[dof_e, :][:, dof_gl])
-                print(A[dof_gl, :][:, dof_e])
-                print(b[dof_e])
-
                 self.assertTrue(np.allclose(A[dof_gh, :][:, dof_e], A_e1_gh_e))
                 self.assertTrue(np.allclose(A[dof_e, :][:, dof_gh], A_e1_e_gh))
                 self.assertTrue(np.allclose(A[dof_gh, :][:, dof_gl], A_e1_gh_gl))
@@ -304,7 +295,7 @@ class TestDFN(unittest.TestCase):
         assembler.distribute_variable(x)
         for g, d in gb:
             discr = d["discretization"]["flow"]["flux"]
-            d["pressure"] = discr.extract_pressure(g, d["flow"], d)
+            d["pressure"] = discr.extract_pressure(g, d[pp.STATE]["flow"], d)
 
         for g, d in gb:
 
@@ -393,7 +384,7 @@ class TestDFN(unittest.TestCase):
                 else:
                     raise ValueError
 
-            self.assertTrue(np.allclose(d["flow"], known))
+            self.assertTrue(np.allclose(d[pp.STATE]["flow"], known))
 
 
 # ------------------------- HELP FUNCTIONS --------------------------------#
@@ -494,5 +485,4 @@ def create_dfn(gb, dim):
 
 
 if __name__ == "__main__":
-    TestDFN().test_mvem_1()
     unittest.main()
