@@ -227,7 +227,7 @@ class LineTesselation(unittest.TestCase):
                 if inter[1] == 1:
                     self.assertTrue(inter[2] == np.sqrt(0.5 ** 2 + 0.5 ** 2))
             else:
-                self.assertFalse()
+                self.assertTrue(False)
 
 
 if __name__ == "__main__":
