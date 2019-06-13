@@ -1352,6 +1352,7 @@ def split_intersecting_segments_2d(p, e, tol=1e-4):
 
         return unique_all_pt, new_edge.astype(np.int)
 
+
 def line_tesselation(p1, p2, l1, l2):
     """ Compute intersection of two line segment tessalations of a line.
 
@@ -1386,14 +1387,15 @@ def line_tesselation(p1, p2, l1, l2):
             X = segments_3d(start_1, end_1, start_2, end_2)
             if X is None:
                 continue
-            elif X.shape[1]==1: #Point intersection (zero measure)
+            elif X.shape[1] == 1:  # Point intersection (zero measure)
                 intersections.append([i, j, 0])
-            elif X.shape[1]==2:
-                intersections.append([i, j, np.sqrt(np.sum((X[:, 0] - X[:, 1])**2))])
+            elif X.shape[1] == 2:
+                intersections.append([i, j, np.sqrt(np.sum((X[:, 0] - X[:, 1]) ** 2))])
             else:
                 raise AssertionError()
 
     return intersections
+
 
 def _axis_aligned_bounding_box_2d(p, e):
     """ For a set of lines in 2d, obtain the bounding box for each line.
