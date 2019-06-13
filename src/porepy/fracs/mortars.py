@@ -136,9 +136,11 @@ def update_physical_high_grid(mg, g_new, g_old, tol):
 
         # we assume only one old node
         for i in range(1, old_nodes.shape[1]):
-            is_same = pp.distances.point_pointset(old_nodes[:, 0], old_nodes[:, i]) < tol
+            is_same = (
+                pp.distances.point_pointset(old_nodes[:, 0], old_nodes[:, i]) < tol
+            )
             if not is_same:
-                raise ValueError('0d->1d mappings must map to the same physical point')
+                raise ValueError("0d->1d mappings must map to the same physical point")
         old_nodes = old_nodes[:, 0]
         mask = pp.distances.point_pointset(old_nodes, new_nodes) < tol
         new_faces = new_faces[mask]
@@ -245,8 +247,8 @@ def match_grids_1d(new_1d, old_1d, tol):
 
     p1 = new_1d.nodes
     p2 = old_1d.nodes
-    lines1 = cell_nodes1.indices[nodes1].reshape((2, -1), order='F')
-    lines2 = cell_nodes2.indices[nodes2].reshape((2, -1), order='F')
+    lines1 = cell_nodes1.indices[nodes1].reshape((2, -1), order="F")
+    lines2 = cell_nodes2.indices[nodes2].reshape((2, -1), order="F")
 
     intersect = pp.intersections.line_tesselation(p1, p2, lines1, lines2)
 

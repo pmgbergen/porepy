@@ -185,7 +185,7 @@ class BasicsTest(unittest.TestCase):
             d[pp.STATE] = {
                 "dummy_scalar": np.ones(g.num_cells) * g.dim,
                 "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
-                }
+            }
 
         folder = "./test_vtk/"
         file_name = "grid"
@@ -225,7 +225,7 @@ class BasicsTest(unittest.TestCase):
             d[pp.STATE] = {
                 "dummy_scalar": np.ones(g.num_cells) * g.dim,
                 "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
-                }
+            }
 
         folder = "./test_vtk/"
         file_name = "grid"

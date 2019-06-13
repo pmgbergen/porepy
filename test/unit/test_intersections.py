@@ -205,7 +205,7 @@ class LinesIntersectTest(unittest.TestCase):
 
 class LineTesselation(unittest.TestCase):
     def test_tesselation_do_not(self):
-        p1 = np.array([[0.3, 0.3, 0],[0.5, 0.5, 0], [0.9, 0.9, 0]]).T
+        p1 = np.array([[0.3, 0.3, 0], [0.5, 0.5, 0], [0.9, 0.9, 0]]).T
         p2 = np.array([[0.4, 0.4, 0.1], [1.0, 1.0, 0.1]]).T
         l1 = np.array([[0, 1], [1, 2]]).T
         l2 = np.array([[0, 1]]).T
@@ -213,21 +213,22 @@ class LineTesselation(unittest.TestCase):
         self.assertTrue(len(intersect) == 0)
 
     def test_tesselation_do(self):
-        p1 = np.array([[0.0, 0.0, 0],[0.5, 0.5, 0], [1.0, 1.0, 0]]).T
+        p1 = np.array([[0.0, 0.0, 0], [0.5, 0.5, 0], [1.0, 1.0, 0]]).T
         p2 = np.array([[0.25, 0.25, 0], [1.0, 1.0, 0]]).T
         l1 = np.array([[0, 1], [1, 2]]).T
         l2 = np.array([[0, 1]]).T
         intersections = pp.intersections.line_tesselation(p1, p2, l1, l2)
         for inter in intersections:
-            if inter[0]==0:
-                if inter[1]==0:
-                    self.assertTrue(inter[2] == np.sqrt(0.25**2 + 0.25**2))
+            if inter[0] == 0:
+                if inter[1] == 0:
+                    self.assertTrue(inter[2] == np.sqrt(0.25 ** 2 + 0.25 ** 2))
                     continue
-            elif inter[0]==1:
-                if inter[1]==1:
-                    self.assertTrue(inter[2] == np.sqrt(0.5**2 + 0.5**2))
+            elif inter[0] == 1:
+                if inter[1] == 1:
+                    self.assertTrue(inter[2] == np.sqrt(0.5 ** 2 + 0.5 ** 2))
             else:
-                self.assertFalse()    
+                self.assertFalse()
+
 
 if __name__ == "__main__":
     unittest.main()
