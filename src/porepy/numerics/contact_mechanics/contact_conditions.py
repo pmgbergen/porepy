@@ -205,9 +205,11 @@ class ColoumbContact:
                 r = np.vstack((r + friction_bound[i] * v, 0))
                 # Unit contribution from tangential force
                 loc_traction_weight = np.eye(self.dim)
+                # Zero weight on normal force
+                loc_traction_weight[-1, -1] = 0
                 # Contribution from normal force
                 loc_traction_weight[:-1, -1] = -friction_coefficient[i] * v.ravel()
-
+                
             elif ~sliding_bc[i] & penetration_bc[i]:  # In contact and sticking
                 # Weight for contact force computed according to (23)
                 loc_traction_tangential = (
@@ -222,6 +224,8 @@ class ColoumbContact:
                 loc_traction_weight = np.zeros((self.dim, self.dim))
                 loc_traction_weight[:-1, -1] = loc_traction_tangential
 
+                # The right hand side is the previous tangential jump, and zero
+                # in the normal direction.
                 r = np.hstack((displacement_jump_tangential[:, i], 0)).T
 
             elif ~penetration_bc[i]:  # not in contact
