@@ -2,11 +2,7 @@ import sys
 import numpy as np
 import unittest
 
-from porepy.grids import structured, simplex
-from porepy.fracs import meshing
-from porepy.grids import coarsening as co
-
-from porepy.viz.exporter import Exporter
+import porepy as pp
 
 if_vtk = "vtk" in sys.modules
 if not if_vtk:
@@ -25,7 +21,7 @@ class BasicsTest(unittest.TestCase):
         if not if_vtk:
             return
 
-        g = structured.CartGrid(3, 1)
+        g = pp.CartGrid(3, 1)
         g.compute_geometry()
 
         dummy_scalar = np.ones(g.num_cells) * g.dim
@@ -33,7 +29,7 @@ class BasicsTest(unittest.TestCase):
 
         folder = "./test_vtk/"
         file_name = "grid"
-        save = Exporter(g, file_name, folder, binary=False)
+        save = pp.Exporter(g, file_name, folder, binary=False)
         save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(folder + file_name + "_000000.vtu", "r") as content_file:
@@ -47,7 +43,7 @@ class BasicsTest(unittest.TestCase):
         if not if_vtk:
             return
 
-        g = simplex.StructuredTriangleGrid([3] * 2, [1] * 2)
+        g = pp.StructuredTriangleGrid([3] * 2, [1] * 2)
         g.compute_geometry()
 
         dummy_scalar = np.ones(g.num_cells) * g.dim
@@ -55,7 +51,7 @@ class BasicsTest(unittest.TestCase):
 
         folder = "./test_vtk/"
         file_name = "grid"
-        save = Exporter(g, file_name, folder, binary=False)
+        save = pp.Exporter(g, file_name, folder, binary=False)
         save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(folder + file_name + "_000000.vtu", "r") as content_file:
@@ -68,7 +64,7 @@ class BasicsTest(unittest.TestCase):
         if not if_vtk:
             return
 
-        g = structured.CartGrid([4] * 2, [1] * 2)
+        g = pp.CartGrid([4] * 2, [1] * 2)
         g.compute_geometry()
 
         dummy_scalar = np.ones(g.num_cells) * g.dim
@@ -76,7 +72,7 @@ class BasicsTest(unittest.TestCase):
 
         folder = "./test_vtk/"
         file_name = "grid"
-        save = Exporter(g, file_name, folder, binary=False)
+        save = pp.Exporter(g, file_name, folder, binary=False)
         save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(folder + file_name + "_000000.vtu", "r") as content_file:
@@ -89,9 +85,9 @@ class BasicsTest(unittest.TestCase):
         if not if_vtk:
             return
 
-        g = structured.CartGrid([3, 2], [1] * 2)
+        g = pp.CartGrid([3, 2], [1] * 2)
         g.compute_geometry()
-        co.generate_coarse_grid(g, [0, 0, 1, 0, 1, 1])
+        pp.coarsening.generate_coarse_grid(g, [0, 0, 1, 0, 1, 1])
         g.compute_geometry()
 
         dummy_scalar = np.ones(g.num_cells) * g.dim
@@ -99,7 +95,7 @@ class BasicsTest(unittest.TestCase):
 
         folder = "./test_vtk/"
         file_name = "grid"
-        save = Exporter(g, file_name, folder, binary=False)
+        save = pp.Exporter(g, file_name, folder, binary=False)
         save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(folder + file_name + "_000000.vtu", "r") as content_file:
@@ -112,7 +108,7 @@ class BasicsTest(unittest.TestCase):
         if not if_vtk:
             return
 
-        g = simplex.StructuredTetrahedralGrid([3] * 3, [1] * 3)
+        g = pp.StructuredTetrahedralGrid([3] * 3, [1] * 3)
         g.compute_geometry()
 
         dummy_scalar = np.ones(g.num_cells) * g.dim
@@ -120,7 +116,7 @@ class BasicsTest(unittest.TestCase):
 
         folder = "./test_vtk/"
         file_name = "grid"
-        save = Exporter(g, file_name, folder, binary=False)
+        save = pp.Exporter(g, file_name, folder, binary=False)
         save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(folder + file_name + "_000000.vtu", "r") as content_file:
@@ -133,7 +129,7 @@ class BasicsTest(unittest.TestCase):
         if not if_vtk:
             return
 
-        g = structured.CartGrid([4] * 3, [1] * 3)
+        g = pp.CartGrid([4] * 3, [1] * 3)
         g.compute_geometry()
 
         dummy_scalar = np.ones(g.num_cells) * g.dim
@@ -141,7 +137,7 @@ class BasicsTest(unittest.TestCase):
 
         folder = "./test_vtk/"
         file_name = "grid"
-        save = Exporter(g, file_name, folder, binary=False)
+        save = pp.Exporter(g, file_name, folder, binary=False)
         save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(folder + file_name + "_000000.vtu", "r") as content_file:
@@ -154,9 +150,9 @@ class BasicsTest(unittest.TestCase):
         if not if_vtk:
             return
 
-        g = structured.CartGrid([3, 2, 3], [1] * 3)
+        g = pp.CartGrid([3, 2, 3], [1] * 3)
         g.compute_geometry()
-        co.generate_coarse_grid(
+        pp.coarsening.generate_coarse_grid(
             g, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, 4, 4, 4, 4]
         )
         g.compute_geometry()
@@ -166,7 +162,7 @@ class BasicsTest(unittest.TestCase):
 
         folder = "./test_vtk/"
         file_name = "grid"
-        save = Exporter(g, file_name, folder, binary=False)
+        save = pp.Exporter(g, file_name, folder, binary=False)
         save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(folder + file_name + "_000000.vtu", "r") as content_file:
@@ -180,18 +176,20 @@ class BasicsTest(unittest.TestCase):
             return
 
         f1 = np.array([[0, 1], [0.5, 0.5]])
-        gb = meshing.cart_grid([f1], [4] * 2, **{"physdims": [1, 1]})
+        gb = pp.meshing.cart_grid([f1], [4] * 2, **{"physdims": [1, 1]})
         gb.compute_geometry()
 
         gb.add_node_props(["scalar_dummy", "dummy_vector"])
 
         for g, d in gb:
-            d["dummy_scalar"] = np.ones(g.num_cells) * g.dim
-            d["dummy_vector"] = np.ones((3, g.num_cells)) * g.dim
+            d[pp.STATE] = {
+                "dummy_scalar": np.ones(g.num_cells) * g.dim,
+                "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
+            }
 
         folder = "./test_vtk/"
         file_name = "grid"
-        save = Exporter(gb, file_name, folder, binary=False)
+        save = pp.Exporter(gb, file_name, folder, binary=False)
         save.write_vtk(["dummy_scalar", "dummy_vector"])
 
         with open(folder + file_name + "_000000.pvd", "r") as content_file:
@@ -218,18 +216,20 @@ class BasicsTest(unittest.TestCase):
 
         f1 = np.array([[0, 1], [0.5, 0.5]])
         f2 = np.array([[0.5, 0.5], [0.25, 0.75]])
-        gb = meshing.cart_grid([f1, f2], [4] * 2, **{"physdims": [1, 1]})
+        gb = pp.meshing.cart_grid([f1, f2], [4] * 2, **{"physdims": [1, 1]})
         gb.compute_geometry()
 
         gb.add_node_props(["dummy_scalar", "dummy_vector"])
 
         for g, d in gb:
-            d["dummy_scalar"] = np.ones(g.num_cells) * g.dim
-            d["dummy_vector"] = np.ones((3, g.num_cells)) * g.dim
+            d[pp.STATE] = {
+                "dummy_scalar": np.ones(g.num_cells) * g.dim,
+                "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
+            }
 
         folder = "./test_vtk/"
         file_name = "grid"
-        save = Exporter(gb, file_name, folder, binary=False)
+        save = pp.Exporter(gb, file_name, folder, binary=False)
         save.write_vtk(["dummy_scalar", "dummy_vector"])
 
         with open(folder + file_name + "_000000.pvd", "r") as content_file:

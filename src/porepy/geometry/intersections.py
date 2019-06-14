@@ -32,7 +32,7 @@ def segments_2d(start_1, end_1, start_2, end_2, tol=1e-8):
     have been discovered so far.
 
     Implementation note:
-        This function can be replaced by a call to segments_intersect_3d. Todo.
+        This function can be replaced by a call to segments_3d. Todo.
 
     Example:
         >>> lines_intersect([0, 0], [1, 1], [0, 1], [1, 0])
@@ -1067,8 +1067,8 @@ def triangulations(p_1, p_2, t_1, t_2):
         p_2 (np.array, 2 x n_p2): Points in second tessalation.
         t_1 (np.array, 3 x n_tri_1): Triangles in first tessalation, referring
             to indices in p_1.
-        t_2 (np.array, 3 x n_tri_1): Triangles in first tessalation, referring
-            to indices in p_1.
+        t_2 (np.array, 3 x n_tri_1): Triangles in second tessalation, referring
+            to indices in p_2.
 
     Returns:
         list of tuples: Each representing an overlap. The tuple contains index
@@ -1133,6 +1133,51 @@ def triangulations(p_1, p_2, t_1, t_2):
             isect = poly_1.intersection(poly_2[j])
             if isinstance(isect, shapely_geometry.Polygon):
                 intersections.append((i, j, isect.area))
+    return intersections
+
+
+def line_tesselation(p1, p2, l1, l2):
+    """ Compute intersection of two line segment tessalations of a line.
+
+    The function will identify partly overlapping line segments between l1 and
+    l2, and compute their common length.
+
+    Parameters:
+        p1 (np.array, 3 x n_p1): Points in first tessalation.
+        p2 (np.array, 3 x n_p2): Points in second tessalation.
+        l1 (np.array, 2 x n_tri_1): Line segments in first tessalation, referring
+            to indices in p2.
+        l2 (np.array, 2 x n_tri_1): Line segments in second tessalation, referring
+            to indices in p2.
+
+    Returns:
+        list of tuples: Each representing an overlap. The tuple contains index
+            of the overlapping line segments in the first and second tessalation,
+            and their common length.
+
+    Raise:
+        AssertionError(): if pp.segments_3d returns out an unknown shape
+
+    """
+    # Loop over both set of lines, use segment intersection method to compute
+    # common segments, thus areas.
+    intersections = []
+    for i in range(l1.shape[1]):
+        start_1 = p1[:, l1[0, i]]
+        end_1 = p1[:, l1[1, i]]
+        for j in range(l2.shape[1]):
+            start_2 = p2[:, l2[0, j]]
+            end_2 = p2[:, l2[1, j]]
+            X = segments_3d(start_1, end_1, start_2, end_2)
+            if X is None:
+                continue
+            elif X.shape[1] == 1:  # Point intersection (zero measure)
+                intersections.append([i, j, 0])
+            elif X.shape[1] == 2:
+                intersections.append([i, j, np.sqrt(np.sum((X[:, 0] - X[:, 1]) ** 2))])
+            else:
+                raise AssertionError()
+
     return intersections
 
 
