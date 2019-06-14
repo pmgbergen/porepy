@@ -1140,8 +1140,7 @@ def line_tesselation(p1, p2, l1, l2):
     """ Compute intersection of two line segment tessalations of a line.
 
     The function will identify partly overlapping line segments between l1 and
-    l2, and compute their common length. If parts of domain 1 or 2 is covered by
-    one tessalation only, this will simply be ignored by the function.
+    l2, and compute their common length.
 
     Parameters:
         p1 (np.array, 3 x n_p1): Points in first tessalation.
@@ -1160,6 +1159,8 @@ def line_tesselation(p1, p2, l1, l2):
         AssertionError(): if pp.segments_3d returns out an unknown shape
 
     """
+    # Loop over both set of lines, use segment intersection method to compute
+    # common segments, thus areas.
     intersections = []
     for i in range(l1.shape[1]):
         start_1 = p1[:, l1[0, i]]
