@@ -231,6 +231,8 @@ def match_grids_1d(new_1d, old_1d, tol):
     Parameters:
          new_1d (grid): First grid to be matched
          old_1d (grid): Second grid to be matched.
+         tol (double): Tolerance used to filter away false overlaps caused by
+             numerical errors. Should be scaled relative to the cell size.
 
     Returns:
          np.array: Ratio of cell volume in the common grid and the original grid.
@@ -240,16 +242,22 @@ def match_grids_1d(new_1d, old_1d, tol):
               grid.
 
     """
+    # Cell-node relation between grids - we know there are two nodes per cell
     cell_nodes1 = new_1d.cell_nodes()
     cell_nodes2 = old_1d.cell_nodes()
     nodes1 = pp.utils.mcolon.mcolon(cell_nodes1.indptr[0:-1], cell_nodes1.indptr[1:])
     nodes2 = pp.utils.mcolon.mcolon(cell_nodes2.indptr[0:-1], cell_nodes2.indptr[1:])
 
-    p1 = new_1d.nodes
-    p2 = old_1d.nodes
+    # Reshape so that the nodes of cells are stored columnwise
     lines1 = cell_nodes1.indices[nodes1].reshape((2, -1), order="F")
     lines2 = cell_nodes2.indices[nodes2].reshape((2, -1), order="F")
 
+    p1 = new_1d.nodes
+    p2 = old_1d.nodes
+
+    # Compute the intersection between the two tessalations.
+    # intersect is a list, every list member is a tuple with overlapping
+    # cells in grid 1 and 2, and their common area.
     intersect = pp.intersections.line_tesselation(p1, p2, lines1, lines2)
 
     num = len(intersect)
