@@ -31,3 +31,4 @@ bin/*
 *.ipynb_checkpoints*
 *.eps
 *.pdf
+.eggs/

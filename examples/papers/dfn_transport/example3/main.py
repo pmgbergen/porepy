@@ -13,12 +13,13 @@ def bc_flag(g, domain, out_flow_start, out_flow_end, in_flow_start, in_flow_end,
     b_face_centers = g.face_centers[:, b_faces]
 
     # detect all the points aligned with the segment
-    dist, _ = pp.cg.dist_points_segments(b_face_centers, out_flow_start, out_flow_end)
+    dist, _ = pp.distances.points_segments(b_face_centers, out_flow_start, out_flow_end)
     dist = dist.flatten()
     out_flow = np.logical_and(dist < tol, dist >= -tol)
 
     # detect all the points aligned with the segment
-    dist, _ = pp.cg.dist_points_segments(b_face_centers, in_flow_start, in_flow_end)
+    dist, _ = pp.distances.points_segments(b_face_centers, in_flow_start, in_flow_end)
+
     dist = dist.flatten()
     in_flow = np.logical_and(dist < tol, dist >= -tol)
 
@@ -58,7 +59,7 @@ def bc_different(g, domain, tol):
 def main():
 
     input_folder = "../geometries/"
-    file_name = input_folder + "example3.fab"
+    file_name = input_folder + "example3_connected.fab"
 
     # define the discretizations for the Darcy part
     discretizations = compute.get_discr()
