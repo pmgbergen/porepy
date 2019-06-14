@@ -158,10 +158,10 @@ def flow(gb, discr, param, bc_flag):
         }
 
     # solution of the darcy problem
-    assembler = pp.Assembler()
+    assembler = pp.Assembler(gb)
 
     logger.info("Assemble the flow problem")
-    A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+    A, b = assembler.assemble_matrix_rhs()
     logger.info("done")
 
     logger.info("Solve the linear system")
@@ -169,7 +169,7 @@ def flow(gb, discr, param, bc_flag):
     logger.info("done")
 
     logger.info("Variable post-process")
-    assembler.distribute_variable(gb, x, block_dof, full_dof)
+    assembler.distribute_variable(x)
 
     # extract the pressure from the solution
     for g, d in gb:
@@ -317,17 +317,22 @@ def advdiff(gb, discr, param, bc_flag):
         model_data_diff, discr_diff, discr_diff_interface
     )
 
+    # mass term
+    mass_id = "mass"
+    discr_mass = pp.MassMatrix(model_data_adv)
+    discr_mass_interface = pp.CellDofFaceDofMap(model_data_adv)
+
     discr_src = pp.ScalarSource(model_data_src)
 
     for g, d in gb:
         d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
         if g.dim == gb.dim_max():
             d[pp.DISCRETIZATION] = {
-                variable: {adv_id: discr_adv, diff_id: discr_diff, src_id: discr_src}
+                variable: {adv_id: discr_adv, diff_id: discr_diff, mass_id: discr_mass, src_id: discr_src}
             }
         else:
             d[pp.DISCRETIZATION] = {
-                variable: {adv_id: discr_adv_interface, diff_id: discr_diff_interface}
+                variable: {adv_id: discr_adv_interface, diff_id: discr_diff_interface, mass_id: discr_mass_interface}
             }
 
     for e, d in gb.edges():
@@ -348,34 +353,30 @@ def advdiff(gb, discr, param, bc_flag):
         }
 
     # setup the advection-diffusion problem
-    assembler = pp.Assembler()
+    assembler = pp.Assembler(gb, active_variables=[variable, mortar_diff, mortar_adv])
     logger.info("Assemble the advective and diffusive terms of the transport problem")
-    A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+    block_A, block_b = assembler.assemble_matrix_rhs(add_matrices=False)
     logger.info("done")
 
-    # mass term
-    mass_id = "mass"
-    discr_mass = pp.MassMatrix(model_data_adv)
-    discr_mass_interface = pp.CellDofFaceDofMap(model_data_adv)
+    # unpack the matrices just computed
+    diff_name = diff_id + "_" + variable
+    adv_name = adv_id + "_" + variable
+    mass_name = mass_id + "_" + variable
+    source_name = src_id + "_" + variable
 
-    for g, d in gb:
-        d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
-        if g.dim == gb.dim_max():
-            d[pp.DISCRETIZATION] = {variable: {mass_id: discr_mass}}
-        else:
-            d[pp.DISCRETIZATION] = {variable: {mass_id: discr_mass_interface}}
+    diff_coupling_name = diff_id + "_" + mortar_diff + "_" + variable + "_" + variable
+    adv_coupling_name = adv_id + "_" + mortar_adv + "_" + variable + "_" + variable
 
-    gb.remove_edge_props(pp.COUPLING_DISCRETIZATION)
+    # need a sign for the convention of the conservation equation
+    M = block_A[mass_name]
+    A = block_A[diff_name] + block_A[diff_coupling_name] + \
+        block_A[adv_name] + block_A[adv_coupling_name]
+    b = block_b[diff_name] + block_b[diff_coupling_name] + \
+        block_b[adv_name] + block_b[adv_coupling_name] + \
+        block_b[source_name]
 
-    for e, d in gb.edges():
-        g_slave, g_master = gb.nodes_of_edge(e)
-        d[pp.PRIMARY_VARIABLES] = {mortar_adv: {"cells": 1}, mortar_diff: {"cells": 1}}
-
-    logger.info("Assemble the mass term of the transport problem")
-    M, _, _, _ = assembler.assemble_matrix_rhs(gb)
     M_t = M.copy() / param["time_step"] * param.get("mass_weight", 1)
     M_r = M.copy() * param.get("reaction", 0)
-    logger.info("done")
 
     # Perform an LU factorization to speedup the solver
     IE_solver = sps.linalg.factorized((M_t + A + M_r).tocsc())
@@ -391,12 +392,12 @@ def advdiff(gb, discr, param, bc_flag):
 
     # assign the initial condition
     x = np.zeros(A.shape[0])
-    assembler.distribute_variable(gb, x, block_dof, full_dof)
+    assembler.distribute_variable(x)
     for g, d in gb:
         if g.dim == gb.dim_max():
             d[variable] = param.get("init_trans", 0) * np.ones(g.num_cells)
 
-    x = assembler.merge_variable(gb, variable, block_dof, full_dof)
+    x = assembler.merge_variable(variable)
 
     outflow = np.zeros(param["n_steps"])
 
@@ -407,7 +408,7 @@ def advdiff(gb, discr, param, bc_flag):
         logger.info("done")
 
         logger.info("Variable post-process")
-        assembler.distribute_variable(gb, x, block_dof, full_dof)
+        assembler.distribute_variable(x)
         logger.info("done")
 
         logger.info("Export variable")

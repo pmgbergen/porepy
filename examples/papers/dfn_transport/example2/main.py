@@ -17,7 +17,8 @@ def bc_flag(g, domain, tol):
     out_flow_end = np.array([1.012528, 0.190858, 0.886822])
 
     # detect all the points aligned with the segment
-    dist, _ = pp.cg.dist_points_segments(b_face_centers, out_flow_start, out_flow_end)
+    dist, _ = pp.distances.points_segments(b_face_centers, out_flow_start, out_flow_end)
+
     dist = dist.flatten()
     out_flow = np.logical_and(dist < tol, dist >= -tol)
 
@@ -26,7 +27,7 @@ def bc_flag(g, domain, tol):
     in_flow_end = np.array([0.181980, 0.813947, 0.478618])
 
     # detect all the points aligned with the segment
-    dist, _ = pp.cg.dist_points_segments(b_face_centers, in_flow_start, in_flow_end)
+    dist, _ = pp.distances.points_segments(b_face_centers, in_flow_start, in_flow_end)
     dist = dist.flatten()
     in_flow = np.logical_and(dist < tol, dist >= -tol)
 
