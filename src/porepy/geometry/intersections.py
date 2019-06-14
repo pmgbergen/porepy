@@ -1136,6 +1136,50 @@ def triangulations(p_1, p_2, t_1, t_2):
     return intersections
 
 
+def line_tesselation(p1, p2, l1, l2):
+    """ Compute intersection of two line segment tessalations of a line.
+
+    The function will identify partly overlapping line segments between l1 and
+    l2, and compute their common length. If parts of domain 1 or 2 is covered by
+    one tessalation only, this will simply be ignored by the function.
+
+    Parameters:
+        p1 (np.array, 3 x n_p1): Points in first tessalation.
+        p2 (np.array, 3 x n_p2): Points in second tessalation.
+        l1 (np.array, 2 x n_tri_1): Line segments in first tessalation, referring
+            to indices in p2.
+        l2 (np.array, 2 x n_tri_1): Line segments in second tessalation, referring
+            to indices in p2.
+
+    Returns:
+        list of tuples: Each representing an overlap. The tuple contains index
+            of the overlapping line segments in the first and second tessalation,
+            and their common length.
+
+    Raise:
+        AssertionError(): if pp.segments_3d returns out an unknown shape
+
+    """
+    intersections = []
+    for i in range(l1.shape[1]):
+        start_1 = p1[:, l1[0, i]]
+        end_1 = p1[:, l1[1, i]]
+        for j in range(l2.shape[1]):
+            start_2 = p2[:, l2[0, j]]
+            end_2 = p2[:, l2[1, j]]
+            X = segments_3d(start_1, end_1, start_2, end_2)
+            if X is None:
+                continue
+            elif X.shape[1] == 1:  # Point intersection (zero measure)
+                intersections.append([i, j, 0])
+            elif X.shape[1] == 2:
+                intersections.append([i, j, np.sqrt(np.sum((X[:, 0] - X[:, 1]) ** 2))])
+            else:
+                raise AssertionError()
+
+    return intersections
+
+
 def split_intersecting_segments_2d(p, e, tol=1e-4):
     """ Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
@@ -1351,50 +1395,6 @@ def split_intersecting_segments_2d(p, e, tol=1e-4):
         new_edge = new_edge[:, edge_map]
 
         return unique_all_pt, new_edge.astype(np.int)
-
-
-def line_tesselation(p1, p2, l1, l2):
-    """ Compute intersection of two line segment tessalations of a line.
-
-    The function will identify partly overlapping line segments between l1 and
-    l2, and compute their common length. If parts of domain 1 or 2 is covered by
-    one tessalation only, this will simply be ignored by the function.
-
-    Parameters:
-        p1 (np.array, 3 x n_p1): Points in first tessalation.
-        p2 (np.array, 3 x n_p2): Points in second tessalation.
-        l1 (np.array, 2 x n_tri_1): Line segments in first tessalation, referring
-            to indices in p2.
-        l2 (np.array, 2 x n_tri_1): Line segments in second tessalation, referring
-            to indices in p2.
-
-    Returns:
-        list of tuples: Each representing an overlap. The tuple contains index
-            of the overlapping line segments in the first and second tessalation,
-            and their common length.
-
-    Raise:
-        AssertionError(): if pp.segments_3d returns out an unknown shape
-
-    """
-    intersections = []
-    for i in range(l1.shape[1]):
-        start_1 = p1[:, l1[0, i]]
-        end_1 = p1[:, l1[1, i]]
-        for j in range(l2.shape[1]):
-            start_2 = p2[:, l2[0, j]]
-            end_2 = p2[:, l2[1, j]]
-            X = segments_3d(start_1, end_1, start_2, end_2)
-            if X is None:
-                continue
-            elif X.shape[1] == 1:  # Point intersection (zero measure)
-                intersections.append([i, j, 0])
-            elif X.shape[1] == 2:
-                intersections.append([i, j, np.sqrt(np.sum((X[:, 0] - X[:, 1]) ** 2))])
-            else:
-                raise AssertionError()
-
-    return intersections
 
 
 def _axis_aligned_bounding_box_2d(p, e):
