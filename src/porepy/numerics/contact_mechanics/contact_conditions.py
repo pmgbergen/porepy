@@ -209,7 +209,7 @@ class ColoumbContact:
                 loc_traction_weight[-1, -1] = 0
                 # Contribution from normal force
                 loc_traction_weight[:-1, -1] = -friction_coefficient[i] * v.ravel()
-                
+
             elif ~sliding_bc[i] & penetration_bc[i]:  # In contact and sticking
                 # Weight for contact force computed according to (23)
                 loc_traction_tangential = (

@@ -256,17 +256,11 @@ class SetupContactMechanics(unittest.TestCase):
             self.frac_pts = np.array([[0.3, 0.7], [0.5, 0.5]])
         frac_edges = np.array([[0], [1]])
 
-        box = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
+        self.box = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
 
-        network = pp.FractureNetwork2d(self.frac_pts, frac_edges, domain=box)
+        network = pp.FractureNetwork2d(self.frac_pts, frac_edges, domain=self.box)
         # Generate the mixed-dimensional mesh
         gb = network.mesh(self.mesh_args)
-
-        # Remove fracture grid as it is not needed
-        # This operation will also create an edge between the 2d grid and
-        # itself.
-
-        self.set_parameters(gb)
 
         self.gb = gb
         return gb
