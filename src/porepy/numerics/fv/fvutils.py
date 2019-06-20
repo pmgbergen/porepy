@@ -584,6 +584,34 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
     ).tocsr()
     return hf2f
 
+def sc_2_c(nd, sub_cell_index, cell_node_blocks, num_subhfno):
+
+    """
+    Create mapping from sub-cells to cells for scalar problems.
+    For example, discretization of div_g-term in mpfa with gravity
+
+    Parameters
+    ----------
+    nd: dimension
+    sub_cell_index:
+    cell_index:
+
+
+    Returns
+    -------
+
+    """
+
+    num_cells = cell_node_blocks.max() + 1
+
+    rows = sub_cell_index.ravel('F')
+    cols = expand_indices_nd(cell_node_blocks, nd)
+    vals = np.ones(num_subhfno)
+    sc2c = sps.coo_matrix((vals, (rows, cols)),
+                               shape=(num_subhfno,
+                                      num_cells * nd)).tocsr()
+
+    return sc2c
 
 def map_sc_2_c(nd, sub_cell_index, cell_index):
 
