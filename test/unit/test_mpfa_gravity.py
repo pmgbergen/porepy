@@ -1,35 +1,23 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Feb 28 20:55:56 2016
-
-@author: keile
-"""
-
 import numpy as np
 import scipy
 import sympy
 import unittest
 import porepy as pp
 
-# Analytical solution - hydrostatic pressure
-# with stepwise gravity variation
-x, y = sympy.symbols('x y')
+class _SolutionHomogeneousDomainFlowWithGravity(object):
+    """Convenience class for representing an analytical solution, and its
+    derivatives"""
 
-g1 = 10 
-g2 = 1
-
-p0 = 1 #reference pressure
-
-p = p0 + sympy.Piecewise(((1-y)*g1, y>=0.5), (0.5*g1+(0.5-y)*g2, y<0.5))
-gx = sympy.diff(p, x)
-gy = sympy.diff(p, y)
-
-p_f = sympy.lambdify((x, y), p, 'numpy')
-gx_f = sympy.lambdify((x, y), gx, 'numpy')
-gy_f = sympy.lambdify((x, y), gy, 'numpy')
-
-deviation_from_plane_tol=1e-5-5
-
+    def __init__(self, p, x, y):
+        p_f = sympy.lambdify((x, y), p, "numpy")
+        gx = sympy.diff(p, x)
+        gy = sympy.diff(p, y)
+        gx_f = sympy.lambdify((x, y), gx, 'numpy')
+        gy_f = sympy.lambdify((x, y), gy, 'numpy')
+        self.p_f = p_f
+        self.gx_f = gx_f
+        self.gy_f = gy_f
+        
 def perturb(g, rate, dx):
     rand = np.vstack((np.random.rand(g.dim, g.num_nodes), np.repeat(0., g.num_nodes)))
     r1 = np.ravel(np.argwhere((g.nodes[0] < 1 - 1e-10) & (g.nodes[0] > 1e-10) & (g.nodes[1] < 0.5 - 1e-10) & (g.nodes[1] > 1e-10)))
@@ -52,6 +40,7 @@ def make_grid(grid, grid_dims, domain):
         return pp.StructuredTriangleGrid(grid_dims, domain)
     
 class TestMPFAgravity(unittest.TestCase):
+       
     def test_hydrostatic_pressure(self):
 
         # Test mpfa_gravity in 2D Cartesian
@@ -60,6 +49,13 @@ class TestMPFAgravity(unittest.TestCase):
         # with stepwise gravity variation
 
         grids = ['cart', 'triangular']
+
+        x, y = sympy.symbols('x y')
+        g1 = 10 
+        g2 = 1
+        p0 = 1 #reference pressure
+        p = p0 + sympy.Piecewise(((1-y)*g1, y>=0.5), (0.5*g1+(0.5-y)*g2, y<0.5))
+        an_sol = _SolutionHomogeneousDomainFlowWithGravity(p, x, y)
 
         for gr in grids:
 
@@ -78,8 +74,8 @@ class TestMPFAgravity(unittest.TestCase):
 
             # Gravity
             gforce = np.zeros((2, g.num_cells))
-            gforce[0,:] = gx_f(xc[0], xc[1])
-            gforce[1,:] = gy_f(xc[0], xc[1])
+            gforce[0,:] = an_sol.gx_f(xc[0], xc[1])
+            gforce[1,:] = an_sol.gy_f(xc[0], xc[1])
             gforce = gforce.ravel('F')
 
             # Set type of boundary conditions
@@ -91,10 +87,10 @@ class TestMPFAgravity(unittest.TestCase):
             bound_cond = pp.BoundaryCondition(g, dir_faces, ["dir"] * dir_faces.size)
 
             # set value of boundary condition
-            p_bound[dir_faces] = p_f(xf[0, dir_faces], xf[1, dir_faces])
+            p_bound[dir_faces] = an_sol.p_f(xf[0, dir_faces], xf[1, dir_faces])
 
             # GCMPFA discretization, and system matrix
-            flux, bound_flux, div_g, _, _,  = pp.Mpfa("flow")._local_discr(
+            flux, bound_flux, _, _, div_g  = pp.Mpfa("flow")._local_discr(
                 g, k, bound_cond, gravity=True, inverter="python"
             )
             div = pp.fvutils.scalar_divergence(g)
@@ -103,11 +99,10 @@ class TestMPFAgravity(unittest.TestCase):
             b = - div * bound_flux * p_bound - div * flux_g
             p = scipy.sparse.linalg.spsolve(a, b)
             q = flux * p + bound_flux * p_bound + flux_g
-            p_ex = p_f(xc[0], xc[1])
+            p_ex = an_sol.p_f(xc[0], xc[1])
             q_ex = np.zeros(g.num_faces)
             self.assertTrue(np.allclose(p, p_ex))
             self.assertTrue(np.allclose(q, q_ex))
-
 
 if __name__ == "__main__":
     unittest.main()
