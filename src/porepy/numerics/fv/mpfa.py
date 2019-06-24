@@ -97,30 +97,45 @@ class Mpfa(FVElliptic):
         eta_reconstruction = parameter_dictionary.get("reconstruction_eta", None)
         inverter = parameter_dictionary.get("mpfa_inverter", None)
 
-        trm, bound_flux, div_g, bp_cell, bp_face = self.mpfa(
-            g,
-            k,
-            bnd,
-            gravity,
-            deviation_from_plane_tol,
-            eta=eta,
-            eta_reconstruction=eta_reconstruction,
-            apertures=aperture,
-            inverter=inverter,
-        )
+        if not gravity:
+            trm, bound_flux, bp_cell, bp_face = self.mpfa(
+                g,
+                k,
+                bnd,
+                deviation_from_plane_tol,
+                gravity=gravity,
+                eta=eta,
+                eta_reconstruction=eta_reconstruction,
+                apertures=aperture,
+                inverter=inverter,
+            )
+        else:
+            trm, bound_flux, bp_cell, bp_face, div_g = self.mpfa(
+                g,
+                k,
+                bnd,
+                deviation_from_plane_tol,
+                gravity=gravity,
+                eta=eta,
+                eta_reconstruction=eta_reconstruction,
+                apertures=aperture,
+                inverter=inverter,
+            )
+
+            matrix_dictionary["div_g"] = div_g
+
         matrix_dictionary["flux"] = trm
         matrix_dictionary["bound_flux"] = bound_flux
         matrix_dictionary["bound_pressure_cell"] = bp_cell
         matrix_dictionary["bound_pressure_face"] = bp_face
-        matrix_dictionary["div_g"] = div_g
 
     def mpfa(
         self,
         g,
         k,
         bnd,
-        gravity,
         deviation_from_plane_tol=1e-5,
+        gravity=False,
         eta=None,
         eta_reconstruction=None,
         inverter=None,
@@ -220,17 +235,30 @@ class Mpfa(FVElliptic):
             # entire grid.
             # TODO: We may want to estimate the memory need, and give a warning if
             # this seems excessive
-            flux, bound_flux, div_g, bound_pressure_cell, bound_pressure_face = self._local_discr(
-                g,
-                k,
-                bnd,
-                gravity,
-                deviation_from_plane_tol,
-                eta=eta,
-                eta_reconstruction=eta_reconstruction,
-                inverter=inverter,
-                apertures=apertures,
-            )
+            if not gravity:
+                flux, bound_flux, bound_pressure_cell, bound_pressure_face = self._local_discr(
+                    g,
+                    k,
+                    bnd,
+                    deviation_from_plane_tol,
+                    gravity=gravity,
+                    eta=eta,
+                    eta_reconstruction=eta_reconstruction,
+                    inverter=inverter,
+                    apertures=apertures,
+                )
+            else:
+                flux, bound_flux, bound_pressure_cell, bound_pressure_face, div_g = self._local_discr(
+                    g,
+                    k,
+                    bnd,
+                    deviation_from_plane_tol,
+                    gravity=gravity,
+                    eta=eta,
+                    eta_reconstruction=eta_reconstruction,
+                    inverter=inverter,
+                    apertures=apertures,
+                )
         else:
             # Estimate number of partitions necessary based on prescribed memory
             # usage
@@ -246,7 +274,6 @@ class Mpfa(FVElliptic):
             # unique).
             flux = sps.csr_matrix(g.num_faces, g.num_cells)
             bound_flux = sps.csr_matrix(g.num_faces, g.num_faces)
-            div_g = sps.csr_matrix(g.num_faces, g.num_cells*g.dim)
             bound_pressure_cell = sps.csr_matrix(g.num_faces, g.num_cells)
             bound_pressure_face = sps.csr_matrix(g.num_faces, g.num_faces)
 
@@ -265,24 +292,39 @@ class Mpfa(FVElliptic):
                 active_nodes = np.squeeze(np.where((cn * active_cells) > 0))
 
                 # Perform local discretization.
-                loc_flux, loc_bound_flux, loc_div_g, loc_bp_cell, loc_bp_face, loc_faces = self.partial_discr(
-                    g,
-                    k,
-                    bnd,
-                    gravity,
-                    deviation_from_plane_tol,
-                    eta=eta,
-                    eta_reconstruction=eta_reconstruction,
-                    inverter=inverter,
-                    nodes=active_nodes,
-                )
+                if not gravity:
+                    loc_flux, loc_bound_flux, loc_bp_cell, loc_bp_face, loc_faces = self.partial_discr(
+                        g,
+                        k,
+                        bnd,
+                        deviation_from_plane_tol,
+                        gravity=gravity,
+                        eta=eta,
+                        eta_reconstruction=eta_reconstruction,
+                        inverter=inverter,
+                        nodes=active_nodes,
+                    )
+                else:
+                    div_g = sps.csr_matrix(g.num_faces, g.num_cells*g.dim)
+                    loc_flux, loc_bound_flux, loc_bp_cell, loc_bp_face, loc_div_g, loc_faces = self.partial_discr(
+                        g,
+                        k,
+                        bnd,
+                        deviation_from_plane_tol,
+                        gravity=gravity,
+                        eta=eta,
+                        eta_reconstruction=eta_reconstruction,
+                        inverter=inverter,
+                        nodes=active_nodes,
+                    )
+                    loc_div_g[face_covered, :] *= 0
+                    div_g += loc_div_g
 
                 # Eliminate contribution from faces already covered
                 loc_flux[face_covered, :] *= 0
                 loc_bound_flux[face_covered, :] *= 0
                 loc_bp_cell[face_covered, :] *= 0
                 loc_bp_face[face_covered, :] *= 0
-                loc_div_g[face_covered, :] *= 0
 
                 face_covered[loc_faces] = 1
 
@@ -290,17 +332,19 @@ class Mpfa(FVElliptic):
                 bound_flux += loc_bound_flux
                 bound_pressure_cell += loc_bp_cell
                 bound_pressure_face += loc_bp_face
-                div_g += loc_div_g
 
-        return flux, bound_flux, div_g, bound_pressure_cell, bound_pressure_face
+        if not gravity:
+            return flux, bound_flux, bound_pressure_cell, bound_pressure_face
+        else:
+            return flux, bound_flux, bound_pressure_cell, bound_pressure_face, div_g
 
     def partial_discr(
         self,
         g,
         k,
         bnd,
-        gravity=False,
         deviation_from_plane_tol=1e-5,
+        gravity=False,
         eta=0,
         eta_reconstruction=None,
         inverter="numba",
@@ -399,62 +443,87 @@ class Mpfa(FVElliptic):
             loc_cond[is_dir] = "dir"
         loc_bnd = pp.BoundaryCondition(sub_g, faces=loc_bound_ind, cond=loc_cond)
 
-        # Discretization of sub-problem
-        flux_loc, bound_flux_loc, div_g_loc, bound_pressure_cell, bound_pressure_face = self._local_discr(
-            sub_g,
-            loc_k,
-            loc_bnd,
-            gravity,
-            deviation_from_plane_tol,
-            eta=eta,
-            eta_reconstruction=eta_reconstruction,
-            inverter=inverter,
-            apertures=apertures,
-        )
-
         # Map to global indices
         face_map, cell_map = fvutils.map_subgrid_to_grid(
             g, l2g_faces, l2g_cells, is_vector=False
         )
+
+        # By design of mpfa, and the subgrids, the discretization will update faces
+        # outside the active faces. Prepare for this.
+        outside = np.setdiff1d(np.arange(g.num_faces), active_faces, assume_unique=True)
+
+        # Discretization of sub-problem
+        if not gravity:
+            flux_loc, bound_flux_loc, bound_pressure_cell, bound_pressure_face = self._local_discr(
+                sub_g,
+                loc_k,
+                loc_bnd,
+                deviation_from_plane_tol,
+                gravity=gravity,
+                eta=eta,
+                eta_reconstruction=eta_reconstruction,
+                inverter=inverter,
+                apertures=apertures,
+            )
+
+        else:
+            flux_loc, bound_flux_loc, bound_pressure_cell, bound_pressure_face, div_g_loc = self._local_discr(
+                sub_g,
+                loc_k,
+                loc_bnd,
+                deviation_from_plane_tol,
+                gravity=gravity,
+                eta=eta,
+                eta_reconstruction=eta_reconstruction,
+                inverter=inverter,
+                apertures=apertures,
+            )
+            # NOTE MS: I am not sure about this mapping since div_g is ready to be
+            # multiplied with a cell center vector. cell_map in this case should
+            # have dimensions of (num_cells_loc * g.dim, g.num_cells * g.dim).
+            # I think fvutils.map_subgrid_to_grid should be modified in order
+            # to return 3 objects: face_map, cell_map, cell_map_nd
+            # Anyhow, for most applications, discretization goes via _local_discr
+            # this is just a reminder where issues may arise
+            div_g_glob = face_map * div_g_loc * cell_map
+            div_g_glob[outside, :] = 0
+
         flux_glob = face_map * flux_loc * cell_map
         bound_flux_glob = face_map * bound_flux_loc * face_map.transpose()
         bound_pressure_cell_glob = face_map * bound_pressure_cell * cell_map
         bound_pressure_face_glob = face_map * bound_pressure_face * face_map.T
 
-        # NOTE MS: I am not sure about this mapping since div_g is ready to be
-        # multiplied with a cell center vector. cell_map in this case should
-        # have dimensions of (num_cells_loc * g.dim, g.num_cells * g.dim).
-        # I think fvutils.map_subgrid_to_grid should be modified in order
-        # to return 3 objects: face_map, cell_map, cell_map_nd
-        # Anyhow, for most applications, discretization goes via _local_discr
-        # this is just a reminder where issues may arise
-        div_g_glob = face_map * div_g_loc * cell_map
-
-        # By design of mpfa, and the subgrids, the discretization will update faces
-        # outside the active faces. Kill these.
-        outside = np.setdiff1d(np.arange(g.num_faces), active_faces, assume_unique=True)
+        # Kill faces outside the activa faces
         flux_glob[outside, :] = 0
         bound_flux_glob[outside, :] = 0
         bound_pressure_cell_glob[outside, :] = 0
         bound_pressure_face_glob[outside, :] = 0
-        div_g_glob[outside, :] = 0
 
-        return (
-            flux_glob,
-            bound_flux_glob,
-            div_g_glob,
-            bound_pressure_cell_glob,
-            bound_pressure_face_glob,
-            active_faces,
-        )
-
+        if not gravity:
+            return (
+                flux_glob,
+                bound_flux_glob,
+                bound_pressure_cell_glob,
+                bound_pressure_face_glob,
+                active_faces,
+            )
+        else:
+            return (
+                flux_glob,
+                bound_flux_glob,
+                bound_pressure_cell_glob,
+                bound_pressure_face_glob,
+                div_g_glob,                
+                active_faces,
+            )
+        
     def _local_discr(
         self,
         g,
         k,
         bnd,
-        gravity=False,
         deviation_from_plane_tol=1e-5,
+        gravity=False,
         eta=None,
         eta_reconstruction=None,
         inverter="numba",
@@ -904,20 +973,23 @@ class Mpfa(FVElliptic):
             pressure_trace_bound = hf2f * area_mat * pressure_trace_bound * hf2f.T
             pressure_trace_cell = hf2f * area_mat * pressure_trace_cell
 
-        if gravity:
+        if not gravity:
+            return flux, bound_flux, pressure_trace_cell, pressure_trace_bound
+        else:
             # in this case, we consider the full darcy's law in the presence of gravity
             # we apply the discrete flux operator to the gravity term
+            # discr_div_g is the discretised gravity term, which is interpreted
+            # as a force on a subface due to imbalance in cell-center gravities
+            # this term is computed on a sub-cell basis 
+            # and has dimensions (num_subfaces, num_subcells * nd)
             discr_div_g = self.discretize_div_g(g, subcell_topology, bound_exclusion, darcy, igrad, nk_grad_all, nk_grad_paired)
 
             # Output should be on cell-level (not sub-cell)
-            sc2c = fvutils.sc_2_c(g.dim, sub_cell_index, cell_node_blocks[0], subcell_topology.subhfno.size)
+            sc2c = fvutils.cell_vector_to_subcell(g.dim, sub_cell_index, cell_node_blocks[0])
 
             div_g = hf2f * discr_div_g * sc2c
-        else:
-            div_g = None
+            return flux, bound_flux, pressure_trace_cell, pressure_trace_bound, div_g
         
-        return flux, bound_flux, div_g, pressure_trace_cell, pressure_trace_bound
-
     def discretize_div_g(self, g, subcell_topology, bound_exclusion, darcy, igrad, nk_grad_all, nk_grad_paired):
         """
         Consistent discretization of div_g-term in MPFA-O method.
@@ -936,7 +1008,7 @@ class Mpfa(FVElliptic):
             nk_grad_paired: nK products after pairing
             
         Returns:
-            scipy.sparse.csr_matrix (shape num_subfaces, num_subcells):
+            scipy.sparse.csr_matrix (shape num_subfaces, num_subcells * nd):
             discretization of the gravity term, interpreted as a force on a subface
             due to imbalance in cell-center gravities
 
@@ -962,6 +1034,8 @@ class Mpfa(FVElliptic):
         The full flux on the face is therefore given by
         q = flux * p + bound_flux * p_b + (div_g_jumps + div_g_face) * g
 
+        Output: div_g = div_g_jumps + div_g_faces
+
         The strategy is as follows.
         1. assemble r.h.s. for the new linear system, needed for the term 'div_g_jumps'
         2. compute term 'div_g_face'
@@ -981,7 +1055,14 @@ class Mpfa(FVElliptic):
                                  shape=(num_subfno_unique,
                                         num_subfno_unique))
 
-        rhs_units = bound_exclusion.exclude_dirichlet(rhs_units)
+        # The gravity term is added to all internal faces, all Neumann faces
+        # and all Robin faces.
+        rhs_units_n = bound_exclusion.exclude_robin_dirichlet(rhs_units)
+        # Robin condition is only applied to Robin boundary faces
+        rhs_units_r = bound_exclusion.keep_robin(rhs_units)
+        # The Robin condition is added after all flux equations (internal and Neumann
+        # faces)
+        rhs_units = sps.vstack([rhs_units_n, rhs_units_r])
         
         num_dir_subface = (bound_exclusion.exclude_neu_rob.shape[1] -
                            bound_exclusion.exclude_neu_rob.shape[0])
@@ -992,6 +1073,7 @@ class Mpfa(FVElliptic):
                                                 num_subfno_unique))
 
         rhs_units = -sps.vstack([rhs_units, rhs_units_pres_var])
+
         
         del rhs_units_pres_var
 
