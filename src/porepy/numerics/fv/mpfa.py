@@ -1047,11 +1047,11 @@ class Mpfa(FVElliptic):
         # Step 1
         # The gravity term in the flux continuity equation is discretized
         # as a force on the faces. The right hand side is thus formed of the
-        # unit vector.           
+        # unit vector.
         vals = np.ones(num_subfno_unique)
-        rows = subcell_topology.subfno_unique 
+        rows = subcell_topology.subfno_unique
         cols = subcell_topology.subfno_unique
-        rhs_units = sps.coo_matrix((vals, (rows, cols)), 
+        rhs_units = sps.coo_matrix((vals, (rows, cols)),
                                  shape=(num_subfno_unique,
                                         num_subfno_unique))
 
@@ -1063,11 +1063,11 @@ class Mpfa(FVElliptic):
         # The Robin condition is added after all flux equations (internal and Neumann
         # faces)
         rhs_units = sps.vstack([rhs_units_n, rhs_units_r])
-        
+
+        # No right hand side for cell pressure equations.
         num_dir_subface = (bound_exclusion.exclude_neu_rob.shape[1] -
                            bound_exclusion.exclude_neu_rob.shape[0])
 
-        # No right hand side for cell pressure equations.
         rhs_units_pres_var = sps.coo_matrix((num_subfno
                                                 - num_dir_subface,
                                                 num_subfno_unique))
