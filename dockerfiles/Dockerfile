@@ -72,7 +72,9 @@ RUN git clone https://github.com/pmgbergen/porepy.git pp
 #    python setup.py install 
 
 WORKDIR /home/porepy/pp
-RUN conda install numpy=1.16.3 scipy=1.2.1 networkx=2.3 sympy=1.4 cython=0.29.7 numba=0.43.1 matplotlib=3.0.3 pytest=4.5.0 pytest-cov=2.6.1 pytest-runner=4.4 vtk=8.2.0 jupyter=1.0.0
+RUN conda install numpy=1.16.3 scipy=1.2.1 networkx=2.3 sympy=1.4 cython=0.29.7 numba=0.43.1 matplotlib=3.0.3 pytest=4.5.0 pytest-cov=2.6.1 pytest-runner=4.4 jupyter=1.0.0
+# Vtk should be install from conda-forged (not all dependencies are installed otherwise):
+RUN conda install -c conda-forge vtk
 RUN pip install meshio==2.3.8 shapely==1.6.4.post2 shapely[vectorized]==1.6.4.post2
 
 RUN python setup.py install
