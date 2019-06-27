@@ -17,4 +17,4 @@ We try to keep the examples updated as the code changes, but may not always succ
 * [arXiv_1903_01117](./arXiv_1903_01117) paper "*A multi-layer reduced model for flow in porous media with a fault and surrounding damage zones*" by Alessio Fumagalli, Anna Scotti. See [arXiv pre-print](https://arxiv.org/abs/1903.01117).
 
 # Separate repository
-* [repo](https://github.com/alessiofumagalli/multiscale_timedependent) paper "*Robust linear domain decomposition schemes for reduced non-linear fracture flow models*" by Elyes Ahmed, Alessio Fumagalli, Ana Budiša, Eirik Keilegavlen, Jan M. Nordbotten, A. Radu Forin. See [arXiv pre-print](https://arxiv.org/abs/1906.05831).
+* [repo](https://github.com/alessiofumagalli/multiscale_timedependent) paper "*Robust linear domain decomposition schemes for reduced non-linear fracture flow models*" by Elyes Ahmed, Alessio Fumagalli, Ana Budiša, Eirik Keilegavlen, Jan M. Nordbotten, A. Radu Florin. See [arXiv pre-print](https://arxiv.org/abs/1906.05831).
