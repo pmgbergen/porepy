@@ -146,7 +146,7 @@ class TestPartialMPSA(unittest.TestCase):
         nodes_of_cell = np.array([14, 15, 20, 21])
         faces_of_cell = np.array([14, 15, 42, 47])
 
-        partial_stress, partial_bound, _, _, active_faces = mpsa.mpsa_partial(
+        partial_stress, partial_bound, active_faces = mpsa.mpsa_partial(
             g, stiffness, bnd, nodes=nodes_of_cell, inverter="python"
         )
 
@@ -173,7 +173,7 @@ class TestPartialMPSA(unittest.TestCase):
         inner_cell = 10
         nodes_of_cell = np.array([12, 13, 18, 19])
         faces_of_cell = np.array([12, 13, 40, 45])
-        partial_stress, partial_bound, _, _, active_faces = mpsa.mpsa_partial(
+        partial_stress, partial_bound, active_faces = mpsa.mpsa_partial(
             g, perm, bnd, nodes=nodes_of_cell, inverter="python"
         )
 
@@ -221,7 +221,7 @@ class TestPartialMPSA(unittest.TestCase):
             ind = np.zeros(g.num_cells)
             ind[ci] = 1
             nodes = np.squeeze(np.where(cn * ind > 0))
-            partial_stress, partial_bound, _, _, active_faces = mpsa.mpsa_partial(
+            partial_stress, partial_bound, active_faces = mpsa.mpsa_partial(
                 g, stiffness, bnd, nodes=nodes, inverter="python"
             )
 
