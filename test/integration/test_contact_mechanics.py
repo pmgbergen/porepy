@@ -189,20 +189,7 @@ def solve_contact_mechanics(setup):
         # Split solution into displacement variable and mortar variable
         assembler.distribute_variable(sol)
 
-        for g, d in gb:
-            if g.dim == ambient_dim:
-                d[pp.STATE][setup.displacement_variable] = d[
-                    setup.displacement_variable
-                ]
-            elif g.dim == ambient_dim - 1:
-                d[pp.STATE][setup.contact_variable] = d[setup.contact_variable]
-
-        for e, d in gb.edges():
-            mg = d["mortar_grid"]
-            if mg.dim == ambient_dim - 1:
-                d[pp.STATE][setup.surface_variable] = d[setup.surface_variable]
-
-        u = gb.node_props(g_max)[setup.displacement_variable]
+        u = gb.node_props(g_max)[pp.STATE][setup.displacement_variable]
 
         solution_norm = l2_error_cell(g_max, u)
         iterate_difference = l2_error_cell(g_max, u, u0)
@@ -420,4 +407,5 @@ class SetupContactMechanics(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    TestContactMechanics().test_pull_bottom_positive_opening()
     unittest.main()

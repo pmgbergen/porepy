@@ -180,7 +180,7 @@ def solve_biot(setup):
     d_max = gb.node_props(g_max)
 
     # set parameters
-    setup.set_parameters()
+    setup.set_parameters(gb)
     setup.set_scalar_parameters()
     setup.initial_condition()
 
