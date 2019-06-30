@@ -9,6 +9,9 @@ class Water:
         else:
             self.theta_ref = theta_ref
 
+        self.COMPRESSIBILITY = 4e-10 / pp.PASCAL  # Moderate dependency on theta
+        self.BULK = 1 / self.COMPRESSIBILITY
+
     def thermal_expansion(self, delta_theta):
         return (
             0.0002115
