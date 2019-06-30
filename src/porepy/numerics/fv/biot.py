@@ -426,8 +426,8 @@ class Biot:
         # Add discretizations to data
         matrices_m["stress"] = stress
         matrices_m["bound_stress"] = bound_stress
-        matrices_m["div_u"] = div_u
-        matrices_m["bound_div_u"] = bound_div_u
+        matrices_f["div_u"] = div_u
+        matrices_f["bound_div_u"] = bound_div_u
         matrices_m["grad_p"] = grad_p
         matrices_f["biot_stabilization"] = stabilization
         matrices_m["bound_displacement_cell"] = disp_cell
@@ -982,7 +982,8 @@ class DivU(
 
     def __init__(
         self,
-        keyword="mechanics",
+        mechanics_keyword="mechanics",
+        flow_keyword="flow",
         variable="displacement",
         mortar_variable="mortar_displacement",
     ):
@@ -994,7 +995,8 @@ class DivU(
         discretization. Consequently, they are those of the unknowns contributing to
         the DivU term (displacements), not the scalar variable.
         """
-        super().__init__(keyword)
+        self.flow_keyword = flow_keyword
+        self.mechanics_keyword = mechanics_keyword
         # We also need to specify the names of the displacement variables on the node
         # and adjacent edges. T
         # Set variable name for the vector variable (displacement).
@@ -1085,13 +1087,13 @@ class DivU(
             ValueError if the displacement divergence term has not already been
             discretized.
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
         if not "div_u" in matrix_dictionary:
             raise ValueError(
                 """DivU class requires a pre-computed discretization to be
                              stored in the matrix dictionary."""
             )
-        biot_alpha = data[pp.PARAMETERS][self.keyword]["biot_alpha"]
+        biot_alpha = data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
         return matrix_dictionary["div_u"] * biot_alpha
 
     def assemble_rhs(self, g, data):
@@ -1109,16 +1111,19 @@ class DivU(
             np.ndarray: Zero right hand side vector with representation of boundary
                 conditions.
         """
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary_mech = data[pp.PARAMETERS][self.mechanics_keyword]
+        parameter_dictionary_flow = data[pp.PARAMETERS][self.flow_keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
 
         # For IE and constant BCs, the boundary part cancels, as the contribution from
         # successive timesteps (n and n+1) appear on the rhs with opposite signs. For
         # transient BCs, use the below with the appropriate version of d_bound_i.
-        d_bound_1 = parameter_dictionary["bc_values"]
+        # Get bc values from mechanics
+        d_bound_1 = parameter_dictionary_mech["bc_values"]
 
-        d_bound_0 = data[pp.STATE][self.keyword]["bc_values"]
-        biot_alpha = parameter_dictionary["biot_alpha"]
+        d_bound_0 = data[pp.STATE][self.mechanics_keyword]["bc_values"]
+        # and coupling parameter from flow
+        biot_alpha = parameter_dictionary_flow["biot_alpha"]
         rhs_bound = (
             -matrix_dictionary["bound_div_u"] * (d_bound_1 - d_bound_0) * biot_alpha
         )
@@ -1172,8 +1177,8 @@ class DivU(
         else:
             proj = mg.mortar_to_master_avg(nd=g.dim)
 
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        biot_alpha = data[pp.PARAMETERS][self.keyword]["biot_alpha"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
+        biot_alpha = data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
         bound_div_u = matrix_dictionary["bound_div_u"]
 
         u_bound_previous = data_edge[pp.STATE][self.mortar_variable]
@@ -1184,7 +1189,7 @@ class DivU(
             sub-face boundary condition but only a face-wise mortar?"""
             )
         # The mortar will act as a boundary condition for the div_u term.
-        # We assume implicit Euler in Biot, thus the div_u term appares
+        # We assume implicit Euler in Biot, thus the div_u term appears
         # on the rhs as div_u^{k-1}. This results in a contribution to the
         # rhs for the coupling variable also.
         cc[self_ind, 2] += biot_alpha * bound_div_u * proj
@@ -1239,7 +1244,7 @@ class DivU(
         rotation = data_edge["tangential_normal_projection"]
         normal_component = rotation.project_normal(g.num_cells)
 
-        biot_alpha = data[pp.PARAMETERS][self.keyword]["biot_alpha"]
+        biot_alpha = data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
         if biot_alpha != 1:
             warnings.warn(
                 "Are you sure you want a non-unitary biot alpha for the fracture?"
