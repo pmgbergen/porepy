@@ -65,37 +65,6 @@ class BiotTest(unittest.TestCase):
 
             self.assertTrue(np.isclose(sol, np.zeros(g.num_cells * (g.dim + 1))).all())
 
-    #    def test_uniform_displacement(self):
-    #        # Uniform displacement in mechanics (enforced by boundary conditions).
-    #        # Constant pressure boundary conditions.
-    #        g_list = setup_grids.setup_2d()
-    #        for g in g_list:
-    #            bound_faces = g.get_all_boundary_faces()
-    #            bound = bc.BoundaryCondition(g, bound_faces.ravel('F'),
-    #                                         ['dir'] * bound_faces.size)
-    #            flux, bound_flux, div_flow = self.mpfa_discr(g, bound)
-    #
-    #            a_flow = div_flow * flux
-    #
-    #            stress, bound_stress, grad_p, div_u, \
-    #                stabilization, bound_div_u, div_mech = self.mpsa_discr(g, bound)
-    #
-    #            a_mech = div_mech * stress
-    #
-    #            a_biot = sps.bmat([[a_mech, grad_p],
-    #                               [div_u, a_flow + stabilization]])
-    #
-    #            const_bound_val_mech = 1
-    #            bval_mech = const_bound_val_mech * np.ones(g.num_faces * g.dim)
-    #            bval_flow = np.ones(g.num_faces)
-    #            rhs = np.hstack((-div_mech * bound_stress * bval_mech,
-    #                             div_flow * bound_flux * bval_flow\
-    #                             + div_flow * bound_div_u * bval_mech))
-    #            sol = np.linalg.solve(a_biot.todense(), rhs)
-    #
-    #            sz_mech = g.num_cells * g.dim
-    #            self.assertTrue(np.isclose(sol[:sz_mech],)
-    #                              const_bound_val_mech * np.ones(sz_mech)).all()
 
     def test_face_vector_to_scalar(self):
         # Test of function face_vector_to_scalar
