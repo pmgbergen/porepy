@@ -103,7 +103,7 @@ class ColoumbContact:
         projection = data_edge["tangential_normal_projection"]
 
         # The contact force is already computed in local coordinates
-        contact_force = data_l[pp.STATE][self.contact_variable]
+        contact_force = data_l[pp.STATE]["previous_iterate"][self.contact_variable]
 
         # Pick out the tangential and normal direction of the contact force.
         # The contact force of the first cell is in the first self.dim elements
@@ -124,9 +124,8 @@ class ColoumbContact:
         displacement_jump_global_coord = (
             mg.mortar_to_slave_avg(nd=self.dim)
             * mg.sign_of_mortar_sides(nd=self.dim)
-            * data_edge[pp.STATE][self.surface_variable]
+            * data_edge[pp.STATE]["previous_iterate"][self.surface_variable]
         )
-
         # Rotated displacement jumps. These are in the local coordinates, on
         # the lower-dimensional grid
         displacement_jump_normal = (
