@@ -100,7 +100,7 @@ class Biot:
         # Note that the following is zero only if the previous time step is zero.
         # See comment in the DivU class
         biot_alpha = data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
-        div_u_rhs = -0 * biot_alpha * matrices_m["bound_div_u"] * d
+        div_u_rhs = -0 * biot_alpha * matrices_f["bound_div_u"] * d
         return np.hstack((s_bound, p_bound + div_u_rhs))
 
     def rhs_time(self, g, data):
@@ -243,7 +243,7 @@ class Biot:
             [
                 [A_mech, grad_p],
                 [
-                    matrices_m["div_u"] * biot_alpha,
+                    matrices_f["div_u"] * biot_alpha,
                     matrices_f["mass"] + dt * A_flow + stabilization,
                 ],
             ]
