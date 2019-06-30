@@ -129,21 +129,114 @@ class ImplicitMpfa(pp.Mpfa):
 
 class ImplicitUpwind(pp.Upwind):
     """
-    Multiply all contributions by the time step.
+    Multiply all contributions by the time step and advection weight.
     """
 
     def assemble_matrix_rhs(self, g, data, d_name="darcy_flux"):
-        """
-        Implicit in time
-        """
         if g.dim == 0:
             data["flow_faces"] = sps.csr_matrix([0.0])
             return sps.csr_matrix([0.0]), np.array([0.0])
 
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         dt = parameter_dictionary["time_step"]
-
+        w = parameter_dictionary["advection_weight"] * dt
         a, b = super().assemble_matrix_rhs(g, data, d_name)
-        a = a * dt
-        b = b * dt
+        a = a * w
+        b = b * w
         return a, b
+
+
+class ImplicitUpwindCoupling(pp.UpwindCoupling):
+    """
+    Multiply the advective mortar fluxes by the time step and advection weight.
+    """
+    def assemble_matrix_rhs(
+        self, g_master, g_slave, data_master, data_slave, data_edge, matrix
+    ):
+        """
+        Construct the matrix (and right-hand side) for the coupling conditions.
+        Note: the right-hand side is not implemented now.
+
+        Parameters:
+            matrix: Uncoupled discretization matrix.
+            g_master: grid of higher dimension
+            g_slave: grid of lower dimension
+            data_master: dictionary which stores the data for the higher dimensional
+                grid
+            data_slave: dictionary which stores the data for the lower dimensional
+                grid
+            data: dictionary which stores the data for the edges of the grid
+                bucket
+
+        Returns:
+            cc: block matrix which store the contribution of the coupling
+                condition. See the abstract coupling class for a more detailed
+                description.
+        """
+
+        # Normal component of the velocity from the higher dimensional grid
+
+        # @ALL: This should perhaps be defined by a globalized keyword
+        parameter_dictionary_master = data_master[pp.PARAMETERS][self.keyword]
+        lam_flux = data_edge[pp.PARAMETERS][self.keyword]["darcy_flux"]
+        dt = parameter_dictionary_master["time_step"]
+        w = parameter_dictionary_master["advection_weight"] * dt
+        # Retrieve the number of degrees of both grids
+        # Create the block matrix for the contributions
+        g_m = data_edge["mortar_grid"]
+
+        # We know the number of dofs from the master and slave side from their
+        # discretizations
+        dof = np.array([matrix[0, 0].shape[1], matrix[1, 1].shape[1], g_m.num_cells])
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+        cc = cc.reshape((3, 3))
+
+        # Projection from mortar to upper dimenional faces
+        hat_P_avg = g_m.master_to_mortar_avg()
+        # Projection from mortar to lower dimensional cells
+        check_P_avg = g_m.slave_to_mortar_avg()
+
+        # mapping from upper dim cellls to faces
+        # The mortars always points from upper to lower, so we don't flip any
+        # signs
+        div = np.abs(pp.numerics.fv.fvutils.scalar_divergence(g_master))
+
+        # Find upwind weighting. if flag is True we use the upper weights
+        # if flag is False we use the lower weighs
+        flag = (lam_flux > 0).astype(np.float)
+        not_flag = 1 - flag
+
+        # assemble matrices
+        # Transport out of upper equals lambda
+        cc[0, 2] = div * hat_P_avg.T
+
+        # transport out of lower is -lambda
+        cc[1, 2] = -check_P_avg.T
+
+        # Discretisation of mortars
+        # CHANGE from UpwindCoupling: multiply the discretization of the advective
+        # mortar fluxes by dt and advection weight (e.g. heat capacity)
+
+        # If fluid flux(lam_flux) is positive we use the upper value as weight,
+        # i.e., T_masterat * fluid_flux = lambda.
+        # We set cc[2, 0] = T_masterat * fluid_flux
+        cc[2, 0] = sps.diags(w * lam_flux * flag) * hat_P_avg * div.T
+
+        # If fluid flux is negative we use the lower value as weight,
+        # i.e., T_check * fluid_flux = lambda.
+        # we set cc[2, 1] = T_check * fluid_flux
+        cc[2, 1] = sps.diags(w * lam_flux * not_flag) * check_P_avg
+
+        # The rhs of T * fluid_flux = lambda
+        # Recover the information for the grid-grid mapping
+        cc[2, 2] = -sps.eye(g_m.num_cells)
+
+        if data_master["node_number"] == data_slave["node_number"]:
+            # All contributions to be returned to the same block of the
+            # global matrix in this case
+            cc = np.array([np.sum(cc, axis=(0, 1))])
+
+        # rhs is zero
+        rhs = np.squeeze([np.zeros(dof[0]), np.zeros(dof[1]), np.zeros(dof[2])])
+        matrix += cc
+        return matrix, rhs
