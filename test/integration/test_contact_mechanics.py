@@ -188,6 +188,11 @@ def solve_contact_mechanics(setup):
 
         # Split solution into displacement variable and mortar variable
         assembler.distribute_variable(sol)
+        for g, d in gb:
+            if g.dim < ambient_dim:
+                d[pp.STATE]["previous_iterate"][setup.contact_variable] = d[pp.STATE][setup.contact_variable]
+        for _, d in gb.edges():
+            d[pp.STATE]["previous_iterate"][setup.surface_variable] = d[pp.STATE][setup.surface_variable]
 
         u = gb.node_props(g_max)[pp.STATE][setup.displacement_variable]
 
@@ -390,7 +395,8 @@ class SetupContactMechanics(unittest.TestCase):
                     (np.zeros(g.num_cells), -100 * np.ones(g.num_cells))
                 ).ravel(order="F")
 
-                d[pp.STATE][self.contact_variable] = traction
+#                d[pp.STATE][self.contact_variable] = traction
+                d[pp.STATE]["previous_iterate"] = {self.contact_variable: traction}
 
         for e, d in gb.edges():
             d[pp.STATE] = {}
@@ -399,7 +405,7 @@ class SetupContactMechanics(unittest.TestCase):
 
             if mg.dim == 1:
                 ind = assembler.dof_ind(e, self.surface_variable)
-                d[pp.STATE][self.surface_variable] = np.zeros_like(ind)
+                d[pp.STATE]["previous_iterate"] = {self.surface_variable: np.zeros_like(ind)}
 
     def _set_friction_coefficient(self, g):
         friction_coefficient = 0.5 * np.ones(g.num_cells)
