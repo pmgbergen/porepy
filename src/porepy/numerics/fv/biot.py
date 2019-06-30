@@ -134,7 +134,7 @@ class Biot:
         parameter_dictionary = data[pp.PARAMETERS][self.mechanics_keyword]
         matrix_dictionaries = data[pp.DISCRETIZATION_MATRICES]
 
-        div_u = matrix_dictionaries[self.mechanics_keyword]["div_u"]
+        div_u = matrix_dictionaries[self.flow_keyword]["div_u"]
 
         div_u_rhs = np.squeeze(parameter_dictionary["biot_alpha"] * div_u * d)
         p_cmpr = matrix_dictionaries[self.flow_keyword]["mass"] * p
