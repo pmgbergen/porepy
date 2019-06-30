@@ -391,22 +391,20 @@ class PrimalContactCoupling(object):
         return matrix, rhs
 
 
-class PressureContributionToForceBalance:
+class MatrixScalarToForceBalance:
     """
-    This class adds pressure contributions to the force balance posed on the mortar grid
-    by PrimalContactCoupling.
+    This class adds the matrix scalar (pressure) contribution to the force balance posed
+    on the mortar grid by PrimalContactCoupling.
 
-    First, we account for the grad P contribution to the forces on the higher-dimensional
+    We account for the grad P contribution to the forces on the higher-dimensional
     internal boundary, i.e. the last term of:
         boundary_traction_hat = stress * u_hat + bound_stress * u_mortar + gradP * p_hat
     Note that with this approach to discretization of the boundary pressure force, it
-    will only be included for nonzero values of the biot_alpha.
+    will only be included for nonzero values of the biot_alpha coefficient.
 
-    For the contact mechanics, we only want to consider the _contact_ traction. Thus, we
-    have to subtract the pressure contribution, i.e.
+    If the scalar is e.g. pressure, subtraction of the pressure contribution is needed:
         \lambda_contact - p_check I \dot n = boundary_traction_hat
-
-    W
+    This is taken care of by FracturePressureToForceBalance.
     """
 
     def __init__(self, keyword, discr_master, discr_slave):
@@ -419,7 +417,7 @@ class PressureContributionToForceBalance:
                 pressure, respectively. Used for #DOFs. In FV, one cell variable is
                 expected.
         """
-        # Set iscretizations
+        # Set node discretizations
         self.discr_master = discr_master
         self.discr_slave = discr_slave
         # Keyword used to retrieve gradP discretization.
@@ -506,15 +504,9 @@ class PressureContributionToForceBalance:
         # domain (both interior and bound_stress) should match the contact stress:
         # -\lambda_slave + \lambda_master = 0,
         # see PrimalContactCoupling.
-        # Now, two modifications are needed:
-        # 1) Add the scalar gradient contribution to the traction on the master
+        # The following modification is needed:
+        # Add the scalar gradient contribution to the traction on the master
         # boundary.
-        # 2) Ensure that the contact variable is only the force from the contact of the
-        # two sides of the fracture. This requires subtraction of the pressure force.
-        # For a constant pressure field, this nulls out the pressure contribution added
-        # above.
-
-        ## 1) GradP contribution to the stress trace in the higher dimension.
 
         # A diagonal operator is needed to switch the sign of vectors on
         # higher-dimensional faces that point into the fracture surface, see
@@ -524,7 +516,6 @@ class PressureContributionToForceBalance:
             g_master, ambient_dimension, faces_on_fracture_surface
         )
 
-        #        sgn_nd = sps.diags(np.tile(sgn, (ambient_dimension,1)).ravel('F'))
         # i) Obtain pressure stress contribution from the higher dimensional domain.
         # ii) Switch the direction of the vectors, so that for all faces, a positive
         # force points into the fracture surface (along the outwards normal on the
@@ -538,10 +529,117 @@ class PressureContributionToForceBalance:
         )
         cc[mortar_ind, master_ind] = master_scalar_stress_to_master_traction
 
-        ## 2)
+        matrix += cc
+
+        return matrix, rhs
+
+
+class FractureScalarToForceBalance:
+    """
+    This class adds the fracture pressure contribution to the force balance posed on the
+    mortar grid by PrimalContactCoupling and modified to account for matrix pressure by
+    MatrixPressureToForceBalance.
+
+    For the contact mechanics, we only want to consider the _contact_ traction. Thus, we
+    have to subtract the pressure contribution, i.e.
+        \lambda_contact - p_check I \dot n = boundary_traction_hat,
+
+    since the full tractions experienced by a fracture surface are the sum of the
+    contact forces and the fracture pressure force.
+    """
+
+    def __init__(self, discr_master, discr_slave):
+        """
+        Parameters:
+            keyword used for storage of the gradP discretization. If the GradP class is
+                used, this is the keyword associated with the mechanical parameters.
+            discr_master and
+            discr_slave are the discretization objects operating on the master and slave
+                pressure, respectively. Used for #DOFs. In FV, one cell variable is
+                expected.
+        """
+        # Set node discretizations
+        self.discr_master = discr_master
+        self.discr_slave = discr_slave
+
+    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+        """
+        Nothing to do
+        """
+        pass
+
+    def assemble_matrix_rhs(
+        self, g_master, g_slave, data_master, data_slave, data_edge, matrix
+    ):
+        """
+        Assemble the pressure contributions of the interface force balance law.
+
+        Parameters:
+            g_master: Grid on one neighboring subdomain.
+            g_slave: Grid on the other neighboring subdomain.
+            data_master: Data dictionary for the master suddomain
+            data_slave: Data dictionary for the slave subdomain.
+            data_edge: Data dictionary for the edge between the subdomains
+            matrix: original discretization matrix, to which the coupling terms will be
+                added.
+        """
+
+        ambient_dimension = g_master.dim
+
+        master_ind = 0
+        slave_ind = 1
+        mortar_ind = 2
+
+        # Generate matrix for the coupling. This can probably be generalized
+        # once we have decided on a format for the general variables
+        mg = data_edge["mortar_grid"]
+
+        dof_master = self.discr_master.ndof(g_master)
+        dof_slave = self.discr_slave.ndof(g_slave)
+
+        if not dof_master == matrix[master_ind, master_ind].shape[1]:
+            raise ValueError(
+                """The number of dofs of the master discretization given
+            in RobinCoupling must match the number of dofs given by the matrix
+            """
+            )
+        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
+            raise ValueError(
+                """The number of dofs of the slave discretization given
+            in RobinCoupling must match the number of dofs given by the matrix
+            """
+            )
+        elif not mg.num_cells * ambient_dimension == matrix[master_ind, 2].shape[1]:
+            raise ValueError(
+                """The number of dofs of the edge discretization given
+            in the PrimalContactCoupling must match the number of dofs given by the matrix
+            """
+            )
+
+        # We know the number of dofs from the master and slave side from their
+        # discretizations
+        dof = np.array(
+            [
+                matrix[master_ind, master_ind].shape[1],
+                matrix[slave_ind, slave_ind].shape[1],
+                mg.num_cells * ambient_dimension,
+            ]
+        )
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+        cc = cc.reshape((3, 3))
+
+        rhs = np.empty(3, dtype=np.object)
+        rhs[master_ind] = np.zeros(dof_master)
+        rhs[slave_ind] = np.zeros(dof_slave)
+        rhs[mortar_ind] = np.zeros(mg.num_cells * ambient_dimension)
+
+        ## Ensure that the contact variable is only the force from the contact of the
+        # two sides of the fracture. This requires subtraction of the pressure force.
+
         # Construct the dot product between normals on fracture faces and the identity
         # matrix. Similar sign switching as above is needed (this one operating on
         # fracture faces only).
+        faces_on_fracture_surface = mg.master_to_mortar_int().tocsr().indices
         sgn = g_master.sign_of_faces(faces_on_fracture_surface)
         fracture_normals = g_master.face_normals[
             :ambient_dimension, faces_on_fracture_surface
@@ -590,7 +688,7 @@ class DivUCoupling:
     """
 
     def __init__(self, variable, discr_master, discr_slave):
-        self.mechanics_keyword = discr_master.keyword
+        #        self.mechanics_keyword = discr_master.mechanics_keyword
         # Set variable names for the vector variable (displacement), used to access
         # solutions from previous time steps
         self.variable = variable
