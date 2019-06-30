@@ -192,7 +192,9 @@ def solve_biot(setup):
     # Set up assembler and get initial condition
     assembler = pp.Assembler(gb)
 
-    u0 = d_max[pp.STATE][setup.displacement_variable].reshape((dim, -1), order="F")
+    u_k_minus_one = d_max[pp.STATE][setup.displacement_variable].reshape(
+        (dim, -1), order="F"
+    )
 
     # Discretize with the Biot class
     setup.discretize_biot(gb)
@@ -231,22 +233,63 @@ def solve_biot(setup):
             A, b = assembler.assemble_matrix_rhs()
             sol = sps.linalg.spsolve(A, b)
 
-            # Split solution in the different variables
-            assembler.distribute_variable(sol)
-            u = d_max[pp.STATE][setup.displacement_variable].reshape(
-                (dim, -1), order="F"
+            # Update the previous iterate of the mortar displacement and contact
+            # traction, and obtain current matrix displacement iterate.
+            u_k = distribute_iterate(
+                assembler, setup, sol, setup.surface_variable, setup.contact_variable
             )
-            # Calculate the errorsolution_norm = l2_error_cell(g_max, u)
-            solution_norm = l2_error_cell(g_max, u)
-            iterate_difference = l2_error_cell(g_max, u, u0)
+            u_k = u_k.reshape((dim, -1), order="F")
+            # Calculate the error
+            solution_norm = l2_error_cell(g_max, u_k)
+            iterate_difference = l2_error_cell(g_max, u_k, u_k_minus_one)
             if iterate_difference / solution_norm < 1e-10:
                 converged_newton = True
 
             # Prepare for next Newton iteration
-            u0 = u
+            u_k_minus_one = u_k
             newton_it += 1
+        assembler.distribute_variable(sol)
 
     return sol
+
+
+def distribute_iterate(
+    assembler, setup, values, mortar_displacement_variable, contact_traction_variable
+):
+    """ Update the previous iterate of the mortar displacement and contact traction,
+    and obtain current matrix displacement iterate.
+
+    Method is a tailored copy from assembler.distribute_variable.
+    """
+    dof = np.cumsum(np.append(0, np.asarray(assembler.full_dof)))
+    var_name = setup.displacement_variable
+
+    for pair, bi in assembler.block_dof.items():
+        g = pair[0]
+        name = pair[1]
+        # Avoid edges
+        if not isinstance(g, pp.Grid):
+            if name == mortar_displacement_variable:
+                mortar_u = values[dof[bi] : dof[bi + 1]]
+                data = setup.gb.edge_props(g)
+                data[pp.STATE]["previous_iterate"][
+                    mortar_displacement_variable
+                ] = mortar_u
+            continue
+        # Only interested in highest dimension
+        if g.dim < setup.gb.dim_max():
+            if name == contact_traction_variable:
+                contact = values[dof[bi] : dof[bi + 1]]
+                data = setup.gb.node_props(g)
+                data[pp.STATE]["previous_iterate"][contact_traction_variable] = contact
+
+            continue
+        # Only need the displacement
+        if name != var_name:
+            continue
+
+        u = values[dof[bi] : dof[bi + 1]]
+    return u
 
 
 class SetupContactMechanicsBiot(SetupContactMechanics):
@@ -295,10 +338,12 @@ class SetupContactMechanicsBiot(SetupContactMechanics):
             bc = pp.BoundaryCondition(g, top + bot, "dir")
             bc_values = np.zeros(g.num_faces)
 
+            alpha = self.biot_alpha()
+
             if g.dim == ambient_dim:
                 kxx = 1 * tensor_scale * np.ones(g.num_cells)
                 K = pp.SecondOrderTensor(ambient_dim, kxx)
-                alpha = self.biot_alpha()
+
                 mass_weight = 1e-1
 
                 pp.initialize_data(
@@ -319,7 +364,7 @@ class SetupContactMechanicsBiot(SetupContactMechanics):
                 # Add Biot alpha and time step to the mechanical parameters
                 d[pp.PARAMETERS].update_dictionaries(
                     self.mechanics_parameter_key,
-                    {"biot_alpha": self.biot_alpha(), "time_step": self.time_step},
+                    {"biot_alpha": alpha, "time_step": self.time_step},
                 )
 
             elif g.dim == ambient_dim - 1:
@@ -339,6 +384,7 @@ class SetupContactMechanicsBiot(SetupContactMechanics):
                         "second_order_tensor": K,
                         "aperture": cross_sectional_area,
                         "time_step": self.time_step,
+                        "biot_alpha": alpha,
                     },
                 )
                 pp.initialize_data(
@@ -420,14 +466,24 @@ class SetupContactMechanicsBiot(SetupContactMechanics):
             else:
                 d[pp.PRIMARY_VARIABLES] = {}
 
-        # And define a Robin condition on the mortar grid
+        coloumb = pp.ColoumbContact(self.friction_parameter_key, ambient_dim)
         contact = pp.PrimalContactCoupling(self.friction_parameter_key, mpsa, coloumb)
+        # Add the div_u contribution from the mortar displacements to the mass balance
+        # equations in matrix and fractures.
         div_u_coupling = pp.DivUCoupling(
             self.displacement_variable, div_u_disc, div_u_disc_frac
         )
+        # Add the matrix pressure contribution to the reconstructed force on the
+        # fracture faces, which enters into the force balance equations on the fractures.
         # This discretization needs the keyword used to store the grad p discretization:
-        fracture_pressure_to_contact = pp.PressureContributionToForceBalance(
+        matrix_pressure_to_contact = pp.MatrixScalarToForceBalance(
             key_m, mass_disc_s, mass_disc_s
+        )
+        # Subtract the fracture pressure, to ensure that the contact conditions are
+        # formulated on the _contact_ forces only. This is needed because the total
+        # forces on a fracture surface is the sum of contact and pressure forces.
+        fracture_pressure_to_contact = pp.FractureScalarToForceBalance(
+            mass_disc_s, mass_disc_s
         )
         for e, d in gb.edges():
             g_l, g_h = gb.nodes_of_edge(e)
@@ -457,7 +513,12 @@ class SetupContactMechanicsBiot(SetupContactMechanics):
                         g_l: (var_s, "mass"),
                         e: (self.surface_variable, div_u_coupling),
                     },
-                    "pressure_to_force_balance": {
+                    "matrix_pressure_to_force_balance": {
+                        g_h: (var_s, "mass"),
+                        g_l: (var_s, "mass"),
+                        e: (self.surface_variable, matrix_pressure_to_contact),
+                    },
+                    "fracture_pressure_to_force_balance": {
                         g_h: (var_s, "mass"),
                         g_l: (var_s, "mass"),
                         e: (self.surface_variable, fracture_pressure_to_contact),
@@ -515,6 +576,7 @@ class SetupContactMechanicsBiot(SetupContactMechanics):
                     {
                         self.contact_variable: traction,
                         self.scalar_variable: initial_scalar_value,
+                        "previous_iterate": {self.contact_variable: traction},
                     },
                 )
 
@@ -528,6 +590,7 @@ class SetupContactMechanicsBiot(SetupContactMechanics):
                     {
                         self.surface_variable: np.zeros(nc_nd),
                         self.scalar_variable: np.zeros(mg.num_cells),
+                        "previous_iterate": {self.surface_variable: np.zeros(nc_nd)},
                     },
                 )
 
