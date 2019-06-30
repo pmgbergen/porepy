@@ -9,12 +9,12 @@ import scipy.sparse as sps
 
 class TangentialNormalProjection:
     """ Represent a set of projections into tangent and normal vectors.
-    
+
     The spaces are defined by the normal vector (see __init__ documentation).
     The basis for the tangential space is arbitrary (arbitrary direction in 2d,
     rotation angle in 3d). The basis for the tangential is stored in the attribute
     tangential_basis.
-    
+
     Attributes:
         num_vecs (int): Number of tangent/normal spaces represented by this object.
         dim (int): Dimension of the ambient space.
@@ -22,9 +22,9 @@ class TangentialNormalProjection:
             tangential space.
         projection (np.array, size dim x dim x num_vecs): Projection matrices onto the
             tangential and normal space. The first dim-1 rows represent projection to the
-            tangential spcae, the final row is the normal component.
+            tangential space, the final row is the normal component.
         normal (np.array, size dim x num_vecs): Unit normal vectors.
-        
+
     """
 
     def __init__(self, normals, dim=None):
@@ -50,34 +50,34 @@ class TangentialNormalProjection:
     ## Methods for genertation of projection matrices
 
     def project_tangential_normal(self, num=None):
-        """ Define a projection matrix to decompose a matrix into tangential 
+        """ Define a projection matrix to decompose a matrix into tangential
         and normal components.
-        
+
         The intended usage is to decompose a grid-based vector variable into the
-        tangent and normal spaces of the grid, with the tacit understanding that there is 
+        tangent and normal spaces of the grid, with the tacit understanding that there is
         a single normal vector shared for all the cells (or faces) in the grid.
-        
+
         The method can also create projection matrix based on unequal normal vectors.
         One projection will be generated per column in self.normal. To activate
         this behavior, set num=None.
-        
+
         Parameters:
             num (int, optional): Number of (equal) projections to be generated.
-                Will correspond to the number of cells / faces in the grid. 
+                Will correspond to the number of cells / faces in the grid.
                 The projection matrix will have num * self.dim columns. If not
-                specified (default), one projection will be generated per vector in 
-                self.normals. 
+                specified (default), one projection will be generated per vector in
+                self.normals.
                 NOTE: If self.num_vecs > 1, but num is not None, only the first
                 given normal vector will be used to generate the tangential space.
 
         Returns:
             scipy.sparse.csc_matrix: Projection matrix, structure as a block
-                diagonal matrix, with block size dim x dim. 
+                diagonal matrix, with block size dim x dim.
                 For each block, the first dim-1 rows projects onto the tangent
                 space, the final row projects onto the normal space.
                 size: ((self.dim * num) x (self.dim * num). If num is not None,
                 size: ((self.dim * num_vecs) x (self.dim * num_vecs)
-        
+
         """
         if num is None:
             return sps.block_diag(
@@ -90,21 +90,21 @@ class TangentialNormalProjection:
 
     def project_tangential(self, num=None):
         """ Define a projection matrix of a specific size onto the tangent space.
-        
+
         The intended usage is to project a grid-based vector variable onto the
-        tangent space of the grid, with the tacit understanding that there is 
+        tangent space of the grid, with the tacit understanding that there is
         a single normal vector shared for all the cells (or faces) in the grid.
-        
+
         The method can also create projection matrix based on unequal normal vectors.
         One projection will be generated per column in self.normal. To activate
         this behavior, set num=None.
-        
+
         Parameters:
             num (int, optional): Number of (equal) projections to be generated.
-                Will correspond to the number of cells / faces in the grid. 
+                Will correspond to the number of cells / faces in the grid.
                 The projection matrix will have num * self.dim columns. If not
-                specified (default), one projection will be generated per vector in 
-                self.normals. 
+                specified (default), one projection will be generated per vector in
+                self.normals.
                 NOTE: If self.num_vecs > 1, but num is not None, only the first
                 given normal vector will be used to generate the tangential space.
 
@@ -114,7 +114,7 @@ class TangentialNormalProjection:
                 tangent space, etc.
                 size: ((self.dim - 1) * num) x (self.dim * num). If num is not None,
                 size: ((self.dim - 1) * num_vecs) x (self.dim * num_vecs)
-        
+
         """
         # Find type and size of projection.
         if num is None:
@@ -140,21 +140,21 @@ class TangentialNormalProjection:
 
     def project_normal(self, num=None):
         """ Define a projection matrix of a specific size onto the normal space.
-        
+
         The intended usage is to project a grid-based vector variable onto the
-        normal space of the grid, with the tacit understanding that there is 
+        normal space of the grid, with the tacit understanding that there is
         a single normal vector shared for all the cells (or faces) in the grid.
-        
+
         The method can also create projection matrix based on unequal normal vectors.
         One projection will be generated per column in self.normal. To activate
         this behavior, set num=None.
-        
+
         Parameters:
             num (int, optional): Number of (equal) projections to be generated.
-                Will correspond to the number of cells / faces in the grid. 
+                Will correspond to the number of cells / faces in the grid.
                 The projection matrix will have num * self.dim columns. If not
-                specified (default), one projection will be generated per vector in 
-                self.normals. 
+                specified (default), one projection will be generated per vector in
+                self.normals.
                 NOTE: If self.num_vecs > 1, but num is not None, only the first
                 given normal vector will be used to generate the normal space.
 
@@ -164,7 +164,7 @@ class TangentialNormalProjection:
                 tangent space, etc.
                 size: num x (self.dim * num). If num is not None.
                 size: num_vecs x (self.dim * num_vecs) els.
-        
+
         """
         # Find mode and size of projection
         if num is None:
@@ -197,7 +197,7 @@ class TangentialNormalProjection:
             np.array (self.dim x self.dim): Local projection matrix. Multiplication
                 gives projection to the tangential space (first self.dim - 1 rows)
                 and normal space (last)
-            
+
         """
         if ind is None:
             ind = 0
@@ -221,12 +221,12 @@ class TangentialNormalProjection:
         """
         Perform a Gram Schmidt procedure for the vectors u1, u2 and u3 to obtain a set of
         orhtogonal vectors.
-    
+
         Parameters:
             u1: ndArray
             u2: ndArray
             u3: ndArray
-    
+
         Returns:
             u1': ndArray u1 / ||u1||
             u2': ndarray (u2 - u2*u1 * u1) / ||u2||
@@ -248,10 +248,10 @@ class TangentialNormalProjection:
         """
         Find the inverse of the (m,m,k) 3D ndArray M. The inverse is intrepreted as the
         2d inverse of M[:, :, i] for i = 0...k
-    
+
         Parameters:
         M: (m, m, k) ndArray
-    
+
         Returns:
         M_inv: Inverse of M
         """
