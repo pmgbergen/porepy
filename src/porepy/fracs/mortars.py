@@ -300,8 +300,9 @@ def match_grids_2d(new_g, old_g, tol):
 
     """
 
-    def proj_pts(p, cc):
-        rot = pp.map_geometry.project_plane_matrix(p - cc)
+    def proj_pts(p, cc, normal):
+        """ Project points to the 2d plane defined by normal and center them around cc"""
+        rot = pp.map_geometry.project_plane_matrix(p - cc, normal)
         return rot.dot(p - cc)[:2]
 
     shape = (new_g.dim + 1, new_g.num_cells)
@@ -309,9 +310,18 @@ def match_grids_2d(new_g, old_g, tol):
 
     shape = (old_g.dim + 1, old_g.num_cells)
     cn_old_g = old_g.cell_nodes().indices.reshape(shape, order="F")
+
+    # Center points around mean
     cc = np.mean(new_g.nodes, axis=1).reshape((3, 1))
+    # Calculate common normal for both grids
+    n = pp.map_geometry.compute_normal(new_g.nodes - cc)
+    n_old = pp.map_geometry.compute_normal(old_g.nodes - cc)
+    if not (np.allclose(n, n_old) or np.allclose(n, -n_old)):
+        raise ValueError("The new and old grid must lie in the same plane")
+
+    # Calculate intersection
     isect = pp.intersections.triangulations(
-        proj_pts(new_g.nodes, cc), proj_pts(old_g.nodes, cc), cn_new_g, cn_old_g
+        proj_pts(new_g.nodes, cc, n), proj_pts(old_g.nodes, cc, n), cn_new_g, cn_old_g
     )
 
     num = len(isect)
