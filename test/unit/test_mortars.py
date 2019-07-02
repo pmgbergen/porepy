@@ -10,25 +10,26 @@ import numpy as np
 import unittest
 import scipy.sparse as sps
 
-from porepy.grids.structured import TensorGrid
-from porepy.grids.simplex import StructuredTriangleGrid
-from porepy.fracs import mortars, meshing
+import porepy as pp
 
 
 class TestGridMappings1d(unittest.TestCase):
     def test_merge_grids_all_common(self):
-        g = TensorGrid(np.arange(3))
-        weights, new, old = mortars.match_grids_1d(g, g, tol=1e-4)
+        g = pp.TensorGrid(np.arange(3))
+        g.compute_geometry()
+        weights, new, old = pp.mortars.match_grids_1d(g, g, tol=1e-4)
 
         self.assertTrue(np.allclose(weights, np.ones(2)))
         self.assertTrue(np.allclose(old, np.arange(2)))
         self.assertTrue(np.allclose(new, np.arange(2)))
 
     def test_merge_grids_non_matching(self):
-        g = TensorGrid(np.arange(3))
-        h = TensorGrid(np.arange(3))
+        g = pp.TensorGrid(np.arange(3))
+        h = pp.TensorGrid(np.arange(3))
         h.nodes[0, 1] = 0.5
-        weights, new, old = mortars.match_grids_1d(g, h, tol=1e-4)
+        g.compute_geometry()
+        h.compute_geometry()
+        weights, new, old = pp.mortars.match_grids_1d(g, h, tol=1e-4)
 
         # Weights give mappings from h to g. The first cell in h is
         # fully within the first cell in g. The second in h is split 1/3
@@ -38,16 +39,41 @@ class TestGridMappings1d(unittest.TestCase):
         self.assertTrue(np.allclose(old, np.array([0, 1, 1])))
 
     def test_merge_grids_reverse_order(self):
-        g = TensorGrid(np.arange(3))
-        h = TensorGrid(np.arange(3))
+        g = pp.TensorGrid(np.arange(3))
+        h = pp.TensorGrid(np.arange(3))
         h.nodes = h.nodes[:, ::-1]
-        weights, new, old = mortars.match_grids_1d(g, h, tol=1e-4)
-
+        g.compute_geometry()
+        h.compute_geometry()
+        weights, new, old = pp.mortars.match_grids_1d(g, h, tol=1e-4)
         self.assertTrue(np.allclose(weights, np.array([1, 1])))
         # In this case, we don't know which ordering the combined grid uses
         # Instead, make sure that the two mappings are ordered in separate
         # directions
         self.assertTrue(np.allclose(new[::-1], old))
+
+    def test_merge_grids_split(self):
+        g1 = pp.TensorGrid(np.linspace(0, 2, 2))
+        g2 = pp.TensorGrid(np.linspace(2, 4, 2))
+        g_nodes = np.hstack((g1.nodes, g2.nodes))
+        g_face_nodes = sps.block_diag((g1.face_nodes, g2.face_nodes), "csc")
+        g_cell_faces = sps.block_diag((g1.cell_faces, g2.cell_faces), "csc")
+        g = pp.Grid(1, g_nodes, g_face_nodes, g_cell_faces, "pp.TensorGrid")
+
+        h1 = pp.TensorGrid(np.linspace(0, 2, 3))
+        h2 = pp.TensorGrid(np.linspace(2, 4, 3))
+        h_nodes = np.hstack((h1.nodes, h2.nodes))
+        h_face_nodes = sps.block_diag((h1.face_nodes, h2.face_nodes), "csc")
+        h_cell_faces = sps.block_diag((h1.cell_faces, h2.cell_faces), "csc")
+        h = pp.Grid(1, h_nodes, h_face_nodes, h_cell_faces, "pp.TensorGrid")
+
+        g.compute_geometry()
+        h.compute_geometry()
+        weights, new, old = pp.mortars.match_grids_1d(g, h, tol=1e-4)
+
+        # Weights give mappings from h to g. All cells are split in two
+        self.assertTrue(np.allclose(weights, np.array([1.0, 1.0, 1.0, 1.0])))
+        self.assertTrue(np.allclose(new, np.array([0, 0, 1, 1])))
+        self.assertTrue(np.allclose(old, np.array([0, 1, 2, 3])))
 
 
 class TestReplaceHigherDimensionalGrid(unittest.TestCase):
@@ -62,7 +88,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
 
         f1 = np.array([[0, 1], [0.5, 0.5]])
         N = [1, 2]
-        gb = meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
+        gb = pp.meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
         gb.compute_geometry()
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
@@ -74,7 +100,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         g_old = gb.grids_of_dimension(2)[0]
         g_new = g_old.copy()
 
-        mortars.replace_grids_in_bucket(gb, {g_old: g_new})
+        pp.mortars.replace_grids_in_bucket(gb, {g_old: g_new})
 
         # Get mortar grid again
         for e, d in gb.edges():
@@ -90,7 +116,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
 
         f1 = np.array([[0, 1], [0.5, 0.5]])
         N = [1, 2]
-        gb = meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
+        gb = pp.meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
         gb.compute_geometry()
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
@@ -103,12 +129,12 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         # Create a new, finer 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
-        gb_new = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
+        gb_new = pp.meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
         gb_new.compute_geometry()
 
         g_new = gb_new.grids_of_dimension(2)[0]
 
-        mortars.replace_grids_in_bucket(gb, {g_old: g_new})
+        pp.mortars.replace_grids_in_bucket(gb, {g_old: g_new})
 
         # Get mortar grid again
         for e, d in gb.edges():
@@ -124,7 +150,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
 
         fi = np.where(g_new.face_centers[1] == 0.5)[0]
         self.assertTrue(fi.size == 4)
-        # Hard coded test (based on knowledge of how the grids and meshing
+        # Hard coded test (based on knowledge of how the grids and pp.meshing
         # is implemented). Faces to the uppermost cell are always kept in
         # place, the lowermost are duplicated towards the end of the face
         # definition.
@@ -136,7 +162,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
 
         f1 = np.array([[0, 1], [0.5, 0.5]])
         N = [2, 2]
-        gb = meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
+        gb = pp.meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
         gb.compute_geometry()
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
@@ -149,12 +175,12 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         # Create a new, coarser 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
-        gb_new = meshing.cart_grid([f1], [1, 2], **{"physdims": [1, 1]})
+        gb_new = pp.meshing.cart_grid([f1], [1, 2], **{"physdims": [1, 1]})
         gb_new.compute_geometry()
 
         g_new = gb_new.grids_of_dimension(2)[0]
 
-        mortars.replace_grids_in_bucket(gb, {g_old: g_new})
+        pp.mortars.replace_grids_in_bucket(gb, {g_old: g_new})
 
         # Get mortar grid again
         for e, d in gb.edges():
@@ -170,7 +196,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
 
         fi = np.where(g_new.face_centers[1] == 0.5)[0]
         self.assertTrue(fi.size == 2)
-        # Hard coded test (based on knowledge of how the grids and meshing
+        # Hard coded test (based on knowledge of how the grids and pp.meshing
         # is implemented). Faces to the uppermost cell are always kept in
         # place, the lowermost are duplicated towards the end of the face
         # definition.
@@ -185,7 +211,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
 
         f1 = np.array([[0, 1], [0.5, 0.5]])
         N = [1, 2]
-        gb = meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
+        gb = pp.meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
         gb.compute_geometry()
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
@@ -198,7 +224,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         # Create a new, finer 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
-        gb_new = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
+        gb_new = pp.meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
         gb_new.compute_geometry()
 
         g_new = gb_new.grids_of_dimension(2)[0]
@@ -211,7 +237,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         g_new.nodes[0, 6] = 0.7
         g_new.compute_geometry()
 
-        mortars.replace_grids_in_bucket(gb, {g_old: g_new})
+        pp.mortars.replace_grids_in_bucket(gb, {g_old: g_new})
 
         # Get mortar grid again
         for e, d in gb.edges():
@@ -227,7 +253,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
 
         fi = np.where(g_new.face_centers[1] == 0.5)[0]
         self.assertTrue(fi.size == 4)
-        # Hard coded test (based on knowledge of how the grids and meshing
+        # Hard coded test (based on knowledge of how the grids and pp.meshing
         # is implemented). Faces to the uppermost cell are always kept in
         # place, the lowermost are duplicated towards the end of the face
         # definition.
@@ -242,7 +268,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
 
         f1 = np.array([[0, 1], [0.5, 0.5]])
         N = [2, 2]
-        gb = meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
+        gb = pp.meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
         gb.compute_geometry()
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
@@ -255,7 +281,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         # Create a new, finer 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
-        gb_new = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
+        gb_new = pp.meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
         gb_new.compute_geometry()
 
         g_new = gb_new.grids_of_dimension(2)[0]
@@ -268,7 +294,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         g_new.nodes[0, 6] = 0.7
         g_new.compute_geometry()
 
-        mortars.replace_grids_in_bucket(gb, {g_old: g_new})
+        pp.mortars.replace_grids_in_bucket(gb, {g_old: g_new})
 
         # Get mortar grid again
         for e, d in gb.edges():
@@ -284,7 +310,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
 
         fi = np.where(g_new.face_centers[1] == 0.5)[0]
         self.assertTrue(fi.size == 4)
-        # Hard coded test (based on knowledge of how the grids and meshing
+        # Hard coded test (based on knowledge of how the grids and pp.meshing
         # is implemented). Faces to the uppermost cell are always kept in
         # place, the lowermost are duplicated towards the end of the face
         # definition.
@@ -306,7 +332,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         # 1d lines
         f1 = np.array([[0, 1], [0.5, 0.5]])
         N = [2, 2]
-        gb = meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
+        gb = pp.meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
         gb.compute_geometry()
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
@@ -319,7 +345,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         # Create a new, finer 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
-        gb_new = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
+        gb_new = pp.meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
         gb_new.compute_geometry()
 
         g_new = gb_new.grids_of_dimension(2)[0]
@@ -346,7 +372,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         fn[:, 12] = np.array([7, 5])
         fn[:, 13] = np.array([5, 3])
 
-        mortars.replace_grids_in_bucket(gb, {g_old: g_new})
+        pp.mortars.replace_grids_in_bucket(gb, {g_old: g_new})
 
         # Get mortar grid again
         for e, d in gb.edges():
@@ -362,7 +388,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
 
         fi = np.where(g_new.face_centers[1] == 0.5)[0]
         self.assertTrue(fi.size == 4)
-        # Hard coded test (based on knowledge of how the grids and meshing
+        # Hard coded test (based on knowledge of how the grids and pp.meshing
         # is implemented). Faces to the uppermost cell are always kept in
         # place, the lowermost are duplicated towards the end of the face
         # definition.
@@ -379,7 +405,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         # 1d lines. Also perturb nodes along the segment.
         f1 = np.array([[0, 1], [0.5, 0.5]])
         N = [2, 2]
-        gb = meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
+        gb = pp.meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
         gb.compute_geometry()
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
@@ -392,7 +418,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         # Create a new, finer 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
-        gb_new = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
+        gb_new = pp.meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
         gb_new.compute_geometry()
 
         g_new = gb_new.grids_of_dimension(2)[0]
@@ -415,7 +441,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         fn[:, 12] = np.array([7, 5])
         fn[:, 13] = np.array([5, 3])
 
-        mortars.replace_grids_in_bucket(gb, {g_old: g_new})
+        pp.mortars.replace_grids_in_bucket(gb, {g_old: g_new})
 
         # Get mortar grid again
         for e, d in gb.edges():
@@ -431,7 +457,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
 
         fi = np.where(g_new.face_centers[1] == 0.5)[0]
         self.assertTrue(fi.size == 4)
-        # Hard coded test (based on knowledge of how the grids and meshing
+        # Hard coded test (based on knowledge of how the grids and pp.meshing
         # is implemented). Faces to the uppermost cell are always kept in
         # place, the lowermost are duplicated towards the end of the face
         # definition.
@@ -462,7 +488,7 @@ class MockGrid(object):
 
         self.dim = dim
         if self.dim == 1:
-            self.name = ["TensorGrid"]
+            self.name = ["pp.TensorGrid"]
         elif self.dim == 2:
             self.name = ["TriangleGrid"]
         elif self.dim == 3:
@@ -827,7 +853,7 @@ class TestMeshReplacement3d(unittest.TestCase):
 
     def grid_1d(self, n_nodes=2):
         x = np.linspace(0, 1, n_nodes)
-        g = TensorGrid(x)
+        g = pp.TensorGrid(x)
         g.nodes = np.tile(x, (3, 1))
         g.compute_geometry()
         g.global_point_ind = 1 + np.arange(n_nodes)
@@ -840,7 +866,7 @@ class TestMeshReplacement3d(unittest.TestCase):
             g2 = self.grid_2d_two_cells(pert)
             g1 = self.grid_1d()
 
-            gb = meshing._assemble_in_bucket(
+            gb = pp.meshing._assemble_in_bucket(
                 [[g3], [g2], [g1]], ensure_matching_face_cell=False
             )
 
@@ -861,7 +887,7 @@ class TestMeshReplacement3d(unittest.TestCase):
         else:
             g3 = self.grid_3d_no_1d(pert)
             g2 = self.grid_2d_two_cells_no_1d(pert)
-            gb = meshing._assemble_in_bucket(
+            gb = pp.meshing._assemble_in_bucket(
                 [[g3], [g2]], ensure_matching_face_cell=False
             )
             for e, d in gb.edges():
@@ -872,7 +898,7 @@ class TestMeshReplacement3d(unittest.TestCase):
                 a[15, 1] = 1
                 d["face_cells"] = sps.csc_matrix(a.T)
 
-        meshing.create_mortar_grids(gb)
+        pp.meshing.create_mortar_grids(gb)
         return gb
 
     def _mortar_grids(self, gb):
@@ -895,7 +921,7 @@ class TestMeshReplacement3d(unittest.TestCase):
 
         gn = self.grid_1d(2)
         go = gb.grids_of_dimension(1)[0]
-        mortars.replace_grids_in_bucket(gb, {go: gn})
+        pp.mortars.replace_grids_in_bucket(gb, {go: gn})
 
         mg1, mg2 = self._mortar_grids(gb)
         p1h = mg1.master_to_mortar_int().copy()
@@ -913,7 +939,7 @@ class TestMeshReplacement3d(unittest.TestCase):
 
         gn = self.grid_2d_two_cells()
         go = gb.grids_of_dimension(2)[0]
-        mortars.replace_grids_in_bucket(gb, {go: gn})
+        pp.mortars.replace_grids_in_bucket(gb, {go: gn})
 
         mg1, mg2 = self._mortar_grids(gb)
         p2h = mg2.master_to_mortar_int().copy()
@@ -929,7 +955,7 @@ class TestMeshReplacement3d(unittest.TestCase):
 
         gn = self.grid_2d_four_cells_no_1d()
         go = gb.grids_of_dimension(2)[0]
-        mortars.replace_grids_in_bucket(gb, {go: gn})
+        pp.mortars.replace_grids_in_bucket(gb, {go: gn})
 
         mg1, mg2 = self._mortar_grids(gb)
         p2h = mg2.master_to_mortar_int().copy()
@@ -948,7 +974,7 @@ class TestMeshReplacement3d(unittest.TestCase):
 
         gn = self.grid_2d_four_cells_no_1d(pert=True)
         go = gb.grids_of_dimension(2)[0]
-        mortars.replace_grids_in_bucket(gb, {go: gn})
+        pp.mortars.replace_grids_in_bucket(gb, {go: gn})
 
         mg1, mg2 = self._mortar_grids(gb)
         p2h = mg2.master_to_mortar_int().copy()
@@ -975,7 +1001,7 @@ class TestMeshReplacement3d(unittest.TestCase):
 
         gn = self.grid_2d_two_cells()
         go = gb.grids_of_dimension(2)[0]
-        mortars.replace_grids_in_bucket(gb, {go: gn})
+        pp.mortars.replace_grids_in_bucket(gb, {go: gn})
 
         mg1, mg2 = self._mortar_grids(gb)
         p1h = mg1.master_to_mortar_int().copy()
@@ -998,7 +1024,7 @@ class TestMeshReplacement3d(unittest.TestCase):
 
         gn = self.grid_2d_four_cells(pert=True)
         go = gb.grids_of_dimension(2)[0]
-        mortars.replace_grids_in_bucket(gb, {go: gn})
+        pp.mortars.replace_grids_in_bucket(gb, {go: gn})
 
         mg1, mg2 = self._mortar_grids(gb)
         p1h = mg1.master_to_mortar_int().copy()

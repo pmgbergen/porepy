@@ -135,6 +135,13 @@ def update_physical_high_grid(mg, g_new, g_old, tol):
         new_nodes = g_new.face_centers[:, new_faces]
 
         # we assume only one old node
+        for i in range(1, old_nodes.shape[1]):
+            is_same = (
+                pp.distances.point_pointset(old_nodes[:, 0], old_nodes[:, i]) < tol
+            )
+            if not is_same:
+                raise ValueError("0d->1d mappings must map to the same physical point")
+        old_nodes = old_nodes[:, 0]
         mask = pp.distances.point_pointset(old_nodes, new_nodes) < tol
         new_faces = new_faces[mask]
 
@@ -224,6 +231,8 @@ def match_grids_1d(new_1d, old_1d, tol):
     Parameters:
          new_1d (grid): First grid to be matched
          old_1d (grid): Second grid to be matched.
+         tol (double): Tolerance used to filter away false overlaps caused by
+             numerical errors. Should be scaled relative to the cell size.
 
     Returns:
          np.array: Ratio of cell volume in the common grid and the original grid.
@@ -233,35 +242,42 @@ def match_grids_1d(new_1d, old_1d, tol):
               grid.
 
     """
+    # Cell-node relation between grids - we know there are two nodes per cell
+    cell_nodes1 = new_1d.cell_nodes()
+    cell_nodes2 = old_1d.cell_nodes()
+    nodes1 = pp.utils.mcolon.mcolon(cell_nodes1.indptr[0:-1], cell_nodes1.indptr[1:])
+    nodes2 = pp.utils.mcolon.mcolon(cell_nodes2.indptr[0:-1], cell_nodes2.indptr[1:])
 
-    # Create a grid that contains all nodes of both the old and new grids.
-    combined, _, new_ind, old_ind, _, _ = non_conforming.merge_1d_grids(
-        new_1d, old_1d, tol=tol
-    )
-    combined.compute_geometry()
-    weights = combined.cell_volumes
+    # Reshape so that the nodes of cells are stored columnwise
+    lines1 = cell_nodes1.indices[nodes1].reshape((2, -1), order="F")
+    lines2 = cell_nodes2.indices[nodes2].reshape((2, -1), order="F")
 
-    switch_new = new_ind[0] > new_ind[-1]
-    if switch_new:
-        new_ind = new_ind[::-1]
-    switch_old = old_ind[0] > old_ind[-1]
-    if switch_old:
-        old_ind = old_ind[::-1]
+    p1 = new_1d.nodes
+    p2 = old_1d.nodes
 
-    diff_new = np.diff(new_ind)
-    diff_old = np.diff(old_ind)
-    new_in_full = rldecode(np.arange(diff_new.size), diff_new)
-    old_in_full = rldecode(np.arange(diff_old.size), diff_old)
+    # Compute the intersection between the two tessalations.
+    # intersect is a list, every list member is a tuple with overlapping
+    # cells in grid 1 and 2, and their common area.
+    intersect = pp.intersections.line_tesselation(p1, p2, lines1, lines2)
 
-    if switch_new:
-        new_in_full = new_in_full.max() - new_in_full
-    if switch_old:
-        old_in_full = old_in_full.max() - old_in_full
+    num = len(intersect)
+    new_g_ind = np.zeros(num, dtype=np.int)
+    old_g_ind = np.zeros(num, dtype=np.int)
+    weights = np.zeros(num)
 
-    old_1d.compute_geometry()
+    for ind, i in enumerate(intersect):
+        new_g_ind[ind] = i[0]
+        old_g_ind[ind] = i[1]
+        weights[ind] = i[2]
+    weights /= old_1d.cell_volumes[old_g_ind]
 
-    weights /= old_1d.cell_volumes[old_in_full]
-    return weights, new_in_full, old_in_full
+    # Remove zero weight intersections
+    mask = weights > tol
+    new_g_ind = new_g_ind[mask]
+    old_g_ind = old_g_ind[mask]
+    weights = weights[mask]
+
+    return weights, new_g_ind, old_g_ind
 
 
 # ------------------------------------------------------------------------------#
@@ -284,8 +300,9 @@ def match_grids_2d(new_g, old_g, tol):
 
     """
 
-    def proj_pts(p, cc):
-        rot = pp.map_geometry.project_plane_matrix(p - cc)
+    def proj_pts(p, cc, normal):
+        """ Project points to the 2d plane defined by normal and center them around cc"""
+        rot = pp.map_geometry.project_plane_matrix(p - cc, normal)
         return rot.dot(p - cc)[:2]
 
     shape = (new_g.dim + 1, new_g.num_cells)
@@ -293,9 +310,18 @@ def match_grids_2d(new_g, old_g, tol):
 
     shape = (old_g.dim + 1, old_g.num_cells)
     cn_old_g = old_g.cell_nodes().indices.reshape(shape, order="F")
+
+    # Center points around mean
     cc = np.mean(new_g.nodes, axis=1).reshape((3, 1))
+    # Calculate common normal for both grids
+    n = pp.map_geometry.compute_normal(new_g.nodes - cc)
+    n_old = pp.map_geometry.compute_normal(old_g.nodes - cc)
+    if not (np.allclose(n, n_old) or np.allclose(n, -n_old)):
+        raise ValueError("The new and old grid must lie in the same plane")
+
+    # Calculate intersection
     isect = pp.intersections.triangulations(
-        proj_pts(new_g.nodes, cc), proj_pts(old_g.nodes, cc), cn_new_g, cn_old_g
+        proj_pts(new_g.nodes, cc, n), proj_pts(old_g.nodes, cc, n), cn_new_g, cn_old_g
     )
 
     num = len(isect)

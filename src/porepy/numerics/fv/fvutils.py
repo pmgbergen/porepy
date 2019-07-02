@@ -1358,7 +1358,7 @@ def compute_darcy_flux(
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
         if "flux" in matrix_dictionary:
             dis = (
-                matrix_dictionary["flux"] * data[p_name]
+                matrix_dictionary["flux"] * data[pp.STATE][p_name]
                 + matrix_dictionary["bound_flux"] * parameter_dictionary["bc_values"]
             )
         else:

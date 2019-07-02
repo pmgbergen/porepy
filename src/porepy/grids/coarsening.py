@@ -97,7 +97,7 @@ def reorder_partition(subdiv):
         the subdivision written in a contiguous way
     """
     if isinstance(subdiv, dict):
-        for _, partition in subdiv.items():
+        for _, (_, partition) in subdiv.items():
             old_ids = np.unique(partition)
             for new_id, old_id in enumerate(old_ids):
                 partition[partition == old_id] = new_id
@@ -239,7 +239,7 @@ def generate_coarse_grid_gb(gb, subdiv):
         g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
         subdiv = {g: subdiv}
 
-    for g, partition in subdiv.items():
+    for g, (_, partition) in subdiv.items():
 
         # Construct the coarse grids
         face_map = generate_coarse_grid_single(g, partition, True)
@@ -450,7 +450,7 @@ def create_aggregations(g, **kwargs):
             np.sum(has_not_coarse_id)
         )
 
-        partition[g] = partition_local
+        partition[g] = (g.copy(), partition_local)
 
     return partition
 
