@@ -4,10 +4,15 @@ This is a setup class for solving linear elasticity with contact between the fra
 The setup handles parameters, variables and discretizations. Default (unitary-like)
 parameters are set. A "run script" function for setting up the class and solving the
 nonlinear contact mechanics problem is also provided.
+
+NOTE: This module should be considered an experimental feature, which will likely
+undergo major changes (or be deleted).
+
 """
 import numpy as np
 import scipy.sparse as sps
 from scipy.spatial.distance import cdist
+
 import porepy as pp
 
 
@@ -43,6 +48,7 @@ class ContactMechanics:
             gb (pp.GridBucket): The produced grid bucket.
             Nd (int): The dimension of the matrix, i.e., the highest dimension in the
                 grid bucket.
+                
         """
         # List the fracture points
         self.frac_pts = np.array([[0.2, 0.8], [0.5, 0.5]])
@@ -261,6 +267,7 @@ class ContactMechanics:
 
         Returns:
             (np.array): displacement solution vector for the Nd grid.
+            
         """
         dof = np.cumsum(np.append(0, np.asarray(assembler.full_dof)))
 
