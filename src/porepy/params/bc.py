@@ -54,7 +54,7 @@ class BoundaryCondition(AbstractBoundaryCondition):
             well as Dirichlet faces.
         is_dir (np.ndarary, boolean, size g.num_faces): Element i is true if
             face i has been assigned a Neumann condition.
-        is_rob (np.ndarray, boolean, size g.num_faces): Element i is true if 
+        is_rob (np.ndarray, boolean, size g.num_faces): Element i is true if
             face i has been assigned a Robin condition.
 
     """
@@ -275,7 +275,7 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
             well as Dirichlet faces.
         is_dir (np.ndarary, boolean, size g.dim x g.num_faces): Element i is true if
             face i has been assigned a Neumann condition.
-        is_rob (np.ndarray, boolean, size g.dim x g.num_faces): Element i is true if 
+        is_rob (np.ndarray, boolean, size g.dim x g.num_faces): Element i is true if
             face i has been assigned a Robin condition.
 
     """

@@ -795,7 +795,7 @@ class Biot:
 class GradP():
     """ Class for the pressure gradient term of the Biot equation.
     """
-    
+
     def __init__(self, keyword):
         """ Set the discretization, with the keyword used for storing various
         information associated with the discretization.
@@ -814,7 +814,7 @@ class GradP():
             String, on the form self.keyword + '_'.
 
         """
-        return self.keyword + "_"    
+        return self.keyword + "_"
 
     def ndof(self, g):
         """ Return the number of degrees of freedom associated to the method.

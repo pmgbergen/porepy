@@ -147,7 +147,7 @@ class ContactMechanics:
                     {"friction_coefficient": friction},
                 )
         # Should we keep this, @EK?
-        for e, d in gb.edges():
+        for _, d in gb.edges():
             mg = d["mortar_grid"]
 
             # Parameters for the surface diffusion.
@@ -240,7 +240,7 @@ class ContactMechanics:
                 state = {}
             pp.set_state(d, state)
 
-        for e, d in self.gb.edges():
+        for _, d in self.gb.edges():
             mg = d["mortar_grid"]
 
             if mg.dim == self.Nd - 1:
@@ -267,7 +267,7 @@ class ContactMechanics:
 
         Returns:
             (np.array): displacement solution vector for the Nd grid.
-            
+
         """
         dof = np.cumsum(np.append(0, np.asarray(assembler.full_dof)))
 
