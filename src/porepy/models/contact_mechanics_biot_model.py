@@ -3,10 +3,12 @@ This is a setup class for solving the biot equations with contact between the fr
 
 The domain $[0, 2]\times[0, 1]$ with six fractures. We do not consider any fluid, and
 solve only for the linear elasticity coupled to the contact
+
+NOTE: This module should be considered an experimental feature, which will likely
+undergo major changes (or be deleted).
+
 """
 import numpy as np
-import scipy.sparse as sps
-from scipy.spatial.distance import cdist
 import porepy as pp
 
 from porepy.utils import assign_discretizations
