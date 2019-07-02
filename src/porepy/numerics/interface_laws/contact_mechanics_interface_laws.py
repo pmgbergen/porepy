@@ -94,7 +94,7 @@ class PrimalContactCoupling(object):
             # List of surface diffusion discretizations - one per side.
             A_list = []
 
-            for proj, side_grid in mg.project_to_side_grids():
+            for _, side_grid in mg.project_to_side_grids():
 
                 unity = np.ones(side_grid.num_cells)
 
@@ -547,11 +547,12 @@ class FractureScalarToForceBalance:
 
     For the contact mechanics, we only want to consider the _contact_ traction. Thus, we
     have to subtract the pressure contribution, i.e.
-    
+
         \lambda_contact - p_check I \dot n = boundary_traction_hat,
 
     since the full tractions experienced by a fracture surface are the sum of the
     contact forces and the fracture pressure force.
+
     """
 
     def __init__(self, discr_master, discr_slave):

@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 class Mpsa():
-    
-    
+
+
     def __init__(self, keyword):
         """ Set the discretization, with the keyword used for storing various
         information associated with the discretization.
@@ -1132,7 +1132,7 @@ def _mpsa_local(
     if g.dim == 2:
         g = g.copy()
 
-        cell_centers, face_normals, face_centers, R, _, nodes = pp.map_geometry.map_grid(
+        cell_centers, face_normals, face_centers, _, _, nodes = pp.map_geometry.map_grid(
             g
         )
         g.cell_centers = cell_centers
@@ -1762,7 +1762,7 @@ def _inverse_gradient(
         * pp.fvutils.invert_diagonal_blocks(grad, size_of_blocks, method=inverter)
         * rows2blk_diag
     )
-    logger.debug("max igrad: ", np.max(np.abs(igrad)))
+    logger.debug("max igrad: " + str(np.max(np.abs(igrad))))
     return igrad
 
 
@@ -2277,7 +2277,7 @@ def _eliminate_ncasym_neumann(
     dof_elim = subfno_nd.ravel("C")[remove_singular]
     # and eliminate the rows corresponding to these subfaces
     pp.utils.sparse_mat.zero_rows(ncasym, dof_elim)
-    logger.debug("number of ncasym eliminated: ", np.sum(dof_elim.size))
+    logger.debug("number of ncasym eliminated: " + str(np.sum(dof_elim.size)))
     ## the following is some code to enforce symmetric G. Comment for now
     # # Find the equations for the x-values
     # x_row = np.arange(0, round(ncasym.shape[0]/nd))

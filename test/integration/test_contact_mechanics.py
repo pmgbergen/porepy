@@ -3,7 +3,6 @@ Various integration tests for contact mechanics.
 """
 import numpy as np
 import unittest
-import scipy.sparse.linalg as spla
 
 import porepy as pp
 import porepy.models.contact_mechanics_model as model

@@ -133,7 +133,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                     {"friction_coefficient": friction, "time_step": self.time_step},
                 )
         # Should we keep this, @EK?
-        for e, d in gb.edges():
+        for _, d in gb.edges():
             mg = d["mortar_grid"]
 
             # Parameters for the surface diffusion.
@@ -181,10 +181,13 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
         # Assign diffusivity in the normal direction of the fractures.
         for e, data_edge in self.gb.edges():
-            g1, g2 = self.gb.nodes_of_edge(e)
+            g1, _ = self.gb.nodes_of_edge(e)
+            
             a = self.compute_aperture(g1)
             mg = data_edge["mortar_grid"]
+            
             normal_diffusivity = 2 / kappa * mg.slave_to_mortar_int() * a
+            
             data_edge = pp.initialize_data(
                 e,
                 data_edge,

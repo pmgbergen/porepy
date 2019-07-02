@@ -8,9 +8,7 @@ conditions in the non-intersecting fracture(s). For the contact mechanical part 
 test, please refer to test_contact_mechanics.
 """
 import numpy as np
-import scipy.sparse as sps
 import unittest
-import scipy.sparse.linalg as spla
 
 import porepy as pp
 import porepy.models.contact_mechanics_biot_model as model
