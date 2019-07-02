@@ -65,7 +65,6 @@ class BiotTest(unittest.TestCase):
 
             self.assertTrue(np.isclose(sol, np.zeros(g.num_cells * (g.dim + 1))).all())
 
-
     def test_face_vector_to_scalar(self):
         # Test of function face_vector_to_scalar
         nf = 3

@@ -150,6 +150,7 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
     """
     Multiply the advective mortar fluxes by the time step and advection weight.
     """
+
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
     ):

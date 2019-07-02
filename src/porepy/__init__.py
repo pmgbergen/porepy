@@ -59,6 +59,9 @@ from porepy.numerics.mixed_dim.assembler import Assembler
 
 import porepy.numerics
 
+# Models
+import porepy.models
+
 # Transport related
 from porepy.numerics.fv.upwind import Upwind
 from porepy.numerics.interface_laws.hyperbolic_interface_laws import UpwindCoupling
