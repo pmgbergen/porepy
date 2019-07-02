@@ -6,7 +6,6 @@ system matrix and right hand side for a general multi-domain, multi-physics prob
 """
 import numpy as np
 import scipy.sparse as sps
-
 import porepy as pp
 
 
@@ -1011,10 +1010,11 @@ class Assembler:
                 name = pair[1]
                 if name != var_name:
                     continue
-                if isinstance(g, pp.Grid):
-                    data = self.gb.node_props(g)
-                else:  # This is really an edge
+                if isinstance(g, tuple):
+                    # This is really an edge
                     data = self.gb.edge_props(g)
+                else:
+                    data = self.gb.node_props(g)
 
                 if pp.STATE in data.keys():
                     data[pp.STATE][var_name] = values[dof[bi] : dof[bi + 1]]
@@ -1038,10 +1038,11 @@ class Assembler:
         for pair, bi in self.block_dof.items():
             g = pair[0]
             var_name = pair[1]
-            if isinstance(g, pp.Grid):
-                data = self.gb.node_props(g)
-            else:  # This is really an edge
+            if isinstance(g, tuple):
+                # This is really an edge
                 data = self.gb.edge_props(g)
+            else:
+                data = self.gb.node_props(g)
             if var_name == var:
                 loc_value = data[var_name]
             else:
