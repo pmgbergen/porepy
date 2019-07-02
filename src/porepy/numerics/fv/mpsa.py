@@ -19,9 +19,29 @@ import numpy.matlib as np_matlib
 logger = logging.getLogger(__name__)
 
 
-class Mpsa(
-    pp.numerics.interface_laws.elliptic_discretization.VectorEllipticDiscretization
-):
+class Mpsa():
+    
+    
+    def __init__(self, keyword):
+        """ Set the discretization, with the keyword used for storing various
+        information associated with the discretization.
+
+        Paramemeters:
+            keyword (str): Identifier of all information used for this
+                discretization.
+        """
+        self.keyword = keyword
+
+    def _key(self):
+        """ Get the keyword of this object, on a format friendly to access relevant
+        fields in the data dictionary
+
+        Returns:
+            String, on the form self.keyword + '_'.
+
+        """
+        return self.keyword + "_"
+
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
