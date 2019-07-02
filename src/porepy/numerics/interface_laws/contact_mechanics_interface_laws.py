@@ -688,9 +688,8 @@ class DivUCoupling:
     """
 
     def __init__(self, variable, discr_master, discr_slave):
-        #        self.mechanics_keyword = discr_master.mechanics_keyword
-        # Set variable names for the vector variable (displacement), used to access
-        # solutions from previous time steps
+        # Set variable names for the vector variable on the nodes (displacement), used
+        # to access solutions from previous time steps.
         self.variable = variable
         # The terms are added by calls to assemble methods of DivU discretizations,
         # namely assemble_int_bound_displacement_trace for the master and
