@@ -38,6 +38,8 @@ class BasicsTest(unittest.TestCase):
         time_step = advect.cfl(g, data)
         data[pp.PARAMETERS]["transport"]["time_step"] = time_step
 
+        advect.discretize(g, data)
+
         U, rhs = advect.assemble_matrix_rhs(g, data)
         rhs = time_step * rhs
         U = time_step * U
@@ -92,6 +94,7 @@ class BasicsTest(unittest.TestCase):
         time_step = advect.cfl(g, data)
         data[pp.PARAMETERS]["transport"]["time_step"] = time_step
 
+        advect.discretize(g, data)
         U, rhs = advect.assemble_matrix_rhs(g, data)
         rhs = time_step * rhs
         U = time_step * U
@@ -168,6 +171,7 @@ class BasicsTest(unittest.TestCase):
         }
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
         solver = pp.MVEM("flow")
+        solver.discretize(g, data)
         D_flow, b_flow = solver.assemble_matrix_rhs(g, data)
 
         solver_source = pp.DualScalarSource("flow")
@@ -194,6 +198,7 @@ class BasicsTest(unittest.TestCase):
 
         # Advect solver
         advect = pp.Upwind("transport")
+        advect.discretize(g, data)
 
         U, rhs = advect.assemble_matrix_rhs(g, data)
         time_step = advect.cfl(g, data)
