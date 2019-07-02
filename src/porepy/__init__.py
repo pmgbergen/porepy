@@ -30,6 +30,7 @@ from porepy.numerics.discretization import VoidDiscretization
 
 # Control volume, elliptic
 from porepy.numerics.fv.mpsa import Mpsa
+from porepy.numerics.fv.fv_elliptic import FVElliptic
 from porepy.numerics.fv.tpfa import Tpfa
 from porepy.numerics.fv.mpfa import Mpfa
 from porepy.numerics.fv.biot import Biot, GradP, DivU, BiotStabilization
