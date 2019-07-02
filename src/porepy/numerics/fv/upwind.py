@@ -64,7 +64,7 @@ class Upwind:
         return g.num_cells
 
     def assemble_matrix_rhs(self, g, data):
-        """ Return the matrix for an upwind discretization of a linear transport 
+        """ Return the matrix for an upwind discretization of a linear transport
         problem.
 
         Parameters:
@@ -73,19 +73,19 @@ class Upwind:
 
         Returns:
             scipy.sparse.csr_matrix: System matrix of this discretization.
-                Size: g.num_cells x g.num_cells.            
+                Size: g.num_cells x g.num_cells.
             np.ndarray: Right hand side vector with representation of boundary
                 conditions. The size of the vector will depend on the discretization.
-                
+
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         if not self.matrix_keyword in matrix_dictionary.keys():
             self.discretize(g, data)
-            
+
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
     def assemble_matrix(self, g, data):
-        """ Return the matrix for an upwind discretization of a linear transport 
+        """ Return the matrix for an upwind discretization of a linear transport
         problem.
 
         Parameters:
@@ -93,9 +93,9 @@ class Upwind:
             data (dictionary): With data stored.
 
         Returns:
-            scipy.sparse.csr_matrix: System matrix of this discretization. 
+            scipy.sparse.csr_matrix: System matrix of this discretization.
                 Size: g.num_cells x g.num_cells.
-                
+
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         return matrix_dictionary[self.matrix_keyword]
@@ -113,7 +113,7 @@ class Upwind:
         Returns:
             np.ndarray: Right hand side vector with representation of boundary
                 conditions. The size of the vector will depend on the discretization.
-                
+
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
@@ -137,7 +137,7 @@ class Upwind:
             following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
             conditions, respectively.
         source : array (g.num_cells) of source (positive) or sink (negative) terms.
-        
+
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
