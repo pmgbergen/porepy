@@ -65,7 +65,7 @@ def contact_mechanics_discretizations(setup):
             d[pp.PRIMARY_VARIABLES] = {}
 
 
-def contact_mechanics_and_biot_discretizations(setup, subtract_fracture_pressure):
+def contact_mechanics_and_biot_discretizations(setup, subtract_fracture_pressure=True):
     """
     Assign the discretizations for fracture deformation with a coupled scalar (pressure)
     in both dimensions. No fracture intersections are allowed (for now).
@@ -73,12 +73,11 @@ def contact_mechanics_and_biot_discretizations(setup, subtract_fracture_pressure
     Setup should have a gb field, and the following names specified:
        Parameter keys:
            mechanics_parameter_key
-           friction_parameter_key
            scalar_parameter_key
        Variables:
            displacement_variable - higher-dimensional displacements
            mortar_displacement_variable - displacement on the internal boundary
-           contact_variable - represents traction on the fracture
+           contact_traction_variable - represents traction on the fracture
            scalar_variable - scalar (pressure) in both dimensions
            mortar_scalar_variable - darcy flux
     subtract_fracture_pressure (bool): Whether or not to subtract the fracture pressure
@@ -94,12 +93,10 @@ def contact_mechanics_and_biot_discretizations(setup, subtract_fracture_pressure
     # Define discretization
     # For the Nd domain we solve linear elasticity with mpsa.
     mpsa = pp.Mpsa(key_m)
-    empty_discr = pp.VoidDiscretization(
-        setup.friction_parameter_key, ndof_cell=ambient_dim
-    )
+    empty_discr = pp.VoidDiscretization(key_m, ndof_cell=ambient_dim)
     # Scalar discretizations (all dimensions)
     diff_disc_s = IE_discretizations.ImplicitMpfa(key_s)
-    mass_disc_s = IE_discretizations.ImplicitMassMatrix(key_s, variable=var_s)
+    mass_disc_s = IE_discretizations.ImplicitMassMatrix(key_s, var_s)
     source_disc_s = pp.ScalarSource(key_s)
     # Coupling discretizations
     # All dimensions
@@ -108,7 +105,7 @@ def contact_mechanics_and_biot_discretizations(setup, subtract_fracture_pressure
     )
     # Nd
     grad_p_disc = pp.GradP(key_m)
-    stabilization_disc_s = pp.BiotStabilization(key_s, variable=var_s)
+    stabilization_disc_s = pp.BiotStabilization(key_s, var_s)
 
     # Assign node discretizations
     for g, d in gb:
@@ -130,11 +127,11 @@ def contact_mechanics_and_biot_discretizations(setup, subtract_fracture_pressure
             }
         elif g.dim == ambient_dim - 1:
             d[pp.PRIMARY_VARIABLES] = {
-                setup.contact_variable: {"cells": ambient_dim},
+                setup.contact_traction_variable: {"cells": ambient_dim},
                 var_s: {"cells": 1},
             }
             d[pp.DISCRETIZATION] = {
-                setup.contact_variable: {"empty": empty_discr},
+                setup.contact_traction_variable: {"empty": empty_discr},
                 var_s: {
                     "diffusion": diff_disc_s,
                     "mass": mass_disc_s,
@@ -145,9 +142,9 @@ def contact_mechanics_and_biot_discretizations(setup, subtract_fracture_pressure
             d[pp.PRIMARY_VARIABLES] = {}
 
     # Define edge discretizations for the mortar grid
-    contact_law = pp.ColoumbContact(setup.friction_parameter_key, ambient_dim)
+    contact_law = pp.ColoumbContact(setup.mechanics_parameter_key, ambient_dim)
     contact_discr = pp.PrimalContactCoupling(
-        setup.friction_parameter_key, mpsa, contact_law
+        setup.mechanics_parameter_key, mpsa, contact_law
     )
     # Account for the mortar displacements effect on scalar balance in the
     #   matrix, as an internal boundary contribution,
@@ -178,7 +175,7 @@ def contact_mechanics_and_biot_discretizations(setup, subtract_fracture_pressure
             d[pp.COUPLING_DISCRETIZATION] = {
                 setup.friction_coupling_term: {
                     g_h: (var_d, "mpsa"),
-                    g_l: (setup.contact_variable, "empty"),
+                    g_l: (setup.contact_traction_variable, "empty"),
                     (g_h, g_l): (setup.mortar_displacement_variable, contact_discr),
                 },
                 setup.scalar_coupling_term: {

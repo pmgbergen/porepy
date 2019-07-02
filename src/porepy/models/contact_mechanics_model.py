@@ -240,9 +240,10 @@ class ContactMechanics:
             if mg.dim == self.Nd - 1:
                 size = mg.num_cells * self.Nd
                 state = {
+                    self.mortar_displacement_variable: np.zeros(mg.num_cells * self.Nd),
                     "previous_iterate": {
                         self.mortar_displacement_variable: np.zeros(size)
-                    }
+                    },
                 }
                 pp.set_state(d, state)
 
@@ -391,44 +392,52 @@ def run_mechanics(setup):
     while counter_newton <= max_newton and not converged_newton:
         print("Newton iteration number: ", counter_newton, "/", max_newton)
 
+        sol, u0, error, converged_newton = newton_iteration(assembler, setup, u0)
         counter_newton += 1
-        # Re-discretize the nonlinear term
-        assembler.discretize(term_filter=setup.friction_coupling_term)
-
-        # Assemble and solve
-        A, b = assembler.assemble_matrix_rhs()
-        #        if gb.num_cells() > 6e4: #4
-        #            sol = solvers.amg(gb, A, b)
-        #        else:
-        sol = sps.linalg.spsolve(A, b)
-
-        # Obtain the current iterate for the displacement, and distribute the current
-        # iterates for mortar displacements and contact traction.
-        u1 = setup.extract_iterate(assembler, sol)
-
-        viz.write_vtk({"ux": u1[::2], "uy": u1[1::2]})
-
-        # Calculate the error
-        solution_norm = l2_norm_cell(g_max, u1)
-        iterate_difference = l2_norm_cell(g_max, u1, u0)
-
-        # The if is intended to avoid division through zero
-        if solution_norm < 1e-12 and iterate_difference < 1e-12:
-            converged_newton = True
-            error = np.sum((u1 - u0) ** 2)
-        else:
-            if iterate_difference / solution_norm < 1e-10:
-                converged_newton = True
-            error = np.sum((u1 - u0) ** 2) / np.sum(u1 ** 2)
-
-        print("Error: ", error)
+        viz.write_vtk({"ux": u0[::2], "uy": u0[1::2]})
         errors.append(error)
-        # Prepare for next iteration
-        u0 = u1
 
     if counter_newton > max_newton and not converged_newton:
         raise ValueError("Newton iterations did not converge")
     assembler.distribute_variable(sol)
+
+
+def newton_iteration(assembler, setup, u0, solver=None):
+    converged = False
+    # @EK! If this is to work for both mechanics and biot, we probably need to pass the solver to this method.
+    g_max = setup.gb.grids_of_dimension(setup.Nd)[0]
+
+    # Re-discretize the nonlinear term
+    assembler.discretize(term_filter=setup.friction_coupling_term)
+
+    # Assemble and solve
+    A, b = assembler.assemble_matrix_rhs()
+
+    if solver is None:
+        sol = sps.linalg.spsolve(A, b)
+    #    else:
+    #        #            sol = solvers.amg(gb, A, b)
+
+    # Obtain the current iterate for the displacement, and distribute the current
+    # iterates for mortar displacements and contact traction.
+    u1 = setup.extract_iterate(assembler, sol)
+
+    # Calculate the error
+    solution_norm = l2_norm_cell(g_max, u1)
+    iterate_difference = l2_norm_cell(g_max, u1, u0)
+
+    # The if is intended to avoid division through zero
+    if solution_norm < 1e-12 and iterate_difference < 1e-12:
+        converged = True
+        error = np.sum((u1 - u0) ** 2)
+    else:
+        if iterate_difference / solution_norm < 1e-10:
+            converged = True
+        error = np.sum((u1 - u0) ** 2) / np.sum(u1 ** 2)
+
+    print("Error: ", error)
+
+    return sol, u1, error, converged
 
 
 def l2_norm_cell(g, u, uref=None):

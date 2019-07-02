@@ -22,11 +22,8 @@ class ColoumbContact:
 
         self.dim = ambient_dimension
 
-        self.surface_variable = "mortar_u"
-        self.contact_variable = "contact_force"
-
-        self.friction_parameter_key = "friction"
-        self.surface_parameter_key = "surface"
+        self.mortar_displacement_variable = "mortar_u"
+        self.contact_variable = "contact_traction"
 
         self.traction_discretization = "traction_discretization"
         self.displacement_discretization = "displacement_discretization"
@@ -80,9 +77,7 @@ class ColoumbContact:
 
         # Process input
         parameters_l = data_l[pp.PARAMETERS]
-        friction_coefficient = parameters_l[self.friction_parameter_key][
-            "friction_coefficient"
-        ]
+        friction_coefficient = parameters_l[self.keyword]["friction_coefficient"]
 
         if np.asarray(friction_coefficient).size == 1:
             friction_coefficient = friction_coefficient * np.ones(g_l.num_cells)
@@ -124,7 +119,7 @@ class ColoumbContact:
         displacement_jump_global_coord = (
             mg.mortar_to_slave_avg(nd=self.dim)
             * mg.sign_of_mortar_sides(nd=self.dim)
-            * data_edge[pp.STATE]["previous_iterate"][self.surface_variable]
+            * data_edge[pp.STATE]["previous_iterate"][self.mortar_displacement_variable]
         )
         # Rotated displacement jumps. These are in the local coordinates, on
         # the lower-dimensional grid
