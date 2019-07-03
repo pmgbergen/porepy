@@ -30,6 +30,8 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         self.length_scale = 1
 
         # Time
+        # The time attribute may be used e.g. to update BCs.
+        self.time = 0
         self.time_step = 1 * self.length_scale ** 2
         self.end_time = self.time_step * 1
 
@@ -41,37 +43,28 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         # temperature. See assign_discretizations
         self.subtract_fracture_pressure = True
 
-    def bc_type(self, g, key, t=0):
-        if key == self.mechanics_parameter_key:
-            # Use parent class method for mechanics
-            bc = super().bc_type(g)
-        elif key == self.scalar_parameter_key:
-            # Define boundary regions
-            all_bf, *_ = self.domain_boundary_sides(g)
-            # Define boundary condition on faces
-            bc = pp.BoundaryCondition(g, all_bf, "dir")
-        else:
-            raise ValueError("No BCs implemented for keyword " + str(key))
-        return bc
+    def bc_type_mechanics(self, g):
+        # Use parent class method for mechanics
+        return super().bc_type(g)
 
-    def bc_values(self, g, key, t=0):
+    def bc_type_scalar(self, g):
+        # Define boundary regions
+        all_bf, *_ = self.domain_boundary_sides(g)
+        # Define boundary condition on faces
+        return pp.BoundaryCondition(g, all_bf, "dir")
+
+    def bc_values_mechanics(self, g):
         # Set the boundary values
-        if key == self.mechanics_parameter_key:
-            bc_values = super().bc_values(g)
-        elif key == self.scalar_parameter_key:
-            bc_values = np.zeros(g.num_faces)
-        else:
-            raise ValueError("No BC values implemented for keyword " + str(key))
-        return bc_values
+        return super().bc_values(g)
 
-    def source(self, g, key, t=0):
-        if key == self.mechanics_parameter_key:
-            values = super().source(g)
-        elif key == self.scalar_parameter_key:
-            values = np.zeros(g.num_cells)
-        else:
-            raise ValueError("No source values implemented for keyword " + str(key))
-        return values
+    def bc_values_scalar(self, g):
+        return np.zeros(g.num_faces)
+
+    def source_mechanics(self, g):
+        return super().source(g)
+
+    def source_scalar(self, g):
+        return np.zeros(g.num_cells)
 
     def biot_alpha(self):
         return 1
@@ -104,7 +97,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 C = pp.FourthOrderTensor(g.dim, mu, lam)
 
                 # Define boundary condition
-                bc = self.bc_type(g, self.mechanics_parameter_key)
+                bc = self.bc_type_mechanics(g)
                 # Default internal BC is Neumann. We change to Dirichlet for the contact
                 # problem. I.e., the mortar variable represents the displacement on the
                 # fracture faces.
@@ -112,8 +105,8 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 bc.is_neu[:, frac_face] = False
                 bc.is_dir[:, frac_face] = True
                 # BC and source values
-                bc_val = self.bc_values(g, self.mechanics_parameter_key)
-                source_val = self.source(g, self.mechanics_parameter_key)
+                bc_val = self.bc_values_mechanics(g)
+                source_val = self.source_mechanics(g)
 
                 pp.initialize_data(
                     g,
@@ -158,9 +151,9 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         mass_weight = 1
         alpha = self.biot_alpha()
         for g, d in gb:
-            bc = self.bc_type(g, self.scalar_parameter_key)
-            bc_values = self.bc_values(g, self.scalar_parameter_key)
-            source_values = self.source(g, self.scalar_parameter_key, 0)
+            bc = self.bc_type_scalar(g)
+            bc_values = self.bc_values_scalar(g)
+            source_values = self.source_scalar(g)
 
             a = self.compute_aperture(g)
             cross_sectional_area = np.power(a, self.gb.dim_max() - g.dim) * np.ones(
@@ -187,12 +180,12 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         # Assign diffusivity in the normal direction of the fractures.
         for e, data_edge in self.gb.edges():
             g1, _ = self.gb.nodes_of_edge(e)
-            
+
             a = self.compute_aperture(g1)
             mg = data_edge["mortar_grid"]
-            
+
             normal_diffusivity = 2 / kappa * mg.slave_to_mortar_int() * a
-            
+
             data_edge = pp.initialize_data(
                 e,
                 data_edge,
