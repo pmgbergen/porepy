@@ -227,44 +227,31 @@ class SetupContactMechanicsBiot(model.ContactMechanicsBiot):
         self.gb = gb
         self.Nd = gb.dim_max()
 
-    def source(self, g, key, t=0):
-        if key == self.mechanics_parameter_key:
-            values = super().source(g, key, t)
-        elif key == self.scalar_parameter_key:
-            if g.dim == self.Nd:
-                values = np.zeros(g.num_cells)
-            else:
-                values = self.scalar_source_value * np.ones(g.num_cells)
+    def source_scalar(self, g):
+        if g.dim == self.Nd:
+            values = np.zeros(g.num_cells)
         else:
-            raise ValueError("No BC values implemented for keyword " + str(key))
+            values = self.scalar_source_value * np.ones(g.num_cells)
         return values
 
-    def bc_type(self, g, key, t=0):
+    def bc_type_mechanics(self, g):
         _, _, _, north, south, _, _ = self.domain_boundary_sides(g)
-        if key == self.mechanics_parameter_key:
-            bc = pp.BoundaryConditionVectorial(g, north + south, "dir")
-        elif key == self.scalar_parameter_key:
-            # Define boundary condition on faces
-            bc = pp.BoundaryCondition(g, north + south, "dir")
-        else:
-            raise ValueError("No BCs implemented for keyword " + str(key))
-        return bc
+        return pp.BoundaryConditionVectorial(g, north + south, "dir")
 
-    def bc_values(self, g, key, t=0):
+    def bc_type_scalar(self, g):
+        _, _, _, north, south, _, _ = self.domain_boundary_sides(g)
+        # Define boundary condition on faces
+        return pp.BoundaryCondition(g, north + south, "dir")
+
+    def bc_values_mechanics(self, g):
         # Set the boundary values
-        if key == self.mechanics_parameter_key:
-            _, _, _, north, south, _, _ = self.domain_boundary_sides(g)
-            values = np.zeros((g.dim, g.num_faces))
-            values[0, south] = self.ux_south
-            values[1, south] = self.uy_south
-            values[0, north] = self.ux_north
-            values[1, north] = self.uy_north
-            values = values.ravel("F")
-        elif key == self.scalar_parameter_key:
-            values = np.zeros(g.num_faces)
-        else:
-            raise ValueError("No BC values implemented for keyword " + str(key))
-        return values
+        _, _, _, north, south, _, _ = self.domain_boundary_sides(g)
+        values = np.zeros((g.dim, g.num_faces))
+        values[0, south] = self.ux_south
+        values[1, south] = self.uy_south
+        values[0, north] = self.ux_north
+        values[1, north] = self.uy_north
+        return values.ravel("F")
 
 
 if __name__ == "__main__":
