@@ -9,8 +9,8 @@ import scipy.sparse as sps
 from scipy.spatial.distance import cdist
 import porepy as pp
 
-from porepy.utils import assign_discretizations
 import porepy.models.contact_mechanics_model as contact_model
+from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
 
 
 class ContactMechanicsBiot(contact_model.ContactMechanics):
@@ -18,21 +18,26 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         super().__init__(mesh_args, folder_name)
 
         # Temperature
-        self.scalar_variable = "T"
+        self.scalar_variable = "p"
         self.mortar_scalar_variable = "mortar_" + self.scalar_variable
         self.scalar_coupling_term = "robin_" + self.scalar_variable
-        self.scalar_parameter_key = "temperature"
+        self.scalar_parameter_key = "flow"
 
         # Scaling coefficients
         self.scalar_scale = 1
         self.length_scale = 1
 
         # Time
-        self.time_step = 1e0 * self.length_scale ** 2
+        self.time_step = 1 * self.length_scale ** 2
         self.end_time = self.time_step * 1
 
-        self.T_0 = 0
-        self.s_0 = 1
+        # Initial scalar value
+        self.initial_scalar = 0
+
+        # Whether or not to subtract the fracture pressure contribution for the contact
+        # traction. This should be done if the scalar variable is pressure, but not for
+        # temperature. See assign_discretizations
+        self.subtract_fracture_pressure = True
 
     def bc_type(self, g, key, t=0):
         if key == self.mechanics_parameter_key:
@@ -190,8 +195,162 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 {"normal_diffusivity": normal_diffusivity},
             )
 
-    def assign_discretisations_and_variables(self):
-        assign_discretizations.contact_mechanics_and_biot_discretizations(self)
+    def assign_discretisations(self):
+        """
+        Assign discretizations to the nodes and edges of the grid bucket.
+
+        Note the attribute subtract_fracture_pressure: Indicates whether or not to
+        subtract the fracture pressure contribution for the contact traction. This
+        should not be done if the scalar variable is temperature.
+        """
+        # Shorthand
+        key_s, key_m = self.scalar_parameter_key, self.mechanics_parameter_key
+        var_s, var_d = self.scalar_variable, self.displacement_variable
+
+        # Define discretization
+        # For the Nd domain we solve linear elasticity with mpsa.
+        mpsa = pp.Mpsa(key_m)
+        empty_discr = pp.VoidDiscretization(key_m, ndof_cell=self.Nd)
+        # Scalar discretizations (all dimensions)
+        diff_disc_s = IE_discretizations.ImplicitMpfa(key_s)
+        mass_disc_s = IE_discretizations.ImplicitMassMatrix(key_s, var_s)
+        source_disc_s = pp.ScalarSource(key_s)
+        # Coupling discretizations
+        # All dimensions
+        div_u_disc = pp.DivU(
+            key_m, key_s, variable=var_d, mortar_variable=self.mortar_displacement_variable
+        )
+        # Nd
+        grad_p_disc = pp.GradP(key_m)
+        stabilization_disc_s = pp.BiotStabilization(key_s, var_s)
+
+        # Assign node discretizations
+        for g, d in self.gb:
+            if g.dim == self.Nd:
+                d[pp.DISCRETIZATION] = {
+                    var_d: {"mpsa": mpsa},
+                    var_s: {
+                        "diffusion": diff_disc_s,
+                        "mass": mass_disc_s,
+                        "stabilization": stabilization_disc_s,
+                        "source": source_disc_s,
+                    },
+                    var_d + "_" + var_s: {"grad_p": grad_p_disc},
+                    var_s + "_" + var_d: {"div_u": div_u_disc},
+                }
+            elif g.dim == self.Nd - 1:
+                d[pp.DISCRETIZATION] = {
+                    self.contact_traction_variable: {"empty": empty_discr},
+                    var_s: {
+                        "diffusion": diff_disc_s,
+                        "mass": mass_disc_s,
+                        "source": source_disc_s,
+                    },
+                }
+
+        # Define edge discretizations for the mortar grid
+        contact_law = pp.ColoumbContact(self.mechanics_parameter_key, self.Nd)
+        contact_discr = pp.PrimalContactCoupling(
+            self.mechanics_parameter_key, mpsa, contact_law
+        )
+        # Account for the mortar displacements effect on scalar balance in the matrix,
+        # as an internal boundary contribution, fracture, aperture changes appear as a
+        # source contribution.
+        div_u_coupling = pp.DivUCoupling(
+            self.displacement_variable, div_u_disc, div_u_disc
+        )
+        # Account for the pressure contributions to the force balance on the fracture
+        # (see contact_discr).
+        # This discretization needs the keyword used to store the grad p discretization:
+        grad_p_key = key_m
+        matrix_scalar_to_force_balance = pp.MatrixScalarToForceBalance(
+            grad_p_key, mass_disc_s, mass_disc_s
+        )
+        if self.subtract_fracture_pressure:
+            fracture_scalar_to_force_balance = pp.FractureScalarToForceBalance(
+                mass_disc_s, mass_disc_s
+            )
+
+        for e, d in self.gb.edges():
+            g_l, g_h = self.gb.nodes_of_edge(e)
+
+            if g_h.dim == self.Nd:
+                d[pp.COUPLING_DISCRETIZATION] = {
+                    self.friction_coupling_term: {
+                        g_h: (var_d, "mpsa"),
+                        g_l: (self.contact_traction_variable, "empty"),
+                        (g_h, g_l): (self.mortar_displacement_variable, contact_discr),
+                    },
+                    self.scalar_coupling_term: {
+                        g_h: (var_s, "diffusion"),
+                        g_l: (var_s, "diffusion"),
+                        e: (
+                            self.mortar_scalar_variable,
+                            pp.RobinCoupling(key_s, diff_disc_s),
+                        ),
+                    },
+                    "div_u_coupling": {
+                        g_h: (
+                            var_s,
+                            "mass",
+                        ),  # This is really the div_u, but this is not implemented
+                        g_l: (var_s, "mass"),
+                        e: (self.mortar_displacement_variable, div_u_coupling),
+                    },
+                    "matrix_scalar_to_force_balance": {
+                        g_h: (var_s, "mass"),
+                        g_l: (var_s, "mass"),
+                        e: (
+                            self.mortar_displacement_variable,
+                            matrix_scalar_to_force_balance,
+                        ),
+                    },
+                }
+                if self.subtract_fracture_pressure:
+                    d[pp.COUPLING_DISCRETIZATION].update(
+                        {
+                            "matrix_scalar_to_force_balance": {
+                                g_h: (var_s, "mass"),
+                                g_l: (var_s, "mass"),
+                                e: (
+                                    self.mortar_displacement_variable,
+                                    fracture_scalar_to_force_balance,
+                                ),
+                            }
+                        }
+                    )
+            else:
+                raise ValueError(
+                    "assign_discretizations assumes no fracture intersections."
+                )
+
+    def assign_variables(self):
+        """
+        Assign primary variables to the nodes and edges of the grid bucket.
+        """
+        # First for the nodes
+        for g, d in self.gb:
+            if g.dim == self.Nd:
+                d[pp.PRIMARY_VARIABLES] = {
+                    self.displacement_variable: {"cells": self.Nd},
+                    self.scalar_variable: {"cells": 1},
+                }
+            elif g.dim == self.Nd - 1:
+                d[pp.PRIMARY_VARIABLES] = {
+                    self.contact_traction_variable: {"cells": self.Nd},
+                    self.scalar_variable: {"cells": 1},
+                }
+            else:
+                d[pp.PRIMARY_VARIABLES] = {}
+        # Then for the edges
+        for e, d in self.gb.edges():
+            _, g_h = self.gb.nodes_of_edge(e)
+
+            if g_h.dim == self.Nd:
+                d[pp.PRIMARY_VARIABLES] = {
+                    self.mortar_displacement_variable: {"cells": self.Nd},
+                    self.mortar_scalar_variable: {"cells": 1},
+                }
 
     def discretize_biot(self, gb):
         """
@@ -217,7 +376,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
         for g, d in self.gb:
             # Initial value for the scalar variable.
-            initial_scalar_value = self.T_0 * np.ones(g.num_cells)
+            initial_scalar_value = self.initial_scalar * np.ones(g.num_cells)
             d[pp.STATE].update({self.scalar_variable: initial_scalar_value})
             if g.dim == self.Nd:
                 bc_values = d[pp.PARAMETERS][self.mechanics_parameter_key]["bc_values"]
@@ -254,35 +413,33 @@ def run_biot(setup, atol=1e-10):
     if "gb" not in setup.__dict__:
         setup.create_grid()
     gb = setup.gb
+
     # Extract the grids we use
-    ambient_dim = gb.dim_max()
-    g_max = gb.grids_of_dimension(ambient_dim)[0]
+    g_max = gb.grids_of_dimension(setup.Nd)[0]
     d_max = gb.node_props(g_max)
 
-    # set parameters
+    # Assign parameters, variables and discretizations
     setup.set_parameters()
     setup.initial_condition()
-
-    setup.assign_discretisations_and_variables()
-    # Define rotations
-    # Set up assembler and get initial condition
+    setup.assign_variables()
+    setup.assign_discretisations()
+    # Set up assembler and get initial condition for the displacements
     assembler = pp.Assembler(gb)
-
     u = d_max[pp.STATE][setup.displacement_variable]
 
     # Discretize with the biot class
     setup.discretize_biot(gb)
+    # Prepare for the time loop
     errors = []
-
-    t = 0.0
+    t = getattr(setup, "time", 0)
     dt = setup.time_step
-    T = setup.end_time
+    t_end = setup.end_time
     k = 0
     times = [t]
-    while t < T:
+    while t < t_end:
         t += dt
         k += 1
-        print("Time step: ", k, "/", int(np.ceil(T / dt)))
+        print("Time step: ", k, "/", int(np.ceil(t_end / dt)))
 
         times.append(t)
         # Prepare for Newton
