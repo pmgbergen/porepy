@@ -122,6 +122,7 @@ class Mpsa(
                 )
                 matrix_dictionary["stress"] = stress
                 matrix_dictionary["bound_stress"] = bound_stress
+                # Should be face_displacement_cell and _face
                 matrix_dictionary["bound_displacement_cell"] = bound_displacement_cell
                 matrix_dictionary["bound_displacement_face"] = bound_displacement_face
 
