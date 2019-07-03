@@ -117,12 +117,13 @@ class SetupContactMechanics(model.ContactMechanics):
         self.ux_north = ux_north
         self.uy_top = uy_top
 
-    def create_grid(self, rotate_fracture=False):
+    def create_grid(self):
         """
         Method that creates and returns the GridBucket of a 2D domain with six
         fractures. The two sides of the fractures are coupled together with a
         mortar grid.
         """
+        rotate_fracture = getattr(self, "rotate_fracture", False)
         if rotate_fracture:
             self.frac_pts = np.array([[0.7, 0.3], [0.3, 0.7]])
         else:

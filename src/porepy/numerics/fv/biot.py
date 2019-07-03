@@ -454,9 +454,6 @@ class Biot:
                 discretization of the force on the face due to cell-centre
                 pressure from a unique side.
 
-        """
-
-        """
         Method properties and implementation details.
         Basis functions, namely 'stress' and 'bound_stress', for the displacement
         discretization are obtained as in standard MPSA-W method.
@@ -486,7 +483,6 @@ class Biot:
         1. compute product normal_vector * alpha and get a map for vector problems
         2. assemble r.h.s. for the new linear system, needed for the term 'grad_p_jumps'
         3. compute term 'grad_p_face'
-
         """
 
         nd = g.dim
@@ -792,7 +788,7 @@ class Biot:
         return stress
 
 
-class GradP():
+class GradP:
     """ Class for the pressure gradient term of the Biot equation.
     """
 
@@ -992,7 +988,7 @@ class GradP():
         pass
 
 
-class DivU():
+class DivU:
     """ Class for the displacement divergence term of the Biot equation.
     """
 
