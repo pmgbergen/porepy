@@ -54,7 +54,8 @@ class Mpfa(FVElliptic):
             bc: (BoundaryCondition) boundary conditions
             aperture: (np.ndarray) apertures of the cells for scaling of
                 the face normals.
-            gravity: (boolean) Optional. Discretization of gravity term. If False,
+            vector_source: (boolean) Optional. Discretization of the divergence of
+                a vector source. For example, gravity in the flow equations. If False,
                 standard MPFA is used.
             mpfa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of
                 pressure continuity point. If not given, porepy tries to set an optimal
@@ -69,12 +70,13 @@ class Mpfa(FVElliptic):
                 flux discretization, cell center contribution
             bound_flux: sps.csc_matrix (g.num_faces, g.num_faces)
                 flux discretization, face contribution
-            div_g: sps.csc_matrix (g.num_faces, g.num_cells*dim)
-                gravity discretization, cell center contribution
             bound_pressure_cell: sps.csc_matrix (g.num_faces, g.num_cells)
                 Operator for reconstructing the pressure trace. Cell center contribution
             bound_pressure_face: sps.csc_matrix (g.num_faces, g.num_faces)
                 Operator for reconstructing the pressure trace. Face contribution
+            div_vector_source: sps.csc_matrix (g.num_faces, g.num_cells*dim)
+                Discretization of the flux due to vector source term, cell center contribution
+                Only if vector_source is True
 
         Parameters
         ----------
@@ -91,38 +93,38 @@ class Mpfa(FVElliptic):
         bnd = parameter_dictionary["bc"]
         aperture = parameter_dictionary["aperture"]
 
-        gravity = parameter_dictionary.get("mpfa_gravity", False)
+        vector_source = parameter_dictionary.get("mpfa_vector_source", False)
 
         eta = parameter_dictionary.get("mpfa_eta", None)
         eta_reconstruction = parameter_dictionary.get("reconstruction_eta", None)
         inverter = parameter_dictionary.get("mpfa_inverter", None)
 
-        if not gravity:
+        if not vector_source:
             trm, bound_flux, bp_cell, bp_face = self.mpfa(
                 g,
                 k,
                 bnd,
                 deviation_from_plane_tol,
-                gravity=gravity,
+                vector_source=vector_source,
                 eta=eta,
                 eta_reconstruction=eta_reconstruction,
                 apertures=aperture,
                 inverter=inverter,
             )
         else:
-            trm, bound_flux, bp_cell, bp_face, div_g = self.mpfa(
+            trm, bound_flux, bp_cell, bp_face, div_vec_source = self.mpfa(
                 g,
                 k,
                 bnd,
                 deviation_from_plane_tol,
-                gravity=gravity,
+                vector_source=vector_source,
                 eta=eta,
                 eta_reconstruction=eta_reconstruction,
                 apertures=aperture,
                 inverter=inverter,
             )
 
-            matrix_dictionary["div_g"] = div_g
+            matrix_dictionary["div_vector_source"] = div_vec_source
 
         matrix_dictionary["flux"] = trm
         matrix_dictionary["bound_flux"] = bound_flux
@@ -135,7 +137,7 @@ class Mpfa(FVElliptic):
         k,
         bnd,
         deviation_from_plane_tol=1e-5,
-        gravity=False,
+        vector_source=False,
         eta=None,
         eta_reconstruction=None,
         inverter=None,
@@ -163,11 +165,11 @@ class Mpfa(FVElliptic):
             g (core.grids.grid): grid to be discretized
             k (core.constit.second_order_tensor) permeability tensor
             bnd (core.bc.bc) class for boundary values
-            gravity: discretization of gravity term. Default False. If True,
-                gravitational forces are discretized as part of the discrete flux
-                operator
             deviation_from_plane_tol: The geometrical tolerance, used in the check to
                 rotate 2d grids
+            vector_source: discretization of the divergence of vector source term, 
+                e.g. gravity in the flow equations. Default False. If True,
+                vector sources are discretized as part of the discrete flux operator
             eta Location of pressure continuity point. Defaults to 1/3 for simplex
                 grids, 0 otherwise. On boundary faces with Dirichlet conditions,
                 eta=0 will be enforced.
@@ -192,15 +194,15 @@ class Mpfa(FVElliptic):
                 over faces having nodes on the boundary. For Dirichlet, the values
                 will be fluxes induced by the prescribed pressure. Incorporation as
                 a right hand side in linear system by multiplication with
-                divergence operator.
-            scipy.sparse.csr_matrix (shape num_faces, num_cells*dim): discretization of
-                gravity term, in the form of mapping from cell gravities to face
-                fluxes.        
+                divergence operator.     
             scipy.sparse.csr_matrix (shape num_faces, num_cells): Used to recover
                 pressure on boundary faces. Contribution from computed cell
                 pressures only; contribution from faces (below) also needed.
             scipy.sparse.csr_matrix (shape num_faces, num_faces): Used to recover
                 pressure on boundary faces. Contribution from boundary conditions.
+            scipy.sparse.csr_matrix (shape num_faces, num_cells*dim): discretization of
+                the flux due to vector source term, in the form of mapping from cell vector
+                sources to face fluxes. Only if vector_source is True   
         Example:
             # Set up a Cartesian grid
             g = structured.CartGrid([5, 5])
@@ -235,25 +237,25 @@ class Mpfa(FVElliptic):
             # entire grid.
             # TODO: We may want to estimate the memory need, and give a warning if
             # this seems excessive
-            if not gravity:
+            if not vector_source:
                 flux, bound_flux, bound_pressure_cell, bound_pressure_face = self._local_discr(
                     g,
                     k,
                     bnd,
                     deviation_from_plane_tol,
-                    gravity=gravity,
+                    vector_source=vector_source,
                     eta=eta,
                     eta_reconstruction=eta_reconstruction,
                     inverter=inverter,
                     apertures=apertures,
                 )
             else:
-                flux, bound_flux, bound_pressure_cell, bound_pressure_face, div_g = self._local_discr(
+                flux, bound_flux, bound_pressure_cell, bound_pressure_face, div_vector_source = self._local_discr(
                     g,
                     k,
                     bnd,
                     deviation_from_plane_tol,
-                    gravity=gravity,
+                    vector_source=vector_source,
                     eta=eta,
                     eta_reconstruction=eta_reconstruction,
                     inverter=inverter,
@@ -292,33 +294,33 @@ class Mpfa(FVElliptic):
                 active_nodes = np.squeeze(np.where((cn * active_cells) > 0))
 
                 # Perform local discretization.
-                if not gravity:
+                if not vector_source:
                     loc_flux, loc_bound_flux, loc_bp_cell, loc_bp_face, loc_faces = self.partial_discr(
                         g,
                         k,
                         bnd,
                         deviation_from_plane_tol,
-                        gravity=gravity,
+                        vector_source=vector_source,
                         eta=eta,
                         eta_reconstruction=eta_reconstruction,
                         inverter=inverter,
                         nodes=active_nodes,
                     )
                 else:
-                    div_g = sps.csr_matrix(g.num_faces, g.num_cells*g.dim)
-                    loc_flux, loc_bound_flux, loc_bp_cell, loc_bp_face, loc_div_g, loc_faces = self.partial_discr(
+                    div_vector_source = sps.csr_matrix(g.num_faces, g.num_cells * g.dim)
+                    loc_flux, loc_bound_flux, loc_bp_cell, loc_bp_face, loc_div_vector_source, loc_faces = self.partial_discr(
                         g,
                         k,
                         bnd,
                         deviation_from_plane_tol,
-                        gravity=gravity,
+                        vector_source=vector_source,
                         eta=eta,
                         eta_reconstruction=eta_reconstruction,
                         inverter=inverter,
                         nodes=active_nodes,
                     )
-                    loc_div_g[face_covered, :] *= 0
-                    div_g += loc_div_g
+                    loc_div_vector_source[face_covered, :] *= 0
+                    div_vector_source += loc_div_vector_source
 
                 # Eliminate contribution from faces already covered
                 loc_flux[face_covered, :] *= 0
@@ -333,10 +335,16 @@ class Mpfa(FVElliptic):
                 bound_pressure_cell += loc_bp_cell
                 bound_pressure_face += loc_bp_face
 
-        if not gravity:
+        if not vector_source:
             return flux, bound_flux, bound_pressure_cell, bound_pressure_face
         else:
-            return flux, bound_flux, bound_pressure_cell, bound_pressure_face, div_g
+            return (
+                flux,
+                bound_flux,
+                bound_pressure_cell,
+                bound_pressure_face,
+                div_vector_source,
+            )
 
     def partial_discr(
         self,
@@ -344,7 +352,7 @@ class Mpfa(FVElliptic):
         k,
         bnd,
         deviation_from_plane_tol=1e-5,
-        gravity=False,
+        vector_source=False,
         eta=0,
         eta_reconstruction=None,
         inverter="numba",
@@ -370,11 +378,12 @@ class Mpfa(FVElliptic):
             bnd (porepy.params.bc.BoundarCondition) class for boundary conditions
             faces (np.ndarray) faces to be considered. Intended for partial
                 discretization, may change in the future
-            gravity: discretization of gravity term. Default False. If True,
-                gravitational forces are discretized as part of the discrete flux
-                operator
+            bnd (core.bc.bc) class for boundary values
             deviation_from_plane_tol: The geometrical tolerance, used in the check to
                 rotate 2d grids
+            vector_source: discretization of the divergence of a vector source, 
+                e.g. gravity in the flow equations. Default False. If True,
+                vector sources are discretized as part of the discrete flux operator
             eta Location of pressure continuity point. Should be 1/3 for simplex
                 grids, 0 otherwise. On boundary faces with Dirichlet conditions,
                 eta=0 will be enforced.
@@ -453,13 +462,13 @@ class Mpfa(FVElliptic):
         outside = np.setdiff1d(np.arange(g.num_faces), active_faces, assume_unique=True)
 
         # Discretization of sub-problem
-        if not gravity:
+        if not vector_source:
             flux_loc, bound_flux_loc, bound_pressure_cell, bound_pressure_face = self._local_discr(
                 sub_g,
                 loc_k,
                 loc_bnd,
                 deviation_from_plane_tol,
-                gravity=gravity,
+                vector_source=vector_source,
                 eta=eta,
                 eta_reconstruction=eta_reconstruction,
                 inverter=inverter,
@@ -467,26 +476,26 @@ class Mpfa(FVElliptic):
             )
 
         else:
-            flux_loc, bound_flux_loc, bound_pressure_cell, bound_pressure_face, div_g_loc = self._local_discr(
+            flux_loc, bound_flux_loc, bound_pressure_cell, bound_pressure_face, div_vector_source_loc = self._local_discr(
                 sub_g,
                 loc_k,
                 loc_bnd,
                 deviation_from_plane_tol,
-                gravity=gravity,
+                vector_source=vector_source,
                 eta=eta,
                 eta_reconstruction=eta_reconstruction,
                 inverter=inverter,
                 apertures=apertures,
             )
-            # NOTE MS: I am not sure about this mapping since div_g is ready to be
+            # NOTE MS: I am not sure about this mapping since div_vector_source is ready to be
             # multiplied with a cell center vector. cell_map in this case should
             # have dimensions of (num_cells_loc * g.dim, g.num_cells * g.dim).
             # I think fvutils.map_subgrid_to_grid should be modified in order
             # to return 3 objects: face_map, cell_map, cell_map_nd
             # Anyhow, for most applications, discretization goes via _local_discr
             # this is just a reminder where issues may arise
-            div_g_glob = face_map * div_g_loc * cell_map
-            div_g_glob[outside, :] = 0
+            div_vector_source_glob = face_map * div_vector_source_loc * cell_map
+            div_vector_source_glob[outside, :] = 0
 
         flux_glob = face_map * flux_loc * cell_map
         bound_flux_glob = face_map * bound_flux_loc * face_map.transpose()
@@ -499,7 +508,7 @@ class Mpfa(FVElliptic):
         bound_pressure_cell_glob[outside, :] = 0
         bound_pressure_face_glob[outside, :] = 0
 
-        if not gravity:
+        if not vector_source:
             return (
                 flux_glob,
                 bound_flux_glob,
@@ -513,17 +522,17 @@ class Mpfa(FVElliptic):
                 bound_flux_glob,
                 bound_pressure_cell_glob,
                 bound_pressure_face_glob,
-                div_g_glob,                
+                div_vector_source_glob,
                 active_faces,
             )
-        
+
     def _local_discr(
         self,
         g,
         k,
         bnd,
         deviation_from_plane_tol=1e-5,
-        gravity=False,
+        vector_source=False,
         eta=None,
         eta_reconstruction=None,
         inverter="numba",
@@ -973,26 +982,53 @@ class Mpfa(FVElliptic):
             pressure_trace_bound = hf2f * area_mat * pressure_trace_bound * hf2f.T
             pressure_trace_cell = hf2f * area_mat * pressure_trace_cell
 
-        if not gravity:
+        if not vector_source:
             return flux, bound_flux, pressure_trace_cell, pressure_trace_bound
         else:
-            # in this case, we consider the full darcy's law in the presence of gravity
-            # we apply the discrete flux operator to the gravity term
-            # discr_div_g is the discretised gravity term, which is interpreted
-            # as a force on a subface due to imbalance in cell-center gravities
-            # this term is computed on a sub-cell basis 
+            # in this case, we consider the full darcy's law in the presence of
+            # a vector source, e.g. gravity.
+            # discr_div_vector_source is the discretised vector source, which is interpreted
+            # as a force on a subface due to imbalance in cell-center vector sources.
+            # This term is computed on a sub-cell basis
             # and has dimensions (num_subfaces, num_subcells * nd)
-            discr_div_g = self.discretize_div_g(g, subcell_topology, bound_exclusion, darcy, igrad, nk_grad_all, nk_grad_paired)
+            discr_div_vector_source = self.discretize_div_vector_source(
+                g,
+                subcell_topology,
+                bound_exclusion,
+                darcy,
+                igrad,
+                nk_grad_all,
+                nk_grad_paired,
+            )
 
             # Output should be on cell-level (not sub-cell)
-            sc2c = fvutils.cell_vector_to_subcell(g.dim, sub_cell_index, cell_node_blocks[0])
+            sc2c = fvutils.cell_vector_to_subcell(
+                g.dim, sub_cell_index, cell_node_blocks[0]
+            )
 
-            div_g = hf2f * discr_div_g * sc2c
-            return flux, bound_flux, pressure_trace_cell, pressure_trace_bound, div_g
-        
-    def discretize_div_g(self, g, subcell_topology, bound_exclusion, darcy, igrad, nk_grad_all, nk_grad_paired):
+            div_vector_source = hf2f * discr_div_vector_source * sc2c
+            return (
+                flux,
+                bound_flux,
+                pressure_trace_cell,
+                pressure_trace_bound,
+                div_vector_source,
+            )
+
+    def discretize_div_vector_source(
+        self,
+        g,
+        subcell_topology,
+        bound_exclusion,
+        darcy,
+        igrad,
+        nk_grad_all,
+        nk_grad_paired,
+    ):
         """
-        Consistent discretization of div_g-term in MPFA-O method.
+        Consistent discretization of the divergence of the vector source term
+        in MPFA-O method. An example of a vector source is the gravitational
+        forces in Darcy's law.
         For more details, see Starnoni et al (2019), Consistent discretization
         of flow for inhomogeneoug gravitational fields, WRR
 
@@ -1009,14 +1045,14 @@ class Mpfa(FVElliptic):
             
         Returns:
             scipy.sparse.csr_matrix (shape num_subfaces, num_subcells * nd):
-            discretization of the gravity term, interpreted as a force on a subface
-            due to imbalance in cell-center gravities
+            discretization of the vector source term, interpreted as a force on a subface
+            due to imbalance in cell-center vector sources
 
         Method properties and implementation details.
         Basis functions, namely 'flux' and 'bound_flux', for the pressure
         discretization are obtained as in standard MPFA-O method.
-        Gravity is represented as forces in the cells.
-        However, jumps in gravitational forces over a cell face act as flux
+        Vector source is represented as forces in the cells.
+        However, jumps in vector sources over a cell face act as flux
         imbalance, and thus induce additional pressure gradients in the sub-cells.
         An additional system is set up, which applies non-zero conditions to the
         flux continuity equation. This can be expressed as a linear system on the form
@@ -1024,38 +1060,38 @@ class Mpfa(FVElliptic):
             (ii)  B * grad_p + C * p_cc = 0
             (iii) 0            D * p_cc = 0
         Thus (i)-(iii) can be inverted to express the additional pressure gradients
-        due to imbalance in gravitational forces as in terms of the cell center variables.
-        Thus we can compute the basis functions 'div_g_jumps' on the sub-cells.
+        due to imbalance in vector sources as in terms of the cell center variables.
+        Thus we can compute the basis functions 'div_vector_source_jumps' on the sub-cells.
         To ensure flux continuity, as soon as a convention is chosen for what side
         the flux evaluation should be considered on, an additional term, called
-        'div_g_face', is added to the full flux. This latter term represents the flux
-        due to cell-center gravity acting on the face from the chosen side.
+        'div_vector_source_faces', is added to the full flux. This latter term represents the flux
+        due to cell-center vector source acting on the face from the chosen side.
         The pair subfno_unique-unique_subfno gives the side convention.
         The full flux on the face is therefore given by
-        q = flux * p + bound_flux * p_b + (div_g_jumps + div_g_face) * g
+        q = flux * p + bound_flux * p_b + (div_vector_source_jumps + div_vector_source_faces) * vector_source
 
-        Output: div_g = div_g_jumps + div_g_faces
+        Output: div_vector_source = div_vector_source_jumps + div_vector_source_faces
 
         The strategy is as follows.
-        1. assemble r.h.s. for the new linear system, needed for the term 'div_g_jumps'
-        2. compute term 'div_g_face'
+        1. assemble r.h.s. for the new linear system, needed for the term 'div_vector_source_jumps'
+        2. compute term 'div_vector_source_faces'
         """
 
         num_subfno = subcell_topology.num_subfno
         num_subfno_unique = subcell_topology.subfno_unique.size
 
         # Step 1
-        # The gravity term in the flux continuity equation is discretized
+        # The vector source term in the flux continuity equation is discretized
         # as a force on the faces. The right hand side is thus formed of the
         # unit vector.
         vals = np.ones(num_subfno_unique)
         rows = subcell_topology.subfno_unique
         cols = subcell_topology.subfno_unique
-        rhs_units = sps.coo_matrix((vals, (rows, cols)),
-                                 shape=(num_subfno_unique,
-                                        num_subfno_unique))
+        rhs_units = sps.coo_matrix(
+            (vals, (rows, cols)), shape=(num_subfno_unique, num_subfno_unique)
+        )
 
-        # The gravity term is added to all internal faces, all Neumann faces
+        # The vector source term is added to all internal faces, all Neumann faces
         # and all Robin faces.
         rhs_units_n = bound_exclusion.exclude_robin_dirichlet(rhs_units)
         # Robin condition is only applied to Robin boundary faces
@@ -1065,37 +1101,40 @@ class Mpfa(FVElliptic):
         rhs_units = sps.vstack([rhs_units_n, rhs_units_r])
 
         # No right hand side for cell pressure equations.
-        num_dir_subface = (bound_exclusion.exclude_neu_rob.shape[1] -
-                           bound_exclusion.exclude_neu_rob.shape[0])
+        num_dir_subface = (
+            bound_exclusion.exclude_neu_rob.shape[1]
+            - bound_exclusion.exclude_neu_rob.shape[0]
+        )
 
-        rhs_units_pres_var = sps.coo_matrix((num_subfno
-                                                - num_dir_subface,
-                                                num_subfno_unique))
+        rhs_units_pres_var = sps.coo_matrix(
+            (num_subfno - num_dir_subface, num_subfno_unique)
+        )
 
         rhs_units = -sps.vstack([rhs_units, rhs_units_pres_var])
 
-        
         del rhs_units_pres_var
 
         # prepare for computation of imbalance coefficients,
-        # that is jumps in cell-centers gravities, ready to be
+        # that is jumps in cell-centers vector sources, ready to be
         # multiplied with inverse gradients
-        div_g_jumps = - darcy * igrad * rhs_units  * nk_grad_paired
+        div_vector_source_jumps = -darcy * igrad * rhs_units * nk_grad_paired
 
         # Step 2
 
         # mapping from subface to unique subface for scalar problems.
         # This mapping gives the convention from which side
         # the force should be evaluated on.
-        map_unique_subfno = sps.coo_matrix((np.ones(num_subfno_unique), (subcell_topology.subfno_unique,
-                                                          subcell_topology.unique_subfno)))
+        map_unique_subfno = sps.coo_matrix(
+            (
+                np.ones(num_subfno_unique),
+                (subcell_topology.subfno_unique, subcell_topology.unique_subfno),
+            )
+        )
 
-        # Prepare for computation of grad_p_face term
-        # Note that sgn_diag_F might only flip the boundary signs. See comment above.
-        div_g_face = map_unique_subfno * nk_grad_all
-        
-        return div_g_jumps + div_g_face
+        # Prepare for computation of div_vector_source_faces term
+        div_vector_source_faces = map_unique_subfno * nk_grad_all
 
+        return div_vector_source_jumps + div_vector_source_faces
 
     """
     The functions below are helper functions, which are not really necessary to
