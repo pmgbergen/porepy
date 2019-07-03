@@ -678,12 +678,6 @@ class FractureScalarToForceBalance:
         return matrix, rhs
 
 
-"""
-Account for the displacement effects on the scalar variable in the mass balance on both
-higher- and lower-dimensional nodes.
-"""
-
-
 class DivUCoupling:
     """
     Coupling conditions for DivU term.

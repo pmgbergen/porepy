@@ -216,7 +216,10 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         # Coupling discretizations
         # All dimensions
         div_u_disc = pp.DivU(
-            key_m, key_s, variable=var_d, mortar_variable=self.mortar_displacement_variable
+            key_m,
+            key_s,
+            variable=var_d,
+            mortar_variable=self.mortar_displacement_variable,
         )
         # Nd
         grad_p_disc = pp.GradP(key_m)

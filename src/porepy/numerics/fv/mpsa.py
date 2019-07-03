@@ -19,9 +19,7 @@ import numpy.matlib as np_matlib
 logger = logging.getLogger(__name__)
 
 
-class Mpsa():
-
-
+class Mpsa:
     def __init__(self, keyword):
         """ Set the discretization, with the keyword used for storing various
         information associated with the discretization.
