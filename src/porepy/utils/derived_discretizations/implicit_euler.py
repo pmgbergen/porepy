@@ -132,7 +132,7 @@ class ImplicitUpwind(pp.Upwind):
     Multiply all contributions by the time step and advection weight.
     """
 
-    def assemble_matrix_rhs(self, g, data, d_name="darcy_flux"):
+    def assemble_matrix_rhs(self, g, data):
         if g.dim == 0:
             data["flow_faces"] = sps.csr_matrix([0.0])
             return sps.csr_matrix([0.0]), np.array([0.0])
@@ -140,7 +140,7 @@ class ImplicitUpwind(pp.Upwind):
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         dt = parameter_dictionary["time_step"]
         w = parameter_dictionary["advection_weight"] * dt
-        a, b = super().assemble_matrix_rhs(g, data, d_name)
+        a, b = super().assemble_matrix_rhs(g, data)
         a = a * w
         b = b * w
         return a, b

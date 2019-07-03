@@ -54,7 +54,7 @@ class BasicsTest(unittest.TestCase):
         add_constant_darcy_flux(gb, upwind, [0, 1, 0], a)
 
         assembler = pp.Assembler(gb)
-
+        assembler.discretize()
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
@@ -141,6 +141,7 @@ class BasicsTest(unittest.TestCase):
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
         assembler = pp.Assembler(gb)
+        assembler.discretize()
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
@@ -277,6 +278,7 @@ class BasicsTest(unittest.TestCase):
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
         assembler = pp.Assembler(gb)
+        assembler.discretize()
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
@@ -866,6 +868,7 @@ class BasicsTest(unittest.TestCase):
         add_constant_darcy_flux(gb, upwind, [0, 0, 1], a)
 
         assembler = pp.Assembler(gb)
+        assembler.discretize()
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
@@ -949,6 +952,7 @@ class BasicsTest(unittest.TestCase):
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
         assembler = pp.Assembler(gb)
+        assembler.discretize()
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
@@ -1125,6 +1129,7 @@ class BasicsTest(unittest.TestCase):
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
         assembler = pp.Assembler(gb)
 
+        assembler.discretize()
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
         grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
@@ -1266,6 +1271,7 @@ class BasicsTest(unittest.TestCase):
 
         add_constant_darcy_flux(gb, upwind, [2, 0, 0], a)
         assembler = pp.Assembler(gb)
+        assembler.discretize()
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
@@ -1425,6 +1431,7 @@ class BasicsTest(unittest.TestCase):
         add_constant_darcy_flux(gb, upwind, [1, 1, 0], a)
 
         assembler = pp.Assembler(gb)
+        assembler.discretize()
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
