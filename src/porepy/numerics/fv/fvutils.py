@@ -584,6 +584,7 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
     ).tocsr()
     return hf2f
 
+
 def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
 
     """
@@ -603,16 +604,17 @@ def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
 
     num_cells = cell_index.max() + 1
 
-    rows = sub_cell_index.ravel('F')
+    rows = sub_cell_index.ravel("F")
     cols = expand_indices_nd(cell_index, nd)
     vals = np.ones(rows.size)
     mat = sps.coo_matrix(
-        (vals, (rows, cols)), shape=(sub_cell_index.size, num_cells*nd)
+        (vals, (rows, cols)), shape=(sub_cell_index.size, num_cells * nd)
     ).tocsr()
 
     return mat
 
-def cell_scalar_to_subcell(nd, sub_cell_index, cell_index):
+
+def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
 
     """
     Create mapping from sub-cells to cells for vector problems.
@@ -628,7 +630,7 @@ def cell_scalar_to_subcell(nd, sub_cell_index, cell_index):
         scipy.sparse.csr_matrix (shape num_subcells * nd, num_cells):
 
     """
-    
+
     num_cells = cell_index.max() + 1
 
     def build_sc2c_single_dimension(dim):
