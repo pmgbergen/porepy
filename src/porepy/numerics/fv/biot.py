@@ -315,11 +315,9 @@ class Biot:
                 term.
        """
         parameters_m = data[pp.PARAMETERS][self.mechanics_keyword]
-        parameters_f = data[pp.PARAMETERS][self.flow_keyword]
         matrices_m = data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]
         matrices_f = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
         bound_mech = parameters_m["bc"]
-        bound_flow = parameters_f["bc"]
         constit = parameters_m["fourth_order_tensor"]
 
         eta = parameters_m.get("mpsa_eta", fvutils.determine_eta(g))
@@ -354,7 +352,7 @@ class Biot:
         if bound_mech.num_faces == subcell_topology.num_subfno_unique:
             subface_rhs = True
         else:
-            #  If they har given on the faces, expand the boundary conditions them
+            # If they are given on the faces, expand the boundary conditions
             bound_mech = pp.fvutils.boundary_to_sub_boundary(
                 bound_mech, subcell_topology
             )
@@ -1257,6 +1255,7 @@ class DivU:
         normal_component = rotation.project_normal(g.num_cells)
 
         biot_alpha = data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
+#        aperture = data[pp.PARAMETERS][self.flow_keyword]["aperture"]
         if biot_alpha != 1:
             warnings.warn(
                 "Are you sure you want a non-unitary biot alpha for the fracture?"
