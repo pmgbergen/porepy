@@ -74,6 +74,7 @@ class Field(object):
             np.dtype("bool"): vtk.VTK_CHAR,
             np.dtype("int64"): vtk.VTK_INT,
             np.dtype("float64"): vtk.VTK_DOUBLE,
+            np.dtype("int32"): vtk.VTK_INT,
         }
 
         return map_type[self.values.dtype]
