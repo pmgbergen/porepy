@@ -77,11 +77,11 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
     def set_parameters(self):
         """
-        Set the parameters for the simulation. The stress is given in GPa.
+        Set the parameters for the simulation.
         """
-
-        self.set_mechanics_parameters()
         self.set_scalar_parameters()
+        self.set_mechanics_parameters()
+
 
     def set_mechanics_parameters(self):
         """
@@ -92,18 +92,12 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         for g, d in gb:
             if g.dim == self.Nd:
                 # Rock parameters
-                lam = np.ones(g.num_cells)
-                mu = np.ones(g.num_cells)
+                lam = np.ones(g.num_cells) / self.scalar_scale
+                mu = np.ones(g.num_cells) / self.scalar_scale
                 C = pp.FourthOrderTensor(g.dim, mu, lam)
 
                 # Define boundary condition
                 bc = self.bc_type_mechanics(g)
-                # Default internal BC is Neumann. We change to Dirichlet for the contact
-                # problem. I.e., the mortar variable represents the displacement on the
-                # fracture faces.
-                frac_face = g.tags["fracture_faces"]
-                bc.is_neu[:, frac_face] = False
-                bc.is_dir[:, frac_face] = True
                 # BC and source values
                 bc_val = self.bc_values_mechanics(g)
                 source_val = self.source_mechanics(g)
@@ -384,6 +378,11 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 mech_dict = {"bc_values": bc_values}
                 d[pp.STATE].update({self.mechanics_parameter_key: mech_dict})
 
+    def export_step(self):
+        pass
+
+    def export_pvd(self):
+        pass
 
 def run_biot(setup, atol=1e-10):
     """
@@ -428,25 +427,25 @@ def run_biot(setup, atol=1e-10):
     assembler = pp.Assembler(gb)
     u = d_max[pp.STATE][setup.displacement_variable]
 
+    setup.export_step()
+
     # Discretize with the biot class
     setup.discretize_biot(gb)
     # Prepare for the time loop
     errors = []
-    t = getattr(setup, "time", 0)
     dt = setup.time_step
     t_end = setup.end_time
     k = 0
-    times = [t]
-    while t < t_end:
-        t += dt
+    setup.export_step()
+    while setup.time < t_end:
+        setup.time += dt
         k += 1
         print("Time step: ", k, "/", int(np.ceil(t_end / dt)))
 
-        times.append(t)
         # Prepare for Newton
         counter_newton = 0
         converged_newton = False
-        max_newton = 10
+        max_newton = 20
         newton_errors = []
         while counter_newton <= max_newton and not converged_newton:
             print("Newton iteration number: ", counter_newton, "/", max_newton)
@@ -458,4 +457,6 @@ def run_biot(setup, atol=1e-10):
             newton_errors.append(error)
         # Prepare for next time step
         assembler.distribute_variable(sol)
+        setup.export_step()
         errors.append(newton_errors)
+    setup.export_pvd()

@@ -153,7 +153,14 @@ class SetupContactMechanics(model.ContactMechanics):
 
     def bc_type(self, g):
         _, _, _, north, south, _, _ = self.domain_boundary_sides(g)
-        return pp.BoundaryConditionVectorial(g, north + south, "dir")
+        bc = pp.BoundaryConditionVectorial(g, north + south, "dir")
+        # Default internal BC is Neumann. We change to Dirichlet for the contact
+        # problem. I.e., the mortar variable represents the displacement on the
+        # fracture faces.
+        frac_face = g.tags["fracture_faces"]
+        bc.is_neu[:, frac_face] = False
+        bc.is_dir[:, frac_face] = True
+        return bc
 
 
 if __name__ == "__main__":

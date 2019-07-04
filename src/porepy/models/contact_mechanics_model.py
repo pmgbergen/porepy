@@ -48,7 +48,7 @@ class ContactMechanics:
             gb (pp.GridBucket): The produced grid bucket.
             Nd (int): The dimension of the matrix, i.e., the highest dimension in the
                 grid bucket.
-                
+
         """
         # List the fracture points
         self.frac_pts = np.array([[0.2, 0.8], [0.5, 0.5]])
@@ -89,6 +89,12 @@ class ContactMechanics:
     def bc_type(self, g):
         all_bf, *_ = self.domain_boundary_sides(g)
         bc = pp.BoundaryConditionVectorial(g, all_bf, "dir")
+        # Default internal BC is Neumann. We change to Dirichlet for the contact
+        # problem. I.e., the mortar variable represents the displacement on the
+        # fracture faces.
+        frac_face = g.tags["fracture_faces"]
+        bc.is_neu[:, frac_face] = False
+        bc.is_dir[:, frac_face] = True
         return bc
 
     def bc_values(self, g):
@@ -116,12 +122,7 @@ class ContactMechanics:
 
                 # Define boundary condition
                 bc = self.bc_type(g)
-                # Default internal BC is Neumann. We change to Dirichlet for the contact
-                # problem. I.e., the mortar variable represents the displacement on the
-                # fracture faces.
-                frac_face = g.tags["fracture_faces"]
-                bc.is_neu[:, frac_face] = False
-                bc.is_dir[:, frac_face] = True
+
                 # BC and source values
                 bc_val = self.bc_values(g)
                 source_val = self.source(g)
