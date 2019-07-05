@@ -27,7 +27,7 @@ class Tpfa(FVElliptic):
     def __init__(self, keyword):
         super(Tpfa, self).__init__(keyword)
 
-    def discretize(self, g, data, faces=None):
+    def discretize(self, g, data, vector_source=False, faces=None):
         """
         Discretize the second order elliptic equation using two-point flux approximation.
 
@@ -56,7 +56,10 @@ class Tpfa(FVElliptic):
                 Operator for reconstructing the pressure trace. Cell center contribution
             bound_pressure_face: sps.csc_matrix (g.num_faces, g.num_faces)
                 Operator for reconstructing the pressure trace. Face contribution
-
+            div_vector_source: sps.csc_matrix (g.num_faces)
+                discretization of flux due to vector source, e.g. gravity. Face contribution.
+                Active only if vector_source = True, and only for 1D.
+                
         Hidden option (intended as "advanced" option that one should normally not
         care about):
             Half transmissibility calculation according to Ivar Aavatsmark, see
@@ -67,6 +70,7 @@ class Tpfa(FVElliptic):
         ----------
         g (pp.Grid): grid, or a subclass, with geometry fields computed.
         data (dict): For entries, see above.
+        vector_source (Boolean): optional. Defines flux contribution from vector source
         faces (np.ndarray): optional. Defines active faces.
         """
         # Get the dictionaries for storage of data and discretization matrices
@@ -170,3 +174,14 @@ class Tpfa(FVElliptic):
         bound_pressure_face = sps.dia_matrix((v_face, 0), (g.num_faces, g.num_faces))
         matrix_dictionary["bound_pressure_cell"] = bound_pressure_cell
         matrix_dictionary["bound_pressure_face"] = bound_pressure_face
+
+        if vector_source:
+            # discretization of vector source
+            # e.g. gravity in Darcy's law
+            # Implementation of standard method in 1D
+            # employing harmonic average of cell transmissibilities
+            # ready to be multiplied with arithmetic average of cell vector sources.
+            # This is only called for 1D problems,
+            # for higher dimensions method calls GCMPFA
+            assert g.dim == 1
+            matrix_dictionary["div_vector_source"] = t

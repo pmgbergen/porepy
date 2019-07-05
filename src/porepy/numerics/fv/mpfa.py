@@ -598,14 +598,23 @@ class Mpfa(FVElliptic):
                 pp.PARAMETERS: {self.keyword: params},
                 pp.DISCRETIZATION_MATRICES: {self.keyword: {}},
             }
-            discr.discretize(g, d)
+            discr.discretize(g, d, vector_source=vector_source)
             matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.keyword]
-            return (
-                matrix_dictionary["flux"],
-                matrix_dictionary["bound_flux"],
-                matrix_dictionary["bound_pressure_cell"],
-                matrix_dictionary["bound_pressure_face"],
-            )
+            if not vector_source:
+                return (
+                    matrix_dictionary["flux"],
+                    matrix_dictionary["bound_flux"],
+                    matrix_dictionary["bound_pressure_cell"],
+                    matrix_dictionary["bound_pressure_face"],
+                )
+            else:
+                return (
+                    matrix_dictionary["flux"],
+                    matrix_dictionary["bound_flux"],
+                    matrix_dictionary["bound_pressure_cell"],
+                    matrix_dictionary["bound_pressure_face"],
+                    matrix_dictionary["div_vector_source"],
+                )
         elif g.dim == 0:
             return sps.csr_matrix([0]), 0, 0, 0
 
