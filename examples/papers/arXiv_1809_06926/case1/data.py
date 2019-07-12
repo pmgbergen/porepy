@@ -41,14 +41,15 @@ def add_data(gb, data, solver_name):
             "is_tangential",
             "problem",
             "frac_num",
-            "low_zones",
             "porosity",
             "Aavatsmark_transmissibilities",
         ]
     )
     for g, d in gb:
-        d["low_zones"] = low_zones(g)
         d["Aavatsmark_transmissibilities"] = True
+
+        low_zone = low_zones(g)
+        d[pp.STATE]["low_zones"] = low_zone
 
         unity = np.ones(g.num_cells)
         empty = np.empty(0)
@@ -61,7 +62,7 @@ def add_data(gb, data, solver_name):
         # set the permeability
         if g.dim == 3:
             kxx = data["km_high"] * unity
-            kxx[d["low_zones"]] = data["km_low"]
+            kxx[low_zone] = data["km_low"]
             if is_fv:
                 perm = pp.SecondOrderTensor(3, kxx=kxx)
             else:
@@ -113,7 +114,7 @@ def add_data(gb, data, solver_name):
 
         if g.dim == 3:
             d["porosity"] = data["porosity_high"] * unity
-            d["porosity"][low_zones(g)] = data["porosity_low"]
+            d["porosity"][low_zone] = data["porosity_low"]
         else:
             d["porosity"] = data["porosity_f"] * unity
 

@@ -1,4 +1,5 @@
 from __future__ import print_function
+import os
 
 import paraview.simple as pv
 
@@ -115,17 +116,22 @@ if __name__ == "__main__":
     perms = ['0', '1']
     refinements = ['0', '1', '2']
 
+    main_folder = "/home/elle/tmp/"
+
     for perm in perms:
         for refinement in refinements:
             for solver in solver_names:
-                folder = "./" + solver + "_results_" + perm + "_" + refinement + "/"
+                folder_in = main_folder + solver + "_results_" + perm + "_" + refinement + "/"
+                folder_out = "./" + solver + "_results_" + perm + "_" + refinement + "/"
+                if not os.path.exists(folder_out):
+                    os.makedirs(folder_out)
 
                 # 1) matrix and grid information
-                file_in = folder + "info.txt"
+                file_in = folder_in + "info.txt"
                 data = read_csv(file_in)[0]
                 data = map(int, map(float, data[:0:-1]))
 
-                file_in = folder + "matrix.mtx"
+                file_in = folder_in + "matrix.mtx"
                 A = mmread(file_in)
                 data.append(A.shape[0])
                 data.append(A.nnz)
@@ -140,8 +146,8 @@ if __name__ == "__main__":
 
                 field = "pressure"
                 # file of both the matrix and the fracture
-                file_in = folder + "sol_3_000000.vtu"
-                file_out = folder + "dol_perm_"+ perm + "_refinement_" + refinement + ".csv"
+                file_in = folder_in + "sol_3_000000.vtu"
+                file_out = folder_out + "dol_perm_"+ perm + "_refinement_" + refinement + ".csv"
                 pts = [[0, 0, 0], [1, 1, 1]]
 
                 plot_over_line(file_in, file_out, pts)
@@ -150,15 +156,15 @@ if __name__ == "__main__":
 
                 # 4) for the coarsest mesh the averaged concentration on each matrix block
                 if refinement == "1":
-                    transport_root = folder+"tracer_3_"
-                    file_in = folder+"sol_3_000000.vtu"
+                    transport_root = folder_in+"tracer_3_"
+                    file_in = folder_in+"sol_3_000000.vtu"
                     fields = ["cell_volumes"]
                     field = "tracer"
                     step = 101
-                    num_colors = 21
+                    num_colors = 22
                     cot_matrix = cot_domain(transport_root, file_in, step, field, fields, num_colors)
 
-                    file_out = folder + "dot_perm_" + perm + ".csv"
+                    file_out = folder_out + "dot_perm_" + perm + ".csv"
                     times = np.arange(step)*0.25/100.
                     labels = np.arange(num_colors).astype(np.str)
                     labels = np.core.defchararray.add("cot_m_", labels)
