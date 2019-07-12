@@ -897,7 +897,7 @@ class Assembler:
             else:  # This is really an edge
                 data = self.gb.edge_props(g)
             if var_name == var:
-                loc_value = data[var_name]
+                loc_value = data[pp.STATE][var_name]
             else:
                 loc_value = 0
             values[dof[bi] : dof[bi + 1]] = loc_value
