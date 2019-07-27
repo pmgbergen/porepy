@@ -1,3 +1,10 @@
+""" Hard coded typical parameters that may be of use in simulations.
+
+Contains standard values (e.g. found in Wikipedia) for density, thermal properties etc.
+
+Note that thermal expansion coefficients are linear (m/mK) for rocks, but
+volumetric (m^3/m^3) for fluids.
+"""
 import numpy as np
 import porepy as pp
 
@@ -13,6 +20,7 @@ class Water:
         self.BULK = 1 / self.COMPRESSIBILITY
 
     def thermal_expansion(self, delta_theta):
+        """ Units: m^3 / m^3 K, i.e. volumetric """
         return (
             0.0002115
             + 1.32 * 1e-6 * delta_theta
@@ -20,6 +28,7 @@ class Water:
         )
 
     def density(self, theta=None):  # theta in CELSIUS
+        """ Units: kg / m^3 """
         if theta is None:
             theta = self.theta_ref
         theta_0 = 10 * (pp.CELSIUS)
@@ -27,6 +36,7 @@ class Water:
         return rho_0 / (1.0 + self.thermal_expansion(theta - theta_0))
 
     def thermal_conductivity(self, theta=None):  # theta in CELSIUS
+        """ Units: W / m K """
         if theta is None:
             theta = self.theta_ref
         return (
@@ -37,11 +47,13 @@ class Water:
         )
 
     def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
+        """ Units: J / kg K """
         if theta is None:
             theta = self.theta_ref
-        return (4245 - 1.841 * theta) / self.density(theta)
+        return 4245 - 1.841 * theta
 
     def dynamic_viscosity(self, theta=None):  # theta in CELSIUS
+        """Units: Pa s"""
         if theta is None:
             theta = self.theta_ref
         theta = pp.CELSIUS_to_KELVIN(theta)
