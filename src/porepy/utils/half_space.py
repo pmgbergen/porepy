@@ -107,7 +107,11 @@ def half_space_pt(n, x0, pts, recompute=True):
         (0, None),
         (0, None),
     )
-    res = opt.linprog(c, A_ub, b_ub, bounds=bounds)
+    try:
+        res = opt.linprog(c, A_ub, b_ub, bounds=bounds)
+    except ValueError:
+        # it fails to compute the internal point
+        return np.array([np.nan, np.nan, np.nan])
 
     if recompute and (not res.success or np.all(np.isclose(res.x[3:], 0))):
         return half_space_pt(-n, x0, pts, False)
