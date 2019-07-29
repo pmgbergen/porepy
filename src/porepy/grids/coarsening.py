@@ -38,7 +38,7 @@ def coarsen(g, method, **method_kwargs):
         if method_kwargs.get("if_seeds", False):
             seeds = generate_seeds(g)
         matrix = tpfa_matrix(g)
-        partition = create_partition(matrix, seeds=seeds, **method_kwargs)
+        partition = create_partition(matrix, g, seeds=seeds, **method_kwargs)
 
     else:
         raise ValueError("Undefined coarsening algorithm")
@@ -478,7 +478,7 @@ def __get_neigh(cells_id, c2c, partition):
 # ------------------------------------------------------------------------------#
 
 
-def create_partition(A, seeds=None, **kwargs):
+def create_partition(A, g, seeds=None, **kwargs):
     """
     Create the partition based on an input matrix using the algebraic multigrid
     method coarse/fine-splittings based on direct couplings. The standard values
@@ -509,6 +509,12 @@ def create_partition(A, seeds=None, **kwargs):
 
     cdepth = int(kwargs.get("cdepth", 2))
     epsilon = kwargs.get("epsilon", 0.25)
+
+    # NOTE: Extract the higher dimensional grids, we suppose it is unique
+    if isinstance(g, grid_bucket.GridBucket):
+        g_high = g.get_grids(lambda g_: g_.dim == g.dim_max())[0]
+    else:
+        g_high = g
 
     if A.size == 0:
         return np.zeros(1)
@@ -678,7 +684,8 @@ def create_partition(A, seeds=None, **kwargs):
             vals += sps.csr_matrix((nv, (nc, np.repeat(mi, len(nc)))), shape=(Nc, NC))
 
     coarse, fine = primal.tocsr().nonzero()
-    return coarse[np.argsort(fine)]
+    partition = {g_high: (g_high.copy(), coarse[np.argsort(fine)])}
+    return partition
 
 
 # ------------------------------------------------------------------------------#
