@@ -1,8 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Implementation of contact conditions for fracture mechanics, using a primal formulation.
 
+We provide a class for coupling the higher-dimensional mechanical discretization to the
+tractions on the fractures. Also, in the case of coupled physics (Biot and the like),
+classes handling the arising coupling terms are provided.
 """
 
 import numpy as np
@@ -31,7 +32,7 @@ class PrimalContactCoupling(object):
 
     def __init__(self, keyword, discr_master, discr_slave, use_surface_discr=False):
         self.keyword = keyword
-
+        self.mortar_displacement_variable = "mortar_u"
         self.discr_master = discr_master
         self.discr_slave = discr_slave
 
@@ -320,17 +321,17 @@ class PrimalContactCoupling(object):
             g_master, ambient_dimension, faces_on_fracture_surface
         )
 
-        ## First, we obtain \lambda_mortar = stress * u_master + bound_stress * u_mortar
+        ## First, we obtain T_master = stress * u_master + bound_stress * u_mortar
         # Stress contribution from the higher dimensional domain, projected onto
         # the mortar grid
         # Switch the direction of the vectors to obtain the traction as defined
         # by the outwards pointing normal vector.
-        stress_from_master = (
+        traction_from_master = (
             mg.master_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
             * master_stress
         )
-        cc[mortar_ind, master_ind] = stress_from_master
+        cc[mortar_ind, master_ind] = traction_from_master
         # Stress contribution from boundary conditions.
         rhs[mortar_ind] = -(
             mg.master_to_mortar_int(nd=ambient_dimension)
@@ -343,17 +344,17 @@ class PrimalContactCoupling(object):
         # projection operator.
         # Switch the direction of the vectors, so that for all faces, a positive
         # force points into the fracture surface.
-        stress_from_mortar = (
+        traction_from_mortar = (
             mg.master_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
             * master_bound_stress
             * mg.mortar_to_master_avg(nd=ambient_dimension)
         )
-        cc[mortar_ind, mortar_ind] = stress_from_mortar
+        cc[mortar_ind, mortar_ind] = traction_from_mortar
 
         ## Second, the contact stress is mapped to the mortar grid.
         # We have for the positive (first) and negative (second) side of the mortar that
-        # \lambda_slave = \lambda_mortar_pos = -\lambda_mortar_neg,
+        # T_slave = T_master_pos = -T_master_neg,
         # so we need to map the slave traction with the corresponding signs to match the
         # mortar tractions.
 
@@ -363,13 +364,13 @@ class PrimalContactCoupling(object):
         # Finally, the contact stresses will be felt in different directions by
         # the two sides of the mortar grids (Newton's third law), hence
         # adjust the signs
-        contact_stress_to_mortar = (
+        contact_traction_to_mortar = (
             mg.sign_of_mortar_sides(nd=ambient_dimension)
             * projection.project_tangential_normal(mg.num_cells).T
             * mg.slave_to_mortar_int(nd=ambient_dimension)
         )
-        # Minus to obtain -\lambda_slave + \lambda_mortar = 0.
-        cc[mortar_ind, slave_ind] = -contact_stress_to_mortar
+        # Minus to obtain -T_slave + T_master = 0.
+        cc[mortar_ind, slave_ind] = -contact_traction_to_mortar
 
         if self.use_surface_discr:
             restrict_to_tangential_direction = projection.project_tangential(
@@ -396,7 +397,7 @@ class MatrixScalarToForceBalance:
     This class adds the matrix scalar (pressure) contribution to the force balance posed
     on the mortar grid by PrimalContactCoupling.
 
-    We account for the pressure contribution to the forces on the higher-dimensional
+    We account for the scalar variable contribution to the forces on the higher-dimensional
     internal boundary, i.e. the last term of:
 
         boundary_traction_hat = stress * u_hat + bound_stress * u_mortar + gradP * p_hat
@@ -406,7 +407,7 @@ class MatrixScalarToForceBalance:
 
     If the scalar is e.g. pressure, subtraction of the pressure contribution is needed:
 
-        \lambda_contact - p_check I \dot n = boundary_traction_hat
+        T_contact - p_check I \dot n = boundary_traction_hat
 
     This is taken care of by FracturePressureToForceBalance.
 
@@ -507,7 +508,7 @@ class MatrixScalarToForceBalance:
         # scalar (usually pressure) contribution.
         # In the purely mechanical case, stress from the higher dimensional
         # domain (both interior and bound_stress) should match the contact stress:
-        # -\lambda_slave + \lambda_master = 0,
+        # -T_slave + T_master = 0,
         # see PrimalContactCoupling.
         # The following modification is needed:
         # Add the scalar gradient contribution to the traction on the master
@@ -526,13 +527,13 @@ class MatrixScalarToForceBalance:
         # force points into the fracture surface (along the outwards normal on the
         # boundary).
         # iii) Map to the mortar grid.
-        # iv) Minus according to - alpha grad p
-        master_scalar_stress_to_master_traction = -(
+        # iv) Minus according to - alpha grad p already in the discretization matrix
+        master_scalar_to_master_traction = (
             mg.master_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
             * master_scalar_gradient
         )
-        cc[mortar_ind, master_ind] = master_scalar_stress_to_master_traction
+        cc[mortar_ind, master_ind] = master_scalar_to_master_traction
 
         matrix += cc
 
@@ -548,7 +549,7 @@ class FractureScalarToForceBalance:
     For the contact mechanics, we only want to consider the _contact_ traction. Thus, we
     have to subtract the pressure contribution, i.e.
 
-        \lambda_contact - p_check I \dot n = boundary_traction_hat,
+        T_contact - p_check I \dot n = boundary_traction_hat,
 
     since the full tractions experienced by a fracture surface are the sum of the
     contact forces and the fracture pressure force.
@@ -664,14 +665,14 @@ class FractureScalarToForceBalance:
         # sign_of_mortar_sides as done in PrimalContactCoupling.
         # iii) The contribution should be subtracted so that we balance the master
         # forces by
-        # \lambda_contact - n dot I p,
+        # T_contact - n dot I p,
         # hence the minus.
-        slave_pressure_stress_to_contact_traction = -(
+        slave_pressure_to_contact_traction = -(
             n_dot_I * mg.slave_to_mortar_int(nd=1)
         )
-        # Minus to obtain -\lambda_slave + \lambda_mortar = 0, i.e. from placing the two
+        # Minus to obtain -T_slave + T_master = 0, i.e. from placing the two
         # terms on the same side of the equation, as also done in PrimalContactCoupling.
-        cc[mortar_ind, slave_ind] = -slave_pressure_stress_to_contact_traction
+        cc[mortar_ind, slave_ind] = -slave_pressure_to_contact_traction
 
         matrix += cc
 
