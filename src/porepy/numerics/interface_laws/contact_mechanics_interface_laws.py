@@ -163,7 +163,7 @@ class PrimalContactCoupling(object):
             matrix_dictionary_edge[self.SURFACE_DISCRETIZATION_KEY] = A
 
         # Discretization of the contact mechanics is done by a ColumbContact
-        # object. 
+        # object.
         # The resulting equations are located at the lower-dimensional grid,
         # however, the discretization is inherently linked to the mortar grid.
         # It is therefore constructed here.
@@ -667,9 +667,7 @@ class FractureScalarToForceBalance:
         # forces by
         # T_contact - n dot I p,
         # hence the minus.
-        slave_pressure_to_contact_traction = -(
-            n_dot_I * mg.slave_to_mortar_int(nd=1)
-        )
+        slave_pressure_to_contact_traction = -(n_dot_I * mg.slave_to_mortar_int(nd=1))
         # Minus to obtain -T_slave + T_master = 0, i.e. from placing the two
         # terms on the same side of the equation, as also done in PrimalContactCoupling.
         cc[mortar_ind, slave_ind] = -slave_pressure_to_contact_traction
