@@ -11,8 +11,8 @@ class TestRock(unittest.TestCase):
         e = 1
         nu = 0.1
         lam, mu = pp.params.rock.lame_from_young_poisson(e, nu)
-        self.assertEqual(lam, 0.11363636363636363)
-        self.assertEqual(mu, 0.45454545454545453)
+        self.assertTrue(np.allclose(lam, 0.11363636363636363))
+        self.assertTrue(np.allclose(mu, 0.45454545454545453))
 
     def test_poisson_from_lame(self):
         lam = 1
@@ -31,8 +31,8 @@ class TestRock(unittest.TestCase):
         self.assertEqual(R.POROSITY, 0.2)
         self.assertEqual(R.YOUNG_MODULUS, 5 * pp.KILOGRAM / pp.CENTI ** 2 * 1e5)
         self.assertEqual(R.POISSON_RATIO, 0.1)
-        self.assertEqual(R.LAMBDA, 568181818.1818181)
-        self.assertEqual(R.MU, 2272727272.7272725)
+        self.assertTrue(np.allclose(R.LAMBDA, 568181818.1818181))
+        self.assertTrue(np.allclose(R.MU, 2272727272.7272725))
 
     def test_granite(self):
         R = pp.Granite()
@@ -41,8 +41,8 @@ class TestRock(unittest.TestCase):
         self.assertEqual(R.YOUNG_MODULUS, 40 * pp.GIGA * pp.PASCAL)
         self.assertEqual(R.POISSON_RATIO, 0.2)
         self.assertEqual(R.DENSITY, 2700 * pp.KILOGRAM / pp.METER ** 3)
-        self.assertEqual(R.LAMBDA, 11111111111.1111112)
-        self.assertEqual(R.MU, 16666666666.6666667)
+        self.assertTrue(np.allclose(R.LAMBDA, 11111111111.1111112))
+        self.assertTrue(np.allclose(R.MU, 16666666666.6666667))
 
     def test_shale(self):
         R = pp.Shale()
@@ -50,8 +50,8 @@ class TestRock(unittest.TestCase):
         self.assertEqual(R.POROSITY, 0.01)
         self.assertEqual(R.YOUNG_MODULUS, 1.5 * pp.KILOGRAM / pp.CENTI ** 2 * 1e5)
         self.assertEqual(R.POISSON_RATIO, 0.3)
-        self.assertEqual(R.LAMBDA, 865384615.3846153)
-        self.assertEqual(R.MU, 576923076.9230769)
+        self.assertTrue(np.allclose(R.LAMBDA, 865384615.3846153))
+        self.assertTrue(np.allclose(R.MU, 576923076.9230769))
 
 
 if __name__ == "__main__":
