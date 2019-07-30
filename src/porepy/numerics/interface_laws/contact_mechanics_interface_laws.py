@@ -3,9 +3,6 @@
 """
 Implementation of contact conditions for fracture mechanics, using a primal formulation.
 
-
-The primal formulation is conceptually similar, but mathematically different from,
-the dual formulation, currently located in elliptic_interface_laws.
 """
 
 import numpy as np
@@ -164,7 +161,8 @@ class PrimalContactCoupling(object):
             # The final equations should relate to continuity of the normal froces
             matrix_dictionary_edge[self.SURFACE_DISCRETIZATION_KEY] = A
 
-        # Discretization of the contact mechanics is done externally.
+        # Discretization of the contact mechanics is done by a ColumbContact
+        # object. 
         # The resulting equations are located at the lower-dimensional grid,
         # however, the discretization is inherently linked to the mortar grid.
         # It is therefore constructed here.
@@ -306,7 +304,9 @@ class PrimalContactCoupling(object):
 
         # This is first a stress balance: stress from the higher dimensional
         # domain (both interior and bound_stress) should match with the contact stress:
-        # -\lambda_slave + \lambda_mortar = 0.
+        #
+        #     traction_slave + traction_master = 0
+        #
         # Optionally, a diffusion term can be added in the tangential direction
         # of the stresses, this is currently under implementation.
 
@@ -323,8 +323,8 @@ class PrimalContactCoupling(object):
         ## First, we obtain \lambda_mortar = stress * u_master + bound_stress * u_mortar
         # Stress contribution from the higher dimensional domain, projected onto
         # the mortar grid
-        # Switch the direction of the vectors, so that for all faces, a positive
-        # force points into the fracture surface.
+        # Switch the direction of the vectors to obtain the traction as defined
+        # by the outwards pointing normal vector.
         stress_from_master = (
             mg.master_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
@@ -396,7 +396,7 @@ class MatrixScalarToForceBalance:
     This class adds the matrix scalar (pressure) contribution to the force balance posed
     on the mortar grid by PrimalContactCoupling.
 
-    We account for the grad P contribution to the forces on the higher-dimensional
+    We account for the pressure contribution to the forces on the higher-dimensional
     internal boundary, i.e. the last term of:
 
         boundary_traction_hat = stress * u_hat + bound_stress * u_mortar + gradP * p_hat

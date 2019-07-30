@@ -350,7 +350,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
     def discretize_biot(self, gb):
         """
         To save computational time, the full Biot equation (without contact mechanics)
-        is discretized once. This computing the same terms multiple times.
+        is discretized once. This is to avoid computing the same terms multiple times.
         """
         g = gb.grids_of_dimension(gb.dim_max())[0]
         d = gb.node_props(g)
