@@ -233,8 +233,11 @@ class ColoumbContact:
             else:  # should never happen
                 raise AssertionError("Should not get here")
 
-            # Scale equations (helps iterative solver)
-            # TODO: Find out what happens here
+            # Depending on the state of the system, the weights in the tangential direction may
+            # become huge or tiny compared to the other equations. This will
+            # impede convergence of an iterative solver for the linearized
+            # system. As a partial remedy, rescale the condition to become
+            # closer to unity.
             w_diag = np.diag(loc_displacement_weight) + np.diag(loc_traction_weight)
             W_inv = np.diag(1 / w_diag)
             loc_displacement_weight = W_inv.dot(loc_displacement_weight)
@@ -403,9 +406,6 @@ def set_projections(gb):
     It is assumed that the surface is planar.
 
     """
-
-    ambient_dim = gb.dim_max()
-
     # Information on the vector normal to the surface is not available directly
     # from the surface grid (it could be constructed from the surface geometry,
     # which spans the tangential plane). We instead get the normal vector from
@@ -415,7 +415,7 @@ def set_projections(gb):
 
         mg = d_m["mortar_grid"]
         # Only consider edges where the lower-dimensional neighbor is of co-dimension 1
-        if not mg.dim == ambient_dim - 1:
+        if not mg.dim == (gb.dim_max() - 1):
             continue
 
         # Neigboring grids
@@ -436,14 +436,15 @@ def set_projections(gb):
         # Ensure all normal vectors on the relevant surface points outwards
         unit_normal[:, faces_on_surface] *= sgn
 
-        # Now we need to pick out a normal vector of the higher dimensional grid
+        # Now we need to pick out *one*  normal vector of the higher dimensional grid
         # which coincides with this mortar grid. This could probably have been
         # done with face tags, but we instead project the normal vectors onto the
-        # mortar grid to kill off all irrelevant grids.
+        # mortar grid to kill off all irrelevant faces. Restriction to a single
+        # normal vector is done in the construction of the projection object
+        # (below).
+        # NOTE: Use a single normal vector to span the tangential and normal space,
+        # thus assuming the surface is planar.
         outwards_unit_vector_mortar = mg.master_to_mortar_int().dot(unit_normal.T).T
-
-        # Use a single normal vector to span the tangential and normal space,
-        # assuming the surface is planar.
 
         # NOTE: The normal vector is based on the first cell in the mortar grid,
         # and will be pointing from that cell towards the other side of the
