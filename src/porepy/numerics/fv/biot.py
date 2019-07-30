@@ -1255,11 +1255,6 @@ class DivU:
         normal_component = rotation.project_normal(g.num_cells)
 
         biot_alpha = data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
-#        aperture = data[pp.PARAMETERS][self.flow_keyword]["aperture"]
-        if biot_alpha != 1:
-            warnings.warn(
-                "Are you sure you want a non-unitary biot alpha for the fracture?"
-            )
 
         # Project the previous solution to the slave grid
         previous_displacement_jump_global_coord = (
