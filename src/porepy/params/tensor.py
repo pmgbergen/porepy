@@ -183,7 +183,7 @@ class FourthOrderTensor(object):
 
         Parameters
         ----------
-        dim (int) dimension, should be 2 or 3
+        dim (int) dimension, should be 1, 2 or 3
         mu (numpy.ndarray), First lame parameter, 1-D, one value per cell
         lmbda (numpy.ndarray), Second lame parameter, 1-D, one value per cell
         phi (Optional numpy.ndarray), 1-D one value per cell, never been used.
@@ -191,7 +191,7 @@ class FourthOrderTensor(object):
         """
 
         # Check arguments
-        if dim > 3 or dim < 2:
+        if dim > 3 or dim < 1:
             raise ValueError("Dimension should be between 1 and 3")
 
         if not isinstance(mu, np.ndarray):
@@ -220,6 +220,49 @@ class FourthOrderTensor(object):
         self.dim = dim
 
         # Basis for the contributions of mu, lmbda and phi is hard-coded
+        if dim == 1:
+            mu_mat = np.array(
+                [
+                    [2, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 1, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 1],
+                ]
+            )
+
+            lmbda_mat = np.array(
+                [
+                    [1, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 1, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 1],
+                ]
+            )
+
+            phi_mat = np.array(
+                [
+                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
+                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
+                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
+                ]
+            )
+
         if dim == 2:
             mu_mat = np.array(
                 [

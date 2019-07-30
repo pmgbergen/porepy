@@ -26,12 +26,14 @@ __version__ = "0.5.0"
 __all__ = []
 
 # Numerics
+from porepy.numerics.discretization import VoidDiscretization
+
 # Control volume, elliptic
-from porepy.numerics.fv.mpsa import Mpsa, FracturedMpsa
+from porepy.numerics.fv.mpsa import Mpsa
 from porepy.numerics.fv.fv_elliptic import FVElliptic
 from porepy.numerics.fv.tpfa import Tpfa
 from porepy.numerics.fv.mpfa import Mpfa
-from porepy.numerics.fv.biot import Biot, GradP, DivD, BiotStabilization
+from porepy.numerics.fv.biot import Biot, GradP, DivU, BiotStabilization
 from porepy.numerics.fv.source import ScalarSource
 
 # Virtual elements, elliptic
@@ -50,9 +52,8 @@ from porepy.numerics.fem.rt0 import RT0
 from porepy.numerics.interface_laws.elliptic_interface_laws import (
     RobinCoupling,
     FluxPressureContinuity,
-    RobinContact,
-    StressDisplacementContinuity,
 )
+
 from porepy.numerics.interface_laws.cell_dof_face_dof_map import CellDofFaceDofMap
 from porepy.numerics.mixed_dim.assembler import Assembler
 
@@ -63,6 +64,16 @@ from porepy.numerics.fv.upwind import Upwind
 from porepy.numerics.interface_laws.hyperbolic_interface_laws import UpwindCoupling
 from porepy.numerics.fv.mass_matrix import MassMatrix
 from porepy.numerics.fv.mass_matrix import InvMassMatrix
+
+# Contact mechanics
+from porepy.numerics.interface_laws.contact_mechanics_interface_laws import (
+    PrimalContactCoupling,
+    DivUCoupling,
+    MatrixScalarToForceBalance,
+    FractureScalarToForceBalance,
+)
+from porepy.numerics.contact_mechanics.contact_conditions import ColoumbContact
+from porepy.numerics.contact_mechanics import contact_conditions
 
 # Grids
 from porepy.grids.grid import Grid
@@ -114,7 +125,8 @@ from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer, mortars
 from porepy.grids import structured, simplex, coarsening, partition, refinement
 from porepy.numerics.fv import fvutils
-from porepy.utils import error
+from porepy.utils import error, grid_utils
+from porepy.utils.tangential_normal_projection import TangentialNormalProjection
 
 # Constants, units and keywords
 from porepy.utils.common_constants import *
