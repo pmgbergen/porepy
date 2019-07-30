@@ -4,6 +4,7 @@ import unittest
 
 import porepy as pp
 
+
 if_vtk = "vtk" in sys.modules
 if not if_vtk:
     import warnings
@@ -182,10 +183,13 @@ class BasicsTest(unittest.TestCase):
         gb.add_node_props(["scalar_dummy", "dummy_vector"])
 
         for g, d in gb:
-            d[pp.STATE] = {
-                "dummy_scalar": np.ones(g.num_cells) * g.dim,
-                "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
-            }
+            pp.set_state(
+                d,
+                {
+                    "dummy_scalar": np.ones(g.num_cells) * g.dim,
+                    "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
+                },
+            )
 
         folder = "./test_vtk/"
         file_name = "grid"
@@ -222,10 +226,13 @@ class BasicsTest(unittest.TestCase):
         gb.add_node_props(["dummy_scalar", "dummy_vector"])
 
         for g, d in gb:
-            d[pp.STATE] = {
-                "dummy_scalar": np.ones(g.num_cells) * g.dim,
-                "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
-            }
+            pp.set_state(
+                d,
+                {
+                    "dummy_scalar": np.ones(g.num_cells) * g.dim,
+                    "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
+                },
+            )
 
         folder = "./test_vtk/"
         file_name = "grid"

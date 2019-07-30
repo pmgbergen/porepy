@@ -78,10 +78,6 @@ class Upwind:
                 conditions. The size of the vector will depend on the discretization.
 
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not self.matrix_keyword in matrix_dictionary.keys():
-            self.discretize(g, data)
-
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
     def assemble_matrix(self, g, data):

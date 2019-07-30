@@ -3,6 +3,8 @@
 Contains standard values (e.g. found in Wikipedia) for permeability, elastic
 moduli etc.
 
+Note that thermal expansion coefficients are linear (m/mK) for rocks, but
+volumetric (m^3/m^3) for fluids.
 """
 import porepy as pp
 
@@ -157,7 +159,7 @@ class Granite(UnitRock):
         self.PERMEABILITY = 1e-8 * pp.DARCY
         self.POROSITY = 0.01
         # Reported range for Young's modulus by jsg is 10-70GPa
-        self.YOUNG_MODULUS = 4.0 * pp.GIGA * pp.PASCAL
+        self.YOUNG_MODULUS = 40.0 * pp.GIGA * pp.PASCAL
         # Reported range for Poisson's ratio is 0.125-0.25
         self.POISSON_RATIO = 0.2
 
@@ -166,9 +168,8 @@ class Granite(UnitRock):
         self.LAMBDA, self.MU = lame_from_young_poisson(
             self.YOUNG_MODULUS, self.POISSON_RATIO
         )
-        self.THERMAL_EXPANSION = (
-            8e-6 * pp.METER / (pp.METER * pp.CELSIUS)
-        )  # from engineeringtoolbox.com
+        # Units of thermal expansion: m^3 / m^3 K, i.e. volumetric. From engineeringtoolbox.com
+        self.THERMAL_EXPANSION = 8e-6 * pp.METER / (pp.METER * pp.CELSIUS)
         if theta_ref is None:
             self.theta_ref = 20.0 * pp.CELSIUS
         else:
