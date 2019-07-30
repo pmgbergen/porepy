@@ -415,7 +415,7 @@ def set_projections(gb):
 
         mg = d_m["mortar_grid"]
         # Only consider edges where the lower-dimensional neighbor is of co-dimension 1
-        if not mg.dim == gb.dim_max() - 1
+        if not mg.dim == (gb.dim_max() - 1):
             continue
 
         # Neigboring grids
