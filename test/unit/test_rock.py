@@ -38,11 +38,11 @@ class TestRock(unittest.TestCase):
         R = pp.Granite()
         self.assertEqual(R.PERMEABILITY, 1e-8 * pp.DARCY)
         self.assertEqual(R.POROSITY, 0.01)
-        self.assertEqual(R.YOUNG_MODULUS, 4 * pp.GIGA * pp.PASCAL)
+        self.assertEqual(R.YOUNG_MODULUS, 40 * pp.GIGA * pp.PASCAL)
         self.assertEqual(R.POISSON_RATIO, 0.2)
         self.assertEqual(R.DENSITY, 2700 * pp.KILOGRAM / pp.METER ** 3)
-        self.assertEqual(R.LAMBDA, 1111111111.1111112)
-        self.assertEqual(R.MU, 1666666666.6666667)
+        self.assertEqual(R.LAMBDA, 11111111111.1111112)
+        self.assertEqual(R.MU, 16666666666.6666667)
 
     def test_shale(self):
         R = pp.Shale()

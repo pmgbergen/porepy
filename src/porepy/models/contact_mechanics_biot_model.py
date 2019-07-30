@@ -369,7 +369,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
         for g, d in self.gb:
             # Initial value for the scalar variable.
-            initial_scalar_value = 1.0 * np.ones(g.num_cells)
+            initial_scalar_value = np.zeros(g.num_cells)
             d[pp.STATE].update({self.scalar_variable: initial_scalar_value})
             if g.dim == self.Nd:
                 bc_values = d[pp.PARAMETERS][self.mechanics_parameter_key]["bc_values"]
