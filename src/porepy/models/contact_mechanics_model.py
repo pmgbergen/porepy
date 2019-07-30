@@ -270,37 +270,45 @@ class ContactMechanics:
             (np.array): displacement solution vector for the Nd grid.
 
         """
+        variable_names = []
+        for pair in assembler.block_dof.keys():
+            variable_names.append(pair[1])
+
         dof = np.cumsum(np.append(0, np.asarray(assembler.full_dof)))
 
-        for pair, bi in assembler.block_dof.items():
-            g = pair[0]
-            name = pair[1]
-            # Identify edges, and update the mortar displacement iterate
-            if isinstance(g, tuple):
-                if name == self.mortar_displacement_variable:
-                    mortar_u = solution_vector[dof[bi] : dof[bi + 1]]
-                    data = self.gb.edge_props(g)
-                    data[pp.STATE]["previous_iterate"][
-                        self.mortar_displacement_variable
-                    ] = mortar_u
-                continue
-            else:
-                # g is a node (not edge)
-
-                # For the fractures, update the contact force
-                if g.dim < self.gb.dim_max():
-                    if name == self.contact_traction_variable:
-                        contact = solution_vector[dof[bi] : dof[bi + 1]]
-                        data = self.gb.node_props(g)
+        for var_name in set(variable_names):
+            for pair, bi in assembler.block_dof.items():
+                g = pair[0]
+                name = pair[1]
+                if name != var_name:
+                    continue
+                if isinstance(g, tuple):
+                    # This is really an edge
+                    if name == self.mortar_displacement_variable:
+                        mortar_u = solution_vector[dof[bi] : dof[bi + 1]]
+                        data = self.gb.edge_props(g)
                         data[pp.STATE]["previous_iterate"][
-                            self.contact_traction_variable
-                        ] = contact
-
+                            self.mortar_displacement_variable
+                        ] = mortar_u.copy()
                 else:
-                    # Only need the displacements for Nd
-                    if name != self.displacement_variable:
-                        continue
-                    u = solution_vector[dof[bi] : dof[bi + 1]]
+                    data = self.gb.node_props(g)
+
+                    # g is a node (not edge)
+
+                    # For the fractures, update the contact force
+                    if g.dim < self.Nd:
+                        if name == self.contact_traction_variable:
+                            contact = solution_vector[dof[bi] : dof[bi + 1]]
+                            data = self.gb.node_props(g)
+                            data[pp.STATE]["previous_iterate"][
+                                self.contact_traction_variable
+                            ] = contact.copy()
+
+                    else:
+                        # Only need the displacements for Nd
+                        if name != self.displacement_variable:
+                            continue
+                        u = solution_vector[dof[bi] : dof[bi + 1]]
         return u
 
     def reconstruct_local_displacement_jump(self, data_edge):
@@ -410,7 +418,7 @@ def run_mechanics(setup):
     assembler.distribute_variable(sol)
 
 
-def newton_iteration(assembler, setup, u0, solver=None):
+def newton_iteration(assembler, setup, u0, tol=1e-14, solver=None):
     converged = False
     # @EK! If this is to work for both mechanics and biot, we probably need to pass the solver to this method.
     g_max = setup.gb.grids_of_dimension(setup.Nd)[0]
@@ -420,6 +428,12 @@ def newton_iteration(assembler, setup, u0, solver=None):
 
     # Assemble and solve
     A, b = assembler.assemble_matrix_rhs()
+    print("max A: {0:.2e}".format(np.max(np.abs(A))))
+    print(
+        "max: {0:.2e} and min: {1:.2e} A sum: ".format(
+            np.max(np.sum(np.abs(A), axis=1)), np.min(np.sum(np.abs(A), axis=1))
+        )
+    )
 
     if solver is None:
         sol = sps.linalg.spsolve(A, b)
@@ -435,15 +449,21 @@ def newton_iteration(assembler, setup, u0, solver=None):
     iterate_difference = l2_norm_cell(g_max, u1, u0)
 
     # The if is intended to avoid division through zero
-    if solution_norm < 1e-12 and iterate_difference < 1e-12:
+    if solution_norm < tol and iterate_difference < tol:
         converged = True
         error = np.sum((u1 - u0) ** 2)
+
     else:
-        if iterate_difference / solution_norm < 1e-10:
+        if iterate_difference / solution_norm < tol:
             converged = True
         error = np.sum((u1 - u0) ** 2) / np.sum(u1 ** 2)
 
-    print("Error: ", error)
+    print(
+        "Error, solution norm and iterate_difference/solution_norm: ",
+        error,
+        solution_norm,
+        iterate_difference / solution_norm,
+    )
 
     return sol, u1, error, converged
 
