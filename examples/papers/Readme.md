@@ -17,4 +17,5 @@ We try to keep the examples updated as the code changes, but may not always succ
 * [arXiv:1903.01117](./arXiv_1903_01117) paper "*A multi-layer reduced model for flow in porous media with a fault and surrounding damage zones*" by Alessio Fumagalli, Anna Scotti. See [arXiv pre-print](https://arxiv.org/abs/1903.01117).
 
 # Separate repository
-* [arXiv:1906.05831](https://github.com/alessiofumagalli/multiscale_timedependent) paper "*Robust linear domain decomposition schemes for reduced non-linear fracture flow models*" by Elyes Ahmed, Alessio Fumagalli, Ana Budiša, Eirik Keilegavlen, Jan M. Nordbotten, A. Radu Florin. See [arXiv pre-print](https://arxiv.org/abs/1906.05831).
+* [arXiv:1906.05831 [math.NA]](https://github.com/alessiofumagalli/multiscale_timedependent) paper "*Robust linear domain decomposition schemes for reduced non-linear fracture flow models*" by Elyes Ahmed, Alessio Fumagalli, Ana Budiša, Eirik Keilegavlen, Jan M. Nordbotten, A. Radu Florin. See [arXiv pre-print](https://arxiv.org/abs/1906.05831).
+* [arXiv:1907.12514 [math.NA]](https://github.com/alessiofumagalli/dfn_transport) paper "*Analysis of conforming, non-matching, and polygonal methods for Darcy and advection-diffusion-reaction simulations in discrete fracture networks*" by Andrea Borio, Alessio Fumagalli, Stefano Scialò. See [arXiv pre-print](https://arxiv.org/abs/1907.12514).
