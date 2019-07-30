@@ -1,12 +1,14 @@
 """
-This is a setup class for solving the biot equations with contact between the fractures.
+This is a setup class for solving the Biot equations with contact between the fractures.
 
-The domain $[0, 2]\times[0, 1]$ with six fractures. We do not consider any fluid, and
-solve only for the linear elasticity coupled to the contact
+The class ContactMechanicsBiot inherits from ContactMechanics, which is a model for
+the purely mechanical problem with contact conditions on the fractures. Here, we add
+expand to a model where the displacement solution is coupled to a scalar variable, e.g.
+pressure (Biot equations) or temperature. Parameters, variables and discretizations are
+set in the model class, and the problem may be solved using run_biot.
 
 NOTE: This module should be considered an experimental feature, which will likely
 undergo major changes (or be deleted).
-
 """
 import numpy as np
 import porepy as pp
@@ -34,9 +36,6 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         self.time = 0
         self.time_step = 1 * self.length_scale ** 2
         self.end_time = self.time_step * 1
-
-        # Initial scalar value
-        self.initial_scalar = 0
 
         # Whether or not to subtract the fracture pressure contribution for the contact
         # traction. This should be done if the scalar variable is pressure, but not for
@@ -81,7 +80,6 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         """
         self.set_scalar_parameters()
         self.set_mechanics_parameters()
-
 
     def set_mechanics_parameters(self):
         """
@@ -371,7 +369,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
         for g, d in self.gb:
             # Initial value for the scalar variable.
-            initial_scalar_value = self.initial_scalar * np.ones(g.num_cells)
+            initial_scalar_value = 1.0 * np.ones(g.num_cells)
             d[pp.STATE].update({self.scalar_variable: initial_scalar_value})
             if g.dim == self.Nd:
                 bc_values = d[pp.PARAMETERS][self.mechanics_parameter_key]["bc_values"]
@@ -384,7 +382,8 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
     def export_pvd(self):
         pass
 
-def run_biot(setup, atol=1e-10):
+
+def run_biot(setup, newton_tol=1e-10):
     """
     Function for solving the time dependent Biot equations with a non-linear Coulomb
     contact condition on the fractures.
@@ -409,6 +408,7 @@ def run_biot(setup, atol=1e-10):
             and attributes:
                 end_time: End time time of simulation.
                 time_step: Time step size
+        newton_tol: Tolerance for the Newton solver, see contact_mechanics_model.
     """
     if "gb" not in setup.__dict__:
         setup.create_grid()
@@ -436,7 +436,6 @@ def run_biot(setup, atol=1e-10):
     dt = setup.time_step
     t_end = setup.end_time
     k = 0
-    setup.export_step()
     while setup.time < t_end:
         setup.time += dt
         k += 1
@@ -445,13 +444,13 @@ def run_biot(setup, atol=1e-10):
         # Prepare for Newton
         counter_newton = 0
         converged_newton = False
-        max_newton = 20
+        max_newton = 15
         newton_errors = []
         while counter_newton <= max_newton and not converged_newton:
             print("Newton iteration number: ", counter_newton, "/", max_newton)
             # One Newton iteration:
             sol, u, error, converged_newton = pp.models.contact_mechanics_model.newton_iteration(
-                assembler, setup, u
+                assembler, setup, u, tol=newton_tol
             )
             counter_newton += 1
             newton_errors.append(error)
@@ -459,4 +458,5 @@ def run_biot(setup, atol=1e-10):
         assembler.distribute_variable(sol)
         setup.export_step()
         errors.append(newton_errors)
+    setup.newton_errors = errors
     setup.export_pvd()
