@@ -21,6 +21,8 @@ If you use PorePy in your research, we ask you to cite the following publication
 
 E. Keilegavlen, A. Fumagalli, R. Berge, I. Stefansson, I. Berre: PorePy: An Open-Source Simulation Tool for Flow and Transport in Deformable Fractured Rocks. [arXiv:1712.00460](https://arxiv.org/abs/1712.00460)
 
+Other publications done with PorePy can be found [here](./examples/papers).
+
 # Installation
 PorePy depends on `numpy`, `scipy` and `networkx`, and (for the moment) also on `meshio`, `sympy` and `matplotlib`. The latter packages may be droped / changed later. To install (on Linux, probably also OSX), use
 
