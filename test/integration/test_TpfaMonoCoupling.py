@@ -228,18 +228,17 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
             pa, _, lpc = analytic_p(g.cell_centers)
             src = -lpc * g.cell_volumes * aperture
-            specified_parameters = {
-                "bc": bound,
-                "bc_values": bc_val,
-                "source": src,
-                "aperture": aperture,
-            }
+            specified_parameters = {"bc": bound, "bc_values": bc_val, "source": src}
+            if g.dim == 1:
+                specified_parameters["second_order_tensor"] = pp.SecondOrderTensor(
+                    3, 1e-10 * np.ones(g.num_cells)
+                )
             pp.initialize_default_data(g, d, "flow", specified_parameters)
 
         for _, d in gb.edges():
             pp.params.data.add_discretization_matrix_keyword(d, "flow")
             d[pp.PARAMETERS] = pp.Parameters(
-                keywords=["flow"], dictionaries={"normal_diffusivity": 1e10}
+                keywords=["flow"], dictionaries={"normal_diffusivity": 1e18}
             )
 
         self.solve(gb, analytic_p)
@@ -285,6 +284,10 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         # test pressure
         for g, d in gb:
             ap, _, _ = analytic_p(g.cell_centers)
+            import pdb
+
+            # pdb.set_trace()
+            print(d[pp.STATE][key_p] - ap)
             self.assertTrue(np.max(np.abs(d[pp.STATE][key_p] - ap)) < 5e-2)
 
         # test mortar solution
@@ -301,14 +304,12 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
             _, analytic_flux, _ = analytic_p(g1.face_centers)
             # the aperture is assumed constant
-            a1 = np.max(d1[pp.PARAMETERS][kw]["aperture"])
-            left_flux = a1 * np.sum(analytic_flux * g1.face_normals[:2], 0)
+            left_flux = np.sum(analytic_flux * g1.face_normals[:2], 0)
             left_flux = left_to_m * (
                 d1[pp.DISCRETIZATION_MATRICES][kw]["bound_flux"] * left_flux
             )
             # right flux is negative lambda
-            a2 = np.max(d2[pp.PARAMETERS][kw]["aperture"])
-            right_flux = a2 * np.sum(analytic_flux * g2.face_normals[:2], 0)
+            right_flux = np.sum(analytic_flux * g2.face_normals[:2], 0)
             right_flux = -right_to_m * (
                 d2[pp.DISCRETIZATION_MATRICES][kw]["bound_flux"] * right_flux
             )
@@ -419,5 +420,4 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    TestTpfaCouplingDiffGrids().test_two_cart_grids()
     unittest.main()

@@ -34,7 +34,6 @@ class TestParameterDictionaries(unittest.TestCase):
         dictionary = dicts.transport_dictionary(self.g)
         # Check that all parameters have been added.
         p_list = [
-            "aperture",
             "porosity",
             "source",
             "time_step",
@@ -46,7 +45,7 @@ class TestParameterDictionaries(unittest.TestCase):
         ]
         [self.assertIn(parameter, dictionary) for parameter in p_list]
         # Check some of the values:
-        unitary_parameters = ["aperture", "porosity", "mass_weight"]
+        unitary_parameters = ["porosity", "mass_weight"]
         ones = np.ones(self.g.num_cells)
         for parameter in unitary_parameters:
             self.assertTrue(np.all(np.isclose(dictionary[parameter], ones)))
@@ -62,7 +61,6 @@ class TestParameterDictionaries(unittest.TestCase):
         dictionary = dicts.mechanics_dictionary(self.g)
         # Check that all parameters have been added.
         p_list = [
-            "aperture",
             "porosity",
             "source",
             "time_step",
@@ -73,7 +71,7 @@ class TestParameterDictionaries(unittest.TestCase):
         ]
         [self.assertIn(parameter, dictionary) for parameter in p_list]
         # Check some of the values:
-        unitary_parameters = ["aperture", "porosity"]
+        unitary_parameters = ["porosity"]
         ones = np.ones(self.g.num_cells)
         for parameter in unitary_parameters:
             self.assertTrue(np.all(np.isclose(dictionary[parameter], ones)))
@@ -158,7 +156,6 @@ class TestParameterDictionaries(unittest.TestCase):
     def check_default_flow_dictionary(self, dictionary):
         # Check that all parameters have been added.
         p_list = [
-            "aperture",
             "porosity",
             "mass_weight",
             "source",
@@ -169,7 +166,7 @@ class TestParameterDictionaries(unittest.TestCase):
         ]
         [self.assertIn(parameter, dictionary) for parameter in p_list]
         # Check some of the values:
-        unitary_parameters = ["aperture", "porosity", "mass_weight"]
+        unitary_parameters = ["porosity", "mass_weight"]
         ones = np.ones(self.g.num_cells)
         for parameter in unitary_parameters:
             self.assertTrue(np.all(np.isclose(dictionary[parameter], ones)))

@@ -17,7 +17,8 @@ class MixedMassMatrixTest(unittest.TestCase):
         g = pp.CartGrid(3, 1)
         g.compute_geometry()
 
-        specified_parameters = {"aperture": 1e-2, "mass_weight": 0.5}
+        # Mass weight is scaled by aperture 0.01
+        specified_parameters = {"mass_weight": 0.5 * 1e-2}
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
         discr = pp.MixedMassMatrix()
@@ -38,7 +39,6 @@ class MixedMassMatrixTest(unittest.TestCase):
                 ]
             )
         )
-
         self.assertTrue(np.allclose(lhs.toarray(), lhs_known))
         self.assertTrue(np.allclose(rhs, 0))
 
@@ -49,7 +49,8 @@ class MixedMassMatrixTest(unittest.TestCase):
         g = pp.CartGrid(3, 1)
         g.compute_geometry()
 
-        specified_parameters = {"aperture": 1e-2, "mass_weight": 0.5}
+        # Mass weight is scaled by aperture 0.01
+        specified_parameters = {"mass_weight": 0.5 * 1e-2}
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
         discr = pp.MixedInvMassMatrix()
@@ -77,7 +78,8 @@ class MixedMassMatrixTest(unittest.TestCase):
         g = pp.CartGrid([3, 2], [1, 1])
         g.compute_geometry()
 
-        specified_parameters = {"aperture": 1e-2, "mass_weight": 0.5}
+        # Mass weight is scaled by aperture 0.01
+        specified_parameters = {"mass_weight": 0.5 * 1e-2}
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
         discr = pp.MixedMassMatrix()
@@ -677,7 +679,8 @@ class MixedMassMatrixTest(unittest.TestCase):
         g = pp.CartGrid([3, 2], [1, 1])
         g.compute_geometry()
 
-        specified_parameters = {"aperture": 1e-2, "mass_weight": 0.5}
+        # Mass weight is scaled by aperture 1e-2
+        specified_parameters = {"mass_weight": 0.5 * 1e-2}
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
         discr = pp.MixedInvMassMatrix()

@@ -25,7 +25,6 @@ def flow_dictionary(g, in_data=None):
     # Ensure that the standard flow parameters are present in d. Values from in_data
     # have priority over the default values.
     d = {
-        "aperture": np.ones(g.num_cells),
         "porosity": np.ones(g.num_cells),
         "source": np.zeros(g.num_cells),
         "mass_weight": np.ones(g.num_cells),
@@ -60,7 +59,6 @@ def transport_dictionary(g, in_data=None):
     # Ensure that the standard transport parameters are present in d. Values from
     # in_data have priority over the default values.
     d = {
-        "aperture": np.ones(g.num_cells),
         "porosity": np.ones(g.num_cells),
         "source": np.zeros(g.num_cells),
         "mass_weight": np.ones(g.num_cells),
@@ -95,7 +93,6 @@ def mechanics_dictionary(g, in_data=None):
     """
     # Ensure that the standard mechanics parameters are present in d.
     d = {
-        "aperture": np.ones(g.num_cells),
         "porosity": np.ones(g.num_cells),
         "source": np.zeros(g.dim * g.num_cells),
         "mass_weight": np.ones(g.num_cells),
