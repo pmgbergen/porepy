@@ -16,9 +16,9 @@ def add_data(gb, domain):
     for g, d in gb:
         # Permeability
         if g.dim == 2:
-            perm = pp.SecondOrderTensor(g.dim, 1e-14 * np.ones(g.num_cells))
+            perm = pp.SecondOrderTensor(1e-14 * np.ones(g.num_cells))
         else:
-            perm = pp.SecondOrderTensor(g.dim, 1e-8 * np.ones(g.num_cells))
+            perm = pp.SecondOrderTensor(1e-8 * np.ones(g.num_cells))
 
         # Source term
 

@@ -27,7 +27,7 @@ def add_data(gb, domain, kf, mesh_value):
         # Permeability
         # Use fracture value in the fractures, i.e., the lower dimensional grids
         k_frac = np.power(kf, g.dim < gb.dim_max())
-        p = pp.SecondOrderTensor(3, np.ones(g.num_cells) * k_frac)
+        p = pp.SecondOrderTensor(np.ones(g.num_cells) * k_frac)
 
         # Source term
         specified_parameters = {
