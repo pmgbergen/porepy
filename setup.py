@@ -9,7 +9,7 @@ from setuptools import find_packages, setup
 # ----------------------  Cython compilation
 # Build cython extensions as part of setup. Based on
 # https://stackoverflow.com/questions/4505747/how-should-i-structure-a-python-package-that-contains-cython-code
-USE_CYTHON = True
+USE_CYTHON = False
 from distutils.core import setup
 from distutils.extension import Extension
 

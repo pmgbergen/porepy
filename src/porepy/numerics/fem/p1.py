@@ -50,8 +50,6 @@ class P1:
 
         parameter_dictionary contains the entries:
             second_order_tensor: (pp.SecondOrderTensor) Permeability defined cell-wise.
-            aperture: (np.ndarray) apertures of the cells for scaling of the face
-                normals.
             bc: (pp.BoundaryConditionNode) node-wise boundary conditions.
             bc_values: array (self.ndof) boundary condition values.
 
@@ -111,11 +109,8 @@ class P1:
 
         # Get dictionary for parameter storage
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        # Retrieve the permeability, boundary conditions, and aperture
-        # The aperture is needed in the hybrid-dimensional case, otherwise is
-        # assumed unitary
+        # Retrieve the permeability, boundary conditions
         k = parameter_dictionary["second_order_tensor"]
-        a = parameter_dictionary["aperture"]
         bc = parameter_dictionary["bc"]
         if not isinstance(bc, pp.BoundaryConditionNode):
             raise ValueError("Consider pp.BoundaryConditionNode to assign bc")
@@ -155,10 +150,7 @@ class P1:
 
             # Compute the stiff-H1 local matrix
             A = self.stiffH1(
-                a[c] * k.values[0 : g.dim, 0 : g.dim, c],
-                g.cell_volumes[c],
-                coord_loc,
-                g.dim,
+                k.values[0 : g.dim, 0 : g.dim, c], g.cell_volumes[c], coord_loc, g.dim
             )
 
             # Save values for stiff-H1 local matrix in the global structure

@@ -44,8 +44,6 @@ class Tpfa(FVElliptic):
         parameter_dictionary contains the entries:
             second_order_tensor : (SecondOrderTensor) Permeability defined cell-wise.
             bc : (BoundaryCondition) boundary conditions
-            apertures : (np.ndarray) apertures of the cells for scaling of
-                the face normals.
 
         matrix_dictionary will be updated with the following entries:
             flux: sps.csc_matrix (g.num_faces, g.num_cells)
@@ -75,7 +73,6 @@ class Tpfa(FVElliptic):
         # Extract parameters
         k = parameter_dictionary["second_order_tensor"]
         bnd = parameter_dictionary["bc"]
-        aperture = parameter_dictionary["aperture"]
 
         if g.dim == 0:
             matrix_dictionary["flux"] = sps.csr_matrix([0])
@@ -94,10 +91,8 @@ class Tpfa(FVElliptic):
         fi, ci, sgn = sps.find(g.cell_faces)
 
         # Normal vectors and permeability for each face (here and there side)
-        if aperture is None:
-            n = g.face_normals[:, fi]
-        else:
-            n = g.face_normals[:, fi] * aperture[ci]
+        n = g.face_normals[:, fi]
+        # Switch signs where relevant
         n *= sgn
         perm = k.values[::, ::, ci]
 

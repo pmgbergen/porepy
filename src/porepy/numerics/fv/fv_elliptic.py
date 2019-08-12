@@ -96,8 +96,6 @@ class FVElliptic(
             second_order_tensor: (pp.SecondOrderTensor) Permeability defined cell-wise.
             bc: (pp.BoundaryCondition) boundary conditions.
             bc_values: array (self.num_faces) The boundary condition values.
-            aperture: (np.ndarray) apertures of the cells for scaling of the face
-                normals.
             Optional parameters: See the discretize methods.
 
         After discretization, matrix_dictionary will be updated with the following

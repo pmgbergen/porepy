@@ -732,12 +732,11 @@ def mpsa_update_partial(
     cells=None,
     faces=None,
     nodes=None,
-    apertures=None,
 ):
     """
     Given a discretization this function rediscretize parts of the domain.
     This is a fast way to update the discretization if you change, say the
-    boundary conditions, have a growth of fractures, or a change in aperture.
+    boundary conditions, have a growth of fractures.
 
     Parameters:
     stress (scipy.sparse.csr_matrix (shape num_faces, num_cells)): stress
@@ -779,7 +778,6 @@ def mpsa_update_partial(
         cells,
         faces,
         nodes=nodes,
-        apertures=apertures,
         hf_disp=True,
         hf_eta=hf_eta,
     )
@@ -825,7 +823,6 @@ def mpsa_partial(
     cells=None,
     faces=None,
     nodes=None,
-    apertures=None,
     hf_disp=False,
     hf_eta=None,
 ):
@@ -857,8 +854,6 @@ def mpsa_partial(
             subgrid computation. Defaults to None.
         nodes (np.array, int, optional): Index of nodes on which to base the
             subgrid computation. Defaults to None.
-        apertures (np.array, int, optional): Cell apertures. Defaults to None.
-            Unused for now, added for similarity to mpfa_partial.
         hf_disp (bool) False: If true two matrices hf_cell, hf_bound is also returned such
             that hf_cell * U + hf_bound * u_bound gives the reconstructed displacement
             at the point on the face hf_eta. U is the cell centered displacement and
@@ -1104,7 +1099,6 @@ def _mpsa_local(
         # diagonal term in the stiffness matrix
         k = pp.SecondOrderTensor(3, 2 * constit.mu + constit.lmbda)
         params["second_order_tensor"] = k
-        params["aperture"] = np.ones(g.num_cells)
 
         d = {
             pp.PARAMETERS: {tpfa_key: params},

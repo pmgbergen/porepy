@@ -2,10 +2,12 @@
 Mass matrix classes for a discretization of a L2-mass bilinear form with constant test
 and trial functions for mixed methods (e.g. RT0, MVEM).
 
-The discretization takes into account cell volumes, porosity, time step and aperture,
-so that the mass matrix (shape (g.num_faces + g.num_cells)^2) has the following diagonal
-for the cell dof:
-g.cell_volumes * mass_weight * aperture
+The discretization takes into account cell volumes (including the effect of
+apretures), porosity and time step so that the mass matrix (shape (g.num_faces
++ g.num_cells)^2) has the following diagonal for the cell dof:
+
+    g.cell_volumes * mass_weight
+
 The block related to the face dofs is empty. The right hand side is null.
 There is also a class for the inverse of the mass matrix.
 
@@ -145,8 +147,6 @@ class MixedMassMatrix:
         parameter_dictionary contains the entries:
             mass_weight: (array, self.g.num_cells): Scalar values which may e.g.
                 represent the porosity or heat capacity.
-            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
-                the face normals.
 
         matrix_dictionary will be updated with the following entries:
             mixed_mass: sps.dia_matrix (sparse dia, self.ndof x self.ndof): Mass matrix
@@ -163,8 +163,7 @@ class MixedMassMatrix:
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         ndof = self.ndof(g)
         w = parameter_dictionary["mass_weight"]
-        aperture = parameter_dictionary["aperture"]
-        volumes = g.cell_volumes * aperture
+        volumes = g.cell_volumes
         coeff = np.hstack((np.zeros(g.num_faces), volumes * w))
 
         matrix_dictionary["mixed_mass"] = sps.dia_matrix((coeff, 0), shape=(ndof, ndof))
@@ -304,8 +303,6 @@ class MixedInvMassMatrix:
         parameter_dictionary contains the entries:
             mass_weight: (array, self.g.num_cells): Scalar values which may e.g.
                 represent the porosity or heat capacity.
-            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
-                the face normals.
 
         matrix_dictionary will be updated with the following entries:
             mixed_mass: sps.dia_matrix (sparse dia, self.ndof x self.ndof): Mass matrix

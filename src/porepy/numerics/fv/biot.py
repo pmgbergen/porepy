@@ -266,8 +266,7 @@ class Biot:
         parameter_dictionary = data[pp.PARAMETERS][self.flow_keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
         w = parameter_dictionary["mass_weight"]
-        apertures = parameter_dictionary["aperture"]
-        volumes = g.cell_volumes * apertures
+        volumes = g.cell_volumes
         matrix_dictionary["mass"] = sps.dia_matrix(
             (volumes * w, 0), shape=(g.num_cells, g.num_cells)
         )
