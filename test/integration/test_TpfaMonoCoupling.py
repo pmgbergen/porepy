@@ -284,10 +284,6 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         # test pressure
         for g, d in gb:
             ap, _, _ = analytic_p(g.cell_centers)
-            import pdb
-
-            # pdb.set_trace()
-            print(d[pp.STATE][key_p] - ap)
             self.assertTrue(np.max(np.abs(d[pp.STATE][key_p] - ap)) < 5e-2)
 
         # test mortar solution
