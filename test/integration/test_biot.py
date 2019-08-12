@@ -37,8 +37,8 @@ class BiotTest(unittest.TestCase):
             bound_mech, bound_flow = self.make_boundary_conditions(g)
 
             mu = np.ones(g.num_cells)
-            c = pp.FourthOrderTensor(g.dim, mu, mu)
-            k = pp.SecondOrderTensor(g.dim, np.ones(g.num_cells))
+            c = pp.FourthOrderTensor(mu, mu)
+            k = pp.SecondOrderTensor(np.ones(g.num_cells))
 
             bound_val = np.zeros(g.num_faces)
             aperture = np.ones(g.num_cells)

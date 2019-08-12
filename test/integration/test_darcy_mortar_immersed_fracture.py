@@ -52,11 +52,11 @@ class TestImmersedFracture(unittest.TestCase):
                 y_max_faces = pp.face_on_side(g, "ymax")[0]
                 b_val[y_max_faces] = 1
 
-                perm = pp.SecondOrderTensor(3, kxx=np.ones(g.num_cells))
+                perm = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
                 parameter_dictionary["second_order_tensor"] = perm
 
             else:
-                perm = pp.SecondOrderTensor(3, kxx=kf * np.ones(g.num_cells))
+                perm = pp.SecondOrderTensor(kxx=kf * np.ones(g.num_cells))
                 parameter_dictionary["second_order_tensor"] = perm
 
                 parameter_dictionary["bc"] = pp.BoundaryCondition(g)

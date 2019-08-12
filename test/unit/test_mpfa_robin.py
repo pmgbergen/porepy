@@ -13,7 +13,7 @@ class RobinBoundTest(unittest.TestCase):
             for ny in nys:
                 g = pp.CartGrid([nx, ny], physdims=[1, 1])
                 g.compute_geometry()
-                k = pp.SecondOrderTensor(2, np.ones(g.num_cells))
+                k = pp.SecondOrderTensor(np.ones(g.num_cells))
                 robin_weight = 1.5
 
                 left = g.face_centers[0] < 1e-10
@@ -51,7 +51,7 @@ class RobinBoundTest(unittest.TestCase):
             for ny in nys:
                 g = pp.CartGrid([nx, ny], physdims=[1, 1])
                 g.compute_geometry()
-                k = pp.SecondOrderTensor(2, np.ones(g.num_cells))
+                k = pp.SecondOrderTensor(np.ones(g.num_cells))
                 robin_weight = 1.5
 
                 left = g.face_centers[0] < 1e-10
@@ -90,7 +90,7 @@ class RobinBoundTest(unittest.TestCase):
             for ny in nys:
                 g = pp.CartGrid([nx, ny], physdims=[1, 1])
                 g.compute_geometry()
-                k = pp.SecondOrderTensor(2, np.ones(g.num_cells))
+                k = pp.SecondOrderTensor(np.ones(g.num_cells))
                 robin_weight = 1.5
 
                 bot = g.face_centers[1] < 1e-10
@@ -124,7 +124,7 @@ class RobinBoundTest(unittest.TestCase):
     def test_no_neumann(self):
         g = pp.CartGrid([2, 2], physdims=[1, 1])
         g.compute_geometry()
-        k = pp.SecondOrderTensor(2, np.ones(g.num_cells))
+        k = pp.SecondOrderTensor(np.ones(g.num_cells))
         robin_weight = 1.5
 
         bot = g.face_centers[1] < 1e-10

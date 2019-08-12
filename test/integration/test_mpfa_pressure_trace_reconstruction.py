@@ -17,7 +17,7 @@ class MpfaReconstructPressure(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.array([2])
-        k = pp.SecondOrderTensor(g.dim, kxx)
+        k = pp.SecondOrderTensor(kxx)
 
         bc = pp.BoundaryCondition(g)
 
@@ -51,7 +51,7 @@ class MpfaReconstructPressure(unittest.TestCase):
         np.random.seed(2)
 
         kxx = np.ones(g.num_cells)
-        k = pp.SecondOrderTensor(g.dim, kxx)
+        k = pp.SecondOrderTensor(kxx)
 
         s_t = pp.fvutils.SubcellTopology(g)
 
@@ -93,7 +93,7 @@ class MpfaReconstructPressure(unittest.TestCase):
         np.random.seed(2)
 
         kxx = 10 * np.random.rand(g.num_cells)
-        k = pp.SecondOrderTensor(g.dim, kxx)
+        k = pp.SecondOrderTensor(kxx)
 
         bc = pp.BoundaryCondition(g)
         dir_ind = g.get_all_boundary_faces()[[0, 2, 5, 8, 10, 13, 15, 21]]
@@ -128,7 +128,7 @@ class MpfaReconstructPressure(unittest.TestCase):
         s_t = pp.fvutils.SubcellTopology(g)
 
         kxx = 10 * np.ones(g.num_cells)
-        k = pp.SecondOrderTensor(g.dim, kxx)
+        k = pp.SecondOrderTensor(kxx)
 
         bc = pp.BoundaryCondition(g)
         bc.is_dir[g.get_all_boundary_faces()] = True

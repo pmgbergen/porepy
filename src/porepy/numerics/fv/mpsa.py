@@ -1097,7 +1097,7 @@ def _mpsa_local(
 
         # The elasticity tensor here is set to 2*mu + lmbda, that is, the standard
         # diagonal term in the stiffness matrix
-        k = pp.SecondOrderTensor(3, 2 * constit.mu + constit.lmbda)
+        k = pp.SecondOrderTensor(2 * constit.mu + constit.lmbda)
         params["second_order_tensor"] = k
 
         d = {
