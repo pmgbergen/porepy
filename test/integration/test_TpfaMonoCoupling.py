@@ -231,7 +231,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             specified_parameters = {"bc": bound, "bc_values": bc_val, "source": src}
             if g.dim == 1:
                 specified_parameters["second_order_tensor"] = pp.SecondOrderTensor(
-                    3, 1e-10 * np.ones(g.num_cells)
+                    1e-10 * np.ones(g.num_cells)
                 )
             pp.initialize_default_data(g, d, "flow", specified_parameters)
 

@@ -298,7 +298,7 @@ def tpfa_matrix(g, perm=None):
         g = g.get_grids(lambda g_: g_.dim == g.dim_max())[0]
 
     if perm is None:
-        perm = pp.SecondOrderTensor(g.dim, np.ones(g.num_cells))
+        perm = pp.SecondOrderTensor(np.ones(g.num_cells))
 
     solver = pp.Tpfa("flow")
     specified_parameters = {

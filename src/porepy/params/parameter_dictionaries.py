@@ -28,7 +28,7 @@ def flow_dictionary(g, in_data=None):
         "porosity": np.ones(g.num_cells),
         "source": np.zeros(g.num_cells),
         "mass_weight": np.ones(g.num_cells),
-        "second_order_tensor": pp.SecondOrderTensor(g.dim, np.ones(g.num_cells)),
+        "second_order_tensor": pp.SecondOrderTensor(np.ones(g.num_cells)),
         "bc": pp.BoundaryCondition(g),
         "bc_values": np.zeros(g.num_faces),
         "time_step": 1,
@@ -62,7 +62,7 @@ def transport_dictionary(g, in_data=None):
         "porosity": np.ones(g.num_cells),
         "source": np.zeros(g.num_cells),
         "mass_weight": np.ones(g.num_cells),
-        "second_order_tensor": pp.SecondOrderTensor(g.dim, np.ones(g.num_cells)),
+        "second_order_tensor": pp.SecondOrderTensor(np.ones(g.num_cells)),
         "bc": pp.BoundaryCondition(g),
         "bc_values": np.zeros(g.num_faces),
         "darcy_flux": np.zeros(g.num_faces),
@@ -97,7 +97,7 @@ def mechanics_dictionary(g, in_data=None):
         "source": np.zeros(g.dim * g.num_cells),
         "mass_weight": np.ones(g.num_cells),
         "fourth_order_tensor": pp.FourthOrderTensor(
-            g.dim, np.ones(g.num_cells), np.ones(g.num_cells)
+            np.ones(g.num_cells), np.ones(g.num_cells)
         ),
         "bc": pp.BoundaryConditionVectorial(g),
         "bc_values": np.zeros(g.dim * g.num_faces),

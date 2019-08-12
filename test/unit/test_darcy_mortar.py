@@ -20,11 +20,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         for g, d in gb:
             parameter_dictionary = {}
 
-            perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
+            perm = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
             parameter_dictionary["second_order_tensor"] = perm
-
-            aperture = np.power(1e-3, gb.dim_max() - g.dim)
-            parameter_dictionary["aperture"] = aperture * np.ones(g.num_cells)
 
             b_val = np.zeros(g.num_faces)
             if g.dim == 2:
@@ -524,11 +521,9 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         for g, d in gb:
             parameter_dictionary = {}
 
-            perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
+            perm = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
             parameter_dictionary["second_order_tensor"] = perm
 
-            aperture = np.power(1e-3, gb.dim_max() - g.dim)
-            parameter_dictionary["aperture"] = aperture * np.ones(g.num_cells)
             parameter_dictionary["source"] = np.zeros(g.num_cells)
 
             yf = g.face_centers[1]
@@ -746,11 +741,8 @@ class TestMortar3D(unittest.TestCase):
         for g, d in gb:
             parameter_dictionary = {}
 
-            perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
+            perm = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
             parameter_dictionary["second_order_tensor"] = perm
-
-            aperture = np.power(1e-6, gb.dim_max() - g.dim)
-            parameter_dictionary["aperture"] = aperture * np.ones(g.num_cells)
 
             yf = g.face_centers[1]
             bound_faces = [
@@ -937,11 +929,8 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         for g, d in gb:
             parameter_dictionary = {}
 
-            perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
+            perm = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
             parameter_dictionary["second_order_tensor"] = perm
-
-            aperture = np.power(1e-4, gb.dim_max() - g.dim)
-            parameter_dictionary["aperture"] = aperture * np.ones(g.num_cells)
 
             b_val = np.zeros(g.num_faces)
             if g.dim == 2:

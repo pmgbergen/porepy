@@ -18,7 +18,7 @@ class TestAsymmetricNeumann(unittest.TestCase):
 
         bc.is_neu[bc.is_dir] = False
 
-        k = pp.FourthOrderTensor(g.dim, np.ones(g.num_cells), np.ones(g.num_cells))
+        k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         g, k = true_2d(g, k)
 
         subcell_topology = pp.fvutils.SubcellTopology(g)
@@ -97,7 +97,7 @@ class TestAsymmetricNeumann(unittest.TestCase):
         bc.is_dir[:, west + east + south] = True
         bc.is_neu[bc.is_dir] = False
 
-        k = pp.FourthOrderTensor(g.dim, np.ones(g.num_cells), np.ones(g.num_cells))
+        k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
 
         subcell_topology = pp.fvutils.SubcellTopology(g)
         bc = pp.fvutils.boundary_to_sub_boundary(bc, subcell_topology)
