@@ -18,7 +18,7 @@ class MpsaReconstructDisplacement(unittest.TestCase):
 
         lam = np.array([1])
         mu = np.array([2])
-        k = pp.FourthOrderTensor(g.dim, mu, lam)
+        k = pp.FourthOrderTensor(mu, lam)
 
         bc = pp.BoundaryConditionVectorial(g)
         _, _, grad_cell, grad_bound = pp.numerics.fv.mpsa.mpsa(
@@ -83,7 +83,7 @@ class MpsaReconstructDisplacement(unittest.TestCase):
 
         lam = np.ones(g.num_cells)
         mu = np.ones(g.num_cells)
-        k = pp.FourthOrderTensor(g.dim, mu, lam)
+        k = pp.FourthOrderTensor(mu, lam)
 
         s_t = pp.fvutils.SubcellTopology(g)
 
@@ -129,7 +129,7 @@ class MpsaReconstructDisplacement(unittest.TestCase):
 
         lam = 10 * np.random.rand(g.num_cells)
         mu = 10 * np.random.rand(g.num_cells)
-        k = pp.FourthOrderTensor(g.dim, mu, lam)
+        k = pp.FourthOrderTensor(mu, lam)
 
         s_t = pp.fvutils.SubcellTopology(g)
 

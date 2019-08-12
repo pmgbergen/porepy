@@ -118,7 +118,7 @@ class ContactMechanics:
                 # Rock parameters
                 lam = np.ones(g.num_cells)
                 mu = np.ones(g.num_cells)
-                C = pp.FourthOrderTensor(g.dim, mu, lam)
+                C = pp.FourthOrderTensor(mu, lam)
 
                 # Define boundary condition
                 bc = self.bc_type(g)

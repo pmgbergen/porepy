@@ -164,7 +164,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         # The velocity field already has permeability effects incorporated,
         # thus we assign a unit permeability to be passed to MVEM.massHdiv
-        k = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
+        k = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
 
         faces, cells, sign = sps.find(g.cell_faces)
         index = np.argsort(cells)

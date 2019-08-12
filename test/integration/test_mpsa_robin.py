@@ -11,7 +11,7 @@ class RobinBoundTest(unittest.TestCase):
         ny = 2
         g = pp.CartGrid([nx, ny], physdims=[1, 1])
         g.compute_geometry()
-        c = pp.FourthOrderTensor(2, np.ones(g.num_cells), np.ones(g.num_cells))
+        c = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         robin_weight = 1
 
         bot = g.face_centers[1] < 1e-10
@@ -58,7 +58,7 @@ class RobinBoundTest(unittest.TestCase):
         ny = 3
         g = pp.CartGrid([nx, ny], physdims=[1, 1])
         g.compute_geometry()
-        c = pp.FourthOrderTensor(2, np.ones(g.num_cells), np.ones(g.num_cells))
+        c = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         robin_weight = np.pi
 
         bot = g.face_centers[1] < 1e-10
@@ -105,7 +105,7 @@ class RobinBoundTest(unittest.TestCase):
         ny = 1
         g = pp.StructuredTriangleGrid([nx, ny], physdims=[1, 1])
         g.compute_geometry()
-        c = pp.FourthOrderTensor(2, np.ones(g.num_cells), np.ones(g.num_cells))
+        c = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         robin_weight = np.pi
 
         bot = g.face_centers[1] < 1e-10
@@ -153,7 +153,7 @@ class RobinBoundTest(unittest.TestCase):
         points = np.hstack((corners, points))
         g = pp.TriangleGrid(points)
         g.compute_geometry()
-        c = pp.FourthOrderTensor(2, np.ones(g.num_cells), np.ones(g.num_cells))
+        c = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         robin_weight = np.pi
 
         bot = g.face_centers[1] < 1e-10
@@ -201,7 +201,7 @@ class RobinBoundTest(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 3, "mesh_size_min": 3}
         gb = network.mesh(mesh_args)
         g = gb.grids_of_dimension(3)[0]
-        c = pp.FourthOrderTensor(3, np.ones(g.num_cells), np.ones(g.num_cells))
+        c = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         robin_weight = 1.0
 
         bot = g.face_centers[2] < 1e-10

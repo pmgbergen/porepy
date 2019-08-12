@@ -17,7 +17,7 @@ def setup_cart_2d(nx):
     for g, d in gb:
         a = np.power(aperture, gb.dim_max() - g.dim) * np.ones(g.num_cells)
         kxx = np.ones(g.num_cells) * a
-        perm = pp.SecondOrderTensor(gb.dim_max(), kxx)
+        perm = pp.SecondOrderTensor(kxx)
         specified_parameters = {"second_order_tensor": perm}
 
         if g.dim == 2:

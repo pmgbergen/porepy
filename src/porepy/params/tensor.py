@@ -19,11 +19,10 @@ class SecondOrderTensor(object):
     and kyy, and no cross terms.
     """
 
-    def __init__(self, dim, kxx, kyy=None, kzz=None, kxy=None, kxz=None, kyz=None):
+    def __init__(self, kxx, kyy=None, kzz=None, kxy=None, kxz=None, kyz=None):
         """ Initialize permeability
 
         Parameters:
-            dim (int): Dimension, should be between 1 and 3.
             kxx (double): Nc array, with cell-wise values of kxx permeability.
             kyy (optional, double): Nc array of kyy. Default equal to kxx.
             kzz (optional, double): Nc array of kzz. Default equal to kxx.
@@ -37,11 +36,6 @@ class SecondOrderTensor(object):
         Raises:
             ValueError if the permeability is not positive definite.
        """
-        if dim > 3 or dim < 0:
-            raise ValueError("Dimension should be between 1 and 3")
-
-        self.dim = dim
-
         Nc = kxx.size
         perm = np.zeros((3, 3, Nc))
 
@@ -54,56 +48,54 @@ class SecondOrderTensor(object):
         perm[0, 0, ::] = kxx
 
         # Assign unit values to the diagonal, these are overwritten later if
-        # the specified dimension requires it.
+        # the specified data
         perm[1, 1, ::] = 1
         perm[2, 2, ::] = 1
 
-        if dim > 1:
-            if kyy is None:
-                kyy = kxx
-            if kxy is None:
-                kxy = 0 * kxx
-            # Onsager's principle
-            if np.any((kxx * kyy - kxy * kxy) < 0):
-                raise ValueError(
-                    "Tensor is not positive definite because of "
-                    "components in y-direction"
-                )
+        if kyy is None:
+            kyy = kxx
+        if kxy is None:
+            kxy = 0 * kxx
+        # Onsager's principle - tensor should be positive definite
+        if np.any((kxx * kyy - kxy * kxy) < 0):
+            raise ValueError(
+                "Tensor is not positive definite because of "
+                "components in y-direction"
+            )
 
-            perm[1, 0, ::] = kxy
-            perm[0, 1, ::] = kxy
-            perm[1, 1, ::] = kyy
+        perm[1, 0, ::] = kxy
+        perm[0, 1, ::] = kxy
+        perm[1, 1, ::] = kyy
 
-        if dim > 2:
-            if kyy is None:
-                kyy = kxx
-            if kzz is None:
-                kzz = kxx
-            if kxy is None:
-                kxy = 0 * kxx
-            if kxz is None:
-                kxz = 0 * kxx
-            if kyz is None:
-                kyz = 0 * kxx
-            # Onsager's principle
-            if np.any(
-                (
-                    kxx * (kyy * kzz - kyz * kyz)
-                    - kxy * (kxy * kzz - kxz * kyz)
-                    + kxz * (kxy * kyz - kxz * kyy)
-                )
-                < 0
-            ):
-                raise ValueError(
-                    "Tensor is not positive definite because of "
-                    "components in z-direction"
-                )
+        if kyy is None:
+            kyy = kxx
+        if kzz is None:
+            kzz = kxx
+        if kxy is None:
+            kxy = 0 * kxx
+        if kxz is None:
+            kxz = 0 * kxx
+        if kyz is None:
+            kyz = 0 * kxx
+        # Onsager's principle - tensor should be positive definite
+        if np.any(
+            (
+                kxx * (kyy * kzz - kyz * kyz)
+                - kxy * (kxy * kzz - kxz * kyz)
+                + kxz * (kxy * kyz - kxz * kyy)
+            )
+            < 0
+        ):
+            raise ValueError(
+                "Tensor is not positive definite because of "
+                "components in z-direction"
+            )
 
-            perm[2, 0, ::] = kxz
-            perm[0, 2, ::] = kxz
-            perm[2, 1, ::] = kyz
-            perm[1, 2, ::] = kyz
-            perm[2, 2, ::] = kzz
+        perm[2, 0, ::] = kxz
+        perm[0, 2, ::] = kxz
+        perm[2, 1, ::] = kyz
+        perm[1, 2, ::] = kyz
+        perm[2, 2, ::] = kzz
 
         self.values = perm
 
@@ -116,25 +108,15 @@ class SecondOrderTensor(object):
                 arrays (in the memory sense).
         """
 
-        if self.dim == 2:
+        kxx = self.values[0, 0, :].copy()
+        kxy = self.values[1, 0, :].copy()
+        kyy = self.values[1, 1, :].copy()
 
-            kxx = self.values[0, 0, :].copy()
-            kxy = self.values[1, 0, :].copy()
-            kyy = self.values[1, 1, :].copy()
+        kxz = self.values[2, 0, :].copy()
+        kyz = self.values[2, 1, :].copy()
+        kzz = self.values[2, 2, :].copy()
 
-            return SecondOrderTensor(self.dim, kxx, kxy=kxy, kyy=kyy)
-        else:
-            kxx = self.values[0, 0, :].copy()
-            kxy = self.values[1, 0, :].copy()
-            kyy = self.values[1, 1, :].copy()
-
-            kxz = self.values[2, 0, :].copy()
-            kyz = self.values[2, 1, :].copy()
-            kzz = self.values[2, 2, :].copy()
-
-            return SecondOrderTensor(
-                self.dim, kxx, kxy=kxy, kxz=kxz, kyy=kyy, kyz=kyz, kzz=kzz
-            )
+        return SecondOrderTensor(kxx, kxy=kxy, kxz=kxz, kyy=kyy, kyz=kyz, kzz=kzz)
 
     def rotate(self, R):
         """
@@ -171,28 +153,21 @@ class FourthOrderTensor(object):
     Attributes:
         values - numpy.ndarray, dimensions (dim^2,dim^2,nc), cell-wise
             representation of the stiffness matrix.
-        dim (int): Real dimension of the tensor (as oposed to the 3d
-            representation of the data)
         lmbda (np.ndarray, size: num_cells): First Lame parameter
         mu (np.ndarray, size: num_cells): Second Lame parameter
 
     """
 
-    def __init__(self, dim, mu, lmbda, phi=None):
+    def __init__(self, mu, lmbda, phi=None):
         """ Constructor for fourth order tensor on Lame-parameter form
 
         Parameters
         ----------
-        dim (int) dimension, should be 1, 2 or 3
         mu (numpy.ndarray), First lame parameter, 1-D, one value per cell
         lmbda (numpy.ndarray), Second lame parameter, 1-D, one value per cell
         phi (Optional numpy.ndarray), 1-D one value per cell, never been used.
 
         """
-
-        # Check arguments
-        if dim > 3 or dim < 1:
-            raise ValueError("Dimension should be between 1 and 3")
 
         if not isinstance(mu, np.ndarray):
             raise ValueError("Input mu should be a numpy array")
@@ -217,135 +192,47 @@ class FourthOrderTensor(object):
         # Save lmbda and mu, can be useful to have in some cases
         self.lmbda = lmbda
         self.mu = mu
-        self.dim = dim
 
         # Basis for the contributions of mu, lmbda and phi is hard-coded
-        if dim == 1:
-            mu_mat = np.array(
-                [
-                    [2, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 1, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 1],
-                ]
-            )
-
-            lmbda_mat = np.array(
-                [
-                    [1, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 1, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 1],
-                ]
-            )
-
-            phi_mat = np.array(
-                [
-                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                ]
-            )
-
-        if dim == 2:
-            mu_mat = np.array(
-                [
-                    [2, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 1, 0, 1, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 1, 0, 1, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 2, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 1],
-                ]
-            )
-
-            lmbda_mat = np.array(
-                [
-                    [1, 0, 0, 0, 1, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 1],
-                ]
-            )
-
-            phi_mat = np.array(
-                [
-                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                ]
-            )
-
-        else:  # Dimension is either 2 or 3
-            mu_mat = np.array(
-                [
-                    [2, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 1, 0, 1, 0, 0, 0, 0, 0],
-                    [0, 0, 1, 0, 0, 0, 1, 0, 0],
-                    [0, 1, 0, 1, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 2, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 1, 0, 1, 0],
-                    [0, 0, 1, 0, 0, 0, 1, 0, 0],
-                    [0, 0, 0, 0, 0, 1, 0, 1, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 2],
-                ]
-            )
-            lmbda_mat = np.array(
-                [
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                ]
-            )
-            phi_mat = np.array(
-                [
-                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                ]
-            )
+        mu_mat = np.array(
+            [
+                [2, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 1, 0, 0, 0, 1, 0, 0],
+                [0, 1, 0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 2, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 1, 0, 1, 0],
+                [0, 0, 1, 0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 0, 1, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 2],
+            ]
+        )
+        lmbda_mat = np.array(
+            [
+                [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1],
+            ]
+        )
+        phi_mat = np.array(
+            [
+                [0, 1, 1, 1, 0, 1, 1, 1, 0],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                [0, 1, 1, 1, 0, 1, 1, 1, 0],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                [0, 1, 1, 1, 0, 1, 1, 1, 0],
+            ]
+        )
 
         # Expand dimensions to prepare for cell-wise representation
         mu_mat = mu_mat[:, :, np.newaxis]
@@ -356,4 +243,4 @@ class FourthOrderTensor(object):
         self.values = c
 
     def copy(self):
-        return FourthOrderTensor(self.dim, mu=self.mu, lmbda=self.lmbda)
+        return FourthOrderTensor(mu=self.mu, lmbda=self.lmbda)

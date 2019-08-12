@@ -92,7 +92,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 # Rock parameters
                 lam = np.ones(g.num_cells) / self.scalar_scale
                 mu = np.ones(g.num_cells) / self.scalar_scale
-                C = pp.FourthOrderTensor(g.dim, mu, lam)
+                C = pp.FourthOrderTensor(mu, lam)
 
                 # Define boundary condition
                 bc = self.bc_type_mechanics(g)
@@ -152,7 +152,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 g.num_cells
             )
             diffusivity = pp.SecondOrderTensor(
-                self.Nd, kappa * specific_volume * np.ones(g.num_cells)
+                kappa * specific_volume * np.ones(g.num_cells)
             )
 
             pp.initialize_data(

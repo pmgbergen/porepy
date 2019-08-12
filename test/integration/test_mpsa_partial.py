@@ -19,7 +19,7 @@ class TestDisplacementReconstruction(unittest.TestCase):
         g = pp.CartGrid([4, 4], physdims=(1, 1))
         g.compute_geometry()
         bc = pp.BoundaryConditionVectorial(g)
-        k = pp.FourthOrderTensor(g.dim, np.ones(g.num_cells), np.ones(g.num_cells))
+        k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
 
         stress, bound_stress, hf_cell, hf_bound = pp.numerics.fv.mpsa.mpsa(
             g, k, bc, inverter="python"
@@ -56,7 +56,7 @@ class TestDisplacementReconstruction(unittest.TestCase):
         g = pp.CartGrid([1, 1], physdims=(1, 1))
         g.compute_geometry()
         bc = pp.BoundaryConditionVectorial(g)
-        k = pp.FourthOrderTensor(g.dim, np.ones(g.num_cells), np.ones(g.num_cells))
+        k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
 
         stress_full, bound_stress_full, hf_cell_full, hf_bound_full = pp.numerics.fv.mpsa.mpsa(
             g, k, bc, inverter="python"
@@ -88,7 +88,7 @@ class TestDisplacementReconstruction(unittest.TestCase):
         g = pp.StructuredTriangleGrid([1, 1], physdims=(1, 1))
         g.compute_geometry()
         bc = pp.BoundaryConditionVectorial(g)
-        k = pp.FourthOrderTensor(g.dim, np.ones(g.num_cells), np.ones(g.num_cells))
+        k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         stress_neu, bound_stress_neu, hf_cell_neu, hf_bound_neu = pp.numerics.fv.mpsa.mpsa(
             g, k, bc, inverter="python"
         )
@@ -128,7 +128,7 @@ class TestDisplacementReconstruction(unittest.TestCase):
         g = pp.StructuredTetrahedralGrid([2, 2, 2], physdims=(1, 1, 1))
         g.compute_geometry()
         bc = pp.BoundaryConditionVectorial(g)
-        k = pp.FourthOrderTensor(g.dim, np.ones(g.num_cells), np.ones(g.num_cells))
+        k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         stress_neu, bound_stress_neu, hf_cell_neu, hf_bound_neu = pp.numerics.fv.mpsa.mpsa(
             g, k, bc, inverter="python"
         )
@@ -168,7 +168,7 @@ class TestDisplacementReconstruction(unittest.TestCase):
         g = pp.StructuredTriangleGrid([2, 2], physdims=(1, 1))
         g.compute_geometry()
         bc = pp.BoundaryConditionVectorial(g)
-        k = pp.FourthOrderTensor(g.dim, np.ones(g.num_cells), np.ones(g.num_cells))
+        k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         stress_neu, bound_stress_neu, hf_cell_neu, hf_bound_neu = pp.numerics.fv.mpsa.mpsa(
             g, k, bc, inverter="python"
         )

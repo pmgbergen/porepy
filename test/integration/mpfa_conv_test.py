@@ -141,7 +141,7 @@ class MainTester(unittest.TestCase):
         # Compute permeability
         char_func_cells = chi(g.cell_centers[0], g.cell_centers[1]) * 1.0
         perm_vec = (1 - char_func_cells) + kappa * char_func_cells
-        perm = tensor.SecondOrderTensor(2, perm_vec)
+        perm = tensor.SecondOrderTensor(perm_vec)
 
         # The rest of the function is similar to self.solve.system, see that
         # for comments.
@@ -211,7 +211,7 @@ class MainTester(unittest.TestCase):
         char_func_cells = chi(g.cell_centers[0], g.cell_centers[1]) * 1.0
         mat_vec = (1 - char_func_cells) + kappa * char_func_cells
 
-        k = tensor.FourthOrderTensor(2, mat_vec, mat_vec)
+        k = tensor.FourthOrderTensor(mat_vec, mat_vec)
         stress, bound_stress, _, _ = mpsa.mpsa(
             g, k, bound_cond, inverter="python", eta=0
         )
@@ -330,7 +330,7 @@ class CartGrid2D(MainTester):
         an_sol = _SolutionHomogeneousDomainFlow(u, x, y)
 
         perm = 1
-        k = pp.SecondOrderTensor(2, perm * np.ones(self.g_nolines.num_cells))
+        k = pp.SecondOrderTensor(perm * np.ones(self.g_nolines.num_cells))
         u_num, flux_num = self.solve_system_homogeneous_perm(
             self.g_nolines, self.bc, self.bound_faces, k, an_sol
         )
@@ -430,7 +430,7 @@ class CartGrid2D(MainTester):
 
         muc = np.ones(self.g_nolines.num_cells)
         lambdac = muc
-        k = tensor.FourthOrderTensor(2, muc, lambdac)
+        k = tensor.FourthOrderTensor(muc, lambdac)
 
         u_num, stress_num = self.solve_system_homogeneous_elasticity(
             self.g_nolines, self.bc_vec, self.bound_faces, k, an_sol
@@ -1019,7 +1019,7 @@ class TriangleGrid2D(MainTester):
         bound_cond = self.bc
         bound_faces = self.bound_faces
         perm = 1
-        k = tensor.SecondOrderTensor(2, perm * np.ones(g.num_cells))
+        k = tensor.SecondOrderTensor(perm * np.ones(g.num_cells))
 
         u_num, flux_num = self.solve_system_homogeneous_perm(
             g, bound_cond, bound_faces, k, an_sol
@@ -1153,7 +1153,7 @@ class TriangleGrid2D(MainTester):
 
         muc = np.ones(self.g_nolines.num_cells)
         lambdac = muc
-        k = tensor.FourthOrderTensor(2, muc, lambdac)
+        k = tensor.FourthOrderTensor(muc, lambdac)
 
         u_num, stress_num = self.solve_system_homogeneous_elasticity(
             self.g_nolines, self.bc_vec, self.bound_faces, k, an_sol

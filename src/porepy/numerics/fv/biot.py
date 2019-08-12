@@ -493,7 +493,7 @@ class Biot:
         # The implementation is valid for tensor Biot coefficients, but for the
         # moment, we only allow for scalar inputs.
         # Take Biot's alpha as a tensor
-        alpha_tensor = pp.SecondOrderTensor(nd, alpha * np.ones(g.num_cells))
+        alpha_tensor = pp.SecondOrderTensor(alpha * np.ones(g.num_cells))
 
         if nd == 2:
             alpha_tensor.values = np.delete(alpha_tensor.values, (2), axis=0)
