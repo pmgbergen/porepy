@@ -84,4 +84,7 @@ WORKDIR /home/porepy
 RUN wget https://raw.githubusercontent.com/keileg/polyhedron/master/polyhedron.py
 RUN mv polyhedron.py robust_point_in_polyhedron.py
 
+USER ROOT
+EXPOSE 8888
 
+USER POREPY

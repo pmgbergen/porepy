@@ -52,8 +52,6 @@ class Mpfa(FVElliptic):
         parameter_dictionary contains the entries:
             second_order_tensor: (SecondOrderTensor) Permeability defined cell-wise.
             bc: (BoundaryCondition) boundary conditions
-            aperture: (np.ndarray) apertures of the cells for scaling of
-                the face normals.
             mpfa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of
                 pressure continuity point. If not given, porepy tries to set an optimal
                 value.
@@ -85,7 +83,6 @@ class Mpfa(FVElliptic):
         # Extract parameters
         k = parameter_dictionary["second_order_tensor"]
         bnd = parameter_dictionary["bc"]
-        aperture = parameter_dictionary["aperture"]
 
         eta = parameter_dictionary.get("mpfa_eta", None)
         eta_reconstruction = parameter_dictionary.get("reconstruction_eta", None)
@@ -98,7 +95,6 @@ class Mpfa(FVElliptic):
             deviation_from_plane_tol,
             eta=eta,
             eta_reconstruction=eta_reconstruction,
-            apertures=aperture,
             inverter=inverter,
         )
         matrix_dictionary["flux"] = trm
@@ -115,7 +111,6 @@ class Mpfa(FVElliptic):
         eta=None,
         eta_reconstruction=None,
         inverter=None,
-        apertures=None,
         max_memory=None,
         **kwargs
     ):
@@ -147,8 +142,6 @@ class Mpfa(FVElliptic):
             eta_reconstruction Location of pressure reconstruction point on faces.
             inverter (string) Block inverter to be used, either numba (default),
                 cython or python. See fvutils.invert_diagonal_blocks for details.
-            apertures (np.ndarray) apertures of the cells for scaling of the face
-                normals.
             max_memory (double): Threshold for peak memory during discretization.
                 If the **estimated** memory need is larger than the provided
                 threshold, the discretization will be split into an appropriate
@@ -213,7 +206,6 @@ class Mpfa(FVElliptic):
                 eta=eta,
                 eta_reconstruction=eta_reconstruction,
                 inverter=inverter,
-                apertures=apertures,
             )
         else:
             # Estimate number of partitions necessary based on prescribed memory
@@ -286,7 +278,6 @@ class Mpfa(FVElliptic):
         cells=None,
         faces=None,
         nodes=None,
-        apertures=None,
     ):
         """
         Run an MPFA discretization on subgrid, and return discretization in terms
@@ -319,8 +310,6 @@ class Mpfa(FVElliptic):
                 subgrid computation. Defaults to None.
             nodes (np.array, int, optional): Index of nodes on which to base the
                 subgrid computation. Defaults to None.
-            apertures (np.ndarray, float, optional) apertures of the cells for scaling
-                of the face normals. Defaults to None.
 
             Note that if all of {cells, faces, nodes} are None, empty matrices will
             be returned.
@@ -384,7 +373,6 @@ class Mpfa(FVElliptic):
             eta=eta,
             eta_reconstruction=eta_reconstruction,
             inverter=inverter,
-            apertures=apertures,
         )
 
         # Map to global indices
@@ -421,7 +409,6 @@ class Mpfa(FVElliptic):
         eta=None,
         eta_reconstruction=None,
         inverter="numba",
-        apertures=None,
     ):
         """
         Actual implementation of the MPFA O-method. To calculate MPFA on a grid
@@ -476,7 +463,6 @@ class Mpfa(FVElliptic):
             discr = pp.Tpfa(self.keyword)
             params = pp.Parameters(g)
             params["bc"] = bnd
-            params["aperture"] = apertures
             params["second_order_tensor"] = k
 
             d = {
@@ -544,7 +530,7 @@ class Mpfa(FVElliptic):
         # (with areas downscaled to account for subfaces). The sign of
         # nk_grad_all coincides with the direction of the normal vector.
         nk_grad_all, cell_node_blocks, sub_cell_index = fvutils.scalar_tensor_vector_prod(
-            g, k, subcell_topology, apertures
+            g, k, subcell_topology
         )
 
         ## Contribution from subcell gradients to local system.

@@ -2,9 +2,10 @@
 Mass matrix classes for a discretization of a L2-mass bilinear form with constant test
 and trial functions.
 
-The discretization takes into account cell volumes, porosity, time step and aperture,
+The discretization takes into account cell volumes (which again should
+incorporate any apertures), porosity and time step,
 so that the mass matrix (shape g.num_cells^2) has the following diagonal:
-g.cell_volumes * mass_weight * aperture
+g.cell_volumes * mass_weight
 The right hand side is null.
 There is also a class for the inverse of the mass matrix.
 
@@ -84,8 +85,6 @@ class MassMatrix:
         param (Parameter Class): Contains the following parameters:
             porosity: (array, self.g.num_cells): Scalar values which represent the
                 porosity. If not given assumed unitary.
-            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
-                the face normals. If not given assumed unitary.
         deltaT: Time step for a possible temporal discretization scheme. If not given
             assumed unitary.
         """
@@ -153,8 +152,6 @@ class MassMatrix:
         parameter_dictionary contains the entries:
             mass_weight: (array, self.g.num_cells): Scalar values which may e.g.
                 represent the porosity or heat capacity.
-            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
-                the face normals.
 
         matrix_dictionary will be updated with the following entries:
             mass: sps.dia_matrix (sparse dia, self.ndof x self.ndof): Mass matrix
@@ -171,8 +168,7 @@ class MassMatrix:
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         ndof = self.ndof(g)
         w = parameter_dictionary["mass_weight"]
-        aperture = parameter_dictionary["aperture"]
-        volumes = g.cell_volumes * aperture
+        volumes = g.cell_volumes
         coeff = volumes * w
 
         matrix_dictionary["mass"] = sps.dia_matrix((coeff, 0), shape=(ndof, ndof))
@@ -249,8 +245,6 @@ class InvMassMatrix:
         param (Parameter Class): Contains the following parameters:
             porosity: (array, self.g.num_cells): Scalar values which represent the
                 porosity. If not given assumed unitary.
-            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
-                the face normals. If not given assumed unitary.
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
@@ -321,8 +315,6 @@ class InvMassMatrix:
         param (Parameter Class): Contains the following parameters:
             porosity: (array, self.g.num_cells): Scalar values which represent the
                 porosity. If not given assumed unitary.
-            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
-                the face normals. If not given assumed unitary.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         M, rhs = MassMatrix(keyword=self.keyword).assemble_matrix_rhs(g, data)

@@ -44,7 +44,6 @@ class RobinCoupling(object):
 
         TODO: Right now, we are a bit unclear on whether it is required that g_h
         represents the higher-dimensional domain. It should not need to do so.
-        TODO: Clean up in the aperture concept.
 
         Parameters:
             g_h: Grid of the master domanin.
@@ -66,13 +65,13 @@ class RobinCoupling(object):
 
         inv_M = sps.diags(1.0 / mg.cell_volumes)
 
-        # Normal permeability and aperture of the intersection
         inv_k = 1.0 / (parameter_dictionary_edge["normal_diffusivity"])
-        aperture_h = parameter_dictionary_h["aperture"]
 
-        proj = mg.master_to_mortar_avg()
+        # If normal diffusivity is given as a constant, parse to np.array
+        if not isinstance(inv_k, np.ndarray):
+            inv_k *= np.ones(mg.num_cells)
 
-        Eta = sps.diags(np.divide(inv_k, proj * aperture_h[cells_h]))
+        Eta = sps.diags(inv_k)
 
         matrix_dictionary_edge["Robin_discr"] = -inv_M * Eta
 

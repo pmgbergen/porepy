@@ -37,7 +37,6 @@ class P1MassMatrix:
         bilinear form using P1 method on simplices.
 
         phi: porosity (optional)
-        aperture: aperture (optional)
         deltaT: time step (optional)
         bc : boundary conditions (optional)
 
@@ -89,8 +88,7 @@ class P1MassMatrix:
 
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         phi = parameter_dictionary["porosity"]
-        aperture = parameter_dictionary["aperture"]
-        coeff = phi / parameter_dictionary.get("time_step", 1.0) * aperture
+        coeff = phi / parameter_dictionary.get("time_step", 1.0)
 
         # TODO the coeff is not used since the default values are cell based.
         bc = parameter_dictionary["bc"]

@@ -148,10 +148,12 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             source_values = self.source_scalar(g)
 
             a = self.compute_aperture(g)
-            cross_sectional_area = np.power(a, self.gb.dim_max() - g.dim) * np.ones(
+            specific_volume = np.power(a, self.gb.dim_max() - g.dim) * np.ones(
                 g.num_cells
             )
-            diffusivity = pp.SecondOrderTensor(self.Nd, kappa * np.ones(g.num_cells))
+            diffusivity = pp.SecondOrderTensor(
+                self.Nd, kappa * specific_volume * np.ones(g.num_cells)
+            )
 
             pp.initialize_data(
                 g,
@@ -160,11 +162,10 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 {
                     "bc": bc,
                     "bc_values": bc_values,
-                    "mass_weight": mass_weight,
+                    "mass_weight": mass_weight * specific_volume,
                     "biot_alpha": alpha,
                     "source": source_values,
                     "second_order_tensor": diffusivity,
-                    "aperture": cross_sectional_area,
                     "time_step": self.time_step,
                 },
             )
