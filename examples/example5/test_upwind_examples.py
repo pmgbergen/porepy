@@ -157,7 +157,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         # Permeability
-        perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
+        perm = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
 
         # Boundaries
         b_faces = g.get_all_boundary_faces()
