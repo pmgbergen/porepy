@@ -47,7 +47,7 @@ def add_data(g):
     """
     # Permeability
     kxx = np.array([permeability(*pt) for pt in g.cell_centers.T])
-    perm = pp.SecondOrderTensor(3, kxx)
+    perm = pp.SecondOrderTensor(kxx)
 
     # Source term
     source = g.cell_volumes * np.array([rhs(*pt) for pt in g.cell_centers.T])
