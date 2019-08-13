@@ -140,8 +140,6 @@ class FVElliptic(
                 size of the matrix will depend on the specific discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "flux" in matrix_dictionary:
-            self.discretize(g, data)
 
         div = pp.fvutils.scalar_divergence(g)
         flux = matrix_dictionary["flux"]

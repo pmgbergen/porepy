@@ -112,10 +112,6 @@ class DualElliptic(
         rhs: array (g.num_faces+g_num_cells)
             Right-hand side which contains the boundary conditions.
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if "mass" not in matrix_dictionary:
-            self.discretize(g, data)
-
         # First assemble the matrix
         M = self.assemble_matrix(g, data)
 
@@ -130,8 +126,6 @@ class DualElliptic(
         """ Assemble matrix from an existing discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "mass" in matrix_dictionary:
-            self.discretize(g, data)
 
         mass = matrix_dictionary["mass"]
         div = matrix_dictionary["div"]
