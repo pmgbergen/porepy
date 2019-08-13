@@ -59,7 +59,6 @@ def transport_dictionary(g, in_data=None):
     # Ensure that the standard transport parameters are present in d. Values from
     # in_data have priority over the default values.
     d = {
-        "porosity": np.ones(g.num_cells),
         "source": np.zeros(g.num_cells),
         "mass_weight": np.ones(g.num_cells),
         "second_order_tensor": pp.SecondOrderTensor(np.ones(g.num_cells)),

@@ -135,13 +135,9 @@ class FourthOrderTensor(object):
     """ Cell-wise representation of fourth order tensor.
 
     For each cell, there are dim^4 degrees of freedom, stored in a
-    dim^2 * dim^2 matrix (exactly how to convert between 2D and 4D matrix
+    3^2 * 3^2 matrix (exactly how to convert between 2D and 4D matrix
     is not clear to me a the moment, but in pratcise there is sufficient
     symmetry in the tensors for the question to be irrelevant).
-
-    Since all coordinates are three-dimensional, the tensor is stored as a 3^2
-    x 3^2 x num_cells arrays. If a 2d problem is solved, the third dimension
-    will automatically be disregarded by the numerical method.
 
     The only constructor available for the moment is based on the lame parameters,
     e.g. using two degrees of freedom. A third parameter phi is also present,
@@ -151,7 +147,7 @@ class FourthOrderTensor(object):
     have not been tested.
 
     Attributes:
-        values - numpy.ndarray, dimensions (dim^2,dim^2,nc), cell-wise
+        values - numpy.ndarray, dimensions (3^2, 3^2, nc), cell-wise
             representation of the stiffness matrix.
         lmbda (np.ndarray, size: num_cells): First Lame parameter
         mu (np.ndarray, size: num_cells): Second Lame parameter

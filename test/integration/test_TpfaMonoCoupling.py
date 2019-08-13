@@ -238,7 +238,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         for _, d in gb.edges():
             pp.params.data.add_discretization_matrix_keyword(d, "flow")
             d[pp.PARAMETERS] = pp.Parameters(
-                keywords=["flow"], dictionaries={"normal_diffusivity": 1e18}
+                keywords=["flow"], dictionaries={"normal_diffusivity": 1e10}
             )
 
         self.solve(gb, analytic_p)
