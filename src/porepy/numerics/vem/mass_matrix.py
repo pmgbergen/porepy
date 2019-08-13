@@ -2,13 +2,14 @@
 Mass matrix classes for a discretization of a L2-mass bilinear form with constant test
 and trial functions for mixed methods (e.g. RT0, MVEM).
 
-The discretization takes into account cell volumes (including the effect of
-apretures), porosity and time step so that the mass matrix (shape (g.num_faces
-+ g.num_cells)^2) has the following diagonal for the cell dof:
+The discretization takes into account cell volumes and the mass_weight given in
+the parameters (the mass weight can again incorporate porosity, time step,
+apertures etc),  so that the mass matrix (shape (g.num_faces + g.num_cells)^2)
+has the following diagonal for the cell_dof:
 
     g.cell_volumes * mass_weight
 
-The block related to the face dofs is empty. The right hand side is null.
+The right hand side is null.
 There is also a class for the inverse of the mass matrix.
 
 Note that the matrix equals the discretization operator in this case, and so is stored
@@ -104,10 +105,7 @@ class MixedMassMatrix:
                 discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if "mixed_mass" not in matrix_dictionary:
-            self.discretize(g, data)
-        M = matrix_dictionary["mixed_mass"]
-        return M
+        return matrix_dictionary["mixed_mass"]
 
     # ------------------------------------------------------------------------------#
 
@@ -258,11 +256,8 @@ class MixedInvMassMatrix:
                 discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if "inv_mixed_mass" not in matrix_dictionary:
-            self.discretize(g, data)
 
-        M = matrix_dictionary["inv_mixed_mass"]
-        return M
+        return matrix_dictionary["inv_mixed_mass"]
 
     # ------------------------------------------------------------------------------#
 
@@ -281,11 +276,8 @@ class MixedInvMassMatrix:
                 conditions: A null vector of length g.num_faces.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if "bound_inv_mixed_mass" not in matrix_dictionary:
-            self.discretize(g, data)
 
-        rhs = matrix_dictionary["bound_inv_mixed_mass"]
-        return rhs
+        return matrix_dictionary["bound_inv_mixed_mass"]
 
     # ------------------------------------------------------------------------------#
 
@@ -316,7 +308,9 @@ class MixedInvMassMatrix:
 
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        M, rhs = MixedMassMatrix(keyword=self.keyword).assemble_matrix_rhs(g, data)
+        mass = MixedMassMatrix(keyword=self.keyword)
+        mass.discretize(g, data)
+        M, rhs = mass.assemble_matrix_rhs(g, data)
         coeff = M.diagonal()
         coeff[g.num_faces :] = 1.0 / coeff[g.num_faces :]
 
