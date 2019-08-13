@@ -102,6 +102,7 @@ class MainTester(unittest.TestCase):
         specified_parameters = {"second_order_tensor": k, "bc": bound_cond}
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
         data[pp.PARAMETERS]["flow"]["mpfa_eta"] = 0
+        discr.discretize(g, data)
         a = discr.assemble_matrix(g, data)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
@@ -151,6 +152,7 @@ class MainTester(unittest.TestCase):
         specified_parameters = {"second_order_tensor": perm, "bc": bound_cond}
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
         data[pp.PARAMETERS]["flow"]["mpfa_eta"] = 0
+        discr.discretize(g, data)
         a = discr.assemble_matrix(g, data)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
@@ -927,9 +929,6 @@ class CartGrid2D(MainTester):
         )
         assert np.isclose(u_num, u_precomp, atol=1e-10).all()
         assert np.isclose(stress_num, stress_precomp, atol=1e-10).all()
-
-    if __name__ == "__main__":
-        unittest.main()
 
 
 class TriangleGrid2D(MainTester):

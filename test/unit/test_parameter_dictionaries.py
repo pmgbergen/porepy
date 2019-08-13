@@ -34,7 +34,6 @@ class TestParameterDictionaries(unittest.TestCase):
         dictionary = dicts.transport_dictionary(self.g)
         # Check that all parameters have been added.
         p_list = [
-            "porosity",
             "source",
             "time_step",
             "second_order_tensor",
@@ -45,7 +44,7 @@ class TestParameterDictionaries(unittest.TestCase):
         ]
         [self.assertIn(parameter, dictionary) for parameter in p_list]
         # Check some of the values:
-        unitary_parameters = ["porosity", "mass_weight"]
+        unitary_parameters = ["mass_weight"]
         ones = np.ones(self.g.num_cells)
         for parameter in unitary_parameters:
             self.assertTrue(np.all(np.isclose(dictionary[parameter], ones)))
@@ -61,7 +60,6 @@ class TestParameterDictionaries(unittest.TestCase):
         dictionary = dicts.mechanics_dictionary(self.g)
         # Check that all parameters have been added.
         p_list = [
-            "porosity",
             "source",
             "time_step",
             "fourth_order_tensor",
@@ -71,10 +69,6 @@ class TestParameterDictionaries(unittest.TestCase):
         ]
         [self.assertIn(parameter, dictionary) for parameter in p_list]
         # Check some of the values:
-        unitary_parameters = ["porosity"]
-        ones = np.ones(self.g.num_cells)
-        for parameter in unitary_parameters:
-            self.assertTrue(np.all(np.isclose(dictionary[parameter], ones)))
         zeros = np.zeros(self.g.num_faces * self.g.dim)
         self.assertTrue(np.all(np.isclose(dictionary["slip_distance"], zeros)))
         self.assertEqual(dictionary["bc"].bc_type, "vectorial")
@@ -127,8 +121,6 @@ class TestParameterDictionaries(unittest.TestCase):
         )
         dictionary = data[pp.PARAMETERS]["not_transport"]
         self.assertEqual(dictionary["foo"], "bar")
-        ones = np.ones(self.g.num_cells)
-        self.assertTrue(np.all(np.isclose(dictionary["porosity"], ones)))
 
     def test_initialize_data_specified(self):
         """ Test transport data initialization without default values.
