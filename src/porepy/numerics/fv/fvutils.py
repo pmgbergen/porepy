@@ -313,7 +313,7 @@ def invert_diagonal_blocks(mat, s, method=None):
         try:
             import porepy.numerics.fv.cythoninvert as cythoninvert
         except:
-            ImportError(
+            raise ImportError(
                 "Compiled Cython module not available. Is cython\
             installed?"
             )

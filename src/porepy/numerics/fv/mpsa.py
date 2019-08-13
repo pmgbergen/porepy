@@ -736,7 +736,7 @@ def mpsa_update_partial(
     """
     Given a discretization this function rediscretize parts of the domain.
     This is a fast way to update the discretization if you change, say the
-    boundary conditions, have a growth of fractures.
+    boundary conditions or have a growth of fractures.
 
     Parameters:
     stress (scipy.sparse.csr_matrix (shape num_faces, num_cells)): stress
