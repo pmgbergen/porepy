@@ -273,7 +273,7 @@ class Upwind:
         # Retrieve the data
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         darcy_flux = parameter_dictionary[d_name]
-        phi = parameter_dictionary["porosity"]
+        phi = parameter_dictionary["mass_weight"]
 
         faces, cells, _ = sps.find(g.cell_faces)
 
