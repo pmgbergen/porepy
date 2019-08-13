@@ -125,6 +125,7 @@ def main(kf, description, is_coarse=False, if_export=False):
     assembler = pp.Assembler(gb)
 
     # Discretize
+    assembler.discretize()
     A, b = assembler.assemble_matrix_rhs()
     p = sps.linalg.spsolve(A, b)
 

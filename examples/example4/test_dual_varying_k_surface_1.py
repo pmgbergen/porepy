@@ -86,6 +86,7 @@ def main(N):
 
     # Choose and define the solvers
     solver_flow = pp.MVEM("flow")
+    solver_flow.discretize(g, data)
     A_flow, b_flow = solver_flow.assemble_matrix_rhs(g, data)
 
     solver_source = pp.DualScalarSource("flow")

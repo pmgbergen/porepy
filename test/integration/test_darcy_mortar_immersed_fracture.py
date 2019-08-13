@@ -88,6 +88,7 @@ class TestImmersedFracture(unittest.TestCase):
 
     def _solve(self, gb, method, key):
         assembler = test_utils.setup_flow_assembler(gb, method, key)
+        assembler.discretize()
         A_flow, b_flow = assembler.assemble_matrix_rhs()
         up = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(up)

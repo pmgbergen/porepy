@@ -276,6 +276,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             }
 
         assembler = pp.Assembler(gb)
+        assembler.discretize()
         A, b = assembler.assemble_matrix_rhs()
         x = sps.linalg.spsolve(A, b)
 

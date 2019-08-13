@@ -757,6 +757,12 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         g = pp.StructuredTriangleGrid(nx)
         g.compute_geometry()
         return g
+    
+    def pressure(self, fd, g, data):
+        fd.discretize(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
+        p = spl.spsolve(A, b)
+        return p
 
     def test_zero_pressure(self):
         g = self.grid()
@@ -767,9 +773,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         fd = pp.Tpfa("flow")
 
         data = make_dictionary(g, bound)
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
-
+        p = self.pressure(fd, g, data)
         self.assertTrue(np.allclose(p, np.zeros_like(p)))
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = matrix_dictionary["bound_pressure_cell"] * p + matrix_dictionary[
@@ -788,10 +792,8 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
 
         bc_val = np.ones(g.num_faces)
         data = make_dictionary(g, bound, bc_val)
-
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
-
+        p = self.pressure(fd, g, data)
+        
         self.assertTrue(np.allclose(p, np.ones_like(p)))
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
@@ -813,9 +815,8 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         bc_val = np.ones(g.num_faces)
         data = make_dictionary(g, bound, bc_val)
 
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
-
+        p = self.pressure(fd, g, data)
+        
         self.assertTrue(np.allclose(p, np.ones_like(p)))
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
@@ -836,9 +837,9 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
 
         bc_val = 1 * g.face_centers[0] + 2 * g.face_centers[1]
         data = make_dictionary(g, bound, bc_val)
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
-
+        
+        p = self.pressure(fd, g, data)
+        
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
@@ -861,8 +862,8 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         # Set up unit pressure gradient in x-direction
         bc_val[[2, 5]] = 1
         data = make_dictionary(g, bound, bc_val)
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
+        
+        p = self.pressure(fd, g, data)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
@@ -886,8 +887,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         # Set up unit pressure gradient in x-direction
         bc_val[[2, 5]] = 1
         data = make_dictionary(g, bound, bc_val)
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
+        p = self.pressure(fd, g, data)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
@@ -911,8 +911,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         # Set up pressure gradient in x-direction, with value -1
         bc_val[[2, 5]] = -1
         data = make_dictionary(g, bound, bc_val)
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
+        p = self.pressure(fd, g, data)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
@@ -938,8 +937,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         # Set up unit pressure gradient in x-direction
         bc_val[[2, 5]] = 1
         data = make_dictionary(g, bound, bc_val)
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
+        p = self.pressure(fd, g, data)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
@@ -956,6 +954,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         bc_val[[2, 5]] = -1
         t = pp.Tpfa("flow")
         data = make_dictionary(g, pp.BoundaryCondition(g), bc_val)
+        t.discretize(g, data)
         t.assemble_matrix_rhs(g, data)
         # The problem is singular, and spsolve does not work well on all systems.
         # Instead, set a consistent solution, and check that the boundary
@@ -982,6 +981,12 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         g.compute_geometry()
         return g
 
+    def pressure(self, fd, g, data):
+        fd.discretize(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
+        p = spl.spsolve(A, b)
+        return p
+
     def test_zero_pressure(self):
         g = self.grid()
 
@@ -992,8 +997,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         fd = pp.Mpfa("flow")
         data = make_dictionary(g, bound)
 
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
+        p = self.pressure(fd, g, data)
 
         self.assertTrue(np.allclose(p, np.zeros_like(p)))
 
@@ -1014,8 +1018,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
 
         bc_val = np.ones(g.num_faces)
         data = make_dictionary(g, bound, bc_val)
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
+        p = self.pressure(fd, g, data)
 
         self.assertTrue(np.allclose(p, np.ones_like(p)))
 
@@ -1037,9 +1040,8 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
 
         bc_val = np.ones(g.num_faces)
         data = make_dictionary(g, bound, bc_val)
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
-
+        p = self.pressure(fd, g, data)
+        
         self.assertTrue(np.allclose(p, np.ones_like(p)))
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
@@ -1060,9 +1062,8 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
 
         bc_val = 1 * g.face_centers[0] + 2 * g.face_centers[1]
         data = make_dictionary(g, bound, bc_val)
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
-
+        p = self.pressure(fd, g, data)
+        
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
@@ -1087,9 +1088,8 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         # Set up unit flow in x-direction, thus pressure gradient the other way
         bc_val[[2, 5]] = 1
         data = make_dictionary(g, bound, bc_val)
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
-
+        p = self.pressure(fd, g, data)
+        
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
@@ -1112,9 +1112,8 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         # Set up flow in negative x-direction, thus positive gradient of value 1
         bc_val[[2, 5]] = -1
         data = make_dictionary(g, bound, bc_val)
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
-
+        p = self.pressure(fd, g, data)
+        
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
@@ -1139,9 +1138,8 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         # Set up unit pressure gradient in x-direction
         bc_val[[2, 5]] = 1
         data = make_dictionary(g, bound, bc_val)
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
-
+        p = self.pressure(fd, g, data)
+        
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
@@ -1162,9 +1160,8 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
 
         bc_val = 1 * g.face_centers[0] + 2 * g.face_centers[1]
         data = make_dictionary(g, bound, bc_val)
-        A, b = fd.assemble_matrix_rhs(g, data)
-        p = spl.spsolve(A, b)
-
+        p = self.pressure(fd, g, data)
+        
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
@@ -1181,6 +1178,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         bc_val[[2, 5]] = -1
         t = pp.Mpfa("flow")
         data = make_dictionary(g, pp.BoundaryCondition(g), bc_val)
+        t.discretize(g, data)
         _, b = t.assemble_matrix_rhs(g, data)
         # The problem is singular, and spsolve does not work well on all systems.
         # Instead, set a consistent solution, and check that the boundary
@@ -1216,9 +1214,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         bc_val[bf[xright]] = 1
         data = make_dictionary(g, bound, bc_val)
 
-        A, b = fd.assemble_matrix_rhs(g, data)
-        x = spl.spsolve(A, b)
-
+        x = self.pressure(fd, g, data)
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * x
@@ -1247,8 +1243,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         bc_val[bf[xright]] = -1
 
         data = make_dictionary(g, bound, bc_val)
-        A, b = fd.assemble_matrix_rhs(g, data)
-        x = spl.spsolve(A, b)
+        x = self.pressure(fd, g, data)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
@@ -1289,7 +1284,9 @@ class TestMpfaSimplexGrid(unittest.TestCase):
 
         data = make_dictionary(g, bound, bc_val)
 
+        fd.discretize(g, data)
         A, b = fd.assemble_matrix_rhs(g, data)
+        
         p = spl.spsolve(A, b)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
@@ -1316,3 +1313,6 @@ def make_true_2d(g):
         g.nodes = np.delete(g.nodes, (2), axis=0)
 
     return g
+
+if __name__ == '__main__':
+    unittest.main()
