@@ -17,7 +17,7 @@ class MassMatrixTest(unittest.TestCase):
         time_discr = pp.MassMatrix()
         time_discr.discretize(g, data)
         lhs, rhs = time_discr.assemble_matrix_rhs(g, data)
-        
+
         self.assertTrue(np.allclose(rhs, 0))
         self.assertTrue(np.allclose(lhs.diagonal(), g.cell_volumes * phi))
         off_diag = np.where(~np.eye(lhs.shape[0], dtype=bool))

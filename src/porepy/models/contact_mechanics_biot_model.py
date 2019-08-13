@@ -432,11 +432,11 @@ def run_biot(setup, newton_tol=1e-10):
 
     # Discretize with the biot class
     setup.discretize_biot(gb)
-    
+
     for g, d in gb:
         if g.dim < gb.dim_max():
             assembler.discretize(grid=g)
-    
+
     # Prepare for the time loop
     errors = []
     dt = setup.time_step

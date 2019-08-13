@@ -289,7 +289,7 @@ class TestDFN(unittest.TestCase):
         # setup data and assembler
         setup_data(gb)
         assembler, (discr, _) = setup_discr_mvem(gb)
-        
+
         assembler.discretize()
         A, b = assembler.assemble_matrix_rhs()
         x = sps.linalg.spsolve(A, b)

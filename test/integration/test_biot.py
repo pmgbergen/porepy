@@ -131,7 +131,7 @@ class BiotTest(unittest.TestCase):
         }
         # Assemble. Also discretizes the flow terms (fluid_mass and fluid_flux)
         general_assembler = pp.Assembler(gb)
-        general_assembler.discretize(term_filter=['fluid_mass', 'fluid_flux'])
+        general_assembler.discretize(term_filter=["fluid_mass", "fluid_flux"])
         A, b = general_assembler.assemble_matrix_rhs()
 
         # Re-discretize and assemble using the Biot class
@@ -232,7 +232,7 @@ class BiotTest(unittest.TestCase):
         for _ in times:
             # Assemble. Also discretizes the flow terms (fluid_mass and fluid_flux)
             general_assembler = pp.Assembler(gb)
-            general_assembler.discretize(term_filter=['fluid_mass', 'fluid_flux'])
+            general_assembler.discretize(term_filter=["fluid_mass", "fluid_flux"])
             A, b = general_assembler.assemble_matrix_rhs()
 
             # Assemble using the Biot class

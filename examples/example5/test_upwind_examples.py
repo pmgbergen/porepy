@@ -220,7 +220,7 @@ class BasicsTest(unittest.TestCase):
         inv_mass = pp.InvMassMatrix("transport")
         inv_mass.discretize(g, data)
         invM, _ = inv_mass.assemble_matrix_rhs(g, data)
-        
+
         # Loop over the time
         Nt = int(T / time_step)
         time = np.empty(Nt)
