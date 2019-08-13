@@ -70,7 +70,7 @@ class VoidDiscretization:
         )
 
     def discretize(self, g, data):
-        """ Construct discretization matrices.
+        """ Construct discretization matrices. Operation is void for this discretization.
 
         Parameters:
             g (pp.Grid): Grid to be discretized.
