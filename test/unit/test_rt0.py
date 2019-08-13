@@ -10,14 +10,14 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
     def _matrix(self, g, perm, bc):
         solver = pp.RT0(keyword="flow")
-           
+
         data = pp.initialize_default_data(
             g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
         )
         solver.discretize(g, data)
 
         return solver.assemble_matrix(g, data).todense()
-    
+
     def test_rt0_1d_iso(self):
         g = pp.structured.CartGrid(3, 1)
         g.compute_geometry()
@@ -992,7 +992,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
         M = self._matrix(g, perm, bc)
-        
+
         # Matrix computed with an already validated code
         M_known = np.matrix(
             [

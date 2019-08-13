@@ -238,7 +238,10 @@ class Assembler:
                 
         """
         self._operate_on_gb(
-            "discretize", variable_filter=variable_filter, term_filter=term_filter, grid=grid
+            "discretize",
+            variable_filter=variable_filter,
+            term_filter=term_filter,
+            grid=grid,
         )
 
     def _operate_on_gb(self, operation, **kwargs):
@@ -284,7 +287,7 @@ class Assembler:
         # Loop over all grids, discretize (if necessary) and assemble. This
         # will populate the main diagonal of the equation.
         for g, data in self.gb:
-            if kwargs.get('grid', None) is not None and g is not kwargs['grid']:
+            if kwargs.get("grid", None) is not None and g is not kwargs["grid"]:
                 continue
             loc_var = self._local_variables(data)
             for row in loc_var.keys():
