@@ -86,7 +86,9 @@ def main(N):
 
     # Choose and define the solvers
     solver = pp.Mpfa("flow")
+    solver.discretize(g, data)
     A, b_flux = solver.assemble_matrix_rhs(g, data)
+    solver.discretize(g, data)
     _, b_source = pp.ScalarSource("flow").assemble_matrix_rhs(g, data)
     p = sps.linalg.spsolve(A, b_flux + b_source)
 

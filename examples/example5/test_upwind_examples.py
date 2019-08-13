@@ -44,12 +44,16 @@ class BasicsTest(unittest.TestCase):
         rhs = time_step * rhs
         U = time_step * U
         OF = advect.outflow(g, data)
-        M, _ = pp.MassMatrix("transport").assemble_matrix_rhs(g, data)
+        mass = pp.MassMatrix("transport")
+        mass.discretize(g, data)
+        M, _ = mass.assemble_matrix_rhs(g, data)
 
         conc = np.zeros(g.num_cells)
 
         M_minus_U = M - U
-        invM, _ = pp.InvMassMatrix("transport").assemble_matrix_rhs(g, data)
+        inv_mass = pp.InvMassMatrix("transport")
+        inv_mass.discretize(g, data)
+        invM, _ = inv_mass.assemble_matrix_rhs(g, data)
 
         # Loop over the time
         Nt = int(T / time_step)
@@ -98,7 +102,9 @@ class BasicsTest(unittest.TestCase):
         U, rhs = advect.assemble_matrix_rhs(g, data)
         rhs = time_step * rhs
         U = time_step * U
-        M, _ = pp.MassMatrix("transport").assemble_matrix_rhs(g, data)
+        mass = pp.MassMatrix("transport")
+        mass.discretize(g, data)
+        M, _ = mass.assemble_matrix_rhs(g, data)
 
         conc = np.zeros(g.num_cells)
 
@@ -136,7 +142,6 @@ class BasicsTest(unittest.TestCase):
                 0.51725056,
             ]
         )
-        print(conc)
         assert np.allclose(conc, known)
 
     # ------------------------------------------------------------------------------#
@@ -206,12 +211,16 @@ class BasicsTest(unittest.TestCase):
         U = time_step * U
 
         data[pp.PARAMETERS]["transport"]["time_step"] = time_step
-        M, _ = pp.MassMatrix("transport").assemble_matrix_rhs(g, data)
+        mass = pp.MassMatrix("transport")
+        mass.discretize(g, data)
+        M, _ = mass.assemble_matrix_rhs(g, data)
 
         conc = np.zeros(g.num_cells)
         M_minus_U = M - U
-        invM, _ = pp.InvMassMatrix("transport").assemble_matrix_rhs(g, data)
-
+        inv_mass = pp.InvMassMatrix("transport")
+        inv_mass.discretize(g, data)
+        invM, _ = inv_mass.assemble_matrix_rhs(g, data)
+        
         # Loop over the time
         Nt = int(T / time_step)
         time = np.empty(Nt)

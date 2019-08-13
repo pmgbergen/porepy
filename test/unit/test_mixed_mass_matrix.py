@@ -22,6 +22,7 @@ class MixedMassMatrixTest(unittest.TestCase):
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
         discr = pp.MixedMassMatrix()
+        discr.discretize(g, data)
         lhs, rhs = discr.assemble_matrix_rhs(g, data)
 
         lhs_known = (
@@ -54,6 +55,7 @@ class MixedMassMatrixTest(unittest.TestCase):
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
         discr = pp.MixedInvMassMatrix()
+        discr.discretize(g, data)
         lhs, rhs = discr.assemble_matrix_rhs(g, data)
 
         lhs_known = 600 * np.array(
@@ -83,6 +85,7 @@ class MixedMassMatrixTest(unittest.TestCase):
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
         discr = pp.MixedMassMatrix()
+        discr.discretize(g, data)
         lhs, rhs = discr.assemble_matrix_rhs(g, data)
 
         lhs_known = (
@@ -684,6 +687,7 @@ class MixedMassMatrixTest(unittest.TestCase):
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
         discr = pp.MixedInvMassMatrix()
+        discr.discretize(g, data)
         lhs, rhs = discr.assemble_matrix_rhs(g, data)
 
         lhs_known = 1200 * np.array(
