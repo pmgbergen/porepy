@@ -306,7 +306,8 @@ def tpfa_matrix(g, perm=None):
         "bc": pp.BoundaryCondition(g, np.empty(0), ""),
     }
     data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-    return solver.assemble_matrix_rhs(g, data)[0]
+    solver.discretize(g, data)
+    return solver.assemble_matrix(g, data)
 
 
 # ------------------------------------------------------------------------------#
