@@ -136,7 +136,7 @@ class Tpfa(FVElliptic):
         t_b = t_b[bndr_ind]
         t[np.logical_or(is_neu, is_not_active)] = 0
         # Create flux matrix
-        flux = sps.coo_matrix((t[fi] * sgn, (fi, ci)))
+        flux = sps.coo_matrix((t[fi] * sgn, (fi, ci))).tocsc()
 
         # Create boundary flux matrix
         bndr_sgn = (g.cell_faces[bndr_ind, :]).data
@@ -144,7 +144,7 @@ class Tpfa(FVElliptic):
         bndr_sgn = bndr_sgn[sort_id]
         bound_flux = sps.coo_matrix(
             (t_b * bndr_sgn, (bndr_ind, bndr_ind)), (g.num_faces, g.num_faces)
-        )
+        ).tocsc()
         # Store the matrix in the right dictionary:
         matrix_dictionary["flux"] = flux
         matrix_dictionary["bound_flux"] = bound_flux
