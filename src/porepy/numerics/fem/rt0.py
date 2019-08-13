@@ -61,7 +61,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         # Get dictionary for parameter storage
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        # Retrieve the permeability, boundary conditions
+        # Retrieve the permeability
         k = parameter_dictionary["second_order_tensor"]
 
         faces, cells, sign = sps.find(g.cell_faces)
