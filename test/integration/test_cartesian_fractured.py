@@ -40,32 +40,26 @@ class TestCartGridFrac(unittest.TestCase):
         f_2 = np.array([[4, 4], [2, 7]])
         f = [f_1, f_2]
         gb = pp.meshing.cart_grid(f, [10, 10], physdims=[10, 10])
-    
-    
+
     def test_T_intersection_2d(self):
         f_1 = np.array([[2, 6], [5, 5]])
         f_2 = np.array([[4, 4], [2, 5]])
         f = [f_1, f_2]
         gb = pp.meshing.cart_grid(f, [10, 10], physdims=[10, 10])
 
-    
-    
     def test_L_intersection_2d(self):
         f_1 = np.array([[2, 6], [5, 5]])
         f_2 = np.array([[6, 6], [2, 5]])
         f = [f_1, f_2]
-    
+
         gb = pp.meshing.cart_grid(f, [10, 10], physdims=[10, 10])
 
-    
-    
     def test_x_intersection_3d(self):
         f_1 = np.array([[2, 5, 5, 2], [2, 2, 5, 5], [5, 5, 5, 5]])
         f_2 = np.array([[2, 2, 5, 5], [5, 5, 5, 5], [2, 5, 5, 2]])
         f = [f_1, f_2]
         gb = pp.meshing.cart_grid(f, np.array([10, 10, 10]))
 
-    
     def test_several_intersections_3d(self):
         f_1 = np.array([[2, 5, 5, 2], [2, 2, 5, 5], [5, 5, 5, 5]])
         f_2 = np.array([[2, 2, 5, 5], [5, 5, 5, 5], [2, 5, 5, 2]])
@@ -73,8 +67,6 @@ class TestCartGridFrac(unittest.TestCase):
         f_4 = np.array([[3, 3, 6, 6], [3, 3, 3, 3], [3, 7, 7, 3]])
         f = [f_1, f_2, f_3, f_4]
         gb = pp.meshing.cart_grid(f, np.array([8, 8, 8]))
-
-
 
 
 if __name__ == "__main__":
