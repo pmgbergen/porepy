@@ -4,8 +4,6 @@ import unittest
 
 import porepy as pp
 
-# ------------------------------------------------------------------------------#
-
 
 class BasicsTest(unittest.TestCase):
     def _matrix(self, g, perm, bc):
