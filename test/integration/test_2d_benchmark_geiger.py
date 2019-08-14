@@ -5,7 +5,7 @@ import unittest
 import test.common.flow_benchmark_2d_geiger_setup as setup
 
 
-class testVEMOnBenchmark(unittest.TestCase):
+class TestVEMOnBenchmark(unittest.TestCase):
     
     def solve(self, kf, description, is_coarse=False, if_export=False):
         mesh_size = 0.045
@@ -77,11 +77,12 @@ class testVEMOnBenchmark(unittest.TestCase):
 
 
 class TestFVOnBenchmark(unittest.TestCase):
+    
     def solve(self, kf, description, multi_point, if_export=False):
         mesh_size = 0.045
         gb, domain = setup.make_grid_bucket(mesh_size)
         # Assign parameters
-        self.add_data(gb, domain, kf, mesh_size)
+        setup.add_data(gb, domain, kf)
     
         key = "flow"
         if multi_point:
