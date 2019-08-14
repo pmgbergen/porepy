@@ -55,9 +55,9 @@ class Grid(object):
         hand rule.
         face_nodes.indices[face_nodes.indptr[i]:face_nodes.indptr[i+1]]
         are the nodes of face i, which should be ordered counter-clockwise.
-        By counter-clockwise we mean as seen from cell cell_faces[i,:]==1.
+        By counter-clockwise we mean as seen from cell cell_faces[i,:] == -1.
         Equivalently the nodes will be clockwise as seen from cell
-        cell_faces[i,:] == -1. Note that operations on the face_nodes matrix
+        cell_faces[i,:] == 1. Note that operations on the face_nodes matrix
         (such as converting it to a csr-matrix) may change the ordering of
         the nodes (face_nodes.indices), which will break compute_geometry().
         Geometric information, available after compute_geometry() has been
