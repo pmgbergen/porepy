@@ -50,21 +50,18 @@ def add_data(gb, domain, kf):
     a = 1e-4
 
     for g, d in gb:
+        # Assign aperture
+        a_dim = np.power(a, gb.dim_max() - g.dim)
+        aperture = np.ones(g.num_cells) * a_dim
 
-        # Permeability
-        kxx = np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max())
+        # Effective permeability, scaled with aperture.
+        kxx = np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max()) * aperture
         if g.dim == 2:
             perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
         else:
             perm = pp.SecondOrderTensor(kxx=kxx, kyy=1, kzz=1)
 
-        # Source term
-
-        # Assign apertures
-        a_dim = np.power(a, gb.dim_max() - g.dim)
-        aperture = np.ones(g.num_cells) * a_dim
-
-        specified_parameters = {"aperture": aperture, "second_order_tensor": perm}
+        specified_parameters = {"second_order_tensor": perm}
         # Boundaries
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if bound_faces.size != 0:
