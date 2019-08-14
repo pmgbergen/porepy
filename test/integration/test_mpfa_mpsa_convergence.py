@@ -29,6 +29,255 @@ from porepy.utils.mcolon import mcolon
 from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 
+class TestMpfaConvergenceVaryingPerm(unittest.TestCase):
+    def rhs(self, x, y, z):
+        return (
+            8.0
+            * np.pi ** 2
+            * np.sin(2.0 * np.pi * x)
+            * np.sin(2.0 * np.pi * y)
+            * self.permeability(x, y, z)
+            - 400.0 * np.pi * y * np.cos(2.0 * np.pi * y) * np.sin(2.0 * np.pi * x)
+            - 400.0 * np.pi * x * np.cos(2.0 * np.pi * x) * np.sin(2.0 * np.pi * y)
+        )
+
+    def solution(self, x, y, z):
+        return np.sin(2.0 * np.pi * x) * np.sin(2.0 * np.pi * y)
+
+    def permeability(self, x, y, z):
+        return 1.0 + 100.0 * x ** 2 + 100.0 * y ** 2
+
+    def add_data(self, g):
+        """
+        Define the permeability, apertures, boundary conditions
+        """
+        # Permeability
+        kxx = np.array([self.permeability(*pt) for pt in g.cell_centers.T])
+        perm = pp.SecondOrderTensor(kxx)
+
+        # Source term
+        source = g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
+
+        # Boundaries
+        bound_faces = g.get_all_boundary_faces()
+        bound_face_centers = g.face_centers[:, bound_faces]
+
+        labels = np.array(["dir"] * bound_faces.size)
+
+        bc_val = np.zeros(g.num_faces)
+        bc_val[bound_faces] = np.array(
+            [self.solution(*pt) for pt in bound_face_centers.T]
+        )
+
+        bound = pp.BoundaryCondition(g, bound_faces, labels)
+        specified_parameters = {
+            "second_order_tensor": perm,
+            "source": source,
+            "bc": bound,
+            "bc_values": bc_val,
+        }
+        return pp.initialize_default_data(g, {}, "flow", specified_parameters)
+
+    def error_p(self, g, p):
+
+        sol = np.array([self.solution(*pt) for pt in g.cell_centers.T])
+        return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
+
+    def main(self, N):
+        Nx = Ny = N
+
+        # g = structured.CartGrid([Nx, Ny], [1, 1])
+        g = pp.StructuredTriangleGrid([Nx, Ny], [1, 1])
+        g.compute_geometry()
+
+        # Assign parameters
+        data = self.add_data(g)
+
+        # Choose and define the solvers
+        solver = pp.Mpfa("flow")
+        solver.discretize(g, data)
+        A, b_flux = solver.assemble_matrix_rhs(g, data)
+        _, b_source = pp.ScalarSource("flow").assemble_matrix_rhs(g, data)
+        p = scipy.sparse.linalg.spsolve(A, b_flux + b_source)
+
+        diam = np.amax(g.cell_diameters())
+        return diam, self.error_p(g, p)
+
+    def test_mpfa_varying_k(self):
+        diam_10, error_10 = self.main(10)
+        diam_20, error_20 = self.main(20)
+
+        known_order = 1.98916152711
+        order = np.log(error_10 / error_20) / np.log(diam_10 / diam_20)
+        assert np.isclose(order, known_order)
+
+
+class TestMpfaConvergenceVaryingPermSurface(unittest.TestCase):
+    def rhs(self, x, y, z):
+        return (
+            7.0 * z * (x ** 2 + y ** 2 + 1.0)
+            - y * (x ** 2 - 9.0 * z ** 2)
+            - 4.0 * x ** 2 * z
+            - (
+                8 * np.sin(np.pi * y)
+                - 4.0 * np.pi ** 2 * y ** 2 * np.sin(np.pi * y)
+                + 16.0 * np.pi * y * np.cos(np.pi * y)
+            )
+            * (x ** 2 / 2.0 + y ** 2 / 2.0 + 1.0 / 2.0)
+            - 4.0 * y ** 2 * (2.0 * np.sin(np.pi * y) + np.pi * y * np.cos(np.pi * y))
+        )
+
+    def solution(self, x, y, z):
+        return x ** 2 * z + 4.0 * y ** 2 * np.sin(np.pi * y) - 3.0 * z ** 3
+
+    def permeability(self, x, y, z):
+        return 1.0 + x ** 2 + y ** 2
+
+    def add_data(self, g):
+        """
+        Define the permeability, apertures, boundary conditions
+        """
+
+        # Permeability
+        kxx = np.array([self.permeability(*pt) for pt in g.cell_centers.T])
+        perm = pp.SecondOrderTensor(kxx)
+
+        # Source term
+        source = g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
+
+        # Boundaries
+        bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+        bound_face_centers = g.face_centers[:, bound_faces]
+
+        labels = np.array(["dir"] * bound_faces.size)
+
+        bc_val = np.zeros(g.num_faces)
+        bc_val[bound_faces] = np.array(
+            [self.solution(*pt) for pt in bound_face_centers.T]
+        )
+
+        bound = pp.BoundaryCondition(g, bound_faces, labels)
+        specified_parameters = {
+            "second_order_tensor": perm,
+            "source": source,
+            "bc": bound,
+            "bc_values": bc_val,
+        }
+        return pp.initialize_default_data(g, {}, "flow", specified_parameters)
+
+    def error_p(self, g, p):
+
+        sol = np.array([self.solution(*pt) for pt in g.cell_centers.T])
+        return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
+
+    def main(self, N):
+        Nx = Ny = N
+
+        # g = structured.CartGrid([Nx, Ny], [1, 1])
+        g = pp.StructuredTriangleGrid([Nx, Ny], [1, 1])
+        R = pp.map_geometry.rotation_matrix(np.pi / 4.0, [1, 0, 0])
+        g.nodes = np.dot(R, g.nodes)
+        g.compute_geometry()
+
+        # Assign parameters
+        data = self.add_data(g)
+
+        # Choose and define the solvers
+        solver = pp.Mpfa("flow")
+        solver.discretize(g, data)
+        A, b_flux = solver.assemble_matrix_rhs(g, data)
+        _, b_source = pp.ScalarSource("flow").assemble_matrix_rhs(g, data)
+        p = scipy.sparse.linalg.spsolve(A, b_flux + b_source)
+
+        diam = np.amax(g.cell_diameters())
+        return diam, self.error_p(g, p)
+
+    def test_mpfa_varying_k_surface(self):
+        diam_10, error_10 = self.main(10)
+        diam_20, error_20 = self.main(20)
+
+        known_order = 1.9956052512
+        order = np.log(error_10 / error_20) / np.log(diam_10 / diam_20)
+        assert np.isclose(order, known_order)
+
+
+class TestMpfaConvergenceVaryingPermSurface2(unittest.TestCase):
+    def rhs(self, x, y, z):
+        return 8.0 * z * (125.0 * x ** 2 + 200.0 * y ** 2 + 425.0 * z ** 2 + 2.0)
+
+    def solution(self, x, y, z):
+        return x ** 2 * z + 4.0 * y ** 2 * np.sin(np.pi * y) - 3.0 * z ** 3
+
+    def permeability(self, x, y, z):
+        return 1.0 + 100.0 * (x ** 2 + y ** 2 + z ** 2)
+
+    def add_data(self, g):
+        """
+        Define the permeability, apertures, boundary conditions
+        """
+        # Permeability
+        kxx = np.array([self.permeability(*pt) for pt in g.cell_centers.T])
+        perm = pp.SecondOrderTensor(kxx)
+
+        # Source term
+        source = g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
+
+        # Boundaries
+        bound_faces = g.get_all_boundary_faces()
+        bound_face_centers = g.face_centers[:, bound_faces]
+
+        labels = np.array(["dir"] * bound_faces.size)
+
+        bc_val = np.zeros(g.num_faces)
+        bc_val[bound_faces] = np.array(
+            [self.solution(*pt) for pt in bound_face_centers.T]
+        )
+
+        bound = pp.BoundaryCondition(g, bound_faces, labels)
+        specified_parameters = {
+            "second_order_tensor": perm,
+            "source": source,
+            "bc": bound,
+            "bc_values": bc_val,
+        }
+        return pp.initialize_default_data(g, {}, "flow", specified_parameters)
+
+    def error_p(self, g, p):
+
+        sol = np.array([self.solution(*pt) for pt in g.cell_centers.T])
+        return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
+
+    def main(self, N):
+        Nx = Ny = N
+        # g = structured.CartGrid([Nx, Ny], [1, 1])
+        g = pp.StructuredTriangleGrid([Nx, Ny], [1, 1])
+        R = pp.map_geometry.rotation_matrix(np.pi / 2.0, [1, 0, 0])
+        g.nodes = np.dot(R, g.nodes)
+        g.compute_geometry()
+
+        # Assign parameters
+        data = self.add_data(g)
+
+        # Choose and define the solvers
+        solver = pp.Mpfa("flow")
+        solver.discretize(g, data)
+        A, b_flux = solver.assemble_matrix_rhs(g, data)
+        solver.discretize(g, data)
+        _, b_source = pp.ScalarSource("flow").assemble_matrix_rhs(g, data)
+        p = scipy.sparse.linalg.spsolve(A, b_flux + b_source)
+
+        diam = np.amax(g.cell_diameters())
+        return diam, self.error_p(g, p)
+
+    def test_mpfa_varying_k_surface_1(self):
+        diam_10, error_10 = self.main(10)
+        diam_20, error_20 = self.main(20)
+
+        known_order = 1.99094280061
+        order = np.log(error_10 / error_20) / np.log(diam_10 / diam_20)
+        assert np.isclose(order, known_order)
+
+
 class _SolutionHomogeneousDomainFlow(object):
     """Convenience class for representing an analytical solution, and its
     derivatives"""
