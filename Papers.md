@@ -1,9 +1,5 @@
-# Examples
-This folder contains paper examples of PorePy. The intention is that the results should be accessible and reproducable.
+This file lists papers that have used PorePy to generate (parts of) the numerical results. Runscripts for many of the papers can be found at www.github.com/pmgbergen/arxiv_ID
 
-We try to keep the examples updated as the code changes, but may not always succeed due to lack of time, or simply because the code has changed so much that compatability is no longer prioritized. The papers should at least work with the commit that merged them into the main branch.
-
-# Overview
 * [arXiv:1610.02905](./arXiv_1610_02905/) paper "*Dual virtual element method for discrete fractures networks*" by Alessio Fumagalli, Eirik Keilegavlen. See [arXiv pre-print](https://arxiv.org/abs/1610.02905) or [journal article](https://epubs.siam.org/doi/abs/10.1137/16M1098231).
 * [arXiv:1709.03519](./arXiv_1709_03519/) paper "*Dual virtual element method in presence of an inclusion*" by Alessio Fumagalli. See [arXiv pre-print](https://arxiv.org/abs/1709.03519) or [journal article](https://www.sciencedirect.com/science/article/pii/S0893965918301812).
 * [arXiv:1711.01818](./arXiv_1711_01818/) paper "*Dual Virtual Element Methods for Discrete Fracture Matrix Models*" by Alessio Fumagalli, Eirik Keilegavlen. See [arXiv pre-print](https://arxiv.org/abs/1711.01818) or [journal article](https://ogst.ifpenergiesnouvelles.fr/articles/ogst/full_html/2019/01/ogst170210/ogst170210.html).
@@ -15,8 +11,6 @@ We try to keep the examples updated as the code changes, but may not always succ
 * [arXiv:1809.06926](./arXiv_1809_06926) paper "*Call for participation: Verification benchmarks for single-phase flow in three-dimensional fractured porous media*" by Inga Berre, Wietse Boon, Bernd Flemisch, Alessio Fumagalli, Dennis Glaser, Eirik Keilegavlen, Anna Scotti, Ivar Stefansson, Alexandru Tatomir. See [arXiv pre-print](https://arxiv.org/abs/1809.06926).
 * [arXiv:1810.12761](./arXiv_1810_12761) paper "*A multiscale flux basis for mortar mixed discretizations of reduced Darcy-Forchheimer fracture models*" by Elyes Ahmed, Alessio Fumagalli, Ana Budiša. See [arXiv pre-print](https://arxiv.org/abs/1810.12761) or [journal article](https://www.sciencedirect.com/science/article/pii/S0045782519303044).
 * [arXiv:1903.01117](./arXiv_1903_01117) paper "*A multi-layer reduced model for flow in porous media with a fault and surrounding damage zones*" by Alessio Fumagalli, Anna Scotti. See [arXiv pre-print](https://arxiv.org/abs/1903.01117).
-
-# Separate repository
 * [arXiv:1905.13513 [math.NA]](https://github.com/anabudisa/md_block_precond) paper "*Block Preconditioners for Mixed-dimensional Discretization of Flow in Fractured Porous Media*" by Ana Budiša and Xiaozhe Hu. See [arXiv pre-print](https://arxiv.org/abs/1905.13513).
 * [arXiv:1906.05831 [math.NA]](https://github.com/alessiofumagalli/multiscale_timedependent) paper "*Robust linear domain decomposition schemes for reduced non-linear fracture flow models*" by Elyes Ahmed, Alessio Fumagalli, Ana Budiša, Eirik Keilegavlen, Jan M. Nordbotten, A. Radu Florin. See [arXiv pre-print](https://arxiv.org/abs/1906.05831).
 * [arXiv:1907.12514 [math.NA]](https://github.com/alessiofumagalli/dfn_transport) paper "*Analysis of conforming, non-matching, and polygonal methods for Darcy and advection-diffusion-reaction simulations in discrete fracture networks*" by Andrea Borio, Alessio Fumagalli, Stefano Scialò. See [arXiv pre-print](https://arxiv.org/abs/1907.12514).
