@@ -43,9 +43,6 @@ from porepy.numerics.vem.mass_matrix import MixedMassMatrix, MixedInvMassMatrix
 from porepy.numerics.vem.vem_source import DualScalarSource
 
 # Finite elements, elliptic
-from porepy.numerics.fem.p1 import P1
-from porepy.numerics.fem.source import P1Source
-from porepy.numerics.fem.mass_matrix import P1MassMatrix
 from porepy.numerics.fem.rt0 import RT0
 
 # Mixed-dimensional discretizations and assemblers
