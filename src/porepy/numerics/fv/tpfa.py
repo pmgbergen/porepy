@@ -42,7 +42,10 @@ class Tpfa(FVElliptic):
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         parameter_dictionary contains the entries:
-            second_order_tensor : (SecondOrderTensor) Permeability defined cell-wise.
+            second_order_tensor : (SecondOrderTensor) Permeability defined
+                cell-wise. This is the effective permeability, any scaling by
+                for intance apertures should be incorporated before calling
+                this function.
             bc : (BoundaryCondition) boundary conditions
 
         matrix_dictionary will be updated with the following entries:

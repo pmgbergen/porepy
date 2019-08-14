@@ -84,12 +84,6 @@ class MassMatrix:
                 discretization.
             rhs (array, self.ndof): zero right-hand side.
 
-        The names of data in the input dictionary (data) are:
-        param (Parameter Class): Contains the following parameters:
-            porosity: (array, self.g.num_cells): Scalar values which represent the
-                porosity. If not given assumed unitary.
-        deltaT: Time step for a possible temporal discretization scheme. If not given
-            assumed unitary.
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
@@ -151,7 +145,8 @@ class MassMatrix:
         parameter_dictionary contains the entries:
             mass_weight: (array, self.g.num_cells): Scalar values which may e.g.
                 represent the porosity, apertures (for lower-dimensional
-                grids), or heat capacity.
+                grids), or heat capacity. The discretization will multiply this
+                weight with the cell volumes.
 
         matrix_dictionary will be updated with the following entries:
             mass: sps.dia_matrix (sparse dia, self.ndof x self.ndof): Mass matrix
@@ -306,7 +301,8 @@ class InvMassMatrix:
         The names of data in the input dictionary (data) are:
             mass_weight: (array, self.g.num_cells): Scalar values which may e.g.
                 represent the porosity, apertures (for lower-dimensional
-                grids), or heat capacity.
+                grids), or heat capacity. The discretization will multiply this
+                weight with the cell volumes.
 
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]

@@ -50,7 +50,10 @@ class Mpfa(FVElliptic):
                 rotate 2d grids
 
         parameter_dictionary contains the entries:
-            second_order_tensor: (SecondOrderTensor) Permeability defined cell-wise.
+            second_order_tensor: (SecondOrderTensor) Permeability defined
+                cell-wise. This is the effective permeability; any scaling of
+                the permeability (such as with fracture apertures) should be
+                included in the permeability.
             bc: (BoundaryCondition) boundary conditions
             mpfa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of
                 pressure continuity point. If not given, porepy tries to set an optimal
@@ -131,9 +134,11 @@ class Mpfa(FVElliptic):
         Right now, there are concrete plans for 2).
 
         Parameters:
-            g (core.grids.grid): grid to be discretized
-            k (core.constit.second_order_tensor) permeability tensor
-            bnd (core.bc.bc) class for boundary values
+            g (pp.Grid): grid to be discretized
+            k (pp.Second_order_tensor) permeability tensor. This is
+                the effective permeability; for lower-dimensional grids, any
+                aperture scaling of the permeability should be included in k.
+            bnd (pp.BoundaryCondition) class for boundary values
             deviation_from_plane_tol: The geometrical tolerance, used in the check to
                 rotate 2d grids
             eta Location of pressure continuity point. Defaults to 1/3 for simplex
@@ -291,9 +296,11 @@ class Mpfa(FVElliptic):
         fv_utils.cell_ind_for_partial_update()
 
         Parameters:
-            g (porepy.grids.grid.Grid): grid to be discretized
-            k (porepy.params.tensor.SecondOrderTensor) permeability tensor
-            bnd (porepy.params.bc.BoundarCondition) class for boundary conditions
+            g (pp.Grid): grid to be discretized
+            k (pp.Second_order_tensor) permeability tensor. This is
+                the effective permeability; for lower-dimensional grids, any
+                aperture scaling of the permeability should be included in k.
+            bnd (pp.BoundaryCondition) class for boundary values
             faces (np.ndarray) faces to be considered. Intended for partial
                 discretization, may change in the future
             deviation_from_plane_tol: The geometrical tolerance, used in the check to
