@@ -144,7 +144,8 @@ class MixedMassMatrix:
 
         parameter_dictionary contains the entries:
             mass_weight: (array, self.g.num_cells): Scalar values which may e.g.
-                represent the porosity or heat capacity.
+                represent the porosity or heat capacity. The disrcetization
+                will multiply this weight with the cell volumes.
 
         matrix_dictionary will be updated with the following entries:
             mixed_mass: sps.dia_matrix (sparse dia, self.ndof x self.ndof): Mass matrix
@@ -154,7 +155,6 @@ class MixedMassMatrix:
         Parameters:
             g : grid, or a subclass, with geometry fields computed.
             data: dictionary to store the data.
-
 
         """
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
@@ -294,7 +294,8 @@ class MixedInvMassMatrix:
 
         parameter_dictionary contains the entries:
             mass_weight: (array, self.g.num_cells): Scalar values which may e.g.
-                represent the porosity or heat capacity.
+                represent the porosity or heat capacity. The discretization
+                will multiply this weight with the cell volumes.
 
         matrix_dictionary will be updated with the following entries:
             mixed_mass: sps.dia_matrix (sparse dia, self.ndof x self.ndof): Mass matrix
@@ -304,7 +305,6 @@ class MixedInvMassMatrix:
         Parameters:
             g : grid, or a subclass, with geometry fields computed.
             data: dictionary to store the data.
-
 
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
