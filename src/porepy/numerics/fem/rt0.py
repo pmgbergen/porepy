@@ -33,7 +33,9 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
             deviation_from_plane_tol: The geometrical tolerance, used in the check to rotate 2d and 1d grids
 
         parameter_dictionary contains the entries:
-            second_order_tensor: (pp.SecondOrderTensor) Permeability defined cell-wise.
+            second_order_tensor: (pp.SecondOrderTensor) Permeability defined
+                cell-wise. This is the effective permeability, including any
+                aperture scalings etc.
 
         matrix_dictionary will be updated with the following entries:
             mass: sps.csc_matrix (g.num_faces, g.num_faces)
