@@ -1,3 +1,2 @@
-from .dual_elliptic import DualElliptic
-
-from .vem_source import DualScalarSource
+""" Implementation of methods related to the virtual element method.
+"""

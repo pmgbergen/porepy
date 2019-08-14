@@ -204,7 +204,6 @@ class BiotTest(unittest.TestCase):
         # Initial condition fot the Biot class
         #        d["state"] = initial_state
 
-
         # Set up the structure for the assembler. First define variables and equation
         # term names.
         v_0 = variable_m
@@ -229,7 +228,7 @@ class BiotTest(unittest.TestCase):
 
         # Discretize the mechanics related terms using the Biot class
         biot_discretizer = pp.Biot()
-        biot_discretizer._discretize_mech(g, d)            
+        biot_discretizer._discretize_mech(g, d)
 
         general_assembler = pp.Assembler(gb)
         # Discretize terms that are not handled by the call to biot_discretizer
