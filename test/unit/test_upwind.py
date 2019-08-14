@@ -7,8 +7,6 @@ import scipy.sparse as sps
 
 
 class TestUpwindDiscretization(unittest.TestCase):
-
-
     def test_upwind_1d_darcy_flux_positive(self):
         g = pp.CartGrid(3, 1)
         g.compute_geometry()
@@ -35,7 +33,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
-
     def test_upwind_1d_darcy_flux_negative(self):
         g = pp.CartGrid(3, 1)
         g.compute_geometry()
@@ -60,7 +57,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         atol = rtol
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
-
 
     def test_upwind_2d_cart_darcy_flux_positive(self):
         g = pp.CartGrid([3, 2], [1, 1])
@@ -97,7 +93,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
-
     def test_upwind_2d_cart_darcy_flux_negative(self):
         g = pp.CartGrid([3, 2], [1, 1])
         g.compute_geometry()
@@ -132,7 +127,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
-
     def test_upwind_2d_simplex_darcy_flux_positive(self):
         g = pp.StructuredTriangleGrid([2, 1], [1, 1])
         g.compute_geometry()
@@ -158,7 +152,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
-
     def test_upwind_2d_simplex_darcy_flux_negative(self):
         g = pp.StructuredTriangleGrid([2, 1], [1, 1])
         g.compute_geometry()
@@ -183,7 +176,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         atol = rtol
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
-
 
     def test_upwind_3d_cart_darcy_flux_negative(self):
         g = pp.CartGrid([2, 2, 2], [1, 1, 1])
@@ -222,7 +214,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
-
     def test_upwind_3d_cart_darcy_flux_positive(self):
         g = pp.CartGrid([2, 2, 2], [1, 1, 1])
         g.compute_geometry()
@@ -260,7 +251,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
-
     def test_upwind_1d_surf_darcy_flux_positive(self):
         g = pp.CartGrid(3, 1)
         R = pp.map_geometry.rotation_matrix(-np.pi / 5.0, [0, 1, -1])
@@ -288,7 +278,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
-
     def test_upwind_1d_surf_darcy_flux_negative(self):
         g = pp.CartGrid(3, 1)
         R = pp.map_geometry.rotation_matrix(-np.pi / 8.0, [-1, 1, -1])
@@ -315,7 +304,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         atol = rtol
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
-
 
     def test_upwind_2d_cart_surf_darcy_flux_positive(self):
         g = pp.CartGrid([3, 2], [1, 1])
@@ -354,7 +342,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
-
     def test_upwind_2d_cart_surf_darcy_flux_negative(self):
         g = pp.CartGrid([3, 2], [1, 1])
         R = pp.map_geometry.rotation_matrix(np.pi / 6.0, [1, 1, 0])
@@ -392,7 +379,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
-
     def test_upwind_2d_simplex_surf_darcy_flux_positive(self):
         g = pp.StructuredTriangleGrid([2, 1], [1, 1])
         R = pp.map_geometry.rotation_matrix(np.pi / 2.0, [1, 1, 0])
@@ -420,7 +406,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
-
     def test_upwind_2d_simplex_surf_darcy_flux_negative(self):
         g = pp.StructuredTriangleGrid([2, 1], [1, 1])
         R = pp.map_geometry.rotation_matrix(-np.pi / 5.0, [1, 1, -1])
@@ -447,7 +432,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         atol = rtol
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
-
 
     def test_upwind_1d_darcy_flux_negative_bc_dir(self):
         g = pp.CartGrid(3, 1)
@@ -477,7 +461,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
-
     def test_upwind_1d_darcy_flux_negative_bc_neu(self):
         g = pp.CartGrid(3, 1)
         g.compute_geometry()
@@ -506,8 +489,7 @@ class TestUpwindDiscretization(unittest.TestCase):
         self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
-
-    # Below follows other tests 
+    # Below follows other tests
 
     def test_upwind_example_1(self, if_export=False):
         #######################
@@ -566,7 +548,6 @@ class TestUpwindDiscretization(unittest.TestCase):
 
         known = 1.09375
         assert np.sum(production) == known
-
 
     def test_upwind_example_2(self, if_export=False):
         #######################
@@ -633,7 +614,6 @@ class TestUpwindDiscretization(unittest.TestCase):
             ]
         )
         assert np.allclose(conc, known)
-
 
     def test_upwind_example_3(self, if_export=False):
         #######################
