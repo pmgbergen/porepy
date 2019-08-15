@@ -28,6 +28,12 @@ class PrimalContactCoupling(object):
         4) The mortar displacements act as Dirichlet boundary conditions for the
            higher-dimensional domain.
 
+    When solving contact problems, the sought fracture displacement (jumps) are defined
+    relative to an initial state. For transient problems, this initial state is the
+    solution at the previous time step. The state should be available in
+        d[pp.STATE][self.mortar_displacement_variable],
+    and may usually be set to zero for stationary problems.
+    See also contact_conditions.py
     """
 
     def __init__(self, keyword, discr_master, discr_slave, use_surface_discr=False):
@@ -299,7 +305,19 @@ class PrimalContactCoupling(object):
         )
 
         # Right hand side system. In the local (surface) coordinate system.
-        rhs[slave_ind] = rhs_slave
+        # For transient simulations where the tangential velocity, not displacement, is
+        # considered, a term arises on the rhs from the previous time step.
+        previous_time_step_displacements = data_edge[pp.STATE][self.mortar_displacement_variable].copy()
+        rotated_jumps = (
+            projection.project_tangential_normal(g_slave.num_cells)
+            * mg.mortar_to_slave_avg(nd=ambient_dimension)
+            * mg.sign_of_mortar_sides(nd=ambient_dimension)
+            * previous_time_step_displacements)
+        rhs_u = displacement_jump_discr * rotated_jumps
+        # Only tangential velocity is considered. Zero out all normal components, as we
+        # operate on absolute, not relative, normal jumps.
+        rhs_u[(ambient_dimension-1)::ambient_dimension] = 0
+        rhs[slave_ind] = rhs_slave + rhs_u
 
         ### Equation for the mortar rows
 
