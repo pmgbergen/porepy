@@ -258,7 +258,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def write_vtk(self, data=None, time_step=None, grid=None, point_data=False):
+    def write_vtk(self, data=None, time_dependent=False, time_step=None, grid=None, point_data=False):
         """
         Interface function to export the grid and additional data in VTK.
 
@@ -273,6 +273,9 @@ class Exporter:
         data: if g is a single grid then data is a dictionary (see example)
               if g is a grid bucket then list of names for optional data,
               they are the keys in the grid bucket (see example).
+        time_dependent: (bolean, optional) If False, file names will not be appended with
+                        an index that markes the time step. Can be overridden by giving
+                        a value to time_step.
         time_step: (optional) in a time dependent problem defines the part of the file
                    name associated with this time step. If not provided, subsequent
                    time steps will have file names ending with 0, 1, etc.
@@ -290,11 +293,15 @@ class Exporter:
             self.is_GridBucket = isinstance(self.gb, pp.GridBucket)
             self._update_gVTK()
 
-        if time_step is None:
+        # If the problem is time dependent, but no time step is set, we set one
+        if time_dependent and time_step is not None:
             time_step = self._time_step_counter
             self._time_step_counter += 1
-
-        self._exported_time_step_file_names.append(time_step)
+        
+        # If the problem is time dependent (with specified or automatic time step index)
+        # add the time step to the exported files
+        if time_step is not None:
+            self._exported_time_step_file_names.append(time_step)
 
         if self.is_GridBucket:
             self._export_vtk_gb(data, time_step, point_data)
