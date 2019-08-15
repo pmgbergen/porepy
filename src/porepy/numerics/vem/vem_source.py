@@ -83,7 +83,8 @@ class DualScalarSource:
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
         sources = parameter_dictionary["source"]
-        assert sources.size == g.num_cells, "There should be one source value for each cell"
+        if not sources.size == g.num_cells:
+            raise ValueError("There should be one source value for each cell")
 
         # The sources are assigned to the rows representing conservation.
         rhs = np.zeros(self.ndof(g))
