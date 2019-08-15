@@ -19,7 +19,7 @@ try:
     import vtk
     import vtk.util.numpy_support as ns
 except ImportError:
-    warnings.warn("No vtk module loaded.")
+    warnings.warn("No vtk module loaded. Export with pp.Exporter will not work.")
 try:
     import numba
 except ImportError:
@@ -201,6 +201,9 @@ class Exporter:
         NOTE: the following names are reserved for data exporting: grid_dim,
         is_mortar, mortar_side, cell_id
 
+        Raises:
+        ImportError if the module vtk is not available
+
         """
 
         self.gb = grid
@@ -214,7 +217,7 @@ class Exporter:
         self.is_not_vtk = "vtk" not in sys.modules
 
         if self.is_not_vtk:
-            return
+            raise ImportError("Could not load vtk module")
 
         if self.is_GridBucket:
             self.dims = np.setdiff1d(self.gb.all_dims(), [0])
