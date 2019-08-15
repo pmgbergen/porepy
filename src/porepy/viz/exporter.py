@@ -220,6 +220,8 @@ class Exporter:
             raise ImportError("Could not load vtk module")
 
         if self.is_GridBucket:
+            # Fixed-dimensional grids to be included in the export. We include
+            # all but the 0-d grids
             self.dims = np.setdiff1d(self.gb.all_dims(), [0])
             num_dims = self.dims.size
             self.gb_VTK = dict(zip(self.dims, [None] * num_dims))
@@ -518,17 +520,16 @@ class Exporter:
         o_file.write(header)
         fm = '\t<DataSet group="" part="" file="%s"/>\n'
 
-        [
-            o_file.write(fm % self._make_file_name(self.name, time_step, dim=dim))
-            for dim in self.dims
-        ]
-
-        [
-            o_file.write(
-                fm % self._make_file_name_mortar(self.name, time_step, dim=dim)
-            )
-            for dim in self.m_dims
-        ]
+        # Include the grids and mortar grids of all dimensions, but only if the
+        # grids (or mortar grids) of this dimension are included in the vtk export
+        for dim in self.dims:
+            if self.gb_VTK[dim] is not None:
+                o_file.write(fm % self._make_file_name(self.name, time_step, dim=dim))
+        for dim in self.m_dims:
+            if self.m_gb_VTK[dim] is not None:
+                o_file.write(
+                    fm % self._make_file_name_mortar(self.name, time_step, dim=dim)
+                )
 
         o_file.write("</Collection>\n" + "</VTKFile>")
         o_file.close()
