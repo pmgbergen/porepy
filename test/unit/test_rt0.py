@@ -1075,7 +1075,8 @@ class BasicsTest(unittest.TestCase):
             bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
             bc_val = np.zeros(g.num_faces)
             bc_val[bf] = p_ex(g.face_centers[:, bf])
-            source = np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
+            # Minus sign to move to rhs
+            source = -np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
 
             solver = pp.RT0(keyword="flow")
             solver_rhs = pp.DualScalarSource(keyword="flow")
@@ -1089,6 +1090,8 @@ class BasicsTest(unittest.TestCase):
             data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
             solver.discretize(g, data)
+            solver_rhs.discretize(g, data)
+
             M, rhs_bc = solver.assemble_matrix_rhs(g, data)
             _, rhs = solver_rhs.assemble_matrix_rhs(g, data)
 
@@ -1133,7 +1136,8 @@ class BasicsTest(unittest.TestCase):
             bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
             bc_val = np.zeros(g.num_faces)
             bc_val[bf] = p_ex(g.face_centers[:, bf])
-            source = np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
+            # Minus sign to move to rhs
+            source = -np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
 
             solver = pp.RT0(keyword="flow")
             solver_rhs = pp.DualScalarSource(keyword="flow")
@@ -1147,6 +1151,7 @@ class BasicsTest(unittest.TestCase):
             data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
             solver.discretize(g, data)
+            solver_rhs.discretize(g, data)
             M, rhs_bc = solver.assemble_matrix_rhs(g, data)
             _, rhs = solver_rhs.assemble_matrix_rhs(g, data)
 
@@ -1160,8 +1165,7 @@ class BasicsTest(unittest.TestCase):
             self.assertTrue(np.isclose(err, err_known))
 
 
-if __name__ == "__main__":
-    unittest.main()
+
 
 
 def matrix_for_test_rt0_3d():
@@ -1793,3 +1797,6 @@ def matrix_for_test_rt0_3d():
             ],
         ]
     )
+
+if __name__ == "__main__":
+    unittest.main()
