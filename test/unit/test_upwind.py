@@ -533,18 +533,12 @@ class TestUpwindDiscretization(unittest.TestCase):
         time = np.empty(Nt)
         folder = "example0"
         production = np.zeros(Nt)
-        save = pp.Exporter(g, "conc_EE", folder)
         for i in np.arange(Nt):
 
             # Update the solution
             production[i] = np.sum(OF.dot(conc))
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
             time[i] = time_step * i
-            if if_export:
-                save.write_vtk({"conc": conc}, time_step=i)
-
-        if if_export:
-            save.write_pvd(time)
 
         known = 1.09375
         assert np.sum(production) == known
@@ -586,18 +580,12 @@ class TestUpwindDiscretization(unittest.TestCase):
         Nt = int(T / time_step)
         time = np.empty(Nt)
         folder = "example1"
-        save = pp.Exporter(g, "conc_IE", folder)
         for i in np.arange(Nt):
 
             # Update the solution
             # Backward and forward substitution to solve the system
             conc = IE_solver(M.dot(conc) + rhs)
             time[i] = time_step * i
-            if if_export:
-                save.write_vtk({"conc": conc}, time_step=i)
-
-        if if_export:
-            save.write_pvd(time)
 
         known = np.array(
             [
@@ -657,11 +645,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         p, u = solver.extract_pressure(g, up, data), solver.extract_flux(g, up, data)
         P0u = solver.project_flux(g, u, data)
 
-        save = pp.Exporter(g, "darcy", folder)
-
-        if if_export:
-            save.write_vtk({"pressure": p, "P0u": P0u})
-
         # Darcy_Flux
         dis = u
 
@@ -694,17 +677,11 @@ class TestUpwindDiscretization(unittest.TestCase):
         # Loop over the time
         Nt = int(T / time_step)
         time = np.empty(Nt)
-        save.change_name("conc_darcy")
         for i in np.arange(Nt):
 
             # Update the solution
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
             time[i] = time_step * i
-            if if_export:
-                save.write_vtk({"conc": conc}, time_step=i)
-
-        if if_export:
-            save.write_pvd(time)
 
         known = np.array(
             [
