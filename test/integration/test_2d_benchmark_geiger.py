@@ -6,7 +6,8 @@ import test.common.flow_benchmark_2d_geiger_setup as setup
 
 
 class TestVEMOnBenchmark(unittest.TestCase):
-    def solve(self, kf, description, is_coarse=False, if_export=False):
+
+    def solve(self, kf, description, is_coarse=False):
         mesh_size = 0.045
         gb, domain = setup.make_grid_bucket(mesh_size, is_coarse)
         # Assign parameters
@@ -45,34 +46,26 @@ class TestVEMOnBenchmark(unittest.TestCase):
             d[pp.STATE]["darcy_flux"] = d[pp.STATE]["pressure"][: g.num_faces]
             d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
 
-        if if_export:
-            save = pp.Exporter(gb, "vem", folder="vem_" + description)
-            # save.write_vtk(["pressure", "P0u"])
-            save.write_vtk(["pressure"])
-
     def test_vem_blocking(self):
         kf = 1e-4
-        if_export = False
-        self.solve(kf, "blocking", if_export=if_export)
+        self.solve(kf, "blocking")
 
     def test_vem_blocking_coarse(self):
         kf = 1e-4
-        if_export = False
-        self.solve(kf, "blocking_coarse", is_coarse=True, if_export=if_export)
+        self.solve(kf, "blocking_coarse", is_coarse=True)
 
     def test_vem_permeable(self):
         kf = 1e4
-        if_export = False
-        self.solve(kf, "permeable", if_export=if_export)
+        self.solve(kf, "permeable")
 
     def test_vem_permeable_coarse(self):
         kf = 1e4
-        if_export = False
-        self.solve(kf, "permeable_coarse", is_coarse=True, if_export=if_export)
+        self.solve(kf, "permeable_coarse", is_coarse=True)
 
 
 class TestFVOnBenchmark(unittest.TestCase):
-    def solve(self, kf, description, multi_point, if_export=False):
+
+    def solve(self, kf, description, multi_point):
         mesh_size = 0.045
         gb, domain = setup.make_grid_bucket(mesh_size)
         # Assign parameters
@@ -110,29 +103,21 @@ class TestFVOnBenchmark(unittest.TestCase):
 
         assembler.distribute_variable(p)
 
-        if if_export:
-            save = pp.Exporter(gb, "fv", folder="fv_" + description)
-            save.write_vtk(["pressure"])
-
     def test_tpfa_blocking(self):
         kf = 1e-4
-        if_export = True
-        self.solve(kf, "blocking_tpfa", multi_point=False, if_export=if_export)
+        self.solve(kf, "blocking_tpfa", multi_point=False)
 
     def test_tpfa_permeable(self):
         kf = 1e4
-        if_export = True
-        self.solve(kf, "permeable_tpfa", multi_point=False, if_export=if_export)
+        self.solve(kf, "permeable_tpfa", multi_point=False)
 
     def test_mpfa_blocking(self):
         kf = 1e-4
-        if_export = True
-        self.solve(kf, "blocking_mpfa", multi_point=True, if_export=if_export)
+        self.solve(kf, "blocking_mpfa", multi_point=True)
 
     def test_mpfa_permeable(self):
         kf = 1e4
-        if_export = True
-        self.solve(kf, "permeable_mpfa", multi_point=True, if_export=if_export)
+        self.solve(kf, "permeable_mpfa", multi_point=True)
 
 
 if __name__ == "__main__":
