@@ -111,6 +111,7 @@ from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
 # Modules
 from porepy.utils import permutations
+
 from porepy.geometry import (
     intersections,
     distances,
@@ -125,6 +126,7 @@ from porepy.grids import structured, simplex, coarsening, partition, refinement
 from porepy.numerics.fv import fvutils
 from porepy.utils import error, grid_utils
 from porepy.utils.tangential_normal_projection import TangentialNormalProjection
+import porepy.utils.derived_discretizations
 
 # Constants, units and keywords
 from porepy.utils.common_constants import *
