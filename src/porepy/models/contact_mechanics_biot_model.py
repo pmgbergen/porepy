@@ -360,6 +360,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             scalar_variable=self.scalar_variable,
         )
         biot.discretize(g, d)
+        
 
     def initial_condition(self):
         """
@@ -430,9 +431,17 @@ def run_biot(setup, newton_tol=1e-10):
 
     setup.export_step()
 
-    # Discretize with the biot class
+    # Discretization is a bit cumbersome, as the Biot discetization removes the
+    # one-to-one correspondence between discretization objects and blocks in the matrix.
+    # First, Discretize with the biot class
     setup.discretize_biot(gb)
+    
+    # Next, discretize term on the matrix grid not covered by the Biot discretization,
+    # i.e. the source term
+    assembler.discretize(grid=g_max, term_filter=['source'])
 
+    # Finally, discretize terms on the lower-dimensional grids. This can be done
+    # in the traditional way, as there is no Biot discretization here.
     for g, d in gb:
         if g.dim < gb.dim_max():
             assembler.discretize(grid=g)
