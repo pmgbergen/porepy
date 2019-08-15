@@ -439,13 +439,12 @@ def run_biot(setup, newton_tol=1e-10):
 
     # Prepare for the time loop
     errors = []
-    dt = setup.time_step
     t_end = setup.end_time
     k = 0
     while setup.time < t_end:
-        setup.time += dt
+        setup.time += setup.time_step
         k += 1
-        print("Time step: ", k, "/", int(np.ceil(t_end / dt)))
+        print("\nTime step {} at time {:.1e} of {:.1e}".format(k, setup.time, t_end))
 
         # Prepare for Newton
         counter_newton = 0

@@ -430,15 +430,13 @@ def newton_iteration(assembler, setup, u0, tol=1e-14, solver=None):
     A, b = assembler.assemble_matrix_rhs()
     print("max A: {0:.2e}".format(np.max(np.abs(A))))
     print(
-        "max: {0:.2e} and min: {1:.2e} A sum: ".format(
+        "max: {0:.2e} and min: {1:.2e} A sum.".format(
             np.max(np.sum(np.abs(A), axis=1)), np.min(np.sum(np.abs(A), axis=1))
         )
     )
 
     if solver is None:
         sol = sps.linalg.spsolve(A, b)
-    #    else:
-    #        #            sol = solvers.amg(gb, A, b)
 
     # Obtain the current iterate for the displacement, and distribute the current
     # iterates for mortar displacements and contact traction.
