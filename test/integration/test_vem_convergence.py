@@ -40,7 +40,7 @@ class TestVEMVaryingPerm(unittest.TestCase):
         perm = pp.SecondOrderTensor(kxx)
 
         # Source term
-        source = g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
+        source = -g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
 
         # Boundaries
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -84,6 +84,7 @@ class TestVEMVaryingPerm(unittest.TestCase):
         A_flow, b_flow = solver_flow.assemble_matrix_rhs(g, data)
 
         solver_source = pp.DualScalarSource("flow")
+        solver_source.discretize(g, data)
         A_source, b_source = solver_source.assemble_matrix_rhs(g, data)
 
         up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
@@ -134,7 +135,7 @@ class TestVEMVaryingPermTiltedGrid(unittest.TestCase):
         perm = pp.SecondOrderTensor(kxx)
 
         # Source term
-        source = g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
+        source = -g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
 
         # Boundariesy
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -179,6 +180,7 @@ class TestVEMVaryingPermTiltedGrid(unittest.TestCase):
         A_flow, b_flow = solver_flow.assemble_matrix_rhs(g, data)
 
         solver_source = pp.DualScalarSource("flow")
+        solver_source.discretize(g, data)
         A_source, b_source = solver_source.assemble_matrix_rhs(g, data)
 
         up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
@@ -218,7 +220,7 @@ class TestVEMVaryingPermSurface_2(unittest.TestCase):
         perm = pp.SecondOrderTensor(kxx)
 
         # Source term
-        source = g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
+        source = -g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
 
         # Boundaries
         bound_faces = g.get_all_boundary_faces()
@@ -263,6 +265,7 @@ class TestVEMVaryingPermSurface_2(unittest.TestCase):
         A_flow, b_flow = solver_flow.assemble_matrix_rhs(g, data)
 
         solver_source = pp.DualScalarSource("flow")
+        solver_source.discretize(g, data)
         A_source, b_source = solver_source.assemble_matrix_rhs(g, data)
 
         up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
