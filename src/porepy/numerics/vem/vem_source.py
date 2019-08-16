@@ -91,8 +91,9 @@ class DualScalarSource:
         is_p = np.hstack(
             (np.zeros(g.num_faces, dtype=np.bool), np.ones(g.num_cells, dtype=np.bool))
         )
-
-        rhs[is_p] = sources
+        # A minus sign is apparently needed here to be consistent with the user
+        # side convention of the finite volume method 
+        rhs[is_p] = -sources
         return rhs
 
     def discretize(self, g, data, faces=None):
