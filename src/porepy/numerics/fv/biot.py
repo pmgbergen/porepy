@@ -1275,8 +1275,9 @@ class DivU:
         # We assume implicit Euler in Biot, thus the div_u term appears
         # on the rhs as div_u^{k-1}. This results in a contribution to the
         # rhs for the coupling variable also.
-        # See note above on sign. This term is on the rhs, yielding the opposite sign.
-        rhs[self_ind] += biot_alpha * vol * previous_displacement_jump_normal
+        # See note above on sign. This term is negative (u^k - u^{k-1}), and moved to
+        # the rhs, yielding the same sign as for the k term on the lhs.
+        rhs[self_ind] -= biot_alpha * vol * previous_displacement_jump_normal
 
     def enforce_neumann_int_bound(self, *_):
         pass
