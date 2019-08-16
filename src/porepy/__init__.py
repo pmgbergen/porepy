@@ -27,7 +27,9 @@ __all__ = []
 
 # Numerics
 from porepy.numerics.discretization import VoidDiscretization
-from porepy.numerics.interface_laws.elliptic_discretization import EllipticDiscretization
+from porepy.numerics.interface_laws.elliptic_discretization import (
+    EllipticDiscretization,
+)
 
 # Control volume, elliptic
 from porepy.numerics.fv.mpsa import Mpsa
