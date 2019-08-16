@@ -531,7 +531,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         # Loop over the time
         Nt = int(T / time_step)
         time = np.empty(Nt)
-        folder = "example0"
         production = np.zeros(Nt)
         for i in np.arange(Nt):
 
@@ -579,9 +578,7 @@ class TestUpwindDiscretization(unittest.TestCase):
         # Loop over the time
         Nt = int(T / time_step)
         time = np.empty(Nt)
-        folder = "example1"
         for i in np.arange(Nt):
-
             # Update the solution
             # Backward and forward substitution to solve the system
             conc = IE_solver(M.dot(conc) + rhs)
@@ -610,7 +607,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         #######################
         T = 2
         Nx, Ny = 10, 10
-        folder = "example2"
 
         def funp_ex(pt):
             return -np.sin(pt[0]) * np.sin(pt[1]) - pt[0]
@@ -641,9 +637,7 @@ class TestUpwindDiscretization(unittest.TestCase):
         D_source, b_source = solver_source.assemble_matrix_rhs(g, data)
 
         up = sps.linalg.spsolve(D_flow + D_source, b_flow + b_source)
-
-        p, u = solver.extract_pressure(g, up, data), solver.extract_flux(g, up, data)
-        P0u = solver.project_flux(g, u, data)
+        _, u = solver.extract_pressure(g, up, data), solver.extract_flux(g, up, data)
 
         # Darcy_Flux
         dis = u
