@@ -307,16 +307,19 @@ class PrimalContactCoupling(object):
         # Right hand side system. In the local (surface) coordinate system.
         # For transient simulations where the tangential velocity, not displacement, is
         # considered, a term arises on the rhs from the previous time step.
-        previous_time_step_displacements = data_edge[pp.STATE][self.mortar_displacement_variable].copy()
+        previous_time_step_displacements = data_edge[pp.STATE][
+            self.mortar_displacement_variable
+        ].copy()
         rotated_jumps = (
             projection.project_tangential_normal(g_slave.num_cells)
             * mg.mortar_to_slave_avg(nd=ambient_dimension)
             * mg.sign_of_mortar_sides(nd=ambient_dimension)
-            * previous_time_step_displacements)
+            * previous_time_step_displacements
+        )
         rhs_u = displacement_jump_discr * rotated_jumps
         # Only tangential velocity is considered. Zero out all normal components, as we
         # operate on absolute, not relative, normal jumps.
-        rhs_u[(ambient_dimension-1)::ambient_dimension] = 0
+        rhs_u[(ambient_dimension - 1) :: ambient_dimension] = 0
         rhs[slave_ind] = rhs_slave + rhs_u
 
         ### Equation for the mortar rows

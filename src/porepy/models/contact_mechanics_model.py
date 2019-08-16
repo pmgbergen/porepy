@@ -12,8 +12,12 @@ undergo major changes (or be deleted).
 import numpy as np
 import scipy.sparse as sps
 from scipy.spatial.distance import cdist
+import logging
 
 import porepy as pp
+
+# Module-wide logger
+logger = logging.getLogger(__name__)
 
 
 class ContactMechanics:
@@ -406,7 +410,7 @@ def run_mechanics(setup):
     viz = pp.Exporter(g_max, name="mechanics", folder=setup.folder_name)
 
     while counter_newton <= max_newton and not converged_newton:
-        print("Newton iteration number: ", counter_newton, "/", max_newton)
+        logger.debug("Newton iteration number: ", counter_newton, "/", max_newton)
 
         sol, u0, error, converged_newton = newton_iteration(assembler, setup, u0)
         counter_newton += 1
@@ -428,8 +432,8 @@ def newton_iteration(assembler, setup, u0, tol=1e-14, solver=None):
 
     # Assemble and solve
     A, b = assembler.assemble_matrix_rhs()
-    print("max A: {0:.2e}".format(np.max(np.abs(A))))
-    print(
+    logger.debug("max A: {0:.2e}".format(np.max(np.abs(A))))
+    logger.debug(
         "max: {0:.2e} and min: {1:.2e} A sum.".format(
             np.max(np.sum(np.abs(A), axis=1)), np.min(np.sum(np.abs(A), axis=1))
         )
@@ -456,7 +460,7 @@ def newton_iteration(assembler, setup, u0, tol=1e-14, solver=None):
             converged = True
         error = np.sum((u1 - u0) ** 2) / np.sum(u1 ** 2)
 
-    print(
+    logger.debug(
         "Error, solution norm and iterate_difference/solution_norm: ",
         error,
         solution_norm,
