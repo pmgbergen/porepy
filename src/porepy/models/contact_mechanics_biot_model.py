@@ -460,7 +460,9 @@ def run_biot(setup, newton_tol=1e-10):
         max_newton = 15
         newton_errors = []
         while counter_newton <= max_newton and not converged_newton:
-            logger.debug("Newton iteration number: ", counter_newton, "/", max_newton)
+            logger.debug(
+                "Newton iteration number {} of {}".format(counter_newton, max_newton)
+            )
             # One Newton iteration:
             sol, u, error, converged_newton = pp.models.contact_mechanics_model.newton_iteration(
                 assembler, setup, u, tol=newton_tol
