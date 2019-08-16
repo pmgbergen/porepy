@@ -1165,9 +1165,6 @@ class BasicsTest(unittest.TestCase):
             self.assertTrue(np.isclose(err, err_known))
 
 
-
-
-
 def matrix_for_test_rt0_3d():
     return np.matrix(
         [
@@ -1797,6 +1794,7 @@ def matrix_for_test_rt0_3d():
             ],
         ]
     )
+
 
 if __name__ == "__main__":
     unittest.main()
