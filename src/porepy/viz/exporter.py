@@ -258,7 +258,14 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def write_vtk(self, data=None, time_dependent=False, time_step=None, grid=None, point_data=False):
+    def write_vtk(
+        self,
+        data=None,
+        time_dependent=False,
+        time_step=None,
+        grid=None,
+        point_data=False,
+    ):
         """
         Interface function to export the grid and additional data in VTK.
 
@@ -297,7 +304,7 @@ class Exporter:
         if time_dependent and time_step is not None:
             time_step = self._time_step_counter
             self._time_step_counter += 1
-        
+
         # If the problem is time dependent (with specified or automatic time step index)
         # add the time step to the exported files
         if time_step is not None:

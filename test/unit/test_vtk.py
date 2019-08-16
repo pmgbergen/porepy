@@ -17,16 +17,17 @@ import porepy as pp
 try:
     if_vtk = True
     import vtk
-except:
+except ImportWarning:
     import warnings
+
     warnings.warn("No vtk module loaded.")
     if_vtk = False
 
-class BasicsTest(unittest.TestCase):
 
+class BasicsTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
-        shutil.rmtree('./test_vtk/')
+        shutil.rmtree("./test_vtk/")
 
     def test_single_grid_1d(self):
         if not if_vtk:
@@ -291,6 +292,7 @@ class BasicsTest(unittest.TestCase):
   </UnstructuredGrid>
 </VTKFile>
 """
+
     def _single_grid_2d_simplex_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
@@ -2652,6 +2654,7 @@ class BasicsTest(unittest.TestCase):
   </UnstructuredGrid>
 </VTKFile>
 """
+
 
 if __name__ == "__main__":
     unittest.main()
