@@ -410,7 +410,9 @@ def run_mechanics(setup):
     viz = pp.Exporter(g_max, name="mechanics", folder=setup.folder_name)
 
     while counter_newton <= max_newton and not converged_newton:
-        logger.debug("Newton iteration number: ", counter_newton, "/", max_newton)
+        logger.debug(
+            "Newton iteration number {} of {}".format(counter_newton, max_newton)
+        )
 
         sol, u0, error, converged_newton = newton_iteration(assembler, setup, u0)
         counter_newton += 1
@@ -424,7 +426,8 @@ def run_mechanics(setup):
 
 def newton_iteration(assembler, setup, u0, tol=1e-14, solver=None):
     converged = False
-    # @EK! If this is to work for both mechanics and biot, we probably need to pass the solver to this method.
+    # @EK! If this is to work for both mechanics and biot, we probably need to pass
+    # the solver to this method.
     g_max = setup.gb.grids_of_dimension(setup.Nd)[0]
 
     # Re-discretize the nonlinear term
@@ -432,9 +435,9 @@ def newton_iteration(assembler, setup, u0, tol=1e-14, solver=None):
 
     # Assemble and solve
     A, b = assembler.assemble_matrix_rhs()
-    logger.debug("max A: {0:.2e}".format(np.max(np.abs(A))))
+    logger.debug("Max element in A {0:.2e}".format(np.max(np.abs(A))))
     logger.debug(
-        "max: {0:.2e} and min: {1:.2e} A sum.".format(
+        "Max {0:.2e} and min {1:.2e} A sum.".format(
             np.max(np.sum(np.abs(A), axis=1)), np.min(np.sum(np.abs(A), axis=1))
         )
     )
@@ -460,12 +463,7 @@ def newton_iteration(assembler, setup, u0, tol=1e-14, solver=None):
             converged = True
         error = np.sum((u1 - u0) ** 2) / np.sum(u1 ** 2)
 
-    logger.debug(
-        "Error, solution norm and iterate_difference/solution_norm: ",
-        error,
-        solution_norm,
-        iterate_difference / solution_norm,
-    )
+    logger.debug("Error is ".format(error))
 
     return sol, u1, error, converged
 
