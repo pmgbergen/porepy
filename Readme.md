@@ -23,25 +23,23 @@ E. Keilegavlen, A. Fumagalli, R. Berge, I. Stefansson, I. Berre: PorePy: An Open
 
 Other publications done with PorePy can be found [here](./examples/papers).
 
-# Installation
-PorePy depends on `numpy`, `scipy` and `networkx`, and (for the moment) also on `meshio`, `sympy` and `matplotlib`. The latter packages may be droped / changed later. To install (on Linux, probably also OSX), use
-
-    pip install porepy
-
-We recommend installing from source (see below), rather than pulling from pypi. Installation by pip on Windows may cause problems with buliding the requirements (`numpy` etc) unless conda is used.
+# Installation from source
 
 For more detailed install instructions, including how to access GMSH (for meshing), see
 [Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
 
 PorePy is developed under Python >=3.6. 
 
-# From source
 To get the most current version, install from github:
 
     git clone https://github.com/pmgbergen/porepy.git
 
     cd porepy
 
+To get the stable (though not very frequently updated) version:
+    git checkout master
+
+Install 
     pip install -r requirements.txt
 
 Finally to install PorePy
@@ -62,10 +60,9 @@ A docker image is available from docker.io/keileg/porepy:
 For the moment, Docker support should be considered experimental.
 
 # (Semi-) Optional packages
-To function optimally, PorePy should have access to the pypi packages:
-*  `pymetis` (for mesh partitioning). Will be installed on Linux (not so on Windows, to avoid installation issues for the core package in the case where no C compiler is available).
-* Some computationally expensive methods can be accelerated with `Cython` or `Numba`. Cython is automatically installed on many Linux systems, if not, use pip or conda. Numba can be installed using `conda`.
-* Visualization by either matplotlib or (preferrable for larger problems) vtk/paraview. To dump data to paraview, a vtk filter must be available; the only solution we have found is from the 'conda' repositories, e.g. 'RUN conda install -c conda-forge vtk'
+To function optimally, PorePy should have access to some more packages:
+*  `pymetis` (for mesh partitioning).
+* Some computationally expensive methods can be accelerated with `Cython` or `Numba`.
 * We use `shapely` for certain geometry-operations.
 * Meshing: currently by [gmsh](http://gmsh.info/doc/texinfo/gmsh.html). For its configuration see [Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
 
