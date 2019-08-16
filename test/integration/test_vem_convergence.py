@@ -40,7 +40,7 @@ class TestVEMVaryingPerm(unittest.TestCase):
         perm = pp.SecondOrderTensor(kxx)
 
         # Source term
-        source = -g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
+        source = g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
 
         # Boundaries
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -135,7 +135,7 @@ class TestVEMVaryingPermTiltedGrid(unittest.TestCase):
         perm = pp.SecondOrderTensor(kxx)
 
         # Source term
-        source = -g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
+        source = g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
 
         # Boundariesy
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -220,7 +220,7 @@ class TestVEMVaryingPermSurface_2(unittest.TestCase):
         perm = pp.SecondOrderTensor(kxx)
 
         # Source term
-        source = -g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
+        source = g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
 
         # Boundaries
         bound_faces = g.get_all_boundary_faces()

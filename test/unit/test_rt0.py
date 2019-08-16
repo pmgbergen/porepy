@@ -1076,7 +1076,7 @@ class BasicsTest(unittest.TestCase):
             bc_val = np.zeros(g.num_faces)
             bc_val[bf] = p_ex(g.face_centers[:, bf])
             # Minus sign to move to rhs
-            source = -np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
+            source = np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
 
             solver = pp.RT0(keyword="flow")
             solver_rhs = pp.DualScalarSource(keyword="flow")
@@ -1137,7 +1137,7 @@ class BasicsTest(unittest.TestCase):
             bc_val = np.zeros(g.num_faces)
             bc_val[bf] = p_ex(g.face_centers[:, bf])
             # Minus sign to move to rhs
-            source = -np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
+            source = np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
 
             solver = pp.RT0(keyword="flow")
             solver_rhs = pp.DualScalarSource(keyword="flow")
