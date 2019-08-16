@@ -12,9 +12,13 @@ undergo major changes (or be deleted).
 """
 import numpy as np
 import porepy as pp
+import logging
 
 import porepy.models.contact_mechanics_model as contact_model
 from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
+
+# Module-wide logger
+logger = logging.getLogger(__name__)
 
 
 class ContactMechanicsBiot(contact_model.ContactMechanics):
@@ -447,13 +451,16 @@ def run_biot(setup, newton_tol=1e-10):
 
     # Prepare for the time loop
     errors = []
-    dt = setup.time_step
     t_end = setup.end_time
     k = 0
     while setup.time < t_end:
-        setup.time += dt
+        setup.time += setup.time_step
         k += 1
-        print("Time step: ", k, "/", int(np.ceil(t_end / dt)))
+        logger.debug(
+            "\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
+                k, setup.time, t_end, setup.time_step
+            )
+        )
 
         # Prepare for Newton
         counter_newton = 0
@@ -461,7 +468,9 @@ def run_biot(setup, newton_tol=1e-10):
         max_newton = 15
         newton_errors = []
         while counter_newton <= max_newton and not converged_newton:
-            print("Newton iteration number: ", counter_newton, "/", max_newton)
+            logger.debug(
+                "Newton iteration number {} of {}".format(counter_newton, max_newton)
+            )
             # One Newton iteration:
             sol, u, error, converged_newton = pp.models.contact_mechanics_model.newton_iteration(
                 assembler, setup, u, tol=newton_tol

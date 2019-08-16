@@ -150,45 +150,6 @@ class TestContactMechanicsBiot(unittest.TestCase):
         self.assertTrue(np.all(fracture_pressure > 1e-7))
 
 
-def distribute_iterate(
-    assembler, setup, values, mortar_displacement_variable, contact_traction_variable
-):
-    """ Update the previous iterate of the mortar displacement and contact traction,
-    and obtain current matrix displacement iterate.
-
-    Method is a tailored copy from assembler.distribute_variable.
-    """
-    dof = np.cumsum(np.append(0, np.asarray(assembler.full_dof)))
-    var_name = setup.displacement_variable
-
-    for pair, bi in assembler.block_dof.items():
-        g = pair[0]
-        name = pair[1]
-        # Avoid edges
-        if not isinstance(g, pp.Grid):
-            if name == mortar_displacement_variable:
-                mortar_u = values[dof[bi] : dof[bi + 1]]
-                data = setup.gb.edge_props(g)
-                data[pp.STATE]["previous_iterate"][
-                    mortar_displacement_variable
-                ] = mortar_u
-            continue
-        # Only interested in highest dimension
-        if g.dim < setup.gb.dim_max():
-            if name == contact_traction_variable:
-                contact = values[dof[bi] : dof[bi + 1]]
-                data = setup.gb.node_props(g)
-                data[pp.STATE]["previous_iterate"][contact_traction_variable] = contact
-
-            continue
-        # Only need the displacement
-        if name != var_name:
-            continue
-
-        u = values[dof[bi] : dof[bi + 1]]
-    return u
-
-
 class SetupContactMechanicsBiot(model.ContactMechanicsBiot):
     def __init__(self, ux_south, uy_south, ux_north, uy_north, source_value=0):
         mesh_args = {
