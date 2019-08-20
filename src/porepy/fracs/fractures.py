@@ -31,9 +31,7 @@ import porepy as pp
 
 # Import of internally developed packages.
 from porepy.utils import setmembership, sort_points
-from porepy.grids.gmsh.gmsh_interface import GmshWriter
 from porepy.grids.constants import GmshConstants
-from porepy.grids.gmsh import gmsh_interface
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -729,7 +727,7 @@ class FractureNetwork3d(object):
         # generate grid
         in_3d = not dfn
         self.to_gmsh(in_file, in_3d=in_3d)
-        gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3)
+        gmsh_status = pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dims=3)
         logger.info("Gmsh completed with status " + str(gmsh_status))
 
         if dfn:
@@ -2078,7 +2076,7 @@ class FractureNetwork3d(object):
         else:
             dom = None
 
-        writer = GmshWriter(
+        writer = pp.grids.gmsh.gmsh_interface.GmshWriter(
             p,
             edges,
             polygons=poly,
