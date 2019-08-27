@@ -13,8 +13,8 @@ import warnings
 import time
 import logging
 import numpy as np
-import sympy
 import csv
+from sympy.geometry import Point, Polygon
 
 # Imports of external packages that may not be present at the system. The
 # module will work without any of these, but with limited functionalbility.
