@@ -19,7 +19,7 @@ Note that you may have to revert to an older version of PorePy to run the exampl
 # Citing
 If you use PorePy in your research, we ask you to cite the following publication
 
-E. Keilegavlen, R. Berge, A. Fumagalli, M. Starnoni, I. Stefansson, J. Varela, I. Berre: PorePy:  PorePy: An Open-Source Software for Simulation of Multiphysics Processes in Fractured Porous Media. [arXiv:1908.09869](http://arxiv.org/abs/1908.09869)
+E. Keilegavlen, R. Berge, A. Fumagalli, M. Starnoni, I. Stefansson, J. Varela, I. Berre: PorePy:  An Open-Source Software for Simulation of Multiphysics Processes in Fractured Porous Media. [arXiv:1908.09869](http://arxiv.org/abs/1908.09869)
 
 Other publications done with PorePy can be found [here](./Papers.md).
 
@@ -28,7 +28,7 @@ Other publications done with PorePy can be found [here](./Papers.md).
 For more detailed install instructions, including how to access GMSH (for meshing), see
 [Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
 
-PorePy is developed under Python >=3.6. 
+PorePy is developed under Python >=3.6.
 
 To get the most current version, install from github:
 
@@ -39,7 +39,7 @@ To get the most current version, install from github:
 To get the stable (though not very frequently updated) version:
     git checkout master
 
-Install 
+Install
     pip install -r requirements.txt
 
 Finally to install PorePy
