@@ -94,6 +94,16 @@ class CellDofFaceDofMap(object):
         """
         return np.empty(0)
 
+    def discretize(self, g, data):
+        """ Construct discretization matrices. Operation is void for this discretization.
+
+        Parameters:
+            g (pp.Grid): Grid to be discretized.
+            data (dictionary): With discretization parameters.
+
+        """
+        pass
+
     def assemble_matrix_rhs(self, g, data=None):
         """ Return the matrix and right-hand side, no PDE are associate with
         this discretization so empty matrix and zero rhs is returned.

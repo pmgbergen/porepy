@@ -19,7 +19,7 @@ try:
     import vtk
     import vtk.util.numpy_support as ns
 except ImportError:
-    warnings.warn("No vtk module loaded.")
+    warnings.warn("No vtk module loaded. Export with pp.Exporter will not work.")
 try:
     import numba
 except ImportError:
@@ -201,6 +201,9 @@ class Exporter:
         NOTE: the following names are reserved for data exporting: grid_dim,
         is_mortar, mortar_side, cell_id
 
+        Raises:
+        ImportError if the module vtk is not available
+
         """
 
         self.gb = grid
@@ -214,9 +217,11 @@ class Exporter:
         self.is_not_vtk = "vtk" not in sys.modules
 
         if self.is_not_vtk:
-            return
+            raise ImportError("Could not load vtk module")
 
         if self.is_GridBucket:
+            # Fixed-dimensional grids to be included in the export. We include
+            # all but the 0-d grids
             self.dims = np.setdiff1d(self.gb.all_dims(), [0])
             num_dims = self.dims.size
             self.gb_VTK = dict(zip(self.dims, [None] * num_dims))
@@ -253,7 +258,14 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def write_vtk(self, data=None, time_step=None, grid=None, point_data=False):
+    def write_vtk(
+        self,
+        data=None,
+        time_dependent=False,
+        time_step=None,
+        grid=None,
+        point_data=False,
+    ):
         """
         Interface function to export the grid and additional data in VTK.
 
@@ -268,6 +280,9 @@ class Exporter:
         data: if g is a single grid then data is a dictionary (see example)
               if g is a grid bucket then list of names for optional data,
               they are the keys in the grid bucket (see example).
+        time_dependent: (bolean, optional) If False, file names will not be appended with
+                        an index that markes the time step. Can be overridden by giving
+                        a value to time_step.
         time_step: (optional) in a time dependent problem defines the part of the file
                    name associated with this time step. If not provided, subsequent
                    time steps will have file names ending with 0, 1, etc.
@@ -285,11 +300,15 @@ class Exporter:
             self.is_GridBucket = isinstance(self.gb, pp.GridBucket)
             self._update_gVTK()
 
-        if time_step is None:
+        # If the problem is time dependent, but no time step is set, we set one
+        if time_dependent and time_step is not None:
             time_step = self._time_step_counter
             self._time_step_counter += 1
 
-        self._exported_time_step_file_names.append(time_step)
+        # If the problem is time dependent (with specified or automatic time step index)
+        # add the time step to the exported files
+        if time_step is not None:
+            self._exported_time_step_file_names.append(time_step)
 
         if self.is_GridBucket:
             self._export_vtk_gb(data, time_step, point_data)
@@ -515,17 +534,16 @@ class Exporter:
         o_file.write(header)
         fm = '\t<DataSet group="" part="" file="%s"/>\n'
 
-        [
-            o_file.write(fm % self._make_file_name(self.name, time_step, dim=dim))
-            for dim in self.dims
-        ]
-
-        [
-            o_file.write(
-                fm % self._make_file_name_mortar(self.name, time_step, dim=dim)
-            )
-            for dim in self.m_dims
-        ]
+        # Include the grids and mortar grids of all dimensions, but only if the
+        # grids (or mortar grids) of this dimension are included in the vtk export
+        for dim in self.dims:
+            if self.gb_VTK[dim] is not None:
+                o_file.write(fm % self._make_file_name(self.name, time_step, dim=dim))
+        for dim in self.m_dims:
+            if self.m_gb_VTK[dim] is not None:
+                o_file.write(
+                    fm % self._make_file_name_mortar(self.name, time_step, dim=dim)
+                )
 
         o_file.write("</Collection>\n" + "</VTKFile>")
         o_file.close()

@@ -1,8 +1,10 @@
 """ Module containing the class for the mortar grid.
 """
 from __future__ import division
+import warnings
 import numpy as np
 from scipy import sparse as sps
+
 
 # Module level constants, used to define sides of a mortar grid.
 # This is in essence an Enum, but that led to trouble in pickling a GridBucket.
@@ -96,7 +98,7 @@ class MortarGrid(object):
         # to the co-dimensional grid. If this assumption is not satisfied we
         # need to change the following lines
 
-        # Creation of the high_to_mortar_int, besically we start from the face_cells
+        # Creation of the high_to_mortar_int, basically we start from the face_cells
         # map and we split the relation
         # low_dimensional_cell -> 2 high_dimensional_face
         # as
@@ -199,7 +201,7 @@ class MortarGrid(object):
             [g.cell_centers for g in self.side_grids.values()]
         )
 
-    # ------------------------------------------------------------------------------#
+    ### Methods to update the mortar grid, or the neighboring grids.
 
     def update_mortar(self, side_matrix, side_grids):
         """
@@ -237,8 +239,6 @@ class MortarGrid(object):
 
         self._check_mappings()
 
-    # ------------------------------------------------------------------------------#
-
     def update_slave(self, side_matrix):
         """
         Update the low_to_mortar_int map when the lower dimensional grid is changed.
@@ -262,14 +262,10 @@ class MortarGrid(object):
         self._slave_to_mortar_int = sps.bmat(matrix, format="csc")
         self._check_mappings()
 
-    # ------------------------------------------------------------------------------#
-
     def update_master(self, matrix):
         # Make a comment here
         self._master_to_mortar_int = self._master_to_mortar_int * matrix
         self._check_mappings()
-
-    # ------------------------------------------------------------------------------#
 
     def num_sides(self):
         """
@@ -280,9 +276,35 @@ class MortarGrid(object):
         """
         return len(self.side_grids)
 
-    # ------------------------------------------------------------------------------#
+    ###
+    def project_to_side_grids(self):
+        """ Generator for the side grids (pp.Grid) representation of the mortar
+        cells, and projection operators from the mortar cells, combining cells on all
+        the sides, to the specific side grids.
 
-    def master_to_mortar_int(self):
+        Yields:
+            grid (pp.Grid): PorePy grid representing one of the sides of the
+                mortar grid. Can be used for standard discretizations.
+            proj (sps.csc_matrix): Projection from the mortar cells to this
+                side grid.
+
+        """
+        counter = 0
+        for grid in self.side_grids.values():
+            nc = grid.num_cells
+            rows = np.arange(nc)
+            cols = rows + counter
+            data = np.ones(nc)
+            proj = sps.coo_matrix(
+                (data, (rows, cols)), shape=(nc, self.num_cells)
+            ).tocsc()
+
+            counter += nc
+            yield proj, grid
+
+    ## Methods to construct projection matrices
+
+    def master_to_mortar_int(self, nd=1):
         """ Project values from faces of master to the mortar, by summing quantities
         from the master side.
 
@@ -292,14 +314,18 @@ class MortarGrid(object):
 
         This mapping is intended for extensive properties, e.g. fluxes.
 
+        Parameters:
+            nd (int, optional): Spatial dimension of the projected quantity.
+                Defaults to 1 (mapping for scalar quantities).
+
         Returns:
             sps.matrix: Projection matrix with column sum unity.
                 Size: g_master.num_faces x mortar_grid.num_cells.
 
         """
-        return self._master_to_mortar_int
+        return self._convert_to_vector_variable(self._master_to_mortar_int, nd)
 
-    def slave_to_mortar_int(self):
+    def slave_to_mortar_int(self, nd=1):
         """ Project values from cells on the slave side to the mortar, by
         summing quantities from the slave side.
 
@@ -309,14 +335,18 @@ class MortarGrid(object):
 
         This mapping is intended for extensive properties, e.g. sources.
 
+        Parameters:
+            nd (int, optional): Spatial dimension of the projected quantity.
+                Defaults to 1 (mapping for scalar quantities).
+
         Returns:
             sps.matrix: Projection matrix with column sum unity.
                 Size: g_slave.num_cells x mortar_grid.num_cells.
 
         """
-        return self._slave_to_mortar_int
+        return self._convert_to_vector_variable(self._slave_to_mortar_int, nd)
 
-    def master_to_mortar_avg(self):
+    def master_to_mortar_avg(self, nd=1):
         """ Project values from faces of master to the mortar, by averaging quantities
         from the master side.
 
@@ -327,15 +357,21 @@ class MortarGrid(object):
 
         This mapping is intended for intensive properties, e.g. pressures.
 
+        Parameters:
+            nd (int, optional): Spatial dimension of the projected quantity.
+                Defaults to 1 (mapping for scalar quantities).
+
         Returns:
             sps.matrix: Projection matrix with row sum unity.
                 Size: g_master.num_faces x mortar_grid.num_cells.
 
         """
         row_sum = self._master_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1.0 / row_sum) * self._master_to_mortar_int
+        return self._convert_to_vector_variable(
+            sps.diags(1.0 / row_sum) * self._master_to_mortar_int, nd
+        )
 
-    def slave_to_mortar_avg(self):
+    def slave_to_mortar_avg(self, nd=1):
         """ Project values from cells at the slave to the mortar, by averaging
         quantities from the slave side.
 
@@ -346,19 +382,25 @@ class MortarGrid(object):
 
         This mapping is intended for intensive properties, e.g. pressures.
 
+        Parameters:
+            nd (int, optional): Spatial dimension of the projected quantity.
+                Defaults to 1 (mapping for scalar quantities).
+
         Returns:
             sps.matrix: Projection matrix with row sum unity.
                 Size: g_slave.num_cells x mortar_grid.num_cells.
 
         """
         row_sum = self._slave_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1.0 / row_sum) * self._slave_to_mortar_int
+        return self._convert_to_vector_variable(
+            sps.diags(1.0 / row_sum) * self._slave_to_mortar_int, nd
+        )
 
     # IMPLEMENTATION NOTE: The reverse projections, from mortar to master/slave are
     # found by taking transposes, and switching average and integration (since we are
     # changing which side we are taking the area relative to.
 
-    def mortar_to_master_int(self):
+    def mortar_to_master_int(self, nd=1):
         """ Project values from the mortar to faces of master, by summing quantities
         from the mortar side.
 
@@ -368,14 +410,18 @@ class MortarGrid(object):
 
         This mapping is intended for extensive properties, e.g. fluxes.
 
+        Parameters:
+            nd (int, optional): Spatial dimension of the projected quantity.
+                Defaults to 1 (mapping for scalar quantities).
+
         Returns:
             sps.matrix: Projection matrix with column sum unity.
                 Size: mortar_grid.num_cells x g_master.num_faces.
 
         """
-        return self.master_to_mortar_avg().T
+        return self._convert_to_vector_variable(self.master_to_mortar_avg().T, nd)
 
-    def mortar_to_slave_int(self):
+    def mortar_to_slave_int(self, nd=1):
         """ Project values from the mortar to cells at the slave, by summing quantities
         from the mortar side.
 
@@ -385,14 +431,18 @@ class MortarGrid(object):
 
         This mapping is intended for extensive properties, e.g. fluxes.
 
+        Parameters:
+            nd (int, optional): Spatial dimension of the projected quantity.
+                Defaults to 1 (mapping for scalar quantities).
+
         Returns:
             sps.matrix: Projection matrix with column sum unity.
                 Size: mortar_grid.num_cells x g_slave_num_faces.
 
         """
-        return self.slave_to_mortar_avg().T
+        return self._convert_to_vector_variable(self.slave_to_mortar_avg().T, nd)
 
-    def mortar_to_master_avg(self):
+    def mortar_to_master_avg(self, nd=1):
         """ Project values from the mortar to faces of master, by averaging
         quantities from the mortar side.
 
@@ -403,14 +453,18 @@ class MortarGrid(object):
 
         This mapping is intended for intensive properties, e.g. pressures.
 
+        Parameters:
+            nd (int, optional): Spatial dimension of the projected quantity.
+                Defaults to 1 (mapping for scalar quantities).
+
         Returns:
             sps.matrix: Projection matrix with row sum unity.
                 Size: mortar_grid.num_cells x g_master.num_faces.
 
         """
-        return self.master_to_mortar_int().T
+        return self._convert_to_vector_variable(self.master_to_mortar_int().T, nd)
 
-    def mortar_to_slave_avg(self):
+    def mortar_to_slave_avg(self, nd=1):
         """ Project values from the mortar to slave, by averaging quantities from the
         mortar side.
 
@@ -421,22 +475,78 @@ class MortarGrid(object):
 
         This mapping is intended for intensive properties, e.g. pressures.
 
+        Parameters:
+            nd (int, optional): Spatial dimension of the projected quantity.
+                Defaults to 1 (mapping for scalar quantities).
+
         Returns:
             sps.matrix: Projection matrix with row sum unity.
                 Size: mortar_grid.num_cells x g_slave.num_faces.
 
         """
-        return self.slave_to_mortar_int().T
+        return self._convert_to_vector_variable(self.slave_to_mortar_int().T, nd)
 
-    # ------------------------------------------------------------------------------#
+    def _convert_to_vector_variable(self, matrix, nd):
+        """ Convert the scalar projection to a vector quantity. If the prescribed
+        dimension is 1 (default for all the above methods), the projection matrix
+        will in effect not be altered.
+        """
+        return sps.kron(matrix, sps.eye(nd)).tocsc()
+
+    def sign_of_mortar_sides(self, nd=1):
+        """ Assign positive or negative weight to the two sides of a mortar grid.
+
+        This is needed e.g. to make projection operators into signed projections,
+        for variables that have no particular defined sign conventions.
+
+        This function defines a convention for what is a positive jump between
+        the mortar sides.
+
+        Example: Take the difference between right and left variables, and
+        project to the slave grid by
+
+            mortar_to_slave_avg() * sign_of_mortar_sides()
+
+        NOTE: The flux variables in flow and transport equations are defined as
+        positive from master to slave. Hence the two sides have different
+        conventions, and there is no need to adjust the signs further.
+
+        IMPLEMENTATION NOTE: This method will probably not be meaningful if
+        applied to mortar grids where the two side grids are non-matching.
+
+        Parameters:
+            nd (int, optional): Spatial dimension of the projected quantity.
+                Defaults to 1 (mapping for scalar quantities).
+
+        Returns:
+            sps.diag_matrix: Diagonal matrix with positive signs on variables
+                belonging to the first of the side_grids.
+                Size: mortar_grid.num_cells x mortar_grid.num_cells
+
+        """
+        nc = self.num_cells
+        if self.num_sides() == 1:
+            warnings.warn(
+                "Is it really meaningful to ask for signs of a one sided mortar grid?"
+            )
+            return sps.dia_matrix((np.ones(nc * nd), 0), shape=(nd * nc, nd * nc))
+        elif self.num_sides() == 2:
+            # From the numbering of the mortar cells (see __init__, the case
+            # num_sides() == 2)), we know that the cells are numbered first
+            # on one side, then on the other.
+            data = np.hstack(
+                (
+                    np.ones(self.side_grids[1].num_cells * nd),
+                    -np.ones(self.side_grids[2].num_cells * nd),
+                )
+            )
+            return sps.dia_matrix((data, 0), shape=(nd * nc, nd * nc))
 
     def cell_diameters(self):
         diams = np.empty(self.num_sides(), dtype=np.object)
         for pos, (_, g) in enumerate(self.side_grids.items()):
             diams[pos] = g.cell_diameters()
         return np.concatenate(diams).ravel()
-
-    # ------------------------------------------------------------------------------#
 
     def _check_mappings(self, tol=1e-4):
         row_sum = self._master_to_mortar_int.sum(axis=1)

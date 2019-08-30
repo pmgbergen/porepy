@@ -10,7 +10,7 @@ class TestPartialMPFA(unittest.TestCase):
     def setup(self):
         g = pp.CartGrid([5, 5])
         g.compute_geometry()
-        perm = pp.SecondOrderTensor(g.dim, np.ones(g.num_cells))
+        perm = pp.SecondOrderTensor(np.ones(g.num_cells))
         bnd = pp.BoundaryCondition(g)
         flux, bound_flux, _, _ = pp.Mpfa("flow")._local_discr(
             g, perm, bnd, inverter="python"
@@ -84,7 +84,7 @@ class TestPartialMPFA(unittest.TestCase):
         kyy = np.random.random(g.num_cells)
         # Ensure positive definiteness
         kxy = np.random.random(g.num_cells) * kxx * kyy
-        perm = pp.SecondOrderTensor(2, kxx=kxx, kyy=kyy, kxy=kxy)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy)
 
         flux = sps.csr_matrix((g.num_faces, g.num_cells))
         bound_flux = sps.csr_matrix((g.num_faces, g.num_faces))
@@ -123,9 +123,7 @@ class TestPartialMPSA(unittest.TestCase):
     def setup(self):
         g = pp.CartGrid([5, 5])
         g.compute_geometry()
-        stiffness = pp.FourthOrderTensor(
-            g.dim, np.ones(g.num_cells), np.ones(g.num_cells)
-        )
+        stiffness = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         bnd = pp.BoundaryConditionVectorial(g)
         stress, bound_stress, _, _ = mpsa.mpsa(g, stiffness, bnd, inverter="python")
 
@@ -146,7 +144,7 @@ class TestPartialMPSA(unittest.TestCase):
         nodes_of_cell = np.array([14, 15, 20, 21])
         faces_of_cell = np.array([14, 15, 42, 47])
 
-        partial_stress, partial_bound, _, _, active_faces = mpsa.mpsa_partial(
+        partial_stress, partial_bound, active_faces = mpsa.mpsa_partial(
             g, stiffness, bnd, nodes=nodes_of_cell, inverter="python"
         )
 
@@ -173,7 +171,7 @@ class TestPartialMPSA(unittest.TestCase):
         inner_cell = 10
         nodes_of_cell = np.array([12, 13, 18, 19])
         faces_of_cell = np.array([12, 13, 40, 45])
-        partial_stress, partial_bound, _, _, active_faces = mpsa.mpsa_partial(
+        partial_stress, partial_bound, active_faces = mpsa.mpsa_partial(
             g, perm, bnd, nodes=nodes_of_cell, inverter="python"
         )
 
@@ -205,7 +203,7 @@ class TestPartialMPSA(unittest.TestCase):
         np.random.seed(42)
         mu = np.random.random(g.num_cells)
         lmbda = np.random.random(g.num_cells)
-        stiffness = pp.FourthOrderTensor(2, mu=mu, lmbda=lmbda)
+        stiffness = pp.FourthOrderTensor(mu=mu, lmbda=lmbda)
 
         stress = sps.csr_matrix((g.num_faces * g.dim, g.num_cells * g.dim))
         bound_stress = sps.csr_matrix((g.num_faces * g.dim, g.num_faces * g.dim))
@@ -221,7 +219,7 @@ class TestPartialMPSA(unittest.TestCase):
             ind = np.zeros(g.num_cells)
             ind[ci] = 1
             nodes = np.squeeze(np.where(cn * ind > 0))
-            partial_stress, partial_bound, _, _, active_faces = mpsa.mpsa_partial(
+            partial_stress, partial_bound, active_faces = mpsa.mpsa_partial(
                 g, stiffness, bnd, nodes=nodes, inverter="python"
             )
 

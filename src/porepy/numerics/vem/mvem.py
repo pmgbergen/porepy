@@ -38,9 +38,9 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             deviation_from_plane_tol: The geometrical tolerance, used in the check to rotate 2d and 1d grids
 
         parameter_dictionary contains the entries:
-            second_order_tensor: (pp.SecondOrderTensor) Permeability defined cell-wise.
-            aperture: (np.ndarray) apertures of the cells for scaling of the face
-                normals.
+            second_order_tensor: (pp.SecondOrderTensor) Permeability defined
+                cell-wise. This is the effective permeability, including any
+                aperture scalings etc.
 
         matrix_dictionary will be updated with the following entries:
             mass: sps.csc_matrix (g.num_faces, g.num_faces) The mass matrix.
@@ -66,11 +66,8 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         # Get dictionary for parameter storage
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        # Retrieve the permeability, boundary conditions, and aperture
-        # The aperture is needed in the hybrid-dimensional case, otherwise is
-        # assumed unitary
+        # Retrieve the permeability
         k = parameter_dictionary["second_order_tensor"]
-        a = parameter_dictionary["aperture"]
 
         faces, cells, sign = sps.find(g.cell_faces)
         index = np.argsort(cells)
@@ -114,7 +111,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
             # Compute the H_div-mass local matrix
             A = self.massHdiv(
-                a[c] * k.values[0 : g.dim, 0 : g.dim, c],
+                k.values[0 : g.dim, 0 : g.dim, c],
                 c_centers[:, c],
                 g.cell_volumes[c],
                 f_centers[:, faces_loc],
@@ -151,10 +148,6 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
             deviation_from_plane_tol: The geometrical tolerance, used in the check to rotate 2d and 1d grids
 
-        parameter_dictionary contains the entries:
-            aperture: (np.ndarray) apertures of the cells for scaling of the face
-                normals.
-
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
@@ -173,8 +166,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         # The velocity field already has permeability effects incorporated,
         # thus we assign a unit permeability to be passed to MVEM.massHdiv
-        k = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
-        a = data[pp.PARAMETERS][self.keyword]["aperture"]
+        k = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
 
         faces, cells, sign = sps.find(g.cell_faces)
         index = np.argsort(cells)
@@ -199,7 +191,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             faces_loc = faces[loc]
 
             Pi_s = self.massHdiv(
-                a[c] * k.values[0 : g.dim, 0 : g.dim, c],
+                k.values[0 : g.dim, 0 : g.dim, c],
                 c_centers[:, c],
                 g.cell_volumes[c],
                 f_centers[:, faces_loc],
@@ -209,7 +201,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             )[1]
 
             # extract the velocity for the current cell
-            P0u[dim, c] = np.dot(Pi_s, u[faces_loc]) / diams[c] * a[c]
+            P0u[dim, c] = np.dot(Pi_s, u[faces_loc]) / diams[c]
             P0u[:, c] = np.dot(R.T, P0u[:, c])
 
         return P0u
