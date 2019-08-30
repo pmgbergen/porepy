@@ -2,11 +2,14 @@
 Mass matrix classes for a discretization of a L2-mass bilinear form with constant test
 and trial functions for mixed methods (e.g. RT0, MVEM).
 
-The discretization takes into account cell volumes, porosity, time step and aperture,
-so that the mass matrix (shape (g.num_faces + g.num_cells)^2) has the following diagonal
-for the cell dof:
-g.cell_volumes * mass_weight * aperture
-The block related to the face dofs is empty. The right hand side is null.
+The discretization takes into account cell volumes and the mass_weight given in
+the parameters (the mass weight can again incorporate porosity, time step,
+apertures etc),  so that the mass matrix (shape (g.num_faces + g.num_cells)^2)
+has the following diagonal for the cell_dof:
+
+    g.cell_volumes * mass_weight
+
+The right hand side is null.
 There is also a class for the inverse of the mass matrix.
 
 Note that the matrix equals the discretization operator in this case, and so is stored
@@ -102,10 +105,7 @@ class MixedMassMatrix:
                 discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if "mixed_mass" not in matrix_dictionary:
-            self.discretize(g, data)
-        M = matrix_dictionary["mixed_mass"]
-        return M
+        return matrix_dictionary["mixed_mass"]
 
     # ------------------------------------------------------------------------------#
 
@@ -144,9 +144,8 @@ class MixedMassMatrix:
 
         parameter_dictionary contains the entries:
             mass_weight: (array, self.g.num_cells): Scalar values which may e.g.
-                represent the porosity or heat capacity.
-            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
-                the face normals.
+                represent the porosity or heat capacity. The disrcetization
+                will multiply this weight with the cell volumes.
 
         matrix_dictionary will be updated with the following entries:
             mixed_mass: sps.dia_matrix (sparse dia, self.ndof x self.ndof): Mass matrix
@@ -157,14 +156,12 @@ class MixedMassMatrix:
             g : grid, or a subclass, with geometry fields computed.
             data: dictionary to store the data.
 
-
         """
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         ndof = self.ndof(g)
         w = parameter_dictionary["mass_weight"]
-        aperture = parameter_dictionary["aperture"]
-        volumes = g.cell_volumes * aperture
+        volumes = g.cell_volumes
         coeff = np.hstack((np.zeros(g.num_faces), volumes * w))
 
         matrix_dictionary["mixed_mass"] = sps.dia_matrix((coeff, 0), shape=(ndof, ndof))
@@ -259,11 +256,8 @@ class MixedInvMassMatrix:
                 discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if "inv_mixed_mass" not in matrix_dictionary:
-            self.discretize(g, data)
 
-        M = matrix_dictionary["inv_mixed_mass"]
-        return M
+        return matrix_dictionary["inv_mixed_mass"]
 
     # ------------------------------------------------------------------------------#
 
@@ -282,11 +276,8 @@ class MixedInvMassMatrix:
                 conditions: A null vector of length g.num_faces.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if "bound_inv_mixed_mass" not in matrix_dictionary:
-            self.discretize(g, data)
 
-        rhs = matrix_dictionary["bound_inv_mixed_mass"]
-        return rhs
+        return matrix_dictionary["bound_inv_mixed_mass"]
 
     # ------------------------------------------------------------------------------#
 
@@ -303,9 +294,8 @@ class MixedInvMassMatrix:
 
         parameter_dictionary contains the entries:
             mass_weight: (array, self.g.num_cells): Scalar values which may e.g.
-                represent the porosity or heat capacity.
-            apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
-                the face normals.
+                represent the porosity or heat capacity. The discretization
+                will multiply this weight with the cell volumes.
 
         matrix_dictionary will be updated with the following entries:
             mixed_mass: sps.dia_matrix (sparse dia, self.ndof x self.ndof): Mass matrix
@@ -316,10 +306,11 @@ class MixedInvMassMatrix:
             g : grid, or a subclass, with geometry fields computed.
             data: dictionary to store the data.
 
-
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        M, rhs = MixedMassMatrix(keyword=self.keyword).assemble_matrix_rhs(g, data)
+        mass = MixedMassMatrix(keyword=self.keyword)
+        mass.discretize(g, data)
+        M, rhs = mass.assemble_matrix_rhs(g, data)
         coeff = M.diagonal()
         coeff[g.num_faces :] = 1.0 / coeff[g.num_faces :]
 

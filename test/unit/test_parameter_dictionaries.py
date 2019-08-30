@@ -34,8 +34,6 @@ class TestParameterDictionaries(unittest.TestCase):
         dictionary = dicts.transport_dictionary(self.g)
         # Check that all parameters have been added.
         p_list = [
-            "aperture",
-            "porosity",
             "source",
             "time_step",
             "second_order_tensor",
@@ -46,7 +44,7 @@ class TestParameterDictionaries(unittest.TestCase):
         ]
         [self.assertIn(parameter, dictionary) for parameter in p_list]
         # Check some of the values:
-        unitary_parameters = ["aperture", "porosity", "mass_weight"]
+        unitary_parameters = ["mass_weight"]
         ones = np.ones(self.g.num_cells)
         for parameter in unitary_parameters:
             self.assertTrue(np.all(np.isclose(dictionary[parameter], ones)))
@@ -62,8 +60,6 @@ class TestParameterDictionaries(unittest.TestCase):
         dictionary = dicts.mechanics_dictionary(self.g)
         # Check that all parameters have been added.
         p_list = [
-            "aperture",
-            "porosity",
             "source",
             "time_step",
             "fourth_order_tensor",
@@ -73,10 +69,6 @@ class TestParameterDictionaries(unittest.TestCase):
         ]
         [self.assertIn(parameter, dictionary) for parameter in p_list]
         # Check some of the values:
-        unitary_parameters = ["aperture", "porosity"]
-        ones = np.ones(self.g.num_cells)
-        for parameter in unitary_parameters:
-            self.assertTrue(np.all(np.isclose(dictionary[parameter], ones)))
         zeros = np.zeros(self.g.num_faces * self.g.dim)
         self.assertTrue(np.all(np.isclose(dictionary["slip_distance"], zeros)))
         self.assertEqual(dictionary["bc"].bc_type, "vectorial")
@@ -94,8 +86,6 @@ class TestParameterDictionaries(unittest.TestCase):
         """ Test transport data initialization with default and specified values.
 
         We specify
-            "porosity": There is a default value with the same type (and shape) as the
-                value we pass.
             "foo": No default value.
             "bc": There is a default value, but of another type (pp.BoundaryCondition).
         All these are set (i.e. no checks on the specified parameters).
@@ -111,7 +101,6 @@ class TestParameterDictionaries(unittest.TestCase):
         dictionary = data[pp.PARAMETERS]["transport"]
         self.assertEqual(dictionary["foo"], "bar")
         zeros = np.zeros(self.g.num_cells)
-        self.assertTrue(np.all(np.isclose(dictionary["porosity"], zeros)))
         self.assertAlmostEqual(dictionary["bc"], 15)
 
     def test_initialize_default_data_other_keyword(self):
@@ -119,7 +108,6 @@ class TestParameterDictionaries(unittest.TestCase):
         parameter_type.
 
         We specify "foo", for which there is no default value.
-        We check that the default value of porosity is indeed set.
         """
         specified_parameters = {"foo": "bar"}
         # The default darcy_flux needs face normals:
@@ -129,15 +117,11 @@ class TestParameterDictionaries(unittest.TestCase):
         )
         dictionary = data[pp.PARAMETERS]["not_transport"]
         self.assertEqual(dictionary["foo"], "bar")
-        ones = np.ones(self.g.num_cells)
-        self.assertTrue(np.all(np.isclose(dictionary["porosity"], ones)))
 
     def test_initialize_data_specified(self):
         """ Test transport data initialization without default values.
 
         We specify
-            "porosity": There is a default value with the same type (and shape) as the
-                value we pass.
             "foo": No default value.
             "bc": There is a default value, but of another type (pp.BoundaryCondition).
         All these are set (i.e. no checks on the specified parameters).
@@ -158,8 +142,6 @@ class TestParameterDictionaries(unittest.TestCase):
     def check_default_flow_dictionary(self, dictionary):
         # Check that all parameters have been added.
         p_list = [
-            "aperture",
-            "porosity",
             "mass_weight",
             "source",
             "time_step",
@@ -169,7 +151,7 @@ class TestParameterDictionaries(unittest.TestCase):
         ]
         [self.assertIn(parameter, dictionary) for parameter in p_list]
         # Check some of the values:
-        unitary_parameters = ["aperture", "porosity", "mass_weight"]
+        unitary_parameters = ["mass_weight"]
         ones = np.ones(self.g.num_cells)
         for parameter in unitary_parameters:
             self.assertTrue(np.all(np.isclose(dictionary[parameter], ones)))

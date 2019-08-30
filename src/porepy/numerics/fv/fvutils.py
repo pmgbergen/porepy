@@ -313,7 +313,7 @@ def invert_diagonal_blocks(mat, s, method=None):
         try:
             import porepy.numerics.fv.cythoninvert as cythoninvert
         except:
-            ImportError(
+            raise ImportError(
                 "Compiled Cython module not available. Is cython\
             installed?"
             )
@@ -670,7 +670,7 @@ def vector_divergence(g):
     return block_div.transpose()
 
 
-def scalar_tensor_vector_prod(g, k, subcell_topology, apertures=None):
+def scalar_tensor_vector_prod(g, k, subcell_topology):
     """
     Compute product of normal vectors and tensors on a sub-cell level.
     This is essentially defining Darcy's law for each sub-face in terms of
@@ -720,8 +720,6 @@ def scalar_tensor_vector_prod(g, k, subcell_topology, apertures=None):
     # Distribute faces equally on the sub-faces
     num_nodes = np.diff(g.face_nodes.indptr)
     normals = g.face_normals[:, subcell_topology.fno] / num_nodes[subcell_topology.fno]
-    if apertures is not None:
-        normals = normals * apertures[subcell_topology.cno]
 
     # Represent normals and permeability on matrix form
     ind_ptr = np.hstack((np.arange(0, j.size, nd), j.size))

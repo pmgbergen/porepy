@@ -9,7 +9,7 @@ from setuptools import find_packages, setup
 # ----------------------  Cython compilation
 # Build cython extensions as part of setup. Based on
 # https://stackoverflow.com/questions/4505747/how-should-i-structure-a-python-package-that-contains-cython-code
-USE_CYTHON = True
+USE_CYTHON = False
 from distutils.core import setup
 from distutils.extension import Extension
 
@@ -60,7 +60,7 @@ long_description = read("Readme.rst")
 
 setup(
     name="porepy",
-    version="0.5.0",
+    version="1.0.0",
     license="GPL",
     keywords=["porous media simulation fractures deformable"],
     author="Eirik Keilegavlen, Runar Berge, Alessio Fumagalli, Michele Starnoni, Ivar Stefansson and Jhabriel Varela",

@@ -26,7 +26,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(g.dim, kxx)
+        perm = pp.SecondOrderTensor(kxx)
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
 
@@ -49,7 +49,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.sin(g.cell_centers[0, :]) + 1
-        perm = pp.SecondOrderTensor(g.dim, kxx)
+        perm = pp.SecondOrderTensor(kxx)
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
@@ -78,7 +78,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(g.dim, kxx)
+        perm = pp.SecondOrderTensor(kxx)
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
@@ -112,7 +112,7 @@ class BasicsTest(unittest.TestCase):
         kxx = np.square(g.cell_centers[1, :]) + 1
         kyy = np.square(g.cell_centers[0, :]) + 1
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
-        perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy)
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
@@ -200,7 +200,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(g.dim, kxx)
+        perm = pp.SecondOrderTensor(kxx)
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
@@ -257,7 +257,7 @@ class BasicsTest(unittest.TestCase):
         kxx = np.square(g.cell_centers[1, :]) + 1
         kyy = np.square(g.cell_centers[0, :]) + 1
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
-        perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy)
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
@@ -300,7 +300,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(g.dim, kxx)
+        perm = pp.SecondOrderTensor(kxx)
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
@@ -326,7 +326,7 @@ class BasicsTest(unittest.TestCase):
         kyy = np.square(g.cell_centers[0, :]) + 1
         kzz = g.cell_centers[2, :] + 1
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
-        perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
@@ -350,7 +350,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(g.dim, kxx)
+        perm = pp.SecondOrderTensor(kxx)
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
 
@@ -382,7 +382,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(g.dim, kxx)
+        perm = pp.SecondOrderTensor(kxx)
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])

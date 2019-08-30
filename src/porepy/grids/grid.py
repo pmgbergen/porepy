@@ -55,9 +55,9 @@ class Grid(object):
         hand rule.
         face_nodes.indices[face_nodes.indptr[i]:face_nodes.indptr[i+1]]
         are the nodes of face i, which should be ordered counter-clockwise.
-        By counter-clockwise we mean as seen from cell cell_faces[i,:]==1.
+        By counter-clockwise we mean as seen from cell cell_faces[i,:] == -1.
         Equivalently the nodes will be clockwise as seen from cell
-        cell_faces[i,:] == -1. Note that operations on the face_nodes matrix
+        cell_faces[i,:] == 1. Note that operations on the face_nodes matrix
         (such as converting it to a csr-matrix) may change the ordering of
         the nodes (face_nodes.indices), which will break compute_geometry().
         Geometric information, available after compute_geometry() has been
@@ -742,6 +742,34 @@ class Grid(object):
         c2c.data = np.clip(c2c.data, 0, 1).astype("bool")
 
         return c2c
+
+    def sign_of_faces(self, faces):
+        """ Get the direction of the normal vector (inward or outwards from a cell)
+        of faces. Only boundary faces are permissible.
+
+        Parameters:
+            faces: (ndarray) indices of faces that you want to know the sign for. The
+                faces must be boundary faces.
+
+        Returns:
+            (ndarray) the sign of the faces
+
+        Raises:
+            ValueError if a target face is internal.
+
+        """
+
+        IA = np.argsort(faces)
+        IC = np.argsort(IA)
+
+        fi, _, sgn = sps.find(self.cell_faces[faces[IA], :])
+        if fi.size != faces.size:
+            raise ValueError("sign of internal faces does not make sense")
+
+        I = np.argsort(fi)
+        sgn = sgn[I]
+        sgn = sgn[IC]
+        return sgn
 
     def bounding_box(self):
         """

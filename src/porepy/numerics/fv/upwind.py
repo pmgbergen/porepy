@@ -78,10 +78,6 @@ class Upwind:
                 conditions. The size of the vector will depend on the discretization.
 
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not self.matrix_keyword in matrix_dictionary.keys():
-            self.discretize(g, data)
-
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
     def assemble_matrix(self, g, data):
@@ -277,8 +273,7 @@ class Upwind:
         # Retrieve the data
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         darcy_flux = parameter_dictionary[d_name]
-        aperture = parameter_dictionary["aperture"]
-        phi = parameter_dictionary["porosity"]
+        phi = parameter_dictionary["mass_weight"]
 
         faces, cells, _ = sps.find(g.cell_faces)
 
@@ -295,9 +290,8 @@ class Upwind:
         # Element-wise scalar products between the distance vectors and the
         # normals
         dist = np.einsum("ij,ij->j", dist_vector, g.face_normals[:, faces])
-        # Since darcy_flux is multiplied by the aperture, we get rid of it!!!!
         # Additionally we consider the phi (porosity) and the cell-mapping
-        coeff = (aperture * phi)[cells]
+        coeff = phi[cells]
         # deltaT is deltaX/darcy_flux with coefficient
         return np.amin(np.abs(np.divide(dist, darcy_flux[faces])) * coeff)
 

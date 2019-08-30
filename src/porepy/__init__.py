@@ -16,7 +16,7 @@ viz: Visualization; paraview, matplotlib.
 
 """
 
-__version__ = "0.5.0"
+__version__ = "1.0.0"
 
 # ------------------------------------
 # Simplified namespaces. The rue of thumb is that classes and modules that a
@@ -26,12 +26,17 @@ __version__ = "0.5.0"
 __all__ = []
 
 # Numerics
+from porepy.numerics.discretization import VoidDiscretization
+from porepy.numerics.interface_laws.elliptic_discretization import (
+    EllipticDiscretization,
+)
+
 # Control volume, elliptic
-from porepy.numerics.fv.mpsa import Mpsa, FracturedMpsa
+from porepy.numerics.fv.mpsa import Mpsa
 from porepy.numerics.fv.fv_elliptic import FVElliptic
 from porepy.numerics.fv.tpfa import Tpfa
 from porepy.numerics.fv.mpfa import Mpfa
-from porepy.numerics.fv.biot import Biot, GradP, DivD, BiotStabilization
+from porepy.numerics.fv.biot import Biot, GradP, DivU, BiotStabilization
 from porepy.numerics.fv.source import ScalarSource
 
 # Virtual elements, elliptic
@@ -41,18 +46,14 @@ from porepy.numerics.vem.mass_matrix import MixedMassMatrix, MixedInvMassMatrix
 from porepy.numerics.vem.vem_source import DualScalarSource
 
 # Finite elements, elliptic
-from porepy.numerics.fem.p1 import P1
-from porepy.numerics.fem.source import P1Source
-from porepy.numerics.fem.mass_matrix import P1MassMatrix
 from porepy.numerics.fem.rt0 import RT0
 
 # Mixed-dimensional discretizations and assemblers
 from porepy.numerics.interface_laws.elliptic_interface_laws import (
     RobinCoupling,
     FluxPressureContinuity,
-    RobinContact,
-    StressDisplacementContinuity,
 )
+
 from porepy.numerics.interface_laws.cell_dof_face_dof_map import CellDofFaceDofMap
 from porepy.numerics.mixed_dim.assembler import Assembler
 
@@ -63,6 +64,16 @@ from porepy.numerics.fv.upwind import Upwind
 from porepy.numerics.interface_laws.hyperbolic_interface_laws import UpwindCoupling
 from porepy.numerics.fv.mass_matrix import MassMatrix
 from porepy.numerics.fv.mass_matrix import InvMassMatrix
+
+# Contact mechanics
+from porepy.numerics.interface_laws.contact_mechanics_interface_laws import (
+    PrimalContactCoupling,
+    DivUCoupling,
+    MatrixScalarToForceBalance,
+    FractureScalarToForceBalance,
+)
+from porepy.numerics.contact_mechanics.contact_conditions import ColoumbContact
+from porepy.numerics.contact_mechanics import contact_conditions
 
 # Grids
 from porepy.grids.grid import Grid
@@ -102,6 +113,7 @@ from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
 # Modules
 from porepy.utils import permutations
+
 from porepy.geometry import (
     intersections,
     distances,
@@ -114,7 +126,9 @@ from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer, mortars
 from porepy.grids import structured, simplex, coarsening, partition, refinement
 from porepy.numerics.fv import fvutils
-from porepy.utils import error
+from porepy.utils import error, grid_utils
+from porepy.utils.tangential_normal_projection import TangentialNormalProjection
+import porepy.utils.derived_discretizations
 
 # Constants, units and keywords
 from porepy.utils.common_constants import *

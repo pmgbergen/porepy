@@ -26,8 +26,6 @@ class ScalarSource(object):
         """
         self.keyword = keyword
 
-    # ------------------------------------------------------------------------------#
-
     def _key(self):
         """ Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
@@ -37,8 +35,6 @@ class ScalarSource(object):
 
         """
         return self.keyword + "_"
-
-    # ------------------------------------------------------------------------------#
 
     def ndof(self, g):
         """ Return the number of degrees of freedom associated to the method.
@@ -51,8 +47,6 @@ class ScalarSource(object):
 
         """
         return g.num_cells
-
-    # ------------------------------------------------------------------------------#
 
     def assemble_matrix_rhs(self, g, data):
         """ Return the (null) matrix and right-hand side for a discretization of the
@@ -73,8 +67,6 @@ class ScalarSource(object):
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
-    # ------------------------------------------------------------------------------#
-
     def assemble_matrix(self, g, data):
         """ Return the (null) matrix and for a discretization of the integrated source
         term. Also discretize the necessary operators if the data dictionary does not
@@ -89,8 +81,6 @@ class ScalarSource(object):
                 discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if "source" not in matrix_dictionary:
-            self.discretize(g, data)
 
         return matrix_dictionary["source"]
 
@@ -106,21 +96,18 @@ class ScalarSource(object):
             data (dictionary): With data stored.
 
         Returns:
-            scipy.sparse.csr_matrix (self.ndof): Right hand side vector representing the
+            np.array (self.ndof): Right hand side vector representing the
                 source.
+
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        if "bound_source" not in matrix_dictionary:
-            self.discretize(g, data)
 
         sources = parameter_dictionary["source"]
         assert sources.size == self.ndof(
             g
         ), "There should be one source value for each cell"
         return matrix_dictionary["bound_source"] * sources
-
-    # ------------------------------------------------------------------------------#
 
     def discretize(self, g, data, faces=None):
         """ Discretize an integrated source term.

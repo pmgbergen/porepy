@@ -8,22 +8,26 @@ import porepy as pp
 class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
+    def _matrix(self, g, perm, bc):
+        solver = pp.RT0(keyword="flow")
+
+        data = pp.initialize_default_data(
+            g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
+        )
+        solver.discretize(g, data)
+
+        return solver.assemble_matrix(g, data).todense()
 
     def test_rt0_1d_iso(self):
         g = pp.structured.CartGrid(3, 1)
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(3, kxx, kyy=1, kzz=1)
+        perm = pp.SecondOrderTensor(kxx, kyy=1, kzz=1)
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
 
-        solver = pp.RT0(keyword="flow")
-
-        specified_parameters = {"bc": bc, "second_order_tensor": perm}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-        M = solver.assemble_matrix(g, data).todense()
-
+        M = self._matrix(g, perm, bc)
         M_known = np.matrix(
             [
                 [0.11111111, 0.05555556, 0.0, 0.0, 1.0, 0.0, 0.0],
@@ -46,14 +50,10 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = 1.0 / (np.sin(g.cell_centers[0, :]) + 1)
-        perm = pp.SecondOrderTensor(3, kxx, kyy=1, kzz=1)
+        perm = pp.SecondOrderTensor(kxx, kyy=1, kzz=1)
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(keyword="flow")
-
-        specified_parameters = {"bc": bc, "second_order_tensor": perm}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-        M = solver.assemble_matrix(g, data).todense()
+        M = self._matrix(g, perm, bc)
 
         M_known = np.matrix(
             [
@@ -87,15 +87,11 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=1)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(keyword="flow")
-
-        specified_parameters = {"bc": bc, "second_order_tensor": perm}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-        M = solver.assemble_matrix(g, data).todense()
+        M = self._matrix(g, perm, bc)
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -117,15 +113,11 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=1)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(keyword="flow")
-
-        specified_parameters = {"bc": bc, "second_order_tensor": perm}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-        M = solver.assemble_matrix(g, data).todense()
+        M = self._matrix(g, perm, bc)
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -150,7 +142,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=1)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
 
         tol = 1e-6
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -176,6 +168,7 @@ class BasicsTest(unittest.TestCase):
             "bc_values": bc_val,
         }
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+        solver.discretize(g, data)
         M, rhs = solver.assemble_matrix_rhs(g, data)
         up = sps.linalg.spsolve(M, rhs)
 
@@ -838,15 +831,11 @@ class BasicsTest(unittest.TestCase):
         kyy = (np.square(g.cell_centers[1, :]) + 1) / al
         kxy = np.multiply(g.cell_centers[0, :], g.cell_centers[1, :]) / al
 
-        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(keyword="flow")
-
-        specified_parameters = {"bc": bc, "second_order_tensor": perm}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-        M = solver.assemble_matrix(g, data).todense()
+        M = self._matrix(g, perm, bc)
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -881,15 +870,11 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=kxx)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=kxx)
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(keyword="flow")
-
-        specified_parameters = {"bc": bc, "second_order_tensor": perm}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-        M = solver.assemble_matrix(g, data).todense()
+        M = self._matrix(g, perm, bc)
         M_known = np.matrix(
             [
                 [0.53333333, 0.03333333, -0.13333333, -0.13333333, -1.0],
@@ -911,15 +896,11 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=kxx)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=kxx)
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(keyword="flow")
-
-        specified_parameters = {"bc": bc, "second_order_tensor": perm}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-        M = solver.assemble_matrix(g, data).todense()
+        M = self._matrix(g, perm, bc)
         M_known = matrix_for_test_rt0_3d()
 
         self.assertTrue(np.allclose(M, M.T))
@@ -934,16 +915,12 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(3, kxx, kyy=1, kzz=1)
+        perm = pp.SecondOrderTensor(kxx, kyy=1, kzz=1)
         perm.rotate(R)
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(keyword="flow")
-
-        specified_parameters = {"bc": bc, "second_order_tensor": perm}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-        M = solver.assemble_matrix(g, data).todense()
+        M = self._matrix(g, perm, bc)
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -970,16 +947,12 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=1)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
         perm.rotate(R)
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(keyword="flow")
-
-        specified_parameters = {"bc": bc, "second_order_tensor": perm}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-        M = solver.assemble_matrix(g, data).todense()
+        M = self._matrix(g, perm, bc)
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -1009,7 +982,7 @@ class BasicsTest(unittest.TestCase):
         kyy = (np.square(g.cell_centers[1, :]) + 1) / al
         kxy = np.multiply(g.cell_centers[0, :], g.cell_centers[1, :]) / al
 
-        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
         R = pp.map_geometry.rotation_matrix(np.pi / 3.0, [1, 1, 0])
         perm.rotate(R)
@@ -1018,11 +991,7 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(keyword="flow")
-
-        specified_parameters = {"bc": bc, "second_order_tensor": perm}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-        M = solver.assemble_matrix(g, data).todense()
+        M = self._matrix(g, perm, bc)
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -1052,7 +1021,7 @@ class BasicsTest(unittest.TestCase):
             g.compute_geometry()
 
             kxx = np.ones(g.num_cells)
-            perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=1)
+            perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
             bf = g.get_boundary_faces()
             bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
             bc_val = np.zeros(g.num_faces)
@@ -1067,6 +1036,7 @@ class BasicsTest(unittest.TestCase):
             }
             data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
+            solver.discretize(g, data)
             M, rhs = solver.assemble_matrix_rhs(g, data)
 
             up = sps.linalg.spsolve(M, rhs)
@@ -1100,11 +1070,12 @@ class BasicsTest(unittest.TestCase):
             g.compute_geometry()
 
             kxx = np.ones(g.num_cells)
-            perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=1)
+            perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
             bf = g.get_boundary_faces()
             bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
             bc_val = np.zeros(g.num_faces)
             bc_val[bf] = p_ex(g.face_centers[:, bf])
+            # Minus sign to move to rhs
             source = np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
 
             solver = pp.RT0(keyword="flow")
@@ -1117,6 +1088,9 @@ class BasicsTest(unittest.TestCase):
                 "source": source,
             }
             data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+
+            solver.discretize(g, data)
+            solver_rhs.discretize(g, data)
 
             M, rhs_bc = solver.assemble_matrix_rhs(g, data)
             _, rhs = solver_rhs.assemble_matrix_rhs(g, data)
@@ -1157,11 +1131,12 @@ class BasicsTest(unittest.TestCase):
 
             kxx = 2 * np.ones(g.num_cells)
             kxy = np.ones(g.num_cells)
-            perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kxy=kxy, kzz=1)
+            perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kxy=kxy, kzz=1)
             bf = g.get_boundary_faces()
             bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
             bc_val = np.zeros(g.num_faces)
             bc_val[bf] = p_ex(g.face_centers[:, bf])
+            # Minus sign to move to rhs
             source = np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
 
             solver = pp.RT0(keyword="flow")
@@ -1175,6 +1150,8 @@ class BasicsTest(unittest.TestCase):
             }
             data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
+            solver.discretize(g, data)
+            solver_rhs.discretize(g, data)
             M, rhs_bc = solver.assemble_matrix_rhs(g, data)
             _, rhs = solver_rhs.assemble_matrix_rhs(g, data)
 
@@ -1186,10 +1163,6 @@ class BasicsTest(unittest.TestCase):
                 )
             )
             self.assertTrue(np.isclose(err, err_known))
-
-
-if __name__ == "__main__":
-    unittest.main()
 
 
 def matrix_for_test_rt0_3d():
@@ -1821,3 +1794,7 @@ def matrix_for_test_rt0_3d():
             ],
         ]
     )
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -48,7 +48,9 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
                 # project the mortar variable back to the higher dimensional
                 # problem
                 # edge_flux += sign * g_m.mortar_to_master_int() * d_e[pp.STATE][mortar_key]
-                edge_flux += sign * g_m.master_to_mortar_avg().T * d_e[pp.STATE][mortar_key]
+                edge_flux += (
+                    sign * g_m.master_to_mortar_avg().T * d_e[pp.STATE][mortar_key]
+                )
 
         d[pp.STATE][P0_flux] = discr.project_flux(g, edge_flux + d[pp.STATE][flux], d)
 
@@ -110,10 +112,6 @@ class DualElliptic(
         rhs: array (g.num_faces+g_num_cells)
             Right-hand side which contains the boundary conditions.
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if "mass" not in matrix_dictionary:
-            self.discretize(g, data)
-
         # First assemble the matrix
         M = self.assemble_matrix(g, data)
 
@@ -128,8 +126,6 @@ class DualElliptic(
         """ Assemble matrix from an existing discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "mass" in matrix_dictionary:
-            self.discretize(g, data)
 
         mass = matrix_dictionary["mass"]
         div = matrix_dictionary["div"]
