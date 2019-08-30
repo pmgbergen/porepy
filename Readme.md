@@ -21,7 +21,7 @@ If you use PorePy in your research, we ask you to cite the following publication
 
 E. Keilegavlen, R. Berge, A. Fumagalli, M. Starnoni, I. Stefansson, J. Varela, I. Berre: PorePy:  PorePy: An Open-Source Software for Simulation of Multiphysics Processes in Fractured Porous Media. [arXiv:1908.09869](http://arxiv.org/abs/1908.09869)
 
-Other publications done with PorePy can be found [here](./examples/papers).
+Other publications done with PorePy can be found [here](./Papers.md).
 
 # Installation from source
 
