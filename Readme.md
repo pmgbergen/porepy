@@ -12,16 +12,13 @@ PorePy currently has the following distinguishing features:
 
 PorePy is developed by the [Porous Media Group](http://pmg.b.uib.no/) at the University of Bergen, Norway. The software is developed under projects funded by the Research Council of Norway and Statoil.
 
-# Reproduce results from papers and preprints
-Runscripts for most, if not all, papers that uses porepy is available at [here](https://github.com/pmgbergen/porepy/tree/develop/examples/papers).
-Note that you may have to revert to an older version of PorePy to run the examples (we try to keep the runscripts updated, but sometime fail to do so, for various reasons).
-
 # Citing
 If you use PorePy in your research, we ask you to cite the following publication
 
 E. Keilegavlen, R. Berge, A. Fumagalli, M. Starnoni, I. Stefansson, J. Varela, I. Berre: PorePy:  An Open-Source Software for Simulation of Multiphysics Processes in Fractured Porous Media. [arXiv:1908.09869](http://arxiv.org/abs/1908.09869)
 
-Other publications done with PorePy can be found [here](./Papers.md).
+Runscripts for most, if not all, papers that uses porepy is available at [here](./Papers.md).
+Note that you may have to revert to an older version of PorePy to run the examples (we try to keep the runscripts updated, but sometime fail to do so, for various reasons).
 
 # Installation from source
 
