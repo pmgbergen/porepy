@@ -28,8 +28,6 @@ class Assembler:
             self.gb (pp.GridBucket): Mixed-dimensional grid where the equations are
                 discretized. The data dictionaries on nodes and edges should contain
                 variable and discretization information, see tutorial for details.
-            matrix_format (str, optional): Matrix format used for the system matrix.
-                Defaults to CSR.
             active_variables (list of str, optional): Names of variables to be assembled.
                 If provided, only decleared primary variables with a name found in the
                 list will be assembled, and the size of the matrix will be reduced
@@ -137,10 +135,6 @@ class Assembler:
                 dictionary is returned if add_matrices=False.
             np.ndarray, or dictionary of arrays: Right hand side terms. Dictionary is
                 returned if add_matrices=False.
-            dictionary: Mapping from GridBucket nodes / edges + variables to the
-                corresponding block index. The keys on a node is defined by tuples
-                (grid, variable_name), while on an edge e, the key is (e, variable_name).
-            np.ndarray: For each matrix block, the number of degrees of freedom.
 
         """
         # Define the matrix format, common for all the sub-matrices
@@ -235,7 +229,7 @@ class Assembler:
                 (default), all terms for all active variables are discretized.
             g (pp.Grid, optional): Grid in GridBucket. If specified, only this
                 grid will be considered.
-                
+
         """
         self._operate_on_gb(
             "discretize",
@@ -883,12 +877,14 @@ class Assembler:
         matrix with the local operators on the diagonal.
 
         Parameters:
-        keyword (string): Keyword for the dictionary in
-            d[pp.DISCRETIZATION_MATRICES] for which the operator is stored.
-        operator_name (string): keyword for the operator in the
-            d[pp.DISCRETIZATION_MATRICES][keyword] dictionary.
+            keyword (string): Keyword for the dictionary in
+                d[pp.DISCRETIZATION_MATRICES] for which the operator is stored.
+            operator_name (string): keyword for the operator in the
+                d[pp.DISCRETIZATION_MATRICES][keyword] dictionary.
+
         Returns:
-        Operator (sps.block_diag): Global algebraic operator.
+            Operator (sps.block_diag): Global algebraic operator.
+
         """
         operator = []
 
