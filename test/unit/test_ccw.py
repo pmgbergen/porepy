@@ -73,6 +73,21 @@ class TestCCW(unittest.TestCase):
             )
         )
 
+    def test_several_points(self):
+        p1, p2, _ = self.setup()
+
+        p_test = np.array([[0.5, 0.5], [1, -1]])
+        known = np.array([1, 0], dtype=np.bool)
+        self.assertTrue(
+            np.allclose(
+                known,
+                pp.geometry_property_checks.is_ccw_polyline(
+                    p1, p2, p_test, tol=1e-8, default=False
+                ),
+            )
+        )
+
 
 if __name__ == "__main__":
+    TestCCW().test_tolerance()
     unittest.main()
