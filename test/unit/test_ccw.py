@@ -25,6 +25,15 @@ class TestCCW(unittest.TestCase):
         p1, p2, p3 = self.setup()
         self.assertTrue(not pp.geometry_property_checks.is_ccw_polyline(p1, p3, p2))
 
+    def test_on_boundary(self):
+        p1, p2, p3 = self.setup_close(0)
+        self.assertTrue(
+            pp.geometry_property_checks.is_ccw_polyline(p1, p2, p3, default=True)
+        )
+        self.assertTrue(
+            not pp.geometry_property_checks.is_ccw_polyline(p1, p2, p3, default=False)
+        )
+
     def test_tolerance(self):
         p1, p2, p3 = self.setup_close(1e-6)
 
@@ -89,5 +98,4 @@ class TestCCW(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    TestCCW().test_tolerance()
     unittest.main()
