@@ -17,11 +17,11 @@ logger = logging.getLogger(__name__)
 
 
 class ContactMechanicsExample(pp.models.contact_mechanics_model.ContactMechanics):
-    def __init__(self, mesh_args, folder_name):
+    def __init__(self, mesh_args, folder_name, params=None):
         self.mesh_args = mesh_args
         self.folder_name = folder_name
-        
-        super(ContactMechanicsExample, self).__init__()
+
+        super(ContactMechanicsExample, self).__init__(params)
 
     def create_grid(self):
         """
@@ -92,7 +92,9 @@ class ContactMechanicsExample(pp.models.contact_mechanics_model.ContactMechanics
         return friction_coefficient
 
 
-class ContactMechanicsBiotExample(porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot):
+class ContactMechanicsBiotExample(
+    porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot
+):
     def __init__(self, mesh_args, folder_name):
         super().__init__()
         self.mesh_args = mesh_args
@@ -200,7 +202,7 @@ class ContactMechanicsBiotExample(porepy.models.contact_mechanics_biot_model.Con
             pp.initialize_data(
                 mg, d, self.mechanics_parameter_key, {"mu": mu, "lambda": lmbda}
             )
-            
+
     def _set_friction_coefficient(self, g):
 
         nodes = g.nodes
@@ -463,5 +465,3 @@ class ContactMechanicsBiotExample(porepy.models.contact_mechanics_biot_model.Con
 
     def export_pvd(self):
         pass
-
-
