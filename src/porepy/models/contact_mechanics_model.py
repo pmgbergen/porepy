@@ -11,8 +11,8 @@ undergo major changes (or be deleted).
 """
 import numpy as np
 import scipy.sparse as sps
-from scipy.spatial.distance import cdist
 import logging
+import time
 
 import porepy as pp
 
@@ -21,9 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class ContactMechanics:
-    def __init__(self, mesh_args, folder_name):
-        self.mesh_args = mesh_args
-        self.folder_name = folder_name
+    def __init__(self):
 
         # Variables
         self.displacement_variable = "u"
@@ -91,7 +89,10 @@ class ContactMechanics:
         return all_bf, east, west, north, south, top, bottom
 
     def bc_type(self, g):
-        all_bf, *_ = self.domain_boundary_sides(g)
+        """ Define type of boundary conditions: Dirichlet on all global boundaries,
+        Dirichlet also on fracture faces.
+        """
+        all_bf = g.get_boundary_faces()
         bc = pp.BoundaryConditionVectorial(g, all_bf, "dir")
         # Default internal BC is Neumann. We change to Dirichlet for the contact
         # problem. I.e., the mortar variable represents the displacement on the
@@ -102,6 +103,8 @@ class ContactMechanics:
         return bc
 
     def bc_values(self, g):
+        """ Set homogeneous conditions on all boundary faces.
+        """
         # Values for all Nd components, facewise
         values = np.zeros((self.Nd, g.num_faces))
         # Reshape according to PorePy convention
@@ -109,7 +112,9 @@ class ContactMechanics:
         return values
 
     def source(self, g):
-        return 0
+        """
+        """
+        return np.zeros(self.Nd * g.num_cells)
 
     def set_parameters(self):
         """
@@ -151,17 +156,10 @@ class ContactMechanics:
                     self.mechanics_parameter_key,
                     {"friction_coefficient": friction},
                 )
-        # Should we keep this, @EK?
         for _, d in gb.edges():
             mg = d["mortar_grid"]
 
-            # Parameters for the surface diffusion.
-            mu = 1
-            lmbda = 1
-
-            pp.initialize_data(
-                mg, d, self.mechanics_parameter_key, {"mu": mu, "lambda": lmbda}
-            )
+            pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
     def assign_variables(self):
         """
@@ -193,6 +191,7 @@ class ContactMechanics:
     def assign_discretizations(self):
         """
         Assign discretizations to the nodes and edges of the grid bucket.
+        
         """
         # For the Nd domain we solve linear elasticity with mpsa.
         Nd = self.Nd
@@ -226,8 +225,14 @@ class ContactMechanics:
                 }
 
     def initial_condition(self):
-        """
-        Initial guess for Newton iteration.
+        """ Set initial guess for the variables.
+               
+        The displacement is set to zero in the Nd-domain, and at the fracture interfaces
+        The displacement jump is thereby also zero.
+        
+        The contact pressure is set to zero in the tangential direction,
+        and -1 (that is, in contact) in the normal direction.
+        
         """
 
         for g, d in self.gb:
@@ -342,19 +347,9 @@ class ContactMechanics:
         return u_mortar_local.reshape((self.Nd, -1), order="F")
 
     def _set_friction_coefficient(self, g):
-
-        nodes = g.nodes
-
-        tips = nodes[:, [0, -1]]
-
-        fc = g.cell_centers
-        D = cdist(fc.T, tips.T)
-        D = np.min(D, axis=1)
-        R = 200
-        beta = 10
-        friction_coefficient = 0.5 * (1 + beta * np.exp(-R * D ** 2))
-        #        friction_coefficient = 0.5 * np.ones(g.num_cells)
-        return friction_coefficient
+        """ The friction coefficient is uniform, and equal to 1.
+        """
+        return np.ones(g.num_cells)
 
 
 def run_mechanics(setup):
@@ -396,8 +391,11 @@ def run_mechanics(setup):
 
     # Set up assembler and discretize
     assembler = pp.Assembler(gb)
-    assembler.discretize()
 
+    tic = time.time()
+    logger.info("Discretize")
+    assembler.discretize()
+    logger.info("Done. Elapsed time {}".format(time.time() - tic))
     # Prepare for iteration
 
     u0 = gb.node_props(g_max)[pp.STATE][setup.displacement_variable]
@@ -410,7 +408,7 @@ def run_mechanics(setup):
     viz = pp.Exporter(g_max, name="mechanics", folder=setup.folder_name)
 
     while counter_newton <= max_newton and not converged_newton:
-        logger.debug(
+        logger.info(
             "Newton iteration number {} of {}".format(counter_newton, max_newton)
         )
 
