@@ -6,6 +6,7 @@ import unittest
 
 import porepy as pp
 import porepy.models.contact_mechanics_model as model
+import test.common.contact_mechanics_examples
 
 
 class TestContactMechanics(unittest.TestCase):
@@ -84,7 +85,6 @@ class TestContactMechanics(unittest.TestCase):
         )
 
         u_mortar, contact_force = self._solve(setup)
-
         # All components should be closed in the normal direction
         self.assertTrue(np.abs(np.sum(u_mortar[1])) < 1e-5)
 
@@ -104,7 +104,9 @@ class TestContactMechanics(unittest.TestCase):
         self.assertTrue(np.all(contact_force[1] < 0))
 
 
-class SetupContactMechanics(model.ContactMechanics):
+class SetupContactMechanics(
+    test.common.contact_mechanics_examples.ContactMechanicsExample
+):
     def __init__(self, ux_south, uy_bottom, ux_north, uy_top):
         mesh_args = {
             "mesh_size_frac": 0.5,
@@ -164,4 +166,5 @@ class SetupContactMechanics(model.ContactMechanics):
 
 
 if __name__ == "__main__":
+    TestContactMechanics().test_pull_top_positive_opening()
     unittest.main()

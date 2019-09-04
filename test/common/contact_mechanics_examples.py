@@ -1,39 +1,108 @@
-"""
-This is a setup class for solving the Biot equations with contact between the fractures.
-
-The class ContactMechanicsBiot inherits from ContactMechanics, which is a model for
-the purely mechanical problem with contact conditions on the fractures. Here, we add
-expand to a model where the displacement solution is coupled to a scalar variable, e.g.
-pressure (Biot equations) or temperature. Parameters, variables and discretizations are
-set in the model class, and the problem may be solved using run_biot.
-
-NOTE: This module should be considered an experimental feature, which will likely
-undergo major changes (or be deleted).
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+""" This module contains completed setups for simple contact mechanics problems,
+with and without poroelastic effects in the deformation of the Nd domain.
 """
 import numpy as np
-import porepy as pp
+from scipy.spatial.distance import cdist
 import logging
 
-import porepy.models.contact_mechanics_model as contact_model
-from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
+import porepy as pp
+import porepy.models.contact_mechanics_model
+import porepy.models.contact_mechanics_biot_model
+import porepy.utils.derived_discretizations.implicit_euler as IE_discretizations
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
 
-class ContactMechanicsBiot(contact_model.ContactMechanics):
-    def __init__(self):
+class ContactMechanicsExample(pp.models.contact_mechanics_model.ContactMechanics):
+    def __init__(self, mesh_args, folder_name):
+        self.mesh_args = mesh_args
+        self.folder_name = folder_name
+        
+        super(ContactMechanicsExample, self).__init__()
+
+    def create_grid(self):
+        """
+        Method that creates a GridBucket of a 2D domain with one fracture and sets
+        projections to local coordinates for all fractures.
+
+        The method requires the following attribute:
+            mesh_args (dict): Containing the mesh sizes.
+
+        The method assigns the following attributes to self:
+            frac_pts (np.array): Nd x (number of fracture points), the coordinates of
+                the fracture endpoints.
+            box (dict): The bounding box of the domain, defined through minimum and
+                maximum values in each dimension.
+            gb (pp.GridBucket): The produced grid bucket.
+            Nd (int): The dimension of the matrix, i.e., the highest dimension in the
+                grid bucket.
+
+        """
+        # List the fracture points
+        self.frac_pts = np.array([[0.2, 0.8], [0.5, 0.5]])
+        # Each column defines one fracture
+        frac_edges = np.array([[0], [1]])
+        self.box = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
+
+        network = pp.FractureNetwork2d(self.frac_pts, frac_edges, domain=self.box)
+        # Generate the mixed-dimensional mesh
+        gb = network.mesh(self.mesh_args)
+
+        # Set projections to local coordinates for all fractures
+        pp.contact_conditions.set_projections(gb)
+
+        self.gb = gb
+        self.Nd = self.gb.dim_max()
+
+    def domain_boundary_sides(self, g):
+        """
+        Obtain indices of the faces of a grid that lie on each side of the domain
+        boundaries.
+        """
+        tol = 1e-10
+        box = self.box
+        east = g.face_centers[0] > box["xmax"] - tol
+        west = g.face_centers[0] < box["xmin"] + tol
+        north = g.face_centers[1] > box["ymax"] - tol
+        south = g.face_centers[1] < box["ymin"] + tol
+        if self.Nd == 2:
+            top = np.zeros(g.num_faces, dtype=bool)
+            bottom = top.copy()
+        else:
+            top = g.face_centers[2] > box["zmax"] - tol
+            bottom = g.face_centers[2] < box["zmin"] + tol
+        all_bf = g.get_boundary_faces()
+        return all_bf, east, west, north, south, top, bottom
+
+    def _set_friction_coefficient(self, g):
+
+        nodes = g.nodes
+
+        tips = nodes[:, [0, -1]]
+
+        fc = g.cell_centers
+        D = cdist(fc.T, tips.T)
+        D = np.min(D, axis=1)
+        R = 200
+        beta = 10
+        friction_coefficient = 0.5 * (1 + beta * np.exp(-R * D ** 2))
+        return friction_coefficient
+
+
+class ContactMechanicsBiotExample(porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot):
+    def __init__(self, mesh_args, folder_name):
         super().__init__()
+        self.mesh_args = mesh_args
+        self.folder_name = folder_name
 
-        # Temperature
-        self.scalar_variable = "p"
-        self.mortar_scalar_variable = "mortar_" + self.scalar_variable
-        self.scalar_coupling_term = "robin_" + self.scalar_variable
-        self.scalar_parameter_key = "flow"
-
-        # Scaling coefficients
-        self.scalar_scale = 1
-        self.length_scale = 1
+        # Time
+        # The time attribute may be used e.g. to update BCs.
+        self.time = 0
+        self.time_step = 1 * self.length_scale ** 2
+        self.end_time = self.time_step * 1
 
         # Whether or not to subtract the fracture pressure contribution for the contact
         # traction. This should be done if the scalar variable is pressure, but not for
@@ -120,10 +189,31 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                     self.mechanics_parameter_key,
                     {"friction_coefficient": friction, "time_step": self.time_step},
                 )
-
+        # Should we keep this, @EK?
         for _, d in gb.edges():
             mg = d["mortar_grid"]
-            pp.initialize_data(mg, d, self.mechanics_parameter_key)
+
+            # Parameters for the surface diffusion.
+            mu = 1
+            lmbda = 1
+
+            pp.initialize_data(
+                mg, d, self.mechanics_parameter_key, {"mu": mu, "lambda": lmbda}
+            )
+            
+    def _set_friction_coefficient(self, g):
+
+        nodes = g.nodes
+
+        tips = nodes[:, [0, -1]]
+
+        fc = g.cell_centers
+        D = cdist(fc.T, tips.T)
+        D = np.min(D, axis=1)
+        R = 200
+        beta = 10
+        friction_coefficient = 0.5 * (1 + beta * np.exp(-R * D ** 2))
+        return friction_coefficient
 
     def set_scalar_parameters(self):
         gb = self.gb
@@ -375,98 +465,3 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         pass
 
 
-def run_biot(setup, newton_tol=1e-10):
-    """
-    Function for solving the time dependent Biot equations with a non-linear Coulomb
-    contact condition on the fractures.
-
-    The parameter keyword from the elasticity is assumed the same as the
-    parameter keyword from the contact condition.
-
-    In addition to the standard parameters for Biot we also require the following
-    under the mechanics keyword (returned from setup.set_parameters):
-        'friction_coeff' : The coefficient of friction
-        'c' : The numerical parameter in the non-linear complementary function.
-
-    Arguments:
-        setup: A setup class with methods:
-                set_parameters(): assigns data to grid bucket.
-                assign_discretizations_and_variables(): assign the appropriate
-                    discretizations and variables to each node and edge of the grid
-                    bucket.
-                create_grid(): Create grid bucket and set rotations for all fractures.
-                initial_condition(): Set initial guesses for the iterates (contact
-                     traction and mortar displacement) and the scalar variable.
-            and attributes:
-                end_time: End time time of simulation.
-                time_step: Time step size
-        newton_tol: Tolerance for the Newton solver, see contact_mechanics_model.
-    """
-    if "gb" not in setup.__dict__:
-        setup.create_grid()
-    gb = setup.gb
-
-    # Extract the grids we use
-    g_max = gb.grids_of_dimension(setup.Nd)[0]
-    d_max = gb.node_props(g_max)
-
-    # Assign parameters, variables and discretizations
-    setup.set_parameters()
-    setup.initial_condition()
-    setup.assign_variables()
-    setup.assign_discretisations()
-    # Set up assembler and get initial condition for the displacements
-    assembler = pp.Assembler(gb)
-    u = d_max[pp.STATE][setup.displacement_variable]
-
-    setup.export_step()
-
-    # Discretization is a bit cumbersome, as the Biot discetization removes the
-    # one-to-one correspondence between discretization objects and blocks in the matrix.
-    # First, Discretize with the biot class
-    setup.discretize_biot(gb)
-
-    # Next, discretize term on the matrix grid not covered by the Biot discretization,
-    # i.e. the source term
-    assembler.discretize(grid=g_max, term_filter=["source"])
-
-    # Finally, discretize terms on the lower-dimensional grids. This can be done
-    # in the traditional way, as there is no Biot discretization here.
-    for g, d in gb:
-        if g.dim < gb.dim_max():
-            assembler.discretize(grid=g)
-
-    # Prepare for the time loop
-    errors = []
-    t_end = setup.end_time
-    k = 0
-    while setup.time < t_end:
-        setup.time += setup.time_step
-        k += 1
-        logger.debug(
-            "\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
-                k, setup.time, t_end, setup.time_step
-            )
-        )
-
-        # Prepare for Newton
-        counter_newton = 0
-        converged_newton = False
-        max_newton = 15
-        newton_errors = []
-        while counter_newton <= max_newton and not converged_newton:
-            logger.debug(
-                "Newton iteration number {} of {}".format(counter_newton, max_newton)
-            )
-            # One Newton iteration:
-            sol, u, error, converged_newton = pp.models.contact_mechanics_model.newton_iteration(
-                assembler, setup, u, tol=newton_tol
-            )
-            counter_newton += 1
-            newton_errors.append(error)
-        # Prepare for next time step
-        assembler.distribute_variable(sol)
-        setup.export_step()
-        errors.append(newton_errors)
-    setup.newton_errors = errors
-    setup.export_pvd()
