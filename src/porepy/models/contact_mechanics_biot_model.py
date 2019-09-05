@@ -13,6 +13,9 @@ undergo major changes (or be deleted).
 import numpy as np
 import porepy as pp
 import logging
+import time
+import scipy.sparse as sps
+import scipy.sparse.linalg as spla
 
 import porepy.models.contact_mechanics_model as contact_model
 from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
@@ -177,7 +180,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 {"normal_diffusivity": normal_diffusivity},
             )
 
-    def assign_discretisations(self):
+    def assign_discretizations(self):
         """
         Assign discretizations to the nodes and edges of the grid bucket.
 
@@ -223,6 +226,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                     var_d + "_" + var_s: {"grad_p": grad_p_disc},
                     var_s + "_" + var_d: {"div_u": div_u_disc},
                 }
+
             elif g.dim == self.Nd - 1:
                 d[pp.DISCRETIZATION] = {
                     self.contact_traction_variable: {"empty": empty_discr},
@@ -374,6 +378,144 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
     def export_pvd(self):
         pass
 
+    def prepare_simulation(self):
+        """ Is run prior to a time-stepping scheme. Use this to initialize
+        discretizations, linear solvers etc.
+        """
+        self.set_parameters()
+        self.initial_condition()
+        
+        self.assign_variables()
+        self.assign_discretizations()
+        self.discretize()
+        self.initialize_linear_solver()
+
+    def discretize(self):
+        """ Discretize all terms
+        """
+        if not hasattr(self, "assembler"):
+            self.assembler = pp.Assembler(self.gb)
+
+        g_max = self.gb.grids_of_dimension(self.Nd)[0]
+       
+        tic = time.time()
+        logger.info("Discretize")
+        
+        # Discretization is a bit cumbersome, as the Biot discetization removes the
+        # one-to-one correspondence between discretization objects and blocks in the matrix.
+        # First, Discretize with the biot class
+        self.discretize_biot(self.gb)
+
+        # Next, discretize term on the matrix grid not covered by the Biot discretization,
+        # i.e. the source term
+        self.assembler.discretize(grid=g_max, term_filter=["source"])
+
+        # Finally, discretize terms on the lower-dimensional grids. This can be done
+        # in the traditional way, as there is no Biot discretization here.
+        for g, d in self.gb:
+            if g.dim < self.Nd:
+                self.assembler.discretize(grid=g)
+
+        logger.info("Done. Elapsed time {}".format(time.time() - tic))
+
+    def before_newton_loop(self):
+        """ Will be run before entering a Newton loop. Discretize time-dependent quantities etc.
+        """
+        #self.discretize()
+
+    def before_newton_iteration(self):
+        # Re-discretize the nonlinear term
+        self.assembler.discretize(term_filter=self.friction_coupling_term)
+
+    def after_newton_iteration(self):
+        pass
+
+    def after_newton_convergence(self, solution):
+        self.assembler.distribute_variable(solution)
+
+    def after_newton_divergence(self):
+        raise ValueError("Newton iterations did not converge")
+
+    def initialize_linear_solver(self):
+
+        solver = self.params.get("linear_solver", "direct")
+
+        if solver == "direct":
+            """ In theory, it shoudl be possible to instruct SuperLU to reuse the 
+            symbolic factorization from one iteration to the next. However, it seems
+            the scipy wrapper around SuperLU has not implemented the necessary
+            functionality, as discussed in 
+            
+                https://github.com/scipy/scipy/issues/8227
+                
+            We will therefore pass here, and pay the price of long computation times.
+            """
+            self.linear_solver = "direct"
+
+        elif solver == "pyamg":
+            self.linear_solver = solver
+            import pyamg
+
+            assembler = self.assembler
+
+            A, _ = assembler.assemble_matrix_rhs()
+
+            g = self.gb.grids_of_dimension(self.Nd)[0]
+            mechanics_dof = assembler.full_dof(g, self.displacement_variable)
+
+            pyamg_solver = pyamg.smoothed_aggregation_solver(
+                A[mechanics_dof][:, mechanics_dof]
+            )
+            self.mechanics_precond = pyamg_solver.aspreconditioner(cycle="W")
+
+        else:
+            raise ValueError("unknown linear solver " + solver)
+
+    def assemble_and_solve_linear_system(self, tol):
+
+        A, b = self.assembler.assemble_matrix_rhs()
+        logger.debug("Max element in A {0:.2e}".format(np.max(np.abs(A))))
+        logger.debug(
+            "Max {0:.2e} and min {1:.2e} A sum.".format(
+                np.max(np.sum(np.abs(A), axis=1)), np.min(np.sum(np.abs(A), axis=1))
+            )
+        )
+
+        if self.linear_solver == "direct":
+            return spla.spsolve(A, b)
+        elif self.linear_solver == "pyamg":
+            print('pyamg')
+            g = self.gb.grids_of_dimension(self.Nd)[0]
+            assembler = self.assembler
+            mechanics_dof = assembler.full_dof(g, self.displacement_variable)
+            mortar_dof = np.setdiff1d(np.arange(b.size), mechanics_dof)
+
+            A_el_m = A[mechanics_dof, :][:, mortar_dof]
+            A_m_el = A[mortar_dof, :][:, mechanics_dof]
+            A_m_m = A[mortar_dof, :][:, mortar_dof]
+
+            # Also create a factorization of the mortar variable. This is relatively cheap, so why not
+            A_m_m_solve = sps.linalg.factorized(A_m_m)
+
+            def precond_schur(r):
+                # Mortar residual
+                rm = r[mortar_dof]
+                # Residual for the elasticity is the local one, plus the mapping of the mortar residual
+                r_el = r[mechanics_dof] - A_el_m * A_m_m_solve(rm)
+                # Solve, using specified solver
+                du = self.mechanics_precond(r_el)
+                # Map back to mortar residual
+                dm = A_m_m_solve(rm - A_m_el * du)
+                x = np.zeros_like(r)
+                x[mechanics_dof] = du
+                x[mortar_dof] = dm
+                return x
+
+            M = sps.linalg.LinearOperator(A.shape, precond_schur)
+            x, info = sps.linalg.gmres(A, b, M=M, restart=100, maxiter=10, tol=tol)
+
+            return x
+
 
 def run_biot(setup, newton_tol=1e-10):
     """
@@ -410,31 +552,13 @@ def run_biot(setup, newton_tol=1e-10):
     g_max = gb.grids_of_dimension(setup.Nd)[0]
     d_max = gb.node_props(g_max)
 
-    # Assign parameters, variables and discretizations
-    setup.set_parameters()
-    setup.initial_condition()
-    setup.assign_variables()
-    setup.assign_discretisations()
+    # Assign parameters, variables and discretizations. Discretize time-indepedent terms
+    setup.prepare_simulation()
+    
     # Set up assembler and get initial condition for the displacements
-    assembler = pp.Assembler(gb)
     u = d_max[pp.STATE][setup.displacement_variable]
 
     setup.export_step()
-
-    # Discretization is a bit cumbersome, as the Biot discetization removes the
-    # one-to-one correspondence between discretization objects and blocks in the matrix.
-    # First, Discretize with the biot class
-    setup.discretize_biot(gb)
-
-    # Next, discretize term on the matrix grid not covered by the Biot discretization,
-    # i.e. the source term
-    assembler.discretize(grid=g_max, term_filter=["source"])
-
-    # Finally, discretize terms on the lower-dimensional grids. This can be done
-    # in the traditional way, as there is no Biot discretization here.
-    for g, d in gb:
-        if g.dim < gb.dim_max():
-            assembler.discretize(grid=g)
 
     # Prepare for the time loop
     errors = []
@@ -443,7 +567,7 @@ def run_biot(setup, newton_tol=1e-10):
     while setup.time < t_end:
         setup.time += setup.time_step
         k += 1
-        logger.debug(
+        logger.info(
             "\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
                 k, setup.time, t_end, setup.time_step
             )
@@ -460,13 +584,17 @@ def run_biot(setup, newton_tol=1e-10):
             )
             # One Newton iteration:
             sol, u, error, converged_newton = pp.models.contact_mechanics_model.newton_iteration(
-                assembler, setup, u, tol=newton_tol
+                setup, u, tol=newton_tol
             )
             counter_newton += 1
             newton_errors.append(error)
         # Prepare for next time step
-        assembler.distribute_variable(sol)
+        if counter_newton > max_newton and not converged_newton:
+            setup.after_newton_divergence()
+
+        setup.after_newton_convergence(sol)
         setup.export_step()
         errors.append(newton_errors)
+        
     setup.newton_errors = errors
     setup.export_pvd()
