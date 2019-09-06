@@ -95,8 +95,8 @@ class ContactMechanicsExample(pp.models.contact_mechanics_model.ContactMechanics
 class ContactMechanicsBiotExample(
     porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot
 ):
-    def __init__(self, mesh_args, folder_name):
-        super().__init__()
+    def __init__(self, mesh_args, folder_name, params=None):
+        super().__init__(params)
         self.mesh_args = mesh_args
         self.folder_name = folder_name
 
