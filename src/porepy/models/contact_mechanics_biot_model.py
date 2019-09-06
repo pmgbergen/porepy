@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 class ContactMechanicsBiot(contact_model.ContactMechanics):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, params=None):
+        super().__init__(params)
 
         # Temperature
         self.scalar_variable = "p"
@@ -372,6 +372,11 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 mech_dict = {"bc_values": bc_values}
                 d[pp.STATE].update({self.mechanics_parameter_key: mech_dict})
 
+        for e, d in self.gb.edges():
+            mg = d["mortar_grid"]
+            initial_value = np.zeros(mg.num_cells)
+            d[pp.STATE][self.mortar_scalar_variable] = initial_value
+
     def export_step(self):
         pass
 
@@ -382,9 +387,10 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         """ Is run prior to a time-stepping scheme. Use this to initialize
         discretizations, linear solvers etc.
         """
+        self.create_grid()
         self.set_parameters()
         self.initial_condition()
-        
+
         self.assign_variables()
         self.assign_discretizations()
         self.discretize()
@@ -397,10 +403,10 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             self.assembler = pp.Assembler(self.gb)
 
         g_max = self.gb.grids_of_dimension(self.Nd)[0]
-       
+
         tic = time.time()
         logger.info("Discretize")
-        
+
         # Discretization is a bit cumbersome, as the Biot discetization removes the
         # one-to-one correspondence between discretization objects and blocks in the matrix.
         # First, Discretize with the biot class
@@ -421,14 +427,14 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
     def before_newton_loop(self):
         """ Will be run before entering a Newton loop. Discretize time-dependent quantities etc.
         """
-        #self.discretize()
+        # self.discretize()
 
     def before_newton_iteration(self):
         # Re-discretize the nonlinear term
         self.assembler.discretize(term_filter=self.friction_coupling_term)
 
-    def after_newton_iteration(self):
-        pass
+    def after_newton_iteration(self, solution):
+        self.update_state(solution)
 
     def after_newton_convergence(self, solution):
         self.assembler.distribute_variable(solution)
@@ -461,7 +467,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             A, _ = assembler.assemble_matrix_rhs()
 
             g = self.gb.grids_of_dimension(self.Nd)[0]
-            mechanics_dof = assembler.full_dof(g, self.displacement_variable)
+            mechanics_dof = assembler.dof_ind(g, self.displacement_variable)
 
             pyamg_solver = pyamg.smoothed_aggregation_solver(
                 A[mechanics_dof][:, mechanics_dof]
@@ -484,7 +490,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         if self.linear_solver == "direct":
             return spla.spsolve(A, b)
         elif self.linear_solver == "pyamg":
-            print('pyamg')
+            print("pyamg")
             g = self.gb.grids_of_dimension(self.Nd)[0]
             assembler = self.assembler
             mechanics_dof = assembler.full_dof(g, self.displacement_variable)
@@ -515,86 +521,3 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             x, info = sps.linalg.gmres(A, b, M=M, restart=100, maxiter=10, tol=tol)
 
             return x
-
-
-def run_biot(setup, newton_tol=1e-10):
-    """
-    Function for solving the time dependent Biot equations with a non-linear Coulomb
-    contact condition on the fractures.
-
-    The parameter keyword from the elasticity is assumed the same as the
-    parameter keyword from the contact condition.
-
-    In addition to the standard parameters for Biot we also require the following
-    under the mechanics keyword (returned from setup.set_parameters):
-        'friction_coeff' : The coefficient of friction
-        'c' : The numerical parameter in the non-linear complementary function.
-
-    Arguments:
-        setup: A setup class with methods:
-                set_parameters(): assigns data to grid bucket.
-                assign_discretizations_and_variables(): assign the appropriate
-                    discretizations and variables to each node and edge of the grid
-                    bucket.
-                create_grid(): Create grid bucket and set rotations for all fractures.
-                initial_condition(): Set initial guesses for the iterates (contact
-                     traction and mortar displacement) and the scalar variable.
-            and attributes:
-                end_time: End time time of simulation.
-                time_step: Time step size
-        newton_tol: Tolerance for the Newton solver, see contact_mechanics_model.
-    """
-    if "gb" not in setup.__dict__:
-        setup.create_grid()
-    gb = setup.gb
-
-    # Extract the grids we use
-    g_max = gb.grids_of_dimension(setup.Nd)[0]
-    d_max = gb.node_props(g_max)
-
-    # Assign parameters, variables and discretizations. Discretize time-indepedent terms
-    setup.prepare_simulation()
-    
-    # Set up assembler and get initial condition for the displacements
-    u = d_max[pp.STATE][setup.displacement_variable]
-
-    setup.export_step()
-
-    # Prepare for the time loop
-    errors = []
-    t_end = setup.end_time
-    k = 0
-    while setup.time < t_end:
-        setup.time += setup.time_step
-        k += 1
-        logger.info(
-            "\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
-                k, setup.time, t_end, setup.time_step
-            )
-        )
-
-        # Prepare for Newton
-        counter_newton = 0
-        converged_newton = False
-        max_newton = 15
-        newton_errors = []
-        while counter_newton <= max_newton and not converged_newton:
-            logger.debug(
-                "Newton iteration number {} of {}".format(counter_newton, max_newton)
-            )
-            # One Newton iteration:
-            sol, u, error, converged_newton = pp.models.contact_mechanics_model.newton_iteration(
-                setup, u, tol=newton_tol
-            )
-            counter_newton += 1
-            newton_errors.append(error)
-        # Prepare for next time step
-        if counter_newton > max_newton and not converged_newton:
-            setup.after_newton_divergence()
-
-        setup.after_newton_convergence(sol)
-        setup.export_step()
-        errors.append(newton_errors)
-        
-    setup.newton_errors = errors
-    setup.export_pvd()
