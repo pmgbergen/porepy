@@ -17,7 +17,8 @@ import test.common.contact_mechanics_examples
 
 class TestContactMechanicsBiot(unittest.TestCase):
     def _solve(self, setup):
-        model.run_biot(setup)
+        pp.run_time_dependent_model(setup, {"tolerance": 1e-6})
+
         gb = setup.gb
 
         nd = gb.dim_max()
@@ -162,7 +163,7 @@ class SetupContactMechanicsBiot(
             "mesh_size_bound": 0.5,
         }
 
-        super().__init__(mesh_args, "dummy")
+        super().__init__(mesh_args, "dummy")#, params={'linear_solver': 'pyamg'})
 
         self.ux_south = ux_south
         self.uy_south = uy_south
