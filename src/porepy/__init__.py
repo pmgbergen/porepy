@@ -75,6 +75,10 @@ from porepy.numerics.interface_laws.contact_mechanics_interface_laws import (
 from porepy.numerics.contact_mechanics.contact_conditions import ColoumbContact
 from porepy.numerics.contact_mechanics import contact_conditions
 
+# Related to models and solvers
+from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
+from porepy.models.run_models import run_stationary_model, run_time_dependent_model
+
 # Grids
 from porepy.grids.grid import Grid
 from porepy.grids.fv_sub_grid import FvSubGrid
