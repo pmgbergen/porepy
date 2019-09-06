@@ -11,7 +11,7 @@ import test.common.contact_mechanics_examples
 
 class TestContactMechanics(unittest.TestCase):
     def _solve(self, setup):
-        model.run_mechanics(setup)
+        pp.run_stationary_model(setup, {"tolerance": 1e-6})
         gb = setup.gb
 
         nd = gb.dim_max()
@@ -113,7 +113,7 @@ class SetupContactMechanics(
             "mesh_size_min": 0.023,
             "mesh_size_bound": 0.5,
         }
-        super().__init__(mesh_args, folder_name="dummy")
+        super().__init__(mesh_args, folder_name="dummy")#, params={'linear_solver': 'pyamg'})
         self.ux_south = ux_south
         self.uy_bottom = uy_bottom
         self.ux_north = ux_north
