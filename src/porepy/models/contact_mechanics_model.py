@@ -393,7 +393,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         """
         return np.ones(g.num_cells)
 
-    def prepare_simulation(self):
+    def prepare_simulation(self, params=None):
         """ Is run prior to a time-stepping scheme. Use this to initialize
         discretizations, linear solvers etc.
         """
