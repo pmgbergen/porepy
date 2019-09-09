@@ -8,7 +8,7 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 def run_stationary_model(setup, params):
-    setup.prepare_simulation()
+    setup.prepare_simulation(params)
 
     nl_solver = pp.NewtonSolver(params)
     
