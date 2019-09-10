@@ -8,8 +8,12 @@ classes handling the arising coupling terms are provided.
 
 import numpy as np
 import scipy.sparse as sps
+import logging
+import time
 
 import porepy as pp
+
+logger = logging.getLogger(__name__)
 
 
 class PrimalContactCoupling(object):
@@ -62,6 +66,8 @@ class PrimalContactCoupling(object):
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
 
+        tic = time.time()
+        logging.info("Discretize contact mechanics interface law")
         # Discretize the surface PDE
         parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
@@ -175,6 +181,8 @@ class PrimalContactCoupling(object):
         # It is therefore constructed here.
 
         self.discr_slave.discretize(g_h, g_l, data_h, data_l, data_edge)
+
+        logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
