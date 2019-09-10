@@ -11,7 +11,7 @@ import test.common.contact_mechanics_examples
 
 class TestContactMechanics(unittest.TestCase):
     def _solve(self, setup):
-        pp.run_stationary_model(setup, {"tolerance": 1e-6})
+        pp.run_stationary_model(setup, {"newton_tolerance": 1e-6})
         gb = setup.gb
 
         nd = gb.dim_max()
