@@ -29,6 +29,7 @@ class TestDFN(unittest.TestCase):
         setup_data(gb)
         assembler, _ = setup_discr_mvem(gb)
 
+        assembler.discretize()
         A, b = assembler.assemble_matrix_rhs()
         A = A.todense()
 
@@ -175,7 +176,7 @@ class TestDFN(unittest.TestCase):
         # setup data and assembler
         setup_data(gb)
         assembler, _ = setup_discr_tpfa(gb)
-
+        assembler.discretize()
         A, b = assembler.assemble_matrix_rhs()
         A = A.todense()
 
@@ -289,6 +290,7 @@ class TestDFN(unittest.TestCase):
         setup_data(gb)
         assembler, (discr, _) = setup_discr_mvem(gb)
 
+        assembler.discretize()
         A, b = assembler.assemble_matrix_rhs()
         x = sps.linalg.spsolve(A, b)
 
@@ -350,7 +352,7 @@ class TestDFN(unittest.TestCase):
         # setup data and assembler
         setup_data(gb)
         assembler, _ = setup_discr_tpfa(gb)
-
+        assembler.discretize()
         A, b = assembler.assemble_matrix_rhs()
         x = sps.linalg.spsolve(A, b)
 
@@ -396,7 +398,7 @@ def setup_data(gb, key="flow"):
     for g, d in gb:
         param = {}
         kxx = np.ones(g.num_cells)
-        param["second_order_tensor"] = pp.SecondOrderTensor(g.dim, kxx)
+        param["second_order_tensor"] = pp.SecondOrderTensor(kxx)
 
         if g.dim == gb.dim_max():
             bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -485,4 +487,5 @@ def create_dfn(gb, dim):
 
 
 if __name__ == "__main__":
+    TestDFN().test_tpfa_1()
     unittest.main()

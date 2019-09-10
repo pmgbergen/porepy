@@ -50,10 +50,11 @@ class Mpfa(FVElliptic):
                 rotate 2d grids
 
         parameter_dictionary contains the entries:
-            second_order_tensor: (SecondOrderTensor) Permeability defined cell-wise.
+            second_order_tensor: (SecondOrderTensor) Permeability defined
+                cell-wise. This is the effective permeability; any scaling of
+                the permeability (such as with fracture apertures) should be
+                included in the permeability.
             bc: (BoundaryCondition) boundary conditions
-            aperture: (np.ndarray) apertures of the cells for scaling of
-                the face normals.
             vector_source: (boolean) Optional. Discretization of the divergence of
                 a vector source. For example, gravity in the flow equations. If False,
                 standard MPFA is used.
@@ -91,7 +92,6 @@ class Mpfa(FVElliptic):
         # Extract parameters
         k = parameter_dictionary["second_order_tensor"]
         bnd = parameter_dictionary["bc"]
-        aperture = parameter_dictionary["aperture"]
 
         vector_source = parameter_dictionary.get("mpfa_vector_source", False)
 
@@ -108,7 +108,6 @@ class Mpfa(FVElliptic):
                 vector_source=vector_source,
                 eta=eta,
                 eta_reconstruction=eta_reconstruction,
-                apertures=aperture,
                 inverter=inverter,
             )
         else:
@@ -120,7 +119,6 @@ class Mpfa(FVElliptic):
                 vector_source=vector_source,
                 eta=eta,
                 eta_reconstruction=eta_reconstruction,
-                apertures=aperture,
                 inverter=inverter,
             )
 
@@ -141,7 +139,6 @@ class Mpfa(FVElliptic):
         eta=None,
         eta_reconstruction=None,
         inverter=None,
-        apertures=None,
         max_memory=None,
         **kwargs
     ):
@@ -162,9 +159,11 @@ class Mpfa(FVElliptic):
         Right now, there are concrete plans for 2).
 
         Parameters:
-            g (core.grids.grid): grid to be discretized
-            k (core.constit.second_order_tensor) permeability tensor
-            bnd (core.bc.bc) class for boundary values
+            g (pp.Grid): grid to be discretized
+            k (pp.Second_order_tensor) permeability tensor. This is
+                the effective permeability; for lower-dimensional grids, any
+                aperture scaling of the permeability should be included in k.
+            bnd (pp.BoundaryCondition) class for boundary values
             deviation_from_plane_tol: The geometrical tolerance, used in the check to
                 rotate 2d grids
             vector_source: discretization of the divergence of vector source term, 
@@ -176,8 +175,6 @@ class Mpfa(FVElliptic):
             eta_reconstruction Location of pressure reconstruction point on faces.
             inverter (string) Block inverter to be used, either numba (default),
                 cython or python. See fvutils.invert_diagonal_blocks for details.
-            apertures (np.ndarray) apertures of the cells for scaling of the face
-                normals.
             max_memory (double): Threshold for peak memory during discretization.
                 If the **estimated** memory need is larger than the provided
                 threshold, the discretization will be split into an appropriate
@@ -237,6 +234,7 @@ class Mpfa(FVElliptic):
             # entire grid.
             # TODO: We may want to estimate the memory need, and give a warning if
             # this seems excessive
+
             if not vector_source:
                 flux, bound_flux, bound_pressure_cell, bound_pressure_face = self._local_discr(
                     g,
@@ -247,7 +245,6 @@ class Mpfa(FVElliptic):
                     eta=eta,
                     eta_reconstruction=eta_reconstruction,
                     inverter=inverter,
-                    apertures=apertures,
                 )
             else:
                 flux, bound_flux, bound_pressure_cell, bound_pressure_face, div_vector_source = self._local_discr(
@@ -259,7 +256,6 @@ class Mpfa(FVElliptic):
                     eta=eta,
                     eta_reconstruction=eta_reconstruction,
                     inverter=inverter,
-                    apertures=apertures,
                 )
         else:
             # Estimate number of partitions necessary based on prescribed memory
@@ -359,7 +355,6 @@ class Mpfa(FVElliptic):
         cells=None,
         faces=None,
         nodes=None,
-        apertures=None,
     ):
         """
         Run an MPFA discretization on subgrid, and return discretization in terms
@@ -373,9 +368,11 @@ class Mpfa(FVElliptic):
         fv_utils.cell_ind_for_partial_update()
 
         Parameters:
-            g (porepy.grids.grid.Grid): grid to be discretized
-            k (porepy.params.tensor.SecondOrderTensor) permeability tensor
-            bnd (porepy.params.bc.BoundarCondition) class for boundary conditions
+            g (pp.Grid): grid to be discretized
+            k (pp.Second_order_tensor) permeability tensor. This is
+                the effective permeability; for lower-dimensional grids, any
+                aperture scaling of the permeability should be included in k.
+            bnd (pp.BoundaryCondition) class for boundary values
             faces (np.ndarray) faces to be considered. Intended for partial
                 discretization, may change in the future
             bnd (core.bc.bc) class for boundary values
@@ -396,8 +393,6 @@ class Mpfa(FVElliptic):
                 subgrid computation. Defaults to None.
             nodes (np.array, int, optional): Index of nodes on which to base the
                 subgrid computation. Defaults to None.
-            apertures (np.ndarray, float, optional) apertures of the cells for scaling
-                of the face normals. Defaults to None.
 
             Note that if all of {cells, faces, nodes} are None, empty matrices will
             be returned.
@@ -472,7 +467,6 @@ class Mpfa(FVElliptic):
                 eta=eta,
                 eta_reconstruction=eta_reconstruction,
                 inverter=inverter,
-                apertures=apertures,
             )
 
         else:
@@ -485,7 +479,6 @@ class Mpfa(FVElliptic):
                 eta=eta,
                 eta_reconstruction=eta_reconstruction,
                 inverter=inverter,
-                apertures=apertures,
             )
             # NOTE MS: I am not sure about this mapping since div_vector_source is ready to be
             # multiplied with a cell center vector. cell_map in this case should
@@ -536,7 +529,6 @@ class Mpfa(FVElliptic):
         eta=None,
         eta_reconstruction=None,
         inverter="numba",
-        apertures=None,
     ):
         """
         Actual implementation of the MPFA O-method. To calculate MPFA on a grid
@@ -591,7 +583,6 @@ class Mpfa(FVElliptic):
             discr = pp.Tpfa(self.keyword)
             params = pp.Parameters(g)
             params["bc"] = bnd
-            params["aperture"] = apertures
             params["second_order_tensor"] = k
 
             d = {
@@ -668,7 +659,7 @@ class Mpfa(FVElliptic):
         # (with areas downscaled to account for subfaces). The sign of
         # nk_grad_all coincides with the direction of the normal vector.
         nk_grad_all, cell_node_blocks, sub_cell_index = fvutils.scalar_tensor_vector_prod(
-            g, k, subcell_topology, apertures
+            g, k, subcell_topology
         )
 
         ## Contribution from subcell gradients to local system.

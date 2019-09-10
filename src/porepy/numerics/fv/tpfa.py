@@ -42,10 +42,11 @@ class Tpfa(FVElliptic):
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         parameter_dictionary contains the entries:
-            second_order_tensor : (SecondOrderTensor) Permeability defined cell-wise.
+            second_order_tensor : (SecondOrderTensor) Permeability defined
+                cell-wise. This is the effective permeability, any scaling by
+                for intance apertures should be incorporated before calling
+                this function.
             bc : (BoundaryCondition) boundary conditions
-            apertures : (np.ndarray) apertures of the cells for scaling of
-                the face normals.
 
         matrix_dictionary will be updated with the following entries:
             flux: sps.csc_matrix (g.num_faces, g.num_cells)
@@ -79,7 +80,6 @@ class Tpfa(FVElliptic):
         # Extract parameters
         k = parameter_dictionary["second_order_tensor"]
         bnd = parameter_dictionary["bc"]
-        aperture = parameter_dictionary["aperture"]
 
         if g.dim == 0:
             matrix_dictionary["flux"] = sps.csr_matrix([0])
@@ -98,10 +98,8 @@ class Tpfa(FVElliptic):
         fi, ci, sgn = sps.find(g.cell_faces)
 
         # Normal vectors and permeability for each face (here and there side)
-        if aperture is None:
-            n = g.face_normals[:, fi]
-        else:
-            n = g.face_normals[:, fi] * aperture[ci]
+        n = g.face_normals[:, fi]
+        # Switch signs where relevant
         n *= sgn
         perm = k.values[::, ::, ci]
 
@@ -145,7 +143,7 @@ class Tpfa(FVElliptic):
         t_b = t_b[bndr_ind]
         t[np.logical_or(is_neu, is_not_active)] = 0
         # Create flux matrix
-        flux = sps.coo_matrix((t[fi] * sgn, (fi, ci)))
+        flux = sps.coo_matrix((t[fi] * sgn, (fi, ci))).tocsc()
 
         # Create boundary flux matrix
         bndr_sgn = (g.cell_faces[bndr_ind, :]).data
@@ -153,7 +151,7 @@ class Tpfa(FVElliptic):
         bndr_sgn = bndr_sgn[sort_id]
         bound_flux = sps.coo_matrix(
             (t_b * bndr_sgn, (bndr_ind, bndr_ind)), (g.num_faces, g.num_faces)
-        )
+        ).tocsc()
         # Store the matrix in the right dictionary:
         matrix_dictionary["flux"] = flux
         matrix_dictionary["bound_flux"] = bound_flux

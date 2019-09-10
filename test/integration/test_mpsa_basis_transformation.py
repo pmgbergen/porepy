@@ -122,7 +122,7 @@ class TestMpsaRotation(unittest.TestCase):
         bc.is_dir[:, east] = True
         bc.is_neu[bc.is_dir + bc.is_rob] = False
         k = pp.FourthOrderTensor(
-            3, np.random.rand(g.num_cells), np.random.rand(g.num_cells)
+            np.random.rand(g.num_cells), np.random.rand(g.num_cells)
         )
         # Solve without rotations
         stress, bound_stress, _, _ = pp.numerics.fv.mpsa.mpsa(
@@ -157,7 +157,7 @@ class TestMpsaRotation(unittest.TestCase):
     def run_test(self, g, basis, bc):
         g.compute_geometry()
         k = pp.FourthOrderTensor(
-            3, np.random.rand(g.num_cells), np.random.rand(g.num_cells)
+            np.random.rand(g.num_cells), np.random.rand(g.num_cells)
         )
         # Solve without rotations
         stress, bound_stress, _, _ = pp.numerics.fv.mpsa.mpsa(

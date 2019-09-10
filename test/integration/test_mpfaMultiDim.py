@@ -13,12 +13,12 @@ def setup_cart_2d(nx):
     gb.compute_geometry()
     gb.assign_node_ordering()
     kw = "flow"
+    aperture = 0.01 / np.max(nx)
     for g, d in gb:
-        kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(gb.dim_max(), kxx)
-        aperture = 0.01 / np.max(nx)
         a = np.power(aperture, gb.dim_max() - g.dim) * np.ones(g.num_cells)
-        specified_parameters = {"aperture": a, "second_order_tensor": perm}
+        kxx = np.ones(g.num_cells) * a
+        perm = pp.SecondOrderTensor(kxx)
+        specified_parameters = {"second_order_tensor": perm}
 
         if g.dim == 2:
             bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]

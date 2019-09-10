@@ -273,14 +273,23 @@ def plot_gb(gb, cell_value, vector_value, info, **kwargs):
         else:
             extr_value = np.array([np.inf, -np.inf])
             for _, d in gb:
-                extr_value[0] = min(np.amin(d[cell_value]), extr_value[0])
-                extr_value[1] = max(np.amax(d[cell_value]), extr_value[1])
+                extr_value[0] = min(np.amin(d[pp.STATE][cell_value]), extr_value[0])
+                extr_value[1] = max(np.amax(d[pp.STATE][cell_value]), extr_value[1])
         kwargs["color_map"] = color_map(extr_value)
 
     gb.assign_node_ordering()
-    for g, d in gb:
-        kwargs["rgb"] = np.divide(kwargs.get("rgb", [1, 0, 0]), d["node_number"] + 1)
-        plot_grid_xd(g, d.get(cell_value), d.get(vector_value), ax, **kwargs)
+    if cell_value is not None:
+        for g, d in gb:
+            kwargs["rgb"] = np.divide(
+                kwargs.get("rgb", [1, 0, 0]), d["node_number"] + 1
+            )
+            plot_grid_xd(
+                g,
+                d[pp.STATE].get(cell_value),
+                d[pp.STATE].get(vector_value),
+                ax,
+                **kwargs
+            )
 
     val = np.array([lim(g.nodes) for g, _ in gb])
 

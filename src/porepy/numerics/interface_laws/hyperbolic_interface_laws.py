@@ -80,7 +80,7 @@ class UpwindCoupling(object):
         not_flag = 1 - flag
 
         # assemble matrices
-        # Transport out off upper equals lambda
+        # Transport out of upper equals lambda
         cc[0, 2] = div * hat_P_avg.T
 
         # transport out of lower is -lambda
@@ -108,7 +108,8 @@ class UpwindCoupling(object):
 
         # rhs is zero
         rhs = np.squeeze([np.zeros(dof[0]), np.zeros(dof[1]), np.zeros(dof[2])])
-        return matrix + cc, rhs
+        matrix += cc
+        return matrix, rhs
 
     def cfl(
         self,

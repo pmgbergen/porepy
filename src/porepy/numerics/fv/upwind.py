@@ -40,12 +40,12 @@ class Upwind:
 
     """
 
-    # ------------------------------------------------------------------------------#
-
     def __init__(self, keyword="transport"):
         self.keyword = keyword
 
-    # ------------------------------------------------------------------------------#
+        # Keywords used to store matrix and right hand side in the matrix_dictionary
+        self.matrix_keyword = "transport"
+        self.rhs_keyword = "rhs"
 
     def ndof(self, g):
         """
@@ -63,9 +63,59 @@ class Upwind:
         """
         return g.num_cells
 
+    def assemble_matrix_rhs(self, g, data):
+        """ Return the matrix for an upwind discretization of a linear transport
+        problem.
+
+        Parameters:
+            g (Grid): Computational grid, with geometry fields computed.
+            data (dictionary): With data stored.
+
+        Returns:
+            scipy.sparse.csr_matrix: System matrix of this discretization.
+                Size: g.num_cells x g.num_cells.
+            np.ndarray: Right hand side vector with representation of boundary
+                conditions. The size of the vector will depend on the discretization.
+
+        """
+        return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
+
+    def assemble_matrix(self, g, data):
+        """ Return the matrix for an upwind discretization of a linear transport
+        problem.
+
+        Parameters:
+            g (Grid): Computational grid, with geometry fields computed.
+            data (dictionary): With data stored.
+
+        Returns:
+            scipy.sparse.csr_matrix: System matrix of this discretization.
+                Size: g.num_cells x g.num_cells.
+
+        """
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        return matrix_dictionary[self.matrix_keyword]
+
     # ------------------------------------------------------------------------------#
 
-    def assemble_matrix_rhs(self, g, data, d_name="darcy_flux"):
+    def assemble_rhs(self, g, data):
+        """ Return the right-hand side for an upwind discretization of a linear
+        transport problem.
+
+        Parameters:
+            g (Grid): Computational grid, with geometry fields computed.
+            data (dictionary): With data stored.
+
+        Returns:
+            np.ndarray: Right hand side vector with representation of boundary
+                conditions. The size of the vector will depend on the discretization.
+
+        """
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        return matrix_dictionary[self.rhs_keyword]
+
+    def discretize(self, g, data, d_name="darcy_flux"):
         """
         Return the matrix and righ-hand side for a discretization of a scalar
         linear transport problem using the upwind scheme.
@@ -83,6 +133,7 @@ class Upwind:
             following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
             conditions, respectively.
         source : array (g.num_cells) of source (positive) or sink (negative) terms.
+
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
@@ -112,11 +163,16 @@ class Upwind:
         for i in np.arange( N ):
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
         """
-        if g.dim == 0:
-            data["flow_faces"] = sps.csr_matrix([0.0])
-            return sps.csr_matrix([0.0]), np.array([0.0])
 
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        # Shortcut for point grids
+        if g.dim == 0:
+            matrix_dictionary[self.matrix_keyword] = sps.csr_matrix([0.0])
+            matrix_dictionary[self.rhs_keyword] = np.array([0.0])
+            return
+
         darcy_flux = parameter_dictionary[d_name]
         bc = parameter_dictionary["bc"]
         bc_val = parameter_dictionary["bc_values"]
@@ -165,31 +221,31 @@ class Upwind:
         flow_cells.tocsr()
         flow_cells = flow_cells.astype(np.float)
 
-        data["flow_faces"] = flow_faces
+        # Store disrcetization matrix
+        matrix_dictionary[self.matrix_keyword] = flow_cells
+
         if not has_bc:
-            return flow_cells, np.zeros(g.num_cells)
+            # Short cut if there are no trivial boundary conditions
+            matrix_dictionary[self.rhs_keyword] = np.zeros(g.num_cells)
+        else:
+            # Impose the boundary conditions
+            bc_val_dir = np.zeros(g.num_faces)
+            if np.any(bc.is_dir):
+                is_dir = np.where(bc.is_dir)[0]
+                bc_val_dir[is_dir] = bc_val[is_dir]
 
-        # Impose the boundary conditions
-        bc_val_dir = np.zeros(g.num_faces)
-        if np.any(bc.is_dir):
-            is_dir = np.where(bc.is_dir)[0]
-            bc_val_dir[is_dir] = bc_val[is_dir]
+            # We assume that for Neumann boundary condition a positive 'bc_val'
+            # represents an outflow for the domain. A negative 'bc_val' represents
+            # an inflow for the domain.
+            bc_val_neu = np.zeros(g.num_faces)
+            if np.any(bc.is_neu):
+                is_neu = np.where(bc.is_neu)[0]
+                bc_val_neu[is_neu] = bc_val[is_neu]
 
-        # We assume that for Neumann boundary condition a positive 'bc_val'
-        # represents an outflow for the domain. A negative 'bc_val' represents
-        # an inflow for the domain.
-        bc_val_neu = np.zeros(g.num_faces)
-        if np.any(bc.is_neu):
-            is_neu = np.where(bc.is_neu)[0]
-            bc_val_neu[is_neu] = bc_val[is_neu]
-
-        return (
-            flow_cells,
-            -inflow.transpose() * bc_val_dir
-            - np.abs(g.cell_faces.transpose()) * bc_val_neu,
-        )
-
-    # ------------------------------------------------------------------------------#
+            matrix_dictionary[self.rhs_keyword] = (
+                -inflow.transpose() * bc_val_dir
+                - np.abs(g.cell_faces.transpose()) * bc_val_neu
+            )
 
     def cfl(self, g, data, d_name="darcy_flux"):
         """
@@ -217,8 +273,7 @@ class Upwind:
         # Retrieve the data
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         darcy_flux = parameter_dictionary[d_name]
-        aperture = parameter_dictionary["aperture"]
-        phi = parameter_dictionary["porosity"]
+        phi = parameter_dictionary["mass_weight"]
 
         faces, cells, _ = sps.find(g.cell_faces)
 
@@ -235,13 +290,10 @@ class Upwind:
         # Element-wise scalar products between the distance vectors and the
         # normals
         dist = np.einsum("ij,ij->j", dist_vector, g.face_normals[:, faces])
-        # Since darcy_flux is multiplied by the aperture, we get rid of it!!!!
         # Additionally we consider the phi (porosity) and the cell-mapping
-        coeff = (aperture * phi)[cells]
+        coeff = phi[cells]
         # deltaT is deltaX/darcy_flux with coefficient
         return np.amin(np.abs(np.divide(dist, darcy_flux[faces])) * coeff)
-
-    # ------------------------------------------------------------------------------#
 
     def darcy_flux(self, g, beta, cell_apertures=None):
         """
@@ -277,8 +329,6 @@ class Upwind:
         return np.array(
             [np.dot(n, a * beta) for n, a in zip(g.face_normals.T, face_apertures)]
         )
-
-    # ------------------------------------------------------------------------------#
 
     def outflow(self, g, data, d_name="darcy_flux"):
         if g.dim == 0:

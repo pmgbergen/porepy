@@ -33,9 +33,9 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
             deviation_from_plane_tol: The geometrical tolerance, used in the check to rotate 2d and 1d grids
 
         parameter_dictionary contains the entries:
-            second_order_tensor: (pp.SecondOrderTensor) Permeability defined cell-wise.
-            aperture: (np.ndarray) apertures of the cells for scaling of the face
-                normals.
+            second_order_tensor: (pp.SecondOrderTensor) Permeability defined
+                cell-wise. This is the effective permeability, including any
+                aperture scalings etc.
 
         matrix_dictionary will be updated with the following entries:
             mass: sps.csc_matrix (g.num_faces, g.num_faces)
@@ -63,11 +63,8 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         # Get dictionary for parameter storage
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        # Retrieve the permeability, boundary conditions, and aperture
-        # The aperture is needed in the hybrid-dimensional case, otherwise is
-        # assumed unitary
+        # Retrieve the permeability
         k = parameter_dictionary["second_order_tensor"]
-        a = parameter_dictionary["aperture"]
 
         faces, cells, sign = sps.find(g.cell_faces)
         index = np.argsort(cells)
@@ -117,7 +114,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
             # Compute the H_div-mass local matrix
             A = RT0.massHdiv(
-                a[c] * k.values[0 : g.dim, 0 : g.dim, c],
+                k.values[0 : g.dim, 0 : g.dim, c],
                 g.cell_volumes[c],
                 coord_loc,
                 sign[loc],
@@ -152,10 +149,6 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
             deviation_from_plane_tol: The geometrical tolerance, used in the check to rotate 2d and 1d grids
 
-        parameter_dictionary contains the entries:
-            aperture: (np.ndarray) apertures of the cells for scaling of the face
-                normals.
-
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
@@ -171,8 +164,6 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         if g.dim == 0:
             return np.zeros(3).reshape((3, 1))
-
-        a = data[pp.PARAMETERS][self.keyword]["aperture"]
 
         faces, cells, sign = sps.find(g.cell_faces)
         index = np.argsort(cells)
@@ -205,7 +196,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
             Pi = delta_c / np.einsum("ij,ij->j", delta_f, normals)
 
             # extract the velocity for the current cell
-            P0u[dim, c] = np.dot(Pi, u[faces_loc]) * a[c]
+            P0u[dim, c] = np.dot(Pi, u[faces_loc])
             P0u[:, c] = np.dot(R.T, P0u[:, c])
 
         return P0u
