@@ -114,7 +114,7 @@ class TestMPFAgravity(unittest.TestCase):
         a = div * flux
 
         # take arithmetic mean of cell center gravities
-        fi, ci, sgn = scipy.sparse.find(g.cell_faces)
+        fi, ci, _ = scipy.sparse.find(g.cell_faces)
         fc_cc = g.face_centers[::, fi] - g.cell_centers[::, ci]
         dist_face_cell = np.linalg.norm(fc_cc, 2, axis=0)
         gforce = gforce[ci]

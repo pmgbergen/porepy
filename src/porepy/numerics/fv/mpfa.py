@@ -166,7 +166,7 @@ class Mpfa(FVElliptic):
             bnd (pp.BoundaryCondition) class for boundary values
             deviation_from_plane_tol: The geometrical tolerance, used in the check to
                 rotate 2d grids
-            vector_source: discretization of the divergence of vector source term, 
+            vector_source: discretization of the divergence of vector source term,
                 e.g. gravity in the flow equations. Default False. If True,
                 vector sources are discretized as part of the discrete flux operator
             eta Location of pressure continuity point. Defaults to 1/3 for simplex
@@ -191,7 +191,7 @@ class Mpfa(FVElliptic):
                 over faces having nodes on the boundary. For Dirichlet, the values
                 will be fluxes induced by the prescribed pressure. Incorporation as
                 a right hand side in linear system by multiplication with
-                divergence operator.     
+                divergence operator.
             scipy.sparse.csr_matrix (shape num_faces, num_cells): Used to recover
                 pressure on boundary faces. Contribution from computed cell
                 pressures only; contribution from faces (below) also needed.
@@ -199,7 +199,7 @@ class Mpfa(FVElliptic):
                 pressure on boundary faces. Contribution from boundary conditions.
             scipy.sparse.csr_matrix (shape num_faces, num_cells*dim): discretization of
                 the flux due to vector source term, in the form of mapping from cell vector
-                sources to face fluxes. Only if vector_source is True   
+                sources to face fluxes. Only if vector_source is True
         Example:
             # Set up a Cartesian grid
             g = structured.CartGrid([5, 5])
@@ -378,7 +378,7 @@ class Mpfa(FVElliptic):
             bnd (core.bc.bc) class for boundary values
             deviation_from_plane_tol: The geometrical tolerance, used in the check to
                 rotate 2d grids
-            vector_source: discretization of the divergence of a vector source, 
+            vector_source: discretization of the divergence of a vector source,
                 e.g. gravity in the flow equations. Default False. If True,
                 vector sources are discretized as part of the discrete flux operator
             eta Location of pressure continuity point. Should be 1/3 for simplex
@@ -1042,7 +1042,7 @@ class Mpfa(FVElliptic):
             igrad: inverse gradient
             nk_grad_all: nK products on a sub-cell level
             nk_grad_paired: nK products after pairing
-            
+
         Returns:
             scipy.sparse.csr_matrix (shape num_subfaces, num_subcells * nd):
             discretization of the vector source term, interpreted as a force on a subface
