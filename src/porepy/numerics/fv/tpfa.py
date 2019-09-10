@@ -60,7 +60,7 @@ class Tpfa(FVElliptic):
             div_vector_source: sps.csc_matrix (g.num_faces)
                 discretization of flux due to vector source, e.g. gravity. Face contribution.
                 Active only if vector_source = True, and only for 1D.
-                
+
         Hidden option (intended as "advanced" option that one should normally not
         care about):
             Half transmissibility calculation according to Ivar Aavatsmark, see
@@ -181,5 +181,6 @@ class Tpfa(FVElliptic):
             # ready to be multiplied with arithmetic average of cell vector sources.
             # This is only called for 1D problems,
             # for higher dimensions method calls GCMPFA
-            assert g.dim == 1
+            if not g.dim == 1:
+                raise AssertionError()
             matrix_dictionary["div_vector_source"] = t
