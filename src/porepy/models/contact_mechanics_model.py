@@ -85,12 +85,18 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 maximum values in each dimension.
             Nd (int): The dimension of the matrix, i.e., the highest dimension in the
                 grid bucket.
+                
+        After self.gb is set, the method should also call 
+        
+            pp.contact_conditions.set_projections(self.gb)
 
         """
         pass
 
     def _high_dim_grid(self):
         """ Get the grid of the highest dimension. Assumes self.gb is set.
+        
+        TODO: Change name to nd_grid()
         """
         return self.gb.grids_of_dimension(self.Nd)[0]
 
@@ -171,6 +177,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                         "bc_values": bc_val,
                         "source": source_val,
                         "fourth_order_tensor": C,
+                        "max_memory": 7e7,
                     },
                 )
 
@@ -184,7 +191,6 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 )
         for _, d in gb.edges():
             mg = d["mortar_grid"]
-
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
     def assign_variables(self):
@@ -396,6 +402,11 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
     def prepare_simulation(self, params=None):
         """ Is run prior to a time-stepping scheme. Use this to initialize
         discretizations, linear solvers etc.
+        
+        TODO: Should the arguments be solver_options and **kwargs (for everything else?)
+        
+        TODO: Examples needed
+        
         """
         self.create_grid()
         self.set_parameters()
@@ -407,6 +418,11 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
         g_max = self.gb.grids_of_dimension(self.Nd)[0]
         self.viz = pp.Exporter(g_max, name="mechanics", folder=self.viz_folder_name)
+
+    def after_simulation(self):
+        """ Called after a time-dependent problem
+        """
+        pass
 
     def discretize(self):
         """ Discretize all terms
@@ -462,7 +478,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         solution_norm = self.l2_norm_cell(g_max, u1)
         iterate_difference = self.l2_norm_cell(g_max, u1 - u0)
 
-        tol = nl_params["tolerance"]
+        tol = nl_params["newton_tolerance"]
 
         converged = False
         diverged = False
@@ -477,7 +493,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 converged = True
             error = np.sum((u1 - u0) ** 2) / np.sum(u1 ** 2)
 
-        logger.info("Error is ".format(error))
+        logger.info("Error is {}".format(error))
 
         return error, converged, diverged
 
@@ -511,7 +527,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             tic_assemble = time.time()
             A, b = assembler.assemble_matrix_rhs()
             logger.info(
-                "Done initial assembly. Elapsed time :".format(
+                "Done initial assembly. Elapsed time {}:".format(
                     time.time() - tic_assemble
                 )
             )
@@ -524,7 +540,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 A[mechanics_dof][:, mechanics_dof]
             )
             self.mechanics_precond = pyamg_solver.aspreconditioner(cycle="W")
-            logger.info(
+            logger.debug(
                 "AMG solver initialized. Elapsed time: ".format(time.time() - tic_pyamg)
             )
 
@@ -575,6 +591,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             residuals = []
 
             def callback(r):
+                logger.info(
+                    "Linear solver iteration {}, residual {}".format(len(residuals), r)
+                )
                 #                print(r)
                 residuals.append(r)
 
