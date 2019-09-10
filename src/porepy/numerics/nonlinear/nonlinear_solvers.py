@@ -36,6 +36,7 @@ class NewtonSolver:
         prev_sol = setup.get_state_vector()
 
         errors = []
+        error_norm = 1
 
         while iteration_counter <= self.params["max_iterations"] and not is_converged:
             logger.info(
@@ -47,7 +48,8 @@ class NewtonSolver:
             # Re-discretize the nonlinear term
             setup.before_newton_iteration()
 
-            sol = self.iteration(setup, prev_sol)
+            lin_tol = np.minimum(1e-4, error_norm)
+            sol = self.iteration(setup, lin_tol)
 
             setup.after_newton_iteration(sol)
 
@@ -80,5 +82,3 @@ class NewtonSolver:
         sol = setup.assemble_and_solve_linear_system(lin_tol)
 
         return sol
-
-
