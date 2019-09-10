@@ -12,34 +12,31 @@ PorePy currently has the following distinguishing features:
 
 PorePy is developed by the [Porous Media Group](http://pmg.b.uib.no/) at the University of Bergen, Norway. The software is developed under projects funded by the Research Council of Norway and Statoil.
 
-# Reproduce results from papers and preprints
-Runscripts for most, if not all, papers that uses porepy is available at [here](https://github.com/pmgbergen/porepy/tree/develop/examples/papers).
-Note that you may have to revert to an older version of PorePy to run the examples (we try to keep the runscripts updated, but sometime fail to do so, for various reasons).
-
 # Citing
 If you use PorePy in your research, we ask you to cite the following publication
 
-E. Keilegavlen, A. Fumagalli, R. Berge, I. Stefansson, I. Berre: PorePy: An Open-Source Simulation Tool for Flow and Transport in Deformable Fractured Rocks. [arXiv:1712.00460](https://arxiv.org/abs/1712.00460)
+E. Keilegavlen, R. Berge, A. Fumagalli, M. Starnoni, I. Stefansson, J. Varela, I. Berre: PorePy:  An Open-Source Software for Simulation of Multiphysics Processes in Fractured Porous Media. [arXiv:1908.09869](http://arxiv.org/abs/1908.09869)
 
-# Installation
-PorePy depends on `numpy`, `scipy` and `networkx`, and (for the moment) also on `meshio`, `sympy` and `matplotlib`. The latter packages may be droped / changed later. To install (on Linux, probably also OSX), use
+Runscripts for most, if not all, papers that uses porepy is available at [here](./Papers.md).
+Note that you may have to revert to an older version of PorePy to run the examples (we try to keep the runscripts updated, but sometime fail to do so, for various reasons).
 
-    pip install porepy
-
-We recommend installing from source (see below), rather than pulling from pypi. Installation by pip on Windows may cause problems with buliding the requirements (`numpy` etc) unless conda is used.
+# Installation from source
 
 For more detailed install instructions, including how to access GMSH (for meshing), see
 [Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
 
-PorePy is developed under Python >=3.6. 
+PorePy is developed under Python >=3.6.
 
-# From source
 To get the most current version, install from github:
 
     git clone https://github.com/pmgbergen/porepy.git
 
     cd porepy
 
+To get the stable (though not very frequently updated) version:
+    git checkout master
+
+Install
     pip install -r requirements.txt
 
 Finally to install PorePy
@@ -60,10 +57,9 @@ A docker image is available from docker.io/keileg/porepy:
 For the moment, Docker support should be considered experimental.
 
 # (Semi-) Optional packages
-To function optimally, PorePy should have access to the pypi packages:
-*  `pymetis` (for mesh partitioning). Will be installed on Linux (not so on Windows, to avoid installation issues for the core package in the case where no C compiler is available).
-* Some computationally expensive methods can be accelerated with `Cython` or `Numba`. Cython is automatically installed on many Linux systems, if not, use pip or conda. Numba can be installed using `conda`.
-* Visualization by either matplotlib or (preferrable for larger problems) vtk/paraview. To dump data to paraview, a vtk filter must be available; the only solution we have found is from the 'conda' repositories, e.g. 'conda install -c clinicalgraphics vtk=7.1.0' (note that vtk should be version 7.0.0 or later, hence not the official channel)
+To function optimally, PorePy should have access to some more packages:
+*  `pymetis` (for mesh partitioning).
+* Some computationally expensive methods can be accelerated with `Cython` or `Numba`.
 * We use `shapely` for certain geometry-operations.
 * Meshing: currently by [gmsh](http://gmsh.info/doc/texinfo/gmsh.html). For its configuration see [Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
 

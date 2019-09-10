@@ -313,7 +313,7 @@ def invert_diagonal_blocks(mat, s, method=None):
         try:
             import porepy.numerics.fv.cythoninvert as cythoninvert
         except:
-            ImportError(
+            raise ImportError(
                 "Compiled Cython module not available. Is cython\
             installed?"
             )
@@ -698,7 +698,7 @@ def vector_divergence(g):
     return block_div.transpose()
 
 
-def scalar_tensor_vector_prod(g, k, subcell_topology, apertures=None):
+def scalar_tensor_vector_prod(g, k, subcell_topology):
     """
     Compute product of normal vectors and tensors on a sub-cell level.
     This is essentially defining Darcy's law for each sub-face in terms of
@@ -748,8 +748,6 @@ def scalar_tensor_vector_prod(g, k, subcell_topology, apertures=None):
     # Distribute faces equally on the sub-faces
     num_nodes = np.diff(g.face_nodes.indptr)
     normals = g.face_normals[:, subcell_topology.fno] / num_nodes[subcell_topology.fno]
-    if apertures is not None:
-        normals = normals * apertures[subcell_topology.cno]
 
     # Represent normals and permeability on matrix form
     ind_ptr = np.hstack((np.arange(0, j.size, nd), j.size))
@@ -1386,7 +1384,7 @@ def compute_darcy_flux(
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
         if "flux" in matrix_dictionary:
             dis = (
-                matrix_dictionary["flux"] * data[p_name]
+                matrix_dictionary["flux"] * data[pp.STATE][p_name]
                 + matrix_dictionary["bound_flux"] * parameter_dictionary["bc_values"]
             )
         else:
@@ -1405,7 +1403,7 @@ def compute_darcy_flux(
             matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][keyword]
             if "flux" in matrix_dictionary:
                 dis = (
-                    matrix_dictionary["flux"] * d[p_name]
+                    matrix_dictionary["flux"] * d[pp.STATE][p_name]
                     + matrix_dictionary["bound_flux"]
                     * parameter_dictionary["bc_values"]
                 )
@@ -1430,12 +1428,12 @@ def compute_darcy_flux(
 
         bound_flux = d_h[pp.DISCRETIZATION_MATRICES][keyword]["bound_flux"]
         induced_flux = (
-            bound_flux * d["mortar_grid"].mortar_to_master_int() * d[lam_name]
+            bound_flux * d["mortar_grid"].mortar_to_master_int() * d[pp.STATE][lam_name]
         )
         # Remove contribution directly on the boundary faces.
         induced_flux[g_h.tags["fracture_faces"]] = 0
         d_h[pp.PARAMETERS][keyword_store][d_name] += induced_flux
-        d[pp.PARAMETERS][keyword_store][d_name] = d[lam_name].copy()
+        d[pp.PARAMETERS][keyword_store][d_name] = d[pp.STATE][lam_name].copy()
 
 
 def boundary_to_sub_boundary(bound, subcell_topology):

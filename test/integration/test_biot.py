@@ -2,8 +2,10 @@ import scipy.sparse as sps
 import numpy as np
 import unittest
 import porepy as pp
+
 from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 from test.test_utils import permute_matrix_vector
+from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
 
 
 class BiotTest(unittest.TestCase):
@@ -37,8 +39,8 @@ class BiotTest(unittest.TestCase):
             bound_mech, bound_flow = self.make_boundary_conditions(g)
 
             mu = np.ones(g.num_cells)
-            c = pp.FourthOrderTensor(g.dim, mu, mu)
-            k = pp.SecondOrderTensor(g.dim, np.ones(g.num_cells))
+            c = pp.FourthOrderTensor(mu, mu)
+            k = pp.SecondOrderTensor(np.ones(g.num_cells))
 
             bound_val = np.zeros(g.num_faces)
             aperture = np.ones(g.num_cells)
@@ -64,38 +66,6 @@ class BiotTest(unittest.TestCase):
             sol = np.linalg.solve(A.todense(), b)
 
             self.assertTrue(np.isclose(sol, np.zeros(g.num_cells * (g.dim + 1))).all())
-
-    #    def test_uniform_displacement(self):
-    #        # Uniform displacement in mechanics (enforced by boundary conditions).
-    #        # Constant pressure boundary conditions.
-    #        g_list = setup_grids.setup_2d()
-    #        for g in g_list:
-    #            bound_faces = g.get_all_boundary_faces()
-    #            bound = bc.BoundaryCondition(g, bound_faces.ravel('F'),
-    #                                         ['dir'] * bound_faces.size)
-    #            flux, bound_flux, div_flow = self.mpfa_discr(g, bound)
-    #
-    #            a_flow = div_flow * flux
-    #
-    #            stress, bound_stress, grad_p, div_d, \
-    #                stabilization, bound_div_d, div_mech = self.mpsa_discr(g, bound)
-    #
-    #            a_mech = div_mech * stress
-    #
-    #            a_biot = sps.bmat([[a_mech, grad_p],
-    #                               [div_d, a_flow + stabilization]])
-    #
-    #            const_bound_val_mech = 1
-    #            bval_mech = const_bound_val_mech * np.ones(g.num_faces * g.dim)
-    #            bval_flow = np.ones(g.num_faces)
-    #            rhs = np.hstack((-div_mech * bound_stress * bval_mech,
-    #                             div_flow * bound_flux * bval_flow\
-    #                             + div_flow * bound_div_d * bval_mech))
-    #            sol = np.linalg.solve(a_biot.todense(), rhs)
-    #
-    #            sz_mech = g.num_cells * g.dim
-    #            self.assertTrue(np.isclose(sol[:sz_mech],)
-    #                              const_bound_val_mech * np.ones(sz_mech)).all()
 
     def test_face_vector_to_scalar(self):
         # Test of function face_vector_to_scalar
@@ -159,10 +129,11 @@ class BiotTest(unittest.TestCase):
                 term_11_2: pp.BiotStabilization(kw_f),
             },
             v_0 + "_" + v_1: {term_01: pp.GradP(kw_m)},
-            v_1 + "_" + v_0: {term_10: pp.DivD(kw_m)},
+            v_1 + "_" + v_0: {term_10: pp.DivU(kw_m)},
         }
         # Assemble. Also discretizes the flow terms (fluid_mass and fluid_flux)
         general_assembler = pp.Assembler(gb)
+        general_assembler.discretize(term_filter=["fluid_mass", "fluid_flux"])
         A, b = general_assembler.assemble_matrix_rhs()
 
         # Re-discretize and assemble using the Biot class
@@ -233,10 +204,6 @@ class BiotTest(unittest.TestCase):
         # Initial condition fot the Biot class
         #        d["state"] = initial_state
 
-        # Discretize the mechanics related terms using the Biot class
-        biot_discretizer = pp.Biot()
-        biot_discretizer._discretize_mech(g, d)
-
         # Set up the structure for the assembler. First define variables and equation
         # term names.
         v_0 = variable_m
@@ -251,18 +218,25 @@ class BiotTest(unittest.TestCase):
         d[pp.DISCRETIZATION] = {
             v_0: {term_00: pp.Mpsa(kw_m)},
             v_1: {
-                term_11_0: ImplicitMassMatrix(kw_f, v_1),
-                term_11_1: ImplicitMpfa(kw_f),
+                term_11_0: IE_discretizations.ImplicitMassMatrix(kw_f, v_1),
+                term_11_1: IE_discretizations.ImplicitMpfa(kw_f),
                 term_11_2: pp.BiotStabilization(kw_f),
             },
             v_0 + "_" + v_1: {term_01: pp.GradP(kw_m)},
-            v_1 + "_" + v_0: {term_10: pp.DivD(kw_m)},
+            v_1 + "_" + v_0: {term_10: pp.DivU(kw_m)},
         }
+
+        # Discretize the mechanics related terms using the Biot class
+        biot_discretizer = pp.Biot()
+        biot_discretizer._discretize_mech(g, d)
+
+        general_assembler = pp.Assembler(gb)
+        # Discretize terms that are not handled by the call to biot_discretizer
+        general_assembler.discretize(term_filter=["fluid_mass", "fluid_flux"])
 
         times = np.arange(5)
         for _ in times:
             # Assemble. Also discretizes the flow terms (fluid_mass and fluid_flux)
-            general_assembler = pp.Assembler(gb)
             A, b = general_assembler.assemble_matrix_rhs()
 
             # Assemble using the Biot class
@@ -295,41 +269,6 @@ class BiotTest(unittest.TestCase):
         # Check that the solution has converged to the expected, uniform steady state
         # dictated by the BCs.
         self.assertTrue(np.all(np.isclose(x_i, np.ones((g.dim + 1) * g.num_cells))))
-
-
-class ImplicitMassMatrix(pp.MassMatrix):
-    def __init__(self, keyword="flow", variable="pressure"):
-        """ Set the discretization, with the keyword used for storing various
-        information associated with the discretization. The time discretisation also
-        requires the previous solution, thus the variable needs to be specified.
-
-        Paramemeters:
-            keyword (str): Identifier of all information used for this
-                discretization.
-        """
-        self.keyword = keyword
-        self.variable = variable
-
-    def assemble_rhs(self, g, data):
-        """ Overwrite MassMatrix method to return the correct rhs for an IE time
-        discretization of the Biot problem.
-
-        TODO: Implement a more general solution.
-        """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        previous_pressure = data[pp.STATE][self.variable]
-        return matrix_dictionary["mass"] * previous_pressure
-
-
-class ImplicitMpfa(pp.Mpfa):
-    def assemble_matrix_rhs(self, g, data):
-        """ Overwrite MPSA method to be consistent with the Biot dt convention.
-
-        TODO: Implement more general solution?
-        """
-        a, b = super().assemble_matrix_rhs(g, data)
-        dt = data[pp.PARAMETERS][self.keyword]["time_step"]
-        return a * dt, b * dt
 
 
 if __name__ == "__main__":

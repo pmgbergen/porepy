@@ -27,7 +27,7 @@ class TestTPFA(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(g.dim, kxx)
+        perm = pp.SecondOrderTensor(kxx)
 
         bound_faces = np.array([0, 3, 12])
         bound = pp.BoundaryCondition(g, bound_faces, ["dir"] * bound_faces.size)

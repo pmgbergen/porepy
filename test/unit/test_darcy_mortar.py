@@ -20,11 +20,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         for g, d in gb:
             parameter_dictionary = {}
 
-            perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
+            perm = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
             parameter_dictionary["second_order_tensor"] = perm
-
-            aperture = np.power(1e-3, gb.dim_max() - g.dim)
-            parameter_dictionary["aperture"] = aperture * np.ones(g.num_cells)
 
             b_val = np.zeros(g.num_faces)
             if g.dim == 2:
@@ -108,6 +105,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         elif method == "mvem":
             discretization = pp.MVEM(key)
         assembler = test_utils.setup_flow_assembler(gb, discretization, key)
+        assembler.discretize()
         A_flow, b_flow = assembler.assemble_matrix_rhs()
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(p)
@@ -524,11 +522,9 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         for g, d in gb:
             parameter_dictionary = {}
 
-            perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
+            perm = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
             parameter_dictionary["second_order_tensor"] = perm
 
-            aperture = np.power(1e-3, gb.dim_max() - g.dim)
-            parameter_dictionary["aperture"] = aperture * np.ones(g.num_cells)
             parameter_dictionary["source"] = np.zeros(g.num_cells)
 
             yf = g.face_centers[1]
@@ -575,6 +571,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         key = "flow"
         method = pp.Mpfa(key)
         assembler = test_utils.setup_flow_assembler(gb, method, key)
+        assembler.discretize()
         A_flow, b_flow = assembler.assemble_matrix_rhs()
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(p)
@@ -583,6 +580,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         key = "flow"
         method = pp.MVEM(key)
         assembler = test_utils.setup_flow_assembler(gb, method, key)
+        assembler.discretize()
         A_flow, b_flow = assembler.assemble_matrix_rhs()
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(p)
@@ -746,11 +744,8 @@ class TestMortar3D(unittest.TestCase):
         for g, d in gb:
             parameter_dictionary = {}
 
-            perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
+            perm = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
             parameter_dictionary["second_order_tensor"] = perm
-
-            aperture = np.power(1e-6, gb.dim_max() - g.dim)
-            parameter_dictionary["aperture"] = aperture * np.ones(g.num_cells)
 
             yf = g.face_centers[1]
             bound_faces = [
@@ -788,12 +783,14 @@ class TestMortar3D(unittest.TestCase):
         key = "flow"
         method = pp.Mpfa(key)
         assembler = test_utils.setup_flow_assembler(gb, method, key)
+        assembler.discretize()
         A_flow, b_flow = assembler.assemble_matrix_rhs()
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(p)
 
     def run_vem(self, gb):
         solver_flow = pp.MVEM("flow")
+
         A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
         up = sps.linalg.spsolve(A_flow, b_flow)
@@ -937,11 +934,8 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         for g, d in gb:
             parameter_dictionary = {}
 
-            perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
+            perm = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
             parameter_dictionary["second_order_tensor"] = perm
-
-            aperture = np.power(1e-4, gb.dim_max() - g.dim)
-            parameter_dictionary["aperture"] = aperture * np.ones(g.num_cells)
 
             b_val = np.zeros(g.num_faces)
             if g.dim == 2:
@@ -987,6 +981,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 
     def _solve(self, gb, method, key):
         assembler = test_utils.setup_flow_assembler(gb, method, key)
+        assembler.discretize()
         A_flow, b_flow = assembler.assemble_matrix_rhs()
         up = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(up)

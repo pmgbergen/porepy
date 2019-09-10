@@ -274,6 +274,7 @@ def generate_coarse_grid_gb(gb, subdiv):
             # update the map
             d["face_cells"] = face_cells.tocsc()
 
+
 # ------------------------------------------------------------------------------#
 
 
@@ -297,7 +298,7 @@ def tpfa_matrix(g, perm=None):
         g = g.get_grids(lambda g_: g_.dim == g.dim_max())[0]
 
     if perm is None:
-        perm = pp.SecondOrderTensor(g.dim, np.ones(g.num_cells))
+        perm = pp.SecondOrderTensor(np.ones(g.num_cells))
 
     solver = pp.Tpfa("flow")
     specified_parameters = {
@@ -305,7 +306,8 @@ def tpfa_matrix(g, perm=None):
         "bc": pp.BoundaryCondition(g, np.empty(0), ""),
     }
     data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-    return solver.assemble_matrix_rhs(g, data)[0]
+    solver.discretize(g, data)
+    return solver.assemble_matrix(g, data)
 
 
 # ------------------------------------------------------------------------------#

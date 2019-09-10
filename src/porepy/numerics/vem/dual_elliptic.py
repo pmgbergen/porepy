@@ -33,7 +33,7 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
 
         # we need to recover the flux from the mortar variable before
         # the projection, only lower dimensional edges need to be considered.
-        edge_flux = np.zeros(d[flux].size)
+        edge_flux = np.zeros(d[pp.STATE][flux].size)
         faces = g.tags["fracture_faces"]
         if np.any(faces):
             # recover the sign of the flux, since the mortar is assumed
@@ -47,10 +47,12 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
                     continue
                 # project the mortar variable back to the higher dimensional
                 # problem
-                # edge_flux += sign * g_m.mortar_to_master_int() * d_e[mortar_key]
-                edge_flux += sign * g_m.master_to_mortar_avg().T * d_e[mortar_key]
+                # edge_flux += sign * g_m.mortar_to_master_int() * d_e[pp.STATE][mortar_key]
+                edge_flux += (
+                    sign * g_m.master_to_mortar_avg().T * d_e[pp.STATE][mortar_key]
+                )
 
-        d[P0_flux] = discr.project_flux(g, edge_flux + d[flux], d)
+        d[pp.STATE][P0_flux] = discr.project_flux(g, edge_flux + d[pp.STATE][flux], d)
 
 
 # ------------------------------------------------------------------------------#
@@ -110,10 +112,6 @@ class DualElliptic(
         rhs: array (g.num_faces+g_num_cells)
             Right-hand side which contains the boundary conditions.
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if "mass" not in matrix_dictionary:
-            self.discretize(g, data)
-
         # First assemble the matrix
         M = self.assemble_matrix(g, data)
 
@@ -128,8 +126,6 @@ class DualElliptic(
         """ Assemble matrix from an existing discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "mass" in matrix_dictionary:
-            self.discretize(g, data)
 
         mass = matrix_dictionary["mass"]
         div = matrix_dictionary["div"]

@@ -1,21 +1,33 @@
-import sys
+""" This module contains tests of the vtk export filter.
+
+The tests verify that the output has the same format (outputs the same string)
+as before. Failure of any test thus indicates that something in the export
+filter, or in the vtk python bindings has changed. If the change is external to
+PorePy, this does not necessarily mean that something is wrong.
+"""
+import shutil
 import numpy as np
 import unittest
 
 import porepy as pp
 
-if_vtk = "vtk" in sys.modules
-if not if_vtk:
+# If the vtk module is not present, do not run the tests. If pp.Exporter is
+# initiated in this case, this will return an error, but the code can be used
+# without vtk export
+try:
+    if_vtk = True
+    import vtk
+except ImportWarning:
     import warnings
 
     warnings.warn("No vtk module loaded.")
-
-# ------------------------------------------------------------------------------#
+    if_vtk = False
 
 
 class BasicsTest(unittest.TestCase):
-
-    # ------------------------------------------------------------------------------#
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree("./test_vtk/")
 
     def test_single_grid_1d(self):
         if not if_vtk:
@@ -32,12 +44,9 @@ class BasicsTest(unittest.TestCase):
         save = pp.Exporter(g, file_name, folder, binary=False)
         save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder + file_name + "_000000.vtu", "r") as content_file:
+        with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
-
         self.assertTrue(content == self._single_grid_1d_grid_vtu())
-
-    # ------------------------------------------------------------------------------#
 
     def test_single_grid_2d_simplex(self):
         if not if_vtk:
@@ -54,11 +63,9 @@ class BasicsTest(unittest.TestCase):
         save = pp.Exporter(g, file_name, folder, binary=False)
         save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder + file_name + "_000000.vtu", "r") as content_file:
+        with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._single_grid_2d_simplex_grid_vtu())
-
-    # ------------------------------------------------------------------------------#
 
     def test_single_grid_2d_cart(self):
         if not if_vtk:
@@ -75,11 +82,9 @@ class BasicsTest(unittest.TestCase):
         save = pp.Exporter(g, file_name, folder, binary=False)
         save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder + file_name + "_000000.vtu", "r") as content_file:
+        with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._single_grid_2d_cart_grid_vtu())
-
-    # ------------------------------------------------------------------------------#
 
     def test_single_grid_2d_polytop(self):
         if not if_vtk:
@@ -98,11 +103,9 @@ class BasicsTest(unittest.TestCase):
         save = pp.Exporter(g, file_name, folder, binary=False)
         save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder + file_name + "_000000.vtu", "r") as content_file:
+        with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._single_grid_2d_polytop_grid_vtu())
-
-    # ------------------------------------------------------------------------------#
 
     def test_single_grid_3d_simplex(self):
         if not if_vtk:
@@ -119,11 +122,9 @@ class BasicsTest(unittest.TestCase):
         save = pp.Exporter(g, file_name, folder, binary=False)
         save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder + file_name + "_000000.vtu", "r") as content_file:
+        with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._single_grid_3d_simplex_grid_vtu())
-
-    # ------------------------------------------------------------------------------#
 
     def test_single_grid_3d_cart(self):
         if not if_vtk:
@@ -140,11 +141,9 @@ class BasicsTest(unittest.TestCase):
         save = pp.Exporter(g, file_name, folder, binary=False)
         save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder + file_name + "_000000.vtu", "r") as content_file:
+        with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._single_grid_3d_cart_grid_vtu())
-
-    # ------------------------------------------------------------------------------#
 
     def test_single_grid_3d_polytop(self):
         if not if_vtk:
@@ -165,11 +164,9 @@ class BasicsTest(unittest.TestCase):
         save = pp.Exporter(g, file_name, folder, binary=False)
         save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder + file_name + "_000000.vtu", "r") as content_file:
+        with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._single_grid_3d_polytop_grid_vtu())
-
-    # ------------------------------------------------------------------------------#
 
     def test_gb_1(self):
         if not if_vtk:
@@ -182,33 +179,34 @@ class BasicsTest(unittest.TestCase):
         gb.add_node_props(["scalar_dummy", "dummy_vector"])
 
         for g, d in gb:
-            d[pp.STATE] = {
-                "dummy_scalar": np.ones(g.num_cells) * g.dim,
-                "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
-            }
+            pp.set_state(
+                d,
+                {
+                    "dummy_scalar": np.ones(g.num_cells) * g.dim,
+                    "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
+                },
+            )
 
         folder = "./test_vtk/"
         file_name = "grid"
         save = pp.Exporter(gb, file_name, folder, binary=False)
         save.write_vtk(["dummy_scalar", "dummy_vector"])
 
-        with open(folder + file_name + "_000000.pvd", "r") as content_file:
+        with open(folder + file_name + ".pvd", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._gb_1_grid_pvd())
 
-        with open(folder + file_name + "_1_000000.vtu", "r") as content_file:
+        with open(folder + file_name + "_1.vtu", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._gb_1_grid_1_vtu())
 
-        with open(folder + file_name + "_2_000000.vtu", "r") as content_file:
+        with open(folder + file_name + "_2.vtu", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._gb_1_grid_2_vtu())
 
-        with open(folder + "grid_mortar_1_000000.vtu", "r") as content_file:
+        with open(folder + "grid_mortar_1.vtu", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._gb_1_mortar_grid_vtu())
-
-    # ------------------------------------------------------------------------------#
 
     def test_gb_2(self):
         if not if_vtk:
@@ -222,34 +220,34 @@ class BasicsTest(unittest.TestCase):
         gb.add_node_props(["dummy_scalar", "dummy_vector"])
 
         for g, d in gb:
-            d[pp.STATE] = {
-                "dummy_scalar": np.ones(g.num_cells) * g.dim,
-                "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
-            }
+            pp.set_state(
+                d,
+                {
+                    "dummy_scalar": np.ones(g.num_cells) * g.dim,
+                    "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
+                },
+            )
 
         folder = "./test_vtk/"
         file_name = "grid"
         save = pp.Exporter(gb, file_name, folder, binary=False)
         save.write_vtk(["dummy_scalar", "dummy_vector"])
 
-        with open(folder + file_name + "_000000.pvd", "r") as content_file:
+        with open(folder + file_name + ".pvd", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._gb_2_grid_pvd())
 
-        with open(folder + file_name + "_1_000000.vtu", "r") as content_file:
+        with open(folder + file_name + "_1.vtu", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._gb_2_grid_1_vtu())
 
-        with open(folder + file_name + "_2_000000.vtu", "r") as content_file:
+        with open(folder + file_name + "_2.vtu", "r") as content_file:
             content = content_file.read()
-        print(content)
         self.assertTrue(content == self._gb_2_grid_2_vtu())
 
-        with open(folder + "grid_mortar_1_000000.vtu", "r") as content_file:
+        with open(folder + "grid_mortar_1.vtu", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._gb_2_mortar_grid_1_vtu())
-
-    # ------------------------------------------------------------------------------#
 
     def _single_grid_1d_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -294,8 +292,6 @@ class BasicsTest(unittest.TestCase):
   </UnstructuredGrid>
 </VTKFile>
 """
-
-    # ------------------------------------------------------------------------------#
 
     def _single_grid_2d_simplex_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -371,8 +367,6 @@ class BasicsTest(unittest.TestCase):
   </UnstructuredGrid>
 </VTKFile>
 """
-
-    # ------------------------------------------------------------------------------#
 
     def _single_grid_2d_cart_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -455,8 +449,6 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    # ------------------------------------------------------------------------------#
-
     def _single_grid_2d_polytop_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
@@ -505,8 +497,6 @@ class BasicsTest(unittest.TestCase):
   </UnstructuredGrid>
 </VTKFile>
 """
-
-    # ------------------------------------------------------------------------------#
 
     def _single_grid_3d_simplex_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -1388,8 +1378,6 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    # ------------------------------------------------------------------------------#
-
     def _single_grid_3d_cart_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
@@ -2006,8 +1994,6 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    # ------------------------------------------------------------------------------#
-
     def _single_grid_3d_polytop_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
@@ -2159,19 +2145,15 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    # ------------------------------------------------------------------------------#
-
     def _gb_1_grid_pvd(self):
         return """<?xml version="1.0"?>
 <VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
 <Collection>
-\t<DataSet group="" part="" file="grid_1_000000.vtu"/>
-\t<DataSet group="" part="" file="grid_2_000000.vtu"/>
-\t<DataSet group="" part="" file="grid_mortar_1_000000.vtu"/>
+\t<DataSet group="" part="" file="grid_1.vtu"/>
+\t<DataSet group="" part="" file="grid_2.vtu"/>
+\t<DataSet group="" part="" file="grid_mortar_1.vtu"/>
 </Collection>
 </VTKFile>"""
-
-    # ------------------------------------------------------------------------------#
 
     def _gb_1_grid_1_vtu(self):
         return """<?xml version="1.0"?>
@@ -2227,8 +2209,6 @@ class BasicsTest(unittest.TestCase):
   </UnstructuredGrid>
 </VTKFile>
 """
-
-    # ------------------------------------------------------------------------------#
 
     def _gb_1_grid_2_vtu(self):
         return """<?xml version="1.0"?>
@@ -2328,8 +2308,6 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    # ------------------------------------------------------------------------------#
-
     def _gb_1_mortar_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
@@ -2388,8 +2366,6 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    # ------------------------------------------------------------------------------#
-
     def _gb_1_mortar_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
@@ -2447,21 +2423,16 @@ class BasicsTest(unittest.TestCase):
   </UnstructuredGrid>
 </VTKFile>
 """
-
-    # ------------------------------------------------------------------------------#
 
     def _gb_2_grid_pvd(self):
         return """<?xml version="1.0"?>
 <VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
 <Collection>
-\t<DataSet group="" part="" file="grid_1_000000.vtu"/>
-\t<DataSet group="" part="" file="grid_2_000000.vtu"/>
-\t<DataSet group="" part="" file="grid_mortar_0_000000.vtu"/>
-\t<DataSet group="" part="" file="grid_mortar_1_000000.vtu"/>
+\t<DataSet group="" part="" file="grid_1.vtu"/>
+\t<DataSet group="" part="" file="grid_2.vtu"/>
+\t<DataSet group="" part="" file="grid_mortar_1.vtu"/>
 </Collection>
 </VTKFile>"""
-
-    # ------------------------------------------------------------------------------#
 
     def _gb_2_grid_1_vtu(self):
         return """<?xml version="1.0"?>
@@ -2520,8 +2491,6 @@ class BasicsTest(unittest.TestCase):
   </UnstructuredGrid>
 </VTKFile>
 """
-
-    # ------------------------------------------------------------------------------#
 
     def _gb_2_grid_2_vtu(self):
         return """<?xml version="1.0"?>
@@ -2622,8 +2591,6 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    # ------------------------------------------------------------------------------#
-
     def _gb_2_mortar_grid_1_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
@@ -2688,8 +2655,6 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-
-# ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
     unittest.main()

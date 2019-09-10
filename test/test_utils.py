@@ -105,6 +105,7 @@ def solve_and_distribute_pressure(gb, assembler):
         GridBucket: Of problem to be solved
         assembler (Assembler):
     """
+    assembler.discretize()
     A, b = assembler.assemble_matrix_rhs()
     p = np.linalg.solve(A.A, b)
     assembler.distribute_variable(p)

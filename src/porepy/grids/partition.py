@@ -49,9 +49,10 @@ def partition_metis(g, num_part):
     c2c = g.cell_connection_map()
 
     # Convert the cells into the format required by pymetis
-    adjacency_list = [c2c.getrow(i).indices for i in range(c2c.shape[0])]
+    adjacency_list = [list(c2c.getrow(i).indices) for i in range(c2c.shape[0])]
     # Call pymetis
-    part = pymetis.part_graph(num_part, adjacency=adjacency_list)
+    # It seems it is important that num_part is an int, not an np.int.
+    part = pymetis.part_graph(int(num_part), adjacency=adjacency_list)
 
     # The meaning of the first number returned by pymetis is not clear (poor
     # documentation), only return the partitioning.

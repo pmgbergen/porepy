@@ -4,9 +4,7 @@ Module contains superclass for mpfa and tpfa.
 import porepy as pp
 
 
-class FVElliptic(
-    pp.numerics.interface_laws.elliptic_discretization.EllipticDiscretization
-):
+class FVElliptic(pp.EllipticDiscretization):
     """ Superclass for finite volume discretizations of the elliptic equation.
 
     Should not be used by itself, instead use a subclass that implements an
@@ -96,8 +94,6 @@ class FVElliptic(
             second_order_tensor: (pp.SecondOrderTensor) Permeability defined cell-wise.
             bc: (pp.BoundaryCondition) boundary conditions.
             bc_values: array (self.num_faces) The boundary condition values.
-            aperture: (np.ndarray) apertures of the cells for scaling of the face
-                normals.
             Optional parameters: See the discretize methods.
 
         After discretization, matrix_dictionary will be updated with the following
@@ -142,8 +138,6 @@ class FVElliptic(
                 size of the matrix will depend on the specific discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "flux" in matrix_dictionary:
-            self.discretize(g, data)
 
         div = pp.fvutils.scalar_divergence(g)
         flux = matrix_dictionary["flux"]

@@ -41,9 +41,8 @@ class BoundaryCondition(AbstractBoundaryCondition):
 
     """ Class to store information on boundary conditions.
 
-    The BCs are specified by face number, and can have type Dirichlet or
-    Neumann (Robin may be included later). For details on default values etc.,
-    see constructor.
+    The BCs are specified by face number, and can have type Dirichlet, Neumann
+    or Robin. For details on default values etc. see constructor.
 
     Attributes:
         num_faces (int): Number of faces in the grid
@@ -55,11 +54,13 @@ class BoundaryCondition(AbstractBoundaryCondition):
             well as Dirichlet faces.
         is_dir (np.ndarary, boolean, size g.num_faces): Element i is true if
             face i has been assigned a Neumann condition.
+        is_rob (np.ndarray, boolean, size g.num_faces): Element i is true if
+            face i has been assigned a Robin condition.
 
     """
 
     def __init__(self, g, faces=None, cond=None):
-        """Constructor for BoundaryConditions.
+        """Constructor for BoundaryCondition.
 
         The conditions are specified by face numbers. Faces that do not get an
         explicit condition will have Neumann conditions assigned.
@@ -68,7 +69,8 @@ class BoundaryCondition(AbstractBoundaryCondition):
             g (grid): For which boundary conditions are set.
             faces (np.ndarray): Faces for which conditions are assigned.
             cond (list of str): Conditions on the faces, in the same order as
-                used in faces. Should be as long as faces.
+                used in faces. Should be as long as faces. The list elements
+                should be one of "dir", "neu", "rob".
 
         Example:
             # Assign Dirichlet condititons on the left side of a grid; implicit
@@ -262,9 +264,58 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
     refer to the above class BoundaryCondition.
 
     NOTE: g.dim > 1 for the procedure to make sense
+
+    Attributes:
+        num_faces (int): Number of faces in the grid
+        dim (int): Dimension of the boundary. One less than the dimension of
+            the grid.
+        is_neu (np.ndarray boolean, size g.dim x g.num_faces): Element i is true if
+            face i has been assigned a Neumann condition. Tacitly assumes that
+            the face is on the boundary. Should be false for internal faces, as
+            well as Dirichlet faces.
+        is_dir (np.ndarary, boolean, size g.dim x g.num_faces): Element i is true if
+            face i has been assigned a Neumann condition.
+        is_rob (np.ndarray, boolean, size g.dim x g.num_faces): Element i is true if
+            face i has been assigned a Robin condition.
+
     """
 
     def __init__(self, g, faces=None, cond=None):
+        """Constructor for BoundaryConditionVectorial.
+
+        The conditions are specified by face numbers. Faces that do not get an
+        explicit condition will have Neumann conditions assigned.
+
+        Parameters:
+            g (grid): For which boundary conditions are set.
+            faces (np.ndarray): Faces for which conditions are assigned.
+            cond (list of str): Conditions on the faces, in the same order as
+                used in faces. Should be as long as faces. To set uniform condition
+                in all spatial directions for a face, use 'dir', 'neu', or 'rob'.
+
+            NOTE: For more general combinations of boundary conditions, it is
+            recommended to first construct a BoundaryConditionVectorial object,
+            and then access the attributes is_dir, is_neu, is_rob to set the
+            conditions.
+
+        Example:
+            # Assign Dirichlet condititons on the left side of a grid; implicit
+            # Neumann conditions on the rest
+            g = pp.CartGrid([2, 2])
+            west_face = pp.bc.face_on_side(g, 'west')
+            bound_cond = pp.BoundaryConditionVectorial(g, faces=west_face, cond=['dir',
+                                                                                 'dir'])
+
+        Example:
+            Assign Dirichlet condition in the x-direction, Robin in the z-direction.
+            g = pp.CartGrid([2, 2, 2])
+            bc = pp.BoundaryConditionVectorial(g)
+            target_face = 0
+            bc.is_neu[[0, 2], target_face] = False
+            bc.is_dir[0, target_face] = True
+            bc.is_rob[2, target_face] = True
+
+        """
 
         self.num_faces = g.num_faces
         self.dim = g.dim
@@ -351,7 +402,7 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
                     self.is_neu[1, faces[j]] = True
                     self.is_neu[2, faces[j]] = False
                 else:
-                    raise ValueError("Boundary should be Dirichlet or Neumann")
+                    raise ValueError(f"Unknown boundary condition {s}")
 
 
 def face_on_side(g, side, tol=1e-8):

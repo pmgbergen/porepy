@@ -228,12 +228,11 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
             pa, _, lpc = analytic_p(g.cell_centers)
             src = -lpc * g.cell_volumes * aperture
-            specified_parameters = {
-                "bc": bound,
-                "bc_values": bc_val,
-                "source": src,
-                "aperture": aperture,
-            }
+            specified_parameters = {"bc": bound, "bc_values": bc_val, "source": src}
+            if g.dim == 1:
+                specified_parameters["second_order_tensor"] = pp.SecondOrderTensor(
+                    1e-10 * np.ones(g.num_cells)
+                )
             pp.initialize_default_data(g, d, "flow", specified_parameters)
 
         for _, d in gb.edges():
@@ -277,6 +276,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             }
 
         assembler = pp.Assembler(gb)
+        assembler.discretize()
         A, b = assembler.assemble_matrix_rhs()
         x = sps.linalg.spsolve(A, b)
 
@@ -301,14 +301,12 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
             _, analytic_flux, _ = analytic_p(g1.face_centers)
             # the aperture is assumed constant
-            a1 = np.max(d1[pp.PARAMETERS][kw]["aperture"])
-            left_flux = a1 * np.sum(analytic_flux * g1.face_normals[:2], 0)
+            left_flux = np.sum(analytic_flux * g1.face_normals[:2], 0)
             left_flux = left_to_m * (
                 d1[pp.DISCRETIZATION_MATRICES][kw]["bound_flux"] * left_flux
             )
             # right flux is negative lambda
-            a2 = np.max(d2[pp.PARAMETERS][kw]["aperture"])
-            right_flux = a2 * np.sum(analytic_flux * g2.face_normals[:2], 0)
+            right_flux = np.sum(analytic_flux * g2.face_normals[:2], 0)
             right_flux = -right_to_m * (
                 d2[pp.DISCRETIZATION_MATRICES][kw]["bound_flux"] * right_flux
             )
@@ -419,5 +417,4 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    TestTpfaCouplingDiffGrids().test_two_cart_grids()
     unittest.main()
