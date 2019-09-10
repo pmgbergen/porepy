@@ -48,7 +48,7 @@ class TangentialNormalProjection:
         self.normals = normal
 
     ## Methods for genertation of projection matrices
-
+    # @profile
     def project_tangential_normal(self, num=None):
         """ Define a projection matrix to decompose a matrix into tangential
         and normal components.
@@ -80,13 +80,32 @@ class TangentialNormalProjection:
 
         """
         if num is None:
-            return sps.block_diag(
-                [self.projection[:, :, i] for i in range(self.projection.shape[-1])]
-            ).tocsc()
+            num = self.projection.shape[-1]
+            data = np.array([self.projection[:, :, i] for i in range(num)]).ravel("F")
         else:
-            return sps.block_diag(
-                [self.projection[:, :, 0] for i in range(num)]
-            ).tocsc()
+            data = np.tile(self.projection[:, :, 0].ravel("F"), num)
+            
+        # Profiling indicated that the construction by a block diagonal matrix is
+        # time consuming. Some back and forth to create a csc matrix instead
+        indptr = np.arange(0, self.dim ** 2 * num + 1, self.dim)
+
+        if self.dim > 1:
+            base = np.tile(
+                np.tile(np.arange(self.dim), (self.dim, 1)).reshape((1, -1)), num
+            )[0]
+            block_increase = (
+                np.tile(np.arange(num), (self.dim ** 2, 1)).reshape(
+                    (1, -1), order="F"
+                )[0]
+                * self.dim
+            )
+            indices = base + block_increase
+        else:
+            indices = np.arange(num, dytpe=np.int)
+        mat = sps.csc_matrix(
+            (data, indices, indptr), shape=(num * self.dim, num * self.dim)
+        )
+        return mat
 
     def project_tangential(self, num=None):
         """ Define a projection matrix of a specific size onto the tangent space.
