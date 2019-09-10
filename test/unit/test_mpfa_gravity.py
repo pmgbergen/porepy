@@ -91,7 +91,7 @@ class TestMPFAgravity(unittest.TestCase):
         xc = g.cell_centers
         xf = g.face_centers
 
-        k = pp.SecondOrderTensor(1, np.ones(g.num_cells))
+        k = pp.SecondOrderTensor(np.ones(g.num_cells))
 
         # Gravity
         gforce = an_sol.g_f(xc[0])
@@ -161,7 +161,7 @@ class TestMPFAgravity(unittest.TestCase):
             xc = g.cell_centers
             xf = g.face_centers
 
-            k = pp.SecondOrderTensor(2, np.ones(g.num_cells))
+            k = pp.SecondOrderTensor(np.ones(g.num_cells))
 
             # Gravity
             gforce = np.zeros((2, g.num_cells))
