@@ -67,7 +67,7 @@ class PrimalContactCoupling(object):
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
 
         tic = time.time()
-        logging.info("Discretize contact mechanics interface law")
+        logging.debug("Discretize contact mechanics interface law")
         # Discretize the surface PDE
         parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
@@ -182,7 +182,7 @@ class PrimalContactCoupling(object):
 
         self.discr_slave.discretize(g_h, g_l, data_h, data_l, data_edge)
 
-        logger.info("Done. Elapsed time {}".format(time.time() - tic))
+        logger.debug("Done. Elapsed time {}".format(time.time() - tic))
 
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
