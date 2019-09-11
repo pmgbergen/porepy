@@ -6,6 +6,8 @@ vectors.
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
+
 
 class TangentialNormalProjection:
     """ Represent a set of projections into tangent and normal vectors.
@@ -81,30 +83,14 @@ class TangentialNormalProjection:
         """
         if num is None:
             num = self.projection.shape[-1]
-            data = np.array([self.projection[:, :, i] for i in range(num)]).ravel("F")
-        else:
-            data = np.tile(self.projection[:, :, 0].ravel("F"), num)
-            
-        # Profiling indicated that the construction by a block diagonal matrix is
-        # time consuming. Some back and forth to create a csc matrix instead
-        indptr = np.arange(0, self.dim ** 2 * num + 1, self.dim)
-
-        if self.dim > 1:
-            base = np.tile(
-                np.tile(np.arange(self.dim), (self.dim, 1)).reshape((1, -1)), num
-            )[0]
-            block_increase = (
-                np.tile(np.arange(num), (self.dim ** 2, 1)).reshape(
-                    (1, -1), order="F"
-                )[0]
-                * self.dim
+            data = np.array([self.projection[:, :, i] for i in range(num)]).ravel(
+                order="F"
             )
-            indices = base + block_increase
         else:
-            indices = np.arange(num, dytpe=np.int)
-        mat = sps.csc_matrix(
-            (data, indices, indptr), shape=(num * self.dim, num * self.dim)
-        )
+            data = np.tile(self.projection[:, :, 0].ravel(order="F"), num)
+
+        mat = pp.utils.sparse_mat.csc_matrix_from_blocks(data, self.dim, num)
+
         return mat
 
     def project_tangential(self, num=None):
