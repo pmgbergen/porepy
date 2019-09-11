@@ -592,7 +592,7 @@ class Biot:
         del rhs_units_displ_var
 
         # Output should be on cell-level (not sub-cell)
-        sc2c = fvutils.map_sc_2_c(g.dim, sub_cell_index, cell_node_blocks[0])
+        sc2c = fvutils.cell_scalar_to_subcell_vector(g.dim, sub_cell_index, cell_node_blocks[0])
 
         # prepare for computation of imbalance coefficients,
         # that is jumps in cell-centers pressures, ready to be
