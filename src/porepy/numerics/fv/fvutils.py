@@ -585,21 +585,49 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
     return hf2f
 
 
-def map_sc_2_c(nd, sub_cell_index, cell_index):
+def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
+
+    """
+    Create mapping from sub-cells to cells for scalar problems.
+    For example, discretization of div_g-term in mpfa with gravity,
+    where g is a cell-center vector (dim nd)
+
+    Parameters
+        nd: dimension
+        sub_cell_index: sub-cell indices
+        cell_index: cell indices
+
+    Returns:
+        scipy.sparse.csr_matrix (shape num_subcells * nd, num_cells * nd):
+
+    """
+
+    num_cells = cell_index.max() + 1
+
+    rows = sub_cell_index.ravel("F")
+    cols = expand_indices_nd(cell_index, nd)
+    vals = np.ones(rows.size)
+    mat = sps.coo_matrix(
+        (vals, (rows, cols)), shape=(sub_cell_index.size, num_cells * nd)
+    ).tocsr()
+
+    return mat
+
+
+def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
 
     """
     Create mapping from sub-cells to cells for vector problems.
-    For example, discretization of grad_p-term in Biot
+    For example, discretization of grad_p-term in Biot,
+    where p is a cell-center scalar
 
     Parameters
-    ----------
-    nd: dimension
-    sub_cell_index:
-    cell_index:
+        nd: dimension
+        sub_cell_index: sub-cell indices
+        cell_index: cell indices
 
-
-    Returns
-    -------
+    Returns:
+        scipy.sparse.csr_matrix (shape num_subcells * nd, num_cells):
 
     """
 
