@@ -1749,10 +1749,10 @@ class FractureNetwork3d(object):
         must be reversed (locally) for the polygon to form a closed loop.
 
         Returns:
-            list of np.array: Each list item gives the indices of the edges need to 
+            list of np.array: Each list item gives the indices of the edges need to
                 form a polygon (fracture, boundary or subdomain) in the decomposition.
             list of np.array: For each polygon, and each edge of the polygon, True if
-                the edge must be reversed (relative to its description in 
+                the edge must be reversed (relative to its description in
                 self.decomposition['edges']).
 
         """
@@ -2237,7 +2237,7 @@ class FractureNetwork3d(object):
 
         Returns:
             np.array: For all points in the decomposition, the value is 0 if the point is
-                in the interior, constants.FRACTURE_TAG if the point is on a fracture 
+                in the interior, constants.FRACTURE_TAG if the point is on a fracture
                 that extends to the boundary, and constants.DOMAIN_BOUNDARY_TAG if the
                 point is part of the boundary specification.
             np.array: For all edges in the decomposition, tags identifying the edge
