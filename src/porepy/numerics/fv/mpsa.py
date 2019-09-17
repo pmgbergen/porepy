@@ -2156,57 +2156,6 @@ def _neu_face_sgn(g, neu_ind):
     return neu_sgn[sort_id]
 
 
-def _zero_neu_rows(g, stress, bound_stress, bnd):
-    """
-    We zero out all none-diagonal elements for the neumann boundary faces.
-    """
-    if bnd.bc_type == "scalar":
-        neu_face_x = g.dim * np.ravel(np.argwhere(bnd.is_neu))
-        if g.dim == 1:
-            neu_face_ind = neu_face_x
-        elif g.dim == 2:
-            neu_face_y = neu_face_x + 1
-            neu_face_ind = np.ravel((neu_face_x, neu_face_y), "F")
-        elif g.dim == 3:
-            neu_face_y = neu_face_x + 1
-            neu_face_z = neu_face_x + 2
-            neu_face_ind = np.ravel((neu_face_x, neu_face_y, neu_face_z), "F")
-        else:
-            raise ValueError("Only support for dimension 1, 2, or 3")
-        num_neu = neu_face_ind.size
-
-    elif bnd.bc_type == "vectorial":
-        neu_face_x = g.dim * np.ravel(np.argwhere(bnd.is_neu[0, :]))
-        neu_face_y = g.dim * np.ravel(np.argwhere(bnd.is_neu[1, :])) + 1
-        neu_face_ind = np.sort(np.append(neu_face_x, [neu_face_y]))
-        if g.dim == 2:
-            pass
-        elif g.dim == 3:
-            neu_face_z = g.dim * np.ravel(np.argwhere(bnd.is_neu[2, :])) + 2
-            neu_face_ind = np.sort(np.append(neu_face_ind, [neu_face_z]))
-        else:
-            raise ValueError("Only support for dimension 1, 2, or 3")
-        num_neu = neu_face_ind.size
-
-    if not num_neu:
-        return stress, bound_stress
-
-    # Frist we zero out the boundary stress. We keep the sign of the diagonal
-    # element, however we discard its value (e.g. set it to +-1). The sign
-    # should be negative if the nomral vector points outwards and positive if
-    # the normal vector points inwards. I'm not sure if this is correct (that
-    # is, zeroing out none-diagonal elements and putting the diagonal elements
-    # to +-1), but it seems to give satisfactory results.
-    sgn = np.sign(np.ravel(bound_stress[neu_face_ind, neu_face_ind]))
-    # Set all neumann rows to zero
-    bound_stress = pp.fvutils.zero_out_sparse_rows(bound_stress, neu_face_ind, sgn)
-    # For the stress matrix we zero out any rows corresponding to the Neumann
-    # boundary faces (these have been moved over to the bound_stress matrix).
-    stress = pp.fvutils.zero_out_sparse_rows(stress, neu_face_ind)
-
-    return stress, bound_stress
-
-
 def _sign_matrix(g, faces):
     # We find the sign of the given faces
     IA = np.argsort(faces)
