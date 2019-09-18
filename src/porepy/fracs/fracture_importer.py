@@ -58,10 +58,14 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4, **kwargs):
             # Skip empty lines. Useful if the file ends with a blank line.
             if pts.size == 0:
                 continue
-            
-            check_convexity = kwargs.get('check_convexity', True)
 
-            frac_list.append(pp.Fracture(pts.reshape((3, -1), order="F"), check_convexity=check_convexity))
+            check_convexity = kwargs.get("check_convexity", True)
+
+            frac_list.append(
+                pp.Fracture(
+                    pts.reshape((3, -1), order="F"), check_convexity=check_convexity
+                )
+            )
 
     # Create the network
     if has_domain:
@@ -320,7 +324,9 @@ def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
         gmsh_opts = kwargs.get("gmsh_opts", {})
         gmsh_verbose = kwargs.get("gmsh_verbose", verbose)
         gmsh_opts["-v"] = gmsh_verbose
-        gmsh_status = pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dims=dim, **gmsh_opts)
+        gmsh_status = pp.grids.gmsh.gmsh_interface.run_gmsh(
+            in_file, out_file, dims=dim, **gmsh_opts
+        )
         if verbose:
             print("Gmsh finished with status " + str(gmsh_status))
 
