@@ -24,17 +24,6 @@ class FractureNetwork2d(object):
     fractures are contained within the specified domain. The fractures can be
     cut to a given domain by the function constrain_to_domain().
 
-    The main intended usage is to fit statistical distributions to the fractures,
-    and use this to generate realizations based on this statistics. The statistical
-    properties of the fracture set is characterized in terms of fracture position,
-    length and angle.
-
-    It is assumed that the fractures can meaningfully be represented by a single
-    statistical distribution. To achieve this, it may be necessary to divide a
-    fracture network into several sets, and fit them separately. As an example,
-    a network where the fractures have one out of two orientations which are orthogonal
-    to each other will not be meaningfully be represented as a single set.
-
     Attributes:
         pts (np.array, 2 x num_pts): Start and endpoints of the fractures. Points
             can be shared by fractures.

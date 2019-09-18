@@ -592,7 +592,7 @@ class Biot:
         del rhs_units_displ_var
 
         # Output should be on cell-level (not sub-cell)
-        sc2c = fvutils.map_sc_2_c(g.dim, sub_cell_index, cell_node_blocks[0])
+        sc2c = fvutils.cell_scalar_to_subcell_vector(g.dim, sub_cell_index, cell_node_blocks[0])
 
         # prepare for computation of imbalance coefficients,
         # that is jumps in cell-centers pressures, ready to be
@@ -1275,8 +1275,9 @@ class DivU:
         # We assume implicit Euler in Biot, thus the div_u term appears
         # on the rhs as div_u^{k-1}. This results in a contribution to the
         # rhs for the coupling variable also.
-        # See note above on sign. This term is on the rhs, yielding the opposite sign.
-        rhs[self_ind] += biot_alpha * vol * previous_displacement_jump_normal
+        # See note above on sign. This term is negative (u^k - u^{k-1}), and moved to
+        # the rhs, yielding the same sign as for the k term on the lhs.
+        rhs[self_ind] -= biot_alpha * vol * previous_displacement_jump_normal
 
     def enforce_neumann_int_bound(self, *_):
         pass
@@ -1344,7 +1345,7 @@ class BiotStabilization(
             discretize method of the Biot class.
         """
         raise NotImplementedError(
-            """No discretize method implemented for the DivU
+            """No discretize method implemented for the BiotStabilization
                                   class. See the Biot class."""
         )
 

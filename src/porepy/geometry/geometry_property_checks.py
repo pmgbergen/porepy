@@ -58,7 +58,8 @@ def is_ccw_polygon(poly):
 def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
     """
     Check if the line segments formed by three points is part of a
-    conuter-clockwise circle.
+    conuter-clockwise circle. The function can also test several points vs a
+    singel segment.
 
     The test is positiv if p3 lies to left of the line running through p1 and
     p2.
@@ -72,7 +73,7 @@ def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
     Parameters:
         p1 (np.ndarray, length 2): Point on dividing line
         p2 (np.ndarray, length 2): Point on dividing line
-        p3 (np.ndarray, length 2): Point to be tested
+        p3 (np.ndarray): Points to be tested
         tol (double, optional): Tolerance used in the comparison, can be used
             to account for rounding errors. Defaults to zero.
         default (boolean, optional): Mode returned if the point is within the
@@ -80,12 +81,17 @@ def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
             the function (will vary with application). Defaults to False.
 
     Returns:
-        boolean, true if the points form a ccw polyline.
+        boolean or np.array of booleans. true if the points form a ccw polyline.
+            An array is returned if more than one point is tested.
 
     See also:
         is_ccw_polygon
 
     """
+    if p3.size > 2:
+        num_points = p3.shape[1]
+    else:
+        num_points = 1
 
     # Compute cross product between p1-p2 and p1-p3. Right hand rule gives that
     # p3 is to the left if the cross product is positive.
@@ -95,10 +101,16 @@ def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
 
     # Should there be a scaling of the tolerance relative to the distance
     # between the points?
+    is_ccw = np.ones(num_points, dtype=np.bool)
+    is_ccw[np.abs(cross_product) <= tol] = default
 
-    if np.abs(cross_product) <= tol:
-        return default
-    return cross_product > -tol
+    is_ccw[cross_product < -tol] = False
+    is_ccw[cross_product > tol] = True
+
+    if num_points == 1:
+        return is_ccw[0]
+    else:
+        return is_ccw
 
 
 # -----------------------------------------------------------------------------
@@ -140,18 +152,12 @@ def point_in_polygon(poly, p, tol=0, default=False):
     poly_size = poly.shape[1]
 
     inside = np.ones(pt.shape[1], dtype=np.bool)
-    for i in range(pt.shape[1]):
-        for j in range(poly.shape[1]):
-            if not is_ccw_polyline(
-                poly[:, j],
-                poly[:, (j + 1) % poly_size],
-                pt[:, i],
-                tol=tol,
-                default=default,
-            ):
-                inside[i] = False
-                # No need to check the remaining segments of the polygon.
-                break
+    for j in range(poly.shape[1]):
+        this_ccw = is_ccw_polyline(
+            poly[:, j], poly[:, (j + 1) % poly_size], pt, tol=tol, default=default
+        )
+        inside[np.logical_not(this_ccw)] = False
+
     return inside
 
 

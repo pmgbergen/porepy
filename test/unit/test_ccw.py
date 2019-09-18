@@ -25,6 +25,15 @@ class TestCCW(unittest.TestCase):
         p1, p2, p3 = self.setup()
         self.assertTrue(not pp.geometry_property_checks.is_ccw_polyline(p1, p3, p2))
 
+    def test_on_boundary(self):
+        p1, p2, p3 = self.setup_close(0)
+        self.assertTrue(
+            pp.geometry_property_checks.is_ccw_polyline(p1, p2, p3, default=True)
+        )
+        self.assertTrue(
+            not pp.geometry_property_checks.is_ccw_polyline(p1, p2, p3, default=False)
+        )
+
     def test_tolerance(self):
         p1, p2, p3 = self.setup_close(1e-6)
 
@@ -70,6 +79,20 @@ class TestCCW(unittest.TestCase):
         self.assertTrue(
             not pp.geometry_property_checks.is_ccw_polyline(
                 p1, p2, p3, tol=1e-8, default=False
+            )
+        )
+
+    def test_several_points(self):
+        p1, p2, _ = self.setup()
+
+        p_test = np.array([[0.5, 0.5], [1, -1]])
+        known = np.array([1, 0], dtype=np.bool)
+        self.assertTrue(
+            np.allclose(
+                known,
+                pp.geometry_property_checks.is_ccw_polyline(
+                    p1, p2, p_test, tol=1e-8, default=False
+                ),
             )
         )
 

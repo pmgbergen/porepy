@@ -1,14 +1,18 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Mon May 13 08:53:05 2019
-
-@author: eke001
-
 For details on the conditions discretized herein, see
 
 Berge et al., 2019: Finite volume discretization for poroelastic media with fractures
 modeled by contact mechanics.
+
+When solving contact problems, the sought fracture displacement (jumps) are defined
+relative to an initial state. For transient problems, this initial state is the solution
+at the previous time step. The state should be available in
+
+    d[pp.STATE][self.mortar_displacement_variable],
+
+and may usually be set to zero for stationary problems. The ColoumbContact
+discretization operates on relative tangential jumps and absolute normal jumps.
+See also contact_mechanics_interface_laws.py
 """
 import numpy as np
 import scipy.sparse as sps
@@ -116,21 +120,39 @@ class ColoumbContact:
         # sign of the second mortar grid, and then sum the displacements on the
         # two sides (which is really a difference since one of the sides have
         # its sign switched).
-        displacement_jump_global_coord = (
+        # The tangential displacements are relative to the initial state, which in the
+        # transient case equals the previous time step.
+        previous_displacement_iterate = data_edge[pp.STATE]["previous_iterate"][
+            self.mortar_displacement_variable
+        ]
+        previous_displacement_time = data_edge[pp.STATE][
+            self.mortar_displacement_variable
+        ]
+        displacement_jump_global_coord_iterate = (
             mg.mortar_to_slave_avg(nd=self.dim)
             * mg.sign_of_mortar_sides(nd=self.dim)
-            * data_edge[pp.STATE]["previous_iterate"][self.mortar_displacement_variable]
+            * previous_displacement_iterate
+        )
+        displacement_jump_global_coord_time = (
+            mg.mortar_to_slave_avg(nd=self.dim)
+            * mg.sign_of_mortar_sides(nd=self.dim)
+            * previous_displacement_time
         )
         # Rotated displacement jumps. These are in the local coordinates, on
-        # the lower-dimensional grid
-        displacement_jump_normal = (
-            projection.project_normal(g_l.num_cells) * displacement_jump_global_coord
+        # the lower-dimensional grid. For the normal direction, we consider the absolute
+        # displacement, not that relative to the initial state.
+        displacement_jump_normal = projection.project_normal(g_l.num_cells) * (
+            displacement_jump_global_coord_iterate
         )
         # The jump in the tangential direction is in g_l.dim columns, one per
-        # dimension in the tangential direction.
+        # dimension in the tangential direction. For the tangential direction, we
+        # consider the relative displacement.
         displacement_jump_tangential = (
             projection.project_tangential(g_l.num_cells)
-            * displacement_jump_global_coord
+            * (
+                displacement_jump_global_coord_iterate
+                - displacement_jump_global_coord_time
+            )
         ).reshape((self.dim - 1, g_l.num_cells), order="F")
 
         # The friction bound is computed from the previous state of the contact

@@ -41,6 +41,7 @@ def make_grid_bucket(mesh_size, is_coarse=False):
     gb.assign_node_ordering()
     return gb, domain
 
+
 def add_data(gb, domain, kf):
     """
     Define the permeability, apertures, boundary conditions

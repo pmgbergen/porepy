@@ -38,6 +38,29 @@ class SortLinePairTest(unittest.TestCase):
         self.assertTrue(test_utils.compare_arrays(sp, truth))
 
 
+class TestSortPointPlane(unittest.TestCase):
+    def test_points_already_in_xy_plane(self):
+        p = np.array([[0, 1, 0, 1], [0, 0, 1, 1], [0, 0, 0, 0]])
+        center = np.array([[0.5], [0.5], [0]])
+        sp = sort_points.sort_point_plane(p, center)
+        known_ordering = np.array([0, 1, 3, 2])
+        self.assertTrue(test_utils.compare_arrays(sp, known_ordering))
+
+    def test_points_already_in_yz_plane(self):
+        p = np.array([[0, 0, 0, 0], [0, 1, 0, 1], [0, 0, 1, 1]])
+        center = np.array([[0.5], [0.5], [0]])
+        sp = sort_points.sort_point_plane(p, center)
+        known_ordering = np.array([0, 1, 3, 2])
+        self.assertTrue(test_utils.compare_arrays(sp, known_ordering))
+
+    def test_points_to_be_rotated(self):
+        p = np.array([[0, 1, 0, 1], [0, 0, 1, 1], [0, 1, 0, 1]])
+        center = np.array([[0.5], [0.5], [0]])
+        sp = sort_points.sort_point_plane(p, center)
+        known_ordering = np.array([0, 1, 3, 2])
+        self.assertTrue(test_utils.compare_arrays(sp, known_ordering))
+
+
 class SortTriangleEdges(unittest.TestCase):
     def test_no_sorting(self):
 
@@ -118,5 +141,4 @@ class SortTriangleEdges(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    SortTriangleEdges().test_issue_1()
     unittest.main()

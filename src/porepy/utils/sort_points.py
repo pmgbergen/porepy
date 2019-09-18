@@ -93,7 +93,7 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
     return sorted_lines
 
 
-def sort_point_plane(pts, centre, normal=None):
+def sort_point_plane(pts, centre, normal=None, tol=1e-5):
     """ Sort the points which lie on a plane.
 
     The algorithm assumes a star-shaped disposition of the points with respect
@@ -109,12 +109,17 @@ def sort_point_plane(pts, centre, normal=None):
     map_pts: np.array, 1xn, sorted point ids.
 
     """
-    R = pp.map_geometryproject_plane_matrix(pts, normal)
-    pts = np.array([np.dot(R, p) for p in pts.T]).T
-    centre = np.dot(R, centre)
-    delta = np.array([p - centre for p in pts.T]).T[0:2, :]
-    delta = np.array([d / np.linalg.norm(d) for d in delta.T]).T
-    return np.argsort(np.arctan2(*delta))
+    R = pp.map_geometry.project_plane_matrix(pts, normal)
+    # project points and center,  project to plane
+    delta = np.dot(R, pts - centre)
+
+    # Find active dimension in the projected system
+    check = np.sum(np.abs(delta), axis=1)
+    check /= np.sum(check)
+    # Dimensions where not all coordinates are equal
+    active_dim = np.logical_not(np.isclose(check, 0, atol=tol, rtol=0))
+
+    return np.argsort(np.arctan2(*delta[active_dim]))
 
 
 def sort_triangle_edges(t):

@@ -16,7 +16,7 @@ viz: Visualization; paraview, matplotlib.
 
 """
 
-__version__ = "0.5.0"
+__version__ = "1.1.0"
 
 # ------------------------------------
 # Simplified namespaces. The rue of thumb is that classes and modules that a
@@ -27,7 +27,9 @@ __all__ = []
 
 # Numerics
 from porepy.numerics.discretization import VoidDiscretization
-from porepy.numerics.interface_laws.elliptic_discretization import EllipticDiscretization
+from porepy.numerics.interface_laws.elliptic_discretization import (
+    EllipticDiscretization,
+)
 
 # Control volume, elliptic
 from porepy.numerics.fv.mpsa import Mpsa
