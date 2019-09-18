@@ -121,7 +121,7 @@ def _run_gmsh(file_name, **kwargs):
 
 
 def triangle_grid(
-    points, edges, domain, subdomains=None, do_snap_to_grid=False, **kwargs
+    points, edges, domain, constraints=None, do_snap_to_grid=False, **kwargs
 ):
     """
     Generate a gmsh grid in a 2D domain with fractures.
@@ -138,10 +138,8 @@ def triangle_grid(
         edges (2 x num_lines) connections between points, defines fractures.
     box: (dictionary) keys xmin, xmax, ymin, ymax, [together bounding box
         for the domain]
-    subdomains (dict, optional): If given, the grid is constrained to these segments
-        but they are not consiered as fractures but as auxiliary segments.
-        If given it should contains a field called "points" with all the points and a field
-        "edges" with all the edges containing the point id.
+    constraints (np.array, optional): Index of edges that only act as constraints
+        in meshing, but do not generate lower-dimensional grids.
     do_snap_to_grid (boolean, optional): If true, points are snapped to an
         underlying Cartesian grid with resolution tol before geometry
         computations are carried out. This used to be the standard, but
@@ -175,19 +173,10 @@ def triangle_grid(
 
     in_file = file_name + ".geo"
 
-    if subdomains is None:
-        subdom_pts = np.zeros((2, 0))
-        subdom_con = np.zeros((2, 0))
-    else:
-        # Pick out the subdomain boundaries and their connections
-        subdom_pts = subdomains["points"]
-        subdom_con = subdomains["edges"]
-
     # Unified description of points and lines for domain, and fractures
     pts_all, lines, domain_pts = _merge_domain_fracs_2d(
-        domain, points, edges, subdom_pts, subdom_con
+        domain, points, edges, constraints
     )
-
     # Snap to underlying grid before comparing points
     if do_snap_to_grid:
         pts_all = pp.cg.snap_to_grid(pts_all, tol)
@@ -258,7 +247,6 @@ def triangle_grid(
     # gmsh options
 
     meshing_algorithm = kwargs.get("meshing_algorithm")
-
     # Create a writer of gmsh .geo-files
     gw = gmsh_interface.GmshWriter(
         pts_split,
@@ -274,7 +262,10 @@ def triangle_grid(
     return triangle_grid_from_gmsh(file_name, **kwargs)
 
 
-def triangle_grid_from_gmsh(file_name, **kwargs):
+def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
+
+    if constraints is None:
+        constraints = np.empty(0, dtype=np.int)
 
     start_time = time.time()
 
@@ -311,7 +302,7 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
         phys_names,
         cell_info,
         line_tag=const.PHYSICAL_NAME_FRACTURES,
-        **kwargs
+        constraints=constraints ** kwargs,
     )
     g_0d = mesh_2_grid.create_0d_grids(pts, cells)
     grids = [g_2d, g_1d, g_0d]
@@ -375,6 +366,7 @@ def tetrahedral_grid_from_gmsh(network, file_name, **kwargs):
         cell_info=cell_info,
         network=network,
     )
+
     g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
     g_0d = mesh_2_grid.create_0d_grids(pts, cells)
 
@@ -405,7 +397,7 @@ def tetrahedral_grid_from_gmsh(network, file_name, **kwargs):
 ### Helper methods below
 
 
-def _merge_domain_fracs_2d(dom, frac_p, frac_l, subdom_p, subdom_l):
+def _merge_domain_fracs_2d(dom, frac_p, frac_l, constraints):
     """
     Merge fractures, domain boundaries and lines for compartments.
     The unified description is ready for feeding into meshing tools such as
@@ -453,20 +445,16 @@ def _merge_domain_fracs_2d(dom, frac_p, frac_l, subdom_p, subdom_l):
 
     # Also add a tag to the fractures, signifying that these are fractures
     frac_l = np.vstack((frac_l, const.FRACTURE_TAG * np.ones(frac_l.shape[1])))
-
-    # Also add a tag to the subdomains, signifying that these are subdomains
-    subdom_l = np.vstack((subdom_l, const.AUXILIARY_TAG * np.ones(subdom_l.shape[1])))
+    is_constraint = np.in1d(np.arange(frac_l.shape[1]), constraints)
+    frac_l[-1][is_constraint] = const.AUXILIARY_TAG
 
     # Merge the point arrays, compartment points first
-    p = np.hstack((dom_p, frac_p, subdom_p))
+    p = np.hstack((frac_p, dom_p))
 
     # Adjust index of fracture points to account for the compartment points
-    frac_l[:2] += dom_p.shape[1]
+    dom_l[:2] += frac_p.shape[1]
 
-    # Adjust index of subdomains points to account for the subdomain points
-    subdom_l[:2] += dom_p.shape[1] + frac_p.shape[1]
-
-    l = np.hstack((dom_l, frac_l, subdom_l)).astype("int")
+    l = np.hstack((frac_l, dom_l)).astype(np.int)
 
     # Add a second tag as an identifier of each line.
     l = np.vstack((l, np.arange(l.shape[1])))
