@@ -344,8 +344,8 @@ class Fracture(object):
         if p is None:
             p = self.p
 
-        sp = [sympy.geometry.Point(p[:, i]) for i in range(p.shape[1])]
-        return sympy.geometry.Polygon(*sp)
+        sp = [Point(p[:, i]) for i in range(p.shape[1])]
+        return Polygon(*sp)
 
     def __repr__(self):
         return self.__str__()
