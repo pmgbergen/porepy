@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from porepy.fracs import structured, meshing
+from porepy.fracs import meshing
 
 
 class TestFaceTags(unittest.TestCase):
@@ -104,3 +104,6 @@ class TestFaceTags(unittest.TestCase):
             self.assertTrue(np.all(g_1d.tags["tip_faces"] == t_tags_1d))
             self.assertTrue(np.all(g_1d.tags["fracture_faces"] == f_tags_1d))
             self.assertTrue(np.all(g_1d.tags["domain_boundary_faces"] == d_tags_1d))
+
+if __name__ == '__main__':
+    unittest.main()
