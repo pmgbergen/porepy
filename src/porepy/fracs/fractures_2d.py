@@ -306,7 +306,7 @@ class FractureNetwork2d(object):
         else:
             return G
 
-    def split_intersections(self):
+    def split_intersections(self, tol=None):
         """ Create a new FractureSet, with all fracture intersections removed
 
         Returns:
@@ -314,10 +314,13 @@ class FractureNetwork2d(object):
                 the set only contains non-intersecting branches.
 
         """
+        if tol is None:
+            tol = self.tol
+
         p, e = pp.intersections.split_intersecting_segments_2d(
             self.pts, self.edges, tol=self.tol
         )
-        return FractureNetwork2d(p, e, self.domain, self.tol)
+        return FractureNetwork2d(p, e, self.domain)
 
     # --------- Utility functions below here
 
