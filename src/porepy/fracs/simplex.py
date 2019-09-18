@@ -274,20 +274,14 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
         file_name = file_name[:-4]
     out_file = file_name + ".msh"
 
-    # The interface of meshio changed between versions 1 and 2. We make no
-    # assumption on which version is installed here.
-    if int(meshio.__version__[0]) < 2:
-        pts, cells, _, cell_info, phys_names = meshio.gmsh_io.read(out_file)
-        # Invert phys_names dictionary to map from physical tags to corresponding
-        # physical names
-        phys_names = {v[0]: k for k, v in phys_names.items()}
-    else:
-        mesh = meshio.read(out_file)
+    mesh = meshio.read(out_file)
 
-        pts = mesh.points
-        cells = mesh.cells
-        cell_info = mesh.cell_data
-        phys_names = {v[0]: k for k, v in mesh.field_data.items()}
+    pts = mesh.points
+    cells = mesh.cells
+    cell_info = mesh.cell_data
+    # Invert phys_names dictionary to map from physical tags to corresponding
+    # physical names
+    phys_names = {v[0]: k for k, v in mesh.field_data.items()}
 
     # Constants used in the gmsh.geo-file
     const = constants.GmshConstants()
@@ -354,20 +348,14 @@ def tetrahedral_grid_from_gmsh(network, file_name, **kwargs):
         file_name = file_name[:-4]
     file_name = file_name + ".msh"
 
-    # The interface of meshio changed between versions 1 and 2. We make no
-    # assumption on which version is installed here.
-    if int(meshio.__version__[0]) < 2:
-        pts, cells, _, cell_info, phys_names = meshio.gmsh_io.read(file_name)
-        # Invert phys_names dictionary to map from physical tags to corresponding
-        # physical names
-        phys_names = {v[0]: k for k, v in phys_names.items()}
-    else:
-        mesh = meshio.read(file_name)
+    mesh = meshio.read(file_name)
 
-        pts = mesh.points
-        cells = mesh.cells
-        cell_info = mesh.cell_data
-        phys_names = {v[0]: k for k, v in mesh.field_data.items()}
+    pts = mesh.points
+    cells = mesh.cells
+    cell_info = mesh.cell_data
+    # Invert phys_names dictionary to map from physical tags to corresponding
+    # physical names
+    phys_names = {v[0]: k for k, v in mesh.field_data.items()}
 
     # Call upon helper functions to create grids in various dimensions.
     # The constructors require somewhat different information, reflecting the
