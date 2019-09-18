@@ -121,7 +121,7 @@ def _run_gmsh(file_name, **kwargs):
 
 
 def triangle_grid(
-    points, edges, domain, constraints=None, do_snap_to_grid=False, **kwargs
+    points, edges, domain, constraints=None, **kwargs
 ):
     """
     Generate a gmsh grid in a 2D domain with fractures.
@@ -140,12 +140,6 @@ def triangle_grid(
         for the domain]
     constraints (np.array, optional): Index of edges that only act as constraints
         in meshing, but do not generate lower-dimensional grids.
-    do_snap_to_grid (boolean, optional): If true, points are snapped to an
-        underlying Cartesian grid with resolution tol before geometry
-        computations are carried out. This used to be the standard, but
-        indications are it is better not to do this. This keyword construct is
-        a stop-gap measure to invoke the old functionality if desired. This
-        option will most likely dissapear in the future.
     **kwargs: To be explored.
 
     Returns
@@ -177,9 +171,6 @@ def triangle_grid(
     pts_all, lines, domain_pts = _merge_domain_fracs_2d(
         domain, points, edges, constraints
     )
-    # Snap to underlying grid before comparing points
-    if do_snap_to_grid:
-        pts_all = pp.cg.snap_to_grid(pts_all, tol)
 
     assert np.all(np.diff(lines[:2], axis=0) != 0)
 
@@ -210,9 +201,6 @@ def triangle_grid(
     logger.info("Done. Elapsed time " + str(time.time() - tm))
 
     # Ensure unique description of points
-    if do_snap_to_grid:
-        pts_split = pp.cg.snap_to_grid(pts_split, tol)
-
     pts_split, _, old_2_new = unique_columns_tol(pts_split, tol=tol)
     lines_split[:2] = old_2_new[lines_split[:2]]
     to_remove = np.where(lines[0, :] == lines[1, :])[0]
