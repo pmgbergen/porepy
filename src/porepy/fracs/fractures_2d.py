@@ -298,6 +298,10 @@ class FractureNetwork2d(object):
     def split_intersections(self, tol=None):
         """ Create a new FractureSet, with all fracture intersections removed
 
+        Parameters:
+            tol (optional): Tolerance used in geometry computations when
+                splitting fractures. Defaults to the tolerance of this network.
+
         Returns:
             FractureSet: New set, where all intersection points are added so that
                 the set only contains non-intersecting branches.

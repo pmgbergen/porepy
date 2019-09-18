@@ -251,6 +251,19 @@ def triangle_grid(
 
 
 def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
+    """ Generate a list of grids dimensions {2, 1, 0}, starting from a gmsh mesh.
+
+    Parameters:
+        file_name (str): Path to file of gmsh.msh specification.
+        constraints (np.array, optional): Index of fracture lines that are
+            constraints in the meshing, but should not have a lower-dimensional
+            mesh. Defaults to empty.
+
+    Returns:
+        list of list of grids: grids in 2d, 1d and 0d. If no grids exist in a
+            specified dimension, the inner list will be empty.
+
+    """
 
     if constraints is None:
         constraints = np.empty(0, dtype=np.int)
@@ -318,6 +331,20 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
 
 
 def tetrahedral_grid_from_gmsh(network, file_name, **kwargs):
+    """ Generate a list of grids of dimensions {3, 2, 1, 0}, starting from a gmsh
+    mesh.
+
+    Parameters:
+        network (pp.FractureNetwork3d): The network used to generate the gmsh
+            input file.
+        file_name (str): Path to file of gmsh.msh specification.
+
+    Returns:
+        list of list of grids: grids in 2d, 1d and 0d. If no grids exist in a
+            specified dimension, the inner list will be empty.
+
+    """
+
 
     start_time = time.time()
     # Verbosity level

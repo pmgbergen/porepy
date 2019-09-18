@@ -16,9 +16,10 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4, **kwargs):
     Lines that start with a # are ignored.
 
     Parameters:
-        file_name: name of the file
-        has_domain: if the first line in the csv file specify the domain
-        tol: (optional) tolerance for the methods
+        file_name (str): path to the csv file
+        has_domain (boolean): if the first line in the csv file specify the domain
+        tol: (double, optional) geometric tolerance used in the computations.
+            Defaults to 1e-4.
         **kwargs: Keyword arguments passed on to Fracture and FractureNetwork3d
 
     Return:
