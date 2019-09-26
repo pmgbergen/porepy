@@ -302,7 +302,7 @@ def update_cell_connectivity(g, face_id, normal, x0):
     ----------
     int: Flag that informs on what action has been taken. 0 means g.cell_faces has been
         split. -1 means the fracture was on the boundary, and no action taken.
-        
+
     Raises:
     ----------
     ValueError: If the fracture is not planar
