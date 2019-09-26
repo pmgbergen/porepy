@@ -306,7 +306,7 @@ def update_cell_connectivity(g, face_id, normal, x0):
     Raises:
     ----------
     ValueError: If the fracture is not planar
-    
+
     """
 
     # We find the cells attached to the tagged faces.
