@@ -1,75 +1,10 @@
 import numpy as np
 import scipy.sparse as sps
 import unittest
-import warnings
 
 from porepy.grids.grid_bucket import GridBucket
 from porepy.fracs import meshing
 import porepy as pp
-
-
-class TestGridBucket(unittest.TestCase):
-    def test_cell_global2loc_1_grid(self):
-        gb = meshing.cart_grid([], [2, 2])
-        gb.cell_global2loc()
-        R = sps.eye(4)
-        for g, d in gb:
-            self.assertTrue(np.sum(d["cell_global2loc"] != R) == 0)
-
-    def test_cell_global2loc_1_frac(self):
-        f = np.array([[0, 1], [1, 1]])
-        gb = meshing.cart_grid([f], [2, 2])
-        gb.cell_global2loc()
-        glob = np.arange(5)
-        # test grids
-        for g, d in gb:
-            if g.dim == 2:
-                loc = np.array([0, 1, 2, 3])
-            elif g.dim == 1:
-                loc = np.array([4])
-            else:
-                self.assertTrue(False)
-            R = d["cell_global2loc"]
-            self.assertTrue(np.all(R * glob == loc))
-        # test mortars
-        glob = np.array([0, 1])
-        for _, d in gb.edges():
-            loc = np.array([0, 1])
-            R = d["cell_global2loc"]
-            self.assertTrue(np.all(R * glob == loc))
-
-    def test_cell_global2loc_2_fracs(self):
-        f1 = np.array([[0, 1], [1, 1]])
-        f2 = np.array([[1, 2], [1, 1]])
-        f3 = np.array([[1, 1], [0, 1]])
-        f4 = np.array([[1, 1], [1, 2]])
-
-        gb = meshing.cart_grid([f1, f2, f3, f4], [2, 2])
-        gb.cell_global2loc()
-        glob = np.arange(9)
-        # test grids
-        for g, d in gb:
-            if g.dim == 2:
-                loc = np.array([0, 1, 2, 3])
-            elif g.dim == 1:
-                i = d["node_number"]
-                loc = np.arange(4 + (i - 1), 4 + i)
-            else:
-                loc = np.array([8])
-            R = d["cell_global2loc"]
-            self.assertTrue(np.all(R * glob == loc))
-
-        # test mortars
-        glob = np.arange(12)
-        start = 0
-        end = 0
-        for e, d in gb.edges():
-            i = d["edge_number"]
-            end += d["mortar_grid"].num_cells
-            loc = np.arange(start, end)
-            start = end
-            R = d["cell_global2loc"]
-            self.assertTrue(np.all(R * glob == loc))
 
 
 class MockGrid:
@@ -108,6 +43,7 @@ class TestBucket(unittest.TestCase):
         gb = self.simple_bucket(3)
         self.assertTrue(gb.size() == 3)
 
+    # ----- Tests of adding nodes and edges ----- #
     def test_add_nodes(self):
         # Simply add grid. Should work.
         gb = pp.GridBucket()
@@ -135,6 +71,25 @@ class TestBucket(unittest.TestCase):
         self.assertRaises(ValueError, gb.add_edge, [g1, g2], None)
         # Should not be able to add couplings two dimensions appart
         self.assertRaises(ValueError, gb.add_edge, [g1, g3], None)
+
+    def test_dimension_ordering_edges(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid(1)
+        g2 = MockGrid(2)
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+        gb.add_edge([g1, g2], None)
+        gb.add_edge([g1, g1], None)
+        for e, _ in gb.edges():
+            self.assertTrue(e[0].dim >= e[1].dim)
+
+        gb = pp.GridBucket()
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+        gb.add_edge([g2, g1], None)
+        gb.add_edge([g1, g1], None)
+        for e, _ in gb.edges():
+            self.assertTrue(e[0].dim >= e[1].dim)
 
     def test_node_neighbor_no_dim(self):
         # Test node neighbors, not caring about dimensions
@@ -183,6 +138,36 @@ class TestBucket(unittest.TestCase):
         self.assertTrue(neigh_2[0] == g1)
 
         self.assertRaises(ValueError, gb.node_neighbors, g1, True, True)
+
+    # ------ Test of iterators ------*
+    def test_node_edge_iterators(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid(1)
+        g2 = MockGrid(2)
+        g3 = MockGrid(3)
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+        gb.add_nodes(g3)
+        gb.add_edge([g1, g2], None)
+        gb.add_edge([g2, g3], None)
+
+        # First test traversal by gb.__iter__
+        found = {g1: False, g2: False, g3: False}
+        for g, _ in gb:
+            found[g] = True
+        self.assertTrue(all([v for v in list(found.values())]))
+
+        # Next, use the node() function
+        found = {g1: False, g2: False, g3: False}
+        for g, _ in gb.nodes():
+            found[g] = True
+        self.assertTrue(all([v for v in list(found.values())]))
+
+        # Finally, check the edges
+        found = {(g2, g1): False, (g3, g2): False}
+        for e, _ in gb.edges():
+            found[e] = True
+        self.assertTrue(all([v for v in list(found.values())]))
 
     # ------------ Tests for add_node_props
 
@@ -450,6 +435,19 @@ class TestBucket(unittest.TestCase):
         self.assertTrue(gb.num_faces(l) == g1.num_faces)
         self.assertTrue(gb.num_nodes(l) == g1.num_nodes)
 
+    def test_num_graph_nodes_edges(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid(1)
+        g2 = MockGrid(2)
+        g3 = MockGrid(3)
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+        gb.add_nodes(g3)
+        gb.add_edge([g1, g2], None)
+        gb.add_edge([g2, g3], None)
+        self.assertTrue(gb.num_graph_edges() == 2)
+        self.assertTrue(gb.num_graph_nodes() == 3)
+
     def test_str_repr(self):
 
         g1 = MockGrid(dim=1, num_cells=1, num_faces=3, num_nodes=3)
@@ -507,6 +505,70 @@ class TestBucket(unittest.TestCase):
     def test_remove_node_prop_node_number(self):
         gb = self.simple_bucket(1)
         self.assertRaises(ValueError, gb.remove_node_props, "node_number")
+
+    def test_cell_global2loc_1_grid(self):
+        gb = meshing.cart_grid([], [2, 2])
+        gb.cell_global2loc()
+        R = sps.eye(4)
+        for g, d in gb:
+            self.assertTrue(np.sum(d["cell_global2loc"] != R) == 0)
+
+    # ----- Tests relating to mesh construction
+
+    def test_cell_global2loc_1_frac(self):
+        f = np.array([[0, 1], [1, 1]])
+        gb = meshing.cart_grid([f], [2, 2])
+        gb.cell_global2loc()
+        glob = np.arange(5)
+        # test grids
+        for g, d in gb:
+            if g.dim == 2:
+                loc = np.array([0, 1, 2, 3])
+            elif g.dim == 1:
+                loc = np.array([4])
+            else:
+                self.assertTrue(False)
+            R = d["cell_global2loc"]
+            self.assertTrue(np.all(R * glob == loc))
+        # test mortars
+        glob = np.array([0, 1])
+        for _, d in gb.edges():
+            loc = np.array([0, 1])
+            R = d["cell_global2loc"]
+            self.assertTrue(np.all(R * glob == loc))
+
+    def test_cell_global2loc_2_fracs(self):
+        f1 = np.array([[0, 1], [1, 1]])
+        f2 = np.array([[1, 2], [1, 1]])
+        f3 = np.array([[1, 1], [0, 1]])
+        f4 = np.array([[1, 1], [1, 2]])
+
+        gb = meshing.cart_grid([f1, f2, f3, f4], [2, 2])
+        gb.cell_global2loc()
+        glob = np.arange(9)
+        # test grids
+        for g, d in gb:
+            if g.dim == 2:
+                loc = np.array([0, 1, 2, 3])
+            elif g.dim == 1:
+                i = d["node_number"]
+                loc = np.arange(4 + (i - 1), 4 + i)
+            else:
+                loc = np.array([8])
+            R = d["cell_global2loc"]
+            self.assertTrue(np.all(R * glob == loc))
+
+        # test mortars
+        glob = np.arange(12)
+        start = 0
+        end = 0
+        for e, d in gb.edges():
+            i = d["edge_number"]
+            end += d["mortar_grid"].num_cells
+            loc = np.arange(start, end)
+            start = end
+            R = d["cell_global2loc"]
+            self.assertTrue(np.all(R * glob == loc))
 
 
 if __name__ == "__main__":
