@@ -126,7 +126,7 @@ class GridBucket(object):
             object: A dictionary with keys and properties.
 
         """
-        for e, d in self._edges.items():
+        for e, _ in self._edges.items():
             if e[0] == n or e[1] == n:
                 yield e, self.edge_props(e)
 
@@ -292,7 +292,7 @@ class GridBucket(object):
         """
         for key in np.atleast_1d(keys):
             if grid_pairs is None:
-                for gp, val in self._edges.items():
+                for gp in self._edges.keys():
                     self._edges[gp][key] = None
             else:
                 for gp in grid_pairs:
