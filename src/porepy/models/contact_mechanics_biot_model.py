@@ -13,6 +13,9 @@ undergo major changes (or be deleted).
 import numpy as np
 import porepy as pp
 import logging
+import time
+import scipy.sparse as sps
+import scipy.sparse.linalg as spla
 
 import porepy.models.contact_mechanics_model as contact_model
 from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
@@ -22,8 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 class ContactMechanicsBiot(contact_model.ContactMechanics):
-    def __init__(self, mesh_args, folder_name):
-        super().__init__(mesh_args, folder_name)
+    def __init__(self, params=None):
+        super().__init__(params)
 
         # Temperature
         self.scalar_variable = "p"
@@ -34,12 +37,6 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         # Scaling coefficients
         self.scalar_scale = 1
         self.length_scale = 1
-
-        # Time
-        # The time attribute may be used e.g. to update BCs.
-        self.time = 0
-        self.time_step = 1 * self.length_scale ** 2
-        self.end_time = self.time_step * 1
 
         # Whether or not to subtract the fracture pressure contribution for the contact
         # traction. This should be done if the scalar variable is pressure, but not for
@@ -126,17 +123,10 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                     self.mechanics_parameter_key,
                     {"friction_coefficient": friction, "time_step": self.time_step},
                 )
-        # Should we keep this, @EK?
+
         for _, d in gb.edges():
             mg = d["mortar_grid"]
-
-            # Parameters for the surface diffusion.
-            mu = 1
-            lmbda = 1
-
-            pp.initialize_data(
-                mg, d, self.mechanics_parameter_key, {"mu": mu, "lambda": lmbda}
-            )
+            pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
     def set_scalar_parameters(self):
         gb = self.gb
@@ -190,7 +180,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 {"normal_diffusivity": normal_diffusivity},
             )
 
-    def assign_discretisations(self):
+    def assign_discretizations(self):
         """
         Assign discretizations to the nodes and edges of the grid bucket.
 
@@ -236,6 +226,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                     var_d + "_" + var_s: {"grad_p": grad_p_disc},
                     var_s + "_" + var_d: {"div_u": div_u_disc},
                 }
+
             elif g.dim == self.Nd - 1:
                 d[pp.DISCRETIZATION] = {
                     self.contact_traction_variable: {"empty": empty_discr},
@@ -381,105 +372,153 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 mech_dict = {"bc_values": bc_values}
                 d[pp.STATE].update({self.mechanics_parameter_key: mech_dict})
 
+        for _, d in self.gb.edges():
+            mg = d["mortar_grid"]
+            initial_value = np.zeros(mg.num_cells)
+            d[pp.STATE][self.mortar_scalar_variable] = initial_value
+
     def export_step(self):
         pass
 
     def export_pvd(self):
         pass
 
+    def prepare_simulation(self):
+        """ Is run prior to a time-stepping scheme. Use this to initialize
+        discretizations, linear solvers etc.
+        """
+        self.create_grid()
+        self.set_parameters()
+        self.initial_condition()
 
-def run_biot(setup, newton_tol=1e-10):
-    """
-    Function for solving the time dependent Biot equations with a non-linear Coulomb
-    contact condition on the fractures.
+        self.assign_variables()
+        self.assign_discretizations()
+        self.discretize()
+        self.initialize_linear_solver()
 
-    The parameter keyword from the elasticity is assumed the same as the
-    parameter keyword from the contact condition.
+    def discretize(self):
+        """ Discretize all terms
+        """
+        if not hasattr(self, "assembler"):
+            self.assembler = pp.Assembler(self.gb)
 
-    In addition to the standard parameters for Biot we also require the following
-    under the mechanics keyword (returned from setup.set_parameters):
-        'friction_coeff' : The coefficient of friction
-        'c' : The numerical parameter in the non-linear complementary function.
+        g_max = self.gb.grids_of_dimension(self.Nd)[0]
 
-    Arguments:
-        setup: A setup class with methods:
-                set_parameters(): assigns data to grid bucket.
-                assign_discretizations_and_variables(): assign the appropriate
-                    discretizations and variables to each node and edge of the grid
-                    bucket.
-                create_grid(): Create grid bucket and set rotations for all fractures.
-                initial_condition(): Set initial guesses for the iterates (contact
-                     traction and mortar displacement) and the scalar variable.
-            and attributes:
-                end_time: End time time of simulation.
-                time_step: Time step size
-        newton_tol: Tolerance for the Newton solver, see contact_mechanics_model.
-    """
-    if "gb" not in setup.__dict__:
-        setup.create_grid()
-    gb = setup.gb
+        tic = time.time()
+        logger.info("Discretize")
 
-    # Extract the grids we use
-    g_max = gb.grids_of_dimension(setup.Nd)[0]
-    d_max = gb.node_props(g_max)
+        # Discretization is a bit cumbersome, as the Biot discetization removes the
+        # one-to-one correspondence between discretization objects and blocks in the matrix.
+        # First, Discretize with the biot class
+        self.discretize_biot(self.gb)
 
-    # Assign parameters, variables and discretizations
-    setup.set_parameters()
-    setup.initial_condition()
-    setup.assign_variables()
-    setup.assign_discretisations()
-    # Set up assembler and get initial condition for the displacements
-    assembler = pp.Assembler(gb)
-    u = d_max[pp.STATE][setup.displacement_variable]
+        # Next, discretize term on the matrix grid not covered by the Biot discretization,
+        # i.e. the source term
+        self.assembler.discretize(grid=g_max, term_filter=["source"])
 
-    setup.export_step()
+        # Finally, discretize terms on the lower-dimensional grids. This can be done
+        # in the traditional way, as there is no Biot discretization here.
+        for g, _ in self.gb:
+            if g.dim < self.Nd:
+                self.assembler.discretize(grid=g)
 
-    # Discretization is a bit cumbersome, as the Biot discetization removes the
-    # one-to-one correspondence between discretization objects and blocks in the matrix.
-    # First, Discretize with the biot class
-    setup.discretize_biot(gb)
+        logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
-    # Next, discretize term on the matrix grid not covered by the Biot discretization,
-    # i.e. the source term
-    assembler.discretize(grid=g_max, term_filter=["source"])
+    def before_newton_loop(self):
+        """ Will be run before entering a Newton loop. Discretize time-dependent quantities etc.
+        """
+        # self.discretize()
 
-    # Finally, discretize terms on the lower-dimensional grids. This can be done
-    # in the traditional way, as there is no Biot discretization here.
-    for g, d in gb:
-        if g.dim < gb.dim_max():
-            assembler.discretize(grid=g)
+    def before_newton_iteration(self):
+        # Re-discretize the nonlinear term
+        self.assembler.discretize(term_filter=self.friction_coupling_term)
 
-    # Prepare for the time loop
-    errors = []
-    t_end = setup.end_time
-    k = 0
-    while setup.time < t_end:
-        setup.time += setup.time_step
-        k += 1
+    def after_newton_iteration(self, solution):
+        self.update_state(solution)
+
+    def after_newton_convergence(self, solution):
+        self.assembler.distribute_variable(solution)
+
+    def after_newton_divergence(self):
+        raise ValueError("Newton iterations did not converge")
+
+    def initialize_linear_solver(self):
+
+        solver = self.params.get("linear_solver", "direct")
+
+        if solver == "direct":
+            """ In theory, it should be possible to instruct SuperLU to reuse the
+            symbolic factorization from one iteration to the next. However, it seems
+            the scipy wrapper around SuperLU has not implemented the necessary
+            functionality, as discussed in
+
+                https://github.com/scipy/scipy/issues/8227
+
+            We will therefore pass here, and pay the price of long computation times.
+            """
+            self.linear_solver = "direct"
+
+        elif solver == "pyamg":
+            self.linear_solver = solver
+            import pyamg
+
+            assembler = self.assembler
+
+            A, _ = assembler.assemble_matrix_rhs()
+
+            g = self.gb.grids_of_dimension(self.Nd)[0]
+            mechanics_dof = assembler.dof_ind(g, self.displacement_variable)
+
+            pyamg_solver = pyamg.smoothed_aggregation_solver(
+                A[mechanics_dof][:, mechanics_dof]
+            )
+            self.mechanics_precond = pyamg_solver.aspreconditioner(cycle="W")
+
+        else:
+            raise ValueError("unknown linear solver " + solver)
+
+    def assemble_and_solve_linear_system(self, tol):
+
+        A, b = self.assembler.assemble_matrix_rhs()
+        logger.debug("Max element in A {0:.2e}".format(np.max(np.abs(A))))
         logger.debug(
-            "\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
-                k, setup.time, t_end, setup.time_step
+            "Max {0:.2e} and min {1:.2e} A sum.".format(
+                np.max(np.sum(np.abs(A), axis=1)), np.min(np.sum(np.abs(A), axis=1))
             )
         )
 
-        # Prepare for Newton
-        counter_newton = 0
-        converged_newton = False
-        max_newton = 15
-        newton_errors = []
-        while counter_newton <= max_newton and not converged_newton:
-            logger.debug(
-                "Newton iteration number {} of {}".format(counter_newton, max_newton)
-            )
-            # One Newton iteration:
-            sol, u, error, converged_newton = pp.models.contact_mechanics_model.newton_iteration(
-                assembler, setup, u, tol=newton_tol
-            )
-            counter_newton += 1
-            newton_errors.append(error)
-        # Prepare for next time step
-        assembler.distribute_variable(sol)
-        setup.export_step()
-        errors.append(newton_errors)
-    setup.newton_errors = errors
-    setup.export_pvd()
+        if self.linear_solver == "direct":
+            return spla.spsolve(A, b)
+        elif self.linear_solver == "pyamg":
+            print("pyamg")
+            g = self.gb.grids_of_dimension(self.Nd)[0]
+            assembler = self.assembler
+            mechanics_dof = assembler.full_dof(g, self.displacement_variable)
+            mortar_dof = np.setdiff1d(np.arange(b.size), mechanics_dof)
+
+            A_el_m = A[mechanics_dof, :][:, mortar_dof]
+            A_m_el = A[mortar_dof, :][:, mechanics_dof]
+            A_m_m = A[mortar_dof, :][:, mortar_dof]
+
+            # Also create a factorization of the mortar variable.
+            # This is relatively cheap, so why not
+            A_m_m_solve = sps.linalg.factorized(A_m_m)
+
+            def precond_schur(r):
+                # Mortar residual
+                rm = r[mortar_dof]
+                # Residual for the elasticity is the local one, plus the mapping of the mortar residual
+                r_el = r[mechanics_dof] - A_el_m * A_m_m_solve(rm)
+                # Solve, using specified solver
+                du = self.mechanics_precond(r_el)
+                # Map back to mortar residual
+                dm = A_m_m_solve(rm - A_m_el * du)
+                x = np.zeros_like(r)
+                x[mechanics_dof] = du
+                x[mortar_dof] = dm
+                return x
+
+            M = sps.linalg.LinearOperator(A.shape, precond_schur)
+            x, info = sps.linalg.gmres(A, b, M=M, restart=100, maxiter=10, tol=tol)
+
+            return x

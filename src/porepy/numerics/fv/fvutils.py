@@ -666,7 +666,7 @@ def scalar_divergence(g):
     -------
     divergence operator
     """
-    return g.cell_faces.T
+    return g.cell_faces.T.tocsr()
 
 
 def vector_divergence(g):
@@ -692,9 +692,9 @@ def vector_divergence(g):
     # Vector extension, convert to coo-format to avoid odd errors when one
     # grid dimension is 1 (this may return a bsr matrix)
     # The order of arguments to sps.kron is important.
-    block_div = sps.kron(scalar_div, sps.eye(g.dim)).tocsr()
+    block_div = sps.kron(scalar_div, sps.eye(g.dim)).tocsc()
 
-    return block_div.transpose()
+    return block_div.transpose().tocsr()
 
 
 def scalar_tensor_vector_prod(g, k, subcell_topology):

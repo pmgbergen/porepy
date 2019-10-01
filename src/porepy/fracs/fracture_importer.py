@@ -300,7 +300,7 @@ def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
 
     Parameters:
         file_name (str): Name of gmsh in and out file. Should have extsion .geo
-            or .msh. In the latter case, gmsh will be called upon to generate the
+            or .msh. In the former case, gmsh will be called upon to generate the
             mesh before the mixed-dimensional mesh is constructed.
         dim (int): Dimension of the problem. Should be 2 or 3.
         network (FractureNetwork3d, only if dim==3): FractureNetwork. Needed

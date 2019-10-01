@@ -11,19 +11,46 @@ undergo major changes (or be deleted).
 """
 import numpy as np
 import scipy.sparse as sps
-from scipy.spatial.distance import cdist
+import scipy.sparse.linalg as spla
 import logging
+import time
 
 import porepy as pp
+import porepy.models.abstract_model
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
 
-class ContactMechanics:
-    def __init__(self, mesh_args, folder_name):
-        self.mesh_args = mesh_args
-        self.folder_name = folder_name
+class ContactMechanics(porepy.models.abstract_model.AbstractModel):
+    """ This is a shell class for contact mechanics problems.
+
+    The intended use is to inherit from this class, and do the necessary modifications
+    and specifications for the problem to be fully defined. The minimal adjustment
+    needed is to specify the method create_grid().
+
+    Attributes:
+        displacement_variable (str): Name assigned to the displacement variable in the
+            highest-dimensional subdomain. Will be used throughout the simulations,
+            including in Paraview export.
+        mortar_displacement_variable (str): Name assigned to the displacement variable
+            on the fracture walls. Will be used throughout the simulations, including in
+            Paraview export.
+        contact_traction_variable (str): Name assigned to the variable for contact
+            forces in the fracture. Will be used throughout the simulations, including
+            in Paraview export.
+        mechanics_parameter_key (str): Keyword used to define parameters and
+            discretizations for the mechanics problem.
+        friction_coupling_term (str): Keyword used to define paramaters and
+            discretizations for the friction problem.
+        params (dict): Dictionary of parameters used to control the solution procedure.
+        viz_folder_name (str): Folder for visualization export.
+
+    All attributes are given natural values at initialization of the class.
+
+    """
+
+    def __init__(self, params=None):
 
         # Variables
         self.displacement_variable = "u"
@@ -36,6 +63,14 @@ class ContactMechanics:
         # Terms of the equations
         self.friction_coupling_term = "fracture_force_balance"
 
+        # Solver parameters
+        if params is None:
+            self.params = {}
+            self.viz_folder_name = "contact_mechanics_viz"
+        else:
+            self.params = params
+            self.viz_folder_name = params.get("folder_name", "contact_mechanics_viz")
+
     def create_grid(self):
         """
         Method that creates a GridBucket of a 2D domain with one fracture and sets
@@ -45,30 +80,25 @@ class ContactMechanics:
             mesh_args (dict): Containing the mesh sizes.
 
         The method assigns the following attributes to self:
-            frac_pts (np.array): Nd x (number of fracture points), the coordinates of
-                the fracture endpoints.
+            gb (pp.GridBucket): The produced grid bucket.
             box (dict): The bounding box of the domain, defined through minimum and
                 maximum values in each dimension.
-            gb (pp.GridBucket): The produced grid bucket.
             Nd (int): The dimension of the matrix, i.e., the highest dimension in the
                 grid bucket.
 
+        After self.gb is set, the method should also call
+
+            pp.contact_conditions.set_projections(self.gb)
+
         """
-        # List the fracture points
-        self.frac_pts = np.array([[0.2, 0.8], [0.5, 0.5]])
-        # Each column defines one fracture
-        frac_edges = np.array([[0], [1]])
-        self.box = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
+        pass
 
-        network = pp.FractureNetwork2d(self.frac_pts, frac_edges, domain=self.box)
-        # Generate the mixed-dimensional mesh
-        gb = network.mesh(self.mesh_args)
+    def _high_dim_grid(self):
+        """ Get the grid of the highest dimension. Assumes self.gb is set.
 
-        # Set projections to local coordinates for all fractures
-        pp.contact_conditions.set_projections(gb)
-
-        self.gb = gb
-        self.Nd = self.gb.dim_max()
+        TODO: Change name to nd_grid()
+        """
+        return self.gb.grids_of_dimension(self.Nd)[0]
 
     def domain_boundary_sides(self, g):
         """
@@ -91,7 +121,10 @@ class ContactMechanics:
         return all_bf, east, west, north, south, top, bottom
 
     def bc_type(self, g):
-        all_bf, *_ = self.domain_boundary_sides(g)
+        """ Define type of boundary conditions: Dirichlet on all global boundaries,
+        Dirichlet also on fracture faces.
+        """
+        all_bf = g.get_boundary_faces()
         bc = pp.BoundaryConditionVectorial(g, all_bf, "dir")
         # Default internal BC is Neumann. We change to Dirichlet for the contact
         # problem. I.e., the mortar variable represents the displacement on the
@@ -102,6 +135,8 @@ class ContactMechanics:
         return bc
 
     def bc_values(self, g):
+        """ Set homogeneous conditions on all boundary faces.
+        """
         # Values for all Nd components, facewise
         values = np.zeros((self.Nd, g.num_faces))
         # Reshape according to PorePy convention
@@ -109,7 +144,9 @@ class ContactMechanics:
         return values
 
     def source(self, g):
-        return 0
+        """
+        """
+        return np.zeros(self.Nd * g.num_cells)
 
     def set_parameters(self):
         """
@@ -140,6 +177,7 @@ class ContactMechanics:
                         "bc_values": bc_val,
                         "source": source_val,
                         "fourth_order_tensor": C,
+                       # "max_memory": 7e7,
                     },
                 )
 
@@ -151,17 +189,9 @@ class ContactMechanics:
                     self.mechanics_parameter_key,
                     {"friction_coefficient": friction},
                 )
-        # Should we keep this, @EK?
         for _, d in gb.edges():
             mg = d["mortar_grid"]
-
-            # Parameters for the surface diffusion.
-            mu = 1
-            lmbda = 1
-
-            pp.initialize_data(
-                mg, d, self.mechanics_parameter_key, {"mu": mu, "lambda": lmbda}
-            )
+            pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
     def assign_variables(self):
         """
@@ -193,6 +223,7 @@ class ContactMechanics:
     def assign_discretizations(self):
         """
         Assign discretizations to the nodes and edges of the grid bucket.
+
         """
         # For the Nd domain we solve linear elasticity with mpsa.
         Nd = self.Nd
@@ -226,8 +257,14 @@ class ContactMechanics:
                 }
 
     def initial_condition(self):
-        """
-        Initial guess for Newton iteration.
+        """ Set initial guess for the variables.
+
+        The displacement is set to zero in the Nd-domain, and at the fracture interfaces
+        The displacement jump is thereby also zero.
+
+        The contact pressure is set to zero in the tangential direction,
+        and -1 (that is, in contact) in the normal direction.
+
         """
 
         for g, d in self.gb:
@@ -240,7 +277,10 @@ class ContactMechanics:
                 traction = np.vstack(
                     (np.zeros((g.dim, g.num_cells)), -1 * np.ones(g.num_cells))
                 ).ravel(order="F")
-                state = {"previous_iterate": {self.contact_traction_variable: traction}}
+                state = {
+                    "previous_iterate": {self.contact_traction_variable: traction},
+                    self.contact_traction_variable: traction,
+                }
             else:
                 state = {}
             pp.set_state(d, state)
@@ -258,7 +298,7 @@ class ContactMechanics:
                 }
                 pp.set_state(d, state)
 
-    def extract_iterate(self, assembler, solution_vector):
+    def update_state(self, solution_vector):
         """
         Extract parts of the solution for current iterate.
 
@@ -270,10 +310,8 @@ class ContactMechanics:
             assembler (pp.Assembler): assembler for self.gb.
             solution_vector (np.array): solution vector for the current iterate.
 
-        Returns:
-            (np.array): displacement solution vector for the Nd grid.
-
         """
+        assembler = self.assembler
         variable_names = []
         for pair in assembler.block_dof.keys():
             variable_names.append(pair[1])
@@ -308,12 +346,27 @@ class ContactMechanics:
                                 self.contact_traction_variable
                             ] = contact.copy()
 
-                    else:
-                        # Only need the displacements for Nd
-                        if name != self.displacement_variable:
-                            continue
-                        u = solution_vector[dof[bi] : dof[bi + 1]]
-        return u
+    def get_state_vector(self):
+        """ Get a vector of the current state of the variables; with the same ordering
+            as in the assembler.
+
+        Returns:
+            np.array: The current state, as stored in the GridBucket.
+
+        """
+        size = self.assembler.num_dof()
+        state = np.zeros(size)
+        for g, var in self.assembler.block_dof.keys():
+            # Index of
+            ind = self.assembler.dof_ind(g, var)
+
+            if isinstance(g, tuple):
+                values = self.gb.edge_props(g)[pp.STATE][var]
+            else:
+                values = self.gb.node_props(g)[pp.STATE][var]
+            state[ind] = values
+
+        return state
 
     def reconstruct_local_displacement_jump(self, data_edge):
         """
@@ -342,145 +395,214 @@ class ContactMechanics:
         return u_mortar_local.reshape((self.Nd, -1), order="F")
 
     def _set_friction_coefficient(self, g):
+        """ The friction coefficient is uniform, and equal to 1.
+        """
+        return np.ones(g.num_cells)
 
-        nodes = g.nodes
+    def prepare_simulation(self):
+        """ Is run prior to a time-stepping scheme. Use this to initialize
+        discretizations, linear solvers etc.
 
-        tips = nodes[:, [0, -1]]
+        TODO: Should the arguments be solver_options and **kwargs (for everything else?)
 
-        fc = g.cell_centers
-        D = cdist(fc.T, tips.T)
-        D = np.min(D, axis=1)
-        R = 200
-        beta = 10
-        friction_coefficient = 0.5 * (1 + beta * np.exp(-R * D ** 2))
-        #        friction_coefficient = 0.5 * np.ones(g.num_cells)
-        return friction_coefficient
+        TODO: Examples needed
 
+        """
+        self.create_grid()
+        self.set_parameters()
+        self.assign_variables()
+        self.assign_discretizations()
+        self.initial_condition()
+        self.discretize()
+        self.initialize_linear_solver()
 
-def run_mechanics(setup):
-    """
-    Function for solving linear elasticity with a non-linear Coulomb contact.
+        g_max = self.gb.grids_of_dimension(self.Nd)[0]
+        self.viz = pp.Exporter(g_max, name="mechanics", folder=self.viz_folder_name)
 
-    In addition to the standard parameters for mpsa we also require the following
-    under the mechanics keyword (returned from setup.set_parameters):
-        'friction_coeff' : The coefficient of friction
-        'c' : The numerical parameter in the non-linear complementary function.
+    def after_simulation(self):
+        """ Called after a time-dependent problem
+        """
+        pass
 
-    Arguments:
-        setup: A setup class with methods:
-                create_grid(): Create and return the grid bucket
-                set_parameters(): assigns data to grid bucket.
-                assign_variables(): assigns variables on grid bucket nodes and edges.
-                assign_discretizations(): assigns discretizations on grid bucket nodes
-                and edges.
-                initial_condition(): Returns initial guess for 'u' and 'lam'.
-            and attributes:
-                folder_name: returns a string. The data from the simulation will be
-                written to the file 'folder_name/' + setup.out_name and the vtk files to
-                'res_plot/' + setup.out_name
-    """
-    # Define mixed-dimensional grid. Avoid overwriting existing gb.
-    if "gb" in setup.__dict__:
-        gb = setup.gb
-    else:
-        gb = setup.create_grid()
-        gb = setup.gb
+    def discretize(self):
+        """ Discretize all terms
+        """
 
-    # Pick up grid of highest dimension - there should be a single one of these
-    g_max = gb.grids_of_dimension(setup.Nd)[0]
-    # Set simulation parameters and assign variables and discretizations
-    setup.set_parameters()
-    setup.initial_condition()
-    setup.assign_variables()
-    setup.assign_discretizations()
+        self.assembler = pp.Assembler(self.gb)
 
-    # Set up assembler and discretize
-    assembler = pp.Assembler(gb)
-    assembler.discretize()
+        tic = time.time()
+        logger.info("Discretize")
+        self.assembler.discretize()
+        logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
-    # Prepare for iteration
+    def before_newton_loop(self):
+        """ Will be run before entering a Newton loop. Discretize time-dependent quantities etc.
+        """
+        pass
 
-    u0 = gb.node_props(g_max)[pp.STATE][setup.displacement_variable]
-    errors = []
+    def before_newton_iteration(self):
+        # Re-discretize the nonlinear term
+        self.assembler.discretize(term_filter=self.friction_coupling_term)
 
-    counter_newton = 0
-    converged_newton = False
-    max_newton = 15
+    def after_newton_iteration(self, solution_vector):
+        """
+        Extract parts of the solution for current iterate.
 
-    viz = pp.Exporter(g_max, name="mechanics", folder=setup.folder_name)
+        The iterate solutions in d[pp.STATE]["previous_iterate"] are updated for the
+        mortar displacements and contact traction are updated.
+        Method is a tailored copy from assembler.distribute_variable.
 
-    while counter_newton <= max_newton and not converged_newton:
-        logger.debug(
-            "Newton iteration number {} of {}".format(counter_newton, max_newton)
-        )
+        Parameters:
+            assembler (pp.Assembler): assembler for self.gb.
+            solution_vector (np.array): solution vector for the current iterate.
 
-        sol, u0, error, converged_newton = newton_iteration(assembler, setup, u0)
-        counter_newton += 1
-        viz.write_vtk({"ux": u0[::2], "uy": u0[1::2]})
-        errors.append(error)
+        Returns:
+            (np.array): displacement solution vector for the Nd grid.
 
-    if counter_newton > max_newton and not converged_newton:
-        raise ValueError("Newton iterations did not converge")
-    assembler.distribute_variable(sol)
+        """
+        self.update_state(solution_vector)
 
+        u = solution_vector[
+            self.assembler.dof_ind(self._high_dim_grid(), self.displacement_variable)
+        ]
+        self.viz.write_vtk({"ux": u[::2], "uy": u[1::2]})
 
-def newton_iteration(assembler, setup, u0, tol=1e-14, solver=None):
-    converged = False
-    # @EK! If this is to work for both mechanics and biot, we probably need to pass
-    # the solver to this method.
-    g_max = setup.gb.grids_of_dimension(setup.Nd)[0]
+    def after_newton_convergence(self, solution):
+        self.assembler.distribute_variable(solution)
 
-    # Re-discretize the nonlinear term
-    assembler.discretize(term_filter=setup.friction_coupling_term)
+    def check_convergence(self, solution, prev_solution, nl_params):
+        g_max = self._high_dim_grid()
+        u1 = solution[self.assembler.dof_ind(g_max, self.displacement_variable)]
+        u0 = prev_solution[self.assembler.dof_ind(g_max, self.displacement_variable)]
+        # Calculate the error
+        solution_norm = self.l2_norm_cell(g_max, u1)
+        iterate_difference = self.l2_norm_cell(g_max, u1 - u0)
 
-    # Assemble and solve
-    A, b = assembler.assemble_matrix_rhs()
-    logger.debug("Max element in A {0:.2e}".format(np.max(np.abs(A))))
-    logger.debug(
-        "Max {0:.2e} and min {1:.2e} A sum.".format(
-            np.max(np.sum(np.abs(A), axis=1)), np.min(np.sum(np.abs(A), axis=1))
-        )
-    )
+        tol = nl_params["convergence_tol"]
 
-    if solver is None:
-        sol = sps.linalg.spsolve(A, b)
+        converged = False
+        diverged = False
 
-    # Obtain the current iterate for the displacement, and distribute the current
-    # iterates for mortar displacements and contact traction.
-    u1 = setup.extract_iterate(assembler, sol)
-
-    # Calculate the error
-    solution_norm = l2_norm_cell(g_max, u1)
-    iterate_difference = l2_norm_cell(g_max, u1, u0)
-
-    # The if is intended to avoid division through zero
-    if solution_norm < tol and iterate_difference < tol:
-        converged = True
-        error = np.sum((u1 - u0) ** 2)
-
-    else:
-        if iterate_difference / solution_norm < tol:
+        # The if is intended to avoid division through zero
+        if solution_norm < tol and iterate_difference < tol:
             converged = True
-        error = np.sum((u1 - u0) ** 2) / np.sum(u1 ** 2)
+            error = np.sum((u1 - u0) ** 2)
 
-    logger.debug("Error is ".format(error))
+        else:
+            if iterate_difference / solution_norm < tol:
+                converged = True
+            error = np.sum((u1 - u0) ** 2) / np.sum(u1 ** 2)
 
-    return sol, u1, error, converged
+        logger.info("Error is {}".format(error))
 
+        return error, converged, diverged
 
-def l2_norm_cell(g, u, uref=None):
-    """
-    Compute the cell volume weighted norm of a vector-valued cellwise quantity.
+    def after_newton_failure(self):
+        raise ValueError("Newton iterations did not converge")
 
-    Args:
-        g (pp.Grid)
-        u (np.array): Vector-valued function.
-    """
-    if uref is None:
-        norm = np.reshape(u ** 2, (g.dim, g.num_cells), order="F") * g.cell_volumes
-    else:
-        norm = (
-            np.reshape((u - uref) ** 2, (g.dim, g.num_cells), order="F")
-            * g.cell_volumes
+    def initialize_linear_solver(self):
+        tic = time.time()
+        logger.info("Initialize linear solver")
+
+        solver = self.params.get("linear_solver", "direct")
+
+        if solver == "direct":
+            """ In theory, it should be possible to instruct SuperLU to reuse the
+            symbolic factorization from one iteration to the next. However, it seems
+            the scipy wrapper around SuperLU has not implemented the necessary
+            functionality, as discussed in
+
+                https://github.com/scipy/scipy/issues/8227
+
+            We will therefore pass here, and pay the price of long computation times.
+
+            """
+            self.linear_solver = "direct"
+
+        elif solver == "pyamg":
+            self.linear_solver = solver
+            import pyamg
+
+            assembler = self.assembler
+
+            tic_assemble = time.time()
+            A, _ = assembler.assemble_matrix_rhs()
+            logger.info(
+                "Done initial assembly. Elapsed time {}:".format(
+                    time.time() - tic_assemble
+                )
+            )
+
+            g = self.gb.grids_of_dimension(self.Nd)[0]
+            mechanics_dof = assembler.dof_ind(g, self.displacement_variable)
+
+            tic_pyamg = time.time()
+            pyamg_solver = pyamg.smoothed_aggregation_solver(
+                A[mechanics_dof][:, mechanics_dof]
+            )
+            self.mechanics_precond = pyamg_solver.aspreconditioner(cycle="W")
+            logger.debug(
+                "AMG solver initialized. Elapsed time: {}".format(
+                    time.time() - tic_pyamg
+                )
+            )
+
+        else:
+            raise ValueError("unknown linear solver " + solver)
+
+        toc = time.time()
+        logger.info("Linear solver initialized. Elapsed time {}".format(toc - tic))
+
+    def assemble_and_solve_linear_system(self, tol):
+
+        A, b = self.assembler.assemble_matrix_rhs()
+        logger.debug("Max element in A {0:.2e}".format(np.max(np.abs(A))))
+        logger.debug(
+            "Max {0:.2e} and min {1:.2e} A sum.".format(
+                np.max(np.sum(np.abs(A), axis=1)), np.min(np.sum(np.abs(A), axis=1))
+            )
         )
-    return np.sum(norm)
+        if self.linear_solver == "direct":
+            return spla.spsolve(A, b)
+        elif self.linear_solver == "pyamg":
+            g = self.gb.grids_of_dimension(self.Nd)[0]
+            assembler = self.assembler
+            mechanics_dof = assembler.dof_ind(g, self.displacement_variable)
+            mortar_dof = np.setdiff1d(np.arange(b.size), mechanics_dof)
+
+            A_el_m = A[mechanics_dof, :][:, mortar_dof]
+            A_m_el = A[mortar_dof, :][:, mechanics_dof]
+            A_m_m = A[mortar_dof, :][:, mortar_dof]
+
+            # Also create a factorization of the mortar variable. This is relatively cheap, so why not
+            A_m_m_solve = sps.linalg.factorized(A_m_m)
+
+            def precond_schur(r):
+                # Mortar residual
+                rm = r[mortar_dof]
+                # Residual for the elasticity is the local one, plus the mapping of the mortar residual
+                r_el = r[mechanics_dof] - A_el_m * A_m_m_solve(rm)
+                # Solve, using specified solver
+                du = self.mechanics_precond(r_el)
+                # Map back to mortar residual
+                dm = A_m_m_solve(rm - A_m_el * du)
+                x = np.zeros_like(r)
+                x[mechanics_dof] = du
+                x[mortar_dof] = dm
+                return x
+
+            residuals = []
+
+            def callback(r):
+                logger.info(
+                    "Linear solver iteration {}, residual {}".format(len(residuals), r)
+                )
+                #                print(r)
+                residuals.append(r)
+
+            M = sps.linalg.LinearOperator(A.shape, precond_schur)
+            sol, info = spla.gmres(
+                A, b, M=M, restart=100, maxiter=1000, tol=tol, callback=callback
+            )
+            print(len(residuals))
+            return sol
