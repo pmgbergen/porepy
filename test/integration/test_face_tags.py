@@ -105,5 +105,6 @@ class TestFaceTags(unittest.TestCase):
             self.assertTrue(np.all(g_1d.tags["fracture_faces"] == f_tags_1d))
             self.assertTrue(np.all(g_1d.tags["domain_boundary_faces"] == d_tags_1d))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

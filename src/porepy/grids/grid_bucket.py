@@ -297,9 +297,9 @@ class GridBucket(object):
             else:
                 for gp in grid_pairs:
                     if tuple(gp) in list(self._edges.keys()):
-                        self._edges[(gp[0],gp[1])][key] = None
+                        self._edges[(gp[0], gp[1])][key] = None
                     elif tuple(gp[::-1]) in list(self._edges.keys()):
-                        self._edges[(gp[1],gp[0])][key] = None
+                        self._edges[(gp[1], gp[0])][key] = None
                     else:
                         raise KeyError(
                             "Cannot assign property to undefined\
@@ -542,13 +542,12 @@ class GridBucket(object):
         """
         assert np.asarray(grids).size == 2
 
-        if (
-            tuple(grids) in list(self._edges.keys())
-            or tuple(grids[::-1]) in list(self._edges.keys())
+        if tuple(grids) in list(self._edges.keys()) or tuple(grids[::-1]) in list(
+            self._edges.keys()
         ):
             raise ValueError("Cannot add existing edge")
 
-        data = {'face_cells': face_cells}
+        data = {"face_cells": face_cells}
 
         # The higher-dimensional grid is the first node of the edge.
         if grids[0].dim - 1 == grids[1].dim:
@@ -879,7 +878,7 @@ class GridBucket(object):
         """
         gb_copy = GridBucket()
         gb_copy._nodes = self._nodes.copy()
-        gb_copy._edges= self._edges.copy()
+        gb_copy._edges = self._edges.copy()
         return gb_copy
 
     def find_shared_face(self, g0, g1, g_l):
@@ -1181,7 +1180,9 @@ class GridBucket(object):
         """
         if cond is None:
             cond = lambda g: True
-        return np.sum([g.num_cells for g in self._nodes.keys() if cond(g)], dtype=np.int)
+        return np.sum(
+            [g.num_cells for g in self._nodes.keys() if cond(g)], dtype=np.int
+        )
 
     def num_mortar_cells(self, cond=None):
         """

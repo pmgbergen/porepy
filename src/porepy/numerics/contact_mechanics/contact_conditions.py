@@ -15,7 +15,6 @@ discretization operates on relative tangential jumps and absolute normal jumps.
 See also contact_mechanics_interface_laws.py
 """
 import numpy as np
-import scipy.sparse as sps
 
 import porepy as pp
 
@@ -271,15 +270,21 @@ class ColoumbContact:
             traction_weight.append(loc_traction_weight)
             rhs = np.hstack((rhs, r))
 
-        traction_discretization_coefficients = sps.block_diag(traction_weight)
-        displacement_discretization_coefficients = sps.block_diag(displacement_weight)
+        num_blocks = len(traction_weight)
+        data_traction = np.array(traction_weight).ravel(order="c")
+
+        data_displacement = np.array(displacement_weight).ravel(order="c")
 
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.traction_discretization
-        ] = traction_discretization_coefficients
+        ] = pp.utils.sparse_mat.csc_matrix_from_blocks(
+            data_traction, self.dim, num_blocks
+        )
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.displacement_discretization
-        ] = displacement_discretization_coefficients
+        ] = pp.utils.sparse_mat.csc_matrix_from_blocks(
+            data_displacement, self.dim, num_blocks
+        )
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_discretization] = rhs
 
     def assemble_matrix_rhs(self, g, data):

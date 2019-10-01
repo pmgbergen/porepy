@@ -120,9 +120,7 @@ def _run_gmsh(file_name, **kwargs):
     return out_file
 
 
-def triangle_grid(
-    points, edges, domain, constraints=None, **kwargs
-):
+def triangle_grid(points, edges, domain, constraints=None, **kwargs):
     """
     Generate a gmsh grid in a 2D domain with fractures.
 
@@ -338,7 +336,6 @@ def tetrahedral_grid_from_gmsh(network, file_name, **kwargs):
             specified dimension, the inner list will be empty.
 
     """
-
 
     start_time = time.time()
     # Verbosity level

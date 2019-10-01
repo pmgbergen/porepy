@@ -481,11 +481,15 @@ class TestDFMNonConvexDomain(unittest.TestCase):
         gb = network.mesh(mesh_args)
         self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
 
-class Test2dDomain(unittest.TestCase):
 
+class Test2dDomain(unittest.TestCase):
     def setUp(self):
-        self.domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
-        self.mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
+        self.domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        self.mesh_args = {
+            "mesh_size_bound": 1,
+            "mesh_size_frac": 1,
+            "mesh_size_min": 0.1,
+        }
 
         self.p1 = np.array([[0.2, 0.8], [0.2, 0.8]])
         self.e1 = np.array([[0], [1]])

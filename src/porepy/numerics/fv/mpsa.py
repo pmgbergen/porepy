@@ -13,6 +13,7 @@ import scipy.sparse as sps
 import logging
 import porepy as pp
 import numpy.matlib as np_matlib
+from time import time
 
 
 # Module-wide logger
@@ -207,8 +208,6 @@ class Mpsa:
                 size of the matrix will depend on the specific discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "stress" in matrix_dictionary:
-            self.discretize(g, data)
 
         div = pp.fvutils.vector_divergence(g)
         stress = matrix_dictionary["stress"]
@@ -236,8 +235,6 @@ class Mpsa:
                 discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "bound_stress" in matrix_dictionary:
-            self.discretize(g, data)
 
         bound_stress = matrix_dictionary["bound_stress"]
         if bound_stress.shape[0] != g.dim * g.num_faces:
@@ -668,6 +665,7 @@ def mpsa(
         peak_mem = _estimate_peak_memory_mpsa(g)
         num_part = np.ceil(peak_mem / max_memory).astype(np.int)
 
+        tic = time()
         logger.info("Split MPSA discretization into " + str(num_part) + " parts")
 
         # Let partitioning module apply the best available method
@@ -684,7 +682,7 @@ def mpsa(
 
         face_covered = np.zeros(g.num_faces, dtype=np.bool)
 
-        for p in np.unique(part):
+        for counter, p in enumerate(np.unique(part)):
             # Cells in this partitioning
             cell_ind = np.argwhere(part == p).ravel("F")
             # To discretize with as little overlap as possible, we use the
@@ -714,6 +712,11 @@ def mpsa(
 
             stress += loc_stress
             bound_stress += loc_bound_stress
+            logger.info("Done with mpsa subproblem no {}".format(counter))
+
+        logger.info(
+            "Mpsa discretization complete. Elapsed time {}".format(time() - tic)
+        )
 
         return stress, bound_stress
 
