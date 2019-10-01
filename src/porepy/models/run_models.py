@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_stationary_model(setup, params):
-    setup.prepare_simulation(params)
+    setup.prepare_simulation()
 
     nl_solver = pp.NewtonSolver(params)
 
