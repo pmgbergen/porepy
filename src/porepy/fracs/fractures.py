@@ -13,8 +13,8 @@ import warnings
 import time
 import logging
 import numpy as np
-import sympy
 import csv
+from sympy.geometry import Point, Polygon
 
 # Imports of external packages that may not be present at the system. The
 # module will work without any of these, but with limited functionalbility.
@@ -31,9 +31,7 @@ import porepy as pp
 
 # Import of internally developed packages.
 from porepy.utils import setmembership, sort_points
-from porepy.grids.gmsh.gmsh_interface import GmshWriter
 from porepy.grids.constants import GmshConstants
-from porepy.grids.gmsh import gmsh_interface
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -346,8 +344,8 @@ class Fracture(object):
         if p is None:
             p = self.p
 
-        sp = [sympy.geometry.Point(p[:, i]) for i in range(p.shape[1])]
-        return sympy.geometry.Polygon(*sp)
+        sp = [Point(p[:, i]) for i in range(p.shape[1])]
+        return Polygon(*sp)
 
     def __repr__(self):
         return self.__str__()
@@ -729,7 +727,7 @@ class FractureNetwork3d(object):
         # generate grid
         in_3d = not dfn
         self.to_gmsh(in_file, in_3d=in_3d)
-        gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3)
+        gmsh_status = pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dims=3)
         logger.info("Gmsh completed with status " + str(gmsh_status))
 
         if dfn:
@@ -2092,7 +2090,7 @@ class FractureNetwork3d(object):
         else:
             dom = None
 
-        writer = GmshWriter(
+        writer = pp.grids.gmsh.gmsh_interface.GmshWriter(
             p,
             edges,
             polygons=poly,

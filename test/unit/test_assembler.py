@@ -1581,5 +1581,4 @@ class MockEdgeDiscretizationOneSidedModifiesNode(object):
 
 
 if __name__ == "__main__":
-    TestAssembler().test_two_variables_coupling_between_node_and_edge_mixed_dependencies()
     unittest.main()

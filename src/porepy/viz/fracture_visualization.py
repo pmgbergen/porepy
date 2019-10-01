@@ -39,10 +39,26 @@ def plot_fractures(d, p, c, colortag=None, **kwargs):
         ntag = utag.size
         if ntag <= 3:
             col = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]
-        elif ntag < 6:
+        elif ntag <= 6:
             col = [(1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, 0), (1, 0, 1), (0, 0, 1)]
+        elif ntag <= 12:
+            # https://www.rapidtables.com/web/color/RGB_Color.html
+            col = [
+                (1, 0, 0),
+                (0, 1, 0),
+                (0, 0, 1),
+                (1, 1, 0),
+                (1, 0, 1),
+                (0, 0, 1),
+                (0.5, 0, 0),
+                (0.5, 0.5, 0),
+                (0, 0.5, 0),
+                (0.5, 0, 0.5),
+                (0, 0.5, 0.5),
+                (0, 0, 0.5),
+            ]
         else:
-            raise NotImplementedError("Have not thought of more than six colors")
+            raise NotImplementedError("Have not thought of more than twelwe colors")
 
     plt.figure(kwargs.get("fig_id", 1), dpi=kwargs.get("dpi", 100))
 
