@@ -86,8 +86,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             Nd (int): The dimension of the matrix, i.e., the highest dimension in the
                 grid bucket.
                 
-        After self.gb is set, the method should also call 
-        
+        After self.gb is set, the method should also call
+
             pp.contact_conditions.set_projections(self.gb)
 
         """
@@ -399,7 +399,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         """
         return np.ones(g.num_cells)
 
-    def prepare_simulation(self, params=None):
+    def prepare_simulation(self):
         """ Is run prior to a time-stepping scheme. Use this to initialize
         discretizations, linear solvers etc.
         
@@ -507,14 +507,15 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         solver = self.params.get("linear_solver", "direct")
 
         if solver == "direct":
-            """ In theory, it should be possible to instruct SuperLU to reuse the 
+            """ In theory, it should be possible to instruct SuperLU to reuse the
             symbolic factorization from one iteration to the next. However, it seems
             the scipy wrapper around SuperLU has not implemented the necessary
-            functionality, as discussed in 
-            
+            functionality, as discussed in
+
                 https://github.com/scipy/scipy/issues/8227
-                
+
             We will therefore pass here, and pay the price of long computation times.
+
             """
             self.linear_solver = "direct"
 
@@ -525,7 +526,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             assembler = self.assembler
 
             tic_assemble = time.time()
-            A, b = assembler.assemble_matrix_rhs()
+            A, _ = assembler.assemble_matrix_rhs()
             logger.info(
                 "Done initial assembly. Elapsed time {}:".format(
                     time.time() - tic_assemble
@@ -541,7 +542,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             )
             self.mechanics_precond = pyamg_solver.aspreconditioner(cycle="W")
             logger.debug(
-                "AMG solver initialized. Elapsed time: ".format(time.time() - tic_pyamg)
+                "AMG solver initialized. Elapsed time: {}".format(
+                    time.time() - tic_pyamg
+                )
             )
 
         else:

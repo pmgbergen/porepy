@@ -132,7 +132,9 @@ class BasicsTest(unittest.TestCase):
         constraint_start_1 = np.array([[0.5], [0.25]])
         constraint_end_1 = np.array([[0.5], [0.75]])
 
-        p = np.hstack((constraint_start_0, constraint_end_0, constraint_start_1, constraint_end_1))
+        p = np.hstack(
+            (constraint_start_0, constraint_end_0, constraint_start_1, constraint_end_1)
+        )
         e = np.array([[0, 2], [1, 3]])
 
         network = pp.FractureNetwork2d(p, e, domain=domain)
@@ -179,14 +181,15 @@ class BasicsTest(unittest.TestCase):
         constraint_start_1 = np.array([[0.5], [0.25]])
         constraint_end_1 = np.array([[0.5], [0.75]])
 
-        p = np.hstack((constraint_start_0, constraint_end_0, constraint_start_1, constraint_end_1))
+        p = np.hstack(
+            (constraint_start_0, constraint_end_0, constraint_start_1, constraint_end_1)
+        )
         e = np.array([[0, 2], [1, 3]])
 
         network = pp.FractureNetwork2d(p, e, domain=domain)
         mesh_args = {"mesh_size_frac": 1}
         gb = network.mesh(mesh_args, constraints=np.array([0, 1]))
         g = gb.grids_of_dimension(2)[0]
-
 
         tag = np.where(g.tags["domain_boundary_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
@@ -398,7 +401,9 @@ class BasicsTest(unittest.TestCase):
         constraint_start_1 = np.array([[0.5], [0.25]])
         constraint_end_1 = np.array([[0.5], [0.75]])
 
-        p = np.hstack((constraint_start_0, constraint_end_0, constraint_start_1, constraint_end_1))
+        p = np.hstack(
+            (constraint_start_0, constraint_end_0, constraint_start_1, constraint_end_1)
+        )
         e = np.array([[0, 2], [1, 3]])
 
         network = pp.FractureNetwork2d(p, e, domain=domain)
