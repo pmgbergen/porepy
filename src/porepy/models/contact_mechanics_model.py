@@ -85,7 +85,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 maximum values in each dimension.
             Nd (int): The dimension of the matrix, i.e., the highest dimension in the
                 grid bucket.
-                
+
         After self.gb is set, the method should also call
 
             pp.contact_conditions.set_projections(self.gb)
@@ -95,7 +95,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
     def _high_dim_grid(self):
         """ Get the grid of the highest dimension. Assumes self.gb is set.
-        
+
         TODO: Change name to nd_grid()
         """
         return self.gb.grids_of_dimension(self.Nd)[0]
@@ -177,7 +177,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                         "bc_values": bc_val,
                         "source": source_val,
                         "fourth_order_tensor": C,
-                        "max_memory": 7e7,
+                       # "max_memory": 7e7,
                     },
                 )
 
@@ -223,7 +223,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
     def assign_discretizations(self):
         """
         Assign discretizations to the nodes and edges of the grid bucket.
-        
+
         """
         # For the Nd domain we solve linear elasticity with mpsa.
         Nd = self.Nd
@@ -258,13 +258,13 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
     def initial_condition(self):
         """ Set initial guess for the variables.
-               
+
         The displacement is set to zero in the Nd-domain, and at the fracture interfaces
         The displacement jump is thereby also zero.
-        
+
         The contact pressure is set to zero in the tangential direction,
         and -1 (that is, in contact) in the normal direction.
-        
+
         """
 
         for g, d in self.gb:
@@ -402,11 +402,11 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
     def prepare_simulation(self):
         """ Is run prior to a time-stepping scheme. Use this to initialize
         discretizations, linear solvers etc.
-        
+
         TODO: Should the arguments be solver_options and **kwargs (for everything else?)
-        
+
         TODO: Examples needed
-        
+
         """
         self.create_grid()
         self.set_parameters()
@@ -478,7 +478,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         solution_norm = self.l2_norm_cell(g_max, u1)
         iterate_difference = self.l2_norm_cell(g_max, u1 - u0)
 
-        tol = nl_params["newton_tolerance"]
+        tol = nl_params["convergence_tol"]
 
         converged = False
         diverged = False

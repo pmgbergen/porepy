@@ -14,7 +14,7 @@ import test.common.contact_mechanics_examples
 
 class TestContactMechanicsBiot(unittest.TestCase):
     def _solve(self, setup):
-        pp.run_time_dependent_model(setup, {"tolerance": 1e-6})
+        pp.run_time_dependent_model(setup, {"convergence_tol": 1e-6})
 
         gb = setup.gb
 
