@@ -183,8 +183,12 @@ def create_1d_grids(
     cell_info,
     line_tag=constants.GmshConstants().PHYSICAL_NAME_FRACTURE_LINE,
     tol=1e-4,
+    constraints=None,
     **kwargs
 ):
+
+    if constraints is None:
+        constraints = np.empty(0, dtype=np.int)
     # Recover lines
     # There will be up to three types of physical lines: intersections (between
     # fractures), fracture tips, and auxiliary lines (to be disregarded)
@@ -217,6 +221,11 @@ def create_1d_grids(
         assert loc_line_pts.size > 1
 
         line_type = pn[:offset_index]
+        frac_num = pn[offset_index + 1 :]
+
+        # If this is a meshing constraint, but not a fracture, we don't need to do anything
+        if frac_num in constraints:
+            continue
 
         if line_type == gmsh_const.PHYSICAL_NAME_FRACTURE_TIP[:-1]:
             gmsh_tip_num.append(i)
@@ -229,7 +238,6 @@ def create_1d_grids(
             loc_pts_1d = np.unique(loc_line_pts)  # .flatten()
             loc_coord = pts[loc_pts_1d, :].transpose()
             g = create_embedded_line_grid(loc_coord, loc_pts_1d, tol=tol)
-            frac_num = pn[offset_index + 1 :]
             g.frac_num = int(frac_num)
             g_1d.append(g)
 

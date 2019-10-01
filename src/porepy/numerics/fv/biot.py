@@ -1345,7 +1345,7 @@ class BiotStabilization(
             discretize method of the Biot class.
         """
         raise NotImplementedError(
-            """No discretize method implemented for the DivU
+            """No discretize method implemented for the BiotStabilization
                                   class. See the Biot class."""
         )
 
