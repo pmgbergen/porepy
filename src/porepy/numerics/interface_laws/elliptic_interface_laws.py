@@ -9,9 +9,10 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+import porepy.numerics.interface_laws.abstract_interface_law
 
 
-class RobinCoupling(object):
+class RobinCoupling(porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw):
     """ A condition with resistance to flow between subdomains. Implementation
         of the model studied (though not originally proposed) by Martin et
         al 2005.
@@ -55,7 +56,6 @@ class RobinCoupling(object):
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
-        parameter_dictionary_h = data_h[pp.PARAMETERS][self.discr_master.keyword]
         # Mortar data structure.
         mg = data_edge["mortar_grid"]
 
@@ -104,53 +104,11 @@ class RobinCoupling(object):
             g_master, g_slave = g_slave, g_master
             data_master, data_slave = data_slave, data_master
 
-        master_ind = 0
-        slave_ind = 1
-
-        # Generate matrix for the coupling. This can probably be generalized
-        # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
 
-        dof_master = self.discr_master.ndof(g_master)
-        dof_slave = self.discr_slave.ndof(g_slave)
-
-        if not dof_master == matrix[master_ind, master_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the master discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the slave discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not mg.num_cells == matrix[master_ind, 2].shape[1]:
-            raise ValueError(
-                """The number of dofs of the edge discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        # We know the number of dofs from the master and slave side from their
-        # discretizations
-        #        dof = np.array([dof_master, dof_slave, mg.num_cells])
-        dof = np.array(
-            [
-                matrix[master_ind, master_ind].shape[1],
-                matrix[slave_ind, slave_ind].shape[1],
-                mg.num_cells,
-            ]
-        )
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc = cc.reshape((3, 3))
-
-        # The rhs is just zeros
-        # EK: For some reason, the following lines were necessary to apease python
-        rhs = np.empty(3, dtype=np.object)
-        rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[2] = np.zeros(mg.num_cells)
+        master_ind = 0
+        slave_ind = 1
+        cc, rhs = self._define_local_block_matrix(g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix)
 
         # The convention, for now, is to put the higher dimensional information
         # in the first column and row in matrix, lower-dimensional in the second
@@ -235,53 +193,18 @@ class FluxPressureContinuity(RobinCoupling):
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
-
-        dof_master = self.discr_master.ndof(g_master)
-        dof_slave = self.discr_slave.ndof(g_slave)
-
-        if not dof_master == matrix[master_ind, master_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the master discretization given
-            in FluxPressureContinuity must match the number of dofs given by the matrix
-            """
-            )
-        elif not dof_slave == matrix[slave_ind, slave_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the slave discretization given
-            in FluxPressureContinuity must match the number of dofs given by the matrix
-            """
-            )
-        elif not mg.num_cells == matrix[master_ind, 2].shape[1]:
-            raise ValueError(
-                """The number of dofs of the edge discretization given
-            in FluxPressureContinuity must match the number of dofs given by the matrix
-            """
-            )
-        # We know the number of dofs from the master and slave side from their
-        # discretizations
-        dof = np.array(
-            [
-                matrix[master_ind, master_ind].shape[1],
-                matrix[slave_ind, slave_ind].shape[1],
-                mg.num_cells,
-            ]
+        cc_master, rhs_master = self._define_local_block_matrix(
+            g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix
         )
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc_master = cc.reshape((3, 3))
+
         cc_slave = cc_master.copy()
 
-        # The rhs is just zeros
-        # EK: For some reason, the following lines were necessary to apease python
-        rhs_slave = np.empty(3, dtype=np.object)
-        rhs_slave[master_ind] = np.zeros(dof_master)
-        rhs_slave[slave_ind] = np.zeros(dof_slave)
-        rhs_slave[2] = np.zeros(mg.num_cells)
         # I got some problems with pointers when doing rhs_master = rhs_slave.copy()
         # so just reconstruct everything.
-        rhs_master = np.empty(3, dtype=np.object)
-        rhs_master[master_ind] = np.zeros(dof_master)
-        rhs_master[slave_ind] = np.zeros(dof_slave)
-        rhs_master[2] = np.zeros(mg.num_cells)
+        rhs_slave = np.empty(3, dtype=np.object)
+        rhs_slave[master_ind] = np.zeros_like(rhs_master[master_ind])
+        rhs_slave[slave_ind] = np.zeros_like(rhs_master[slave_ind])
+        rhs_slave[2] = np.zeros_like(rhs_master[2])
 
         # The convention, for now, is to put the master grid information
         # in the first column and row in matrix, slave grid in the second
