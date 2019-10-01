@@ -5,7 +5,6 @@ import numpy as np
 import unittest
 
 import porepy as pp
-import porepy.models.contact_mechanics_model as model
 import test.common.contact_mechanics_examples
 
 
@@ -113,7 +112,9 @@ class SetupContactMechanics(
             "mesh_size_min": 0.023,
             "mesh_size_bound": 0.5,
         }
-        super().__init__(mesh_args, folder_name="dummy")#, params={'linear_solver': 'pyamg'})
+        super().__init__(
+            mesh_args, folder_name="dummy"
+        )  # , params={'linear_solver': 'pyamg'})
         self.ux_south = ux_south
         self.uy_bottom = uy_bottom
         self.ux_north = ux_north
@@ -166,5 +167,4 @@ class SetupContactMechanics(
 
 
 if __name__ == "__main__":
-    TestContactMechanics().test_pull_top_positive_opening()
     unittest.main()

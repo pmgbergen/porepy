@@ -228,9 +228,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     return dist_pts, pts, lines
 
 
-def obtain_interdim_mappings(
-    lg, fn, n_per_face, **kwargs
-):
+def obtain_interdim_mappings(lg, fn, n_per_face, **kwargs):
     """
     Find mappings between faces in higher dimension and cells in the lower
     dimension

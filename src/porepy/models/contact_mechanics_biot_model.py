@@ -372,7 +372,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 mech_dict = {"bc_values": bc_values}
                 d[pp.STATE].update({self.mechanics_parameter_key: mech_dict})
 
-        for e, d in self.gb.edges():
+        for _, d in self.gb.edges():
             mg = d["mortar_grid"]
             initial_value = np.zeros(mg.num_cells)
             d[pp.STATE][self.mortar_scalar_variable] = initial_value
@@ -418,7 +418,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
         # Finally, discretize terms on the lower-dimensional grids. This can be done
         # in the traditional way, as there is no Biot discretization here.
-        for g, d in self.gb:
+        for g, _ in self.gb:
             if g.dim < self.Nd:
                 self.assembler.discretize(grid=g)
 
@@ -447,13 +447,13 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         solver = self.params.get("linear_solver", "direct")
 
         if solver == "direct":
-            """ In theory, it shoudl be possible to instruct SuperLU to reuse the 
+            """ In theory, it should be possible to instruct SuperLU to reuse the
             symbolic factorization from one iteration to the next. However, it seems
             the scipy wrapper around SuperLU has not implemented the necessary
-            functionality, as discussed in 
-            
+            functionality, as discussed in
+
                 https://github.com/scipy/scipy/issues/8227
-                
+
             We will therefore pass here, and pay the price of long computation times.
             """
             self.linear_solver = "direct"
@@ -500,7 +500,8 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             A_m_el = A[mortar_dof, :][:, mechanics_dof]
             A_m_m = A[mortar_dof, :][:, mortar_dof]
 
-            # Also create a factorization of the mortar variable. This is relatively cheap, so why not
+            # Also create a factorization of the mortar variable.
+            # This is relatively cheap, so why not
             A_m_m_solve = sps.linalg.factorized(A_m_m)
 
             def precond_schur(r):

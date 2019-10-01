@@ -15,7 +15,6 @@ discretization operates on relative tangential jumps and absolute normal jumps.
 See also contact_mechanics_interface_laws.py
 """
 import numpy as np
-import scipy.sparse as sps
 
 import porepy as pp
 
