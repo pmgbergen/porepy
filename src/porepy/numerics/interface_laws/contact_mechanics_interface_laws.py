@@ -12,11 +12,14 @@ import logging
 import time
 
 import porepy as pp
+import porepy.numerics.interface_laws.abstract_interface_law
 
 logger = logging.getLogger(__name__)
 
 
-class PrimalContactCoupling(object):
+class PrimalContactCoupling(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     """ Implement the coupling conditions for the pure mechanics problem.
 
     The primary variables for this formulation are displacement in the ambient dimension,
@@ -213,46 +216,9 @@ class PrimalContactCoupling(object):
         mg = data_edge["mortar_grid"]
         projection = data_edge["tangential_normal_projection"]
 
-        dof_master = self.discr_master.ndof(g_master)
-        dof_slave = self.discr_slave.ndof(g_slave)
-
-        if not dof_master == matrix[master_ind, master_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the master discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the slave discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not mg.num_cells * ambient_dimension == matrix[master_ind, 2].shape[1]:
-            raise ValueError(
-                """The number of dofs of the edge discretization given
-            in the PrimalContactCoupling must match the number of dofs given by the matrix
-            """
-            )
-
-        # We know the number of dofs from the master and slave side from their
-        # discretizations
-        #        dof = np.array([dof_master, dof_slave, mg.num_cells])
-        dof = np.array(
-            [
-                matrix[master_ind, master_ind].shape[1],
-                matrix[slave_ind, slave_ind].shape[1],
-                mg.num_cells,
-            ]
+        cc, rhs = self._define_local_block_matrix(
+            g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix
         )
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc = cc.reshape((3, 3))
-
-        rhs = np.empty(3, dtype=np.object)
-        rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[mortar_ind] = np.zeros(mg.num_cells * ambient_dimension)
-
         # IMPLEMENTATION NOTE: The current implementation is geared towards
         # using mpsa for the mechanics problem. A more general approach would
         # be possible - for an example see the flow problem with the RobinCoupling
@@ -421,7 +387,9 @@ class PrimalContactCoupling(object):
         return matrix, rhs
 
 
-class MatrixScalarToForceBalance:
+class MatrixScalarToForceBalance(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     """
     This class adds the matrix scalar (pressure) contribution to the force balance posed
     on the mortar grid by PrimalContactCoupling.
@@ -458,6 +426,12 @@ class MatrixScalarToForceBalance:
         # Keyword used to retrieve gradP discretization.
         self.keyword = keyword
 
+    def ndof(self, mg):
+        # Assume the interface law is defined only on mortar grids next to the
+        # ambient dimension
+        ambient_dimension = mg.dim + 1
+        return ambient_dimension * mg.num_cells
+
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """
         Nothing to do
@@ -483,51 +457,14 @@ class MatrixScalarToForceBalance:
         ambient_dimension = g_master.dim
 
         master_ind = 0
-        slave_ind = 1
         mortar_ind = 2
 
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
-
-        dof_master = self.discr_master.ndof(g_master)
-        dof_slave = self.discr_slave.ndof(g_slave)
-
-        if not dof_master == matrix[master_ind, master_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the master discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the slave discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not mg.num_cells * ambient_dimension == matrix[master_ind, 2].shape[1]:
-            raise ValueError(
-                """The number of dofs of the edge discretization given
-            in the PrimalContactCoupling must match the number of dofs given by the matrix
-            """
-            )
-
-        # We know the number of dofs from the master and slave side from their
-        # discretizations
-        dof = np.array(
-            [
-                matrix[master_ind, master_ind].shape[1],
-                matrix[slave_ind, slave_ind].shape[1],
-                mg.num_cells * ambient_dimension,
-            ]
+        cc, rhs = self._define_local_block_matrix(
+            g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix
         )
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc = cc.reshape((3, 3))
-
-        rhs = np.empty(3, dtype=np.object)
-        rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[mortar_ind] = np.zeros(mg.num_cells * ambient_dimension)
 
         master_scalar_gradient = data_master[pp.DISCRETIZATION_MATRICES][self.keyword][
             "grad_p"
@@ -569,7 +506,9 @@ class MatrixScalarToForceBalance:
         return matrix, rhs
 
 
-class FractureScalarToForceBalance:
+class FractureScalarToForceBalance(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     """
     This class adds the fracture pressure contribution to the force balance posed on the
     mortar grid by PrimalContactCoupling and modified to account for matrix pressure by
@@ -599,6 +538,12 @@ class FractureScalarToForceBalance:
         self.discr_master = discr_master
         self.discr_slave = discr_slave
 
+    def ndof(self, mg):
+        # Assume the interface law is defined only on mortar grids next to the
+        # ambient dimension
+        ambient_dimension = mg.dim + 1
+        return ambient_dimension * mg.num_cells
+
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """
         Nothing to do
@@ -623,7 +568,6 @@ class FractureScalarToForceBalance:
 
         ambient_dimension = g_master.dim
 
-        master_ind = 0
         slave_ind = 1
         mortar_ind = 2
 
@@ -631,44 +575,9 @@ class FractureScalarToForceBalance:
         # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
 
-        dof_master = self.discr_master.ndof(g_master)
-        dof_slave = self.discr_slave.ndof(g_slave)
-
-        if not dof_master == matrix[master_ind, master_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the master discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the slave discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not mg.num_cells * ambient_dimension == matrix[master_ind, 2].shape[1]:
-            raise ValueError(
-                """The number of dofs of the edge discretization given
-            in the PrimalContactCoupling must match the number of dofs given by the matrix
-            """
-            )
-
-        # We know the number of dofs from the master and slave side from their
-        # discretizations
-        dof = np.array(
-            [
-                matrix[master_ind, master_ind].shape[1],
-                matrix[slave_ind, slave_ind].shape[1],
-                mg.num_cells * ambient_dimension,
-            ]
+        cc, rhs = self._define_local_block_matrix(
+            g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix
         )
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc = cc.reshape((3, 3))
-
-        rhs = np.empty(3, dtype=np.object)
-        rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[mortar_ind] = np.zeros(mg.num_cells * ambient_dimension)
 
         ## Ensure that the contact variable is only the force from the contact of the
         # two sides of the fracture. This requires subtraction of the pressure force.
@@ -706,7 +615,9 @@ class FractureScalarToForceBalance:
         return matrix, rhs
 
 
-class DivUCoupling:
+class DivUCoupling(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     """
     Coupling conditions for DivU term.
 
@@ -725,6 +636,12 @@ class DivUCoupling:
         self.discr_master = discr_master
         # assemble_int_bound_displacement_source for the slave.
         self.discr_slave = discr_slave
+
+    def ndof(self, mg):
+        # Assume the interface law is defined only on mortar grids next to the
+        # ambient dimension
+        ambient_dimension = mg.dim + 1
+        return (mg.dim + 1) * mg.num_cells
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """
@@ -747,53 +664,17 @@ class DivUCoupling:
             matrix: original discretization matrix, to which the coupling terms will be
                 added.
         """
-        ambient_dimension = g_master.dim
 
         master_ind = 0
         slave_ind = 1
-        mortar_ind = 2
 
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
 
-        dof_master = self.discr_master.ndof(g_master)
-        dof_slave = self.discr_slave.ndof(g_slave)
-
-        if not dof_master == matrix[master_ind, master_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the master discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the slave discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not mg.num_cells * ambient_dimension == matrix[master_ind, 2].shape[1]:
-            raise ValueError(
-                """The number of dofs of the edge discretization given
-            in the PrimalContactCoupling must match the number of dofs given by the matrix
-            """
-            )
-
-        # We know the number of dofs from the master and slave side from their
-        # discretizations
-        dof = np.array(
-            [
-                matrix[master_ind, master_ind].shape[1],
-                matrix[slave_ind, slave_ind].shape[1],
-                mg.num_cells * ambient_dimension,
-            ]
+        cc, rhs = self._define_local_block_matrix(
+            g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix
         )
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc = cc.reshape((3, 3))
-        rhs = np.empty(3, dtype=np.object)
-        rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[mortar_ind] = np.zeros(mg.num_cells * ambient_dimension)
 
         grid_swap = False
         # Let the DivU class assemble the contribution from mortar to master
