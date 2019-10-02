@@ -176,7 +176,9 @@ class EllipticDiscretization:
         """
         raise NotImplementedError("Method not implemented")
 
-    def assemble_int_bound_flux(self, g, data, data_edge, cc, matrix, self_ind, use_slave_proj):
+    def assemble_int_bound_flux(
+        self, g, data, data_edge, cc, matrix, self_ind, use_slave_proj
+    ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
 

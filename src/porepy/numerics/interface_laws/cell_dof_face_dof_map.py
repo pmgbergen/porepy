@@ -181,9 +181,7 @@ class CellDofFaceDofMap(object):
         """
         raise NotImplementedError("Method not implemented")
 
-    def assemble_int_bound_source(
-        self, g, data, data_edge, cc, matrix, rhs, self_ind
-    ):
+    def assemble_int_bound_source(self, g, data, data_edge, cc, matrix, rhs, self_ind):
         """ Assemble the contribution from an internal boundary,
         manifested as a source term.
 
@@ -293,9 +291,7 @@ class CellDofFaceDofMap(object):
 
         cc[2, self_ind] -= proj
 
-    def enforce_neumann_int_bound(
-        self, g_master, data_edge, matrix, self_ind
-    ):
+    def enforce_neumann_int_bound(self, g_master, data_edge, matrix, self_ind):
         """ Enforce Neumann boundary conditions on a given system matrix.
 
         Methods based on a mixed variational form will need this function to
@@ -310,5 +306,3 @@ class CellDofFaceDofMap(object):
 
         """
         raise NotImplementedError("Method not implemented")
-
-
