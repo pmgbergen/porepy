@@ -4,12 +4,14 @@ Mother class for all interface laws.
 import numpy as np
 import scipy.sparse as sps
 
-class AbstractInterfaceLaw:
 
+class AbstractInterfaceLaw:
     def ndof(self, mg):
         raise NotImplementedError("Must be implemented by any real interface law")
 
-    def _define_local_block_matrix(self, g_master, g_slave, discr_master, discr_slave, mg, matrix):
+    def _define_local_block_matrix(
+        self, g_master, g_slave, discr_master, discr_slave, mg, matrix
+    ):
 
         master_ind = 0
         slave_ind = 1
@@ -39,13 +41,7 @@ class AbstractInterfaceLaw:
         # We know the number of dofs from the master and slave side from their
         # discretizations
         #        dof = np.array([dof_master, dof_slave, mg.num_cells])
-        dof = np.array(
-            [
-                dof_master,
-                dof_slave,
-                dof_mortar,
-            ]
-        )
+        dof = np.array([dof_master, dof_slave, dof_mortar])
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((3, 3))
 

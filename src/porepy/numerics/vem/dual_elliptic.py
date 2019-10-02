@@ -269,7 +269,7 @@ class DualElliptic(
             return M, norm
         return M
 
-    def _velocity_dof(self, g, g_m, grid_swap):
+    def _velocity_dof(self, g, mg, hat_E_int):
         # Recover the information for the grid-grid mapping
         faces_h, cells_h, sign_h = sps.find(g.cell_faces)
         ind_faces_h = np.unique(faces_h, return_index=True)[1]
@@ -279,18 +279,12 @@ class DualElliptic(
         # Velocity degree of freedom matrix
         U = sps.diags(sign_h)
 
-        shape = (g.num_cells, g_m.num_cells)
-        if grid_swap:
-            hat_E_int = g_m.mortar_to_slave_int()
-        else:
-            hat_E_int = g_m.mortar_to_master_int()
-
+        shape = (g.num_cells, mg.num_cells)
+        
         hat_E_int = sps.bmat([[U * hat_E_int], [sps.csr_matrix(shape)]])
         return hat_E_int
 
-    def assemble_int_bound_flux(
-        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
-    ):
+    def assemble_int_bound_flux(self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
 
@@ -308,8 +302,6 @@ class DualElliptic(
                 mixed-dimensional grid.
             data_edge (dictionary): Data dictionary for the edge in the
                 mixed-dimensional grid.
-            grid_swap (boolean): If True, the grid g is identified with the @
-                slave side of the mortar grid in data_adge.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
                 master and slave side; the third belongs to the edge variable.
@@ -320,18 +312,22 @@ class DualElliptic(
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
+            use_slave_proj (boolean): If True, the slave side projection operator is
+                used. Needed for periodic boundary conditions.
 
         """
 
         # The matrix must be the VEM discretization matrix.
         mg = data_edge["mortar_grid"]
+        if use_slave_proj:
+            proj = mg.mortar_to_slave_int()
+        else:
+            proj = mg.mortar_to_master_int()
 
-        hat_E_int = self._velocity_dof(g, mg, grid_swap)
+        hat_E_int = self._velocity_dof(g, mg, proj)
         cc[self_ind, 2] += matrix[self_ind, self_ind] * hat_E_int
 
-    def assemble_int_bound_source(
-        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
-    ):
+    def assemble_int_bound_source(self, g, data, data_edge, cc, matrix, rhs, self_ind):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
@@ -349,8 +345,6 @@ class DualElliptic(
                 mixed-dimensional grid.
             data_edge (dictionary): Data dictionary for the edge in the
                 mixed-dimensional grid.
-            grid_swap (boolean): If True, the grid g is identified with the @
-                slave side of the mortar grid in data_adge.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
                 master and slave side; the third belongs to the edge variable.
@@ -365,17 +359,14 @@ class DualElliptic(
         """
         mg = data_edge["mortar_grid"]
 
-        if grid_swap:
-            proj = mg.master_to_mortar_avg()
-        else:
-            proj = mg.slave_to_mortar_avg()
+        proj = mg.slave_to_mortar_avg()
 
         A = proj.T
         shape = (g.num_faces, A.shape[1])
         cc[self_ind, 2] += sps.bmat([[sps.csr_matrix(shape)], [A]])
 
     def assemble_int_bound_pressure_trace(
-        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
+        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -394,8 +385,6 @@ class DualElliptic(
                 mixed-dimensional grid.
             data_edge (dictionary): Data dictionary for the edge in the
                 mixed-dimensional grid.
-            grid_swap (boolean): If True, the grid g is identified with the @
-                slave side of the mortar grid in data_adge.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
                 master and slave side; the third belongs to the edge variable.
@@ -406,16 +395,24 @@ class DualElliptic(
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
+            use_slave_proj (boolean): If True, the slave side projection operator is
+                used. Needed for periodic boundary conditions.
+
         """
         mg = data_edge["mortar_grid"]
 
-        hat_E_int = self._velocity_dof(g, mg, grid_swap)
+        if use_slave_proj:
+            proj = mg.mortar_to_slave_int()
+        else:
+            proj = mg.mortar_to_master_int()
+
+        hat_E_int = self._velocity_dof(g, mg, proj)
 
         cc[2, self_ind] -= hat_E_int.T * matrix[self_ind, self_ind]
         cc[2, 2] -= hat_E_int.T * matrix[self_ind, self_ind] * hat_E_int
 
     def assemble_int_bound_pressure_cell(
-        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
+        self, g, data, data_edge, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
@@ -449,19 +446,15 @@ class DualElliptic(
 
         """
         mg = data_edge["mortar_grid"]
-        # proj = mg.slave_to_mortar_avg()
 
-        if grid_swap:
-            proj = mg.master_to_mortar_avg()
-        else:
-            proj = mg.slave_to_mortar_avg()
+        proj = mg.slave_to_mortar_avg()
 
         A = proj.T
         shape = (g.num_faces, A.shape[1])
 
         cc[2, self_ind] -= sps.bmat([[sps.csr_matrix(shape)], [A]]).T
 
-    def enforce_neumann_int_bound(self, g, data_edge, matrix, swap_grid, self_ind):
+    def enforce_neumann_int_bound(self, g, data_edge, matrix, self_ind):
         """ Enforce Neumann boundary conditions on a given system matrix.
 
         Methods based on a mixed variational form need this function to
@@ -477,7 +470,7 @@ class DualElliptic(
         """
         mg = data_edge["mortar_grid"]
 
-        hat_E_int = self._velocity_dof(g, mg, swap_grid)
+        hat_E_int = self._velocity_dof(g, mg, mg.mortar_to_master_int())
 
         dof = np.where(hat_E_int.sum(axis=1).A.astype(np.bool))[0]
         norm = np.linalg.norm(matrix[self_ind, self_ind].diagonal(), np.inf)
