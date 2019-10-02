@@ -52,7 +52,7 @@ class ImplicitMpfa(pp.Mpfa):
         return a, b
 
     def assemble_int_bound_flux(
-        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
+        self, g, data, data_edge, cc, matrix, rhs, self_ind
     ):
         """
         Overwrite the MPFA method to be consistent with the Biot dt convention
@@ -65,10 +65,7 @@ class ImplicitMpfa(pp.Mpfa):
         # Projection operators to grid
         mg = data_edge["mortar_grid"]
 
-        if grid_swap:
-            proj = mg.mortar_to_slave_int()
-        else:
-            proj = mg.mortar_to_master_int()
+        proj = mg.mortar_to_master_int()
 
         if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
             # If bound flux is gven as sub-faces we have to map it from sub-faces
@@ -84,7 +81,7 @@ class ImplicitMpfa(pp.Mpfa):
         cc[self_ind, 2] += dt * div * bound_flux * proj
 
     def assemble_int_bound_source(
-        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
+        self, g, data, data_edge, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
@@ -103,8 +100,6 @@ class ImplicitMpfa(pp.Mpfa):
                 mixed-dimensional grid.
             data_edge (dictionary): Data dictionary for the edge in the
                 mixed-dimensional grid.
-            grid_swap (boolean): If True, the grid g is identified with the @
-                slave side of the mortar grid in data_adge.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
                 master and slave side; the third belongs to the edge variable.
@@ -119,10 +114,7 @@ class ImplicitMpfa(pp.Mpfa):
         """
         mg = data_edge["mortar_grid"]
 
-        if grid_swap:
-            proj = mg.mortar_to_master_int()
-        else:
-            proj = mg.mortar_to_slave_int()
+        proj = mg.mortar_to_slave_int()
         dt = data[pp.PARAMETERS][self.keyword]["time_step"]
         cc[self_ind, 2] -= proj * dt
 

@@ -228,4 +228,5 @@ class SetupContactMechanicsBiot(
 
 
 if __name__ == "__main__":
+    TestContactMechanicsBiot().test_push_north_zero_opening()
     unittest.main()

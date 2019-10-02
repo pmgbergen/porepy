@@ -12,7 +12,9 @@ import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
 
 
-class RobinCoupling(porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw):
+class RobinCoupling(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     """ A condition with resistance to flow between subdomains. Implementation
         of the model studied (though not originally proposed) by Martin et
         al 2005.
@@ -99,16 +101,13 @@ class RobinCoupling(porepy.numerics.interface_laws.abstract_interface_law.Abstra
         if not "Robin_discr" in matrix_dictionary_edge:
             self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
-        grid_swap = g_master.dim < g_slave.dim
-        if grid_swap:
-            g_master, g_slave = g_slave, g_master
-            data_master, data_slave = data_slave, data_master
-
         mg = data_edge["mortar_grid"]
 
         master_ind = 0
         slave_ind = 1
-        cc, rhs = self._define_local_block_matrix(g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix)
+        cc, rhs = self._define_local_block_matrix(
+            g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix
+        )
 
         # The convention, for now, is to put the higher dimensional information
         # in the first column and row in matrix, lower-dimensional in the second
@@ -116,23 +115,23 @@ class RobinCoupling(porepy.numerics.interface_laws.abstract_interface_law.Abstra
         cc[2, 2] = matrix_dictionary_edge["Robin_discr"]
 
         self.discr_master.assemble_int_bound_pressure_trace(
-            g_master, data_master, data_edge, grid_swap, cc, matrix, rhs, master_ind
+            g_master, data_master, data_edge, cc, matrix, rhs, master_ind
         )
         self.discr_master.assemble_int_bound_flux(
-            g_master, data_master, data_edge, grid_swap, cc, matrix, rhs, master_ind
+            g_master, data_master, data_edge, cc, matrix, rhs, master_ind
         )
 
         self.discr_slave.assemble_int_bound_pressure_cell(
-            g_slave, data_slave, data_edge, grid_swap, cc, matrix, rhs, slave_ind
+            g_slave, data_slave, data_edge, cc, matrix, rhs, slave_ind
         )
         self.discr_slave.assemble_int_bound_source(
-            g_slave, data_slave, data_edge, grid_swap, cc, matrix, rhs, slave_ind
+            g_slave, data_slave, data_edge, cc, matrix, rhs, slave_ind
         )
 
         matrix += cc
 
         self.discr_master.enforce_neumann_int_bound(
-            g_master, data_edge, matrix, False, master_ind
+            g_master, data_edge, matrix, master_ind
         )
 
         return matrix, rhs
@@ -222,7 +221,6 @@ class FluxPressureContinuity(RobinCoupling):
             g_master,
             data_master,
             data_edge,
-            False,
             cc_master,
             matrix,
             rhs_master,
@@ -232,7 +230,6 @@ class FluxPressureContinuity(RobinCoupling):
             g_master,
             data_master,
             data_edge,
-            False,
             cc_master,
             matrix,
             rhs_master,
@@ -246,22 +243,22 @@ class FluxPressureContinuity(RobinCoupling):
                 g_slave,
                 data_slave,
                 data_edge,
-                True,
                 cc_slave,
                 matrix,
                 rhs_slave,
                 slave_ind,
+                use_slave_proj=True
             )
 
             self.discr_slave.assemble_int_bound_flux(
                 g_slave,
                 data_slave,
                 data_edge,
-                True,
                 cc_slave,
                 matrix,
                 rhs_slave,
                 slave_ind,
+                use_slave_proj=True
             )
             # We now have to flip the sign of some of the matrices
             # First we flip the sign of the slave flux because the mortar flux points
@@ -280,7 +277,6 @@ class FluxPressureContinuity(RobinCoupling):
                 g_slave,
                 data_slave,
                 data_edge,
-                False,
                 cc_slave,
                 matrix,
                 rhs_slave,
@@ -291,7 +287,6 @@ class FluxPressureContinuity(RobinCoupling):
                 g_slave,
                 data_slave,
                 data_edge,
-                False,
                 cc_slave,
                 matrix,
                 rhs_slave,
@@ -307,13 +302,13 @@ class FluxPressureContinuity(RobinCoupling):
         rhs = rhs_master + rhs_slave
 
         self.discr_master.enforce_neumann_int_bound(
-            g_master, data_edge, matrix, False, master_ind
+            g_master, data_edge, matrix, master_ind
         )
 
         # Consider this terms only if the grids are of the same dimension
         if g_master.dim == g_slave.dim:
             self.discr_slave.enforce_neumann_int_bound(
-                g_slave, data_edge, matrix, True, slave_ind
+                g_slave, data_edge, matrix, slave_ind
             )
 
         return matrix, rhs
