@@ -128,7 +128,6 @@ class Tpfa(FVElliptic):
 
         # Save values for use in recovery of boundary face pressures
         t_full = t.copy()
-        sgn_full = np.bincount(fi, sgn)
 
         # For primal-like discretizations like the TPFA, internal boundaries
         # are handled by assigning Neumann conditions.
