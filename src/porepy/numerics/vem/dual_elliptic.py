@@ -280,11 +280,13 @@ class DualElliptic(
         U = sps.diags(sign_h)
 
         shape = (g.num_cells, mg.num_cells)
-        
+
         hat_E_int = sps.bmat([[U * hat_E_int], [sps.csr_matrix(shape)]])
         return hat_E_int
 
-    def assemble_int_bound_flux(self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False):
+    def assemble_int_bound_flux(
+        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
+    ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
 

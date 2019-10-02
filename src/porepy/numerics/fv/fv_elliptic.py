@@ -180,7 +180,9 @@ class FVElliptic(pp.EllipticDiscretization):
 
         return -div * bound_flux * bc_val
 
-    def assemble_int_bound_flux(self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False):
+    def assemble_int_bound_flux(
+        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
+    ):
         """Assemble the contribution from an internal boundary, manifested as a
         flux boundary condition.
 
