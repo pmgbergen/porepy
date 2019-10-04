@@ -19,18 +19,21 @@ class RobinCoupling(
         of the model studied (though not originally proposed) by Martin et
         al 2005.
 
-        @ALL: We should probably make an abstract superclass for all couplers,
-        similar to for all elliptic discretizations, so that new
-        implementations know what must be done.
-
     """
 
     def __init__(self, keyword, discr_master, discr_slave=None):
-        self.keyword = keyword
+        super(RobinCoupling, self).__init__(keyword)
         if discr_slave is None:
             discr_slave = discr_master
         self.discr_master = discr_master
         self.discr_slave = discr_slave
+
+        # This interface law will have direct interface coupling to represent
+        # the influence of the flux boundary condition of the secondary
+        # interface on the pressure trace on the first interface.
+        self.edge_coupling_via_high_dim = True
+        # No coupling via lower-dimensional interfaces.
+        self.edge_coupling_via_low_dim = False
 
     def ndof(self, mg):
         return mg.num_cells
@@ -80,8 +83,7 @@ class RobinCoupling(
             data_master: Data dictionary for the master suddomain
             data_slave: Data dictionary for the slave subdomain.
             data_edge: Data dictionary for the edge between the subdomains
-            matrix_master: original discretization for the master subdomain
-            matrix_slave: original discretization for the slave subdomain
+            matrix: original discretization for the master subdomain.
 
             The discretization matrices must be included since they will be
             changed by the imposition of Neumann boundary conditions on the
@@ -127,8 +129,28 @@ class RobinCoupling(
 
         return matrix, rhs
 
+    def assemble_edge_coupling_via_high_dim(
+        self, g_between, data_between, data_edge_primary, data_edge_secondary
+    ):
+        """ Represent the impact on a primary interface of the mortar (thus boundary)
+        flux on a secondary interface.
 
-# ------------------------------------------------------------------------------
+        Parameters:
+            g_between (pp.Grid): Grid of the higher dimensional neighbor to the
+                main interface
+            data_between (dict): Data dictionary of the intermediate grid.
+            data_edge_primary (dict): Data dictionary of the primary interface.
+            data_edge_secondary (dict): Data dictionary of the secondary interface.
+
+        Returns:
+            np.array: Block matrix of size 3 x 3, whwere each block represents
+                coupling between variables on this interface. Index 0, 1 and 2
+                represent the master, slave and mortar variable, respectively.
+            np.array: Block matrix of size 3 x 1, representing the right hand
+                side of this coupling. Index 0, 1 and 2 represent the master,
+                slave and mortar variable, respectively.
+
+        """
 
 
 class FluxPressureContinuity(RobinCoupling):

@@ -44,7 +44,7 @@ class PrimalContactCoupling(
     """
 
     def __init__(self, keyword, discr_master, discr_slave, use_surface_discr=False):
-        self.keyword = keyword
+        super(PrimalContactCoupling, self).__init__(keyword)
         self.mortar_displacement_variable = "mortar_u"
         self.discr_master = discr_master
         self.discr_slave = discr_slave
