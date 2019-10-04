@@ -1483,7 +1483,7 @@ class MockNodeDiscretization(object):
     def __init__(self, value):
         self.value = value
 
-    def assemble_matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(self, g, data=None):
         return sps.coo_matrix(self.value), np.zeros(1)
 
 
