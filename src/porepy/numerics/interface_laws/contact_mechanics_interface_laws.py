@@ -53,12 +53,6 @@ class PrimalContactCoupling(
 
         self.use_surface_discr = use_surface_discr
 
-    def _key(self):
-        return self.keyword + "_"
-
-    def _discretization_key(self):
-        return self._key() + pp.keywords.DISCRETIZATION
-
     def ndof(self, mg):
         """ Get the number of dof for this coupling.
 
@@ -640,7 +634,6 @@ class DivUCoupling(
     def ndof(self, mg):
         # Assume the interface law is defined only on mortar grids next to the
         # ambient dimension
-        ambient_dimension = mg.dim + 1
         return (mg.dim + 1) * mg.num_cells
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):

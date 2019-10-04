@@ -32,21 +32,12 @@ class RobinCoupling(
         self.discr_master = discr_master
         self.discr_slave = discr_slave
 
-    def _key(self):
-        return self.keyword + "_"
-
-    def _discretization_key(self):
-        return self._key() + pp.DISCRETIZATION
-
     def ndof(self, mg):
         return mg.num_cells
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """ Discretize the interface law and store the discretization in the
         edge data.
-
-        TODO: Right now, we are a bit unclear on whether it is required that g_h
-        represents the higher-dimensional domain. It should not need to do so.
 
         Parameters:
             g_h: Grid of the master domanin.
