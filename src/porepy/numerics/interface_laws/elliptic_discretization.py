@@ -282,6 +282,33 @@ class EllipticDiscretization:
         """
         raise NotImplementedError("Method not implemented")
 
+    def assemble_int_bound_pressure_trace_between_interfaces(
+        self, g, data_grid, data_primary_edge, data_secondary_edge, cc, matrix, rhs
+    ):
+        """ Assemble the contribution from an internal
+        boundary, manifested as a condition on the boundary pressure.
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data_grid (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+            data_primary_edge (dictionary): Data dictionary for the primary edge in the
+                mixed-dimensional grid.
+            data_secondary_edge (dictionary): Data dictionary for the secondary edge in the
+                mixed-dimensional grid.
+            cc (block matrix, 3x3): Block matrix of size 3 x 3, whwere each block represents
+                coupling between variables on this interface. Index 0, 1 and 2
+                represent the master grid, the primary and secondary interface,
+                respectively.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            rhs (block_array 3x1): Block matrix of size 3 x 1, representing the right hand
+                side of this coupling. Index 0, 1 and 2 represent the master grid,
+                the primary and secondary interface, respectively.
+
+        """
+        raise NotImplementedError("Method not implemented")
+
     def assemble_int_bound_pressure_cell(
         self, g, data, data_edge, cc, matrix, rhs, self_ind
     ):
