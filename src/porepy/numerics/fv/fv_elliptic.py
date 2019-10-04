@@ -211,7 +211,7 @@ class FVElliptic(pp.EllipticDiscretization):
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
             use_slave_proj (boolean): If True, the slave side projection operator is
-                used. Needed for periodic boundary conditions.                
+                used. Needed for periodic boundary conditions.
 
         """
         div = g.cell_faces.T
@@ -327,6 +327,41 @@ class FVElliptic(pp.EllipticDiscretization):
         # around a node.
         bc_val = data[pp.PARAMETERS][self.keyword]["bc_values"]
         rhs[2] -= proj * matrix_dictionary["bound_pressure_face"] * bc_val
+
+    def assemble_int_bound_pressure_trace_between_interfaces(
+        self, g, data_grid, data_primary_edge, data_secondary_edge, cc, matrix, rhs
+    ):
+        """ Assemble the contribution from an internal
+        boundary, manifested as a condition on the boundary pressure.
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data_grid (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+            data_primary_edge (dictionary): Data dictionary for the primary edge in the
+                mixed-dimensional grid.
+            data_secondary_edge (dictionary): Data dictionary for the secondary edge in the
+                mixed-dimensional grid.
+            cc (block matrix, 3x3): Block matrix of size 3 x 3, whwere each block represents
+                coupling between variables on this interface. Index 0, 1 and 2
+                represent the master grid, the primary and secondary interface,
+                respectively.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            rhs (block_array 3x1): Block matrix of size 3 x 1, representing the right hand
+                side of this coupling. Index 0, 1 and 2 represent the master grid,
+                the primary and secondary interface, respectively.
+
+        """
+        mg_primary = data_primary_edge["mortar_grid"]
+        mg_secondary = data_secondary_edge["mortar_grid"]
+
+        matrix_dictionary = data_grid[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        proj_pressure = mg_primary.master_to_mortar_avg()
+        proj_flux = mg_secondary.mortar_to_master_int()
+
+        cc[1, 2] += proj_pressure * matrix_dictionary["bound_pressure_face"] * proj_flux
 
     def assemble_int_bound_pressure_cell(
         self, g, data, data_edge, cc, matrix, rhs, self_ind
