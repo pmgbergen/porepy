@@ -246,18 +246,8 @@ class Assembler:
 
         """
 
-        if operation == "discretize":
-            variable_keys = kwargs.get("variable_filter", None)
-            if variable_keys is None:
-                variable_filter = lambda x: True
-            else:
-                variable_filter = lambda x: x in variable_keys
-            term_keys = kwargs.get("term_filter", None)
-            if term_keys is None:
-                term_filter = lambda x: True
-            else:
-                term_filter = lambda x: x in term_keys
-        elif operation == "assemble":
+        if operation == "assemble":
+
             # Initialize the global matrix.
             # This gives us a set of matrices (essentially one per term per variable)
             # and a simial set of rhs vectors. Furthermore, we get block indices
@@ -273,15 +263,56 @@ class Assembler:
 
             matrix, rhs = self._initialize_matrix_rhs(sps_matrix)
 
+            term_filter = None
+            variable_filter = None
+            target_grid = kwargs.get("grid", None)
+
+        elif operation == "discretize":
+
+            variable_keys = kwargs.get("variable_filter", None)
+            if variable_keys is None:
+                variable_filter = lambda x: True
+            else:
+                variable_filter = lambda x: x in variable_keys
+            term_keys = kwargs.get("term_filter", None)
+            if term_keys is None:
+                term_filter = lambda x: True
+            else:
+                term_filter = lambda x: x in term_keys
+
+            matrix = None
+            rhs = None
+            target_grid = kwargs.get("grid", None)
+            sps_matrix = None
+
         else:
             # We will only reach this if someone has invoked this private method
             # from the outside.
             raise ValueError("Unknown gb operation " + str(operation))
 
+        self._operate_on_node(
+            operation, matrix, rhs, variable_filter, term_filter, target_grid
+        )
+
+        self._operate_on_edge(operation, matrix, rhs, variable_filter, term_filter)
+
+        self._operate_on_edge_coupling(
+            operation, matrix, rhs, variable_filter, term_filter, sps_matrix
+        )
+
+        if operation == "assemble":
+            return matrix, rhs
+        else:
+            return None
+
+    def _operate_on_node(
+        self, operation, matrix, rhs, variable_filter, term_filter, target_grid
+    ):
+
         # Loop over all grids, discretize (if necessary) and assemble. This
         # will populate the main diagonal of the equation.
         for g, data in self.gb:
-            if kwargs.get("grid", None) is not None and g is not kwargs["grid"]:
+            if target_grid is not None and g is not target_grid:
                 continue
             loc_var = self._local_variables(data)
             for row in loc_var.keys():
@@ -330,13 +361,8 @@ class Assembler:
                                 # The right hand side vector is always initialized.
                                 rhs[var_key_name][ri] += loc_b
 
-        # Loop over all edges
+    def _operate_on_edge(self, operation, matrix, rhs, variable_filter, term_filter):
         for e, data_edge in self.gb.edges():
-
-            # Grids and data dictionaries for master and slave
-            g_slave, g_master = self.gb.nodes_of_edge(e)
-            data_slave = self.gb.node_props(g_slave)
-            data_master = self.gb.node_props(g_master)
 
             # Extract the active local variables for edge
             active_edge_var = self._local_variables(data_edge)
@@ -365,12 +391,12 @@ class Assembler:
                                     and variable_filter(col)
                                     and term_filter(term)
                                 ):
-                                    d.discretize(g, data)
+                                    d.discretize(data_edge)
                             elif operation == "assemble":
                                 # Assemble the matrix and right hand side. This will also
                                 # discretize if not done before.
 
-                                loc_A, loc_b = d.assemble_matrix_rhs(g, data_edge)
+                                loc_A, loc_b = d.assemble_matrix_rhs(data_edge)
 
                                 # Assign values in global matrix
                                 var_key_name = self._variable_term_key(term, row, col)
@@ -382,6 +408,17 @@ class Assembler:
                                 else:
                                     matrix[var_key_name][ri, ci] += loc_A
                                 rhs[var_key_name][ri] += loc_b
+
+    def _operate_on_edge_coupling(
+        self, operation, matrix, rhs, variable_filter, term_filter, sps_matrix
+    ):
+        # Loop over all edges
+        for e, data_edge in self.gb.edges():
+
+            # Grids and data dictionaries for master and slave
+            g_slave, g_master = self.gb.nodes_of_edge(e)
+            data_slave = self.gb.node_props(g_slave)
+            data_master = self.gb.node_props(g_master)
 
             # Then, discretize the interaction between the edge variables of
             # this edge, and the adjacent node variables.
@@ -517,11 +554,7 @@ class Assembler:
                     # si is None
                     # The operation is a simplified version of the full option above.
                     if operation == "discretize":
-                        if (
-                            variable_filter(master_key)
-                            and variable_filter(edge_key)
-                            and term_filter(term)
-                        ):
+                        if variable_filter(master_key) and variable_filter(edge_key):
                             e_discr.discretize(g_master, data_master, data_edge)
                     elif operation == "assemble":
 
@@ -545,11 +578,7 @@ class Assembler:
                     # mi is None
                     # The operation is a simplified version of the full option above.
                     if operation == "discretize":
-                        if (
-                            variable_filter(slave_key)
-                            and variable_filter(edge_key)
-                            and term_filter(term)
-                        ):
+                        if variable_filter(slave_key) and variable_filter(edge_key):
                             e_discr.discretize(g_slave, data_slave, data_edge)
                     elif operation == "assemble":
 
@@ -573,11 +602,6 @@ class Assembler:
                     raise ValueError(
                         "Invalid combination of variables on node-edge relation"
                     )
-
-        if operation == "assemble":
-            return matrix, rhs
-        else:
-            return None
 
     def _identify_dofs(self):
         """
