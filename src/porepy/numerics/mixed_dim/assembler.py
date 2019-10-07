@@ -602,6 +602,93 @@ class Assembler:
                     raise ValueError(
                         "Invalid combination of variables on node-edge relation"
                     )
+                    
+                # Finally, discretize direct couplings between this edge and other 
+                # edges.
+                # The below lines allow only for very specific coupling types:
+                #    i) The discretization type of the two edges should be the same
+                #   ii) The variable name should be the same for both edges
+                #  iii) Only the block edge_ind - other_edge_ind can be filled in.
+                # These restrictions may be loosned somewhat in the future, but a
+                # general coupling between different edges will not be implemented.
+                if operation == 'assemble' and e_discr.edge_coupling_via_high_dim:
+                    for other_edge, data_other in self.gb.edges_of_node(g_master):
+                        
+                        # Skip the case where the primary and secondary edge is the same
+                        if other_edge == e:
+                            continue
+                        
+                        if data_other['mortar_grid'].dim != data_edge["mortar_grid"].dim:
+                            continue
+                        
+                        # Only consider terms where the primary and secondary edge have
+                        # the same variable name. This is an intended restriction of the 
+                        # flexibility of the code: Direct edge couplings are implemented
+                        # only to replace explicit variables for boundary conditions on
+                        # external boundaries, for which the current implementation
+                        # should suffice. While more advanced couplings could easily be
+                        # introduced, it will violate the modeling framework for mixed-
+                        # dimensional problems.
+                        # Although different variable names for the same physics is 
+                        # permitted in the modeling framework, the current restriction
+                        # is considered reasonable for the time being.
+                        oi = self.block_dof.get((other_edge, edge_key), None)   
+                        if oi is None:
+                            continue
+                        
+                        # Assign a local matrix, which will be populated with the
+                        # current state of the local system.
+                        # Local here refers to the variable and term on the two
+                        # nodes, together with the relavant mortar variable and term
+                        # Associate the first variable with master, the second with
+                        # slave, and the final with edge.
+                        loc_mat, _ = self._assign_matrix_vector(
+                            self.full_dof[[mi, ei, oi]], sps_matrix
+                        )
+                        tmp_mat, loc_rhs = e_discr.assemble_edge_coupling_via_high_dim(
+                                g_master, data_master, data_edge, data_other, loc_mat)
+                        matrix[mat_key][ei, oi] = tmp_mat[1, 2]
+                        rhs[mat_key][ei] += loc_rhs[1]
+                                              
+                if operation == 'assemble' and e_discr.edge_coupling_via_low_dim:
+                    for other_edge, data_other in self.gb.edges_of_node(g_slave):
+                        
+                        # Skip the case where the primary and secondary edge is the same
+                        if other_edge == e:
+                            continue
+                        
+                        if data_other['mortar_grid'].dim != data_edge["mortar_grid"].dim:
+                            continue
+                        
+                        # Only consider terms where the primary and secondary edge have
+                        # the same variable name. This is an intended restriction of the 
+                        # flexibility of the code: Direct edge couplings are implemented
+                        # only to replace explicit variables for boundary conditions on
+                        # external boundaries, for which the current implementation
+                        # should suffice. While more advanced couplings could easily be
+                        # introduced, it will violate the modeling framework for mixed-
+                        # dimensional problems.
+                        # Although different variable names for the same physics is 
+                        # permitted in the modeling framework, the current restriction
+                        # is considered reasonable for the time being.
+                        oi = self.block_dof.get((other_edge, edge_key), None)   
+                        if oi is None:
+                            continue
+                        
+                        # Assign a local matrix, which will be populated with the
+                        # current state of the local system.
+                        # Local here refers to the variable and term on the two
+                        # nodes, together with the relavant mortar variable and term
+                        # Associate the first variable with master, the second with
+                        # slave, and the final with edge.
+                        loc_mat, _ = self._assign_matrix_vector(
+                            self.full_dof[[si, ei, oi]], sps_matrix
+                        )
+                        tmp_mat, loc_rhs = e_discr.assemble_edge_coupling_via_high_dim(
+                                g_slave, data_slave, data_edge, data_other, loc_mat)
+                        matrix[mat_key][ei, oi] = tmp_mat[1, 2]
+                        rhs[mat_key][ei] += loc_rhs[1]
+                
 
     def _identify_dofs(self):
         """
