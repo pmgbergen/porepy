@@ -83,7 +83,7 @@ class RobinCoupling(
             data_master: Data dictionary for the master suddomain
             data_slave: Data dictionary for the slave subdomain.
             data_edge: Data dictionary for the edge between the subdomains
-            matrix: original discretization for the master subdomain.
+            matrix: original discretization
 
             The discretization matrices must be included since they will be
             changed by the imposition of Neumann boundary conditions on the
@@ -130,17 +130,17 @@ class RobinCoupling(
         return matrix, rhs
 
     def assemble_edge_coupling_via_high_dim(
-        self, g_between, data_between, data_edge_primary, data_edge_secondary
+        self, g, data_grid, data_primary_edge, data_secondary_edge, matrix
     ):
         """ Represent the impact on a primary interface of the mortar (thus boundary)
         flux on a secondary interface.
 
         Parameters:
-            g_between (pp.Grid): Grid of the higher dimensional neighbor to the
-                main interface
-            data_between (dict): Data dictionary of the intermediate grid.
+            g (pp.Grid): Grid of the higher dimensional neighbor to the main interface.
+            data_grid (dict): Data dictionary of the intermediate grid.
             data_edge_primary (dict): Data dictionary of the primary interface.
             data_edge_secondary (dict): Data dictionary of the secondary interface.
+            matrix: original discretization.
 
         Returns:
             np.array: Block matrix of size 3 x 3, whwere each block represents
@@ -151,6 +151,15 @@ class RobinCoupling(
                 slave and mortar variable, respectively.
 
         """
+        mg_primary = data_primary_edge["mortar_grid"]
+        mg_secondary = data_secondary_edge["mortar_grid"]
+        cc, rhs = self._define_local_block_matrix_edge_coupling(
+            g, self.discr_master, mg_primary, mg_secondary, matrix
+        )
+
+        return self.discr_master.assemble_int_bound_pressure_trace_between_interfaces(
+            g, data_grid, data_primary_edge, data_secondary_edge, cc, matrix, rhs
+        )
 
 
 class FluxPressureContinuity(RobinCoupling):
