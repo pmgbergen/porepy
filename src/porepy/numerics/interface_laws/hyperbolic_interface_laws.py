@@ -35,20 +35,21 @@ class UpwindCoupling(
         Note: the right-hand side is not implemented now.
 
         Parameters:
-            matrix: Uncoupled discretization matrix.
             g_master: grid of higher dimension
             g_slave: grid of lower dimension
             data_master: dictionary which stores the data for the higher dimensional
                 grid
             data_slave: dictionary which stores the data for the lower dimensional
                 grid
-            data: dictionary which stores the data for the edges of the grid
+            data_edge: dictionary which stores the data for the edges of the grid
                 bucket
+            matrix: Uncoupled discretization matrix.
 
         Returns:
             cc: block matrix which store the contribution of the coupling
                 condition. See the abstract coupling class for a more detailed
                 description.
+
         """
 
         # Normal component of the velocity from the higher dimensional grid

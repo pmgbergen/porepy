@@ -497,6 +497,7 @@ class DualElliptic(
             g (Grid): On which the equation is discretized
             data (dictionary): Of data related to the discretization.
             matrix (scipy.sparse.matrix): Discretization matrix to be modified.
+            self_ind (int): Index in local block system of this grid and variable.
 
         """
         mg = data_edge["mortar_grid"]

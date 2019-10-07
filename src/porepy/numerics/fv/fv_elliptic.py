@@ -398,7 +398,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
         cc[2, self_ind] -= proj
 
-    def enforce_neumann_int_bound(self, g_master, data_edge, matrix, self_ind):
+    def enforce_neumann_int_bound(self, g, data_edge, matrix, self_ind):
         """ Enforce Neumann boundary conditions on a given system matrix.
 
         The method is void for finite volume approaches, but is implemented

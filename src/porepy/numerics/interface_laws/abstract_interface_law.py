@@ -231,7 +231,7 @@ class AbstractInterfaceLaw:
         return cc, rhs
 
     def assemble_edge_coupling_via_high_dim(
-        self, g_between, data_between, data_edge_primary, data_edge_secondary
+        self, g_between, data_between, edge_primary, data_edge_primary, edge_secondary, data_edge_secondary, matrix
     ):
         """ Method to assemble the contribution from one interface to another one.
 
@@ -256,8 +256,11 @@ class AbstractInterfaceLaw:
             g_between (pp.Grid): Grid of the higher dimensional neighbor to the
                 main interface
             data_between (dict): Data dictionary of the intermediate grid.
+            edge_primary (tuple of grids): The grids of the primary edge
             data_edge_primary (dict): Data dictionary of the primary interface.
+            edge_secondary (tuple of grids): The grids of the secondary edge.
             data_edge_secondary (dict): Data dictionary of the secondary interface.
+            matrix: original discretization.
 
         Returns:
             np.array: Block matrix of size 3 x 3, whwere each block represents
@@ -278,7 +281,7 @@ class AbstractInterfaceLaw:
             pass
 
     def assemble_edge_coupling_via_low_dim(
-        self, g_between, data_edge_primary, data_edge_secondary
+        self, g_between, data_between, edge_primary, data_edge_primary, edge_secondary, data_edge_secondary, matrix
     ):
         """ Method to assemble the contribution from one interface to another one.
 
@@ -303,8 +306,11 @@ class AbstractInterfaceLaw:
             g_between (pp.Grid): Grid of the lower-dimensional neighbor to the
                 main interface
             data_between (dict): Data dictionary of the intermediate grid.
+            edge_primary (tuple of grids): The grids of the primary edge
             data_edge_primary (dict): Data dictionary of the primary interface.
+            edge_secondary (tuple of grids): The grids of the secondary edge.
             data_edge_secondary (dict): Data dictionary of the secondary interface.
+            matrix: original discretization.
 
         Returns:
             np.array: Block matrix of size 3 x 3, whwere each block represents
