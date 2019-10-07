@@ -329,7 +329,7 @@ class FVElliptic(pp.EllipticDiscretization):
         rhs[2] -= proj * matrix_dictionary["bound_pressure_face"] * bc_val
 
     def assemble_int_bound_pressure_trace_between_interfaces(
-        self, g, data_grid, data_primary_edge, data_secondary_edge, cc, matrix, rhs
+        self, g, data_grid, proj_primary, proj_secondary, cc, matrix, rhs
     ):
         """ Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -338,10 +338,10 @@ class FVElliptic(pp.EllipticDiscretization):
             g (Grid): Grid which the condition should be imposed on.
             data_grid (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
-            data_primary_edge (dictionary): Data dictionary for the primary edge in the
-                mixed-dimensional grid.
-            data_secondary_edge (dictionary): Data dictionary for the secondary edge in the
-                mixed-dimensional grid.
+            proj_primary (sparse matrix): Pressure projection from the higher-dim
+                grid to the primary mortar grid.
+            proj_secondary (sparse matrix): Flux projection from the secondary mortar
+                grid to the main grid.
             cc (block matrix, 3x3): Block matrix of size 3 x 3, whwere each block represents
                 coupling between variables on this interface. Index 0, 1 and 2
                 represent the master grid, the primary and secondary interface,
@@ -353,15 +353,12 @@ class FVElliptic(pp.EllipticDiscretization):
                 the primary and secondary interface, respectively.
 
         """
-        mg_primary = data_primary_edge["mortar_grid"]
-        mg_secondary = data_secondary_edge["mortar_grid"]
 
         matrix_dictionary = data_grid[pp.DISCRETIZATION_MATRICES][self.keyword]
 
-        proj_pressure = mg_primary.master_to_mortar_avg()
-        proj_flux = mg_secondary.mortar_to_master_int()
-
-        cc[1, 2] += proj_pressure * matrix_dictionary["bound_pressure_face"] * proj_flux
+        cc[1, 2] += (
+            proj_primary * matrix_dictionary["bound_pressure_face"] * proj_secondary
+        )
         return cc, rhs
 
     def assemble_int_bound_pressure_cell(
