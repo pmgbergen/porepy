@@ -221,7 +221,7 @@ def create_1d_grids(
         assert loc_line_pts.size > 1
 
         line_type = pn[:offset_index]
-        frac_num = pn[offset_index + 1 :]
+        frac_num = int(pn[offset_index + 1 :])
 
         # If this is a meshing constraint, but not a fracture, we don't need to do anything
         if frac_num in constraints:

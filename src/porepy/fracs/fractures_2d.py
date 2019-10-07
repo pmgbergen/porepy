@@ -313,7 +313,7 @@ class FractureNetwork2d(object):
         p, e = pp.intersections.split_intersecting_segments_2d(
             self.pts, self.edges, tol=self.tol
         )
-        return FractureNetwork2d(p, e, self.domain)
+        return FractureNetwork2d(p, e, self.domain, tol=self.tol)
 
     # --------- Utility functions below here
 
