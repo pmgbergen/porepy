@@ -231,7 +231,14 @@ class AbstractInterfaceLaw:
         return cc, rhs
 
     def assemble_edge_coupling_via_high_dim(
-        self, g_between, data_between, edge_primary, data_edge_primary, edge_secondary, data_edge_secondary, matrix
+        self,
+        g_between,
+        data_between,
+        edge_primary,
+        data_edge_primary,
+        edge_secondary,
+        data_edge_secondary,
+        matrix,
     ):
         """ Method to assemble the contribution from one interface to another one.
 
@@ -281,7 +288,14 @@ class AbstractInterfaceLaw:
             pass
 
     def assemble_edge_coupling_via_low_dim(
-        self, g_between, data_between, edge_primary, data_edge_primary, edge_secondary, data_edge_secondary, matrix
+        self,
+        g_between,
+        data_between,
+        edge_primary,
+        data_edge_primary,
+        edge_secondary,
+        data_edge_secondary,
+        matrix,
     ):
         """ Method to assemble the contribution from one interface to another one.
 
