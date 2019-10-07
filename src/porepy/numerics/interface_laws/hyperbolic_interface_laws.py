@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Module of coupling laws for hyperbolic equations.
 """
@@ -8,11 +6,14 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+import porepy.numerics.interface_laws.abstract_interface_law
 
 
-class UpwindCoupling(object):
+class UpwindCoupling(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     def __init__(self, keyword):
-        self.keyword = keyword
+        super(UpwindCoupling, self).__init__(keyword)
 
     def key(self):
         return self.keyword + "_"

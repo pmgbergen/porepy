@@ -414,11 +414,11 @@ class MatrixScalarToForceBalance(
                 pressure, respectively. Used for #DOFs. In FV, one cell variable is
                 expected.
         """
+        super(MatrixScalarToForceBalance, self).__init__(keyword)
         # Set node discretizations
         self.discr_master = discr_master
         self.discr_slave = discr_slave
         # Keyword used to retrieve gradP discretization.
-        self.keyword = keyword
 
     def ndof(self, mg):
         # Assume the interface law is defined only on mortar grids next to the
@@ -518,7 +518,7 @@ class FractureScalarToForceBalance(
 
     """
 
-    def __init__(self, discr_master, discr_slave):
+    def __init__(self, discr_master, discr_slave, keyword=None):
         """
         Parameters:
             keyword used for storage of the gradP discretization. If the GradP class is
@@ -528,6 +528,7 @@ class FractureScalarToForceBalance(
                 pressure, respectively. Used for #DOFs. In FV, one cell variable is
                 expected.
         """
+        super(FractureScalarToForceBalance, self).__init__(keyword)
         # Set node discretizations
         self.discr_master = discr_master
         self.discr_slave = discr_slave
@@ -621,7 +622,8 @@ class DivUCoupling(
     to the div u term in fracture ("div aperture") and matrix.
     """
 
-    def __init__(self, variable, discr_master, discr_slave):
+    def __init__(self, variable, discr_master, discr_slave, keyword=None):
+        super(DivUCoupling, self).__init__(keyword)
         # Set variable names for the vector variable on the nodes (displacement), used
         # to access solutions from previous time steps.
         self.variable = variable
