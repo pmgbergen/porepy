@@ -34,6 +34,7 @@ import unittest
 
 import porepy as pp
 from test.test_utils import permute_matrix_vector
+import porepy.numerics.interface_laws.abstract_interface_law
 
 
 class TestAssembler(unittest.TestCase):
@@ -53,6 +54,36 @@ class TestAssembler(unittest.TestCase):
         mg = pp.MortarGrid(2, {"left": g1, "right": g2}, sps.coo_matrix(1))
         mg.num_cells = 1
         gb.set_edge_prop([g1, g2], "mortar_grid", mg)
+        return gb
+
+    def define_gb_three_grids(self):
+        g1 = pp.CartGrid([1, 1])
+        g2 = pp.CartGrid([1, 1])
+        g3 = pp.CartGrid([1, 1])
+        g1.compute_geometry()
+        g2.compute_geometry()
+        g3.compute_geometry()
+
+        g1.grid_num = 1
+        g2.grid_num = 2
+        g3.grid_num = 3
+        g1.dim = 2
+        g2.dim = 1
+        g3.dim = 1
+
+        gb = pp.GridBucket()
+        gb.add_nodes([g1, g2, g3])
+        gb.add_edge([g1, g2], None)
+        gb.add_edge([g1, g3], None)
+
+        mg = pp.MortarGrid(1, {"left": g2, "right": g2}, sps.coo_matrix(1))
+        mg.num_cells = 1
+        gb.set_edge_prop([g1, g2], "mortar_grid", mg)
+
+        mg = pp.MortarGrid(1, {"left": g3, "right": g3}, sps.coo_matrix(1))
+        mg.num_cells = 1
+        gb.set_edge_prop([g1, g3], "mortar_grid", mg)
+
         return gb
 
     ### Test with no coupling between the subdomains
@@ -1478,6 +1509,64 @@ class TestAssembler(unittest.TestCase):
             param_known = np.array([5, 6, 7, 1, 3, 4])
         self.assertTrue(np.allclose(param_known, P))
 
+    # Tests with explicit coupling between two nodes
+    def test_direct_edge_coupling(self):
+        gb = self.define_gb_three_grids()
+
+        node_var = "node_var"
+        edge_var = "edge_var"
+        term = "op"
+
+        edge_self_val = 1
+        edge_other_val = -1
+
+        node_discretization = MockNodeDiscretization(1)
+        for g, d in gb:
+            d[pp.PRIMARY_VARIABLES] = {node_var: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {node_var: {term: node_discretization}}
+        for e, d in gb.edges():
+            d[pp.PRIMARY_VARIABLES] = {edge_var: {"cells": 1}}
+            g1, g2 = gb.nodes_of_edge(e)
+            if g1.grid_num == 2:
+                e1 = e
+                d[pp.COUPLING_DISCRETIZATION] = {
+                    "coupling_discretization": {
+                        g1: (node_var, term),
+                        g2: (node_var, term),
+                        e: (
+                            edge_var,
+                            MockEdgeDiscretizationEdgeCouplings(
+                                node_discretization, edge_self_val, edge_other_val
+                            ),
+                        ),
+                    }
+                }
+            elif g1.grid_num == 3:
+                e2 = e
+                d[pp.COUPLING_DISCRETIZATION] = {
+                    "coupling_discretization": {
+                        g1: (node_var, term),
+                        g2: (node_var, term),
+                        e: (
+                            edge_var,
+                            MockEdgeDiscretizationEdgeCouplings(
+                                node_discretization, edge_self_val, -edge_other_val
+                            ),
+                        ),
+                    }
+                }
+
+        assembler = pp.Assembler(gb)
+        A, _ = assembler.assemble_matrix_rhs()
+
+        e1_ind = assembler.block_dof[(e1, edge_var)]
+        e2_ind = assembler.block_dof[(e2, edge_var)]
+
+        self.assertTrue(A[e1_ind, e1_ind] == edge_self_val)
+        self.assertTrue(A[e1_ind, e2_ind] == edge_other_val)
+        self.assertTrue(A[e2_ind, e1_ind] == -edge_other_val)
+        self.assertTrue(A[e2_ind, e2_ind] == edge_self_val)
+
 
 class MockNodeDiscretization(object):
     def __init__(self, value):
@@ -1486,9 +1575,15 @@ class MockNodeDiscretization(object):
     def assemble_matrix_rhs(self, g, data=None):
         return sps.coo_matrix(self.value), np.zeros(1)
 
+    def ndof(self, g):
+        return g.num_cells
 
-class MockEdgeDiscretization(object):
+
+class MockEdgeDiscretization(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     def __init__(self, diag_val, off_diag_val):
+        super(MockEdgeDiscretization, self).__init__("")
         self.diag_val = diag_val
         self.off_diag_val = off_diag_val
 
@@ -1509,8 +1604,11 @@ class MockEdgeDiscretization(object):
         return cc + local_matrix, np.empty(3)
 
 
-class MockEdgeDiscretizationModifiesNode(object):
+class MockEdgeDiscretizationModifiesNode(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     def __init__(self, diag_val, off_diag_val):
+        super(MockEdgeDiscretizationModifiesNode, self).__init__("")
         self.diag_val = diag_val
         self.off_diag_val = off_diag_val
 
@@ -1538,9 +1636,12 @@ class MockEdgeDiscretizationModifiesNode(object):
         return cc + local_matrix, np.empty(3)
 
 
-class MockEdgeDiscretizationOneSided(object):
+class MockEdgeDiscretizationOneSided(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     # Discretization for the case where a mortar variable depends only on one side of the
     def __init__(self, diag_val, off_diag_val):
+        super(MockEdgeDiscretizationOneSided, self).__init__("")
         self.diag_val = diag_val
         self.off_diag_val = off_diag_val
 
@@ -1549,18 +1650,19 @@ class MockEdgeDiscretizationOneSided(object):
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((2, 2))
-
         cc[1, 1] = sps.coo_matrix(self.diag_val)
         cc[1, 0] = sps.coo_matrix(-self.off_diag_val)
-
         cc[0, 1] = sps.coo_matrix(self.off_diag_val)
 
         return cc + local_matrix, np.empty(2)
 
 
-class MockEdgeDiscretizationOneSidedModifiesNode(object):
+class MockEdgeDiscretizationOneSidedModifiesNode(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     # Discretization for the case where a mortar variable depends only on one side of the
     def __init__(self, diag_val, off_diag_val):
+        super(MockEdgeDiscretizationOneSidedModifiesNode, self).__init__("")
         self.diag_val = diag_val
         self.off_diag_val = off_diag_val
 
@@ -1580,5 +1682,54 @@ class MockEdgeDiscretizationOneSidedModifiesNode(object):
         return cc + local_matrix, np.empty(2)
 
 
+class MockEdgeDiscretizationEdgeCouplings(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
+    def __init__(self, discr_node, self_val, other_val):
+        super(MockEdgeDiscretizationEdgeCouplings, self).__init__("")
+        self.self_val = self_val
+        self.other_val = other_val
+        self.edge_coupling_via_high_dim = True
+        self.discr_grid = discr_node
+
+    def ndof(self, mg):
+        return mg.num_cells
+
+    def assemble_matrix_rhs(
+        self, g_master, g_slave, data_master, data_slave, data_edge, local_matrix
+    ):
+
+        dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+        cc = cc.reshape((3, 3))
+        cc[2, 2] = sps.coo_matrix(self.self_val)
+        cc[2, 0] = sps.coo_matrix(1)
+        cc[2, 1] = sps.coo_matrix(1)
+        cc[0, 2] = sps.coo_matrix(1)
+        cc[1, 2] = sps.coo_matrix(1)
+
+        return cc + local_matrix, np.empty(3)
+
+    def assemble_edge_coupling_via_high_dim(
+        self,
+        g_between,
+        data_between,
+        edge_primary,
+        data_edge_primary,
+        edge_secondary,
+        data_edge_secondary,
+        matrix,
+    ):
+        mg_primary = data_edge_primary["mortar_grid"]
+        mg_secondary = data_edge_secondary["mortar_grid"]
+        cc, rhs = self._define_local_block_matrix_edge_coupling(
+            g_between, self.discr_grid, mg_primary, mg_secondary, matrix
+        )
+        cc[1, 2] = sps.coo_matrix(self.other_val)
+
+        return cc + matrix, rhs
+
+
 if __name__ == "__main__":
+    # TestAssembler().test_two_variables_coupling_between_node_and_edge_mixed_dependencies()
     unittest.main()
