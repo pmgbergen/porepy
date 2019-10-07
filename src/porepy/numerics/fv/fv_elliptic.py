@@ -362,6 +362,7 @@ class FVElliptic(pp.EllipticDiscretization):
         proj_flux = mg_secondary.mortar_to_master_int()
 
         cc[1, 2] += proj_pressure * matrix_dictionary["bound_pressure_face"] * proj_flux
+        return cc, rhs
 
     def assemble_int_bound_pressure_cell(
         self, g, data, data_edge, cc, matrix, rhs, self_ind

@@ -440,7 +440,7 @@ class DualElliptic(
                 the primary and secondary interface, respectively.
 
         """
-        pass
+        return cc, rhs
 
     def assemble_int_bound_pressure_cell(
         self, g, data, data_edge, cc, matrix, rhs, self_ind

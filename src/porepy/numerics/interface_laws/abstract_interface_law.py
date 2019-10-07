@@ -122,6 +122,7 @@ class AbstractInterfaceLaw:
 
         master_ind = 0
         slave_ind = 1
+        mortar_ind = 2
 
         dof_master = discr_master.ndof(g_master)
         dof_slave = discr_slave.ndof(g_slave)
@@ -139,7 +140,7 @@ class AbstractInterfaceLaw:
             in the coupling discretization must match the number of dofs given by the matrix
             """
             )
-        elif not self.ndof(mg) == matrix[master_ind, 2].shape[1]:
+        elif not self.ndof(mg) == matrix[master_ind, mortar_ind].shape[1]:
             raise ValueError(
                 """The number of dofs of the edge discretization given
             in the coupling discretization must match the number of dofs given by the matrix
@@ -155,7 +156,77 @@ class AbstractInterfaceLaw:
         rhs = np.empty(3, dtype=np.object)
         rhs[master_ind] = np.zeros(dof_master)
         rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[2] = np.zeros(dof_mortar)
+        rhs[mortar_ind] = np.zeros(dof_mortar)
+
+        return cc, rhs
+
+    def _define_local_block_matrix_edge_coupling(
+        self, g, discr_grid, mg_primary, mg_secondary, matrix
+    ):
+        """ Initialize a block matrix and right hand side for the local linear
+        system of the master and slave grid and the interface.
+
+        The generated block matrix is 3x3, where each block is initialized as
+        a sparse matrix with size corresponding to the number of dofs for
+        the master, slave and mortar variables for this interface law.
+
+        Parameters:
+            g_master: Grid on one neighboring subdomain.
+            g_slave: Grid on the other neighboring subdomain.
+            data_master: Data dictionary for the master suddomain
+            data_slave: Data dictionary for the slave subdomain.
+            data_edge: Data dictionary for the edge between the subdomains
+            matrix_master: original discretization for the master subdomain
+
+        Returns:
+            np.array: Block matrix of size 3 x 3, whwere each block represents
+                coupling between variables on this interface. Index 0, 1 and 2
+                represent the master, slave and mortar variable, respectively.
+                Each of the blocks have an empty sparse matrix with size
+                corresponding to the number of dofs of the grid and variable.
+            np.array: Block matrix of size 3 x 1, representing the right hand
+                side of this coupling. Index 0, 1 and 2 represent the master,
+                slave and mortar variable, respectively.
+
+        """
+
+        grid_ind = 0
+        primary_ind = 1
+        secondary_ind = 2
+
+        dof_grid = discr_grid.ndof(g)
+        dof_mortar_primary = self.ndof(mg_primary)
+        dof_mortar_secondary = self.ndof(mg_secondary)
+
+        if not dof_grid == matrix[grid_ind, grid_ind].shape[1]:
+            raise ValueError(
+                """The number of dofs of the master discretization given
+            in the coupling discretization must match the number of dofs given by the matrix
+            """
+            )
+        elif not dof_mortar_primary == matrix[grid_ind, primary_ind].shape[1]:
+            raise ValueError(
+                """The number of dofs of the slave discretization given
+            in the coupling discretization must match the number of dofs given by the matrix
+            """
+            )
+        elif not dof_mortar_secondary == matrix[grid_ind, secondary_ind].shape[1]:
+            raise ValueError(
+                """The number of dofs of the edge discretization given
+            in the coupling discretization must match the number of dofs given by the matrix
+            """
+            )
+        # We know the number of dofs from the master and slave side from their
+        # discretizations
+        dof = np.array([dof_grid, dof_mortar_primary, dof_mortar_secondary])
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+        cc = cc.reshape((3, 3))
+
+        # The rhs is just zeros
+        rhs = np.empty(3, dtype=np.object)
+        rhs[grid_ind] = np.zeros(dof_grid)
+        rhs[primary_ind] = np.zeros(dof_mortar_primary)
+        rhs[secondary_ind] = np.zeros(dof_mortar_secondary)
 
         return cc, rhs
 
@@ -178,6 +249,8 @@ class AbstractInterfaceLaw:
         For more details on how this function is invoked see pp.Assembler.
         Note that the coupling currently only can be invoked if the variables
         on the primary and secondary interface have the same name.
+
+        Any discretization operation should be done as part of self.discretize().
 
         Parameters:
             g_between (pp.Grid): Grid of the higher dimensional neighbor to the
@@ -223,6 +296,8 @@ class AbstractInterfaceLaw:
         For more details on how this function is invoked see pp.Assembler.
         Note that the coupling currently only can be invoked if the variables
         on the primary and secondary interface have the same name.
+
+        Any discretization operation should be done as part of self.discretize().
 
         Parameters:
             g_between (pp.Grid): Grid of the lower-dimensional neighbor to the
