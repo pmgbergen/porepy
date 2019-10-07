@@ -295,7 +295,8 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
         phys_names,
         cell_info,
         line_tag=const.PHYSICAL_NAME_FRACTURES,
-        constraints=constraints ** kwargs,
+        constraints=constraints,
+        **kwargs,
     )
     g_0d = mesh_2_grid.create_0d_grids(pts, cells)
     grids = [g_2d, g_1d, g_0d]
