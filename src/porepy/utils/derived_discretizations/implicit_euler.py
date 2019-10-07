@@ -52,7 +52,7 @@ class ImplicitMpfa(pp.Mpfa):
         return a, b
 
     def assemble_int_bound_flux(
-        self, g, data, data_edge, cc, matrix, rhs, self_ind
+        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
     ):
         """
         Overwrite the MPFA method to be consistent with the Biot dt convention
@@ -65,7 +65,10 @@ class ImplicitMpfa(pp.Mpfa):
         # Projection operators to grid
         mg = data_edge["mortar_grid"]
 
-        proj = mg.mortar_to_master_int()
+        if use_slave_proj:
+            proj = mg.mortar_to_slave_int()
+        else:
+            proj = mg.mortar_to_master_int()
 
         if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
             # If bound flux is gven as sub-faces we have to map it from sub-faces
