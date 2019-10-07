@@ -91,8 +91,6 @@ class RobinCoupling(
 
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "Robin_discr" in matrix_dictionary_edge:
-            self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
         mg = data_edge["mortar_grid"]
 
