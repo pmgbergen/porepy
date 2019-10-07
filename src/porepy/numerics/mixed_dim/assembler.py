@@ -618,13 +618,12 @@ class Assembler:
                         if other_edge == e:
                             continue
 
+                        # Avoid coupling between mortar grids of different dimensions.
                         if (
                             data_other["mortar_grid"].dim
                             != data_edge["mortar_grid"].dim
                         ):
                             continue
-
-                        gos, gom = self.gb.nodes_of_edge(other_edge)
 
                         # Only consider terms where the primary and secondary edge have
                         # the same variable name. This is an intended restriction of the

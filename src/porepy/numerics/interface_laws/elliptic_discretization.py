@@ -283,7 +283,7 @@ class EllipticDiscretization:
         raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_pressure_trace_between_interfaces(
-        self, g, data_grid, data_primary_edge, data_secondary_edge, cc, matrix, rhs
+        self, g, data_grid, proj_primary, proj_secondary, cc, matrix, rhs
     ):
         """ Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -292,10 +292,10 @@ class EllipticDiscretization:
             g (Grid): Grid which the condition should be imposed on.
             data_grid (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
-            data_primary_edge (dictionary): Data dictionary for the primary edge in the
-                mixed-dimensional grid.
-            data_secondary_edge (dictionary): Data dictionary for the secondary edge in the
-                mixed-dimensional grid.
+           proj_primary (sparse matrix): Pressure projection from the higher-dim
+                grid to the primary mortar grid.
+            proj_secondary (sparse matrix): Flux projection from the secondary mortar
+                grid to the main grid.
             cc (block matrix, 3x3): Block matrix of size 3 x 3, whwere each block represents
                 coupling between variables on this interface. Index 0, 1 and 2
                 represent the master grid, the primary and secondary interface,
@@ -343,7 +343,7 @@ class EllipticDiscretization:
         """
         raise NotImplementedError("Method not implemented")
 
-    def enforce_neumann_int_bound(self, g_master, data_edge, matrix, self_ind):
+    def enforce_neumann_int_bound(self, g, data_edge, matrix, self_ind):
         """ Enforce Neumann boundary conditions on a given system matrix.
 
         Methods based on a mixed variational form will need this function to
@@ -355,5 +355,6 @@ class EllipticDiscretization:
             g (Grid): On which the equation is discretized
             data (dictionary): Of data related to the discretization.
             matrix (scipy.sparse.matrix): Discretization matrix to be modified.
+
         """
         raise NotImplementedError("Method not implemented")
