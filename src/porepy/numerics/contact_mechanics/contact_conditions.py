@@ -271,18 +271,18 @@ class ColoumbContact:
             rhs = np.hstack((rhs, r))
 
         num_blocks = len(traction_weight)
-        data_traction = np.array(traction_weight).ravel(order="c")
+        data_traction = np.array(traction_weight).ravel(order="C")
 
-        data_displacement = np.array(displacement_weight).ravel(order="c")
+        data_displacement = np.array(displacement_weight).ravel(order="C")
 
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.traction_discretization
-        ] = pp.utils.sparse_mat.csc_matrix_from_blocks(
+        ] = pp.utils.sparse_mat.csr_matrix_from_blocks(
             data_traction, self.dim, num_blocks
         )
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.displacement_discretization
-        ] = pp.utils.sparse_mat.csc_matrix_from_blocks(
+        ] = pp.utils.sparse_mat.csr_matrix_from_blocks(
             data_displacement, self.dim, num_blocks
         )
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_discretization] = rhs

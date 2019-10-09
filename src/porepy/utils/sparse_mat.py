@@ -273,8 +273,8 @@ def slice_mat(A, ind):
         return sps.csr_matrix((data, indices, indptr), shape=(N, A.shape[1]))
 
 
-def csc_matrix_from_blocks(data, block_size, num_blocks):
-    """ Create a csc representation of a block diagonal matrix of uniform block size.
+def csr_matrix_from_blocks(data, block_size, num_blocks):
+    """ Create a csr representation of a block diagonal matrix of uniform block size.
 
     The function is equivalent to, but orders of magnitude faster than, the call
 
@@ -286,7 +286,7 @@ def csc_matrix_from_blocks(data, block_size, num_blocks):
         num_blocks (int): Number of blocks to be added.
 
     Returns:
-        sps.csc_matrix: csc representation of the block matrix.
+        sps.csr_matrix: csr representation of the block matrix.
 
     Raises:
         ValueError: If the size of the data does not match the blocks size and number
@@ -311,7 +311,7 @@ def csc_matrix_from_blocks(data, block_size, num_blocks):
         indices = base + block_increase
     else:
         indices = np.arange(num_blocks, dytpe=np.int)
-    mat = sps.csc_matrix(
+    mat = sps.csr_matrix(
         (data, indices, indptr),
         shape=(num_blocks * block_size, num_blocks * block_size),
     )
