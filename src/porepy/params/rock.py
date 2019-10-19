@@ -76,7 +76,7 @@ class UnitRock(object):
         self.MU = 1
         self.LAMBDA = 1
         self.YOUNG_MODULUS = 1
-        self.POISSON_RATIO = 0.25
+        self.POISSON_RATIO = poisson_from_lame(self.MU, self.LAMBDA)
 
         if theta_ref is None:
             self.theta_ref = 1
