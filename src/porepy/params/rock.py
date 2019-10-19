@@ -40,6 +40,7 @@ def lame_from_young_poisson(e, nu):
 
     return lmbda, mu
 
+
 def bulk_from_lame(lmbda, mu):
     """
     Compute bulk modulus from Lamé parameters.
@@ -52,6 +53,7 @@ def bulk_from_lame(lmbda, mu):
         double: bulk modulus
     """
     return lmbda + 2 / 3 * mu
+
 
 class UnitRock(object):
     """ Mother of all rocks, all values are unity.

@@ -108,7 +108,7 @@ from porepy.params.data import (
     set_state,
 )
 from porepy.params.rock import UnitRock, Shale, SandStone, Granite
-from porepy.params.water import Water
+from porepy.params.water import Water, UnitFluid
 
 # Visualization
 from porepy.viz.exporter import Exporter
