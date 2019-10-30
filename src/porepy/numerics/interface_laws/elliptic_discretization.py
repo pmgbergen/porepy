@@ -177,7 +177,7 @@ class EllipticDiscretization:
         raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_flux(
-        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+        self, g, data, data_edge, cc, matrix, self_ind, use_slave_proj
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
@@ -206,13 +206,13 @@ class EllipticDiscretization:
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
+            use_slave_proj (boolean): If True, the slave side projection operator is
+                used. Needed for periodic boundary conditions.
 
         """
         raise NotImplementedError("Method not implemented")
 
-    def assemble_int_bound_source(
-        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
-    ):
+    def assemble_int_bound_source(self, g, data, data_edge, cc, matrix, rhs, self_ind):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
@@ -245,7 +245,7 @@ class EllipticDiscretization:
         raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_pressure_trace(
-        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
+        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -276,12 +276,41 @@ class EllipticDiscretization:
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
+            use_slave_proj (boolean): If True, the slave side projection operator is
+                used. Needed for periodic boundary conditions.
+
+        """
+        raise NotImplementedError("Method not implemented")
+
+    def assemble_int_bound_pressure_trace_between_interfaces(
+        self, g, data_grid, proj_primary, proj_secondary, cc, matrix, rhs
+    ):
+        """ Assemble the contribution from an internal
+        boundary, manifested as a condition on the boundary pressure.
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data_grid (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+           proj_primary (sparse matrix): Pressure projection from the higher-dim
+                grid to the primary mortar grid.
+            proj_secondary (sparse matrix): Flux projection from the secondary mortar
+                grid to the main grid.
+            cc (block matrix, 3x3): Block matrix of size 3 x 3, whwere each block represents
+                coupling between variables on this interface. Index 0, 1 and 2
+                represent the master grid, the primary and secondary interface,
+                respectively.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            rhs (block_array 3x1): Block matrix of size 3 x 1, representing the right hand
+                side of this coupling. Index 0, 1 and 2 represent the master grid,
+                the primary and secondary interface, respectively.
 
         """
         raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_pressure_cell(
-        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
+        self, g, data, data_edge, cc, matrix, rhs, self_ind
     ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
@@ -300,8 +329,6 @@ class EllipticDiscretization:
                 mixed-dimensional grid.
             data_edge (dictionary): Data dictionary for the edge in the
                 mixed-dimensional grid.
-            grid_swap (boolean): If True, the grid g is identified with the @
-                slave side of the mortar grid in data_adge.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
                 master and slave side; the third belongs to the edge variable.
@@ -316,9 +343,7 @@ class EllipticDiscretization:
         """
         raise NotImplementedError("Method not implemented")
 
-    def enforce_neumann_int_bound(
-        self, g_master, data_edge, matrix, swap_grid, self_ind
-    ):
+    def enforce_neumann_int_bound(self, g, data_edge, matrix, self_ind):
         """ Enforce Neumann boundary conditions on a given system matrix.
 
         Methods based on a mixed variational form will need this function to
@@ -330,5 +355,6 @@ class EllipticDiscretization:
             g (Grid): On which the equation is discretized
             data (dictionary): Of data related to the discretization.
             matrix (scipy.sparse.matrix): Discretization matrix to be modified.
+
         """
         raise NotImplementedError("Method not implemented")

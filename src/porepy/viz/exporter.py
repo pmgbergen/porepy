@@ -452,9 +452,9 @@ class Exporter:
                 values = np.empty(grids.size, dtype=np.object)
                 for i, g in enumerate(grids):
                     if field.name in data:
-                        values[i] = self.gb.graph.node[g][pp.STATE][field.name]
+                        values[i] = self.gb._nodes[g][pp.STATE][field.name]
                     else:
-                        values[i] = self.gb.graph.node[g][field.name]
+                        values[i] = self.gb._nodes[g][field.name]
                     field.check(values[i], g)
                 field.set_values(np.hstack(values))
 

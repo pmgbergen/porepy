@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Integration tests for contact mechanics with pressure coupling.
 
@@ -11,12 +9,13 @@ import numpy as np
 import unittest
 
 import porepy as pp
-import porepy.models.contact_mechanics_biot_model as model
+import test.common.contact_mechanics_examples
 
 
 class TestContactMechanicsBiot(unittest.TestCase):
     def _solve(self, setup):
-        model.run_biot(setup)
+        pp.run_time_dependent_model(setup, {"convergence_tol": 1e-6})
+
         gb = setup.gb
 
         nd = gb.dim_max()
@@ -150,14 +149,19 @@ class TestContactMechanicsBiot(unittest.TestCase):
         self.assertTrue(np.all(fracture_pressure > 1e-7))
 
 
-class SetupContactMechanicsBiot(model.ContactMechanicsBiot):
+class SetupContactMechanicsBiot(
+    test.common.contact_mechanics_examples.ContactMechanicsBiotExample
+):
     def __init__(self, ux_south, uy_south, ux_north, uy_north, source_value=0):
+
         mesh_args = {
             "mesh_size_frac": 0.5,
             "mesh_size_min": 0.023,
             "mesh_size_bound": 0.5,
         }
-        super().__init__(mesh_args, folder_name="dummy")
+
+        super().__init__(mesh_args, "dummy")  # , params={'linear_solver': 'pyamg'})
+
         self.ux_south = ux_south
         self.uy_south = uy_south
         self.ux_north = ux_north

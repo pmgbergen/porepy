@@ -9,31 +9,31 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+import porepy.numerics.interface_laws.abstract_interface_law
 
 
-class RobinCoupling(object):
+class RobinCoupling(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     """ A condition with resistance to flow between subdomains. Implementation
         of the model studied (though not originally proposed) by Martin et
         al 2005.
 
-        @ALL: We should probably make an abstract superclass for all couplers,
-        similar to for all elliptic discretizations, so that new
-        implementations know what must be done.
-
     """
 
     def __init__(self, keyword, discr_master, discr_slave=None):
-        self.keyword = keyword
+        super(RobinCoupling, self).__init__(keyword)
         if discr_slave is None:
             discr_slave = discr_master
         self.discr_master = discr_master
         self.discr_slave = discr_slave
 
-    def _key(self):
-        return self.keyword + "_"
-
-    def _discretization_key(self):
-        return self._key() + pp.DISCRETIZATION
+        # This interface law will have direct interface coupling to represent
+        # the influence of the flux boundary condition of the secondary
+        # interface on the pressure trace on the first interface.
+        self.edge_coupling_via_high_dim = True
+        # No coupling via lower-dimensional interfaces.
+        self.edge_coupling_via_low_dim = False
 
     def ndof(self, mg):
         return mg.num_cells
@@ -41,9 +41,6 @@ class RobinCoupling(object):
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """ Discretize the interface law and store the discretization in the
         edge data.
-
-        TODO: Right now, we are a bit unclear on whether it is required that g_h
-        represents the higher-dimensional domain. It should not need to do so.
 
         Parameters:
             g_h: Grid of the master domanin.
@@ -55,7 +52,6 @@ class RobinCoupling(object):
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
-        parameter_dictionary_h = data_h[pp.PARAMETERS][self.discr_master.keyword]
         # Mortar data structure.
         mg = data_edge["mortar_grid"]
 
@@ -87,8 +83,7 @@ class RobinCoupling(object):
             data_master: Data dictionary for the master suddomain
             data_slave: Data dictionary for the slave subdomain.
             data_edge: Data dictionary for the edge between the subdomains
-            matrix_master: original discretization for the master subdomain
-            matrix_slave: original discretization for the slave subdomain
+            matrix: original discretization
 
             The discretization matrices must be included since they will be
             changed by the imposition of Neumann boundary conditions on the
@@ -96,61 +91,14 @@ class RobinCoupling(object):
 
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "Robin_discr" in matrix_dictionary_edge:
-            self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
-        grid_swap = g_master.dim < g_slave.dim
-        if grid_swap:
-            g_master, g_slave = g_slave, g_master
-            data_master, data_slave = data_slave, data_master
+        mg = data_edge["mortar_grid"]
 
         master_ind = 0
         slave_ind = 1
-
-        # Generate matrix for the coupling. This can probably be generalized
-        # once we have decided on a format for the general variables
-        mg = data_edge["mortar_grid"]
-
-        dof_master = self.discr_master.ndof(g_master)
-        dof_slave = self.discr_slave.ndof(g_slave)
-
-        if not dof_master == matrix[master_ind, master_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the master discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the slave discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not mg.num_cells == matrix[master_ind, 2].shape[1]:
-            raise ValueError(
-                """The number of dofs of the edge discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        # We know the number of dofs from the master and slave side from their
-        # discretizations
-        #        dof = np.array([dof_master, dof_slave, mg.num_cells])
-        dof = np.array(
-            [
-                matrix[master_ind, master_ind].shape[1],
-                matrix[slave_ind, slave_ind].shape[1],
-                mg.num_cells,
-            ]
+        cc, rhs = self._define_local_block_matrix(
+            g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix
         )
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc = cc.reshape((3, 3))
-
-        # The rhs is just zeros
-        # EK: For some reason, the following lines were necessary to apease python
-        rhs = np.empty(3, dtype=np.object)
-        rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[2] = np.zeros(mg.num_cells)
 
         # The convention, for now, is to put the higher dimensional information
         # in the first column and row in matrix, lower-dimensional in the second
@@ -158,29 +106,81 @@ class RobinCoupling(object):
         cc[2, 2] = matrix_dictionary_edge["Robin_discr"]
 
         self.discr_master.assemble_int_bound_pressure_trace(
-            g_master, data_master, data_edge, grid_swap, cc, matrix, rhs, master_ind
+            g_master, data_master, data_edge, cc, matrix, rhs, master_ind
         )
         self.discr_master.assemble_int_bound_flux(
-            g_master, data_master, data_edge, grid_swap, cc, matrix, rhs, master_ind
+            g_master, data_master, data_edge, cc, matrix, rhs, master_ind
         )
 
         self.discr_slave.assemble_int_bound_pressure_cell(
-            g_slave, data_slave, data_edge, grid_swap, cc, matrix, rhs, slave_ind
+            g_slave, data_slave, data_edge, cc, matrix, rhs, slave_ind
         )
         self.discr_slave.assemble_int_bound_source(
-            g_slave, data_slave, data_edge, grid_swap, cc, matrix, rhs, slave_ind
+            g_slave, data_slave, data_edge, cc, matrix, rhs, slave_ind
         )
 
         matrix += cc
 
         self.discr_master.enforce_neumann_int_bound(
-            g_master, data_edge, matrix, False, master_ind
+            g_master, data_edge, matrix, master_ind
         )
 
         return matrix, rhs
 
+    def assemble_edge_coupling_via_high_dim(
+        self,
+        g,
+        data_grid,
+        edge_primary,
+        data_primary_edge,
+        edge_secondary,
+        data_secondary_edge,
+        matrix,
+    ):
+        """ Represent the impact on a primary interface of the mortar (thus boundary)
+        flux on a secondary interface.
 
-# ------------------------------------------------------------------------------
+        Parameters:
+            g (pp.Grid): Grid of the higher dimensional neighbor to the main interface.
+            data_grid (dict): Data dictionary of the intermediate grid.
+            edge_primary (tuple of grids): The grids of the primary edge
+            data_edge_primary (dict): Data dictionary of the primary interface.
+            edge_secondary (tuple of grids): The grids of the secondary edge.
+            data_edge_secondary (dict): Data dictionary of the secondary interface.
+            matrix: original discretization.
+
+        Returns:
+            np.array: Block matrix of size 3 x 3, whwere each block represents
+                coupling between variables on this interface. Index 0, 1 and 2
+                represent the master, slave and mortar variable, respectively.
+            np.array: Block matrix of size 3 x 1, representing the right hand
+                side of this coupling. Index 0, 1 and 2 represent the master,
+                slave and mortar variable, respectively.
+
+        """
+        mg_primary = data_primary_edge["mortar_grid"]
+        mg_secondary = data_secondary_edge["mortar_grid"]
+
+        # Normally, the projections will be pressure from the master (high-dim node)
+        # to the primary mortar, and flux from secondary mortar to master
+        proj_pressure = mg_primary.master_to_mortar_avg()
+        proj_flux = mg_secondary.mortar_to_master_int()
+
+        # If the primary and / or secondary mortar is a boundary mortar grid, things
+        # become more complex. This probably assumes that a FluxPressureContinuity
+        # discretization is applied on the relevant mortar grid.
+        if isinstance(mg_primary, pp.BoundaryMortar) and edge_primary[0] == g:
+            proj_pressure = mg_primary.slave_to_mortar_avg()
+        if isinstance(mg_secondary, pp.BoundaryMortar) and edge_secondary[0] == g:
+            proj_flux = mg_secondary.mortar_to_slave_int()
+
+        cc, rhs = self._define_local_block_matrix_edge_coupling(
+            g, self.discr_master, mg_primary, mg_secondary, matrix
+        )
+
+        return self.discr_master.assemble_int_bound_pressure_trace_between_interfaces(
+            g, data_grid, proj_pressure, proj_flux, cc, matrix, rhs
+        )
 
 
 class FluxPressureContinuity(RobinCoupling):
@@ -198,6 +198,19 @@ class FluxPressureContinuity(RobinCoupling):
     and lambda the mortar variable.
 
     """
+
+    def __init__(self, keyword, discr_master, discr_slave=None):
+        if discr_slave is None:
+            discr_slave = discr_master
+        self.discr_master = discr_master
+        self.discr_slave = discr_slave
+
+        # This interface law will have direct interface coupling to represent
+        # the influence of the flux boundary condition of the secondary
+        # interface on the pressure trace on the first interface.
+        self.edge_coupling_via_high_dim = False
+        # No coupling via lower-dimensional interfaces.
+        self.edge_coupling_via_low_dim = False
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """ Nothing really to do here
@@ -228,60 +241,23 @@ class FluxPressureContinuity(RobinCoupling):
             matrix_slave: original discretization for the slave subdomain
 
         """
-
         master_ind = 0
         slave_ind = 1
 
-        # Generate matrix for the coupling. This can probably be generalized
-        # once we have decided on a format for the general variables
+        # Generate matrix for the coupling.
         mg = data_edge["mortar_grid"]
-
-        dof_master = self.discr_master.ndof(g_master)
-        dof_slave = self.discr_slave.ndof(g_slave)
-
-        if not dof_master == matrix[master_ind, master_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the master discretization given
-            in FluxPressureContinuity must match the number of dofs given by the matrix
-            """
-            )
-        elif not dof_slave == matrix[slave_ind, slave_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the slave discretization given
-            in FluxPressureContinuity must match the number of dofs given by the matrix
-            """
-            )
-        elif not mg.num_cells == matrix[master_ind, 2].shape[1]:
-            raise ValueError(
-                """The number of dofs of the edge discretization given
-            in FluxPressureContinuity must match the number of dofs given by the matrix
-            """
-            )
-        # We know the number of dofs from the master and slave side from their
-        # discretizations
-        dof = np.array(
-            [
-                matrix[master_ind, master_ind].shape[1],
-                matrix[slave_ind, slave_ind].shape[1],
-                mg.num_cells,
-            ]
+        cc_master, rhs_master = self._define_local_block_matrix(
+            g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix
         )
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc_master = cc.reshape((3, 3))
+
         cc_slave = cc_master.copy()
 
-        # The rhs is just zeros
-        # EK: For some reason, the following lines were necessary to apease python
-        rhs_slave = np.empty(3, dtype=np.object)
-        rhs_slave[master_ind] = np.zeros(dof_master)
-        rhs_slave[slave_ind] = np.zeros(dof_slave)
-        rhs_slave[2] = np.zeros(mg.num_cells)
         # I got some problems with pointers when doing rhs_master = rhs_slave.copy()
         # so just reconstruct everything.
-        rhs_master = np.empty(3, dtype=np.object)
-        rhs_master[master_ind] = np.zeros(dof_master)
-        rhs_master[slave_ind] = np.zeros(dof_slave)
-        rhs_master[2] = np.zeros(mg.num_cells)
+        rhs_slave = np.empty(3, dtype=np.object)
+        rhs_slave[master_ind] = np.zeros_like(rhs_master[master_ind])
+        rhs_slave[slave_ind] = np.zeros_like(rhs_master[slave_ind])
+        rhs_slave[2] = np.zeros_like(rhs_master[2])
 
         # The convention, for now, is to put the master grid information
         # in the first column and row in matrix, slave grid in the second
@@ -296,24 +272,10 @@ class FluxPressureContinuity(RobinCoupling):
             master_ind = 0
 
         self.discr_master.assemble_int_bound_pressure_trace(
-            g_master,
-            data_master,
-            data_edge,
-            False,
-            cc_master,
-            matrix,
-            rhs_master,
-            master_ind,
+            g_master, data_master, data_edge, cc_master, matrix, rhs_master, master_ind
         )
         self.discr_master.assemble_int_bound_flux(
-            g_master,
-            data_master,
-            data_edge,
-            False,
-            cc_master,
-            matrix,
-            rhs_master,
-            master_ind,
+            g_master, data_master, data_edge, cc_master, matrix, rhs_master, master_ind
         )
 
         if g_master.dim == g_slave.dim:
@@ -323,22 +285,22 @@ class FluxPressureContinuity(RobinCoupling):
                 g_slave,
                 data_slave,
                 data_edge,
-                True,
                 cc_slave,
                 matrix,
                 rhs_slave,
                 slave_ind,
+                use_slave_proj=True,
             )
 
             self.discr_slave.assemble_int_bound_flux(
                 g_slave,
                 data_slave,
                 data_edge,
-                True,
                 cc_slave,
                 matrix,
                 rhs_slave,
                 slave_ind,
+                use_slave_proj=True,
             )
             # We now have to flip the sign of some of the matrices
             # First we flip the sign of the slave flux because the mortar flux points
@@ -354,25 +316,11 @@ class FluxPressureContinuity(RobinCoupling):
             # imposing pressure trace continuity and conservation of the normal flux
             # through the lower dimensional object.
             self.discr_slave.assemble_int_bound_pressure_cell(
-                g_slave,
-                data_slave,
-                data_edge,
-                False,
-                cc_slave,
-                matrix,
-                rhs_slave,
-                slave_ind,
+                g_slave, data_slave, data_edge, cc_slave, matrix, rhs_slave, slave_ind
             )
 
             self.discr_slave.assemble_int_bound_source(
-                g_slave,
-                data_slave,
-                data_edge,
-                False,
-                cc_slave,
-                matrix,
-                rhs_slave,
-                slave_ind,
+                g_slave, data_slave, data_edge, cc_slave, matrix, rhs_slave, slave_ind
             )
 
         # Now, the matrix cc = cc_slave + cc_master expresses the flux and pressure
@@ -384,13 +332,13 @@ class FluxPressureContinuity(RobinCoupling):
         rhs = rhs_master + rhs_slave
 
         self.discr_master.enforce_neumann_int_bound(
-            g_master, data_edge, matrix, False, master_ind
+            g_master, data_edge, matrix, master_ind
         )
 
         # Consider this terms only if the grids are of the same dimension
         if g_master.dim == g_slave.dim:
             self.discr_slave.enforce_neumann_int_bound(
-                g_slave, data_edge, matrix, True, slave_ind
+                g_slave, data_edge, matrix, slave_ind
             )
 
         return matrix, rhs

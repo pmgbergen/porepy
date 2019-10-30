@@ -11,7 +11,7 @@ import networkx as nx
 import csv
 
 import porepy as pp
-
+import porepy.fracs.simplex
 
 logger = logging.getLogger(__name__)
 
@@ -23,17 +23,6 @@ class FractureNetwork2d(object):
     currently not supported. There is no requirement or guarantee that the
     fractures are contained within the specified domain. The fractures can be
     cut to a given domain by the function constrain_to_domain().
-
-    The main intended usage is to fit statistical distributions to the fractures,
-    and use this to generate realizations based on this statistics. The statistical
-    properties of the fracture set is characterized in terms of fracture position,
-    length and angle.
-
-    It is assumed that the fractures can meaningfully be represented by a single
-    statistical distribution. To achieve this, it may be necessary to divide a
-    fracture network into several sets, and fit them separately. As an example,
-    a network where the fractures have one out of two orientations which are orthogonal
-    to each other will not be meaningfully be represented as a single set.
 
     Attributes:
         pts (np.array, 2 x num_pts): Start and endpoints of the fractures. Points
@@ -161,17 +150,35 @@ class FractureNetwork2d(object):
         return FractureNetwork2d(p, e, domain, self.tol)
 
     def mesh(self, mesh_args, tol=None, do_snap=True, constraints=None, **kwargs):
+        """ Create GridBucket (mixed-dimensional grid) for this fracture network.
+
+        Parameters:
+            mesh_args: Arguments passed on to mesh size control
+            tol (double, optional): Tolerance used for geometric computations.
+                Defaults to the tolerance of this network.
+            do_snap (boolean, optional): Whether to snap lines to avoid small
+                segments. Defults to True.
+            constraints (np.array of int): Index of network edges that should not
+                generate lower-dimensional meshes, but only act as constraints in
+                the meshing algorithm.
+
+        Returns:
+            GridBucket: Mixed-dimensional mesh.
+
+        """
 
         if tol is None:
             tol = self.tol
+        if constraints is None:
+            constraints = np.empty(0, dtype=np.int)
 
         p = self.pts
         e = self.edges
 
         if do_snap and p is not None and p.size > 0:
             p, _ = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=tol)
-        grid_list = pp.fracs.simplex.triangle_grid(
-            p, e[:2], self.domain, tol=tol, subdomains=constraints, **mesh_args
+        grid_list = porepy.fracs.simplex.triangle_grid(
+            p, e[:2], self.domain, tol=tol, constraints=constraints, **mesh_args
         )
         gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
         return gb
@@ -288,18 +295,25 @@ class FractureNetwork2d(object):
         else:
             return G
 
-    def split_intersections(self):
+    def split_intersections(self, tol=None):
         """ Create a new FractureSet, with all fracture intersections removed
+
+        Parameters:
+            tol (optional): Tolerance used in geometry computations when
+                splitting fractures. Defaults to the tolerance of this network.
 
         Returns:
             FractureSet: New set, where all intersection points are added so that
                 the set only contains non-intersecting branches.
 
         """
+        if tol is None:
+            tol = self.tol
+
         p, e = pp.intersections.split_intersecting_segments_2d(
             self.pts, self.edges, tol=self.tol
         )
-        return FractureNetwork2d(p, e, self.domain, self.tol)
+        return FractureNetwork2d(p, e, self.domain, tol=self.tol)
 
     # --------- Utility functions below here
 

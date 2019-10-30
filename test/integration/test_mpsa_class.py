@@ -14,6 +14,8 @@ class MpsaTest(unittest.TestCase):
         for g in g_list:
             solver = pp.numerics.fv.mpsa.Mpsa(kw)
             data = pp.initialize_default_data(g, {}, kw)
+
+            solver.discretize(g, data)
             A, b = solver.assemble_matrix_rhs(g, data)
             self.assertTrue(
                 np.all(A.shape == (g.dim * g.num_cells, g.dim * g.num_cells))
@@ -34,10 +36,12 @@ class MpsaTest(unittest.TestCase):
                 "stress": stress,
                 "bound_stress": bound_stress,
             }
+
             A, b = solver.assemble_matrix_rhs(g, data)
             self.assertTrue(np.sum(A != 0) == 0)
             self.assertTrue(np.all(b == 0))
 
 
 if __name__ == "__main__":
+    MpsaTest().test_matrix_rhs_no_disc()
     unittest.main()
