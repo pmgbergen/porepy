@@ -482,6 +482,68 @@ class TestDFMNonConvexDomain(unittest.TestCase):
         self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
 
 
+class Test2dDomain(unittest.TestCase):
+    def setUp(self):
+        self.domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        self.mesh_args = {
+            "mesh_size_bound": 1,
+            "mesh_size_frac": 1,
+            "mesh_size_min": 0.1,
+        }
+
+        self.p1 = np.array([[0.2, 0.8], [0.2, 0.8]])
+        self.e1 = np.array([[0], [1]])
+        self.p2 = np.array([[0.2, 0.8, 0.2, 0.8], [0.2, 0.8, 0.8, 0.2]])
+        self.e2 = np.array([[0, 2], [1, 3]])
+
+    def test_no_fractures(self):
+        self.setUp()
+        network = pp.FractureNetwork2d(domain=self.domain)
+        gb = network.mesh(self.mesh_args)
+        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(1)) == 0)
+        self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+
+    def test_one_fracture(self):
+        self.setUp()
+        network = pp.FractureNetwork2d(self.p1, self.e1, domain=self.domain)
+        gb = network.mesh(self.mesh_args)
+        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(1)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+
+    def test_two_fractures(self):
+        self.setUp()
+        network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
+        gb = network.mesh(self.mesh_args)
+        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(1)) == 2)
+        self.assertTrue(len(gb.grids_of_dimension(0)) == 1)
+
+    def test_one_constraint(self):
+        self.setUp()
+        network = pp.FractureNetwork2d(self.p1, self.e1, domain=self.domain)
+        gb = network.mesh(self.mesh_args, constraints=np.array([0]))
+        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(1)) == 0)
+        self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+
+    def test_two_constraints(self):
+        self.setUp()
+        network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
+        gb = network.mesh(self.mesh_args, constraints=np.arange(2))
+        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(1)) == 0)
+        self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+
+    def test_one_fracture_one_constraint(self):
+        self.setUp()
+        network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
+        gb = network.mesh(self.mesh_args, constraints=np.array(1))
+        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(1)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+
+
 if __name__ == "__main__":
-    TestDFMNonConvexDomain().test_fracture_cut_not_split_by_domain()
     unittest.main()

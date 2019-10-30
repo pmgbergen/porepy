@@ -13,6 +13,7 @@ import scipy.sparse as sps
 import logging
 import porepy as pp
 import numpy.matlib as np_matlib
+from time import time
 
 
 # Module-wide logger
@@ -207,8 +208,6 @@ class Mpsa:
                 size of the matrix will depend on the specific discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "stress" in matrix_dictionary:
-            self.discretize(g, data)
 
         div = pp.fvutils.vector_divergence(g)
         stress = matrix_dictionary["stress"]
@@ -236,8 +235,6 @@ class Mpsa:
                 discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "bound_stress" in matrix_dictionary:
-            self.discretize(g, data)
 
         bound_stress = matrix_dictionary["bound_stress"]
         if bound_stress.shape[0] != g.dim * g.num_faces:
@@ -668,6 +665,7 @@ def mpsa(
         peak_mem = _estimate_peak_memory_mpsa(g)
         num_part = np.ceil(peak_mem / max_memory).astype(np.int)
 
+        tic = time()
         logger.info("Split MPSA discretization into " + str(num_part) + " parts")
 
         # Let partitioning module apply the best available method
@@ -684,7 +682,7 @@ def mpsa(
 
         face_covered = np.zeros(g.num_faces, dtype=np.bool)
 
-        for p in np.unique(part):
+        for counter, p in enumerate(np.unique(part)):
             # Cells in this partitioning
             cell_ind = np.argwhere(part == p).ravel("F")
             # To discretize with as little overlap as possible, we use the
@@ -714,6 +712,11 @@ def mpsa(
 
             stress += loc_stress
             bound_stress += loc_bound_stress
+            logger.info("Done with mpsa subproblem no {}".format(counter))
+
+        logger.info(
+            "Mpsa discretization complete. Elapsed time {}".format(time() - tic)
+        )
 
         return stress, bound_stress
 
@@ -2154,57 +2157,6 @@ def _neu_face_sgn(g, neu_ind):
 
     sort_id = np.argsort(g.cell_faces[neu_ind, :].indices)
     return neu_sgn[sort_id]
-
-
-def _zero_neu_rows(g, stress, bound_stress, bnd):
-    """
-    We zero out all none-diagonal elements for the neumann boundary faces.
-    """
-    if bnd.bc_type == "scalar":
-        neu_face_x = g.dim * np.ravel(np.argwhere(bnd.is_neu))
-        if g.dim == 1:
-            neu_face_ind = neu_face_x
-        elif g.dim == 2:
-            neu_face_y = neu_face_x + 1
-            neu_face_ind = np.ravel((neu_face_x, neu_face_y), "F")
-        elif g.dim == 3:
-            neu_face_y = neu_face_x + 1
-            neu_face_z = neu_face_x + 2
-            neu_face_ind = np.ravel((neu_face_x, neu_face_y, neu_face_z), "F")
-        else:
-            raise ValueError("Only support for dimension 1, 2, or 3")
-        num_neu = neu_face_ind.size
-
-    elif bnd.bc_type == "vectorial":
-        neu_face_x = g.dim * np.ravel(np.argwhere(bnd.is_neu[0, :]))
-        neu_face_y = g.dim * np.ravel(np.argwhere(bnd.is_neu[1, :])) + 1
-        neu_face_ind = np.sort(np.append(neu_face_x, [neu_face_y]))
-        if g.dim == 2:
-            pass
-        elif g.dim == 3:
-            neu_face_z = g.dim * np.ravel(np.argwhere(bnd.is_neu[2, :])) + 2
-            neu_face_ind = np.sort(np.append(neu_face_ind, [neu_face_z]))
-        else:
-            raise ValueError("Only support for dimension 1, 2, or 3")
-        num_neu = neu_face_ind.size
-
-    if not num_neu:
-        return stress, bound_stress
-
-    # Frist we zero out the boundary stress. We keep the sign of the diagonal
-    # element, however we discard its value (e.g. set it to +-1). The sign
-    # should be negative if the nomral vector points outwards and positive if
-    # the normal vector points inwards. I'm not sure if this is correct (that
-    # is, zeroing out none-diagonal elements and putting the diagonal elements
-    # to +-1), but it seems to give satisfactory results.
-    sgn = np.sign(np.ravel(bound_stress[neu_face_ind, neu_face_ind]))
-    # Set all neumann rows to zero
-    bound_stress = pp.fvutils.zero_out_sparse_rows(bound_stress, neu_face_ind, sgn)
-    # For the stress matrix we zero out any rows corresponding to the Neumann
-    # boundary faces (these have been moved over to the bound_stress matrix).
-    stress = pp.fvutils.zero_out_sparse_rows(stress, neu_face_ind)
-
-    return stress, bound_stress
 
 
 def _sign_matrix(g, faces):

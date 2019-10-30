@@ -3,8 +3,6 @@ import numpy as np
 import scipy.sparse as sps
 import scipy.optimize as opt
 
-from porepy.utils.sort_points import sort_point_pairs
-
 
 def half_space_int(n, x0, pts):
     """

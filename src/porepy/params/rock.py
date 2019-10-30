@@ -41,6 +41,20 @@ def lame_from_young_poisson(e, nu):
     return lmbda, mu
 
 
+def bulk_from_lame(lmbda, mu):
+    """
+    Compute bulk modulus from Lamé parameters.
+
+    Parameters:
+        lmbda (double): First Lame parameter
+        mu: Second Lame parameter / shear modulus
+
+    Returns:
+        double: bulk modulus
+    """
+    return lmbda + 2 / 3 * mu
+
+
 class UnitRock(object):
     """ Mother of all rocks, all values are unity.
 
@@ -56,11 +70,13 @@ class UnitRock(object):
 
     def __init__(self, theta_ref=None):
         self.PERMEABILITY = 1
+        self.THERMAL_EXPANSION = 1
+        self.DENSITY = 1
         self.POROSITY = 1
         self.MU = 1
         self.LAMBDA = 1
         self.YOUNG_MODULUS = 1
-        self.POSSION_RATIO = 1
+        self.POISSON_RATIO = poisson_from_lame(self.MU, self.LAMBDA)
 
         if theta_ref is None:
             self.theta_ref = 1
@@ -68,6 +84,9 @@ class UnitRock(object):
             self.theta_ref = theta_ref
 
     def specific_heat_capacity(self, _):
+        return 1.0
+
+    def thermal_conductivity(self, theta=None):
         return 1.0
 
 

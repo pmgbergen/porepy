@@ -228,20 +228,20 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     return dist_pts, pts, lines
 
 
-def obtain_interdim_mappings(
-    lg, fn, n_per_face, ensure_matching_face_cell=True, **kwargs
-):
+def obtain_interdim_mappings(lg, fn, n_per_face, **kwargs):
     """
     Find mappings between faces in higher dimension and cells in the lower
     dimension
 
     Parameters:
-        lg: Lower dimensional grid.
-        fn: Higher dimensional face-node relation.
-        n_per_face: Number of nodes per face in the higher-dimensional grid.
-        ensure_matching_face_cell: Boolean, defaults to True. If True, an
-            assertion is made that all lower-dimensional cells corresponds to a
-            higher dimensional cell.
+        lg (pp.Grid): Lower dimensional grid.
+        fn (pp.Grid): Higher dimensional face-node relation.
+        n_per_face (int): Number of nodes per face in the higher-dimensional grid.
+
+    Returns:
+        np.array: Index of faces in the higher-dimensional grid that correspond
+            to a cell in the lower-dimensional grid.
+        np.array: Index of the corresponding cells in the lower-dimensional grid.
 
     """
     if lg.dim > 0:
@@ -261,16 +261,9 @@ def obtain_interdim_mappings(
     # lower-dimensional grid, the index of the corresponding face
     # in the higher-dimensional structure.
     if not (np.all(is_mem) or np.all(~is_mem)):
-        if ensure_matching_face_cell:
-            raise ValueError(
-                """Either all cells should have a corresponding face in a higher
-            dim grid or no cells should have a corresponding face in a higher
-            dim grid. This likely is related to gmsh behavior. """
-            )
-        else:
-            warnings.warn(
-                """Found inconsistency between cells and higher
-                          dimensional faces. Continuing, fingers crossed"""
-            )
+        warnings.warn(
+            """Found inconsistency between cells and higher
+                      dimensional faces. Continuing, fingers crossed"""
+        )
     low_dim_cell = np.where(is_mem)[0]
     return cell_2_face, low_dim_cell

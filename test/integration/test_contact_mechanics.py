@@ -5,12 +5,12 @@ import numpy as np
 import unittest
 
 import porepy as pp
-import porepy.models.contact_mechanics_model as model
+import test.common.contact_mechanics_examples
 
 
 class TestContactMechanics(unittest.TestCase):
     def _solve(self, setup):
-        model.run_mechanics(setup)
+        pp.run_stationary_model(setup, {"convergence_tol": 1e-10})
         gb = setup.gb
 
         nd = gb.dim_max()
@@ -84,7 +84,6 @@ class TestContactMechanics(unittest.TestCase):
         )
 
         u_mortar, contact_force = self._solve(setup)
-
         # All components should be closed in the normal direction
         self.assertTrue(np.abs(np.sum(u_mortar[1])) < 1e-5)
 
@@ -104,14 +103,18 @@ class TestContactMechanics(unittest.TestCase):
         self.assertTrue(np.all(contact_force[1] < 0))
 
 
-class SetupContactMechanics(model.ContactMechanics):
+class SetupContactMechanics(
+    test.common.contact_mechanics_examples.ContactMechanicsExample
+):
     def __init__(self, ux_south, uy_bottom, ux_north, uy_top):
         mesh_args = {
             "mesh_size_frac": 0.5,
             "mesh_size_min": 0.023,
             "mesh_size_bound": 0.5,
         }
-        super().__init__(mesh_args, folder_name="dummy")
+        super().__init__(
+            mesh_args, folder_name="dummy"
+        )  # , params={'linear_solver': 'pyamg'})
         self.ux_south = ux_south
         self.uy_bottom = uy_bottom
         self.ux_north = ux_north
