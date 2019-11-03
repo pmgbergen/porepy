@@ -41,7 +41,7 @@ class TestGridMappings1d(unittest.TestCase):
         self.assertTrue(np.all(mg.slave_to_mortar_avg().A == [0, 0, 1]))
         self.assertTrue(np.all(mg.slave_to_mortar_int().A == [0, 0, 1]))
 
-    def test_merge_two_grid(self):
+    def test_merge_two_grids(self):
         """
         Test coupling from one grid of three faces to grid of two faces.
         An example setting:

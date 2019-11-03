@@ -88,6 +88,7 @@ from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
 from porepy.grids.point_grid import PointGrid
 from porepy.grids.mortar_grid import MortarGrid, BoundaryMortar
+from porepy.grids.standard_grids import grid_buckets_2d
 
 # Fractures
 from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork3d
