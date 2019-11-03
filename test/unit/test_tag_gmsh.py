@@ -222,18 +222,12 @@ class BasicsTest(unittest.TestCase):
         )
 
     def test_fracture(self):
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        frac_start = np.array([[0.25], [0.5]])
+        frac_end = np.array([[0.75], [0.5]])
 
-        frac_start = np.array([[0.5], [0.25]])
-        frac_end = np.array([[0.5], [0.75]])
-
-        p = np.hstack((frac_start, frac_end))
-
-        e = np.array([0, 1]).reshape((2, -1), order="F")
-        network = pp.FractureNetwork2d(p, e, domain)
-        mesh_args = {"mesh_size_frac": 1}
-
-        gb = network.mesh(mesh_args)
+        gb = pp.grid_buckets_2d.single_horizontal(
+            {"mesh_size_frac": 1}, x_endpoints=[0.25, 0.75]
+        )
         g = gb.grids_of_dimension(2)[0]
 
         tag = np.where(g.tags["domain_boundary_1_faces"])[0]
@@ -259,18 +253,13 @@ class BasicsTest(unittest.TestCase):
         )
 
     def test_fracture_refined(self):
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        frac_start = np.array([[0.5], [0.25]])
-        frac_end = np.array([[0.5], [0.75]])
+        frac_start = np.array([[0.25], [0.5]])
+        frac_end = np.array([[0.75], [0.5]])
 
-        p = np.hstack((frac_start, frac_end))
+        gb = pp.grid_buckets_2d.single_horizontal(
+            {"mesh_size_frac": 0.125}, x_endpoints=[0.25, 0.75]
+        )
 
-        e = np.array([0, 1]).reshape((2, -1), order="F")
-        network = pp.FractureNetwork2d(p, e, domain)
-
-        mesh_args = {"mesh_size_frac": 0.125}
-
-        gb = network.mesh(mesh_args)
         g = gb.grids_of_dimension(2)[0]
 
         tag = np.where(g.tags["domain_boundary_1_faces"])[0]
@@ -296,20 +285,14 @@ class BasicsTest(unittest.TestCase):
         )
 
     def test_fracture_2(self):
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-
         frac_start_0 = np.array([[0.0], [0.5]])
         frac_end_0 = np.array([[0.75], [0.5]])
         frac_start_1 = np.array([[0.5], [0.25]])
         frac_end_1 = np.array([[0.5], [0.75]])
 
-        p = np.hstack((frac_start_0, frac_end_0, frac_start_1, frac_end_1))
-        e = np.array([0, 1, 2, 3]).reshape((2, -1), order="F")
-        network = pp.FractureNetwork2d(p, e, domain)
-
-        mesh_args = {"mesh_size_frac": 1}
-
-        gb = network.mesh(mesh_args)
+        gb = pp.grid_buckets_2d.two_intersecting(
+            {"mesh_size_frac": 1}, x_endpoints=[0.0, 0.75], y_endpoints=[0.25, 0.75]
+        )
         g = gb.grids_of_dimension(2)[0]
 
         tag = np.where(g.tags["domain_boundary_2_faces"])[0]

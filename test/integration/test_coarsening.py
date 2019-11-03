@@ -750,16 +750,14 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test0(self):
-        f = np.array([[1.0, 1.0], [0.0, 2.0]])
-        gb = pp.meshing.cart_grid([f], [2, 2])
-        gb.compute_geometry()
+        gb = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
 
         part = co.create_partition(co.tpfa_matrix(gb))
         co.generate_coarse_grid(gb, (None, part))
 
         # Test
         known_indices = np.array([1, 0, 3, 2])
-        known = np.array([1, 4, 10, 11])
+        known = np.array([6, 7, 10, 11])
 
         for _, d in gb.edges():
             indices, faces, _ = sps.find(d["mortar_grid"].master_to_mortar_int())
@@ -769,16 +767,15 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test1(self):
-        f = np.array([[1.0, 1.0], [0.0, 1.0]])
-        gb = pp.meshing.cart_grid([f], [2, 2])
-        gb.compute_geometry()
-
+        gb = pp.grid_buckets_2d.single_horizontal(
+            [2, 2], x_endpoints=[0.5, 0], simplex=False
+        )
         part = co.create_partition(co.tpfa_matrix(gb))
         co.generate_coarse_grid(gb, (None, part))
 
         # Test
         known_indices = np.array([0, 1])
-        known = np.array([1, 9])
+        known = np.array([6, 9])
 
         for _, d in gb.edges():
             indices, faces, _ = sps.find(d["mortar_grid"].master_to_mortar_int())
@@ -788,12 +785,12 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test2(self):
-        f = np.array([[1.0, 1.0], [0.0, 1.0]])
-        gb = pp.meshing.cart_grid([f], [2, 2])
-        gb.compute_geometry()
+        gb = pp.grid_buckets_2d.single_horizontal(
+            [2, 2], x_endpoints=[0, 0.5], simplex=False
+        )
 
         seeds = co.generate_seeds(gb)
-        known_seeds = np.array([0, 1])
+        known_seeds = np.array([0, 2])
         self.assertTrue(np.array_equal(seeds, known_seeds))
 
         part = co.create_partition(co.tpfa_matrix(gb), seeds=seeds)
@@ -801,7 +798,7 @@ class BasicsTest(unittest.TestCase):
 
         # Test
         known_indices = np.array([0, 1])
-        known = np.array([1, 10])
+        known = np.array([6, 10])
 
         for _, d in gb.edges():
             indices, faces, _ = sps.find(d["mortar_grid"].master_to_mortar_int())
@@ -811,16 +808,16 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test3(self):
-        f = np.array([[1.0, 1.0], [1.0, 2.0]])
-        gb = pp.meshing.cart_grid([f], [2, 2])
-        gb.compute_geometry()
+        gb = pp.grid_buckets_2d.single_horizontal(
+            [2, 2], x_endpoints=[0.5, 1], simplex=False
+        )
 
         part = co.create_partition(co.tpfa_matrix(gb))
         co.generate_coarse_grid(gb, (None, part))
 
         # Test
         known_indices = np.array([0, 1])
-        known = np.array([3, 9])
+        known = np.array([6, 9])
 
         for _, d in gb.edges():
             indices, faces, _ = sps.find(d["mortar_grid"].master_to_mortar_int())
@@ -830,12 +827,12 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test4(self):
-        f = np.array([[1.0, 1.0], [1.0, 2.0]])
-        gb = pp.meshing.cart_grid([f], [2, 2])
-        gb.compute_geometry()
+        gb = pp.grid_buckets_2d.single_horizontal(
+            [2, 2], x_endpoints=[0.5, 1], simplex=False
+        )
 
         seeds = co.generate_seeds(gb)
-        known_seeds = np.array([2, 3])
+        known_seeds = np.array([1, 3])
         self.assertTrue(np.array_equal(seeds, known_seeds))
 
         part = co.create_partition(co.tpfa_matrix(gb), seeds=seeds)
@@ -843,7 +840,7 @@ class BasicsTest(unittest.TestCase):
 
         # Test
         known_indices = np.array([0, 1])
-        known = np.array([4, 10])
+        known = np.array([7, 10])
 
         for _, d in gb.edges():
             indices, faces, _ = sps.find(d["mortar_grid"].master_to_mortar_int())
