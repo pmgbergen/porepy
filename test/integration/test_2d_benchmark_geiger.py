@@ -7,7 +7,7 @@ import test.common.flow_benchmark_2d_geiger_setup as setup
 
 class TestVEMOnBenchmark(unittest.TestCase):
     def solve(self, kf, description, is_coarse=False):
-        gb, domain = pp.grid_buckets_2d.benchmark_2d_regular(
+        gb, domain = pp.grid_buckets_2d.benchmark_regular(
             {"mesh_size_frac": 0.045}, is_coarse
         )
         # Assign parameters
@@ -65,7 +65,7 @@ class TestVEMOnBenchmark(unittest.TestCase):
 
 class TestFVOnBenchmark(unittest.TestCase):
     def solve(self, kf, description, multi_point):
-        gb, domain = pp.grid_buckets_2d.benchmark_2d_regular({"mesh_size_frac": 0.045})
+        gb, domain = pp.grid_buckets_2d.benchmark_regular({"mesh_size_frac": 0.045})
         # Assign parameters
         setup.add_data(gb, domain, kf)
 

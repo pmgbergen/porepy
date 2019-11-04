@@ -8,7 +8,7 @@ The provided geometries are:
     two_intersecting: Two lines intersecting at (0.5, 0.5)
         More complex geometries
     seven_fractures_one_L: Seven fractures with one L intersection
-    benchmark_2d_regular: Six fractures intersecting in 3 X and 6 Y intersections
+    benchmark_regular: Six fractures intersecting in 3 X and 6 Y intersections
 """
 
 import numpy as np
@@ -128,7 +128,7 @@ def seven_fractures_one_L_intersection(mesh_args=None):
     return gb, domain
 
 
-def benchmark_2d_regular(mesh_args, is_coarse=False):
+def benchmark_regular(mesh_args, is_coarse=False):
     """
     Create a grid bucket for a domain containing the network introduced as example 2 of
     Berre et al. 2018: Benchmarks for single-phase flow in fractured porous media.

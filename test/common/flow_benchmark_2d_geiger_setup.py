@@ -10,38 +10,6 @@ import numpy as np
 import porepy as pp
 
 
-def write_network(file_name):
-    network = "FID,START_X,START_Y,END_X,END_Y\n"
-    network += "0,0,0.5,1,0.5\n"
-    network += "1,0.5,0,0.5,1\n"
-    network += "2,0.5,0.75,1,0.75\n"
-    network += "3,0.75,0.5,0.75,1\n"
-    network += "4,0.5,0.625,0.75,0.625\n"
-    network += "5,0.625,0.5,0.625,0.75\n"
-    with open(file_name, "w") as text_file:
-        text_file.write(network)
-
-
-# ------------------------------------------------------------------------------#
-
-
-def make_grid_bucket(mesh_size, is_coarse=False):
-    mesh_kwargs = {}
-    mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
-
-    domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-
-    file_name = "network_geiger.csv"
-    write_network(file_name)
-    network = pp.fracture_importer.network_2d_from_csv(file_name, domain=domain)
-    gb = network.mesh(mesh_kwargs)
-    gb.compute_geometry()
-    if is_coarse:
-        pp.coarsening.coarsen(gb, "by_volume")
-    gb.assign_node_ordering()
-    return gb, domain
-
-
 def add_data(gb, domain, kf):
     """
     Define the permeability, apertures, boundary conditions
