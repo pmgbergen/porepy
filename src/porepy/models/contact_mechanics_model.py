@@ -177,7 +177,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                         "bc_values": bc_val,
                         "source": source_val,
                         "fourth_order_tensor": C,
-                       # "max_memory": 7e7,
+                        # "max_memory": 7e7,
                     },
                 )
 
