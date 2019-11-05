@@ -103,7 +103,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
                 f_0, f_1, f_2 = sorted([n[0].frac_num, n[1].frac_num, n[2].frac_num])
                 update_box(ii_computed_box[(f_0, f_1, f_2)], box)
 
-        for ii, val in ii_computed_box.items():
+        for val in ii_computed_box.values():
             coord = val["coord"]
             isect = val["isect"]
             self.assertTrue(

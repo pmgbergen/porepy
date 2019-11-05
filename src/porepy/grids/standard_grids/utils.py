@@ -6,7 +6,8 @@ def set_mesh_sizes(mesh_args):
     Checks whether mesh_size_min and mesh_size_bound are present in the mesh_args dictionary.
     If not, they are set to 1/5 and 2 of the mesh_size_frac value, respectively.
     """
-    assert "mesh_size_frac" in mesh_args
+    if not "mesh_size_frac" in mesh_args:
+        raise ValueError("Mesh size parameters should be specified via mesh_size_frac")
     if "mesh_size_bound" not in mesh_args:
         mesh_args["mesh_size_bound"] = 2 * mesh_args["mesh_size_frac"]
     if "mesh_size_min" not in mesh_args:

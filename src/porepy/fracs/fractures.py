@@ -1425,7 +1425,7 @@ class FractureNetwork3d(object):
         This has turned out to be a common symptom of trouble.
 
         """
-        for fi, f in enumerate(self._fractures):
+        for fi, _ in enumerate(self._fractures):
 
             # Identify the edges associated with this fracture
             edges_loc_ind = []
@@ -2005,7 +2005,7 @@ class FractureNetwork3d(object):
             i0 = isect.coord[:, 0].reshape((-1, 1))
             i1 = isect.coord[:, 1].reshape((-1, 1))
             # Distacne from the new point to the segment of the intersection
-            d_isect, p_isect = pp.distances.points_segments(cp, i0, i1)
+            d_isect, _ = pp.distances.points_segments(cp, i0, i1)
 
             # If the new point is close, we will delete the old intersection, and add
             # two more that together span the same segment as the old one.
