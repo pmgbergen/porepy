@@ -19,7 +19,7 @@ import porepy.grids.standard_grids.utils as utils
 unit_domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
 
 
-def single_horizontal(mesh_args=None, x_endpoints=[0, 1], simplex=True):
+def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
     """
     Create a grid bucket for a domain containing a single horizontal fracture at y=0.5.
 
@@ -29,10 +29,16 @@ def single_horizontal(mesh_args=None, x_endpoints=[0, 1], simplex=True):
                         not provided, these are set by utils.set_mesh_sizes.
                     For cartesian grids: List containing number of cells in x and y
                         direction.
-        x_endpoints (list): Contains the x coordinates of the two endpoints.
+        x_endpoints (list): Contains the x coordinates of the two endpoints. If not 
+            provided, the endpoints will be set to [0, 1]
+
     Returns:
         Grid bucket for the domain.
+
     """
+    if x_endpoints is None:
+        x_endpoints = [0, 1]
+    
     if simplex:
         if mesh_args is None:
             mesh_args = {"mesh_size_frac": 0.2}
@@ -49,7 +55,7 @@ def single_horizontal(mesh_args=None, x_endpoints=[0, 1], simplex=True):
 
 
 def two_intersecting(
-    mesh_args=None, x_endpoints=[0, 1], y_endpoints=[0, 1], simplex=True
+    mesh_args=None, x_endpoints=None, y_endpoints=None, simplex=True
 ):
     """
     Create a grid bucket for a domain containing a single horizontal fracture at y=0.5.
@@ -61,13 +67,21 @@ def two_intersecting(
                     For cartesian grids: List containing number of cells in x and y
                         direction.
         x_endpoints (list): containing the x coordinates of the two endpoints of the
-            horizontal fracture.
+            horizontal fracture. If not provided, the endpoints will be set to [0, 1].
         y_endpoints (list): Contains the y coordinates of the two endpoints of the
-            vertical fracture.
+            vertical fracture. If not provided, the endpoints will be set to [0, 1].
         simplex (bool): Whether to use triangular or Cartesian 2d grid.
+
     Returns:
         Grid bucket for the domain.
+
     """
+    
+    if x_endpoints is None:
+        x_endpoints = [0, 1]
+    if y_endpoints is None:
+        y_endpoints = [0, 1]
+    
     if simplex:
         if mesh_args is None:
             mesh_args = {"mesh_size_frac": 0.2}
@@ -102,8 +116,10 @@ def seven_fractures_one_L_intersection(mesh_args=None):
         mesh_args: Dictionary containing at least "mesh_size_frac". If the optional
             values of "mesh_size_bound" and "mesh_size_min" are not provided, these are
             set by utils.set_mesh_sizes.
+
     Returns:
         Grid bucket for the domain.
+
     """
     points = np.array(
         [
