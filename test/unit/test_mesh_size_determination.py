@@ -104,7 +104,7 @@ class TestMeshSize(unittest.TestCase):
         network.impose_external_boundary(domain)
         network.find_intersections()
         network.split_intersections()
-        network.insert_auxiliary_points(
+        network._insert_auxiliary_points(
             mesh_size_frac=mesh_size_frac,
             mesh_size_min=mesh_size_min,
             mesh_size_bound=mesh_size_bound,
