@@ -10,6 +10,17 @@ import porepy as pp
 
 
 class TestGridBuckets(unittest.TestCase):
+    """ Various tests for the utility methods to generate standard geometries.
+
+    Note that the tests in part are based on hard-coded 'known' information on the
+    generated grids, such as the number of cells along a fracture. This type of
+    information should be quite fixed, but may change under updates to meshing software
+    etc. Thus, it may be permissible to update the tests herein, although this should
+    not be done unless it is absolutely clear that external factors caused the change
+    in behavior.
+
+    """
+
     def check_matrix(self, grid_type):
         gb = self.gb
         if grid_type.lower() == "simplex":
