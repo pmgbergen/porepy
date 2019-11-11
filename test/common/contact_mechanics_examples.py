@@ -177,5 +177,3 @@ class ContactMechanicsBiotExample(
         beta = 10
         friction_coefficient = 0.5 * (1 + beta * np.exp(-R * D ** 2))
         return friction_coefficient
-
-
