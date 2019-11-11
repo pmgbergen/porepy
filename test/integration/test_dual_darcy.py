@@ -200,18 +200,16 @@ def setup_3d(nx, simplex_grid=False):
 
 
 def setup_2d_1d(nx, simplex_grid=False):
-    frac1 = np.array([[0.2, 0.8], [0.5, 0.5]])
-    frac2 = np.array([[0.5, 0.5], [0.8, 0.2]])
-    fracs = [frac1, frac2]
+    x_endpoints = [0.2, 0.8]
+    y_endpoints = [0.8, 0.2]
     if not simplex_grid:
-        gb = pp.meshing.cart_grid(fracs, nx, physdims=[1, 1])
+        gb = pp.grid_buckets_2d.two_intersecting(
+            nx, x_endpoints, y_endpoints, simplex=False
+        )
     else:
-        mesh_kwargs = {"mesh_size_frac": 0.2, "mesh_size_min": 0.02}
-        domain = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
-        gb = pp.meshing.simplex_grid(fracs, domain, **mesh_kwargs)
-
-    gb.compute_geometry()
-    gb.assign_node_ordering()
+        gb = pp.grid_buckets_2d.two_intersecting(
+            {"mesh_size_frac": 1}, x_endpoints, y_endpoints
+        )
 
     gb.add_node_props(["param"])
     for g, d in gb:

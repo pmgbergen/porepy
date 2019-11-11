@@ -11,14 +11,6 @@ import networkx
 import numpy as np
 import scipy.sparse as sps
 
-try:
-    import pymetis
-except ImportError:
-    warnings.warn(
-        "Could not import pymetis. Some functions will not work as\
-    intended"
-    )
-
 import porepy as pp
 
 
@@ -44,6 +36,11 @@ def partition_metis(g, num_part):
             [0, num_part) for each cell.
 
     """
+    try:
+        import pymetis
+    except ImportError:
+        warnings.warn("Could not import pymetis. Partitioning by metis will not work.")
+        raise ImportError("Cannot partition by pymetis")
 
     # Connection map between cells
     c2c = g.cell_connection_map()
@@ -262,13 +259,8 @@ def partition(g, num_coarse):
 
     """
     try:
-        # Apparently, this will throw a KeyError unless pymetis has been
-        # successfully imported. This is does not look elegant, but it should
-        # work.
-        sys.modules["pymetis"]
-        # If we have made it this far, we can run pymetis.
         return partition_metis(g, num_coarse)
-    except KeyError:
+    except ImportError:
         if isinstance(g, pp.TensorGrid):
             return partition_structured(g, num_part=num_coarse)
         else:
