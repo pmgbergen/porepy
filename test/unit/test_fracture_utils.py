@@ -153,5 +153,39 @@ class TestFractureSnapping(unittest.TestCase):
         self.assertTrue(conv)
 
 
+class TestDomainToDict(unittest.TestCase):
+    def test_dict_intput(self):
+        my_dict = {"should": "return", "dictionary": "!!"}
+        out_dict = pp.frac_utils.domain_to_dict(my_dict.copy())
+        self.assertTrue(my_dict == out_dict)
+
+    def test_2d_intput(self):
+        x = 4
+        y = 5
+        out_dict = pp.frac_utils.domain_to_dict([4, 5])
+        self.assertTrue(out_dict["xmin"] == 0)
+        self.assertTrue(out_dict["ymin"] == 0)
+        self.assertTrue(out_dict["xmax"] == x)
+        self.assertTrue(out_dict["ymax"] == y)
+
+    def test_3d_intput(self):
+        x = 4
+        y = 5
+        z = 6
+        out_dict = pp.frac_utils.domain_to_dict([4, 5, 6])
+        self.assertTrue(out_dict["xmin"] == 0)
+        self.assertTrue(out_dict["ymin"] == 0)
+        self.assertTrue(out_dict["zmin"] == 0)
+        self.assertTrue(out_dict["xmax"] == x)
+        self.assertTrue(out_dict["ymax"] == y)
+        self.assertTrue(out_dict["zmax"] == z)
+
+    def test_assert(self):
+        try:
+            pp.frac_utils.domain_to_dict([])
+        except ValueError:
+            pass
+
+
 if __name__ == "__main__":
     unittest.main()

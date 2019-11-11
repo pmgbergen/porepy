@@ -638,7 +638,7 @@ class FractureNetwork3d(object):
 
         # Initialize with an empty domain. Can be modified later by a call to
         # 'impose_external_boundary()'
-        self.domain = domain
+        self.domain = pp.fracs.utils.domain_to_dict(domain)
 
         # Initialize mesh size parameters as empty
         self.mesh_size_min = None

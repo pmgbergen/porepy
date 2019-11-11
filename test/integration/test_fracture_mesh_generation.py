@@ -481,6 +481,18 @@ class TestDFMNonConvexDomain(unittest.TestCase):
         gb = network.mesh(mesh_args)
         self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
 
+    def test_no_dictionary_boundary(self):
+        self.setUp()
+        x = 1.234
+        y = 4.321
+        z = 6.789
+        network = pp.FractureNetwork2d(None, None, [x, y, z])
+        domain = network.domain
+        self.assertTrue(domain["xmin"] == 0)
+        self.assertTrue(domain["ymin"] == 0)
+        self.assertTrue(domain["xmax"] == x)
+        self.assertTrue(domain["ymax"] == y)
+
 
 class Test2dDomain(unittest.TestCase):
     def setUp(self):
@@ -543,6 +555,17 @@ class Test2dDomain(unittest.TestCase):
         self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
         self.assertTrue(len(gb.grids_of_dimension(1)) == 1)
         self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+
+    def test_no_dictionary_boundary(self):
+        self.setUp()
+        x = 1.234
+        y = 4.321
+        network = pp.FractureNetwork2d(None, None, [x, y])
+        domain = network.domain
+        self.assertTrue(domain["xmin"] == 0)
+        self.assertTrue(domain["ymin"] == 0)
+        self.assertTrue(domain["xmax"] == x)
+        self.assertTrue(domain["ymax"] == y)
 
 
 if __name__ == "__main__":

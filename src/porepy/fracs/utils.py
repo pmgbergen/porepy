@@ -127,3 +127,48 @@ def snap_fracture_set_2d(pts, edges, snap_tol, termination_tol=1e-2, max_iter=10
         logger.warning("Fracture snapping failed to converge")
         logger.warning("Residual: " + str(diff))
         return pts, False
+
+
+def domain_to_dict(domain):
+    """ Transform input to a valid domain dictionary. If domain is already a dictionary,
+    return the dictionary.
+
+    Parameters:
+        domain (None, dict, ndarray, list): Specify the domain either as None, a dictionary,
+        a list domain = [xmax, ymax] (or domain = [xmax, ymax ,zmax])), or a ndarray.
+    Returns:
+        dict: A dictionary. If input domain is None or a dictionary, return intput. If input
+        is not None or a dictionary, but 2d, return the input (i.e., a polygon, see
+        pp.FractureNetwork3d.impose_external_boundary). Else return:
+            {'xmin': 0, 'ymin': 0, 'xmax': domain[0], 'ymax': domain[1]} in 2d and
+            {'xmin': 0, 'ymin': 0, 'zmin': 0,
+             'xmax': domain[0], 'ymax': domain[1], 'zmax':domain[2]} in 3d
+
+    Raises
+    ValueError('Unknown size of domain. domain_to_dict is only implemented in 2d or 3d')
+    """
+
+    """
+    """
+    if domain is None:
+        return domain
+    elif isinstance(domain, dict):
+        return domain
+    else:
+        if len(domain) == 2:
+            return {"xmin": 0, "ymin": 0, "xmax": domain[0], "ymax": domain[1]}
+        elif len(np.shape(np.asarray(domain))) > 1:
+            return domain
+        elif len(domain) == 3:
+            return {
+                "xmin": 0,
+                "ymin": 0,
+                "zmin": 0,
+                "xmax": domain[0],
+                "ymax": domain[1],
+                "zmax": domain[2],
+            }
+        else:
+            raise ValueError(
+                "Unknown size of domain. domain_to_dict is only implemented in 2d or 3d"
+            )

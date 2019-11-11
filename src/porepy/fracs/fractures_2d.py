@@ -61,7 +61,7 @@ class FractureNetwork2d(object):
             self.edges = np.zeros((2, 0), dtype=np.int)
         else:
             self.edges = edges
-        self.domain = domain
+        self.domain = pp.fracs.utils.domain_to_dict(domain)
         self.tol = tol
 
         self.num_frac = self.edges.shape[1]
