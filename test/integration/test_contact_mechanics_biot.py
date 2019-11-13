@@ -148,6 +148,32 @@ class TestContactMechanicsBiot(unittest.TestCase):
         # Fracture pressure is positive
         self.assertTrue(np.all(fracture_pressure > 1e-7))
 
+    def test_time_dependent_pull_north_positive_opening(self):
+
+        setup = SetupTimeUpdate(ux_south=0, uy_south=0, ux_north=0, uy_north=0.001)
+        setup.end_time *= 3
+
+        u_mortar, contact_force, fracture_pressure = self._solve(setup)
+
+        # All components should be open in the normal direction
+        self.assertTrue(np.all(u_mortar[1] < 0))
+
+        # By symmetry (reasonable to expect from this grid), the jump in tangential
+        # deformation should be zero.
+        self.assertTrue(np.abs(np.sum(u_mortar[0])) < 1e-5)
+
+        # The contact force in normal direction should be zero
+
+        # NB: This assumes the contact force is expressed in local coordinates
+        self.assertTrue(np.all(np.abs(contact_force) < 1e-7))
+
+        # Check that the dilation of the fracture yields a negative fracture pressure
+        self.assertTrue(np.all(fracture_pressure < -1e-7))
+        # If the update of the mechanical BC values for the previous time step used in
+        # div u is missing, the effect is similar to if the pull on the north is
+        # increased in each time step. This leads to a too small fracture pressure.
+        self.assertTrue(np.all(fracture_pressure > -2.5e-4))
+
 
 class SetupContactMechanicsBiot(
     test.common.contact_mechanics_examples.ContactMechanicsBiotExample
@@ -227,6 +253,25 @@ class SetupContactMechanicsBiot(
         return values.ravel("F")
 
 
+class SetupTimeUpdate(SetupContactMechanicsBiot):
+    """
+    This class has time dependent mechanical BC values.
+    """
+
+    def bc_values_mechanics(self, g):
+        # Set the boundary values
+        _, _, _, north, south, _, _ = self.domain_boundary_sides(g)
+        values = np.zeros((g.dim, g.num_faces))
+
+        values[0, south] = self.ux_south * (self.time > 0.1)
+        values[1, south] = self.uy_south * (self.time > 0.1)
+        values[0, north] = self.ux_north * (self.time > 0.1)
+        values[1, north] = self.uy_north * (self.time > 0.1)
+        return values.ravel("F")
+
+    def before_newton_loop(self):
+        self.set_mechanics_parameters()
+
+
 if __name__ == "__main__":
-    TestContactMechanicsBiot().test_push_north_zero_opening()
     unittest.main()
