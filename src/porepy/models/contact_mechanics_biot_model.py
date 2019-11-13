@@ -438,6 +438,18 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
     def after_newton_convergence(self, solution):
         self.assembler.distribute_variable(solution)
+        self.save_mechanical_bc_values()
+
+    def save_mechanical_bc_values(self):
+        """
+        The div_u term uses the mechanical bc values for both current and previous time
+        step. In the case of time dependent bc values, these must be updated. As this
+        is very easy to overlook, we do it by default.
+        """
+        key = self.mechanics_parameter_key
+        g = self.gb.grids_of_dimension(self.Nd)[0]
+        d = self.gb.node_props(g)
+        d[pp.STATE][key]["bc_values"] = d[pp.PARAMETERS][key]["bc_values"].copy()
 
     def after_newton_divergence(self):
         raise ValueError("Newton iterations did not converge")
