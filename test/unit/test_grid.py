@@ -96,6 +96,7 @@ class TestBoundaries(unittest.TestCase):
         self.assertTrue(np.allclose(bmin, g.nodes.min(axis=1)))
         self.assertTrue(np.allclose(bmax, g.nodes.max(axis=1)))
 
+
 class TestComputeGeometry(unittest.TestCase):
     def test_unit_cart_2d(self):
         g = pp.CartGrid([1, 1])
@@ -103,7 +104,7 @@ class TestComputeGeometry(unittest.TestCase):
         known_areas = np.ones(4)
         known_volumes = np.ones(1)
         known_normals = np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0]]).T
-        known_f_centr = np.array([[0, .5, 0], [1, .5, 0], [.5, 0, 0], [.5, 1, 0]]).T
+        known_f_centr = np.array([[0, 0.5, 0], [1, 0.5, 0], [0.5, 0, 0], [0.5, 1, 0]]).T
         known_c_centr = np.array([[0.5, 0.5, 0]]).T
         self.assertTrue(np.allclose(g.face_areas, known_areas))
         self.assertTrue(np.allclose(g.cell_volumes, known_volumes))
@@ -115,15 +116,18 @@ class TestComputeGeometry(unittest.TestCase):
         g = pp.CartGrid([1, 1], [5000, 5000])
         g.compute_geometry()
         known_areas = 5000 * np.ones(4)
-        known_volumes = 5000 **2 * np.ones(1)
+        known_volumes = 5000 ** 2 * np.ones(1)
         known_normals = np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0]]).T * 5000
-        known_f_centr = np.array([[0, .5, 0], [1, .5, 0], [.5, 0, 0], [.5, 1, 0]]).T * 5000
+        known_f_centr = (
+            np.array([[0, 0.5, 0], [1, 0.5, 0], [0.5, 0, 0], [0.5, 1, 0]]).T * 5000
+        )
         known_c_centr = np.array([[0.5, 0.5, 0]]).T * 5000
         self.assertTrue(np.allclose(g.face_areas, known_areas))
         self.assertTrue(np.allclose(g.cell_volumes, known_volumes))
         self.assertTrue(np.allclose(g.face_normals, known_normals))
         self.assertTrue(np.allclose(g.face_centers, known_f_centr))
         self.assertTrue(np.allclose(g.cell_centers, known_c_centr))
+
 
 if __name__ == "__main__":
     unittest.main()
