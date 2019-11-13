@@ -323,7 +323,10 @@ class Grid(object):
         # Prolong the vector from cell to face center in the direction of the
         # normal vector. If the prolonged vector is shorter, the normal should
         # flipped
-        vn = v + nrm(v) * self.face_normals[:, fi[idx]] / self.face_areas[fi[idx]] * 0.001
+        vn = (
+            v
+            + nrm(v) * self.face_normals[:, fi[idx]] / self.face_areas[fi[idx]] * 0.001
+        )
         flip = np.logical_or(
             np.logical_and(nrm(v) > nrm(vn), sgn > 0),
             np.logical_and(nrm(v) < nrm(vn), sgn < 0),
