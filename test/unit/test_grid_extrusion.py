@@ -1,5 +1,5 @@
 """
-Unit tests for grid extrusion functionality
+Unit tests for grid extrusion functionality.
 """
 
 import numpy as np
@@ -7,6 +7,20 @@ import unittest
 import porepy as pp
 import scipy.sparse as sps
 
+
+def check_cell_map(cell_map, g, nz):
+    for ci in range(g.num_cells):
+        for li in range(nz):
+            if cell_map[ci][li] != ci + li * g.num_cells:
+                return False
+    return True
+        
+def check_face_map(face_map, g, nz):
+    for fi in range(g.num_faces):
+        for li in range(nz):
+            if face_map[fi][li] != fi + li * g.num_faces:
+                return False
+    return True
 
 class TestGridExtrusion0d(unittest.TestCase):
     
@@ -21,9 +35,12 @@ class TestGridExtrusion0d(unittest.TestCase):
                           z))
         
     def make_grid_check(self, z, x=0, y=0):
-        gn = pp.grid_extrusion._extrude_0d(self.g, z)
+        gn, cell_map, face_map = pp.grid_extrusion._extrude_0d(self.g, z)
         coord_known = self.known_array(z, x, y)
         self.assertTrue(np.allclose(gn.nodes, coord_known))
+        
+        self.assertTrue(check_cell_map(cell_map, self.g, z.size - 1))        
+        self.assertTrue(face_map.size == 0)   
     
     def test_one_layer(self):
         z = np.array([0, 1])
@@ -43,7 +60,7 @@ class TestGridExtrusion0d(unittest.TestCase):
         # Assign non-zero z-coordinate of the point grid. This should be ignored
         self.g.nodes[2, 0] = 3
         z = np.array([0, 1])
-        gn = pp.grid_extrusion._extrude_0d(self.g, z)
+        gn, cell_map, face_map = pp.grid_extrusion._extrude_0d(self.g, z)
         coord_known = self.known_array(z)
         self.assertTrue(np.allclose(gn.nodes, coord_known))
         
@@ -71,27 +88,33 @@ class TestGridExtrusion1d(unittest.TestCase):
         
     def test_one_layer(self):
         z = np.array([0, 1])
-        gn = pp.grid_extrusion._extrude_1d(self.g, z)
+        gn, cell_map, face_map = pp.grid_extrusion._extrude_1d(self.g, z)
         coord_known = self.known_array(z)
         self.assertTrue(np.allclose(gn.nodes, coord_known))
+        self.assertTrue(check_cell_map(cell_map, self.g, z.size - 1))        
+        self.assertTrue(check_face_map(face_map, self.g, z.size - 1))          
         
     def test_two_layers(self):
         z = np.array([0, 1, 3])
-        gn = pp.grid_extrusion._extrude_1d(self.g, z)
+        gn, cell_map, face_map = pp.grid_extrusion._extrude_1d(self.g, z)
         
         self.assertTrue(gn.num_nodes == 9)
         
         coord_known = self.known_array(z)
         self.assertTrue(np.allclose(gn.nodes, coord_known))
+        self.assertTrue(check_cell_map(cell_map, self.g, z.size - 1))        
+        self.assertTrue(check_face_map(face_map, self.g, z.size - 1))          
 
     def test_negative_z(self):
         z = np.array([0, -1, -3])
-        gn = pp.grid_extrusion._extrude_1d(self.g, z)
+        gn, cell_map, face_map = pp.grid_extrusion._extrude_1d(self.g, z)
         
         self.assertTrue(gn.num_nodes == 9)
         
         coord_known = self.known_array(z)
         self.assertTrue(np.allclose(gn.nodes, coord_known))
+        self.assertTrue(check_cell_map(cell_map, self.g, z.size - 1))        
+        self.assertTrue(check_face_map(face_map, self.g, z.size - 1))          
         
 class TestGridExtrusion2d(unittest.TestCase):
 
@@ -114,7 +137,7 @@ class TestGridExtrusion2d(unittest.TestCase):
         z = np.array([0, 1, 3])
         nz = z.size
         
-        g_3d = pp.grid_extrusion._extrude_2d(g_2d, z)
+        g_3d, cell_map, face_map = pp.grid_extrusion._extrude_2d(g_2d, z)
     
         self.assertTrue(g_3d.num_nodes == 9)
         self.assertTrue(g_3d.num_cells == 2)
@@ -185,6 +208,9 @@ class TestGridExtrusion2d(unittest.TestCase):
                             ]).T
         self.assertTrue(np.allclose(g_3d.face_normals, normals))
 
+        self.assertTrue(check_cell_map(cell_map, g_2d, nz - 1))        
+        self.assertTrue(check_face_map(face_map, g_2d, nz - 1))   
+        
     def test_single_cell_reverted_faces(self):
         # 2d grid is a single triangle grid with nodes ordered in the counter clockwise
         # direction
@@ -204,7 +230,7 @@ class TestGridExtrusion2d(unittest.TestCase):
         z = np.array([0, 1])
         nz = z.size
         
-        g_3d = pp.grid_extrusion._extrude_2d(g_2d, z)
+        g_3d, cell_map, face_map = pp.grid_extrusion._extrude_2d(g_2d, z)
     
         self.assertTrue(g_3d.num_nodes == 6)
         self.assertTrue(g_3d.num_cells == 1)
@@ -258,6 +284,9 @@ class TestGridExtrusion2d(unittest.TestCase):
                             ]).T
         self.assertTrue(np.allclose(g_3d.face_normals, normals))
         
+        self.assertTrue(check_cell_map(cell_map, g_2d, nz - 1))        
+        self.assertTrue(check_face_map(face_map, g_2d, nz - 1))           
+        
     def test_single_cell_negative_z(self):
         # 2d grid is a single triangle grid with nodes ordered in the counter clockwise
         # direction
@@ -277,7 +306,7 @@ class TestGridExtrusion2d(unittest.TestCase):
         z = np.array([0, -1, -3])
         nz = z.size
         
-        g_3d = pp.grid_extrusion._extrude_2d(g_2d, z)
+        g_3d, cell_map, face_map = pp.grid_extrusion._extrude_2d(g_2d, z)
     
         self.assertTrue(g_3d.num_nodes == 9)
         self.assertTrue(g_3d.num_cells == 2)
@@ -346,7 +375,10 @@ class TestGridExtrusion2d(unittest.TestCase):
                             [0, 0, -1],
                             [0, 0, -1],
                             ]).T
-        self.assertTrue(np.allclose(g_3d.face_normals, normals))        
+        self.assertTrue(np.allclose(g_3d.face_normals, normals))
+        
+        self.assertTrue(check_cell_map(cell_map, g_2d, nz - 1))        
+        self.assertTrue(check_face_map(face_map, g_2d, nz - 1))           
         
     def test_two_cells(self):
         # 2d grid is a single triangle grid with nodes ordered in the counter clockwise
@@ -372,7 +404,7 @@ class TestGridExtrusion2d(unittest.TestCase):
         z = np.array([0, 1])
         nz = z.size
         
-        g_3d = pp.grid_extrusion._extrude_2d(g_2d, z)
+        g_3d, cell_map, face_map = pp.grid_extrusion._extrude_2d(g_2d, z)
     
         self.assertTrue(g_3d.num_nodes == 8)
         self.assertTrue(g_3d.num_cells == 2)
@@ -407,6 +439,9 @@ class TestGridExtrusion2d(unittest.TestCase):
                           ])
         self.assertTrue(np.allclose(g_3d.cell_faces.toarray(), cf_3d))
         
+        self.assertTrue(check_cell_map(cell_map, g_2d, nz - 1))        
+        self.assertTrue(check_face_map(face_map, g_2d, nz - 1))    
+        
     def test_two_cells_one_quad(self):
         # 2d grid is a single triangle grid with nodes ordered in the counter clockwise
         # direction
@@ -434,7 +469,7 @@ class TestGridExtrusion2d(unittest.TestCase):
         z = np.array([0, 1])
         nz = z.size
         
-        g_3d = pp.grid_extrusion._extrude_2d(g_2d, z)
+        g_3d, cell_map, face_map = pp.grid_extrusion._extrude_2d(g_2d, z)
     
         self.assertTrue(g_3d.num_nodes == 10)
         self.assertTrue(g_3d.num_cells == 2)
@@ -474,7 +509,36 @@ class TestGridExtrusion2d(unittest.TestCase):
                           ])
         self.assertTrue(np.allclose(g_3d.cell_faces.toarray(), cf_3d))        
         
+        self.assertTrue(check_cell_map(cell_map, g_2d, nz - 1))        
+        self.assertTrue(check_face_map(face_map, g_2d, nz - 1))
+
+class TestGridExtrusionNd(unittest.TestCase):
+    # Test of the main grid extrusion function.
+
+    def test_0d(self):
+        g = pp.PointGrid(np.zeros((3, 1)))
+        z = np.arange(2)
+        gn, *rest = pp.grid_extrusion.extrude_grid(g, z)
+        self.assertTrue(gn.dim == 1)
+
+    def test_1d(self):
+        g = pp.CartGrid(1)
+        z = np.arange(2)
+        gn, *rest = pp.grid_extrusion.extrude_grid(g, z)
+        self.assertTrue(gn.dim == 2)
+
+    def test_2d(self):
+        g = pp.CartGrid([1, 1])
+        z = np.arange(2)
+        gn, *rest = pp.grid_extrusion.extrude_grid(g, z)
+        self.assertTrue(gn.dim == 3)
+
+    def test_3d(self):
+        g = pp.CartGrid([1, 1, 1])
+        z = np.arange(2)
+        self.assertRaises(ValueError, pp.grid_extrusion.extrude_grid, g, z)
+
+
         
 if __name__ == '__main__':
-    TestGridExtrusion2d().test_single_cell_negative_z()
     unittest.main()
