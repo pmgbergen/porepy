@@ -4,9 +4,12 @@ Module to increase the dimensions of grids by extrusion in the z-direction.
 import numpy as np
 import porepy as pp
 import scipy.sparse as sps
+from typing import Union
+from collections import namedtuple
 
 
-def extrude_grid(g: pp.Grid, z: np.ndarray) -> pp.Grid:
+
+def extrude_grid(g: pp.Grid, z: np.ndarray) -> Union[pp.Grid, np.ndarray, np.ndarray]:
     """ Increase the dimension of a given grid by 1, by extruding the grid in the
     z-direction.
 
@@ -23,6 +26,10 @@ def extrude_grid(g: pp.Grid, z: np.ndarray) -> pp.Grid:
 
     Returns:
         pp.Grid: A grid of dimension g.dim + 1.
+        np.array of np.arrays: Cell mappings, so that element ci gives all indices of
+            cells in the extruded grid that comes from cell ci in the original grid.
+        np.array of np.arrays: Face mappings, so that element fi gives all indices of
+            faces in the extruded grid that comes from face fi in the original grid.
         
     Raises:
         ValueError: If the z-coordinates for nodes contain both positive and negative
@@ -42,7 +49,7 @@ def extrude_grid(g: pp.Grid, z: np.ndarray) -> pp.Grid:
     else:
         raise ValueError("The grid to be extruded should have dimension at most 2")
 
-def _extrude_2d(g: pp.Grid, z: np.ndarray) -> pp.Grid:
+def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Union[pp.Grid, np.ndarray, np.ndarray]:
     """ Extrude a 2d grid into 3d by prismatic extension.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
@@ -58,6 +65,10 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> pp.Grid:
 
     Returns:
         pp.Grid: A grid of dimension 3.
+        np.array of np.arrays: Cell mappings, so that element ci gives all indices of
+            cells in the extruded grid that comes from cell ci in the original grid.
+        np.array of np.arrays: Face mappings, so that element fi gives all indices of
+            faces in the extruded grid that comes from face fi in the original grid.
 
     """
 
@@ -180,10 +191,10 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> pp.Grid:
     # faces, since the 2d cells have an unknown, and generally varying, number of nodes
     cn_2d = g.cell_nodes()
 
-    # Short hand for node indices of each cell. 
+    # Short hand for node indices of each cell.
     cn_ind_2d = cn_2d.indices
-    
-    # Similar to the vertical faces, the face-node relation in 3d should match the 
+
+    # Similar to the vertical faces, the face-node relation in 3d should match the
     # sign in the cell-face relation, so that the generated normal vector points out of
     # the cell with cf-value 1.
     # This requires a sorting of the nodes for each cell
@@ -212,13 +223,13 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> pp.Grid:
                 continue
         # If we get this far, we first need to obtain an ordering (cw or ccw)
         # IMPLEMENTATION NOTE: This part of the code is not very well tested. Errors
-        # here will likely give issues with negative subtet volumes in 
+        # here will likely give issues with negative subtet volumes in
         # g_new.compute_geometry_3d()
         else:
             # Indices that sort the nodes. The called function contains a rotation, which
             # implies that it is unknown whether the ordering is cw or ccw
             sort_ind = pp.utils.sort_points.sort_point_plane(
-                coord, g.cell_centers[:, ci].reshape((-1, 1))
+                np.vstack((coord, np.zeros(coord.shape[1]))), g.cell_centers[:, ci].reshape((-1, 1))
             )
             # Deal with the two cases as we did above.
             if pp.geometry_property_checks.is_ccw_polygon(coord[:, sort_ind]):
@@ -373,10 +384,20 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> pp.Grid:
     g_new = pp.Grid(3, nodes, face_nodes, cell_faces, g_info)
     g_new.compute_geometry()
 
-    return g_new
+    cell_map = np.empty(g.num_cells, dtype=np.object)
+    for c in range(g.num_cells):
+        cell_map[c] = np.arange(c, g_new.num_cells, g.num_cells)
+
+    face_map = np.empty(g.num_faces, dtype=np.object)
+    for f in range(g.num_faces):
+        face_map[f] = np.arange(f, g.num_faces * num_cell_layers, g.num_faces)
+
+    return g_new, cell_map, face_map
 
 
-def _extrude_1d(g: pp.TensorGrid, z: np.ndarray) -> pp.TensorGrid:
+def _extrude_1d(
+    g: pp.TensorGrid, z: np.ndarray
+) -> Union[pp.Grid, np.ndarray, np.ndarray]:
     """ Extrude a 1d grid into 2d by prismatic extension in the z-direction.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
@@ -392,6 +413,10 @@ def _extrude_1d(g: pp.TensorGrid, z: np.ndarray) -> pp.TensorGrid:
 
     Returns:
         pp.Grid: A grid of dimension 2.
+        np.array of np.arrays: Cell mappings, so that element ci gives all indices of
+            cells in the extruded grid that comes from cell ci in the original grid.
+        np.array of np.arrays: Face mappings, so that element fi gives all indices of
+            faces in the extruded grid that comes from face fi in the original grid.
 
     """
     # Number of nodes
@@ -412,10 +437,20 @@ def _extrude_1d(g: pp.TensorGrid, z: np.ndarray) -> pp.TensorGrid:
 
     g_new.compute_geometry()
 
-    return g_new
+    cell_map = np.empty(g.num_cells, dtype=np.object)
+    for c in range(g.num_cells):
+        cell_map[c] = np.arange(c, g_new.num_cells, g.num_cells)
+
+    face_map = np.empty(g.num_faces, dtype=np.object)
+    for f in range(g.num_faces):
+        face_map[f] = np.arange(f, g.num_faces * (z.size - 1), g.num_faces)
+
+    return g_new, cell_map, face_map
 
 
-def _extrude_0d(g: pp.PointGrid, z: np.ndarray) -> pp.TensorGrid:
+def _extrude_0d(
+    g: pp.PointGrid, z: np.ndarray
+) -> Union[pp.Grid, np.ndarray, np.ndarray]:
     """ Extrude a 0d grid into 1d by prismatic extension in the z-direction.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
@@ -431,6 +466,10 @@ def _extrude_0d(g: pp.PointGrid, z: np.ndarray) -> pp.TensorGrid:
 
     Returns:
         pp.TensorGrid: A grid of dimension 1.
+        np.array of np.arrays: Cell mappings, so that element ci gives all indices of
+            cells in the extruded grid that comes from cell ci in the original grid.
+        np.array of np.arrays: Face mappings, so that element fi gives all indices of
+            faces in the extruded grid that comes from face fi in the original grid.
 
     """
     # Number of nodes
@@ -452,4 +491,9 @@ def _extrude_0d(g: pp.PointGrid, z: np.ndarray) -> pp.TensorGrid:
 
     g_new.compute_geometry()
 
-    return g_new
+    # The single cell in g has produced all cells in g_new
+    cell_map = np.empty(1, dtype=np.object)
+    cell_map[0] = np.arange(g_new.num_cells)
+    face_map = np.empty(0)
+
+    return g_new, cell_map, face_map
