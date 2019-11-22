@@ -59,12 +59,12 @@ class TestMpsaBoundRhs(unittest.TestCase):
         bc_sub = pp.fvutils.boundary_to_sub_boundary(bc, st)
         be = pp.fvutils.ExcludeBoundaries(st, bc_sub, g.dim)
 
-        bound_rhs = pp.numerics.fv.mpsa.create_bound_rhs(bc_sub, be, st, g, True)
+        bound_rhs = pp.Mpsa("")._create_bound_rhs(bc_sub, be, st, g, True)
 
         bc.basis = basis
         bc_sub = pp.fvutils.boundary_to_sub_boundary(bc, st)
         be = pp.fvutils.ExcludeBoundaries(st, bc_sub, g.dim)
-        bound_rhs_b = pp.numerics.fv.mpsa.create_bound_rhs(bc_sub, be, st, g, True)
+        bound_rhs_b = pp.Mpsa("")._create_bound_rhs(bc_sub, be, st, g, True)
 
         # rhs should not be affected by basis transform
         self.assertTrue(np.allclose(bound_rhs_b.A, bound_rhs.A))
@@ -125,9 +125,7 @@ class TestMpsaRotation(unittest.TestCase):
             np.random.rand(g.num_cells), np.random.rand(g.num_cells)
         )
         # Solve without rotations
-        stress, bound_stress, _, _ = pp.numerics.fv.mpsa.mpsa(
-            g, k, bc, inverter="python"
-        )
+        stress, bound_stress, _, _ = pp.Mpsa("").mpsa(g, k, bc, inverter="python")
         div = pp.fvutils.vector_divergence(g)
 
         u_bound = np.random.rand(g.dim, g.num_faces)
@@ -144,9 +142,7 @@ class TestMpsaRotation(unittest.TestCase):
         bc.is_neu[0, south] = True
         bc.is_dir[:, east] = True
         bc.is_neu[bc.is_dir + bc.is_rob] = False
-        stress_b, bound_stress_b, _, _ = pp.numerics.fv.mpsa.mpsa(
-            g, k, bc, inverter="python"
-        )
+        stress_b, bound_stress_b, _, _ = pp.Mpsa("").mpsa(g, k, bc, inverter="python")
         u_bound_b = np.sum(basis * u_bound, axis=1)
         u_b = np.linalg.solve(
             (div * stress_b).A, -div * bound_stress_b * u_bound_b.ravel("F")
@@ -160,9 +156,7 @@ class TestMpsaRotation(unittest.TestCase):
             np.random.rand(g.num_cells), np.random.rand(g.num_cells)
         )
         # Solve without rotations
-        stress, bound_stress, _, _ = pp.numerics.fv.mpsa.mpsa(
-            g, k, bc, inverter="python"
-        )
+        stress, bound_stress, _, _ = pp.Mpsa("").mpsa(g, k, bc, inverter="python")
         div = pp.fvutils.vector_divergence(g)
 
         u_bound = np.random.rand(g.dim, g.num_faces)
@@ -170,9 +164,7 @@ class TestMpsaRotation(unittest.TestCase):
 
         # Solve with rotations
         bc.basis = basis
-        stress_b, bound_stress_b, _, _ = pp.numerics.fv.mpsa.mpsa(
-            g, k, bc, inverter="python"
-        )
+        stress_b, bound_stress_b, _, _ = pp.Mpsa("").mpsa(g, k, bc, inverter="python")
 
         u_bound_b = np.sum(basis * u_bound, axis=1)
         u_b = np.linalg.solve(

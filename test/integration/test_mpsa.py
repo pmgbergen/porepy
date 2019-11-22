@@ -29,7 +29,9 @@ class TestMpsa(unittest.TestCase):
             constit = setup_stiffness(g, mu, l)
 
             # Python inverter is most efficient for small problems
-            stress, bound_stress, _, _ = mpsa.mpsa(g, constit, bound, inverter="python")
+            stress, bound_stress, _, _ = pp.Mpsa("").mpsa(
+                g, constit, bound, inverter="python"
+            )
 
             div = fvutils.vector_divergence(g)
             a = div * stress
@@ -84,7 +86,9 @@ class TestMpsa(unittest.TestCase):
             constit = setup_stiffness(g)
 
             # Python inverter is most efficient for small problems
-            stress, bound_stress, _, _ = mpsa.mpsa(g, constit, bound, inverter="python")
+            stress, bound_stress, _, _ = pp.Mpsa("").mpsa(
+                g, constit, bound, inverter="python"
+            )
 
             div = fvutils.vector_divergence(g)
             a = div * stress
@@ -121,7 +125,9 @@ class TestMpsa(unittest.TestCase):
             constit = setup_stiffness(g)
 
             # Python inverter is most efficient for small problems
-            stress, bound_stress, _, _ = mpsa.mpsa(g, constit, bound, inverter="python")
+            stress, bound_stress, _, _ = pp.Mpsa("").mpsa(
+                g, constit, bound, inverter="python"
+            )
 
             div = fvutils.vector_divergence(g)
             a = div * stress
@@ -165,7 +171,9 @@ class TestMpsa(unittest.TestCase):
             constit = setup_stiffness(g)
 
             # Python inverter is most efficient for small problems
-            stress, bound_stress, _, _ = mpsa.mpsa(g, constit, bound, inverter="python")
+            stress, bound_stress, _, _ = pp.Mpsa("").mpsa(
+                g, constit, bound, inverter="python"
+            )
 
             div = fvutils.vector_divergence(g)
             a = div * stress

@@ -21,7 +21,7 @@ class TestDisplacementReconstruction(unittest.TestCase):
         bc = pp.BoundaryConditionVectorial(g)
         k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
 
-        stress, bound_stress, hf_cell, hf_bound = pp.numerics.fv.mpsa.mpsa(
+        stress, bound_stress, hf_cell, hf_bound = pp.Mpsa("").mpsa(
             g, k, bc, inverter="python"
         )
 
@@ -32,7 +32,7 @@ class TestDisplacementReconstruction(unittest.TestCase):
 
         # Update should not change anything
         faces = np.array([0, 4, 5, 6])
-        _ = pp.numerics.fv.mpsa.mpsa_update_partial(
+        _ = pp.Mpsa("").mpsa_update_partial(
             stress,
             bound_stress,
             hf_cell,
@@ -58,13 +58,13 @@ class TestDisplacementReconstruction(unittest.TestCase):
         bc = pp.BoundaryConditionVectorial(g)
         k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
 
-        stress_full, bound_stress_full, hf_cell_full, hf_bound_full = pp.numerics.fv.mpsa.mpsa(
+        stress_full, bound_stress_full, hf_cell_full, hf_bound_full = pp.Mpsa("").mpsa(
             g, k, bc, inverter="python"
         )
 
         # Update should not change anything
         faces = np.array([0, 3])
-        stress, bound_stress, hf_cell, hf_bound = pp.numerics.fv.mpsa.mpsa_update_partial(
+        stress, bound_stress, hf_cell, hf_bound = pp.Mpsa("").mpsa_update_partial(
             stress_full,
             bound_stress_full,
             hf_cell_full,
@@ -89,7 +89,7 @@ class TestDisplacementReconstruction(unittest.TestCase):
         g.compute_geometry()
         bc = pp.BoundaryConditionVectorial(g)
         k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
-        stress_neu, bound_stress_neu, hf_cell_neu, hf_bound_neu = pp.numerics.fv.mpsa.mpsa(
+        stress_neu, bound_stress_neu, hf_cell_neu, hf_bound_neu = pp.Mpsa("").mpsa(
             g, k, bc, inverter="python"
         )
         faces = 0  # g.get_all_boundary_faces()
@@ -98,13 +98,13 @@ class TestDisplacementReconstruction(unittest.TestCase):
         bc.is_neu[bc.is_dir] = False
 
         # Full discretization
-        stress_dir, bound_stress_dir, hf_cell_dir, hf_bound_dir = pp.numerics.fv.mpsa.mpsa(
+        stress_dir, bound_stress_dir, hf_cell_dir, hf_bound_dir = pp.Mpsa("").mpsa(
             g, k, bc, inverter="python"
         )
 
         # Partiall should give same ressult as full
 
-        stress, bound_stress, hf_cell, hf_bound = pp.numerics.fv.mpsa.mpsa_update_partial(
+        stress, bound_stress, hf_cell, hf_bound = pp.Mpsa("").mpsa_update_partial(
             stress_neu,
             bound_stress_neu,
             hf_cell_neu,
@@ -129,7 +129,7 @@ class TestDisplacementReconstruction(unittest.TestCase):
         g.compute_geometry()
         bc = pp.BoundaryConditionVectorial(g)
         k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
-        stress_neu, bound_stress_neu, hf_cell_neu, hf_bound_neu = pp.numerics.fv.mpsa.mpsa(
+        stress_neu, bound_stress_neu, hf_cell_neu, hf_bound_neu = pp.Mpsa("").mpsa(
             g, k, bc, inverter="python"
         )
 
@@ -139,13 +139,13 @@ class TestDisplacementReconstruction(unittest.TestCase):
         bc.is_neu[bc.is_rob] = False
 
         # Full discretization
-        stress_rob, bound_stress_rob, hf_cell_rob, hf_bound_rob = pp.numerics.fv.mpsa.mpsa(
+        stress_rob, bound_stress_rob, hf_cell_rob, hf_bound_rob = pp.Mpsa("").mpsa(
             g, k, bc, inverter="python"
         )
         # Partiall should give same result as full
         cells = np.argwhere(g.cell_faces[faces, :])[:, 1].ravel()
         cells = np.unique(cells)
-        stress, bound_stress, hf_cell, hf_bound = pp.numerics.fv.mpsa.mpsa_update_partial(
+        stress, bound_stress, hf_cell, hf_bound = pp.Mpsa("").mpsa_update_partial(
             stress_neu,
             bound_stress_neu,
             hf_cell_neu,
@@ -169,7 +169,7 @@ class TestDisplacementReconstruction(unittest.TestCase):
         g.compute_geometry()
         bc = pp.BoundaryConditionVectorial(g)
         k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
-        stress_neu, bound_stress_neu, hf_cell_neu, hf_bound_neu = pp.numerics.fv.mpsa.mpsa(
+        stress_neu, bound_stress_neu, hf_cell_neu, hf_bound_neu = pp.Mpsa("").mpsa(
             g, k, bc, inverter="python"
         )
 
@@ -179,11 +179,11 @@ class TestDisplacementReconstruction(unittest.TestCase):
         bc.is_neu[bc.is_rob] = False
 
         # Full discretization
-        stress_rob, bound_stress_rob, hf_cell_rob, hf_bound_rob = pp.numerics.fv.mpsa.mpsa(
+        stress_rob, bound_stress_rob, hf_cell_rob, hf_bound_rob = pp.Mpsa("").mpsa(
             g, k, bc, inverter="python"
         )
         # Partiall should give same ressult as full
-        stress, bound_stress, hf_cell, hf_bound = pp.numerics.fv.mpsa.mpsa_update_partial(
+        stress, bound_stress, hf_cell, hf_bound = pp.Mpsa("").mpsa_update_partial(
             stress_neu,
             bound_stress_neu,
             hf_cell_neu,

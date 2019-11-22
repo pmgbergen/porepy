@@ -12,7 +12,7 @@ class MpsaTest(unittest.TestCase):
         g_list = setup_grids.setup_2d()
         kw = "mechanics"
         for g in g_list:
-            solver = pp.numerics.fv.mpsa.Mpsa(kw)
+            solver = pp.Mpsa(kw)
             data = pp.initialize_default_data(g, {}, kw)
 
             solver.discretize(g, data)
@@ -26,7 +26,7 @@ class MpsaTest(unittest.TestCase):
         g_list = setup_grids.setup_2d()
         kw = "mechanics"
         for g in g_list:
-            solver = pp.numerics.fv.mpsa.Mpsa(kw)
+            solver = pp.Mpsa(kw)
             data = pp.initialize_default_data(g, {}, kw)
             cell_dof = g.dim * g.num_cells
             face_dof = g.dim * g.num_faces
