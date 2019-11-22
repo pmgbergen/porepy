@@ -5,7 +5,7 @@ import warnings
 
 import porepy as pp
 
-from porepy.numerics.fv import fvutils, mpsa
+from porepy.numerics.fv import fvutils
 
 
 class Biot:
@@ -363,7 +363,8 @@ class Biot:
         )
 
         # Call core part of MPSA
-        hook, igrad, rhs_cells, cell_node_blocks = mpsa.mpsa_elasticity(
+        mpsa_discr = pp.Mpsa("mech")
+        hook, igrad, rhs_cells, cell_node_blocks = mpsa_discr.mpsa_elasticity(
             g, constit, subcell_topology, bound_exclusion_mech, eta, inverter
         )
 
@@ -371,7 +372,7 @@ class Biot:
         stress = hook * igrad * rhs_cells
 
         # Right hand side for boundary discretization
-        rhs_bound = mpsa.create_bound_rhs(
+        rhs_bound = mpsa_discr._create_bound_rhs(
             bound_mech, bound_exclusion_mech, subcell_topology, g, subface_rhs
         )
         # Discretization of boundary values
@@ -412,7 +413,7 @@ class Biot:
 
         # We obtain the reconstruction of displacments. This is equivalent as for
         # mpsa, but we get a contribution from the pressures.
-        dist_grad, cell_centers = pp.numerics.fv.mpsa.reconstruct_displacement(
+        dist_grad, cell_centers = mpsa_discr._reconstruct_displacement(
             g, subcell_topology, eta
         )
 

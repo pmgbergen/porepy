@@ -32,7 +32,7 @@ class MpsaBoundTest(unittest.TestCase):
         bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
+        rhs = pp.Mpsa("")._create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
         hf2f = pp.fvutils.map_hf_2_f(sc_top.fno_unique, sc_top.subfno_unique, g.dim)
         rhs = rhs * hf2f.T
 
@@ -84,7 +84,7 @@ class MpsaBoundTest(unittest.TestCase):
         bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
+        rhs = pp.Mpsa("")._create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
         hf2f = pp.fvutils.map_hf_2_f(sc_top.fno_unique, sc_top.subfno_unique, g.dim)
         rhs = rhs * hf2f.T
 
@@ -153,7 +153,7 @@ class MpsaBoundTest(unittest.TestCase):
         bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
+        rhs = pp.Mpsa("")._create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
         hf2f = pp.fvutils.map_hf_2_f(sc_top.fno_unique, sc_top.subfno_unique, g.dim)
         rhs = rhs * hf2f.T
 
@@ -205,7 +205,7 @@ class MpsaBoundTest(unittest.TestCase):
         bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
+        rhs = pp.Mpsa("")._create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
         hf2f = pp.fvutils.map_hf_2_f(sc_top.fno_unique, sc_top.subfno_unique, g.dim)
         rhs = rhs * hf2f.T
 
@@ -258,7 +258,7 @@ class MpsaBoundTest(unittest.TestCase):
         bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
+        rhs = pp.Mpsa("")._create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
         hf2f = pp.fvutils.map_hf_2_f(sc_top.fno_unique, sc_top.subfno_unique, g.dim)
         rhs = rhs * hf2f.T
 
@@ -315,7 +315,7 @@ class MpsaBoundTest(unittest.TestCase):
         bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
+        rhs = pp.Mpsa("")._create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
         hf2f = pp.fvutils.map_hf_2_f(sc_top.fno_unique, sc_top.subfno_unique, g.dim)
         rhs = rhs * hf2f.T
 
@@ -384,7 +384,7 @@ class MpsaBoundTest(unittest.TestCase):
         bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
+        rhs = pp.Mpsa("")._create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
         hf2f = pp.fvutils.map_hf_2_f(sc_top.fno_unique, sc_top.subfno_unique, g.dim)
         rhs = rhs * hf2f.T
 
@@ -445,7 +445,7 @@ class MpsaBoundTest(unittest.TestCase):
         bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
+        rhs = pp.Mpsa("")._create_bound_rhs(bnd, bnd_excl, sc_top, g, True)
         hf2f = pp.fvutils.map_hf_2_f(sc_top.fno_unique, sc_top.subfno_unique, g.dim)
         rhs = rhs * hf2f.T
 

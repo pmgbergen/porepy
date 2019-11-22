@@ -21,7 +21,8 @@ class MpsaReconstructDisplacement(unittest.TestCase):
         k = pp.FourthOrderTensor(mu, lam)
 
         bc = pp.BoundaryConditionVectorial(g)
-        _, _, grad_cell, grad_bound = pp.numerics.fv.mpsa.mpsa(
+        discr = pp.Mpsa("")
+        _, _, grad_cell, grad_bound = discr.mpsa(
             g, k, bc, hf_disp=True, inverter="python"
         )
 
@@ -94,7 +95,8 @@ class MpsaReconstructDisplacement(unittest.TestCase):
         x0 = np.array([[1, 2, 3]]).T
         u_b = g.face_centers + x0
 
-        stress, bound_stress, grad_cell, grad_bound = pp.numerics.fv.mpsa.mpsa(
+        discr = pp.Mpsa("")
+        stress, bound_stress, grad_cell, grad_bound = discr.mpsa(
             g, k, bc, eta=0, hf_disp=True, inverter="python"
         )
 
@@ -140,7 +142,7 @@ class MpsaReconstructDisplacement(unittest.TestCase):
 
         u_b = np.random.randn(g.face_centers.shape[0], g.face_centers.shape[1])
 
-        stress, bound_stress, grad_cell, grad_bound = pp.numerics.fv.mpsa.mpsa(
+        stress, bound_stress, grad_cell, grad_bound = pp.Mpsa("").mpsa(
             g, k, bc, eta=0, hf_disp=True, inverter="python"
         )
 
