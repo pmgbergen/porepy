@@ -1,12 +1,119 @@
 """
-Module to increase the dimensions of grids by extrusion in the z-direction. 
+Module to increase the dimensions of grids by extrusion in the z-direction.
+
+Both individual grids and mixed-dimensional grid_buckets can be extruded. The
+dimension of the highest-dimensional grid should be 2 at most.
+
 """
 import numpy as np
 import porepy as pp
 import scipy.sparse as sps
-from typing import Union
+from typing import Union, Dict
 from collections import namedtuple
+from porepy.grids import mortar_grid
 
+
+def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Union[pp.GridBucket, Dict]:
+    """ Extrude a GridBucket by extending all fixed-dimensional grids in the z-direction.
+
+    In practice, the original grid bucket will be 2d, and the result is 3d.
+
+    The returned GridBucket is fully functional, including mortar grids on the gb edges.
+    The data dictionaries on nodes and edges are mainly empty. Data can be transferred from
+    the original GridBucket via the returned map between old and new grids.
+
+    Parameters:
+        gb (pp.GridBukcet): Mixed-dimensional grid to be extruded. Should be 2d.
+        z (np.ndarray): z-coordinates of the nodes in the extruded grid. Should be
+            either non-negative or non-positive, and be sorted in increasing or
+            decreasing order, respectively.
+
+    Returns:
+        gb (pp.GridBucket): Mixed-dimensional grid, 3d. The data dictionaries on nodes and
+            edges are mostly empty.
+        dict: Mapping from individual grids in the old bucket to the corresponding
+            extruded grids in the new one. The dictionary values are a namedtuple with
+            elements grid (new grid), cell_map and face_map, where the two latter
+            describe mapping between the new and old grid, see extrude_grid for details.
+
+    """
+
+    # New GridBucket. to be filled in
+    gb_new = pp.GridBucket()
+
+    # Data structure for mapping between old and new grids
+    g_map = {}
+
+    # Container for grid information
+    Mapping = namedtuple("mapping", ["grid", "cell_map", "face_map"])
+
+    # Loop over all grids in the old bucket, extrude the grid, save mapping information
+    for g, _ in gb:
+        g_new, cell_map, face_map = extrude_grid(g, z)
+        gb_new.add_nodes([g_new])
+
+        g_map[g] = Mapping(g_new, cell_map, face_map)
+
+    # Loop over all edges in the old grid, create corresponding edges in the new gb.
+    # Also define mortar_grids
+    for e, d in gb.edges():
+
+        # grids of the old edge, extruded version of each grid
+        gl, gh = gb.nodes_of_edge(e)
+        gl_new = g_map[gl].grid
+        gh_new = g_map[gh].grid
+
+        # Next, we need the cell-face mapping for the new grid.
+        # The idea is to first find the old map, then replace each cell-face relation
+        # with the set of cells and faces (exploiting first that the new grids are
+        # matching due to the extrusion algorithm, and second that the cell-map and
+        # face-map stores indices in increasing layer index, so that the first cell
+        # and first face both are in the first layer, thus they match, etc.).
+        face_cells_old = d["face_cells"]
+
+        # cells (in low-dim grid) and faces in high-dim grid that define the same
+        # geometric quantity
+        cells, faces, _ = sps.find(face_cells_old)
+
+        # Cell-map for the low-dimensional grid, face-map for the high-dim
+        cell_map = g_map[gl].cell_map
+        face_map = g_map[gh].face_map
+
+        rows = np.empty(0, dtype=np.int)
+        cols = np.empty(0, dtype=np.int)
+
+        # Loop over all the faces, find its extruded face children.
+        # Loop over cells in gl would not have been as clean, as each cell is associated
+        # with faces on both sides
+        # Faces are found from the high-dim grid, cells in the low-dim grid
+        for idx in range(faces.size):
+            rows = np.hstack((rows, cell_map[cells[idx]]))
+            cols = np.hstack((cols, face_map[faces[idx]]))
+
+        data = np.ones(rows.size, dtype=np.bool)
+        # Create new face-cell map
+        face_cells_new = sps.csc_matrix(
+            (data, (rows, cols)), shape=(gl_new.num_cells, gh_new.num_faces)
+        )
+
+        # Define the new edge
+        e = (gh_new, gl_new)
+        # Add to new gb, together with the new face-cell map
+        gb_new.add_edge(e, face_cells_new)
+
+        # Create a mortar grid, add to data of new edge
+        side_g = {
+            mortar_grid.LEFT_SIDE: gl_new.copy(),
+            mortar_grid.RIGHT_SIDE: gl_new.copy(),
+        }
+
+        mg = pp.MortarGrid(gl_new.dim, side_g, face_cells_new)
+
+        d_new = gb_new.edge_props(e)
+
+        d_new["mortar_grid"] = mg
+
+    return gb_new, g_map
 
 
 def extrude_grid(g: pp.Grid, z: np.ndarray) -> Union[pp.Grid, np.ndarray, np.ndarray]:
@@ -30,7 +137,7 @@ def extrude_grid(g: pp.Grid, z: np.ndarray) -> Union[pp.Grid, np.ndarray, np.nda
             cells in the extruded grid that comes from cell ci in the original grid.
         np.array of np.arrays: Face mappings, so that element fi gives all indices of
             faces in the extruded grid that comes from face fi in the original grid.
-        
+
     Raises:
         ValueError: If the z-coordinates for nodes contain both positive and negative
             values.
@@ -48,6 +155,7 @@ def extrude_grid(g: pp.Grid, z: np.ndarray) -> Union[pp.Grid, np.ndarray, np.nda
         return _extrude_2d(g, z)
     else:
         raise ValueError("The grid to be extruded should have dimension at most 2")
+
 
 def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Union[pp.Grid, np.ndarray, np.ndarray]:
     """ Extrude a 2d grid into 3d by prismatic extension.
@@ -158,7 +266,7 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Union[pp.Grid, np.ndarray, np.ndar
         np.logical_and(sgn[idx] > 0, np.logical_not(ccw_2d)),
         np.logical_and(sgn[idx] < 0, ccw_2d),
     )
-    
+
     # Finally, if the extrusion is in the negative direction, the ordering of all
     # face-node relations is the oposite of that indicated above.
     if negative_extrusion:
@@ -229,7 +337,8 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Union[pp.Grid, np.ndarray, np.ndar
             # Indices that sort the nodes. The called function contains a rotation, which
             # implies that it is unknown whether the ordering is cw or ccw
             sort_ind = pp.utils.sort_points.sort_point_plane(
-                np.vstack((coord, np.zeros(coord.shape[1]))), g.cell_centers[:, ci].reshape((-1, 1))
+                np.vstack((coord, np.zeros(coord.shape[1]))),
+                g.cell_centers[:, ci].reshape((-1, 1)),
             )
             # Deal with the two cases as we did above.
             if pp.geometry_property_checks.is_ccw_polygon(coord[:, sort_ind]):
