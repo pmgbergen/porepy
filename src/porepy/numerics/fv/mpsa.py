@@ -669,7 +669,7 @@ class Mpsa:
             logger.info("Split MPSA discretization into " + str(num_part) + " parts")
 
             # Let partitioning module apply the best available method
-            part = pp.partition.partition_metis(g, num_part)
+            part = pp.partition.partition(g, num_part)
 
             # Empty fields for stress and bound_stress. Will be expanded as we go.
             # Implementation note: It should be relatively straightforward to
