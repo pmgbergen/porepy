@@ -24,7 +24,7 @@ class TestAsymmetricNeumann(unittest.TestCase):
         subcell_topology = pp.fvutils.SubcellTopology(g)
         bc = pp.fvutils.boundary_to_sub_boundary(bc, subcell_topology)
         bound_exclusion = pp.fvutils.ExcludeBoundaries(subcell_topology, bc, g.dim)
-        _, igrad, _, _ = pp.Mpsa("").mpsa_elasticity(
+        _, igrad, _, _ = pp.Mpsa("")._create_inverse_gradient_matrix(
             g, k, subcell_topology, bound_exclusion, 0, "python"
         )
         data = np.array(
@@ -103,7 +103,7 @@ class TestAsymmetricNeumann(unittest.TestCase):
         bc = pp.fvutils.boundary_to_sub_boundary(bc, subcell_topology)
         bound_exclusion = pp.fvutils.ExcludeBoundaries(subcell_topology, bc, g.dim)
 
-        _, igrad, _, _ = pp.Mpsa("").mpsa_elasticity(
+        _, igrad, _, _ = pp.Mpsa("")._create_inverse_gradient_matrix(
             g, k, subcell_topology, bound_exclusion, 0, "python"
         )
         data = np.array(
