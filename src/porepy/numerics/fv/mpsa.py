@@ -1169,9 +1169,13 @@ class Mpsa:
         # Most of the work is done by submethod for elasticity (which is common for
         # elasticity and poro-elasticity).
 
-        hook, igrad, rhs_cells, _ = self.mpsa_elasticity(
+        hook, igrad, cell_node_blocks = self._create_inverse_gradient_matrix(
             g, constit, subcell_topology, bound_exclusion, eta, inverter
         )
+        num_sub_cells = cell_node_blocks[0].size
+
+        rhs_cells = self._create_rhs_cell_center( g, subcell_topology, eta,
+                                                 num_sub_cells, bound_exclusion)
 
         hook_igrad = hook * igrad
         # NOTE: This is the point where we expect to reach peak memory need.
@@ -1211,7 +1215,7 @@ class Mpsa:
             hf_bound *= hf2f.T
         return stress, bound_stress, hf_cell, hf_bound
 
-    def mpsa_elasticity(
+    def _create_inverse_gradient_matrix(
         self, g, constit, subcell_topology, bound_exclusion, eta, inverter
     ):
         """
@@ -1299,23 +1303,9 @@ class Mpsa:
         # Boundary conditions are taken hand of in ncsym_rob, ncsym_neu or as Dirichlet.
         ncsym = bound_exclusion.exclude_boundary(ncsym)
 
-        # The contribution of cell center displacement to stress continuity.
-        # This is just zero (T_L + T_R = 0).
-        num_subfno = subcell_topology.subfno.max() + 1
-        hook_cell = sps.coo_matrix(
-            (np.zeros(1), (np.zeros(1), np.zeros(1))),
-            shape=(num_subfno * nd, (np.max(subcell_topology.cno) + 1) * nd),
-        ).tocsr()
-        # Here you have to be carefull if you ever change hook_cell to something else than
-        # 0. Because we have pulled the Neumann conditions out of the stress condition
-        # the following would give an index error. Instead you would have to make a
-        # hook_cell_neu equal the number neumann_sub_faces, and a hook_cell_int equal the number
-        # of internal sub_faces and use .keep_neu and .exclude_bnd. But since this is all zeros,
-        # thi indexing does not matter.
-        hook_cell = bound_exclusion.exclude_robin_dirichlet(hook_cell)
 
         # Matrices to enforce displacement continuity
-        d_cont_grad, d_cont_cell = self._get_displacement_submatrices(
+        d_cont_grad, _ = self._get_displacement_submatrices(
             g, subcell_topology, eta, num_sub_cells, bound_exclusion
         )
 
@@ -1333,8 +1323,244 @@ class Mpsa:
         )
 
         # Right hand side for cell center variables
+
+        return hook, igrad, cell_node_blocks
+
+    def _create_rhs_cell_center(self, g, subcell_topology, eta, num_sub_cells,
+                                bound_exclusion):
+
+        nd = g.dim
+
+        rob_grad, rob_cell = self._get_displacement_submatrices_rob(
+            g, subcell_topology, eta, num_sub_cells, bound_exclusion
+        )
+
+        # The contribution of cell center displacement to stress continuity.
+        # This is just zero (T_L + T_R = 0).
+        num_subfno = subcell_topology.subfno.max() + 1
+        hook_cell = sps.coo_matrix(
+            (np.zeros(1), (np.zeros(1), np.zeros(1))),
+            shape=(num_subfno * nd, (np.max(subcell_topology.cno) + 1) * nd),
+        ).tocsr()
+        # Here you have to be carefull if you ever change hook_cell to something else than
+        # 0. Because we have pulled the Neumann conditions out of the stress condition
+        # the following would give an index error. Instead you would have to make a
+        # hook_cell_neu equal the number neumann_sub_faces, and a hook_cell_int equal the number
+        # of internal sub_faces and use .keep_neu and .exclude_bnd. But since this is all zeros,
+        # thi indexing does not matter.
+        hook_cell = bound_exclusion.exclude_robin_dirichlet(hook_cell)
+
+
+        # Matrices to enforce displacement continuity
+        _, d_cont_cell = self._get_displacement_submatrices(
+            g, subcell_topology, eta, num_sub_cells, bound_exclusion
+        )
+
         rhs_cells = -sps.vstack([hook_cell, rob_cell, d_cont_cell])
-        return hook, igrad, rhs_cells, cell_node_blocks
+
+        return rhs_cells
+
+
+    def _create_bound_rhs(
+        self, bound, bound_exclusion, subcell_topology, g, subface_rhs
+    ):
+        """
+        Define rhs matrix to get basis functions for boundary
+        conditions assigned face-wise
+
+        Parameters
+        ----------
+        bound
+        bound_exclusion
+        fno
+        sgn : +-1, defining here and there of the faces
+        g : grid
+        num_stress : number of equations for flux continuity
+        num_displ: number of equations for pressure continuity
+
+        Returns
+        -------
+        rhs_bound: Matrix that can be multiplied with inverse block matrix to get
+                   basis functions for boundary values
+        """
+        nd = g.dim
+
+        num_stress = bound_exclusion.exclude_bnd.shape[0]
+        num_displ = bound_exclusion.exclude_neu_rob.shape[0]
+
+        num_rob = bound_exclusion.keep_rob.shape[0]
+        num_neu = bound_exclusion.keep_neu.shape[0]
+
+        fno = subcell_topology.fno_unique
+        subfno = subcell_topology.subfno_unique
+        sgn = g.cell_faces[
+            subcell_topology.fno_unique, subcell_topology.cno_unique
+        ].A.ravel("F")
+
+        num_dir = np.sum(bound.is_dir)
+        if not num_rob == np.sum(bound.is_rob):
+            raise AssertionError()
+        if not num_neu == np.sum(bound.is_neu):
+            raise AssertionError()
+
+        num_bound = num_neu + num_dir + num_rob
+
+        # Obtain the face number for each coordinate
+        subfno_nd = np.tile(subfno, (nd, 1)) * nd + np.atleast_2d(np.arange(0, nd)).T
+
+        # expand the indices
+        # Define right hand side for Neumann boundary conditions
+        # First row indices in rhs matrix
+        # Pick out the subface indices
+        # The boundary conditions should be given in the given basis, therefore no transformation
+        subfno_neu = bound_exclusion.keep_neumann(
+            subfno_nd.ravel("C"), transform=False
+        ).ravel("F")
+        # Pick out the Neumann boundary
+        is_neu_nd = (
+            bound_exclusion.keep_neumann(bound.is_neu.ravel("C"), transform=False)
+            .ravel("F")
+            .astype(np.bool)
+        )
+
+        neu_ind = np.argsort(subfno_neu)
+        neu_ind = neu_ind[is_neu_nd[neu_ind]]
+
+        # Robin, same procedure
+        subfno_rob = bound_exclusion.keep_robin(
+            subfno_nd.ravel("C"), transform=False
+        ).ravel("F")
+
+        is_rob_nd = (
+            bound_exclusion.keep_robin(bound.is_rob.ravel("C"), transform=False)
+            .ravel("F")
+            .astype(np.bool)
+        )
+
+        rob_ind = np.argsort(subfno_rob)
+        rob_ind = rob_ind[is_rob_nd[rob_ind]]
+
+        # Dirichlet, same procedure
+        # remove neumann and robin subfno
+        subfno_dir = bound_exclusion.exclude_neumann_robin(
+            subfno_nd.ravel("C"), transform=False
+        ).ravel("F")
+        is_dir_nd = (
+            bound_exclusion.exclude_neumann_robin(
+                bound.is_dir.ravel("C"), transform=False
+            )
+            .ravel("F")
+            .astype(np.bool)
+        )
+
+        dir_ind = np.argsort(subfno_dir)
+        dir_ind = dir_ind[is_dir_nd[dir_ind]]
+
+        # We also need to account for all half faces, that is, do not exclude
+        # Dirichlet and Neumann boundaries. This is the global indexing.
+        is_neu_all = bound.is_neu.ravel("C")
+        neu_ind_all = np.argwhere(
+            np.reshape(is_neu_all, (nd, -1), order="C").ravel("F")
+        ).ravel("F")
+        is_dir_all = bound.is_dir.ravel("C")
+        dir_ind_all = np.argwhere(
+            np.reshape(is_dir_all, (nd, -1), order="C").ravel("F")
+        ).ravel("F")
+
+        is_rob_all = bound.is_rob.ravel("C")
+        rob_ind_all = np.argwhere(
+            np.reshape(is_rob_all, (nd, -1), order="C").ravel("F")
+        ).ravel("F")
+
+        # We now merge the neuman and robin indices since they are treated equivalent.
+        # Remember that the first set of local equations are the stress equilibrium for
+        # the internall faces. The number of internal stresses therefore has to
+        # be added to the Neumann and Robin indices
+        if rob_ind.size == 0:
+            neu_rob_ind = neu_ind + num_stress
+        elif neu_ind.size == 0:
+            neu_rob_ind = rob_ind + num_stress
+        else:
+            neu_rob_ind = np.hstack(
+                (neu_ind + num_stress, rob_ind + num_stress + num_neu)
+            )
+
+        neu_rob_ind_all = np.hstack((neu_ind_all, rob_ind_all))
+
+        # stack together
+        bnd_ind = np.hstack((neu_rob_ind_all, dir_ind_all))
+
+        # Some care is needed to compute coefficients in Neumann matrix: sgn is
+        # already defined according to the subcell topology [fno], while areas
+        # must be drawn from the grid structure, and thus go through fno
+        fno_ext = np.tile(fno, nd)
+        num_face_nodes = g.face_nodes.sum(axis=0).A.ravel("F")
+
+        # Coefficients in the matrix. For the Neumann boundary components we set the
+        # value as seen from the outside of the domain. Note that they do not
+        # have to do
+        # so, and we will flip the sign later. This means that a stress [1,1] on a
+        # boundary face pushes(or pulls) the face to the top right corner.
+        # Note:
+        if subface_rhs:
+            # In this case we set the rhs for the sub-faces. Note that the rhs values
+            # should be integrated over the subfaces, that is
+            # stress_neumann *\cdot * normal * subface_area
+            neu_val = 1 * np.ones(neu_rob_ind_all.size)
+        else:
+            # In this case we set the value at a face, thus, we need to distribute the
+            #  face values to the subfaces. We do this by an area-weighted average. Note
+            # that the rhs values should in this case be integrated over the faces, that is:
+            # stress_neumann *\cdot * normal * face_area
+            neu_val = 1 / num_face_nodes[fno_ext[neu_rob_ind_all]]
+
+        # The columns will be 0:neu_rob_ind.size
+        if neu_rob_ind.size > 0:
+            neu_cell = sps.coo_matrix(
+                (neu_val.ravel("F"), (neu_rob_ind, np.arange(neu_rob_ind.size))),
+                shape=(num_stress + num_neu + num_rob, num_bound),
+            ).tocsr()
+        else:
+            # Special handling when no elements are found. Not sure if this is
+            # necessary, or if it is me being stupid
+            neu_cell = sps.coo_matrix((num_stress + num_rob, num_bound)).tocsr()
+
+        # For Dirichlet, the coefficients in the matrix should be duplicated the same way as
+        # the row indices, but with no increment
+        sgn_nd = np.tile(sgn, (nd, 1)).ravel("F")
+        dir_val = sgn_nd[dir_ind_all]
+        del sgn_nd
+        # Column numbering starts right after the last Neumann column. dir_val
+        # is ordered [u_x_1, u_y_1, u_x_2, u_y_2, ...], and dir_ind shuffles this
+        # ordering. The final matrix will first have the x-coponent of the displacement
+        # for each face, then the y-component, etc.
+        if dir_ind.size > 0:
+            dir_cell = sps.coo_matrix(
+                (dir_val, (dir_ind, num_neu + num_rob + np.arange(dir_ind.size))),
+                shape=(num_displ, num_bound),
+            ).tocsr()
+        else:
+            # Special handling when no elements are found. Not sure if this is
+            # necessary, or if it is me being stupid
+            dir_cell = sps.coo_matrix((num_displ, num_bound)).tocsr()
+
+        num_subfno = np.max(subfno) + 1
+
+        # The columns in neu_cell, dir_cell are ordered from 0 to num_bound-1.
+        # Map these to all half-face indices
+        bnd_2_all_hf = sps.coo_matrix(
+            (np.ones(num_bound), (np.arange(num_bound), bnd_ind)),
+            shape=(num_bound, num_subfno * nd),
+        )
+
+        # the rows of rhs_bound will be ordered with first the x-component of all
+        # neumann faces, then the y-component of all neumann faces, then the
+        # z-component of all neumann faces. Then we will have the equivalent for
+        # the dirichlet faces.
+
+        rhs_bound = sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf
+
+        return rhs_bound
 
     def _reconstruct_displacement(self, g, subcell_topology, eta=None):
         """
@@ -1823,206 +2049,6 @@ class Mpsa:
         ).tocsr()
         return rows2blk_diag, cols2blk_diag, size_of_blocks
 
-    def _create_bound_rhs(
-        self, bound, bound_exclusion, subcell_topology, g, subface_rhs
-    ):
-        """
-        Define rhs matrix to get basis functions for boundary
-        conditions assigned face-wise
-
-        Parameters
-        ----------
-        bound
-        bound_exclusion
-        fno
-        sgn : +-1, defining here and there of the faces
-        g : grid
-        num_stress : number of equations for flux continuity
-        num_displ: number of equations for pressure continuity
-
-        Returns
-        -------
-        rhs_bound: Matrix that can be multiplied with inverse block matrix to get
-                   basis functions for boundary values
-        """
-        nd = g.dim
-
-        num_stress = bound_exclusion.exclude_bnd.shape[0]
-        num_displ = bound_exclusion.exclude_neu_rob.shape[0]
-
-        num_rob = bound_exclusion.keep_rob.shape[0]
-        num_neu = bound_exclusion.keep_neu.shape[0]
-
-        fno = subcell_topology.fno_unique
-        subfno = subcell_topology.subfno_unique
-        sgn = g.cell_faces[
-            subcell_topology.fno_unique, subcell_topology.cno_unique
-        ].A.ravel("F")
-
-        num_dir = np.sum(bound.is_dir)
-        if not num_rob == np.sum(bound.is_rob):
-            raise AssertionError()
-        if not num_neu == np.sum(bound.is_neu):
-            raise AssertionError()
-
-        num_bound = num_neu + num_dir + num_rob
-
-        # Obtain the face number for each coordinate
-        subfno_nd = np.tile(subfno, (nd, 1)) * nd + np.atleast_2d(np.arange(0, nd)).T
-
-        # expand the indices
-        # Define right hand side for Neumann boundary conditions
-        # First row indices in rhs matrix
-        # Pick out the subface indices
-        # The boundary conditions should be given in the given basis, therefore no transformation
-        subfno_neu = bound_exclusion.keep_neumann(
-            subfno_nd.ravel("C"), transform=False
-        ).ravel("F")
-        # Pick out the Neumann boundary
-        is_neu_nd = (
-            bound_exclusion.keep_neumann(bound.is_neu.ravel("C"), transform=False)
-            .ravel("F")
-            .astype(np.bool)
-        )
-
-        neu_ind = np.argsort(subfno_neu)
-        neu_ind = neu_ind[is_neu_nd[neu_ind]]
-
-        # Robin, same procedure
-        subfno_rob = bound_exclusion.keep_robin(
-            subfno_nd.ravel("C"), transform=False
-        ).ravel("F")
-
-        is_rob_nd = (
-            bound_exclusion.keep_robin(bound.is_rob.ravel("C"), transform=False)
-            .ravel("F")
-            .astype(np.bool)
-        )
-
-        rob_ind = np.argsort(subfno_rob)
-        rob_ind = rob_ind[is_rob_nd[rob_ind]]
-
-        # Dirichlet, same procedure
-        # remove neumann and robin subfno
-        subfno_dir = bound_exclusion.exclude_neumann_robin(
-            subfno_nd.ravel("C"), transform=False
-        ).ravel("F")
-        is_dir_nd = (
-            bound_exclusion.exclude_neumann_robin(
-                bound.is_dir.ravel("C"), transform=False
-            )
-            .ravel("F")
-            .astype(np.bool)
-        )
-
-        dir_ind = np.argsort(subfno_dir)
-        dir_ind = dir_ind[is_dir_nd[dir_ind]]
-
-        # We also need to account for all half faces, that is, do not exclude
-        # Dirichlet and Neumann boundaries. This is the global indexing.
-        is_neu_all = bound.is_neu.ravel("C")
-        neu_ind_all = np.argwhere(
-            np.reshape(is_neu_all, (nd, -1), order="C").ravel("F")
-        ).ravel("F")
-        is_dir_all = bound.is_dir.ravel("C")
-        dir_ind_all = np.argwhere(
-            np.reshape(is_dir_all, (nd, -1), order="C").ravel("F")
-        ).ravel("F")
-
-        is_rob_all = bound.is_rob.ravel("C")
-        rob_ind_all = np.argwhere(
-            np.reshape(is_rob_all, (nd, -1), order="C").ravel("F")
-        ).ravel("F")
-
-        # We now merge the neuman and robin indices since they are treated equivalent.
-        # Remember that the first set of local equations are the stress equilibrium for
-        # the internall faces. The number of internal stresses therefore has to
-        # be added to the Neumann and Robin indices
-        if rob_ind.size == 0:
-            neu_rob_ind = neu_ind + num_stress
-        elif neu_ind.size == 0:
-            neu_rob_ind = rob_ind + num_stress
-        else:
-            neu_rob_ind = np.hstack(
-                (neu_ind + num_stress, rob_ind + num_stress + num_neu)
-            )
-
-        neu_rob_ind_all = np.hstack((neu_ind_all, rob_ind_all))
-
-        # stack together
-        bnd_ind = np.hstack((neu_rob_ind_all, dir_ind_all))
-
-        # Some care is needed to compute coefficients in Neumann matrix: sgn is
-        # already defined according to the subcell topology [fno], while areas
-        # must be drawn from the grid structure, and thus go through fno
-        fno_ext = np.tile(fno, nd)
-        num_face_nodes = g.face_nodes.sum(axis=0).A.ravel("F")
-
-        # Coefficients in the matrix. For the Neumann boundary components we set the
-        # value as seen from the outside of the domain. Note that they do not
-        # have to do
-        # so, and we will flip the sign later. This means that a stress [1,1] on a
-        # boundary face pushes(or pulls) the face to the top right corner.
-        # Note:
-        if subface_rhs:
-            # In this case we set the rhs for the sub-faces. Note that the rhs values
-            # should be integrated over the subfaces, that is
-            # stress_neumann *\cdot * normal * subface_area
-            neu_val = 1 * np.ones(neu_rob_ind_all.size)
-        else:
-            # In this case we set the value at a face, thus, we need to distribute the
-            #  face values to the subfaces. We do this by an area-weighted average. Note
-            # that the rhs values should in this case be integrated over the faces, that is:
-            # stress_neumann *\cdot * normal * face_area
-            neu_val = 1 / num_face_nodes[fno_ext[neu_rob_ind_all]]
-
-        # The columns will be 0:neu_rob_ind.size
-        if neu_rob_ind.size > 0:
-            neu_cell = sps.coo_matrix(
-                (neu_val.ravel("F"), (neu_rob_ind, np.arange(neu_rob_ind.size))),
-                shape=(num_stress + num_neu + num_rob, num_bound),
-            ).tocsr()
-        else:
-            # Special handling when no elements are found. Not sure if this is
-            # necessary, or if it is me being stupid
-            neu_cell = sps.coo_matrix((num_stress + num_rob, num_bound)).tocsr()
-
-        # For Dirichlet, the coefficients in the matrix should be duplicated the same way as
-        # the row indices, but with no increment
-        sgn_nd = np.tile(sgn, (nd, 1)).ravel("F")
-        dir_val = sgn_nd[dir_ind_all]
-        del sgn_nd
-        # Column numbering starts right after the last Neumann column. dir_val
-        # is ordered [u_x_1, u_y_1, u_x_2, u_y_2, ...], and dir_ind shuffles this
-        # ordering. The final matrix will first have the x-coponent of the displacement
-        # for each face, then the y-component, etc.
-        if dir_ind.size > 0:
-            dir_cell = sps.coo_matrix(
-                (dir_val, (dir_ind, num_neu + num_rob + np.arange(dir_ind.size))),
-                shape=(num_displ, num_bound),
-            ).tocsr()
-        else:
-            # Special handling when no elements are found. Not sure if this is
-            # necessary, or if it is me being stupid
-            dir_cell = sps.coo_matrix((num_displ, num_bound)).tocsr()
-
-        num_subfno = np.max(subfno) + 1
-
-        # The columns in neu_cell, dir_cell are ordered from 0 to num_bound-1.
-        # Map these to all half-face indices
-        bnd_2_all_hf = sps.coo_matrix(
-            (np.ones(num_bound), (np.arange(num_bound), bnd_ind)),
-            shape=(num_bound, num_subfno * nd),
-        )
-
-        # the rows of rhs_bound will be ordered with first the x-component of all
-        # neumann faces, then the y-component of all neumann faces, then the
-        # z-component of all neumann faces. Then we will have the equivalent for
-        # the dirichlet faces.
-
-        rhs_bound = sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf
-
-        return rhs_bound
 
     def _unique_hooks_law(self, csym, casym, subcell_topology, nd):
         """

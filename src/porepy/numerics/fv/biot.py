@@ -364,9 +364,12 @@ class Biot:
 
         # Call core part of MPSA
         mpsa_discr = pp.Mpsa("mech")
-        hook, igrad, rhs_cells, cell_node_blocks = mpsa_discr.mpsa_elasticity(
+        hook, igrad, cell_node_blocks = mpsa_discr._create_inverse_gradient_matrix(
             g, constit, subcell_topology, bound_exclusion_mech, eta, inverter
         )
+        num_sub_cells = cell_node_blocks.shape[0]
+        rhs_cells = mpsa_discr._create_rhs_cell_center( g, subcell_topology, eta,
+                                                 num_sub_cells, bound_exclusion_mech)
 
         # Stress discretization
         stress = hook * igrad * rhs_cells
