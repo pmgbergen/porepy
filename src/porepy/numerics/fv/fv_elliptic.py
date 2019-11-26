@@ -164,8 +164,6 @@ class FVElliptic(pp.EllipticDiscretization):
                 conditions. The size of the vector will depend on the discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "bound_flux" in matrix_dictionary:
-            self.discretize(g, data)
 
         bound_flux = matrix_dictionary["bound_flux"]
         if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
