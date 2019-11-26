@@ -122,12 +122,12 @@ class Mpfa(FVElliptic):
                 inverter=inverter,
             )
 
-            matrix_dictionary["div_vector_source"] = div_vec_source
+            matrix_dictionary[self.div_vector_source_key] = div_vec_source
 
-        matrix_dictionary["flux"] = trm
-        matrix_dictionary["bound_flux"] = bound_flux
-        matrix_dictionary["bound_pressure_cell"] = bp_cell
-        matrix_dictionary["bound_pressure_face"] = bp_face
+        matrix_dictionary[self.flux_matrix_key] = trm
+        matrix_dictionary[self.bound_flux_matrix_key] = bound_flux
+        matrix_dictionary[self.bound_pressure_cell_matrix_key] = bp_cell
+        matrix_dictionary[self.bound_pressure_face_matrix_key]= bp_face
 
     def mpfa(
         self,
@@ -593,18 +593,18 @@ class Mpfa(FVElliptic):
             matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.keyword]
             if not vector_source:
                 return (
-                    matrix_dictionary["flux"],
-                    matrix_dictionary["bound_flux"],
-                    matrix_dictionary["bound_pressure_cell"],
-                    matrix_dictionary["bound_pressure_face"],
+                    matrix_dictionary[self.flux_matrix_key],
+                    matrix_dictionary[self.bound_flux_matrix_key],
+                    matrix_dictionary[self.bound_pressure_cell_matrix_key],
+                    matrix_dictionary[self.bound_pressure_face_matrix_key],
                 )
             else:
                 return (
-                    matrix_dictionary["flux"],
-                    matrix_dictionary["bound_flux"],
-                    matrix_dictionary["bound_pressure_cell"],
-                    matrix_dictionary["bound_pressure_face"],
-                    matrix_dictionary["div_vector_source"],
+                    matrix_dictionary[self.flux_matrix_key],
+                    matrix_dictionary[self.bound_flux_matrix_key],
+                    matrix_dictionary[self.bound_pressure_cell_matrix_key],
+                    matrix_dictionary[self.bound_pressure_face_matrix_key],
+                    matrix_dictionary[self.div_vector_source_key],
                 )
         elif g.dim == 0:
             return sps.csr_matrix([0]), 0, 0, 0
