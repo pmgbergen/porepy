@@ -77,6 +77,7 @@ from porepy.numerics.contact_mechanics import contact_conditions
 
 # Related to models and solvers
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
+from porepy.numerics.linear_solvers import LinearSolver
 from porepy.models.run_models import run_stationary_model, run_time_dependent_model
 
 # Grids

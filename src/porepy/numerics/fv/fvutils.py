@@ -1342,6 +1342,7 @@ def compute_darcy_flux(
     p_name="pressure",
     lam_name="mortar_solution",
     data=None,
+    from_iterate=False,
 ):
     """
     Computes darcy_flux over all faces in the entire grid /grid bucket given
@@ -1376,6 +1377,13 @@ def compute_darcy_flux(
         there is an implicit assumption that all normals point from the second
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
     """
+
+    def extract_variable(d, var):
+        if from_iterate:
+            return d[pp.STATE]["previous_iterate"][var]
+        else:
+            return d[pp.STATE][var]
+
     if keyword_store is None:
         keyword_store = keyword
     if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
@@ -1383,7 +1391,7 @@ def compute_darcy_flux(
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
         if "flux" in matrix_dictionary:
             dis = (
-                matrix_dictionary["flux"] * data[pp.STATE][p_name]
+                matrix_dictionary["flux"] * extract_variable(data, p_name)
                 + matrix_dictionary["bound_flux"] * parameter_dictionary["bc_values"]
             )
         else:
@@ -1402,7 +1410,7 @@ def compute_darcy_flux(
             matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][keyword]
             if "flux" in matrix_dictionary:
                 dis = (
-                    matrix_dictionary["flux"] * d[pp.STATE][p_name]
+                    matrix_dictionary["flux"] * extract_variable(d, p_name)
                     + matrix_dictionary["bound_flux"]
                     * parameter_dictionary["bc_values"]
                 )
@@ -1427,12 +1435,14 @@ def compute_darcy_flux(
 
         bound_flux = d_h[pp.DISCRETIZATION_MATRICES][keyword]["bound_flux"]
         induced_flux = (
-            bound_flux * d["mortar_grid"].mortar_to_master_int() * d[pp.STATE][lam_name]
+            bound_flux
+            * d["mortar_grid"].mortar_to_master_int()
+            * extract_variable(d, lam_name)
         )
         # Remove contribution directly on the boundary faces.
         induced_flux[g_h.tags["fracture_faces"]] = 0
         d_h[pp.PARAMETERS][keyword_store][d_name] += induced_flux
-        d[pp.PARAMETERS][keyword_store][d_name] = d[pp.STATE][lam_name].copy()
+        d[pp.PARAMETERS][keyword_store][d_name] = extract_variable(d, lam_name).copy()
 
 
 def boundary_to_sub_boundary(bound, subcell_topology):

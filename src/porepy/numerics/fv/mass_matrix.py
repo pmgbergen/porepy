@@ -30,7 +30,7 @@ class MassMatrix:
 
     # ------------------------------------------------------------------------------#
 
-    def __init__(self, keyword="flow"):
+    def __init__(self, keyword="flow", mass_weight_key="mass_weight"):
         """ Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
@@ -39,6 +39,7 @@ class MassMatrix:
                 discretization.
         """
         self.keyword = keyword
+        self.mass_weight_key = mass_weight_key
 
     # ------------------------------------------------------------------------------#
 
@@ -162,7 +163,7 @@ class MassMatrix:
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         ndof = self.ndof(g)
-        w = parameter_dictionary["mass_weight"]
+        w = parameter_dictionary[self.mass_weight_key]
         volumes = g.cell_volumes
         coeff = volumes * w
 

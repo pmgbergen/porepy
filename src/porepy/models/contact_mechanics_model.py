@@ -93,10 +93,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         """
         pass
 
-    def _high_dim_grid(self):
+    def _nd_grid(self):
         """ Get the grid of the highest dimension. Assumes self.gb is set.
-
-        TODO: Change name to nd_grid()
         """
         return self.gb.grids_of_dimension(self.Nd)[0]
 
@@ -368,7 +366,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
         return state
 
-    def reconstruct_local_displacement_jump(self, data_edge):
+    def reconstruct_local_displacement_jump(self, data_edge, from_iterate=True):
         """
         Reconstruct the displacement jump in local coordinates.
 
@@ -382,7 +380,12 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             tangential direction of the fracture, last dimension is normal.
         """
         mg = data_edge["mortar_grid"]
-        mortar_u = data_edge[pp.STATE][self.mortar_displacement_variable]
+        if from_iterate:
+            mortar_u = data_edge[pp.STATE]["previous_iterate"][
+                self.mortar_displacement_variable
+            ]
+        else:
+            mortar_u = data_edge[pp.STATE][self.mortar_displacement_variable]
         displacement_jump_global_coord = (
             mg.mortar_to_slave_avg(nd=self.Nd)
             * mg.sign_of_mortar_sides(nd=self.Nd)
@@ -409,6 +412,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
         """
         self.create_grid()
+        self.Nd = self.gb.dim_max()
         self.set_parameters()
         self.assign_variables()
         self.assign_discretizations()
@@ -463,7 +467,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         self.update_state(solution_vector)
 
         u = solution_vector[
-            self.assembler.dof_ind(self._high_dim_grid(), self.displacement_variable)
+            self.assembler.dof_ind(self._nd_grid(), self.displacement_variable)
         ]
         self.viz.write_vtk({"ux": u[::2], "uy": u[1::2]})
 
@@ -471,7 +475,16 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         self.assembler.distribute_variable(solution)
 
     def check_convergence(self, solution, prev_solution, nl_params):
-        g_max = self._high_dim_grid()
+        g_max = self._nd_grid()
+        if not self._is_nonlinear_problem():
+            # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
+            # error (but a warning) is raised for singular matrices, but a nan solution
+            # is returned. We check for this.
+            diverged = np.any(np.isnan(solution))
+            converged = not diverged
+            error = np.nan if diverged else 0
+            return error, converged, diverged
+
         u1 = solution[self.assembler.dof_ind(g_max, self.displacement_variable)]
         u0 = prev_solution[self.assembler.dof_ind(g_max, self.displacement_variable)]
         # Calculate the error
@@ -498,7 +511,10 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         return error, converged, diverged
 
     def after_newton_failure(self):
-        raise ValueError("Newton iterations did not converge")
+        if self._linear_problem():
+            raise ValueError("Tried solving singular matrix for the linear problem.")
+        else:
+            raise ValueError("Newton iterations did not converge")
 
     def initialize_linear_solver(self):
         tic = time.time()
@@ -606,3 +622,10 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             )
             print(len(residuals))
             return sol
+
+    def _is_nonlinear_problem(self):
+        """
+        If there is no fracture, the problem is usually linear. 
+        Overwrite this function if e.g. parameter nonlinearities are included.
+        """
+        return self.gb.dim_min() < self.Nd
