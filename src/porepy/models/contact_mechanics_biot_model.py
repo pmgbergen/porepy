@@ -395,19 +395,6 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
     def export_pvd(self):
         pass
 
-    def prepare_simulation(self):
-        """ Is run prior to a time-stepping scheme. Use this to initialize
-        discretizations, linear solvers etc.
-        """
-        self.create_grid()
-        self.set_parameters()
-        self.initial_condition()
-
-        self.assign_variables()
-        self.assign_discretizations()
-        self.discretize()
-        self.initialize_linear_solver()
-
     def discretize(self):
         """ Discretize all terms
         """

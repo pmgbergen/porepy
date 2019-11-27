@@ -420,7 +420,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         self.discretize()
         self.initialize_linear_solver()
 
-        g_max = self.gb.grids_of_dimension(self.Nd)[0]
+        g_max = self._nd_grid()
         self.viz = pp.Exporter(g_max, name="mechanics", folder=self.viz_folder_name)
 
     def after_simulation(self):
