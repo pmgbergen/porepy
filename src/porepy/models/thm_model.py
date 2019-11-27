@@ -243,7 +243,7 @@ class THM(parent_model.ContactMechanicsBiot):
 
         # Coupling discretizations
         # All dimensions
-        div_u_disc_t = DivUEnergy(
+        div_u_disc_t = pp.DivU(
             key_m,
             key_t,
             variable=var_d,
@@ -538,18 +538,3 @@ class THM(parent_model.ContactMechanicsBiot):
                         data[pp.STATE]["previous_iterate"][
                             self.scalar_variable
                         ] = p.copy()
-
-
-class DivUEnergy(pp.DivU):
-    def assemble_int_bound_displacement_source(
-        self, g, data, data_edge, cc, matrix, rhs, self_ind
-    ):
-        pass
-
-
-if __name__ == "__main__":
-    print("hei")
-    M = THM()
-    pp.run_time_dependent_model(M)
-    g = M._nd_grid()
-    print(M.gb.node_props(g)[pp.STATE]["pressure"])

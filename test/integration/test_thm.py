@@ -190,7 +190,7 @@ class TestContactMechanicsTHM(unittest.TestCase):
         # Note that the pressure is different to the corresponding HM test, as there
         # is a feedback from the temperature, which is also reduced.
         self.assertTrue(np.all(np.isclose(fracture_pressure, -0.00381137)))
-        self.assertTrue(np.all(np.isclose(fracture_temperature, -0.00234534)))
+        self.assertTrue(np.all(np.isclose(fracture_temperature, -0.00234552)))
 
 
 class SetupTHM(ProblemDataTime, model.THM):
@@ -237,6 +237,4 @@ class SetupTHM(ProblemDataTime, model.THM):
 
 
 if __name__ == "__main__":
-    #    TestTHM().test_pull_north_negative_scalars()
-    #    TestContactMechanicsTHM().test_time_dependent_pull_north_positive_opening()
     unittest.main()
