@@ -1,9 +1,9 @@
 """
 This is a setup class for solving the THM equations with contact mechanics at the fractures, if present.
 
-The class ContactMechanicsBiot inherits from ContactMechanics, which is a model for
-the purely mechanical problem with contact conditions on the fractures, and ContactMechanicsBiot, 
-where the displacement solution is coupled to a scalar variable, e.g.
+We build on two other model classes: The class ContactMechanicsBiot inherits from ContactMechanics, 
+which is a model for the purely mechanical problem with contact conditions on the fractures, 
+and ContactMechanicsBiot, where the displacement solution is coupled to a scalar variable, e.g.
 pressure (Biot equations) or temperature.  
 Here, we expand to two scalar variables. The "scalar_variable" used in ContactMechanicsBiot is 
 assumed to be the pressure, and the Biot discretization is applied to this. Then the discretizations 
@@ -389,25 +389,11 @@ class THM(parent_model.ContactMechanicsBiot):
             from_iterate=True,
         )
 
-    def prepare_simulation(self):
-        """ Is run prior to a time-stepping scheme. Use this to initialize
-        discretizations, linear solvers etc.
-        """
-        self.create_grid()
-        self.set_parameters()
-        self.initial_condition()
-        self.assign_variables()
-        self.assign_discretizations()
-        self.discretize()
-        self.initialize_linear_solver()
-
     def discretize(self):
         """ Discretize all terms
         """
         if not hasattr(self, "assembler"):
             self.assembler = pp.Assembler(self.gb)
-
-        g_max = self._nd_grid()
 
         tic = time.time()
         logger.info("Discretize")
@@ -420,7 +406,7 @@ class THM(parent_model.ContactMechanicsBiot):
         # Next, discretize term on the matrix grid not covered by the Biot discretization,
         # i.e. the source term
         pressure_terms = ["source", self.t2s_coupling_term]
-        self.assembler.discretize(grid=g_max, term_filter=pressure_terms)
+        self.assembler.discretize(grid=self._nd_grid(), term_filter=pressure_terms)
         # Then the temperature discretizations
         temperature_terms = [
             "source",
@@ -499,7 +485,7 @@ class THM(parent_model.ContactMechanicsBiot):
             self.mechanics_parameter_key,
             self.mechanics_temperature_parameter_key,
         )
-        g = self.gb.grids_of_dimension(self.Nd)[0]
+        g = self._nd_grid()
         d = self.gb.node_props(g)
         d[pp.STATE][key]["bc_values"] = d[pp.PARAMETERS][key]["bc_values"].copy()
         d[pp.STATE][key_t]["bc_values"] = d[pp.PARAMETERS][key_t]["bc_values"].copy()
@@ -507,9 +493,10 @@ class THM(parent_model.ContactMechanicsBiot):
     def update_state(self, solution_vector):
         """
         Extract parts of the solution for current iterate.
-
-        The iterate solutions in d[pp.STATE]["previous_iterate"] are updated for the
-        mortar displacements and contact traction are updated.
+        
+        Calls ContactMechanicsBiot version, and additionally updates the iterate solutions 
+        in d[pp.STATE]["previous_iterate"] are updated for the scalar variable, to be used
+        for flux computations by compute_darcy_fluxes.
         Method is a tailored copy from assembler.distribute_variable.
 
         Parameters:
