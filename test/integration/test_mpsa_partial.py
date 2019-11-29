@@ -21,28 +21,44 @@ class TestDisplacementReconstruction(unittest.TestCase):
         bc = pp.BoundaryConditionVectorial(g)
         k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
 
-        stress, bound_stress, hf_cell, hf_bound = pp.Mpsa("").mpsa(
-            g, k, bc, inverter="python"
+        keyword = "mechanics"
+        specified_data = {"fourth_order_tensor": k, "bc": bc, "inverter": "python"}
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
 
-        stress_old = stress.copy()
-        bound_stress_old = bound_stress.copy()
-        hf_cell_old = hf_cell.copy()
-        hf_bound_old = hf_bound.copy()
+        discr = pp.Mpsa(keyword)
+        discr.discretize(g, data)
+
+        stress_old = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.stress_matrix_key
+        ].copy()
+        bound_stress_old = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_stress_matrix_key
+        ].copy()
+        hf_cell_old = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_cell_matrix_key
+        ].copy()
+        hf_bound_old = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_face_matrix_key
+        ].copy()
 
         # Update should not change anything
         faces = np.array([0, 4, 5, 6])
-        _ = pp.Mpsa("").mpsa_update_partial(
-            stress,
-            bound_stress,
-            hf_cell,
-            hf_bound,
-            g,
-            k,
-            bc,
-            faces=faces,
-            inverter="python",
-        )
+        data[pp.PARAMETERS][keyword]["update_discretization"] = True
+        data[pp.PARAMETERS][keyword]["specified_faces"] = faces
+
+        discr.discretize(g, data)
+        stress = data[pp.DISCRETIZATION_MATRICES][keyword][discr.stress_matrix_key]
+        bound_stress = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_stress_matrix_key
+        ]
+        hf_cell = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_cell_matrix_key
+        ]
+        hf_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_face_matrix_key
+        ]
 
         self.assertTrue(np.allclose((stress - stress_old).data, 0))
         self.assertTrue(np.allclose((bound_stress - bound_stress_old).data, 0))
@@ -58,23 +74,41 @@ class TestDisplacementReconstruction(unittest.TestCase):
         bc = pp.BoundaryConditionVectorial(g)
         k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
 
-        stress_full, bound_stress_full, hf_cell_full, hf_bound_full = pp.Mpsa("").mpsa(
-            g, k, bc, inverter="python"
+        keyword = "mechanics"
+        specified_data = {"fourth_order_tensor": k, "bc": bc, "inverter": "python"}
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
+
+        discr = pp.Mpsa(keyword)
+        discr.discretize(g, data)
+        stress_full = data[pp.DISCRETIZATION_MATRICES][keyword][discr.stress_matrix_key]
+        bound_stress_full = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_stress_matrix_key
+        ]
+        hf_cell_full = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_cell_matrix_key
+        ]
+        hf_bound_full = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_face_matrix_key
+        ]
 
         # Update should not change anything
         faces = np.array([0, 3])
-        stress, bound_stress, hf_cell, hf_bound = pp.Mpsa("").mpsa_update_partial(
-            stress_full,
-            bound_stress_full,
-            hf_cell_full,
-            hf_bound_full,
-            g,
-            k,
-            bc,
-            faces=faces,
-            inverter="python",
-        )
+        data[pp.PARAMETERS][keyword]["update_discretization"] = True
+        data[pp.PARAMETERS][keyword]["specified_faces"] = faces
+
+        discr.discretize(g, data)
+        stress = data[pp.DISCRETIZATION_MATRICES][keyword][discr.stress_matrix_key]
+        bound_stress = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_stress_matrix_key
+        ]
+        hf_cell = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_cell_matrix_key
+        ]
+        hf_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_face_matrix_key
+        ]
 
         self.assertTrue(np.allclose((stress - stress_full).data, 0))
         self.assertTrue(np.allclose((bound_stress - bound_stress_full).data, 0))
@@ -87,34 +121,60 @@ class TestDisplacementReconstruction(unittest.TestCase):
         """
         g = pp.StructuredTriangleGrid([1, 1], physdims=(1, 1))
         g.compute_geometry()
+        # Neumann conditions everywhere
         bc = pp.BoundaryConditionVectorial(g)
         k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
-        stress_neu, bound_stress_neu, hf_cell_neu, hf_bound_neu = pp.Mpsa("").mpsa(
-            g, k, bc, inverter="python"
-        )
-        faces = 0  # g.get_all_boundary_faces()
 
+        keyword = "mechanics"
+        specified_data = {"fourth_order_tensor": k, "bc": bc, "inverter": "python"}
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
+        )
+
+        discr = pp.Mpsa(keyword)
+        discr.discretize(g, data)
+
+        # Now change the type of boundary condition on one face
+        faces = 0  # g.get_all_boundary_faces()
         bc.is_dir[:, faces] = True
         bc.is_neu[bc.is_dir] = False
 
         # Full discretization
-        stress_dir, bound_stress_dir, hf_cell_dir, hf_bound_dir = pp.Mpsa("").mpsa(
-            g, k, bc, inverter="python"
+        specified_data = {"fourth_order_tensor": k, "bc": bc, "inverter": "python"}
+        # New data dictionary,
+        data_d_full = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
+        # Full discretization of the new problem
+        discr.discretize(g, data_d_full)
+        stress_dir = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.stress_matrix_key
+        ]
+        bound_stress_dir = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_stress_matrix_key
+        ]
+        hf_cell_dir = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_cell_matrix_key
+        ]
+        hf_bound_dir = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_face_matrix_key
+        ]
 
-        # Partiall should give same ressult as full
+        # Go back to the old data dictionary, update a single face
+        data[pp.PARAMETERS][keyword]["update_discretization"] = True
+        data[pp.PARAMETERS][keyword]["specified_faces"] = np.array([faces])
 
-        stress, bound_stress, hf_cell, hf_bound = pp.Mpsa("").mpsa_update_partial(
-            stress_neu,
-            bound_stress_neu,
-            hf_cell_neu,
-            hf_bound_neu,
-            g,
-            k,
-            bc,
-            faces=faces,
-            inverter="python",
-        )
+        discr.discretize(g, data)
+        stress = data[pp.DISCRETIZATION_MATRICES][keyword][discr.stress_matrix_key]
+        bound_stress = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_stress_matrix_key
+        ]
+        hf_cell = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_cell_matrix_key
+        ]
+        hf_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_face_matrix_key
+        ]
 
         self.assertTrue(np.allclose((stress - stress_dir).data, 0))
         self.assertTrue(np.allclose((bound_stress - bound_stress_dir).data, 0))
@@ -129,33 +189,62 @@ class TestDisplacementReconstruction(unittest.TestCase):
         g.compute_geometry()
         bc = pp.BoundaryConditionVectorial(g)
         k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
-        stress_neu, bound_stress_neu, hf_cell_neu, hf_bound_neu = pp.Mpsa("").mpsa(
-            g, k, bc, inverter="python"
+
+        keyword = "mechanics"
+        specified_data = {"fourth_order_tensor": k, "bc": bc, "inverter": "python"}
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
+
+        discr = pp.Mpsa(keyword)
+        discr.discretize(g, data)
 
         faces = g.face_centers[2] < 1e-10
 
         bc.is_rob[:, faces] = True
         bc.is_neu[bc.is_rob] = False
 
-        # Full discretization
-        stress_rob, bound_stress_rob, hf_cell_rob, hf_bound_rob = pp.Mpsa("").mpsa(
-            g, k, bc, inverter="python"
-        )
         # Partiall should give same result as full
         cells = np.argwhere(g.cell_faces[faces, :])[:, 1].ravel()
         cells = np.unique(cells)
-        stress, bound_stress, hf_cell, hf_bound = pp.Mpsa("").mpsa_update_partial(
-            stress_neu,
-            bound_stress_neu,
-            hf_cell_neu,
-            hf_bound_neu,
-            g,
-            k,
-            bc,
-            cells=cells,
-            inverter="python",
+
+        # Full discretization
+        specified_data = {"fourth_order_tensor": k, "bc": bc, "inverter": "python"}
+        # New data dictionary,
+        data_d_full = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
+        # Full discretization of the new problem
+        discr.discretize(g, data_d_full)
+        stress_rob = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.stress_matrix_key
+        ]
+        bound_stress_rob = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_stress_matrix_key
+        ]
+        hf_cell_rob = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_cell_matrix_key
+        ]
+        hf_bound_rob = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_face_matrix_key
+        ]
+
+        # Go back to the old data dictionary, update a single face
+        data[pp.PARAMETERS][keyword]["update_discretization"] = True
+        data[pp.PARAMETERS][keyword]["specified_cells"] = np.array([cells])
+
+        discr.discretize(g, data)
+        stress = data[pp.DISCRETIZATION_MATRICES][keyword][discr.stress_matrix_key]
+        bound_stress = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_stress_matrix_key
+        ]
+        hf_cell = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_cell_matrix_key
+        ]
+        hf_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_face_matrix_key
+        ]
+
         self.assertTrue(np.allclose((stress - stress_rob).data, 0))
         self.assertTrue(np.allclose((bound_stress - bound_stress_rob).data, 0))
         self.assertTrue(np.allclose((hf_cell - hf_cell_rob).data, 0))
@@ -169,31 +258,58 @@ class TestDisplacementReconstruction(unittest.TestCase):
         g.compute_geometry()
         bc = pp.BoundaryConditionVectorial(g)
         k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
-        stress_neu, bound_stress_neu, hf_cell_neu, hf_bound_neu = pp.Mpsa("").mpsa(
-            g, k, bc, inverter="python"
+
+        keyword = "mechanics"
+        specified_data = {"fourth_order_tensor": k, "bc": bc, "inverter": "python"}
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
 
-        faces = g.face_centers[0] > 1 - 1e-10
+        discr = pp.Mpsa(keyword)
+        discr.discretize(g, data)
+
+        faces = np.where(g.face_centers[0] > 1 - 1e-10)[0]
 
         bc.is_rob[1, faces] = True
         bc.is_neu[bc.is_rob] = False
 
         # Full discretization
-        stress_rob, bound_stress_rob, hf_cell_rob, hf_bound_rob = pp.Mpsa("").mpsa(
-            g, k, bc, inverter="python"
+        specified_data = {"fourth_order_tensor": k, "bc": bc, "inverter": "python"}
+        # New data dictionary,
+        data_d_full = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
-        # Partiall should give same ressult as full
-        stress, bound_stress, hf_cell, hf_bound = pp.Mpsa("").mpsa_update_partial(
-            stress_neu,
-            bound_stress_neu,
-            hf_cell_neu,
-            hf_bound_neu,
-            g,
-            k,
-            bc,
-            faces=faces,
-            inverter="python",
-        )
+
+        # Go back to the old data dictionary, update a single face
+        data[pp.PARAMETERS][keyword]["update_discretization"] = True
+        data[pp.PARAMETERS][keyword]["specified_faces"] = np.array([faces])
+
+        # Full discretization of the new problem
+        discr.discretize(g, data_d_full)
+        stress_rob = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.stress_matrix_key
+        ]
+        bound_stress_rob = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_stress_matrix_key
+        ]
+        hf_cell_rob = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_cell_matrix_key
+        ]
+        hf_bound_rob = data_d_full[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_face_matrix_key
+        ]
+
+        discr.discretize(g, data)
+        stress = data[pp.DISCRETIZATION_MATRICES][keyword][discr.stress_matrix_key]
+        bound_stress = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_stress_matrix_key
+        ]
+        hf_cell = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_cell_matrix_key
+        ]
+        hf_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_displacment_face_matrix_key
+        ]
 
         self.assertTrue(np.allclose((stress - stress_rob).data, 0))
         self.assertTrue(np.allclose((bound_stress - bound_stress_rob).data, 0))
@@ -202,4 +318,5 @@ class TestDisplacementReconstruction(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    TestDisplacementReconstruction().test_changing_bc()
     unittest.main()

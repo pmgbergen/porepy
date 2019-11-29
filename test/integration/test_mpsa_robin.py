@@ -113,9 +113,9 @@ class RobinBoundTest(unittest.TestCase):
         left = g.face_centers[0] < 1e-10
         right = g.face_centers[0] > 1 - 1e-10
 
-        dir_ind = np.ravel(np.argwhere(left))
+        dir_ind = np.ravel(np.argwhere(()))
         neu_ind = np.ravel(np.argwhere(()))
-        rob_ind = np.ravel(np.argwhere(right + top + bot))
+        rob_ind = np.ravel(np.argwhere(left + right + top + bot))
 
         names = ["dir"] * len(dir_ind) + ["rob"] * len(rob_ind)
         bnd_ind = np.hstack((dir_ind, rob_ind))
@@ -163,7 +163,7 @@ class RobinBoundTest(unittest.TestCase):
 
         dir_ind = np.ravel(np.argwhere(()))
         neu_ind = np.ravel(np.argwhere(()))
-        rob_ind = np.ravel(np.argwhere(right + left + top + bot))
+        rob_ind = np.ravel(np.argwhere((right + left + top + bot)))
 
         names = ["dir"] * len(dir_ind) + ["rob"] * len(rob_ind)
         bnd_ind = np.hstack((dir_ind, rob_ind))
@@ -191,6 +191,10 @@ class RobinBoundTest(unittest.TestCase):
             + robin_weight * u_ex(g.face_centers[:, rob_ind]) * g.face_areas[rob_ind]
         )
         u, T = self.solve_mpsa(g, c, robin_weight, bnd, u_bound)
+
+        import pdb
+
+        #  pdb.set_trace()
 
         self.assertTrue(np.allclose(u, u_ex(g.cell_centers).ravel("F")))
         self.assertTrue(np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F")))
@@ -247,15 +251,32 @@ class RobinBoundTest(unittest.TestCase):
 
     def solve_mpsa(self, g, c, robin_weight, bnd, u_bound):
         bnd.robin_weight *= robin_weight
-        stress, bound_stress, _, _ = pp.Mpsa("")._mpsa_local(
-            g, c, bnd, inverter="python"
-        )
-        div = pp.fvutils.vector_divergence(g)
-        a = div * stress
-        b = -div * bound_stress * u_bound.ravel("F")
 
-        u = np.linalg.solve(a.A, b)
-        T = stress * u + bound_stress * u_bound.ravel("F")
+        keyword = "mechanics"
+
+        discr = pp.Mpsa(keyword)
+        bc_val = u_bound.ravel("F")
+
+        specified_data = {
+            "fourth_order_tensor": c,
+            "bc": bnd,
+            "inverter": "python",
+            "bc_values": bc_val,
+        }
+
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
+        )
+
+        discr.discretize(g, data)
+        A, b = discr.assemble_matrix_rhs(g, data)
+
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
+
+        u = np.linalg.solve(A.toarray(), b)
+        T = matrix_dictionary[discr.stress_matrix_key] * u + matrix_dictionary[
+            discr.bound_stress_matrix_key
+        ] * u_bound.ravel("F")
         return u, T
 
 

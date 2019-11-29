@@ -125,9 +125,23 @@ class TestPartialMPSA(unittest.TestCase):
         g.compute_geometry()
         stiffness = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         bnd = pp.BoundaryConditionVectorial(g)
-        stress, bound_stress, _, _ = pp.Mpsa("").mpsa(
-            g, stiffness, bnd, inverter="python"
+
+        specified_data = {
+            "fourth_order_tensor": stiffness,
+            "bc": bnd,
+            "inverter": "python",
+        }
+        keyword = "mechanics"
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
+
+        discr = pp.Mpsa(keyword)
+        discr.discretize(g, data)
+        stress = data[pp.DISCRETIZATION_MATRICES][keyword][discr.stress_matrix_key]
+        bound_stress = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_stress_matrix_key
+        ]
 
         return g, stiffness, bnd, stress, bound_stress
 
@@ -146,9 +160,29 @@ class TestPartialMPSA(unittest.TestCase):
         nodes_of_cell = np.array([14, 15, 20, 21])
         faces_of_cell = np.array([14, 15, 42, 47])
 
-        partial_stress, partial_bound, active_faces = pp.Mpsa("").mpsa_partial(
-            g, stiffness, bnd, nodes=nodes_of_cell, inverter="python"
+        bnd = pp.BoundaryConditionVectorial(g)
+        specified_data = {
+            "fourth_order_tensor": stiffness,
+            "bc": bnd,
+            "inverter": "python",
+            "specified_nodes": np.array([nodes_of_cell]),
+        }
+        keyword = "mechanics"
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
+
+        discr = pp.Mpsa(keyword)
+        discr.discretize(g, data)
+
+        partial_stress = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.stress_matrix_key
+        ]
+        partial_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_stress_matrix_key
+        ]
+
+        active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
 
         self.assertTrue(faces_of_cell.size == active_faces.size)
         self.assertTrue(np.all(np.sort(faces_of_cell) == np.sort(active_faces)))
@@ -168,14 +202,35 @@ class TestPartialMPSA(unittest.TestCase):
 
     def test_bound_cell_node_keyword(self):
         # Compute update for a single cell on the boundary
-        g, perm, bnd, stress, bound_stress = self.setup()
+        g, stiffness, bnd, stress, bound_stress = self.setup()
 
-        inner_cell = 10
+        # inner_cell = 10
         nodes_of_cell = np.array([12, 13, 18, 19])
         faces_of_cell = np.array([12, 13, 40, 45])
-        partial_stress, partial_bound, active_faces = pp.Mpsa("").mpsa_partial(
-            g, perm, bnd, nodes=nodes_of_cell, inverter="python"
+
+        bnd = pp.BoundaryConditionVectorial(g)
+        specified_data = {
+            "fourth_order_tensor": stiffness,
+            "bc": bnd,
+            "inverter": "python",
+            "specified_nodes": np.array([nodes_of_cell]),
+        }
+        keyword = "mechanics"
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
+
+        discr = pp.Mpsa(keyword)
+        discr.discretize(g, data)
+
+        partial_stress = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.stress_matrix_key
+        ]
+        partial_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_stress_matrix_key
+        ]
+
+        active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
 
         self.assertTrue(faces_of_cell.size == active_faces.size)
         self.assertTrue(np.all(np.sort(faces_of_cell) == np.sort(active_faces)))
@@ -212,18 +267,42 @@ class TestPartialMPSA(unittest.TestCase):
         faces_covered = np.zeros(g.num_faces, np.bool)
 
         bnd = pp.BoundaryConditionVectorial(g)
-        stress_full, bound_stress_full, _, _ = pp.Mpsa("").mpsa(
-            g, stiffness, bnd, inverter="python"
+        specified_data = {
+            "fourth_order_tensor": stiffness,
+            "bc": bnd,
+            "inverter": "python",
+        }
+        keyword = "mechanics"
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
+
+        discr = pp.Mpsa(keyword)
+        discr.discretize(g, data)
+
+        stress_full = data[pp.DISCRETIZATION_MATRICES][keyword][discr.stress_matrix_key]
+        bound_stress_full = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_stress_matrix_key
+        ]
 
         cn = g.cell_nodes()
         for ci in range(g.num_cells):
             ind = np.zeros(g.num_cells)
             ind[ci] = 1
             nodes = np.squeeze(np.where(cn * ind > 0))
-            partial_stress, partial_bound, active_faces = pp.Mpsa("").mpsa_partial(
-                g, stiffness, bnd, nodes=nodes, inverter="python"
-            )
+
+            data[pp.PARAMETERS][keyword]["specified_nodes"] = nodes
+
+            discr.discretize(g, data)
+
+            partial_stress = data[pp.DISCRETIZATION_MATRICES][keyword][
+                discr.stress_matrix_key
+            ]
+            partial_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
+                discr.bound_stress_matrix_key
+            ]
+
+            active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
 
             if np.any(faces_covered):
                 del_faces = self.expand_indices_nd(np.where(faces_covered)[0], g.dim)
@@ -241,4 +320,5 @@ class TestPartialMPSA(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    TestPartialMPSA().test_bound_cell_node_keyword()
     unittest.main()
