@@ -125,51 +125,98 @@ class TestMpsaRotation(unittest.TestCase):
             np.random.rand(g.num_cells), np.random.rand(g.num_cells)
         )
         # Solve without rotations
-        stress, bound_stress, _, _ = pp.Mpsa("").mpsa(g, k, bc, inverter="python")
-        div = pp.fvutils.vector_divergence(g)
+        keyword = "mechanics"
 
+        discr = pp.Mpsa(keyword)
         u_bound = np.random.rand(g.dim, g.num_faces)
-        u = np.linalg.solve((div * stress).A, -div * bound_stress * u_bound.ravel("F"))
+        bc_val = u_bound.ravel("F")
+
+        specified_data = {
+            "fourth_order_tensor": k,
+            "bc": bc,
+            "inverter": "python",
+            "bc_values": bc_val,
+        }
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
+        )
+
+        discr.discretize(g, data)
+        A, b = discr.assemble_matrix_rhs(g, data)
+
+        u = np.linalg.solve(A.toarray(), b)
 
         # Solve with rotations
-        bc = pp.BoundaryConditionVectorial(g)
-        bc.basis = basis
-        bc.is_dir[1, west] = True
-        bc.is_rob[0, west] = True
-        bc.is_rob[1, north] = True
-        bc.is_neu[0, north] = True
-        bc.is_dir[1, south] = True
-        bc.is_neu[0, south] = True
-        bc.is_dir[:, east] = True
-        bc.is_neu[bc.is_dir + bc.is_rob] = False
-        stress_b, bound_stress_b, _, _ = pp.Mpsa("").mpsa(g, k, bc, inverter="python")
-        u_bound_b = np.sum(basis * u_bound, axis=1)
-        u_b = np.linalg.solve(
-            (div * stress_b).A, -div * bound_stress_b * u_bound_b.ravel("F")
+        bc_b = pp.BoundaryConditionVectorial(g)
+        bc_b.basis = basis
+        bc_b.is_dir[1, west] = True
+        bc_b.is_rob[0, west] = True
+        bc_b.is_rob[1, north] = True
+        bc_b.is_neu[0, north] = True
+        bc_b.is_dir[1, south] = True
+        bc_b.is_neu[0, south] = True
+        bc_b.is_dir[:, east] = True
+        bc_b.is_neu[bc_b.is_dir + bc_b.is_rob] = False
+
+        bc_val_b = np.sum(basis * u_bound, axis=1).ravel("F")
+
+        specified_data = {
+            "fourth_order_tensor": k,
+            "bc": bc_b,
+            "inverter": "python",
+            "bc_values": bc_val_b,
+        }
+        data_b = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
+
+        discr = pp.Mpsa(keyword)
+        discr.discretize(g, data_b)
+        A_b, b_b = discr.assemble_matrix_rhs(g, data_b)
+        u_b = np.linalg.solve(A_b.toarray(), b_b)
+
         # Assert that solutions are the same
         self.assertTrue(np.allclose(u, u_b))
 
     def run_test(self, g, basis, bc):
         g.compute_geometry()
-        k = pp.FourthOrderTensor(
+        c = pp.FourthOrderTensor(
             np.random.rand(g.num_cells), np.random.rand(g.num_cells)
         )
         # Solve without rotations
-        stress, bound_stress, _, _ = pp.Mpsa("").mpsa(g, k, bc, inverter="python")
-        div = pp.fvutils.vector_divergence(g)
 
+        keyword = "mechanics"
+
+        discr = pp.Mpsa(keyword)
         u_bound = np.random.rand(g.dim, g.num_faces)
-        u = np.linalg.solve((div * stress).A, -div * bound_stress * u_bound.ravel("F"))
+        bc_val = u_bound.ravel("F")
+
+        specified_data = {
+            "fourth_order_tensor": c,
+            "bc": bc,
+            "inverter": "python",
+            "bc_values": bc_val,
+        }
+
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
+        )
+
+        discr.discretize(g, data)
+        A, b = discr.assemble_matrix_rhs(g, data)
+
+        u = np.linalg.solve(A.toarray(), b)
 
         # Solve with rotations
         bc.basis = basis
-        stress_b, bound_stress_b, _, _ = pp.Mpsa("").mpsa(g, k, bc, inverter="python")
+        data[pp.PARAMETERS][keyword]["bc"] = bc
 
-        u_bound_b = np.sum(basis * u_bound, axis=1)
-        u_b = np.linalg.solve(
-            (div * stress_b).A, -div * bound_stress_b * u_bound_b.ravel("F")
-        )
+        u_bound_b = np.sum(basis * u_bound, axis=1).ravel("F")
+        data[pp.PARAMETERS][keyword]["bc_values"] = u_bound_b
+        discr.discretize(g, data)
+        A_b, b_b = discr.assemble_matrix_rhs(g, data)
+
+        u_b = np.linalg.solve(A_b.toarray(), b_b)
         # Assert that solutions are the same
         self.assertTrue(np.allclose(u, u_b))
 

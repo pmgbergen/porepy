@@ -21,10 +21,30 @@ class MpsaReconstructDisplacement(unittest.TestCase):
         k = pp.FourthOrderTensor(mu, lam)
 
         bc = pp.BoundaryConditionVectorial(g)
-        discr = pp.Mpsa("")
-        _, _, grad_cell, grad_bound = discr.mpsa(
-            g, k, bc, hf_disp=True, inverter="python"
+        keyword = "mechanics"
+
+        discr = pp.Mpsa(keyword)
+
+        specified_data = {"fourth_order_tensor": k, "bc": bc, "inverter": "python"}
+
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
+
+        discr.discretize(g, data)
+
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
+
+        grad_cell = matrix_dictionary[discr.bound_displacment_cell_matrix_key]
+        grad_bound = matrix_dictionary[discr.bound_displacment_face_matrix_key]
+
+        hf2f = pp.fvutils.map_hf_2_f(g=g)
+        num_subfaces = hf2f.sum(axis=1).A.ravel()
+        scaling = sps.dia_matrix(
+            (1.0 / num_subfaces, 0), shape=(hf2f.shape[0], hf2f.shape[0])
+        )
+
+        hf2f = (scaling * hf2f).toarray()
 
         grad_bound_known = np.array(
             [
@@ -67,8 +87,8 @@ class MpsaReconstructDisplacement(unittest.TestCase):
                 [0.0, 1.0],
             ]
         )
-        self.assertTrue(np.all(np.abs(grad_bound - grad_bound_known) < 1e-7))
-        self.assertTrue(np.all(np.abs(grad_cell - grad_cell_known) < 1e-12))
+        self.assertTrue(np.all(np.abs(grad_bound - hf2f.dot(grad_bound_known)) < 1e-7))
+        self.assertTrue(np.all(np.abs(grad_cell - hf2f.dot(grad_cell_known)) < 1e-12))
 
     def test_simplex_3d_dirichlet(self):
         """
@@ -82,11 +102,11 @@ class MpsaReconstructDisplacement(unittest.TestCase):
 
         np.random.seed(2)
 
+        s_t = pp.fvutils.SubcellTopology(g)
+
         lam = np.ones(g.num_cells)
         mu = np.ones(g.num_cells)
         k = pp.FourthOrderTensor(mu, lam)
-
-        s_t = pp.fvutils.SubcellTopology(g)
 
         bc = pp.BoundaryConditionVectorial(g)
         bc.is_dir[:, g.get_all_boundary_faces()] = True
@@ -95,21 +115,34 @@ class MpsaReconstructDisplacement(unittest.TestCase):
         x0 = np.array([[1, 2, 3]]).T
         u_b = g.face_centers + x0
 
-        discr = pp.Mpsa("")
-        stress, bound_stress, grad_cell, grad_bound = discr.mpsa(
-            g, k, bc, eta=0, hf_disp=True, inverter="python"
+        keyword = "mechanics"
+
+        discr = pp.Mpsa(keyword)
+        bc_val = u_b.ravel("F")
+
+        specified_data = {
+            "fourth_order_tensor": k,
+            "bc": bc,
+            "inverter": "python",
+            "bc_values": bc_val,
+        }
+
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
 
-        div = pp.fvutils.vector_divergence(g)
+        discr.discretize(g, data)
+        A, b = discr.assemble_matrix_rhs(g, data)
 
-        U = sps.linalg.spsolve(div * stress, -div * bound_stress * u_b.ravel("F"))
+        U = sps.linalg.spsolve(A, b)
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
 
-        U_hf = (grad_cell * U + grad_bound * u_b.ravel("F")).reshape(
+        grad_cell = matrix_dictionary[discr.bound_displacment_cell_matrix_key]
+        grad_bound = matrix_dictionary[discr.bound_displacment_face_matrix_key]
+
+        U_f = (grad_cell * U + grad_bound * u_b.ravel("F")).reshape(
             (g.dim, -1), order="F"
         )
-
-        _, IA = np.unique(s_t.fno_unique, True)
-        U_f = U_hf[:, IA]
 
         U = U.reshape((g.dim, -1), order="F")
 
@@ -133,8 +166,6 @@ class MpsaReconstructDisplacement(unittest.TestCase):
         mu = 10 * np.random.rand(g.num_cells)
         k = pp.FourthOrderTensor(mu, lam)
 
-        s_t = pp.fvutils.SubcellTopology(g)
-
         bc = pp.BoundaryConditionVectorial(g)
         dir_ind = g.get_all_boundary_faces()[[0, 2, 5, 8, 10, 13, 15, 21]]
         bc.is_dir[:, dir_ind] = True
@@ -142,20 +173,37 @@ class MpsaReconstructDisplacement(unittest.TestCase):
 
         u_b = np.random.randn(g.face_centers.shape[0], g.face_centers.shape[1])
 
-        stress, bound_stress, grad_cell, grad_bound = pp.Mpsa("").mpsa(
-            g, k, bc, eta=0, hf_disp=True, inverter="python"
+        keyword = "mechanics"
+
+        discr = pp.Mpsa(keyword)
+        bc_val = u_b.ravel("F")
+
+        specified_data = {
+            "fourth_order_tensor": k,
+            "bc": bc,
+            "inverter": "python",
+            "bc_values": bc_val,
+        }
+
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
 
-        div = pp.fvutils.vector_divergence(g)
+        discr.discretize(g, data)
+        A, b = discr.assemble_matrix_rhs(g, data)
 
-        U = sps.linalg.spsolve(div * stress, -div * bound_stress * u_b.ravel("F"))
+        U = sps.linalg.spsolve(A, b)
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
 
-        U_hf = (grad_cell * U + grad_bound * u_b.ravel("F")).reshape(
+        grad_cell = matrix_dictionary[discr.bound_displacment_cell_matrix_key]
+        grad_bound = matrix_dictionary[discr.bound_displacment_face_matrix_key]
+
+        U_f = (grad_cell * U + grad_bound * u_b.ravel("F")).reshape(
             (g.dim, -1), order="F"
         )
 
-        _, IA = np.unique(s_t.fno_unique, True)
-        U_f = U_hf[:, IA]
+        # _, IA = np.unique(s_t.fno_unique, True)
+        # U_f = U_hf[:, IA]
 
         self.assertTrue(np.all(np.abs(U_f[:, dir_ind] - u_b[:, dir_ind]) < 1e-10))
 

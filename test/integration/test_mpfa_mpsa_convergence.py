@@ -438,30 +438,47 @@ class MainTester(unittest.TestCase):
     def solve_system_homogeneous_elasticity(
         self, g, bound_cond, bound_faces, k, an_sol
     ):
-        stress, bound_stress, _, _ = pp.Mpsa("").mpsa(
-            g, k, bound_cond, inverter="python", eta=0
-        )
-        div = fvutils.vector_divergence(g)
-        a = div * stress
 
         # Boundary conditions
         xf = g.face_centers
         u_bound = np.zeros((g.dim, g.num_faces))
         u_bound[0, bound_faces] = an_sol.ux_f(xf[0, bound_faces], xf[1, bound_faces])
         u_bound[1, bound_faces] = an_sol.uy_f(xf[0, bound_faces], xf[1, bound_faces])
-
+        bc_val = u_bound.ravel("f")
         # Right hand side - contribution from the solution and the boundary
         # conditions
         xc = g.cell_centers
         rhs = (
             np.vstack((an_sol.rhs_x_f(xc[0], xc[1]), an_sol.rhs_y_f(xc[0], xc[1])))
             * g.cell_volumes
-        )
-        b = rhs.ravel("F") - div * bound_stress * u_bound.ravel("F")
+        ).ravel("f")
 
-        # Solve system, derive fluxes
-        u_num = scipy.sparse.linalg.spsolve(a, b)
-        stress_num = stress * u_num + bound_stress * u_bound.ravel("F")
+        keyword = "mechanics"
+
+        specified_data = {
+            "fourth_order_tensor": k,
+            "bc": bound_cond,
+            "inverter": "python",
+            "bc_values": bc_val,
+            "source": rhs,
+            "mpsa_eta": 0,
+        }
+
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
+        )
+
+        discr = pp.Mpsa(keyword)
+        discr.discretize(g, data)
+        A, b = discr.assemble_matrix_rhs(g, data)
+
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
+
+        u_num = scipy.sparse.linalg.spsolve(A, b)
+        stress_num = (
+            matrix_dictionary[discr.stress_matrix_key] * u_num
+            + matrix_dictionary[discr.bound_stress_matrix_key] * bc_val
+        )
         return u_num, stress_num
 
     def solve_system_chi_type_elasticity(self, g, bound_cond, an_sol, chi, kappa):
@@ -469,11 +486,6 @@ class MainTester(unittest.TestCase):
         mat_vec = (1 - char_func_cells) + kappa * char_func_cells
 
         k = tensor.FourthOrderTensor(mat_vec, mat_vec)
-        stress, bound_stress, _, _ = pp.Mpsa("").mpsa(
-            g, k, bound_cond, inverter="python", eta=0
-        )
-        div = fvutils.vector_divergence(g)
-        a = div * stress
 
         # Boundary conditions
         xf = g.face_centers
@@ -487,18 +499,42 @@ class MainTester(unittest.TestCase):
             xf[0, bound_faces], xf[1, bound_faces]
         ) / ((1 - char_func_bound) + kappa * char_func_bound)
 
+        bc_val = u_bound.ravel("F")
         # Right hand side - contribution from the solution and the boundary
         # conditions
         xc = g.cell_centers
         rhs = (
             np.vstack((an_sol.rhs_x_f(xc[0], xc[1]), an_sol.rhs_y_f(xc[0], xc[1])))
             * g.cell_volumes
-        )
-        b = rhs.ravel("F") - div * bound_stress * u_bound.ravel("F")
+        ).ravel("F")
 
-        # Solve system, derive fluxes
-        u_num = scipy.sparse.linalg.spsolve(a, b)
-        stress_num = stress * u_num + bound_stress * u_bound.ravel("F")
+        keyword = "mechanics"
+
+        specified_data = {
+            "fourth_order_tensor": k,
+            "bc": bound_cond,
+            "inverter": "python",
+            "bc_values": bc_val,
+            "source": rhs,
+            "mpsa_eta": 0,
+        }
+
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
+        )
+
+        discr = pp.Mpsa(keyword)
+        discr.discretize(g, data)
+        A, b = discr.assemble_matrix_rhs(g, data)
+
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
+
+        u_num = scipy.sparse.linalg.spsolve(A, b)
+        stress_num = (
+            matrix_dictionary[discr.stress_matrix_key] * u_num
+            + matrix_dictionary[discr.bound_stress_matrix_key] * bc_val
+        )
+
         return u_num, stress_num
 
 
@@ -1598,7 +1634,6 @@ class TriangleGrid2D(MainTester):
                 0.17997061,
             ]
         )
-
         assert np.isclose(u_num, u_precomp, atol=1e-10).all()
         assert np.isclose(stress_num, stress_precomp, atol=1e-10).all()
 

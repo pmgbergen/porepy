@@ -43,5 +43,5 @@ class MpsaTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    MpsaTest().test_matrix_rhs_no_disc()
+    MpsaTest().test_matrix_rhs()
     unittest.main()

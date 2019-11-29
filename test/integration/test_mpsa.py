@@ -28,14 +28,6 @@ class TestMpsa(unittest.TestCase):
             l = 1
             constit = setup_stiffness(g, mu, l)
 
-            # Python inverter is most efficient for small problems
-            stress, bound_stress, _, _ = pp.Mpsa("").mpsa(
-                g, constit, bound, inverter="python"
-            )
-
-            div = fvutils.vector_divergence(g)
-            a = div * stress
-
             xc = g.cell_centers
             xf = g.face_centers
 
@@ -52,10 +44,30 @@ class TestMpsa(unittest.TestCase):
             d_bound[0, bound.is_dir[0]] = df_x[bound.is_dir[0]]
             d_bound[1, bound.is_dir[1]] = df_y[bound.is_dir[1]]
 
-            rhs = div * bound_stress * d_bound.ravel("F")
+            bc_values = d_bound.ravel("F")
 
-            d = np.linalg.solve(a.todense(), -rhs)
+            keyword = "mechanics"
 
+            specified_data = {
+                "fourth_order_tensor": constit,
+                "bc": bound,
+                "inverter": "python",
+                "bc_values": bc_values,
+            }
+            data = pp.initialize_default_data(
+                g, {}, keyword, specified_parameters=specified_data
+            )
+
+            discr = pp.Mpsa(keyword)
+            discr.discretize(g, data)
+            A, b = discr.assemble_matrix_rhs(g, data)
+
+            d = np.linalg.solve(A.A, b)
+
+            stress = data[pp.DISCRETIZATION_MATRICES][keyword][discr.stress_matrix_key]
+            bound_stress = data[pp.DISCRETIZATION_MATRICES][keyword][
+                discr.bound_stress_matrix_key
+            ]
             traction = stress * d + bound_stress * d_bound.ravel("F")
 
             s_xx = (2 * mu + l) * gx + l * gy
@@ -85,23 +97,36 @@ class TestMpsa(unittest.TestCase):
             )
             constit = setup_stiffness(g)
 
-            # Python inverter is most efficient for small problems
-            stress, bound_stress, _, _ = pp.Mpsa("").mpsa(
-                g, constit, bound, inverter="python"
-            )
-
-            div = fvutils.vector_divergence(g)
-            a = div * stress
-
             d_x = np.random.rand(1)
             d_y = np.random.rand(1)
             d_bound = np.zeros((g.dim, g.num_faces))
             d_bound[0, bound.is_dir[0]] = d_x
             d_bound[1, bound.is_dir[1]] = d_y
 
-            rhs = div * bound_stress * d_bound.ravel("F")
+            bc_values = d_bound.ravel("F")
 
-            d = np.linalg.solve(a.todense(), -rhs)
+            keyword = "mechanics"
+
+            specified_data = {
+                "fourth_order_tensor": constit,
+                "bc": bound,
+                "inverter": "python",
+                "bc_values": bc_values,
+            }
+            data = pp.initialize_default_data(
+                g, {}, keyword, specified_parameters=specified_data
+            )
+
+            discr = pp.Mpsa(keyword)
+            discr.discretize(g, data)
+            A, b = discr.assemble_matrix_rhs(g, data)
+
+            d = np.linalg.solve(A.A, b)
+
+            stress = data[pp.DISCRETIZATION_MATRICES][keyword][discr.stress_matrix_key]
+            bound_stress = data[pp.DISCRETIZATION_MATRICES][keyword][
+                discr.bound_stress_matrix_key
+            ]
 
             traction = stress * d + bound_stress * d_bound.ravel("F")
 
@@ -123,15 +148,6 @@ class TestMpsa(unittest.TestCase):
                 g, dir_faces.ravel("F"), ["dir"] * dir_faces.size
             )
             constit = setup_stiffness(g)
-
-            # Python inverter is most efficient for small problems
-            stress, bound_stress, _, _ = pp.Mpsa("").mpsa(
-                g, constit, bound, inverter="python"
-            )
-
-            div = fvutils.vector_divergence(g)
-            a = div * stress
-
             d_x = np.random.rand(1)
             d_y = np.random.rand(1)
             d_bound = np.zeros((g.dim, g.num_faces))
@@ -139,9 +155,30 @@ class TestMpsa(unittest.TestCase):
             d_bound[0, bound.is_dir[0]] = d_x
             d_bound[1, bound.is_dir[1]] = d_y
 
-            rhs = div * bound_stress * d_bound.ravel("F")
+            bc_values = d_bound.ravel("F")
 
-            d = np.linalg.solve(a.todense(), -rhs)
+            keyword = "mechanics"
+
+            specified_data = {
+                "fourth_order_tensor": constit,
+                "bc": bound,
+                "inverter": "python",
+                "bc_values": bc_values,
+            }
+            data = pp.initialize_default_data(
+                g, {}, keyword, specified_parameters=specified_data
+            )
+
+            discr = pp.Mpsa(keyword)
+            discr.discretize(g, data)
+            A, b = discr.assemble_matrix_rhs(g, data)
+
+            d = np.linalg.solve(A.A, b)
+
+            stress = data[pp.DISCRETIZATION_MATRICES][keyword][discr.stress_matrix_key]
+            bound_stress = data[pp.DISCRETIZATION_MATRICES][keyword][
+                discr.bound_stress_matrix_key
+            ]
 
             traction = stress * d + bound_stress * d_bound.ravel("F")
             self.assertTrue(np.max(np.abs(d[::2] - d_x)) < 1e-8)
@@ -170,14 +207,6 @@ class TestMpsa(unittest.TestCase):
             )
             constit = setup_stiffness(g)
 
-            # Python inverter is most efficient for small problems
-            stress, bound_stress, _, _ = pp.Mpsa("").mpsa(
-                g, constit, bound, inverter="python"
-            )
-
-            div = fvutils.vector_divergence(g)
-            a = div * stress
-
             bndr = g.get_all_boundary_faces()
             d_x = np.random.rand(bndr.size)
             d_y = np.random.rand(bndr.size)
@@ -185,10 +214,30 @@ class TestMpsa(unittest.TestCase):
             d_bound[0, bndr] = d_x
             d_bound[1, bndr] = d_y
 
-            rhs = div * bound_stress * d_bound.ravel("F")
+            bc_values = d_bound.ravel("F")
 
-            d = np.linalg.solve(a.todense(), -rhs)
+            keyword = "mechanics"
 
+            specified_data = {
+                "fourth_order_tensor": constit,
+                "bc": bound,
+                "inverter": "python",
+                "bc_values": bc_values,
+            }
+            data = pp.initialize_default_data(
+                g, {}, keyword, specified_parameters=specified_data
+            )
+
+            discr = pp.Mpsa(keyword)
+            discr.discretize(g, data)
+            A, b = discr.assemble_matrix_rhs(g, data)
+
+            d = np.linalg.solve(A.A, b)
+
+            stress = data[pp.DISCRETIZATION_MATRICES][keyword][discr.stress_matrix_key]
+            bound_stress = data[pp.DISCRETIZATION_MATRICES][keyword][
+                discr.bound_stress_matrix_key
+            ]
             traction = stress * d + bound_stress * d_bound.ravel("F")
             traction_2d = traction.reshape((g.dim, -1), order="F")
             for cell in range(g.num_cells):
