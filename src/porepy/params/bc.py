@@ -404,6 +404,33 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
                 else:
                     raise ValueError(f"Unknown boundary condition {s}")
 
+    def extract_for_subgrid(self, sub_g, face_map):
+        """ Obtain a representation of a boundary condition for a subgrid of
+        the original grid.
+
+        Parameters:
+            sub_g (pp.Grid): Grid for which the new condition applies. Is
+                assumed to be a subgrid of the grid to initialize this object.
+            face_map (np.ndarray): Index of faces of the original grid from
+                which the new conditions should be picked.
+
+        Returns:
+            BoundaryConditionVectorial: New bc object, aimed at a smaller grid.
+            Will have type of boundary condition, basis and robin_weight copied
+            from the specified faces in the original grid.
+
+        """
+
+        sub_bc = BoundaryConditionVectorial(sub_g)
+        for dim in range(self.dim):
+            sub_bc.is_dir[dim] = self.is_dir[dim, face_map]
+            sub_bc.is_rob[dim] = self.is_rob[dim, face_map]
+            sub_bc.is_neu[dim, sub_bc.is_dir[dim] + sub_bc.is_rob[dim]] = False
+
+        sub_bc.robin_weight = self.robin_weight[:, :, face_map]
+        sub_bc.basis = self.basis[:, :, face_map]
+
+        return sub_bc
 
 def face_on_side(g, side, tol=1e-8):
     """ Find faces on specified sides of a grid.
