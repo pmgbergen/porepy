@@ -190,7 +190,7 @@ class Mpsa:
         active_constit.mu = active_constit.mu[active_cells]
 
         # Extract the relevant part of the boundary condition
-        active_bound = bound.extract_for_subgrid(active_grid, extracted_faces)
+        active_bound = self._bc_for_subgrid(bound, active_grid, extracted_faces)
         # Empty matrices for stress, bound_stress and boundary displacement reconstruction.
         # Will be expanded as we go.
         # Implementation note: It should be relatively straightforward to
@@ -275,7 +275,7 @@ class Mpsa:
             # Boundary conditions are slightly more complex. Find local faces
             # that are on the global boundary.
             # Then transfer boundary condition on those faces.
-            loc_bnd = active_bound.extract_for_subgrid(sub_g, l2g_faces)
+            loc_bnd = self._bc_for_subgrid(active_bound, sub_g, l2g_faces)
 
             # Discretization of sub-problem
             loc_stress, loc_bound_stress, loc_bound_displacement_cell, loc_bound_displacement_face = self._stress_displacement_disrcetization(
@@ -1712,3 +1712,35 @@ class Mpsa:
         # yuz = np.mod(y_indices - 7, nd*nd) == 0
 
         # ncasym.indices[y_pntr[yuz]] -= 2
+
+#    def _bc_for_subgrid(self, bc, sub_g, face_map):
+    def _bc_for_subgrid(self, bc: pp.BoundaryConditionVectorial, sub_g: pp.Grid, face_map: np.ndarray) -> pp.BoundaryConditionVectorial:
+        """ Obtain a representation of a boundary condition for a subgrid of
+        the original grid.
+
+        This is somehow better fit for the BoundaryCondition class, but it is not clear
+        whether the implementation is sufficiently general to be put there.
+
+        Parameters:
+            sub_g (pp.Grid): Grid for which the new condition applies. Is
+                assumed to be a subgrid of the grid to initialize this object.
+            face_map (np.ndarray): Index of faces of the original grid from
+                which the new conditions should be picked.
+
+        Returns:
+            BoundaryConditionVectorial: New bc object, aimed at a smaller grid.
+            Will have type of boundary condition, basis and robin_weight copied
+            from the specified faces in the original grid.
+
+        """
+
+        sub_bc = pp.BoundaryConditionVectorial(sub_g)
+        for dim in range(bc.dim):
+            sub_bc.is_dir[dim] = bc.is_dir[dim, face_map]
+            sub_bc.is_rob[dim] = bc.is_rob[dim, face_map]
+            sub_bc.is_neu[dim, sub_bc.is_dir[dim] + sub_bc.is_rob[dim]] = False
+
+        sub_bc.robin_weight = bc.robin_weight[:, :, face_map]
+        sub_bc.basis = bc.basis[:, :, face_map]
+
+        return sub_bc
