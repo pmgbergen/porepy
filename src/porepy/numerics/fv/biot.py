@@ -8,7 +8,7 @@ import porepy as pp
 from porepy.numerics.fv import fvutils
 
 
-class Biot:
+class Biot(pp.Mpsa):
     def __init__(
         self,
         mechanics_keyword="mechanics",
@@ -363,19 +363,18 @@ class Biot:
         )
 
         # Call core part of MPSA
-        mpsa_discr = pp.Mpsa("mech")
-        hook, igrad, cell_node_blocks = mpsa_discr._create_inverse_gradient_matrix(
+        hook, igrad, cell_node_blocks = self._create_inverse_gradient_matrix(
             g, constit, subcell_topology, bound_exclusion_mech, eta, inverter
         )
         num_sub_cells = cell_node_blocks.shape[0]
-        rhs_cells = mpsa_discr._create_rhs_cell_center( g, subcell_topology, eta,
+        rhs_cells = self._create_rhs_cell_center( g, subcell_topology, eta,
                                                  num_sub_cells, bound_exclusion_mech)
 
         # Stress discretization
         stress = hook * igrad * rhs_cells
 
         # Right hand side for boundary discretization
-        rhs_bound = mpsa_discr._create_bound_rhs(
+        rhs_bound = self._create_bound_rhs(
             bound_mech, bound_exclusion_mech, subcell_topology, g, subface_rhs
         )
         # Discretization of boundary values
@@ -400,7 +399,7 @@ class Biot:
         bound_div_u = div * igrad * rhs_bound
 
         # Call discretization of grad_p-term
-        rhs_jumps, grad_p_face = self.discretize_biot_grad_p(
+        rhs_jumps, grad_p_face = self._create_rhs_grad_p(
             g, subcell_topology, alpha, bound_exclusion_mech
         )
 
@@ -416,7 +415,7 @@ class Biot:
 
         # We obtain the reconstruction of displacments. This is equivalent as for
         # mpsa, but we get a contribution from the pressures.
-        dist_grad, cell_centers = mpsa_discr._reconstruct_displacement(
+        dist_grad, cell_centers = self._reconstruct_displacement(
             g, subcell_topology, eta
         )
 
@@ -435,7 +434,7 @@ class Biot:
         matrices_m["bound_displacement_face"] = disp_bound
         matrices_m["bound_displacement_pressure"] = disp_pressure
 
-    def discretize_biot_grad_p(self, g, subcell_topology, alpha, bound_exclusion):
+    def _create_rhs_grad_p(self, g, subcell_topology, alpha, bound_exclusion):
         """
         Consistent discretization of grad_p-term in MPSA-W method.
 
