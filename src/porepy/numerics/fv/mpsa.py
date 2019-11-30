@@ -156,78 +156,29 @@ class Mpsa:
 
         # Extract the relevant part of the boundary condition
         active_bound = self._bc_for_subgrid(bound, active_grid, extracted_faces)
+
         # Empty matrices for stress, bound_stress and boundary displacement reconstruction.
         # Will be expanded as we go.
         # Implementation note: It should be relatively straightforward to
         # estimate the memory need of stress (face_nodes -> node_cells -> unique).
-        active_stress = sps.csr_matrix(
-            (
-                active_grid.num_faces * active_grid.dim,
-                active_grid.num_cells * active_grid.dim,
-            )
-        )
-        active_bound_stress = sps.csr_matrix(
-            (
-                active_grid.num_faces * active_grid.dim,
-                active_grid.num_faces * active_grid.dim,
-            )
-        )
-        active_bound_displacement_cell = sps.csr_matrix(
-            (
-                active_grid.num_faces * active_grid.dim,
-                active_grid.num_cells * active_grid.dim,
-            )
-        )
-        active_bound_displacement_face = sps.csr_matrix(
-            (
-                active_grid.num_faces * active_grid.dim,
-                active_grid.num_faces * active_grid.dim,
-            )
-        )
+        # bookkeeping
+        nd = active_grid.dim
+        nf = active_grid.num_faces
+        nc = active_grid.num_cells
+        active_stress = sps.csr_matrix((nf * nd, nc * nd))
+        active_bound_stress = sps.csr_matrix((nf * nd, nf * nd))
+        active_bound_displacement_cell = sps.csr_matrix((nf * nd, nc * nd))
+        active_bound_displacement_face = sps.csr_matrix((nf * nd, nf * nd))
 
-        # Cell-node relation
-        cn = active_grid.cell_nodes()
-
-        # Next, we may choose to split the computations into several parts, depending on
-        # the permissible peak memory.
-        peak_mem = self._estimate_peak_memory_mpsa(active_grid)
-
-        num_part = np.ceil(peak_mem / max_memory).astype(np.int)
-
-        # Let partitioning module apply the best available method
-        part = pp.partition.partition(active_grid, num_part)
-
-        # Keep track of which faces have been discretized
         face_is_discretized = np.zeros(active_grid.num_faces, dtype=np.bool)
 
         tic = time()
-        logger.info("Split MPSA discretization into " + str(num_part) + " parts")
 
         # Loop over all partition regions, construct local problems, and transfer
         # discretization to the entire active grid
-        for counter, p in enumerate(np.unique(part)):
-            # Cells in this partitioning
-            cells_in_partition = np.argwhere(part == p).ravel("F")
-
-            # To discretize with as little overlap as possible, we use the
-            # keyword nodes to specify the update stencil. Find nodes of the
-            # local cells.
-            cells_in_partition_boolean = np.zeros(active_grid.num_cells, dtype=np.bool)
-            cells_in_partition_boolean[cells_in_partition] = 1
-
-            nodes_in_partition = np.squeeze(
-                np.where((cn * cells_in_partition_boolean) > 0)
-            )
-
-            # Find computational stencil, based on the nodes in this partition
-            loc_cells, loc_faces = pp.fvutils.cell_ind_for_partial_update(
-                active_grid, nodes=nodes_in_partition
-            )
-
-            # Extract subgrid, together with mappings between local and active
-            # (global, or at least less local) cells
-            sub_g, l2g_faces, _ = pp.partition.extract_subgrid(active_grid, loc_cells)
-            l2g_cells = sub_g.parent_cell_ind
+        for sub_g, faces_in_subgrid, _, l2g_cells, l2g_faces in self._subproblems(
+            active_grid, max_memory
+        ):
 
             # Copy stiffness tensor, and restrict to local cells
             loc_c = self._constit_for_subgrid(active_constit, l2g_cells)
@@ -238,58 +189,57 @@ class Mpsa:
             loc_bnd = self._bc_for_subgrid(active_bound, sub_g, l2g_faces)
 
             # Discretization of sub-problem
-            loc_stress, loc_bound_stress, loc_bound_displacement_cell, loc_bound_displacement_face = self._stress_displacement_disrcetization(
+            (loc_stress, loc_bound_stress,
+             loc_bound_displacement_cell, loc_bound_displacement_face
+             )= self._stress_disrcetization(
                 sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter, hf_eta=hf_eta
-            )
-            # Next, transfer discretization matrices from the local to the active grid
-            # Get a mapping from the local to the active grid
-            face_map, cell_map = pp.fvutils.map_subgrid_to_grid(
-                active_grid, l2g_faces, l2g_cells, is_vector=True
             )
 
             # Eliminate contribution from faces already discretized (the dual grids /
             # interaction regions may be structured so that some faces have previously
             # been partially discretized even if it has not been their turn until now)
             eliminate_ind = np.where(face_is_discretized)[0]
-            self._remove_nonlocal_contribution(eliminate_ind, g.dim, loc_stress, loc_bound_stress,
-                                               loc_bound_displacement_cell,
-                                               loc_bound_displacement_face)
+            self._remove_nonlocal_contribution(
+                eliminate_ind, g.dim, loc_stress, loc_bound_stress, loc_bound_displacement_cell, loc_bound_displacement_face
+            )
             # Update which faces are discretized
-            face_is_discretized[loc_faces] = 1
+            face_is_discretized[faces_in_subgrid] = 1
+
+            # Next, transfer discretization matrices from the local to the active grid
+            # Get a mapping from the local to the active grid
+            face_map, cell_map = pp.fvutils.map_subgrid_to_grid(
+                active_grid, l2g_faces, l2g_cells, is_vector=True
+            )
 
             # Update discretization on the active grid.
             active_stress += face_map * loc_stress * cell_map
             active_bound_stress += face_map * loc_bound_stress * face_map.transpose()
 
-            # Eliminate contribution from faces already covered
-
             # Update global face fields.
-            active_bound_displacement_cell += (
-                face_map * loc_bound_displacement_cell * cell_map
-            )
-            active_bound_displacement_face += (
-                face_map * loc_bound_displacement_face * face_map.transpose()
-            )
+            active_bound_displacement_cell += face_map * loc_bound_displacement_cell * cell_map
+            active_bound_displacement_face += face_map * loc_bound_displacement_face * face_map.transpose()
 
         # We have reached the end of the discretization, what remains is to map the
         # discretization back from the active grid to the entire grid
         face_map, cell_map = pp.fvutils.map_subgrid_to_grid(
             g, extracted_faces, active_cells, is_vector=True
         )
+
         # Update global face fields.
         stress_glob = face_map * active_stress * cell_map
         bound_stress_glob = face_map * active_bound_stress * face_map.transpose()
-        bound_displacement_cell_glob = (
-            face_map * active_bound_displacement_cell * cell_map
-        )
-        bound_displacement_face_glob = (
-            face_map * active_bound_displacement_face * face_map.transpose()
-        )
+        bound_displacement_cell_glob = face_map * active_bound_displacement_cell * cell_map
+        bound_displacement_face_glob = face_map * active_bound_displacement_face = face_map
 
         eliminate_faces = np.setdiff1d(np.arange(g.num_faces), active_faces)
-        self._remove_nonlocal_contribution(eliminate_faces, g.dim, stress_glob,
-                                           bound_stress_glob, bound_displacement_cell_glob,
-                                           bound_displacement_face_glob)
+        self._remove_nonlocal_contribution(
+            eliminate_faces,
+            g.dim,
+            stress_glob,
+            bound_stress_glob,
+            bound_displacement_cell_glob,
+            bound_displacement_face_glob,
+        )
 
         if update:
             update_ind = pp.fvutils.expand_indices_nd(active_faces, g.dim)
@@ -400,7 +350,7 @@ class Mpsa:
 
         return -div * bound_stress * bc_val + parameter_dictionary["source"]
 
-    def _stress_displacement_disrcetization(
+    def _stress_disrcetization(
         self, g, constit, bound, eta=None, inverter="numba", hf_disp=False, hf_eta=None
     ):
         """
@@ -531,25 +481,7 @@ class Mpsa:
         # possible to overcome, but for the moment, we simply force 2D grids to be
         # proper 2D.
         if g.dim == 2:
-            g = g.copy()
-
-            cell_centers, face_normals, face_centers, _, _, nodes = pp.map_geometry.map_grid(
-                g
-            )
-            g.cell_centers = cell_centers
-            g.face_normals = face_normals
-            g.face_centers = face_centers
-            g.nodes = nodes
-
-            # The stiffness matrix should also be rotated before deleting rows and
-            # columns. However, for isotropic media, the standard __init__ for the
-            # FourthOrderTensor, followed by the below deletions will in effect generate
-            # just what we wanted (assuming we are happy with the Lame parameters,
-            # and do not worry about plane-strain / plane-stress consistency).
-            # That is all to say, this is a bit inconsistent, but it may just end up okay.
-            constit = constit.copy()
-            constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=0)
-            constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=1)
+            g, constit = self._reduce_grid_constit_2d(g, constit)
 
         nd = g.dim
 
@@ -1055,6 +987,48 @@ class Mpsa:
     # Below here are helper functions, which tend to be less than well documented.
     #
     # -----------------------------------------------------------------------------
+
+    def _subproblems(self, active_grid, max_memory):
+        peak_mem = self._estimate_peak_memory_mpsa(active_grid)
+
+        num_part = np.ceil(peak_mem / max_memory).astype(np.int)
+
+        # Let partitioning module apply the best available method
+        part = pp.partition.partition(active_grid, num_part)
+
+        # Cell-node relation
+        cn = active_grid.cell_nodes()
+
+        tic = time()
+        logger.info("Split MPSA discretization into " + str(num_part) + " parts")
+
+        # Loop over all partition regions, construct local problems, and transfer
+        # discretization to the entire active grid
+        for counter, p in enumerate(np.unique(part)):
+            # Cells in this partitioning
+            cells_in_partition = np.argwhere(part == p).ravel("F")
+
+            # To discretize with as little overlap as possible, we use the
+            # keyword nodes to specify the update stencil. Find nodes of the
+            # local cells.
+            cells_in_partition_boolean = np.zeros(active_grid.num_cells, dtype=np.bool)
+            cells_in_partition_boolean[cells_in_partition] = 1
+
+            nodes_in_partition = np.squeeze(
+                np.where((cn * cells_in_partition_boolean) > 0)
+            )
+
+            # Find computational stencil, based on the nodes in this partition
+            loc_cells, loc_faces = pp.fvutils.cell_ind_for_partial_update(
+                active_grid, nodes=nodes_in_partition
+            )
+
+            # Extract subgrid, together with mappings between local and active
+            # (global, or at least less local) cells
+            sub_g, l2g_faces, _ = pp.partition.extract_subgrid(active_grid, loc_cells)
+            l2g_cells = sub_g.parent_cell_ind
+
+            yield sub_g, loc_faces, cells_in_partition, l2g_cells, l2g_faces
 
     def _estimate_peak_memory_mpsa(self, g):
         """ Rough estimate of peak memory need for mpsa discretization.
@@ -1702,8 +1676,31 @@ class Mpsa:
         for mat in args:
             pp.fvutils.zero_out_sparse_rows(mat, eliminate_ind)
 
+    def _reduce_grid_constit_2d(self, g, constit):
+        g = g.copy()
 
-    def _bc_for_subgrid(self, bc: pp.BoundaryConditionVectorial, sub_g: pp.Grid, face_map: np.ndarray) -> pp.BoundaryConditionVectorial:
+        cell_centers, face_normals, face_centers, _, _, nodes = pp.map_geometry.map_grid(
+            g
+        )
+        g.cell_centers = cell_centers
+        g.face_normals = face_normals
+        g.face_centers = face_centers
+        g.nodes = nodes
+
+        # The stiffness matrix should also be rotated before deleting rows and
+        # columns. However, for isotropic media, the standard __init__ for the
+        # FourthOrderTensor, followed by the below deletions will in effect generate
+        # just what we wanted (assuming we are happy with the Lame parameters,
+        # and do not worry about plane-strain / plane-stress consistency).
+        # That is all to say, this is a bit inconsistent, but it may just end up okay.
+        constit = constit.copy()
+        constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=0)
+        constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=1)
+        return g, constit
+
+    def _bc_for_subgrid(
+        self, bc: pp.BoundaryConditionVectorial, sub_g: pp.Grid, face_map: np.ndarray
+    ) -> pp.BoundaryConditionVectorial:
         """ Obtain a representation of a boundary condition for a subgrid of
         the original grid.
 
@@ -1734,7 +1731,9 @@ class Mpsa:
 
         return sub_bc
 
-    def _constit_for_subgrid(self, constit: pp.FourthOrderTensor, loc_cells: np.ndarray) -> pp.FourthOrderTensor:
+    def _constit_for_subgrid(
+        self, constit: pp.FourthOrderTensor, loc_cells: np.ndarray
+    ) -> pp.FourthOrderTensor:
         # Copy stiffness tensor, and restrict to local cells
         loc_c = constit.copy()
         loc_c.values = loc_c.values[::, ::, loc_cells]
