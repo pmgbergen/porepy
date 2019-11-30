@@ -25,6 +25,39 @@ __version__ = "1.1.0"
 
 __all__ = []
 
+
+# Parameters
+from porepy.params.bc import (
+    BoundaryCondition,
+    BoundaryConditionVectorial,
+    BoundaryConditionNode,
+    face_on_side,
+)
+from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
+from porepy.params.data import (
+    Parameters,
+    initialize_data,
+    initialize_default_data,
+    set_state,
+)
+from porepy.params.rock import UnitRock, Shale, SandStone, Granite
+from porepy.params.fluid import Water, UnitFluid
+
+# Grids
+from porepy.grids.grid import Grid
+from porepy.grids.fv_sub_grid import FvSubGrid
+from porepy.grids.grid_bucket import GridBucket
+from porepy.grids.structured import CartGrid, TensorGrid
+from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
+from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
+from porepy.grids.point_grid import PointGrid
+from porepy.grids.mortar_grid import MortarGrid, BoundaryMortar
+from porepy.grids.standard_grids import grid_buckets_2d
+
+# Fractures
+from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork3d
+from porepy.fracs.fractures_2d import FractureNetwork2d
+
 # Numerics
 from porepy.numerics.discretization import VoidDiscretization
 from porepy.numerics.interface_laws.elliptic_discretization import (
@@ -78,38 +111,6 @@ from porepy.numerics.contact_mechanics import contact_conditions
 # Related to models and solvers
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
 from porepy.models.run_models import run_stationary_model, run_time_dependent_model
-
-# Grids
-from porepy.grids.grid import Grid
-from porepy.grids.fv_sub_grid import FvSubGrid
-from porepy.grids.grid_bucket import GridBucket
-from porepy.grids.structured import CartGrid, TensorGrid
-from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
-from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
-from porepy.grids.point_grid import PointGrid
-from porepy.grids.mortar_grid import MortarGrid, BoundaryMortar
-from porepy.grids.standard_grids import grid_buckets_2d
-
-# Fractures
-from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork3d
-from porepy.fracs.fractures_2d import FractureNetwork2d
-
-# Parameters
-from porepy.params.bc import (
-    BoundaryCondition,
-    BoundaryConditionVectorial,
-    BoundaryConditionNode,
-    face_on_side,
-)
-from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
-from porepy.params.data import (
-    Parameters,
-    initialize_data,
-    initialize_default_data,
-    set_state,
-)
-from porepy.params.rock import UnitRock, Shale, SandStone, Granite
-from porepy.params.fluid import Water, UnitFluid
 
 # Visualization
 from porepy.viz.exporter import Exporter
