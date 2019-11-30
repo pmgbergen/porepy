@@ -145,49 +145,14 @@ class Mpsa:
 
         # The discretization can be limited to a specified set of cells, faces or nodes
         # If none of these are specified, the entire grid will be discretized
-        specified_cells = parameter_dictionary.get("specified_cells", None)
-        specified_faces = parameter_dictionary.get("specified_faces", None)
-        specified_nodes = parameter_dictionary.get("specified_nodes", None)
-
-        # Find the cells and faces that should be considered for discretization
-        if (
-            (specified_cells is not None)
-            or (specified_faces is not None)
-            or (specified_nodes is not None)
-        ):
-            warnings.warn(
-                "Partial update of mpsa discretization has not been thoroughly tested"
-            )
-            # Find computational stencil, based on specified cells, faces and nodes.
-            active_cells, active_faces = pp.fvutils.cell_ind_for_partial_update(
-                g, cells=specified_cells, faces=specified_faces, nodes=specified_nodes
-            )
-            parameter_dictionary["active_cells"] = active_cells
-            parameter_dictionary["active_faces"] = active_faces
-        else:
-            # All cells and faces in the grid should be updated
-            active_cells = np.arange(g.num_cells)
-            active_faces = np.arange(g.num_faces)
-
-        if (active_cells.size + active_faces.size) == 0:
-            stress_glob = sps.csr_matrix(
-                (g.dim * g.num_faces, g.dim * g.num_cells), dtype="float64"
-            )
-            bound_stress_glob = sps.csr_matrix(
-                (g.dim * g.num_faces, g.dim * g.num_faces), dtype="float64"
-            )
+        active_cells, active_faces = self._find_active_indices(parameter_dictionary, g)
 
         # Extract a grid, and get global indices of its active faces and nodes
         active_grid, extracted_faces, extracted_nodes = pp.partition.extract_subgrid(
             g, active_cells
         )
         # Constitutive law and boundary condition for the active grid
-        active_constit = constit.copy()
-        active_constit.values = active_constit.values[::, ::, active_cells]
-        # Also restrict the lambda and mu fields; we will copy the stiffness
-        # tensors later.
-        active_constit.lmbda = active_constit.lmbda[active_cells]
-        active_constit.mu = active_constit.mu[active_cells]
+        active_constit = self._constit_for_subgrid(constit, active_cells)
 
         # Extract the relevant part of the boundary condition
         active_bound = self._bc_for_subgrid(bound, active_grid, extracted_faces)
@@ -265,12 +230,7 @@ class Mpsa:
             l2g_cells = sub_g.parent_cell_ind
 
             # Copy stiffness tensor, and restrict to local cells
-            loc_c = active_constit.copy()
-            loc_c.values = loc_c.values[::, ::, l2g_cells]
-            # Also restrict the lambda and mu fields; we will copy the stiffness
-            # tensors later.
-            loc_c.lmbda = loc_c.lmbda[l2g_cells]
-            loc_c.mu = loc_c.mu[l2g_cells]
+            loc_c = self._constit_for_subgrid(active_constit, l2g_cells)
 
             # Boundary conditions are slightly more complex. Find local faces
             # that are on the global boundary.
@@ -290,23 +250,18 @@ class Mpsa:
             # Eliminate contribution from faces already discretized (the dual grids /
             # interaction regions may be structured so that some faces have previously
             # been partially discretized even if it has not been their turn until now)
-            eliminate_ind = pp.fvutils.expand_indices_nd(
-                np.where(face_is_discretized)[0], active_grid.dim
-            )
-
+            eliminate_ind = np.where(face_is_discretized)[0]
+            self._remove_nonlocal_contribution(eliminate_ind, g.dim, loc_stress, loc_bound_stress,
+                                               loc_bound_displacement_cell,
+                                               loc_bound_displacement_face)
             # Update which faces are discretized
             face_is_discretized[loc_faces] = 1
 
-            # Eliminate
-            pp.fvutils.zero_out_sparse_rows(loc_stress, eliminate_ind)
-            pp.fvutils.zero_out_sparse_rows(loc_bound_stress, eliminate_ind)
             # Update discretization on the active grid.
             active_stress += face_map * loc_stress * cell_map
             active_bound_stress += face_map * loc_bound_stress * face_map.transpose()
 
             # Eliminate contribution from faces already covered
-            pp.fvutils.zero_out_sparse_rows(loc_bound_displacement_cell, eliminate_ind)
-            pp.fvutils.zero_out_sparse_rows(loc_bound_displacement_face, eliminate_ind)
 
             # Update global face fields.
             active_bound_displacement_cell += (
@@ -332,11 +287,9 @@ class Mpsa:
         )
 
         eliminate_faces = np.setdiff1d(np.arange(g.num_faces), active_faces)
-        eliminate_ind = pp.fvutils.expand_indices_nd(eliminate_faces, g.dim)
-        pp.fvutils.zero_out_sparse_rows(stress_glob, eliminate_ind)
-        pp.fvutils.zero_out_sparse_rows(bound_stress_glob, eliminate_ind)
-        pp.fvutils.zero_out_sparse_rows(bound_displacement_cell_glob, eliminate_ind)
-        pp.fvutils.zero_out_sparse_rows(bound_displacement_face_glob, eliminate_ind)
+        self._remove_nonlocal_contribution(eliminate_faces, g.dim, stress_glob,
+                                           bound_stress_glob, bound_displacement_cell_glob,
+                                           bound_displacement_face_glob)
 
         if update:
             update_ind = pp.fvutils.expand_indices_nd(active_faces, g.dim)
@@ -1713,7 +1666,43 @@ class Mpsa:
 
         # ncasym.indices[y_pntr[yuz]] -= 2
 
-#    def _bc_for_subgrid(self, bc, sub_g, face_map):
+    def _find_active_indices(self, parameter_dictionary, g):
+        # The discretization can be limited to a specified set of cells, faces or nodes
+        # If none of these are specified, the entire grid will be discretized
+        specified_cells = parameter_dictionary.get("specified_cells", None)
+        specified_faces = parameter_dictionary.get("specified_faces", None)
+        specified_nodes = parameter_dictionary.get("specified_nodes", None)
+
+        # Find the cells and faces that should be considered for discretization
+        if (
+            (specified_cells is not None)
+            or (specified_faces is not None)
+            or (specified_nodes is not None)
+        ):
+            warnings.warn(
+                "Partial update of mpsa discretization has not been thoroughly tested"
+            )
+            # Find computational stencil, based on specified cells, faces and nodes.
+            active_cells, active_faces = pp.fvutils.cell_ind_for_partial_update(
+                g, cells=specified_cells, faces=specified_faces, nodes=specified_nodes
+            )
+            parameter_dictionary["active_cells"] = active_cells
+            parameter_dictionary["active_faces"] = active_faces
+        else:
+            # All cells and faces in the grid should be updated
+            active_cells = np.arange(g.num_cells)
+            active_faces = np.arange(g.num_faces)
+            parameter_dictionary["active_cells"] = active_cells
+            parameter_dictionary["active_faces"] = active_faces
+
+        return active_cells, active_faces
+
+    def _remove_nonlocal_contribution(self, raw_ind, nd, *args):
+        eliminate_ind = pp.fvutils.expand_indices_nd(raw_ind, nd)
+        for mat in args:
+            pp.fvutils.zero_out_sparse_rows(mat, eliminate_ind)
+
+
     def _bc_for_subgrid(self, bc: pp.BoundaryConditionVectorial, sub_g: pp.Grid, face_map: np.ndarray) -> pp.BoundaryConditionVectorial:
         """ Obtain a representation of a boundary condition for a subgrid of
         the original grid.
@@ -1744,3 +1733,13 @@ class Mpsa:
         sub_bc.basis = bc.basis[:, :, face_map]
 
         return sub_bc
+
+    def _constit_for_subgrid(self, constit: pp.FourthOrderTensor, loc_cells: np.ndarray) -> pp.FourthOrderTensor:
+        # Copy stiffness tensor, and restrict to local cells
+        loc_c = constit.copy()
+        loc_c.values = loc_c.values[::, ::, loc_cells]
+        # Also restrict the lambda and mu fields; we will copy the stiffness
+        # tensors later.
+        loc_c.lmbda = loc_c.lmbda[loc_cells]
+        loc_c.mu = loc_c.mu[loc_cells]
+        return loc_c
