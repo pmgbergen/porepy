@@ -229,7 +229,7 @@ class Mpsa:
         stress_glob = face_map * active_stress * cell_map
         bound_stress_glob = face_map * active_bound_stress * face_map.transpose()
         bound_displacement_cell_glob = face_map * active_bound_displacement_cell * cell_map
-        bound_displacement_face_glob = face_map * active_bound_displacement_face = face_map
+        bound_displacement_face_glob = face_map * active_bound_displacement_face * face_map
 
         eliminate_faces = np.setdiff1d(np.arange(g.num_faces), active_faces)
         self._remove_nonlocal_contribution(
