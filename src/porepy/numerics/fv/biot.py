@@ -4,11 +4,12 @@ import numpy as np
 import warnings
 
 import porepy as pp
+from porepy.numerics.fv.mpsa import Mpsa
 
 from porepy.numerics.fv import fvutils
 
 
-class Biot(pp.Mpsa):
+class Biot(Mpsa):
     def __init__(
         self,
         mechanics_keyword="mechanics",
@@ -21,12 +22,21 @@ class Biot(pp.Mpsa):
         The keywords are used to access and store parameters and discretization
         matrices.
         """
+        super(Biot, self).__init__("")
         self.mechanics_keyword = mechanics_keyword
         self.flow_keyword = flow_keyword
         # Set variable names for the vector and scalar variable, used to access
         # solutions from previous time steps
         self.vector_variable = vector_variable
         self.scalar_variable = scalar_variable
+
+        # Strings used to identify discretization matrices for various terms constructed
+        # by this class. Hardcoded here to enforce a common standard
+        self.div_u_matrix_key = "div_u"
+        self.bound_div_u_matrix_key = "bound_div_u"
+        self.grad_p_matrix_key = "grad_p"
+        self.bound_pressure_matrix_key = "bound_displacement_pressure"
+        self.stabilization_matrix_key = "biot_stabilization"
 
     def ndof(self, g):
         """ Return the number of degrees of freedom associated wiht the method.
@@ -43,17 +53,14 @@ class Biot(pp.Mpsa):
         """
         return g.num_cells * (1 + g.dim)
 
-    def matrix_rhs(self, g, data, discretize=True):
-        if discretize:
-            self.discretize(g, data)
-
+    def assemble_matrix_rhs(self, g, data):
         A_biot = self.assemble_matrix(g, data)
-        rhs_bound = self.rhs(g, data)
+        rhs_bound = self.rhs_bound(g, data)
         return A_biot, rhs_bound
 
     # --------------------------- Helper methods for discretization ----------
 
-    def rhs(self, g, data):
+    def assemble_rhs(self, g, data):
         bnd = self.rhs_bound(g, data)
         tm = self.rhs_time(g, data)
         #        src = data['source']
@@ -216,24 +223,24 @@ class Biot(pp.Mpsa):
         matrices_m = data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]
         matrices_f = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
         # Put together linear system
-        if matrices_m["stress"].shape[0] != g.dim * g.num_faces:
+        if matrices_m[self.stress_matrix_key].shape[0] != g.dim * g.num_faces:
             # If we give the boundary conditions for subfaces, the discretization
             # will also be returned for the subfaces. We therefore have to map
             # everything to faces before we proceeds.
             hf2f_nd = pp.fvutils.map_hf_2_f(g=g)
             hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
-            stress = hf2f_nd * matrices_m["stress"]
+            stress = hf2f_nd * matrices_m[self.stress_matrix_key]
             flux = hf2f * matrices_f["flux"]
-            grad_p = hf2f_nd * matrices_m["grad_p"]
+            grad_p = hf2f_nd * matrices_m[self.grad_p_matrix_key]
         else:
-            stress = matrices_m["stress"]
+            stress = matrices_m[self.stress_matrix_key]
             flux = matrices_f["flux"]
-            grad_p = matrices_m["grad_p"]
+            grad_p = matrices_m[self.grad_p_matrix_key]
 
         A_flow = div_flow * flux
         A_mech = div_mech * stress
         grad_p = div_mech * grad_p
-        stabilization = matrices_f["biot_stabilization"]
+        stabilization = matrices_f[self.stabilization_matrix_key]
 
         # Time step size
         dt = param[self.flow_keyword]["time_step"]
@@ -243,7 +250,7 @@ class Biot(pp.Mpsa):
             [
                 [A_mech, grad_p],
                 [
-                    matrices_f["div_u"] * biot_alpha,
+                    matrices_f[self.div_u_matrix_key] * biot_alpha,
                     matrices_f["mass"] + dt * A_flow + stabilization,
                 ],
             ]
@@ -313,16 +320,256 @@ class Biot(pp.Mpsa):
             scipy.sparse.csr_matrix (shape num_cells x num_cells): Stabilization
                 term.
        """
-        parameters_m = data[pp.PARAMETERS][self.mechanics_keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.mechanics_keyword]
         matrices_m = data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]
         matrices_f = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
-        bound_mech = parameters_m["bc"]
-        constit = parameters_m["fourth_order_tensor"]
+        bound = parameter_dictionary["bc"]
+        constit = parameter_dictionary["fourth_order_tensor"]
 
-        eta = parameters_m.get("mpsa_eta", fvutils.determine_eta(g))
-        inverter = parameters_m.get("inverter", None)
+        eta = parameter_dictionary.get("mpsa_eta", fvutils.determine_eta(g))
+        inverter = parameter_dictionary.get("inverter", None)
 
-        alpha = parameters_m["biot_alpha"]
+        alpha = parameter_dictionary["biot_alpha"]
+
+        inverter = parameter_dictionary.get("inverter", None)
+        max_memory = parameter_dictionary.get("max_memory", 1e9)
+
+        # Whether to update an existing discretization, or construct a new one.
+        # If True, either specified_cells, _faces or _nodes should also be given, or
+        # else a full new discretization will be computed
+        update = parameter_dictionary.get("update_discretization", False)
+
+        # The discretization can be limited to a specified set of cells, faces or nodes
+        # If none of these are specified, the entire grid will be discretized
+        active_cells, active_faces = self._find_active_indices(parameter_dictionary, g)
+
+        # Extract a grid, and get global indices of its active faces and nodes
+        active_grid, extracted_faces, extracted_nodes = pp.partition.extract_subgrid(
+            g, active_cells
+        )
+        # Constitutive law and boundary condition for the active grid
+        active_constit = self._constit_for_subgrid(constit, active_cells)
+
+        # Extract the relevant part of the boundary condition
+        active_bound = self._bc_for_subgrid(bound, active_grid, extracted_faces)
+
+        # Keep track of which faces and cells have had their discretizations updated.
+        # This is used to eliminate contributions to the discretizations on the border
+        # of the subgrids below
+        face_is_discretized = np.zeros(active_grid.num_faces, dtype=np.bool)
+        cell_is_discretized = np.zeros(active_grid.num_cells, dtype=np.bool)
+
+        # Initialize matrices to store discretization
+        nd = active_grid.dim
+        nf = active_grid.num_faces
+        nc = active_grid.num_cells
+
+        # There are quite a few items to keep track of, but then the discretization
+        # does quite a few different things
+        active_stress = sps.csr_matrix((nf * nd, nc * nd))
+        active_bound_stress = sps.csr_matrix((nf * nd, nf * nd))
+        active_grad_p = sps.csr_matrix((nf * nd, nc))
+        active_div_u = sps.csr_matrix((nc, nc * nd))
+        active_bound_div_u = sps.csr_matrix((nc, nf * nd))
+        active_stabilization = sps.csr_matrix((nc, nc))
+        active_bound_displacement_cell = sps.csr_matrix((nf * nd, nc * nd))
+        active_bound_displacement_face = sps.csr_matrix((nf * nd, nf * nd))
+        active_bound_displacement_pressure = sps.csr_matrix((nf * nd, nc))
+
+        # Loop over all partition regions, construct local problems, and transfer
+        # discretization to the entire active grid
+        for (
+            sub_g,
+            faces_in_subgrid,
+            cells_in_subgrid,
+            l2g_cells,
+            l2g_faces,
+        ) in self._subproblems(active_grid, max_memory):
+
+            # Copy stiffness tensor, and restrict to local cells
+            loc_c = self._constit_for_subgrid(active_constit, l2g_cells)
+
+            # Boundary conditions are slightly more complex. Find local faces
+            # that are on the global boundary.
+            # Then transfer boundary condition on those faces.
+            loc_bnd = self._bc_for_subgrid(active_bound, sub_g, l2g_faces)
+
+            # Discretization of sub-problem
+            (
+                loc_stress,
+                loc_bound_stress,
+                loc_div_u,
+                loc_bound_div_u,
+                loc_grad_p,
+                loc_biot_stab,
+                loc_bound_displacement_cell,
+                loc_bound_displacement_face,
+                loc_bound_displacement_pressure,
+            ) = self._local_discretization(
+                sub_g, loc_c, loc_bnd, alpha, eta=eta, inverter=inverter,
+            )
+
+            # Eliminate contribution from faces already discretized (the dual grids /
+            # interaction regions may be structured so that some faces have previously
+            # been partially discretized even if it has not been their turn until now)
+            eliminate_face = np.where(face_is_discretized)[0]
+            self._remove_nonlocal_contribution(
+                eliminate_face,
+                g.dim,
+                loc_stress,
+                loc_bound_stress,
+                loc_bound_displacement_cell,
+                loc_bound_displacement_face,
+                loc_grad_p,
+                loc_bound_displacement_pressure,
+            )
+            # Update which faces are discretized
+            face_is_discretized[faces_in_subgrid] = 1
+
+            eliminate_cell = np.where(cell_is_discretized)[0]
+            self._remove_nonlocal_contribution(
+                eliminate_cell, 1, loc_div_u, loc_bound_div_u, loc_biot_stab
+            )
+            cell_is_discretized[cells_in_subgrid] = 1
+
+            # Next, transfer discretization matrices from the local to the active grid
+            # Get a mapping from the local to the active grid
+            face_map_vec, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
+                active_grid, l2g_faces, l2g_cells, is_vector=True
+            )
+            face_map_scalar, cell_map_scalar = pp.fvutils.map_subgrid_to_grid(
+                active_grid, l2g_faces, l2g_cells, is_vector=False
+            )
+
+            # Update discretization on the active grid.
+            active_stress += face_map_vec * loc_stress * cell_map_vec
+            active_bound_stress += (
+                face_map_vec * loc_bound_stress * face_map_vec.transpose()
+            )
+
+            # Update global face fields.
+            active_bound_displacement_cell += (
+                face_map_vec * loc_bound_displacement_cell * cell_map_vec
+            )
+            active_bound_displacement_face += (
+                face_map_vec * loc_bound_displacement_face * face_map_vec.transpose()
+            )
+
+            active_stabilization += (
+                cell_map_scalar.transpose() * loc_biot_stab * cell_map_scalar
+            )
+
+            active_grad_p += face_map_vec * loc_grad_p * cell_map_scalar
+            active_div_u += cell_map_scalar.transpose() * loc_div_u * cell_map_vec
+            active_bound_div_u += (
+                cell_map_scalar.transpose() * loc_bound_div_u * face_map_vec.transpose()
+            )
+
+            active_bound_displacement_pressure += (
+                face_map_vec * loc_bound_displacement_pressure * cell_map_scalar
+            )
+
+            # Done with this subdomain, move on to the next one
+
+        face_map_vec, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
+            g, l2g_faces, l2g_cells, is_vector=True
+        )
+        face_map_scalar, cell_map_scalar = pp.fvutils.map_subgrid_to_grid(
+            g, l2g_faces, l2g_cells, is_vector=False
+        )
+
+        # Update discretization on the active grid.
+        stress = face_map_vec * active_stress * cell_map_vec
+        bound_stress = face_map_vec * active_bound_stress * face_map_vec.transpose()
+
+        # Update global face fields.
+        bound_displacement_cell = (
+            face_map_vec * active_bound_displacement_cell * cell_map_vec
+        )
+        bound_displacement_face = (
+            face_map_vec * active_bound_displacement_face * face_map_vec.transpose()
+        )
+
+        stabilization = (
+            cell_map_scalar.transpose() * active_stabilization * cell_map_scalar
+        ).tocsr()
+
+        grad_p = face_map_vec * active_grad_p * cell_map_scalar
+        div_u = (cell_map_scalar.transpose() * active_div_u * cell_map_vec).tocsr()
+        bound_div_u = (
+            cell_map_scalar.transpose() * active_bound_div_u * face_map_vec.transpose()
+        ).tocsr()
+
+        bound_displacement_pressure = (
+            face_map_vec * active_bound_displacement_pressure * cell_map_scalar
+        )
+
+        eliminate_faces = np.setdiff1d(np.arange(g.num_faces), active_faces)
+        self._remove_nonlocal_contribution(
+            eliminate_faces,
+            g.dim,
+            stress,
+            bound_stress,
+            bound_displacement_cell,
+            bound_displacement_face,
+            grad_p,
+            bound_displacement_pressure,
+        )
+
+        eliminate_cells = np.setdiff1d(np.arange(g.num_faces), active_faces)
+        self._remove_nonlocal_contribution(
+            eliminate_cells, 1, div_u, bound_div_u, stabilization
+        )
+
+        if update:
+            # The faces to be updated are given by active_faces
+            update_face_ind = pp.fvutils.expand_indices_nd(active_faces, g.dim)
+            # Cells to be updated is a bit more involved. Best guess now is to update
+            # all cells that has had all its faces updated. This may not be correct for
+            # general combinations of specified cells, nodes and faces.
+            tmp = g.cell_faces.transpose()
+            tmp.data = np.abs(tmp.data)
+            af_vec = np.zeros(g.num_faces, dtype=np.bool)
+            af_vec[active_faces] = 1
+            update_cell_ind = np.where((tmp * af_vec) == tmp.sum(axis=0).A)[0]
+
+            matrices_m[self.stress_matrix_key][update_face_ind] = stress[
+                update_face_ind
+            ]
+            matrices_m[self.bound_stress_matrix_key][update_face_ind] = bound_stress[
+                update_face_ind
+            ]
+            matrices_f[self.div_u_matrix_key][update_cell_ind] = div_u[update_cell_ind]
+            matrices_f[self.bound_div_u_matrix_key][update_cell_ind] = bound_div_u[
+                update_cell_ind
+            ]
+            matrices_m[self.grad_p_matrix_key][update_face_ind] = grad_p[
+                update_face_ind
+            ]
+            matrices_f[self.stabilization_matrix_key][update_cell_ind] = stabilization[
+                update_cell_ind
+            ]
+            matrices_m[self.bound_displacment_cell_matrix_key][
+                update_face_ind
+            ] = bound_displacement_cell[update_face_ind]
+            matrices_m[self.bound_displacment_face_matrix_key][
+                update_face_ind
+            ] = bound_displacement_face[update_face_ind]
+            matrices_m[self.bound_pressure_matrix_key][
+                update_face_ind
+            ] = bound_displacement_pressure[update_face_ind]
+        else:
+            matrices_m[self.stress_matrix_key] = stress
+            matrices_m[self.bound_stress_matrix_key] = bound_stress
+            matrices_f[self.div_u_matrix_key] = div_u
+            matrices_f[self.bound_div_u_matrix_key] = bound_div_u
+            matrices_m[self.grad_p_matrix_key] = grad_p
+            matrices_f[self.stabilization_matrix_key] = stabilization
+            matrices_m[self.bound_displacment_cell_matrix_key] = bound_displacement_cell
+            matrices_m[self.bound_displacment_face_matrix_key] = bound_displacement_face
+            matrices_m[self.bound_pressure_matrix_key] = bound_displacement_pressure
+
+    def _local_discretization(self, g, constit, bound_mech, alpha, eta, inverter, hf_output=False):
 
         # The grid coordinates are always three-dimensional, even if the grid
         # is really 2D. This means that there is not a 1-1 relation between the
@@ -334,15 +581,8 @@ class Biot(pp.Mpsa):
         # These issues should be possible to overcome, but for the moment, we
         # simply force 2D grids to be proper 2D.
         if g.dim == 2:
-            g = g.copy()
-            g.cell_centers = np.delete(g.cell_centers, (2), axis=0)
-            g.face_centers = np.delete(g.face_centers, (2), axis=0)
-            g.face_normals = np.delete(g.face_normals, (2), axis=0)
-            g.nodes = np.delete(g.nodes, (2), axis=0)
+            g, constit = self._reduce_grid_constit_2d(g, constit)
 
-            constit = constit.copy()
-            constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=0)
-            constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=1)
         nd = g.dim
 
         # Define subcell topology
@@ -367,8 +607,10 @@ class Biot(pp.Mpsa):
             g, constit, subcell_topology, bound_exclusion_mech, eta, inverter
         )
         num_sub_cells = cell_node_blocks.shape[0]
-        rhs_cells = self._create_rhs_cell_center( g, subcell_topology, eta,
-                                                 num_sub_cells, bound_exclusion_mech)
+        # Right hand side terms for the stress discretization
+        rhs_cells = self._create_rhs_cell_center(
+            g, subcell_topology, eta, num_sub_cells, bound_exclusion_mech
+        )
 
         # Stress discretization
         stress = hook * igrad * rhs_cells
@@ -380,7 +622,7 @@ class Biot(pp.Mpsa):
         # Discretization of boundary values
         bound_stress = hook * igrad * rhs_bound
 
-        if not subface_rhs:
+        if not hf_output:
             # If the boundary condition is given for faces we return the discretization
             # on for the face values. Otherwise it is defined for the subfaces.
             hf2f = fvutils.map_hf_2_f(
@@ -403,7 +645,7 @@ class Biot(pp.Mpsa):
             g, subcell_topology, alpha, bound_exclusion_mech
         )
 
-        if subface_rhs:
+        if hf_output:
             # If boundary conditions are given on subfaces we keep the subface
             # discretization
             grad_p = hook * igrad * rhs_jumps + grad_p_face
@@ -411,6 +653,7 @@ class Biot(pp.Mpsa):
             # otherwise we map it to faces
             grad_p = hf2f * (hook * igrad * rhs_jumps + grad_p_face)
 
+        # consistincy term for the flow equation
         stabilization = div * igrad * rhs_jumps
 
         # We obtain the reconstruction of displacments. This is equivalent as for
@@ -423,16 +666,31 @@ class Biot(pp.Mpsa):
         disp_bound = dist_grad * igrad * rhs_bound
         disp_pressure = dist_grad * igrad * rhs_jumps
 
+        if not hf_output:
+            # hf2f sums the values, but here we need an average.
+            # For now, use simple average, although area weighted values may be more accurate
+            num_subfaces = hf2f.sum(axis=1).A.ravel()
+            scaling = sps.dia_matrix(
+                (1.0 / num_subfaces, 0), shape=(hf2f.shape[0], hf2f.shape[0])
+            )
+
+            disp_cell = scaling * hf2f * disp_cell
+            disp_bound = scaling * hf2f * disp_bound
+            disp_pressure = scaling * hf2f * disp_pressure
+
+        return (
+            stress,
+            bound_stress,
+            div_u,
+            bound_div_u,
+            grad_p,
+            stabilization,
+            disp_cell,
+            disp_bound,
+            disp_pressure,
+        )
+
         # Add discretizations to data
-        matrices_m["stress"] = stress
-        matrices_m["bound_stress"] = bound_stress
-        matrices_f["div_u"] = div_u
-        matrices_f["bound_div_u"] = bound_div_u
-        matrices_m["grad_p"] = grad_p
-        matrices_f["biot_stabilization"] = stabilization
-        matrices_m["bound_displacement_cell"] = disp_cell
-        matrices_m["bound_displacement_face"] = disp_bound
-        matrices_m["bound_displacement_pressure"] = disp_pressure
 
     def _create_rhs_grad_p(self, g, subcell_topology, alpha, bound_exclusion):
         """
