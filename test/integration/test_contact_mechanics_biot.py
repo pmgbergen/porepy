@@ -80,9 +80,10 @@ class TestContactMechanicsBiot(unittest.TestCase):
         setup = SetupContactMechanicsBiot(
             ux_south=0, uy_south=0, ux_north=0, uy_north=0.001
         )
-
+        setup.mesh_args = [2, 2]
+        setup.simplex = False
+        # setup.subtract_fracture_pressure = False
         u_mortar, contact_force, fracture_pressure = self._solve(setup)
-
         # All components should be open in the normal direction
         self.assertTrue(np.all(u_mortar[1] < 0))
 
@@ -203,7 +204,7 @@ class TestContactMechanicsBiot(unittest.TestCase):
         # If the update of the mechanical BC values for the previous time step used in
         # div u is missing, the effect is similar to if the pull on the north is
         # increased in each time step. This leads to a too small fracture pressure.
-        self.assertTrue(np.all(np.isclose(fracture_pressure, -0.00038512)))
+        self.assertTrue(np.all(np.isclose(fracture_pressure, -3.93090302e-06)))
 
 
 class SetupContactMechanicsBiot(
