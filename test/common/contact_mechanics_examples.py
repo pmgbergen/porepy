@@ -109,11 +109,12 @@ class ProblemDataTime:
         mortar grid.
         """
         with_fracture = getattr(self, "with_fracture", True)
+        simplex = getattr(self, "simplex", True)
         if with_fracture:
-            gb = pp.grid_buckets_2d.single_horizontal(self.mesh_args)
+            gb = pp.grid_buckets_2d.single_horizontal(self.mesh_args, simplex=simplex)
             pp.contact_conditions.set_projections(gb)
         else:
-            nx = getattr(self, "nx", [4, 4])
+            nx = getattr(self, "nx", [3, 3])
             gb = pp.meshing.cart_grid([], nx, physdims=[1, 1])
         self.box = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
         self.gb = gb
@@ -152,3 +153,28 @@ class ProblemDataTime:
         values[0, north] = self.ux_north * (self.time > 0.1)
         values[1, north] = self.uy_north * (self.time > 0.1)
         return values.ravel("F")
+
+    def compute_aperture(self, g, from_iterate=True):
+        self.initial_aperture = 1e-4
+        apertures = np.ones(g.num_cells)
+        gb = self.gb
+        if g.dim == (self.Nd - 1):
+            # Initial aperture
+            apertures *= self.initial_aperture
+
+            # Reconstruct the displacement solution on the fracture
+            g_h = gb.node_neighbors(g)[0]
+            assert g_h.dim == self.Nd
+            data_edge = gb.edge_props((g, g_h))
+            if pp.STATE in data_edge:
+                u_mortar_local = self.reconstruct_local_displacement_jump(
+                    data_edge, from_iterate=from_iterate
+                )
+                # Magnitudes of normal and tangential components
+                norm_u_n = np.absolute(u_mortar_local[-1])
+                norm_u_tau = np.linalg.norm(u_mortar_local[:-1], axis=0)
+                # Add contributions
+                slip_angle = np.pi / 2
+                apertures += norm_u_n * np.cos(slip_angle) + norm_u_tau
+
+        return apertures

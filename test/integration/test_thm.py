@@ -56,6 +56,42 @@ class TestTHM(unittest.TestCase):
         # and a positive temperature
         self.assertTrue(np.all(T > -1e-8))
 
+    def test_pull_north_reduce_to_biot(self):
+        """
+        With vanishing TH and TM coupling terms, the p and u solutions should approach the
+        pure HM case.
+        The hardcoded values below are taken from the corresponding biot test, i.e.
+        test_pull_north_negative_scalar of TestBiot in test_contact_mechanics_biot.
+        They should be changed iff the values from that test change.
+        """
+        setup = SetupTHM(ux_south=0, uy_south=0, ux_north=0, uy_north=0.001)
+        setup.with_fracture = False
+        setup.beta, setup.gamma = 1e-10, 1e-10
+        u, p, T = self._solve(setup)
+
+        self.assertTrue(np.isclose(np.sum(p), -0.000560668482409941))
+        self.assertTrue(np.isclose(np.sum(u), 0.0045))
+        self.assertTrue(np.isclose(np.sum(T), 0.0))
+
+    def test_pull_north_reduce_to_TM(self):
+        """
+        With vanishing TH and TM coupling terms, the p and u solutions should approach the
+        pure HM case.
+        The hardcoded values below are taken from the corresponding biot test, i.e.
+        test_pull_north_negative_scalar of TestBiot in test_contact_mechanics_biot.
+        They should be changed iff the values from that test change.
+        """
+        setup = SetupTHM(ux_south=0, uy_south=0, ux_north=0, uy_north=0.001)
+        setup.with_fracture = False
+        setup.T_0_Kelvin = 1
+        setup.alpha, setup.gamma, setup.advection_weight = 1e-10, 1e-10, 1e-10
+        # remove_advection(setup)
+        u, p, T = self._solve(setup)
+        print(np.sum(u), np.sum(p), np.sum(T))
+        self.assertTrue(np.isclose(np.sum(T), -0.000560668482409941))
+        self.assertTrue(np.isclose(np.sum(u), 0.0045))
+        self.assertTrue(np.isclose(np.sum(p), 0.0))
+
 
 class TestContactMechanicsTHM(unittest.TestCase):
     def _solve(self, setup):
@@ -189,12 +225,56 @@ class TestContactMechanicsTHM(unittest.TestCase):
         # increased in each time step. This leads to a too small fracture pressure.
         # Note that the pressure is different to the corresponding HM test, as there
         # is a feedback from the temperature, which is also reduced.
-        self.assertTrue(np.all(np.isclose(fracture_pressure, -0.00381137)))
-        self.assertTrue(np.all(np.isclose(fracture_temperature, -0.00234552)))
+        self.assertTrue(np.all(np.isclose(fracture_pressure, -1.31795896e-05)))
+        self.assertTrue(np.all(np.isclose(fracture_temperature, -1.34711919e-05)))
+
+    def test_pull_north_reduce_to_biot(self):
+        """
+        With vanishing TH and TM coupling terms, the p and u solutions should approach the
+        pure HM case.
+        The hardcoded values below are taken from the corresponding biot test, i.e.
+        test_pull_north_negative_scalar of TestBiot in test_contact_mechanics_biot.
+        They should be changed iff the values from that test change.
+        """
+        setup = SetupTHM(ux_south=0, uy_south=0, ux_north=0, uy_north=0.001)
+        setup.beta, setup.gamma = 1e-12, 1e-12
+        setup.mesh_args = [2, 2]
+        setup.simplex = False
+        # setup.subtract_fracture_pressure = False
+        u_mortar, contact_force, fracture_pressure, fracture_temperature = self._solve(
+            setup
+        )
+        self.assertTrue(np.all(np.isclose(fracture_pressure, -0.00022357)))
+        self.assertTrue(np.all(np.isclose(u_mortar[1], -9.43991090e-04)))
+        self.assertTrue(np.all(np.isclose(fracture_temperature, 0.0)))
+
+    def test_pull_north_reduce_to_TM(self):
+        """
+        With vanishing TH and TM coupling terms, the p and u solutions should approach the
+        pure HM case.
+        The hardcoded values below are taken from the corresponding biot test, i.e.
+        test_pull_north_negative_scalar of TestBiot in test_contact_mechanics_biot.
+        They should be changed iff the values from that test change. For compatability with
+        TM, the HM variant should be run with subtract_fracture_pressure=False (this leads
+        to slightly more opening).
+        """
+        setup = SetupTHM(ux_south=0, uy_south=0, ux_north=0, uy_north=0.001)
+        setup.mesh_args = [2, 2]
+        setup.simplex = False
+        setup.T_0_Kelvin = 1
+        setup.alpha, setup.gamma, setup.advection_weight = 1e-15, 1e-15, 1e-15
+        setup.subtract_fracture_pressure = False
+        u_mortar, contact_force, fracture_pressure, fracture_temperature = self._solve(
+            setup
+        )
+        d_h = setup.gb.node_props(setup._nd_grid())
+        self.assertTrue(np.all(np.isclose(fracture_temperature, -0.00023684)))
+        self.assertTrue(np.all(np.isclose(u_mortar[1], -1.02780375e-03)))
+        self.assertTrue(np.all(np.isclose(fracture_pressure, 0.0)))
 
 
 class SetupTHM(ProblemDataTime, model.THM):
-    def __init__(self, ux_south, uy_south, ux_north, uy_north, source_value=0):
+    def __init__(self, ux_south, uy_south, ux_north, uy_north):
 
         self.mesh_args = {
             "mesh_size_frac": 0.5,
@@ -208,32 +288,32 @@ class SetupTHM(ProblemDataTime, model.THM):
         self.uy_south = uy_south
         self.ux_north = ux_north
         self.uy_north = uy_north
-        self.scalar_source_value = source_value
+        self.scalar_source_value = 0
 
-    def compute_aperture(self, g, from_iterate=True):
-        self.initial_aperture = 1e-4
-        apertures = np.ones(g.num_cells)
-        gb = self.gb
-        if g.dim == (self.Nd - 1):
-            # Initial aperture
-            apertures *= self.initial_aperture
+    def biot_alpha(self, g):
+        if hasattr(self, "alpha"):
+            return self.alpha
+        else:
+            return super().biot_alpha(g)
 
-            # Reconstruct the displacement solution on the fracture
-            g_h = gb.node_neighbors(g)[0]
-            assert g_h.dim == self.Nd
-            data_edge = gb.edge_props((g, g_h))
-            if pp.STATE in data_edge:
-                u_mortar_local = self.reconstruct_local_displacement_jump(
-                    data_edge, from_iterate=from_iterate
-                )
-                # Magnitudes of normal and tangential components
-                norm_u_n = np.absolute(u_mortar_local[-1])
-                norm_u_tau = np.linalg.norm(u_mortar_local[:-1], axis=0)
-                # Add contributions
-                slip_angle = 0.5
-                apertures += norm_u_n * np.cos(slip_angle) + norm_u_tau
+    def biot_beta(self, g):
+        if hasattr(self, "beta"):
+            return self.beta
+        else:
+            return super().biot_beta(g)
 
-        return apertures
+    def scalar_temperature_coupling_coefficient(self, g):
+        if hasattr(self, "gamma"):
+            return self.gamma
+        else:
+            return super().scalar_temperature_coupling_coefficient(g)
+
+    def set_temperature_parameters(self):
+        super().set_temperature_parameters()
+        if hasattr(self, "advection_weight"):
+            w = self.advection_weight
+            for g, d in self.gb:
+                d[pp.PARAMETERS][self.temperature_parameter_key]["advection_weight"] = w
 
 
 if __name__ == "__main__":
