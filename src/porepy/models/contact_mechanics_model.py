@@ -294,7 +294,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                         self.mortar_displacement_variable: np.zeros(size)
                     },
                 }
-                pp.set_state(d, state)
+            else:
+                state = {}
+            pp.set_state(d, state)
 
     def update_state(self, solution_vector):
         """
@@ -511,10 +513,10 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         return error, converged, diverged
 
     def after_newton_failure(self):
-        if self._linear_problem():
-            raise ValueError("Tried solving singular matrix for the linear problem.")
-        else:
+        if self._is_nonlinear_problem():
             raise ValueError("Newton iterations did not converge")
+        else:
+            raise ValueError("Tried solving singular matrix for the linear problem.")
 
     def initialize_linear_solver(self):
         tic = time.time()

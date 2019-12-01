@@ -183,7 +183,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             a = self.compute_aperture(g1)
             mg = data_edge["mortar_grid"]
 
-            normal_diffusivity = 2 / kappa * mg.slave_to_mortar_int() * a
+            normal_diffusivity = kappa * 2 / (mg.slave_to_mortar_int() * a)
 
             data_edge = pp.initialize_data(
                 e,
@@ -248,6 +248,14 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                         "source": source_disc_s,
                     },
                 }
+            else:
+                d[pp.DISCRETIZATION] = {
+                    var_s: {
+                        "diffusion": diff_disc_s,
+                        "mass": mass_disc_s,
+                        "source": source_disc_s,
+                    }
+                }
 
         # Define edge discretizations for the mortar grid
         contact_law = pp.ColoumbContact(self.mechanics_parameter_key, self.Nd)
@@ -310,7 +318,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 if self.subtract_fracture_pressure:
                     d[pp.COUPLING_DISCRETIZATION].update(
                         {
-                            "matrix_scalar_to_force_balance": {
+                            "fracture_scalar_to_force_balance": {
                                 g_h: (var_s, "mass"),
                                 g_l: (var_s, "mass"),
                                 e: (
@@ -321,9 +329,16 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                         }
                     )
             else:
-                raise ValueError(
-                    "assign_discretizations assumes no fracture intersections."
-                )
+                d[pp.COUPLING_DISCRETIZATION] = {
+                    self.scalar_coupling_term: {
+                        g_h: (var_s, "diffusion"),
+                        g_l: (var_s, "diffusion"),
+                        e: (
+                            self.mortar_scalar_variable,
+                            pp.RobinCoupling(key_s, diff_disc_s),
+                        ),
+                    }
+                }
 
     def assign_variables(self):
         """
@@ -342,7 +357,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                     self.scalar_variable: {"cells": 1},
                 }
             else:
-                d[pp.PRIMARY_VARIABLES] = {}
+                d[pp.PRIMARY_VARIABLES] = {self.scalar_variable: {"cells": 1}}
         # Then for the edges
         for e, d in self.gb.edges():
             _, g_h = self.gb.nodes_of_edge(e)
@@ -352,6 +367,8 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                     self.mortar_displacement_variable: {"cells": self.Nd},
                     self.mortar_scalar_variable: {"cells": 1},
                 }
+            else:
+                d[pp.PRIMARY_VARIABLES] = {self.mortar_scalar_variable: {"cells": 1}}
 
     def discretize_biot(self):
         """
@@ -504,7 +521,6 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 np.max(np.sum(np.abs(A), axis=1)), np.min(np.sum(np.abs(A), axis=1))
             )
         )
-
         if self.linear_solver == "direct":
             return spla.spsolve(A, b)
         elif self.linear_solver == "pyamg":
