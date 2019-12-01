@@ -15,9 +15,7 @@ class ImplicitMassMatrix(pp.MassMatrix):
     pp.STATE field of the data dictionary.
     """
 
-    def __init__(
-        self, keyword="flow", variable="pressure", mass_weight_key="mass_weight"
-    ):
+    def __init__(self, keyword="flow", variable="pressure"):
         """ Set the discretization, with the keyword used for storing various
         information associated with the discretization. The time discretisation also
         requires the previous solution, thus the variable needs to be specified.
@@ -26,7 +24,7 @@ class ImplicitMassMatrix(pp.MassMatrix):
             keyword (str): Identifier of all information used for this
                 discretization.
         """
-        super().__init__(keyword, mass_weight_key)
+        super().__init__(keyword)
         self.variable = variable
 
     def assemble_rhs(self, g, data):

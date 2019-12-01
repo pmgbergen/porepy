@@ -31,6 +31,7 @@ import logging
 import time
 import scipy.sparse as sps
 import scipy.sparse.linalg as spla
+from typing import Dict
 
 import porepy.models.contact_mechanics_biot_model as parent_model
 from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
@@ -40,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 
 class THM(parent_model.ContactMechanicsBiot):
-    def __init__(self, params=None):
+    def __init__(self, params: Dict = None) -> None:
         super().__init__(params)
 
         # temperature
@@ -59,10 +60,10 @@ class THM(parent_model.ContactMechanicsBiot):
         self.T_0_Kelvin = pp.CELSIUS_to_KELVIN(0)
 
         # Temperature pressure coupling
-        self.t2s_weight_key = "t2s_coupling_weight"
-        self.s2t_weight_key = "s2t_coupling_weight"
-        self.t2s_coupling_term = "s_effect_on_t"
-        self.s2t_coupling_term = "t_effect_on_s"
+        self.t2s_parameter_key = "t2s_parameters"
+        self.s2t_parameter_key = "s2t_parameters"
+        self.s2t_coupling_term = "s_effect_on_t"
+        self.t2s_coupling_term = "t_effect_on_s"
         # Temperature mechanics coupling
         self.mechanics_temperature_parameter_key = "mech_temperature"
 
@@ -74,39 +75,33 @@ class THM(parent_model.ContactMechanicsBiot):
         self.set_temperature_parameters()
         self.set_mechanics_parameters()
 
-    def bc_type_temperature(self, g):
+    def bc_type_temperature(self, g: pp.Grid) -> pp.BoundaryCondition:
         # Define boundary regions
         all_bf, *_ = self.domain_boundary_sides(g)
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, all_bf, "dir")
 
-    def bc_values_temperature(self, g):
+    def bc_values_temperature(self, g: pp.Grid) -> np.ndarray:
         return np.zeros(g.num_faces)
 
-    def source_temperature(self, g):
+    def source_temperature(self, g: pp.Grid) -> np.ndarray:
         return np.zeros(g.num_cells)
 
-    def biot_beta(self, g):
+    def biot_beta(self, g: pp.Grid) -> float:
         """
         TM coupling coefficient
         """
         if g.dim < self.Nd:
-            return 1 / self.T_0_Kelvin
-        return 1
+            return 1.0 / self.T_0_Kelvin
+        return 1.0
 
-    def scalar_temperature_coupling_coefficient(self, g):
+    def scalar_temperature_coupling_coefficient(self, g: pp.Grid) -> float:
         """
         TH coupling coefficient
         """
-        return -1
+        return -1.0
 
-    def compute_aperture(self, g):
-        apertures = np.ones(g.num_cells)
-        if g.dim < self.Nd:
-            apertures *= 0.1
-        return apertures
-
-    def set_mechanics_parameters(self):
+    def set_mechanics_parameters(self) -> None:
         """
         Set the parameters for the simulation.
         """
@@ -123,7 +118,7 @@ class THM(parent_model.ContactMechanicsBiot):
                     },
                 )
 
-    def set_scalar_parameters(self):
+    def set_scalar_parameters(self) -> None:
         super().set_scalar_parameters()
         for g, d in self.gb:
             a = self.compute_aperture(g)
@@ -136,10 +131,13 @@ class THM(parent_model.ContactMechanicsBiot):
                 * self.temperature_scale
             )
             pp.initialize_data(
-                g, d, self.scalar_parameter_key, {self.t2s_weight_key: t2s_coupling}
+                g,
+                d,
+                self.t2s_parameter_key,
+                {"mass_weight": t2s_coupling, "time_step": self.time_step},
             )
 
-    def set_temperature_parameters(self):
+    def set_temperature_parameters(self) -> None:
 
         tensor_scale = self.temperature_scale / self.length_scale ** 2 / self.T_0_Kelvin
         kappa = 1 * tensor_scale
@@ -177,11 +175,15 @@ class THM(parent_model.ContactMechanicsBiot):
                     "second_order_tensor": thermal_conductivity,
                     "advection_weight": advection_weight,
                     "time_step": self.time_step,
-                    self.s2t_weight_key: s2t_coupling,
                     "darcy_flux": np.zeros(g.num_faces),
                 },
             )
-
+            pp.initialize_data(
+                g,
+                d,
+                self.s2t_parameter_key,
+                {"mass_weight": s2t_coupling, "time_step": self.time_step},
+            )
         # Assign diffusivity in the normal direction of the fractures.
         for e, data_edge in self.gb.edges():
             g1, _ = self.gb.nodes_of_edge(e)
@@ -256,14 +258,10 @@ class THM(parent_model.ContactMechanicsBiot):
         # varianter som henter ut s-varianten og ganger med alpha/beta?
         stabilization_disc_t = pp.BiotStabilization(key_t, var_t)
         s2t_disc = IE_discretizations.ImplicitMassMatrix(
-            keyword=self.temperature_parameter_key,
-            variable=var_s,
-            mass_weight_key=self.s2t_weight_key,
+            keyword=self.s2t_parameter_key, variable=var_s
         )
         t2s_disc = IE_discretizations.ImplicitMassMatrix(
-            keyword=self.scalar_parameter_key,
-            variable=var_t,
-            mass_weight_key=self.t2s_weight_key,
+            keyword=self.t2s_parameter_key, variable=var_t
         )
 
         # Assign node discretizations
@@ -376,7 +374,10 @@ class THM(parent_model.ContactMechanicsBiot):
             }
             iterate = {self.mortar_scalar_variable: cell_zeros}
             d[pp.STATE].update(state)
-            d[pp.STATE]["previous_iterate"].update(iterate)
+            if "previous_iterate" in d[pp.STATE]:
+                d[pp.STATE]["previous_iterate"].update(iterate)
+            else:
+                d[pp.STATE]["previous_iterate"] = iterate
 
     def compute_fluxes(self):
         pp.fvutils.compute_darcy_flux(
@@ -405,20 +406,24 @@ class THM(parent_model.ContactMechanicsBiot):
         self.copy_biot_discretizations()
         # Next, discretize term on the matrix grid not covered by the Biot discretization,
         # i.e. the source term
-        pressure_terms = ["source", self.t2s_coupling_term]
-        self.assembler.discretize(grid=self._nd_grid(), term_filter=pressure_terms)
+        pressure_terms = ["source"]
+        self.assembler.discretize(
+            grid=self._nd_grid(),
+            term_filter=pressure_terms,
+            variable_filter=self.scalar_variable,
+        )
         # Then the temperature discretizations
-        temperature_terms = [
-            "source",
-            self.s2t_coupling_term,
-            "diffusion",
-            "mass",
-            self.advection_term,
-        ]
+        temperature_terms = ["source", "diffusion", "mass", self.advection_term]
         self.assembler.discretize(
             grid=self._nd_grid(),
             term_filter=temperature_terms,
             variable_filter=self.temperature_variable,
+        )
+        coupling_terms = [self.s2t_coupling_term, self.t2s_coupling_term]
+        self.assembler.discretize(
+            grid=self._nd_grid(),
+            term_filter=coupling_terms,
+            variable_filter=[self.temperature_variable, self.scalar_variable],
         )
 
         # Finally, discretize terms on the lower-dimensional grids. This can be done
