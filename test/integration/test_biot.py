@@ -276,5 +276,4 @@ class BiotTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    BiotTest().test_no_dynamics_2d()
     unittest.main()

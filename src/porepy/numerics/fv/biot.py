@@ -540,10 +540,10 @@ class Biot(Mpsa):
         # We are done with the discretization. What remains is to map the computed
         # matrices back from the active grid to the full one.
         face_map_vec, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
-            g, l2g_faces, l2g_cells, is_vector=True
+            g, extracted_faces, active_cells, is_vector=True
         )
         face_map_scalar, cell_map_scalar = pp.fvutils.map_subgrid_to_grid(
-            g, l2g_faces, l2g_cells, is_vector=False
+            g, extracted_faces, active_cells, is_vector=False
         )
 
         stress = face_map_vec * active_stress * cell_map_vec
@@ -583,8 +583,16 @@ class Biot(Mpsa):
             grad_p,
             bound_displacement_pressure,
         )
-
-        eliminate_cells = np.setdiff1d(np.arange(g.num_faces), active_faces)
+        
+        # Cells to be updated is a bit more involved. Best guess now is to update
+        # all cells that has had all its faces updated. This may not be correct for
+        # general combinations of specified cells, nodes and faces.
+        tmp = g.cell_faces.transpose()
+        tmp.data = np.abs(tmp.data)
+        af_vec = np.zeros(g.num_faces, dtype=np.bool)
+        af_vec[active_faces] = 1
+        update_cell_ind = np.where(((tmp * af_vec) == tmp.sum(axis=1).A.T)[0])[0]
+        eliminate_cells = np.setdiff1d(np.arange(g.num_cells), update_cell_ind)
         self._remove_nonlocal_contribution(
             eliminate_cells, 1, div_u, bound_div_u, stabilization
         )
@@ -593,14 +601,6 @@ class Biot(Mpsa):
         if update:
             # The faces to be updated are given by active_faces
             update_face_ind = pp.fvutils.expand_indices_nd(active_faces, g.dim)
-            # Cells to be updated is a bit more involved. Best guess now is to update
-            # all cells that has had all its faces updated. This may not be correct for
-            # general combinations of specified cells, nodes and faces.
-            tmp = g.cell_faces.transpose()
-            tmp.data = np.abs(tmp.data)
-            af_vec = np.zeros(g.num_faces, dtype=np.bool)
-            af_vec[active_faces] = 1
-            update_cell_ind = np.where((tmp * af_vec) == tmp.sum(axis=0).A)[0]
 
             matrices_m[self.stress_matrix_key][update_face_ind] = stress[
                 update_face_ind
@@ -630,13 +630,14 @@ class Biot(Mpsa):
         else:
             matrices_m[self.stress_matrix_key] = stress
             matrices_m[self.bound_stress_matrix_key] = bound_stress
-            matrices_f[self.div_u_matrix_key] = div_u
-            matrices_f[self.bound_div_u_matrix_key] = bound_div_u
             matrices_m[self.grad_p_matrix_key] = grad_p
-            matrices_f[self.stabilization_matrix_key] = stabilization
             matrices_m[self.bound_displacment_cell_matrix_key] = bound_displacement_cell
             matrices_m[self.bound_displacment_face_matrix_key] = bound_displacement_face
             matrices_m[self.bound_pressure_matrix_key] = bound_displacement_pressure
+
+            matrices_f[self.div_u_matrix_key] = div_u
+            matrices_f[self.bound_div_u_matrix_key] = bound_div_u
+            matrices_f[self.stabilization_matrix_key] = stabilization
 
     def _local_discretization(
         self,
