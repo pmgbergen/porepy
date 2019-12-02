@@ -13,6 +13,7 @@ import porepy as pp
 class TestPartialMPFA(unittest.TestCase):
     """ Test various partial assembly for mpfa.
     """
+
     def setup(self):
         g = pp.CartGrid([5, 5])
         g.compute_geometry()
@@ -127,7 +128,8 @@ class TestPartialMPFA(unittest.TestCase):
 
 class TestPartialMPSA(unittest.TestCase):
     """ Test various partial assembly features for mpsa.
-    """    
+    """
+
     def setup(self):
         g = pp.CartGrid([5, 5])
         g.compute_geometry()
@@ -209,7 +211,7 @@ class TestPartialMPSA(unittest.TestCase):
         self.assertTrue(np.max(np.abs(partial_bound.data)) == 0)
 
     def test_bound_cell_node_keyword(self):
-        # Compute update for a single cell on the 
+        # Compute update for a single cell on the
         g, stiffness, bnd, stress, bound_stress = self.setup()
 
         # inner_cell = 10
@@ -326,9 +328,11 @@ class TestPartialMPSA(unittest.TestCase):
         self.assertTrue((bound_stress - bound_stress_full).max() < 1e-8)
         self.assertTrue((bound_stress - bound_stress_full).min() > -1e-8)
 
+
 class PartialBiotMpsa(TestPartialMPSA):
     """ Test various partial assembly for mpsa for poro-elasticity.
     """
+
     def setup_biot(self):
         g = pp.CartGrid([5, 5])
         g.compute_geometry()
@@ -339,7 +343,7 @@ class PartialBiotMpsa(TestPartialMPSA):
             "fourth_order_tensor": stiffness,
             "bc": bnd,
             "inverter": "python",
-            "biot_alpha": 1
+            "biot_alpha": 1,
         }
         keyword_mech = "mechanics"
         keyword_flow = "flow"
@@ -354,15 +358,21 @@ class PartialBiotMpsa(TestPartialMPSA):
         bound_div_u = data[pp.DISCRETIZATION_MATRICES][keyword_flow][
             discr.bound_div_u_matrix_key
         ]
-        stab = data[pp.DISCRETIZATION_MATRICES][keyword_flow][discr.stabilization_matrix_key]
-        grad_p = data[pp.DISCRETIZATION_MATRICES][keyword_mech][discr.grad_p_matrix_key]        
-        bound_pressure = data[pp.DISCRETIZATION_MATRICES][keyword_mech][discr.bound_pressure_matrix_key]
+        stab = data[pp.DISCRETIZATION_MATRICES][keyword_flow][
+            discr.stabilization_matrix_key
+        ]
+        grad_p = data[pp.DISCRETIZATION_MATRICES][keyword_mech][discr.grad_p_matrix_key]
+        bound_pressure = data[pp.DISCRETIZATION_MATRICES][keyword_mech][
+            discr.bound_pressure_matrix_key
+        ]
 
         return g, stiffness, bnd, div_u, bound_div_u, grad_p, stab, bound_pressure
-    
+
     def test_inner_cell_node_keyword(self):
         # Compute update for a single cell in the interior.
-        g, stiffness, bnd, div_u, bound_div_u, grad_p, stab, bound_pressure = self.setup_biot()
+        g, stiffness, bnd, div_u, bound_div_u, grad_p, stab, bound_pressure = (
+            self.setup_biot()
+        )
 
         inner_cell = 12  # The target cell
         nodes_of_cell = np.array([14, 15, 20, 21])
@@ -374,7 +384,7 @@ class PartialBiotMpsa(TestPartialMPSA):
             "bc": bnd,
             "inverter": "python",
             "specified_nodes": np.array([nodes_of_cell]),
-            "biot_alpha": 1
+            "biot_alpha": 1,
         }
         keyword_mech = "mechanics"
         keyword_flow = "flow"
@@ -392,16 +402,16 @@ class PartialBiotMpsa(TestPartialMPSA):
         partial_bound_div_u = data[pp.DISCRETIZATION_MATRICES][keyword_flow][
             discr.bound_div_u_matrix_key
         ]
-        partial_grad_p =  data[pp.DISCRETIZATION_MATRICES][keyword_mech][
+        partial_grad_p = data[pp.DISCRETIZATION_MATRICES][keyword_mech][
             discr.grad_p_matrix_key
         ]
-        partial_stab =  data[pp.DISCRETIZATION_MATRICES][keyword_flow][
+        partial_stab = data[pp.DISCRETIZATION_MATRICES][keyword_flow][
             discr.stabilization_matrix_key
         ]
-        partial_bound_pressure =  data[pp.DISCRETIZATION_MATRICES][keyword_mech][
+        partial_bound_pressure = data[pp.DISCRETIZATION_MATRICES][keyword_mech][
             discr.bound_pressure_matrix_key
-        ]        
-        
+        ]
+
         active_faces = data[pp.PARAMETERS][keyword_mech]["active_faces"]
 
         self.assertTrue(faces_of_cell.size == active_faces.size)
@@ -420,22 +430,23 @@ class PartialBiotMpsa(TestPartialMPSA):
         self.assertTrue(np.max(np.abs(diff_stab[inner_cell])) == 0)
         self.assertTrue(np.max(np.abs(diff_bound_pressure[faces_of_cell_vec])) == 0)
 
-
         # Only the faces of the central cell should be zero
         partial_div_u[inner_cell, :] = 0
         partial_bound_div_u[inner_cell, :] = 0
         partial_grad_p[faces_of_cell_vec, :] = 0
         partial_stab[inner_cell, :] = 0
-        partial_bound_pressure[faces_of_cell_vec, :] = 0        
+        partial_bound_pressure[faces_of_cell_vec, :] = 0
         self.assertTrue(np.max(np.abs(partial_div_u.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound_div_u.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_grad_p.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_stab.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound_pressure.data)) == 0)
-    
+
     def test_bound_cell_node_keyword(self):
-        # Compute update for a single cell on the 
-        g, stiffness, bnd, div_u, bound_div_u, grad_p, stab, bound_pressure = self.setup_biot()
+        # Compute update for a single cell on the
+        g, stiffness, bnd, div_u, bound_div_u, grad_p, stab, bound_pressure = (
+            self.setup_biot()
+        )
 
         inner_cell = 10
         nodes_of_cell = np.array([12, 13, 18, 19])
@@ -447,7 +458,7 @@ class PartialBiotMpsa(TestPartialMPSA):
             "bc": bnd,
             "inverter": "python",
             "specified_nodes": np.array([nodes_of_cell]),
-            "biot_alpha": 1
+            "biot_alpha": 1,
         }
         keyword_mech = "mechanics"
         keyword_flow = "flow"
@@ -465,16 +476,16 @@ class PartialBiotMpsa(TestPartialMPSA):
         partial_bound_div_u = data[pp.DISCRETIZATION_MATRICES][keyword_flow][
             discr.bound_div_u_matrix_key
         ]
-        partial_grad_p =  data[pp.DISCRETIZATION_MATRICES][keyword_mech][
+        partial_grad_p = data[pp.DISCRETIZATION_MATRICES][keyword_mech][
             discr.grad_p_matrix_key
         ]
-        partial_stab =  data[pp.DISCRETIZATION_MATRICES][keyword_flow][
+        partial_stab = data[pp.DISCRETIZATION_MATRICES][keyword_flow][
             discr.stabilization_matrix_key
         ]
-        partial_bound_pressure =  data[pp.DISCRETIZATION_MATRICES][keyword_mech][
+        partial_bound_pressure = data[pp.DISCRETIZATION_MATRICES][keyword_mech][
             discr.bound_pressure_matrix_key
-        ]        
-        
+        ]
+
         active_faces = data[pp.PARAMETERS][keyword_mech]["active_faces"]
 
         self.assertTrue(faces_of_cell.size == active_faces.size)
@@ -493,13 +504,12 @@ class PartialBiotMpsa(TestPartialMPSA):
         self.assertTrue(np.max(np.abs(diff_stab[inner_cell])) == 0)
         self.assertTrue(np.max(np.abs(diff_bound_pressure[faces_of_cell_vec])) == 0)
 
-
         # Only the faces of the central cell should be zero
         partial_div_u[inner_cell, :] = 0
         partial_bound_div_u[inner_cell, :] = 0
         partial_grad_p[faces_of_cell_vec, :] = 0
         partial_stab[inner_cell, :] = 0
-        partial_bound_pressure[faces_of_cell_vec, :] = 0        
+        partial_bound_pressure[faces_of_cell_vec, :] = 0
         self.assertTrue(np.max(np.abs(partial_div_u.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound_div_u.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_grad_p.data)) == 0)
@@ -537,7 +547,7 @@ class PartialBiotMpsa(TestPartialMPSA):
             "fourth_order_tensor": stiffness,
             "bc": bnd,
             "inverter": "python",
-            "biot_alpha": 1
+            "biot_alpha": 1,
         }
         keyword_mech = "mechanics"
         keyword_flow = "flow"
@@ -549,14 +559,21 @@ class PartialBiotMpsa(TestPartialMPSA):
         discr = pp.Biot()
         discr.discretize(g, data)
 
-        div_u_full = data[pp.DISCRETIZATION_MATRICES][keyword_flow][discr.div_u_matrix_key]
+        div_u_full = data[pp.DISCRETIZATION_MATRICES][keyword_flow][
+            discr.div_u_matrix_key
+        ]
         bound_div_u_full = data[pp.DISCRETIZATION_MATRICES][keyword_flow][
             discr.bound_div_u_matrix_key
         ]
-        stab_full = data[pp.DISCRETIZATION_MATRICES][keyword_flow][discr.stabilization_matrix_key]
-        grad_p_full = data[pp.DISCRETIZATION_MATRICES][keyword_mech][discr.grad_p_matrix_key]        
-        bound_pressure_full = data[pp.DISCRETIZATION_MATRICES][keyword_mech][discr.bound_pressure_matrix_key]
-
+        stab_full = data[pp.DISCRETIZATION_MATRICES][keyword_flow][
+            discr.stabilization_matrix_key
+        ]
+        grad_p_full = data[pp.DISCRETIZATION_MATRICES][keyword_mech][
+            discr.grad_p_matrix_key
+        ]
+        bound_pressure_full = data[pp.DISCRETIZATION_MATRICES][keyword_mech][
+            discr.bound_pressure_matrix_key
+        ]
 
         cn = g.cell_nodes()
         for ci in range(g.num_cells):
@@ -574,15 +591,15 @@ class PartialBiotMpsa(TestPartialMPSA):
             partial_bound_div_u = data[pp.DISCRETIZATION_MATRICES][keyword_flow][
                 discr.bound_div_u_matrix_key
             ]
-            partial_grad_p =  data[pp.DISCRETIZATION_MATRICES][keyword_mech][
+            partial_grad_p = data[pp.DISCRETIZATION_MATRICES][keyword_mech][
                 discr.grad_p_matrix_key
             ]
-            partial_stab =  data[pp.DISCRETIZATION_MATRICES][keyword_flow][
+            partial_stab = data[pp.DISCRETIZATION_MATRICES][keyword_flow][
                 discr.stabilization_matrix_key
             ]
             partial_bound_pressure = data[pp.DISCRETIZATION_MATRICES][keyword_mech][
                 discr.bound_pressure_matrix_key
-            ]   
+            ]
 
             active_faces = data[pp.PARAMETERS][keyword_mech]["active_faces"]
 
@@ -593,23 +610,23 @@ class PartialBiotMpsa(TestPartialMPSA):
                 partial_stab[cells_covered, :] *= 0
                 partial_div_u[cells_covered, :] *= 0
                 partial_bound_div_u[cells_covered, :] *= 0
-                
+
             faces_covered[active_faces] = True
             cells_covered[ci] = True
-            
+
             div_u += partial_div_u
             bound_div_u += partial_bound_div_u
             grad_p += partial_grad_p
             stab += partial_stab
             bound_displacement_pressure += partial_bound_pressure
-            
 
         self.assertTrue((div_u_full - div_u).max() < 1e-8)
         self.assertTrue((bound_div_u_full - bound_div_u).min() > -1e-8)
         self.assertTrue((grad_p_full - grad_p).max() < 1e-8)
         self.assertTrue((stab_full - stab).min() > -1e-8)
-        self.assertTrue((bound_displacement_pressure - bound_pressure_full).min() > -1e-8)
-
+        self.assertTrue(
+            (bound_displacement_pressure - bound_pressure_full).min() > -1e-8
+        )
 
 
 if __name__ == "__main__":

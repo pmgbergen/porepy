@@ -127,7 +127,7 @@ class Mpfa(FVElliptic):
         matrix_dictionary[self.flux_matrix_key] = trm
         matrix_dictionary[self.bound_flux_matrix_key] = bound_flux
         matrix_dictionary[self.bound_pressure_cell_matrix_key] = bp_cell
-        matrix_dictionary[self.bound_pressure_face_matrix_key]= bp_face
+        matrix_dictionary[self.bound_pressure_face_matrix_key] = bp_face
 
     def mpfa(
         self,

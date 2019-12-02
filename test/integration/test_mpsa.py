@@ -258,6 +258,7 @@ class TestMpsaExactReproduction(unittest.TestCase):
                     np.all(np.sum(traction_2d[:, fid] * sgn, axis=1) < 1e-10)
                 )
 
+
 class TestUpdateMpsaDiscretization(unittest.TestCase):
     """
     Class for testing updating the discretization, including the reconstruction
@@ -570,6 +571,7 @@ class TestUpdateMpsaDiscretization(unittest.TestCase):
         self.assertTrue(np.allclose((hf_cell - hf_cell_rob).data, 0))
         self.assertTrue(np.allclose((hf_bound - hf_bound_rob).data, 0))
 
+
 class MpsaReconstructBoundaryDisplacement(unittest.TestCase):
     def test_cart_2d(self):
         """
@@ -767,6 +769,7 @@ class MpsaReconstructBoundaryDisplacement(unittest.TestCase):
 
         self.assertTrue(np.all(np.abs(U_f[:, dir_ind] - u_b[:, dir_ind]) < 1e-10))
 
+
 class TestMpsaDiscretizeAssembly(unittest.TestCase):
     # Test of discretization and assembly
     def test_matrix_rhs(self):
@@ -808,6 +811,7 @@ class TestMpsaBoundRhs(unittest.TestCase):
     Checks the actions done in porepy.numerics.fv.mpsa.create_bound_rhs
     for handling boundary conditions expressed in a vectorial form
     """
+
     def test_neu(self):
         g = pp.StructuredTriangleGrid([1, 1])
         basis = np.random.rand(g.dim, g.dim, g.num_faces)
@@ -1033,7 +1037,6 @@ def true_2d(g, constit=None):
     constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=0)
     constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=1)
     return g, constit
-
 
 
 class RobinBoundTest(unittest.TestCase):

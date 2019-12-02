@@ -83,7 +83,7 @@ class Tpfa(FVElliptic):
 
         if g.dim == 0:
             matrix_dictionary[self.flux_matrix_key] = sps.csr_matrix([0])
-            matrix_dictionary[self.bound_flux_matrix_key]= 0
+            matrix_dictionary[self.bound_flux_matrix_key] = 0
             matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csr_matrix([1])
             matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csr_matrix([0])
             return None
@@ -181,5 +181,7 @@ class Tpfa(FVElliptic):
             # This is only called for 1D problems,
             # for higher dimensions method calls GCMPFA
             if not g.dim == 1:
-                raise NotImplementedError("Consistent treatment of gravity requires mpfa")
+                raise NotImplementedError(
+                    "Consistent treatment of gravity requires mpfa"
+                )
             matrix_dictionary[self.div_vector_source_key] = t

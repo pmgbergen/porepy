@@ -16,7 +16,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
         # Identify which parameters to use:
         self.keyword = keyword
-        
+
         # Keywords used to identify individual terms in the discretization matrix dictionary
         # The flux discretization (transmissibility matrix)
         self.flux_matrix_key = "flux"
@@ -24,7 +24,7 @@ class FVElliptic(pp.EllipticDiscretization):
         self.bound_flux_matrix_key = "bound_flux"
         # Contribution of cell center values in reconstruction of boundary pressures
         self.bound_pressure_cell_matrix_key = "bound_pressure_cell"
-        # Contribution of boundary values (Neumann or Dirichlet, depending on the 
+        # Contribution of boundary values (Neumann or Dirichlet, depending on the
         # condition set on faces) in reconstruction of boundary pressures
         self.bound_pressure_face_matrix_key = "bound_pressure_face"
         # Discretization of vector source terms (gravity)
@@ -227,7 +227,9 @@ class FVElliptic(pp.EllipticDiscretization):
         """
         div = g.cell_faces.T
 
-        bound_flux = data[pp.DISCRETIZATION_MATRICES][self.keyword][self.bound_flux_matrix_key]
+        bound_flux = data[pp.DISCRETIZATION_MATRICES][self.keyword][
+            self.bound_flux_matrix_key
+        ]
         # Projection operators to grid
         mg = data_edge["mortar_grid"]
 
@@ -331,7 +333,9 @@ class FVElliptic(pp.EllipticDiscretization):
             proj_int = mg.mortar_to_master_int()
 
         cc[2, self_ind] += proj * matrix_dictionary[self.bound_pressure_cell_matrix_key]
-        cc[2, 2] += proj * matrix_dictionary[self.bound_pressure_face_matrix_key] * proj_int
+        cc[2, 2] += (
+            proj * matrix_dictionary[self.bound_pressure_face_matrix_key] * proj_int
+        )
         # Add contribution from boundary conditions to the pressure at the fracture
         # faces. For TPFA this will be zero, but for MPFA we will get a contribution
         # on the fractures extending to the boundary due to the interaction region
@@ -368,7 +372,9 @@ class FVElliptic(pp.EllipticDiscretization):
         matrix_dictionary = data_grid[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         cc[1, 2] += (
-            proj_primary * matrix_dictionary[self.bound_pressure_face_matrix_key] * proj_secondary
+            proj_primary
+            * matrix_dictionary[self.bound_pressure_face_matrix_key]
+            * proj_secondary
         )
         return cc, rhs
 

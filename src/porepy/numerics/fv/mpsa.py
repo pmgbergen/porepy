@@ -1,7 +1,7 @@
 """
 Implementation of the multi-point stress appoximation method.
 
-The implementation is based on the weakly symmetric version of MPSA, described in 
+The implementation is based on the weakly symmetric version of MPSA, described in
 
     Keilegavlen, Nordbotten: Finite volume methods for elasticity with weak symmetry,
         IJNME, 2017.
@@ -22,9 +22,9 @@ logger = logging.getLogger(__name__)
 
 class Mpsa:
     """ Implementation of the Multi-point stress approximation.
-    
+
     Attributes:
-        keyword (str): Keyword used to identify the parameter dictionary.  
+        keyword (str): Keyword used to identify the parameter dictionary.
             Defaults to "mechanics".
         stress_matrix_key (str): Keyword used to identify the discretization matrix for
             the stress. Defaults to "stress".
@@ -106,7 +106,7 @@ class Mpsa:
         stress approximation.
 
         The method computes traction over faces in terms of cell center displacements.
-        
+
         It is possible to do a partial discretization via parameters specified_cells,
         _nodes and _faces. This is considered an advanced, and only partly tested
         option.
