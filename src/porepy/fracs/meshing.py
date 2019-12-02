@@ -10,6 +10,7 @@ import numpy as np
 import scipy.sparse as sps
 import time
 import logging
+from typing import List
 
 import porepy as pp
 
@@ -22,7 +23,7 @@ from porepy.utils import mcolon
 logger = logging.getLogger(__name__)
 
 
-def grid_list_to_grid_bucket(grids, time_tot=None, **kwargs):
+def grid_list_to_grid_bucket(grids: List[List[pp.Grid]], time_tot: float = None, **kwargs) -> pp.GridBucket:
     """ Convert a list of grids to a full GridBucket.
 
     The list can come from several mesh constructors, both simplex and
@@ -77,16 +78,16 @@ def grid_list_to_grid_bucket(grids, time_tot=None, **kwargs):
     return gb
 
 
-def cart_grid(fracs, nx, **kwargs):
+def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucket:
     """
     Creates a cartesian fractured GridBucket in 2- or 3-dimensions.
 
     Parameters
     ----------
     fracs (list of np.ndarray): One list item for each fracture. Each item
-        consist of a (nd x 3) array describing fracture vertices. The
-        fractures has to be rectangles(3D) or straight lines(2D) that
-        alignes with the axis. The fractures may be intersecting.
+        consist of a (nd x npt) array describing fracture vertices, where npt is 2
+        for 2d domains, 4 for 3d domains. The fractures has to be rectangles(3D) or
+        straight lines(2D) that alignes with the axis. The fractures may be intersecting.
         The fractures will snap to closest grid faces.
     nx (np.ndarray): Number of cells in each direction. Should be 2D or 3D
     **kwargs:
@@ -111,10 +112,10 @@ def cart_grid(fracs, nx, **kwargs):
 
     Examples
     --------
-    frac1 = np.array([[1,4],[2,2]])
-    frac2 = np.array([[2,2],[4,1]])
+    frac1 = np.array([[1, 4], [2, 2]])
+    frac2 = np.array([[2, 2], [1, 4]])
     fracs = [frac1, frac2]
-    gb = cart_grid(fracs, [5,5])
+    gb = cart_grid_2d(fracs, [5, 5])
     """
     ndim = np.asarray(nx).size
     physdims = kwargs.get("physdims", None)
@@ -126,9 +127,9 @@ def cart_grid(fracs, nx, **kwargs):
 
     # Call relevant method, depending on grid dimensions
     if ndim == 2:
-        grids = structured.cart_grid_2d(fracs, nx, physdims=physdims)
+        grids = structured._cart_grid_2d(fracs, nx, physdims=physdims)
     elif ndim == 3:
-        grids = structured.cart_grid_3d(fracs, nx, physdims=physdims)
+        grids = structured._cart_grid_3d(fracs, nx, physdims=physdims)
     else:
         raise ValueError("Only support for 2 and 3 dimensions")
 
