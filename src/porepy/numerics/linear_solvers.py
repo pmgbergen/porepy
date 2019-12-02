@@ -5,16 +5,36 @@ setup object has its own system to assemble and solve the system; this
 is just a wrapper around that, mostly for compliance with the nonlinear
 case, see numerics.nonlinear.nonlinear_solvers.
 """
+from typing import Dict, Tuple
 
+from porepy.models.abstract_model import AbstractModel
 
 class LinearSolver:
-    def __init__(self, params=None):
+    def __init__(self, params: Dict = None) -> None:
+        """ Define linear solver.
+
+        Parameters:
+            params (dict): Parameters for the linear solver. Will be passed on to the 
+                model class. Thus the contect should be adapted to whatever needed for
+                the problem at hand.
+
+        """
         if params is None:
             params = {}
         # default_options.update(params)
         self.params = params  # default_options
 
-    def solve(self, setup):
+    def solve(self, setup: AbstractModel) -> Tuple[float, bool]:
+        """ Solve a linear problem defined by the current state of the model.
+
+        Parameters:
+            setup (subclass of pp.AbstractModel): Model to be solved.
+
+        Returns:
+            float: Norm of the error
+            boolean: True if the linear solver converged.
+
+        """
 
         setup.before_newton_loop()
         prev_sol = setup.get_state_vector()
