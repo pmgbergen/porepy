@@ -14,6 +14,7 @@ from __future__ import division
 import numpy as np
 import itertools
 from scipy import sparse as sps
+from typing import List, Union, Dict
 
 import porepy as pp
 from porepy.utils import matrix_compression, mcolon, tags
@@ -74,7 +75,7 @@ class Grid(object):
 
     """
 
-    def __init__(self, dim, nodes, face_nodes, cell_faces, name):
+    def __init__(self, dim: int, nodes: np.ndarray, face_nodes: sps.spmatrix, cell_faces: sps.spmatrix, name: Union[List[str], str]) -> None:
         """Initialize the grid
 
         See class documentation for further description of parameters.
@@ -90,23 +91,23 @@ class Grid(object):
         if not (dim >= 0 and dim <= 3):
             raise ValueError("A grid has to be 0, 1, 2, or 3.")
 
-        self.dim = dim
-        self.nodes = nodes
-        self.cell_faces = cell_faces
-        self.face_nodes = face_nodes
+        self.dim: int = dim
+        self.nodes: np.ndarray = nodes
+        self.cell_faces: sps.csc_matrix = cell_faces
+        self.face_nodes: sps.csc_matrix = face_nodes
 
         if isinstance(name, list):
-            self.name = name
+            self.name: List[str] = name
         else:
-            self.name = [name]
+            self.name: List[str] = [name]
 
         # Infer bookkeeping from size of parameters
-        self.num_nodes = nodes.shape[1]
-        self.num_faces = face_nodes.shape[1]
-        self.num_cells = cell_faces.shape[1]
+        self.num_nodes: int = nodes.shape[1]
+        self.num_faces: int = face_nodes.shape[1]
+        self.num_cells: int = cell_faces.shape[1]
 
         # Add tag for the boundary faces
-        self.tags = {}
+        self.tags: Dict = {}
         self.initiate_face_tags()
         self.update_boundary_face_tag()
 
@@ -143,7 +144,7 @@ class Grid(object):
             h.tags = self.tags.copy()
         return h
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Implementation of __repr__
 
@@ -155,7 +156,7 @@ class Grid(object):
         s += "Dimension " + str(self.dim)
         return s
 
-    def __str__(self):
+    def __str__(self) -> str:
         """ Implementation of __str__
         """
         s = str()
@@ -189,7 +190,7 @@ class Grid(object):
 
         return s
 
-    def compute_geometry(self):
+    def compute_geometry(self) -> None:
         """Compute geometric quantities for the grid.
 
         This method initializes class variables describing the grid
@@ -537,7 +538,7 @@ class Grid(object):
         self.cell_centers = cell_centers
         self.cell_volumes = cell_volumes
 
-    def cell_nodes(self):
+    def cell_nodes(self) -> sps.csc_matrix:
         """
         Obtain mapping between cells and nodes.
 
@@ -559,7 +560,7 @@ class Grid(object):
         mat = (self.face_nodes * cf_loc) > 0
         return mat
 
-    def num_cell_nodes(self):
+    def num_cell_nodes(self) -> np.ndarray:
         """ Number of nodes per cell.
 
         Returns:
@@ -568,7 +569,7 @@ class Grid(object):
         """
         return self.cell_nodes().sum(axis=0).A.ravel("F")
 
-    def get_internal_nodes(self):
+    def get_internal_nodes(self) -> np.ndarray:
         """
         Get internal nodes id of the grid.
 
@@ -581,27 +582,27 @@ class Grid(object):
         )
         return internal_nodes
 
-    def get_all_boundary_faces(self):
+    def get_all_boundary_faces(self) -> np.ndarray:
         """
         Get indices of all faces tagged as either fractures, domain boundary or
         tip.
         """
         return self.__indices(tags.all_face_tags(self.tags))
 
-    def get_all_boundary_nodes(self):
+    def get_all_boundary_nodes(self) -> np.ndarray:
         """
         Get indices of all nodes tagged as either fractures, domain boundary or
         tip.
         """
         return self.__indices(tags.all_node_tags(self.tags))
 
-    def get_boundary_faces(self):
+    def get_boundary_faces(self) -> np.ndarray:
         """
         Get indices of all faces tagged as domain boundary.
         """
         return self.__indices(self.tags["domain_boundary_faces"])
 
-    def get_internal_faces(self):
+    def get_internal_faces(self) -> np.ndarray:
         """
         Get internal faces id of the grid
 
@@ -613,7 +614,7 @@ class Grid(object):
             np.arange(self.num_faces), self.get_all_boundary_faces(), assume_unique=True
         )
 
-    def get_boundary_nodes(self):
+    def get_boundary_nodes(self) -> np.ndarray:
         """
         Get nodes on the boundary
 
@@ -623,7 +624,7 @@ class Grid(object):
         """
         return self.__indices(self.tags["domain_boundary_nodes"])
 
-    def update_boundary_face_tag(self):
+    def update_boundary_face_tag(self) -> None:
         """ Tag faces on the boundary of the grid with boundary tag.
 
         """
@@ -635,7 +636,7 @@ class Grid(object):
             ).ravel("F")
             self.tags["domain_boundary_faces"][bd_faces] = True
 
-    def update_boundary_node_tag(self):
+    def update_boundary_node_tag(self) -> None:
         """ Tag nodes on the boundary of the grid with boundary tag.
 
         """
@@ -656,7 +657,7 @@ class Grid(object):
                 nodes = self.face_nodes.indices[mcolon.mcolon(first, second)]
                 self.tags[node_tag][nodes] = True
 
-    def cell_diameters(self, cn=None):
+    def cell_diameters(self, cn: sps.spmatrix = None) -> np.ndarray:
         """
         Compute the cell diameters. If self.dim == 0, return 0
 
@@ -690,7 +691,7 @@ class Grid(object):
             ]
         )
 
-    def cell_face_as_dense(self):
+    def cell_face_as_dense(self) -> np.ndarray:
         """
         Obtain the cell-face relation in the from of two rows, rather than a
         sparse matrix. This alterative format can be useful in some cases.
@@ -718,7 +719,7 @@ class Grid(object):
         # pointing from first to second row.
         return neighs[::-1]
 
-    def cell_connection_map(self):
+    def cell_connection_map(self) -> sps.csr_matrix:
         """
         Get a matrix representation of cell-cell connections, as defined by
         two cells sharing a face.
@@ -727,6 +728,7 @@ class Grid(object):
             scipy.sparse.csr_matrix, size num_cells * num_cells: Boolean
                 matrix, element (i,j) is true if cells i and j share a face.
                 The matrix is thus symmetric.
+                
         """
 
         # Create a copy of the cell-face relation, so that we can modify it at
@@ -743,7 +745,7 @@ class Grid(object):
 
         return c2c
 
-    def sign_of_faces(self, faces):
+    def sign_of_faces(self, faces: np.ndarray) -> np.ndarray:
         """ Get the direction of the normal vector (inward or outwards from a cell)
         of faces. Only boundary faces are permissible.
 
@@ -771,7 +773,7 @@ class Grid(object):
         sgn = sgn[IC]
         return sgn
 
-    def bounding_box(self):
+    def bounding_box(self) -> Union[np.ndarray, np.ndarray]:
         """
         Return the bounding box of the grid.
 
@@ -782,7 +784,7 @@ class Grid(object):
         """
         return np.amin(self.nodes, axis=1), np.amax(self.nodes, axis=1)
 
-    def closest_cell(self, p, return_distance=False):
+    def closest_cell(self, p: np.ndarray, return_distance: bool = False) -> np.ndarray:
         """ For a set of points, find closest cell by cell center.
 
         If several centers have the same distance, one of them will be
@@ -820,18 +822,18 @@ class Grid(object):
         else:
             return ci
 
-    def initiate_face_tags(self):
+    def initiate_face_tags(self) -> None:
         keys = tags.standard_face_tags()
         values = [np.zeros(self.num_faces, dtype=bool) for _ in keys]
         tags.add_tags(self, dict(zip(keys, values)))
 
-    def initiate_node_tags(self):
+    def initiate_node_tags(self) -> None:
         keys = tags.standard_node_tags()
         values = [np.zeros(self.num_nodes, dtype=bool) for _ in keys]
         tags.add_tags(self, dict(zip(keys, values)))
 
     @staticmethod
-    def __indices(true_false):
+    def __indices(true_false: np.ndarray) -> np.ndarray:
         """ Shorthand for np.argwhere.
         """
         return np.argwhere(true_false).ravel("F")

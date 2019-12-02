@@ -10,7 +10,7 @@ import scipy
 import porepy as pp
 
 
-def is_ccw_polygon(poly):
+def is_ccw_polygon(poly: np.ndarray) -> bool:
     """
     Determine if the vertices of a polygon are sorted counter clockwise.
 
@@ -22,7 +22,7 @@ def is_ccw_polygon(poly):
     for descriptions of the algorithm.
 
     The algorithm should work for non-convex polygons. If the polygon is
-    self-intersecting (shaped like the number 8), the number returned will
+    self-intersecting (e.g. shaped like the number 8), the number returned will
     reflect whether the method is 'mostly' cw or ccw.
 
     Parameters:
