@@ -1,3 +1,6 @@
+""" Various unit tests for Biot discretizations
+"""
+
 import scipy.sparse as sps
 import numpy as np
 import unittest
@@ -62,7 +65,8 @@ class BiotTest(unittest.TestCase):
             param[kw_m]["inverter"] = "python"
             data = {pp.PARAMETERS: param}
             data[pp.DISCRETIZATION_MATRICES] = {kw_f: {}, kw_m: {}}
-            A, b = discr.matrix_rhs(g, data)
+            discr.discretize(g, data)
+            A, b = discr.assemble_matrix_rhs(g, data)
             sol = np.linalg.solve(A.todense(), b)
 
             self.assertTrue(np.isclose(sol, np.zeros(g.num_cells * (g.dim + 1))).all())
@@ -137,7 +141,7 @@ class BiotTest(unittest.TestCase):
         A, b = general_assembler.assemble_matrix_rhs()
 
         # Re-discretize and assemble using the Biot class
-        A_class, b_class = biot_discretizer.matrix_rhs(g, d, discretize=False)
+        A_class, b_class = biot_discretizer.assemble_matrix_rhs(g, d)
 
         # Make sure the variable ordering of the matrix assembled by the assembler
         # matches that of the Biot class.
@@ -240,7 +244,7 @@ class BiotTest(unittest.TestCase):
             A, b = general_assembler.assemble_matrix_rhs()
 
             # Assemble using the Biot class
-            A_class, b_class = biot_discretizer.matrix_rhs(g, d, discretize=False)
+            A_class, b_class = biot_discretizer.assemble_matrix_rhs(g, d)
 
             # Make sure the variable ordering of the matrix assembled by the assembler
             # matches that of the Biot class.

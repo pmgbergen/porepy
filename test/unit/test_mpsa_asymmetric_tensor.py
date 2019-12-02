@@ -29,7 +29,7 @@ class TestAsymmetricNeumann(unittest.TestCase):
         )
         ncasym_np = np.arange(32 * 32).reshape((32, 32))
         ncasym = sps.csr_matrix(ncasym_np)
-        pp.numerics.fv.mpsa._eliminate_ncasym_neumann(
+        pp.Mpsa("")._eliminate_ncasym_neumann(
             ncasym, subcell_topology, bound_exclusion, cell_node_blocks, 2
         )
         eliminate_ind = np.array([0, 1, 16, 17, 26, 27])
