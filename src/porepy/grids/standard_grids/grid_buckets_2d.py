@@ -38,7 +38,7 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
     """
     if x_endpoints is None:
         x_endpoints = [0, 1]
-    
+
     if simplex:
         if mesh_args is None:
             mesh_args = {"mesh_size_frac": 0.2}
@@ -54,9 +54,7 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
     return gb
 
 
-def two_intersecting(
-    mesh_args=None, x_endpoints=None, y_endpoints=None, simplex=True
-):
+def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex=True):
     """
     Create a grid bucket for a domain containing a single horizontal fracture at y=0.5.
 
@@ -76,12 +74,12 @@ def two_intersecting(
         Grid bucket for the domain.
 
     """
-    
+
     if x_endpoints is None:
         x_endpoints = [0, 1]
     if y_endpoints is None:
         y_endpoints = [0, 1]
-    
+
     if simplex:
         if mesh_args is None:
             mesh_args = {"mesh_size_frac": 0.2}
