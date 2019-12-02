@@ -1,13 +1,13 @@
 """ Modules contains discretization of poro-elasticity by the multi-point stress
 approximation.
 
-The discretization scheme is described in 
+The discretization scheme is described in
 
     J.M. Nordbotten (2016): STABLE CELL-CENTERED FINITE VOLUME DISCRETIZATION FOR BIOT
         EQUATIONS, SINUM.
 
 The module contains four classes: Biot is the main class, responsible for discretization
-of the poro-elastic system (relying heavily on its parent class pp.Mpsa). This is a 
+of the poro-elastic system (relying heavily on its parent class pp.Mpsa). This is a
 proper discretization class, in that it has discretize() and assemble_matrix_rhs()
 methods.
 
@@ -16,7 +16,7 @@ terms in the poro-elasticity system. These have empty discretize() methods, and 
 not be used directly.
 
 Because of the number of variables and equations, and their somewhat difficult relation,
-the most convenient way to set up a discertization for poro-elasticity is to use 
+the most convenient way to set up a discertization for poro-elasticity is to use
 pp.BiotContactMechanicsModel (designed for fractures and contact mechanics, but will
 turn into a standard poro-elasticity equation for non-fractured domains).
 
@@ -36,15 +36,15 @@ class Biot(Mpsa):
     """ Discretization class for poro-elasticity, based on MPSA.
 
     This is a subclass of pp.Mpsa()
-            
+
     Attributes:
-        mechanics_keyword (str): Keyword used to identify the parameter dictionary 
+        mechanics_keyword (str): Keyword used to identify the parameter dictionary
             associtated with the mechanics subproblem. Defaults to "mechanics".
-        flow_keyword (str): Keyword used to identify the parameter dictionary 
+        flow_keyword (str): Keyword used to identify the parameter dictionary
             associtated with the flow subproblem. Defaults to "flow".
-        vector_variable (str): Name for the vector variable, used throughout the 
+        vector_variable (str): Name for the vector variable, used throughout the
             discretization and solution. Defaults to "displacement".
-        scalar_variable (str): Name for the vector variable, used throughout the 
+        scalar_variable (str): Name for the vector variable, used throughout the
             discretization and solution. Defaults to "pressure".
         div_u_matrix_key (str): Keyword used to identify the discretization matrix of
             the term div(u). Defaults to "div_u".
@@ -57,9 +57,9 @@ class Biot(Mpsa):
         bound_pressure_matrix_key (str): Keyword used to identify the discretization
             matrix for the pressure contribution to boundary displacement reconstrution.
             Defaults to "bound_displacement_pressure".
-            
+
     See also pp.Mpsa for further attributes.
-            
+
     """
 
     def __init__(
@@ -109,20 +109,20 @@ class Biot(Mpsa):
         self, g: pp.Grid, data: Dict
     ) -> Tuple[sps.spmatrix, np.ndarray]:
         """ Return full discretization and right hand side of the poro-elasticity system.
-        
+
         NOTE: Source terms (flow and mechanics) are not handled herein, must be assigned
         in other classes.
-        
+
         Parameters:
             g (pp.Grid): Grid to be discretized.
             data (Dict): Data dictionary for this grid.
-        
+
         Returns:
             sps.bmat: Block matrix, where the first g.dim * g.num_cells variables are
                 associtaed with the displacement, discretized with mpsa, while the final
                 g.num_cells cells are cell center pressures.
             np.array: Right hand side term. Size (g.dim + 1) * g.num_cells.
-            
+
         """
         A_biot = self.assemble_matrix(g, data)
         rhs = self.assemble_rhs(g, data)
@@ -134,10 +134,10 @@ class Biot(Mpsa):
         Parameters:
             g (pp.Grid): Grid to be discretized.
             data (Dict): Data dictionary for this grid.
-        
+
         Returns:
             np.array: Right hand side term. Size (g.dim + 1) * g.num_cells.
-            
+
         """
         # Contribution from boundary and right hand side
         bnd = self.rhs_bound(g, data)
@@ -368,7 +368,7 @@ class Biot(Mpsa):
             data (dictionary): Data for discretization, as well as matrices
                 with discretization of the sub-parts of the system.
 
-                
+
        """
         parameter_dictionary: Dict[str, Any] = data[pp.PARAMETERS][
             self.mechanics_keyword
@@ -583,7 +583,7 @@ class Biot(Mpsa):
             grad_p,
             bound_displacement_pressure,
         )
-        
+
         # Cells to be updated is a bit more involved. Best guess now is to update
         # all cells that has had all its faces updated. This may not be correct for
         # general combinations of specified cells, nodes and faces.
