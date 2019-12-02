@@ -14,7 +14,7 @@ class LinearSolver:
         """ Define linear solver.
 
         Parameters:
-            params (dict): Parameters for the linear solver. Will be passed on to the 
+            params (dict): Parameters for the linear solver. Will be passed on to the
                 model class. Thus the contect should be adapted to whatever needed for
                 the problem at hand.
 
@@ -31,7 +31,7 @@ class LinearSolver:
             setup (subclass of pp.AbstractModel): Model to be solved.
 
         Returns:
-            float: Norm of the error
+            float: Norm of the error.
             boolean: True if the linear solver converged.
 
         """
