@@ -65,6 +65,7 @@ from porepy.numerics.interface_laws.elliptic_discretization import (
 )
 
 # Control volume, elliptic
+from porepy.numerics.fv import fvutils
 from porepy.numerics.fv.mpsa import Mpsa
 from porepy.numerics.fv.fv_elliptic import FVElliptic
 from porepy.numerics.fv.tpfa import Tpfa
@@ -131,7 +132,6 @@ from porepy.geometry import (
 from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer, mortars
 from porepy.grids import structured, simplex, coarsening, partition, refinement
-from porepy.numerics.fv import fvutils
 from porepy.utils import error, grid_utils
 from porepy.utils.tangential_normal_projection import TangentialNormalProjection
 import porepy.utils.derived_discretizations
