@@ -119,6 +119,9 @@ class THM(parent_model.ContactMechanicsBiot):
                 )
 
     def set_scalar_parameters(self) -> None:
+        """ Set parameters for the pressure / mass conservation equation.
+        """
+        # Most values are handled as if this was a poro-elastic problem
         super().set_scalar_parameters()
         for g, d in self.gb:
             a = self.compute_aperture(g)
@@ -138,13 +141,16 @@ class THM(parent_model.ContactMechanicsBiot):
             )
 
     def set_temperature_parameters(self) -> None:
-
-        tensor_scale = self.temperature_scale / self.length_scale ** 2 / self.T_0_Kelvin
-        kappa = 1 * tensor_scale
+        """ Parameters for the temperature equation.
+        """
+        tensor_scale: float = self.temperature_scale / self.length_scale ** 2 / self.T_0_Kelvin
+        kappa: float = 1 * tensor_scale
         heat_capacity = 1
-        mass_weight = heat_capacity * self.temperature_scale / self.T_0_Kelvin
+        mass_weight: float = heat_capacity * self.temperature_scale / self.T_0_Kelvin
 
         for g, d in self.gb:
+            # By default, we set the same type of boundary conditions as for the 
+            # pressure problem, that is, zero Dirichlet everywhere
             bc = self.bc_type_scalar(g)
             bc_values = self.bc_values_scalar(g)
             source_values = self.source_scalar(g)
@@ -206,11 +212,12 @@ class THM(parent_model.ContactMechanicsBiot):
         Assign primary variables to the nodes and edges of the grid bucket.
         """
         super().assign_variables()
-        # First for the nodes
+        
+        # The remaining variables to define is the temperature on the nodes
         for g, d in self.gb:
             d[pp.PRIMARY_VARIABLES].update({self.temperature_variable: {"cells": 1}})
 
-        # Then for the edges
+        # And advective and diffusive fluxes on the edges
         for e, d in self.gb.edges():
             d[pp.PRIMARY_VARIABLES].update(
                 {
@@ -219,7 +226,7 @@ class THM(parent_model.ContactMechanicsBiot):
                 }
             )
 
-    def assign_discretizations(self):
+    def assign_discretizations(self) -> None:
         """
         Assign discretizations to the nodes and edges of the grid bucket.
 
@@ -227,18 +234,23 @@ class THM(parent_model.ContactMechanicsBiot):
         subtract the fracture pressure contribution for the contact traction. This
         should not be done if the scalar variable is temperature.
         """
+        # Call parent class for disrcetizations for the poro-elastic system.
         super().assign_discretizations()
-        # Shorthand
-        key_s = self.scalar_parameter_key
+        
+        # What remains is terms related to temperature
+        
+        # Shorthand for parameter keywords
         key_t = self.temperature_parameter_key
         key_m = self.mechanics_parameter_key
+
         # distinguish the coupling terms from temperature terms (grad_p, as opposed to grad_T)
         key_mt = self.mechanics_temperature_parameter_key
         var_s = self.scalar_variable
         var_t = self.temperature_variable
         var_d = self.displacement_variable
+
         # Define discretization
-        # Scalar discretizations (all dimensions)
+        # Scalar discretizations (will be assigned to all dimensions)
         diff_disc_t = IE_discretizations.ImplicitMpfa(key_t)
         adv_disc_t = IE_discretizations.ImplicitUpwind(key_t)
         mass_disc_t = IE_discretizations.ImplicitMassMatrix(key_t, var_t)
@@ -251,11 +263,13 @@ class THM(parent_model.ContactMechanicsBiot):
             variable=var_d,
             mortar_variable=self.mortar_displacement_variable,
         )
+        
         # Nd
         grad_t_disc = pp.GradP(
             key_mt
         )  # pp.GradP(key_m) # Kanskje denne (og andre) b;r erstattes av spesiallagde
         # varianter som henter ut s-varianten og ganger med alpha/beta?
+        
         stabilization_disc_t = pp.BiotStabilization(key_t, var_t)
         s2t_disc = IE_discretizations.ImplicitMassMatrix(
             keyword=self.s2t_parameter_key, variable=var_s
@@ -268,31 +282,39 @@ class THM(parent_model.ContactMechanicsBiot):
         for g, d in self.gb:
             if g.dim == self.Nd:
                 d[pp.DISCRETIZATION].update(
-                    {
+                    {  # advection-diffusion equation for temperature
                         var_t: {
                             "diffusion": diff_disc_t,
                             self.advection_term: adv_disc_t,
                             "mass": mass_disc_t,
+                            # Also the stabilization term from Biot
                             "stabilization": stabilization_disc_t,
                         },
+                        # grad T term in the momentuum equation
                         var_d + "_" + var_t: {"grad_p": grad_t_disc},
+                        # div u term in the energy equation
                         var_t + "_" + var_d: {"div_u": div_u_disc_t},
+                        # Accumulation of pressure in energy equation
                         var_t + "_" + var_s: {self.s2t_coupling_term: s2t_disc},
+                        # Accumulation of temperature / energy in pressure equation
                         var_s + "_" + var_t: {self.t2s_coupling_term: t2s_disc},
                     }
                 )
             else:
+                # Inside fracture network
                 d[pp.DISCRETIZATION].update(
-                    {
+                    {  # Advection-diffusion equation, no biot stabilization
                         var_t: {
                             "diffusion": diff_disc_t,
                             self.advection_term: adv_disc_t,
                             "mass": mass_disc_t,
                         },
+                        # Standard coupling terms
                         var_t + "_" + var_s: {self.s2t_coupling_term: s2t_disc},
                         var_s + "_" + var_t: {self.t2s_coupling_term: t2s_disc},
                     }
                 )
+        # Next, the edges in the gb.
         # Account for the mortar displacements effect on energy balance in the matrix,
         # as an internal boundary contribution
         div_u_coupling_t = pp.DivUCoupling(
@@ -305,6 +327,8 @@ class THM(parent_model.ContactMechanicsBiot):
         matrix_temperature_to_force_balance = pp.MatrixScalarToForceBalance(
             grad_t_key, mass_disc_t, mass_disc_t
         )
+        
+        # Coupling of advection and diffusion terms in the energy equation
         adv_coupling_t = IE_discretizations.ImplicitUpwindCoupling(key_t)
         diff_coupling_t = pp.RobinCoupling(key_t, diff_disc_t)
 
@@ -347,7 +371,7 @@ class THM(parent_model.ContactMechanicsBiot):
                     }
                 )
 
-    def initial_condition(self):
+    def initial_condition(self) -> None:
         """
         In addition to the values set by the parent class, we set initial value for the temperature
         variable, and a previous iterate value for the scalar value. The latter is used for 
@@ -365,6 +389,7 @@ class THM(parent_model.ContactMechanicsBiot):
                 d[pp.STATE]["previous_iterate"].update(iterate)
             else:
                 d[pp.STATE]["previous_iterate"] = iterate
+                
         for _, d in self.gb.edges():
             mg = d["mortar_grid"]
             cell_zeros = np.zeros(mg.num_cells)
@@ -374,12 +399,17 @@ class THM(parent_model.ContactMechanicsBiot):
             }
             iterate = {self.mortar_scalar_variable: cell_zeros}
             d[pp.STATE].update(state)
+            
             if "previous_iterate" in d[pp.STATE]:
                 d[pp.STATE]["previous_iterate"].update(iterate)
             else:
                 d[pp.STATE]["previous_iterate"] = iterate
 
-    def compute_fluxes(self):
+    def compute_fluxes(self) -> None:
+        """ Compute the fluxes in the mixed-dimensional grid from the current state of
+        the pressure variables.
+        
+        """
         pp.fvutils.compute_darcy_flux(
             self.gb,
             keyword=self.scalar_parameter_key,
@@ -390,7 +420,7 @@ class THM(parent_model.ContactMechanicsBiot):
             from_iterate=True,
         )
 
-    def discretize(self):
+    def discretize(self) -> None:
         """ Discretize all terms
         """
         if not hasattr(self, "assembler"):
@@ -404,6 +434,7 @@ class THM(parent_model.ContactMechanicsBiot):
         # First, Discretize with the biot class
         self.discretize_biot()
         self.copy_biot_discretizations()
+        
         # Next, discretize term on the matrix grid not covered by the Biot discretization,
         # i.e. the source term
         pressure_terms = ["source"]
@@ -419,6 +450,7 @@ class THM(parent_model.ContactMechanicsBiot):
             term_filter=temperature_terms,
             variable_filter=self.temperature_variable,
         )
+        
         coupling_terms = [self.s2t_coupling_term, self.t2s_coupling_term]
         self.assembler.discretize(
             grid=self._nd_grid(),
@@ -445,9 +477,9 @@ class THM(parent_model.ContactMechanicsBiot):
         ]
         self.assembler.discretize(term_filter=terms)
 
-    def copy_biot_discretizations(self):
-        g = self.gb.grids_of_dimension(self.Nd)[0]
-        d = self.gb.node_props(g)
+    def copy_biot_discretizations(self) -> None:
+        g: pp.Grid = self.gb.grids_of_dimension(self.Nd)[0]
+        d: Dict = self.gb.node_props(g)
         # For grad p term of u equation
         weight_grad_t = self.biot_beta(g) / self.biot_alpha(g)
         # Account for scaling
@@ -458,9 +490,12 @@ class THM(parent_model.ContactMechanicsBiot):
         # The stabilization terms appear in the T/p equations, whereof only the first
         # is divided by T_0_Kelvin.
         weight_stabilization *= 1 / self.T_0_Kelvin
+        
+        # Matrix dictionaries for the different subproblems 
         matrices_s = d[pp.DISCRETIZATION_MATRICES][self.scalar_parameter_key]
         matrices_ms = d[pp.DISCRETIZATION_MATRICES][self.mechanics_parameter_key]
         matrices_t = d[pp.DISCRETIZATION_MATRICES][self.temperature_parameter_key]
+        
         matrices_mt = {}
         matrices_t["div_u"] = matrices_s["div_u"].copy()
         matrices_t["bound_div_u"] = matrices_s["bound_div_u"].copy()
@@ -480,7 +515,7 @@ class THM(parent_model.ContactMechanicsBiot):
         state = {key_m_from_t: bc_dict}
         pp.set_state(d, state)
 
-    def save_mechanical_bc_values(self):
+    def save_mechanical_bc_values(self) -> None:
         """
         The div_u term uses the mechanical bc values for both current and previous time
         step. In the case of time dependent bc values, these must be updated. As this
@@ -495,7 +530,7 @@ class THM(parent_model.ContactMechanicsBiot):
         d[pp.STATE][key]["bc_values"] = d[pp.PARAMETERS][key]["bc_values"].copy()
         d[pp.STATE][key_t]["bc_values"] = d[pp.PARAMETERS][key_t]["bc_values"].copy()
 
-    def update_state(self, solution_vector):
+    def update_state(self, solution_vector: np.ndarray) -> None:
         """
         Extract parts of the solution for current iterate.
         
@@ -505,7 +540,6 @@ class THM(parent_model.ContactMechanicsBiot):
         Method is a tailored copy from assembler.distribute_variable.
 
         Parameters:
-            assembler (pp.Assembler): assembler for self.gb.
             solution_vector (np.array): solution vector for the current iterate.
 
         """
