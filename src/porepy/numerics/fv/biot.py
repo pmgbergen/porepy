@@ -1,7 +1,30 @@
+""" Modules contains discretization of poro-elasticity by the multi-point stress
+approximation.
+
+The discretization scheme is described in 
+
+    J.M. Nordbotten (2016): STABLE CELL-CENTERED FINITE VOLUME DISCRETIZATION FOR BIOT
+        EQUATIONS, SINUM.
+
+The module contains four classes: Biot is the main class, responsible for discretization
+of the poro-elastic system (relying heavily on its parent class pp.Mpsa). This is a 
+proper discretization class, in that it has discretize() and assemble_matrix_rhs()
+methods.
+
+The other classes, GradP, DivU and BiotStabilization, are containers for the other
+terms in the poro-elasticity system. These have empty discretize() methods, and should
+not be used directly.
+
+Because of the number of variables and equations, and their somewhat difficult relation,
+the most convenient way to set up a discertization for poro-elasticity is to use 
+pp.BiotContactMechanicsModel (designed for fractures and contact mechanics, but will
+turn into a standard poro-elasticity equation for non-fractured domains).
+
+"""
 import scipy.sparse as sps
 import scipy.sparse.linalg as la
 import numpy as np
-import warnings
+from typing import Dict, Tuple, Any
 
 import porepy as pp
 from porepy.numerics.fv.mpsa import Mpsa
@@ -10,13 +33,42 @@ from porepy.numerics.fv import fvutils
 
 
 class Biot(Mpsa):
+    """ Discretization class for poro-elasticity, based on MPSA.
+
+    This is a subclass of pp.Mpsa()
+            
+    Attributes:
+        mechanics_keyword (str): Keyword used to identify the parameter dictionary 
+            associtated with the mechanics subproblem. Defaults to "mechanics".
+        flow_keyword (str): Keyword used to identify the parameter dictionary 
+            associtated with the flow subproblem. Defaults to "flow".
+        vector_variable (str): Name for the vector variable, used throughout the 
+            discretization and solution. Defaults to "displacement".
+        scalar_variable (str): Name for the vector variable, used throughout the 
+            discretization and solution. Defaults to "pressure".
+        div_u_matrix_key (str): Keyword used to identify the discretization matrix of
+            the term div(u). Defaults to "div_u".
+        bound_div_u_matrix_key (str): Keyword used to identify the discretization matrix
+            of the boundary condition for the term div(u). Defaults to "bound_div_u".
+        grad_p_matrix_key (str): Keyword used to identify the discretization matrix of
+            the term grad(p). Defaults to "grad_p".
+        strabilization_matrix_key (str): Keyword used to identify the discretization
+            matrix for the stabilization term. Defaults to "biot_stabilization".
+        bound_pressure_matrix_key (str): Keyword used to identify the discretization
+            matrix for the pressure contribution to boundary displacement reconstrution.
+            Defaults to "bound_displacement_pressure".
+            
+    See also pp.Mpsa for further attributes.
+            
+    """
+
     def __init__(
         self,
-        mechanics_keyword="mechanics",
-        flow_keyword="flow",
-        vector_variable="displacement",
-        scalar_variable="pressure",
-    ):
+        mechanics_keyword: str = "mechanics",
+        flow_keyword: str = "flow",
+        vector_variable: str = "displacement",
+        scalar_variable: str = "pressure",
+    ) -> None:
         """ Set the two keywords.
 
         The keywords are used to access and store parameters and discretization
@@ -35,10 +87,10 @@ class Biot(Mpsa):
         self.div_u_matrix_key = "div_u"
         self.bound_div_u_matrix_key = "bound_div_u"
         self.grad_p_matrix_key = "grad_p"
-        self.bound_pressure_matrix_key = "bound_displacement_pressure"
         self.stabilization_matrix_key = "biot_stabilization"
+        self.bound_pressure_matrix_key = "bound_displacement_pressure"
 
-    def ndof(self, g):
+    def ndof(self, g: pp.Grid) -> int:
         """ Return the number of degrees of freedom associated wiht the method.
 
         In this case, each cell has nd displacement variables, as well as a
@@ -53,20 +105,46 @@ class Biot(Mpsa):
         """
         return g.num_cells * (1 + g.dim)
 
-    def assemble_matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(
+        self, g: pp.Grid, data: Dict
+    ) -> Tuple[sps.spmatrix, np.ndarray]:
+        """ Return full discretization and right hand side of the poro-elasticity system.
+        
+        NOTE: Source terms (flow and mechanics) are not handled herein, must be assigned
+        in other classes.
+        
+        Parameters:
+            g (pp.Grid): Grid to be discretized.
+            data (Dict): Data dictionary for this grid.
+        
+        Returns:
+            sps.bmat: Block matrix, where the first g.dim * g.num_cells variables are
+                associtaed with the displacement, discretized with mpsa, while the final
+                g.num_cells cells are cell center pressures.
+            np.array: Right hand side term. Size (g.dim + 1) * g.num_cells.
+            
+        """
         A_biot = self.assemble_matrix(g, data)
-        rhs_bound = self.rhs_bound(g, data)
-        return A_biot, rhs_bound
+        rhs = self.assemble_rhs(g, data)
+        return A_biot, rhs
 
-    # --------------------------- Helper methods for discretization ----------
+    def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
+        """ Return the right hand side for a poro-elastic system.
 
-    def assemble_rhs(self, g, data):
+        Parameters:
+            g (pp.Grid): Grid to be discretized.
+            data (Dict): Data dictionary for this grid.
+        
+        Returns:
+            np.array: Right hand side term. Size (g.dim + 1) * g.num_cells.
+            
+        """
+        # Contribution from boundary and right hand side
         bnd = self.rhs_bound(g, data)
         tm = self.rhs_time(g, data)
-        #        src = data['source']
         return bnd + tm
 
-    def rhs_bound(self, g, data):
+    def rhs_bound(self, g: pp.Grid, data: Dict) -> np.ndarray:
         """ Boundary component of the right hand side.
 
         TODO: Boundary effects of coupling terms.
@@ -110,7 +188,7 @@ class Biot(Mpsa):
         div_u_rhs = -0 * biot_alpha * matrices_f["bound_div_u"] * d
         return np.hstack((s_bound, p_bound + div_u_rhs))
 
-    def rhs_time(self, g, data):
+    def rhs_time(self, g: pp.Grid, data: Dict) -> np.ndarray:
         """ Time component of the right hand side (dependency on previous time
         step).
 
@@ -155,7 +233,7 @@ class Biot(Mpsa):
 
         return np.hstack((mech_rhs, div_u_rhs + p_cmpr + stab_time))
 
-    def discretize(self, g, data):
+    def discretize(self, g: pp.Grid, data: Dict) -> None:
         """ Discretize flow and mechanics equations using FV methods.
 
         The parameters needed for the discretization are stored in the
@@ -194,12 +272,13 @@ class Biot(Mpsa):
                 for specification.
 
         """
-        # Discretization of elasticity / poro-mechanics
+        # Discretization is split into fluid flow, fluid compressibility and
+        # poro-mechanical effects
         self._discretize_flow(g, data)
-        self._discretize_mech(g, data)
         self._discretize_compr(g, data)
+        self._discretize_mech(g, data)
 
-    def assemble_matrix(self, g, data):
+    def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.spmatrix:
         """ Assemble the poro-elastic system matrix.
 
         The discretization is presumed stored in the data dictionary.
@@ -258,7 +337,7 @@ class Biot(Mpsa):
 
         return A_biot
 
-    def _discretize_flow(self, g, data):
+    def _discretize_flow(self, g: pp.Grid, data: Dict) -> None:
 
         # Discretiztaion using MPFA
         key = self.flow_keyword
@@ -266,81 +345,60 @@ class Biot(Mpsa):
 
         md.discretize(g, data)
 
-    def _discretize_compr(self, g, data):
+    def _discretize_compr(self, g: pp.Grid, data: Dict) -> None:
         """
         TODO: Sort out time step (inconsistent with MassMatrix).
         """
-        parameter_dictionary = data[pp.PARAMETERS][self.flow_keyword]
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
+        parameter_dictionary: Dict[str, Any] = data[pp.PARAMETERS][self.flow_keyword]
+        matrix_dictionary: Dict[str, Any] = data[pp.DISCRETIZATION_MATRICES][
+            self.flow_keyword
+        ]
         w = parameter_dictionary["mass_weight"]
         volumes = g.cell_volumes
         matrix_dictionary["mass"] = sps.dia_matrix(
             (volumes * w, 0), shape=(g.num_cells, g.num_cells)
         )
 
-    def _discretize_mech(self, g, data):
+    def _discretize_mech(self, g: pp.Grid, data: Dict) -> None:
         """
         Discretization of poro-elasticity by the MPSA-W method.
 
-        Implementation needs (in addition to those mentioned in mpsa function):
-            1) Split return value grad_p into forces and a divergence operator,
-            so that we can compute Biot forces on a face.
-
         Parameters:
-            g (core.grids.grid): grid to be discretized
-            k (core.constit.second_order_tensor) permeability tensor
-            bound_mech: Boundary condition object for mechancis
-            bound_flow: Boundary condition object for flow.
-            constit (porepy.bc.bc.BoundaryCondition) class for boundary values
-            faces (np.ndarray) faces to be considered. Intended for partial
-                discretization, may change in the future
-            mpsa_eta Location of pressure continuity point. Should be 1/3 for simplex
-                grids, 0 otherwise. On boundary faces with Dirichlet conditions,
-                eta=0 will be enforced. Defaults to the values computed by
-                fvutils.determine_eta(g).
-            inverter (string) Block inverter to be used, either numba (default),
-                cython or python. See fvutils.invert_diagonal_blocks for details.
+            g (grid): Grid for disrcetization
+            data (dictionary): Data for discretization, as well as matrices
+                with discretization of the sub-parts of the system.
 
-        Returns:
-            scipy.sparse.csr_matrix (shape num_faces * dim, num_cells * dim): stress
-                discretization, in the form of mapping from cell displacement to
-                face stresses.
-            scipy.sparse.csr_matrix (shape num_faces * dim, num_faces * dim):
-                discretization of boundary conditions. Interpreted as stresses
-                induced by the boundary condition (both Dirichlet and Neumann). For
-                Neumann, this will be the prescribed stress over the boundary face,
-                and possibly stress on faces having nodes on the boundary. For
-                Dirichlet, the values will be stresses induced by the prescribed
-                displacement.  Incorporation as a right hand side in linear system
-                by multiplication with divergence operator.
-            scipy.sparse.csr_matrix (shape num_faces * dim, num_cells): Forces from
-                the pressure gradient (-I*p-term), represented as forces on the faces.
-            scipy.sparse.csr_matrix (shape num_cells, num_cells * dim): Trace of
-                strain matrix, cell-wise.
-            scipy.sparse.csr_matrix (shape num_cells x num_cells): Stabilization
-                term.
+                
        """
-        parameter_dictionary = data[pp.PARAMETERS][self.mechanics_keyword]
-        matrices_m = data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]
-        matrices_f = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
-        bound = parameter_dictionary["bc"]
-        constit = parameter_dictionary["fourth_order_tensor"]
+        parameter_dictionary: Dict[str, Any] = data[pp.PARAMETERS][
+            self.mechanics_keyword
+        ]
+        matrices_m: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
+            self.mechanics_keyword
+        ]
+        matrices_f: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
+            self.flow_keyword
+        ]
+        bound: pp.BoundaryConditionVectorial = parameter_dictionary["bc"]
+        constit: pp.FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
 
-        eta = parameter_dictionary.get("mpsa_eta", fvutils.determine_eta(g))
-        inverter = parameter_dictionary.get("inverter", None)
+        eta: float = parameter_dictionary.get("mpsa_eta", fvutils.determine_eta(g))
+        inverter: str = parameter_dictionary.get("inverter", None)
 
-        alpha = parameter_dictionary["biot_alpha"]
+        alpha: float = parameter_dictionary["biot_alpha"]
 
-        inverter = parameter_dictionary.get("inverter", None)
-        max_memory = parameter_dictionary.get("max_memory", 1e9)
+        max_memory: int = parameter_dictionary.get("max_memory", 1e9)
 
         # Whether to update an existing discretization, or construct a new one.
         # If True, either specified_cells, _faces or _nodes should also be given, or
         # else a full new discretization will be computed
-        update = parameter_dictionary.get("update_discretization", False)
+        update: bool = parameter_dictionary.get("update_discretization", False)
 
         # The discretization can be limited to a specified set of cells, faces or nodes
-        # If none of these are specified, the entire grid will be discretized
+        # If none of these are specified, the entire grid will be discretized.
+        # NOTE: active_faces are all faces to have their stencils updated, while
+        # active_cells may form a larger set (to accurately update all faces on a
+        # subgrid, it is necessary to assign some overlap in terms cells).
         active_cells, active_faces = self._find_active_indices(parameter_dictionary, g)
 
         # Extract a grid, and get global indices of its active faces and nodes
@@ -348,10 +406,14 @@ class Biot(Mpsa):
             g, active_cells
         )
         # Constitutive law and boundary condition for the active grid
-        active_constit = self._constit_for_subgrid(constit, active_cells)
+        active_constit: pp.FourthOrderTensor = self._constit_for_subgrid(
+            constit, active_cells
+        )
 
         # Extract the relevant part of the boundary condition
-        active_bound = self._bc_for_subgrid(bound, active_grid, extracted_faces)
+        active_bound: pp.BoundaryConditionVectorial = self._bc_for_subgrid(
+            bound, active_grid, extracted_faces
+        )
 
         # Keep track of which faces and cells have had their discretizations updated.
         # This is used to eliminate contributions to the discretizations on the border
@@ -387,12 +449,16 @@ class Biot(Mpsa):
         ) in self._subproblems(active_grid, max_memory):
 
             # Copy stiffness tensor, and restrict to local cells
-            loc_c = self._constit_for_subgrid(active_constit, l2g_cells)
+            loc_c: pp.FourthOrderTensor = self._constit_for_subgrid(
+                active_constit, l2g_cells
+            )
 
             # Boundary conditions are slightly more complex. Find local faces
             # that are on the global boundary.
             # Then transfer boundary condition on those faces.
-            loc_bnd = self._bc_for_subgrid(active_bound, sub_g, l2g_faces)
+            loc_bnd: pp.BoundaryConditionVectorial = self._bc_for_subgrid(
+                active_bound, sub_g, l2g_faces
+            )
 
             # Discretization of sub-problem
             (
@@ -406,7 +472,7 @@ class Biot(Mpsa):
                 loc_bound_displacement_face,
                 loc_bound_displacement_pressure,
             ) = self._local_discretization(
-                sub_g, loc_c, loc_bnd, alpha, eta=eta, inverter=inverter,
+                sub_g, loc_c, loc_bnd, alpha, eta=eta, inverter=inverter
             )
 
             # Eliminate contribution from faces already discretized (the dual grids /
@@ -471,6 +537,8 @@ class Biot(Mpsa):
 
             # Done with this subdomain, move on to the next one
 
+        # We are done with the discretization. What remains is to map the computed
+        # matrices back from the active grid to the full one.
         face_map_vec, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
             g, l2g_faces, l2g_cells, is_vector=True
         )
@@ -478,7 +546,6 @@ class Biot(Mpsa):
             g, l2g_faces, l2g_cells, is_vector=False
         )
 
-        # Update discretization on the active grid.
         stress = face_map_vec * active_stress * cell_map_vec
         bound_stress = face_map_vec * active_bound_stress * face_map_vec.transpose()
 
@@ -504,6 +571,7 @@ class Biot(Mpsa):
             face_map_vec * active_bound_displacement_pressure * cell_map_scalar
         )
 
+        # Eliminate any contributions not associated with the active grid
         eliminate_faces = np.setdiff1d(np.arange(g.num_faces), active_faces)
         self._remove_nonlocal_contribution(
             eliminate_faces,
@@ -521,6 +589,7 @@ class Biot(Mpsa):
             eliminate_cells, 1, div_u, bound_div_u, stabilization
         )
 
+        # Either update the discretization scheme, or store the full one
         if update:
             # The faces to be updated are given by active_faces
             update_face_ind = pp.fvutils.expand_indices_nd(active_faces, g.dim)
@@ -569,7 +638,28 @@ class Biot(Mpsa):
             matrices_m[self.bound_displacment_face_matrix_key] = bound_displacement_face
             matrices_m[self.bound_pressure_matrix_key] = bound_displacement_pressure
 
-    def _local_discretization(self, g, constit, bound_mech, alpha, eta, inverter, hf_output=False):
+    def _local_discretization(
+        self,
+        g: pp.Grid,
+        constit: pp.FourthOrderTensor,
+        bound_mech: pp.BoundaryConditionVectorial,
+        alpha: float,
+        eta: float,
+        inverter: str,
+        hf_output: bool = False,
+    ) -> Tuple[
+        sps.spmatrix,
+        sps.spmatrix,
+        sps.spmatrix,
+        sps.spmatrix,
+        sps.spmatrix,
+        sps.spmatrix,
+        sps.spmatrix,
+        sps.spmatrix,
+        sps.spmatrix,
+    ]:
+        """ Discretization of poro-elastic system.
+        """
 
         # The grid coordinates are always three-dimensional, even if the grid
         # is really 2D. This means that there is not a 1-1 relation between the
@@ -608,7 +698,7 @@ class Biot(Mpsa):
         )
         num_sub_cells = cell_node_blocks.shape[0]
         # Right hand side terms for the stress discretization
-        rhs_cells = self._create_rhs_cell_center(
+        rhs_cells: sps.spmatrix = self._create_rhs_cell_center(
             g, subcell_topology, eta, num_sub_cells, bound_exclusion_mech
         )
 
@@ -692,7 +782,13 @@ class Biot(Mpsa):
 
         # Add discretizations to data
 
-    def _create_rhs_grad_p(self, g, subcell_topology, alpha, bound_exclusion):
+    def _create_rhs_grad_p(
+        self,
+        g: pp.Grid,
+        subcell_topology: pp.fvutils.SubcellTopology,
+        alpha: float,
+        bound_exclusion: pp.fvutils.ExcludeBoundaries,
+    ) -> Tuple[sps.spmatrix, sps.spmatrix]:
         """
         Consistent discretization of grad_p-term in MPSA-W method.
 
@@ -712,6 +808,8 @@ class Biot(Mpsa):
                 discretization of the force on the face due to cell-centre
                 pressure from a unique side.
 
+        """
+        """
         Method properties and implementation details.
         Basis functions, namely 'stress' and 'bound_stress', for the displacement
         discretization are obtained as in standard MPSA-W method.
@@ -884,7 +982,7 @@ class Biot(Mpsa):
 
         return rhs_jumps, grad_p_face
 
-    def _face_vector_to_scalar(self, nf, nd):
+    def _face_vector_to_scalar(self, nf: int, nd: int) -> sps.coo_matrix:
         """ Create a mapping from vector quantities on faces (stresses) to scalar
         quantities. The mapping is intended for the boundary discretization of the
         displacement divergence term  (coupling term in the flow equation).
@@ -898,7 +996,9 @@ class Biot(Mpsa):
         vals = np.ones(nf * nd)
         return sps.coo_matrix((vals, (rows, cols))).tocsr()
 
-    def _subcell_gradient_to_cell_scalar(self, g, cell_node_blocks):
+    def _subcell_gradient_to_cell_scalar(
+        self, g: pp.Grid, cell_node_blocks: np.ndarray
+    ) -> sps.spmatrix:
         """ Create a mapping from sub-cell gradients to cell-wise traces of the gradient
         operator. The mapping is intended for the discretization of the term div(u)
         (coupling term in flow equation).
