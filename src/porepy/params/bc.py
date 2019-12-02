@@ -404,7 +404,6 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
                 else:
                     raise ValueError(f"Unknown boundary condition {s}")
 
-
 def face_on_side(g, side, tol=1e-8):
     """ Find faces on specified sides of a grid.
 
