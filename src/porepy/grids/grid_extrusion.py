@@ -688,11 +688,11 @@ def _extrude_0d(
 
     return g_new, cell_map, face_map
 
+
 def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
     nc_2d = g.num_cells
     nn_2d = g.num_nodes
-    
-    
+
     ### Define tags
     tip_node_tag = np.tile(g.tags["tip_nodes"], (num_cell_layers + 1, 1)).ravel()
     fracture_node_tag = np.tile(
@@ -746,5 +746,5 @@ def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
         "fracture_nodes": fracture_node_tag,
         "tip_nodes": tip_node_tag,
         "domain_boundary_nodes": domain_boundary_node_tag,
-    }    
+    }
     return tags
