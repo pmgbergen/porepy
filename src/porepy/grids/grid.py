@@ -75,7 +75,15 @@ class Grid(object):
 
     """
 
-    def __init__(self, dim: int, nodes: np.ndarray, face_nodes: sps.spmatrix, cell_faces: sps.spmatrix, name: Union[List[str], str]) -> None:
+    def __init__(
+        self,
+        dim: int,
+        nodes: np.ndarray,
+        face_nodes: sps.csc_matrix,
+        cell_faces: sps.csc_matrix,
+        name: Union[List[str], str],
+        tags: Dict[str, np.ndarray] = None,
+    ) -> None:
         """Initialize the grid
 
         See class documentation for further description of parameters.
@@ -87,6 +95,7 @@ class Grid(object):
         face_nodes (sps.csc_matrix): Face-node relations.
         cell_faces (sps.csc_matrix): Cell-face relations
         name (str): Name of grid
+        tags (dict): Tags for nodes and grids. Will be constructed if not provided.
         """
         if not (dim >= 0 and dim <= 3):
             raise ValueError("A grid has to be 0, 1, 2, or 3.")
@@ -107,13 +116,17 @@ class Grid(object):
         self.num_cells: int = cell_faces.shape[1]
 
         # Add tag for the boundary faces
-        self.tags: Dict = {}
-        self.initiate_face_tags()
-        self.update_boundary_face_tag()
+        if tags is None:
+            self.tags: Dict = {}
+            self.initiate_face_tags()
+            self.update_boundary_face_tag()
 
-        # Add tag for the boundary nodes
-        self.initiate_node_tags()
-        self.update_boundary_node_tag()
+            # Add tag for the boundary nodes
+            self.initiate_node_tags()
+            self.update_boundary_node_tag()
+        else:
+            self.tags = tags
+            self._check_tags()
 
     def copy(self):
         """
@@ -834,6 +847,21 @@ class Grid(object):
         keys = tags.standard_node_tags()
         values = [np.zeros(self.num_nodes, dtype=bool) for _ in keys]
         tags.add_tags(self, dict(zip(keys, values)))
+
+    def _check_tags(self) -> None:
+        for key in tags.standard_node_tags():
+            if key not in self.tags.keys():
+                raise ValueError(f"The tag key {key} must be specified")
+            value = self.tags.get(key)
+            if not value.size == self.num_nodes:
+                raise ValueError(f"Wrong size of value for tag {key}")
+
+        for key in tags.standard_face_tags():
+            if key not in self.tags.keys():
+                raise ValueError(f"The tag key {key} must be specified")
+            value = self.tags.get(key)
+            if not value.size == self.num_faces:
+                raise ValueError(f"Wrong size of value for tag {key}")
 
     @staticmethod
     def __indices(true_false: np.ndarray) -> np.ndarray:
