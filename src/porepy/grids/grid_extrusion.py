@@ -144,7 +144,7 @@ def extrude_grid(g: pp.Grid, z: np.ndarray) -> Union[pp.Grid, np.ndarray, np.nda
         ValueError: If a 3d grid is provided for extrusion.
 
     """
-    if not np.all(z >= 0) or np.all(z <= 0):
+    if not (np.all(z >= 0) or np.all(z <= 0)):
         raise ValueError("Extrusion should be in either positive or negative direction")
 
     if g.dim == 0:
@@ -485,12 +485,14 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Union[pp.Grid, np.ndarray, np.ndar
         (cf_data, (cf_rows, cf_cols)), shape=(nf_3d, nc_3d)
     ).tocsc()
 
+    tags = _define_tags(g, num_cell_layers)
+
     name = g.name.copy()
     name.append("Extrude 2d->3d")
     g_info = g.name.copy()
     g_info.append("Extrude 1d->2d")
 
-    g_new = pp.Grid(3, nodes, face_nodes, cell_faces, g_info)
+    g_new = pp.Grid(3, nodes, face_nodes, cell_faces, g_info, tags=tags)
     g_new.compute_geometry()
 
     cell_map = np.empty(g.num_cells, dtype=np.object)
@@ -500,6 +502,15 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Union[pp.Grid, np.ndarray, np.ndar
     face_map = np.empty(g.num_faces, dtype=np.object)
     for f in range(g.num_faces):
         face_map[f] = np.arange(f, g.num_faces * num_cell_layers, g.num_faces)
+
+    # Sanity checks on cell and face maps
+    for cm in cell_map:
+        if cm.size != num_cell_layers:
+            raise ValueError("Cell map of wrong size")
+
+    for fi, fm in enumerate(face_map):
+        if fm.size != num_cell_layers:
+            raise ValueError("Cell map of wrong size")
 
     return g_new, cell_map, face_map
 
@@ -528,31 +539,101 @@ def _extrude_1d(
             faces in the extruded grid that comes from face fi in the original grid.
 
     """
-    # Number of nodes
+    # Number of cells in the grid
+    num_cell_layers = z.size - 1
 
+    # Node coordinates can be extruded in using a tensor product
     x = g.nodes[0]
     y = g.nodes[1]
 
-    g_new = pp.TensorGrid(x, z)
-
     x_2d, z_2d = np.meshgrid(x, z)
     y_2d, _ = np.meshgrid(y, z)
+    nodes = np.vstack((x_2d.ravel(), y_2d.ravel(), z_2d.ravel()))
 
+    # Bookkeeping
+    nn_old = g.num_nodes
+    nc_old = g.num_cells
+    nf_old = g.num_faces
+
+    nn_new = g.num_nodes * (num_cell_layers + 1)
+    nc_new = g.num_cells * num_cell_layers
+    nf_new = g.num_faces * num_cell_layers + g.num_cells * (num_cell_layers + 1)
+
+    # Vertical faces are made by extruding old nodes
+    fn_vert = np.empty((2, 0), dtype=np.int)
+    for k in range(num_cell_layers):
+        fn_this = np.vstack((np.arange(nn_old), nn_old + np.arange(nn_old)))
+        fn_vert = np.hstack((fn_vert, fn_this))
+
+    # Horizontal faces are defined from the old cell-node relation
+    # Implementation node: This operation is much simpler than in the 2d-3d operation,
+    # since much less is assumed on the ordering of face-nodes for 2d grids than 3d
+    cn_old = g.cell_nodes().indices.reshape((2, g.num_cells), order="F")
+    # Bottom layer
+    fn_hor = cn_old
+    # All other layers
+    for k in range(num_cell_layers):
+        fn_hor = np.hstack((fn_hor, cn_old + (k + 1) * nn_old))
+
+    # Finalize the face-node map
+    fn_rows = np.hstack((fn_vert, fn_hor))
+    fn_cols = np.tile(np.arange(fn_rows.shape[1]), (2, 1))
+    fn_data = np.ones(fn_cols.size, dtype=np.bool)
+
+    fn = sps.coo_matrix(
+        (fn_data, (fn_rows.ravel("f"), fn_cols.ravel("f"))), shape=(nn_new, nf_new)
+    ).tocsc()
+
+    # Next, cell-faces
+    cf_rows = np.empty((4, 0), dtype=np.int)
+
+    # Create vertical and horizontal faces together
+    for k in range(num_cell_layers):
+        # Vertical faces are identical to the old nodes before and after the cell
+        cf_vert_this = nn_old * k + cn_old
+
+        # Put horizontal faces on top and bottom
+        cf_hor_this = np.vstack((np.arange(nc_old), np.arange(nc_old) + nc_old))
+        # Add an offset of the number of vertical faces in the grid + previous horizontal
+        # faces
+        cf_hor_this += nf_old * num_cell_layers + k * nc_old
+
+        cf_rows = np.hstack((cf_rows, np.vstack((cf_vert_this, cf_hor_this))))
+
+    # Cell-face relation
+    cf_rows = cf_rows.ravel("f")
+    cf_cols = np.tile(np.arange(nc_new), (4, 1)).ravel("f")
+    tmp = np.ones(nc_new, dtype=np.int)
+    cf_data = np.vstack((-tmp, tmp, -tmp, tmp)).ravel("f")
+    cf = sps.coo_matrix((cf_data, (cf_rows, cf_cols)), shape=(nf_new, nc_new)).tocsc()
+
+    tags = _define_tags(g, num_cell_layers)
+
+    # We are ready to define the new grid
     g_info = g.name.copy()
     g_info.append("Extrude 1d->2d")
-    g_new.name = g_info
 
-    g_new.nodes = np.vstack((x_2d.ravel(), y_2d.ravel(), z_2d.ravel()))
+    g_new = pp.Grid(2, nodes, fn, cf, g_info, tags=tags)
 
     g_new.compute_geometry()
 
+    # Construct cell maps
     cell_map = np.empty(g.num_cells, dtype=np.object)
     for c in range(g.num_cells):
         cell_map[c] = np.arange(c, g_new.num_cells, g.num_cells)
 
     face_map = np.empty(g.num_faces, dtype=np.object)
     for f in range(g.num_faces):
-        face_map[f] = np.arange(f, g.num_faces * (z.size - 1), g.num_faces)
+        face_map[f] = np.arange(f, g.num_faces * num_cell_layers, g.num_faces)
+
+    # Sanity checks on cell and face maps
+    for cm in cell_map:
+        if cm.size != num_cell_layers:
+            raise ValueError("Cell map of wrong size")
+
+    for fi, fm in enumerate(face_map):
+        if fm.size != num_cell_layers:
+            raise ValueError("Cell map of wrong size")
 
     return g_new, cell_map, face_map
 
@@ -606,3 +687,64 @@ def _extrude_0d(
     face_map = np.empty(0)
 
     return g_new, cell_map, face_map
+
+def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
+    nc_2d = g.num_cells
+    nn_2d = g.num_nodes
+    
+    
+    ### Define tags
+    tip_node_tag = np.tile(g.tags["tip_nodes"], (num_cell_layers + 1, 1)).ravel()
+    fracture_node_tag = np.tile(
+        g.tags["fracture_nodes"], (num_cell_layers + 1, 1)
+    ).ravel()
+
+    # The bottom layer is all boundary nodes
+    domain_boundary_node_tag = np.ones(nn_2d, dtype=np.bool)
+
+    # Intermediate layers are as for the original grid
+    for k in range(num_cell_layers - 1):
+        domain_boundary_node_tag = np.hstack(
+            (domain_boundary_node_tag, g.tags["domain_boundary_nodes"].copy())
+        )
+    # Top layer is all boundayr nodes
+    domain_boundary_node_tag = np.hstack((domain_boundary_node_tag, np.ones(nn_2d)))
+
+    # Face tags
+    fracture_face_tag = np.empty(0, dtype=np.bool)
+    tip_face_tag = np.empty(0, dtype=np.bool)
+    boundary_face_tag = np.empty(0, dtype=np.bool)
+    for k in range(num_cell_layers):
+        fracture_face_tag = np.hstack((fracture_face_tag, g.tags["fracture_faces"]))
+        tip_face_tag = np.hstack((tip_face_tag, g.tags["tip_faces"]))
+        boundary_face_tag = np.hstack(
+            (boundary_face_tag, g.tags["domain_boundary_faces"])
+        )
+
+    # The horizontal faces are all non-fracture, non-tip
+    fracture_face_tag = np.hstack(
+        (fracture_face_tag, np.zeros(nc_2d * (num_cell_layers + 1), dtype=np.bool))
+    )
+    tip_face_tag = np.hstack(
+        (tip_face_tag, np.zeros(nc_2d * (num_cell_layers + 1), dtype=np.bool))
+    )
+
+    # The bottom and top layer of horizontal faces are on the boundary, the rest is not
+    boundary_face_tag = np.hstack(
+        (
+            boundary_face_tag,
+            np.ones(nc_2d, dtype=np.bool),
+            np.zeros(nc_2d * (num_cell_layers - 1), dtype=np.bool),
+            np.ones(nc_2d, dtype=np.bool),
+        )
+    )
+
+    tags = {
+        "fracture_faces": fracture_face_tag,
+        "tip_faces": tip_face_tag,
+        "domain_boundary_faces": boundary_face_tag,
+        "fracture_nodes": fracture_node_tag,
+        "tip_nodes": tip_node_tag,
+        "domain_boundary_nodes": domain_boundary_node_tag,
+    }    
+    return tags
