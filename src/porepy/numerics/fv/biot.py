@@ -415,12 +415,6 @@ class Biot(Mpsa):
             bound, active_grid, extracted_faces
         )
 
-        # Keep track of which faces and cells have had their discretizations updated.
-        # This is used to eliminate contributions to the discretizations on the border
-        # of the subgrids below
-        face_is_discretized = np.zeros(active_grid.num_faces, dtype=np.bool)
-        cell_is_discretized = np.zeros(active_grid.num_cells, dtype=np.bool)
-
         # Initialize matrices to store discretization
         nd = active_grid.dim
         nf = active_grid.num_faces
@@ -478,7 +472,9 @@ class Biot(Mpsa):
             # Eliminate contribution from faces already discretized (the dual grids /
             # interaction regions may be structured so that some faces have previously
             # been partially discretized even if it has not been their turn until now)
-            eliminate_face = np.where(face_is_discretized)[0]
+            eliminate_face = np.where(
+                np.logical_not(np.in1d(l2g_faces, faces_in_subgrid))
+            )[0]
             self._remove_nonlocal_contribution(
                 eliminate_face,
                 g.dim,
@@ -489,14 +485,13 @@ class Biot(Mpsa):
                 loc_grad_p,
                 loc_bound_displacement_pressure,
             )
-            # Update which faces are discretized
-            face_is_discretized[faces_in_subgrid] = 1
 
-            eliminate_cell = np.where(cell_is_discretized)[0]
+            eliminate_cell = np.where(
+                np.logical_not(np.in1d(l2g_cells, cells_in_subgrid))
+            )[0]
             self._remove_nonlocal_contribution(
                 eliminate_cell, 1, loc_div_u, loc_bound_div_u, loc_biot_stab
             )
-            cell_is_discretized[cells_in_subgrid] = 1
 
             # Next, transfer discretization matrices from the local to the active grid
             # Get a mapping from the local to the active grid
