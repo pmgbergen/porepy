@@ -4,16 +4,23 @@ Module to increase the dimensions of grids by extrusion in the z-direction.
 Both individual grids and mixed-dimensional grid_buckets can be extruded. The
 dimension of the highest-dimensional grid should be 2 at most.
 
+The main methods in the module are
+
+    extrude_grid_bucket()
+    extrude_grid()
+
+All other functions are helpers.    
+
 """
 import numpy as np
 import porepy as pp
 import scipy.sparse as sps
-from typing import Union, Dict
+from typing import Dict, Tuple
 from collections import namedtuple
 from porepy.grids import mortar_grid
 
 
-def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Union[pp.GridBucket, Dict]:
+def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket, Dict]:
     """ Extrude a GridBucket by extending all fixed-dimensional grids in the z-direction.
 
     In practice, the original grid bucket will be 2d, and the result is 3d.
@@ -116,7 +123,7 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Union[pp.GridBucket
     return gb_new, g_map
 
 
-def extrude_grid(g: pp.Grid, z: np.ndarray) -> Union[pp.Grid, np.ndarray, np.ndarray]:
+def extrude_grid(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
     """ Increase the dimension of a given grid by 1, by extruding the grid in the
     z-direction.
 
@@ -157,7 +164,7 @@ def extrude_grid(g: pp.Grid, z: np.ndarray) -> Union[pp.Grid, np.ndarray, np.nda
         raise ValueError("The grid to be extruded should have dimension at most 2")
 
 
-def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Union[pp.Grid, np.ndarray, np.ndarray]:
+def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
     """ Extrude a 2d grid into 3d by prismatic extension.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
@@ -495,29 +502,15 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Union[pp.Grid, np.ndarray, np.ndar
     g_new = pp.Grid(3, nodes, face_nodes, cell_faces, g_info, tags=tags)
     g_new.compute_geometry()
 
-    cell_map = np.empty(g.num_cells, dtype=np.object)
-    for c in range(g.num_cells):
-        cell_map[c] = np.arange(c, g_new.num_cells, g.num_cells)
-
-    face_map = np.empty(g.num_faces, dtype=np.object)
-    for f in range(g.num_faces):
-        face_map[f] = np.arange(f, g.num_faces * num_cell_layers, g.num_faces)
-
-    # Sanity checks on cell and face maps
-    for cm in cell_map:
-        if cm.size != num_cell_layers:
-            raise ValueError("Cell map of wrong size")
-
-    for fi, fm in enumerate(face_map):
-        if fm.size != num_cell_layers:
-            raise ValueError("Cell map of wrong size")
+    # Mappings between old and new cells and faces
+    cell_map, face_map = _create_mappings(g, g_new, num_cell_layers)
 
     return g_new, cell_map, face_map
 
 
 def _extrude_1d(
     g: pp.TensorGrid, z: np.ndarray
-) -> Union[pp.Grid, np.ndarray, np.ndarray]:
+) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
     """ Extrude a 1d grid into 2d by prismatic extension in the z-direction.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
@@ -561,12 +554,12 @@ def _extrude_1d(
 
     # Vertical faces are made by extruding old nodes
     fn_vert = np.empty((2, 0), dtype=np.int)
-    for k in range(num_cell_layers):
+    for _ in range(num_cell_layers):
         fn_this = np.vstack((np.arange(nn_old), nn_old + np.arange(nn_old)))
         fn_vert = np.hstack((fn_vert, fn_this))
 
     # Horizontal faces are defined from the old cell-node relation
-    # Implementation node: This operation is much simpler than in the 2d-3d operation,
+    # Implementation note: This operation is much simpler than in the 2d-3d operation,
     # since much less is assumed on the ordering of face-nodes for 2d grids than 3d
     cn_old = g.cell_nodes().indices.reshape((2, g.num_cells), order="F")
     # Bottom layer
@@ -585,11 +578,14 @@ def _extrude_1d(
     ).tocsc()
 
     # Next, cell-faces
+    # We know there are exactly four faces for each cell
     cf_rows = np.empty((4, 0), dtype=np.int)
 
     # Create vertical and horizontal faces together
     for k in range(num_cell_layers):
         # Vertical faces are identical to the old nodes before and after the cell
+        # This also takes care of split nodes (which become split faces) due to
+        # intersections in the original grid.
         cf_vert_this = nn_old * k + cn_old
 
         # Put horizontal faces on top and bottom
@@ -600,9 +596,10 @@ def _extrude_1d(
 
         cf_rows = np.hstack((cf_rows, np.vstack((cf_vert_this, cf_hor_this))))
 
-    # Cell-face relation
+    # Finalize Cell-face relation
     cf_rows = cf_rows.ravel("f")
     cf_cols = np.tile(np.arange(nc_new), (4, 1)).ravel("f")
+    # Define positive and negative sides. The choices here are somewhat arbitrary.
     tmp = np.ones(nc_new, dtype=np.int)
     cf_data = np.vstack((-tmp, tmp, -tmp, tmp)).ravel("f")
     cf = sps.coo_matrix((cf_data, (cf_rows, cf_cols)), shape=(nf_new, nc_new)).tocsc()
@@ -617,30 +614,15 @@ def _extrude_1d(
 
     g_new.compute_geometry()
 
-    # Construct cell maps
-    cell_map = np.empty(g.num_cells, dtype=np.object)
-    for c in range(g.num_cells):
-        cell_map[c] = np.arange(c, g_new.num_cells, g.num_cells)
-
-    face_map = np.empty(g.num_faces, dtype=np.object)
-    for f in range(g.num_faces):
-        face_map[f] = np.arange(f, g.num_faces * num_cell_layers, g.num_faces)
-
-    # Sanity checks on cell and face maps
-    for cm in cell_map:
-        if cm.size != num_cell_layers:
-            raise ValueError("Cell map of wrong size")
-
-    for fi, fm in enumerate(face_map):
-        if fm.size != num_cell_layers:
-            raise ValueError("Cell map of wrong size")
+    # Mappings between old and new cells and faces
+    cell_map, face_map = _create_mappings(g, g_new, num_cell_layers)
 
     return g_new, cell_map, face_map
 
 
 def _extrude_0d(
     g: pp.PointGrid, z: np.ndarray
-) -> Union[pp.Grid, np.ndarray, np.ndarray]:
+) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
     """ Extrude a 0d grid into 1d by prismatic extension in the z-direction.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
@@ -670,6 +652,8 @@ def _extrude_0d(
     y = g.nodes[1, 0] * np.ones(num_pt)
 
     # Initial 1d grid. Coordinates are wrong, but this we will fix later
+    # There is no need to do anything special with tags here; the tags of a 0d grid are
+    # trivial, and the 1d extrusion can be based on this.
     g_new = pp.TensorGrid(x)
 
     g_info = g.name.copy()
@@ -690,52 +674,79 @@ def _extrude_0d(
 
 
 def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
-    nc_2d = g.num_cells
-    nn_2d = g.num_nodes
+    """ Define all standard tags (face and nodes) for the extruded grids
 
-    ### Define tags
+    The extrusion functions do not explicitly account for split nodes and faces due to
+    intersections with other grids (because of fractures). The standard tag construction
+    in the Grid __init__ will therefore not work. Instead, construct the information
+    from the original grid.
+
+    For the face tags, the implementation assumes that the vertical faces are indexed
+    first, then the horizontal ones.
+
+    Parameters:
+        g (pp.Grid): Original grid.
+        num_cell_layers (int): Number of cell extrusion layers.
+
+    Returns:
+        Dict: The standard tags (see pp.utils.tags) for faces and nodes for the
+            extruded grid.
+
+    """
+    # Bookkeeping
+    nc_old = g.num_cells
+    nn_old = g.num_nodes
+
+    # Nodes that are on a fracture tip or a fracture in the original grid will also be
+    # that on the extruded grid.
+    # The number of node layers is one more than the number of cells.
     tip_node_tag = np.tile(g.tags["tip_nodes"], (num_cell_layers + 1, 1)).ravel()
     fracture_node_tag = np.tile(
         g.tags["fracture_nodes"], (num_cell_layers + 1, 1)
     ).ravel()
 
-    # The bottom layer is all boundary nodes
-    domain_boundary_node_tag = np.ones(nn_2d, dtype=np.bool)
+    # All nodes in the bottom and top layers are on the domain boundary.
+    domain_boundary_node_tag = np.ones(nn_old, dtype=np.bool)
 
     # Intermediate layers are as for the original grid
-    for k in range(num_cell_layers - 1):
+    for _ in range(num_cell_layers - 1):
         domain_boundary_node_tag = np.hstack(
             (domain_boundary_node_tag, g.tags["domain_boundary_nodes"].copy())
         )
-    # Top layer is all boundayr nodes
-    domain_boundary_node_tag = np.hstack((domain_boundary_node_tag, np.ones(nn_2d)))
+    # Top layer is all boundary nodes
+    domain_boundary_node_tag = np.hstack((domain_boundary_node_tag, np.ones(nn_old)))
 
-    # Face tags
+    ## Face tags
+    # ASSUMPTION: We know that the vertical faces are defined first. For these, the 
+    # information can be copied from the original grid.
     fracture_face_tag = np.empty(0, dtype=np.bool)
     tip_face_tag = np.empty(0, dtype=np.bool)
     boundary_face_tag = np.empty(0, dtype=np.bool)
-    for k in range(num_cell_layers):
+    for _ in range(num_cell_layers):
         fracture_face_tag = np.hstack((fracture_face_tag, g.tags["fracture_faces"]))
         tip_face_tag = np.hstack((tip_face_tag, g.tags["tip_faces"]))
         boundary_face_tag = np.hstack(
             (boundary_face_tag, g.tags["domain_boundary_faces"])
         )
 
+    ## Next the horizontal faces. 
     # The horizontal faces are all non-fracture, non-tip
     fracture_face_tag = np.hstack(
-        (fracture_face_tag, np.zeros(nc_2d * (num_cell_layers + 1), dtype=np.bool))
+        (fracture_face_tag, np.zeros(nc_old * (num_cell_layers + 1), dtype=np.bool))
     )
     tip_face_tag = np.hstack(
-        (tip_face_tag, np.zeros(nc_2d * (num_cell_layers + 1), dtype=np.bool))
+        (tip_face_tag, np.zeros(nc_old * (num_cell_layers + 1), dtype=np.bool))
     )
 
     # The bottom and top layer of horizontal faces are on the boundary, the rest is not
     boundary_face_tag = np.hstack(
         (
             boundary_face_tag,
-            np.ones(nc_2d, dtype=np.bool),
-            np.zeros(nc_2d * (num_cell_layers - 1), dtype=np.bool),
-            np.ones(nc_2d, dtype=np.bool),
+            np.ones(nc_old, dtype=np.bool),
+            # Intermediate layers
+            np.zeros(nc_old * (num_cell_layers - 1), dtype=np.bool),
+            # top
+            np.ones(nc_old, dtype=np.bool),
         )
     )
 
@@ -748,3 +759,27 @@ def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
         "domain_boundary_nodes": domain_boundary_node_tag,
     }
     return tags
+
+def _create_mappings(g: pp.Grid, g_new: pp.Grid, num_cell_layers: int) -> Tuple[np.ndarray, np.ndarray]:
+        
+    cell_map = np.empty(g.num_cells, dtype=np.object)
+    for c in range(g.num_cells):
+        cell_map[c] = np.arange(c, g_new.num_cells, g.num_cells)
+
+    face_map = np.empty(g.num_faces, dtype=np.object)
+    for f in range(g.num_faces):
+        face_map[f] = np.arange(f, g.num_faces * num_cell_layers, g.num_faces)
+
+    # Sanity checks on cell and face maps
+    for cm in cell_map:
+        if cm.size != num_cell_layers:
+            raise ValueError("Cell map of wrong size")
+
+    for fm in face_map:
+        # The vertical faces should have num_cell_layers items.
+        # Horizontal faces are not added to to the face_map.
+        if fm.size != num_cell_layers:
+            raise ValueError("Face map of wrong size")
+        
+    return cell_map, face_map
+
