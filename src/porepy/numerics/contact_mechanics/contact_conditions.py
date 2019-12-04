@@ -451,7 +451,7 @@ def set_projections(gb):
         # Find faces of the higher dimensional grid that coincide with the mortar
         # grid. Go via the master to mortar projection
         # Convert matrix to csr, then the relevant face indices are found from
-        # the row indices
+        # the (column) indices
         faces_on_surface = mg.master_to_mortar_int().tocsr().indices
 
         # Find out whether the boundary faces have outwards pointing normal vectors
