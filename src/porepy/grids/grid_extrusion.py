@@ -86,10 +86,16 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
         cell_map = g_map[gl].cell_map
         face_map = g_map[gh].face_map
 
+        # Data structure for the new face-cell map
         rows = np.empty(0, dtype=np.int)
         cols = np.empty(0, dtype=np.int)
 
-        # Loop over all the faces, find its extruded face children.
+        # The standard MortarGrid __init__ assumes that when faces are split because of
+        # a fracture, the faces are ordered with one side first, then the other. This
+        # will not be True for this layered construction. Instead, keep track of all 
+        # faces that should be moved to the other side.
+        face_on_other_side = np.empty(0, dtype=np.int)
+
         # Loop over cells in gl would not have been as clean, as each cell is associated
         # with faces on both sides
         # Faces are found from the high-dim grid, cells in the low-dim grid
@@ -97,11 +103,17 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
             rows = np.hstack((rows, cell_map[cells[idx]]))
             cols = np.hstack((cols, face_map[faces[idx]]))
 
+            # Here, we tacitly assume that the original grid had its faces split in the
+            # standard way, that is, all faces on one side have index lower than any
+            # face on the other side.
+            if faces[idx] > np.median(faces):
+                face_on_other_side = np.hstack((face_on_other_side, face_map[faces[idx]]))
+
         data = np.ones(rows.size, dtype=np.bool)
         # Create new face-cell map
-        face_cells_new = sps.csc_matrix(
+        face_cells_new = sps.coo_matrix(
             (data, (rows, cols)), shape=(gl_new.num_cells, gh_new.num_faces)
-        )
+        ).tocsc()
 
         # Define the new edge
         e = (gh_new, gl_new)
@@ -114,7 +126,10 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
             mortar_grid.RIGHT_SIDE: gl_new.copy(),
         }
 
-        mg = pp.MortarGrid(gl_new.dim, side_g, face_cells_new)
+        # Construct mortar grid, with instructions on which faces belong to which side
+        mg = pp.MortarGrid(
+            gl_new.dim, side_g, face_cells_new, face_duplicate_ind=face_on_other_side
+        )
 
         d_new = gb_new.edge_props(e)
 
@@ -554,8 +569,10 @@ def _extrude_1d(
 
     # Vertical faces are made by extruding old nodes
     fn_vert = np.empty((2, 0), dtype=np.int)
-    for _ in range(num_cell_layers):
-        fn_this = np.vstack((np.arange(nn_old), nn_old + np.arange(nn_old)))
+    for k in range(num_cell_layers):
+        fn_this = k * nn_old + np.vstack(
+            (np.arange(nn_old), nn_old + np.arange(nn_old))
+        )
         fn_vert = np.hstack((fn_vert, fn_this))
 
     # Horizontal faces are defined from the old cell-node relation
@@ -717,7 +734,7 @@ def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
     domain_boundary_node_tag = np.hstack((domain_boundary_node_tag, np.ones(nn_old)))
 
     ## Face tags
-    # ASSUMPTION: We know that the vertical faces are defined first. For these, the 
+    # ASSUMPTION: We know that the vertical faces are defined first. For these, the
     # information can be copied from the original grid.
     fracture_face_tag = np.empty(0, dtype=np.bool)
     tip_face_tag = np.empty(0, dtype=np.bool)
@@ -729,7 +746,7 @@ def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
             (boundary_face_tag, g.tags["domain_boundary_faces"])
         )
 
-    ## Next the horizontal faces. 
+    ## Next the horizontal faces.
     # The horizontal faces are all non-fracture, non-tip
     fracture_face_tag = np.hstack(
         (fracture_face_tag, np.zeros(nc_old * (num_cell_layers + 1), dtype=np.bool))
@@ -760,8 +777,11 @@ def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
     }
     return tags
 
-def _create_mappings(g: pp.Grid, g_new: pp.Grid, num_cell_layers: int) -> Tuple[np.ndarray, np.ndarray]:
-        
+
+def _create_mappings(
+    g: pp.Grid, g_new: pp.Grid, num_cell_layers: int
+) -> Tuple[np.ndarray, np.ndarray]:
+
     cell_map = np.empty(g.num_cells, dtype=np.object)
     for c in range(g.num_cells):
         cell_map[c] = np.arange(c, g_new.num_cells, g.num_cells)
@@ -780,6 +800,5 @@ def _create_mappings(g: pp.Grid, g_new: pp.Grid, num_cell_layers: int) -> Tuple[
         # Horizontal faces are not added to to the face_map.
         if fm.size != num_cell_layers:
             raise ValueError("Face map of wrong size")
-        
-    return cell_map, face_map
 
+    return cell_map, face_map
