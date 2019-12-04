@@ -630,6 +630,9 @@ def _extrude_1d(
     g_new = pp.Grid(2, nodes, fn, cf, g_info, tags=tags)
 
     g_new.compute_geometry()
+    
+    if hasattr(g, 'frac_num'):
+        g_new.frac_num = g.frac_num
 
     # Mappings between old and new cells and faces
     cell_map, face_map = _create_mappings(g, g_new, num_cell_layers)
