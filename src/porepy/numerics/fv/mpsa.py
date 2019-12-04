@@ -199,8 +199,6 @@ class Mpsa:
         active_bound_displacement_cell = sps.csr_matrix((nf * nd, nc * nd))
         active_bound_displacement_face = sps.csr_matrix((nf * nd, nf * nd))
 
-        face_is_discretized = np.zeros(active_grid.num_faces, dtype=np.bool)
-
         tic = time()
 
         # Loop over all partition regions, construct local problems, and transfer
@@ -234,17 +232,17 @@ class Mpsa:
             # Eliminate contribution from faces already discretized (the dual grids /
             # interaction regions may be structured so that some faces have previously
             # been partially discretized even if it has not been their turn until now)
-            eliminate_ind = np.where(face_is_discretized)[0]
+            eliminate_face = np.where(
+                np.logical_not(np.in1d(l2g_faces, faces_in_subgrid))
+            )[0]
             self._remove_nonlocal_contribution(
-                eliminate_ind,
+                eliminate_face,
                 g.dim,
                 loc_stress,
                 loc_bound_stress,
                 loc_bound_displacement_cell,
                 loc_bound_displacement_face,
             )
-            # Update which faces are discretized
-            face_is_discretized[faces_in_subgrid] = 1
 
             # Next, transfer discretization matrices from the local to the active grid
             # Get a mapping from the local to the active grid
