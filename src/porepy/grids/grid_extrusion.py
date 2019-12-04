@@ -92,7 +92,7 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
 
         # The standard MortarGrid __init__ assumes that when faces are split because of
         # a fracture, the faces are ordered with one side first, then the other. This
-        # will not be True for this layered construction. Instead, keep track of all 
+        # will not be True for this layered construction. Instead, keep track of all
         # faces that should be moved to the other side.
         face_on_other_side = np.empty(0, dtype=np.int)
 
@@ -107,7 +107,9 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
             # standard way, that is, all faces on one side have index lower than any
             # face on the other side.
             if faces[idx] > np.median(faces):
-                face_on_other_side = np.hstack((face_on_other_side, face_map[faces[idx]]))
+                face_on_other_side = np.hstack(
+                    (face_on_other_side, face_map[faces[idx]])
+                )
 
         data = np.ones(rows.size, dtype=np.bool)
         # Create new face-cell map
@@ -598,12 +600,12 @@ def _extrude_1d(
     # We know there are exactly four faces for each cell
     cf_rows = np.empty((4, 0), dtype=np.int)
 
+    cf_old = g.cell_faces.indices.reshape((2, -1), order="f")
+
     # Create vertical and horizontal faces together
     for k in range(num_cell_layers):
-        # Vertical faces are identical to the old nodes before and after the cell
-        # This also takes care of split nodes (which become split faces) due to
-        # intersections in the original grid.
-        cf_vert_this = nn_old * k + cn_old
+        # Vertical faces are identified by the old cell-face relation
+        cf_vert_this = nn_old * k + cf_old
 
         # Put horizontal faces on top and bottom
         cf_hor_this = np.vstack((np.arange(nc_old), np.arange(nc_old) + nc_old))
@@ -630,8 +632,8 @@ def _extrude_1d(
     g_new = pp.Grid(2, nodes, fn, cf, g_info, tags=tags)
 
     g_new.compute_geometry()
-    
-    if hasattr(g, 'frac_num'):
+
+    if hasattr(g, "frac_num"):
         g_new.frac_num = g.frac_num
 
     # Mappings between old and new cells and faces
