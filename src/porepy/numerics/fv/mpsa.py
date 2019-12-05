@@ -199,13 +199,12 @@ class Mpsa:
         active_bound_displacement_cell = sps.csr_matrix((nf * nd, nc * nd))
         active_bound_displacement_face = sps.csr_matrix((nf * nd, nf * nd))
 
-        tic = time()
-
         # Loop over all partition regions, construct local problems, and transfer
         # discretization to the entire active grid
-        for sub_g, faces_in_subgrid, _, l2g_cells, l2g_faces in self._subproblems(
-            active_grid, max_memory
+        for reg_i, (sub_g, faces_in_subgrid, _, l2g_cells, l2g_faces) in enumerate(
+            self._subproblems(active_grid, max_memory)
         ):
+            tic = time()
 
             # Copy stiffness tensor, and restrict to local cells
             loc_c: pp.FourthOrderTensor = self._constit_for_subgrid(
@@ -260,6 +259,9 @@ class Mpsa:
             )
             active_bound_displacement_face += (
                 face_map * loc_bound_displacement_face * face_map.transpose()
+            )
+            logger.info(
+                f"Done with subproblem {reg_i}. Elapsed time {time() - tic}"
             )
 
         # We have reached the end of the discretization, what remains is to map the
