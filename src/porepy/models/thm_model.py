@@ -252,6 +252,7 @@ class THM(parent_model.ContactMechanicsBiot):
         diff_disc_t = IE_discretizations.ImplicitMpfa(key_t)
         adv_disc_t = IE_discretizations.ImplicitUpwind(key_t)
         mass_disc_t = IE_discretizations.ImplicitMassMatrix(key_t, var_t)
+        source_disc_t = pp.ScalarSource(key_t)
 
         # Coupling discretizations
         # All dimensions
@@ -287,6 +288,7 @@ class THM(parent_model.ContactMechanicsBiot):
                             "mass": mass_disc_t,
                             # Also the stabilization term from Biot
                             "stabilization": stabilization_disc_t,
+                            "source": source_disc_t,
                         },
                         # grad T term in the momentuum equation
                         var_d + "_" + var_t: {"grad_p": grad_t_disc},
