@@ -25,6 +25,9 @@ def is_ccw_polygon(poly: np.ndarray) -> bool:
     self-intersecting (e.g. shaped like the number 8), the number returned will
     reflect whether the method is 'mostly' cw or ccw.
 
+    NOTE: The test can *not* be used to determine whether the vertexes of a polygon are
+    ordered in a natural fashion, that is, not self-intersecting.
+
     Parameters:
         poly (np.ndarray, 2xn): Polygon vertices.
 
