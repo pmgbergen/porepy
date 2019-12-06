@@ -9,7 +9,7 @@ The main methods in the module are
     extrude_grid_bucket()
     extrude_grid()
 
-All other functions are helpers.    
+All other functions are helpers.
 
 """
 import numpy as np
@@ -324,7 +324,7 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
     cn_2d = g.cell_nodes()
 
     # Short hand for node indices of each cell.
-    cn_ind_2d = cn_2d.indices
+    cn_ind_2d = cn_2d.indices.copy()
 
     # Similar to the vertical faces, the face-node relation in 3d should match the
     # sign in the cell-face relation, so that the generated normal vector points out of
@@ -336,45 +336,30 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
         stop = cn_2d.indptr[ci + 1]
         ni = cn_ind_2d[start:stop]
 
-        # Coordinates
         coord = g.nodes[:2, ni]
-
-        # If the polygon is already ccw, we can keep the ordering, unless the extrusion
-        # is in the negative direction
-        if pp.geometry_property_checks.is_ccw_polygon(coord):
+        # Sort the points.
+        # IMPLEMENTATION NOTE: this probably assumes convexity of the 2d cell.
+        sort_ind = pp.utils.sort_points.sort_point_plane(
+            np.vstack((coord, np.zeros(coord.shape[1]))),
+            g.cell_centers[:, ci].reshape((-1, 1)),
+        )
+        # Indices that sort the nodes. The sort function contains a rotation, which
+        # implies that it is unknown whether the ordering is cw or ccw
+        # If the sorted points are ccw, we store them, unless the extrusion is negative
+        # in which case the ordering should be cw, and the points are turned.
+        if pp.geometry_property_checks.is_ccw_polygon(coord[:, sort_ind]):
             if negative_extrusion:
-                cn_ind_2d[start:stop] = cn_ind_2d[start:stop][::-1]
+                cn_ind_2d[start:stop] = cn_ind_2d[start:stop][sort_ind[::-1]]
             else:
-                continue
-        # Oposite: If the polygon is in cw, we should switch ordering if the extrusion
-        # is positive
-        elif pp.geometry_property_checks.is_ccw_polygon(coord[:, ::-1]):
-            if not negative_extrusion:
-                cn_ind_2d[start:stop] = cn_ind_2d[start:stop][::-1]
+                cn_ind_2d[start:stop] = cn_ind_2d[start:stop][sort_ind]
+        # Else, the ordering should be negative.
+        elif pp.geometry_property_checks.is_ccw_polygon(coord[:, sort_ind[::-1]]):
+            if negative_extrusion:
+                cn_ind_2d[start:stop] = cn_ind_2d[start:stop][sort_ind]
             else:
-                continue
-        # If we get this far, we first need to obtain an ordering (cw or ccw)
-        # IMPLEMENTATION NOTE: This part of the code is not very well tested. Errors
-        # here will likely give issues with negative subtet volumes in
-        # g_new.compute_geometry_3d()
+                cn_ind_2d[start:stop] = cn_ind_2d[start:stop][sort_ind[::-1]]
         else:
-            # Indices that sort the nodes. The called function contains a rotation, which
-            # implies that it is unknown whether the ordering is cw or ccw
-            sort_ind = pp.utils.sort_points.sort_point_plane(
-                np.vstack((coord, np.zeros(coord.shape[1]))),
-                g.cell_centers[:, ci].reshape((-1, 1)),
-            )
-            # Deal with the two cases as we did above.
-            if pp.geometry_property_checks.is_ccw_polygon(coord[:, sort_ind]):
-                if negative_extrusion:
-                    cn_ind_2d[start:stop] = cn_ind_2d[start:stop][sort_ind[::-1]]
-                else:
-                    cn_ind_2d[start:stop] = cn_ind_2d[start:stop][sort_ind]
-            else:  # Now it should be cw
-                if negative_extrusion:
-                    cn_ind_2d[start:stop] = cn_ind_2d[start:stop][sort_ind]
-                else:
-                    cn_ind_2d[start:stop] = cn_ind_2d[start:stop][sort_ind[::-1]]
+            raise ValueError("this should not happen. Is the cell non-convex??")
 
     # Compressed column storage for horizontal faces: Store node indices
     fn_rows_horizontal = np.array([], dtype=np.int)
