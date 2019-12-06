@@ -25,7 +25,7 @@ import scipy.sparse as sps
 import scipy.sparse.linalg as la
 import numpy as np
 from typing import Dict, Tuple, Any
-import time
+from time import time
 import logging
 
 import porepy as pp
@@ -444,7 +444,7 @@ class Biot(Mpsa):
             (sub_g, faces_in_subgrid, cells_in_subgrid, l2g_cells, l2g_faces),
         ) in enumerate(self._subproblems(active_grid, max_memory)):
 
-            tic = time.time()
+            tic = time()
             # Copy stiffness tensor, and restrict to local cells
             loc_c: pp.FourthOrderTensor = self._constit_for_subgrid(
                 active_constit, l2g_cells
