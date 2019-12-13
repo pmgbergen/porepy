@@ -308,6 +308,7 @@ class THM(parent_model.ContactMechanicsBiot):
                             "diffusion": diff_disc_t,
                             self.advection_term: adv_disc_t,
                             "mass": mass_disc_t,
+                            "source": source_disc_t,
                         },
                         # Standard coupling terms
                         var_t + "_" + var_s: {self.s2t_coupling_term: s2t_disc},
