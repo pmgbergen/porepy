@@ -60,16 +60,16 @@ class NewtonSolver:
             errors.append(error_norm)
 
             if is_diverged:
-                setup.after_newton_failure()
+                setup.after_newton_failure(sol, errors, iteration_counter)
             elif is_converged:
-                setup.after_newton_convergence(sol)
+                setup.after_newton_convergence(sol, errors, iteration_counter)
 
             iteration_counter += 1
 
         if not is_converged:
             setup.after_newton_failure()
 
-        return error_norm, is_converged
+        return error_norm, is_converged, iteration_counter
 
     def iteration(self, setup, lin_tol):
         """ A single Newton iteration.

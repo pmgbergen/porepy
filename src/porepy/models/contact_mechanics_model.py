@@ -473,7 +473,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         ]
         self.viz.write_vtk({"ux": u[::2], "uy": u[1::2]})
 
-    def after_newton_convergence(self, solution):
+    def after_newton_convergence(self, solution, errors, iteration_counter):
         self.assembler.distribute_variable(solution)
 
     def check_convergence(self, solution, prev_solution, nl_params):
@@ -512,7 +512,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
         return error, converged, diverged
 
-    def after_newton_failure(self):
+    def after_newton_failure(self, solution, errors, iteration_counter):
         if self._is_nonlinear_problem():
             raise ValueError("Newton iterations did not converge")
         else:
