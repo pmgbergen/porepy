@@ -63,6 +63,17 @@ To function optimally, PorePy should have access to some more packages:
 * We use `shapely` for certain geometry-operations.
 * Meshing: currently by [gmsh](http://gmsh.info/doc/texinfo/gmsh.html). For its configuration see [Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
 
+The following steps might help with the installatio of `pymetis`:
+1. Download the `Metis` library source files from:
+http://glaros.dtc.umn.edu/gkhome/metis/metis/download
+2. Make sure you have cmake and build-essentials installed via `apt install` in the terminal
+3. Run the following from the `Metis` source file directory:
+- make config
+- make
+4. You should now have Metis installed on your machine. Test this by running `mpmetis -help`.
+5. Make sure you have pybind11 installed via `pip3 install pybind11`
+6. Install PyMetis via `pip3 install pymetis`
+
 # Testing
 To test build locally, the second command requires gmsh (see [Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md))
 
