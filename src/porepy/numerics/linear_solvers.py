@@ -46,7 +46,7 @@ class LinearSolver:
         )
 
         if is_converged:
-            setup.after_newton_convergence(sol)
+            setup.after_newton_convergence(sol, error_norm, iteration_counter=1)
         else:
             setup.after_newton_failure()
         return error_norm, is_converged
