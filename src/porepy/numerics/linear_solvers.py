@@ -9,6 +9,7 @@ from typing import Dict, Tuple
 
 from porepy.models.abstract_model import AbstractModel
 
+
 class LinearSolver:
     def __init__(self, params: Dict = None) -> None:
         """ Define linear solver.

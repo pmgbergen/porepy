@@ -752,8 +752,8 @@ class Test2dDomain(unittest.TestCase):
         self.assertTrue(len(gb.grids_of_dimension(1)) == 1)
         self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
 
-class TestStructuredGrids(unittest.TestCase):
 
+class TestStructuredGrids(unittest.TestCase):
     def test_x_intersection_2d(self):
         """ Check that no error messages are created in the process of creating a
         split_fracture.
@@ -785,7 +785,6 @@ class TestStructuredGrids(unittest.TestCase):
         self.assertTrue(np.all(f_nodes_1 == glob_1))
         self.assertTrue(np.all(f_nodes_2 == glob_2))
         self.assertTrue(np.all(f_nodes_0 == glob_0))
-
 
     def test_tripple_x_intersection_3d(self):
         """
