@@ -260,9 +260,7 @@ class Mpsa:
             active_bound_displacement_face += (
                 face_map * loc_bound_displacement_face * face_map.transpose()
             )
-            logger.info(
-                f"Done with subproblem {reg_i}. Elapsed time {time() - tic}"
-            )
+            logger.info(f"Done with subproblem {reg_i}. Elapsed time {time() - tic}")
 
         # We have reached the end of the discretization, what remains is to map the
         # discretization back from the active grid to the entire grid
