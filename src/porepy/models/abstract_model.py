@@ -63,7 +63,7 @@ class AbstractModel:
         """
         raise NotImplementedError("This must be implemented for any new Model")
 
-    def after_newton_convergence(self, solution):
+    def after_newton_convergence(self, solution, errors, iteration_counter):
         """ Method to be called after every non-linear iteration.
 
         Possible usage is to distribute information on the solution, visualization, etc.
@@ -74,7 +74,7 @@ class AbstractModel:
         """
         raise NotImplementedError("This must be implemented for any new Model")
 
-    def after_newton_failure(self):
+    def after_newton_failure(self, solution, errors, iteration_counter):
         """ Method called after a non-linear solver has failed.
 
         The failure can be due to divergence, or that the maximum number of iterations
