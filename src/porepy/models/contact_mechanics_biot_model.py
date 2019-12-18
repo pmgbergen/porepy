@@ -459,7 +459,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
     def after_newton_iteration(self, solution):
         self.update_state(solution)
 
-    def after_newton_convergence(self, solution):
+    def after_newton_convergence(self, solution, errors, iteration_counter):
         self.assembler.distribute_variable(solution)
         self.save_mechanical_bc_values()
 
