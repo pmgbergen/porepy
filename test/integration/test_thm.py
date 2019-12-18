@@ -87,7 +87,6 @@ class TestTHM(unittest.TestCase):
         setup.alpha, setup.gamma, setup.advection_weight = 1e-10, 1e-10, 1e-10
         # remove_advection(setup)
         u, p, T = self._solve(setup)
-        print(np.sum(u), np.sum(p), np.sum(T))
         self.assertTrue(np.isclose(np.sum(T), -0.000560668482409941))
         self.assertTrue(np.isclose(np.sum(u), 0.0045))
         self.assertTrue(np.isclose(np.sum(p), 0.0))

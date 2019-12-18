@@ -532,9 +532,7 @@ class Biot(Mpsa):
             active_bound_displacement_pressure += (
                 face_map_vec * loc_bound_displacement_pressure * cell_map_scalar
             )
-            logger.info(
-                f"Done with subproblem {reg_i}. Elapsed time {time() - tic}"
-            )
+            logger.info(f"Done with subproblem {reg_i}. Elapsed time {time() - tic}")
             # Done with this subdomain, move on to the next one
 
         # We are done with the discretization. What remains is to map the computed
