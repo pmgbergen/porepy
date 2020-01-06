@@ -34,7 +34,7 @@ class NewtonSolver:
         is_converged = False
 
         prev_sol = setup.get_state_vector()
-
+        init_sol = prev_sol
         errors = []
         error_norm = 1
 
@@ -54,7 +54,7 @@ class NewtonSolver:
             setup.after_newton_iteration(sol)
 
             error_norm, is_converged, is_diverged = setup.check_convergence(
-                sol, prev_sol, self.params
+                sol, prev_sol, init_sol, self.params
             )
             prev_sol = sol
             errors.append(error_norm)

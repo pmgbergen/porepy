@@ -240,7 +240,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 }
 
         # Define the contact condition on the mortar grid
-        coloumb = pp.ColoumbContact(self.mechanics_parameter_key, Nd)
+        coloumb = pp.ColoumbContact(self.mechanics_parameter_key, Nd, mpsa)
         contact = pp.PrimalContactCoupling(self.mechanics_parameter_key, mpsa, coloumb)
 
         for e, d in gb.edges():
@@ -289,7 +289,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             if mg.dim == self.Nd - 1:
                 size = mg.num_cells * self.Nd
                 state = {
-                    self.mortar_displacement_variable: np.zeros(mg.num_cells * self.Nd),
+                    self.mortar_displacement_variable: np.zeros(size),
                     "previous_iterate": {
                         self.mortar_displacement_variable: np.zeros(size)
                     },
@@ -476,7 +476,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
     def after_newton_convergence(self, solution, errors, iteration_counter):
         self.assembler.distribute_variable(solution)
 
-    def check_convergence(self, solution, prev_solution, nl_params):
+    def check_convergence(self, solution, prev_solution, init_solution, nl_params):
         g_max = self._nd_grid()
         if not self._is_nonlinear_problem():
             # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
@@ -487,11 +487,15 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             error = np.nan if diverged else 0
             return error, converged, diverged
 
-        u1 = solution[self.assembler.dof_ind(g_max, self.displacement_variable)]
-        u0 = prev_solution[self.assembler.dof_ind(g_max, self.displacement_variable)]
+        mech_dof = self.assembler.dof_ind(g_max, self.displacement_variable)
+        u_now = solution[mech_dof]
+        u_prev = prev_solution[mech_dof]
+        u_init = init_solution[mech_dof]
+        
         # Calculate the error
-        solution_norm = self.l2_norm_cell(g_max, u1)
-        iterate_difference = self.l2_norm_cell(g_max, u1 - u0)
+        solution_norm = np.sum(u_now ** 2)
+        iterate_difference = np.sum((u_now - u_prev) ** 2)
+        init_norm = np.sum((u_now - u_init) ** 2)
 
         tol = nl_params["convergence_tol"]
 
@@ -501,14 +505,17 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         # The if is intended to avoid division through zero
         if solution_norm < tol and iterate_difference < tol:
             converged = True
-            error = np.sum((u1 - u0) ** 2)
+            error = np.sum((u_now - u_prev) ** 2)
 
         else:
-            if iterate_difference / solution_norm < tol:
+            if iterate_difference / init_norm < tol:
                 converged = True
-            error = np.sum((u1 - u0) ** 2) / np.sum(u1 ** 2)
+            error = np.sum((u_now - u_prev) ** 2) / np.sum((u_now - u_init) ** 2)
 
         logger.info("Error is {}".format(error))
+     #   print(iterate_difference / init_norm)
+        import pdb
+     #   pdb.set_trace()
 
         return error, converged, diverged
 
