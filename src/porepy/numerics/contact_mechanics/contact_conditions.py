@@ -20,7 +20,7 @@ import porepy as pp
 
 
 class ColoumbContact:
-    def __init__(self, keyword, ambient_dimension):
+    def __init__(self, keyword, ambient_dimension, discr_h):
         self.keyword = keyword
 
         self.dim = ambient_dimension
@@ -31,6 +31,8 @@ class ColoumbContact:
         self.traction_discretization = "traction_discretization"
         self.displacement_discretization = "displacement_discretization"
         self.rhs_discretization = "contact_rhs"
+        
+        self.discr_h = discr_h
 
     def _key(self):
         return self.keyword + "_"
@@ -165,16 +167,31 @@ class ColoumbContact:
 
         num_cells = friction_coefficient.size
 
+        area = g_l.cell_volumes
+        length = np.power(g_l.cell_volumes, 1/g_l.dim)
+        
+        parameters_h = data_h[pp.PARAMETERS][self.discr_h.keyword]
+        constit_h = parameters_h['fourth_order_tensor']
+        mean_constit = 0.5 * mg.master_to_mortar_avg() * np.abs(g_h.cell_faces * (constit_h.mu + constit_h.lmbda))
+        
+        force_scaling = mg.mortar_to_slave_avg() * mean_constit
+
         # Find contact and sliding region
 
         # Contact region is determined from the normal direction.
         penetration_bc = self._penetration(
-            contact_force_normal, displacement_jump_normal, c_num
+            contact_force_normal / (force_scaling * area),
+            displacement_jump_normal / length, c_num
+        )
+        friction_bound_scaled = friction_coefficient * np.clip(
+            -contact_force_normal /(force_scaling * area)  \
+                + c_num * displacement_jump_normal / length, 0, np.inf
         )
         sliding_bc = self._sliding(
-            contact_force_tangential,
-            displacement_jump_tangential,
-            friction_bound,
+            contact_force_tangential / (force_scaling * area),
+            displacement_jump_tangential / area,
+            # Is the scaling of friction_bound correct?
+            friction_bound_scaled,  
             c_num,
         )
 
@@ -322,7 +339,10 @@ class ColoumbContact:
         """
         # Use thresholding to not pick up faces that are just about sticking
         # Not sure about the sensitivity to the tolerance parameter here.
-        return self._l2(-Tt + ct * ut) - bf > 1e-10
+        tol = 1e-8
+        print('sliding')
+        print(self._l2(-Tt + ct * ut) - bf)
+        return self._l2(-Tt + ct * ut) - bf > tol
 
     def _penetration(self, Tn, un, cn):
         """ Find faces that are in contact.
@@ -330,15 +350,18 @@ class ColoumbContact:
         Arguments:
             Tn (np.array, num_faces): Normal forces.
             un (np.array, num_faces): Displament in normal direction.
-            ct (double): Numerical parameter that relates displacement jump to
+            cn (double): Numerical parameter that relates displacement jump to
                 normal forces. See Huber et al for explanation.
 
         Returns:
-            boolean, size num_faces: True if |-Tt + ct*ut| > bf for a face
+            boolean, size num_faces: True if |-Tu + cn*un| > 0 for a face
 
         """
         # Not sure about the sensitivity to the tolerance parameter here.
-        tol = 1e-12 * cn
+        tol = 1e-8
+        print('penetration')
+        print(-Tn + cn * un)
+        print(un)
         return (-Tn + cn * un) > tol
 
     # Below here are different help function for calculating the Newton step
