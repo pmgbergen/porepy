@@ -343,6 +343,29 @@ class TestSparseMath(unittest.TestCase):
 
         self.assertTrue(np.allclose(known, value.toarray()))
 
+    def test_csr_matrix_from_array(self):
+
+        block_size = 2
+        num_blocks = 2
+        arr = np.array([1, 2, 3, 4, 5, 6, 7, 8])
+
+        known = np.array([[1, 2, 0, 0], [3, 4, 0, 0], [0, 0, 5, 6], [0, 0, 7, 8]])
+        value = sparse_mat.csr_matrix_from_blocks(arr, block_size, num_blocks)
+
+        self.assertTrue(np.allclose(known, value.toarray()))
+
+    # Tests of csr_matrix_from_blocks
+    def test_csc_matrix_from_array(self):
+
+        block_size = 2
+        num_blocks = 2
+        arr = np.array([1, 2, 3, 4, 5, 6, 7, 8])
+
+        known = np.array([[1, 3, 0, 0], [2, 4, 0, 0], [0, 0, 5, 7], [0, 0, 6, 8]])
+        value = sparse_mat.csc_matrix_from_blocks(arr, block_size, num_blocks)
+
+        self.assertTrue(np.allclose(known, value.toarray()))
+
 
 if __name__ == "__main__":
     unittest.main()
