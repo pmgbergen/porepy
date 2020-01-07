@@ -273,7 +273,9 @@ def slice_mat(A, ind):
         return sps.csr_matrix((data, indices, indptr), shape=(N, A.shape[1]))
 
 
-def csr_matrix_from_blocks(data, block_size, num_blocks):
+def csr_matrix_from_blocks(
+    data: np.ndarray, block_size: int, num_blocks: int
+) -> sps.spmatrix:
     """ Create a csr representation of a block diagonal matrix of uniform block size.
 
     The function is equivalent to, but orders of magnitude faster than, the call
@@ -292,16 +294,103 @@ def csr_matrix_from_blocks(data, block_size, num_blocks):
         ValueError: If the size of the data does not match the blocks size and number
             of blocks.
 
+    Example:
+        >>> data = np.array([1, 2, 3, 4, 5, 6, 7, 8])
+        >>> block_size, num_blocks = 2, 2
+        >>> csr_matrix_from_blocks(data, block_size, num_blocks).toarray()
+        array([[1, 2, 0, 0],
+               [3, 4, 0, 0],
+               [0, 0, 5, 6],
+               [0, 0, 7, 8]])
+
+    """
+    return _csx_matrix_from_blocks(data, block_size, num_blocks, sps.csr_matrix)
+
+
+def csc_matrix_from_blocks(
+    data: np.ndarray, block_size: int, num_blocks: int
+) -> sps.spmatrix:
+    """ Create a csc representation of a block diagonal matrix of uniform block size.
+
+    The function is equivalent to, but orders of magnitude faster than, the call
+
+        sps.block_diag(blocks)
+
+    Parameters:
+        data (np.array): Matrix values, sorted column-wise.
+        block_size (int): The size of *all* the blocks.
+        num_blocks (int): Number of blocks to be added.
+
+    Returns:
+        sps.csc_matrix: csr representation of the block matrix.
+
+    Raises:
+        ValueError: If the size of the data does not match the blocks size and number
+            of blocks.
+            
+    Example:
+        >>> data = np.array([1, 2, 3, 4, 5, 6, 7, 8])
+        >>> block_size, num_blocks = 2, 2
+        >>> csc_matrix_from_blocks(data, block_size, num_blocks).toarray()
+        array([[1, 3, 0, 0],
+               [2, 4, 0, 0],
+               [0, 0, 5, 7],
+               [0, 0, 6, 8]])
+
+    """
+    return _csx_matrix_from_blocks(data, block_size, num_blocks, sps.csc_matrix)
+
+
+def _csx_matrix_from_blocks(
+    data: np.ndarray, block_size: int, num_blocks: int, matrix_format
+) -> sps.spmatrix:
+    """ Create a csr representation of a block diagonal matrix of uniform block size.
+
+    The function is equivalent to, but orders of magnitude faster than, the call
+
+        sps.block_diag(blocks)
+
+    Parameters:
+        data (np.array): Matrix values, sorted column-wise.
+        block_size (int): The size of *all* the blocks.
+        num_blocks (int): Number of blocks to be added.
+        matrix_format: type of matrix to be created. Should be either sps.csc_matrix
+            or sps.csr_matrix
+
+    Returns:
+        sps.csr_matrix: csr representation of the block matrix.
+
+    Raises:
+        ValueError: If the size of the data does not match the blocks size and number
+            of blocks.
+
     """
     if not data.size == block_size ** 2 * num_blocks:
         raise ValueError("Incompatible input to generate block matrix")
 
+    # The block structure of the matrix allows for a unified construction of compressed
+    # column and row matrices. The difference will simply be in how the data is
+    # interpreted
+
+    # The new columns or rows start with intervals of block_size
     indptr = np.arange(0, block_size ** 2 * num_blocks + 1, block_size)
 
+    # To get the indices in the compressed storage format requires some more work
     if block_size > 1:
+        # First create indices for each of the blocks
+        #  The inner tile creates arrays
+        #   [0, 1, ..., block_size-1, 0, 1, ... block_size-1, ... ]
+        #   The size of the inner tile is block_size^2, and forms the indices of a
+        # single block
+        #  The outer tile repeats the inner tile, num_blocks times
+        #  The size of base is thus block_size^2 * num_blocks
         base = np.tile(
             np.tile(np.arange(block_size), (block_size, 1)).reshape((1, -1)), num_blocks
         )[0]
+        # Next, increase the index in base, so as to create a block diagonal matrix
+        # the first block_size^2 elements (e.g. the elemnets of the first block are
+        # unperturbed.
+        # the next block_size elements are increased by block_size^2 etc.
         block_increase = (
             np.tile(np.arange(num_blocks), (block_size ** 2, 1)).reshape(
                 (1, -1), order="F"
@@ -311,7 +400,8 @@ def csr_matrix_from_blocks(data, block_size, num_blocks):
         indices = base + block_increase
     else:
         indices = np.arange(num_blocks, dytpe=np.int)
-    mat = sps.csr_matrix(
+
+    mat = matrix_format(
         (data, indices, indptr),
         shape=(num_blocks * block_size, num_blocks * block_size),
     )
