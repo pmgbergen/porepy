@@ -327,7 +327,7 @@ def csc_matrix_from_blocks(
     Raises:
         ValueError: If the size of the data does not match the blocks size and number
             of blocks.
-            
+
     Example:
         >>> data = np.array([1, 2, 3, 4, 5, 6, 7, 8])
         >>> block_size, num_blocks = 2, 2
