@@ -122,9 +122,15 @@ class MortarGrid(object):
                 # This is a tacit assumption on the numbering scheme for split faces,
                 # all faces on one side of the mortar grid should be indexed first,
                 # the their duplicate on the other side of the fracture.
-                cells[faces > np.median(faces)] += num_cells
+                cells_on_second_side = faces > np.median(faces)
+                cells[cells_on_second_side] += num_cells
             else:
-                cells[np.in1d(faces, face_duplicate_ind)] += num_cells
+                cells_on_second_side = np.in1d(faces, face_duplicate_ind)
+                cells[cells_on_second_side] += num_cells
+                
+            # Store the information on which cells are on which side - this may
+            # become necessary to know later
+            self.cell_is_on_second_side = cells_on_second_side
 
         shape = (num_cells * self.num_sides(), face_cells.shape[1])
         self._master_to_mortar_int = sps.csc_matrix(
@@ -541,15 +547,17 @@ class MortarGrid(object):
             )
             return sps.dia_matrix((np.ones(nc * nd), 0), shape=(nd * nc, nd * nc))
         elif self.num_sides() == 2:
-            # From the numbering of the mortar cells (see __init__, the case
-            # num_sides() == 2)), we know that the cells are numbered first
-            # on one side, then on the other.
+            # First create a data array of the right length
             data = np.hstack(
                 (
                     np.ones(self.side_grids[1].num_cells * nd),
-                    -np.ones(self.side_grids[2].num_cells * nd),
+                    np.ones(self.side_grids[2].num_cells * nd),
                 )
             )
+            # Next change the sign on those cells deemed to be on the second side
+            # of the mortar cell (same as used in __init__)
+            sign_change = np.tile(self.cell_is_on_second_side, (nd, 1)).ravel('F')
+            data[sign_change] *= -1
             return sps.dia_matrix((data, 0), shape=(nd * nc, nd * nc))
 
     def cell_diameters(self):
