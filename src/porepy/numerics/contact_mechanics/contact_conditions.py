@@ -308,6 +308,10 @@ class ColoumbContact:
         )
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_discretization] = rhs
 
+        # Also store the contact state
+        data_l[pp.STATE]["previous_iterate"]["penetration"] = penetration_bc
+        data_l[pp.STATE]["previous_iterate"]["sliding"] = sliding_bc
+
     def assemble_matrix_rhs(self, g, data):
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
