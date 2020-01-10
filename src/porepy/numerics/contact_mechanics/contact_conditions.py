@@ -218,10 +218,10 @@ class ColoumbContact:
 
         for i in range(num_cells):
             if sliding_bc[i] & penetration_bc[i]:  # in contact and sliding
-                # The equation for the normal direction is computed from equation
-                # (24)-(25) in Berge et al.
-                # Compute coeffecients L, r, v
-                loc_displacement_tangential, r, v = self._L_r(
+                # This is Eq (31) in Berge et al, including the regularization
+                # described in (32) and onwards. The expressions are somewhat complex,
+                # and are therefore moved to subfunctions.
+                loc_displacement_tangential, r, v = self._sliding_coefficients(
                     contact_force_tangential[:, i],
                     displacement_jump_tangential[:, i],
                     friction_bound[i],
@@ -245,9 +245,11 @@ class ColoumbContact:
                 loc_traction_weight[:-1, -1] = -friction_coefficient[i] * v.ravel()
 
             elif ~sliding_bc[i] & penetration_bc[i]:  # In contact and sticking
-                # Weight for contact force computed according to (23)
+                # Weight for contact force computed according to (30) in Berge.
+                # NOTE: There is a sign error in the paper, the coefficient for the
+                # normal contact force should have a minus in front of it
                 loc_traction_tangential = (
-                    -friction_coefficient[i]
+                    -friction_coefficient[i]  # The minus sign is correct
                     * displacement_jump_tangential[:, i].ravel("F")
                     / friction_bound[i]
                 )
@@ -364,14 +366,18 @@ class ColoumbContact:
         print(un)
         return (-Tn + cn * un) > tol
 
-    # Below here are different help function for calculating the Newton step
-    def _ef(self, Tt, cut, bf):
-        # Compute part of (25) in Berge et al.
+    #####
+    ## Below here are different help function for calculating the Newton step
+    #####
+
+    def _e(self, Tt, cut, bf):
+        # Compute part of (32) in Berge et al.
         return bf / self._l2(-Tt + cut)
 
-    def _Ff(self, Tt, cut, bf):
-        # Implementation of the term Q involved in the calculation of (25) in Berge
+    def _Q(self, Tt, cut, bf):
+        # Implementation of the term Q involved in the calculation of (32) in Berge
         # et al.
+        # This is the regularized Q
         numerator = -Tt.dot((-Tt + cut).T)
 
         # Regularization to avoid issues during the iterations to avoid dividing by
@@ -381,24 +387,26 @@ class ColoumbContact:
         return numerator / denominator
 
     def _M(self, Tt, cut, bf):
-        """ Compute the coefficient M used in Eq. (25) in Berge et al.
+        """ Compute the coefficient M used in Eq. (32) in Berge et al.
         """
         Id = np.eye(Tt.shape[0])
-        return self._ef(Tt, cut, bf) * (Id - self._Ff(Tt, cut, bf))
+        # M = e * (I - Q)
+        return self._e(Tt, cut, bf) * (Id - self._Q(Tt, cut, bf))
 
     def _hf(self, Tt, cut, bf):
-        return self._ef(Tt, cut, bf) * self._Ff(Tt, cut, bf).dot(-Tt + cut)
+        # This is the product e * Q * (-Tt + cut), used in computation of r in (32)
+        return self._e(Tt, cut, bf) * self._Q(Tt, cut, bf).dot(-Tt + cut)
 
-    def _L_r(self, Tt, ut, bf, c):
+    def _sliding_coefficients(self, Tt, ut, bf, c):
         """
-        Compute the coefficient L, defined in Eq. (25) in Berge et al.
+        Compute the regularized versions of coefficients L, v and r, defined in
+        Eq. (32) and section 3.2.1 in Berge et al.
 
         Arguments:
             Tt: Tangential forces. np array, two or three elements
             ut: Tangential displacement. Same size as Tt
             bf: Friction bound for this mortar cell.
             c: Numerical parameter
-
 
         """
         if Tt.ndim <= 1:
@@ -424,6 +432,9 @@ class ColoumbContact:
         # Regularization during the iterations requires computations of parameters
         # alpha, beta, delta
         alpha = -Tt.T.dot(-Tt + cut) / (self._l2(-Tt) * self._l2(-Tt + cut))
+        
+        # Parameter delta.
+        # NOTE: The denominator bf is correct. The definition given in Berge is wrong.
         delta = min(self._l2(-Tt) / bf, 1)
 
         if alpha < 0:
