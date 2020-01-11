@@ -21,11 +21,12 @@ def unique_rows(data):
     Note: I have no idea what happens here
 
     """
-    b = np.ascontiguousarray(data).view(np.dtype((np.void,
-                                                  data.dtype.itemsize * data.shape[1])))
+    b = np.ascontiguousarray(data).view(
+        np.dtype((np.void, data.dtype.itemsize * data.shape[1]))
+    )
     _, ia = np.unique(b, return_index=True)
     _, ic = np.unique(b, return_inverse=True)
-#    return np.unique(b).view(data.dtype).reshape(-1, data.shape[1]), ia, ic
+    #    return np.unique(b).view(data.dtype).reshape(-1, data.shape[1]), ia, ic
     return data[ia], ia, ic
 
 
@@ -79,7 +80,7 @@ def ismember_rows(a, b, sort=True):
     # If numpy >= 1.13 is available, we can utilize functionality in np.unique
     # to speed up the calculation siginficantly.
     # If this is not the case, this will take time.
-    np_version = np.version.version.split('.')
+    np_version = np.version.version.split(".")
     if int(np_version[0]) > 1 or int(np_version[1]) > 12:
 
         # stack the arrays
@@ -129,9 +130,10 @@ def ismember_rows(a, b, sort=True):
                     hit = hit[0]
                 ind_of_a_in_b = np.append(ind_of_a_in_b, hit)
 
-        return ismem_a, ind_of_a_in_b.astype('int')
+        return ismem_a, ind_of_a_in_b.astype("int")
 
-#---------------------------------------------------------
+
+# ---------------------------------------------------------
 
 
 def unique_columns_tol(mat, tol=1e-8, exponent=2):
@@ -183,20 +185,20 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
     # $PYHTONPATH, with the name 'numpy_113_unique'.
     if issubclass(mat.dtype.type, np.integer) and tol < 0.5:
         # Obtain version of numpy that was loaded by the import in this module
-        np_version = np.__version__.split('.')
+        np_version = np.__version__.split(".")
         # If we are on numpy 2, or 1.13 or higher, we're good.
         if int(np_version[0]) > 1 or int(np_version[1]) > 12:
-            un_ar, new_2_old, old_2_new \
-                = np.unique(mat, return_index=True, return_inverse=True,
-                            axis=1)
+            un_ar, new_2_old, old_2_new = np.unique(
+                mat, return_index=True, return_inverse=True, axis=1
+            )
             return un_ar, new_2_old, old_2_new
         else:
             try:
                 import numpy_113_unique
-                un_ar, new_2_old, old_2_new \
-                    = numpy_113_unique.unique_np1130(mat, return_index=True,
-                                                     return_inverse=True,
-                                                     axis=1)
+
+                un_ar, new_2_old, old_2_new = numpy_113_unique.unique_np1130(
+                    mat, return_index=True, return_inverse=True, axis=1
+                )
                 return un_ar, new_2_old, old_2_new
             except:
                 pass
@@ -208,8 +210,9 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
         else:
             pt = p
 
-        return np.power(np.sum(np.power(np.abs(pt - pset), exponent),
-                               axis=0), 1 / exponent)
+        return np.power(
+            np.sum(np.power(np.abs(pt - pset), exponent), axis=0), 1 / exponent
+        )
 
     (nd, l) = mat.shape
 
@@ -225,8 +228,7 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
 
     # Loop over all points, check if it is already represented in the kept list
     for i in range(1, l):
-        proximate = np.argwhere(
-            dist(mat[:, i], mat[:, keep]) < tol * np.sqrt(nd))
+        proximate = np.argwhere(dist(mat[:, i], mat[:, keep]) < tol * np.sqrt(nd))
 
         if proximate.size > 0:
             # We will not keep this point
@@ -240,5 +242,3 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
     new_2_old = np.argwhere(keep).ravel()
 
     return mat[:, keep], new_2_old, old_2_new
-
-

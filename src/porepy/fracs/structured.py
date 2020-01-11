@@ -6,14 +6,15 @@ The functions in this module can be accesed through the meshing wrapper module.
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
+
 from porepy.grids.gmsh import mesh_2_grid
 from porepy.fracs import fractures
 from porepy.utils import half_space
-from porepy.grids import structured, point_grid, constants
-from porepy.utils import comp_geom as cg
+from porepy.grids import structured, point_grid
 
 
-def cart_grid_3d(fracs, nx, physdims=None):
+def _cart_grid_3d(fracs, nx, physdims=None):
     """
     Create grids for a domain with possibly intersecting fractures in 3d.
 
@@ -38,17 +39,17 @@ def cart_grid_3d(fracs, nx, physdims=None):
 
     Examples
     --------
-    frac1 = np.array([[1,1,4,4], [1,4,4,1], [2,2,2,2]])
-    frac2 = np.array([[2,2,2,2], [1,1,4,4], [1,4,4,1]])
+    frac1 = np.array([[1, 1, 4, 4], [1, 4, 4, 1], [2, 2, 2, 2]])
+    frac2 = np.array([[2, 2, 2, 2], [1, 1, 4, 4], [1, 4, 4, 1]])
     fracs = [frac1, frac2]
-    gb = cart_grid_3d(fracs, [5,5,5])
+    gb = cart_grid_3d(fracs, [5, 5, 5])
     """
 
     nx = np.asarray(nx)
     if physdims is None:
         physdims = nx
     elif np.asarray(physdims).size != nx.size:
-        raise ValueError('Physical dimension must equal grid dimension')
+        raise ValueError("Physical dimension must equal grid dimension")
     else:
         physdims = np.asarray(physdims)
 
@@ -61,19 +62,23 @@ def cart_grid_3d(fracs, nx, physdims=None):
     g_0d = []
     # We set the tolerance for finding points in a plane. This can be any
     # small number, that is smaller than .25 of the cell sizes.
-    tol = .1 * physdims / nx
+    tol = 0.1 * physdims / nx
 
     # Create 2D grids
     for fi, f in enumerate(fracs):
-        assert np.all(f.shape == (3, 4)), 'fractures must have shape [3,4]'
+        assert np.all(f.shape == (3, 4)), "fractures must have shape [3,4]"
         is_xy_frac = np.allclose(f[2, 0], f[2])
         is_xz_frac = np.allclose(f[1, 0], f[1])
         is_yz_frac = np.allclose(f[0, 0], f[0])
-        assert is_xy_frac + is_xz_frac + is_yz_frac == 1, \
-            'Fracture must align to x-, y- or z-axis'
+        assert (
+            is_xy_frac + is_xz_frac + is_yz_frac == 1
+        ), "Fracture must align to x-, y- or z-axis"
         # snap to grid
-        f_s = np.round(f * nx[:, np.newaxis] / physdims[:, np.newaxis]
-                       ) * physdims[:, np.newaxis] / nx[:, np.newaxis]
+        f_s = (
+            np.round(f * nx[:, np.newaxis] / physdims[:, np.newaxis])
+            * physdims[:, np.newaxis]
+            / nx[:, np.newaxis]
+        )
         if is_xy_frac:
             flat_dim = [2]
             active_dim = [0, 1]
@@ -86,9 +91,8 @@ def cart_grid_3d(fracs, nx, physdims=None):
         # construct normal vectors. If the rectangle is ordered
         # clockwise we need to flip the normals so they point
         # outwards.
-        sign = 2 * cg.is_ccw_polygon(f_s[active_dim]) - 1
-        tangent = f_s.take(
-            np.arange(f_s.shape[1]) + 1, axis=1, mode='wrap') - f_s
+        sign = 2 * pp.geometry_property_checks.is_ccw_polygon(f_s[active_dim]) - 1
+        tangent = f_s.take(np.arange(f_s.shape[1]) + 1, axis=1, mode="wrap") - f_s
         normal = tangent
         normal[active_dim] = tangent[active_dim[1::-1]]
         normal[active_dim[1]] = -normal[active_dim[1]]
@@ -96,14 +100,14 @@ def cart_grid_3d(fracs, nx, physdims=None):
         # We find all the faces inside the convex hull defined by the
         # rectangle. To find the faces on the fracture plane, we remove any
         # faces that are further than tol from the snapped fracture plane.
-        in_hull = half_space.half_space_int(
-            normal, f_s, g_3d.face_centers)
+        in_hull = half_space.half_space_int(normal, f_s, g_3d.face_centers)
         f_tag = np.logical_and(
             in_hull,
-            np.logical_and(f_s[flat_dim, 0] - tol[flat_dim] <=
-                           g_3d.face_centers[flat_dim],
-                           g_3d.face_centers[flat_dim] <
-                           f_s[flat_dim, 0] + tol[flat_dim]))
+            np.logical_and(
+                f_s[flat_dim, 0] - tol[flat_dim] <= g_3d.face_centers[flat_dim],
+                g_3d.face_centers[flat_dim] < f_s[flat_dim, 0] + tol[flat_dim],
+            ),
+        )
         f_tag = f_tag.ravel()
         nodes = sps.find(g_3d.face_nodes[:, f_tag])[0]
         nodes = np.unique(nodes)
@@ -122,11 +126,17 @@ def cart_grid_3d(fracs, nx, physdims=None):
     for f in fracs:
         frac_list.append(fractures.Fracture(f))
     # Combine the fractures into a network
-    network = fractures.FractureNetwork(frac_list)
+    network = pp.FractureNetwork3d(frac_list)
     # Impose domain boundary. For the moment, the network should be immersed in
     # the domain, or else gmsh will complain.
-    box = {'xmin': 0, 'ymin': 0, 'zmin': 0,
-           'xmax': physdims[0], 'ymax': physdims[1], 'zmax': physdims[2]}
+    box = {
+        "xmin": 0,
+        "ymin": 0,
+        "zmin": 0,
+        "xmax": physdims[0],
+        "ymax": physdims[1],
+        "zmax": physdims[2],
+    }
     network.impose_external_boundary(box)
 
     # Find intersections and split them.
@@ -134,8 +144,8 @@ def cart_grid_3d(fracs, nx, physdims=None):
     network.split_intersections()
 
     # Extract geometrical network information.
-    pts = network.decomposition['points']
-    edges = network.decomposition['edges']
+    pts = network.decomposition["points"]
+    edges = network.decomposition["edges"]
     poly = network._poly_2_segment()
     # And tags identifying points and edges corresponding to normal
     # fractures, domain boundaries and subdomain boundaries. Only the
@@ -156,8 +166,10 @@ def cart_grid_3d(fracs, nx, physdims=None):
         e_pt = pts[:, edges[1, e]]
         nodes = _find_nodes_on_line(g_3d, nx, s_pt, e_pt)
         loc_coord = g_3d.nodes[:, nodes]
-        assert loc_coord.shape[1] > 1, '1d grid in intersection should span\
-            more than one node'
+        assert (
+            loc_coord.shape[1] > 1
+        ), "1d grid in intersection should span\
+            more than one node"
         g = mesh_2_grid.create_embedded_line_grid(loc_coord, nodes)
         g_1d.append(g)
 
@@ -167,7 +179,7 @@ def cart_grid_3d(fracs, nx, physdims=None):
     for p in intersection_points:
         if auxiliary_points[p]:
             continue
-        node = np.argmin(cg.dist_point_pointset(pts[:, p], g_3d.nodes))
+        node = np.argmin(pp.distances.point_pointset(pts[:, p], g_3d.nodes))
         assert np.allclose(g_3d.nodes[:, node], pts[:, p])
         g = point_grid.PointGrid(g_3d.nodes[:, node])
         g.global_point_ind = np.asarray(node)
@@ -177,7 +189,7 @@ def cart_grid_3d(fracs, nx, physdims=None):
     return grids
 
 
-def cart_grid_2d(fracs, nx, physdims=None):
+def _cart_grid_2d(fracs, nx, physdims=None):
     """
     Create grids for a domain with possibly intersecting fractures in 2d.
 
@@ -201,16 +213,16 @@ def cart_grid_2d(fracs, nx, physdims=None):
 
     Examples
     --------
-    frac1 = np.array([[1,4],[2,2]])
-    frac2 = np.array([[2,2],[1,4]])
-    fracs = [frac1,frac2]
-    gb = cart_grid_2d(fracs, [5,5])
+    frac1 = np.array([[1, 4], [2, 2]])
+    frac2 = np.array([[2, 2], [1, 4]])
+    fracs = [frac1, frac2]
+    gb = cart_grid_2d(fracs, [5, 5])
     """
     nx = np.asarray(nx)
     if physdims is None:
         physdims = nx
     elif np.asarray(physdims).size != nx.size:
-        raise ValueError('Physical dimension must equal grid dimension')
+        raise ValueError("Physical dimension must equal grid dimension")
     else:
         physdims = np.asarray(physdims)
 
@@ -225,11 +237,11 @@ def cart_grid_2d(fracs, nx, physdims=None):
     for f in fracs:
         is_x_frac = f[1, 0] == f[1, 1]
         is_y_frac = f[0, 0] == f[0, 1]
-        assert is_x_frac != is_y_frac, 'Fracture must align to x- or y-axis'
+        assert is_x_frac != is_y_frac, "Fracture must align to x- or y-axis"
         if f.shape[0] == 2:
             f = np.vstack((f, np.zeros(f.shape[1])))
         nodes = _find_nodes_on_line(g_2d, nx, f[:, 0], f[:, 1])
-        #nodes = np.unique(nodes)
+        # nodes = np.unique(nodes)
         loc_coord = g_2d.nodes[:, nodes]
         g = mesh_2_grid.create_embedded_line_grid(loc_coord, nodes)
         g_1d.append(g)
@@ -253,10 +265,10 @@ def _create_embedded_2d_grid(loc_coord, glob_id):
     loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
     loc_coord -= loc_center
     # Check that the points indeed form a line
-    assert cg.is_planar(loc_coord)
+    assert pp.geometry_property_checks.points_are_planar(loc_coord)
     # Find the tangent of the line
     # Projection matrix
-    rot = cg.project_plane_matrix(loc_coord)
+    rot = pp.map_geometry.project_plane_matrix(loc_coord)
     loc_coord_2d = rot.dot(loc_coord)
     # The points are now 2d along two of the coordinate axis, but we
     # don't know which yet. Find this.
@@ -296,8 +308,8 @@ def _find_nodes_on_line(g, nx, s_pt, e_pt):
     start and end node and use the structure of the cartesian grid to find
     the intermediate nodes.
     """
-    s_node = np.argmin(cg.dist_point_pointset(s_pt, g.nodes))
-    e_node = np.argmin(cg.dist_point_pointset(e_pt, g.nodes))
+    s_node = np.argmin(pp.distances.point_pointset(s_pt, g.nodes))
+    e_node = np.argmin(pp.distances.point_pointset(e_pt, g.nodes))
 
     # We make sure the nodes are ordered from low to high.
     if s_node > e_node:
@@ -319,9 +331,7 @@ def _find_nodes_on_line(g, nx, s_pt, e_pt):
 
     elif nx.size == 3 and np.all(np.isclose(s_pt[0:2], e_pt[0:2])):
         # is z-line
-        nodes = np.arange(s_node, e_node + 1,
-                          (nx[0] + 1) * (nx[1] + 1), dtype=int)
+        nodes = np.arange(s_node, e_node + 1, (nx[0] + 1) * (nx[1] + 1), dtype=int)
     else:
-        raise RuntimeError(
-            'Something went wrong. Found a diagonal intersection')
+        raise RuntimeError("Something went wrong. Found a diagonal intersection")
     return nodes

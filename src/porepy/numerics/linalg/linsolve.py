@@ -16,8 +16,9 @@ logger = logging.getLogger(__name__)
 try:
     import pyamg
 except ImportError:
-    logger.info(" Could not import the pyamg package. pyamg solver will not be available.")
-
+    logger.info(
+        " Could not import the pyamg package. pyamg solver will not be available."
+    )
 
 
 class IterCounter(object):
@@ -25,6 +26,7 @@ class IterCounter(object):
 
     Taken from https://stackoverflow.com/questions/33512081/getting-the-number-of-iterations-of-scipys-gmres-iterative-method
     """
+
     def __init__(self, disp=True):
         self._disp = disp
         self.niter = 0
@@ -32,9 +34,10 @@ class IterCounter(object):
     def __call__(self, rk=None):
         self.niter += 1
         if self._disp:
-            logger.info('iter %3i\trk = %s' % (self.niter, str(rk)))
+            logger.info("iter %3i\trk = %s" % (self.niter, str(rk)))
 
-class Factory():
+
+class Factory:
     """ Factory class for linear solver functionality. The intention is to
     provide a single entry point for all relevant linear solvers. Hopefully,
     this will pay off as the number of options expands.
@@ -62,7 +65,6 @@ class Factory():
         iA_x = lambda x: iA.solve(x)
         return spl.LinearOperator(A.shape, iA_x)
 
-
     def lu(self, A, **kwargs):
         """ Wrapper around LU function from scipy.sparse.linalg.
         Confer that function for documetnation.
@@ -79,7 +81,6 @@ class Factory():
         iA = spl.splu(A, **opts)
         return iA.solve
 
-
     def direct(self, A, rhs=None):
         """ Wrapper around spsolve from scipy.sparse.linalg.
         Confer that function for documetnation.
@@ -94,6 +95,7 @@ class Factory():
                 preconditioner, or the solution A^-1 b
 
         """
+
         def solve(b):
             return spl.spsolve(A, b)
 
@@ -101,7 +103,6 @@ class Factory():
             return solve
         else:
             return solve(rhs)
-
 
     def gmres(self, A):
         """ Wrapper around gmres function from scipy.sparse.linalg.
@@ -116,11 +117,12 @@ class Factory():
                 arguments that are passed on to scipy.
 
         """
+
         def solve(b, **kwargs):
             opt = self.__extract_gmres_args(**kwargs)
             return spl.gmres(A, b, **opt)
-        return solve
 
+        return solve
 
     def cg(self, A):
         """ Wrapper around cg function from scipy.sparse.linalg.
@@ -135,9 +137,11 @@ class Factory():
                 arguments that are passed on to scipy.
 
         """
+
         def solve(b, **kwargs):
             opt = self.__extract_krylov_args(**kwargs)
             return spl.cg(A, b, **opt)
+
         return solve
 
     def bicgstab(self, A, **kwargs):
@@ -153,9 +157,11 @@ class Factory():
                 arguments that are passed on to scipy.
 
         """
+
         def solve(b, **kwargs):
             opt = self.__extract_krylov_args(**kwargs)
             return spl.bicgstab(A, b, **opt)
+
         return solve
 
     def amg(self, A, null_space=None, as_precond=True, **kwargs):
@@ -190,24 +196,24 @@ class Factory():
                 or a solver.
 
         """
-        
 
         if null_space is None:
             null_space = np.ones(A.shape[0])
         try:
             ml = pyamg.smoothed_aggregation_solver(A, B=null_space)
         except NameError:
-            raise ImportError('Using amg needs requires the pyamg package. pyamg was not imported')
-        
+            raise ImportError(
+                "Using amg needs requires the pyamg package. pyamg was not imported"
+            )
 
         def solve(b, res=None, **kwargs):
             if res is None:
-                return ml.solve(b, accel='gmres', cycle='V')
+                return ml.solve(b, accel="gmres", cycle="V")
             else:
-                return ml.solve(b, residuals=res, accel='gmres', cycle='V')
+                return ml.solve(b, residuals=res, accel="gmres", cycle="V")
 
         if as_precond:
-            M_x = lambda x: ml.solve(x, tol=1e-20, maxiter=10, cycle='W')
+            M_x = lambda x: ml.solve(x, tol=1e-20, maxiter=10, cycle="W")
             return spl.LinearOperator(A.shape, M_x)
         else:
             return solve
@@ -216,40 +222,42 @@ class Factory():
 
     def __extract_krylov_args(self, **kwargs):
         d = {}
-        d['x0'] = kwargs.get('x0', None)
-        d['tol'] = kwargs.get('tol', 1e-5)
-        d['maxiter'] = kwargs.get('maxiter', None)
-        d['M'] = kwargs.get('M', None)
-        cb = kwargs.get('callback', None)
+        d["x0"] = kwargs.get("x0", None)
+        d["tol"] = kwargs.get("tol", 1e-5)
+        d["maxiter"] = kwargs.get("maxiter", None)
+        d["M"] = kwargs.get("M", None)
+        cb = kwargs.get("callback", None)
         if cb is not None and not isinstance(cb, IterCounter):
             cb = IterCounter()
-        d['callback'] = cb
+        d["callback"] = cb
         return d
 
     def __extract_gmres_args(self, **kwargs):
         d = self.__extract_krylov_args(**kwargs)
-        d['restart'] = kwargs.get('restart', None)
+        d["restart"] = kwargs.get("restart", None)
         return d
 
     def __extract_splu_args(self, **kwargs):
         d = {}
-        d['permc_spec'] = kwargs.get('permc_spec', None)
-        d['diag_pivot_thresh'] = kwargs.get('diag_pivot_thresh', None)
-        d['drop_tol'] = kwargs.get('drop_tol', None)
-        d['relax'] = kwargs.get('relax', None)
-        d['panel_size'] = kwargs.get('panel_size', None)
+        d["permc_spec"] = kwargs.get("permc_spec", None)
+        d["diag_pivot_thresh"] = kwargs.get("diag_pivot_thresh", None)
+        d["drop_tol"] = kwargs.get("drop_tol", None)
+        d["relax"] = kwargs.get("relax", None)
+        d["panel_size"] = kwargs.get("panel_size", None)
         return d
 
     def __extract_spilu_args(self, **kwargs):
         d = self.__extract_splu_args(**kwargs)
-        d['drop_tol'] = kwargs.get('drop_tol', None)
-        d['fill_factor'] = kwargs.get('fill_factor', None)
-        d['drop_rule'] = kwargs.get('drop_rule', None)
+        d["drop_tol"] = kwargs.get("drop_tol", None)
+        d["fill_factor"] = kwargs.get("fill_factor", None)
+        d["drop_rule"] = kwargs.get("drop_rule", None)
         return d
 
     def __as_linear_operator(self, mat, sz=None):
         if sz is None:
             sz = mat.shape
+
         def mv(v):
             mat.solve(v)
-        return spl.LinearOperator(sz, matvec = mv)
+
+        return spl.LinearOperator(sz, matvec=mv)

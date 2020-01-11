@@ -1,100 +1,117 @@
-'''
-Discretization of the source term of an equation.
-'''
+"""
+Discretization of the source term of an equation tailored for a dual
+(flux-pressure) system. The sources are assigned to the rows starting from
+g.num_faces, that is, to those rows in the saddle point system that represents
+conservation.
+
+"""
 
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
-from porepy.numerics.mixed_dim.coupler import Coupler
+import porepy as pp
 
 
-class DualSource(Solver):
-    '''
+class DualScalarSource:
+    """
     Discretization of the integrated source term
     int q * dx
     over each grid cell.
 
     All this function does is returning a zero lhs and
-    rhs = - param.get_source.physics in a saddle point fashion.
-    '''
+    rhs = - param.get_source.keyword in a saddle point fashion.
+    """
 
-    def __init__(self, physics='flow'):
-        self.physics = physics
-        Solver.__init__(self)
+    def __init__(self, keyword="flow"):
+        self.keyword = keyword
 
     def ndof(self, g):
         return g.num_cells + g.num_faces
 
-    def matrix_rhs(self, g, data):
-        param = data['param']
-        sources = param.get_source(self)
-        lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
-        assert sources.size == g.num_cells, \
-                                 'There should be one soure value for each cell'
+    def assemble_matrix_rhs(self, g, data):
+        """ Return the (null) matrix and right-hand side for a discretization of the
+        integrated source term. Also discretize the necessary operators if the data
+        dictionary does not contain a source term.
 
+        Parameters:
+            g : grid, or a subclass, with geometry fields computed.
+            data: dictionary to store the data.
+
+        Returns:
+            lhs (sparse dia, self.ndof x self.ndof): Null lhs.
+            sources (array, self.ndof): Right-hand side vector.
+
+        The names of data in the input dictionary (data) are:
+        param (Parameter Class) with the source field set for self.keyword. The assigned
+            source values are assumed to be integrated over the cell volumes.
+
+        """
+        return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
+
+    def assemble_matrix(self, g, data):
+        """ Return the (null) matrix and for a discretization of the integrated source
+        term. Also discretize the necessary operators if the data dictionary does not
+        contain a source term.
+
+        Parameters:
+            g (Grid): Computational grid, with geometry fields computed.
+            data (dictionary): With data stored.
+
+        Returns:
+            scipy.sparse.csr_matrix (self.ndof x self.ndof): Null system matrix of this
+                discretization.
+
+        """
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        return matrix_dictionary["source"]
+
+    def assemble_rhs(self, g, data):
+        """ Return the rhs for a discretization of the integrated source term. Also
+        discretize the necessary operators if the data dictionary does not contain a
+        source term.
+
+        Parameters:
+            g (Grid): Computational grid, with geometry fields computed.
+            data (dictionary): With data stored.
+
+        Returns:
+            np.array (self.ndof): Right hand side vector representing the
+                source.
+
+        """
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+
+        sources = parameter_dictionary["source"]
+        if not sources.size == g.num_cells:
+            raise ValueError("There should be one source value for each cell")
+
+        # The sources are assigned to the rows representing conservation.
         rhs = np.zeros(self.ndof(g))
-        is_p = np.hstack((np.zeros(g.num_faces, dtype=np.bool),
-                          np.ones(g.num_cells, dtype=np.bool)))
-
+        is_p = np.hstack(
+            (np.zeros(g.num_faces, dtype=np.bool), np.ones(g.num_cells, dtype=np.bool))
+        )
+        # A minus sign is apparently needed here to be consistent with the user
+        # side convention of the finite volume method
         rhs[is_p] = -sources
+        return rhs
 
-        return lhs, rhs
+    def discretize(self, g, data, faces=None):
+        """ Discretize an integrated source term.
 
-#------------------------------------------------------------------------------
+        Parameters:
+            g : grid, or a subclass, with geometry fields computed.
+            data: dictionary to store the data.
 
-class DualSourceMixedDim(SolverMixedDim):
-    def __init__(self, physics='flow'):
-        self.physics = physics
+        Stores:
+            lhs (sparse dia, self.ndof x self.ndof): Null lhs, stored as
+                self._key() + "source".
 
-        self.discr = DualSource(self.physics)
-        self.discr_ndof = self.discr.ndof
-        self.coupling_conditions = None
+        The names of data in the input dictionary (data) are:
+        param (Parameter Class) with the source field set for self.keyword. The assigned
+            source values are assumed to be integrated over the cell volumes.
 
-        self.solver = Coupler(self.discr)
-        SolverMixedDim.__init__(self)
-
-#------------------------------------------------------------------------------
-
-class DualSourceDFN(SolverMixedDim):
-    def __init__(self, dim_max, physics='flow'):
-        # NOTE: There is no flow along the intersections of the fractures.
-        # In this case a mixed solver is considered. We assume only two
-        # (contiguous) dimensions active. In the higher dimensional grid the
-        # physical problem is discretise with a vem solver and in the lower
-        # dimensional grid Lagrange multiplier are used to "glue" the velocity
-        # dof at the interface between the fractures.
-        # For this reason the matrix_rhs and ndof need to be carefully taking
-        # care.
-
-        self.physics = physics
-        self.dim_max = dim_max
-
-        self.discr = DualSource(self.physics)
-        self.coupling_conditions = None
-
-        kwargs = {"discr_ndof": self.__ndof__,
-                  "discr_fct": self.__matrix_rhs__}
-        self.solver = Coupler(coupling = None, **kwargs)
-        SolverMixedDim.__init__(self)
-
-    def __ndof__(self, g):
-        # The highest dimensional problem has the standard number of dof
-        # associated with the solver. For the lower dimensional problems, the
-        # number of dof is the number of cells.
-        if g.dim == self.dim_max:
-            return self.discr.ndof(g)
-        else:
-            return g.num_cells
-
-    def __matrix_rhs__(self, g, data):
-        # The highest dimensional problem compute the matrix and rhs, the lower
-        # dimensional problem and empty matrix. For the latter, the size of the
-        # matrix is the number of cells.
-        if g.dim == self.dim_max:
-            return self.discr.matrix_rhs(g, data)
-        else:
-            ndof = self.__ndof__(g)
-            return sps.csr_matrix((ndof, ndof)), np.zeros(ndof)
-
-#------------------------------------------------------------------------------
+        """
+        lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary["source"] = lhs

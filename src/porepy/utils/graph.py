@@ -28,7 +28,7 @@ class Graph:
     """
 
     def __init__(self, node_connections):
-        if node_connections.getformat() != 'csr':
+        if node_connections.getformat() != "csr":
             self.node_connections = node_connections.tocsr()
         else:
             self.node_connections = node_connections
@@ -48,8 +48,9 @@ class Graph:
                 self.regions += 1
             else:
                 return
-        raise RuntimeWarning('number of regions can not be greater than '
-                             'number of nodes')
+        raise RuntimeWarning(
+            "number of regions can not be greater than " "number of nodes"
+        )
 
     def bfs(self, start, color):
         """
@@ -60,7 +61,6 @@ class Graph:
             node = queue.pop(0)
             if node not in visited:
                 visited.append(node)
-                neighbours = sparse_mat.slice_indices(
-                    self.node_connections, node)
+                neighbours = sparse_mat.slice_indices(self.node_connections, node)
                 queue.extend(neighbours)
         self.color[visited] = color
