@@ -20,6 +20,7 @@ updated, this will raise a KeyError.
 
 """
 
+
 def read():
     """ Read configuration file, located somewhere in the PYTHONPATH.
 
@@ -38,11 +39,11 @@ def read():
     try:
         import porepy_config
     except ImportError:
-        s = 'Could not load configuration file for PorePy.\n'
-        s += 'To see instructions on how to generate this file, confer help\n'
-        s += 'for this module (for instance, type \n'
-        s += '  porepy.utils.read_config? \n'
-        s += 'in ipython)'
+        s = "Could not load configuration file for PorePy.\n"
+        s += "To see instructions on how to generate this file, confer help\n"
+        s += "for this module (for instance, type \n"
+        s += "  porepy.utils.read_config? \n"
+        s += "in ipython)"
         raise ImportError(s)
 
     return porepy_config.config

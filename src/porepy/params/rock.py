@@ -3,9 +3,10 @@
 Contains standard values (e.g. found in Wikipedia) for permeability, elastic
 moduli etc.
 
+Note that thermal expansion coefficients are linear (m/mK) for rocks, but
+volumetric (m^3/m^3) for fluids.
 """
-from porepy.params import units
-
+import porepy as pp
 
 
 def poisson_from_lame(mu, lmbda):
@@ -40,6 +41,20 @@ def lame_from_young_poisson(e, nu):
     return lmbda, mu
 
 
+def bulk_from_lame(lmbda, mu):
+    """
+    Compute bulk modulus from Lamé parameters.
+
+    Parameters:
+        lmbda (double): First Lame parameter
+        mu: Second Lame parameter / shear modulus
+
+    Returns:
+        double: bulk modulus
+    """
+    return lmbda + 2 / 3 * mu
+
+
 class UnitRock(object):
     """ Mother of all rocks, all values are unity.
 
@@ -53,15 +68,26 @@ class UnitRock(object):
 
     """
 
-    
+    def __init__(self, theta_ref=None):
+        self.PERMEABILITY = 1
+        self.THERMAL_EXPANSION = 1
+        self.DENSITY = 1
+        self.POROSITY = 1
+        self.MU = 1
+        self.LAMBDA = 1
+        self.YOUNG_MODULUS = 1
+        self.POISSON_RATIO = poisson_from_lame(self.MU, self.LAMBDA)
 
-    PERMEABILITY = 1
-    POROSITY = 1
-    MU = 1
-    LAMBDA = 1
-    YOUNG_MODULUS = 1
-    POSSION_RATIO = 1
+        if theta_ref is None:
+            self.theta_ref = 1
+        else:
+            self.theta_ref = theta_ref
 
+    def specific_heat_capacity(self, _):
+        return 1.0
+
+    def thermal_conductivity(self, theta=None):
+        return 1.0
 
 
 class SandStone(UnitRock):
@@ -71,18 +97,34 @@ class SandStone(UnitRock):
         http://civilblog.org/2015/02/13/what-are-the-values-of-modulus-of-elasticity-poissons-ratio-for-different-rocks/
 
     """
-    def __init__(self):
+
+    def __init__(self, theta_ref=None):
 
         # Fairly permeable rock.
-        self.PERMEABILITY = 1 * units.DARCY
+        self.PERMEABILITY = 1 * pp.DARCY
         self.POROSITY = 0.2
         # Reported range for Young's modulus is 0.5-8.6
-        self.YOUNG_MODULUS = 5 * units.KILOGRAM / units.CENTI**2 * 1e5
+        self.YOUNG_MODULUS = 5 * pp.KILOGRAM / pp.CENTI ** 2 * 1e5
         # Reported range for Poisson's ratio is 0.066-0.125
         self.POISSON_RATIO = 0.1
 
-        self.LAMBDA, self.MU = lame_from_young_poisson(self.YOUNG_MODULUS,
-                                                       self.POISSON_RATIO)
+        self.LAMBDA, self.MU = lame_from_young_poisson(
+            self.YOUNG_MODULUS, self.POISSON_RATIO
+        )
+        if theta_ref is None:
+            self.theta_ref = 20 * pp.CELSIUS
+        else:
+            self.theta_ref = theta_ref
+
+        self.DENSITY = 2650 * pp.KILOGRAM / pp.METER ** 3
+
+    def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
+        if theta is None:
+            theta = self.theta_ref
+        c_ref = 823.82
+        eta = 8.9 * 1e-2
+        theta_ref = 10 * pp.CELSIUS
+        return c_ref + eta * (theta - theta_ref)
 
 
 class Shale(UnitRock):
@@ -93,37 +135,72 @@ class Shale(UnitRock):
         http://civilblog.org/2015/02/13/what-are-the-values-of-modulus-of-elasticity-poissons-ratio-for-different-rocks/
 
     """
-    def __init__(self):
+
+    def __init__(self, theta_ref=None):
         # No source for permeability and porosity.
-        self.PERMEABILITY = 1e-5 * units.DARCY
+        self.PERMEABILITY = 1e-5 * pp.DARCY
         self.POROSITY = 0.01
         # Reported range for Young's modulus is 0.8-3.0
-        self.YOUNG_MODULUS = 1.5 * units.KILOGRAM / units.CENTI**2 * 1e5
+        self.YOUNG_MODULUS = 1.5 * pp.KILOGRAM / pp.CENTI ** 2 * 1e5
         # Reported range for Poisson's ratio is 0.11-0.54 (the latter is strange)
         self.POISSON_RATIO = 0.3
 
-        self.LAMBDA, self.MU = lame_from_young_poisson(self.YOUNG_MODULUS, self.POISSON_RATIO)
+        self.LAMBDA, self.MU = lame_from_young_poisson(
+            self.YOUNG_MODULUS, self.POISSON_RATIO
+        )
 
+        if theta_ref is None:
+            self.theta_ref = 20 * pp.CELSIUS
+        else:
+            self.theta_ref = theta_ref
+
+        self.DENSITY = 2650 * pp.KILOGRAM / pp.METER ** 3
+
+    def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
+        if theta is None:
+            theta = self.theta_ref
+        c_ref = 794.37
+        eta = 10.26 * 1e-2
+        theta_ref = 10 * pp.CELSIUS
+        return c_ref + eta * (theta - theta_ref)
 
 
 class Granite(UnitRock):
     """ Generic values for granite.
-
-
     Data partially from:
         http://civilblog.org/2015/02/13/what-are-the-values-of-modulus-of-elasticity-poissons-ratio-for-different-rocks/
-
+    And:
+    https://www.jsg.utexas.edu/tyzhu/files/Some-Useful-Numbers.pdf
     """
-    def __init__(self):
+
+    def __init__(self, theta_ref=None):
         # No source for permeability and porosity
-        self.PERMEABILITY = 1e-8 * units.DARCY
+        self.PERMEABILITY = 1e-8 * pp.DARCY
         self.POROSITY = 0.01
-        # Reported range for Young's modulus is 2.6-7.0
-        self.YOUNG_MODULUS = 5 * units.KILOGRAM / units.CENTI**2 * 1e5
+        # Reported range for Young's modulus by jsg is 10-70GPa
+        self.YOUNG_MODULUS = 40.0 * pp.GIGA * pp.PASCAL
         # Reported range for Poisson's ratio is 0.125-0.25
         self.POISSON_RATIO = 0.2
 
-        self.LAMBDA, self.MU = lame_from_young_poisson(self.YOUNG_MODULUS,
-                                                       self.POISSON_RATIO)
+        # Reported density
+        self.DENSITY = 2700.0 * pp.KILOGRAM / pp.METER ** 3
+        self.LAMBDA, self.MU = lame_from_young_poisson(
+            self.YOUNG_MODULUS, self.POISSON_RATIO
+        )
+        # Units of thermal expansion: m^3 / m^3 K, i.e. volumetric. From engineeringtoolbox.com
+        self.THERMAL_EXPANSION = 8e-6 * pp.METER / (pp.METER * pp.CELSIUS)
+        if theta_ref is None:
+            self.theta_ref = 20.0 * pp.CELSIUS
+        else:
+            self.theta_ref = theta_ref
 
+    def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
+        if theta is None:
+            theta = self.theta_ref
+        c_ref = 790.0
+        eta = 0
+        theta_ref = 0
+        return c_ref + eta * (theta - theta_ref)
 
+    def thermal_conductivity(self, theta=None):
+        return 3.07

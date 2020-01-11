@@ -38,28 +38,30 @@ def mcolon(lo, hi):
 
     """
     if lo.size == 1:
-        lo = lo * np.ones(hi.size, dtype='int64')
+        lo = lo * np.ones(hi.size, dtype="int64")
     if hi.size == 1:
-        hi = hi * np.ones(lo.size, dtype='int64')
+        hi = hi * np.ones(lo.size, dtype="int64")
     if lo.size != hi.size:
-        raise ValueError('Low and high should have same number of elements, '
-                         'or a single item ')
+        raise ValueError(
+            "Low and high should have same number of elements, " "or a single item "
+        )
 
     i = hi >= lo + 1
     if not any(i):
         return np.array([], dtype=np.int32)
 
-    lo = lo[i]
-    hi = hi[i] - 1
+    lo = lo[i].astype(np.int)
+    hi = (hi[i] - 1).astype(np.int)
     d = hi - lo + 1
     n = np.sum(d)
 
-    x = np.ones(n, dtype='int64')
+    x = np.ones(n, dtype=np.int)
     x[0] = lo[0]
-    x[np.cumsum(d[0:-1]).astype('int64')] = lo[1:] - hi[0:-1]
-    return np.cumsum(x).astype('int64')
+    x[np.cumsum(d[0:-1])] = lo[1:] - hi[0:-1]
+    return np.cumsum(x)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import doctest
+
     doctest.testmod()

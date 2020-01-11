@@ -1,52 +1,58 @@
 import numpy as np
+import unittest
 
-from porepy.numerics.fv.mpfa import MpfaMixedDim
-from porepy.fracs import meshing
-from porepy.params.data import Parameters
-from porepy.params import tensor, bc
+import porepy as pp
+from test import test_utils
 
 
 def setup_cart_2d(nx):
-    frac1 = np.array([[0.2, 0.8], [0.5, 0.5]])
-    frac2 = np.array([[0.5, 0.5], [0.8, 0.2]])
-    fracs = [frac1, frac2]
-    gb = meshing.cart_grid(fracs, nx, physdims=[1, 1])
-    gb.compute_geometry()
-    gb.assign_node_ordering()
-    gb.add_node_props(['param'])
+    gb = pp.grid_buckets_2d.two_intersecting(nx, [0.2, 0.8], [0.8, 0.2], simplex=False)
+    kw = "flow"
+    aperture = 0.01 / np.max(nx)
     for g, d in gb:
-        kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrderTensor(gb.dim_max(), kxx)
-        a = 0.01 / np.max(nx)
-        a = np.power(a, gb.dim_max() - g.dim)
-        param = Parameters(g)
-        param.set_tensor('flow', perm)
-        param.set_aperture(a)
+        a = np.power(aperture, gb.dim_max() - g.dim) * np.ones(g.num_cells)
+        kxx = np.ones(g.num_cells) * a
+        perm = pp.SecondOrderTensor(kxx)
+        specified_parameters = {"second_order_tensor": perm}
+
         if g.dim == 2:
-            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
-            bound = bc.BoundaryCondition(g, bound_faces.ravel('F'),
-                                         ['dir'] * bound_faces.size)
+            bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+            bound = pp.BoundaryCondition(
+                g, bound_faces.ravel("F"), ["dir"] * bound_faces.size
+            )
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces] = g.face_centers[1, bound_faces]
-            param.set_bc('flow', bound)
-            param.set_bc_val('flow', bc_val)
+            specified_parameters.update({"bc": bound, "bc_values": bc_val})
+        # Initialize data and matrix dictionaries in d
+        pp.initialize_default_data(g, d, kw, specified_parameters)
 
-        d['param'] = param
+    for e, d in gb.edges():
+        # Compute normal permeability
+        gl, _ = gb.nodes_of_edge(e)
+        kn = 1.0 / aperture
+        data = {"normal_diffusivity": kn}
+        # Add parameters
+        d[pp.PARAMETERS] = pp.Parameters(keywords=[kw], dictionaries=[data])
+        # Initialize matrix dictionary
+        d[pp.DISCRETIZATION_MATRICES] = {kw: {}}
     return gb
 
 
-def test_uniform_flow_cart_2d():
-    # Structured Cartesian grid
-    gb = setup_cart_2d(np.array([10, 10]))
+class TestMpfaMultiDim(unittest.TestCase):
+    def test_uniform_flow_cart_2d(self):
+        # Structured Cartesian grid
+        gb = setup_cart_2d(np.array([10, 10]))
 
-    # Python inverter is most efficient for small problems
-    flux_discr = MpfaMixedDim('flow')
-    A, rhs = flux_discr.matrix_rhs(gb)
-    p = np.linalg.solve(A.A, rhs)
+        key = "flow"
+        mpfa = pp.Mpfa(key)
+        assembler = test_utils.setup_flow_assembler(gb, mpfa, key)
+        test_utils.solve_and_distribute_pressure(gb, assembler)
+        for g, d in gb:
+            pressure = d[pp.STATE]["pressure"]
+            pressure_analytic = g.cell_centers[1]
+            p_diff = pressure - pressure_analytic
+            self.assertTrue(np.max(np.abs(p_diff)) < 0.05)
 
-    flux_discr.split(gb, 'pressure', p)
-    for g, d in gb:
-        pressure = d['pressure']
-        pressure_analytic = g.cell_centers[1]
-        p_diff = pressure - pressure_analytic
-        assert np.max(np.abs(p_diff)) < 0.05
+
+if __name__ == "__main__":
+    unittest.main()

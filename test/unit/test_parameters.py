@@ -1,186 +1,124 @@
+""" Tests for the Parameters class.
+
+Tests the class' methods for parameter setting and modification.
+
+_kw refers to outer dictionary and is the keyword that would be given to a
+discretization, whereas
+_key identifies individual parameters.
+"""
 import numpy as np
 import unittest
 
 from porepy.grids.structured import CartGrid
 from porepy.params.data import Parameters
 
-class TestGettersAndSetters(unittest.TestCase):
 
+class TestParameters(unittest.TestCase):
     def setUp(self):
         self.g = CartGrid([3, 2])
-        self.nc = self.g.num_cells
-        self.v = np.ones(self.nc)
+        self.p = Parameters()
+        self.p.update_dictionaries(
+            "dummy_kw", {"string_key": "string_parameter", "list_key": [0, 1]}
+        )
 
-    def test_biot_alpha_default(self):
-        p = Parameters(self.g)
-        self.assertEqual(p.biot_alpha, 1)
-        self.assertEqual(p.get_biot_alpha(), 1)
+    def test_add_keywords(self):
+        """ New keywords are added.
 
-    def test_biot_alpha_1(self):
-        p = Parameters(self.g)
-        p.biot_alpha = 0.5
-        self.assertEqual(p.biot_alpha, 0.5)
-        self.assertEqual(p.get_biot_alpha(), 0.5)
+        Calls update_dictionaries with a list of the new keywords and empty (default
+        option) dictionaries.
+        """
+        keyword_kw_list = ["flow", "transport"]
+        self.p.update_dictionaries(keyword_kw_list)
+        keyword_kw_list.append("dummy_kw")
+        self.assertListEqual(sorted(self.p.keys()), sorted(keyword_kw_list))
 
-    def test_biot_alpha_2(self):
-        p = Parameters(self.g)
-        p.set_biot_alpha(0.2)
-        self.assertEqual(p.biot_alpha, 0.2)
-        self.assertEqual( p.get_biot_alpha(), 0.2)
+    def test_update_empty_dictionary(self):
+        """ New keyword added with a parameter.
 
-    def test_biot_alpha_assertion(self):
-        p = Parameters(self.g)
-        with self.assertRaises(ValueError):
-            p.set_biot_alpha(1.2)
-            p.set_biot_alpha(-1)
+        Calls update_dictionaries with a list of the new keyword and a list containing
+        the corresponding data dictionary. This gives the parameters (see self.setUp)
+        dummy_kw:   string_key, list_key
+        flow:       porosity
+        """
+        keyword_kw_list = ["flow"]
+        d = {"porosity": np.ones(self.g.num_cells)}
+        dictionary_kw_list = [d]
+        self.p.update_dictionaries(keyword_kw_list, dictionary_kw_list)
+        self.assertIn("porosity", self.p["flow"])
 
-#####
+    def test_update_dictionary(self):
+        """ Add parameters to a dictionary already containing parameters.
+        """
+        d = {"string_key": "foo", "density": 3 * np.ones(self.g.num_cells)}
+        self.p.update_dictionaries(["dummy_kw"], [d])
+        self.assertIn("density", self.p["dummy_kw"])
+        self.assertEqual(self.p["dummy_kw"]["string_key"], "foo")
 
-    def test_fluid_viscosity_default(self):
-        p = Parameters(self.g)
-        self.assertEqual(p.fluid_viscosity, 1)
-        self.assertEqual(p.get_fluid_viscosity(), 1)
+    def test_update_empty_dictionaries(self):
+        keyword_kw_list = ["flow", "transport"]
+        d1 = {
+            "porosity": 2 * np.ones(self.g.num_cells),
+            "density": 3 * np.ones(self.g.num_cells),
+        }
+        d2 = {
+            "porosity": 5 * np.ones(self.g.num_cells),
+            "storage_weight": 4 * np.ones(self.g.num_cells),
+        }
+        self.p.update_dictionaries(keyword_kw_list, [d1, d2])
+        flow_p = self.p["flow"]
+        self.assertTrue(np.all(np.isclose(flow_p["density"], 3)))
 
-    def test_fluid_viscosity_attribute(self):
-        p = Parameters(self.g)
-        p.fluid_viscosity = 0.5
-        self.assertEqual(p.fluid_viscosity, 0.5)
-        self.assertEqual(p.get_fluid_viscosity(), 0.5)
+    def test_set_from_other_subdictionary(self):
+        """ Sets a property of "flow" keyword to the one stored for "dummy_kw".
+        """
 
-    def test_fluid_viscosity_setter(self):
-        p = Parameters(self.g)
-        p.set_fluid_viscosity(0.2)
-        self.assertEqual(p.fluid_viscosity, 0.2)
-        self.assertEqual( p.get_fluid_viscosity(), 0.2)
+        self.p.update_dictionaries("flow")
+        self.p.set_from_other("flow", "dummy_kw", ["string_key"])
+        self.assertEqual(self.p["flow"]["string_key"], self.p["dummy_kw"]["string_key"])
 
-    def test_fluid_viscosity_assertion(self):
-        p = Parameters(self.g)
-        with self.assertRaises(ValueError):
-            p.set_fluid_viscosity(-1)
+    def test_overwrite_shared_property(self):
+        """ Modifies a property shared by two keywords.
+        """
+        self.p.update_dictionaries(["transport", "flow"])
+        self.p.set_from_other("flow", "dummy_kw", ["string_key"])
+        self.p.overwrite_shared_parameters(["string_key"], [13])
+        self.assertNotIn("string_key", self.p["transport"])
+        self.assertAlmostEqual(self.p["dummy_kw"]["string_key"], 13)
+        self.assertAlmostEqual(self.p["flow"]["string_key"], 13)
 
-#####
+    def test_modify_shared_list(self):
+        """ Modifies a list parameter shared by two keywords.
 
-    def test_fluid_compr_default(self):
-        p = Parameters(self.g)
-        self.assertEqual(p.fluid_compr, 0)
-        self.assertEqual(p.get_fluid_compr(), 0)
+        Note that the type of the shared parameter determines the behaviour of
+        modify_parameters, so we also test for an array in next test.
 
-    def test_fluid_compr_attribute(self):
-        p = Parameters(self.g)
-        p.fluid_compr = 0.5
-        self.assertEqual(p.fluid_compr, 0.5)
-        self.assertEqual(p.get_fluid_compr(), 0.5)
+        The parameter list_key is added from the dummy to the add_to kw. Then it is
+        modified under the add_to kw. We check that it has changed also in dummy_kw,
+        and that the process has not affected other_kw.
+        """
+        self.p.update_dictionaries(["add_to_kw", "other_kw"])
+        self.p.set_from_other("add_to_kw", "dummy_kw", ["list_key"])
+        new_list = [2, 5]
+        self.p.modify_parameters("add_to_kw", ["list_key"], [new_list])
+        self.assertListEqual(self.p["dummy_kw"]["list_key"], new_list)
+        self.assertNotIn("list_key", self.p["other_kw"])
 
-    def test_fluid_compr_setter(self):
-        p = Parameters(self.g)
-        p.set_fluid_compr(0.2)
-        self.assertEqual(p.fluid_compr, 0.2)
-        self.assertEqual( p.get_fluid_compr(), 0.2)
+    def test_modify_shared_array(self):
+        """ Modifies an array parameter shared by two keywords.
 
-    def test_fluid_compr_assertion(self):
-        p = Parameters(self.g)
-        with self.assertRaises(ValueError):
-            p.set_fluid_compr(-1)
-
-#####
-    def test_background_stress_default(self):
-        p = Parameters(self.g)
-        self.assertTrue(np.allclose(p.background_stress_mechanics, 0))
-        for name in p.known_physics:
-            self.assertTrue(np.allclose(p.get_background_stress(name), 0))
-
-    def test_background_stress_setter(self):
-        p = Parameters(self.g)
-        for name in p.known_physics:
-            p.set_background_stress(name, 0.5 * np.ones((3,3)))
-        self.assertTrue(np.allclose(p.background_stress_mechanics, 0.5))
-        for name in p.known_physics:
-                self.assertTrue(np.allclose(p.get_background_stress(name), 0.5))
-#####
-
-    def _validate_ap(self, p, val=1):
-        self.assertTrue(np.allclose(p.aperture, val * self.v))
-        self.assertTrue(np.allclose(p.get_aperture(), val * self.v))
-
-    def test_aperture_default(self, val=1):
-        p = Parameters(self.g)
-        self._validate_ap(p)
-        # Set by scalar
-
-    def test_aperture_set(self):
-        p = Parameters(self.g)
-        p.set_aperture(2)
-        self._validate_ap(p, 2)
-        # Set by variable name
-    def test_aperture_attribute(self):
-        p = Parameters(self.g)
-        p.aperture = 3
-        self._validate_ap(p, 3)
-        # set by vector
-    def test_aperture_set_vector(self):
-        p = Parameters(self.g)
-        p.set_aperture(4*self.v)
-        self._validate_ap(p, 4)
-        # Set vector by variable name
-    def test_aperture_set_vector_attribute(self):
-        p = Parameters(self.g)
-        p.aperture = 5*self.v
-        self._validate_ap(p, 5)
-    def test_aperture_assertion(self):
-        p = Parameters(self.g)
-        with self.assertRaises(ValueError):
-            p.set_aperture(-1)
-    def test_aperture_assertion_vector(self):
-        p = Parameters(self.g)
-        with self.assertRaises(ValueError):
-            p.set_aperture(self.v * -1)
-
-##########
-
-    def _validate_porosity(self, p, val=1):
-        self.assertTrue(np.allclose(p.porosity, val * self.v))
-        self.assertTrue(np.allclose(p.get_porosity(), val * self.v))
-
-    def test_porosity_default(self, val=1):
-        p = Parameters(self.g)
-        self._validate_porosity(p)
-        # Set by scalar
-
-    def test_porosity_set(self):
-        p = Parameters(self.g)
-        p.set_porosity(.1)
-        self._validate_porosity(p, .1)
-        # Set by variable name
-    def test_porosity_attribute(self):
-        p = Parameters(self.g)
-        p.porosity = .3
-        self._validate_porosity(p, .3)
-        # set by vector
-    def test_porosity_set_vector(self):
-        p = Parameters(self.g)
-        p.set_porosity(.4*self.v)
-        self._validate_porosity(p, .4)
-        # Set vector by variable name
-    def test_porosity_set_vector_attribute(self):
-        p = Parameters(self.g)
-        p.porosity = .5*self.v
-        self._validate_porosity(p, .5)
-    def test_porosity_assertion(self):
-        p = Parameters(self.g)
-        with self.assertRaises(ValueError):
-            p.set_porosity(-1)
-            p.set_porosity(2)
-    def test_porosity_assertion_vector(self):
-        p = Parameters(self.g)
-        with self.assertRaises(ValueError):
-            p.set_porosity(self.v * -1)
-            p.set_porosity(self.v * 2)
-
-#####   
+        See previous test.
+        Note that the dtypes of the arrays should ideally be the same.
+        """
+        self.p.update_dictionaries(["add_to_kw", "add_from_kw", "other_kw"])
+        self.p["add_from_kw"]["array_key"] = np.array([0.0, 1.0])
+        self.p.set_from_other("add_to_kw", "add_from_kw", ["array_key"])
+        new_array = np.array([3.14, 42.0])
+        self.p.modify_parameters("add_to_kw", ["array_key"], [new_array])
+        self.assertTrue(
+            np.all(np.isclose(self.p["add_from_kw"]["array_key"], new_array))
+        )
+        self.assertNotIn("array_key", self.p["other_kw"])
 
 
-
-
-
-    if __name__ == '__main__':
-        unittest.main()
+if __name__ == "__main__":
+    unittest.main()

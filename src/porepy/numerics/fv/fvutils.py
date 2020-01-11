@@ -1,16 +1,14 @@
-# -*- coding: utf-8 -*-
 """
-Created on Fri Mar  4 09:04:16 2016
-
-@author: eke001
+Various FV specific utility functions.
 """
 
 from __future__ import division
 import numpy as np
 import scipy.sparse as sps
+from typing import Tuple
 
+import porepy as pp
 from porepy.utils import matrix_compression, mcolon
-from porepy.params.data import Parameters
 from porepy.grids.grid_bucket import GridBucket
 
 
@@ -65,33 +63,39 @@ class SubcellTopology(object):
         # Duplicate cell and face indices, so that they can be matched with
         # the nodes
         cells_duplicated = matrix_compression.rldecode(
-            cell_ind, num_face_nodes[face_ind])
+            cell_ind, num_face_nodes[face_ind]
+        )
         faces_duplicated = matrix_compression.rldecode(
-            face_ind, num_face_nodes[face_ind])
-        M = sps.coo_matrix((np.ones(face_ind.size),
-                            (face_ind, np.arange(face_ind.size))),
-                           shape=(face_ind.max() + 1, face_ind.size))
+            face_ind, num_face_nodes[face_ind]
+        )
+        M = sps.coo_matrix(
+            (np.ones(face_ind.size), (face_ind, np.arange(face_ind.size))),
+            shape=(face_ind.max() + 1, face_ind.size),
+        )
         nodes_duplicated = g.face_nodes * M
         nodes_duplicated = nodes_duplicated.indices
 
         face_nodes_indptr = g.face_nodes.indptr
         face_nodes_indices = g.face_nodes.indices
         face_nodes_data = np.arange(face_nodes_indices.size) + 1
-        sub_face_mat = sps.csc_matrix((face_nodes_data, face_nodes_indices,
-                                       face_nodes_indptr))
+        sub_face_mat = sps.csc_matrix(
+            (face_nodes_data, face_nodes_indices, face_nodes_indptr)
+        )
         sub_faces = sub_face_mat * M
         sub_faces = sub_faces.data - 1
 
         # Sort data
-        idx = np.lexsort((sub_faces, faces_duplicated, nodes_duplicated,
-                          cells_duplicated))
+        idx = np.lexsort(
+            (sub_faces, faces_duplicated, nodes_duplicated, cells_duplicated)
+        )
         self.nno = nodes_duplicated[idx]
         self.cno = cells_duplicated[idx]
         self.fno = faces_duplicated[idx]
         self.subfno = sub_faces[idx].astype(int)
-        self.subhfno = np.arange(idx.size, dtype='>i4')
+        self.subhfno = np.arange(idx.size, dtype=">i4")
         self.num_subfno = self.subfno.max() + 1
         self.num_cno = self.cno.max() + 1
+        self.num_nodes = self.nno.max() + 1
 
         # Make subface indices unique, that is, pair the indices from the two
         # adjacent cells
@@ -106,12 +110,12 @@ class SubcellTopology(object):
         self.unique_subfno = unique_subfno
 
     def __repr__(self):
-        s = 'Subcell topology with:\n'
-        s += str(self.num_cno) + ' cells\n'
-        s += str(self.g.num_nodes) + ' nodes\n'
-        s += str(self.g.num_faces) + ' faces\n'
-        s += str(self.num_subfno_unique) + ' unique subfaces\n'
-        s += str(self.fno.size) + ' subfaces before pairing face neighbors\n'
+        s = "Subcell topology with:\n"
+        s += str(self.num_cno) + " cells\n"
+        s += str(self.g.num_nodes) + " nodes\n"
+        s += str(self.g.num_faces) + " faces\n"
+        s += str(self.num_subfno_unique) + " unique subfaces\n"
+        s += str(self.fno.size) + " subfaces before pairing face neighbors\n"
         return s
 
     def pair_over_subfaces(self, other):
@@ -136,8 +140,7 @@ class SubcellTopology(object):
         """
 
         sgn = self.g.cell_faces[self.fno, self.cno].A
-        pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno,
-                                                      self.subhfno)))
+        pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno, self.subhfno)))
         return pair_over_subfaces * other
 
     def pair_over_subfaces_nd(self, other):
@@ -147,16 +150,16 @@ class SubcellTopology(object):
         # matrices must be paired
         # Operator to create the pairing
         sgn = self.g.cell_faces[self.fno, self.cno].A
-        pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno,
-                                                      self.subhfno)))
+        pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno, self.subhfno)))
         # vector version, to be used on stresses
         pair_over_subfaces_nd = sps.kron(sps.eye(nd), pair_over_subfaces)
         return pair_over_subfaces_nd * other
 
-#------------------------ End of class SubcellTopology ----------------------
+
+# ------------------------ End of class SubcellTopology ----------------------
 
 
-def compute_dist_face_cell(g, subcell_topology, eta):
+def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
     """
     Compute vectors from cell centers continuity points on each sub-face.
 
@@ -172,31 +175,47 @@ def compute_dist_face_cell(g, subcell_topology, eta):
     g: Grid
     subcell_topology: Of class subcell topology in this module
     eta: [0,1), eta = 0 gives cont. pt. at face midpoint, eta = 1 means at
-    the vertex
+        the vertex. If eta is given as a scalar this value will be applied to
+        all subfaces except the boundary faces, where eta=0 will be enforced.
+        If the length of eta equals the number of subfaces, eta[i] will be used
+        in the computation of the continuity point of the subface s_t.subfno_unique[i].
+        Note that eta=0 at the boundary is ONLY enforced for scalar eta.
 
     Returns
     -------
     sps.csr() matrix representation of vectors. Size g.nf x (g.nc * g.nd)
+
+    Raises:
+    -------
+    ValueError if the size of eta is not 1 or subcell_topology.num_subfno_unique.
     """
-    _, blocksz = matrix_compression.rlencode(np.vstack((
-        subcell_topology.cno, subcell_topology.nno)))
+    _, blocksz = matrix_compression.rlencode(
+        np.vstack((subcell_topology.cno, subcell_topology.nno))
+    )
     dims = g.dim
 
     _, cols = np.meshgrid(subcell_topology.subhfno, np.arange(dims))
-    cols += matrix_compression.rldecode(np.cumsum(blocksz) -
-                                        blocksz[0], blocksz)
-    eta_vec = eta * np.ones(subcell_topology.fno.size)
-    # Set eta values to zero at the boundary
-    bnd = np.in1d(subcell_topology.fno, g.get_all_boundary_faces())
-    eta_vec[bnd] = 0
-    cp = g.face_centers[:, subcell_topology.fno] \
-        + eta_vec * (g.nodes[:, subcell_topology.nno] -
-                     g.face_centers[:, subcell_topology.fno])
+    cols += matrix_compression.rldecode(np.cumsum(blocksz) - blocksz[0], blocksz)
+    if np.asarray(eta).size == subcell_topology.num_subfno_unique:
+        eta_vec = eta[subcell_topology.subfno]
+    elif np.asarray(eta).size == 1:
+        eta_vec = eta * np.ones(subcell_topology.fno.size)
+        # Set eta values to zero at the boundary
+        bnd = np.in1d(subcell_topology.fno, g.get_all_boundary_faces())
+        eta_vec[bnd] = 0
+    else:
+        raise ValueError("size of eta must either be 1 or number of subfaces")
+    cp = g.face_centers[:, subcell_topology.fno] + eta_vec * (
+        g.nodes[:, subcell_topology.nno] - g.face_centers[:, subcell_topology.fno]
+    )
     dist = cp - g.cell_centers[:, subcell_topology.cno]
 
     ind_ptr = np.hstack((np.arange(0, cols.size, dims), cols.size))
-    mat = sps.csr_matrix((dist.ravel('F'), cols.ravel('F'), ind_ptr))
-    return subcell_topology.pair_over_subfaces(mat)
+    mat = sps.csr_matrix((dist.ravel("F"), cols.ravel("F"), ind_ptr))
+    if return_paired:
+        return subcell_topology.pair_over_subfaces(mat)
+    else:
+        return mat
 
 
 def determine_eta(g):
@@ -215,18 +234,19 @@ def determine_eta(g):
            not.
     """
 
-    if 'StructuredTriangleGrid' in g.name:
+    if "StructuredTriangleGrid" in g.name:
         return 1 / 3
-    elif 'TriangleGrid' in g.name:
+    elif "TriangleGrid" in g.name:
         return 1 / 3
-    elif 'StructuredTetrahedralGrid' in g.name:
+    elif "StructuredTetrahedralGrid" in g.name:
         return 1 / 3
-    elif 'TetrahedralGrid' in g.name:
+    elif "TetrahedralGrid" in g.name:
         return 1 / 3
     else:
         return 0
 
-#------------- Methods related to block inversion ----------------------------
+
+# ------------- Methods related to block inversion ----------------------------
 
 # @profile
 
@@ -282,8 +302,9 @@ def invert_diagonal_blocks(mat, s, method=None):
             n2 = n * n
             i = p1 + np.arange(n + 1)
             # Picking out the sub-matrices here takes a lot of time.
-            v[p2 + np.arange(n2)] = np.linalg.inv(a[i[0]:i[-1],
-                                                    i[0]:i[-1]].A).ravel()
+            v[p2 + np.arange(n2)] = np.linalg.inv(
+                a[i[0] : i[-1], i[0] : i[-1]].A
+            ).ravel()
             p1 = p1 + n
             p2 = p2 + n2
         return v
@@ -294,8 +315,9 @@ def invert_diagonal_blocks(mat, s, method=None):
         try:
             import porepy.numerics.fv.cythoninvert as cythoninvert
         except:
-            ImportError('Compiled Cython module not available. Is cython\
-            installed?')
+            raise ImportError(
+                """Compiled Cython module not available. Is cython installed?"""
+            )
 
         a.sorted_indices()
         ptr = a.indptr
@@ -325,7 +347,7 @@ def invert_diagonal_blocks(mat, s, method=None):
         try:
             import numba
         except:
-            raise ImportError('Numba not available on the system')
+            raise ImportError("Numba not available on the system")
 
         # Sort matrix storage before pulling indices and data
         a.sorted_indices()
@@ -334,8 +356,7 @@ def invert_diagonal_blocks(mat, s, method=None):
         dat = a.data
 
         # Just in time compilation
-        @numba.jit("f8[:](i4[:],i4[:],f8[:],i8[:])", nopython=True,
-                   nogil=False)
+        @numba.jit("f8[:](i4[:],i4[:],f8[:],i8[:])", nopython=True, nogil=False)
         def inv_python(indptr, ind, data, sz):
             """
             Invert block matrices by explicitly forming local matrices. The code
@@ -360,8 +381,7 @@ def invert_diagonal_blocks(mat, s, method=None):
             # Index to where the columns start for each row (NOT blocks)
             # row_cols_start_ind = np.hstack((np.zeros(1),
             #                                 np.cumsum(num_cols_per_row)))
-            row_cols_start_ind = np.zeros(num_cols_per_row.size + 1,
-                                          dtype=np.int32)
+            row_cols_start_ind = np.zeros(num_cols_per_row.size + 1, dtype=np.int32)
             row_cols_start_ind[1:] = np.cumsum(num_cols_per_row)
 
             # Index to where the (full) data starts. Needed, since the
@@ -384,10 +404,10 @@ def invert_diagonal_blocks(mat, s, method=None):
 
                     # Loop over local columns. Getting the number of columns
                     #  for each row is a bit involved
-                    for _ in range(num_cols_per_row[iter2 +
-                                                    block_row_starts_ind[iter1]]):
-                        loc_col = ind[data_counter] \
-                            - block_row_starts_ind[iter1]
+                    for _ in range(
+                        num_cols_per_row[iter2 + block_row_starts_ind[iter1]]
+                    ):
+                        loc_col = ind[data_counter] - block_row_starts_ind[iter1]
                         loc_mat[iter2, loc_col] = data[data_counter]
                         data_counter += 1
 
@@ -396,8 +416,9 @@ def invert_diagonal_blocks(mat, s, method=None):
                 # revised
                 inv_mat = np.ravel(np.linalg.inv(loc_mat))
 
-                loc_ind = np.arange(full_block_starts_ind[iter1],
-                                    full_block_starts_ind[iter1 + 1])
+                loc_ind = np.arange(
+                    full_block_starts_ind[iter1], full_block_starts_ind[iter1 + 1]
+                )
                 inv_vals[loc_ind] = inv_mat
                 # Update fields
             return inv_vals
@@ -407,19 +428,19 @@ def invert_diagonal_blocks(mat, s, method=None):
 
     # Variable to check if we have tried and failed with numba
     try_cython = False
-    if method == 'numba' or method is None:
+    if method == "numba" or method is None:
         try:
             inv_vals = invert_diagonal_blocks_numba(mat, s)
         except:
             # This went wrong, fall back on cython
             try_cython = True
     # Variable to check if we should fall back on python
-    if method == 'cython' or try_cython:
+    if method == "cython" or try_cython:
         try:
             inv_vals = invert_diagonal_blocks_cython(mat, s)
         except ImportError as e:
             raise e
-    elif method == 'python':
+    elif method == "python":
         inv_vals = invert_diagonal_blocks_python(mat, s)
 
     ia = block_diag_matrix(inv_vals, s)
@@ -441,9 +462,9 @@ def block_diag_matrix(vals, sz):
     """
     row, _ = block_diag_index(sz)
     # This line recovers starting indices of the rows.
-    indptr = np.hstack((np.zeros(1),
-                        np.cumsum(matrix_compression
-                                  .rldecode(sz, sz)))).astype('int32')
+    indptr = np.hstack(
+        (np.zeros(1), np.cumsum(matrix_compression.rldecode(sz, sz)))
+    ).astype("int32")
     return sps.csr_matrix((vals, row, indptr))
 
 
@@ -472,7 +493,7 @@ def block_diag_index(m, n=None):
     if n is None:
         n = m
 
-    start = np.hstack((np.zeros(1, dtype='int'), m))
+    start = np.hstack((np.zeros(1, dtype="int"), m))
     pos = np.cumsum(start)
     p1 = pos[0:-1]
     p2 = pos[1:] - 1
@@ -485,10 +506,11 @@ def block_diag_index(m, n=None):
     j = matrix_compression.rldecode(sumn, m_n_full)
     return i, j
 
-#------------------- End of methods related to block inversion ---------------
+
+# ------------------- End of methods related to block inversion ---------------
 
 
-def expand_indices_nd(ind, nd, direction=1):
+def expand_indices_nd(ind, nd, direction="F"):
     """
     Expand indices from scalar to vector form.
 
@@ -497,7 +519,7 @@ def expand_indices_nd(ind, nd, direction=1):
     >>> __expand_indices_nd(i, 2)
     (array([0, 1, 2, 3, 6, 7]))
 
-    >>> __expand_indices_nd(i, 3, 0)
+    >>> __expand_indices_nd(i, 3, "C")
     (array([0, 3, 9, 1, 4, 10, 2, 5, 11])
 
     Parameters
@@ -517,29 +539,119 @@ def expand_indices_nd(ind, nd, direction=1):
     return new_ind
 
 
-def map_hf_2_f(fno, subfno, nd):
+def expand_indices_incr(ind, dim, increment):
+
+    # Convenience method for duplicating a list, with a certain increment
+
+    # Duplicate rows
+    ind_nd = np.tile(ind, (dim, 1))
+    # Add same increment to each row (0*incr, 1*incr etc.)
+    ind_incr = ind_nd + increment * np.array([np.arange(dim)]).transpose()
+    # Back to row vector
+    ind_new = ind_incr.reshape(-1, order="F")
+    return ind_new
+
+
+def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
     """
     Create mapping from half-faces to faces for vector problems.
+    Either fno, subfno and nd should be given or g (and optinally nd) should be
+    given.
 
     Parameters
     ----------
-    fno face numbering in sub-cell topology based on unique subfno
-    subfno sub-face numbering
-    nd dimension
-
+    EITHER:
+       fno (np.ndarray): face numbering in sub-cell topology based on unique subfno
+       subfno (np.ndarrary): sub-face numbering
+       nd (int): dimension
+    OR:
+        g (pp.Grid): If a grid is supplied the function will set:
+            fno = pp.fvutils.SubcellTopology(g).fno_unique
+            subfno = pp.fvutils.SubcellTopology(g).subfno_unique
+        nd (int): Optinal, defaults to g.dim. Defines the dimension of the vector.
     Returns
     -------
-
     """
-
+    if g is not None:
+        s_t = SubcellTopology(g)
+        fno = s_t.fno_unique
+        subfno = s_t.subfno_unique
+        if nd is None:
+            nd = g.dim
     hfi = expand_indices_nd(subfno, nd)
     hf = expand_indices_nd(fno, nd)
-    hf2f = sps.coo_matrix((np.ones(hf.size), (hf, hfi)),
-                          shape=(hf.max() + 1, hfi.max() + 1)).tocsr()
+    hf2f = sps.coo_matrix(
+        (np.ones(hf.size), (hf, hfi)), shape=(hf.max() + 1, hfi.max() + 1)
+    ).tocsr()
     return hf2f
 
 
-def scalar_divergence(g):
+def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
+
+    """
+    Create mapping from sub-cells to cells for scalar problems.
+    For example, discretization of div_g-term in mpfa with gravity,
+    where g is a cell-center vector (dim nd)
+
+    Parameters
+        nd: dimension
+        sub_cell_index: sub-cell indices
+        cell_index: cell indices
+
+    Returns:
+        scipy.sparse.csr_matrix (shape num_subcells * nd, num_cells * nd):
+
+    """
+
+    num_cells = cell_index.max() + 1
+
+    rows = sub_cell_index.ravel("F")
+    cols = expand_indices_nd(cell_index, nd)
+    vals = np.ones(rows.size)
+    mat = sps.coo_matrix(
+        (vals, (rows, cols)), shape=(sub_cell_index.size, num_cells * nd)
+    ).tocsr()
+
+    return mat
+
+
+def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
+
+    """
+    Create mapping from sub-cells to cells for vector problems.
+    For example, discretization of grad_p-term in Biot,
+    where p is a cell-center scalar
+
+    Parameters
+        nd: dimension
+        sub_cell_index: sub-cell indices
+        cell_index: cell indices
+
+    Returns:
+        scipy.sparse.csr_matrix (shape num_subcells * nd, num_cells):
+
+    """
+
+    num_cells = cell_index.max() + 1
+
+    def build_sc2c_single_dimension(dim):
+        rows = np.arange(sub_cell_index[dim].size)
+        cols = cell_index
+        vals = np.ones(rows.size)
+        mat = sps.coo_matrix(
+            (vals, (rows, cols)), shape=(sub_cell_index[dim].size, num_cells)
+        ).tocsr()
+        return mat
+
+    sc2c = build_sc2c_single_dimension(0)
+    for i in range(1, nd):
+        this_dim = build_sc2c_single_dimension(i)
+        sc2c = sps.vstack([sc2c, this_dim])
+
+    return sc2c
+
+
+def scalar_divergence(g: pp.Grid) -> sps.csr_matrix:
     """
     Get divergence operator for a grid.
 
@@ -556,10 +668,10 @@ def scalar_divergence(g):
     -------
     divergence operator
     """
-    return g.cell_faces.T
+    return g.cell_faces.T.tocsr()
 
 
-def vector_divergence(g):
+def vector_divergence(g: pp.Grid) -> sps.csr_matrix:
     """
     Get vector divergence operator for a grid g
 
@@ -582,9 +694,77 @@ def vector_divergence(g):
     # Vector extension, convert to coo-format to avoid odd errors when one
     # grid dimension is 1 (this may return a bsr matrix)
     # The order of arguments to sps.kron is important.
-    block_div = sps.kron(scalar_div, sps.eye(g.dim)).tocsr()
+    block_div = sps.kron(scalar_div, sps.eye(g.dim)).tocsc()
 
-    return block_div.transpose()
+    return block_div.transpose().tocsr()
+
+
+def scalar_tensor_vector_prod(
+    g: pp.Grid, k: pp.SecondOrderTensor, subcell_topology: SubcellTopology
+) -> Tuple[sps.csr_matrix, np.ndarray, np.ndarray]:
+    """
+    Compute product of normal vectors and tensors on a sub-cell level.
+    This is essentially defining Darcy's law for each sub-face in terms of
+    sub-cell gradients. Thus, we also implicitly define the global ordering
+    of sub-cell gradient variables (via the interpretation of the columns in
+    nk).
+    NOTE: In the local numbering below, in particular in the variables i and j,
+    it is tacitly assumed that g.dim == g.nodes.shape[0] ==
+    g.face_normals.shape[0] etc. See implementation note in main method.
+    Parameters:
+        g (pp.Grid): Discretization grid
+        k (pp.Second_order_tensor): The permeability tensor
+        subcell_topology (fvutils.SubcellTopology): Wrapper class containing
+            subcell numbering.
+    Returns:
+        nk: sub-face wise product of normal vector and permeability tensor.
+        cell_node_blocks pairings of node and cell indices, which together
+            define a sub-cell.
+        sub_cell_ind: index of all subcells
+    """
+
+    # Stack cell and nodes, and remove duplicate rows. Since subcell_mapping
+    # defines cno and nno (and others) working cell-wise, this will
+    # correspond to a unique rows (Matlab-style) from what I understand.
+    # This also means that the pairs in cell_node_blocks uniquely defines
+    # subcells, and can be used to index gradients etc.
+    cell_node_blocks, blocksz = pp.utils.matrix_compression.rlencode(
+        np.vstack((subcell_topology.cno, subcell_topology.nno))
+    )
+
+    nd = g.dim
+
+    # Duplicates in [cno, nno] corresponds to different faces meeting at the
+    # same node. There should be exactly nd of these. This test will fail
+    # for pyramids in 3D
+    if not np.all(blocksz == nd):
+        raise AssertionError()
+
+    # Define row and column indices to be used for normal_vectors * perm.
+    # Rows are based on sub-face numbers.
+    # Columns have nd elements for each sub-cell (to store a gradient) and
+    # is adjusted according to block sizes
+    _, j = np.meshgrid(subcell_topology.subhfno, np.arange(nd))
+    sum_blocksz = np.cumsum(blocksz)
+    j += pp.utils.matrix_compression.rldecode(sum_blocksz - blocksz[0], blocksz)
+
+    # Distribute faces equally on the sub-faces
+    num_nodes = np.diff(g.face_nodes.indptr)
+    normals = g.face_normals[:, subcell_topology.fno] / num_nodes[subcell_topology.fno]
+
+    # Represent normals and permeability on matrix form
+    ind_ptr = np.hstack((np.arange(0, j.size, nd), j.size))
+    normals_mat = sps.csr_matrix((normals.ravel("F"), j.ravel("F"), ind_ptr))
+    k_mat = sps.csr_matrix(
+        (k.values[::, ::, cell_node_blocks[0]].ravel("F"), j.ravel("F"), ind_ptr)
+    )
+
+    nk = normals_mat * k_mat
+
+    # Unique sub-cell indexes are pulled from column indices, we only need
+    # every nd column (since nd faces of the cell meet at each vertex)
+    sub_cell_ind = j[::, 0::nd]
+    return nk, cell_node_blocks, sub_cell_ind
 
 
 def zero_out_sparse_rows(A, rows, diag=None):
@@ -600,13 +780,8 @@ def zero_out_sparse_rows(A, rows, diag=None):
 
     """
 
-    # If matrix is not csr, it will be converted to csr, then the rows will be
-    # zeroed, and the matrix converted back.
-    flag = False
-    if not A.getformat() == 'csr':
-        mat_format = A.getformat()
-        A = A.tocsr()
-        flag = True
+    if not A.getformat() == "csr":
+        raise ValueError("Can only zero out sparse rows for csr matrix")
 
     ip = A.indptr
     row_indices = mcolon.mcolon(ip[rows], ip[rows + 1])
@@ -617,143 +792,193 @@ def zero_out_sparse_rows(A, rows, diag=None):
         diag_vals[rows] = diag
         A += sps.dia_matrix((diag_vals, 0), shape=A.shape)
 
-    if flag:
-        # Convert matrix back
-        A = A.astype(mat_format)
-
     return A
 
 
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
 
 class ExcludeBoundaries(object):
-    """ Wrapper class to store mapping for exclusion of equations that are
-    redundant due to the presence of boundary conditions.
+    """ Wrapper class to store mappings needed in the finite volume discretizations.
+    The original use for this class was for exclusion of equations that are
+    redundant due to the presence of boundary conditions, hence the name. The use of
+    this class has increased to also include linear transformation that can be applied
+    to the subfaces before the exclusion operator. This will typically be a rotation matrix,
+    so that the boundary conditions can be specified in an arbitary coordinate system.
 
     The systems being set up in mpfa (and mpsa) describe continuity of flux and
-    potential (respectively stress and displacement) on all sub-faces. For
-    boundary faces, one of the two should be excluded (e.g. for a Dirichlet
-    boundary condition, there is no concept of continuity of flux/stresses).
-    The class contains mappings to eliminate the necessary fields.
+    potential (respectively stress and displacement) on all sub-faces. For the boundary
+    faces, unless a Robin condition is specified, only one of the two should be included
+    (e.g. for a Dirichlet boundary condition, there is no concept of continuity of
+    flux/stresses). This class contains mappings to eliminate the necessary fields in
+    order set the correct boundary conditions.
 
     """
 
     def __init__(self, subcell_topology, bound, nd):
         """
-        Define mappings to exclude boundary faces/components with dirichlet and neumann
-        conditions
+        Define mappings to exclude boundary subfaces/components with Dirichlet,
+        Neumann or Robin conditions. If bound.bc_type=="scalar" we assign one
+        component per subface, while if bound.bc_type=="vector" we assign nd
+        components per subface.
 
         Parameters
         ----------
-        subcell_topology
-        bound
+        subcell_topology (pp.SubcellTopology)
+        bound (pp.BoundaryCondition / pp.BoundaryConditionVectorial)
+        nd (int)
 
-        Returns
-        -------
-        exclude_neumann: Matrix, mapping from all faces/components to those having flux
-                         continuity
-        exclude_dirichlet: Matrix, mapping from all faces/components to those having pressure
-                           continuity
+        Attributes:
+        ----------
+        basis_matrix: sps.csc_matrix, mapping from all subfaces/components to all
+            subfaces/components. Will be applied to other before the exclusion
+            operator for the functions self.exlude...(other, transform),
+            if transform==True.
+        robin_weight: sps.csc_matrix, mapping from all subfaces/components to all
+            subfaces/components. Gives the weight that is applied to the displacement in
+            the Robin condition.
+        exclude_neu: sps.csc_matrix, mapping from all subfaces/components to those having
+            pressure continuity
+        exclude_dir: sps.csc_matrix, mapping from all subfaces/components to those having
+            flux continuity
+        exclude_neu_dir: sps.csc_matrix, mapping from all subfaces/components to those
+            having both pressure and flux continuity (i.e., Robin + internal)
+        exclude_neu_rob: sps.csc_matrix, mapping from all subfaces/components to those
+            not having Neumann or Robin conditions (i.e., Dirichlet + internal)
+        exclude_rob_dir: sps.csc_matrix, mapping from all subfaces/components to those
+            not having Robin or Dirichlet conditions (i.e., Neumann + internal)
+        exclude_bnd: sps.csc_matrix, mapping from all subfaces/components to internal
+            subfaces/components.
+        keep_neu: sps.csc_matrix, mapping from all subfaces/components to only Neumann
+            subfaces/components.
+        keep_rob: sps.csc_matrix, mapping from all subfaces/components to only Robin
+            subfaces/components.
         """
         self.nd = nd
         self.bc_type = bound.bc_type
 
         # Short hand notation
-        fno = subcell_topology.fno_unique
         num_subfno = subcell_topology.num_subfno_unique
+        self.num_subfno = num_subfno
 
         # Define mappings to exclude boundary values
+        if self.bc_type == "scalar":
+            self.basis_matrix = self._linear_transformation(bound.basis)
+            self.robin_weight = self._linear_transformation(bound.robin_weight)
 
-        if self.bc_type == 'scalar':
+            self.exclude_neu = self._exclude_matrix(bound.is_neu)
+            self.exclude_dir = self._exclude_matrix(bound.is_dir)
+            self.exclude_rob = self._exclude_matrix(bound.is_rob)
+            self.exclude_neu_dir = self._exclude_matrix(bound.is_neu | bound.is_dir)
+            self.exclude_neu_rob = self._exclude_matrix(bound.is_neu | bound.is_rob)
+            self.exclude_rob_dir = self._exclude_matrix(bound.is_rob | bound.is_dir)
+            self.exclude_bnd = self._exclude_matrix(
+                bound.is_rob | bound.is_dir | bound.is_neu
+            )
+            self.keep_neu = self._exclude_matrix(~bound.is_neu)
+            self.keep_rob = self._exclude_matrix(~bound.is_rob)
 
-            col_neu = np.argwhere([not it for it in bound.is_neu[fno]])
-            row_neu = np.arange(col_neu.size)
-            self.exclude_neu = sps.coo_matrix((np.ones(row_neu.size),
-                                               (row_neu, col_neu.ravel('C'))),
-                                              shape=(row_neu.size,
-                                                     num_subfno)).tocsr()
+        elif self.bc_type == "vectorial":
+            self.basis_matrix = self._linear_transformation(bound.basis)
+            self.robin_weight = self._linear_transformation(bound.robin_weight)
 
-            col_dir = np.argwhere([not it for it in bound.is_dir[fno]])
-            row_dir = np.arange(col_dir.size)
-            self.exclude_dir = sps.coo_matrix((np.ones(row_dir.size),
-                                               (row_dir, col_dir.ravel('C'))),
-                                              shape=(row_dir.size,
-                                                     num_subfno)).tocsr()
+            self.exclude_neu = self._exclude_matrix_xyz(bound.is_neu)
+            self.exclude_dir = self._exclude_matrix_xyz(bound.is_dir)
+            self.exclude_rob = self._exclude_matrix_xyz(bound.is_rob)
+            self.exclude_neu_dir = self._exclude_matrix_xyz(bound.is_neu | bound.is_dir)
+            self.exclude_neu_rob = self._exclude_matrix_xyz(bound.is_neu | bound.is_rob)
+            self.exclude_rob_dir = self._exclude_matrix_xyz(bound.is_rob | bound.is_dir)
+            self.exclude_bnd = self._exclude_matrix_xyz(
+                bound.is_rob | bound.is_dir | bound.is_neu
+            )
+            self.keep_rob = self._exclude_matrix_xyz(~bound.is_rob)
+            self.keep_neu = self._exclude_matrix_xyz(~bound.is_neu)
 
-        elif self.bc_type == 'vectorial':
+    def _linear_transformation(self, loc_trans):
+        """
+        Creates a global linear transformation matrix from a set of local matrices.
+        The global matrix is a mapping from sub-faces to sub-faces as given by loc_trans.
+        The loc_trans matrices are given per sub-face and is a mapping from a nd vector
+        on each subface to a nd vector on each subface. (If self.bc_type="scalar" nd=1
+        is enforced). The loc_trans is a (nd, nd, num_subfno_unique) matrix where
+        loc_trans[:, :, i] gives the local transformation matrix to be applied to
+        subface i.
 
-            #Neumann
-            col_neu_x = np.argwhere([not it for it in bound.is_neu[0, fno]])
-            row_neu_x = np.arange(col_neu_x.size)
-            self.exclude_neu_x = sps.coo_matrix((np.ones(row_neu_x.size),
-                                               (row_neu_x, col_neu_x.ravel('C'))),
-                                              shape=(row_neu_x.size,
-                                                     num_subfno)).tocsr()
+        Example:
+        --------
+        # We have two subfaces in dimension 2.
+        self.num_subfno = 4
+        self.nd = 2
+        # Identity map on first subface and rotate second by np.pi/2 radians
+        loc_trans = np.array([[[1, 0], [0, -1]], [[0, 1], [1, 0]]])
+        print(sef._linear_transformation(loc_trans))
+            [[1, 0, 0, 0],
+             [0, 0, 0, -1],
+             [0, 1, 0, 0],
+             [0, 0, 1, 0]]
+        """
+        if self.bc_type == "scalar":
+            data = loc_trans
+            col = np.arange(self.num_subfno)
+            row = np.arange(self.num_subfno)
+            return sps.coo_matrix(
+                (data, (row, col)), shape=(self.num_subfno, self.num_subfno)
+            ).tocsr()
+        elif self.bc_type == "vectorial":
+            data = loc_trans.ravel("C")
+            row = np.arange(self.num_subfno * self.nd).reshape((-1, self.num_subfno))
+            row = np.tile(row, (1, self.nd)).ravel("C")
+            col = np.tile(np.arange(self.num_subfno * self.nd), (1, self.nd)).ravel()
 
-            col_neu_y = np.argwhere([not it for it in bound.is_neu[1, fno]])
-            row_neu_y = np.arange(col_neu_y.size)
-            self.exclude_neu_y = sps.coo_matrix((np.ones(row_neu_y.size),
-                                               (row_neu_y, col_neu_y.ravel('C'))),
-                                              shape=(row_neu_y.size,
-                                                     num_subfno)).tocsr()
-            col_neu_y += num_subfno
-            col_neu = np.append(col_neu_x, [col_neu_y])
+            return sps.coo_matrix(
+                (data, (row, col)),
+                shape=(self.num_subfno * self.nd, self.num_subfno * self.nd),
+            ).tocsr()
+        else:
+            raise AttributeError("Unknow loc_trans type: " + self.bc_type)
 
-            if nd == 3:
-                col_neu_z = np.argwhere([not it for it in bound.is_neu[2, fno]])
-                row_neu_z = np.arange(col_neu_z.size)
-                self.exclude_neu_z = sps.coo_matrix((np.ones(row_neu_z.size),
-                                                   (row_neu_z, col_neu_z.ravel('C'))),
-                                                  shape=(row_neu_z.size,
-                                                         num_subfno)).tocsr()
+    def _exclude_matrix(self, ids):
+        """
+        creates an exclusion matrix. This is a mapping from sub-faces to
+        all sub-faces except those given by ids.
+        Example:
+        ids = [0, 2]
+        self.num_subfno = 4
+        print(sef._exclude_matrix(ids))
+            [[0, 1, 0, 0],
+              [0, 0, 0, 1]]
+        """
+        col = np.argwhere([not it for it in ids])
+        row = np.arange(col.size)
+        return sps.coo_matrix(
+            (np.ones(row.size, dtype=np.bool), (row, col.ravel("C"))),
+            shape=(row.size, self.num_subfno),
+        ).tocsr()
 
-                col_neu_z += 2 * num_subfno
-                col_neu = np.append(col_neu, [col_neu_z])
+    def _exclude_matrix_xyz(self, ids):
+        col_x = np.argwhere([not it for it in ids[0]])
 
-            row_neu = np.arange(col_neu.size)
-            self.exclude_neu_nd = sps.coo_matrix((np.ones(row_neu.size),
-                                               (row_neu, col_neu.ravel('C'))),
-                                              shape=(row_neu.size,
-                                                      nd * num_subfno)).tocsr()
+        col_y = np.argwhere([not it for it in ids[1]])
+        col_y += self.num_subfno
 
-            #Dirichlet, same procedure
-            col_dir_x = np.argwhere([not it for it in bound.is_dir[0, fno]])
-            row_dir_x = np.arange(col_dir_x.size)
-            self.exclude_dir_x = sps.coo_matrix((np.ones(row_dir_x.size),
-                                               (row_dir_x, col_dir_x.ravel('C'))),
-                                              shape=(row_dir_x.size,
-                                                      num_subfno)).tocsr()
+        col_neu = np.append(col_x, [col_y])
 
-            col_dir_y = np.argwhere([not it for it in bound.is_dir[1, fno]])
-            row_dir_y = np.arange(col_dir_y.size)
-            self.exclude_dir_y = sps.coo_matrix((np.ones(row_dir_y.size),
-                                               (row_dir_y, col_dir_y.ravel('C'))),
-                                              shape=(row_dir_y.size,
-                                                      num_subfno)).tocsr()
+        if self.nd == 3:
+            col_z = np.argwhere([not it for it in ids[2]])
+            col_z += 2 * self.num_subfno
+            col_neu = np.append(col_neu, [col_z])
 
-            col_dir_y += num_subfno
-            col_dir = np.append(col_dir_x, [col_dir_y])
+        row_neu = np.arange(col_neu.size)
+        exclude_nd = sps.coo_matrix(
+            (np.ones(row_neu.size), (row_neu, col_neu.ravel("C"))),
+            shape=(row_neu.size, self.nd * self.num_subfno),
+        ).tocsr()
 
-            if nd == 3:
-                col_dir_z = np.argwhere([not it for it in bound.is_dir[2, fno]])
-                row_dir_z = np.arange(col_dir_z.size)
-                self.exclude_dir_z = sps.coo_matrix((np.ones(row_dir_z.size),
-                                                   (row_dir_z, col_dir_z.ravel('C'))),
-                                                  shape=(row_dir_z.size,
-                                                          num_subfno)).tocsr()
+        return exclude_nd
 
-                col_dir_z += 2 * num_subfno
-                col_dir = np.append(col_dir, [col_dir_z])
-
-            row_dir = np.arange(col_dir.size)
-            self.exclude_dir_nd = sps.coo_matrix((np.ones(row_dir.size),
-                                               (row_dir, col_dir.ravel('C'))),
-                                              shape=(row_dir.size,
-                                                      nd * num_subfno)).tocsr()
-
-
-    def exclude_dirichlet(self, other):
-        """ Mapping to exclude faces/components with Dirichlet boundary conditions from
+    def exclude_dirichlet(self, other, transform=True):
+        """
+        Mapping to exclude faces/components with Dirichlet boundary conditions from
         local systems.
 
         Parameters:
@@ -765,71 +990,82 @@ class ExcludeBoundaries(object):
                 Dirichlet conditions eliminated.
 
         """
-        if self.bc_type == 'scalar':
-            exclude_dir = self.exclude_dir * other
+        exclude_dirichlet = self.exclude_dir
+        if transform:
+            return exclude_dirichlet * self.basis_matrix * other
+        return exclude_dirichlet * other
 
-        elif self.bc_type == 'vectorial':
-            exclude_dir = np.append(self.exclude_dir_x * other, [self.exclude_dir_y * other])
-            if self.nd == 3:
-                exclude_dir = np.append(exclude_dir, [self.exclude_dir_z * other])
-
-        return exclude_dir
-
-    def exclude_dirichlet_x(self, other):
-
-        """ Mapping to exclude components in the x-direction with Dirichlet boundary conditions from
+    def exclude_neumann(self, other, transform=True):
+        """
+        Mapping to exclude faces/components with Neumann boundary conditions from
         local systems.
-        NOTE: Currently works for boundary faces aligned with the coordinate system.
 
         Parameters:
             other (scipy.sparse matrix): Matrix of local equations for
                 continuity of flux and pressure.
 
         Returns:
-            scipy.sparse matrix, with components in the x-direction corresponding to faces with
-                Dirichlet conditions eliminated.
-
+            scipy.sparse matrix, with rows corresponding to faces/components with
+                Neumann conditions eliminated.
         """
+        if transform:
+            return self.exclude_neu * self.basis_matrix * other
+        return self.exclude_neu * other
 
-        return self.exclude_dir_x * other
-
-
-    def exclude_dirichlet_y(self, other):
-        """ Mapping to exclude components in the y-direction with Dirichlet boundary conditions from
-        local systems.
-        NOTE: Currently works for boundary faces aligned with the coordinate system.
+    def exclude_neumann_robin(self, other, transform=True):
+        """
+        Mapping to exclude faces/components with Neumann and Robin boundary
+        conditions from local systems.
 
         Parameters:
             other (scipy.sparse matrix): Matrix of local equations for
                 continuity of flux and pressure.
 
         Returns:
-            scipy.sparse matrix, with components in the y-direction corresponding to faces with
-                Dirichlet conditions eliminated.
-
+            scipy.sparse matrix, with rows corresponding to faces/components with
+                Neumann conditions eliminated.
         """
+        if transform:
+            return self.exclude_neu_rob * self.basis_matrix * other
+        else:
+            return self.exclude_neu_rob * other
 
-        return self.exclude_dir_y * other
-
-    def exclude_dirichlet_z(self, other):
-        """ Mapping to exclude components in the z-direction with Dirichlet boundary conditions from
-        local systems.
-        NOTE: Currently works for boundary faces aligned with the coordinate system.
+    def exclude_neumann_dirichlet(self, other, transform=True):
+        """
+        Mapping to exclude faces/components with Neumann and Dirichlet boundary
+        conditions from local systems.
 
         Parameters:
             other (scipy.sparse matrix): Matrix of local equations for
                 continuity of flux and pressure.
 
         Returns:
-            scipy.sparse matrix, with components in the z-direction corresponding to faces with
-                Dirichlet conditions eliminated.
-
+            scipy.sparse matrix, with rows corresponding to faces/components with
+                Neumann conditions eliminated.
         """
+        if transform:
+            return self.exclude_neu_dir * self.basis_matrix * other
+        return self.exclude_neu_dir * other
 
-        return self.exclude_dir_z * other
+    def exclude_robin_dirichlet(self, other, transform=True):
+        """
+        Mapping to exclude faces/components with Robin and Dirichlet boundary
+        conditions from local systems.
 
-    def exclude_neumann(self, other):
-        """ Mapping to exclude faces/components with Neumann boundary conditions from
+        Parameters:
+            other (scipy.sparse matrix): Matrix of local equations for
+                continuity of flux and pressure.
+
+        Returns:
+            scipy.sparse matrix, with rows corresponding to faces/components with
+                Neumann conditions eliminated.
+        """
+        if transform:
+            return self.exclude_rob_dir * self.basis_matrix * other
+        return self.exclude_rob_dir * other
+
+    def exclude_boundary(self, other, transform=False):
+        """ Mapping to exclude faces/component with any boundary condition from
         local systems.
 
         Parameters:
@@ -841,101 +1077,54 @@ class ExcludeBoundaries(object):
                 Neumann conditions eliminated.
 
         """
-        if self.bc_type == 'scalar':
-            exclude_neu = self.exclude_neu * other
+        if transform:
+            return self.exclude_bnd * self.basis_matrix * other
+        return self.exclude_bnd * other
 
-        elif self.bc_type == 'vectorial':
-            exclude_neu = np.append(self.exclude_neu_x * other, [self.exclude_neu_y * other])
-            if self.nd == 3:
-                exclude_neu = np.append(exclude_neu, [self.exclude_neu_z * other])
-
-        return exclude_neu
-
-    def exclude_neumann_x(self, other):
-        """ Mapping to exclude components in the x-direction with Neumann boundary conditions from
-        local systems.
-        NOTE: Currently works for boundary faces aligned with the coordinate system.
+    def keep_robin(self, other, transform=True):
+        """
+        Mapping to exclude faces/components that is not on the Robin boundary
+        conditions from local systems.
 
         Parameters:
             other (scipy.sparse matrix): Matrix of local equations for
                 continuity of flux and pressure.
 
         Returns:
-            scipy.sparse matrix, with components in the x-direction corresponding to faces with
-                Neumann conditions eliminated.
-
+            scipy.sparse matrix, with rows corresponding to faces/components with
+                all but Robin conditions eliminated.
         """
+        if transform:
+            return self.keep_rob * self.basis_matrix * other
+        return self.keep_rob * other
 
-        return self.exclude_neu_x * other
-
-
-    def exclude_neumann_y(self, other):
-        """ Mapping to exclude components in the y-direction with Neumann boundary conditions from
-        local systems.
-        NOTE: Currently works for boundary faces aligned with the coordinate system.
+    def keep_neumann(self, other, transform=True):
+        """
+        Mapping to exclude faces/components that is not on the Neumann boundary
+        conditions from local systems.
 
         Parameters:
             other (scipy.sparse matrix): Matrix of local equations for
                 continuity of flux and pressure.
 
         Returns:
-            scipy.sparse matrix, with components in the y-direction corresponding to faces with
-                Neumann conditions eliminated.
-
+            scipy.sparse matrix, with rows corresponding to faces/components with
+                all but Neumann conditions eliminated.
         """
-
-        return self.exclude_neu_y * other
-
-    def exclude_neumann_z(self, other):
-        """ Mapping to exclude components in the z-direction with Neumann boundary conditions from
-        local systems.
-        NOTE: Currently works for boundary faces aligned with the coordinate system.
-
-        Parameters:
-            other (scipy.sparse matrix): Matrix of local equations for
-                continuity of flux and pressure.
-
-        Returns:
-            scipy.sparse matrix, with components in the z-direction corresponding to faces with
-                Neumann conditions eliminated.
-
-        """
-
-        return self.exclude_neu_z * other
-
-    def exclude_dirichlet_nd(self, other):
-        """ Exclusion of Dirichlet conditions for vector equations (elasticity).
-        See above method without _nd suffix for description.
-
-        """
-
-        if self.bc_type == 'scalar':
-            exclude_dirichlet_nd = sps.kron(sps.eye(self.nd),
-                                            self.exclude_dir)
-
-        elif self.bc_type == 'vectorial':
-            exclude_dirichlet_nd = self.exclude_dir_nd
-
-        return exclude_dirichlet_nd * other
-
-    def exclude_neumann_nd(self, other):
-        """ Exclusion of Neumann conditions for vector equations (elasticity).
-        See above method without _nd suffix for description.
-
-        """
-        if self.bc_type == 'scalar':
-            exclude_neumann_nd = sps.kron(sps.eye(self.nd),
-                                            self.exclude_neu)
-
-        elif self.bc_type == 'vectorial':
-            exclude_neumann_nd = self.exclude_neu_nd
-
-        return exclude_neumann_nd * other
-
-#-----------------End of class ExcludeBoundaries-----------------------------
+        if transform:
+            return self.keep_neu * self.basis_matrix * other
+        return self.keep_neu * other
 
 
-def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
+# -----------------End of class ExcludeBoundaries-----------------------------
+
+
+def cell_ind_for_partial_update(
+    g: pp.Grid,
+    cells: np.ndarray = None,
+    faces: np.ndarray = None,
+    nodes: np.ndarray = None,
+) -> Tuple[np.ndarray, np.ndarray]:
     """ Obtain indices of cells and faces needed for a partial update of the
     discretization stencil.
 
@@ -1019,20 +1208,19 @@ def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
         active_vertexes[np.squeeze(np.where(cn * prim_cells > 0))] = 1
 
         # Faces of the vertexes, these will be the active faces.
-        active_face_ind = np.squeeze(np.where(g.face_nodes.transpose()
-                                              * active_vertexes > 0))
+        active_face_ind = np.squeeze(
+            np.where(g.face_nodes.transpose() * active_vertexes > 0)
+        )
         active_faces[active_face_ind] = 1
 
         # Secondary vertexes, involved in at least one of the active faces,
         # that is, the faces to be updated. Corresponds to vertexes between o-o
         # above.
-        active_vertexes[np.squeeze(np.where(g.face_nodes
-                                            * active_faces > 0))] = 1
+        active_vertexes[np.squeeze(np.where(g.face_nodes * active_faces > 0))] = 1
 
         # Finally, get hold of all cells that shares one of the secondary
         # vertexes.
-        cells_overlap = np.squeeze(np.where((cn.transpose()
-                                             * active_vertexes) > 0))
+        cells_overlap = np.squeeze(np.where((cn.transpose() * active_vertexes) > 0))
         # And we have our overlap!
         cell_ind = np.hstack((cell_ind, cells_overlap))
 
@@ -1064,21 +1252,21 @@ def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
 
         # The active faces are those sharing a vertex with the primary faces
         primary_vertex = np.zeros(g.num_nodes, dtype=np.bool)
-        primary_vertex[np.squeeze(np.where((g.face_nodes
-                                            * primary_faces) > 0))] = 1
-        active_face_ind = np.squeeze(np.where((g.face_nodes.transpose()
-                                               * primary_vertex) > 0))
+        primary_vertex[np.squeeze(np.where((g.face_nodes * primary_faces) > 0))] = 1
+        active_face_ind = np.squeeze(
+            np.where((g.face_nodes.transpose() * primary_vertex) > 0)
+        )
         active_faces[active_face_ind] = 1
 
         # Find vertexes of the active faces
         active_nodes = np.zeros(g.num_nodes, dtype=np.bool)
-        active_nodes[np.squeeze(np.where((g.face_nodes
-                                          * active_faces) > 0))] = 1
+        active_nodes[np.squeeze(np.where((g.face_nodes * active_faces) > 0))] = 1
 
         active_cells = np.zeros(g.num_cells, dtype=np.bool)
         # Primary cells, those that have the faces as a boundary
-        cells_overlap = np.squeeze(np.where((g.cell_nodes().transpose()
-                                             * active_nodes) > 0))
+        cells_overlap = np.squeeze(
+            np.where((g.cell_nodes().transpose() * active_nodes) > 0)
+        )
         cell_ind = np.hstack((cell_ind, cells_overlap))
 
     if nodes is not None:
@@ -1094,20 +1282,19 @@ def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
         active_vertexes[nodes] = 1
 
         # Find cells that share these nodes
-        active_cells = np.squeeze(np.where((cn.transpose()
-                                            * active_vertexes) > 0))
+        active_cells = np.squeeze(np.where((cn.transpose() * active_vertexes) > 0))
         # Append the newly found active cells
         cell_ind = np.hstack((cell_ind, active_cells))
 
         # Multiply face_nodes.transpose() (e.g. node-faces) with the active
         # vertexes to get the number of active nodes perm face
-        num_active_face_nodes = np.array(g.face_nodes.transpose()
-                                         * active_vertexes)
+        num_active_face_nodes = np.array(g.face_nodes.transpose() * active_vertexes)
         # Total number of nodes per face
         num_face_nodes = np.array(g.face_nodes.sum(axis=0))
         # Active faces are those where all nodes are active.
-        active_face_ind = np.squeeze(np.argwhere((num_active_face_nodes ==
-                                                  num_face_nodes).ravel('F')))
+        active_face_ind = np.squeeze(
+            np.argwhere((num_active_face_nodes == num_face_nodes).ravel("F"))
+        )
         active_faces[active_face_ind] = 1
 
     face_ind = np.squeeze(np.where(active_faces))
@@ -1116,43 +1303,75 @@ def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
     cell_ind.sort()
     face_ind.sort()
     # Return, with data type int
-    return cell_ind.astype('int'), face_ind.astype('int')
+    return cell_ind.astype("int"), face_ind.astype("int")
 
 
-def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
+def map_subgrid_to_grid(
+    g: pp.Grid, loc_faces: np.ndarray, loc_cells: np.ndarray, is_vector: bool
+) -> Tuple[np.ndarray, np.ndarray]:
+    """ Obtain mappings from the cells and faces of a subgrid back to a larger grid.
+
+    Parameters:
+        g (pp.Grid): The larger grid.
+        loc_faces (np.ndarray): For each face in the subgrid, the index of the
+            corresponding face in the larger grid.
+        loc_cells (np.ndarray): For each cell in the subgrid, the index of the
+            corresponding cell in the larger grid.
+        is_vector (bool): If True, the returned mappings are sized to fit with vector
+            variables, with g.dim elements per cell and face.
+
+    Retuns:
+        sps.csr_matrix, size (g.num_faces, loc_faces.size): Mapping from local to
+            global faces. If is_vector is True, the size is multiplied with g.dim.
+        sps.csr_matrix, size (loc_cells.size, g.num_cells): Mapping from global to
+            local cells. If is_vector is True, the size is multiplied with g.dim.
+
+    """
 
     num_faces_loc = loc_faces.size
     num_cells_loc = loc_cells.size
 
     nd = g.dim
     if is_vector:
-        face_map = sps.csr_matrix((np.ones(num_faces_loc * nd),
-                                   (expand_indices_nd(loc_faces, nd),
-                                    np.arange(num_faces_loc * nd))),
-                                  shape=(g.num_faces * nd,
-                                         num_faces_loc * nd))
+        face_map = sps.csr_matrix(
+            (
+                np.ones(num_faces_loc * nd),
+                (expand_indices_nd(loc_faces, nd), np.arange(num_faces_loc * nd)),
+            ),
+            shape=(g.num_faces * nd, num_faces_loc * nd),
+        )
 
-        cell_map = sps.csr_matrix((np.ones(num_cells_loc * nd),
-                                   (np.arange(num_cells_loc * nd),
-                                    expand_indices_nd(loc_cells, nd))),
-                                  shape=(num_cells_loc * nd,
-                                         g.num_cells * nd))
+        cell_map = sps.csr_matrix(
+            (
+                np.ones(num_cells_loc * nd),
+                (np.arange(num_cells_loc * nd), expand_indices_nd(loc_cells, nd)),
+            ),
+            shape=(num_cells_loc * nd, g.num_cells * nd),
+        )
     else:
-        face_map = sps.csr_matrix((np.ones(num_faces_loc),
-                                   (loc_faces, np.arange(num_faces_loc))),
-                                  shape=(g.num_faces, num_faces_loc))
-        cell_map = sps.csr_matrix((np.ones(num_cells_loc),
-                                   (np.arange(num_cells_loc), loc_cells)),
-                                  shape=(num_cells_loc, g.num_cells))
+        face_map = sps.csr_matrix(
+            (np.ones(num_faces_loc), (loc_faces, np.arange(num_faces_loc))),
+            shape=(g.num_faces, num_faces_loc),
+        )
+        cell_map = sps.csr_matrix(
+            (np.ones(num_cells_loc), (np.arange(num_cells_loc), loc_cells)),
+            shape=(num_cells_loc, g.num_cells),
+        )
     return face_map, cell_map
 
-#------------------------------------------------------------------------------
 
-
-def compute_discharges(gb, physics='flow', d_name='discharge',
-                       p_name='pressure', data=None):
+def compute_darcy_flux(
+    gb,
+    keyword="flow",
+    keyword_store=None,
+    d_name="darcy_flux",
+    p_name="pressure",
+    lam_name="mortar_solution",
+    data=None,
+    from_iterate=False,
+):
     """
-    Computes discharges over all faces in the entire grid /grid bucket given
+    Computes darcy_flux over all faces in the entire grid /grid bucket given
     pressures for all nodes, provided as node properties.
 
     Parameter:
@@ -1163,78 +1382,128 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
         'bc_val': Boundary condition values.
             and the following edge property field for all connected grids:
         'coupling_flux': Discretization of the coupling fluxes.
-    physics (string): defaults to 'flow'. The physic regime
-    d_name (string): defaults to 'discharge'. The keyword which the computed
-                     discharge will be stored by in the dictionary.
+    keyword (string): defaults to 'flow'. The parameter keyword used to obtain the
+        data necessary to compute the fluxes.
+    keyword_store (string): defaults to keyword. The parameter keyword determining
+        where the data will be stored
+    d_name (string): defaults to 'darcy_flux'. The parameter name which the computed
+        darcy_flux will be stored by in the dictionary.
     p_name (string): defaults to 'pressure'. The keyword that the pressure
-                     field is stored by in the dictionary
-    data (dictionary): defaults to None. If gb is mono-dimensional grid the
-                       data dictionary must be given. If gb is a
-                       multi-dimensional grid, this variable has no effect
+        field is stored by in the dictionary
+    data (dictionary): defaults to None. If gb is mono-dimensional grid the data
+        dictionary must be given. If gb is a multi-dimensional grid, this variable has
+        no effect.
 
     Returns:
-        gb, the same grid bucket with the added field 'discharge' added to all
+        gb, the same grid bucket with the added field 'darcy_flux' added to all
         node data fields. Note that the fluxes between grids will be added only
-        at the gb edge, not at the node fields. The sign of the discharges
+        at the gb edge, not at the node fields. The signs of the darcy_flux
         correspond to the directions of the normals, in the edge/coupling case
         those of the higher grid. For edges beteween grids of equal dimension,
         there is an implicit assumption that all normals point from the second
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
     """
-    if not isinstance(gb, GridBucket):
-        pa = data['param']
-        if data.get('flux') is not None:
-            dis = data['flux'] * data[p_name] + data['bound_flux'] \
-                               * pa.get_bc_val(physics)
+
+    def extract_variable(d, var):
+        if from_iterate:
+            return d[pp.STATE]["previous_iterate"][var]
         else:
-            dis = np.zeros(g.num_faces)
-        data[d_name] = dis
+            return d[pp.STATE][var]
+
+    if keyword_store is None:
+        keyword_store = keyword
+    if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
+        parameter_dictionary = data[pp.PARAMETERS][keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
+        if "flux" in matrix_dictionary:
+            dis = (
+                matrix_dictionary["flux"] * extract_variable(data, p_name)
+                + matrix_dictionary["bound_flux"] * parameter_dictionary["bc_values"]
+            )
+        else:
+            raise ValueError(
+                """Darcy_Flux can only be computed if a flux-based
+                                 discretization has been applied"""
+            )
+        data[pp.PARAMETERS][keyword_store][d_name] = dis
         return
 
+    # Compute fluxes from pressures internal to the subdomain, and for global
+    # boundary conditions.
     for g, d in gb:
         if g.dim > 0:
-            pa = d['param']
-            if d.get('flux') is not None:
-                dis = d['flux'] * d[p_name] + d['bound_flux'] \
-                    * pa.get_bc_val(physics)
+            parameter_dictionary = d[pp.PARAMETERS][keyword]
+            matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][keyword]
+            if "flux" in matrix_dictionary:
+                dis = (
+                    matrix_dictionary["flux"] * extract_variable(d, p_name)
+                    + matrix_dictionary["bound_flux"]
+                    * parameter_dictionary["bc_values"]
+                )
             else:
-                dis = np.zeros(g.num_faces)
-            d[d_name] = dis
+                raise ValueError(
+                    """Darcy_Flux can only be computed if a flux-based
+                                 discretization has been applied"""
+                )
 
+            d[pp.PARAMETERS][keyword_store][d_name] = dis
+    # Compute fluxes over internal faces, induced by the mortar flux. These
+    # are a critical part of what makes MPFA consistent, but will not be
+    # present for TPFA.
+    # Note that fluxes over faces on the subdomain boundaries are not included,
+    # these are already accounted for in the mortar solution.
     for e, d in gb.edges():
-        # According to the sorting convention, g2 is the higher dimensional grid,
-        # the one to who's faces the fluxes correspond
-        g1, g2 = gb.nodes_of_edge(e)
-        try:
-            pa = d['param']
-        except KeyError:
-            pa = Parameters(g2)
-            d['param'] = pa
+        g_h = gb.nodes_of_edge(e)[1]
+        d_h = gb.node_props(g_h)
+        # The mapping mortar_to_hat_bc contains is composed of a mapping to
+        # faces on the higher-dimensional grid, and computation of the induced
+        # fluxes.
 
-        if g1.dim != g2.dim and d['face_cells'] is not None:
-            coupling_flux = gb.edge_props(e, 'coupling_flux')
-            pressures = [gb.node_props(g, p_name) for g in [g2, g1]]
-            dis = coupling_flux * np.concatenate(pressures)
-            d[d_name] = dis
+        bound_flux = d_h[pp.DISCRETIZATION_MATRICES][keyword]["bound_flux"]
+        induced_flux = (
+            bound_flux
+            * d["mortar_grid"].mortar_to_master_int()
+            * extract_variable(d, lam_name)
+        )
+        # Remove contribution directly on the boundary faces.
+        induced_flux[g_h.tags["fracture_faces"]] = 0
+        d_h[pp.PARAMETERS][keyword_store][d_name] += induced_flux
+        d[pp.PARAMETERS][keyword_store][d_name] = extract_variable(d, lam_name).copy()
 
-        elif g1.dim == g2.dim and d['face_cells'] is not None:
-            # g2 is now only the "higher", but still the one defining the faces
-            # (cell-cells connections) in the sense that the normals are assumed
-            # outward from g2, "pointing towards the g1 cells". Note that in
-            # general, there are g2.num_cells x g1.num_cells connections/"faces".
-            cc = d['face_cells']
-            cells_1, cells_2 = cc.nonzero()
-            coupling_flux = gb.edge_props(e, 'coupling_flux')
 
-            pressures = [gb.node_props(g, p_name) for g in [g2, g1]]
-            p2 = pressures[0][cells_2]
-            p1 = pressures[1][cells_1]
-            contribution_2 = np.multiply(coupling_flux[cc], p2)
-            contribution_1 = np.multiply(coupling_flux[cc], p1)
-            dis = contribution_2 - contribution_1
-            # Store flux at the edge only. This means that the flux will remain
-            # zero in the data of both g1 and g2
-            d[d_name] = np.ravel(dis)
+def boundary_to_sub_boundary(bound, subcell_topology):
+    """
+    Convert a boundary condition defined for faces to a boundary condition defined by
+    subfaces.
+
+    Parameters:
+    -----------
+    bound (pp.BoundaryCondition/pp.BoundarConditionVectorial):
+        Boundary condition given for faces.
+    subcell_topology (pp.fvutils.SubcellTopology):
+        The subcell topology defining the finite volume subgrid.
+
+    Returns:
+    --------
+    pp.BoundarCondition/pp.BoundarConditionVectorial: An instance of the
+        BoundaryCondition/BoundaryConditionVectorial class, where all face values of
+        bound has been copied to the subfaces as defined by subcell_topology.
+    """
+    bound = bound.copy()
+    bound.is_dir = np.atleast_2d(bound.is_dir)[:, subcell_topology.fno_unique].squeeze()
+    bound.is_rob = np.atleast_2d(bound.is_rob)[:, subcell_topology.fno_unique].squeeze()
+    bound.is_neu = np.atleast_2d(bound.is_neu)[:, subcell_topology.fno_unique].squeeze()
+    bound.is_internal = np.atleast_2d(bound.is_internal)[
+        :, subcell_topology.fno_unique
+    ].squeeze()
+    if bound.robin_weight.ndim == 3:
+        bound.robin_weight = bound.robin_weight[:, :, subcell_topology.fno_unique]
+        bound.basis = bound.basis[:, :, subcell_topology.fno_unique]
+    else:
+        bound.robin_weight = bound.robin_weight[subcell_topology.fno_unique]
+        bound.basis = bound.basis[subcell_topology.fno_unique]
+    bound.num_faces = subcell_topology.num_subfno_unique
+    return bound
 
 
 def append_dofs_of_discretization(g, d, kw1, kw2, k_dof):

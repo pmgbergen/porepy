@@ -1,46 +1,43 @@
 import numpy as np
 import unittest
 
-from porepy.numerics.fv.tpfa import TpfaMixedDim
-from porepy.fracs import meshing
-from porepy.params.data import Parameters
-from porepy.params import tensor, bc
+import porepy as pp
+from test import test_utils
 
 
 def setup_2d_1d(nx, simplex_grid=False):
-    frac1 = np.array([[0.2, 0.8], [0.5, 0.5]])
-    frac2 = np.array([[0.5, 0.5], [0.8, 0.2]])
-    fracs = [frac1, frac2]
     if not simplex_grid:
-        gb = meshing.cart_grid(fracs, nx, physdims=[1, 1])
+        mesh_args = nx
     else:
-        mesh_size = .08
-        mesh_kwargs = {'mesh_size_frac': mesh_size,
-                       'mesh_size_min': mesh_size / 20}
-        domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
-        gb = meshing.simplex_grid(fracs, domain, **mesh_kwargs)
+        mesh_size = 0.08
+        mesh_args = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
 
-    gb.compute_geometry()
-    gb.assign_node_ordering()
-    gb.add_node_props(['param'])
+    end_x = [0.2, 0.8]
+    end_y = [0.8, 0.2]
+    gb = pp.grid_buckets_2d.two_intersecting(mesh_args, end_x, end_y, simplex_grid)
+    aperture = 0.01 / np.max(nx)
     for g, d in gb:
-        kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrderTensor(gb.dim_max(), kxx)
-        a = 0.01 / np.max(nx)
-        a = np.power(a, gb.dim_max() - g.dim)
-        param = Parameters(g)
-        param.set_tensor('flow', perm)
-        param.set_aperture(a)
+        a = np.power(aperture, gb.dim_max() - g.dim) * np.ones(g.num_cells)
+        kxx = np.ones(g.num_cells) * a
+        perm = pp.SecondOrderTensor(kxx)
+        specified_parameters = {"second_order_tensor": perm}
         if g.dim == 2:
-            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
-            bound = bc.BoundaryCondition(g, bound_faces.ravel('F'),
-                                         ['dir'] * bound_faces.size)
+            bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+            bound = pp.BoundaryCondition(
+                g, bound_faces.ravel("F"), ["dir"] * bound_faces.size
+            )
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces] = g.face_centers[1, bound_faces]
-            param.set_bc('flow', bound)
-            param.set_bc_val('flow', bc_val)
-        d['param'] = param
+            specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
+        pp.initialize_default_data(g, d, "flow", specified_parameters)
+
+    for e, d in gb.edges():
+        gl, _ = gb.nodes_of_edge(e)
+        mg = d["mortar_grid"]
+        kn = 1.0 / aperture
+        d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{"normal_diffusivity": kn}])
+        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
     return gb
 
 
@@ -52,36 +49,36 @@ def check_pressures(gb):
     the tpfa half transmissibilities are computed.
     """
     for g, d in gb:
-        pressure = d['pressure']
+        pressure = d[pp.STATE]["pressure"]
         pressure_analytic = g.cell_centers[1]
         p_diff = pressure - pressure_analytic
-        assert np.max(np.abs(p_diff)) < 2e-2
+        if np.max(np.abs(p_diff)) >= 2e-2:
+            return False
+    return True
 
 
 class BasicsTest(unittest.TestCase):
-
     def test_uniform_flow_cart_2d_1d_cartesian(self):
         # Structured Cartesian grid
         gb = setup_2d_1d(np.array([10, 10]))
 
-        # Python inverter is most efficient for small problems
-        flux_discr = TpfaMixedDim('flow')
-        A, rhs = flux_discr.matrix_rhs(gb)
-        p = np.linalg.solve(A.A, rhs)
+        key = "flow"
+        tpfa = pp.Tpfa(key)
+        assembler = test_utils.setup_flow_assembler(gb, tpfa, key)
+        test_utils.solve_and_distribute_pressure(gb, assembler)
 
-        flux_discr.solver.split(gb, 'pressure', p)
-
-        check_pressures(gb)
+        self.assertTrue(check_pressures(gb))
 
     def test_uniform_flow_cart_2d_1d_simplex(self):
         # Unstructured simplex grid
         gb = setup_2d_1d(np.array([10, 10]), simplex_grid=True)
 
-        # Python inverter is most efficient for small problems
-        flux_discr = TpfaMixedDim('flow')
-        A, rhs = flux_discr.matrix_rhs(gb)
-        p = np.linalg.solve(A.A, rhs)
+        key = "flow"
+        tpfa = pp.Tpfa(key)
+        assembler = test_utils.setup_flow_assembler(gb, tpfa, key)
+        test_utils.solve_and_distribute_pressure(gb, assembler)
+        self.assertTrue(check_pressures(gb))
 
-        flux_discr.solver.split(gb, 'pressure', p)
 
-        check_pressures(gb)
+if __name__ == "__main__":
+    unittest.main()

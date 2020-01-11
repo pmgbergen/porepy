@@ -3,21 +3,17 @@
 import numpy as np
 import scipy.sparse as sps
 import scipy.stats as stats
+import porepy as pp
 
 from porepy.grids import grid, grid_bucket
-
-from porepy.params.data import Parameters
-from porepy.params import tensor
-from porepy.params.bc import BoundaryCondition
 
 
 from porepy.utils import matrix_compression, mcolon, accumarray, setmembership
 from porepy.utils import half_space, tags
 
-from porepy.numerics.fv import tpfa
 
+# ------------------------------------------------------------------------------#
 
-#------------------------------------------------------------------------------#
 
 def coarsen(g, method, **method_kwargs):
     """ Create a coarse grid from a given grid. If a grid bucket is passed the
@@ -34,12 +30,12 @@ def coarsen(g, method, **method_kwargs):
 
     """
 
-    if method.lower() == 'by_volume':
+    if method.lower() == "by_volume":
         partition = create_aggregations(g, **method_kwargs)
 
-    elif method.lower() == 'by_tpfa':
+    elif method.lower() == "by_tpfa":
         seeds = np.empty(0, dtype=np.int)
-        if method_kwargs.get('if_seeds', False):
+        if method_kwargs.get("if_seeds", False):
             seeds = generate_seeds(g)
         matrix = tpfa_matrix(g)
         partition = create_partition(matrix, seeds=seeds, **method_kwargs)
@@ -49,7 +45,9 @@ def coarsen(g, method, **method_kwargs):
 
     generate_coarse_grid(g, partition)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def generate_coarse_grid(g, subdiv):
     """ Generate a coarse grid clustering the cells according to the flags
@@ -86,7 +84,9 @@ def generate_coarse_grid(g, subdiv):
     if isinstance(g, grid_bucket.GridBucket):
         generate_coarse_grid_gb(g, subdiv)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def reorder_partition(subdiv):
     """
@@ -97,7 +97,7 @@ def reorder_partition(subdiv):
         the subdivision written in a contiguous way
     """
     if isinstance(subdiv, dict):
-        for _, partition in subdiv.items():
+        for _, (_, partition) in subdiv.items():
             old_ids = np.unique(partition)
             for new_id, old_id in enumerate(old_ids):
                 partition[partition == old_id] = new_id
@@ -108,7 +108,9 @@ def reorder_partition(subdiv):
 
     return subdiv
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def generate_coarse_grid_single(g, subdiv, face_map):
     """
@@ -130,8 +132,9 @@ def generate_coarse_grid_single(g, subdiv, face_map):
 
     # compute the face_node indexes
     num_nodes_per_face = g.face_nodes.indptr[1:] - g.face_nodes.indptr[:-1]
-    face_node_ind = matrix_compression.rldecode(np.arange(g.num_faces), \
-                                                num_nodes_per_face)
+    face_node_ind = matrix_compression.rldecode(
+        np.arange(g.num_faces), num_nodes_per_face
+    )
 
     cells_list = np.unique(subdiv)
     cell_volumes = np.zeros(cells_list.size)
@@ -148,10 +151,11 @@ def generate_coarse_grid_single(g, subdiv, face_map):
         # reconstruct the cell_faces mapping
         faces_old, _, orient_old = sps.find(g.cell_faces[:, cells_old])
         mask = np.ones(faces_old.size, dtype=np.bool)
-        mask[np.unique(faces_old, return_index=True )[1]] = False
+        mask[np.unique(faces_old, return_index=True)[1]] = False
         # extract the indexes of the internal edges, to be discared
-        index = np.array([ np.where( faces_old == f )[0] \
-                                for f in faces_old[mask]], dtype=np.int).ravel()
+        index = np.array(
+            [np.where(faces_old == f)[0] for f in faces_old[mask]], dtype=np.int
+        ).ravel()
         faces_new = np.delete(faces_old, index)
         cell_faces = np.r_[cell_faces, faces_new]
         cells = np.r_[cells, np.repeat(cellId, faces_new.shape[0])]
@@ -163,9 +167,13 @@ def generate_coarse_grid_single(g, subdiv, face_map):
         if not_visit.size == 0 or np.all(~not_visit):
             continue
         # mask to consider only the external faces
-        mask = np.atleast_1d(np.sum([face_node_ind == f \
-                                     for f in faces_new[not_visit]], \
-                                    axis=0, dtype=np.bool))
+        mask = np.atleast_1d(
+            np.sum(
+                [face_node_ind == f for f in faces_new[not_visit]],
+                axis=0,
+                dtype=np.bool,
+            )
+        )
         face_nodes = np.r_[face_nodes, face_node_ind[mask]]
 
         nodes_new = g.face_nodes.indices[mask]
@@ -175,24 +183,25 @@ def generate_coarse_grid_single(g, subdiv, face_map):
     # Rename the faces
     cell_faces_unique = np.unique(cell_faces)
     cell_faces_id = np.arange(cell_faces_unique.size, dtype=cell_faces.dtype)
-    cell_faces = np.array([cell_faces_id[np.where( cell_faces_unique == f )[0]]\
-                                                   for f in cell_faces]).ravel()
+    cell_faces = np.array(
+        [cell_faces_id[np.where(cell_faces_unique == f)[0]] for f in cell_faces]
+    ).ravel()
     shape = (cell_faces_unique.size, cells_list.size)
-    cell_faces =  sps.csc_matrix((orient, (cell_faces, cells)), shape = shape)
+    cell_faces = sps.csc_matrix((orient, (cell_faces, cells)), shape=shape)
 
     # Rename the nodes
-    face_nodes = np.array([cell_faces_id[np.where( cell_faces_unique == f )[0]]\
-                                                   for f in face_nodes]).ravel()
+    face_nodes = np.array(
+        [cell_faces_id[np.where(cell_faces_unique == f)[0]] for f in face_nodes]
+    ).ravel()
     nodes_list = np.unique(nodes)
     nodes_id = np.arange(nodes_list.size, dtype=nodes.dtype)
-    nodes = np.array([nodes_id[np.where( nodes_list == n )[0]] \
-                                                        for n in nodes]).ravel()
+    nodes = np.array([nodes_id[np.where(nodes_list == n)[0]] for n in nodes]).ravel()
 
     # sort the nodes
-    nodes = nodes[np.argsort(face_nodes, kind='mergesort')]
+    nodes = nodes[np.argsort(face_nodes, kind="mergesort")]
     data = np.ones(nodes.size, dtype=g.face_nodes.data.dtype)
     indptr = np.r_[0, np.cumsum(np.bincount(face_nodes))]
-    face_nodes =  sps.csc_matrix((data, nodes, indptr))
+    face_nodes = sps.csc_matrix((data, nodes, indptr))
 
     # store again the data in the same grid
     g.name.append("coarse")
@@ -217,7 +226,9 @@ def generate_coarse_grid_single(g, subdiv, face_map):
     if face_map:
         return np.array([cell_faces_unique, cell_faces_id])
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def generate_coarse_grid_gb(gb, subdiv):
     """
@@ -225,27 +236,47 @@ def generate_coarse_grid_gb(gb, subdiv):
     """
 
     if not isinstance(subdiv, dict):
-        g = gb.get_grids(lambda g: g.dim==gb.dim_max())[0]
+        g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
         subdiv = {g: subdiv}
 
-    for g, partition in subdiv.items():
+    for g, (_, partition) in subdiv.items():
 
         # Construct the coarse grids
         face_map = generate_coarse_grid_single(g, partition, True)
 
-        # Update all the face_cells for all the 'edges' connected to the grid
+        # Update all the master_to_mortar_int for all the 'edges' connected to the grid
+        # We update also all the face_cells
         for e, d in gb.edges_of_node(g):
             # The indices that need to be mapped to the new grid
-            face_cells = d['face_cells'].tocsr()
-            indices = face_cells.indices
+            m2m = d["mortar_grid"].master_to_mortar_int().tocsr()
+            indices = m2m.indices
+
             # Map indices
             mask = np.argsort(indices)
             indices = np.in1d(face_map[0, :], indices[mask]).nonzero()[0]
             # Reverse the ordering
-            face_cells.indices = indices[np.argsort(mask)]
-            d['face_cells'] = face_cells.tocsc()
+            indices = indices[np.argsort(mask)]
 
-#------------------------------------------------------------------------------#
+            # Create the new matrix
+            shape = (m2m.shape[0], g.num_faces)
+            new_m2m = sps.csr_matrix((m2m.data, indices, m2m.indptr), shape=shape)
+            d["mortar_grid"]._master_to_mortar_int = new_m2m.tocsc()
+
+            # update also the face_cells map
+            face_cells = d["face_cells"].tocsr()
+            indices = face_cells.indices
+
+            # map indices
+            mask = np.argsort(indices)
+            indices = np.in1d(face_map[0, :], indices[mask]).nonzero()[0]
+            face_cells.indices = indices[np.argsort(mask)]
+
+            # update the map
+            d["face_cells"] = face_cells.tocsc()
+
+
+# ------------------------------------------------------------------------------#
+
 
 def tpfa_matrix(g, perm=None):
     """
@@ -264,18 +295,23 @@ def tpfa_matrix(g, perm=None):
 
     """
     if isinstance(g, grid_bucket.GridBucket):
-       g = g.get_grids(lambda g_: g_.dim == g.dim_max())[0]
+        g = g.get_grids(lambda g_: g_.dim == g.dim_max())[0]
 
     if perm is None:
-        perm = tensor.SecondOrderTensor(g.dim,np.ones(g.num_cells))
+        perm = pp.SecondOrderTensor(np.ones(g.num_cells))
 
-    solver = tpfa.Tpfa()
-    param = Parameters(g)
-    param.set_tensor(solver, perm)
-    param.set_bc(solver, BoundaryCondition(g, np.empty(0), ''))
-    return solver.matrix_rhs(g, {'param': param})[0]
+    solver = pp.Tpfa("flow")
+    specified_parameters = {
+        "second_order_tensor": perm,
+        "bc": pp.BoundaryCondition(g, np.empty(0), ""),
+    }
+    data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+    solver.discretize(g, data)
+    return solver.assemble_matrix(g, data)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def generate_seeds(gb):
     """
@@ -292,24 +328,31 @@ def generate_seeds(gb):
     g_h_faces, g_h_cells, _ = sps.find(g_h.cell_faces)
 
     # Extract the 1-codimensional grids
-    gs = gb.get_grids(lambda g: g.dim == gb.dim_max()-1)
+    gs = gb.get_grids(lambda g: g.dim == gb.dim_max() - 1)
 
     for g in gs:
-        tips = np.where(g.tags['tip_faces'])[0]
+        tips = np.where(g.tags["tip_faces"])[0]
         faces, cells, _ = sps.find(g.cell_faces)
         index = np.in1d(faces, tips).nonzero()[0]
         cells = np.unique(cells[index])
 
-        face_cells = gb.graph.adj[g][g_h]['face_cells']
+        # recover the mapping between the slave and the master grid
+        mg = gb._edges[(g_h, g)]["mortar_grid"]
+        m2m = mg.master_to_mortar_int()
+        l2m = mg.slave_to_mortar_int()
+        # this is the old face_cells mapping
+        face_cells = l2m.T * m2m
+
         interf_cells, interf_faces, _ = sps.find(face_cells)
         index = np.in1d(interf_cells, cells).nonzero()[0]
-
         index = np.in1d(g_h_faces, interf_faces[index]).nonzero()[0]
         seeds = np.concatenate((seeds, g_h_cells[index]))
 
     return seeds
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def create_aggregations(g, **kwargs):
     """ Create a cell partition based on their volumes.
@@ -337,8 +380,8 @@ def create_aggregations(g, **kwargs):
         c2c = g.cell_connection_map()
 
         # Compute the inverse of the harminc mean
-        weight = kwargs.get('weight', 1.)
-        mean = weight/stats.hmean(1./volumes)
+        weight = kwargs.get("weight", 1.0)
+        mean = weight / stats.hmean(1.0 / volumes)
 
         new_id = 1
         while np.any(partition_local < 0):
@@ -404,14 +447,17 @@ def create_aggregations(g, **kwargs):
 
         # Fill up the cells which are left
         has_not_coarse_id = partition_local < 0
-        partition_local[has_not_coarse_id] = new_id + \
-                                            np.arange(np.sum(has_not_coarse_id))
+        partition_local[has_not_coarse_id] = new_id + np.arange(
+            np.sum(has_not_coarse_id)
+        )
 
-        partition[g] = partition_local
+        partition[g] = (g.copy(), partition_local)
 
     return partition
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def __get_neigh(cells_id, c2c, partition):
     """ Support function for create_aggregations
@@ -429,7 +475,9 @@ def __get_neigh(cells_id, c2c, partition):
     # Check if some neighbor has already a coarse id
     return np.sort(neighbors[partition_neighbors < 0])
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def create_partition(A, seeds=None, **kwargs):
     """
@@ -460,23 +508,23 @@ def create_partition(A, seeds=None, **kwargs):
 
     """
 
-    cdepth = int(kwargs.get('cdepth', 2))
-    epsilon = kwargs.get('epsilon', 0.25)
+    cdepth = int(kwargs.get("cdepth", 2))
+    epsilon = kwargs.get("epsilon", 0.25)
 
     if A.size == 0:
         return np.zeros(1)
     Nc = A.shape[0]
 
     # For each node, which other nodes are strongly connected to it
-    ST = sps.lil_matrix((Nc,Nc),dtype=np.bool)
+    ST = sps.lil_matrix((Nc, Nc), dtype=np.bool)
 
     # In the first instance, all cells are strongly connected to each other
     At = A.T
 
     for i in np.arange(Nc):
-        loc = slice(At.indptr[i], At.indptr[i+1])
+        loc = slice(At.indptr[i], At.indptr[i + 1])
         ci, vals = At.indices[loc], At.data[loc]
-        neg = vals < 0.
+        neg = vals < 0.0
         nvals = vals[neg]
         nci = ci[neg]
         minId = np.argmin(nvals)
@@ -484,7 +532,7 @@ def create_partition(A, seeds=None, **kwargs):
         ST[nci[ind], i] = True
 
     # Temporary field, will store connections of depth 1
-    for _ in np.arange(2, cdepth+1):
+    for _ in np.arange(2, cdepth + 1):
         STold = ST.copy()
         for j in np.arange(Nc):
             rowj = np.array(STold.rows[j])
@@ -514,15 +562,15 @@ def create_partition(A, seeds=None, **kwargs):
     while np.any(candidate):
         i = np.argmax(lmbda)
         is_coarse[i] = True
-        j = ST.indices[ST.indptr[i]:ST.indptr[i+1]]
+        j = ST.indices[ST.indptr[i] : ST.indptr[i + 1]]
         jf = j[candidate[j]]
         is_fine[jf] = True
         candidate[np.r_[i, jf]] = False
-        loop = ST.indices[ mcolon.mcolon(ST.indptr[jf], ST.indptr[jf+1]) ]
+        loop = ST.indices[mcolon.mcolon(ST.indptr[jf], ST.indptr[jf + 1])]
         for row in np.unique(loop):
-            s = ST.indices[ST.indptr[row]:ST.indptr[row+1]]
-            lmbda[row] = s[candidate[s]].size + 2*s[is_fine[s]].size
-        lmbda[np.logical_not(candidate)]= -1
+            s = ST.indices[ST.indptr[row] : ST.indptr[row + 1]]
+            lmbda[row] = s[candidate[s]].size + 2 * s[is_fine[s]].size
+        lmbda[np.logical_not(candidate)] = -1
         it = it + 1
 
         # Something went wrong during aggregation
@@ -539,9 +587,9 @@ def create_partition(A, seeds=None, **kwargs):
     c2c = np.abs(A) > 0
     c2c_rows, _, _ = sps.find(c2c)
 
-    pairs = np.empty((0,2), dtype=np.int)
+    pairs = np.empty((0, 2), dtype=np.int)
     for idx, it in enumerate(np.where(is_coarse)[0]):
-        loc = slice(c2c.indptr[it], c2c.indptr[it+1])
+        loc = slice(c2c.indptr[it], c2c.indptr[it + 1])
         ind = np.setdiff1d(c2c_rows[loc], it)
         cind = ind[is_coarse[ind]]
         new_pair = np.stack((np.repeat(it, cind.size), cind), axis=-1)
@@ -562,30 +610,35 @@ def create_partition(A, seeds=None, **kwargs):
 
     # Primal grid
     NC = coarse.size
-    primal = sps.lil_matrix((NC,Nc),dtype=np.bool)
+    primal = sps.lil_matrix((NC, Nc), dtype=np.bool)
     primal[np.arange(NC), coarse[np.arange(NC)]] = True
 
-    connection = sps.lil_matrix((Nc,Nc),dtype=np.double)
+    connection = sps.lil_matrix((Nc, Nc), dtype=np.double)
     for it in np.arange(Nc):
-        n = np.setdiff1d(c2c_rows[c2c.indptr[it]:c2c.indptr[it+1]], it)
-        loc = slice(A.indptr[it], A.indptr[it+1])
+        n = np.setdiff1d(c2c_rows[c2c.indptr[it] : c2c.indptr[it + 1]], it)
+        loc = slice(A.indptr[it], A.indptr[it + 1])
         A_idx, A_row = A.indices[loc], A.data[loc]
         mask = A_idx != it
-        connection[it, n] = np.abs( A_row[mask] / A_row[np.logical_not(mask)] )
+        connection[it, n] = np.abs(A_row[mask] / A_row[np.logical_not(mask)])
 
     connection = connection.tocsr()
 
     candidates_rep = np.ediff1d(connection.indptr)
     candidates_idx = np.repeat(is_coarse, candidates_rep)
-    candidates = np.stack((connection.indices[candidates_idx],
-                           np.repeat(np.arange(NC), candidates_rep[is_coarse])),
-                           axis=-1)
+    candidates = np.stack(
+        (
+            connection.indices[candidates_idx],
+            np.repeat(np.arange(NC), candidates_rep[is_coarse]),
+        ),
+        axis=-1,
+    )
 
-    connection_idx = mcolon.mcolon(connection.indptr[coarse],
-                                   connection.indptr[coarse+1])
-    vals = sps.csr_matrix(accumarray.accum(candidates,
-                                           connection.data[connection_idx],
-                                           size=[Nc,NC]))
+    connection_idx = mcolon.mcolon(
+        connection.indptr[coarse], connection.indptr[coarse + 1]
+    )
+    vals = sps.csr_matrix(
+        accumarray.accum(candidates, connection.data[connection_idx], size=[Nc, NC])
+    )
     del candidates_rep, candidates_idx, connection_idx
 
     it = NC
@@ -596,9 +649,9 @@ def create_partition(A, seeds=None, **kwargs):
         np.argmax(vals.data)
         vals.argmax(axis=0)
         mcind = np.atleast_1d(np.squeeze(np.asarray(vals.argmax(axis=0))))
-        mcval = -np.inf*np.ones(mcind.size)
+        mcval = -np.inf * np.ones(mcind.size)
         for c, r in enumerate(mcind):
-            loc = slice(vals.indptr[r], vals.indptr[r+1])
+            loc = slice(vals.indptr[r], vals.indptr[r + 1])
             vals_idx, vals_data = vals.indices[loc], vals.data[loc]
             mask = vals_idx == c
             if vals_idx.size == 0 or not np.any(mask):
@@ -614,19 +667,19 @@ def create_partition(A, seeds=None, **kwargs):
             break
 
         not_found[nadd] = False
-        vals.data[vals.indptr[nadd]:vals.indptr[nadd+1]] = 0
+        vals.data[vals.indptr[nadd] : vals.indptr[nadd + 1]] = 0
 
-        loc = slice(connection.indptr[nadd], connection.indptr[nadd+1])
+        loc = slice(connection.indptr[nadd], connection.indptr[nadd + 1])
         nc = connection.indices[loc]
         af = not_found[nc]
         nc = nc[af]
         nv = mcval[mi] * connection[nadd, :]
         nv = nv.data[af]
         if len(nc) > 0:
-            vals += sps.csr_matrix((nv,(nc, np.repeat(mi,len(nc)))),
-                                          shape=(Nc,NC))
+            vals += sps.csr_matrix((nv, (nc, np.repeat(mi, len(nc)))), shape=(Nc, NC))
 
     coarse, fine = primal.tocsr().nonzero()
     return coarse[np.argsort(fine)]
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
