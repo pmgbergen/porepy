@@ -118,7 +118,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
     should probably not make a difference, but better safe than sorry.
     """
 
-    def _set_known_no_penetration(self):
+    def _set_coefficients_no_penetration(self):
 
         # diagonal matrix for the contact force. zero coefficients for the displacements
         self.known_Acc = np.array([[1, 0], [0, 1]])
@@ -136,10 +136,10 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         u_mortar = np.zeros(4)
         contact_force = np.array([0, 1])
-        model = ContactModel(angle, u_mortar, contact_force, True, True)
+        model = ContactModel2d(angle, u_mortar, contact_force, True, True)
 
         self._set_known_contact_to_mortar(angle, model)
-        self._set_known_no_penetration()
+        self._set_coefficients_no_penetration()
         self.verify(model)
 
     def test_pos_rot_no_penetration_neg_tangent_pos_normal(self):
@@ -151,10 +151,10 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         u_mortar = np.zeros(4)
         contact_force = np.array([0, 1])
-        model = ContactModel(angle, u_mortar, contact_force, False, True)
+        model = ContactModel2d(angle, u_mortar, contact_force, False, True)
 
         self._set_known_contact_to_mortar(angle, model)
-        self._set_known_no_penetration()
+        self._set_coefficients_no_penetration()
         self.verify(model)
 
     def test_pos_rot_no_penetration_pos_tangent_neg_normal(self):
@@ -166,10 +166,10 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         u_mortar = np.zeros(4)
         contact_force = np.array([0, 1])
-        model = ContactModel(angle, u_mortar, contact_force, True, False)
+        model = ContactModel2d(angle, u_mortar, contact_force, True, False)
 
         self._set_known_contact_to_mortar(angle, model)
-        self._set_known_no_penetration()
+        self._set_coefficients_no_penetration()
         self.verify(model)
 
     def test_pos_rot_no_penetration_neg_tangent_neg_normal(self):
@@ -181,10 +181,10 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         u_mortar = np.zeros(4)
         contact_force = np.array([0, 1])
-        model = ContactModel(angle, u_mortar, contact_force, True, True)
+        model = ContactModel2d(angle, u_mortar, contact_force, True, True)
 
         self._set_known_contact_to_mortar(angle, model)
-        self._set_known_no_penetration()
+        self._set_coefficients_no_penetration()
         self.verify(model)
 
     def test_neg_rot_no_penetration_pos_tangent_pos_normal(self):
@@ -196,10 +196,10 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         u_mortar = np.zeros(4)
         contact_force = np.array([0, 1])
-        model = ContactModel(angle, u_mortar, contact_force, True, True)
+        model = ContactModel2d(angle, u_mortar, contact_force, True, True)
 
         self._set_known_contact_to_mortar(angle, model)
-        self._set_known_no_penetration()
+        self._set_coefficients_no_penetration()
         self.verify(model)
 
     def test_neg_rot_no_penetration_neg_tangent_pos_normal(self):
@@ -211,10 +211,10 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         u_mortar = np.zeros(4)
         contact_force = np.array([0, 1])
-        model = ContactModel(angle, u_mortar, contact_force, False, True)
+        model = ContactModel2d(angle, u_mortar, contact_force, False, True)
 
         self._set_known_contact_to_mortar(angle, model)
-        self._set_known_no_penetration()
+        self._set_coefficients_no_penetration()
         self.verify(model)
 
     def test_neg_rot_no_penetration_pos_tangent_neg_normal(self):
@@ -226,10 +226,10 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         u_mortar = np.zeros(4)
         contact_force = np.array([0, 1])
-        model = ContactModel(angle, u_mortar, contact_force, True, False)
+        model = ContactModel2d(angle, u_mortar, contact_force, True, False)
 
         self._set_known_contact_to_mortar(angle, model)
-        self._set_known_no_penetration()
+        self._set_coefficients_no_penetration()
         self.verify(model)
 
     def test_neg_rot_no_penetration_neg_tangent_neg_normal(self):
@@ -241,10 +241,10 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         u_mortar = np.zeros(4)
         contact_force = np.array([0, 1])
-        model = ContactModel(angle, u_mortar, contact_force, True, True)
+        model = ContactModel2d(angle, u_mortar, contact_force, True, True)
 
         self._set_known_contact_to_mortar(angle, model)
-        self._set_known_no_penetration()
+        self._set_coefficients_no_penetration()
         self.verify(model)
 
     """ Tests for contact, but sticking. 
@@ -342,7 +342,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         u_mortar = 0.5 * np.array([tj * c, tj * s, -tj * c, -tj * s])
         # Make contact force sufficiently strong to in effect always be in contact
         contact_force = np.array([0, -10000])
-        model = ContactModel(angle, u_mortar, contact_force, True, True)
+        model = ContactModel2d(angle, u_mortar, contact_force, True, True)
 
         self._set_known_contact_to_mortar(angle, model)
 
@@ -368,7 +368,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         u_mortar = 0.5 * np.array([tj * c, tj * s, -tj * c, -tj * s])
         # Make contact force sufficiently strong to in effect always be in contact
         contact_force = np.array([0, -10000])
-        model = ContactModel(angle, u_mortar, contact_force, True, True)
+        model = ContactModel2d(angle, u_mortar, contact_force, True, True)
 
         self._set_known_contact_to_mortar(angle, model)
 
@@ -393,7 +393,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         u_mortar = 0.5 * np.array([tj * c, tj * s, -tj * c, -tj * s])
         # Make contact force sufficiently strong to in effect always be in contact
         contact_force = np.array([0, -10000])
-        model = ContactModel(angle, u_mortar, contact_force, True, False)
+        model = ContactModel2d(angle, u_mortar, contact_force, True, False)
 
         self._set_known_contact_to_mortar(angle, model)
 
@@ -418,7 +418,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         u_mortar = 0.5 * np.array([tj * c, tj * s, -tj * c, -tj * s])
         # Make contact force sufficiently strong to in effect always be in contact
         contact_force = np.array([0, -10000])
-        model = ContactModel(angle, u_mortar, contact_force, False, True)
+        model = ContactModel2d(angle, u_mortar, contact_force, False, True)
 
         self._set_known_contact_to_mortar(angle, model)
 
@@ -443,7 +443,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         u_mortar = 0.5 * np.array([tj * c, tj * s, -tj * c, -tj * s])
         # Make contact force sufficiently strong to in effect always be in contact
         contact_force = np.array([0, -10000])
-        model = ContactModel(angle, u_mortar, contact_force, False, False)
+        model = ContactModel2d(angle, u_mortar, contact_force, False, False)
 
         self._set_known_contact_to_mortar(angle, model)
 
@@ -601,7 +601,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         u_mortar = 0.5 * np.array([tj * c, tj * s, -tj * c, -tj * s])
         # Make contact force sufficiently strong to in effect always be in contact
         contact_force = np.array([-1, -0.01])
-        model = ContactModel(angle, u_mortar, contact_force, True, True)
+        model = ContactModel2d(angle, u_mortar, contact_force, True, True)
 
         self._set_known_contact_to_mortar(angle, model)
 
@@ -627,7 +627,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         u_mortar = 0.5 * np.array([tj * c, tj * s, -tj * c, -tj * s])
         # Make contact force sufficiently strong to in effect always be in contact
         contact_force = np.array([-1, -0.01])
-        model = ContactModel(angle, u_mortar, contact_force, True, True)
+        model = ContactModel2d(angle, u_mortar, contact_force, True, True)
 
         self._set_known_contact_to_mortar(angle, model)
 
@@ -653,7 +653,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         u_mortar = 0.5 * np.array([tj * c, tj * s, -tj * c, -tj * s])
         # Make contact force sufficiently strong to in effect always be in contact
         contact_force = np.array([-1, -0.01])
-        model = ContactModel(angle, u_mortar, contact_force, True, True)
+        model = ContactModel2d(angle, u_mortar, contact_force, True, True)
 
         self._set_known_contact_to_mortar(angle, model)
 
@@ -679,7 +679,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         u_mortar = 0.5 * np.array([tj * c, tj * s, -tj * c, -tj * s])
         # Make contact force sufficiently strong to in effect always be in contact
         contact_force = np.array([-1, -0.01])
-        model = ContactModel(angle, u_mortar, contact_force, True, True)
+        model = ContactModel2d(angle, u_mortar, contact_force, True, True)
 
         self._set_known_contact_to_mortar(angle, model)
 
@@ -705,7 +705,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         u_mortar = 0.5 * np.array([tj * c, tj * s, -tj * c, -tj * s])
         # Make contact force sufficiently strong to in effect always be in contact
         contact_force = np.array([-1, -0.01])
-        model = ContactModel(angle, u_mortar, contact_force, True, True)
+        model = ContactModel2d(angle, u_mortar, contact_force, True, True)
 
         self._set_known_contact_to_mortar(angle, model)
 
@@ -714,7 +714,133 @@ class ContactConditionColoumb2d(unittest.TestCase):
         self.verify(model)
 
 
-class ContactModel(ContactMechanics):
+class ContactConditionColoumb3d(unittest.TestCase):
+    """ Workflow for the tests:
+            Each of the test_* methods first set up a rotation angle for the fracture
+            and a previous state for the normal and tangential jumps and the contact 
+            force. Also the direction of the tangential and normal vectors for the
+            local (to the fracture) coordinate system are set. The coefficients in
+            the discretization of contact condition and the map from contact forces to
+            forces on the mortar grid are then computed in two ways:
+                i) Via the ContactCondition discretization class
+                ii) With hard coding of the coefficients in the paper describing the
+                    contact discretization, using the current state and the problem
+                    geometry
+            Errors are raised if the values are not the same.
+            
+    """
+
+    def setUp(self):
+        # Initialize variables for known values to zeros. Will be modified subsequently
+        # by other tests.
+        self.known_Acm = np.zeros((3, 6))
+        self.known_Amc = np.zeros((6, 3))
+        self.known_Acc = np.zeros((3, 3))
+        self.known_bc = np.zeros(3)
+
+    def verify(self, model):
+        A_mc, A_cm, A_cc, b_c, penetration, sliding = model.get_matrices()
+
+        self.assertTrue(np.allclose(A_mc, self.known_Amc))
+        self.assertTrue(np.allclose(A_cm, self.known_Acm))
+        self.assertTrue(np.allclose(A_cc, self.known_Acc))
+        self.assertTrue(np.allclose(b_c, self.known_bc))
+
+        self.assertTrue(np.allclose(penetration, self.known_penetration))
+        self.assertTrue(np.allclose(sliding, self.known_sliding))
+
+    def _set_known_contact_to_mortar(self, angle, model):
+        # Coefficient in matrix that maps contact forces to the mortar space.
+        # The main ingredient is a rotation from tangential-normal space to the global
+        # coordinates.
+        # The coefficients are are independent on the contact state, that is, they
+        # are functions of rotation angle only.
+        # Also make variables for the direction of the tangential and normal
+        # vectors of the fracture.
+
+        # Recover the projection matrix used in the mapping between local and global
+        # coordinates.
+        # The tangent vector is in the first row, normal in the second
+        proj = model.gb.edge_props(model.edge)[
+            "tangential_normal_projection"
+        ].projection[:, :, 0]
+
+        # The normal vector is considered positive if it points in the y-direction.
+        self.pos_normal = proj[2, 2] > 0
+        # Sign convention for tangent vectors
+        self.pos_tangent_1 = proj[0, 0] > 0
+        self.pos_tangent_2 = proj[1, 1] > 0
+        # Also store the projection matrix for good measure, not clear if we need it
+        self.proj = proj
+
+        # short hand for sine and cosine for the rotation angle
+        cn = np.cos(angle)
+        sn = np.sin(angle)
+
+        angle_t1
+
+        # Matrix, to be filled out
+        mat = np.zeros((3, 3))
+
+        # To see the the logic in matrix elements, draw an xy-coordinate system, and
+        # a tn-system, where the t-axis is rotation 'angle' in the CCW direction
+        # compared to the x-axis. Note that the matrix elements have their sign shifted
+        # if the tangential or normal direction is not in the positive direction.
+        if self.pos_tangent:
+            mat[0, 0] = c
+            mat[1, 0] = s
+        else:
+            mat[0, 0] = -c
+            mat[1, 0] = -s
+
+        if self.pos_normal:
+            mat[0, 1] = -s
+            mat[1, 1] = c
+        else:
+            mat[0, 1] = s
+            mat[1, 1] = -c
+
+        # The full projection matrix is found by stacking two copies of mat, with a
+        # sign change on the second copy, to reflect Newton's third law
+        full_mat = np.vstack((mat, -mat))
+
+        # finally, do change sign to compensate for sign convention in
+        # A[mortar_ind, contact_ind] in PrimalContactCoupling
+        self.known_Amc = -full_mat
+
+    """ Below are tests for no penetration conditions. In this case, the coefficients
+    for contact are very simple - the contact force is zero. The non-trivial aspect to
+    be tested in this case is the projection of contact forces up to the mortars. This
+    one we test for both positive and negative rotation angles. The sign of the angle
+    should probably not make a difference, but better safe than sorry.
+    """
+
+    def _set_coefficients_no_penetration(self):
+
+        # diagonal matrix for the contact force. zero coefficients for the displacements
+        self.known_Acc = np.array([[1, 0], [0, 1]])
+        self.known_bc[:] = 0
+
+        self.known_penetration = np.array([False])
+        self.known_sliding = np.array([False])
+
+    def test_pos_rot_no_penetration_pos_tangent_pos_normal(self):
+        # In contact, no sliding. Tangent in positive direction
+        self.setUp()
+
+        # Randomly tilted geometry
+        angle = (np.pi / 2 * np.random.rand(1))[0]
+
+        u_mortar = np.zeros(4)
+        contact_force = np.array([0, 1])
+        model = ContactModel2d(angle, u_mortar, contact_force, True, True)
+
+        self._set_known_contact_to_mortar(angle, model)
+        self._set_coefficients_no_penetration()
+        self.verify(model)
+
+
+class ContactModel2d(ContactMechanics):
     def __init__(self, angle, u_mortar, contact_force, pos_tangent, pos_normal):
         super().__init__({})
 
@@ -893,6 +1019,111 @@ class ContactModel(ContactMechanics):
             else:
                 state = {}
             pp.set_state(d, state)
+
+
+class ContactModel3d(ContactModel2d):
+    def __init__(
+        self,
+        n_angle,
+        t_angle,
+        u_mortar,
+        contact_force,
+        pos_tangent_1,
+        pos_tangent_2,
+        pos_normal,
+    ):
+        super().__init__({})
+
+        # n_angle is specified rotation of the normal vector. Used both in grid
+        # construction and construction of the projection operator for the grid
+        # t_angle is rotation in the xy-plane of the first tangential vector, *before*
+        # rotation around y-axis
+        # pos_tangent_1: Whether the first tangential vector has a positive x-component
+        # pos_tangent_2: Whether the second tangential vector has a positive
+        # y-component
+        # pos_normal: Whether the normal vector has a positive z-component
+        # The manual construction of the coordinate system may reduce the power of the
+        # tests relating to pure geometry, but the alternative requires quite a bit more
+        # thinking regarding trigonometry
+
+        # Angle of perturbation of the normal vector of the fracture. gives the
+        # deviation from a pure z-direction fracture
+        self.angle = n_angle
+
+        self.create_grid()
+
+        # Rotation of the normal vector. We know this is around the y-axis (by
+        # construction of the grid, which nodes we perturbed)
+        cn = np.cos(n_angle)
+        sn = np.sin(n_angle)
+        Rxz = np.array([[cn, 0, -sn], [0, 1, 0], [sn, 0, cn]])
+
+        ct, st = np.cos(t_angle), np.sin(t_angle)
+        Rxy = np.array([[ct, 0, -st], [0, 1, 0], [st, 0, ct]])
+
+        proj = Rxz.dot(Rxy.dot(np.identity(3)))
+
+        if pos_tangent_1 and proj[0, 0] < 0:
+            proj[0] *= -1
+        elif not pos_tangent_1 and proj[0, 0] > 0:
+            proj[0] *= -1
+        if pos_tangent_2 and proj[1, 1] < 0:
+            proj[1] *= -1
+        elif not pos_tangent_2 and proj[1, 1] > 0:
+            proj[1] *= -1
+        if pos_normal and proj[2, 2] < 0:
+            proj[2] *= -1
+        elif not pos_normal and proj[2, 2] > 0:
+            proj[2] *= -1
+
+        self.gb.edge_props(self.edge)["tangential_normal_projection"].projection[
+            :, :, 0
+        ] = proj
+
+        self.set_parameters()
+
+        data = self.gb.node_props(self.g2)
+        data[pp.PARAMETERS][self.mechanics_parameter_key]["inverter"] = "python"
+
+        self.assign_variables()
+        self.assign_discretizations()
+        self.set_state(u_mortar, contact_force)
+        self.discretize()
+
+        pass
+
+    def create_grid(self):
+
+        s = np.sin(self.angle)
+        df = 1
+
+        f = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [1, 1, 1, 1]])
+
+        gb = pp.meshing.cart_grid([f], np.array([1, 1, 2]))
+
+        g3 = gb.grids_of_dimension(3)[0]
+        g2 = gb.grids_of_dimension(2)[0]
+
+        xn3 = g3.nodes
+        hit3 = np.logical_and.reduce((xn3[0] > 0.5, xn3[2] > 0.5, xn3[2] < 1.5))
+        assert hit3.sum() == 4
+
+        xn2 = g2.nodes
+        hit2 = np.logical_and.reduce((xn2[0] > 0.5, xn2[2] > 0.5, xn2[2] < 1.5))
+        assert hit2.sum() == 2
+
+        xn3[2, hit3] += df * s
+        xn2[2, hit2] += df * s
+
+        self.gb = gb
+        self.g3 = g3
+        self.g2 = g2
+
+        self.Nd = 3
+
+        for e, d in gb.edges():
+            self.edge = e
+            self.mg = e["mortar_grid"]
 
 
 if __name__ == "__main__":
