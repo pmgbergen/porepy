@@ -87,7 +87,9 @@ class ColoumbContact:
 
         # Numerical parameter, value and sensitivity is currently unknown.
         # The thesis of Huber is probably a good place to look for information.
-        c_num = 100
+        c_num = parameters_l[self.keyword].get(
+            "contact_mechanics_numerical_parameter", 100
+        )
 
         mg = data_edge["mortar_grid"]
 
@@ -336,7 +338,7 @@ class ColoumbContact:
 
         """
         # Not sure about the sensitivity to the tolerance parameter here.
-        tol = 1e-8 * cn
+        tol = 1e-12 * cn
         return (-Tn + cn * un) > tol
 
     # Below here are different help function for calculating the Newton step
@@ -451,7 +453,7 @@ def set_projections(gb):
         # Find faces of the higher dimensional grid that coincide with the mortar
         # grid. Go via the master to mortar projection
         # Convert matrix to csr, then the relevant face indices are found from
-        # the row indices
+        # the (column) indices
         faces_on_surface = mg.master_to_mortar_int().tocsr().indices
 
         # Find out whether the boundary faces have outwards pointing normal vectors

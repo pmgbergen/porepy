@@ -70,6 +70,7 @@ setup(
     maintainer="Eirik Keilegavlen",
     maintainer_email="Eirik.Keilegavlen@uib.no",
     platforms=["Linux", "Windows"],
+    package_data={"porepy": ["py.typed"]},
     packages=find_packages("src"),
     package_dir={"": "src"},
     py_modules=[
@@ -77,4 +78,5 @@ setup(
     ],
     cmdclass=cmdclass,
     ext_modules=ext_modules,
+    zip_safe=False,
 )

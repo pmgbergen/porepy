@@ -6,23 +6,15 @@ Intended support is by Cartesian indexing, and METIS-based.
 """
 from __future__ import division
 import warnings
-import sys
 import networkx
 import numpy as np
 import scipy.sparse as sps
-
-try:
-    import pymetis
-except ImportError:
-    warnings.warn(
-        "Could not import pymetis. Some functions will not work as\
-    intended"
-    )
+from typing import List, Tuple
 
 import porepy as pp
 
 
-def partition_metis(g, num_part):
+def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
     """
     Partition a grid using metis.
 
@@ -44,6 +36,11 @@ def partition_metis(g, num_part):
             [0, num_part) for each cell.
 
     """
+    try:
+        import pymetis
+    except ImportError:
+        warnings.warn("Could not import pymetis. Partitioning by metis will not work.")
+        raise ImportError("Cannot partition by pymetis")
 
     # Connection map between cells
     c2c = g.cell_connection_map()
@@ -59,7 +56,9 @@ def partition_metis(g, num_part):
     return np.array(part[1])
 
 
-def partition_structured(g, coarse_dims=None, num_part=None):
+def partition_structured(
+    g: pp.TensorGrid, coarse_dims: np.ndarray = None, num_part: int = None
+) -> np.ndarray:
     """
     Define a partitioning of a grid based on logical Cartesian indexing.
 
@@ -140,7 +139,9 @@ def partition_structured(g, coarse_dims=None, num_part=None):
     return glob_dims.astype("int")
 
 
-def partition_coordinates(g, num_coarse, check_connectivity=True):
+def partition_coordinates(
+    g: pp.Grid, num_coarse: int, check_connectivity: bool = True
+) -> np.ndarray:
     """"
     Brute force partitioning of a grid based on cell center coordinates.
 
@@ -242,7 +243,7 @@ def partition_coordinates(g, num_coarse, check_connectivity=True):
     return partition
 
 
-def partition(g, num_coarse):
+def partition(g: pp.Grid, num_coarse: int) -> np.ndarray:
     """
     Wrapper for partition methods, tries to apply best possible algorithm.
 
@@ -262,20 +263,15 @@ def partition(g, num_coarse):
 
     """
     try:
-        # Apparently, this will throw a KeyError unless pymetis has been
-        # successfully imported. This is does not look elegant, but it should
-        # work.
-        sys.modules["pymetis"]
-        # If we have made it this far, we can run pymetis.
         return partition_metis(g, num_coarse)
-    except KeyError:
+    except ImportError:
         if isinstance(g, pp.TensorGrid):
             return partition_structured(g, num_part=num_coarse)
         else:
             return partition_coordinates(g, num_coarse)
 
 
-def determine_coarse_dimensions(target, fine_size):
+def determine_coarse_dimensions(target: int, fine_size: np.ndarray) -> np.ndarray:
     """
     For a logically Cartesian grid determine a coarse partitioning based on a
     target number of coarse cells.
@@ -378,7 +374,13 @@ def determine_coarse_dimensions(target, fine_size):
     return optimum.astype("int")
 
 
-def extract_subgrid(g, c, sort=True, faces=False, is_planar=True):
+def extract_subgrid(
+    g: pp.Grid,
+    c: np.ndarray,
+    sort: bool = True,
+    faces: bool = False,
+    is_planar: bool = True,
+) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
     """
     Extract a subgrid based on cell/face indices.
 
@@ -406,7 +408,7 @@ def extract_subgrid(g, c, sort=True, faces=False, is_planar=True):
 
     Returns:
         Grid: Extracted subgrid. Will share (note, *not* copy)
-            geometric fileds with the parent grid. Also has an additional
+            geometric fields with the parent grid. Also has an additional
             field parent_cell_ind giving correspondance between parent and
             child cells.
         np.ndarray, dtype=int: Index of the extracted faces, ordered so that
@@ -627,7 +629,9 @@ def __extract_cells_from_faces_3d(g, f, is_planar=True):
     return h, f, unique_nodes
 
 
-def partition_grid(g, ind):
+def partition_grid(
+    g: pp.Grid, ind: np.ndarray
+) -> Tuple[List[pp.Grid], List[np.ndarray], List[np.ndarray]]:
     """
     Partition a grid into multiple subgrids based on an index set.
 
@@ -648,11 +652,12 @@ def partition_grid(g, ind):
             local faces.
         list of np.arrays: Each element contains the global indices of the
             local nodes.
+
     """
 
-    sub_grid = []
-    face_map_list = []
-    node_map_list = []
+    sub_grid: List[pp.Grid] = []
+    face_map_list: List[np.ndarray] = []
+    node_map_list: List[np.ndarray] = []
     for i in np.unique(ind):
         ci = np.squeeze(np.argwhere(ind == i))
         sg, fm, nm = extract_subgrid(g, ci)
@@ -663,7 +668,9 @@ def partition_grid(g, ind):
     return sub_grid, face_map_list, node_map_list
 
 
-def overlap(g, cell_ind, num_layers, criterion="node"):
+def overlap(
+    g: pp.Grid, cell_ind: np.ndarray, num_layers: int, criterion: str = "node"
+) -> np.ndarray:
     """
     From a set of cell indices, find an extended set of cells that form an
     overlap (in the domain decomposition sense).
@@ -718,7 +725,7 @@ def overlap(g, cell_ind, num_layers, criterion="node"):
             # Activate new cells.
             active_cells[ci_new] = 1
 
-    elif criterion().lower().strip() == "face":
+    elif criterion.lower().strip() == "face":
         # Create a version of g.cell_faces with only positive values for
         # connections, e.g. let go of the divergence property
         cf = g.cell_faces
@@ -742,10 +749,9 @@ def overlap(g, cell_ind, num_layers, criterion="node"):
     return np.sort(np.squeeze(np.argwhere(active_cells > 0)))
 
 
-# ----------------------------------------------------------------------------#
-
-
-def grid_is_connected(g, cell_ind=None):
+def grid_is_connected(
+    g: pp.Grid, cell_ind: np.ndarray = None
+) -> Tuple[bool, List[np.ndarray]]:
     """
     Check if a grid is fully connected, as defined by its cell_connection_map().
 

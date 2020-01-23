@@ -570,6 +570,56 @@ class TestBucket(unittest.TestCase):
             R = d["cell_global2loc"]
             self.assertTrue(np.all(R * glob == loc))
 
+    def test_cell_volumes(self):
+        gb = pp.GridBucket()
+        g1 = pp.CartGrid([1, 1, 1])
+        g1.nodes += 0.1 * np.random.random((g1.dim, g1.num_nodes))
+        g1.compute_geometry()
+        g2 = pp.CartGrid([1, 1, 1])
+        g2.nodes += 0.1 * np.random.random((g2.dim, g2.num_nodes))
+        g2.compute_geometry()
+
+        gb.add_nodes([g1, g2])
+
+        cond = lambda g: g == g1
+        cell_volumes = np.hstack((g1.cell_volumes, g2.cell_volumes))
+
+        self.assertTrue(np.all(cell_volumes == gb.cell_volumes()))
+        self.assertTrue(np.all(g1.cell_volumes == gb.cell_volumes(cond)))
+
+    def test_cell_centers(self):
+        gb = pp.GridBucket()
+        g1 = pp.CartGrid([1, 1, 1])
+        g1.nodes += 0.1 * np.random.random((g1.dim, g1.num_nodes))
+        g1.compute_geometry()
+        g2 = pp.CartGrid([1, 1, 1])
+        g2.nodes += 0.1 * np.random.random((g2.dim, g2.num_nodes))
+        g2.compute_geometry()
+
+        gb.add_nodes([g1, g2])
+        cond = lambda g: g == g1
+        cell_centers = np.hstack((g1.cell_centers, g2.cell_centers))
+
+        self.assertTrue(np.all(cell_centers == gb.cell_centers()))
+        self.assertTrue(np.all(g1.cell_centers == gb.cell_centers(cond)))
+
+    def test_face_centers(self):
+        gb = pp.GridBucket()
+        g1 = pp.CartGrid([1, 1, 1])
+        g1.nodes += 0.1 * np.random.random((g1.dim, g1.num_nodes))
+        g1.compute_geometry()
+        g2 = pp.CartGrid([1, 1, 1])
+        g2.nodes += 0.1 * np.random.random((g2.dim, g2.num_nodes))
+        g2.compute_geometry()
+
+        gb.add_nodes([g1, g2])
+
+        cond = lambda g: g == g1
+        face_centers = np.hstack((g1.face_centers, g2.face_centers))
+
+        self.assertTrue(np.all(face_centers == gb.face_centers()))
+        self.assertTrue(np.all(g1.face_centers == gb.face_centers(cond)))
+
 
 if __name__ == "__main__":
     unittest.main()

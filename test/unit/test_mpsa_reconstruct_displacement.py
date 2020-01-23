@@ -14,7 +14,7 @@ class MpsaReconstructDisplacement(unittest.TestCase):
         g = make_true_2d(g)
         sc_top = pp.fvutils.SubcellTopology(g)
 
-        D_g, CC = pp.numerics.fv.mpsa.reconstruct_displacement(g, sc_top, eta=0)
+        D_g, CC = pp.Mpsa("")._reconstruct_displacement(g, sc_top, eta=0)
 
         D_g_known = np.array(
             [
@@ -341,7 +341,7 @@ class MpsaReconstructDisplacement(unittest.TestCase):
         g = make_true_2d(g)
         sc_top = pp.fvutils.SubcellTopology(g)
 
-        D_g, CC = pp.numerics.fv.mpsa.reconstruct_displacement(g, sc_top, eta=0)
+        D_g, CC = pp.Mpsa("")._reconstruct_displacement(g, sc_top, eta=0)
 
         D_g_known = np.array(
             [
@@ -901,7 +901,7 @@ class MpsaReconstructDisplacement(unittest.TestCase):
         g.compute_geometry()
         sc_top = pp.fvutils.SubcellTopology(g)
 
-        D_g, CC = pp.numerics.fv.mpsa.reconstruct_displacement(g, sc_top, eta=1)
+        D_g, CC = pp.Mpsa("")._reconstruct_displacement(g, sc_top, eta=1)
 
         data = np.array(
             [

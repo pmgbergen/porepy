@@ -83,9 +83,7 @@ class ImplicitMpfa(pp.Mpfa):
 
         cc[self_ind, 2] += dt * div * bound_flux * proj
 
-    def assemble_int_bound_source(
-        self, g, data, data_edge, cc, matrix, rhs, self_ind
-    ):
+    def assemble_int_bound_source(self, g, data, data_edge, cc, matrix, rhs, self_ind):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 

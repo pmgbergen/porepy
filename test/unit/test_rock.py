@@ -23,8 +23,8 @@ class TestRock(unittest.TestCase):
     def test_unit_rock(self):
         R = pp.UnitRock()
         for prop, value in vars(R).items():
-            if prop == 'POISSON_RATIO':
-                self.assertTrue(np.allclose(value, .25))
+            if prop == "POISSON_RATIO":
+                self.assertTrue(np.allclose(value, 0.25))
             else:
                 self.assertTrue(np.allclose(value, 1))
 

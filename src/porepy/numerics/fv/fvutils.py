@@ -4,6 +4,7 @@ Various FV specific utility functions.
 from __future__ import division
 import numpy as np
 import scipy.sparse as sps
+from typing import Tuple
 
 import porepy as pp
 from porepy.utils import matrix_compression, mcolon
@@ -649,7 +650,7 @@ def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
     return sc2c
 
 
-def scalar_divergence(g):
+def scalar_divergence(g: pp.Grid) -> sps.csr_matrix:
     """
     Get divergence operator for a grid.
 
@@ -669,7 +670,7 @@ def scalar_divergence(g):
     return g.cell_faces.T.tocsr()
 
 
-def vector_divergence(g):
+def vector_divergence(g: pp.Grid) -> sps.csr_matrix:
     """
     Get vector divergence operator for a grid g
 
@@ -697,7 +698,9 @@ def vector_divergence(g):
     return block_div.transpose().tocsr()
 
 
-def scalar_tensor_vector_prod(g, k, subcell_topology):
+def scalar_tensor_vector_prod(
+    g: pp.Grid, k: pp.SecondOrderTensor, subcell_topology: SubcellTopology
+) -> Tuple[sps.csr_matrix, np.ndarray, np.ndarray]:
     """
     Compute product of normal vectors and tensors on a sub-cell level.
     This is essentially defining Darcy's law for each sub-face in terms of
@@ -708,8 +711,8 @@ def scalar_tensor_vector_prod(g, k, subcell_topology):
     it is tacitly assumed that g.dim == g.nodes.shape[0] ==
     g.face_normals.shape[0] etc. See implementation note in main method.
     Parameters:
-        g (core.grids.grid): Discretization grid
-        k (core.constit.second_order_tensor): The permeability tensor
+        g (pp.Grid): Discretization grid
+        k (pp.Second_order_tensor): The permeability tensor
         subcell_topology (fvutils.SubcellTopology): Wrapper class containing
             subcell numbering.
     Returns:
@@ -1115,7 +1118,12 @@ class ExcludeBoundaries(object):
 # -----------------End of class ExcludeBoundaries-----------------------------
 
 
-def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
+def cell_ind_for_partial_update(
+    g: pp.Grid,
+    cells: np.ndarray = None,
+    faces: np.ndarray = None,
+    nodes: np.ndarray = None,
+) -> Tuple[np.ndarray, np.ndarray]:
     """ Obtain indices of cells and faces needed for a partial update of the
     discretization stencil.
 
@@ -1297,7 +1305,27 @@ def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
     return cell_ind.astype("int"), face_ind.astype("int")
 
 
-def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
+def map_subgrid_to_grid(
+    g: pp.Grid, loc_faces: np.ndarray, loc_cells: np.ndarray, is_vector: bool
+) -> Tuple[np.ndarray, np.ndarray]:
+    """ Obtain mappings from the cells and faces of a subgrid back to a larger grid.
+
+    Parameters:
+        g (pp.Grid): The larger grid.
+        loc_faces (np.ndarray): For each face in the subgrid, the index of the
+            corresponding face in the larger grid.
+        loc_cells (np.ndarray): For each cell in the subgrid, the index of the
+            corresponding cell in the larger grid.
+        is_vector (bool): If True, the returned mappings are sized to fit with vector
+            variables, with g.dim elements per cell and face.
+
+    Retuns:
+        sps.csr_matrix, size (g.num_faces, loc_faces.size): Mapping from local to
+            global faces. If is_vector is True, the size is multiplied with g.dim.
+        sps.csr_matrix, size (loc_cells.size, g.num_cells): Mapping from global to
+            local cells. If is_vector is True, the size is multiplied with g.dim.
+
+    """
 
     num_faces_loc = loc_faces.size
     num_cells_loc = loc_cells.size
@@ -1331,9 +1359,6 @@ def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
     return face_map, cell_map
 
 
-# ------------------------------------------------------------------------------
-
-
 def compute_darcy_flux(
     gb,
     keyword="flow",
@@ -1342,6 +1367,7 @@ def compute_darcy_flux(
     p_name="pressure",
     lam_name="mortar_solution",
     data=None,
+    from_iterate=False,
 ):
     """
     Computes darcy_flux over all faces in the entire grid /grid bucket given
@@ -1376,6 +1402,13 @@ def compute_darcy_flux(
         there is an implicit assumption that all normals point from the second
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
     """
+
+    def extract_variable(d, var):
+        if from_iterate:
+            return d[pp.STATE]["previous_iterate"][var]
+        else:
+            return d[pp.STATE][var]
+
     if keyword_store is None:
         keyword_store = keyword
     if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
@@ -1383,7 +1416,7 @@ def compute_darcy_flux(
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
         if "flux" in matrix_dictionary:
             dis = (
-                matrix_dictionary["flux"] * data[pp.STATE][p_name]
+                matrix_dictionary["flux"] * extract_variable(data, p_name)
                 + matrix_dictionary["bound_flux"] * parameter_dictionary["bc_values"]
             )
         else:
@@ -1402,7 +1435,7 @@ def compute_darcy_flux(
             matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][keyword]
             if "flux" in matrix_dictionary:
                 dis = (
-                    matrix_dictionary["flux"] * d[pp.STATE][p_name]
+                    matrix_dictionary["flux"] * extract_variable(d, p_name)
                     + matrix_dictionary["bound_flux"]
                     * parameter_dictionary["bc_values"]
                 )
@@ -1427,12 +1460,14 @@ def compute_darcy_flux(
 
         bound_flux = d_h[pp.DISCRETIZATION_MATRICES][keyword]["bound_flux"]
         induced_flux = (
-            bound_flux * d["mortar_grid"].mortar_to_master_int() * d[pp.STATE][lam_name]
+            bound_flux
+            * d["mortar_grid"].mortar_to_master_int()
+            * extract_variable(d, lam_name)
         )
         # Remove contribution directly on the boundary faces.
         induced_flux[g_h.tags["fracture_faces"]] = 0
         d_h[pp.PARAMETERS][keyword_store][d_name] += induced_flux
-        d[pp.PARAMETERS][keyword_store][d_name] = d[pp.STATE][lam_name].copy()
+        d[pp.PARAMETERS][keyword_store][d_name] = extract_variable(d, lam_name).copy()
 
 
 def boundary_to_sub_boundary(bound, subcell_topology):

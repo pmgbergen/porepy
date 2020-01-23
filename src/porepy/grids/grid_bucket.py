@@ -968,7 +968,7 @@ class GridBucket(object):
                 relative 'node_number'.
 
         """
-        i = np.zeros(self.graph.number_of_edges(), dtype=int)
+        i = np.zeros(len(self._edges), dtype=int)
         j = np.zeros(i.size, dtype=int)
         values = np.zeros(i.size)
 
@@ -1108,7 +1108,7 @@ class GridBucket(object):
         """
         if cond is None:
             cond = lambda g: True
-        return np.hstack([g.cell_volumes for g in self.graph if cond(g)])
+        return np.hstack([g.cell_volumes for g, _ in self._nodes.items() if cond(g)])
 
     def face_centers(self, cond=None):
         """
@@ -1124,7 +1124,7 @@ class GridBucket(object):
         """
         if cond is None:
             cond = lambda g: True
-        return np.hstack([g.face_centers for g in self.graph if cond(g)])
+        return np.hstack([g.face_centers for g, _ in self._nodes.items() if cond(g)])
 
     def cell_centers(self, cond=None):
         """
@@ -1140,7 +1140,7 @@ class GridBucket(object):
         """
         if cond is None:
             cond = lambda g: True
-        return np.hstack([g.cell_centers for g in self.graph if cond(g)])
+        return np.hstack([g.cell_centers for g, _ in self._nodes.items() if cond(g)])
 
     def cell_volumes_mortar(self, cond=None):
         """

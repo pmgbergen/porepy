@@ -17,6 +17,19 @@ class FVElliptic(pp.EllipticDiscretization):
         # Identify which parameters to use:
         self.keyword = keyword
 
+        # Keywords used to identify individual terms in the discretization matrix dictionary
+        # The flux discretization (transmissibility matrix)
+        self.flux_matrix_key = "flux"
+        # Discretization of boundary conditions.
+        self.bound_flux_matrix_key = "bound_flux"
+        # Contribution of cell center values in reconstruction of boundary pressures
+        self.bound_pressure_cell_matrix_key = "bound_pressure_cell"
+        # Contribution of boundary values (Neumann or Dirichlet, depending on the
+        # condition set on faces) in reconstruction of boundary pressures
+        self.bound_pressure_face_matrix_key = "bound_pressure_face"
+        # Discretization of vector source terms (gravity)
+        self.div_vector_source_key = "div_vector_source"
+
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
@@ -69,8 +82,8 @@ class FVElliptic(pp.EllipticDiscretization):
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
-        flux = matrix_dictionary["flux"].tocsr()
-        bound_flux = matrix_dictionary["bound_flux"].tocsr()
+        flux = matrix_dictionary[self.flux_matrix_key].tocsr()
+        bound_flux = matrix_dictionary[self.bound_flux_matrix_key].tocsr()
 
         bc_val = parameter_dictionary["bc_values"]
 
@@ -138,7 +151,7 @@ class FVElliptic(pp.EllipticDiscretization):
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         div = pp.fvutils.scalar_divergence(g)
-        flux = matrix_dictionary["flux"]
+        flux = matrix_dictionary[self.flux_matrix_key]
         if flux.shape[0] != g.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
             flux = hf2f * flux
@@ -164,10 +177,8 @@ class FVElliptic(pp.EllipticDiscretization):
                 conditions. The size of the vector will depend on the discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "bound_flux" in matrix_dictionary:
-            self.discretize(g, data)
 
-        bound_flux = matrix_dictionary["bound_flux"]
+        bound_flux = matrix_dictionary[self.bound_flux_matrix_key]
         if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
             bound_flux = hf2f * bound_flux
@@ -216,7 +227,9 @@ class FVElliptic(pp.EllipticDiscretization):
         """
         div = g.cell_faces.T
 
-        bound_flux = data[pp.DISCRETIZATION_MATRICES][self.keyword]["bound_flux"]
+        bound_flux = data[pp.DISCRETIZATION_MATRICES][self.keyword][
+            self.bound_flux_matrix_key
+        ]
         # Projection operators to grid
         mg = data_edge["mortar_grid"]
 
@@ -319,14 +332,16 @@ class FVElliptic(pp.EllipticDiscretization):
             proj = mg.master_to_mortar_avg()
             proj_int = mg.mortar_to_master_int()
 
-        cc[2, self_ind] += proj * matrix_dictionary["bound_pressure_cell"]
-        cc[2, 2] += proj * matrix_dictionary["bound_pressure_face"] * proj_int
+        cc[2, self_ind] += proj * matrix_dictionary[self.bound_pressure_cell_matrix_key]
+        cc[2, 2] += (
+            proj * matrix_dictionary[self.bound_pressure_face_matrix_key] * proj_int
+        )
         # Add contribution from boundary conditions to the pressure at the fracture
         # faces. For TPFA this will be zero, but for MPFA we will get a contribution
         # on the fractures extending to the boundary due to the interaction region
         # around a node.
         bc_val = data[pp.PARAMETERS][self.keyword]["bc_values"]
-        rhs[2] -= proj * matrix_dictionary["bound_pressure_face"] * bc_val
+        rhs[2] -= proj * matrix_dictionary[self.bound_pressure_face_matrix_key] * bc_val
 
     def assemble_int_bound_pressure_trace_between_interfaces(
         self, g, data_grid, proj_primary, proj_secondary, cc, matrix, rhs
@@ -357,7 +372,9 @@ class FVElliptic(pp.EllipticDiscretization):
         matrix_dictionary = data_grid[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         cc[1, 2] += (
-            proj_primary * matrix_dictionary["bound_pressure_face"] * proj_secondary
+            proj_primary
+            * matrix_dictionary[self.bound_pressure_face_matrix_key]
+            * proj_secondary
         )
         return cc, rhs
 

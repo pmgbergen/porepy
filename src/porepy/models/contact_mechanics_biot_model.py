@@ -1,8 +1,8 @@
 """
-This is a setup class for solving the Biot equations with contact between the fractures.
+This is a setup class for solving the Biot equations with contact mechanics at the fractures.
 
 The class ContactMechanicsBiot inherits from ContactMechanics, which is a model for
-the purely mechanical problem with contact conditions on the fractures. Here, we add
+the purely mechanical problem with contact conditions on the fractures. Here, we
 expand to a model where the displacement solution is coupled to a scalar variable, e.g.
 pressure (Biot equations) or temperature. Parameters, variables and discretizations are
 set in the model class, and the problem may be solved using run_biot.
@@ -27,6 +27,11 @@ logger = logging.getLogger(__name__)
 class ContactMechanicsBiot(contact_model.ContactMechanics):
     def __init__(self, params=None):
         super().__init__(params)
+
+        # Time
+        self.time = 0
+        self.time_step = 1
+        self.end_time = 1
 
         # Temperature
         self.scalar_variable = "p"
@@ -54,10 +59,17 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         return pp.BoundaryCondition(g, all_bf, "dir")
 
     def bc_values_mechanics(self, g):
+        """
+        Note that Dirichlet values should be divided by length_scale, and Neumann values by 
+        scalar_scale.
+        """
         # Set the boundary values
         return super().bc_values(g)
 
     def bc_values_scalar(self, g):
+        """
+        Note that Dirichlet values should be divided by scalar_scale.
+        """
         return np.zeros(g.num_faces)
 
     def source_mechanics(self, g):
@@ -66,7 +78,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
     def source_scalar(self, g):
         return np.zeros(g.num_cells)
 
-    def biot_alpha(self):
+    def biot_alpha(self, g):
         return 1
 
     def compute_aperture(self, g):
@@ -111,7 +123,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                         "source": source_val,
                         "fourth_order_tensor": C,
                         "time_step": self.time_step,
-                        "biot_alpha": self.biot_alpha(),
+                        "biot_alpha": self.biot_alpha(g),
                     },
                 )
 
@@ -135,7 +147,6 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         tensor_scale = self.scalar_scale / self.length_scale ** 2
         kappa = 1 * tensor_scale
         mass_weight = 1
-        alpha = self.biot_alpha()
         for g, d in gb:
             bc = self.bc_type_scalar(g)
             bc_values = self.bc_values_scalar(g)
@@ -149,6 +160,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 kappa * specific_volume * np.ones(g.num_cells)
             )
 
+            alpha = self.biot_alpha(g)
             pp.initialize_data(
                 g,
                 d,
@@ -171,7 +183,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             a = self.compute_aperture(g1)
             mg = data_edge["mortar_grid"]
 
-            normal_diffusivity = 2 / kappa * mg.slave_to_mortar_int() * a
+            normal_diffusivity = kappa * 2 / (mg.slave_to_mortar_int() * a)
 
             data_edge = pp.initialize_data(
                 e,
@@ -236,6 +248,14 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                         "source": source_disc_s,
                     },
                 }
+            else:
+                d[pp.DISCRETIZATION] = {
+                    var_s: {
+                        "diffusion": diff_disc_s,
+                        "mass": mass_disc_s,
+                        "source": source_disc_s,
+                    }
+                }
 
         # Define edge discretizations for the mortar grid
         contact_law = pp.ColoumbContact(self.mechanics_parameter_key, self.Nd)
@@ -298,7 +318,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 if self.subtract_fracture_pressure:
                     d[pp.COUPLING_DISCRETIZATION].update(
                         {
-                            "matrix_scalar_to_force_balance": {
+                            "fracture_scalar_to_force_balance": {
                                 g_h: (var_s, "mass"),
                                 g_l: (var_s, "mass"),
                                 e: (
@@ -309,9 +329,16 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                         }
                     )
             else:
-                raise ValueError(
-                    "assign_discretizations assumes no fracture intersections."
-                )
+                d[pp.COUPLING_DISCRETIZATION] = {
+                    self.scalar_coupling_term: {
+                        g_h: (var_s, "diffusion"),
+                        g_l: (var_s, "diffusion"),
+                        e: (
+                            self.mortar_scalar_variable,
+                            pp.RobinCoupling(key_s, diff_disc_s),
+                        ),
+                    }
+                }
 
     def assign_variables(self):
         """
@@ -330,7 +357,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                     self.scalar_variable: {"cells": 1},
                 }
             else:
-                d[pp.PRIMARY_VARIABLES] = {}
+                d[pp.PRIMARY_VARIABLES] = {self.scalar_variable: {"cells": 1}}
         # Then for the edges
         for e, d in self.gb.edges():
             _, g_h = self.gb.nodes_of_edge(e)
@@ -340,14 +367,16 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                     self.mortar_displacement_variable: {"cells": self.Nd},
                     self.mortar_scalar_variable: {"cells": 1},
                 }
+            else:
+                d[pp.PRIMARY_VARIABLES] = {self.mortar_scalar_variable: {"cells": 1}}
 
-    def discretize_biot(self, gb):
+    def discretize_biot(self):
         """
         To save computational time, the full Biot equation (without contact mechanics)
         is discretized once. This is to avoid computing the same terms multiple times.
         """
-        g = gb.grids_of_dimension(gb.dim_max())[0]
-        d = gb.node_props(g)
+        g = self._nd_grid()
+        d = self.gb.node_props(g)
         biot = pp.Biot(
             mechanics_keyword=self.mechanics_parameter_key,
             flow_keyword=self.scalar_parameter_key,
@@ -383,19 +412,6 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
     def export_pvd(self):
         pass
 
-    def prepare_simulation(self):
-        """ Is run prior to a time-stepping scheme. Use this to initialize
-        discretizations, linear solvers etc.
-        """
-        self.create_grid()
-        self.set_parameters()
-        self.initial_condition()
-
-        self.assign_variables()
-        self.assign_discretizations()
-        self.discretize()
-        self.initialize_linear_solver()
-
     def discretize(self):
         """ Discretize all terms
         """
@@ -410,7 +426,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         # Discretization is a bit cumbersome, as the Biot discetization removes the
         # one-to-one correspondence between discretization objects and blocks in the matrix.
         # First, Discretize with the biot class
-        self.discretize_biot(self.gb)
+        self.discretize_biot()
 
         # Next, discretize term on the matrix grid not covered by the Biot discretization,
         # i.e. the source term
@@ -425,9 +441,16 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
     def before_newton_loop(self):
-        """ Will be run before entering a Newton loop. Discretize time-dependent quantities etc.
+        """ Will be run before entering a Newton loop. 
+        E.g.
+           Discretize time-dependent quantities etc.
+           Update time-dependent parameters (captured by assembly).
         """
+        self.set_parameters()
+        # The following is expensive, as it includes Biot. Consider making a custom  method
+        # discretizing only the term you need!
         # self.discretize()
+        pass
 
     def before_newton_iteration(self):
         # Re-discretize the nonlinear term
@@ -436,8 +459,20 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
     def after_newton_iteration(self, solution):
         self.update_state(solution)
 
-    def after_newton_convergence(self, solution):
+    def after_newton_convergence(self, solution, errors, iteration_counter):
         self.assembler.distribute_variable(solution)
+        self.save_mechanical_bc_values()
+
+    def save_mechanical_bc_values(self):
+        """
+        The div_u term uses the mechanical bc values for both current and previous time
+        step. In the case of time dependent bc values, these must be updated. As this
+        is very easy to overlook, we do it by default.
+        """
+        key = self.mechanics_parameter_key
+        g = self.gb.grids_of_dimension(self.Nd)[0]
+        d = self.gb.node_props(g)
+        d[pp.STATE][key]["bc_values"] = d[pp.PARAMETERS][key]["bc_values"].copy()
 
     def after_newton_divergence(self):
         raise ValueError("Newton iterations did not converge")
@@ -486,7 +521,6 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 np.max(np.sum(np.abs(A), axis=1)), np.min(np.sum(np.abs(A), axis=1))
             )
         )
-
         if self.linear_solver == "direct":
             return spla.spsolve(A, b)
         elif self.linear_solver == "pyamg":
