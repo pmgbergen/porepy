@@ -82,10 +82,10 @@ class Tpfa(FVElliptic):
         bnd = parameter_dictionary["bc"]
 
         if g.dim == 0:
-            matrix_dictionary["flux"] = sps.csr_matrix([0])
-            matrix_dictionary["bound_flux"] = 0
-            matrix_dictionary["bound_pressure_cell"] = sps.csr_matrix([1])
-            matrix_dictionary["bound_pressure_face"] = sps.csr_matrix([0])
+            matrix_dictionary[self.flux_matrix_key] = sps.csr_matrix([0])
+            matrix_dictionary[self.bound_flux_matrix_key] = 0
+            matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csr_matrix([1])
+            matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csr_matrix([0])
             return None
         if faces is None:
             is_not_active = np.zeros(g.num_faces, dtype=np.bool)
@@ -152,8 +152,8 @@ class Tpfa(FVElliptic):
             (t_b * bndr_sgn, (bndr_ind, bndr_ind)), (g.num_faces, g.num_faces)
         ).tocsc()
         # Store the matrix in the right dictionary:
-        matrix_dictionary["flux"] = flux
-        matrix_dictionary["bound_flux"] = bound_flux
+        matrix_dictionary[self.flux_matrix_key] = flux
+        matrix_dictionary[self.bound_flux_matrix_key] = bound_flux
 
         # Next, construct operator to reconstruct pressure on boundaries
         # Fields for data storage
@@ -169,8 +169,8 @@ class Tpfa(FVElliptic):
             (v_cell, (fi, ci)), (g.num_faces, g.num_cells)
         )
         bound_pressure_face = sps.dia_matrix((v_face, 0), (g.num_faces, g.num_faces))
-        matrix_dictionary["bound_pressure_cell"] = bound_pressure_cell
-        matrix_dictionary["bound_pressure_face"] = bound_pressure_face
+        matrix_dictionary[self.bound_pressure_cell_matrix_key] = bound_pressure_cell
+        matrix_dictionary[self.bound_pressure_face_matrix_key] = bound_pressure_face
 
         if vector_source:
             # discretization of vector source
@@ -181,5 +181,7 @@ class Tpfa(FVElliptic):
             # This is only called for 1D problems,
             # for higher dimensions method calls GCMPFA
             if not g.dim == 1:
-                raise AssertionError()
-            matrix_dictionary["div_vector_source"] = t
+                raise NotImplementedError(
+                    "Consistent treatment of gravity requires mpfa"
+                )
+            matrix_dictionary[self.div_vector_source_key] = t

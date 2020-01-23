@@ -15,7 +15,7 @@ from porepy.utils import half_space
 from porepy.grids import structured, point_grid
 
 
-def cart_grid_3d(fracs, nx, physdims=None):
+def _cart_grid_3d(fracs, nx, physdims=None):
     """
     Create grids for a domain with possibly intersecting fractures in 3d.
 
@@ -40,10 +40,10 @@ def cart_grid_3d(fracs, nx, physdims=None):
 
     Examples
     --------
-    frac1 = np.array([[1,1,4,4], [1,4,4,1], [2,2,2,2]])
-    frac2 = np.array([[2,2,2,2], [1,1,4,4], [1,4,4,1]])
+    frac1 = np.array([[1, 1, 4, 4], [1, 4, 4, 1], [2, 2, 2, 2]])
+    frac2 = np.array([[2, 2, 2, 2], [1, 1, 4, 4], [1, 4, 4, 1]])
     fracs = [frac1, frac2]
-    gb = cart_grid_3d(fracs, [5,5,5])
+    gb = cart_grid_3d(fracs, [5, 5, 5])
     """
 
     nx = np.asarray(nx)
@@ -190,7 +190,7 @@ def cart_grid_3d(fracs, nx, physdims=None):
     return grids
 
 
-def cart_grid_2d(fracs, nx, physdims=None):
+def _cart_grid_2d(fracs, nx, physdims=None):
     """
     Create grids for a domain with possibly intersecting fractures in 2d.
 
@@ -214,10 +214,10 @@ def cart_grid_2d(fracs, nx, physdims=None):
 
     Examples
     --------
-    frac1 = np.array([[1,4],[2,2]])
-    frac2 = np.array([[2,2],[1,4]])
-    fracs = [frac1,frac2]
-    gb = cart_grid_2d(fracs, [5,5])
+    frac1 = np.array([[1, 4], [2, 2]])
+    frac2 = np.array([[2, 2], [1, 4]])
+    fracs = [frac1, frac2]
+    gb = cart_grid_2d(fracs, [5, 5])
     """
     nx = np.asarray(nx)
     if physdims is None:
