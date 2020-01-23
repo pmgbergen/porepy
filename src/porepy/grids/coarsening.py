@@ -242,6 +242,7 @@ def generate_coarse_grid_gb(gb, subdiv):
     for g, (_, partition) in subdiv.items():
 
         # Construct the coarse grids
+        #part = next(iter(partition.values()))[1]
         face_map = generate_coarse_grid_single(g, partition, True)
 
         # Update all the master_to_mortar_int for all the 'edges' connected to the grid
@@ -381,7 +382,7 @@ def create_aggregations(g, **kwargs):
 
         # Compute the inverse of the harminc mean
         weight = kwargs.get("weight", 1.0)
-        mean = weight / stats.hmean(1.0 / volumes)
+        mean = weight * np.mean(volumes)
 
         new_id = 1
         while np.any(partition_local < 0):
@@ -547,7 +548,10 @@ def create_partition(A, g, seeds=None, **kwargs):
             row = np.hstack([STold.rows[r] for r in rowj])
             ST[j, np.concatenate((rowj, row))] = True
 
-    del STold
+    try:
+        del STold
+    except:
+        pass
 
     ST.setdiag(False)
     lmbda = np.array([len(s) for s in ST.rows])
