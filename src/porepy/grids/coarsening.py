@@ -548,10 +548,8 @@ def create_partition(A, g, seeds=None, **kwargs):
             row = np.hstack([STold.rows[r] for r in rowj])
             ST[j, np.concatenate((rowj, row))] = True
 
-    try:
+    if "STold" in locals():
         del STold
-    except:
-        pass
 
     ST.setdiag(False)
     lmbda = np.array([len(s) for s in ST.rows])
