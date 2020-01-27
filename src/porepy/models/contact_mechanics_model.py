@@ -512,9 +512,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 converged = True
             error = np.sum((u_now - u_prev) ** 2) / np.sum((u_now - u_init) ** 2)
 
-        logger.info("Error is {}".format(error))
+        logger.info(f"Error is {error}")
      #   print(iterate_difference / init_norm)
-        import pdb
+     #   import pdb
      #   pdb.set_trace()
 
         return error, converged, diverged
@@ -553,9 +553,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             tic_assemble = time.time()
             A, _ = assembler.assemble_matrix_rhs()
             logger.info(
-                "Done initial assembly. Elapsed time {}:".format(
-                    time.time() - tic_assemble
-                )
+                f"Done initial assembly. Elapsed time {time.time() - tic_assemble}:"
             )
 
             g = self.gb.grids_of_dimension(self.Nd)[0]
@@ -567,25 +565,21 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             )
             self.mechanics_precond = pyamg_solver.aspreconditioner(cycle="W")
             logger.debug(
-                "AMG solver initialized. Elapsed time: {}".format(
-                    time.time() - tic_pyamg
-                )
+                f"AMG solver initialized. Elapsed time: {time.time() - tic_pyamg}"
             )
 
         else:
-            raise ValueError("unknown linear solver " + solver)
+            raise ValueError(f"Unknown linear solver {solver}")
 
         toc = time.time()
-        logger.info("Linear solver initialized. Elapsed time {}".format(toc - tic))
+        logger.info(f"Linear solver initialized. Elapsed time {toc - tic}")
 
     def assemble_and_solve_linear_system(self, tol):
 
         A, b = self.assembler.assemble_matrix_rhs()
-        logger.debug("Max element in A {0:.2e}".format(np.max(np.abs(A))))
+        logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
         logger.debug(
-            "Max {0:.2e} and min {1:.2e} A sum.".format(
-                np.max(np.sum(np.abs(A), axis=1)), np.min(np.sum(np.abs(A), axis=1))
-            )
+            f"Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."
         )
         if self.linear_solver == "direct":
             return spla.spsolve(A, b)
@@ -620,16 +614,15 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
             def callback(r):
                 logger.info(
-                    "Linear solver iteration {}, residual {}".format(len(residuals), r)
+                    f"Linear solver iteration {len(residuals)}, residual {r}"
                 )
-                #                print(r)
                 residuals.append(r)
 
             M = sps.linalg.LinearOperator(A.shape, precond_schur)
             sol, info = spla.gmres(
                 A, b, M=M, restart=100, maxiter=1000, tol=tol, callback=callback
             )
-            print(len(residuals))
+            logger.info(f"Completed a total of {len(residuals)} iterations.")
             return sol
 
     def _is_nonlinear_problem(self):

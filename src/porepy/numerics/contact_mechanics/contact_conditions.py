@@ -17,6 +17,8 @@ See also contact_mechanics_interface_laws.py
 import numpy as np
 
 import porepy as pp
+import logging
+logger = logging.getLogger(__name__)
 
 
 class ColoumbContact:
@@ -346,8 +348,8 @@ class ColoumbContact:
         # Use thresholding to not pick up faces that are just about sticking
         # Not sure about the sensitivity to the tolerance parameter here.
         tol = 1e-8
-        print('sliding')
-        print(self._l2(-Tt + ct * ut) - bf)
+        logger.info('sliding')
+        logger.info(f"self._l2(-Tt + ct * ut) - bf = \n {self._l2(-Tt + ct * ut) - bf}")
         return self._l2(-Tt + ct * ut) - bf > tol
 
     def _penetration(self, Tn, un, cn):
@@ -365,9 +367,9 @@ class ColoumbContact:
         """
         # Not sure about the sensitivity to the tolerance parameter here.
         tol = 1e-8
-        print('penetration')
-        print(-Tn + cn * un)
-        print(un)
+        logger.info('penetration')
+        logger.info(f"-Tn + cn * un = \n {-Tn + cn * un}")
+        logger.info(f"un = \n {un}")
         return (-Tn + cn * un) > tol
 
     #####
