@@ -57,6 +57,10 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
     # Loop over all grids in the old bucket, extrude the grid, save mapping information
     for g, _ in gb:
         g_new, cell_map, face_map = extrude_grid(g, z)
+
+        if hasattr(g, "frac_num"):
+            g_new.frac_num = g.frac_num
+
         gb_new.add_nodes([g_new])
 
         g_map[g] = Mapping(g_new, cell_map, face_map)
