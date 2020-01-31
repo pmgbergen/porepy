@@ -20,8 +20,8 @@ class NewtonSolver:
 
         default_options = {
             "max_iterations": 10,
-            "convergence_tol": 1e-10,
-            "divergence_tol": 1e5,
+            "nl_convergence_tol": 1e-10,
+            "nl_divergence_tol": 1e5,
         }
         default_options.update(params)
         self.params = default_options
