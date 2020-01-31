@@ -478,6 +478,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
     def check_convergence(self, solution, prev_solution, init_solution, nl_params):
         g_max = self._nd_grid()
+
         if not self._is_nonlinear_problem():
             # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
             # error (but a warning) is raised for singular matrices, but a nan solution
@@ -488,36 +489,70 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             return error, converged, diverged
 
         mech_dof = self.assembler.dof_ind(g_max, self.displacement_variable)
-        u_now = solution[mech_dof]
-        u_prev = prev_solution[mech_dof]
-        u_init = init_solution[mech_dof]
-        
-        # Calculate the error
-        solution_norm = np.sum(u_now ** 2)
-        iterate_difference = np.sum((u_now - u_prev) ** 2)
-        init_norm = np.sum((u_now - u_init) ** 2)
 
-        tol = nl_params["convergence_tol"]
+        # Also find indices for the contact variables
+        contact_dof = np.array([], dtype=np.int)
+        for e, _ in self.gb.edges():
+            if e[0].dim == self.Nd:
+                contact_dof = np.hstack(
+                    (
+                        contact_dof,
+                        self.assembler.dof_ind(e[1], self.contact_traction_variable),
+                    )
+                )
+
+        # Pick out the solution from current, previous iterates, as well as the
+        # initial guess.
+        u_mech_now = solution[mech_dof]
+        u_mech_prev = prev_solution[mech_dof]
+        u_mech_init = init_solution[mech_dof]
+
+        contact_now = solution[contact_dof]
+        contact_prev = prev_solution[contact_dof]
+        contact_init = init_solution[contact_dof]
+
+        # Calculate errors
+        difference_in_iterates_mech = np.sum((u_mech_now - u_mech_prev) ** 2)
+        difference_from_init_mech = np.sum((u_mech_now - u_mech_init) ** 2)
+
+        contact_norm = np.sum(contact_now ** 2)
+        difference_in_iterates_contact = np.sum((contact_now - contact_prev) ** 2)
+        difference_from_init_contact = np.sum((contact_now - contact_init) ** 2)
+
+        tol_convergence = nl_params["nl_convergence_tol"]
+        # Not sure how to use the divergence criterion
+        # tol_divergence = nl_params["nl_divergence_tol"]
 
         converged = False
         diverged = False
 
-        # The if is intended to avoid division through zero
-        if solution_norm < tol and iterate_difference < tol:
+        # Check absolute convergence criterion
+        if difference_in_iterates_mech < tol_convergence:
             converged = True
-            error = np.sum((u_now - u_prev) ** 2)
+            error_mech = difference_in_iterates_mech
 
         else:
-            if iterate_difference / init_norm < tol:
+            # Check relative convergence criterion
+            if (
+                difference_in_iterates_mech
+                < tol_convergence * difference_from_init_mech
+            ):
                 converged = True
-            error = np.sum((u_now - u_prev) ** 2) / np.sum((u_now - u_init) ** 2)
+            error_mech = difference_in_iterates_mech / difference_from_init_mech
 
-        logger.info(f"Error is {error}")
-     #   print(iterate_difference / init_norm)
-     #   import pdb
-     #   pdb.set_trace()
+        # The if is intended to avoid division through zero
+        if contact_norm < 1e-10 and difference_in_iterates_contact < 1e-10:
+            # converged = True
+            error_contact = difference_in_iterates_contact
+        else:
+            error_contact = (
+                difference_in_iterates_contact / difference_from_init_contact
+            )
 
-        return error, converged, diverged
+        logger.info("Error in contact force is {}".format(error_contact))
+        logger.info("Error in matrix displacement is {}".format(error_mech))
+
+        return error_mech, converged, diverged
 
     def after_newton_failure(self, solution, errors, iteration_counter):
         if self._is_nonlinear_problem():
