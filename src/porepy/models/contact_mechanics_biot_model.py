@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 class ContactMechanicsBiot(contact_model.ContactMechanics):
     def __init__(self, params=None):
-        super().__init__(params)
+        super(ContactMechanicsBiot, self).__init__(params)
 
         # Time
         self.time = 0
@@ -258,7 +258,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 }
 
         # Define edge discretizations for the mortar grid
-        contact_law = pp.ColoumbContact(self.mechanics_parameter_key, self.Nd)
+        contact_law = pp.ColoumbContact(self.mechanics_parameter_key, self.Nd, mpsa)
         contact_discr = pp.PrimalContactCoupling(
             self.mechanics_parameter_key, mpsa, contact_law
         )
