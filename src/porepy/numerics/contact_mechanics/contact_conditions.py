@@ -33,7 +33,7 @@ class ColoumbContact:
         self.traction_discretization = "traction_discretization"
         self.displacement_discretization = "displacement_discretization"
         self.rhs_discretization = "contact_rhs"
-        
+
         self.discr_h = discr_h
 
     def _key(self):
@@ -85,17 +85,36 @@ class ColoumbContact:
         # Process input
         parameters_l = data_l[pp.PARAMETERS]
         friction_coefficient = parameters_l[self.keyword]["friction_coefficient"]
+        
+        cohesion = parameters_l[self.keyword].get("cohesion", 0)
 
         if np.asarray(friction_coefficient).size == 1:
             friction_coefficient = friction_coefficient * np.ones(g_l.num_cells)
 
+
+        mg = data_edge["mortar_grid"]
+        
+        area = g_l.cell_volumes
+
+        parameters_h = data_h[pp.PARAMETERS][self.discr_h.keyword]
+        constit_h = parameters_h["fourth_order_tensor"]
+        mean_constit = (
+            mg.mortar_to_slave_avg() 
+            * mg.master_to_mortar_avg()
+            * 0.5 * np.abs(g_h.cell_faces * (constit_h.mu + constit_h.lmbda))
+        )
+        
         # Numerical parameter, value and sensitivity is currently unknown.
         # The thesis of Huber is probably a good place to look for information.
         c_num = parameters_l[self.keyword].get(
             "contact_mechanics_numerical_parameter", 100
         )
-
-        mg = data_edge["mortar_grid"]
+        
+        c_num_normal = c_num * mean_constit * area
+        c_num_tangential = c_num * mean_constit * area
+        
+        # The tractions are scaled with area, so do the same with the cohesion.
+        scaled_cohesion = cohesion * area
 
         # TODO: Implement a single method to get the normal vector with right sign
         # thus the right local coordinate system.
@@ -164,39 +183,36 @@ class ColoumbContact:
         # force and normal component of the displacement jump.
         # Note that the displacement jump is rotated before adding to the contact force
         friction_bound = friction_coefficient * np.clip(
-            -contact_force_normal + c_num * displacement_jump_normal, 0, np.inf
-        )
+            -contact_force_normal + c_num_normal * displacement_jump_normal, 0, np.inf
+        ) + scaled_cohesion
 
         num_cells = friction_coefficient.size
-
-        area = g_l.cell_volumes
-        length = np.power(g_l.cell_volumes, 1/g_l.dim)
-        
-        parameters_h = data_h[pp.PARAMETERS][self.discr_h.keyword]
-        constit_h = parameters_h['fourth_order_tensor']
-        mean_constit = 0.5 * mg.master_to_mortar_avg() * np.abs(g_h.cell_faces * (constit_h.mu + constit_h.lmbda))
-        
-        force_scaling = mg.mortar_to_slave_avg() * mean_constit
 
         # Find contact and sliding region
 
         # Contact region is determined from the normal direction.
         penetration_bc = self._penetration(
-            contact_force_normal / (force_scaling * area),
-            displacement_jump_normal / length, c_num
+            contact_force_normal,
+            displacement_jump_normal,
+            c_num_normal,
         )
-        friction_bound_scaled = friction_coefficient * np.clip(
-            -contact_force_normal /(force_scaling * area)  \
-                + c_num * displacement_jump_normal / length, 0, np.inf
+        # Check criterion for sliding
+        sliding_criterion = self._sliding(
+            contact_force_tangential,
+            displacement_jump_tangential,
+            friction_bound,
+            c_num_tangential,
         )
-        sliding_bc = self._sliding(
-            contact_force_tangential / (force_scaling * area),
-            displacement_jump_tangential / area,
-            # Is the scaling of friction_bound correct?
-            friction_bound_scaled,  
-            c_num,
-        )
-
+        # Find cells with non-zero tangential traction. This excludes cells that were
+        # not in contact in the previous iteration.        
+        non_zero_tangential_traction = np.sum(contact_force_tangential**2, axis=0) > 1e-10
+        # The discretization of the sliding state tacitly assumes that the tangential
+        # traction in the previous iteration - or else we will divide by zero.
+        # Therefore, only allow for sliding if the tangential traciton is non-zero.
+        # In practice this means that a cell is not allowed to go directly from 
+        # non-penetration to sliding.
+        sliding_bc = np.logical_and(sliding_criterion, non_zero_tangential_traction)
+        
         # Structures for storing the computed coefficients.
         displacement_weight = []  # Multiplies displacement jump
         traction_weight = []  # Multiplies the normal forces
@@ -227,7 +243,7 @@ class ColoumbContact:
                     contact_force_tangential[:, i],
                     displacement_jump_tangential[:, i],
                     friction_bound[i],
-                    c_num,
+                    c_num_tangential[i],
                 )
 
                 # There is no interaction between displacement jumps in normal and
@@ -244,6 +260,7 @@ class ColoumbContact:
                 # Zero weight on normal force
                 loc_traction_weight[-1, -1] = 0
                 # Contribution from normal force
+                # NOTE: The sign is different from Berge (31); the paper is wrong
                 loc_traction_weight[:-1, -1] = -friction_coefficient[i] * v.ravel()
 
             elif ~sliding_bc[i] & penetration_bc[i]:  # In contact and sticking
@@ -347,9 +364,11 @@ class ColoumbContact:
         """
         # Use thresholding to not pick up faces that are just about sticking
         # Not sure about the sensitivity to the tolerance parameter here.
+
         tol = 1e-8
-        logger.info('sliding')
-        logger.info(f"self._l2(-Tt + ct * ut) - bf = \n {self._l2(-Tt + ct * ut) - bf}")
+        tol = 1e-6
+   #     print("sliding")
+   #     print(self._l2(-Tt + ct * ut) - bf)
         return self._l2(-Tt + ct * ut) - bf > tol
 
     def _penetration(self, Tn, un, cn):
@@ -366,10 +385,9 @@ class ColoumbContact:
 
         """
         # Not sure about the sensitivity to the tolerance parameter here.
-        tol = 1e-8
-        logger.info('penetration')
-        logger.info(f"-Tn + cn * un = \n {-Tn + cn * un}")
-        logger.info(f"un = \n {un}")
+        tol = 1e-6
+      #  print("penetration")
+      #  print(-Tn + cn * un)
         return (-Tn + cn * un) > tol
 
     #####
@@ -425,7 +443,7 @@ class ColoumbContact:
 
         # Shortcut if the friction coefficient is effectively zero.
         # Numerical tolerance here is likely somewhat arbitrary.
-        if bf <= 1e-10:
+        if bf <= 1e-3:
             return (
                 0 * Id,
                 bf * np.ones((Id.shape[0], 1)),
@@ -449,6 +467,8 @@ class ColoumbContact:
             beta = 1
 
         # The expression (I - beta * M)^-1
+        # NOTE: In the definition of \tilde{L} in Berge, the inverse on the inner 
+        # paranthesis is missing.
         IdM_inv = np.linalg.inv(Id - beta * coeff_M)
 
         v = IdM_inv.dot(-Tt + cut) / self._l2(-Tt + cut)
