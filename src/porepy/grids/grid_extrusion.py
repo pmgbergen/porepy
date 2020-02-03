@@ -558,12 +558,11 @@ def _extrude_1d(
     nc_new = g.num_cells * num_cell_layers
     nf_new = g.num_faces * num_cell_layers + g.num_cells * (num_cell_layers + 1)
 
-    # Vertical faces are made by extruding old nodes
+    fn_old = g.face_nodes.indices
+    # Vertical faces are made by extruding old face-node relation
     fn_vert = np.empty((2, 0), dtype=np.int)
     for k in range(num_cell_layers):
-        fn_this = k * nn_old + np.vstack(
-            (np.arange(nn_old), nn_old + np.arange(nn_old))
-        )
+        fn_this = k * nn_old + np.vstack((fn_old, nn_old + fn_old))
         fn_vert = np.hstack((fn_vert, fn_this))
 
     # Horizontal faces are defined from the old cell-node relation
@@ -588,7 +587,6 @@ def _extrude_1d(
     # Next, cell-faces
     # We know there are exactly four faces for each cell
     cf_rows = np.empty((4, 0), dtype=np.int)
-
     cf_old = g.cell_faces.indices.reshape((2, -1), order="f")
 
     # Create vertical and horizontal faces together
@@ -619,7 +617,6 @@ def _extrude_1d(
     g_info.append("Extrude 1d->2d")
 
     g_new = pp.Grid(2, nodes, fn, cf, g_info, tags=tags)
-
     g_new.compute_geometry()
 
     if hasattr(g, "frac_num"):
