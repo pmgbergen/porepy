@@ -403,7 +403,7 @@ def tag_affected_cells_and_faces(gb):
 def propgation_angle(K):
     """
     Compute the angle of propagation from already computed SIFs. The
-    computation is done in the local coordinsate system of the fracture tips,
+    computation is done in the local coordinate system of the fracture tips,
     and positive angles correspond to.
     Intended for a single fracture grid.
 
@@ -421,6 +421,6 @@ def propgation_angle(K):
     aK = np.absolute(K)
     phi = (A * aK[1]/(K[0] + aK[1] + aK[2])
             + B * np.square(aK[2]/(K[0] + aK[1] + aK[2])))
-    neg_ind = K[1] > 0
+    neg_ind = K[1] > 0  # ?
     phi[neg_ind] = - phi[neg_ind]
     return phi

@@ -127,7 +127,8 @@ def identify_faces_to_open(g_h, g_l, tips_to_propagate, rm_vectors):
     for i in range(extended_points.shape[1]):
         if tips_to_propagate[i]:
             p = extended_points[:, i]
-            distances = pp.cg.dist_point_pointset(p, g_h.face_centers)
+            distances = pp.cg.dist_point_pointset(p, g_h.face_centers)  # This is not ideal. Should be found among the faces
+            # having the tip as a node!
             faces_h.append(np.argmin(distances))
 
     return np.array(faces_h, dtype=int)
