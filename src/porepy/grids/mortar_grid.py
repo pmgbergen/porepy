@@ -114,10 +114,15 @@ class MortarGrid(object):
         # implementation. The ordering is given by sides or the keys of
         # side_grids.
 
+        # Number of cells in the first mortar grid
         num_cells = list(self.side_grids.values())[0].num_cells
         cells, faces, data = sps.find(face_cells)
         if self.num_sides() == 2:
 
+            # Depending on the numbering of the faces, some work may be needed to place
+            # oposing mortar cells on each side of the lower-dimensional grid.
+            # At the end of this if-else, the first num_cells are on one side, the
+            # rest is on the other side.
             if face_duplicate_ind is None:
                 # This is a tacit assumption on the numbering scheme for split faces,
                 # all faces on one side of the mortar grid should be indexed first,
@@ -127,10 +132,6 @@ class MortarGrid(object):
             else:
                 cells_on_second_side = np.in1d(faces, face_duplicate_ind)
                 cells[cells_on_second_side] += num_cells
-                
-            # Store the information on which cells are on which side - this may
-            # become necessary to know later
-            self.cell_is_on_second_side = cells_on_second_side
 
         shape = (num_cells * self.num_sides(), face_cells.shape[1])
         self._master_to_mortar_int = sps.csc_matrix(
@@ -547,17 +548,16 @@ class MortarGrid(object):
             )
             return sps.dia_matrix((np.ones(nc * nd), 0), shape=(nd * nc, nd * nc))
         elif self.num_sides() == 2:
-            # First create a data array of the right length
+            # By the ordering of the mortar cells, we know that all cells on the one
+            # side are put first, then the other side. Set + and - accordingly.
+            # Implementation note: self.side_grids is a dictionary, not a list, thus
+            # the indexing [1] and [2] (and not [0])
             data = np.hstack(
                 (
                     np.ones(self.side_grids[1].num_cells * nd),
-                    np.ones(self.side_grids[2].num_cells * nd),
+                    -np.ones(self.side_grids[2].num_cells * nd),
                 )
             )
-            # Next change the sign on those cells deemed to be on the second side
-            # of the mortar cell (same as used in __init__)
-            sign_change = np.tile(self.cell_is_on_second_side, (nd, 1)).ravel('F')
-            data[sign_change] *= -1
             return sps.dia_matrix((data, 0), shape=(nd * nc, nd * nc))
 
     def cell_diameters(self):
