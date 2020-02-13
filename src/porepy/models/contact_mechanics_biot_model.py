@@ -450,7 +450,6 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         # The following is expensive, as it includes Biot. Consider making a custom  method
         # discretizing only the term you need!
         # self.discretize()
-        pass
 
     def before_newton_iteration(self):
         # Re-discretize the nonlinear term
