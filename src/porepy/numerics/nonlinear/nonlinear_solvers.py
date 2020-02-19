@@ -67,7 +67,7 @@ class NewtonSolver:
             iteration_counter += 1
 
         if not is_converged:
-            setup.after_newton_failure()
+            setup.after_newton_failure(sol, errors, iteration_counter)
 
         return error_norm, is_converged, iteration_counter
 
