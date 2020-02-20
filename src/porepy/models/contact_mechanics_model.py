@@ -423,7 +423,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         self.initialize_linear_solver()
 
         g_max = self._nd_grid()
-        self.viz = pp.Exporter(g_max, name="mechanics", folder=self.viz_folder_name)
+        self.viz = pp.Exporter(g_max, file_name="mechanics", folder_name=self.viz_folder_name)
 
     def after_simulation(self):
         """ Called after a time-dependent problem

@@ -158,15 +158,15 @@ class Fields(object):
 
 
 class Exporter:
-    def __init__(self, grid, name, folder=None, **kwargs):
+    def __init__(self, grid, file_name, folder_name=None, **kwargs):
         """
         Class for exporting data to vtu files.
 
         Parameters:
         grid: the grid or grid bucket
-        name: the root of file name without any extension.
-        folder: (optional) the folder to save the file. If the folder does not
-            exist it will be created.
+        file_name: the root of file name without any extension.
+        folder_name: (optional) the name of the folder to save the file. 
+            If the folder does not exist it will be created.
 
         Optional arguments in kwargs:
         fixed_grid: (optional) in a time dependent simulation specify if the
@@ -176,17 +176,17 @@ class Exporter:
 
         How to use:
         If you need to export a single grid:
-        save = Exporter(g, "solution", folder="results")
+        save = Exporter(g, "solution", folder_name="results")
         save.write_vtk({"cells_id": cells_id, "pressure": pressure})
 
         In a time loop:
-        save = Exporter(gb, "solution", folder="results")
+        save = Exporter(gb, "solution", folder_name="results")
         while time:
             save.write_vtk({"conc": conc}, time_step=i)
         save.write_pvd(steps*deltaT)
 
         if you need to export the state of variables as stored in the GridBucket:
-        save = Exporter(gb, "solution", folder="results")
+        save = Exporter(gb, "solution", folder_name="results")
         # export the field stored in data[pp.STATE]["pressure"]
         save.write_vtk(gb, ["pressure"])
 
@@ -207,8 +207,8 @@ class Exporter:
         """
 
         self.gb = grid
-        self.name = name
-        self.folder = folder
+        self.file_name = file_name
+        self.folder_name = folder_name
         self.fixed_grid = kwargs.get("fixed_grid", True)
         self.binary = kwargs.get("binary", True)
         self.simplicial = kwargs.get("simplicial", False)
@@ -246,15 +246,15 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def change_name(self, name):
+    def change_name(self, file_name):
         """
         Change the root name of the files, useful when different keywords are
         considered but on the same grid.
 
         Parameters:
-        name: the new root name of the files.
+        file_name: the new root name of the files.
         """
-        self.name = name
+        self.file_name = file_name
 
     # ------------------------------------------------------------------------------#
 
@@ -342,7 +342,7 @@ class Exporter:
         if file_extension is None:
             file_extension = self._exported_time_step_file_names
 
-        o_file = open(self._make_folder(self.folder, self.name) + ".pvd", "w")
+        o_file = open(self._make_folder(self.folder_name, self.file_name) + ".pvd", "w")
         b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
         c = ' compressor="vtkZLibDataCompressor"'
         header = (
@@ -357,10 +357,10 @@ class Exporter:
         if self.is_GridBucket:
             for time, fn in zip(timestep, file_extension):
                 for dim in self.dims:
-                    o_file.write(fm % (time, self._make_file_name(self.name, fn, dim)))
+                    o_file.write(fm % (time, self._make_file_name(self.file_name, fn, dim)))
         else:
             for time, fn in zip(timestep, file_extension):
-                o_file.write(fm % (time, self._make_file_name(self.name, fn)))
+                o_file.write(fm % (time, self._make_file_name(self.file_name, fn)))
 
         o_file.write("</Collection>\n" + "</VTKFile>")
         o_file.close()
@@ -372,7 +372,7 @@ class Exporter:
         Export a single grid (not grid bucket) to a vtu file.
         """
         # No need of special naming, create the folder
-        name = self._make_folder(self.folder, self.name)
+        name = self._make_folder(self.folder_name, self.file_name)
         name = self._make_file_name(name, time_step)
 
         # Provide an empty dict if data is None
@@ -445,8 +445,8 @@ class Exporter:
 
         # collect the data and extra data in a single stack for each dimension
         for dim in self.dims:
-            file_name = self._make_file_name(self.name, time_step, dim)
-            file_name = self._make_folder(self.folder, file_name)
+            file_name = self._make_file_name(self.file_name, time_step, dim)
+            file_name = self._make_folder(self.folder_name, file_name)
             for field in fields:
                 grids = self.gb.get_grids(lambda g: g.dim == dim)
                 values = np.empty(grids.size, dtype=np.object)
@@ -492,8 +492,8 @@ class Exporter:
 
         # collect the data and extra data in a single stack for each dimension
         for dim in self.m_dims:
-            file_name = self._make_file_name_mortar(self.name, time_step, dim)
-            file_name = self._make_folder(self.folder, file_name)
+            file_name = self._make_file_name_mortar(self.file_name, time_step, dim)
+            file_name = self._make_folder(self.folder_name, file_name)
 
             mgs = self.gb.get_mortar_grids(lambda g: g.dim == dim)
             cond = lambda d: d["mortar_grid"].dim == dim
@@ -513,16 +513,16 @@ class Exporter:
             if self.m_gb_VTK[dim] is not None:
                 self._write_vtk(extra_fields, file_name, self.m_gb_VTK[dim])
 
-        file_name = self._make_file_name(self.name, time_step, extension=".pvd")
-        file_name = self._make_folder(self.folder, file_name)
+        file_name = self._make_file_name(self.file_name, time_step, extension=".pvd")
+        file_name = self._make_folder(self.folder_name, file_name)
         self._export_pvd_gb(file_name, time_step)
 
         self.gb.remove_edge_props(extra_fields.names())
 
     # ------------------------------------------------------------------------------#
 
-    def _export_pvd_gb(self, name, time_step):
-        o_file = open(name, "w")
+    def _export_pvd_gb(self, file_name, time_step):
+        o_file = open(file_name, "w")
         b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
         c = ' compressor="vtkZLibDataCompressor"'
         header = (
@@ -538,11 +538,11 @@ class Exporter:
         # grids (or mortar grids) of this dimension are included in the vtk export
         for dim in self.dims:
             if self.gb_VTK[dim] is not None:
-                o_file.write(fm % self._make_file_name(self.name, time_step, dim=dim))
+                o_file.write(fm % self._make_file_name(self.file_name, time_step, dim=dim))
         for dim in self.m_dims:
             if self.m_gb_VTK[dim] is not None:
                 o_file.write(
-                    fm % self._make_file_name_mortar(self.name, time_step, dim=dim)
+                    fm % self._make_file_name_mortar(self.file_name, time_step, dim=dim)
                 )
 
         o_file.write("</Collection>\n" + "</VTKFile>")
@@ -645,10 +645,10 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _write_vtk(self, fields, name, g_VTK):
+    def _write_vtk(self, fields, file_name, g_VTK):
         writer = vtk.vtkXMLUnstructuredGridWriter()
         writer.SetInputData(g_VTK)
-        writer.SetFileName(name)
+        writer.SetFileName(file_name)
 
         if fields is not None:
             for field in fields:
@@ -695,47 +695,47 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _make_folder(self, folder, name=None):
-        if folder is None:
+    def _make_folder(self, folder_name, name=None):
+        if folder_name is None:
             return name
 
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-        return os.path.join(folder, name)
+        if not os.path.exists(folder_name):
+            os.makedirs(folder_name)
+        return os.path.join(folder_name, name)
 
     # ------------------------------------------------------------------------------#
 
-    def _make_file_name(self, name, time_step=None, dim=None, extension=".vtu"):
+    def _make_file_name(self, file_name, time_step=None, dim=None, extension=".vtu"):
 
         padding = 6
         if dim is None:  # normal grid
             if time_step is None:
-                return name + extension
+                return file_name + extension
             else:
                 time = str(time_step).zfill(padding)
-                return name + "_" + time + extension
+                return file_name + "_" + time + extension
         else:  # part of a grid bucket
             if time_step is None:
-                return name + "_" + str(dim) + extension
+                return file_name + "_" + str(dim) + extension
             else:
                 time = str(time_step).zfill(padding)
-                return name + "_" + str(dim) + "_" + time + extension
+                return file_name + "_" + str(dim) + "_" + time + extension
 
     # ------------------------------------------------------------------------------#
 
-    def _make_file_name_mortar(self, name, time_step=None, dim=None):
+    def _make_file_name_mortar(self, file_name, time_step=None, dim=None):
 
         # we keep the order as in _make_file_name
         assert dim is not None
 
         extension = ".vtu"
-        name = name + "_mortar_"
+        file_name = file_name + "_mortar_"
         padding = 6
         if time_step is None:
-            return name + str(dim) + extension
+            return file_name + str(dim) + extension
         else:
             time = str(time_step).zfill(padding)
-            return name + str(dim) + "_" + time + extension
+            return file_name + str(dim) + "_" + time + extension
 
     # ------------------------------------------------------------------------------#
 
