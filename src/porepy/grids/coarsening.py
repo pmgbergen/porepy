@@ -242,7 +242,6 @@ def generate_coarse_grid_gb(gb, subdiv):
     for g, (_, partition) in subdiv.items():
 
         # Construct the coarse grids
-        #part = next(iter(partition.values()))[1]
         face_map = generate_coarse_grid_single(g, partition, True)
 
         # Update all the master_to_mortar_int for all the 'edges' connected to the grid
@@ -492,15 +491,17 @@ def create_partition(A, g, seeds=None, **kwargs):
     Parameters
     ----------
     A: sparse matrix used for the agglomeration
+    g: grid or grid bucket
+    seeds: (optional) to define a-priori coarse cells
     cdepth: the greather is the more intense the aggregation will be, e.g. less
         cells if it is used combined with generate_coarse_grid
     epsilon: weight for the off-diagonal entries to define the "strong
         negatively cupling"
-    seeds: (optional) to define a-priori coarse cells
+
 
     Returns
     -------
-    out: agglomeration indices
+    out: map from old to the new grid with agglomeration indices
 
     How to use
     ----------
@@ -513,8 +514,8 @@ def create_partition(A, g, seeds=None, **kwargs):
     epsilon = kwargs.get("epsilon", 0.25)
 
     # NOTE: Extract the higher dimensional grids, we suppose it is unique
-    if isinstance(g, grid_bucket.GridBucket):
-        g_high = g.get_grids(lambda g_: g_.dim == g.dim_max())[0]
+    if isinstance(g, pp.GridBucket):
+        g_high = g.grids_of_dimension(g.dim_max())[0]
     else:
         g_high = g
 
