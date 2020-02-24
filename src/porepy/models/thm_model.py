@@ -149,9 +149,9 @@ class THM(parent_model.ContactMechanicsBiot):
         for g, d in self.gb:
             # By default, we set the same type of boundary conditions as for the
             # pressure problem, that is, zero Dirichlet everywhere
-            bc = self.bc_type_scalar(g)
-            bc_values = self.bc_values_scalar(g)
-            source_values = self.source_scalar(g)
+            bc = self.bc_type_temperature(g)
+            bc_values = self.bc_values_temperature(g)
+            source_values = self.source_temperature(g)
 
             a = self.compute_aperture(g)
             specific_volume = np.power(a, self.gb.dim_max() - g.dim) * np.ones(
