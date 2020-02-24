@@ -240,7 +240,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 }
 
         # Define the contact condition on the mortar grid
-        coloumb = pp.ColoumbContact(self.mechanics_parameter_key, Nd)
+        coloumb = pp.ColoumbContact(self.mechanics_parameter_key, Nd, mpsa)
         contact = pp.PrimalContactCoupling(self.mechanics_parameter_key, mpsa, coloumb)
 
         for e, d in gb.edges():
@@ -289,7 +289,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             if mg.dim == self.Nd - 1:
                 size = mg.num_cells * self.Nd
                 state = {
-                    self.mortar_displacement_variable: np.zeros(mg.num_cells * self.Nd),
+                    self.mortar_displacement_variable: np.zeros(size),
                     "previous_iterate": {
                         self.mortar_displacement_variable: np.zeros(size)
                     },
@@ -476,8 +476,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
     def after_newton_convergence(self, solution, errors, iteration_counter):
         self.assembler.distribute_variable(solution)
 
-    def check_convergence(self, solution, prev_solution, nl_params):
+    def check_convergence(self, solution, prev_solution, init_solution, nl_params=None):
         g_max = self._nd_grid()
+
         if not self._is_nonlinear_problem():
             # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
             # error (but a warning) is raised for singular matrices, but a nan solution
@@ -487,30 +488,71 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             error = np.nan if diverged else 0
             return error, converged, diverged
 
-        u1 = solution[self.assembler.dof_ind(g_max, self.displacement_variable)]
-        u0 = prev_solution[self.assembler.dof_ind(g_max, self.displacement_variable)]
-        # Calculate the error
-        solution_norm = self.l2_norm_cell(g_max, u1)
-        iterate_difference = self.l2_norm_cell(g_max, u1 - u0)
+        mech_dof = self.assembler.dof_ind(g_max, self.displacement_variable)
 
-        tol = nl_params["convergence_tol"]
+        # Also find indices for the contact variables
+        contact_dof = np.array([], dtype=np.int)
+        for e, _ in self.gb.edges():
+            if e[0].dim == self.Nd:
+                contact_dof = np.hstack(
+                    (
+                        contact_dof,
+                        self.assembler.dof_ind(e[1], self.contact_traction_variable),
+                    )
+                )
+
+        # Pick out the solution from current, previous iterates, as well as the
+        # initial guess.
+        u_mech_now = solution[mech_dof]
+        u_mech_prev = prev_solution[mech_dof]
+        u_mech_init = init_solution[mech_dof]
+
+        contact_now = solution[contact_dof]
+        contact_prev = prev_solution[contact_dof]
+        contact_init = init_solution[contact_dof]
+
+        # Calculate errors
+        difference_in_iterates_mech = np.sum((u_mech_now - u_mech_prev) ** 2)
+        difference_from_init_mech = np.sum((u_mech_now - u_mech_init) ** 2)
+
+        contact_norm = np.sum(contact_now ** 2)
+        difference_in_iterates_contact = np.sum((contact_now - contact_prev) ** 2)
+        difference_from_init_contact = np.sum((contact_now - contact_init) ** 2)
+
+        tol_convergence = nl_params["nl_convergence_tol"]
+        # Not sure how to use the divergence criterion
+        # tol_divergence = nl_params["nl_divergence_tol"]
 
         converged = False
         diverged = False
 
-        # The if is intended to avoid division through zero
-        if solution_norm < tol and iterate_difference < tol:
+        # Check absolute convergence criterion
+        if difference_in_iterates_mech < tol_convergence:
             converged = True
-            error = np.sum((u1 - u0) ** 2)
+            error_mech = difference_in_iterates_mech
 
         else:
-            if iterate_difference / solution_norm < tol:
+            # Check relative convergence criterion
+            if (
+                difference_in_iterates_mech
+                < tol_convergence * difference_from_init_mech
+            ):
                 converged = True
-            error = np.sum((u1 - u0) ** 2) / np.sum(u1 ** 2)
+            error_mech = difference_in_iterates_mech / difference_from_init_mech
 
-        logger.info("Error is {}".format(error))
+        # The if is intended to avoid division through zero
+        if contact_norm < 1e-10 and difference_in_iterates_contact < 1e-10:
+            # converged = True
+            error_contact = difference_in_iterates_contact
+        else:
+            error_contact = (
+                difference_in_iterates_contact / difference_from_init_contact
+            )
 
-        return error, converged, diverged
+        logger.info("Error in contact force is {}".format(error_contact))
+        logger.info("Error in matrix displacement is {}".format(error_mech))
+
+        return error_mech, converged, diverged
 
     def after_newton_failure(self, solution, errors, iteration_counter):
         if self._is_nonlinear_problem():
@@ -546,9 +588,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             tic_assemble = time.time()
             A, _ = assembler.assemble_matrix_rhs()
             logger.info(
-                "Done initial assembly. Elapsed time {}:".format(
-                    time.time() - tic_assemble
-                )
+                f"Done initial assembly. Elapsed time {time.time() - tic_assemble}:"
             )
 
             g = self.gb.grids_of_dimension(self.Nd)[0]
@@ -560,25 +600,21 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             )
             self.mechanics_precond = pyamg_solver.aspreconditioner(cycle="W")
             logger.debug(
-                "AMG solver initialized. Elapsed time: {}".format(
-                    time.time() - tic_pyamg
-                )
+                f"AMG solver initialized. Elapsed time: {time.time() - tic_pyamg}"
             )
 
         else:
-            raise ValueError("unknown linear solver " + solver)
+            raise ValueError(f"Unknown linear solver {solver}")
 
         toc = time.time()
-        logger.info("Linear solver initialized. Elapsed time {}".format(toc - tic))
+        logger.info(f"Linear solver initialized. Elapsed time {toc - tic}")
 
     def assemble_and_solve_linear_system(self, tol):
 
         A, b = self.assembler.assemble_matrix_rhs()
-        logger.debug("Max element in A {0:.2e}".format(np.max(np.abs(A))))
+        logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
         logger.debug(
-            "Max {0:.2e} and min {1:.2e} A sum.".format(
-                np.max(np.sum(np.abs(A), axis=1)), np.min(np.sum(np.abs(A), axis=1))
-            )
+            f"Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."
         )
         if self.linear_solver == "direct":
             return spla.spsolve(A, b)
@@ -613,16 +649,15 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
             def callback(r):
                 logger.info(
-                    "Linear solver iteration {}, residual {}".format(len(residuals), r)
+                    f"Linear solver iteration {len(residuals)}, residual {r}"
                 )
-                #                print(r)
                 residuals.append(r)
 
             M = sps.linalg.LinearOperator(A.shape, precond_schur)
             sol, info = spla.gmres(
                 A, b, M=M, restart=100, maxiter=1000, tol=tol, callback=callback
             )
-            print(len(residuals))
+            logger.info(f"Completed a total of {len(residuals)} iterations.")
             return sol
 
     def _is_nonlinear_problem(self):

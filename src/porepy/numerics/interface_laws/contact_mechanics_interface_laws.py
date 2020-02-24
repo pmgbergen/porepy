@@ -53,6 +53,9 @@ class PrimalContactCoupling(
 
         self.use_surface_discr = use_surface_discr
 
+        # Account for interaction between different, but intersecting, mortar grids
+        self.edge_coupling_via_high_dim = True
+
     def ndof(self, mg):
         """ Get the number of dof for this coupling.
 
@@ -378,6 +381,80 @@ class PrimalContactCoupling(
 
         matrix += cc
 
+        return matrix, rhs
+
+    def assemble_edge_coupling_via_high_dim(
+        self,
+        g_between,
+        data_between,
+        edge_primary,
+        data_edge_primary,
+        edge_secondary,
+        data_edge_secondary,
+        matrix,
+    ):
+        """ Assemble the stress contribution from the mortar displacement on one edge
+        on the stress balance on a neighboring edge, in the sense that the two edges
+        share a node located at the corner.
+
+        The impact of the boundary condition gives an additional term in the stress
+        balance on the primary mortar.
+
+        Parameters:
+            g_between (pp.Grid): Grid of the higher dimensional neighbor to the
+                main interface
+            data_between (dict): Data dictionary of the intermediate grid.
+            edge_primary (tuple of grids): The grids of the primary edge
+            data_edge_primary (dict): Data dictionary of the primary interface.
+            edge_secondary (tuple of grids): The grids of the secondary edge.
+            data_edge_secondary (dict): Data dictionary of the secondary interface.
+            matrix: original discretization.
+
+        Returns:
+            np.array: Block matrix of size 3 x 3, whwere each block represents
+                coupling between variables on this interface. Index 0, 1 and 2
+                represent the master grid, the primary and secondary interface,
+                respectively.
+            np.array: Block matrix of size 3 x 1, representing the right hand
+                side of this coupling. Index 0, 1 and 2 represent the master grid,
+                the primary and secondary interface, respectively.
+
+        """
+        # Bookkeeping
+        mg_prim: pp.MortarGrid = data_edge_primary["mortar_grid"]
+        mg_sec: pp.MortarGrid = data_edge_secondary["mortar_grid"]
+
+        # Initialize matrices of the correct sizes
+        cc, rhs = self._define_local_block_matrix_edge_coupling(
+            g_between, self.discr_master, mg_prim, mg_sec, matrix
+        )
+
+        # Ambient dimension.
+        Nd = g_between.dim
+
+        faces_on_fracture_surface = mg_prim.master_to_mortar_int().tocsr().indices
+        sign_switcher = pp.grid_utils.switch_sign_if_inwards_normal(
+            g_between, Nd, faces_on_fracture_surface
+        )
+
+        proj_sec = mg_sec.mortar_to_master_avg(nd=Nd)
+        proj_prim = mg_prim.master_to_mortar_int(nd=Nd)
+
+        # Discretization of boundary conditions
+        bound_stress = data_between[pp.DISCRETIZATION_MATRICES][
+            self.discr_master.keyword
+        ][self.discr_master.bound_stress_matrix_key]
+
+        # The term to be discretized is the mapping of the induced stress down to the
+        # primary mortar grid. The term should be exactly equivalent to the expression
+        # for c[mortar_ind, mortar_ind] in assemble_matrix_rhs() above.
+        #
+        # Only the impact from secondary onto primary edge is assembled. There is a
+        # corresponding term from primary to secondary, but the assembler will switch
+        # roles of the two edges, and thus take care of this automatically.
+        cc[1, 2] = proj_prim * sign_switcher * bound_stress * proj_sec
+
+        matrix += cc
         return matrix, rhs
 
 

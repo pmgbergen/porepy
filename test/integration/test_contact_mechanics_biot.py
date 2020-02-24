@@ -15,7 +15,7 @@ import test.common.contact_mechanics_examples
 
 class TestBiot(unittest.TestCase):
     def _solve(self, setup):
-        pp.run_time_dependent_model(setup, None)
+        pp.run_time_dependent_model(setup, {})
 
         gb = setup.gb
 

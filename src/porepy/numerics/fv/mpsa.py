@@ -85,20 +85,45 @@ class Mpsa:
     ) -> np.ndarray:
         """ Extract the displacement part of a solution.
 
-        The method is trivial for finite volume methods, with the displacement
-        being the only primary variable.
+        Parameters:
+            g (grid): To which the solution array belongs.
+            solution_array (np.array): Solution for this grid.
+            d (dictionary): Data dictionary associated with the grid. Not used,
+                but included for consistency reasons.
+
+        Returns:
+            np.array (g.num_cells): Displacement solution vector. Will be identical
+                to solution_array.
+
+        """
+        return solution_array
+
+    def extract_stress(
+        self, g: pp.Grid, solution_array: np.ndarray, d: Dict
+    ) -> np.ndarray:
+        """ Extract the stress corresponding to a solution
+
+        The stress is composed of contributions from the solution variable and the
+        boundary conditions.
 
         Parameters:
             g (grid): To which the solution array belongs.
-            solution_array (np.array): Solution for this grid obtained from
-                either a mono-dimensional or a mixed-dimensional problem.
-            d (dictionary): Data dictionary associated with the grid. Not used,
-                but included for consistency reasons.
+            solution_array (np.array): Solution for this grid.
+            d (dictionary): Data dictionary associated with the grid.
+
         Returns:
-            np.array (g.num_cells): Pressure solution vector. Will be identical
-                to solution_array.
+            np.array (g.num_cells): Vector of stresses on the grid faces.
+
         """
-        return solution_array
+        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = d[pp.PARAMETERS][self.keyword]
+
+        stress = matrix_dictionary[self.stress_matrix_key].tocsr()
+        bound_stress = matrix_dictionary[self.bound_stress_matrix_key].tocsr()
+
+        bc_val = parameter_dictionary["bc_values"]
+
+        return stress * solution_array + bound_stress * bc_val
 
     def discretize(self, g: pp.Grid, data: Dict) -> None:
         """
