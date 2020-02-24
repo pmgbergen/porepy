@@ -123,7 +123,7 @@ class ImplicitMpfa(pp.Mpfa):
 class ImplicitTpfa(pp.Tpfa):
     """
     Multiply all contributions by the time step.
-    
+
     Implementation note: This is a copy of ImplicitMpfa, modified to inherit from Tpfa.
     A unified implementation would have been preferrable.
 
