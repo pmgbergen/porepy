@@ -117,7 +117,8 @@ def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucke
     frac1 = np.array([[1, 4], [2, 2]])
     frac2 = np.array([[2, 2], [1, 4]])
     fracs = [frac1, frac2]
-    gb = cart_grid_2d(fracs, [5, 5])
+    gb = cart_grid(fracs, [5, 5])
+
     """
     ndim = np.asarray(nx).size
     physdims = kwargs.get("physdims", None)

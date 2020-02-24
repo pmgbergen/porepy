@@ -175,9 +175,9 @@ def point_in_polyhedron(polyhedron, test_points, tol=1e-8):
     By Mark Dickinson. From what we know, the implementation is only available
     on github (no pypi or similar), and we are also not aware of other
     implementations of algorithms for point-in-polyhedron problems that allows
-    for non-convex polyhedra. Moreover, the file above has an unclear lisence.
+    for non-convex polyhedra. Moreover, the file above has an unclear licence.
     Therefore, to use the present function, download the above file and put it
-    in the pythonpath with the name 'robust_point_in_polyhedron.py'
+    in the PYTHONPATH with the name 'robust_point_in_polyhedron.py'
     (polyhedron.py seemed too general a name for this).
 
     Suggestions for better solutions to this are most welcome.
@@ -201,7 +201,7 @@ def point_in_polyhedron(polyhedron, test_points, tol=1e-8):
         raise ImportError(
             """Cannot import robust_points_inside_polyhedron.
                           Read documentation of
-                          pp.utils.comp_geom.is_inside_polyhedron for install
+                          pp.geometry.geometry_property_checks.point_in_polyhedron for install
                           instructions.
                           """
         )

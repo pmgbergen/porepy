@@ -15,6 +15,8 @@ def run_stationary_model(setup, params):
 
     nl_solver.solve(setup)
 
+    setup.after_simulation()
+
 
 def run_time_dependent_model(setup, params):
     """
@@ -28,7 +30,8 @@ def run_time_dependent_model(setup, params):
         non_line
     """
     # Assign parameters, variables and discretizations. Discretize time-indepedent terms
-    setup.prepare_simulation()
+    if params.get("prepare_simulation", True):
+        setup.prepare_simulation()
 
     # Prepare for the time loop
     t_end = setup.end_time
@@ -46,3 +49,5 @@ def run_time_dependent_model(setup, params):
             )
         )
         solver.solve(setup)
+
+    setup.after_simulation()

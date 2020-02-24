@@ -143,6 +143,11 @@ class ProblemDataTime:
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, north + south, "dir")
 
+    def bc_type_temperature(self, g):
+        _, _, _, north, south, _, _ = self.domain_boundary_sides(g)
+        # Define boundary condition on faces
+        return pp.BoundaryCondition(g, north + south, "dir")
+
     def bc_values_mechanics(self, g):
         # Set the boundary values
         _, _, _, north, south, _, _ = self.domain_boundary_sides(g)
