@@ -15,7 +15,7 @@ from test.common.contact_mechanics_examples import ProblemDataTime
 
 class TestTHM(unittest.TestCase):
     def _solve(self, setup):
-        pp.run_time_dependent_model(setup, params=None)
+        pp.run_time_dependent_model(setup, params={})
 
         gb = setup.gb
 
