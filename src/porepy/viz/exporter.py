@@ -603,30 +603,45 @@ class Exporter:
         gVTK = vtk.vtkUnstructuredGrid()
         ptsVTK = vtk.vtkPoints()
 
+        # Offset for the assignment of point indices. Needed to unify the counting of
+        # points for all grids in gs
         ptsId_global = 0
         for g in gs:
+            # Cell-face and face-node relations
             faces_cells, _, _ = sps.find(g.cell_faces)
             nodes_faces, _, _ = sps.find(g.face_nodes)
 
+            # For each cell, find its boundary edges, as a list of start and endpoints,
+            # sorted so that the edges form a closed loop around the cell
             for c in np.arange(g.num_cells):
-                loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+                # Faces of this cell
+                loc_faces = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+                # Points of the faces
                 ptsId = np.array(
                     [
                         nodes_faces[g.face_nodes.indptr[f] : g.face_nodes.indptr[f + 1]]
-                        for f in faces_cells[loc]
+                        for f in faces_cells[loc_faces]
                     ]
                 ).T
-                ptsId = (
+                # Sort the points.
+                # Note that the indices assigned here also adjusts to the global point
+                # numbering
+                ptsId_paired = (
                     pp.utils.sort_points.sort_point_pairs(ptsId)[0, :] + ptsId_global
                 )
 
+                # Create a list of Ids, add all point pairs.
                 fsVTK = vtk.vtkIdList()
-                [fsVTK.InsertNextId(p) for p in ptsId]
-
+                for p in ptsId_paired:
+                    fsVTK.InsertNextId(p)
+                # Add a new polygon
                 gVTK.InsertNextCell(vtk.VTK_POLYGON, fsVTK)
 
+            # Adjust the offset with the number of nodes in this grid
             ptsId_global += g.num_nodes
-            [ptsVTK.InsertNextPoint(*node) for node in g.nodes.T]
+            # Add the new nodes to the point list
+            for node in g.nodes.T:
+                ptsVTK.InsertNextPoint(*node)
 
         gVTK.SetPoints(ptsVTK)
 
