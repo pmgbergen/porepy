@@ -476,7 +476,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
     def after_newton_convergence(self, solution, errors, iteration_counter):
         self.assembler.distribute_variable(solution)
 
-    def check_convergence(self, solution, prev_solution, init_solution, nl_params):
+    def check_convergence(self, solution, prev_solution, init_solution, nl_params=None):
         g_max = self._nd_grid()
 
         if not self._is_nonlinear_problem():
