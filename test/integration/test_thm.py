@@ -15,7 +15,7 @@ from test.common.contact_mechanics_examples import ProblemDataTime
 
 class TestTHM(unittest.TestCase):
     def _solve(self, setup):
-        pp.run_time_dependent_model(setup, params=None)
+        pp.run_time_dependent_model(setup, params={})
 
         gb = setup.gb
 
@@ -85,8 +85,8 @@ class TestTHM(unittest.TestCase):
         setup.with_fracture = False
         setup.T_0_Kelvin = 1
         setup.alpha, setup.gamma, setup.advection_weight = 1e-10, 1e-10, 1e-10
-        # remove_advection(setup)
         u, p, T = self._solve(setup)
+        
         self.assertTrue(np.isclose(np.sum(T), -0.000560668482409941))
         self.assertTrue(np.isclose(np.sum(u), 0.0045))
         self.assertTrue(np.isclose(np.sum(p), 0.0))
