@@ -145,7 +145,7 @@ def project_points_to_line(p, tol=1e-4):
 
     """
     center = np.mean(p, axis=1).reshape((-1, 1))
-    p -= center
+    p = p - center
 
     if p.shape[0] == 2:
         p = np.vstack((p, np.zeros(p.shape[1])))

@@ -423,7 +423,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         self.initialize_linear_solver()
 
         g_max = self._nd_grid()
-        self.viz = pp.Exporter(g_max, name="mechanics", folder=self.viz_folder_name)
+        self.viz = pp.Exporter(g_max, file_name="mechanics", folder_name=self.viz_folder_name)
 
     def after_simulation(self):
         """ Called after a time-dependent problem
@@ -476,7 +476,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
     def after_newton_convergence(self, solution, errors, iteration_counter):
         self.assembler.distribute_variable(solution)
 
-    def check_convergence(self, solution, prev_solution, init_solution, nl_params):
+    def check_convergence(self, solution, prev_solution, init_solution, nl_params=None):
         g_max = self._nd_grid()
 
         if not self._is_nonlinear_problem():
