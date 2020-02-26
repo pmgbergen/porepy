@@ -42,7 +42,7 @@ class LinearSolver:
         # For linear problems, the tolerance is irrelevant
         sol = setup.assemble_and_solve_linear_system(tol=0)
         error_norm, is_converged, _ = setup.check_convergence(
-            sol, prev_sol, self.params
+            sol, prev_sol, prev_sol, self.params
         )
 
         if is_converged:
