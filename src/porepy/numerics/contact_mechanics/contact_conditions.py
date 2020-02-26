@@ -18,6 +18,7 @@ import numpy as np
 
 import porepy as pp
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -85,34 +86,37 @@ class ColoumbContact:
         # Process input
         parameters_l = data_l[pp.PARAMETERS]
         friction_coefficient = parameters_l[self.keyword]["friction_coefficient"]
-        
+
         cohesion = parameters_l[self.keyword].get("cohesion", 0)
 
         if np.asarray(friction_coefficient).size == 1:
             friction_coefficient = friction_coefficient * np.ones(g_l.num_cells)
 
-
         mg = data_edge["mortar_grid"]
-        
-        area = g_l.cell_volumes
 
-        parameters_h = data_h[pp.PARAMETERS][self.discr_h.keyword]
-        constit_h = parameters_h["fourth_order_tensor"]
-        mean_constit = (
-            mg.mortar_to_slave_avg() 
-            * mg.master_to_mortar_avg()
-            * 0.5 * np.abs(g_h.cell_faces * (constit_h.mu + constit_h.lmbda))
-        )
-        
         # Numerical parameter, value and sensitivity is currently unknown.
         # The thesis of Huber is probably a good place to look for information.
         c_num = parameters_l[self.keyword].get(
             "contact_mechanics_numerical_parameter", 100
         )
-        
+
+        # In an attempt to reduce the sensitivity of the numerical parameter on the
+        # model parameters, we scale it with area and an order-of-magnitude estimate
+        # for the elastic moduli.
+        area = g_l.cell_volumes
+
+        parameters_h = data_h[pp.PARAMETERS][self.discr_h.keyword]
+        constit_h = parameters_h["fourth_order_tensor"]
+        mean_constit = (
+            mg.mortar_to_slave_avg()
+            * mg.master_to_mortar_avg()
+            * 0.5
+            * np.abs(g_h.cell_faces * (constit_h.mu + constit_h.lmbda))
+        )
+
         c_num_normal = c_num * mean_constit * area
         c_num_tangential = c_num * mean_constit * area
-        
+
         # The tractions are scaled with area, so do the same with the cohesion.
         scaled_cohesion = cohesion * area
 
@@ -182,9 +186,15 @@ class ColoumbContact:
         # The friction bound is computed from the previous state of the contact
         # force and normal component of the displacement jump.
         # Note that the displacement jump is rotated before adding to the contact force
-        friction_bound = friction_coefficient * np.clip(
-            -contact_force_normal + c_num_normal * displacement_jump_normal, 0, np.inf
-        ) + scaled_cohesion
+        friction_bound = (
+            friction_coefficient
+            * np.clip(
+                -contact_force_normal + c_num_normal * displacement_jump_normal,
+                0,
+                np.inf,
+            )
+            + scaled_cohesion
+        )
 
         num_cells = friction_coefficient.size
 
@@ -192,9 +202,7 @@ class ColoumbContact:
 
         # Contact region is determined from the normal direction.
         penetration_bc = self._penetration(
-            contact_force_normal,
-            displacement_jump_normal,
-            c_num_normal,
+            contact_force_normal, displacement_jump_normal, c_num_normal
         )
         # Check criterion for sliding
         sliding_criterion = self._sliding(
@@ -204,15 +212,18 @@ class ColoumbContact:
             c_num_tangential,
         )
         # Find cells with non-zero tangential traction. This excludes cells that were
-        # not in contact in the previous iteration.        
-        non_zero_tangential_traction = np.sum(contact_force_tangential**2, axis=0) > 1e-10
+        # not in contact in the previous iteration.
+        non_zero_tangential_traction = (
+            np.sum(contact_force_tangential ** 2, axis=0) > 1e-10
+        )
+
         # The discretization of the sliding state tacitly assumes that the tangential
         # traction in the previous iteration - or else we will divide by zero.
         # Therefore, only allow for sliding if the tangential traciton is non-zero.
-        # In practice this means that a cell is not allowed to go directly from 
+        # In practice this means that a cell is not allowed to go directly from
         # non-penetration to sliding.
         sliding_bc = np.logical_and(sliding_criterion, non_zero_tangential_traction)
-        
+
         # Structures for storing the computed coefficients.
         displacement_weight = []  # Multiplies displacement jump
         traction_weight = []  # Multiplies the normal forces
@@ -367,8 +378,8 @@ class ColoumbContact:
 
         tol = 1e-8
         tol = 1e-6
-   #     print("sliding")
-   #     print(self._l2(-Tt + ct * ut) - bf)
+        #     print("sliding")
+        #     print(self._l2(-Tt + ct * ut) - bf)
         return self._l2(-Tt + ct * ut) - bf > tol
 
     def _penetration(self, Tn, un, cn):
@@ -386,8 +397,8 @@ class ColoumbContact:
         """
         # Not sure about the sensitivity to the tolerance parameter here.
         tol = 1e-6
-      #  print("penetration")
-      #  print(-Tn + cn * un)
+        #  print("penetration")
+        #  print(-Tn + cn * un)
         return (-Tn + cn * un) > tol
 
     #####
@@ -456,7 +467,7 @@ class ColoumbContact:
         # Regularization during the iterations requires computations of parameters
         # alpha, beta, delta
         alpha = -Tt.T.dot(-Tt + cut) / (self._l2(-Tt) * self._l2(-Tt + cut))
-        
+
         # Parameter delta.
         # NOTE: The denominator bf is correct. The definition given in Berge is wrong.
         delta = min(self._l2(-Tt) / bf, 1)
@@ -467,7 +478,7 @@ class ColoumbContact:
             beta = 1
 
         # The expression (I - beta * M)^-1
-        # NOTE: In the definition of \tilde{L} in Berge, the inverse on the inner 
+        # NOTE: In the definition of \tilde{L} in Berge, the inverse on the inner
         # paranthesis is missing.
         IdM_inv = np.linalg.inv(Id - beta * coeff_M)
 
