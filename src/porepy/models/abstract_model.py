@@ -85,13 +85,14 @@ class AbstractModel:
         """
         raise ValueError("Newton iterations did not converge")
 
-    def check_convergence(self, solution, prev_solution, nl_params):
+    def check_convergence(self, solution, prev_solution, init_solution, nl_params):
         """ Implements a convergence check, to be called by a non-linear solver.
 
         Parameters:
             solution (np.array): Newly obtained solution vector
             prev_solution (np.array): Solution obtained in the previous non-linear
                 iteration.
+            init_solution (np.array): Solution obtained from the previous time-step.
             nl_params (dict): Dictionary of parameters used for the convergence check.
                 Which items are required will depend on the converegence test to be
                 implemented.
