@@ -219,7 +219,7 @@ def generate_coarse_grid_single(g, subdiv, face_map):
     g.cell_faces = cell_faces
     g.num_cells = g.cell_faces.shape[1]
     g.cell_volumes = cell_volumes
-    g.cell_centers = half_space.star_shape_cell_centers(g)
+    g.cell_centers = half_space.star_shape_cell_centers(g, as_nan=True)
     is_nan = np.isnan(g.cell_centers[0, :])
     g.cell_centers[:, is_nan] = cell_centers[:, is_nan]
 
