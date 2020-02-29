@@ -77,7 +77,7 @@ class MortarGrid(object):
 
         self.dim = dim
         self.side_grids = side_grids.copy()
-        self.sides = np.array(self.side_grids.keys)
+        self.sides = np.array(list(self.side_grids.keys()))
 
         if not (self.num_sides() == 1 or self.num_sides() == 2):
             raise ValueError("The number of sides have to be 1 or 2")
@@ -630,7 +630,7 @@ class BoundaryMortar(MortarGrid):
 
         self.dim = dim
         self.side_grids = {0: mortar_grid}
-        self.sides = np.array(self.side_grids.keys)
+        self.sides = np.array(list(self.side_grids.keys()))
 
         if not (self.num_sides() == 1 or self.num_sides() == 2):
             raise ValueError("The number of sides have to be 1 or 2")
