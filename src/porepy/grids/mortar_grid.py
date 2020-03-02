@@ -20,8 +20,6 @@ class MortarGrid(object):
     dimensional grid (as set of faces) to the mortar grids and from the lower
     dimensional grid (as set of cells) to the mortar grids. The two mortar grids
     can be different.
-    
-    IMPLEMENTATION NOTE: The documentation in this 
 
     Attributes:
 
@@ -206,7 +204,7 @@ class MortarGrid(object):
         are changed.
 
         Parameter:
-            side_matrix (dict): for each side (identified with values {0, 1, 2}, as 
+            side_matrix (dict): for each side (identified with values {0, 1, 2}, as
                 used when this MortarGrid was defined) a matrix representing the
                 new mapping between the old and new mortar grids.
         """
@@ -242,7 +240,7 @@ class MortarGrid(object):
         Update the low_to_mortar_int map when the lower dimensional grid is changed.
 
         Parameter:
-            side_matrix (dict): for each side (identified with values {0, 1, 2}, as 
+            side_matrix (dict): for each side (identified with values {0, 1, 2}, as
                 used when this MortarGrid was defined) a matrix representing the
                 new mapping between the old and new mortar grids.
         """
@@ -274,7 +272,6 @@ class MortarGrid(object):
         """
         return len(self.side_grids)
 
-    ###
     def project_to_side_grids(self):
         """ Generator for the side grids (pp.Grid) representation of the mortar
         cells, and projection operators from the mortar cells, combining cells on all
@@ -583,7 +580,6 @@ class BoundaryMortar(MortarGrid):
             the geometrical objects.
         name (list): Information on the formation of the grid, such as the
             constructor, computations of geometry etc.
-
 
     """
 
