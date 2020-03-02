@@ -110,7 +110,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             faces_loc = faces[loc]
 
             # Compute the H_div-mass local matrix
-            A = MVEM.massHdiv(
+            A = self.massHdiv(
                 k.values[0 : g.dim, 0 : g.dim, c],
                 c_centers[:, c],
                 g.cell_volumes[c],
@@ -190,7 +190,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
             faces_loc = faces[loc]
 
-            Pi_s = MVEM.massHdiv(
+            Pi_s = self.massHdiv(
                 k.values[0 : g.dim, 0 : g.dim, c],
                 c_centers[:, c],
                 g.cell_volumes[c],

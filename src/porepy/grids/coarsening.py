@@ -38,7 +38,7 @@ def coarsen(g, method, **method_kwargs):
         if method_kwargs.get("if_seeds", False):
             seeds = generate_seeds(g)
         matrix = tpfa_matrix(g)
-        partition = create_partition(matrix, seeds=seeds, **method_kwargs)
+        partition = create_partition(matrix, g, seeds=seeds, **method_kwargs)
 
     else:
         raise ValueError("Undefined coarsening algorithm")
@@ -219,7 +219,7 @@ def generate_coarse_grid_single(g, subdiv, face_map):
     g.cell_faces = cell_faces
     g.num_cells = g.cell_faces.shape[1]
     g.cell_volumes = cell_volumes
-    g.cell_centers = half_space.star_shape_cell_centers(g)
+    g.cell_centers = half_space.star_shape_cell_centers(g, as_nan=True)
     is_nan = np.isnan(g.cell_centers[0, :])
     g.cell_centers[:, is_nan] = cell_centers[:, is_nan]
 
@@ -381,7 +381,7 @@ def create_aggregations(g, **kwargs):
 
         # Compute the inverse of the harminc mean
         weight = kwargs.get("weight", 1.0)
-        mean = weight / stats.hmean(1.0 / volumes)
+        mean = weight * np.mean(volumes)
 
         new_id = 1
         while np.any(partition_local < 0):
@@ -479,7 +479,7 @@ def __get_neigh(cells_id, c2c, partition):
 # ------------------------------------------------------------------------------#
 
 
-def create_partition(A, seeds=None, **kwargs):
+def create_partition(A, g, seeds=None, **kwargs):
     """
     Create the partition based on an input matrix using the algebraic multigrid
     method coarse/fine-splittings based on direct couplings. The standard values
@@ -491,15 +491,17 @@ def create_partition(A, seeds=None, **kwargs):
     Parameters
     ----------
     A: sparse matrix used for the agglomeration
+    g: grid or grid bucket
+    seeds: (optional) to define a-priori coarse cells
     cdepth: the greather is the more intense the aggregation will be, e.g. less
         cells if it is used combined with generate_coarse_grid
     epsilon: weight for the off-diagonal entries to define the "strong
         negatively cupling"
-    seeds: (optional) to define a-priori coarse cells
+
 
     Returns
     -------
-    out: agglomeration indices
+    out: map from old to the new grid with agglomeration indices
 
     How to use
     ----------
@@ -510,6 +512,12 @@ def create_partition(A, seeds=None, **kwargs):
 
     cdepth = int(kwargs.get("cdepth", 2))
     epsilon = kwargs.get("epsilon", 0.25)
+
+    # NOTE: Extract the higher dimensional grids, we suppose it is unique
+    if isinstance(g, pp.GridBucket):
+        g_high = g.grids_of_dimension(g.dim_max())[0]
+    else:
+        g_high = g
 
     if A.size == 0:
         return np.zeros(1)
@@ -540,8 +548,6 @@ def create_partition(A, seeds=None, **kwargs):
                 continue
             row = np.hstack([STold.rows[r] for r in rowj])
             ST[j, np.concatenate((rowj, row))] = True
-
-    del STold
 
     ST.setdiag(False)
     lmbda = np.array([len(s) for s in ST.rows])
@@ -679,7 +685,8 @@ def create_partition(A, seeds=None, **kwargs):
             vals += sps.csr_matrix((nv, (nc, np.repeat(mi, len(nc)))), shape=(Nc, NC))
 
     coarse, fine = primal.tocsr().nonzero()
-    return coarse[np.argsort(fine)]
+    partition = {g_high: (g_high.copy(), coarse[np.argsort(fine)])}
+    return partition
 
 
 # ------------------------------------------------------------------------------#
