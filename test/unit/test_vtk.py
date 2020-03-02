@@ -2374,9 +2374,9 @@ class BasicsTest(unittest.TestCase):
           1 1 1 1 1 1
           1 1
         </DataArray>
-        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="3">
-          0 1 2 3 0 1
-          2 3
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="7">
+          0 1 2 3 4 5
+          6 7
         </DataArray>
         <DataArray type="Int32" Name="grid_edge_number" format="ascii" RangeMin="0" RangeMax="0">
           0 0 0 0 0 0
@@ -2599,9 +2599,9 @@ class BasicsTest(unittest.TestCase):
           1 1 1 1 1 1
           1 1 1 1 1 1
         </DataArray>
-        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="3">
-          0 1 2 3 0 1
-          2 3 0 1 0 1
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="7">
+          0 1 2 3 4 5
+          6 7 0 1 2 3
         </DataArray>
         <DataArray type="Int32" Name="grid_edge_number" format="ascii" RangeMin="0" RangeMax="1">
           0 0 0 0 0 0
