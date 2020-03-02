@@ -24,9 +24,9 @@ class MortarGrid(object):
     Attributes:
 
         dim (int): dimension. Should be 0 or 1 or 2.
-        side_grids (dictionary of Grid): grid for each side. The key is a
-            SideTag and the value is a Grid.
-        sides (array of SideTag): ordering of the sides.
+        side_grids (dictionary of Grid): grid for each side. The key is an integer
+            with value {0, 1, 2}, and the value is a Grid.
+        sides (array of integers with values in {0, 1, 2}): ordering of the sides.
         high_to_mortar_int (sps.csc-matrix): Face-cell relationships between the
             high dimensional grid and the mortar grids. Matrix size:
             num_faces x num_cells. In the beginning we assume matching grids,
@@ -40,8 +40,6 @@ class MortarGrid(object):
             constructor, computations of geometry etc.
 
     """
-
-    # ------------------------------------------------------------------------------#
 
     def __init__(self, dim, side_grids, face_cells, name="", face_duplicate_ind=None):
         """Initialize the mortar grid
@@ -77,7 +75,7 @@ class MortarGrid(object):
 
         self.dim = dim
         self.side_grids = side_grids.copy()
-        self.sides = np.array(self.side_grids.keys)
+        self.sides = np.array(list(self.side_grids.keys()))
 
         if not (self.num_sides() == 1 or self.num_sides() == 2):
             raise ValueError("The number of sides have to be 1 or 2")
@@ -144,8 +142,6 @@ class MortarGrid(object):
         identity = [[sps.identity(num_cells)]] * self.num_sides()
         self._slave_to_mortar_int = sps.bmat(identity, format="csc")
 
-    # ------------------------------------------------------------------------------#
-
     def __repr__(self):
         """
         Implementation of __repr__
@@ -158,46 +154,28 @@ class MortarGrid(object):
             + "Dimension "
             + str(self.dim)
             + "\n"
-            + "Face_cells mapping from the higher dimensional grid to the mortar grid\n"
-            + str(self.master_to_mortar_int())
-            + "\n"
-            + "Cell_cells mapping from the mortar grid to the lower dimensional grid\n"
-            + str(self.slave_to_mortar_int())
+            + f"Number of cells {self.num_cells}\n"
+            + "Number of cells in lower-dimensional neighbor "
+            + f"{self.mortar_to_slave_int().shape[0]}\n"
+            + "Number of cells in higher-dimensional neighbor "
+            + f"{self.mortar_to_master_int().shape[0]}\n"
         )
 
         return s
-
-    # ------------------------------------------------------------------------------#
 
     def __str__(self):
         """ Implementation of __str__
         """
-        s = str()
-
-        s += "".join(
-            [
-                "Side " + str(s) + " with grid:\n" + str(g)
-                for s, g in self.side_grids.items()
-            ]
+        s = (
+            "Mortar grid with history "
+            + ", ".join(self.name)
+            + "\n"
+            + "Dimension "
+            + str(self.dim)
+            + "\n"
+            + f"Number of cells {self.num_cells}"
         )
-
-        s += (
-            "Mapping from the faces of the higher dimensional grid to"
-            + " the cells of the mortar grid.\nRows indicate the mortar"
-            + " cell id, columns indicate the (higher dimensional) face id"
-            + "\n"
-            + str(self.master_to_mortar_int())
-            + "\n"
-            + "Mapping from the cells of the mortar grid to the cells"
-            + " of the lower dimensional grid.\nRows indicate the mortar"
-            + " cell id, columns indicate the (lower dimensional) cell id"
-            + "\n"
-            + str(self.slave_to_mortar_int())
-        )
-
         return s
-
-    # ------------------------------------------------------------------------------#
 
     def compute_geometry(self):
         """
@@ -226,8 +204,9 @@ class MortarGrid(object):
         are changed.
 
         Parameter:
-            side_matrix (dict): for each SideTag key a matrix representing the
-            new mapping between the old and new mortar grids.
+            side_matrix (dict): for each side (identified with values {0, 1, 2}, as
+                used when this MortarGrid was defined) a matrix representing the
+                new mapping between the old and new mortar grids.
         """
 
         # In the case of different side ordering between the input data and the
@@ -261,9 +240,9 @@ class MortarGrid(object):
         Update the low_to_mortar_int map when the lower dimensional grid is changed.
 
         Parameter:
-            side_matrix (dict): for each SideTag key a matrix representing the
-            new mapping between the new lower dimensional grid and the mortar
-            grids.
+            side_matrix (dict): for each side (identified with values {0, 1, 2}, as
+                used when this MortarGrid was defined) a matrix representing the
+                new mapping between the old and new mortar grids.
         """
 
         # In the case of different side ordering between the input data and the
@@ -293,7 +272,6 @@ class MortarGrid(object):
         """
         return len(self.side_grids)
 
-    ###
     def project_to_side_grids(self):
         """ Generator for the side grids (pp.Grid) representation of the mortar
         cells, and projection operators from the mortar cells, combining cells on all
@@ -590,7 +568,7 @@ class BoundaryMortar(MortarGrid):
         dim (int): dimension. Should be 0 or 1 or 2.
         side_grids (dictionary of Grid): Contains the mortar grid under the key
             "mortar_grid". Is included for consistency with MortarGrid
-        sides (array of SideTag): ordering of the sides.
+        sides (array of integers with values in {0, 1, 2}): ordering of the sides.
         slave_to_mortar_int (sps.csc-matrix): Face-cell relationships between the
             slave grid and the mortar grid. Matrix size:
             num_faces x num_cells. In the beginning we assume matching grids,
@@ -602,7 +580,6 @@ class BoundaryMortar(MortarGrid):
             the geometrical objects.
         name (list): Information on the formation of the grid, such as the
             constructor, computations of geometry etc.
-
 
     """
 
@@ -630,7 +607,7 @@ class BoundaryMortar(MortarGrid):
 
         self.dim = dim
         self.side_grids = {0: mortar_grid}
-        self.sides = np.array(self.side_grids.keys)
+        self.sides = np.array(list(self.side_grids.keys()))
 
         if not (self.num_sides() == 1 or self.num_sides() == 2):
             raise ValueError("The number of sides have to be 1 or 2")
@@ -724,8 +701,6 @@ class BoundaryMortar(MortarGrid):
 
         return s
 
-    # ------------------------------------------------------------------------------#
-
     def num_sides(self):
         """
         Shortcut to compute the number of sides, it has to be 2 or 1.
@@ -735,12 +710,9 @@ class BoundaryMortar(MortarGrid):
         """
         return len(self.side_grids)
 
-    # ------------------------------------------------------------------------------#
     def compute_geometry(self):
         """
         Compute the geometry of the mortar grids.
         We assume that they are not aligned with x (1d) or x, y (2d).
         """
         [g.compute_geometry() for g in self.side_grids.values()]
-
-    # ------------------------------------------------------------------------------#
