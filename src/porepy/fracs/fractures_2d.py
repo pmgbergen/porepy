@@ -175,11 +175,21 @@ class FractureNetwork2d(object):
         p = self.pts
         e = self.edges
 
+        # Snap points to edges
         if do_snap and p is not None and p.size > 0:
             p, _ = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=tol)
+
+        # Create list of grids
         grid_list = porepy.fracs.simplex.triangle_grid(
-            p, e[:2], self.domain, tol=tol, constraints=constraints, **mesh_args
+            p,
+            e[:2],
+            self.domain,
+            tol=tol,
+            constraints=constraints,
+            **mesh_args,
+            **kwargs
         )
+        # Assemble in grid bucket
         gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
         return gb
 
