@@ -84,10 +84,14 @@ class ColoumbContact:
         #   gut feel says yes, but I'm not sure.
 
         # Process input
-        parameters_l = data_l[pp.PARAMETERS]
-        friction_coefficient = parameters_l[self.keyword]["friction_coefficient"]
+        parameters_l = data_l[pp.PARAMETERS][self.keyword]
+        friction_coefficient = parameters_l["friction_coefficient"]
 
-        cohesion = parameters_l[self.keyword].get("cohesion", 0)
+        cohesion = parameters_l.get("cohesion", 0)
+        # The initial gap will usually be zero.
+        gap = parameters_l.get("initial_gap", np.zeros(g_l.num_cells))
+        # The gap value may be a function of tangential displacement through
+        dilation_angle = parameters_l.get("dilation_angle", 0)
 
         if np.asarray(friction_coefficient).size == 1:
             friction_coefficient = friction_coefficient * np.ones(g_l.num_cells)
@@ -96,9 +100,7 @@ class ColoumbContact:
 
         # Numerical parameter, value and sensitivity is currently unknown.
         # The thesis of Huber is probably a good place to look for information.
-        c_num = parameters_l[self.keyword].get(
-            "contact_mechanics_numerical_parameter", 100
-        )
+        c_num = parameters_l.get("contact_mechanics_numerical_parameter", 100)
 
         # In an attempt to reduce the sensitivity of the numerical parameter on the
         # model parameters, we scale it with area and an order-of-magnitude estimate
@@ -183,13 +185,18 @@ class ColoumbContact:
             )
         ).reshape((self.dim - 1, g_l.num_cells), order="F")
 
+        # Compute gap if it is a function of tangential jump
+        gap += np.tan(dilation_angle) * np.linalg.norm(
+            displacement_jump_tangential, axis=0
+        )
+
         # The friction bound is computed from the previous state of the contact
         # force and normal component of the displacement jump.
         # Note that the displacement jump is rotated before adding to the contact force
         friction_bound = (
             friction_coefficient
             * np.clip(
-                -contact_force_normal + c_num_normal * displacement_jump_normal,
+                -contact_force_normal + c_num_normal * (displacement_jump_normal - gap),
                 0,
                 np.inf,
             )
@@ -202,7 +209,7 @@ class ColoumbContact:
 
         # Contact region is determined from the normal direction.
         penetration_bc = self._penetration(
-            contact_force_normal, displacement_jump_normal, c_num_normal
+            contact_force_normal, displacement_jump_normal, c_num_normal, gap
         )
         # Check criterion for sliding
         sliding_criterion = self._sliding(
@@ -262,10 +269,8 @@ class ColoumbContact:
                 L = np.hstack((loc_displacement_tangential, np.atleast_2d(zer).T))
                 loc_displacement_weight = np.vstack((L, zer1))
                 # Right hand side is computed from (24-25). In the normal
-                # direction, zero displacement is enforced.
-                # This assumes that the original distance, g, between the fracture
-                # walls is zero.
-                r = np.vstack((r + friction_bound[i] * v, 0))
+                # direction, displacement = gap is enforced.
+                r = np.vstack((r + friction_bound[i] * v, gap[i]))
                 # Unit contribution from tangential force
                 loc_traction_weight = np.eye(self.dim)
                 # Zero weight on normal force
@@ -290,9 +295,10 @@ class ColoumbContact:
                 loc_traction_weight = np.zeros((self.dim, self.dim))
                 loc_traction_weight[:-1, -1] = loc_traction_tangential
 
-                # The right hand side is the previous tangential jump, and zero
-                # in the normal direction.
+                # The right hand side is the previous tangential jump, and the gap
+                # value in the normal direction.
                 r = np.hstack((displacement_jump_tangential[:, i], 0)).T
+                r = np.hstack((displacement_jump_tangential[:, i], gap[i])).T
 
             elif ~penetration_bc[i]:  # not in contact
                 # This is a free boundary, no conditions on displacement
@@ -375,14 +381,11 @@ class ColoumbContact:
         """
         # Use thresholding to not pick up faces that are just about sticking
         # Not sure about the sensitivity to the tolerance parameter here.
-
         tol = 1e-8
         tol = 1e-6
-        #     print("sliding")
-        #     print(self._l2(-Tt + ct * ut) - bf)
         return self._l2(-Tt + ct * ut) - bf > tol
 
-    def _penetration(self, Tn, un, cn):
+    def _penetration(self, Tn, un, cn, gap):
         """ Find faces that are in contact.
 
         Arguments:
@@ -397,9 +400,7 @@ class ColoumbContact:
         """
         # Not sure about the sensitivity to the tolerance parameter here.
         tol = 1e-6
-        #  print("penetration")
-        #  print(-Tn + cn * un)
-        return (-Tn + cn * un) > tol
+        return (-Tn + cn * (un - gap)) > tol
 
     #####
     ## Below here are different help function for calculating the Newton step
