@@ -171,7 +171,7 @@ class GmshWriter(object):
             self.lines[2] == constants.DOMAIN_BOUNDARY_TAG
         ).ravel()
         bound_line = self.lines[:, bound_line_ind]
-        bound_line = sort_points.sort_point_pairs(bound_line, check_circular=True)
+        bound_line, _ = sort_points.sort_point_pairs(bound_line, check_circular=True)
 
         s = "// Start of specification of domain"
         s += "// Define lines that make up the domain boundary\n"

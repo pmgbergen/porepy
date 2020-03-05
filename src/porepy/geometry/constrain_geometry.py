@@ -379,12 +379,12 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                 # There should be exactly two loose ends, if not, this is really
                 # several polygons, and who knows how we ended up there.
                 assert np.sum(count == 1) == 2
-                sorted_pairs = pp.utils.sort_points.sort_point_pairs(
+                sorted_pairs, _ = pp.utils.sort_points.sort_point_pairs(
                     el, is_circular=False
                 )
                 inds = np.hstack((sorted_pairs[0], sorted_pairs[1, -1]))
             else:
-                sorted_pairs = pp.utils.sort_points.sort_point_pairs(el)
+                sorted_pairs, _ = pp.utils.sort_points.sort_point_pairs(el)
                 inds = sorted_pairs[0]
 
             # And there we are
