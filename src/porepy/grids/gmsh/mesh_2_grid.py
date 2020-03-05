@@ -24,12 +24,16 @@ def create_3d_grids(pts, cells):
     return g_3d
 
 
-def create_2d_grids(pts, cells, **kwargs):
+def create_2d_grids(pts, cells, constraints=None, **kwargs):
     # List of 2D grids, one for each surface
     g_2d = []
     is_embedded = kwargs.get("is_embedded", False)
     phys_names = kwargs.get("phys_names", False)
     cell_info = kwargs.get("cell_info", False)
+
+    if constraints is None:
+        constraints = np.array([], dtype=np.int)
+
     if is_embedded:
         network = kwargs.get("network", False)
 
@@ -79,7 +83,7 @@ def create_2d_grids(pts, cells, **kwargs):
             pn = phys_names[phys_name_ind_tri[fi]]
             plane_type = pn[: pn.rfind("_")]
 
-            if plane_type != "FRACTURE":
+            if plane_type != "FRACTURE" or fi in constraints:
                 count_bound_and_aux += 1
                 continue
 
