@@ -323,7 +323,7 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
     return grids
 
 
-def tetrahedral_grid_from_gmsh(network, file_name, **kwargs):
+def tetrahedral_grid_from_gmsh(network, file_name, constraints=None, **kwargs):
     """ Generate a list of grids of dimensions {3, 2, 1, 0}, starting from a gmsh
     mesh.
 
@@ -366,6 +366,7 @@ def tetrahedral_grid_from_gmsh(network, file_name, **kwargs):
         phys_names=phys_names,
         cell_info=cell_info,
         network=network,
+        constraints=constraints,
     )
 
     g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
