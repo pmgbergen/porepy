@@ -971,7 +971,7 @@ class FractureNetwork3d(object):
                 else:
                     continue
 
-            poly = sort_points.sort_point_pairs(edges[:2, ei_bound])
+            poly, _ = sort_points.sort_point_pairs(edges[:2, ei_bound])
             polygons.append(poly)
             line_in_frac.append(ei)
 
