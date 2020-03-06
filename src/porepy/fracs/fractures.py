@@ -583,7 +583,6 @@ class FractureNetwork3d(object):
         has_checked_intersections (boolean): If True, the intersection finder
             method has been run. Useful in meshing algorithms to avoid
             recomputing known information.
-        verbose (int): Verbosity level. Usage unclear.
         tol (double): Geometric tolerance used in computations.
         domain (dictionary): External bounding box. See
             impose_external_boundary() for details.
@@ -603,7 +602,7 @@ class FractureNetwork3d(object):
 
     """
 
-    def __init__(self, fractures=None, domain=None, verbose=0, tol=1e-8):
+    def __init__(self, fractures=None, domain=None, tol=1e-8, run_checks=False):
         """ Initialize fracture network.
 
         Generate network from specified fractures. The fractures will have
@@ -614,8 +613,6 @@ class FractureNetwork3d(object):
 
         Parameters:
             fractures (list of Fracture): Fractures that make up the network.
-            verbose (int, optional): Verbosity level. Defaults to 0.
-            tol (double, optional): Geometric tolerance. Defaults to 1e-4.
 
         """
         if fractures is None:
@@ -632,7 +629,7 @@ class FractureNetwork3d(object):
 
         self.has_checked_intersections = False
         self.tol = tol
-        self.verbose = verbose
+        self.run_checks = run_checks
 
         # Initialize with an empty domain. Can be modified later by a call to
         # 'impose_external_boundary()'
@@ -897,11 +894,10 @@ class FractureNetwork3d(object):
                 num_intersecting_fracs += 1
                 num_intersections += len(isects)
 
-                if self.verbose > 1:
-                    s += (
-                        "Fracture " + str(f) + " intersects with"
-                        " fractuer(s) " + str(isects) + "\n"
-                    )
+                s += (
+                    "Fracture " + str(f) + " intersects with"
+                    " fractuer(s) " + str(isects) + "\n"
+                )
         # Print aggregate numbers. Note that all intersections are counted
         # twice (from first and second), thus divide by two.
         s += (
@@ -931,9 +927,6 @@ class FractureNetwork3d(object):
         # boundaries and intersections.
         all_p, edges, edges_2_frac, is_boundary_edge = self._point_and_edge_lists()
 
-        if self.verbose > 1:
-            self._verify_fractures_in_plane(all_p, edges, edges_2_frac)
-
         # By now, all segments in the grid are defined by a unique set of
         # points and edges. The next task is to identify intersecting edges,
         # and split them.
@@ -941,7 +934,7 @@ class FractureNetwork3d(object):
             all_p, edges, edges_2_frac, is_boundary_edge
         )
 
-        if self.verbose > 1:
+        if self.run_checks:
             self._verify_fractures_in_plane(all_p, edges, edges_2_frac)
 
         # Store the full decomposition.
@@ -1144,7 +1137,8 @@ class FractureNetwork3d(object):
 
         # Sanity check, the fractures should still be defined by points in a
         # plane.
-        self._verify_fractures_in_plane(p_unique, edges, edges_2_frac)
+        if self.run_checks:
+            self._verify_fractures_in_plane(p_unique, edges, edges_2_frac)
 
         logger.info(
             """Uniquify complete. %i points, %i edges. Ellapsed time
@@ -1305,7 +1299,8 @@ class FractureNetwork3d(object):
             "Done with intersection removal. Elapsed time %.5f",
             time.time() - start_time,
         )
-        self._verify_fractures_in_plane(all_p, edges, edges_2_frac)
+        if self.run_checks:
+            self._verify_fractures_in_plane(all_p, edges, edges_2_frac)
 
         return self._uniquify_points_and_edges(
             all_p, edges, edges_2_frac, is_boundary_edge
@@ -1317,7 +1312,7 @@ class FractureNetwork3d(object):
         # way that ensures that no polygon lies on both sides of an
         # intersection edge.
 
-    def report_on_decomposition(self, do_print=True, verbose=None):
+    def report_on_decomposition(self, do_print=True):
         """
         Compute various statistics on the decomposition.
 
@@ -1325,16 +1320,11 @@ class FractureNetwork3d(object):
 
         Parameters:
             do_print (boolean, optional): Print information. Defaults to True.
-            verbose (int, optional): Override the verbosity level of the
-                network itself. If not provided, the network value will be
-                used.
 
         Returns:
             str: String representation of the statistics
 
         """
-        if verbose is None:
-            verbose = self.verbose
         d = self.decomposition
 
         s = str(len(self._fractures)) + " fractures are split into "
@@ -1342,19 +1332,6 @@ class FractureNetwork3d(object):
 
         s += "Number of points: " + str(d["points"].shape[1]) + "\n"
         s += "Number of edges: " + str(d["edges"].shape[1]) + "\n"
-
-        if verbose > 1:
-            # Compute minimum distance between points in point set
-            dist = np.inf
-            p = d["points"]
-            num_points = p.shape[1]
-            hit = np.ones(num_points, dtype=np.bool)
-            for i in range(num_points):
-                hit[i] = False
-                dist_loc = pp.distances.point_pointset(p[:, i], p[:, hit])
-                dist = np.minimum(dist, dist_loc.min())
-                hit[i] = True
-            s += "Minimal disance between points " + str(dist) + "\n"
 
         if do_print:
             logger.info(s)
