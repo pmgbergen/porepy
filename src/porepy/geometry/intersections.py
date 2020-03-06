@@ -511,6 +511,11 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
     # Store index of pairs of intersecting polygons
     polygon_pairs = []
 
+    # Pre-compute polygon normals to save computational time
+    polygon_normals = [
+        pp.map_geometry.compute_normal(poly).reshape((-1, 1)) for poly in polys
+    ]
+
     # Loop over all fracture pairs (taking more than one simultaneously if an index
     # occurs several times in pairs[0]), and look for intersections
     for di, line_ind in enumerate(start_inds):
@@ -528,7 +533,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
 
         # Center point and normal vector of the main fracture
         main_center = center(polys[main])
-        main_normal = pp.map_geometry.compute_normal(polys[main]).reshape((-1, 1))
+        main_normal = polygon_normals[main]
 
         # Create an expanded version of the main points, so that the start
         # and end points are the same. Thus the segments can be formed by
@@ -545,7 +550,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
             other_p_expanded = polys[o][:, ind_other_cyclic]
 
             # Normal vector and cetner of the other polygon
-            other_normal = pp.map_geometry.compute_normal(polys[o]).reshape((-1, 1))
+            other_normal = polygon_normals[o]
             other_center = center(polys[o])
 
             # Point a vector from the main center to the vertexes of the
