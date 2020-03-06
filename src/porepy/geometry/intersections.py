@@ -221,19 +221,28 @@ def segments_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     deltas_1 = np.array([dx_1, dy_1, dz_1])
     deltas_2 = np.array([dx_2, dy_2, dz_2])
 
-    # Use masked arrays to avoid divisions by zero
-    mask_1 = np.ma.greater(np.abs(deltas_1), tol)
-    mask_2 = np.ma.greater(np.abs(deltas_2), tol)
+    # Find non-zero elements
+    mask_1 = np.abs(deltas_1) > tol
+    mask_2 = np.abs(deltas_2) > tol
 
     # Check for two dimensions that are not parallel with at least one line
     mask_sum = mask_1 + mask_2
+
     if mask_sum.sum() > 1:
-        in_discr = np.argwhere(mask_sum)[:2]
+        if mask_sum[0] and mask_sum[1]:
+            in_discr = np.array([0, 1])
+            not_in_discr = 2
+        elif mask_sum[0] and mask_sum[2]:
+            in_discr = np.array([0, 2])
+            not_in_discr = 1
+        else:
+            in_discr = np.array([1, 2])
+            not_in_discr = 0
     else:
         # We're going to have a zero discreminant anyhow, just pick some dimensions.
         in_discr = np.arange(2)
+        not_in_discr = 2
 
-    not_in_discr = np.setdiff1d(np.arange(3), in_discr)[0]
     discr = (
         deltas_1[in_discr[0]] * deltas_2[in_discr[1]]
         - deltas_1[in_discr[1]] * deltas_2[in_discr[0]]
