@@ -169,26 +169,20 @@ def segments_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     have been discovered so far.
 
     Parameters:
-        start_1 (np.ndarray or list): coordinates of start point for first
+        start_1 (np.ndarray): coordinates of start point for first
             line.
-        end_1 (np.ndarray or list): coordinates of end point for first line.
-        start_2 (np.ndarray or list): coordinates of start point for first
+        end_1 (np.ndarray): coordinates of end point for first line.
+        start_2 (np.ndarray): coordinates of start point for first
             line.
-        end_2 (np.ndarray or list): coordinates of end point for first line.
+        end_2 (np.ndarray): coordinates of end point for first line.
 
     Returns:
-        np.ndarray, dimension 3xn_pts): coordinates of intersection points
+        np.ndarray, dimension 3 x n_pts: coordinates of intersection points
             (number of columns will be either 1 for a point intersection, or 2
             for a segment intersection). If the lines do not intersect, None is
             returned.
 
     """
-
-    # Convert input to numpy if necessary
-    start_1 = np.asarray(start_1).astype(np.float).ravel()
-    end_1 = np.asarray(end_1).astype(np.float).ravel()
-    start_2 = np.asarray(start_2).astype(np.float).ravel()
-    end_2 = np.asarray(end_2).astype(np.float).ravel()
 
     # Short hand for component of start and end points, as well as vectors
     # along lines.
@@ -272,7 +266,9 @@ def segments_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         t = deltas_1[mask_1] / deltas_2[mask_2]
 
         # Second, test for alignment in all directions
-        if not np.allclose(t, t.mean(), tol):
+        if t.size == 2 and abs(t[0] - t[1]) > tol:
+            return None
+        elif t.size == 3 and (abs(t[0] - t[1]) > tol or abs(t[0] - t[2]) > tol):
             return None
 
         # If we have made it this far, the lines are indeed parallel. Next,
