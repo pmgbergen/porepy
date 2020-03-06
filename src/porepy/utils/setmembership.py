@@ -174,32 +174,12 @@ def unique_columns_tol(mat, tol=1e-8):
         return mat, np.array([], dtype=int), np.array([], dtype=int)
 
     # If the matrix is integers, and the tolerance less than 1/2, we can use
-    # the new unique function that ships with numpy 1.13. This comes with a
-    # significant speedup, in particular for large arrays (runtime has gone
-    # from hours to split-seconds - that is, the alternative implementation
-    # below is ineffecient).
-    # If the current numpy version is older, an ugly hack is possible: Download
-    # the file from the numpy repositories, and place it somewhere in
-    # $PYHTONPATH, with the name 'numpy_113_unique'.
+    # numpy's unique function
     if issubclass(mat.dtype.type, np.integer) and tol < 0.5:
-        # Obtain version of numpy that was loaded by the import in this module
-        np_version = np.__version__.split(".")
-        # If we are on numpy 2, or 1.13 or higher, we're good.
-        if int(np_version[0]) > 1 or int(np_version[1]) > 12:
-            un_ar, new_2_old, old_2_new = np.unique(
-                mat, return_index=True, return_inverse=True, axis=1
-            )
-            return un_ar, new_2_old, old_2_new
-        else:
-            try:
-                import numpy_113_unique
-
-                un_ar, new_2_old, old_2_new = numpy_113_unique.unique_np1130(
-                    mat, return_index=True, return_inverse=True, axis=1
-                )
-                return un_ar, new_2_old, old_2_new
-            except:
-                pass
+        un_ar, new_2_old, old_2_new = np.unique(
+            mat, return_index=True, return_inverse=True, axis=1
+        )
+        return un_ar, new_2_old, old_2_new
 
     (nd, l) = mat.shape
 
