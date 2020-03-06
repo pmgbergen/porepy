@@ -52,7 +52,7 @@ class Fracture(object):
 
     """
 
-    def __init__(self, points, index=None, check_convexity=True):
+    def __init__(self, points, index=None, check_convexity=False):
         """ Initialize fractures.
 
         __init__ defines the vertexes of the fracture and sort them to be CCW.
