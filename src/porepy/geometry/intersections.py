@@ -361,7 +361,7 @@ def segments_3d(start_1, end_1, start_2, end_2, tol=1e-8):
             return None
 
 
-def polygons_3d(polys, tol=1e-8):
+def polygons_3d(polys, target_poly=None, tol=1e-8):
     """ Compute the intersection between polygons embedded in 3d.
 
     In addition to intersection points, the function also decides:
@@ -387,6 +387,10 @@ def polygons_3d(polys, tol=1e-8):
         polys (list of np.array): Each list item represents a polygon, specified
             by its vertexses as a numpy array, of dimension 3 x num_pts. There
             should be at least three vertexes in the polygon.
+        target_poly (int or np.array, optional): Index in poly of the polygons that
+            should be target for intersection findings. These will be compared with the
+            whole set in poly. If not provided, all polygons are compared with
+            each other.
         tol (double, optional): Geometric tolerance for the computations.
 
     Returns:
@@ -407,6 +411,11 @@ def polygons_3d(polys, tol=1e-8):
             the tuple is replaced by an empty list.
 
     """
+    if target_poly is None:
+        target_poly = np.arange(len(polys))
+    elif isinstance(target_poly, int):
+        target_poly = np.array(target_poly)
+
     # Obtain bounding boxes for the polygons
     x_min, x_max, y_min, y_max, z_min, z_max = _axis_aligned_bounding_box_3d(polys)
 
@@ -496,7 +505,8 @@ def polygons_3d(polys, tol=1e-8):
     new_pt_ind = 0
 
     # Index of the main fractures, to which the other ones will be compared.
-    start_inds = np.unique(pairs[0])
+    # Filter out all that are not among the targets.
+    start_inds = np.intersect1d(target_poly, pairs)
 
     # Store index of pairs of intersecting polygons
     polygon_pairs = []
