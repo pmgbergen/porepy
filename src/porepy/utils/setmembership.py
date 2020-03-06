@@ -136,7 +136,7 @@ def ismember_rows(a, b, sort=True):
 # ---------------------------------------------------------
 
 
-def unique_columns_tol(mat, tol=1e-8, exponent=2):
+def unique_columns_tol(mat, tol=1e-8):
     """
     Remove duplicates from a point set, for a given distance traveling.
 
@@ -149,8 +149,6 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
         tol (double, optional): Tolerance for when columns are considered equal.
             Should be seen in connection with distance between the points in
             the points (due to rounding errors). Defaults to 1e-8.
-        exponent (double, optional): Exponnet in norm used in distance
-            calculation. Defaults to 2.
 
     Returns:
         np.ndarray: Unique columns.
@@ -203,17 +201,6 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
             except:
                 pass
 
-    def dist(p, pset):
-        " Helper function to compute distance "
-        if p.ndim == 1:
-            pt = p.reshape((-1, 1))
-        else:
-            pt = p
-
-        return np.power(
-            np.sum(np.power(np.abs(pt - pset), exponent), axis=0), 1 / exponent
-        )
-
     (nd, l) = mat.shape
 
     # By default, no columns are kept
@@ -226,19 +213,29 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
     # Map from old points to the unique subspace. Defaults to map to itself.
     old_2_new = np.arange(l)
 
+    # Matrix of elements to keep. Comparison of new poitns will be run with this
+    keep_mat = mat[:, 0].reshape((-1, 1))
+
     # Loop over all points, check if it is already represented in the kept list
     for i in range(1, l):
-        proximate = np.argwhere(dist(mat[:, i], mat[:, keep]) < tol * np.sqrt(nd))
+        a = mat[:, i].reshape((-1, 1))
 
-        if proximate.size > 0:
+        d = np.sum((a - keep_mat) ** 2, axis=0)
+        condition = d < tol ** 2
+        proximate = np.where(condition)[0]
+
+        if condition[proximate]:  # proximate.size > 0:
             # We will not keep this point
-            old_2_new[i] = proximate[0]
+            old_2_new[i] = proximate
         else:
             # We have found a new point
             keep[i] = True
             old_2_new[i] = keep_counter
             keep_counter += 1
+            # Update list of elements we keep
+            keep_mat = mat[:, keep]
+
     # Finally find which elements we kept
-    new_2_old = np.argwhere(keep).ravel()
+    new_2_old = np.nonzero(keep)[0]
 
     return mat[:, keep], new_2_old, old_2_new
