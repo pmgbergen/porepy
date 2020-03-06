@@ -216,11 +216,15 @@ def point_in_polyhedron(polyhedron, test_points, tol=1e-8):
 
     num_points = 0
     for poly in polyhedron:
-        R = pp.map_geometry.project_plane_matrix(poly)
-        # Project to 2d, Delaunay
-        p_2d = R.dot(poly)[:2]
-        loc_tri = scipy.spatial.Delaunay(p_2d.T)
-        simplices = loc_tri.simplices
+        # Shortcut if the polygon already is a triangle
+        if poly.shape[1] == 3:
+            simplices = np.array([0, 1, 2])
+        else:
+            R = pp.map_geometry.project_plane_matrix(poly)
+            # Project to 2d, Delaunay
+            p_2d = R.dot(poly)[:2]
+            loc_tri = scipy.spatial.Delaunay(p_2d.T)
+            simplices = loc_tri.simplices
 
         # Add the triangulation, with indices adjusted for the number of points
         # already added
