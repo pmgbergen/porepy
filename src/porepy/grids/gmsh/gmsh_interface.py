@@ -3,14 +3,6 @@
 import numpy as np
 import os
 
-# meshio has changed the name of the module taking care of gmsh import.
-# Ensure compatibility with both versions with a try-except
-try:
-    # This will work for meshio.__version__ < 2.3.5
-    from meshio import gmsh_io
-except:
-    from meshio import msh_io as gmsh_io
-
 from porepy.utils import sort_points, read_config
 import porepy.grids.constants as gridding_constants
 
@@ -34,7 +26,6 @@ class GmshWriter(object):
         intersection_points=None,
         tolerance=None,
         edges_2_frac=None,
-        meshing_algorithm=None,
         fracture_tags=None,
     ):
         """
@@ -68,8 +59,6 @@ class GmshWriter(object):
         self.tolerance = tolerance
         self.e2f = edges_2_frac
 
-        self.meshing_algorithm = meshing_algorithm
-
     def write_geo(self, file_name):
 
         if self.tolerance is not None:
@@ -89,7 +78,6 @@ class GmshWriter(object):
             s += self.__write_polygons()
 
         s += self.__write_physical_points()
-        s += self.__write_meshing_algorithm()
 
         with open(file_name, "w") as f:
             f.write(s)
@@ -409,17 +397,6 @@ class GmshWriter(object):
         s += "// End of physical point specification" + ls + ls
         return s
 
-    def __write_meshing_algorithm(self):
-        # See: http://www.manpagez.com/info/gmsh/gmsh-2.4.0/gmsh_76.php
-        if self.meshing_algorithm is None:
-            return ""
-        else:
-            return "\nMesh.Algorithm = " + str(self.meshing_algorithm) + ";"
-
-
-# ----------- end of GmshWriter ----------------------------------------------
-
-
 class GmshGridBucketWriter(object):
     """
     Dump a grid bucket to a gmsh .msh file, to be read by other software.
@@ -573,9 +550,6 @@ class GmshGridBucketWriter(object):
 
         s += "$EndElements" + ls
         return s
-
-
-# ------------------ End of GmshGridBucketWriter------------------------------
 
 
 def run_gmsh(in_file, out_file, dims, **kwargs):
