@@ -469,7 +469,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         #            p = [np.array([[0.5, 0.5], [0, 1]])]
         elif num_fracs == 2:
             raise ValueError("Not implemented")
-        mesh_size = {"value": 0.3, "bound_value": 0.3}
+        mesh_size = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
         network = pp.FractureNetwork2d(p, e, domain)
         gb = network.mesh(mesh_size)
         #        gb = meshing.cart_grid([np.array([[0.5, 0.5], [0, 1]])],np.array([10, 10]),
@@ -479,7 +479,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
 
         # Refine 2D grid?
         if alpha_2d is not None:
-            mesh_size = {"value": 0.3 * alpha_2d, "bound_value": 0.3 * alpha_2d}
+            mesh_size = {"mesh_size_frac": 0.3 * alpha_2d, "mesh_size_bound": 0.3 * alpha_2d}
             gbn = network.mesh(mesh_size)
             go = gb.grids_of_dimension(2)[0]
             gn = gbn.grids_of_dimension(2)[0]
