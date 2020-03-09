@@ -2137,8 +2137,6 @@ class FractureNetwork3d(object):
         else:
             gmsh_tolerance = self.tol
 
-        meshing_algorithm = kwargs.get("meshing_algorithm", None)
-
         # Initialize and run the gmsh writer:
         if in_3d:
             dom = self.domain
@@ -2154,7 +2152,6 @@ class FractureNetwork3d(object):
             mesh_size=mesh_size,
             tolerance=gmsh_tolerance,
             edges_2_frac=self.decomposition["line_in_frac"],
-            meshing_algorithm=meshing_algorithm,
             fracture_tags=frac_tags,
         )
         writer.write_geo(file_name)
