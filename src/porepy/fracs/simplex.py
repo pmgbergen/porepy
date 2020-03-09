@@ -2,23 +2,19 @@
 Module for creating simplex grids with fractures.
 """
 import time
-import sys
 import numpy as np
 import meshio
 import logging
 
-import porepy as pp
 
 from porepy.grids import constants
-from porepy.grids.gmsh import gmsh_interface, mesh_2_grid
-from porepy.fracs import fractures, tools
-from porepy.utils.setmembership import unique_columns_tol, ismember_rows
+from porepy.grids.gmsh import mesh_2_grid
 
 
 logger = logging.getLogger(__name__)
 
 
-def triangle_grid_embedded(network, f_name, **kwargs):
+def triangle_grid_embedded(network, file_name, **kwargs):
     """ Create triangular (2D) grid of a domain embedded in 3D space, without
     meshing the 3D volume.
 
@@ -36,7 +32,7 @@ def triangle_grid_embedded(network, f_name, **kwargs):
 
     Parameters:
         network (FractureNetwork): To be meshed.
-        f_name (str, optional): Filename for communication with gmsh.
+        file_name (str, optional): Filename for communication with gmsh.
             The config file for gmsh will be f_name.geo, with the grid output
             to f_name.msh. Defaults to dfn_network.
         **kwargs: Arguments sent to gmsh etc.
@@ -47,22 +43,17 @@ def triangle_grid_embedded(network, f_name, **kwargs):
 
     """
 
-    out_file = _run_gmsh(f_name, in_3d=False, **kwargs)
+    if file_name[-4:] == ".geo" or file_name[-4:] == ".msh":
+        file_name = file_name[:-4]
 
-    # The interface of meshio changed between versions 1 and 2. We make no
-    # assumption on which version is installed here.
-    if int(meshio.__version__[0]) < 2:
-        pts, cells, _, cell_info, phys_names = meshio.gmsh_io.read(out_file)
-        # Invert phys_names dictionary to map from physical tags to corresponding
-        # physical names
-        phys_names = {v[0]: k for k, v in phys_names.items()}
-    else:
-        mesh = meshio.read(out_file)
+    out_file = file_name + ".msh"
 
-        pts = mesh.points
-        cells = mesh.cells
-        cell_info = mesh.cell_data
-        phys_names = {v[0]: k for k, v in mesh.field_data.items()}
+    mesh = meshio.read(out_file)
+
+    pts = mesh.points
+    cells = mesh.cells
+    cell_info = mesh.cell_data
+    phys_names = {v[0]: k for k, v in mesh.field_data.items()}
 
     g_2d = mesh_2_grid.create_2d_grids(
         pts,
@@ -95,29 +86,6 @@ def triangle_grid_embedded(network, f_name, **kwargs):
     logger.info("\n")
 
     return grids
-
-
-def _run_gmsh(file_name, **kwargs):
-
-    verbose = kwargs.get("verbose", 1)
-    if file_name[-4:] == ".geo" or file_name[-4:] == ".msh":
-        file_name = file_name[:-4]
-
-    in_file = file_name + ".geo"
-    out_file = file_name + ".msh"
-
-    gmsh_opts = kwargs.get("gmsh_opts", {})
-    gmsh_verbose = kwargs.get("gmsh_verbose", verbose)
-    gmsh_opts["-v"] = gmsh_verbose
-    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3, **gmsh_opts)
-
-    if verbose > 0:
-        if gmsh_status == 0:
-            logger.info("Gmsh processed file successfully")
-        else:
-            logger.error("Gmsh failed with status " + str(gmsh_status))
-            sys.exit()
-    return out_file
 
 
 def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
@@ -266,4 +234,3 @@ def tetrahedral_grid_from_gmsh(network, file_name, constraints=None, **kwargs):
                 logger.info(s)
 
     return grids
-
