@@ -9,9 +9,16 @@ import numpy as np
 import logging
 import networkx as nx
 import csv
+import time
 
 import porepy as pp
 import porepy.fracs.simplex
+from porepy.grids import constants
+from porepy.grids.gmsh import gmsh_interface, mesh_2_grid
+from porepy.fracs import fractures, tools
+from porepy.utils.setmembership import unique_columns_tol, ismember_rows
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +156,7 @@ class FractureNetwork2d(object):
 
         return FractureNetwork2d(p, e, domain, self.tol)
 
-    def mesh(self, mesh_args, tol=None, do_snap=True, constraints=None, **kwargs):
+    def mesh(self, mesh_args, tol=None, do_snap=True, constraints=None, file_name=None, **kwargs):
         """ Create GridBucket (mixed-dimensional grid) for this fracture network.
 
         Parameters:
@@ -171,27 +178,226 @@ class FractureNetwork2d(object):
             tol = self.tol
         if constraints is None:
             constraints = np.empty(0, dtype=np.int)
-
+            
+        if file_name is None:
+            file_name = "gmsh_frac_file"
+        in_file = file_name + ".geo"
+        out_file = file_name + ".msh"
+            
         p = self.pts
         e = self.edges
 
         # Snap points to edges
         if do_snap and p is not None and p.size > 0:
             p, _ = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=tol)
+            
+        self._find_and_split_intersections(p, e, constraints)
+        self._insert_auxiliary_points(**mesh_args)
+        self._to_gmsh(in_file)
 
+        gmsh_status = pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dims=2)
+        logger.info("Gmsh completed with status " + str(gmsh_status))
         # Create list of grids
-        grid_list = porepy.fracs.simplex.triangle_grid(
-            p,
-            e[:2],
-            self.domain,
-            tol=tol,
-            constraints=constraints,
-            **mesh_args,
-            **kwargs
+        grid_list = porepy.fracs.simplex.triangle_grid_from_gmsh(
+            out_file, constraints=constraints
         )
         # Assemble in grid bucket
         gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
         return gb
+    
+    def _find_and_split_intersections(self, points, edges, constraints):
+        # Unified description of points and lines for domain, and fractures
+        pts_all, lines, domain_pts = self._merge_domain_fracs_2d(
+            self.domain, points, edges, constraints
+        )
+    
+        assert np.all(np.diff(lines[:2], axis=0) != 0)
+    
+        # Ensure unique description of points
+        pts_all, _, old_2_new = unique_columns_tol(pts_all, tol=self.tol)
+        lines[:2] = old_2_new[lines[:2]]
+        to_remove = np.where(lines[0, :] == lines[1, :])[0]
+        lines = np.delete(lines, to_remove, axis=1)
+    
+        # In some cases the fractures and boundaries impose the same constraint
+        # twice, although it is not clear why. Avoid this by uniquifying the lines.
+        # This may disturb the line tags in lines[2], but we should not be
+        # dependent on those.
+        li = np.sort(lines[:2], axis=0)
+        _, new_2_old, old_2_new = unique_columns_tol(li, tol=self.tol)
+        lines = lines[:, new_2_old]
+    
+        assert np.all(np.diff(lines[:2], axis=0) != 0)
+    
+        # We split all fracture intersections so that the new lines do not
+        # intersect, except possible at the end points
+        logger.info("Remove edge crossings")
+        tm = time.time()
+    
+        pts_split, lines_split = pp.intersections.split_intersecting_segments_2d(
+            pts_all, lines, tol=self.tol
+        )
+        logger.info("Done. Elapsed time " + str(time.time() - tm))
+    
+        # Ensure unique description of points
+        pts_split, _, old_2_new = unique_columns_tol(pts_split, tol=self.tol)
+        lines_split[:2] = old_2_new[lines_split[:2]]
+        to_remove = np.where(lines[0, :] == lines[1, :])[0]
+        lines = np.delete(lines, to_remove, axis=1)
+    
+        # Remove lines with the same start and end-point.
+        # This can be caused by L-intersections, or possibly also if the two
+        # endpoints are considered equal under tolerance tol.
+        remove_line_ind = np.where(np.diff(lines_split[:2], axis=0)[0] == 0)[0]
+        lines_split = np.delete(lines_split, remove_line_ind, axis=1)
+    
+        # TODO: This operation may leave points that are not referenced by any
+        # lines. We should probably delete these.
+    
+        # We find the end points that are shared by more than one intersection
+        intersections = self._find_intersection_points(lines_split)
+        
+        self.decomposition = {"points": pts_split,
+                              "edges": lines_split,
+                              "intersections": intersections,
+                              "domain": self.domain,
+                              "domain_points": domain_pts}
+
+    def _merge_domain_fracs_2d(self, dom, frac_p, frac_l, constraints):
+        """
+        Merge fractures, domain boundaries and lines for compartments.
+        The unified description is ready for feeding into meshing tools such as
+        gmsh
+    
+        Parameters:
+        dom: dictionary defining domain. fields xmin, xmax, ymin, ymax
+        frac_p: np.ndarray. Points used in fracture definition. 2 x num_points.
+        frac_l: np.ndarray. Connection between fracture points. 2 x num_fracs
+    
+        returns:
+        p: np.ndarary. Merged list of points for fractures, compartments and domain
+            boundaries.
+        l: np.ndarray. Merged list of line connections (first two rows), tag
+            identifying which type of line this is (third row), and a running index
+            for all lines (fourth row)
+        """
+        if frac_p is None:
+            frac_p = np.zeros((2, 0))
+            frac_l = np.zeros((2, 0))
+    
+        # Use constants set outside. If we ever
+        const = constants.GmshConstants()
+    
+        if isinstance(dom, dict):
+            # First create lines that define the domain
+            x_min = dom["xmin"]
+            x_max = dom["xmax"]
+            y_min = dom["ymin"]
+            y_max = dom["ymax"]
+            dom_p = np.array([[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]])
+            dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
+        else:
+            dom_p = dom
+            tmp = np.arange(dom_p.shape[1])
+            dom_lines = np.vstack((tmp, (tmp + 1) % dom_p.shape[1]))
+    
+        num_dom_lines = dom_lines.shape[1]  # Should be 4 for the dictionary case
+    
+        # The  lines will have all fracture-related tags set to zero.
+        # The plan is to ignore these tags for the boundary and compartments,
+        # so it should not matter
+        dom_tags = const.DOMAIN_BOUNDARY_TAG * np.ones((1, num_dom_lines))
+        dom_l = np.vstack((dom_lines, dom_tags))
+    
+        # Also add a tag to the fractures, signifying that these are fractures
+        frac_l = np.vstack((frac_l, const.FRACTURE_TAG * np.ones(frac_l.shape[1])))
+        is_constraint = np.in1d(np.arange(frac_l.shape[1]), constraints)
+        frac_l[-1][is_constraint] = const.AUXILIARY_TAG
+    
+        # Merge the point arrays, compartment points first
+        p = np.hstack((frac_p, dom_p))
+    
+        # Adjust index of fracture points to account for the compartment points
+        dom_l[:2] += frac_p.shape[1]
+    
+        l = np.hstack((frac_l, dom_l)).astype(np.int)
+    
+        # Add a second tag as an identifier of each line.
+        l = np.vstack((l, np.arange(l.shape[1])))
+
+        return p, l, dom_p
+    
+    
+    def _find_intersection_points(self, lines):
+        const = constants.GmshConstants()
+    
+        frac_id = np.ravel(lines[:2, lines[2] == const.FRACTURE_TAG])
+        _, frac_ia, frac_count = np.unique(frac_id, True, False, True)
+    
+        # In the case we have auxiliary points remove do not create a 0d point in
+        # case one intersects a single fracture. In the case of multiple fractures intersection
+        # with an auxiliary point do consider the 0d.
+        aux_id = lines[2] == const.AUXILIARY_TAG
+        if np.any(aux_id):
+            aux_id = np.ravel(lines[:2, aux_id])
+            _, aux_ia, aux_count = np.unique(aux_id, True, False, True)
+    
+            # probably it can be done more efficiently but currently we rarely use the
+            # auxiliary points in 2d
+            for a in aux_id[aux_ia[aux_count > 1]]:
+                # if a match is found decrease the frac_count only by one, this prevent
+                # the multiple fracture case to be handle wrongly
+                frac_count[frac_id[frac_ia] == a] -= 1
+    
+        return frac_id[frac_ia[frac_count > 1]]
+    
+    def _insert_auxiliary_points(self, mesh_size_frac=None, mesh_size_bound=None, mesh_size_min=None):
+        # Gridding size
+        # Tag points at the domain corners
+        logger.info("Determine mesh size")
+        tm = time.time()
+        
+        p = self.decomposition["points"]
+        lines = self.decomposition["edges"]
+        domain_pts = self.decomposition["domain_points"]
+
+        boundary_pt_ind = ismember_rows(p, domain_pts, sort=False)[0]
+        
+        mesh_size, pts_split, lines = tools.determine_mesh_size(
+            p, boundary_pt_ind, lines, mesh_size_frac=mesh_size_frac,
+            mesh_size_bound=mesh_size_bound,
+            mesh_size_min=mesh_size_min
+        )
+
+        logger.info("Done. Elapsed time " + str(time.time() - tm))
+        
+        self.decomposition["points"] = pts_split
+        self.decomposition["edges"] = lines
+        self.decomposition["mesh_size"] = mesh_size
+
+    # gmsh options
+    
+    def _to_gmsh(self, in_file):
+
+        # Create a writer of gmsh .geo-files
+        p = self.decomposition["points"]
+        edges = self.decomposition["edges"]
+        intersections = self.decomposition["intersections"]
+        mesh_size = self.decomposition["mesh_size"]
+        domain = self.decomposition["domain"]
+        
+        
+        gw = gmsh_interface.GmshWriter(
+            p,
+            edges,
+            domain=domain,
+            mesh_size=mesh_size,
+            intersection_points=intersections,
+        )
+        gw.write_geo(in_file)
+
+
+    ## end of methods related to meshing
 
     def _decompose_domain(self, domain, nx, ny=None):
         x0 = domain["xmin"]
