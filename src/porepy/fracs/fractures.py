@@ -1306,37 +1306,6 @@ class FractureNetwork3d(object):
             all_p, edges, edges_2_frac, is_boundary_edge
         )
 
-        # To
-        # define the auxiliary edges, we create a triangulation of the
-        # fractures. We then grow polygons forming part of the fracture in a
-        # way that ensures that no polygon lies on both sides of an
-        # intersection edge.
-
-    def report_on_decomposition(self, do_print=True):
-        """
-        Compute various statistics on the decomposition.
-
-        The coverage is rudimentary for now, will be expanded when needed.
-
-        Parameters:
-            do_print (boolean, optional): Print information. Defaults to True.
-
-        Returns:
-            str: String representation of the statistics
-
-        """
-        d = self.decomposition
-
-        s = str(len(self._fractures)) + " fractures are split into "
-        s += str(len(d["polygons"])) + " polygons \n"
-
-        s += "Number of points: " + str(d["points"].shape[1]) + "\n"
-        s += "Number of edges: " + str(d["edges"].shape[1]) + "\n"
-
-        if do_print:
-            logger.info(s)
-
-        return s
 
     def fractures_of_points(self, pts):
         """
