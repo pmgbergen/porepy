@@ -2151,9 +2151,7 @@ class FractureNetwork3d(object):
             dom = self.domain
         else:
             dom = None
-        import pdb
 
-        pdb.set_trace()
         writer = pp.grids.gmsh.gmsh_interface.GmshWriter(
             p,
             edges,
@@ -2166,6 +2164,8 @@ class FractureNetwork3d(object):
             fracture_tags=frac_tags,
         )
         writer.write_geo(file_name)
+
+        self.decomposition["edge_tags"] = edges[2]
 
     def to_csv(self, file_name, domain=None):
         """
