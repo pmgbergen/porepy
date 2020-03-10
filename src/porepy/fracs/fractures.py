@@ -2152,6 +2152,8 @@ class FractureNetwork3d(object):
         else:
             dom = None
 
+        boundary_points = np.where(point_tags)[0]
+
         writer = pp.grids.gmsh.gmsh_interface.GmshWriter(
             p,
             edges,
@@ -2162,6 +2164,7 @@ class FractureNetwork3d(object):
             tolerance=gmsh_tolerance,
             edges_2_frac=self.decomposition["line_in_frac"],
             fracture_tags=frac_tags,
+            domain_boundary_points=boundary_points,
         )
         writer.write_geo(file_name)
 

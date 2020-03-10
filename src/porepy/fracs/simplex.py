@@ -64,7 +64,7 @@ def triangle_grid_embedded(network, file_name, **kwargs):
         network=network,
     )
     g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
-    g_0d = mesh_2_grid.create_0d_grids(pts, cells)
+    g_0d = mesh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
 
     grids = [g_2d, g_1d, g_0d]
 
@@ -138,7 +138,7 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
         constraints=constraints,
         **kwargs,
     )
-    g_0d = mesh_2_grid.create_0d_grids(pts, cells)
+    g_0d = mesh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
     grids = [g_2d, g_1d, g_0d]
 
     logger.info(
@@ -210,7 +210,7 @@ def tetrahedral_grid_from_gmsh(network, file_name, constraints=None, **kwargs):
     )
 
     g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
-    g_0d = mesh_2_grid.create_0d_grids(pts, cells)
+    g_0d = mesh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
 
     grids = [g_3d, g_2d, g_1d, g_0d]
 

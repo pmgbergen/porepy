@@ -301,8 +301,9 @@ class FractureNetwork2d(object):
         # In the case we have auxiliary points remove do not create a 0d point in
         # case one intersects a single fracture. In the case of multiple fractures intersection
         # with an auxiliary point do consider the 0d.
-        aux_id = np.logical_or(lines[2] == const.AUXILIARY_TAG,
-                               lines[2] == const.DOMAIN_BOUNDARY_TAG)
+        aux_id = np.logical_or(
+            lines[2] == const.AUXILIARY_TAG, lines[2] == const.DOMAIN_BOUNDARY_TAG
+        )
         if np.any(aux_id):
             aux_id = np.ravel(lines[:2, aux_id])
             _, aux_ia, aux_count = np.unique(aux_id, True, False, True)
@@ -326,9 +327,7 @@ class FractureNetwork2d(object):
 
         p = self.decomposition["points"]
         lines = self.decomposition["edges"]
-        domain_pts = self.decomposition["domain_boundary_points"]
-
-        boundary_pt_ind = ismember_rows(p, domain_pts, sort=False)[0]
+        boundary_pt_ind = self.decomposition["domain_boundary_points"]
 
         mesh_size, pts_split, lines = tools.determine_mesh_size(
             p,
@@ -373,7 +372,9 @@ class FractureNetwork2d(object):
 
         self.bounding_box_imposed = True
 
-        self.decomposition["domain_boundary_points"] = dom_p
+        self.decomposition["domain_boundary_points"] = num_p + np.arange(
+            dom_p.shape[1], dtype=np.int
+        )
 
     def _to_gmsh(self, in_file):
 
@@ -390,6 +391,7 @@ class FractureNetwork2d(object):
             domain=domain,
             mesh_size=mesh_size,
             intersection_points=intersections,
+            domain_boundary_points=self.decomposition["domain_boundary_points"],
         )
         gw.write_geo(in_file)
 
