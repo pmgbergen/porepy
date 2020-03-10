@@ -259,19 +259,33 @@ def create_1d_grids(
     return g_1d, tip_pts
 
 
-def create_0d_grids(pts, cells):
+def create_0d_grids(pts, cells, phys_names, cell_info):
     # Find 0-d grids (points)
     # We know the points are 1d, so squeeze the superflous dimension
 
-    # All intersection lines and points on boundaries are non-physical in 3d.
-    # I.e., they are assigned boundary conditions, but are not gridded.
     g_0d = []
+    
     if "vertex" in cells:
+        # Index (in the array pts) of the points that are specified as physical in the
+        # .geo-file
         point_cells = cells["vertex"].ravel()
-        for pi in point_cells:
-            g = point_grid.PointGrid(pts[pi])
-            g.global_point_ind = np.atleast_1d(np.asarray(pi))
-            g_0d.append(g)
+        
+        # Keys to the physical names table of the points that have been decleared as
+        # physical
+        physical_names_vertx = cell_info['vertex']['gmsh:physical']
+        
+        # Loop over all physical points
+        for pi, phys_names_ind in enumerate(physical_names_vertx):
+            if phys_names[phys_names_ind][:6] == "DOMAIN":
+                # This is a domain boundary point. No new grid.
+                continue
+            elif phys_names[phys_names_ind][:8] == "FRACTURE":
+                # This is a fracture intersection point. New grid.            
+                g = point_grid.PointGrid(pts[point_cells[pi]])
+                g.global_point_ind = np.atleast_1d(np.asarray(point_cells[pi]))
+                g_0d.append(g)
+            else:
+                raise ValueError("Unknown point type in creation of 0d grids")
     return g_0d
 
 
