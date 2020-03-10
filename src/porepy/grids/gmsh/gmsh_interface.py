@@ -65,24 +65,30 @@ class GmshWriter(object):
             s = "Geometry.Tolerance = " + str(self.tolerance) + ";\n"
         else:
             s = "\n"
-        s += self.__write_points()
+
+        # Define the points
+        s += self._write_points()
 
         if self.nd == 2:
             if self.domain is not None:
-                s += self.__write_boundary_2d()
-            s += self.__write_fractures_2d()
-        elif self.nd == 3:
-            s += self.__write_lines()
-            if self.domain is not None:
-                s += self.__write_boundary_3d()
-            s += self.__write_polygons()
+                s += self._write_boundary_2d()
+            s += self._write_fractures_2d()
 
-        s += self.__write_physical_points()
+        elif self.nd == 3:
+            # First, define the edges that are combined into polygons
+            s += self._write_lines()
+            # Write domain boundary if relevant. This is a combination of the edges
+            if self.domain is not None:
+                s += self._write_boundary_3d()
+            # Finally, write the fractures
+            s += self._write_polygons()
+
+        s += self._write_physical_points()
 
         with open(file_name, "w") as f:
             f.write(s)
 
-    def __write_fractures_2d(self):
+    def _write_fractures_2d(self):
         # Both fractures and compartments are
         constants = gridding_constants.GmshConstants()
 
@@ -152,7 +158,7 @@ class GmshWriter(object):
         s += "// End of /compartment boundary/auxiliary elements specification\n\n"
         return s
 
-    def __write_boundary_2d(self):
+    def _write_boundary_2d(self):
         constants = gridding_constants.GmshConstants()
         bound_line_ind = np.argwhere(
             self.lines[2] == constants.DOMAIN_BOUNDARY_TAG
@@ -211,11 +217,11 @@ class GmshWriter(object):
         s += "// End of domain specification\n\n"
         return s
 
-    def __write_boundary_3d(self):
+    def _write_boundary_3d(self):
         ls = "\n"
         s = "// Start domain specification" + ls
         # Write surfaces:
-        s += self.__write_polygons(boundary=True)
+        s += self._write_polygons(boundary=True)
 
         # Make a box out of them
         s += "domain_loop = newsl;" + ls
@@ -236,7 +242,7 @@ class GmshWriter(object):
         s += "// End of domain specification\n\n"
         return s
 
-    def __write_points(self, boundary=False):
+    def _write_points(self, boundary=False):
         p = self.pts
         num_p = p.shape[1]
         if p.shape[0] == 2:
@@ -253,14 +259,13 @@ class GmshWriter(object):
         s += "// End of point specification\n\n"
         return s
 
-    def __write_lines(self, embed_in=None):
+    def _write_lines(self, embed_in=None):
         l = self.lines
         num_lines = l.shape[1]
         ls = "\n"
         s = "// Define lines " + ls
         constants = gridding_constants.GmshConstants()
         if l.shape[0] > 2:
-            lt = l[2]
             has_tags = True
         else:
             has_tags = False
@@ -296,7 +301,7 @@ class GmshWriter(object):
         s += "// End of line specification " + ls + ls
         return s
 
-    def __write_polygons(self, boundary=False):
+    def _write_polygons(self, boundary=False):
         """
         Writes either all fractures or all boundary planes.
         """
@@ -370,7 +375,7 @@ class GmshWriter(object):
 
         return s
 
-    def __write_physical_points(self):
+    def _write_physical_points(self):
         ls = "\n"
         s = "// Start physical point specification" + ls
         constants = gridding_constants.GmshConstants()
@@ -387,6 +392,7 @@ class GmshWriter(object):
             )
         s += "// End of physical point specification" + ls + ls
         return s
+
 
 class GmshGridBucketWriter(object):
     """
