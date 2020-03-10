@@ -247,6 +247,9 @@ class FractureNetwork2d(object):
         edges[:2] = old_2_new[edges[:2]]
         to_remove = np.where(edges[0, :] == edges[1, :])[0]
         lines = np.delete(edges, to_remove, axis=1)
+        
+        self.decomposition["domain_boundary_points"] = old_2_new[
+            self.decomposition["domain_boundary_points"]]
 
         # In some cases the fractures and boundaries impose the same constraint
         # twice, although it is not clear why. Avoid this by uniquifying the lines.
@@ -273,6 +276,9 @@ class FractureNetwork2d(object):
         lines_split[:2] = old_2_new[lines_split[:2]]
         to_remove = np.where(lines[0, :] == lines[1, :])[0]
         lines = np.delete(lines, to_remove, axis=1)
+        
+        self.decomposition["domain_boundary_points"] = old_2_new[
+            self.decomposition["domain_boundary_points"]]
 
         # Remove lines with the same start and end-point.
         # This can be caused by L-intersections, or possibly also if the two
