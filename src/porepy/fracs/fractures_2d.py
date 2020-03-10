@@ -72,6 +72,10 @@ class FractureNetwork2d(object):
 
         self.num_frac = self.edges.shape[1]
 
+        self.tags = {}
+        self.bounding_box_imposed = False
+        self.decomposition = {}
+
         if pts is None and edges is None:
             logger.info("Generated empty fracture set")
         else:
@@ -196,9 +200,14 @@ class FractureNetwork2d(object):
 
         # Snap points to edges
         if do_snap and p is not None and p.size > 0:
-            p, _ = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=tol)
+            p, _ = pp.frac_utils.snap_fracture_set_2d(p, self.edges, snap_tol=tol)
 
-        self._find_and_split_intersections(p, e, constraints)
+        self.pts = p
+
+        if not self.bounding_box_imposed:
+            self.impose_external_boundary(self.domain)
+
+        self._find_and_split_intersections(constraints)
         self._insert_auxiliary_points(**mesh_args)
         self._to_gmsh(in_file)
 
@@ -212,19 +221,29 @@ class FractureNetwork2d(object):
         gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
         return gb
 
-    def _find_and_split_intersections(self, points, edges, constraints):
+    def _find_and_split_intersections(self, constraints):
         # Unified description of points and lines for domain, and fractures
-        pts_all, lines, domain_pts = self._merge_domain_fracs_2d(
-            self.domain, points, edges, constraints
-        )
 
-        assert np.all(np.diff(lines[:2], axis=0) != 0)
+        points = self.pts
+        edges = self.edges
+
+        assert np.all(np.diff(edges[:2], axis=0) != 0)
+
+        const = constants.GmshConstants()
+
+        tags = np.zeros((2, edges.shape[1]), dtype=np.int)
+        tags[0][np.logical_not(self.tags["boundary"])] = const.FRACTURE_TAG
+        tags[0][self.tags["boundary"]] = const.DOMAIN_BOUNDARY_TAG
+        tags[0][constraints] = const.AUXILIARY_TAG
+        tags[1] = np.arange(edges.shape[1])
+
+        edges = np.vstack((edges, tags))
 
         # Ensure unique description of points
-        pts_all, _, old_2_new = unique_columns_tol(pts_all, tol=self.tol)
-        lines[:2] = old_2_new[lines[:2]]
-        to_remove = np.where(lines[0, :] == lines[1, :])[0]
-        lines = np.delete(lines, to_remove, axis=1)
+        pts_all, _, old_2_new = unique_columns_tol(points, tol=self.tol)
+        edges[:2] = old_2_new[edges[:2]]
+        to_remove = np.where(edges[0, :] == edges[1, :])[0]
+        lines = np.delete(edges, to_remove, axis=1)
 
         # In some cases the fractures and boundaries impose the same constraint
         # twice, although it is not clear why. Avoid this by uniquifying the lines.
@@ -264,79 +283,14 @@ class FractureNetwork2d(object):
         # We find the end points that are shared by more than one intersection
         intersections = self._find_intersection_points(lines_split)
 
-        self.decomposition = {
-            "points": pts_split,
-            "edges": lines_split,
-            "intersections": intersections,
-            "domain": self.domain,
-            "domain_points": domain_pts,
-        }
-
-    def _merge_domain_fracs_2d(self, dom, frac_p, frac_l, constraints):
-        """
-        Merge fractures, domain boundaries and lines for compartments.
-        The unified description is ready for feeding into meshing tools such as
-        gmsh
-    
-        Parameters:
-        dom: dictionary defining domain. fields xmin, xmax, ymin, ymax
-        frac_p: np.ndarray. Points used in fracture definition. 2 x num_points.
-        frac_l: np.ndarray. Connection between fracture points. 2 x num_fracs
-    
-        returns:
-        p: np.ndarary. Merged list of points for fractures, compartments and domain
-            boundaries.
-        l: np.ndarray. Merged list of line connections (first two rows), tag
-            identifying which type of line this is (third row), and a running index
-            for all lines (fourth row)
-        """
-        if frac_p is None:
-            frac_p = np.zeros((2, 0))
-            frac_l = np.zeros((2, 0))
-
-        # Use constants set outside. If we ever
-        const = constants.GmshConstants()
-
-        if isinstance(dom, dict):
-            # First create lines that define the domain
-            x_min = dom["xmin"]
-            x_max = dom["xmax"]
-            y_min = dom["ymin"]
-            y_max = dom["ymax"]
-            dom_p = np.array(
-                [[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]]
-            )
-            dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
-        else:
-            dom_p = dom
-            tmp = np.arange(dom_p.shape[1])
-            dom_lines = np.vstack((tmp, (tmp + 1) % dom_p.shape[1]))
-
-        num_dom_lines = dom_lines.shape[1]  # Should be 4 for the dictionary case
-
-        # The  lines will have all fracture-related tags set to zero.
-        # The plan is to ignore these tags for the boundary and compartments,
-        # so it should not matter
-        dom_tags = const.DOMAIN_BOUNDARY_TAG * np.ones((1, num_dom_lines))
-        dom_l = np.vstack((dom_lines, dom_tags))
-
-        # Also add a tag to the fractures, signifying that these are fractures
-        frac_l = np.vstack((frac_l, const.FRACTURE_TAG * np.ones(frac_l.shape[1])))
-        is_constraint = np.in1d(np.arange(frac_l.shape[1]), constraints)
-        frac_l[-1][is_constraint] = const.AUXILIARY_TAG
-
-        # Merge the point arrays, compartment points first
-        p = np.hstack((frac_p, dom_p))
-
-        # Adjust index of fracture points to account for the compartment points
-        dom_l[:2] += frac_p.shape[1]
-
-        l = np.hstack((frac_l, dom_l)).astype(np.int)
-
-        # Add a second tag as an identifier of each line.
-        l = np.vstack((l, np.arange(l.shape[1])))
-
-        return p, l, dom_p
+        self.decomposition.update(
+            {
+                "points": pts_split,
+                "edges": lines_split,
+                "intersections": intersections,
+                "domain": self.domain,
+            }
+        )
 
     def _find_intersection_points(self, lines):
         const = constants.GmshConstants()
@@ -347,7 +301,8 @@ class FractureNetwork2d(object):
         # In the case we have auxiliary points remove do not create a 0d point in
         # case one intersects a single fracture. In the case of multiple fractures intersection
         # with an auxiliary point do consider the 0d.
-        aux_id = lines[2] == const.AUXILIARY_TAG
+        aux_id = np.logical_or(lines[2] == const.AUXILIARY_TAG,
+                               lines[2] == const.DOMAIN_BOUNDARY_TAG)
         if np.any(aux_id):
             aux_id = np.ravel(lines[:2, aux_id])
             _, aux_ia, aux_count = np.unique(aux_id, True, False, True)
@@ -371,7 +326,7 @@ class FractureNetwork2d(object):
 
         p = self.decomposition["points"]
         lines = self.decomposition["edges"]
-        domain_pts = self.decomposition["domain_points"]
+        domain_pts = self.decomposition["domain_boundary_points"]
 
         boundary_pt_ind = ismember_rows(p, domain_pts, sort=False)[0]
 
@@ -390,7 +345,35 @@ class FractureNetwork2d(object):
         self.decomposition["edges"] = lines
         self.decomposition["mesh_size"] = mesh_size
 
-    # gmsh options
+    def impose_external_boundary(self, domain=None):
+
+        if isinstance(domain, dict):
+            # First create lines that define the domain
+            x_min = domain["xmin"]
+            x_max = domain["xmax"]
+            y_min = domain["ymin"]
+            y_max = domain["ymax"]
+            dom_p = np.array(
+                [[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]]
+            )
+            dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
+        else:
+            dom_p = domain
+            tmp = np.arange(dom_p.shape[1])
+            dom_lines = np.vstack((tmp, (tmp + 1) % dom_p.shape[1]))
+
+        boundary_tags = self.tags.get("boundary", [False] * self.edges.shape[1])
+        new_boundary_tags = boundary_tags + dom_lines.shape[1] * [True]
+
+        num_p = self.pts.shape[1]
+        self.pts = np.hstack((self.pts, dom_p))
+        self.edges = np.hstack((self.edges, dom_lines + num_p))
+
+        self.tags["boundary"] = new_boundary_tags
+
+        self.bounding_box_imposed = True
+
+        self.decomposition["domain_boundary_points"] = dom_p
 
     def _to_gmsh(self, in_file):
 
