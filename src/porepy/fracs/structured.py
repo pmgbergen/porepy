@@ -153,7 +153,7 @@ def _cart_grid_3d(fracs, nx, physdims=None):
     # entities corresponding to normal fractures should actually be gridded.
     edge_tags, intersection_points = network._classify_edges(poly)
     const = constants.GmshConstants()
-    auxiliary_points, edge_tags = network.on_domain_boundary(edges, edge_tags)
+    auxiliary_points, edge_tags = network._on_domain_boundary(edges, edge_tags)
     bound_and_aux = np.array([const.DOMAIN_BOUNDARY_TAG, const.AUXILIARY_TAG])
     edges = np.vstack((edges, edge_tags))
 
