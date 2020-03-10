@@ -1306,7 +1306,6 @@ class FractureNetwork3d(object):
             all_p, edges, edges_2_frac, is_boundary_edge
         )
 
-
     def fractures_of_points(self, pts):
         """
         For a given point, find all fractures that refer to it, either as
@@ -1668,6 +1667,47 @@ class FractureNetwork3d(object):
         is_0d_grid = np.where(num_occ_pt > 1)[0]
 
         return tag, is_0d_grid
+
+    def _on_domain_boundary(self, edges, edge_tags):
+        """
+        Finds edges and points on boundary, to avoid that these
+        are gridded.
+
+        Returns:
+            np.array: For all points in the decomposition, the value is 0 if the point is
+                in the interior, constants.FRACTURE_TAG if the point is on a fracture
+                that extends to the boundary, and constants.DOMAIN_BOUNDARY_TAG if the
+                point is part of the boundary specification.
+            np.array: For all edges in the decomposition, tags identifying the edge
+                as on a fracture or boundary.
+
+        """
+        constants = GmshConstants()
+        # Obtain current tags on fractures
+        boundary_polygons = np.where(
+            self.tags.get("boundary", [False] * len(self._fractures))
+        )[0]
+
+        # ... on the points...
+        point_tags = np.zeros(self.decomposition["points"].shape[1], dtype=np.int)
+        # and the mapping between fractures and edges.
+        edges_2_frac = self.decomposition["edges_2_frac"]
+
+        # Loop on edges to tag according to following rules:
+        #     Edge is on the boundary:
+        #         Tag it and the points it consists of as boundary entities.
+        for e, e2f in enumerate(edges_2_frac):
+            if any(np.in1d(e2f, boundary_polygons)):
+                edge_tags[e] = constants.DOMAIN_BOUNDARY_TAG
+                if all(np.in1d(e2f, boundary_polygons)):
+                    # The point is not associated with a fracture extending to the boundary
+                    point_tags[edges[:, e]] = constants.DOMAIN_BOUNDARY_TAG
+                else:
+                    # The point is on the boundary, but also on a fracture
+                    point_tags[edges[:, e]] = constants.FRACTURE_TAG
+                continue
+
+        return point_tags, edge_tags
 
     def _poly_2_segment(self):
         """
@@ -2068,7 +2108,7 @@ class FractureNetwork3d(object):
         # All intersection lines and points on boundaries are non-physical in 3d.
         # I.e., they are assigned boundary conditions, but are not gridded. Hence:
         # Remove the points and edges at the boundary
-        point_tags, edge_tags = self.on_domain_boundary(edges, edge_tags)
+        point_tags, edge_tags = self._on_domain_boundary(edges, edge_tags)
         edges = np.vstack((self.decomposition["edges"], edge_tags))
 
         # Intersections on the boundary should not have a 0d grid assigned
@@ -2111,7 +2151,9 @@ class FractureNetwork3d(object):
             dom = self.domain
         else:
             dom = None
+        import pdb
 
+        pdb.set_trace()
         writer = pp.grids.gmsh.gmsh_interface.GmshWriter(
             p,
             edges,
@@ -2245,44 +2287,3 @@ class FractureNetwork3d(object):
                 ip = np.append(ip, tmp_p[:2], axis=1)
 
         return p_2d, ip, other_frac, rot, cp
-
-    def on_domain_boundary(self, edges, edge_tags):
-        """
-        Finds edges and points on boundary, to avoid that these
-        are gridded.
-
-        Returns:
-            np.array: For all points in the decomposition, the value is 0 if the point is
-                in the interior, constants.FRACTURE_TAG if the point is on a fracture
-                that extends to the boundary, and constants.DOMAIN_BOUNDARY_TAG if the
-                point is part of the boundary specification.
-            np.array: For all edges in the decomposition, tags identifying the edge
-                as on a fracture or boundary.
-
-        """
-        constants = GmshConstants()
-        # Obtain current tags on fractures
-        boundary_polygons = np.where(
-            self.tags.get("boundary", [False] * len(self._fractures))
-        )[0]
-
-        # ... on the points...
-        point_tags = np.zeros(self.decomposition["points"].shape[1], dtype=np.int)
-        # and the mapping between fractures and edges.
-        edges_2_frac = self.decomposition["edges_2_frac"]
-
-        # Loop on edges to tag according to following rules:
-        #     Edge is on the boundary:
-        #         Tag it and the points it consists of as boundary entities.
-        for e, e2f in enumerate(edges_2_frac):
-            if any(np.in1d(e2f, boundary_polygons)):
-                edge_tags[e] = constants.DOMAIN_BOUNDARY_TAG
-                if all(np.in1d(e2f, boundary_polygons)):
-                    # The point is not associated with a fracture extending to the boundary
-                    point_tags[edges[:, e]] = constants.DOMAIN_BOUNDARY_TAG
-                else:
-                    # The point is on the boundary, but also on a fracture
-                    point_tags[edges[:, e]] = constants.FRACTURE_TAG
-                continue
-
-        return point_tags, edge_tags
