@@ -70,7 +70,7 @@ class GmshWriter(object):
         if self.nd == 2:
             if self.domain is not None:
                 s += self.__write_boundary_2d()
-            s += self.__write_fractures_compartments_2d()
+            s += self.__write_fractures_2d()
         elif self.nd == 3:
             s += self.__write_lines()
             if self.domain is not None:
@@ -82,15 +82,14 @@ class GmshWriter(object):
         with open(file_name, "w") as f:
             f.write(s)
 
-    def __write_fractures_compartments_2d(self):
+    def __write_fractures_2d(self):
         # Both fractures and compartments are
         constants = gridding_constants.GmshConstants()
 
-        # We consider fractures, boundary tag, an auxiliary tag (fake fractures/mesh constraints)
+        # We consider fractures and boundary tag
         ind = np.argwhere(
             np.logical_or.reduce(
                 (
-                    self.lines[2] == constants.COMPARTMENT_BOUNDARY_TAG,
                     self.lines[2] == constants.FRACTURE_TAG,
                     self.lines[2] == constants.AUXILIARY_TAG,
                 )
@@ -303,7 +302,6 @@ class GmshWriter(object):
         """
         constants = gridding_constants.GmshConstants()
         bound_tags = self.polygon_tags.get("boundary", [False] * len(self.polygons[0]))
-        subd_tags = self.polygon_tags.get("subdomain", [False] * len(self.polygons[0]))
 
         ls = "\n"
         # Name boundary or fracture
@@ -315,13 +313,6 @@ class GmshWriter(object):
         for pi in range(len(self.polygons[0])):
             if bound_tags[pi] != boundary:
                 continue
-            # Check if the polygon is a subdomain boundary, i.e., auxiliary
-            # polygon.
-            auxiliary = subd_tags[pi]
-            if auxiliary:
-                # Keep track of "fake fractures", i.e., subdomain
-                # boundaries.
-                f_or_b = "auxiliary"
             p = self.polygons[0][pi].astype("int")
             reverse = self.polygons[1][pi]
             # First define line loop
@@ -343,8 +334,8 @@ class GmshWriter(object):
                 "Plane Surface(" + n + str(pi) + ") = {frac_loop_" + str(pi) + "};" + ls
             )
 
-            if bound_tags[pi] or auxiliary:
-                # Domain boundary or "fake fracture" = subdomain boundary
+            if bound_tags[pi]:
+                # Domain boundary
                 s += (
                     'Physical Surface("'
                     + constants.PHYSICAL_NAME_AUXILIARY
