@@ -166,7 +166,7 @@ class FractureNetwork2d(object):
         do_snap=True,
         constraints=None,
         file_name=None,
-        **kwargs
+        **kwargs,
     ):
         """ Create GridBucket (mixed-dimensional grid) for this fracture network.
 
@@ -212,6 +212,9 @@ class FractureNetwork2d(object):
         self._to_gmsh(in_file)
 
         gmsh_status = pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dims=2)
+        if gmsh_status > 0:
+            raise ValueError(f"Gmsh failed with status {gmsh_status}")
+
         logger.info("Gmsh completed with status " + str(gmsh_status))
         # Create list of grids
         grid_list = porepy.fracs.simplex.triangle_grid_from_gmsh(
