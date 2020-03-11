@@ -2172,6 +2172,7 @@ class FractureNetwork3d(object):
         writer.write_geo(file_name)
 
         self.decomposition["edge_tags"] = edges[2]
+        self.decomposition["domain_boundary_points"] = boundary_points
 
     def to_csv(self, file_name, domain=None):
         """
