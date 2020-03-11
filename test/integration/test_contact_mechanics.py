@@ -105,55 +105,6 @@ class TestContactMechanics(unittest.TestCase):
         # Contact force in normal direction should be negative
         self.assertTrue(np.all(contact_force[1] < 0))
 
-    def test_zero_boundary_constant_gap(self):
-        """
-        Test contact mechanics with a nonzero constant gap.
-        """
-        setup = SetupContactMechanics(
-            ux_south=0.0, uy_south=0.0, ux_north=0, uy_north=0
-        )
-        setup.initial_gap = -1e-4 * np.ones(2)
-        u_mortar, contact_force = self._solve(setup)
-
-        # All cells should be open in the normal direction
-        self.assertTrue(np.all(np.isclose(u_mortar[1], setup.initial_gap)))
-
-        # The contact force in normal direction should be negative
-        # NB: This assumes the contact force is expressed in local coordinates
-        self.assertTrue(np.all(contact_force[1] < 0))
-
-    def test_displace_south_constant_gap(self):
-        """
-        Test contact mechanics with a nonzero constant gap.
-        """
-        setup = SetupContactMechanics(
-            ux_south=0.0, uy_south=0.001, ux_north=0, uy_north=0
-        )
-        setup.initial_gap = -1e-4 * np.random.rand(2)
-        u_mortar, contact_force = self._solve(setup)
-
-        # All cells should be open in the normal direction
-        self.assertTrue(np.all(np.isclose(u_mortar[1], setup.initial_gap)))
-
-        # The contact force in normal direction should be negative
-        # NB: This assumes the contact force is expressed in local coordinates
-        self.assertTrue(np.all(contact_force[1] < 0))
-
-    def test_displace_south_xy_constant_gap(self):
-        """ Displace also in x direction to test same as above for sliding."""
-        setup = SetupContactMechanics(
-            ux_south=0.01, uy_south=0.001, ux_north=0, uy_north=0
-        )
-        setup.initial_gap = -1e-4 * np.random.rand(2)
-        u_mortar, contact_force = self._solve(setup)
-
-        # All components should be open in the normal direction
-        self.assertTrue(np.all(np.isclose(u_mortar[1], setup.initial_gap)))
-
-        # The contact force in normal direction should be negative
-        # NB: This assumes the contact force is expressed in local coordinates
-        self.assertTrue(np.all(contact_force[1] < 0))
-
 
 class SetupContactMechanics(
     test.common.contact_mechanics_examples.ContactMechanicsExample
@@ -164,7 +115,7 @@ class SetupContactMechanics(
             "mesh_size_min": 0.023,
             "mesh_size_bound": 0.5,
         }
-        super().__init__(mesh_args, folder_name="dummy")
+        super().__init__(mesh_args, folder_name="dummy", params={"max_iterations": 25})
         self.ux_south = ux_south
         self.uy_south = uy_south
         self.ux_north = ux_north
@@ -218,13 +169,16 @@ class SetupContactMechanics(
     def set_parameters(self):
         super().set_parameters()
         dilation_angle = getattr(self, "dilation_angle", 0)
-        initial_gap = getattr(self, "initial_gap", 0)
         for g, d in self.gb:
             if g.dim < self.Nd:
+
+                initial_gap = getattr(self, "initial_gap", np.zeros(g.num_cells))
+
                 d[pp.PARAMETERS]["mechanics"].update(
                     {"initial_gap": initial_gap, "dilation_angle": dilation_angle}
                 )
 
 
 if __name__ == "__main__":
-    unittest.main()
+    TestContactMechanics().test_displace_south_x_nonconstant_gap()
+#    unittest.main()
