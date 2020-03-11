@@ -259,33 +259,68 @@ def create_1d_grids(
     return g_1d, tip_pts
 
 
-def create_0d_grids(pts, cells, phys_names, cell_info):
-    # Find 0-d grids (points)
-    # We know the points are 1d, so squeeze the superflous dimension
+def create_0d_grids(
+    pts,
+    cells,
+    phys_names,
+    cell_info,
+    target_tag_stem=constants.GmshConstants().PHYSICAL_NAME_FRACTURE_POINT,
+):
+    """ Create 0d grids for points of a specified type from a gmsh triangulation.
+
+    Only points that were defined as 'physical' in the gmsh sense may have a grid
+    created, but then only if the physical name matches specified point_tag.
+
+    It is assumed that the mesh is read by meshio. See porepy.fracs.simplex for how to
+    do this.
+
+    Parameters:
+        pts (np.ndarray, npt x 3): Global point set from gmsh
+        cells (dictionary): Should have a key 'vertex', with subdictionary with a
+            single key gmsh:physical (this is how meshio works) that contains the
+            physical names (in the gmsh sense) of the points.
+        phys_names (dict): mapping from the gmsh tags assigned to physical entities
+            to the physical name of that tag.
+        target_tag_stem (str, optional): The target physical name, all points that have
+            this tag will be assigned a grid. The string is assumed to be on the from
+            BASE_NAME_OF_TAG_{INDEX}, where _INDEX is a number. The comparison is made
+            between the physical names and the target_tag_stem, up to the last
+            underscore. If not provided, the physical names of fracture points will be
+            used as target.
+
+    Returns:
+        list of grids: List of 0d grids for all physical points that matched with the
+            specified target tag.
+
+    """
 
     g_0d = []
-    
+
     if "vertex" in cells:
         # Index (in the array pts) of the points that are specified as physical in the
         # .geo-file
         point_cells = cells["vertex"].ravel()
-        
+
         # Keys to the physical names table of the points that have been decleared as
         # physical
-        physical_names_vertx = cell_info['vertex']['gmsh:physical']
-        
+        physical_name_indices = cell_info["vertex"]["gmsh:physical"]
+
         # Loop over all physical points
-        for pi, phys_names_ind in enumerate(physical_names_vertx):
-            if phys_names[phys_names_ind][:6] == "DOMAIN":
-                # This is a domain boundary point. No new grid.
-                continue
-            elif phys_names[phys_names_ind][:8] == "FRACTURE":
-                # This is a fracture intersection point. New grid.            
+        for pi, phys_names_ind in enumerate(physical_name_indices):
+            pn = phys_names[phys_names_ind]
+            offset_index = pn.rfind("_")
+
+            phys_name_vertex = pn[:offset_index]
+
+            # Check if this is the target. The -1 is needed to avoid the extra _ in
+            # the defined constantnt
+            if phys_name_vertex == target_tag_stem[:-1]:
+                # This should be a new grid
                 g = point_grid.PointGrid(pts[point_cells[pi]])
                 g.global_point_ind = np.atleast_1d(np.asarray(point_cells[pi]))
                 g_0d.append(g)
             else:
-                raise ValueError("Unknown point type in creation of 0d grids")
+                continue
     return g_0d
 
 
