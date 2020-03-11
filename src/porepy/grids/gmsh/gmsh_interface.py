@@ -27,7 +27,7 @@ class GmshWriter(object):
         tolerance=None,
         edges_2_frac=None,
         fracture_tags=None,
-        domain_boundary_points=None
+        domain_boundary_points=None,
     ):
         """
 
@@ -59,7 +59,7 @@ class GmshWriter(object):
         self.intersection_points = intersection_points
         self.tolerance = tolerance
         self.e2f = edges_2_frac
-        
+
         self.domain_boundary_points = domain_boundary_points
 
     def write_geo(self, file_name):
@@ -292,6 +292,8 @@ class GmshWriter(object):
                     s += constants.PHYSICAL_NAME_FRACTURE_TIP
                 elif l[2, i] == constants.FRACTURE_INTERSECTION_LINE_TAG:
                     s += constants.PHYSICAL_NAME_FRACTURE_LINE
+                elif l[2, i] == constants.DOMAIN_BOUNDARY_TAG:
+                    s += constants.PHYSICAL_NAME_DOMAIN_BOUNDARY
                 else:
                     # This is a line that need not be physical (recognized by
                     # the parser of output from gmsh). Applies to boundary and
@@ -393,7 +395,7 @@ class GmshWriter(object):
                 + "};"
                 + ls
             )
-            
+
         if self.domain_boundary_points is not None:
             for i, p in enumerate(self.domain_boundary_points):
                 s += (
@@ -405,8 +407,7 @@ class GmshWriter(object):
                     + "};"
                     + ls
                 )
-                
-            
+
         s += "// End of physical point specification" + ls + ls
         return s
 
