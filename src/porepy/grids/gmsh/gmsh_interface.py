@@ -593,8 +593,11 @@ def run_gmsh(in_file, out_file, dims, **kwargs):
     config = read_config.read()
     path_to_gmsh = config["gmsh_path"]
 
+    options = {'-v': 1}
+    options.update(**kwargs)
+
     opts = " "
-    for key, val in kwargs.items():
+    for key, val in options.items():
         # Gmsh keywords are specified with prefix '-'
         if key[0] != "-":
             key = "-" + key
