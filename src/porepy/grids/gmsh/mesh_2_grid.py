@@ -126,9 +126,9 @@ def create_2d_grids(
             # If a) is chosen, you may need to be careful with
 
             pn = phys_names[phys_name_ind_tri[fi]]
-            plane_type = pn[: pn.rfind("_")]
-
-            if plane_type != "FRACTURE" or fi in constraints:
+            offset = pn.rfind("_")
+            plane_type = pn[: offset]
+            if plane_type != "FRACTURE" or int(pn[offset + 1:]) in constraints:
                 count_bound_and_aux += 1
                 continue
 
