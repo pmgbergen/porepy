@@ -3,7 +3,7 @@ Compute bounding boxes of geometric objects.
 """
 
 
-def from_points(pts, overlap=0):
+def from_points(pts, overlap=0, extend_to_3d=False):
     """ Obtain a bounding box for a point cloud.
 
     Parameters:
@@ -11,6 +11,7 @@ def from_points(pts, overlap=0):
         overlap (double, defaults to 0): Extension of the bounding box outside
             the point cloud. Scaled with extent of the point cloud in the
             respective dimension.
+        extend_to_3d: if the pts are given as 2d add also the zmin and zmax
 
     Returns:
         domain (dictionary): Containing keywords xmin, xmax, ymin, ymax, and
@@ -26,6 +27,10 @@ def from_points(pts, overlap=0):
         "ymin": min_coord[1] - dx[1] * overlap,
         "ymax": max_coord[1] + dx[1] * overlap,
     }
+
+    if extend_to_3d and max_coord.size == 2:
+        domain["zmin"] = 0
+        domain["zmax"] = 0
 
     if max_coord.size == 3:
         domain["zmin"] = min_coord[2] - dx[2] * overlap
