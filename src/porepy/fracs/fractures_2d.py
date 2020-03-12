@@ -149,7 +149,7 @@ class FractureNetwork2d(object):
 
         return FractureNetwork2d(p, e, domain, self.tol)
 
-    def mesh(self, mesh_args, tol=None, do_snap=True, constraints=None, **kwargs):
+    def mesh(self, mesh_args, tol=None, do_snap=True, constraints=None, dfn=False, **kwargs):
         """ Create GridBucket (mixed-dimensional grid) for this fracture network.
 
         Parameters:
@@ -158,6 +158,8 @@ class FractureNetwork2d(object):
                 Defaults to the tolerance of this network.
             do_snap (boolean, optional): Whether to snap lines to avoid small
                 segments. Defults to True.
+            dfn (boolean, optional): If True, a DFN mesh (of the network, but not
+                the surrounding matrix) is created.
             constraints (np.array of int): Index of network edges that should not
                 generate lower-dimensional meshes, but only act as constraints in
                 the meshing algorithm.
@@ -177,9 +179,12 @@ class FractureNetwork2d(object):
 
         if do_snap and p is not None and p.size > 0:
             p, _ = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=tol)
-        grid_list = porepy.fracs.simplex.triangle_grid(
-            p, e[:2], self.domain, tol=tol, constraints=constraints, **mesh_args
-        )
+        if dfn:
+            grid_list = pp.fracs.simplex.line_grid_embedded(p, e[:2], self.domain, tol=tol, **mesh_args)
+        else:
+            grid_list = pp.fracs.simplex.triangle_grid(
+                p, e[:2], self.domain, tol=tol, constraints=constraints, **mesh_args
+            )
         gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
         return gb
 
