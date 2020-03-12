@@ -295,6 +295,32 @@ class FractureNetwork2d(object):
         else:
             return G
 
+    def connected_networks(self):
+        """
+        Return all the connected networks as separate networks.
+
+        """
+
+        # extract the graph by splitting the intersections
+        graph, network = self.as_graph()
+        sub_networks = []
+
+        # loop on all the sub-graphs obtained
+        sub_graphs = nx.connected_component_subgraphs(graph)
+        for sub_graph in sub_graphs:
+            # get all the data for the current sub-network
+            # NOTE: standard numpy conversion does not work for a graph with
+            # one edge
+            edges = np.empty((2, sub_graph.number_of_edges()), dtype=np.int)
+            for idx, (u, v) in enumerate(sub_graph.edges):
+                edges[:, idx] = [u, v]
+            # for compability we keep the same points as the original graph
+            pts = network.pts
+            # create the sub network
+            sub_networks += [FractureNetwork2d(pts, edges, network.domain, network.tol)]
+
+        return np.asarray(sub_networks, dtype=np.object)
+
     def split_intersections(self, tol=None):
         """ Create a new FractureSet, with all fracture intersections removed
 
