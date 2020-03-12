@@ -725,7 +725,7 @@ class FractureNetwork3d(object):
         # Dump the network description to gmsh .geo format, and run gmsh to
         # generate grid
         in_3d = not dfn
-        self.to_gmsh(in_file, in_3d=in_3d)
+        self.to_gmsh(in_file, in_3d=in_3d, constraints=constraints)
         gmsh_status = pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dims=3)
         if gmsh_status > 0:
             raise ValueError(f"Gmsh failed with status {gmsh_status}")
@@ -1602,7 +1602,7 @@ class FractureNetwork3d(object):
     #               boundary_tags.append(True)
     #       self.tags["boundary"] = boundary_tags
 
-    def _classify_edges(self, polygon_edges):
+    def _classify_edges(self, polygon_edges, constraints):
         """
         Classify the edges into fracture boundary, intersection, or auxiliary.
         Also identify points on intersections between interesctions (fractures
@@ -1611,13 +1611,17 @@ class FractureNetwork3d(object):
         Parameters:
             polygon_edges (list of lists): For each polygon the global edge
                 indices that forms the polygon boundary.
+            constraints (list or np.array): Which polygons are constraints, and should
+                not cause the generation of 1d grids.
 
         Returns:
             tag: Tag of the edges, using the values in GmshConstants. Note
                 that auxiliary points will not be tagged (these are also
                 ignored in gmsh_interface.GmshWriter).
-            is_0d_grid: boolean, one for each point. True if the point is
-                shared by two or more intersection lines.
+            np.array, boolean: True for edges which are internal to at least one
+                polygon.
+            np.array, boolean: True for edges that are internal to at least one polygon,
+                and on the boundary of another polygon.
 
         """
         edges = self.decomposition["edges"]
@@ -1635,19 +1639,27 @@ class FractureNetwork3d(object):
 
         # Count the number of referals to the edge from polygons belonging to
         # different fractures (not polygons)
+        # Only do this if the polygon is not a constraint
         num_referals = np.zeros(num_edges)
         for ei, ep in enumerate(edge_2_poly):
-            num_referals[ei] = np.unique(np.array(ep)).size
+            if not ei in constraints:
+                num_referals[ei] = np.unique(np.array(ep)).size
 
         # A 1-d grid is inserted where there is more than one fracture
         # referring.
         has_1d_grid = np.where(num_referals > 1)[0]
 
-        num_constraints = len(is_bound)
+        num_is_bound = len(is_bound)
         constants = GmshConstants()
         tag = np.zeros(num_edges, dtype="int")
         # Find fractures that are tagged as a boundary of a fracture
         all_bound = [np.all(is_bound[i]) for i in range(len(is_bound))]
+
+        # We also need to find edges that are on the boundary of some, but not all
+        # the fractuers
+        any_bound = [np.any(is_bound[i]) for i in range(len(is_bound))]
+        some_bound = np.logical_and(any_bound, np.logical_not(all_bound))
+
         bound_ind = np.where(all_bound)[0]
         # Remove boundary  that are referred to by more than fracture - this takes
         # care of L-type intersections, as well as
@@ -1655,21 +1667,15 @@ class FractureNetwork3d(object):
 
         # Index of lines that should have a 1-d grid. This are all of the first
         # num-constraints, minus those on the boundary.
-        # Note that edges with index > num_constraints are known to be of the
+        # Note that edges with index > num_is_bound are known to be of the
         # auxiliary type. These will have tag zero; and treated in a special
         # manner by the interface to gmsh.
-        intersection_ind = np.setdiff1d(np.arange(num_constraints), bound_ind)
+        not_boundary_ind = np.setdiff1d(np.arange(num_is_bound), bound_ind)
         tag[bound_ind] = constants.FRACTURE_TIP_TAG
-        tag[intersection_ind] = constants.FRACTURE_INTERSECTION_LINE_TAG
 
-        # Count the number of times a point is referred to by an intersection
-        # between two fractures. If this is more than one, the point should
-        # have a 0-d grid assigned to it.
-        isect_p = edges[:, intersection_ind].ravel()
-        num_occ_pt = np.bincount(isect_p)
-        is_0d_grid = np.where(num_occ_pt > 1)[0]
+        tag[not_boundary_ind] = constants.FRACTURE_INTERSECTION_LINE_TAG
 
-        return tag, is_0d_grid
+        return tag, np.logical_not(all_bound), some_bound
 
     def _on_domain_boundary(self, edges, edge_tags):
         """
@@ -2082,7 +2088,7 @@ class FractureNetwork3d(object):
 
         writer.Update()
 
-    def to_gmsh(self, file_name, in_3d=True, **kwargs):
+    def to_gmsh(self, file_name, constraints, in_3d=True, **kwargs):
         """ Write the fracture network as input for mesh generation by gmsh.
 
         It is assumed that intersections have been found and processed (e.g. by
@@ -2106,18 +2112,71 @@ class FractureNetwork3d(object):
             len(self._fractures) - len(frac_tags.get("boundary", []))
         )
 
-        edge_tags, intersection_points = self._classify_edges(poly)
+        # Get preliminary set of tags for the edges. Also find which edges are
+        # interior to all or only some edges
+        edge_tags, not_boundary_edge, some_boundary_edge = self._classify_edges(
+            poly, constraints
+        )
 
         # All intersection lines and points on boundaries are non-physical in 3d.
         # I.e., they are assigned boundary conditions, but are not gridded. Hence:
         # Remove the points and edges at the boundary
         point_tags, edge_tags = self._on_domain_boundary(edges, edge_tags)
-        edges = np.vstack((self.decomposition["edges"], edge_tags))
+
+        # To ensure that polygons that are constraints, but not fractures, do not
+        # trigger the generation of 1d fracture intersections, or 0d point grids, some
+        # steps are needed.
+
+        # Count the number of times a lines is defined as 'inside' a fracture, and the
+        # the number of times this is casued by a constraint
+        in_frac_occurences = np.zeros(edges.shape[1], dtype=np.int)
+        in_frac_occurences_by_constraints = np.zeros(edges.shape[1], dtype=np.int)
+
+        for poly_ind, poly_edges in enumerate(self.decomposition["line_in_frac"]):
+            for edge_ind in poly_edges:
+                in_frac_occurences[edge_ind] += 1
+                if poly_ind in constraints:
+                    in_frac_occurences_by_constraints[edge_ind] += 1
+
+        # Count the number of occurences that are not caused by a constraint
+        num_occ_not_by_constraints = (
+            in_frac_occurences - in_frac_occurences_by_constraints
+        )
+
+        # If all but one occurence of a line internal to a polygon is caused by
+        # constraints, this is likely a fracture.
+        auxiliary_line = num_occ_not_by_constraints == 1
+
+        # .. However, the line may also be caused by a T- or L-intersection
+        auxiliary_line[some_boundary_edge] = False
+        # The edge tags for internal lines were set accordingly in self._classify_edges.
+        # Update to auxiliray line if this was really what we had.
+        edge_tags[auxiliary_line] = GmshConstants().AUXILIARY_TAG
+
+        # .. and we're done with edges (until someone defines a new special case)
+        # Next, find intersection points.
+
+        # Count the number of times a point is referred to by an intersection
+        # between two fractures. If this is more than one, the point should
+        # have a 0-d grid assigned to it.
+        # Here, we must account for lines that are internal, but not those that have
+        # been found to be triggered by constraints.
+        intersection_edge = np.logical_and(
+            not_boundary_edge, np.logical_not(auxiliary_line)
+        )
+
+        isect_p = edges[:2, intersection_edge].ravel()
+        num_occ_pt = np.bincount(isect_p)
+        intersection_points = np.where(num_occ_pt > 1)[0]
+
+        # We're done! Hurah!
 
         # Intersections on the boundary should not have a 0d grid assigned
         int_pts_on_boundary = np.isin(intersection_points, np.where(point_tags > 0))
         intersection_points = intersection_points[np.logical_not(int_pts_on_boundary)]
         self.zero_d_pt = intersection_points
+
+        edges = np.vstack((self.decomposition["edges"], edge_tags))
 
         # Obtain mesh size parameters
         mesh_size = self._determine_mesh_size(boundary_point_tags=point_tags)
