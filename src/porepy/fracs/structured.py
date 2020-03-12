@@ -151,7 +151,18 @@ def _cart_grid_3d(fracs, nx, physdims=None):
     # And tags identifying points and edges corresponding to normal
     # fractures, domain boundaries and subdomain boundaries. Only the
     # entities corresponding to normal fractures should actually be gridded.
-    edge_tags, intersection_points = network._classify_edges(poly)
+
+    # TODO: Constraints have not been implemented for structured DFM grids.
+    # Simply pass nothing for now, not sure how do deal with this.
+    edge_tags, not_boundary_edge, _ = network._classify_edges(poly, [])
+
+    # From information of which lines are internal, we can find intersection points.
+    # Due to the lack of constraints, this is quite a bit easier than the similar
+    # operation for general meshes.
+    isect_p = edges[:, not_boundary_edge].ravel()
+    num_occ_pt = np.bincount(isect_p)
+    intersection_points = np.where(num_occ_pt > 1)[0]
+
     const = constants.GmshConstants()
     auxiliary_points, edge_tags = network._on_domain_boundary(edges, edge_tags)
     bound_and_aux = np.array([const.DOMAIN_BOUNDARY_TAG, const.AUXILIARY_TAG])
