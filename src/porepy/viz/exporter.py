@@ -165,7 +165,7 @@ class Exporter:
         Parameters:
         grid: the grid or grid bucket
         file_name: the root of file name without any extension.
-        folder_name: (optional) the name of the folder to save the file. 
+        folder_name: (optional) the name of the folder to save the file.
             If the folder does not exist it will be created.
 
         Optional arguments in kwargs:
