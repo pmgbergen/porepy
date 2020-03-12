@@ -157,61 +157,14 @@ def triangle_grid(points, edges, domain, constraints=None, **kwargs):
     """
     logger.info("Create 2d mesh")
 
-    # File name for communication with gmsh
-    file_name = kwargs.get("file_name", "gmsh_frac_file")
-    kwargs.pop("file_name", str())
-
-    tol = kwargs.get("tol", 1e-4)
-
-    in_file = file_name + ".geo"
-
     # Unified description of points and lines for domain, and fractures
     pts_all, lines, domain_pts = _merge_domain_fracs_2d(
         domain, points, edges, constraints
     )
-
     assert np.all(np.diff(lines[:2], axis=0) != 0)
 
-    # Ensure unique description of points
-    pts_all, _, old_2_new = unique_columns_tol(pts_all, tol=tol)
-    lines[:2] = old_2_new[lines[:2]]
-    to_remove = np.where(lines[0, :] == lines[1, :])[0]
-    lines = np.delete(lines, to_remove, axis=1)
-
-    # In some cases the fractures and boundaries impose the same constraint
-    # twice, although it is not clear why. Avoid this by uniquifying the lines.
-    # This may disturb the line tags in lines[2], but we should not be
-    # dependent on those.
-    li = np.sort(lines[:2], axis=0)
-    _, new_2_old, old_2_new = unique_columns_tol(li, tol=tol)
-    lines = lines[:, new_2_old]
-
-    assert np.all(np.diff(lines[:2], axis=0) != 0)
-
-    # We split all fracture intersections so that the new lines do not
-    # intersect, except possible at the end points
-    logger.info("Remove edge crossings")
-    tm = time.time()
-
-    pts_split, lines_split = pp.intersections.split_intersecting_segments_2d(
-        pts_all, lines, tol=tol
-    )
-    logger.info("Done. Elapsed time " + str(time.time() - tm))
-
-    # Ensure unique description of points
-    pts_split, _, old_2_new = unique_columns_tol(pts_split, tol=tol)
-    lines_split[:2] = old_2_new[lines_split[:2]]
-    to_remove = np.where(lines[0, :] == lines[1, :])[0]
-    lines = np.delete(lines, to_remove, axis=1)
-
-    # Remove lines with the same start and end-point.
-    # This can be caused by L-intersections, or possibly also if the two
-    # endpoints are considered equal under tolerance tol.
-    remove_line_ind = np.where(np.diff(lines_split[:2], axis=0)[0] == 0)[0]
-    lines_split = np.delete(lines_split, remove_line_ind, axis=1)
-
-    # TODO: This operation may leave points that are not referenced by any
-    # lines. We should probably delete these.
+    tol = kwargs.get("tol", 1e-4)
+    pts_split, lines_split = _segment_2d_split(pts_all, lines, tol)
 
     # We find the end points that are shared by more than one intersection
     intersections = _find_intersection_points(lines_split)
@@ -242,11 +195,71 @@ def triangle_grid(points, edges, domain, constraints=None, **kwargs):
         intersection_points=intersections,
         meshing_algorithm=meshing_algorithm,
     )
+
+    # File name for communication with gmsh
+    file_name = kwargs.get("file_name", "gmsh_frac_file")
+    kwargs.pop("file_name", str())
+
+    in_file = file_name + ".geo"
+
     gw.write_geo(in_file)
 
     _run_gmsh(file_name, **kwargs)
     return triangle_grid_from_gmsh(file_name, **kwargs)
 
+def line_grid_embedded(points, edges, domain, **kwargs):
+
+    logger.info("Create 1d mesh embedded")
+
+    # Unified description of points and lines for domain, and fractures
+    constraints = np.empty(0, dtype=np.int)
+    pts_all, lines, domain_pts = _merge_domain_fracs_2d(
+        domain, points, edges, constraints
+    )
+
+    tol = kwargs.get("tol", 1e-4)
+    pts_split, lines_split = _segment_2d_split(pts_all, lines, tol)
+
+    # We find the end points that are shared by more than one intersection
+    intersections = _find_intersection_points(lines_split)
+
+    # Gridding size
+    if "mesh_size_frac" in kwargs.keys():
+        # Tag points at the domain corners
+        logger.info("Determine mesh size")
+        tm = time.time()
+        mesh_size, pts_split, lines_split = tools.determine_mesh_size(
+            pts_split, None, lines_split, **kwargs
+        )
+
+        logger.info("Done. Elapsed time " + str(time.time() - tm))
+    else:
+        mesh_size = None
+
+    # gmsh options
+
+    meshing_algorithm = kwargs.get("meshing_algorithm")
+    # Create a writer of gmsh .geo-files
+    gw = gmsh_interface.GmshWriter(
+        pts_split,
+        lines_split,
+        mesh_size=mesh_size,
+        intersection_points=intersections,
+        meshing_algorithm=meshing_algorithm,
+        nd=1
+    )
+
+    # File name for communication with gmsh
+    file_name = kwargs.get("file_name", "gmsh_frac_file")
+    kwargs.pop("file_name", str())
+
+    in_file = file_name + ".geo"
+
+    gw.write_geo(in_file)
+
+    _run_gmsh(file_name, **kwargs)
+
+    return line_grid_from_gmsh(file_name, **kwargs)
 
 def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
     """ Generate a list of grids dimensions {2, 1, 0}, starting from a gmsh mesh.
@@ -322,6 +335,76 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
 
     return grids
 
+def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
+    """ Generate a list of grids dimensions {1, 0}, starting from a gmsh mesh.
+
+    Parameters:
+        file_name (str): Path to file of gmsh.msh specification.
+        constraints (np.array, optional): Index of fracture lines that are
+            constraints in the meshing, but should not have a lower-dimensional
+            mesh. Defaults to empty.
+
+    Returns:
+        list of list of grids: grids in 1d and 0d. If no grids exist in a
+            specified dimension, the inner list will be empty.
+
+    """
+
+    if constraints is None:
+        constraints = np.empty(0, dtype=np.int)
+
+    start_time = time.time()
+
+    if file_name.endswith(".msh"):
+        file_name = file_name[:-4]
+    out_file = file_name + ".msh"
+
+    mesh = meshio.read(out_file)
+
+    pts = mesh.points
+    cells = mesh.cells
+    cell_info = mesh.cell_data
+    # Invert phys_names dictionary to map from physical tags to corresponding
+    # physical names
+    phys_names = {v[0]: k for k, v in mesh.field_data.items()}
+
+    # Constants used in the gmsh.geo-file
+    const = constants.GmshConstants()
+
+    # Create grids from gmsh mesh.
+    logger.info("Create grids of various dimensions")
+    g_1d, _ = mesh_2_grid.create_1d_grids(
+        pts,
+        cells,
+        phys_names,
+        cell_info,
+        line_tag=const.PHYSICAL_NAME_FRACTURES,
+        constraints=constraints,
+        **kwargs,
+    )
+    g_0d = mesh_2_grid.create_0d_grids(pts, cells)
+    grids = [g_1d, g_0d]
+
+    logger.info(
+        "Grid creation completed. Elapsed time " + str(time.time() - start_time)
+    )
+
+    for g_set in grids:
+        if len(g_set) > 0:
+            s = (
+                "Created "
+                + str(len(g_set))
+                + " "
+                + str(g_set[0].dim)
+                + "-d grids with "
+            )
+            num = 0
+            for g in g_set:
+                num += g.num_cells
+            s += str(num) + " cells"
+            logger.info(s)
+
+    return grids
 
 def tetrahedral_grid_from_gmsh(network, file_name, **kwargs):
     """ Generate a list of grids of dimensions {3, 2, 1, 0}, starting from a gmsh
@@ -423,7 +506,9 @@ def _merge_domain_fracs_2d(dom, frac_p, frac_l, constraints):
     # Use constants set outside. If we ever
     const = constants.GmshConstants()
 
-    if isinstance(dom, dict):
+    if dom is None:
+        dom_lines = np.empty((2, 0))
+    elif isinstance(dom, dict):
         # First create lines that define the domain
         x_min = dom["xmin"]
         x_max = dom["xmax"]
@@ -485,3 +570,46 @@ def _find_intersection_points(lines):
             frac_count[frac_id[frac_ia] == a] -= 1
 
     return frac_id[frac_ia[frac_count > 1]]
+
+def _segment_2d_split(pts_all, lines, tol):
+
+    # Ensure unique description of points
+    pts_all, _, old_2_new = unique_columns_tol(pts_all, tol=tol)
+    lines[:2] = old_2_new[lines[:2]]
+    to_remove = np.where(lines[0, :] == lines[1, :])[0]
+    lines = np.delete(lines, to_remove, axis=1)
+
+    # In some cases the fractures and boundaries impose the same constraint
+    # twice, although it is not clear why. Avoid this by uniquifying the lines.
+    # This may disturb the line tags in lines[2], but we should not be
+    # dependent on those.
+    li = np.sort(lines[:2], axis=0)
+    _, new_2_old, old_2_new = unique_columns_tol(li, tol=tol)
+    lines = lines[:, new_2_old]
+
+    assert np.all(np.diff(lines[:2], axis=0) != 0)
+
+    # We split all fracture intersections so that the new lines do not
+    # intersect, except possible at the end points
+    logger.info("Remove edge crossings")
+    tm = time.time()
+
+    pts_split, lines_split = pp.intersections.split_intersecting_segments_2d(
+        pts_all, lines, tol=tol
+    )
+    logger.info("Done. Elapsed time " + str(time.time() - tm))
+
+    # Ensure unique description of points
+    pts_split, _, old_2_new = unique_columns_tol(pts_split, tol=tol)
+    lines_split[:2] = old_2_new[lines_split[:2]]
+    to_remove = np.where(lines[0, :] == lines[1, :])[0]
+    lines = np.delete(lines, to_remove, axis=1)
+
+    # Remove lines with the same start and end-point.
+    # This can be caused by L-intersections, or possibly also if the two
+    # endpoints are considered equal under tolerance tol.
+    remove_line_ind = np.where(np.diff(lines_split[:2], axis=0)[0] == 0)[0]
+    lines_split = np.delete(lines_split, remove_line_ind, axis=1)
+
+    return pts_split, lines_split
+
