@@ -620,6 +620,41 @@ class TestMeshGenerationFractureHitsBoundary(unittest.TestCase):
 
 
 class TestDFNMeshGeneration(unittest.TestCase):
+    def check_gb(self, gb, domain, pts=None, edges=None, isect_line=None, isect_pt=None, **kwargs):
+
+        if edges is None:
+            edges = []
+        if isect_line is None:
+            isect_line = []
+        if isect_pt is None:
+            isect_pt = []
+
+        def compare_bounding_boxes(box_1, box_2):
+            for k, v in box_1.items():
+                if np.abs(box_2[k] - v) > 1e-10:
+                    return False
+            return True
+
+        dim_max = gb.dim_max()
+        bb = pp.bounding_box.from_points(np.hstack([g.nodes for g in gb.grids_of_dimension(dim_max)]))
+
+        self.assertTrue(compare_bounding_boxes(bb, domain))
+
+        dim_frac = kwargs.get("frac_dim", dim_max-1)
+        self.assertTrue(len(edges.T) == len(gb.grids_of_dimension(dim_frac)))
+
+        # Loop over all fractures, find the grid with the corresponding frac_num. Check
+        # that their bounding boxes are the same.
+        for fi, f in enumerate(edges.T):
+            for g in gb.grids_of_dimension(dim_frac):
+                if g.frac_num == fi:
+                    self.assertTrue(
+                        compare_bounding_boxes(
+                            pp.bounding_box.from_points(pts[:, f], extend_to_3d=True),
+                            pp.bounding_box.from_points(g.nodes),
+                        )
+                    )
+
     def test_conforming_two_fractures(self):
         f_1 = pp.Fracture(np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]]).T)
         f_2 = pp.Fracture(np.array([[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1]]).T)
@@ -635,6 +670,43 @@ class TestDFNMeshGeneration(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
         network.mesh(mesh_args, dfn=True)
 
+    def test_dfn_1d_create_grid_L_intersection(self):
+        p = np.array([[0.2, 0.8, 0.8],
+                      [0.8, 0.8, 0.2]])
+        e = np.array([[0, 1], [1, 2]])
+        network = pp.FractureNetwork2d(p, e)
+        network.domain = pp.bounding_box.from_points(p, extend_to_3d=True)
+
+        #create the 1d mesh
+        mesh_args = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
+        gb = network.mesh(mesh_args, dfn=True)
+
+        self.check_gb(gb, network.domain, p, e, frac_dim=1)
+
+    def test_dfn_1d_create_grid_T_intersection(self):
+        p = np.array([[0.2, 0.8, 0.5, 0.5],
+                      [0.8, 0.8, 0.8, 0.2]])
+        e = np.array([[0, 2], [1, 3]])
+        network = pp.FractureNetwork2d(p, e)
+        network.domain = pp.bounding_box.from_points(p, extend_to_3d=True)
+
+        #create the 1d mesh
+        mesh_args = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
+        gb = network.mesh(mesh_args, dfn=True)
+
+        self.check_gb(gb, network.domain, p, e, frac_dim=1)
+
+    def test_dfn_1d_create_grid_X_intersection(self):
+        p = np.array([[0.2, 0.8, 0.2, 0.8], [0.2, 0.8, 0.8, 0.2]])
+        e = np.array([[0, 2], [1, 3]])
+        network = pp.FractureNetwork2d(p, e)
+        network.domain = pp.bounding_box.from_points(p, extend_to_3d=True)
+
+        #create the 1d mesh
+        mesh_args = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
+        gb = network.mesh(mesh_args, dfn=True)
+
+        self.check_gb(gb, network.domain, p, e, frac_dim=1)
 
 class TestDFMNonConvexDomain(unittest.TestCase):
     def setUp(self):
@@ -752,6 +824,44 @@ class Test2dDomain(unittest.TestCase):
         self.assertTrue(len(gb.grids_of_dimension(1)) == 1)
         self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
 
+    def test_extract_connected_networks(self):
+        p = np.array([[0.2, 0.8, 0.2, 0.8, 0.2, 0.8],
+                      [0.2, 0.8, 0.8, 0.2, 0.85, 0.85]])
+        e = np.array([[0, 2, 4], [1, 3, 5]])
+        network = pp.FractureNetwork2d(p, e)
+        # split the network in sub-networks which are connected
+        [sub_network1, sub_network2] = network.connected_networks()
+
+        # the points are kept the same as in the original network
+        # adding the intersection points
+        known_p = np.array([[0.2 , 0.8 , 0.2 , 0.8 , 0.2 , 0.8 , 0.5 ],
+                            [0.2 , 0.8 , 0.8 , 0.2 , 0.85, 0.85, 0.5 ]])
+
+        self.assertTrue(np.array_equal(sub_network1.pts, known_p))
+        self.assertTrue(np.array_equal(sub_network2.pts, known_p))
+
+        # the edges follow the numeration
+        known_e1 = np.array([[0, 1, 2, 3], [6, 6, 6, 6]])
+        known_e2 = np.array([[4], [5]])
+
+        self.assertTrue(np.array_equal(sub_network1.edges, known_e1))
+        self.assertTrue(np.array_equal(sub_network2.edges, known_e2))
+
+    def test_remove_useless_pts(self):
+        p = np.array([[0.2, 0.8, 0.2, 0.8, 0.2, 0.8],
+                      [0.2, 0.8, 0.8, 0.2, 0.85, 0.85]])
+        e = np.array([[4], [5]])
+        network = pp.FractureNetwork2d(p, e)
+
+        # remove pts that are not connected to any edge
+        network.purge_pts()
+
+        known_p = np.array([[0.2, 0.8],
+                            [0.85, 0.85]])
+        known_e = np.array([[0], [1]])
+
+        self.assertTrue(np.array_equal(network.pts, known_p))
+        self.assertTrue(np.array_equal(network.edges, known_e))
 
 class TestStructuredGrids(unittest.TestCase):
     def test_x_intersection_2d(self):
@@ -837,7 +947,5 @@ class TestStructuredGrids(unittest.TestCase):
         f = [f_1, f_2, f_3, f_4]
         gb = pp.meshing.cart_grid(f, np.array([8, 8, 8]))
 
-
 if __name__ == "__main__":
-    TestStructuredGrids().test_tripple_x_intersection_3d()
     unittest.main()
