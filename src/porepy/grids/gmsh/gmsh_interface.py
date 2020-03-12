@@ -78,7 +78,9 @@ class GmshWriter(object):
             s = "\n"
         s += self.__write_points()
 
-        if self.nd == 2:
+        if self.nd == 1:
+            s += self.__write_fractures_1d()
+        elif self.nd == 2:
             if self.domain is not None:
                 s += self.__write_boundary_2d()
             s += self.__write_fractures_compartments_2d()
@@ -93,6 +95,73 @@ class GmshWriter(object):
 
         with open(file_name, "w") as f:
             f.write(s)
+
+    def __write_fractures_1d(self):
+        # Both fractures and compartments are
+        constants = gridding_constants.GmshConstants()
+
+        # We consider fractures, boundary tag, an auxiliary tag (fake fractures/mesh constraints)
+        ind = np.argwhere(
+            np.logical_or.reduce(
+                (
+                    self.lines[2] == constants.COMPARTMENT_BOUNDARY_TAG,
+                    self.lines[2] == constants.FRACTURE_TAG,
+                    self.lines[2] == constants.AUXILIARY_TAG,
+                )
+            )
+        ).ravel()
+        lines = self.lines[:, ind]
+        tag = self.lines[2, ind]
+
+        lines_id = lines[3, :]
+        if lines_id.size == 0:
+            return str()
+        range_id = np.arange(np.amin(lines_id), np.amax(lines_id) + 1)
+
+        s = "// Start specification of fractures/compartment boundary/auxiliary elements\n"
+        seg_id = 0
+        for i in range_id:
+            local_seg_id = str()
+            for mask in np.flatnonzero(lines_id == i):
+
+                # give different name for fractures/boundary and auxiliary
+                if tag[mask] != constants.AUXILIARY_TAG:
+                    name = "frac_line_"
+                    physical_name = constants.PHYSICAL_NAME_FRACTURES
+                else:
+                    name = "seg_line_"
+                    physical_name = constants.PHYSICAL_NAME_AUXILIARY
+
+                s += (
+                    name
+                    + str(seg_id)
+                    + " = newl; "
+                    + "Line("
+                    + name
+                    + str(seg_id)
+                    + ") = {"
+                    + "p"
+                    + str(int(lines[0, mask]))
+                    + ", p"
+                    + str(int(lines[1, mask]))
+                    + "};\n"
+                )
+                local_seg_id += name + str(seg_id) + ", "
+                seg_id += 1
+
+            local_seg_id = local_seg_id[:-2]
+            s += (
+                'Physical Line("'
+                + physical_name
+                + str(i)
+                + '") = { '
+                + local_seg_id
+                + " };\n"
+            )
+            s += "\n"
+
+        s += "// End of /compartment boundary/auxiliary elements specification\n\n"
+        return s
 
     def __write_fractures_compartments_2d(self):
         # Both fractures and compartments are
@@ -611,10 +680,14 @@ def run_gmsh(in_file, out_file, dims, **kwargs):
             key = "-" + key
         opts += key + " " + str(val) + " "
 
-    if dims == 2:
+    if dims == 1:
+        cmd = path_to_gmsh + " -1 " + in_file + " -o " + out_file + opts
+    elif dims == 2:
         cmd = path_to_gmsh + " -2 " + in_file + " -o " + out_file + opts
-    else:
+    elif dims == 3:
         cmd = path_to_gmsh + " -3 " + in_file + " -o " + out_file + opts
+    else:
+        raise ValueError
 
     status = os.system(cmd)
 
