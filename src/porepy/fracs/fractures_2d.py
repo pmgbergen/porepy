@@ -321,6 +321,22 @@ class FractureNetwork2d(object):
 
         return np.asarray(sub_networks, dtype=np.object)
 
+    def purge_pts(self):
+        """
+        Remove points that are not part of any fracture
+        """
+
+        # get the point indices that are actually used
+        pts = np.unique(self.edges)
+        # create the map from the old numeration to the new one with contiguous
+        # point index
+        pts_map = np.zeros(np.amax(pts)+1, dtype=np.int)
+        pts_map[pts] = np.arange(pts.size)
+
+        # map the edges and remove the useless points
+        self.edges = pts_map[self.edges]
+        self.pts = self.pts[:, pts]
+
     def split_intersections(self, tol=None):
         """ Create a new FractureSet, with all fracture intersections removed
 
