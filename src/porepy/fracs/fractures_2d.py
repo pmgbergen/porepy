@@ -247,7 +247,7 @@ class FractureNetwork2d(object):
         edges[:2] = old_2_new[edges[:2]]
         to_remove = np.where(edges[0, :] == edges[1, :])[0]
         lines = np.delete(edges, to_remove, axis=1)
-        
+
         self.decomposition["domain_boundary_points"] = old_2_new[
             self.decomposition["domain_boundary_points"]]
 
@@ -276,7 +276,7 @@ class FractureNetwork2d(object):
         lines_split[:2] = old_2_new[lines_split[:2]]
         to_remove = np.where(lines[0, :] == lines[1, :])[0]
         lines = np.delete(lines, to_remove, axis=1)
-        
+
         self.decomposition["domain_boundary_points"] = old_2_new[
             self.decomposition["domain_boundary_points"]]
 
@@ -373,9 +373,12 @@ class FractureNetwork2d(object):
         boundary_tags = self.tags.get("boundary", [False] * self.edges.shape[1])
         new_boundary_tags = boundary_tags + dom_lines.shape[1] * [True]
 
-        num_p = self.pts.shape[1]
-        self.pts = np.hstack((self.pts, dom_p))
-        self.edges = np.hstack((self.edges, dom_lines + num_p))
+        # Constrain the edges to the domain
+        p, e = pp.constrain_geometry.lines_by_polygon(dom_p, self.pts, self.edges)
+
+        num_p = p.shape[1]
+        self.pts = np.hstack((p, dom_p))
+        self.edges = np.hstack((e, dom_lines + num_p))
 
         self.tags["boundary"] = new_boundary_tags
 
@@ -469,15 +472,23 @@ class FractureNetwork2d(object):
     def _domain_to_points(self, domain):
         """ Helper function to convert a domain specification in the form of
         a dictionary into a point set.
+
+        If the domain is already a point set, nothing happens
+
         """
         if domain is None:
             domain = self.domain
 
-        p00 = np.array([domain["xmin"], domain["ymin"]]).reshape((-1, 1))
-        p10 = np.array([domain["xmax"], domain["ymin"]]).reshape((-1, 1))
-        p11 = np.array([domain["xmax"], domain["ymax"]]).reshape((-1, 1))
-        p01 = np.array([domain["xmin"], domain["ymax"]]).reshape((-1, 1))
-        return np.hstack((p00, p10, p11, p01))
+        if isinstance(domain, dict):
+            p00 = np.array([domain["xmin"], domain["ymin"]]).reshape((-1, 1))
+            p10 = np.array([domain["xmax"], domain["ymin"]]).reshape((-1, 1))
+            p11 = np.array([domain["xmax"], domain["ymax"]]).reshape((-1, 1))
+            p01 = np.array([domain["xmin"], domain["ymax"]]).reshape((-1, 1))
+            return np.hstack((p00, p10, p11, p01))
+
+        else:
+            return domain
+
 
     # --------- Methods for analysis of the fracture set
 
