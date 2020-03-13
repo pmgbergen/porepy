@@ -30,9 +30,11 @@ def lines_by_polygon(poly_pts, pts, edges):
 
     Returns:
     int_pts (np.ndarray, 2xn): the point associated to the lines after the intersection
-    int_edges (np.ndarray, 2xn): for each column the id of the points for the line after the
-        intersection. If the input edges have tags, stored in rows [2:], these will be
-        preserved.
+    int_edges (np.ndarray, 2xn): for each column the id of the points for the line after
+        the intersection. If the input edges have tags, stored in rows [2:], these will
+        be preserved.
+    edges_kept (np.ndarray, n): Column index of the kept edges. This will have recurring
+        values if an edge is cut by a non-convex domain.
 
     """
     # it stores the points after the intersection
@@ -75,9 +77,9 @@ def lines_by_polygon(poly_pts, pts, edges):
         int_edges = np.vstack((int_edges, edges[2:, edges_kept]))
     else:
         # If no edges are kept, return an empty array with the right dimensions
-        int_edges = np.empty((edges.shape[0], 0))
+        int_edges = np.empty((edges.shape[0], 0), dtype=np.int)
 
-    return int_pts, int_edges
+    return int_pts, int_edges, np.array(edges_kept, dtype=np.int)
 
 
 def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
