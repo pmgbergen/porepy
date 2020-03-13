@@ -11,18 +11,18 @@ class BasicTest(unittest.TestCase):
 
     """
 
-    def test_0(self):
+    def test_convex_polygon(self):
         # convex polygon
         polygon = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
         pts = np.array(
             [
-                [0.0, 1.0, 0.0, 2.0, 0.5, 0.0, -0.5, 0.3, -1, 0.0],
-                [0.0, 1.0, 0.0, 2.0, 1.0, 0.0, -0.5, 0.6, -1, 0.0],
+                [0.0, 1.0, 0.0, 2.0, 0.5, 0.0, -0.5, 0.3],
+                [0.0, 1.0, 0.0, 2.0, 1.0, 0.0, -0.5, 0.6],
             ]
         )
-        lines = np.array([[0, 2, 4, 6, 8], [1, 3, 5, 7, 9]])
+        lines = np.array([[0, 2, 4, 6], [1, 3, 5, 7]])
 
-        new_pts, new_lines = pp.constrain_geometry.lines_by_polygon(polygon, pts, lines)
+        new_pts, new_lines, lines_kept = pp.constrain_geometry.lines_by_polygon(polygon, pts, lines)
 
         pts_known = np.array(
             [
@@ -31,11 +31,43 @@ class BasicTest(unittest.TestCase):
             ]
         )
         lines_known = np.array([[0, 2, 4, 6], [1, 3, 5, 7]])
+        kept_known = np.arange(lines_known.shape[1])
 
         self.assertTrue(np.allclose(new_pts, pts_known))
         self.assertTrue(np.allclose(new_lines, lines_known))
 
-    def test_1(self):
+        self.assertTrue(np.allclose(lines_kept, kept_known))
+
+    def test_convex_polygon_line_outside(self):
+        # convex polygon
+        polygon = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
+
+        # The last line is completely outside, and will be kicked out
+        pts = np.array(
+            [
+                [0.0, 1.0, 0.0, 2.0, 0.5, 0.0, -0.5, 0.3, -1, 0.0],
+                [0.0, 1.0, 0.0, 2.0, 1.0, 0.0, -0.5, 0.6, -1, 0.0],
+            ]
+        )
+        lines = np.array([[0, 2, 4, 6, 8], [1, 3, 5, 7, 9]])
+
+        new_pts, new_lines, lines_kept = pp.constrain_geometry.lines_by_polygon(polygon, pts, lines)
+
+        pts_known = np.array(
+            [
+                [0.0, 1.0, 0.0, 1.0, 0.5, 0.0, 0.0, 0.3],
+                [0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 3 / 16, 0.6],
+            ]
+        )
+        lines_known = np.array([[0, 2, 4, 6], [1, 3, 5, 7]])
+        kept_known = np.array([0, 1, 2, 3])
+
+        self.assertTrue(np.allclose(new_pts, pts_known))
+        self.assertTrue(np.allclose(new_lines, lines_known))
+
+        self.assertTrue(np.allclose(lines_kept, kept_known))
+
+    def test_non_convex_polygon(self):
         # non-convex polygon
         polygon = np.array(
             [[0.0, 0.5, 0.75, 1.0, 1.5, 1.5, 0], [0.0, 0.0, 0.25, 0.0, 0, 1, 1]]
@@ -48,7 +80,7 @@ class BasicTest(unittest.TestCase):
         )
         lines = np.array([[0, 2, 4, 6, 8, 10, 12], [1, 3, 5, 7, 9, 11, 13]])
 
-        new_pts, new_lines = pp.constrain_geometry.lines_by_polygon(polygon, pts, lines)
+        new_pts, new_lines, lines_kept = pp.constrain_geometry.lines_by_polygon(polygon, pts, lines)
         pts_known = np.array(
             [
                 [0.0, 1.0, 0.0, 1.0, 0.5, 0.0, 0.0, 0.3, 0.0, 0.7, 0.8, 1.5],
@@ -57,8 +89,11 @@ class BasicTest(unittest.TestCase):
         )
         lines_known = np.array([[0, 2, 4, 6, 8, 10], [1, 3, 5, 7, 9, 11]])
 
+        kept_known = np.array([0, 1, 2, 3, 5, 5])
+
         self.assertTrue(np.allclose(new_pts, pts_known))
         self.assertTrue(np.allclose(new_lines, lines_known))
+        self.assertTrue(np.allclose(lines_kept, kept_known))
 
 
 class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
