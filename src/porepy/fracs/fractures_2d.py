@@ -370,11 +370,13 @@ class FractureNetwork2d(object):
             tmp = np.arange(dom_p.shape[1])
             dom_lines = np.vstack((tmp, (tmp + 1) % dom_p.shape[1]))
 
-        boundary_tags = self.tags.get("boundary", [False] * self.edges.shape[1])
-        new_boundary_tags = boundary_tags + dom_lines.shape[1] * [True]
-
         # Constrain the edges to the domain
-        p, e = pp.constrain_geometry.lines_by_polygon(dom_p, self.pts, self.edges)
+        p, e, edges_kept = pp.constrain_geometry.lines_by_polygon(dom_p, self.pts, self.edges)
+
+        # Define boundary tags. Set False to all existing edges (after cutting those
+        # outside the boundary).
+        boundary_tags = self.tags.get("boundary", [False] * e.shape[1])
+        new_boundary_tags = boundary_tags + dom_lines.shape[1] * [True]
 
         num_p = p.shape[1]
         self.pts = np.hstack((p, dom_p))
@@ -387,6 +389,7 @@ class FractureNetwork2d(object):
         self.decomposition["domain_boundary_points"] = num_p + np.arange(
             dom_p.shape[1], dtype=np.int
         )
+        return
 
     def _to_gmsh(self, in_file):
 
@@ -465,7 +468,7 @@ class FractureNetwork2d(object):
 
         p_domain = self._domain_to_points(domain)
 
-        p, e = pp.constrain_geometry.lines_by_polygon(p_domain, self.pts, self.edges)
+        p, e, _ = pp.constrain_geometry.lines_by_polygon(p_domain, self.pts, self.edges)
 
         return FractureNetwork2d(p, e, domain, self.tol)
 
