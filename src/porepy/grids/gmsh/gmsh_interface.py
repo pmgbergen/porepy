@@ -28,6 +28,7 @@ class GmshWriter(object):
         edges_2_frac=None,
         fracture_tags=None,
         domain_boundary_points=None,
+        fracture_and_boundary_points=None,
     ):
         """
 
@@ -61,6 +62,7 @@ class GmshWriter(object):
         self.e2f = edges_2_frac
 
         self.domain_boundary_points = domain_boundary_points
+        self.fracture_and_boundary_points = fracture_and_boundary_points
 
     def write_geo(self, file_name):
 
@@ -401,6 +403,18 @@ class GmshWriter(object):
                 s += (
                     'Physical Point("'
                     + constants.PHYSICAL_NAME_BOUNDARY_POINT
+                    + str(i)
+                    + '") = {p'
+                    + str(p)
+                    + "};"
+                    + ls
+                )
+
+        if self.fracture_and_boundary_points is not None:
+            for i, p in enumerate(self.fracture_and_boundary_points):
+                s += (
+                    'Physical Point("'
+                    + constants.PHYSICAL_NAME_FRACTURE_BOUNDARY_POINT
                     + str(i)
                     + '") = {p'
                     + str(p)

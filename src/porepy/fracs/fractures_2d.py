@@ -249,7 +249,8 @@ class FractureNetwork2d(object):
         lines = np.delete(edges, to_remove, axis=1)
 
         self.decomposition["domain_boundary_points"] = old_2_new[
-            self.decomposition["domain_boundary_points"]]
+            self.decomposition["domain_boundary_points"]
+        ]
 
         # In some cases the fractures and boundaries impose the same constraint
         # twice, although it is not clear why. Avoid this by uniquifying the lines.
@@ -278,7 +279,8 @@ class FractureNetwork2d(object):
         lines = np.delete(lines, to_remove, axis=1)
 
         self.decomposition["domain_boundary_points"] = old_2_new[
-            self.decomposition["domain_boundary_points"]]
+            self.decomposition["domain_boundary_points"]
+        ]
 
         # Remove lines with the same start and end-point.
         # This can be caused by L-intersections, or possibly also if the two
@@ -371,7 +373,9 @@ class FractureNetwork2d(object):
             dom_lines = np.vstack((tmp, (tmp + 1) % dom_p.shape[1]))
 
         # Constrain the edges to the domain
-        p, e, edges_kept = pp.constrain_geometry.lines_by_polygon(dom_p, self.pts, self.edges)
+        p, e, edges_kept = pp.constrain_geometry.lines_by_polygon(
+            dom_p, self.pts, self.edges
+        )
 
         # Define boundary tags. Set False to all existing edges (after cutting those
         # outside the boundary).
@@ -400,6 +404,13 @@ class FractureNetwork2d(object):
         mesh_size = self.decomposition["mesh_size"]
         domain = self.decomposition["domain"]
 
+        # Find points that are both on a domain boundary, and on a fracture.
+        # These will be decleared Physical
+        const = constants.GmshConstants()
+        point_on_fracture = edges[:2, edges[2] == const.FRACTURE_TAG].ravel()
+        point_on_boundary = edges[:2, edges[2] == const.DOMAIN_BOUNDARY_TAG].ravel()
+        fracture_boundary_points = np.intersect1d(point_on_fracture, point_on_boundary)
+
         gw = gmsh_interface.GmshWriter(
             p,
             edges,
@@ -407,6 +418,7 @@ class FractureNetwork2d(object):
             mesh_size=mesh_size,
             intersection_points=intersections,
             domain_boundary_points=self.decomposition["domain_boundary_points"],
+            fracture_and_boundary_points=fracture_boundary_points,
         )
         gw.write_geo(in_file)
 
@@ -491,7 +503,6 @@ class FractureNetwork2d(object):
 
         else:
             return domain
-
 
     # --------- Methods for analysis of the fracture set
 
