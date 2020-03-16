@@ -127,8 +127,8 @@ def create_2d_grids(
 
             pn = phys_names[phys_name_ind_tri[fi]]
             offset = pn.rfind("_")
-            plane_type = pn[: offset]
-            if plane_type != "FRACTURE" or int(pn[offset + 1:]) in constraints:
+            plane_type = pn[:offset]
+            if plane_type != "FRACTURE" or int(pn[offset + 1 :]) in constraints:
                 count_bound_and_aux += 1
                 continue
 
@@ -404,6 +404,10 @@ def create_0d_grids(
                 # This should be a new grid
                 g = point_grid.PointGrid(pts[point_cells[pi]])
                 g.global_point_ind = np.atleast_1d(np.asarray(point_cells[pi]))
+
+                # Store the index of this physical name tag.
+                g.physical_name_index = int(pn[offset_index + 1 :])
+
                 g_0d.append(g)
             else:
                 continue
