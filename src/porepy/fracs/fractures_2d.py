@@ -411,6 +411,8 @@ class FractureNetwork2d(object):
         point_on_boundary = edges[:2, edges[2] == const.DOMAIN_BOUNDARY_TAG].ravel()
         fracture_boundary_points = np.intersect1d(point_on_fracture, point_on_boundary)
 
+        self.decomposition["fracture_boundary_points"] = fracture_boundary_points
+
         gw = gmsh_interface.GmshWriter(
             p,
             edges,
