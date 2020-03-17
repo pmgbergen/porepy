@@ -586,8 +586,8 @@ class DualElliptic(
         ------
         The inverted matrix 2x2
         """
-        den = K[0, 0] * K[1, 1] - K[0, 1] * K[0, 1]
-        return np.array([[K[1, 1], -K[0, 1]], [-K[0, 1], K[0, 0]]]) / den
+        det = K[0, 0] * K[1, 1] - K[0, 1] * K[0, 1]
+        return np.array([[K[1, 1], -K[0, 1]], [-K[0, 1], K[0, 0]]]) / det
 
     @staticmethod
     def _inv_matrix_3d(K: np.ndarray) -> np.ndarray:

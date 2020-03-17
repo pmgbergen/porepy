@@ -257,10 +257,24 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K_exp, np.dot(N, C)))))
 
-    def _compute_cell_face_to_opposide_node(self, g, data):
+    def _compute_cell_face_to_opposide_node(self, g, data, recompute=False):
+        """ Compute a map that given a face return the node on the opposite side,
+        typical request of a Raviart-Thomas approximation.
+        This function is mainly for internal use and, if the geometry is fixed during
+        the simulation, it will be called once.
+
+        The map constructed is that for each cell, return the id of the node
+        their opposite side of the local faces.
+
+        Parameters:
+        ----------
+        g: grid
+        data: data associated to the grid where the map will be stored
+        recompute: (optional) recompute the map even if already computed. Default False
+        """
 
         # if already computed avoid to do it again
-        if data.get(self.cell_face_to_opposide_node, None) is not None:
+        if not (data.get(self.cell_face_to_opposide_node, None) is None or recompute):
             return
 
         faces, cells, _ = sps.find(g.cell_faces)
