@@ -12,7 +12,6 @@ import logging
 
 import porepy as pp
 
-
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
@@ -103,6 +102,14 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         HB += HB.T
         HB /= g.dim * g.dim * (g.dim + 1) * (g.dim + 2)
 
+        # define the function to compute the inverse of the permeability matrix
+        if g.dim == 1:
+            inv_matrix = self._inv_matrix_1d
+        elif g.dim == 2:
+            inv_matrix = self._inv_matrix_2d
+        elif g.dim == 3:
+            inv_matrix = self._inv_matrix_3d
+
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its faces
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
@@ -114,7 +121,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
             # Compute the H_div-mass local matrix
             A = RT0.massHdiv(
-                k.values[0 : g.dim, 0 : g.dim, c],
+                inv_matrix(k.values[0 : g.dim, 0 : g.dim, c]),
                 g.cell_volumes[c],
                 coord_loc,
                 sign[loc],
@@ -202,7 +209,9 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         return P0u
 
     @staticmethod
-    def massHdiv(K, c_volume, coord, sign, dim, HB):
+    def massHdiv(
+        inv_K: np.ndarray, c_volume: float, coord: np.ndarray, sign: np.ndarray, dim: int, HB: np.ndarray
+    ) -> np.ndarray:
         """ Compute the local mass Hdiv matrix using the mixed vem approach.
 
         Parameters
@@ -221,20 +230,21 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         """
         # Allow short variable names in this function
         # pylint: disable=invalid-name
-        inv_K = np.linalg.inv(K)
-        inv_K = linalg.block_diag(*([inv_K] * (dim + 1))) / c_volume
+        I = np.eye(dim+1)
+        # expand the inv_K tensor
+        inv_K_exp = I[:, np.newaxis, :, np.newaxis]*inv_K[np.newaxis, :, np.newaxis, :]/c_volume
+        inv_K_exp.shape = (I.shape[0]*inv_K.shape[0], I.shape[1]*inv_K.shape[1])
 
         coord = coord[0:dim, :]
-        N = coord.flatten("F").reshape((-1, 1)) * np.ones((1, dim + 1)) - np.tile(
-            coord, (dim + 1, 1)
-        )
-
+        N = coord.flatten("F").reshape((-1, 1)) * np.ones((1, dim + 1)) - np.tile(coord, (dim + 1, 1))
         C = np.diagflat(sign)
 
-        return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K, np.dot(N, C)))))
+        return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K_exp, np.dot(N, C)))))
 
     @staticmethod
-    def opposite_side_node(face_nodes, nodes, faces_loc):
+    def opposite_side_node(
+        face_nodes: sps.spmatrix, nodes: np.ndarray, faces_loc: np.ndarray
+    ) -> np.ndarray:
         """
         Given a face return the node on the opposite side, typical request of a Raviart-Thomas
         approximation. This function is mainly for internal use.
@@ -252,10 +262,10 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         """
         indptr = face_nodes.indptr
-        face_nodes = [nodes[indptr[f] : indptr[f + 1]] for f in faces_loc]
+        face_nodes = np.array([nodes[indptr[f] : indptr[f + 1]] for f in faces_loc])
 
-        nodes_loc = np.unique(face_nodes)
-        opposite_node = [
-            np.setdiff1d(nodes_loc, f, assume_unique=True) for f in face_nodes
-        ]
-        return np.array(opposite_node).flatten()
+        nodes_loc = np.unique(face_nodes.flatten())
+
+        opposite_node = np.array([np.setdiff1d(nodes_loc, f, assume_unique=True) for f in face_nodes])
+        return opposite_node.flatten()
+
