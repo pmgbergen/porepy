@@ -104,6 +104,14 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         dataIJ = np.empty(size)
         idx = 0
 
+        # define the function to compute the inverse of the permeability matrix
+        if g.dim == 1:
+            inv_matrix = self._inv_matrix_1d
+        elif g.dim == 2:
+            inv_matrix = self._inv_matrix_2d
+        elif g.dim == 3:
+            inv_matrix = self._inv_matrix_3d
+
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its faces
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
@@ -112,6 +120,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             # Compute the H_div-mass local matrix
             A = self.massHdiv(
                 k.values[0 : g.dim, 0 : g.dim, c],
+                inv_matrix(k.values[0 : g.dim, 0 : g.dim, c]),
                 c_centers[:, c],
                 g.cell_volumes[c],
                 f_centers[:, faces_loc],
@@ -192,6 +201,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
             Pi_s = self.massHdiv(
                 k.values[0 : g.dim, 0 : g.dim, c],
+                k.values[0 : g.dim, 0 : g.dim, c],
                 c_centers[:, c],
                 g.cell_volumes[c],
                 f_centers[:, faces_loc],
@@ -207,7 +217,10 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         return P0u
 
     @staticmethod
-    def massHdiv(K, c_center, c_volume, f_centers, normals, sign, diam, weight=0):
+    def massHdiv(
+        K: np.ndarray, inv_K: np.ndarray, c_center: np.ndarray, c_volume: float,
+        f_centers: np.ndarray, normals: np.ndarray, sign: np.ndarray, diam: float, weight=0.
+    ):
         """ Compute the local mass Hdiv matrix using the mixed vem approach.
 
         Parameters
@@ -261,7 +274,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         I_Pi = np.eye(f_centers.shape[1]) - np.dot(D, Pi_s)
 
         # local Hdiv-mass matrix
-        w = weight * np.linalg.norm(np.linalg.inv(K), np.inf)
+        w = weight * np.linalg.norm(inv_K, np.inf)
         A = np.dot(Pi_s.T, np.dot(G, Pi_s)) + w * np.dot(I_Pi.T, I_Pi)
 
         return A, Pi_s
