@@ -215,7 +215,12 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
     @staticmethod
     def massHdiv(
-        inv_K: np.ndarray, c_volume: float, coord: np.ndarray, sign: np.ndarray, dim: int, HB: np.ndarray
+        inv_K: np.ndarray,
+        c_volume: float,
+        coord: np.ndarray,
+        sign: np.ndarray,
+        dim: int,
+        HB: np.ndarray,
     ) -> np.ndarray:
         """ Compute the local mass Hdiv matrix using the mixed vem approach.
 
@@ -235,13 +240,19 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         """
         # Allow short variable names in this function
         # pylint: disable=invalid-name
-        I = np.eye(dim+1)
+        I = np.eye(dim + 1)
         # expand the inv_K tensor
-        inv_K_exp = I[:, np.newaxis, :, np.newaxis]*inv_K[np.newaxis, :, np.newaxis, :]/c_volume
-        inv_K_exp.shape = (I.shape[0]*inv_K.shape[0], I.shape[1]*inv_K.shape[1])
+        inv_K_exp = (
+            I[:, np.newaxis, :, np.newaxis]
+            * inv_K[np.newaxis, :, np.newaxis, :]
+            / c_volume
+        )
+        inv_K_exp.shape = (I.shape[0] * inv_K.shape[0], I.shape[1] * inv_K.shape[1])
 
         coord = coord[0:dim, :]
-        N = coord.flatten("F").reshape((-1, 1)) * np.ones((1, dim + 1)) - np.tile(coord, (dim + 1, 1))
+        N = coord.flatten("F").reshape((-1, 1)) * np.ones((1, dim + 1)) - np.tile(
+            coord, (dim + 1, 1)
+        )
         C = np.diagflat(sign)
 
         return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K_exp, np.dot(N, C)))))
@@ -256,7 +267,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         faces = faces[np.argsort(cells)]
 
         # initialize the map
-        cell_face_to_opposide_node = np.empty((g.num_cells, g.dim+1), dtype=np.int)
+        cell_face_to_opposide_node = np.empty((g.num_cells, g.dim + 1), dtype=np.int)
 
         nodes, _, _ = sps.find(g.face_nodes)
         indptr = g.face_nodes.indptr
@@ -272,7 +283,9 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
             nodes_loc = np.unique(face_nodes.flatten())
 
             # get the opposite node for each face
-            opposite_node = np.array([np.setdiff1d(nodes_loc, f, assume_unique=True) for f in face_nodes])
+            opposite_node = np.array(
+                [np.setdiff1d(nodes_loc, f, assume_unique=True) for f in face_nodes]
+            )
 
             # find the opposite node id for each face
             cell_face_to_opposide_node[c, :] = opposite_node.flatten()

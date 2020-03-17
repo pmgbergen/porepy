@@ -218,8 +218,15 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
     @staticmethod
     def massHdiv(
-        K: np.ndarray, inv_K: np.ndarray, c_center: np.ndarray, c_volume: float,
-        f_centers: np.ndarray, normals: np.ndarray, sign: np.ndarray, diam: float, weight=0.
+        K: np.ndarray,
+        inv_K: np.ndarray,
+        c_center: np.ndarray,
+        c_volume: float,
+        f_centers: np.ndarray,
+        normals: np.ndarray,
+        sign: np.ndarray,
+        diam: float,
+        weight=0.0,
     ):
         """ Compute the local mass Hdiv matrix using the mixed vem approach.
 

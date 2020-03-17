@@ -572,7 +572,7 @@ class DualElliptic(
         ------
         The inverted matrix 1x1
         """
-        return np.array([[1./K[0, 0]]])
+        return np.array([[1.0 / K[0, 0]]])
 
     @staticmethod
     def _inv_matrix_2d(K: np.ndarray) -> np.ndarray:
@@ -586,9 +586,8 @@ class DualElliptic(
         ------
         The inverted matrix 2x2
         """
-        den = K[0, 0]*K[1, 1] - K[0, 1]*K[0, 1]
-        return np.array([[K[1, 1], -K[0, 1]], [-K[0, 1],  K[0, 0]]]) / den
-
+        den = K[0, 0] * K[1, 1] - K[0, 1] * K[0, 1]
+        return np.array([[K[1, 1], -K[0, 1]], [-K[0, 1], K[0, 0]]]) / den
 
     @staticmethod
     def _inv_matrix_3d(K: np.ndarray) -> np.ndarray:
@@ -603,10 +602,32 @@ class DualElliptic(
         The inverted matrix 3x3
         """
 
-        det = K[0, 0]*K[1, 1]*K[2, 2] - K[0, 0]*K[1, 2]*K[1, 2] - K[0, 1]*K[0, 1]*K[2, 2] + \
-              2*K[0, 1]*K[0, 2]*K[1, 2] - K[0, 2]*K[0, 2]*K[1, 1]
-        return np.array([\
-            [K[1, 1]*K[2, 2] - K[1, 2]*K[1, 2], K[0, 2]*K[1, 2] - K[0, 1]*K[2, 2], K[0, 1]*K[1, 2] - K[0, 2]*K[1, 1]],
-            [K[0, 2]*K[1, 2] - K[0, 1]*K[2, 2], K[0, 0]*K[2, 2] - K[0, 2]*K[0, 2], K[0, 2]*K[1, 0] - K[0, 0]*K[1, 2]],
-            [K[0, 1]*K[1, 2] - K[0, 2]*K[1, 1], K[0, 1]*K[0, 2] - K[0, 0]*K[1, 2], K[0, 0]*K[1, 1] - K[0, 1]*K[0, 1]]])/det
-
+        det = (
+            K[0, 0] * K[1, 1] * K[2, 2]
+            - K[0, 0] * K[1, 2] * K[1, 2]
+            - K[0, 1] * K[0, 1] * K[2, 2]
+            + 2 * K[0, 1] * K[0, 2] * K[1, 2]
+            - K[0, 2] * K[0, 2] * K[1, 1]
+        )
+        return (
+            np.array(
+                [
+                    [
+                        K[1, 1] * K[2, 2] - K[1, 2] * K[1, 2],
+                        K[0, 2] * K[1, 2] - K[0, 1] * K[2, 2],
+                        K[0, 1] * K[1, 2] - K[0, 2] * K[1, 1],
+                    ],
+                    [
+                        K[0, 2] * K[1, 2] - K[0, 1] * K[2, 2],
+                        K[0, 0] * K[2, 2] - K[0, 2] * K[0, 2],
+                        K[0, 2] * K[1, 0] - K[0, 0] * K[1, 2],
+                    ],
+                    [
+                        K[0, 1] * K[1, 2] - K[0, 2] * K[1, 1],
+                        K[0, 1] * K[0, 2] - K[0, 0] * K[1, 2],
+                        K[0, 0] * K[1, 1] - K[0, 1] * K[0, 1],
+                    ],
+                ]
+            )
+            / det
+        )
