@@ -259,7 +259,6 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K_exp, np.dot(N, C)))))
 
-        return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K_exp, np.dot(N, C)))))
 
     def _compute_cell_face_to_opposite_node(self, g, data, recompute=False):
         """ Compute a map that given a face return the node on the opposite side,
