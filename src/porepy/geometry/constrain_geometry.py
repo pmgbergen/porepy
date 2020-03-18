@@ -399,6 +399,20 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
             # differently depending on whether the polygon forms a closed circle
             # or not
             count = np.bincount(el.ravel())
+
+            if np.any(count > 2):
+                # A single component (polygon) has nodes occuring more than twice.
+                # This is presumably caused by overlapping segments in the constrained
+                # polygon, which can happen if the constraining polyhedron has
+                # parallel sides.
+                # Remove these by projecting to the 2d plane of the main polygon, and
+                # then use standard function for intersection removal there.
+                center = unique_coords.mean(axis=1).reshape((-1, 1))
+                coords_centered = unique_coords - center
+                R = pp.map_geometry.project_plane_matrix(coords_centered)
+                pt = R.dot(coords_centered)[:2]
+                _, el = pp.intersections.split_intersecting_segments_2d(pt, el, tol)
+
             if np.any(count == 1):
                 # There should be exactly two loose ends, if not, this is really
                 # several polygons, and who knows how we ended up there.
