@@ -109,28 +109,6 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
     constrained_polygons = []
     orig_poly_ind = []
 
-    def hanging_nodes(p, edges, tol=1e-8):
-        " Find hanging nodes "
-
-        ind = []
-
-        edges_expanded = np.hstack((edges, edges[:, 0].reshape((-1, 1))))
-        # Loop over all edges
-        for i in range(edges.shape[1]):
-            # Find the vector along this edge, and along the following
-            v_this = p[:, edges_expanded[1, i]] - p[:, edges_expanded[0, i]]
-            v_next = p[:, edges_expanded[1, i + 1]] - p[:, edges_expanded[0, i + 1]]
-
-            nrm_this = np.linalg.norm(v_this)
-            nrm_next = np.linalg.norm(v_next)
-            # If the dot product of the normalized vectors is (almost) unity, this is
-            # a hanging node
-            dot_prod = (v_this / nrm_this).dot(v_next / nrm_next)
-            if dot_prod > 1 - tol:
-                ind.append(i)
-
-        return np.asarray(ind)
-
     # Loop over the polygons. For each, find the intersections with all
     # polygons on the side of the polyhedra.
     for pi, poly in enumerate(polygons):
@@ -318,7 +296,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
             # where the polyhedron has multiple parallel sides.
             isect_coord, _, _ = pp.utils.setmembership.unique_columns_tol(
                 coord[:, loc_isect_ind], tol
-                )
+            )
 
             # Start and end of the full segment
             start = poly[:, seg_ind].reshape((-1, 1))
@@ -433,7 +411,9 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                 sorted_pairs, _ = pp.utils.sort_points.sort_point_pairs(el)
 
                 # Check for hanging nodes
-                hang_ind = hanging_nodes(unique_coords, sorted_pairs)
+                hang_ind = pp.geometry_property_checks.polygon_hanging_nodes(
+                    unique_coords, sorted_pairs
+                )
                 if hang_ind.size > 0:
                     # We will need to decrease the index of the edges with hanging nodes
                     # as we delete previous edges (with hanging nodes)
