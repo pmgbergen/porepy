@@ -1704,18 +1704,47 @@ class FractureNetwork3d(object):
         # and the mapping between fractures and edges.
         edges_2_frac = self.decomposition["edges_2_frac"]
 
-        # Loop on edges to tag according to following rules:
-        #     Edge is on the boundary:
-        #         Tag it and the points it consists of as boundary entities.
+        # Loop over edges, and the polygons to which the edge belongs        
         for e, e2f in enumerate(edges_2_frac):
-            if any(np.in1d(e2f, boundary_polygons)):
-                edge_tags[e] = constants.DOMAIN_BOUNDARY_TAG
-                if all(np.in1d(e2f, boundary_polygons)):
-                    # The point is not associated with a fracture extending to the boundary
+            
+            # Check if the polygons are on the boundary
+            edge_of_domain_boundary = np.in1d(e2f, boundary_polygons)
+
+            if any(edge_of_domain_boundary):
+                # If all associated polygons are boundary, this is simple
+                if all(edge_of_domain_boundary):
+                    # The point is not associated with a fracture extending to the
+                    # boundary
+                    edge_tags[e] = constants.DOMAIN_BOUNDARY_TAG
+                    # The points of this edge are also associated with the boundary
                     point_tags[edges[:, e]] = constants.DOMAIN_BOUNDARY_TAG
                 else:
-                    # The point is on the boundary, but also on a fracture
-                    point_tags[edges[:, e]] = constants.FRACTURE_TAG
+                    # The edge is associated with at least one fracture. Still, if it is
+                    # also the edge of at least one boundary point, we will consider it
+                    # a domain boundary edge
+                    on_one_domain_edge = False
+                    for pi in np.where(edge_of_domain_boundary)[0]:
+                        if not e in self.decomposition["line_in_frac"][e2f[pi]]:
+                            on_one_domain_edge = True
+                            break
+
+                    # The line is on the boundary
+                    if on_one_domain_edge:
+                        edge_tags[e] = constants.DOMAIN_BOUNDARY_TAG
+                        point_tags[edges[:, e]] = constants.DOMAIN_BOUNDARY_TAG
+                    else:
+                        # The edge is an intersection between a fracture and a boundary
+                        # polygon
+                        edge_tags[e] = constants.FRACTURE_LINE_ON_DOMAIN_BOUNDARY
+                        point_tags[
+                            edges[:, e]
+                        ] = constants.FRACTURE_LINE_ON_DOMAIN_BOUNDARY
+            else:
+                # This is not an edge on the domain boundary, and the tag assigned in
+                # in self._classify_edges() is still valid: It is either a fracture tip
+                # or a fracture intersection line
+                # The point tag is still neutral; it may be adjusted later depending on
+                # how many intersection lines refer to the point
                 continue
 
         return point_tags, edge_tags
