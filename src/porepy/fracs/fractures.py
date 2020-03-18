@@ -1704,9 +1704,9 @@ class FractureNetwork3d(object):
         # and the mapping between fractures and edges.
         edges_2_frac = self.decomposition["edges_2_frac"]
 
-        # Loop over edges, and the polygons to which the edge belongs        
+        # Loop over edges, and the polygons to which the edge belongs
         for e, e2f in enumerate(edges_2_frac):
-            
+
             # Check if the polygons are on the boundary
             edge_of_domain_boundary = np.in1d(e2f, boundary_polygons)
 
@@ -2202,10 +2202,11 @@ class FractureNetwork3d(object):
 
         # We're done! Hurah!
 
+        # Find points tagged as on the domain boundary
+        boundary_points = np.where(point_tags == GmshConstants().DOMAIN_BOUNDARY_TAG)[0]
+
         # Intersections on the boundary should not have a 0d grid assigned
-        int_pts_on_boundary = np.isin(intersection_points, np.where(point_tags > 0))
-        intersection_points = intersection_points[np.logical_not(int_pts_on_boundary)]
-        self.zero_d_pt = intersection_points
+        self.zero_d_pt = np.setdiff1d(intersection_points, boundary_points)
 
         edges = np.vstack((self.decomposition["edges"], edge_tags))
 
@@ -2244,8 +2245,6 @@ class FractureNetwork3d(object):
             dom = self.domain
         else:
             dom = None
-
-        boundary_points = np.where(point_tags)[0]
 
         writer = pp.grids.gmsh.gmsh_interface.GmshWriter(
             p,
