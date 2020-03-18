@@ -944,6 +944,9 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
                             if isect_on_boundary_main:
                                 # No intersection for the first point of main
                                 ind = seg_vert_main_0[0]
+                                if ind == 0:
+                                    ind = num_main - 1
+
                                 segment_vertex_intersection[main].append((ind, True))
                             else:
                                 segment_vertex_intersection[main].append([])
