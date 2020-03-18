@@ -296,6 +296,8 @@ class GmshWriter(object):
                     s += constants.PHYSICAL_NAME_FRACTURE_LINE
                 elif l[2, i] == constants.DOMAIN_BOUNDARY_TAG:
                     s += constants.PHYSICAL_NAME_DOMAIN_BOUNDARY
+                elif l[2, i] == constants.FRACTURE_LINE_ON_DOMAIN_BOUNDARY:
+                    s += constants.PHYSICAL_NAME_FRACTURE_BOUNDARY_LINE
                 else:
                     # This is a line that need not be physical (recognized by
                     # the parser of output from gmsh). Applies to boundary and
