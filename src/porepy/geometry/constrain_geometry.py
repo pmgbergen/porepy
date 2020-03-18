@@ -139,7 +139,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
 
         # Find intersections
         coord, point_ind, is_bound, pairs, seg_vert = pp.intersections.polygons_3d(
-            all_poly, target_poly=np.arange(len(poly))
+            all_poly, target_poly=np.arange(1)
         )
 
         # Find indices of the intersection points for this polygon (the first one)
