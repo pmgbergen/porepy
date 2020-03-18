@@ -141,7 +141,6 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         coord, point_ind, is_bound, pairs, seg_vert = pp.intersections.polygons_3d(
             all_poly, target_poly=np.arange(1)
         )
-
         # Find indices of the intersection points for this polygon (the first one)
         isect_poly = point_ind[0]
 
@@ -305,8 +304,8 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                     if len(isects_of_segment[prev_ind[isect[0]]]) == 0:
                         isects_of_segment[prev_ind[isect[0]]].append([])
 
-        # For all original segments that have intersection points (or vertex on a
-        # polyhedron boundary), find all points along the segment (original endpoints
+        # For all original segments that have intersection points (or vertex) on a
+        # polyhedron boundary, find all points along the segment (original endpoints
         # and intersection points. Find out which of these sub-segments are inside and
         # outside the polyhedron, remove exterior parts
         for seg_ind in range(num_vert):
@@ -314,7 +313,12 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                 continue
             # Index and coordinate of intersection points on this segment
             loc_isect_ind = np.asarray(isects_of_segment[seg_ind], dtype=np.int).ravel()
-            isect_coord = coord[:, loc_isect_ind]
+
+            # Consider unique intersection points; there may be repititions in cases
+            # where the polyhedron has multiple parallel sides.
+            isect_coord, _, _ = pp.utils.setmembership.unique_columns_tol(
+                coord[:, loc_isect_ind], tol
+                )
 
             # Start and end of the full segment
             start = poly[:, seg_ind].reshape((-1, 1))
@@ -373,6 +377,9 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         unique_segments, *rest = pp.utils.setmembership.unique_columns_tol(
             unique_segments
         )
+        # Remove point segments.
+        point_segment = unique_segments[0] == unique_segments[1]
+        unique_segments = unique_segments[:, np.logical_not(point_segment)]
 
         # The final stage is to collect the constrained polygons.
         # If the segments are connected, which will always be the case if the
