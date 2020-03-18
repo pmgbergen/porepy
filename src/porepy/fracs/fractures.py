@@ -1106,7 +1106,7 @@ class FractureNetwork3d(object):
         )
 
         # Update the edges_2_frac map to refer to the new edges
-        edges_2_frac_new = e_unique.shape[1] * [np.empty(0)]
+        edges_2_frac_new = e_unique.shape[1] * [np.empty(0, dtype=np.int)]
         is_boundary_edge_new = e_unique.shape[1] * [np.empty(0)]
 
         for old_i, new_i in enumerate(all_2_unique_e):
@@ -1652,12 +1652,12 @@ class FractureNetwork3d(object):
         num_is_bound = len(is_bound)
         constants = GmshConstants()
         tag = np.zeros(num_edges, dtype="int")
-        # Find fractures that are tagged as a boundary of a fracture
-        all_bound = [np.all(is_bound[i]) for i in range(len(is_bound))]
+        # Find edges that are tagged as a boundary of all its fractures
+        all_bound = [np.all(is_bound[i]) for i in range(num_is_bound)]
 
         # We also need to find edges that are on the boundary of some, but not all
         # the fractuers
-        any_bound = [np.any(is_bound[i]) for i in range(len(is_bound))]
+        any_bound = [np.any(is_bound[i]) for i in range(num_is_bound)]
         some_bound = np.logical_and(any_bound, np.logical_not(all_bound))
 
         bound_ind = np.where(all_bound)[0]
