@@ -8,6 +8,8 @@ class GmshConstants(object):
     """
 
     def __init__(self):
+        # Indicate a neutral point (or line?), that is, internal to everything
+        self.NEUTRAL_TAG = 0
         self.DOMAIN_BOUNDARY_TAG = 1
         self.COMPARTMENT_BOUNDARY_TAG = 2
         self.FRACTURE_TAG = 3

@@ -1698,7 +1698,9 @@ class FractureNetwork3d(object):
         )[0]
 
         # ... on the points...
-        point_tags = np.zeros(self.decomposition["points"].shape[1], dtype=np.int)
+        point_tags = constants.NEUTRAL_TAG * np.ones(
+            self.decomposition["points"].shape[1], dtype=np.int
+        )
         # and the mapping between fractures and edges.
         edges_2_frac = self.decomposition["edges_2_frac"]
 
