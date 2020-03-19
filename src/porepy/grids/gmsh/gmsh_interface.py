@@ -233,7 +233,7 @@ class GmshWriter(object):
         s += "Surface Loop(domain_loop) = {"
         for pi in range(len(self.polygons[0])):
             if self.polygon_tags["boundary"][pi]:
-                s += "auxiliary_" + str(pi) + ","
+                s += " auxiliary_" + str(pi) + ","
         s = s[:-1]
         s += "};" + ls
         s += "Volume(1) = {domain_loop};" + ls
@@ -279,7 +279,7 @@ class GmshWriter(object):
             s += (
                 "frac_line_"
                 + si
-                + "= newl; Line(frac_line_"
+                + " = newl; Line(frac_line_"
                 + si
                 + ") = {p"
                 + str(l[0, i])
