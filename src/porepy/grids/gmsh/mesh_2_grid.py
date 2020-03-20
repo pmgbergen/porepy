@@ -42,8 +42,8 @@ def create_2d_grids(
     cell_info,
     is_embedded=False,
     network=None,
+    surface_tag=None,
     constraints=None,
-    **kwargs
 ):
     """ Create 2d grids for lines of a specified type from a gmsh tessalation.
 
@@ -85,6 +85,10 @@ def create_2d_grids(
     # List of 2D grids, one for each surface
     g_2d = []
 
+    gmsh_constants = constants.GmshConstants()
+    if surface_tag is None:
+        surface_tag = gmsh_constants.PHYSICAL_NAME_FRACTURES
+
     if constraints is None:
         constraints = np.array([], dtype=np.int)
 
@@ -93,7 +97,6 @@ def create_2d_grids(
         # Special treatment of the case with no fractures
         if not "triangle" in cells:
             return g_2d
-
         # Recover cells on fracture surfaces, and create grids
         tri_cells = cells["triangle"]
 
@@ -128,7 +131,7 @@ def create_2d_grids(
             pn = phys_names[phys_name_ind_tri[fi]]
             offset = pn.rfind("_")
             plane_type = pn[:offset]
-            if plane_type != "FRACTURE" or int(pn[offset + 1 :]) in constraints:
+            if plane_type != surface_tag[:-1] or int(pn[offset + 1 :]) in constraints:
                 count_bound_and_aux += 1
                 continue
 
