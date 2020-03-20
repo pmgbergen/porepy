@@ -24,7 +24,7 @@ class GmshConstants(object):
         # General auxiliary tag
         self.AUXILIARY_TAG = 7
 
-        self.FRACTURE_LINE_ON_DOMAIN_BOUNDARY = 8
+        self.FRACTURE_LINE_ON_DOMAIN_BOUNDARY_TAG = 8
 
         self.PHYSICAL_NAME_DOMAIN = "DOMAIN"
         self.PHYSICAL_NAME_DOMAIN_BOUNDARY = "DOMAIN_BOUNDARY_"
