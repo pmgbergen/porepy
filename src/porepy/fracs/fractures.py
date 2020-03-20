@@ -2208,6 +2208,10 @@ class FractureNetwork3d(object):
         # Intersections on the boundary should not have a 0d grid assigned
         self.zero_d_pt = np.setdiff1d(intersection_points, boundary_points)
 
+        fracture_boundary_points = np.where(
+            point_tags == GmshConstants().FRACTURE_LINE_ON_DOMAIN_BOUNDARY_TAG
+        )[0]
+
         edges = np.vstack((self.decomposition["edges"], edge_tags))
 
         # Obtain mesh size parameters
@@ -2257,6 +2261,7 @@ class FractureNetwork3d(object):
             edges_2_frac=self.decomposition["line_in_frac"],
             fracture_tags=frac_tags,
             domain_boundary_points=boundary_points,
+            fracture_and_boundary_points=fracture_boundary_points,
         )
         writer.write_geo(file_name)
 
