@@ -121,12 +121,6 @@ def create_2d_grids(
         # Counter for boundary and auxiliary planes
         count_bound_and_aux = 0
         for fi in np.unique(frac_num):
-            # This loop should only produce grids on surfaces that are actually fractures
-            # Fractures are identified with physical names
-            # a) Either give seperate physical name to non-fractures (e.g. AUX_POLYGON)
-            # b) OR: Pass a list of which fractures (numbers) are really not fractures
-            # b) is simpler, a) is better (long term)
-            # If a) is chosen, you may need to be careful with
 
             pn = phys_names[phys_name_ind_tri[fi]]
             offset = pn.rfind("_")
