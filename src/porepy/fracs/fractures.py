@@ -2205,12 +2205,14 @@ class FractureNetwork3d(object):
         # Find points tagged as on the domain boundary
         boundary_points = np.where(point_tags == GmshConstants().DOMAIN_BOUNDARY_TAG)[0]
 
-        # Intersections on the boundary should not have a 0d grid assigned
-        self.zero_d_pt = np.setdiff1d(intersection_points, boundary_points)
-
         fracture_boundary_points = np.where(
             point_tags == GmshConstants().FRACTURE_LINE_ON_DOMAIN_BOUNDARY_TAG
         )[0]
+
+        # Intersections on the boundary should not have a 0d grid assigned
+        self.zero_d_pt = np.setdiff1d(
+            intersection_points, np.hstack((boundary_points, fracture_boundary_points))
+        )
 
         edges = np.vstack((self.decomposition["edges"], edge_tags))
 
@@ -2255,7 +2257,7 @@ class FractureNetwork3d(object):
             edges,
             polygons=poly,
             domain=dom,
-            intersection_points=intersection_points,
+            intersection_points=self.zero_d_pt,
             mesh_size=mesh_size,
             tolerance=gmsh_tolerance,
             edges_2_frac=self.decomposition["line_in_frac"],
