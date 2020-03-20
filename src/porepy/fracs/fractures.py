@@ -1735,10 +1735,10 @@ class FractureNetwork3d(object):
                     else:
                         # The edge is an intersection between a fracture and a boundary
                         # polygon
-                        edge_tags[e] = constants.FRACTURE_LINE_ON_DOMAIN_BOUNDARY
+                        edge_tags[e] = constants.FRACTURE_LINE_ON_DOMAIN_BOUNDARY_TAG
                         point_tags[
                             edges[:, e]
-                        ] = constants.FRACTURE_LINE_ON_DOMAIN_BOUNDARY
+                        ] = constants.FRACTURE_LINE_ON_DOMAIN_BOUNDARY_TAG
             else:
                 # This is not an edge on the domain boundary, and the tag assigned in
                 # in self._classify_edges() is still valid: It is either a fracture tip
