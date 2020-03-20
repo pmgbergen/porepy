@@ -233,7 +233,7 @@ class GmshWriter(object):
         s += "Surface Loop(domain_loop) = {"
         for pi in range(len(self.polygons[0])):
             if self.polygon_tags["boundary"][pi]:
-                s += " auxiliary_" + str(pi) + ","
+                s += " boundary_surface_" + str(pi) + ","
         s = s[:-1]
         s += "};" + ls
         s += "Volume(1) = {domain_loop};" + ls
@@ -319,7 +319,7 @@ class GmshWriter(object):
 
         ls = "\n"
         # Name boundary or fracture
-        f_or_b = "auxiliary" if boundary else "fracture"
+        f_or_b = "boundary_surface" if boundary else "fracture"
         if not boundary:
             s = "// Start fracture specification" + ls
         else:
@@ -352,9 +352,9 @@ class GmshWriter(object):
                 # Domain boundary
                 s += (
                     'Physical Surface("'
-                    + constants.PHYSICAL_NAME_AUXILIARY
+                    + constants.PHYSICAL_NAME_DOMAIN_BOUNDARY_SURFACE
                     + str(pi)
-                    + '") = {auxiliary_'
+                    + '") = {boundary_surface_'
                     + str(pi)
                     + "};"
                     + ls
