@@ -100,47 +100,30 @@ def create_2d_grids(
         # Recover cells on fracture surfaces, and create grids
         tri_cells = cells["triangle"]
 
-        # Map from split polygons and fractures, as defined by the network
-        # decomposition
-        poly_2_frac = network.decomposition["polygon_frac"]
+        # Tags of all triangle grids
+        tri_tags = cell_info["triangle"]["gmsh:physical"]
 
-        phys_name_ind_tri = np.unique(cell_info["triangle"]["gmsh:physical"])
+        # Loop over all gmsh tags associated with triangle grids
+        for pn_ind in np.unique(tri_tags):
 
-        # Index of the physical name tag assigned by gmsh to each fracture
-        gmsh_num = np.zeros(phys_name_ind_tri.size, dtype="int")
-        # Index of the corresponding name used in the input to gmsh (on the
-        # from FRACTURE_{0, 1} etc.
-        frac_num = np.zeros(phys_name_ind_tri.size, dtype="int")
-
-        for i, pn_ind in enumerate(phys_name_ind_tri):
+            # Split the physical name into a category and a number - which will become
+            # the fracture number
             pn = phys_names[pn_ind]
             offset = pn.rfind("_")
-            frac_num[i] = poly_2_frac[int(pn[offset + 1 :])]
-            gmsh_num[i] = pn_ind
-
-        # Counter for boundary and auxiliary planes
-        count_bound_and_aux = 0
-        for fi in np.unique(frac_num):
-
-            pn = phys_names[phys_name_ind_tri[fi]]
-            offset = pn.rfind("_")
+            frac_num = int(pn[offset + 1 :])
             plane_type = pn[:offset]
+
+            # Check if the surface is of the target type, or if the surface is tagged
+            # as a constraint
             if plane_type != surface_tag[:-1] or int(pn[offset + 1 :]) in constraints:
-                count_bound_and_aux += 1
                 continue
 
-            loc_num = np.where(frac_num == fi - count_bound_and_aux)[0]
-            loc_gmsh_num = gmsh_num[loc_num]
+            # Cells of this surface
+            loc_cells = np.where(tri_tags == pn_ind)[0]
+            loc_tri_cells = tri_cells[loc_cells, :].astype(np.int)
 
-            loc_tri_glob_ind = np.empty((0, 3))
-            for ti in loc_gmsh_num:
-                # It seems the gmsh numbering corresponding to the physical tags
-                # (as found in physnames) is stored in the first column of info
-                gmsh_ind = np.where(cell_info["triangle"]["gmsh:physical"] == ti)[0]
-                loc_tri_glob_ind = np.vstack((loc_tri_glob_ind, tri_cells[gmsh_ind, :]))
-
-            loc_tri_glob_ind = loc_tri_glob_ind.astype("int")
-            pind_loc, p_map = np.unique(loc_tri_glob_ind, return_inverse=True)
+            # Find unique points, and a mapping from local to global points
+            pind_loc, p_map = np.unique(loc_tri_cells, return_inverse=True)
             loc_tri_ind = p_map.reshape((-1, 3))
             g = simplex.TriangleGrid(
                 pts[pind_loc, :].transpose(), loc_tri_ind.transpose()
@@ -151,7 +134,7 @@ def create_2d_grids(
             # Associate a fracture id (corresponding to the ordering of the
             # frature planes in the original fracture list provided by the
             # user)
-            g.frac_num = fi - count_bound_and_aux
+            g.frac_num = frac_num
 
             # Append to list of 2d grids
             g_2d.append(g)
