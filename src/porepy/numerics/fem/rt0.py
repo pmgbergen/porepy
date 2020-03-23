@@ -12,7 +12,6 @@ import logging
 
 import porepy as pp
 
-
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
@@ -20,6 +19,9 @@ logger = logging.getLogger(__name__)
 class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
     def __init__(self, keyword):
         super(RT0, self).__init__(keyword, "RT0")
+        # variable name to store the structure that map a cell to the opposite nodes
+        # of the local faces
+        self.cell_face_to_opposite_node = "rt0_class_cell_face_to_opposite_node"
 
     def discretize(self, g, data):
         """ Discretize a second order elliptic equation using using a RT0-P0 method.
@@ -76,6 +78,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         _, _, _, R, dim, node_coords = pp.map_geometry.map_grid(
             g, deviation_from_plane_tol
         )
+        node_coords = node_coords[: g.dim, :]
 
         if not data.get("is_tangential", False):
             # Rotate the permeability tensor and delete last dimension
@@ -94,8 +97,6 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         dataIJ = np.empty(size)
         idx = 0
 
-        nodes, _, _ = sps.find(g.face_nodes)
-
         size_HB = g.dim * (g.dim + 1)
         HB = np.zeros((size_HB, size_HB))
         for it in np.arange(0, size_HB, g.dim):
@@ -103,18 +104,30 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         HB += HB.T
         HB /= g.dim * g.dim * (g.dim + 1) * (g.dim + 2)
 
+        # define the function to compute the inverse of the permeability matrix
+        if g.dim == 1:
+            inv_matrix = self._inv_matrix_1d
+        elif g.dim == 2:
+            inv_matrix = self._inv_matrix_2d
+        elif g.dim == 3:
+            inv_matrix = self._inv_matrix_3d
+
+        # compute the oppisite node per face
+        self._compute_cell_face_to_opposite_node(g, data)
+        cell_face_to_opposite_node = data[self.cell_face_to_opposite_node]
+
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its faces
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
             faces_loc = faces[loc]
 
-            # find the opposite node id for each face
-            node = RT0.opposite_side_node(g.face_nodes, nodes, faces_loc)
+            # get the opposite node id for each face
+            node = cell_face_to_opposite_node[c, :]
             coord_loc = node_coords[:, node]
 
             # Compute the H_div-mass local matrix
             A = RT0.massHdiv(
-                k.values[0 : g.dim, 0 : g.dim, c],
+                inv_matrix(k.values[0 : g.dim, 0 : g.dim, c]),
                 g.cell_volumes[c],
                 coord_loc,
                 sign[loc],
@@ -123,7 +136,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
             )
 
             # Save values for Hdiv-mass local matrix in the global structure
-            cols = np.tile(faces_loc, (faces_loc.size, 1))
+            cols = np.concatenate(faces_loc.size * [[faces_loc]])
             loc_idx = slice(idx, idx + cols.size)
             I[loc_idx] = cols.T.ravel()
             J[loc_idx] = cols.ravel()
@@ -176,19 +189,21 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
             g, deviation_from_plane_tol
         )
 
-        nodes, _, _ = sps.find(g.face_nodes)
-
         P0u = np.zeros((3, g.num_cells))
+
+        # compute the oppisite node per face
+        self._compute_cell_face_to_opposite_node(g, data)
+        cell_face_to_opposite_node = data[self.cell_face_to_opposite_node]
 
         for c in np.arange(g.num_cells):
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
             faces_loc = faces[loc]
 
             # find the opposite node id for each face
-            node = RT0.opposite_side_node(g.face_nodes, nodes, faces_loc)
+            node = cell_face_to_opposite_node[c, :]
 
             # extract the coordinates
-            center = np.tile(c_centers[:, c], (node.size, 1)).T
+            center = np.repeat(c_centers[:, c], node.size).reshape((-1, g.dim + 1))
             delta_c = center - node_coords[:, node]
             delta_f = f_centers[:, faces_loc] - node_coords[:, node]
             normals = f_normals[:, faces_loc]
@@ -202,7 +217,14 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         return P0u
 
     @staticmethod
-    def massHdiv(K, c_volume, coord, sign, dim, HB):
+    def massHdiv(
+        inv_K: np.ndarray,
+        c_volume: float,
+        coord: np.ndarray,
+        sign: np.ndarray,
+        dim: int,
+        HB: np.ndarray,
+    ) -> np.ndarray:
         """ Compute the local mass Hdiv matrix using the mixed vem approach.
 
         Parameters
@@ -221,41 +243,68 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         """
         # Allow short variable names in this function
         # pylint: disable=invalid-name
-        inv_K = np.linalg.inv(K)
-        inv_K = linalg.block_diag(*([inv_K] * (dim + 1))) / c_volume
-
-        coord = coord[0:dim, :]
-        N = coord.flatten("F").reshape((-1, 1)) * np.ones((1, dim + 1)) - np.tile(
-            coord, (dim + 1, 1)
+        I = np.eye(dim + 1)
+        # expand the inv_K tensor
+        inv_K_exp = (
+            I[:, np.newaxis, :, np.newaxis]
+            * inv_K[np.newaxis, :, np.newaxis, :]
+            / c_volume
         )
+        inv_K_exp.shape = (I.shape[0] * inv_K.shape[0], I.shape[1] * inv_K.shape[1])
 
-        C = np.diagflat(sign)
+        N = coord.flatten("F").reshape((-1, 1)) * np.ones(
+            (1, dim + 1)
+        ) - np.concatenate((dim + 1) * [coord])
+        C = np.diag(sign)
 
-        return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K, np.dot(N, C)))))
+        return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K_exp, np.dot(N, C)))))
 
-    @staticmethod
-    def opposite_side_node(face_nodes, nodes, faces_loc):
-        """
-        Given a face return the node on the opposite side, typical request of a Raviart-Thomas
-        approximation. This function is mainly for internal use.
+
+    def _compute_cell_face_to_opposite_node(self, g, data, recompute=False):
+        """ Compute a map that given a face return the node on the opposite side,
+        typical request of a Raviart-Thomas approximation.
+        This function is mainly for internal use and, if the geometry is fixed during
+        the simulation, it will be called once.
+
+        The map constructed is that for each cell, return the id of the node
+        their opposite side of the local faces.
 
         Parameters:
         ----------
-        face_nodes: global map which contains, for each face, the node ids
-        nodes: all the nodes in the grid after a find to the face_nodes map
-        faces_loc: face ids for the current cel
-
-        Return:
-        -------
-        opposite_node: for each face in faces_loc the id of the node at their opposite
-            side
-
+        g: grid
+        data: data associated to the grid where the map will be stored
+        recompute: (optional) recompute the map even if already computed. Default False
         """
-        indptr = face_nodes.indptr
-        face_nodes = [nodes[indptr[f] : indptr[f + 1]] for f in faces_loc]
 
-        nodes_loc = np.unique(face_nodes)
-        opposite_node = [
-            np.setdiff1d(nodes_loc, f, assume_unique=True) for f in face_nodes
-        ]
-        return np.array(opposite_node).flatten()
+        # if already computed avoid to do it again
+        if not (data.get(self.cell_face_to_opposite_node, None) is None or recompute):
+            return
+
+        faces, cells, _ = sps.find(g.cell_faces)
+        faces = faces[np.argsort(cells)]
+
+        # initialize the map
+        cell_face_to_opposite_node = np.empty((g.num_cells, g.dim + 1), dtype=np.int)
+
+        nodes, _, _ = sps.find(g.face_nodes)
+        indptr = g.face_nodes.indptr
+
+        # loop on all the cells to construct the map
+        for c in np.arange(g.num_cells):
+            # For the current cell retrieve its faces
+            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+            faces_loc = faces[loc]
+
+            # get the local nodes, face based
+            face_nodes = np.array([nodes[indptr[f] : indptr[f + 1]] for f in faces_loc])
+            nodes_loc = np.unique(face_nodes.flatten())
+
+            # get the opposite node for each face
+            opposite_node = np.array(
+                [np.setdiff1d(nodes_loc, f, assume_unique=True) for f in face_nodes]
+            )
+
+            # find the opposite node id for each face
+            cell_face_to_opposite_node[c, :] = opposite_node.flatten()
+
+        data[self.cell_face_to_opposite_node] = cell_face_to_opposite_node
