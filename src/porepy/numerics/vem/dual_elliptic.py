@@ -28,9 +28,6 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
     """
 
     for g, d in gb:
-        if g.dim == 0:
-            continue
-
         # we need to recover the flux from the mortar variable before
         # the projection, only lower dimensional edges need to be considered.
         edge_flux = np.zeros(d[pp.STATE][flux].size)
