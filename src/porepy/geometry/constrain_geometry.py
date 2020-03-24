@@ -116,11 +116,14 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         all_poly = [poly] + polyhedron
 
         # Find intersections
-        coord, point_ind, is_bound, pairs, seg_vert = pp.intersections.polygons_3d(
+        coord, point_ind, _, _, seg_vert_all = pp.intersections.polygons_3d(
             all_poly, target_poly=np.arange(1)
         )
+
         # Find indices of the intersection points for this polygon (the first one)
         isect_poly = point_ind[0]
+        # Only consider segment-vertex information for the first polygon
+        seg_vert = seg_vert_all[0]
 
         # If there are no intersection points, we just need to test if the
         # entire polygon is inside the polyhedral
@@ -202,8 +205,6 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
 
         # From here on, we will lean heavily on information on segments that cross the
         # boundary.
-        # Only consider segment-vertex information for the first polygon
-        seg_vert = seg_vert[0]
 
         # The test for interior points does not check if the segment crosses the
         # domain boundary due to a convex domain; these must be removed.
