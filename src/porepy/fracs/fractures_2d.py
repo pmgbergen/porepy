@@ -1,9 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Mon Dec 10 09:24:49 2018
-
-@author: Eirik Keilegavlens
+Module contains class for representing a fracture network in a 2d domain.
 """
 import numpy as np
 import logging
@@ -14,9 +10,9 @@ import time
 import porepy as pp
 import porepy.fracs.simplex
 from porepy.grids import constants
-from porepy.grids.gmsh import gmsh_interface, mesh_2_grid
-from porepy.fracs import fractures, tools
-from porepy.utils.setmembership import unique_columns_tol, ismember_rows
+from porepy.grids.gmsh import gmsh_interface
+from porepy.fracs import tools
+from porepy.utils.setmembership import unique_columns_tol
 
 
 logger = logging.getLogger(__name__)
@@ -30,17 +26,30 @@ class FractureNetwork2d(object):
     fractures are contained within the specified domain. The fractures can be
     cut to a given domain by the function constrain_to_domain().
 
+    The domain can be a general non-convex polygon.
+
+    IMPLEMENTATION NOTE: The class is mainly intended for representation and meshing of
+    a fracture network, however, it also contains some utility functions. The balance
+    between these components may change in the future, specifically, utility functions
+    may be removed.
+
     Attributes:
         pts (np.array, 2 x num_pts): Start and endpoints of the fractures. Points
             can be shared by fractures.
         edges (np.array, (2 + num_tags) x num_fracs): The first two rows represent
             indices, refering to pts, of the start and end points of the fractures.
             Additional rows are optional tags of the fractures.
-        domain (dictionary): The domain in which the fracture set is defined.
-            Should contain keys 'xmin', 'xmax', 'ymin', 'ymax', each of which
-            maps to a double giving the range of the domain. The fractures need
-            not lay inside the domain.
+        domain (dictionary or np.ndarray): The domain in which the fracture set is
+            defined. If dictionary, it should contain keys 'xmin', 'xmax', 'ymin',
+            'ymax', each of which maps to a double giving the range of the domain. 
+            If np.array, it should be of size 2 x n, and given the vertexes of the.
+            domain. The fractures need not lay inside the domain.
         num_frac (int): Number of fractures in the domain.
+        tol (double): Tolerance used in geometric computations.
+        tags (dict): Tags for fractures.
+        decomposition (dict): Decomposition of the fracture network, used for export to
+            gmsh, and available for later processing. Initially empty, is created by
+            self.mesh().
 
     """
 
@@ -53,9 +62,11 @@ class FractureNetwork2d(object):
         edges (np.array, (2 + num_tags) x num_fracs): The first two rows represent
             indices, refering to pts, of the start and end points of the fractures.
             Additional rows are optional tags of the fractures.
-        domain (dictionary): The domain in which the fracture set is defined.
+        domain (dictionary or): The domain in which the fracture set is defined.
             Should contain keys 'xmin', 'xmax', 'ymin', 'ymax', each of which
             maps to a double giving the range of the domain.
+        tol (double, optional): Tolerance used in geometric computations. Defaults to
+            1e-8.
 
         """
 
