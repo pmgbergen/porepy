@@ -181,8 +181,8 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
                 self.assertEqual(seg_vert[2][counter[2]], (1, True))
                 self.assertEqual(seg_vert[2][counter[2] + 1], (3, True))
             else:  # p[0] == 1 and p[1] == 2
-                self.assertEqual(seg_vert[1][counter[1]], (1, True))
-                self.assertEqual(seg_vert[1][counter[1] + 1], (3, True))
+                self.assertEqual(seg_vert[1][counter[1]], (3, True))
+                self.assertEqual(seg_vert[1][counter[1] + 1], (1, True))
                 self.assertEqual(seg_vert[2][counter[2]], (0, True))
                 self.assertEqual(seg_vert[2][counter[2] + 1], (2, True))
 
@@ -394,7 +394,6 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
 
         self.assertEqual(seg_vert[1][0], (0, True))
         self.assertEqual(seg_vert[1][1], (2, True))
-
         self.assertEqual(seg_vert[0][0], (0, False))
         self.assertEqual(seg_vert[0][1], (2, False))
 
@@ -817,6 +816,98 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
 
         known_points = np.array([[1, 0.5, 0], [1, 0, 0]]).T
         self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
+
+    def test_segment_intersection_identification(self):
+        # This configuration turned out to produce a nasty bug
+
+        f_1 = np.array([[1.5, 1.0, 1.0], [0.5, 0.5, 0.5], [0.5, 0.5, 1.0]])
+
+        f_2 = np.array(
+            [[0.7, 1.4, 1.4, 0.7], [0.4, 0.4, 1.4, 1.4], [0.6, 0.6, 0.6, 0.6]]
+        )
+
+        new_pt, isect_pt, _, _, seg_vert = pp.intersections.polygons_3d([f_1, f_2])
+
+        self.assertTrue(new_pt.shape[1] == 2)
+        self.assertTrue(isect_pt.size == 2)
+        self.assertTrue(len(isect_pt[0]) == 2)
+        self.assertTrue(len(isect_pt[1]) == 2)
+
+        known_points = np.array([[1, 0.5, 0.6], [1.4, 0.5, 0.6]]).T
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
+
+        # Find which of the new points have x index 1 and 1.4
+        if new_pt[0, 0] == 1:
+            x_1_ind = 0
+            x_14_ind = 1
+        else:
+            x_1_ind = 1
+            x_14_ind = 0
+
+        # The x1 intersection point should be on the second segment of f_1, and
+        # on its boundary
+        self.assertTrue(seg_vert[0][x_1_ind][0] == 1)
+        self.assertTrue(seg_vert[0][x_1_ind][1])
+
+        # The x1 intersection point should be on the final segment of f_1, and
+        # in its interior
+        self.assertTrue(len(seg_vert[1][x_1_ind]) == 0)
+
+        # The x14 intersection point should be on the second segment of f_1, and
+        # on its boundary
+        self.assertTrue(seg_vert[0][x_14_ind][0] == 2)
+        self.assertTrue(seg_vert[0][x_14_ind][1])
+
+        # The x1 intersection point should be on the second segment of f_1, and
+        # in its interior
+        self.assertTrue(seg_vert[1][x_14_ind][0] == 1)
+        self.assertTrue(seg_vert[1][x_14_ind][1])
+
+    def test_segment_intersection_identification_reverse_order(self):
+        # This configuration turned out to produce a nasty bug
+
+        f_1 = np.array([[1.5, 1.0, 1.0], [0.5, 0.5, 0.5], [0.5, 0.5, 1.0]])
+
+        f_2 = np.array(
+            [[0.7, 1.4, 1.4, 0.7], [0.4, 0.4, 1.4, 1.4], [0.6, 0.6, 0.6, 0.6]]
+        )
+
+        new_pt, isect_pt, _, _, seg_vert = pp.intersections.polygons_3d([f_2, f_1])
+
+        self.assertTrue(new_pt.shape[1] == 2)
+        self.assertTrue(isect_pt.size == 2)
+        self.assertTrue(len(isect_pt[0]) == 2)
+        self.assertTrue(len(isect_pt[1]) == 2)
+
+        known_points = np.array([[1, 0.5, 0.6], [1.4, 0.5, 0.6]]).T
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
+
+        # Find which of the new points have x index 1 and 1.4
+        if new_pt[0, 0] == 1:
+            x_1_ind = 0
+            x_14_ind = 1
+        else:
+            x_1_ind = 1
+            x_14_ind = 0
+
+        # The x1 intersection point should be on the second segment of f_1, and
+        # on its boundary
+        self.assertTrue(seg_vert[1][x_1_ind][0] == 1)
+        self.assertTrue(seg_vert[1][x_1_ind][1])
+
+        # The x1 intersection point should be on the final segment of f_1, and
+        # in its interior
+        self.assertTrue(len(seg_vert[0][x_1_ind]) == 0)
+
+        # The x14 intersection point should be on the second segment of f_1, and
+        # on its boundary
+        self.assertTrue(seg_vert[1][x_14_ind][0] == 2)
+        self.assertTrue(seg_vert[1][x_14_ind][1])
+
+        # The x1 intersection point should be on the second segment of f_1, and
+        # in its interior
+        self.assertTrue(seg_vert[0][x_14_ind][0] == 1)
+        self.assertTrue(seg_vert[0][x_14_ind][1])
 
 
 class TestPolygonPolyhedronIntersection(unittest.TestCase):
