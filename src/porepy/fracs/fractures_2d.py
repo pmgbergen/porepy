@@ -200,6 +200,9 @@ class FractureNetwork2d(object):
             tol = self.tol
         if constraints is None:
             constraints = np.empty(0, dtype=np.int)
+        else:
+            constraints = np.atleast_1d(constraints)
+        constraints = np.sort(constraints)
 
         if file_name is None:
             file_name = "gmsh_frac_file"
@@ -216,7 +219,20 @@ class FractureNetwork2d(object):
         self.pts = p
 
         if not self.bounding_box_imposed:
-            self.impose_external_boundary(self.domain)
+            edges_deleted = self.impose_external_boundary(self.domain)
+
+            # Find edges of constraints to delete
+            to_delete = np.where(np.isin(constraints, edges_deleted))[0]
+
+            # Adjust constraint indices for deleted edges
+            adjustment = np.zeros(constraints.size, dtype=np.int)
+            for e in edges_deleted:
+                # All constraints with index above the deleted edge should be reduced
+                adjustment[constraints > e] += 1
+
+            constraints -= adjustment
+            # Delete constraints corresponding to deleted edges
+            constraints = np.delete(constraints, to_delete)
 
         self._find_and_split_intersections(constraints)
         self._insert_auxiliary_points(**mesh_args)
@@ -367,6 +383,23 @@ class FractureNetwork2d(object):
         self.decomposition["mesh_size"] = mesh_size
 
     def impose_external_boundary(self, domain=None):
+        """
+        Constrain the fracture network to lie within a domain.
+        
+        Fractures outside the imposed domain will be deleted.
+        
+        The domain will be added to self.pts and self.edges. The domain boundary edges
+        can be identified from self.tags['boundary'].
+
+        Args:
+            domain (dict or np.array, optional): Domain. See __init__ for description.
+                if not provided, self.domain will be used.
+
+        Returns:
+            edges_deleted (np.array): Index of edges that were outside the bounding box
+                and therefore deleted.
+
+        """
 
         if isinstance(domain, dict):
             # First create lines that define the domain
@@ -388,6 +421,8 @@ class FractureNetwork2d(object):
             dom_p, self.pts, self.edges
         )
 
+        edges_deleted = np.setdiff1d(np.arange(self.edges.shape[1]), edges_kept)
+
         # Define boundary tags. Set False to all existing edges (after cutting those
         # outside the boundary).
         boundary_tags = self.tags.get("boundary", [False] * e.shape[1])
@@ -404,7 +439,7 @@ class FractureNetwork2d(object):
         self.decomposition["domain_boundary_points"] = num_p + np.arange(
             dom_p.shape[1], dtype=np.int
         )
-        return
+        return edges_deleted
 
     def _to_gmsh(self, in_file):
 
