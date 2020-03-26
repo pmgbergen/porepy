@@ -485,7 +485,8 @@ def plot_grid_2d(g, cell_value, ax, **kwargs):
 
         loc_n = g.face_nodes.indptr[faces_loc]
         pts_pairs = np.array([nodes[loc_n], nodes[loc_n + 1]])
-        ordering = pp.utils.sort_points.sort_point_pairs(pts_pairs)[0, :]
+        sorted_nodes, _ = pp.utils.sort_points.sort_point_pairs(pts_pairs)
+        ordering = sorted_nodes[0, :]
 
         pts = g.nodes[:, ordering]
         linewidth = kwargs.get("linewidth", 1)
