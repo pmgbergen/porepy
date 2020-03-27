@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 def gb_refinements(
         network: Union[pp.FractureNetwork3d, pp.FractureNetwork2d],
         gmsh_folder_path: Union[str, Path],
+        mesh_args: dict,
         n_refinements: int = 0
 ) -> List[pp.GridBucket]:
     """ Create n refinements of a fracture network.
@@ -45,6 +46,8 @@ def gb_refinements(
         Fracture network
     gmsh_folder_path : str or pathlib.Path
         Absolute path to folder to store results in
+    mesh_args : dict
+        Arguments for meshing (of coarsest grid)
     n_refinements : int, Default = 0
         Number of refined grids to produce.
         The grid is refined by splitting.
@@ -55,10 +58,41 @@ def gb_refinements(
     # ----------------------------------------
 
     gmsh_file_name = str(gmsh_folder_path / "gmsh_frac_file")
+    in_file = f'{gmsh_file_name}.geo'
+    out_file = f"{gmsh_file_name}.msh"
+
+    # We need to generate a .geo file for refine_mesh. But that method will mesh the coarsest grid for us,
+    # so we don't need to call network.mesh(...). Instead, we emulate its behaviour except for meshing itself.
+    # -- Start of FractureNetwork3d.mesh(...)
+    if not network.bounding_box_imposed:
+        network.impose_external_boundary(network.domain)
+
+    # Find intersections between fractures
+    if not network.has_checked_intersections:
+        network.find_intersections()
+    else:
+        logger.info("Use existing intersections")
+
+    if "mesh_size_frac" not in mesh_args.keys():
+        raise ValueError("Meshing algorithm needs argument mesh_size_frac")
+    if "mesh_size_min" not in mesh_args.keys():
+        raise ValueError("Meshing algorithm needs argument mesh_size_min")
+
+    mesh_size_frac = mesh_args.get("mesh_size_frac", None)
+    mesh_size_min = mesh_args.get("mesh_size_min", None)
+    mesh_size_bound = mesh_args.get("mesh_size_bound", None)
+    network._insert_auxiliary_points(mesh_size_frac, mesh_size_min, mesh_size_bound)
+
+    # Process intersections to get a description of the geometry in non-intersecting lines and polygons
+    network.split_intersections()
+
+    # Dump the network description to gmsh .geo format
+    network.to_gmsh(in_file, in_3d=True)
+    # -- End of method: .geo file created
 
     gb_list = refine_mesh(
-        in_file=f'{gmsh_file_name}.geo',
-        out_file=f"{gmsh_file_name}.msh",
+        in_file=in_file,
+        out_file=out_file,
         dim=3,
         network=network,
         num_refinements=n_refinements,
@@ -135,6 +169,7 @@ def run_model_for_convergence_study(
     gb_list = gb_refinements(
         network=network,
         gmsh_folder_path=params['folder_name'],
+        mesh_args=params['mesh_args'],
         n_refinements=n_refinements,
     )
 
