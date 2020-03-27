@@ -17,6 +17,8 @@ from typing import (  # noqa
 )
 
 import porepy as pp
+from porepy.fracs.simplex import tetrahedral_grid_from_gmsh
+from porepy.fracs.meshing import grid_list_to_grid_bucket
 import numpy as np
 import scipy.sparse as sps
 
@@ -53,9 +55,6 @@ def refine_mesh(
             "Then, Add the 'lib' directory from the SDK to PYTHONPATH: \n"
             "export PYTHONPATH=${PYTHONPATH}:path/to/gmsh*-sdk.*/lib"
         )
-
-    from porepy.fracs.simplex import tetrahedral_grid_from_gmsh
-    from porepy.fracs.meshing import grid_list_to_grid_bucket
 
     assert os.path.isfile(in_file)
 
