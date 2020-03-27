@@ -2142,6 +2142,8 @@ class FractureNetwork3d(object):
         frac_tags["boundary"] = frac_tags.get("boundary", []) + [False] * (
             len(self._fractures) - len(frac_tags.get("boundary", []))
         )
+        frac_tags["constraint"] = np.zeros(len(self._fractures), dtype=np.bool)
+        frac_tags["constraint"][constraints] = True
 
         # Get preliminary set of tags for the edges. Also find which edges are
         # interior to all or only some edges

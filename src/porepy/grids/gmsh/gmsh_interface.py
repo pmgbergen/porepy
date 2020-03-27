@@ -316,14 +316,14 @@ class GmshWriter(object):
         """
         constants = gridding_constants.GmshConstants()
         bound_tags = self.polygon_tags.get("boundary", [False] * len(self.polygons[0]))
+        constraint_tags = self.polygon_tags["constraint"]
 
         ls = "\n"
         # Name boundary or fracture
-        f_or_b = "boundary_surface" if boundary else "fracture"
         if not boundary:
             s = "// Start fracture specification" + ls
         else:
-            s = ""
+            s = "// Start boundary surface specification" + ls
         for pi in range(len(self.polygons[0])):
             if bound_tags[pi] != boundary:
                 continue
@@ -341,11 +341,24 @@ class GmshWriter(object):
 
             s += "};" + ls
 
-            n = f_or_b + "_"
+            if boundary:
+                surf_stem = "boundary_surface_"
+            else:
+                if constraint_tags[pi]:
+                    surf_stem = "auxiliary_surface_"
+                else:
+                    surf_stem = "fracture_"
+
             # Then the surface
-            s += n + str(pi) + " = news; "
+            s += surf_stem + str(pi) + " = news; "
             s += (
-                "Plane Surface(" + n + str(pi) + ") = {frac_loop_" + str(pi) + "};" + ls
+                "Plane Surface("
+                + surf_stem
+                + str(pi)
+                + ") = {frac_loop_"
+                + str(pi)
+                + "};"
+                + ls
             )
 
             if bound_tags[pi]:
@@ -354,28 +367,40 @@ class GmshWriter(object):
                     'Physical Surface("'
                     + constants.PHYSICAL_NAME_DOMAIN_BOUNDARY_SURFACE
                     + str(pi)
-                    + '") = {boundary_surface_'
+                    + '") = {'
+                    + surf_stem
                     + str(pi)
                     + "};"
                     + ls
                 )
-
+            elif constraint_tags[pi]:
+                s += (
+                    'Physical Surface("'
+                    + constants.PHYSICAL_NAME_AUXILIARY
+                    + str(pi)
+                    + '") = {'
+                    + surf_stem
+                    + str(pi)
+                    + "};"
+                    + ls
+                )
             else:
                 # Normal fracture
                 s += (
                     'Physical Surface("'
                     + constants.PHYSICAL_NAME_FRACTURES
                     + str(pi)
-                    + '") = {fracture_'
+                    + '") = {'
+                    + surf_stem
                     + str(pi)
                     + "};"
                     + ls
                 )
                 if self.domain is not None:
-                    s += "Surface{" + n + str(pi) + "} In Volume{1};" + ls + ls
+                    s += "Surface{" + surf_stem + str(pi) + "} In Volume{1};" + ls + ls
 
             for li in self.e2f[pi]:
-                s += "Line{frac_line_" + str(li) + "} In Surface{" + n
+                s += "Line{frac_line_" + str(li) + "} In Surface{" + surf_stem
                 s += str(pi) + "};" + ls
             s += ls
 
@@ -609,7 +634,7 @@ def run_gmsh(in_file, out_file, dims, **kwargs):
     config = read_config.read()
     path_to_gmsh = config["gmsh_path"]
 
-    options = {'-v': 1}
+    options = {"-v": 1}
     options.update(**kwargs)
 
     opts = " "
