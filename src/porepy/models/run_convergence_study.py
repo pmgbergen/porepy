@@ -56,6 +56,14 @@ def gb_refinements(
     # ----------------------------------------
     # --- CREATE FRACTURE NETWORK AND MESH ---
     # ----------------------------------------
+    if isinstance(network, pp.FractureNetwork2d):
+        dim = 2
+    elif isinstance(network, pp.FractureNetwork3d):
+        dim = 3
+    else:
+        # This might be too strict: consider passing dim as parameter instead.
+        raise ValueError("Unknown input network")
+
 
     gmsh_file_name = str(gmsh_folder_path / "gmsh_frac_file")
     in_file = f'{gmsh_file_name}.geo'
@@ -93,7 +101,7 @@ def gb_refinements(
     gb_list = refine_mesh(
         in_file=in_file,
         out_file=out_file,
-        dim=3,
+        dim=dim,
         network=network,
         num_refinements=n_refinements,
     )
