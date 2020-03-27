@@ -71,12 +71,13 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             self.params = params
             self.viz_folder_name = params.get("folder_name", "contact_mechanics_viz")
 
-    def create_grid(self):
-        """
-        Method that creates a GridBucket of a 2D domain with one fracture and sets
-        projections to local coordinates for all fractures.
+        # Initialize grid bucket
+        self.gb = None
 
-        The method requires the following attribute:
+    def create_grid(self):
+        """ Create a (fractured) domain in 2D or 3D, with projections to local coordinates set for all fractures.
+
+        The method requires the following attribute, which is stored in self.params:
             mesh_args (dict): Containing the mesh sizes.
 
         The method assigns the following attributes to self:
