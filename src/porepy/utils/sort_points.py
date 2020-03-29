@@ -109,6 +109,8 @@ def sort_point_plane(pts, centre, normal=None, tol=1e-5):
     map_pts: np.array, 1xn, sorted point ids.
 
     """
+    _c = np.atleast_2d(centre)
+    centre = _c if _c.shape[0] > _c.shape[1] else _c.T
     R = pp.map_geometry.project_plane_matrix(pts, normal)
     # project points and center,  project to plane
     delta = np.dot(R, pts - centre)
