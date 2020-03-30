@@ -155,7 +155,7 @@ def _cart_grid_3d(fracs, nx, physdims=None):
     # TODO: Constraints have not been implemented for structured DFM grids.
     # Simply pass nothing for now, not sure how do deal with this, or if it at all is
     # meaningful.
-    edge_tags, not_boundary_edge, _ = network._classify_edges(poly, [])
+    edge_tags, _, _ = network._classify_edges(poly, [])
 
     const = constants.GmshConstants()
     auxiliary_points, edge_tags = network._on_domain_boundary(edges, edge_tags)

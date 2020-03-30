@@ -41,7 +41,7 @@ class FractureNetwork2d(object):
             Additional rows are optional tags of the fractures.
         domain (dictionary or np.ndarray): The domain in which the fracture set is
             defined. If dictionary, it should contain keys 'xmin', 'xmax', 'ymin',
-            'ymax', each of which maps to a double giving the range of the domain. 
+            'ymax', each of which maps to a double giving the range of the domain.
             If np.array, it should be of size 2 x n, and given the vertexes of the.
             domain. The fractures need not lay inside the domain.
         num_frac (int): Number of fractures in the domain.
@@ -257,7 +257,8 @@ class FractureNetwork2d(object):
         points = self.pts
         edges = self.edges
 
-        assert np.all(np.diff(edges[:2], axis=0) != 0)
+        if not np.all(np.diff(edges[:2], axis=0) != 0):
+            raise ValueError("Found a point edge in splitting of edges")
 
         const = constants.GmshConstants()
 
@@ -287,7 +288,10 @@ class FractureNetwork2d(object):
         _, new_2_old, old_2_new = unique_columns_tol(li, tol=self.tol)
         lines = lines[:, new_2_old]
 
-        assert np.all(np.diff(lines[:2], axis=0) != 0)
+        if not np.all(np.diff(lines[:2], axis=0) != 0):
+            raise ValueError(
+                "Found a point edge in splitting of edges after merging points"
+            )
 
         # We split all fracture intersections so that the new lines do not
         # intersect, except possible at the end points
@@ -385,9 +389,9 @@ class FractureNetwork2d(object):
     def impose_external_boundary(self, domain=None):
         """
         Constrain the fracture network to lie within a domain.
-        
+
         Fractures outside the imposed domain will be deleted.
-        
+
         The domain will be added to self.pts and self.edges. The domain boundary edges
         can be identified from self.tags['boundary'].
 

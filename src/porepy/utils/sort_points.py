@@ -15,8 +15,8 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
     surely be imporved.
 
     Parameters:
-    lines: np.ndarray, 2xn, the line pairs. If lines has more than 2 rows, we assume that
-        the points are stored in the first two rows.
+    lines: np.ndarray, 2xn, the line pairs. If lines has more than 2 rows, we assume
+        that the points are stored in the first two rows.
     check_circular: Verify that the sorted polyline form a circle.
                     Defaluts to true.
     ordering: np.array, return in the original order if a line is flipped or not
@@ -25,7 +25,7 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
     Returns:
     sorted_lines: np.ndarray, 2xn, sorted line pairs. If lines had more than 2 rows,
         the extra are sorted accordingly.
-    sort_ind: np.ndarray, n: Sorted column indices, so that 
+    sort_ind: np.ndarray, n: Sorted column indices, so that
         sorted_lines = lines[:, sort_ind], modulu flipping of rows in individual columns
 
     """
@@ -35,7 +35,7 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
 
     # Keep track of which lines have been found, which are still candidates
     found = np.zeros(num_lines, dtype=np.bool)
-    
+
     # Initialize array of sorting indices
     sort_ind = np.zeros(num_lines, dtype=np.int)
 
@@ -70,7 +70,7 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
     # Order of the origin line list, store if they are flipped or not to form the chain
     is_ordered = np.zeros(num_lines, dtype=np.bool)
     is_ordered[0] = True
-    
+
     # The sorting algorithm: Loop over all places in sorted_line to be filled,
     # for each of these, loop over all members in lines, check if the line is still
     # a candidate, and if one of its points equals the current starting point.
@@ -84,7 +84,7 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
                 prev = lines[1, j]
                 is_ordered[j] = True
                 sort_ind[i] = j
-                
+
                 break
             elif not found[j] and lines[1, j] == prev:
                 sorted_lines[:, i] = lines[:, j]
