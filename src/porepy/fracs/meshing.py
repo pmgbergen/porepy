@@ -253,9 +253,7 @@ def _assemble_in_bucket(grids, **kwargs):
             fn = np.sort(fn, axis=0)
 
             for lg in grids[dim + 1]:
-                cell_2_face, cell = tools.obtain_interdim_mappings(
-                    lg, fn, n_per_face
-                )
+                cell_2_face, cell = tools.obtain_interdim_mappings(lg, fn, n_per_face)
                 if cell_2_face.size > 0:
                     face_cells = sps.csc_matrix(
                         (np.ones(cell.size, dtype=bool), (cell, cell_2_face)),

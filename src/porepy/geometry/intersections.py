@@ -928,7 +928,10 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
                             # seg_vert info 0.
                             segment_vertex_intersection[main].append(seg_vert_main_0)
                         else:
-                            assert mod_sign(main_1_other_0.sum()) == 0  # sanity check
+                            if not mod_sign(main_1_other_0.sum()) == 0:  # sanity check
+                                raise ValueError(
+                                    "inconsistent polygon intersection configuration"
+                                )
                             # other_intersects_main_0 == main_intersects_other_1
                             # The first intersection point, seen from main, should have
                             # seg_vert info 1.
@@ -954,7 +957,10 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
                             segment_vertex_intersection[main].append(seg_vert_main_1)
                         else:
                             # other_intersects_main_1 == main_intersects_other_1
-                            assert mod_sign(main_0_other_1.sum()) == 0
+                            if not mod_sign(main_0_other_1.sum()) == 0:
+                                raise ValueError(
+                                    "inconsistent polygon intersection configuration"
+                                )
                             segment_vertex_intersection[main].append(seg_vert_main_0)
 
                     else:

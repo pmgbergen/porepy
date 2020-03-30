@@ -181,7 +181,7 @@ def unique_columns_tol(mat, tol=1e-8):
         )
         return un_ar, new_2_old, old_2_new
 
-    (nd, l) = mat.shape
+    l = mat.shape[1]
 
     # By default, no columns are kept
     keep = np.zeros(l, dtype=np.bool)
