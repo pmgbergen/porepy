@@ -11,6 +11,19 @@ import os
 #     from meshio import gmsh_io
 # except:
 #     from meshio import msh_io as gmsh_io
+from typing import (
+    Union
+)
+from pathlib import Path
+try:
+    import gmsh
+except ModuleNotFoundError:
+    raise ModuleNotFoundError(
+        "To run gmsh python api on your system, " 
+        "download the relevant gmsh*-sdk.* from http://gmsh.info/bin/. " 
+        "Then, Add the 'lib' directory from the SDK to PYTHONPATH: \n" 
+        "export PYTHONPATH=${PYTHONPATH}:path/to/gmsh*-sdk.*/lib"
+    )
 
 from porepy.utils import sort_points, read_config
 import porepy.grids.constants as gridding_constants
@@ -577,6 +590,43 @@ class GmshGridBucketWriter(object):
 
 
 # ------------------ End of GmshGridBucketWriter------------------------------
+
+# TODO: Incorporate **kwargs. What could they be?
+def run_gmsh2(
+        in_file: Union[str, Path],
+        out_file: Union[str, Path],
+        dim: int,
+        **kwargs,
+) -> None:
+    """
+        Convenience function to run gmsh.
+
+        Parameters:
+            in_file : str or pathlib.Path
+                Name of gmsh configuration file (.geo)
+            out_file : str or pathlib.Path
+                Name of output file for gmsh (.msh)
+            dim : int
+                Number of dimensions gmsh should grid. If dims is less than
+                the geometry dimensions, gmsh will grid all lower-dimensional
+                objcets described in in_file (e.g. all surfaces embeded in a 3D
+                geometry).
+            **kwargs: Options passed on to gmsh. See gmsh documentation for
+                possible values.
+        """
+
+    if not Path(in_file).is_file():
+        raise FileNotFoundError(f"file {in_file!r} not found.")
+
+    # Remove any suffixes from the out file name. gmsh will give it '.msh' suffix.
+    out_file = Path(out_file)
+    out_file = out_file.parent / out_file.stem
+
+    gmsh.initialize()
+    gmsh.open(in_file)
+    gmsh.model.mesh.generate(dim=dim)
+    gmsh.write(out_file)
+    gmsh.finalize()
 
 
 def run_gmsh(in_file, out_file, dims, **kwargs):
