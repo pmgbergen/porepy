@@ -430,6 +430,8 @@ def invert_diagonal_blocks(mat, s, method=None):
     if method == "numba" or method is None:
         try:
             inv_vals = invert_diagonal_blocks_numba(mat, s)
+        except np.linalg.LinAlgError:
+            raise ValueError("Error in inversion of local linear systems")
         except:
             # This went wrong, fall back on cython
             try_cython = True
