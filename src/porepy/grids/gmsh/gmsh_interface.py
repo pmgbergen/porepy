@@ -2,6 +2,7 @@
 
 import numpy as np
 import os
+import subprocess
 
 # meshio has changed the name of the module taking care of gmsh import.
 # Ensure compatibility with both versions with a try-except
@@ -611,11 +612,15 @@ def run_gmsh(in_file, out_file, dims, **kwargs):
             key = "-" + key
         opts += key + " " + str(val) + " "
 
-    if dims == 2:
-        cmd = path_to_gmsh + " -2 " + in_file + " -o " + out_file + opts
+    if dims == 1:
+        cmd = [path_to_gmsh, "-1", in_file, "-o", out_file, opts]
+    elif dims == 2:
+        cmd = [path_to_gmsh, "-2", in_file, "-o", out_file, opts]
+    elif dims == 3:
+        cmd = [path_to_gmsh, "-3", in_file, "-o", out_file,opts]
     else:
-        cmd = path_to_gmsh + " -3 " + in_file + " -o " + out_file + opts
+        raise ValueError
 
-    status = os.system(cmd)
+    status = subprocess.check_call(cmd)
 
     return status
