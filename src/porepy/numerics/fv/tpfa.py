@@ -77,9 +77,6 @@ class Tpfa(FVElliptic):
         # Get the dictionaries for storage of data and discretization matrices
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        # Extract parameters
-        k = parameter_dictionary["second_order_tensor"]
-        bnd = parameter_dictionary["bc"]
 
         if g.dim == 0:
             matrix_dictionary[self.flux_matrix_key] = sps.csr_matrix([0])
@@ -94,6 +91,10 @@ class Tpfa(FVElliptic):
             is_active[faces] = True
 
             is_not_active = np.logical_not(is_active)
+
+        # Extract parameters
+        k = parameter_dictionary["second_order_tensor"]
+        bnd = parameter_dictionary["bc"]
 
         fi, ci, sgn = sps.find(g.cell_faces)
 
