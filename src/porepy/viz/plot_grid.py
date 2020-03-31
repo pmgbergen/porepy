@@ -284,8 +284,8 @@ def plot_gb(gb, cell_value, vector_value, info, **kwargs):
         )
         plot_grid_xd(
             g,
-            d[pp.STATE].get(cell_value, None),
-            d[pp.STATE].get(vector_value, None),
+            d.get(pp.STATE, {}).get(cell_value, None),
+            d.get(pp.STATE, {}).get(vector_value, None),
             ax,
             **kwargs
         )
