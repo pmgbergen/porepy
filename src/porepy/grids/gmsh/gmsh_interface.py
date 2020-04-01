@@ -591,12 +591,10 @@ class GmshGridBucketWriter(object):
 
 # ------------------ End of GmshGridBucketWriter------------------------------
 
-# TODO: Incorporate **kwargs. What could they be?
-def run_gmsh2(
+def run_gmsh(
         in_file: Union[str, Path],
         out_file: Union[str, Path],
         dim: int,
-        **kwargs,
 ) -> None:
     """
         Convenience function to run gmsh.
@@ -611,8 +609,6 @@ def run_gmsh2(
                 the geometry dimensions, gmsh will grid all lower-dimensional
                 objcets described in in_file (e.g. all surfaces embeded in a 3D
                 geometry).
-            **kwargs: Options passed on to gmsh. See gmsh documentation for
-                possible values.
         """
 
     if not Path(in_file).is_file():
@@ -627,46 +623,3 @@ def run_gmsh2(
     gmsh.model.mesh.generate(dim=dim)
     gmsh.write(out_file)
     gmsh.finalize()
-
-
-def run_gmsh(in_file, out_file, dims, **kwargs):
-    """
-    Convenience function to run gmsh.
-
-    Parameters:
-        in_file (str): Name of gmsh configuration file (.geo)
-        out_file (str): Name of output file for gmsh (.msh)
-        dims (int): Number of dimensions gmsh should grid. If dims is less than
-            the geometry dimensions, gmsh will grid all lower-dimensional
-            objcets described in in_file (e.g. all surfaces embeded in a 3D
-            geometry).
-        **kwargs: Options passed on to gmsh. See gmsh documentation for
-            possible values.
-
-    Returns:
-        double: Status of the generation, as returned by os.system. 0 means the
-            simulation completed successfully, >0 signifies problems.
-
-    """
-    if not os.path.isfile(in_file):
-        raise FileNotFoundError("file " + in_file + " not found")
-
-    # Import config file to get location of gmsh executable.
-    config = read_config.read()
-    path_to_gmsh = config["gmsh_path"]
-
-    opts = " "
-    for key, val in kwargs.items():
-        # Gmsh keywords are specified with prefix '-'
-        if key[0] != "-":
-            key = "-" + key
-        opts += key + " " + str(val) + " "
-
-    if dims == 2:
-        cmd = path_to_gmsh + " -2 " + in_file + " -o " + out_file + opts
-    else:
-        cmd = path_to_gmsh + " -3 " + in_file + " -o " + out_file + opts
-
-    status = os.system(cmd)
-
-    return status
