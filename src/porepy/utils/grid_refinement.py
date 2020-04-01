@@ -25,8 +25,10 @@ import scipy.sparse as sps
 logger = logging.getLogger(__name__)
 
 
-def refine_mesh(
-        in_file: str, out_file: str, dim: int,
+def refine_mesh_by_splitting(
+        in_file: Union[str, Path],
+        out_file: Union[str, Path],
+        dim: int,
         network: Union[pp.FractureNetwork3d, pp.FractureNetwork2d],
         num_refinements: int = 1,
 ) -> List[pp.GridBucket]:
