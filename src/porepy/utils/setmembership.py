@@ -1,10 +1,6 @@
-# -*- coding: utf-8 -*-
 """
-Created on Thu Feb 25 20:16:42 2016
-
-@author: keile
+Various functions with set operations.
 """
-from __future__ import division
 import numpy as np
 
 
