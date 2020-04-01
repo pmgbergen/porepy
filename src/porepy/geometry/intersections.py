@@ -169,26 +169,20 @@ def segments_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     have been discovered so far.
 
     Parameters:
-        start_1 (np.ndarray or list): coordinates of start point for first
+        start_1 (np.ndarray): coordinates of start point for first
             line.
-        end_1 (np.ndarray or list): coordinates of end point for first line.
-        start_2 (np.ndarray or list): coordinates of start point for first
+        end_1 (np.ndarray): coordinates of end point for first line.
+        start_2 (np.ndarray): coordinates of start point for first
             line.
-        end_2 (np.ndarray or list): coordinates of end point for first line.
+        end_2 (np.ndarray): coordinates of end point for first line.
 
     Returns:
-        np.ndarray, dimension 3xn_pts): coordinates of intersection points
+        np.ndarray, dimension 3 x n_pts: coordinates of intersection points
             (number of columns will be either 1 for a point intersection, or 2
             for a segment intersection). If the lines do not intersect, None is
             returned.
 
     """
-
-    # Convert input to numpy if necessary
-    start_1 = np.asarray(start_1).astype(np.float).ravel()
-    end_1 = np.asarray(end_1).astype(np.float).ravel()
-    start_2 = np.asarray(start_2).astype(np.float).ravel()
-    end_2 = np.asarray(end_2).astype(np.float).ravel()
 
     # Short hand for component of start and end points, as well as vectors
     # along lines.
@@ -221,19 +215,28 @@ def segments_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     deltas_1 = np.array([dx_1, dy_1, dz_1])
     deltas_2 = np.array([dx_2, dy_2, dz_2])
 
-    # Use masked arrays to avoid divisions by zero
-    mask_1 = np.ma.greater(np.abs(deltas_1), tol)
-    mask_2 = np.ma.greater(np.abs(deltas_2), tol)
+    # Find non-zero elements
+    mask_1 = np.abs(deltas_1) > tol
+    mask_2 = np.abs(deltas_2) > tol
 
     # Check for two dimensions that are not parallel with at least one line
     mask_sum = mask_1 + mask_2
+
     if mask_sum.sum() > 1:
-        in_discr = np.argwhere(mask_sum)[:2]
+        if mask_sum[0] and mask_sum[1]:
+            in_discr = np.array([0, 1])
+            not_in_discr = 2
+        elif mask_sum[0] and mask_sum[2]:
+            in_discr = np.array([0, 2])
+            not_in_discr = 1
+        else:
+            in_discr = np.array([1, 2])
+            not_in_discr = 0
     else:
         # We're going to have a zero discreminant anyhow, just pick some dimensions.
         in_discr = np.arange(2)
+        not_in_discr = 2
 
-    not_in_discr = np.setdiff1d(np.arange(3), in_discr)[0]
     discr = (
         deltas_1[in_discr[0]] * deltas_2[in_discr[1]]
         - deltas_1[in_discr[1]] * deltas_2[in_discr[0]]
@@ -263,7 +266,9 @@ def segments_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         t = deltas_1[mask_1] / deltas_2[mask_2]
 
         # Second, test for alignment in all directions
-        if not np.allclose(t, t.mean(), tol):
+        if t.size == 2 and abs(t[0] - t[1]) > tol:
+            return None
+        elif t.size == 3 and (abs(t[0] - t[1]) > tol or abs(t[0] - t[2]) > tol):
             return None
 
         # If we have made it this far, the lines are indeed parallel. Next,
@@ -352,7 +357,7 @@ def segments_3d(start_1, end_1, start_2, end_2, tol=1e-8):
             return None
 
 
-def polygons_3d(polys, tol=1e-8):
+def polygons_3d(polys, target_poly=None, tol=1e-8):
     """ Compute the intersection between polygons embedded in 3d.
 
     In addition to intersection points, the function also decides:
@@ -378,6 +383,10 @@ def polygons_3d(polys, tol=1e-8):
         polys (list of np.array): Each list item represents a polygon, specified
             by its vertexses as a numpy array, of dimension 3 x num_pts. There
             should be at least three vertexes in the polygon.
+        target_poly (int or np.array, optional): Index in poly of the polygons that
+            should be target for intersection findings. These will be compared with the
+            whole set in poly. If not provided, all polygons are compared with
+            each other.
         tol (double, optional): Geometric tolerance for the computations.
 
     Returns:
@@ -398,6 +407,11 @@ def polygons_3d(polys, tol=1e-8):
             the tuple is replaced by an empty list.
 
     """
+    if target_poly is None:
+        target_poly = np.arange(len(polys))
+    elif isinstance(target_poly, int):
+        target_poly = np.array(target_poly)
+
     # Obtain bounding boxes for the polygons
     x_min, x_max, y_min, y_max, z_min, z_max = _axis_aligned_bounding_box_3d(polys)
 
@@ -487,10 +501,17 @@ def polygons_3d(polys, tol=1e-8):
     new_pt_ind = 0
 
     # Index of the main fractures, to which the other ones will be compared.
-    start_inds = np.unique(pairs[0])
+    # Filter out all that are not among the targets.
+    start_inds = np.intersect1d(target_poly, pairs)
 
     # Store index of pairs of intersecting polygons
     polygon_pairs = []
+
+    # Pre-compute polygon normals to save computational time
+    polygon_normals = [
+        pp.map_geometry.compute_normal(poly, check=False).reshape((-1, 1))
+        for poly in polys
+    ]
 
     # Loop over all fracture pairs (taking more than one simultaneously if an index
     # occurs several times in pairs[0]), and look for intersections
@@ -509,7 +530,7 @@ def polygons_3d(polys, tol=1e-8):
 
         # Center point and normal vector of the main fracture
         main_center = center(polys[main])
-        main_normal = pp.map_geometry.compute_normal(polys[main]).reshape((-1, 1))
+        main_normal = polygon_normals[main]
 
         # Create an expanded version of the main points, so that the start
         # and end points are the same. Thus the segments can be formed by
@@ -526,7 +547,7 @@ def polygons_3d(polys, tol=1e-8):
             other_p_expanded = polys[o][:, ind_other_cyclic]
 
             # Normal vector and cetner of the other polygon
-            other_normal = pp.map_geometry.compute_normal(polys[o]).reshape((-1, 1))
+            other_normal = polygon_normals[o]
             other_center = center(polys[o])
 
             # Point a vector from the main center to the vertexes of the
@@ -843,6 +864,9 @@ def polygons_3d(polys, tol=1e-8):
 
             # e_1 is positive if both points of the other fracture lie on the same side of the
             # first intersection point of the main one
+            # e_1 negative means the first intersection point of main with the plane of
+            # the others is surrounded by the intersection points of the other polygon
+            # with the main plane.
             # Use a mod_sign here to avoid issues related to rounding errors
             e_1 = mod_sign(np.sum(main_0_other_0 * main_0_other_1))
             # e_2 is positive if both points of the other fracture lie on the same side of the
@@ -874,23 +898,71 @@ def polygons_3d(polys, tol=1e-8):
                 # the intersection (if e_1 == 0, two segments intersect)
                 if e_2 >= 0:
                     # The second point on the main fracture is at most marginally involved
-                    # We know that e_3 and e_4 are negative (positive is covered above
+                    # We know that e_3 and e_4 are non-positive (positive is covered above
                     # and a combination is not possible)
+
+                    # The intersection points are defined by the intersection of other
+                    # with the plane of main
                     isect_pt_loc = [other_intersects_main_0, other_intersects_main_1]
 
-                    # Main is intersected in its interior, append two empty lists
-                    if e_1 == 0:
-                        segment_vertex_intersection[main].append(seg_vert_main_0)
+                    # Next, we need to classify the intersection types (segments or not)
+                    # For the other polygon, we know both intersections are on the
+                    # segments
+                    segment_vertex_intersection[o].append(seg_vert_other_0)
+                    segment_vertex_intersection[o].append(seg_vert_other_1)
+
+                    # For the main segment, the intersection most likely hits in the
+                    # interior, however, there is still the chance that the intersection
+                    # is on the segment (if e_1 == 0 and / or e__2 == 0)
+
+                    # Check if the first intersection point is on the boundary of main
+                    if e_3 == 0:
+                        # e_3 = main_0_other_0.dot(main_1_other_0) == 0
+                        # We know all of e_i are parallel, thus orthogonality is not
+                        # an option. Thus at least of the components of e_3 is 0.
+
+                        # main_0_other_0 is involved in e_1, check if this is zero
+                        if mod_sign(np.abs(main_0_other_0).sum()) == 0:
+                            # other_intersects_main_0 == main_intersects_other_0
+                            # The first intersection point, seen from main, should have
+                            # seg_vert info 0.
+                            segment_vertex_intersection[main].append(seg_vert_main_0)
+                        else:
+                            if not mod_sign(main_1_other_0.sum()) == 0:  # sanity check
+                                raise ValueError(
+                                    "inconsistent polygon intersection configuration"
+                                )
+                            # other_intersects_main_0 == main_intersects_other_1
+                            # The first intersection point, seen from main, should have
+                            # seg_vert info 1.
+                            segment_vertex_intersection[main].append(seg_vert_main_1)
                     else:
                         if isect_on_boundary_main:
+                            # The first intersection coincides with a segment of main
                             ind = seg_vert_main_0[0]
                             if ind == 0:
                                 ind = num_main - 1
                             segment_vertex_intersection[main].append((ind, True))
                         else:
+                            # The first intersection is in the interior of main
                             segment_vertex_intersection[main].append([])
-                    if e_2 == 0:
-                        segment_vertex_intersection[main].append(seg_vert_main_1)
+
+                    # Next, treat the second intersection point
+                    # Check if other_intersects_main_1 equalls either
+                    # main_intersects_other_0 or main_intersects_other_1
+                    if e_4 == 0:
+                        # e_4 = main_0_other_1.dot(main_1_other_1) == 0
+                        if mod_sign(np.abs(main_1_other_1).sum()) == 0:
+                            # other_intersects_main_1 == main_intersects_other_0
+                            segment_vertex_intersection[main].append(seg_vert_main_1)
+                        else:
+                            # other_intersects_main_1 == main_intersects_other_1
+                            if not mod_sign(main_0_other_1.sum()) == 0:
+                                raise ValueError(
+                                    "inconsistent polygon intersection configuration"
+                                )
+                            segment_vertex_intersection[main].append(seg_vert_main_0)
+
                     else:
                         if isect_on_boundary_main:
                             ind = seg_vert_main_1[0]
@@ -898,38 +970,51 @@ def polygons_3d(polys, tol=1e-8):
                                 ind -= 1
 
                             segment_vertex_intersection[main].append((ind, True))
+
                         else:
                             segment_vertex_intersection[main].append([])
 
-                    # Other is intersected on two segments
-                    segment_vertex_intersection[o].append(seg_vert_other_0)
-                    segment_vertex_intersection[o].append(seg_vert_other_1)
-                else:
+                else:  # e_2 < 0
                     # The second point on the main fracture is surrounded by points on
                     # the other fracture. One of them will in turn be surrounded by the
                     # points on the main fracture, this is the intersecting one.
                     if e_3 <= 0:
+                        # Intersection consists of second point from main, then first
+                        # from other
                         isect_pt_loc = [
                             main_intersects_other_1,
                             other_intersects_main_0,
                         ]
 
+                        # seg-vert information for the first point is simple for main
                         segment_vertex_intersection[main].append(seg_vert_main_1)
-                        if e_1 == 0:
-                            # The first point on the main fracture barely hits the other
-                            # fracture
+
+                        # Second point for main is more difficult
+                        if mod_sign(np.abs(main_0_other_0).sum()) == 0:
+                            # e_1 == 0 gives main_intersects_other_0 equals either
+                            #  other_intersects_main_0 or other_intersects_main_1
+                            # e_3 == 0 confirms
+                            #  main_intersects_other_0 == other_intersects_main_0
+                            # (otherwise e_2 would also have been zero)
                             segment_vertex_intersection[main].append(seg_vert_main_0)
+
                         else:
                             if isect_on_boundary_main:
                                 # No intersection for the first point of main
                                 ind = seg_vert_main_0[0]
+                                if ind == 0:
+                                    ind = num_main - 1
+
                                 segment_vertex_intersection[main].append((ind, True))
                             else:
                                 segment_vertex_intersection[main].append([])
 
-                        # The second may hit, depending on e_4
+                        # seg-vert information for first point, seen from other
+                        # We know that e_2 < 0, thus main_intersects_other_1 cannot
+                        # equal other_intersects_main_0 or other_intersects_main_1
                         if e_4 == 0:
                             segment_vertex_intersection[o].append(seg_vert_other_1)
+                            assert False, "this should not happen"
                         else:
                             if isect_on_boundary_other:
                                 ind = seg_vert_other_1[0]
@@ -941,7 +1026,7 @@ def polygons_3d(polys, tol=1e-8):
                             else:
                                 segment_vertex_intersection[o].append([])
 
-                        # The first point of other surely hits
+                        # seg-vert information for the second point is simple for other
                         segment_vertex_intersection[o].append(seg_vert_other_0)
 
                     elif e_4 <= 0:
@@ -949,9 +1034,13 @@ def polygons_3d(polys, tol=1e-8):
                             main_intersects_other_1,
                             other_intersects_main_1,
                         ]
+                        # seg-vert information for the first point is simple for main
                         segment_vertex_intersection[main].append(seg_vert_main_1)
 
-                        if e_1 == 0:
+                        # For the second point, we need to check if
+                        #  other_intersects_main_1 == main_intersects_other_0
+                        # this will imply
+                        if mod_sign(np.abs(main_0_other_1).sum()) == 0:
                             # The first point on the main fracture barely hits the other
                             # fracture
                             segment_vertex_intersection[main].append(seg_vert_main_0)
@@ -959,19 +1048,22 @@ def polygons_3d(polys, tol=1e-8):
                             # No intersection for the first point of main
                             segment_vertex_intersection[main].append([])
 
+                        # Check if main_intersects_other_1 == other_intersects_main_0
                         if e_3 == 0:
+                            assert False, "this should not happen for e_2 < 0"
                             segment_vertex_intersection[o].append(seg_vert_other_0)
                         else:
                             segment_vertex_intersection[o].append([])
 
+                        # seg-vert information for the second point is simple for other
                         segment_vertex_intersection[o].append(seg_vert_other_1)
 
                     else:
                         # We may eventually end up here for overlapping fractures
                         assert False
             elif e_2 >= 0:
-                # The first point on the main fracture is not involved in the intersection
-                # The case of e_1 also non-negative was covered above
+                # Since e_1 is known to be negative, we know that main_intersects_other
+                # is one intersection point.
                 if e_1 < 0:  # Equality is covered above
                     # The first point on the main fracture is surrounded by points on
                     # the other fracture. One of them will in turn be surrounded by the
@@ -981,9 +1073,15 @@ def polygons_3d(polys, tol=1e-8):
                             main_intersects_other_0,
                             other_intersects_main_0,
                         ]
+                        # seg-vert information for the first point is simple for main
                         segment_vertex_intersection[main].append(seg_vert_main_0)
-                        segment_vertex_intersection[main].append([])
+                        if e_3 < 0:  # The second intersection point is interior to main
+                            segment_vertex_intersection[main].append([])
+                        else:  # On the boundary of main
+                            segment_vertex_intersection[main].append(seg_vert_main_1)
 
+                        # For other, the first intersection point is known to be
+                        # interior, or else e_1 would have been 0
                         segment_vertex_intersection[o].append([])
                         segment_vertex_intersection[o].append(seg_vert_other_0)
 

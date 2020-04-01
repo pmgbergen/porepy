@@ -1257,7 +1257,7 @@ class TestMpfaSimplexGrid(unittest.TestCase):
     def grid(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
 
-        mesh_size = {"value": 0.3, "bound_value": 0.3}
+        mesh_size = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
         network = pp.FractureNetwork2d(domain=domain)
         gb = network.mesh(mesh_size)
         return gb.grids_of_dimension(2)[0]

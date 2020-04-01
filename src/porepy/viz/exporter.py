@@ -628,9 +628,9 @@ class Exporter:
                 # Sort the points.
                 # Note that the indices assigned here also adjusts to the global point
                 # numbering
-                ptsId_paired = (
-                    pp.utils.sort_points.sort_point_pairs(ptsId)[0, :] + ptsId_global
-                )
+                # Split computation in two to catch extra return argument
+                ptsId_paired, _ = pp.utils.sort_points.sort_point_pairs(ptsId)
+                ptsId_paired = ptsId_paired[0, :] + ptsId_global
 
                 # Create a list of Ids, add all point pairs.
                 fsVTK = vtk.vtkIdList()

@@ -9,10 +9,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from porepy.numerics.fv.fv_elliptic import FVElliptic
 
-
-class Tpfa(FVElliptic):
+class Tpfa(pp.FVElliptic):
     """ Discretize elliptic equations by a two-point flux approximation.
 
     Attributes:
