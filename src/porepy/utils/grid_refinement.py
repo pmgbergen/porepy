@@ -152,14 +152,14 @@ def gb_coarse_fine_cell_mapping(
 
         # Compute the mapping for this grid-pair,
         # and assign the result to the node of the coarse gb
-        mapping = coarse_fine_cell_mapping(g, g_ref, tol=tol)
+        mapping = coarse_fine_cell_mapping(g, g_ref, point_in_poly_tol=tol)
         gb.set_node_prop(g=g, key="coarse_fine_cell_mapping", val=mapping)
 
 
 def coarse_fine_cell_mapping(
         g: pp.Grid,
         g_ref: pp.Grid,
-        tol=1e-8,
+        point_in_poly_tol=1e-8,
 ) -> sps.csc_matrix:
     """ Construct a mapping between cells of a grid and its refined version
 
@@ -173,22 +173,48 @@ def coarse_fine_cell_mapping(
         Coarse grid
     g_ref : pp.Grid
         Refined grid
-    tol : float, Optional
+    point_in_poly_tol : float, Optional
         Tolerance for pp.geometry_property_checks.point_in_polyhedron()
 
     Returns
     -------
     coarse_fine : sps.csc_matrix
         Column major sparse matrix mapping from coarse to fine cells.
+
+
+    This method creates a mapping from fine to coarse cells by creating a matrix 'M' where the rows represent the fine
+    cells while the columns represent the coarse cells. In practice this means that for an array 'p', of known values on
+    a coarse grid, by applying the mapping
+        q = M * p
+    each value in a coarse cell will now be transferred to all the fine cells contained within the coarse cell.
+
+    The procedure for creating this mapping relies on two main assumptions.
+        1. Each fine cell is fully contained inside exactly one coarse cell.
+        2. Each cell can be characterised as a simplex.
+            - i.e. Every node except one defines every face of the object.
+
+    The first assumption implies that the problem of assessing if a fine cell is contained within a coarse cell is
+    reduced to assessing if the center of a fine cell is contained within the coarse cell. The second assumption implies
+    that a cell in any dimension (1D, 2D, 3D) will be a convex object. This way, we can use existing algorithms in
+    PorePy to find if a point is inside a polygon (2D) or polyhedron (3D). (The 1D case is trivial)
+
+    The general algorithm is as follows (refer to start of for-loop in the code):
+    1. Make a list of (pointers to) untested cell centers called 'test_cells_ptr'.
+    2. Iterate through all coarse cells. Now, consider one of these:
+        3. For all untested cell centers (defined by 'test_cells_ptr'), check if they are inside the coarse cell.
+        4. Those that pass (is inside the coarse cell) add to the mapping, then remove those point from the list of
+            untested cell centers.
+    5. Assemble the mapping.
     """
 
     assert g.num_cells < g_ref.num_cells, "Wrong order of input grids"
     assert g.dim == g_ref.dim, "Grids must be of same dimension"
 
+    # 1. Step: Create a list of tuples pointing to the (start, end) index of the nodes of each cell on the coarse grid.
     cell_nodes = g.cell_nodes()
-    slices = zip(cell_nodes.indptr[:-1], cell_nodes.indptr[1:])  # start/end row pointers for each column
+    nodes_of_cell_ptr = zip(cell_nodes.indptr[:-1], cell_nodes.indptr[1:])  # start/end row pointers for each column
 
-    # Create sps.csc_matrix mapping coarse cells to fine cell centers
+    # 2. Step: Initialize a sps.csc_matrix mapping fine cells to coarse cells.
     indptr = np.array([0])
     indices = np.empty(0)
 
@@ -196,28 +222,35 @@ def coarse_fine_cell_mapping(
     test_cells_ptr = np.arange(g_ref.num_cells)  # Pointer to cell centers
     nodes = g.nodes.copy()
 
+    # 3. Step: If the grids are in 1D or 2D, we can simplify the calculation by rotating the coordinate system to
+    #           local coordinates. For example, a 2D grid embedded in 3D would be "rotated" so that each coordinate
+    #           is of the form (x, y, 0).
     if g.dim == 1:
-        nodes = nodes.copy()
+        # Rotate coarse nodes and fine cell centers to align with the x-axis
         tangent = pp.map_geometry.compute_tangent(nodes)
         reference = [1, 0, 0]
-        R = pp.map_geometry.project_line_matrix(nodes, tangent, tol=tol, reference=reference)
+        R = pp.map_geometry.project_line_matrix(nodes, tangent, reference=reference)
         nodes = R.dot(nodes)[0, :]
         cells_ref = R.dot(cells_ref)[0, :]
 
     elif g.dim == 2:  # Pre-processing for efficiency
-        nodes = nodes.copy()
+        # Rotate coarse nodes and fine cell centers to the xy-plane.
         R = pp.map_geometry.project_plane_matrix(nodes, check_planar=False)
         nodes = np.dot(R, nodes)[:2, :]
         cells_ref = np.dot(R, cells_ref)[:2, :]
 
-    # Loop through every coarse cell
-    for st, nd in slices:
+    # 4. Step: Loop through every coarse cell
+    for st, nd in nodes_of_cell_ptr:
 
         nodes_idx = cell_nodes.indices[st:nd]
         num_nodes = nodes_idx.size
 
+        # 5. Step: for the appropriate grid dimension, test all cell centers not already found to be inside some other
+        #           coarse cell.
+        #           'in_poly' is a boolean array that is True for the points inside and False for the points not inside.
         if g.dim == 1:
-            assert (num_nodes == 2)
+            # In 1D, we use a numpy method to check which coarse cell the fine points are inside.
+            assert (num_nodes == 2), "We assume a 'cell' in 1D is defined by two points."
             line = np.sort(nodes[nodes_idx])
             test_points = cells_ref[test_cells_ptr]
             in_poly = np.searchsorted(line, test_points, side='left') == 1
@@ -227,10 +260,13 @@ def coarse_fine_cell_mapping(
             polygon = nodes[:, nodes_idx]
             test_points = cells_ref[:, test_cells_ptr]
             in_poly = pp.geometry_property_checks.point_in_polygon(
-                polygon, test_points, tol=tol)
+                poly=polygon,
+                p=test_points,
+                tol=point_in_poly_tol,
+            )
 
         elif g.dim == 3:
-            # Make polyhedron from node coordinates
+            # Make polyhedron from node coordinates.
             # Polyhedron defined as a list of nodes defining its (convex) faces.
             # Assumes simplexes: Every node except one defines every face.
             assert (num_nodes == 4), "We assume simplexes in 3D (i.e. 4 nodes)"
@@ -240,14 +276,16 @@ def coarse_fine_cell_mapping(
             polyhedron = [node_coords[:, ids != i] for i in np.arange(num_nodes)]
             test_points = cells_ref[:, test_cells_ptr]  # Test only points not inside another polyhedron.
             in_poly = pp.geometry_property_checks.point_in_polyhedron(
-                polyhedron=polyhedron, test_points=test_points, tol=tol
+                polyhedron=polyhedron,
+                test_points=test_points,
+                tol=point_in_poly_tol,
             )
 
         else:
             logger.warning(f"A grid of dimension {g.dim} encountered. Skip!")
             continue
 
-        # Update pointer to which cell centers to use as test points
+        # 6. Step: Update pointer to which cell centers to use as test points
         in_poly_ids = test_cells_ptr[in_poly]  # id of cells inside this polyhedron
         test_cells_ptr = test_cells_ptr[~in_poly]  # Keep only cells not inside this polyhedron
 
@@ -255,8 +293,8 @@ def coarse_fine_cell_mapping(
         indices = np.append(indices, in_poly_ids)
         indptr = np.append(indptr, indptr[-1] + in_poly_ids.size)
 
+    # 7. Step: assemble the sparse matrix with the mapping.
     data = np.ones(indices.size)
-
     coarse_fine = sps.csc_matrix((data, indices, indptr))
 
     assert (indices.size == g_ref.num_cells), "Every fine cell should be inside exactly one coarse cell"
