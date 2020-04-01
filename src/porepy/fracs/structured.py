@@ -10,7 +10,6 @@ import porepy as pp
 
 from porepy.grids.gmsh import mesh_2_grid
 from porepy.grids import constants
-from porepy.fracs import fractures
 from porepy.utils import half_space
 from porepy.grids import structured, point_grid
 
@@ -125,7 +124,7 @@ def _cart_grid_3d(fracs, nx, physdims=None):
     # but we use the FractureNetwork class for now.
     frac_list = []
     for f in fracs:
-        frac_list.append(fractures.Fracture(f))
+        frac_list.append(pp.Fracture(f))
     # Combine the fractures into a network
     network = pp.FractureNetwork3d(frac_list)
     # Impose domain boundary. For the moment, the network should be immersed in

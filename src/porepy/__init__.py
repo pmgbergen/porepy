@@ -56,7 +56,7 @@ from porepy.grids.standard_grids import grid_buckets_2d
 from porepy.grids import grid_extrusion
 
 # Fractures
-from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork3d
+from porepy.fracs.fractures_3d import Fracture, EllipticFracture, FractureNetwork3d
 from porepy.fracs.fractures_2d import FractureNetwork2d
 
 # Numerics
