@@ -106,10 +106,7 @@ def _run_gmsh(file_name, **kwargs):
     in_file = file_name + ".geo"
     out_file = file_name + ".msh"
 
-    gmsh_opts = kwargs.get("gmsh_opts", {})
-    gmsh_verbose = kwargs.get("gmsh_verbose", verbose)
-    gmsh_opts["-v"] = gmsh_verbose
-    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3, **gmsh_opts)
+    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dim=3)
 
     if verbose > 0:
         if gmsh_status == 0:
