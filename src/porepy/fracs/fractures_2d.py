@@ -3,7 +3,6 @@ Module contains class for representing a fracture network in a 2d domain.
 """
 import numpy as np
 import logging
-import networkx as nx
 import csv
 import time
 
@@ -476,9 +475,9 @@ class FractureNetwork2d(object):
 
     ## end of methods related to meshing
 
-    def _decompose_domain(self, domain, nx, ny=None):
+    def _decompose_domain(self, domain, num_x, ny=None):
         x0 = domain["xmin"]
-        dx = (domain["xmax"] - domain["xmin"]) / nx
+        dx = (domain["xmax"] - domain["xmin"]) / num_x
 
         if "ymin" in domain.keys() and "ymax" in domain.keys():
             y0 = domain["ymin"]
@@ -582,6 +581,8 @@ class FractureNetwork2d(object):
         else:
             edges = self.edges
             pts = self.pts
+            
+        import networkx as nx
 
         G = nx.Graph()
         for pi in range(pts.shape[1]):
