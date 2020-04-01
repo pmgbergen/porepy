@@ -3,14 +3,6 @@
 import numpy as np
 import os
 
-# TODO: It doesn't seem like meshio is used for anything here? Remove?
-# meshio has changed the name of the module taking care of gmsh import.
-# Ensure compatibility with both versions with a try-except
-# try:
-#     # This will work for meshio.__version__ < 2.3.5
-#     from meshio import gmsh_io
-# except:
-#     from meshio import msh_io as gmsh_io
 from typing import (
     Union
 )
