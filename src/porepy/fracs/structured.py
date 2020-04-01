@@ -10,8 +10,6 @@ import porepy as pp
 
 from porepy.grids.gmsh import mesh_2_grid
 from porepy.grids import constants
-from porepy.utils import half_space
-from porepy.grids import structured, point_grid
 
 
 def _cart_grid_3d(fracs, nx, physdims=None):
@@ -54,7 +52,7 @@ def _cart_grid_3d(fracs, nx, physdims=None):
         physdims = np.asarray(physdims)
 
     # We create a 3D cartesian grid. The global node mapping is trivial.
-    g_3d = structured.CartGrid(nx, physdims=physdims)
+    g_3d = pp.CartGrid(nx, physdims=physdims)
     g_3d.global_point_ind = np.arange(g_3d.num_nodes)
     g_3d.compute_geometry()
     g_2d = []
@@ -100,7 +98,7 @@ def _cart_grid_3d(fracs, nx, physdims=None):
         # We find all the faces inside the convex hull defined by the
         # rectangle. To find the faces on the fracture plane, we remove any
         # faces that are further than tol from the snapped fracture plane.
-        in_hull = half_space.half_space_int(normal, f_s, g_3d.face_centers)
+        in_hull = pp.utils.half_space.half_space_int(normal, f_s, g_3d.face_centers)
         f_tag = np.logical_and(
             in_hull,
             np.logical_and(
@@ -198,7 +196,7 @@ def _cart_grid_3d(fracs, nx, physdims=None):
             continue
         node = np.argmin(pp.distances.point_pointset(pts[:, p], g_3d.nodes))
         assert np.allclose(g_3d.nodes[:, node], pts[:, p])
-        g = point_grid.PointGrid(g_3d.nodes[:, node])
+        g = pp.PointGrid(g_3d.nodes[:, node])
         g.global_point_ind = np.asarray(node)
         g_0d.append(g)
 
@@ -243,7 +241,7 @@ def _cart_grid_2d(fracs, nx, physdims=None):
     else:
         physdims = np.asarray(physdims)
 
-    g_2d = structured.CartGrid(nx, physdims=physdims)
+    g_2d = pp.CartGrid(nx, physdims=physdims)
     g_2d.global_point_ind = np.arange(g_2d.num_nodes)
     g_2d.compute_geometry()
     g_1d = []
@@ -267,7 +265,7 @@ def _cart_grid_2d(fracs, nx, physdims=None):
     # Create 0-D grids
     if np.any(shared_nodes > 1):
         for global_node in np.argwhere(shared_nodes > 1).ravel():
-            g = point_grid.PointGrid(g_2d.nodes[:, global_node])
+            g = pp.PointGrid(g_2d.nodes[:, global_node])
             g.global_point_ind = np.asarray(global_node)
             g_0d.append(g)
 
@@ -301,7 +299,7 @@ def _create_embedded_2d_grid(loc_coord, glob_id):
     unique_x = np.unique(sorted_coord[0])
     unique_y = np.unique(sorted_coord[1])
     # assert unique_x.size == unique_y.size
-    g = structured.TensorGrid(unique_x, unique_y)
+    g = pp.TensorGrid(unique_x, unique_y)
     assert np.all(g.nodes[0:2] - sorted_coord == 0)
 
     # Project back to active dimension

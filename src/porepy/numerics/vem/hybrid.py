@@ -3,7 +3,6 @@
 
 @author: fumagalli, alessio
 """
-import warnings
 import numpy as np
 from numpy.linalg import solve
 import scipy.sparse as sps
