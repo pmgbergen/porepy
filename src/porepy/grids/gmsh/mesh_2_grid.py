@@ -5,7 +5,6 @@ Maybe we will add the reverse mapping.
 import numpy as np
 
 import porepy as pp
-from porepy.grids import simplex, structured, point_grid
 from porepy.grids import constants
 
 
@@ -22,7 +21,7 @@ def create_3d_grids(pts, cells):
     """
 
     tet_cells = cells["tetra"]
-    g_3d = simplex.TetrahedralGrid(pts.transpose(), tet_cells.transpose())
+    g_3d = pp.TetrahedralGrid(pts.transpose(), tet_cells.transpose())
 
     # Create mapping to global numbering (will be a unit mapping, but is
     # crucial for consistency with lower dimensions)
@@ -125,7 +124,7 @@ def create_2d_grids(
             # Find unique points, and a mapping from local to global points
             pind_loc, p_map = np.unique(loc_tri_cells, return_inverse=True)
             loc_tri_ind = p_map.reshape((-1, 3))
-            g = simplex.TriangleGrid(
+            g = pp.TriangleGrid(
                 pts[pind_loc, :].transpose(), loc_tri_ind.transpose()
             )
             # Add mapping to global point numbers
@@ -143,7 +142,7 @@ def create_2d_grids(
 
         triangles = cells["triangle"].transpose()
         # Construct grid
-        g_2d = simplex.TriangleGrid(pts.transpose(), triangles)
+        g_2d = pp.TriangleGrid(pts.transpose(), triangles)
 
         # we need to add the face tags from gmsh to the current mesh,
         # first we add them as False and after we change for the correct
@@ -382,7 +381,7 @@ def create_0d_grids(
             # the defined constantnt
             if phys_name_vertex == target_tag_stem[:-1]:
                 # This should be a new grid
-                g = point_grid.PointGrid(pts[point_cells[pi]])
+                g = pp.PointGrid(pts[point_cells[pi]])
                 g.global_point_ind = np.atleast_1d(np.asarray(point_cells[pi]))
 
                 # Store the index of this physical name tag.
@@ -399,7 +398,7 @@ def create_embedded_line_grid(loc_coord, glob_id, tol=1e-4):
     sorted_coord, rot, active_dimension, sort_ind = pp.map_geometry.project_points_to_line(
         loc_coord, tol
     )
-    g = structured.TensorGrid(sorted_coord)
+    g = pp.TensorGrid(sorted_coord)
 
     # Project back to active dimension
     nodes = np.zeros(g.nodes.shape)
