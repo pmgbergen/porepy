@@ -169,7 +169,9 @@ def star_shape_cell_centers(g, as_nan=False):
             if as_nan:
                 cell_centers[:, c] = np.array([np.nan, np.nan, np.nan])
             else:
-                raise ValueError("Cell not star-shaped impossible to compute the centre")
+                raise ValueError(
+                    "Cell not star-shaped impossible to compute the centre"
+                )
 
     # shift back the computed cell centers and return them
     return cell_centers + np.tile(xn_shift, (g.num_cells, 1)).T

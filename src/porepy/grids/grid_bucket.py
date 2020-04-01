@@ -90,8 +90,8 @@ class GridBucket(object):
             e: An edge in the graph.
 
         Returns:
-            dictionary: The first vertex of the edge.
-            dictionary: The second vertex of the edge.
+            pp.Grid: The first vertex of the edge.
+            pp.Grid: The second vertex of the edge.
 
         """
 
@@ -123,7 +123,6 @@ class GridBucket(object):
         Yields:
             core.grid.edges: The edge (pair of grids) associated with an edge.
             data: The dictionary storing all information in this edge.
-            object: A dictionary with keys and properties.
 
         """
         for e, _ in self._edges.items():
