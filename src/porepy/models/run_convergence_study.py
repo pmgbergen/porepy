@@ -25,7 +25,7 @@ import pendulum
 import porepy as pp
 
 from porepy.models.contact_mechanics_model import ContactMechanics
-from porepy.utils.grid_refinement import gb_coarse_fine_cell_mapping, refine_mesh
+from porepy.utils.grid_refinement import gb_coarse_fine_cell_mapping, refine_mesh_by_splitting
 from porepy.utils.grid_convergence import grid_error
 
 
@@ -36,21 +36,25 @@ def gb_refinements(
         network: Union[pp.FractureNetwork3d, pp.FractureNetwork2d],
         gmsh_folder_path: Union[str, Path],
         mesh_args: dict,
-        n_refinements: int = 0
-) -> List[pp.GridBucket]:
+) -> Generator[pp.GridBucket]:
     """ Create n refinements of a fracture network.
+
+    This method is used if you have a pp.FractureNetwork, but not a .geo file describing the mesh.
+    If you have the .geo file as well, use refine_mesh_by_splitting directly.
 
     Parameters
     ----------
     network : Union[pp.FractureNetwork3d, pp.FractureNetwork2d]
         Fracture network
-    gmsh_folder_path : str or pathlib.Path
+    gmsh_folder_path : Union[str, Path]
         Absolute path to folder to store results in
     mesh_args : dict
         Arguments for meshing (of coarsest grid)
-    n_refinements : int, Default = 0
-        Number of refined grids to produce.
-        The grid is refined by splitting.
+
+    Returns
+    -------
+    gb : Generator[pp.GridBucket]
+        A generator for grid buckets
     """
 
     # ----------------------------------------
@@ -64,12 +68,13 @@ def gb_refinements(
         # This might be too strict: consider passing dim as parameter instead.
         raise ValueError("Unknown input network")
 
-
     gmsh_file_name = str(gmsh_folder_path / "gmsh_frac_file")
     in_file = f'{gmsh_file_name}.geo'
     out_file = f"{gmsh_file_name}.msh"
 
-    # We need to generate a .geo file for refine_mesh. But that method will mesh the coarsest grid for us,
+    # TODO: Consider separating the start FractureNetwork3d.mesh, to avoid us copying its contents here
+    # We need to generate a .geo file for refine_mesh_by_splitting.
+    # refine_mesh_by_splitting will mesh the coarsest grid for us (in addition to all refinements),
     # so we don't need to call network.mesh(...). Instead, we emulate its behaviour except for meshing itself.
     # -- Start of FractureNetwork3d.mesh(...)
     if not network.bounding_box_imposed:
@@ -98,17 +103,12 @@ def gb_refinements(
     network.to_gmsh(in_file, in_3d=True)
     # -- End of method: .geo file created
 
-    gb_list = refine_mesh(
+    yield from refine_mesh_by_splitting(
         in_file=in_file,
         out_file=out_file,
         dim=dim,
         network=network,
-        num_refinements=n_refinements,
     )
-    for _gb in gb_list:
-        pp.contact_conditions.set_projections(_gb)
-
-    return gb_list
 
 
 def run_model_for_convergence_study(
@@ -174,12 +174,13 @@ def run_model_for_convergence_study(
     logger.info(f"Preparing setup for convergence study on {pendulum.now().to_atom_string()}")
 
     # 1. Step: Create n grids by uniform refinement.
-    gb_list = gb_refinements(
+    gb_generator = gb_refinements(
         network=network,
         gmsh_folder_path=params['folder_name'],
         mesh_args=params['mesh_args'],
-        n_refinements=n_refinements,
     )
+    gb_list = [next(gb_generator) for _ in range(0, n_refinements + 1)]
+    gb_generator.close()
 
     # -----------------------
     # --- SETUP AND SOLVE ---
