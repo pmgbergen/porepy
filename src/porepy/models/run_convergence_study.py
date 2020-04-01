@@ -1,27 +1,15 @@
-import os
 import logging
-from typing import (  # noqa
-    Any,
+from typing import (
     Callable,
-    Coroutine,
     Generator,
-    Generic,
-    Iterable,
     List,
-    Mapping,
-    Optional,
-    Set,
     Tuple,
     Type,
-    TypeVar,
     Union,
 )
 from pathlib import Path
-from pprint import pformat
-import functools
-import inspect
 
-import pendulum
+from datetime import datetime
 import porepy as pp
 
 from porepy.models.contact_mechanics_model import ContactMechanics
@@ -171,7 +159,7 @@ def run_model_for_convergence_study(
     # 4. a. Step: Map the solution to the fine grid, and compute error.
     # 5. Step: Compute order of convergence, etc.
 
-    logger.info(f"Preparing setup for convergence study on {pendulum.now().to_atom_string()}")
+    logger.info(f"Preparing setup for convergence study on {datetime.now().isoformat()}")
 
     # 1. Step: Create n grids by uniform refinement.
     gb_generator = gb_refinements(
