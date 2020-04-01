@@ -61,9 +61,8 @@ class FractureNetwork2d(object):
         edges (np.array, (2 + num_tags) x num_fracs): The first two rows represent
             indices, refering to pts, of the start and end points of the fractures.
             Additional rows are optional tags of the fractures.
-        domain (dictionary or): The domain in which the fracture set is defined.
-            Should contain keys 'xmin', 'xmax', 'ymin', 'ymax', each of which
-            maps to a double giving the range of the domain.
+        domain (dictionary or set of points): The domain in which the fracture set is
+             defined. See self.attributes for description.
         tol (double, optional): Tolerance used in geometric computations. Defaults to
             1e-8.
 
