@@ -378,7 +378,7 @@ def polygon_hanging_nodes(p, edges, tol=1e-8):
     """
     Find hanging nodes of a polygon
 
-    Args:
+    Parameters:
         p (np.ndarray, nd x n_pt): Point coordinates
         edges (TYPE): Indices, referring to columns in p, of edges in the polygon.
             Should be ordered so that edges[1, i] == edges[0, i+1], and

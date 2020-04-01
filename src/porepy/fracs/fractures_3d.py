@@ -612,7 +612,14 @@ class FractureNetwork3d(object):
         Initialization sets most fields (see attributes) to None.
 
         Parameters:
-            fractures (list of Fracture): Fractures that make up the network.
+            fractures (list of Fracture, optional): Fractures that make up the network.
+                Defaults to None, which will create a domain empty of fractures.
+            domain (either dictionary or list of np.arrays): Domain specification. See
+                self.impose_external_boundary() for details.
+            tol (double, optional): Tolerance used in geometric tolerations. Defaults
+                to 1e-8.
+            run_checks (boolean, optional): Run consistency checks during the network
+                processing. Can be considered a limited debug mode. Defaults to False.
 
         """
         if fractures is None:
@@ -899,7 +906,7 @@ class FractureNetwork3d(object):
 
                 s += (
                     "Fracture " + str(f) + " intersects with"
-                    " fractuer(s) " + str(isects) + "\n"
+                    " fracture(s) " + str(isects) + "\n"
                 )
         # Print aggregate numbers. Note that all intersections are counted
         # twice (from first and second), thus divide by two.
@@ -1468,9 +1475,11 @@ class FractureNetwork3d(object):
 
         There are two permissible data formats for the domain boundary:
             1) A 3D box, described by its minimum and maximum coordinates.
-            2) A list of polygons, that together form a closed polyhedron.
+            2) A list of polygons (each specified as a np.array, 3xn), that together
+                form a closed polyhedron.
 
-        If no bounding box is provided, a box will be fited outside the fracture network.
+        If no bounding box is provided, a box will be fited outside the fracture
+        network.
 
         If desired, the fratures will be truncated to lay within the bounding
         box; that is, Fracture.p will be modified. The orginal coordinates of
@@ -2119,7 +2128,7 @@ class FractureNetwork3d(object):
 
         writer.Update()
 
-    def to_gmsh(self, file_name, constraints, in_3d=True, **kwargs):
+    def to_gmsh(self, file_name, constraints=None, in_3d=True, **kwargs):
         """ Write the fracture network as input for mesh generation by gmsh.
 
         It is assumed that intersections have been found and processed (e.g. by
@@ -2127,11 +2136,17 @@ class FractureNetwork3d(object):
 
         Parameters:
             file_name (str): Path to the .geo file to be written
+            constrains (np.array-like, of ints, optional): Index, to self._fractures of
+                polygons that are constraints, and should not generate lower-dimensional
+                grids. Defaults to empty list.
             in_3d (boolean, optional): Whether to embed the 2d fracture grids
                in 3d. If True (default), the mesh will be DFM-style, False will
                give a DFN-type mesh.
 
         """
+        if constraints is None:
+            constraints = np.array([], dtype=np.int)
+        
         # Extract geometrical information.
         p = self.decomposition["points"]
         edges = self.decomposition["edges"]
