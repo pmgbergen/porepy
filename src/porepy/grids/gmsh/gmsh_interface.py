@@ -613,5 +613,5 @@ def run_gmsh(
     gmsh.initialize()
     gmsh.open(in_file)
     gmsh.model.mesh.generate(dim=dim)
-    gmsh.write(out_file)
+    gmsh.write(str(out_file) + '.msh')
     gmsh.finalize()
