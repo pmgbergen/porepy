@@ -623,7 +623,7 @@ class GmshGridBucketWriter(object):
         return s
 
 
-<<<<<<< HEAD
+
 # ------------------ End of GmshGridBucketWriter------------------------------
 
 def run_gmsh(
@@ -631,30 +631,9 @@ def run_gmsh(
         out_file: Union[str, Path],
         dim: int,
 ) -> None:
-=======
-def run_gmsh(in_file, out_file, dims, **kwargs):
     """
     Convenience function to run gmsh.
 
-    Parameters:
-        in_file (str): Name of gmsh configuration file (.geo)
-        out_file (str): Name of output file for gmsh (.msh)
-        dims (int): Number of dimensions gmsh should grid. If dims is less than
-            the geometry dimensions, gmsh will grid all lower-dimensional
-            objcets described in in_file (e.g. all surfaces embeded in a 3D
-            geometry).
-        **kwargs: Options passed on to gmsh. See gmsh documentation for
-            possible values.
-
-    Returns:
-        double: Status of the generation, as returned by os.system. 0 means the
-            simulation completed successfully, >0 signifies problems.
-
->>>>>>> develop
-    """
-        Convenience function to run gmsh.
-
-<<<<<<< HEAD
         Parameters:
             in_file : str or pathlib.Path
                 Name of gmsh configuration file (.geo)
@@ -665,23 +644,8 @@ def run_gmsh(in_file, out_file, dims, **kwargs):
                 the geometry dimensions, gmsh will grid all lower-dimensional
                 objcets described in in_file (e.g. all surfaces embeded in a 3D
                 geometry).
-        """
-=======
-    # Import config file to get location of gmsh executable.
-    config = read_config.read()
-    path_to_gmsh = config["gmsh_path"]
 
-    options = {"-v": 1}
-    options.update(**kwargs)
-
-    opts = " "
-    for key, val in options.items():
-        # Gmsh keywords are specified with prefix '-'
-        if key[0] != "-":
-            key = "-" + key
-        opts += key + " " + str(val) + " "
->>>>>>> develop
-
+    """
     if not Path(in_file).is_file():
         raise FileNotFoundError(f"file {in_file!r} not found.")
 
