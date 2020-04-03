@@ -4,9 +4,7 @@ Module for partitioning of grids based on various methods.
 Intended support is by Cartesian indexing, and METIS-based.
 
 """
-from __future__ import division
 import warnings
-import networkx
 import numpy as np
 import scipy.sparse as sps
 from typing import List, Tuple
@@ -786,6 +784,7 @@ def grid_is_connected(
         False
 
     """
+    import networkx
 
     # If no cell indices are specified, we use them all.
     if cell_ind is None:
