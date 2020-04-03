@@ -3,18 +3,7 @@
 Examples are to cut objects to lie within other objects, etc.
 """
 import numpy as np
-import networkx as nx
-
-import shapely.geometry as shapely_geometry
-import shapely.speedups as shapely_speedups
-
 import porepy as pp
-
-
-try:
-    shapely_speedups.enable()
-except AttributeError:
-    pass
 
 
 def lines_by_polygon(poly_pts, pts, edges):
@@ -37,6 +26,14 @@ def lines_by_polygon(poly_pts, pts, edges):
         values if an edge is cut by a non-convex domain.
 
     """
+    import shapely.geometry as shapely_geometry
+    import shapely.speedups as shapely_speedups
+    try:
+        shapely_speedups.enable()
+    except AttributeError:
+        pass
+
+    
     # it stores the points after the intersection
     int_pts = np.empty((2, 0))
     # define the polygon
@@ -102,7 +99,8 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
             polygon
 
     """
-
+    import networkx as nx
+    
     if isinstance(polygons, np.ndarray):
         polygons = [polygons]
 

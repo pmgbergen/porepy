@@ -2,22 +2,13 @@
 Module with functions for computing intersections between geometric objects.
 
 """
-
 import numpy as np
 import logging
-
-import shapely.geometry as shapely_geometry
-import shapely.speedups as shapely_speedups
 
 import porepy as pp
 
 # Module level logger
 logger = logging.getLogger(__name__)
-
-try:
-    shapely_speedups.enable()
-except AttributeError:
-    pass
 
 
 def segments_2d(start_1, end_1, start_2, end_2, tol=1e-8):
@@ -1174,6 +1165,14 @@ def triangulations(p_1, p_2, t_1, t_2):
             and their common area.
 
     """
+    import shapely.geometry as shapely_geometry
+    import shapely.speedups as shapely_speedups
+    
+    try:
+        shapely_speedups.enable()
+    except AttributeError:
+        pass
+    
     n_1 = t_1.shape[1]
     n_2 = t_2.shape[1]
     t_1 = t_1.T
