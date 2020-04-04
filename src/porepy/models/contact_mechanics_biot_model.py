@@ -146,7 +146,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
         tensor_scale = self.scalar_scale / self.length_scale ** 2
         kappa = 1 * tensor_scale
-        mass_weight = 1
+        mass_weight = 1 * self.scalar_scale
         for g, d in gb:
             bc = self.bc_type_scalar(g)
             bc_values = self.bc_values_scalar(g)
