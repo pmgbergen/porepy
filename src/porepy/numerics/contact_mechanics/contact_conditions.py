@@ -48,6 +48,7 @@ class ColoumbContact:
         self.rhs_discretization = "contact_rhs"
 
         self.discr_h = discr_h
+        self.tol = 1e-10
 
     def _key(self):
         return self.keyword + "_"
@@ -217,8 +218,9 @@ class ColoumbContact:
         gap = initial_gap - np.tan(dilation_angle) * norm_displacement_jump_tangential
 
         # Avoid dividing by zero
-        ind = np.logical_not(np.isclose(cumulative_tangential_jump, 0))[0]
-        d_gap = -np.tan(dilation_angle) * np.ones((g_l.dim, g_l.num_cells))
+        ind = np.logical_not(np.isclose(cumulative_tangential_jump, 0, rtol=self.tol, atol=self.tol))[0]
+        d_gap = np.zeros((g_l.dim, g_l.num_cells))
+        d_gap[-1, :] = -np.tan(dilation_angle) 
         # Compute dg/du_t where u_t is nonzero
         tan = np.atleast_2d(np.tan(dilation_angle)[ind])
         d_gap[:, ind] = (
@@ -258,7 +260,7 @@ class ColoumbContact:
         # Find cells with non-zero tangential traction. This excludes cells that were
         # not in contact in the previous iteration.
         non_zero_tangential_traction = (
-            np.sum(contact_force_tangential ** 2, axis=0) > 1e-10
+            np.sum(contact_force_tangential ** 2, axis=0) > self.tol ** 2
         )
 
         # The discretization of the sliding state tacitly assumes that the tangential
@@ -428,9 +430,7 @@ class ColoumbContact:
         """
         # Use thresholding to not pick up faces that are just about sticking
         # Not sure about the sensitivity to the tolerance parameter here.
-        tol = 1e-8
-        tol = 1e-6
-        return self._l2(-Tt + ct * ut) - bf > tol
+        return self._l2(-Tt + ct * ut) - bf > self.tol
 
     def _penetration(self, Tn, un, cn, gap):
         """ Find faces that are in contact.
@@ -446,8 +446,7 @@ class ColoumbContact:
 
         """
         # Not sure about the sensitivity to the tolerance parameter here.
-        tol = 1e-6
-        return (-Tn + cn * (un - gap)) > tol
+        return (-Tn + cn * (un - gap)) > self.tol
 
     #####
     ## Below here are different help function for calculating the Newton step
@@ -502,7 +501,7 @@ class ColoumbContact:
 
         # Shortcut if the friction coefficient is effectively zero.
         # Numerical tolerance here is likely somewhat arbitrary.
-        if bf <= 1e-3:
+        if bf <= self.tol:
             return (
                 0 * Id,
                 bf * np.ones((Id.shape[0], 1)),
