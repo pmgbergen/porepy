@@ -974,7 +974,7 @@ class Exporter:
                             pts[j, i] = (
                                 R[j, 0] * nodes_loc[0, i]
                                 + R[j, 1] * nodes_loc[1, i]
-                                + +R[j, 2] * nodes_loc[2, i]
+                                + R[j, 2] * nodes_loc[2, i]
                             )
                     ##            # Distance from projected points to center
                     delta = 0 * pts
@@ -989,8 +989,6 @@ class Exporter:
                     counter += num_p_loc
     
             return cell_nodes
-        
+
         return _function_to_compile(cell_ptr, face_ptr, faces_cells, nodes_faces,
                                    nodes, fc, normals, num_cell_nodes)
-
-# ------------------------------------------------------------------------------#
