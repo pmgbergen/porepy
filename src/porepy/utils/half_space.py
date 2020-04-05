@@ -1,7 +1,5 @@
-from __future__ import division, print_function
 import numpy as np
 import scipy.sparse as sps
-import scipy.optimize as opt
 
 
 def half_space_int(n, x0, pts):
@@ -93,6 +91,8 @@ def half_space_pt(n, x0, pts, recompute=True):
     http://www.qhull.org/html/qhalf.htm#notes
 
     """
+    import scipy.optimize as opt
+
     dim = (1, n.shape[1])
     c = np.array([0, 0, 0, 0, -1])
     A_ub = np.concatenate((n, [np.sum(-n * x0, axis=0)], np.ones(dim))).T
@@ -169,7 +169,9 @@ def star_shape_cell_centers(g, as_nan=False):
             if as_nan:
                 cell_centers[:, c] = np.array([np.nan, np.nan, np.nan])
             else:
-                raise ValueError("Cell not star-shaped impossible to compute the centre")
+                raise ValueError(
+                    "Cell not star-shaped impossible to compute the centre"
+                )
 
     # shift back the computed cell centers and return them
     return cell_centers + np.tile(xn_shift, (g.num_cells, 1)).T

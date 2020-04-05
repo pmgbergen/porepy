@@ -1,7 +1,6 @@
 """
 Various FV specific utility functions.
 """
-from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 from typing import Tuple
@@ -430,6 +429,8 @@ def invert_diagonal_blocks(mat, s, method=None):
     if method == "numba" or method is None:
         try:
             inv_vals = invert_diagonal_blocks_numba(mat, s)
+        except np.linalg.LinAlgError:
+            raise ValueError("Error in inversion of local linear systems")
         except:
             # This went wrong, fall back on cython
             try_cython = True
@@ -1381,14 +1382,16 @@ def compute_darcy_flux(
         'bc_val': Boundary condition values.
             and the following edge property field for all connected grids:
         'coupling_flux': Discretization of the coupling fluxes.
-    keyword (string): defaults to 'flow'. The parameter keyword used to obtain the
+    keyword (str): defaults to 'flow'. The parameter keyword used to obtain the
         data necessary to compute the fluxes.
-    keyword_store (string): defaults to keyword. The parameter keyword determining
-        where the data will be stored
-    d_name (string): defaults to 'darcy_flux'. The parameter name which the computed
+    keyword_store (str): defaults to keyword. The parameter keyword determining
+        where the data will be stored.
+    d_name (str): defaults to 'darcy_flux'. The parameter name which the computed
         darcy_flux will be stored by in the dictionary.
-    p_name (string): defaults to 'pressure'. The keyword that the pressure
-        field is stored by in the dictionary
+    p_name (str): defaults to 'pressure'. The keyword that the pressure
+        field is stored by in the dictionary.
+    lam_name (str): defaults to 'mortar_solution'. The keyword that the mortar flux
+        field is stored by in the dictionary.
     data (dictionary): defaults to None. If gb is mono-dimensional grid the data
         dictionary must be given. If gb is a multi-dimensional grid, this variable has
         no effect.
@@ -1401,6 +1404,7 @@ def compute_darcy_flux(
         those of the higher grid. For edges beteween grids of equal dimension,
         there is an implicit assumption that all normals point from the second
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
+
     """
 
     def extract_variable(d, var):

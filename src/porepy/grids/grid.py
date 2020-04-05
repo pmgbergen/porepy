@@ -10,7 +10,6 @@ Acknowledgements:
     of the corresponding functions in MRST.
 
 """
-from __future__ import division
 import numpy as np
 import itertools
 from scipy import sparse as sps

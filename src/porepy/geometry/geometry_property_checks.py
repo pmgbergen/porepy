@@ -216,11 +216,15 @@ def point_in_polyhedron(polyhedron, test_points, tol=1e-8):
 
     num_points = 0
     for poly in polyhedron:
-        R = pp.map_geometry.project_plane_matrix(poly)
-        # Project to 2d, Delaunay
-        p_2d = R.dot(poly)[:2]
-        loc_tri = scipy.spatial.Delaunay(p_2d.T)
-        simplices = loc_tri.simplices
+        # Shortcut if the polygon already is a triangle
+        if poly.shape[1] == 3:
+            simplices = np.array([0, 1, 2])
+        else:
+            R = pp.map_geometry.project_plane_matrix(poly)
+            # Project to 2d, Delaunay
+            p_2d = R.dot(poly)[:2]
+            loc_tri = scipy.spatial.Delaunay(p_2d.T)
+            simplices = loc_tri.simplices
 
         # Add the triangulation, with indices adjusted for the number of points
         # already added
@@ -368,3 +372,42 @@ def points_are_collinear(pts, tol=1e-5):
         / dist
     )
     return np.allclose(coll, np.zeros(coll.size), atol=tol, rtol=0)
+
+
+def polygon_hanging_nodes(p, edges, tol=1e-8):
+    """
+    Find hanging nodes of a polygon
+
+    Parameters:
+        p (np.ndarray, nd x n_pt): Point coordinates
+        edges (TYPE): Indices, referring to columns in p, of edges in the polygon.
+            Should be ordered so that edges[1, i] == edges[0, i+1], and
+            edges[0, 0] == edges[1, -1].
+        tol (TYPE, optional): Tolerance for when two segments will be considered
+            parallel. Defaults to 1e-8.
+
+    Returns:
+        np.array: Index of edges with hanging nodes. For an index i, the lines defined
+            by edges[:, i] and edges[:, i+1] (or edges[:, 0] if i == edges.shape[1] - 1)
+            are parallel.
+
+    """
+    # Data structure for storing indices of the hanging nodes
+    ind = []
+
+    edges_expanded = np.hstack((edges, edges[:, 0].reshape((-1, 1))))
+    # Loop over all edges
+    for i in range(edges.shape[1]):
+        # Find the vector along this edge, and along the following
+        v_this = p[:, edges_expanded[1, i]] - p[:, edges_expanded[0, i]]
+        v_next = p[:, edges_expanded[1, i + 1]] - p[:, edges_expanded[0, i + 1]]
+
+        nrm_this = np.linalg.norm(v_this)
+        nrm_next = np.linalg.norm(v_next)
+        # If the dot product of the normalized vectors is (almost) unity, this is
+        # a hanging node
+        dot_prod = (v_this / nrm_this).dot(v_next / nrm_next)
+        if dot_prod > 1 - tol:
+            ind.append(i)
+
+    return np.asarray(ind)

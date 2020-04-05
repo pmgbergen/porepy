@@ -3,12 +3,12 @@
 
 @author: fumagalli, alessio
 """
-import warnings
 import numpy as np
 from numpy.linalg import solve
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.vem.dual_elliptic import DualElliptic
 
 
 class HybridDualVEM:
@@ -126,6 +126,14 @@ class HybridDualVEM:
         # Use a dummy keyword to trick the constructor of dualVEM.
         massHdiv = pp.MVEM("dummy").massHdiv
 
+        # define the function to compute the inverse of the permeability matrix
+        if g.dim == 1:
+            inv_matrix = DualElliptic._inv_matrix_1d
+        elif g.dim == 2:
+            inv_matrix = DualElliptic._inv_matrix_2d
+        elif g.dim == 3:
+            inv_matrix = DualElliptic._inv_matrix_3d
+
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its faces
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
@@ -141,6 +149,7 @@ class HybridDualVEM:
             # Compute the H_div-mass local matrix
             A = massHdiv(
                 k.values[0 : g.dim, 0 : g.dim, c],
+                inv_matrix(k.values[0 : g.dim, 0 : g.dim, c]),
                 c_centers[:, c],
                 a[c] * g.cell_volumes[c],
                 f_centers[:, faces_loc],
