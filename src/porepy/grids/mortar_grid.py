@@ -1,6 +1,5 @@
 """ Module containing the class for the mortar grid.
 """
-from __future__ import division
 import warnings
 import numpy as np
 from scipy import sparse as sps
