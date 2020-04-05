@@ -40,8 +40,8 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         self.scalar_parameter_key = "flow"
 
         # Scaling coefficients
-        self.scalar_scale = params.get('scalar_scale', 1)
-        self.length_scale = params.get('length_scale', 1)
+        self.scalar_scale = 1
+        self.length_scale = 1
 
         # Whether or not to subtract the fracture pressure contribution for the contact
         # traction. This should be done if the scalar variable is pressure, but not for
