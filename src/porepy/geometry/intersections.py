@@ -1167,12 +1167,12 @@ def triangulations(p_1, p_2, t_1, t_2):
     """
     import shapely.geometry as shapely_geometry
     import shapely.speedups as shapely_speedups
-    
+
     try:
         shapely_speedups.enable()
     except AttributeError:
         pass
-    
+
     n_1 = t_1.shape[1]
     n_2 = t_2.shape[1]
     t_1 = t_1.T

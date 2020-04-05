@@ -28,12 +28,12 @@ def lines_by_polygon(poly_pts, pts, edges):
     """
     import shapely.geometry as shapely_geometry
     import shapely.speedups as shapely_speedups
+
     try:
         shapely_speedups.enable()
     except AttributeError:
         pass
 
-    
     # it stores the points after the intersection
     int_pts = np.empty((2, 0))
     # define the polygon
@@ -100,7 +100,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
 
     """
     import networkx as nx
-    
+
     if isinstance(polygons, np.ndarray):
         polygons = [polygons]
 
