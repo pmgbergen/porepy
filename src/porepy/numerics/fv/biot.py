@@ -29,15 +29,13 @@ from time import time
 import logging
 
 import porepy as pp
-from porepy.numerics.fv.mpsa import Mpsa
 
-from porepy.numerics.fv import fvutils
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
 
-class Biot(Mpsa):
+class Biot(pp.Mpsa):
     """ Discretization class for poro-elasticity, based on MPSA.
 
     This is a subclass of pp.Mpsa()
@@ -168,8 +166,8 @@ class Biot(Mpsa):
         d = data[pp.PARAMETERS][self.mechanics_keyword]["bc_values"]
         p = data[pp.PARAMETERS][self.flow_keyword]["bc_values"]
 
-        div_flow = fvutils.scalar_divergence(g)
-        div_mech = fvutils.vector_divergence(g)
+        div_flow = pp.fvutils.scalar_divergence(g)
+        div_mech = pp.fvutils.vector_divergence(g)
 
         matrices_m = data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]
         matrices_f = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
@@ -262,7 +260,7 @@ class Biot(Mpsa):
 
             Related to numerics:
                 inverter (str): Which method to use for block inversion. See
-                    fvutils.invert_diagonal_blocks for detail, and for default
+                    pp.fvutils.invert_diagonal_blocks for detail, and for default
                     options.
                 mpsa_eta, mpfa_eta (double): Location of continuity point in MPSA and MPFA.
                     Defaults to 1/3 for simplex grids, 0 otherwise.
@@ -298,8 +296,8 @@ class Biot(Mpsa):
                 discretization.
 
         """
-        div_flow = fvutils.scalar_divergence(g)
-        div_mech = fvutils.vector_divergence(g)
+        div_flow = pp.fvutils.scalar_divergence(g)
+        div_mech = pp.fvutils.vector_divergence(g)
         param = data[pp.PARAMETERS]
 
         biot_alpha = param[self.flow_keyword]["biot_alpha"]
@@ -387,7 +385,7 @@ class Biot(Mpsa):
         bound: pp.BoundaryConditionVectorial = parameter_dictionary["bc"]
         constit: pp.FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
 
-        eta: float = parameter_dictionary.get("mpsa_eta", fvutils.determine_eta(g))
+        eta: float = parameter_dictionary.get("mpsa_eta", pp.fvutils.determine_eta(g))
         inverter: str = parameter_dictionary.get("inverter", None)
 
         alpha: float = parameter_dictionary["biot_alpha"]
@@ -675,7 +673,7 @@ class Biot(Mpsa):
         nd = g.dim
 
         # Define subcell topology
-        subcell_topology = fvutils.SubcellTopology(g)
+        subcell_topology = pp.fvutils.SubcellTopology(g)
         # The boundary conditions must be given on the subfaces
         if bound_mech.num_faces == subcell_topology.num_subfno_unique:
             subface_rhs = True
@@ -687,7 +685,7 @@ class Biot(Mpsa):
             subface_rhs = False
 
         # Obtain mappings to exclude boundary faces for mechanics
-        bound_exclusion_mech = fvutils.ExcludeBoundaries(
+        bound_exclusion_mech = pp.fvutils.ExcludeBoundaries(
             subcell_topology, bound_mech, nd
         )
 
@@ -714,7 +712,7 @@ class Biot(Mpsa):
         if not hf_output:
             # If the boundary condition is given for faces we return the discretization
             # on for the face values. Otherwise it is defined for the subfaces.
-            hf2f = fvutils.map_hf_2_f(
+            hf2f = pp.fvutils.map_hf_2_f(
                 subcell_topology.fno_unique, subcell_topology.subfno_unique, nd
             )
             bound_stress = hf2f * bound_stress * hf2f.T
@@ -859,7 +857,7 @@ class Biot(Mpsa):
 
         # Obtain normal_vector * alpha, pairings of cells and nodes (which together
         # uniquely define sub-cells, and thus index for gradients)
-        nAlpha_grad, cell_node_blocks, sub_cell_index = fvutils.scalar_tensor_vector_prod(
+        nAlpha_grad, cell_node_blocks, sub_cell_index = pp.fvutils.scalar_tensor_vector_prod(
             g, alpha_tensor, subcell_topology
         )
         # transfer nAlpha to a subface-based quantity by pairing expressions on the
@@ -950,7 +948,7 @@ class Biot(Mpsa):
         del rhs_units_displ_var
 
         # Output should be on cell-level (not sub-cell)
-        sc2c = fvutils.cell_scalar_to_subcell_vector(
+        sc2c = pp.fvutils.cell_scalar_to_subcell_vector(
             g.dim, sub_cell_index, cell_node_blocks[0]
         )
 
@@ -965,8 +963,8 @@ class Biot(Mpsa):
         # This mapping gives the convention from which side
         # the force should be evaluated on.
         vals = np.ones(num_subfno_unique * nd)
-        rows = fvutils.expand_indices_nd(subcell_topology.subfno_unique, nd)
-        cols = fvutils.expand_indices_incr(
+        rows = pp.fvutils.expand_indices_nd(subcell_topology.subfno_unique, nd)
+        cols = pp.fvutils.expand_indices_incr(
             subcell_topology.unique_subfno, nd, num_subhfno
         )
         map_unique_subfno = sps.coo_matrix(
@@ -991,7 +989,7 @@ class Biot(Mpsa):
         """
         rows = np.tile(np.arange(nf), ((nd, 1))).reshape((1, nd * nf), order="F")[0]
 
-        cols = fvutils.expand_indices_nd(np.arange(nf), nd)
+        cols = pp.fvutils.expand_indices_nd(np.arange(nf), nd)
         vals = np.ones(nf * nd)
         return sps.coo_matrix((vals, (rows, cols))).tocsr()
 
@@ -1257,7 +1255,7 @@ class GradP:
                 """GradP class requires a pre-computed discretization to be
                              stored in the matrix dictionary."""
             )
-        div_mech = fvutils.vector_divergence(g)
+        div_mech = pp.fvutils.vector_divergence(g)
         # Put together linear system
         if mat_dict["grad_p"].shape[0] != g.dim * g.num_faces:
             hf2f_nd = pp.fvutils.map_hf_2_f(g=g)
