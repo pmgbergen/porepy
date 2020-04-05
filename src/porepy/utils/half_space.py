@@ -92,7 +92,7 @@ def half_space_pt(n, x0, pts, recompute=True):
 
     """
     import scipy.optimize as opt
-    
+
     dim = (1, n.shape[1])
     c = np.array([0, 0, 0, 0, -1])
     A_ub = np.concatenate((n, [np.sum(-n * x0, axis=0)], np.ones(dim))).T
