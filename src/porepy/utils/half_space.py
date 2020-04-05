@@ -1,7 +1,5 @@
-from __future__ import division, print_function
 import numpy as np
 import scipy.sparse as sps
-import scipy.optimize as opt
 
 
 def half_space_int(n, x0, pts):
@@ -93,6 +91,8 @@ def half_space_pt(n, x0, pts, recompute=True):
     http://www.qhull.org/html/qhalf.htm#notes
 
     """
+    import scipy.optimize as opt
+
     dim = (1, n.shape[1])
     c = np.array([0, 0, 0, 0, -1])
     A_ub = np.concatenate((n, [np.sum(-n * x0, axis=0)], np.ones(dim))).T

@@ -10,7 +10,7 @@ import time
 import logging
 import numpy as np
 import csv
-from sympy.geometry import Point, Polygon
+
 
 # Imports of external packages that may not be present at the system. The
 # module will work without any of these, but with limited functionalbility.
@@ -337,6 +337,7 @@ class Fracture(object):
             sympy.geometry.Polygon: Representation of the polygon formed by p.
 
         """
+        from sympy.geometry import Point, Polygon
         if p is None:
             p = self.p
 
