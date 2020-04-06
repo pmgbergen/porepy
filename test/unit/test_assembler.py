@@ -1602,6 +1602,12 @@ class MockEdgeDiscretization(
         cc[1, 2] = sps.coo_matrix(self.off_diag_val)
 
         return cc + local_matrix, np.empty(3)
+ 
+    def ndof(self, mg):
+        pass   
+ 
+    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+        pass
 
 
 class MockEdgeDiscretizationModifiesNode(
@@ -1635,6 +1641,12 @@ class MockEdgeDiscretizationModifiesNode(
 
         return cc + local_matrix, np.empty(3)
 
+    def ndof(self, mg):
+        pass
+    
+    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+        pass
+
 
 class MockEdgeDiscretizationOneSided(
     porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
@@ -1655,7 +1667,12 @@ class MockEdgeDiscretizationOneSided(
         cc[0, 1] = sps.coo_matrix(self.off_diag_val)
 
         return cc + local_matrix, np.empty(2)
-
+    
+    def ndof(self, mg):
+        pass
+    
+    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+        pass
 
 class MockEdgeDiscretizationOneSidedModifiesNode(
     porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
@@ -1681,6 +1698,11 @@ class MockEdgeDiscretizationOneSidedModifiesNode(
 
         return cc + local_matrix, np.empty(2)
 
+    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+        pass
+    
+    def ndof(self, mg):
+        pass
 
 class MockEdgeDiscretizationEdgeCouplings(
     porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
@@ -1729,7 +1751,9 @@ class MockEdgeDiscretizationEdgeCouplings(
 
         return cc + matrix, rhs
 
+    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+        pass
 
 if __name__ == "__main__":
-    # TestAssembler().test_two_variables_coupling_between_node_and_edge_mixed_dependencies()
+    TestAssembler().test_direct_edge_coupling()
     unittest.main()
