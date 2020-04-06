@@ -16,8 +16,6 @@ matrix:
 before install:
   - chmod +x ./test/regression/run_cron_test.sh
 
-export LD_LIBRARY_PATH
-
 install:
   - sudo apt-get update
   - sudo apt-get install libglu1-mesa
