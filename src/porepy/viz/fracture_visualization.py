@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 import porepy as pp
 
+
 def plot_fractures(pts, edges, domain=None, colortag=None, **kwargs):
     """
     Plot 2d fractures as lines in a domain.
@@ -71,8 +72,20 @@ def plot_fractures(pts, edges, domain=None, colortag=None, **kwargs):
         domain_color = "white"
 
     plt.plot(
-        [domain["xmin"], domain["xmax"], domain["xmax"], domain["xmin"], domain["xmin"]],
-        [domain["ymin"], domain["ymin"], domain["ymax"], domain["ymax"], domain["ymin"]],
+        [
+            domain["xmin"],
+            domain["xmax"],
+            domain["xmax"],
+            domain["xmin"],
+            domain["xmin"],
+        ],
+        [
+            domain["ymin"],
+            domain["ymin"],
+            domain["ymax"],
+            domain["ymax"],
+            domain["ymin"],
+        ],
         "-",
         color=domain_color,
     )
@@ -90,7 +103,9 @@ def plot_fractures(pts, edges, domain=None, colortag=None, **kwargs):
 
     if kwargs.get("pts_coord", False):
         for i in range(pts.shape[1]):
-            plt.text(pts[0, i], pts[1, i], "(" + str(pts[0, i]) + ", " + str(pts[1, i]) + ")")
+            plt.text(
+                pts[0, i], pts[1, i], "(" + str(pts[0, i]) + ", " + str(pts[1, i]) + ")"
+            )
 
     if kwargs.get("axis_equal", True):
         plt.axis("equal")
