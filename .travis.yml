@@ -16,9 +16,12 @@ matrix:
 before install:
   - chmod +x ./test/regression/run_cron_test.sh
 
+export LD_LIBRARY_PATH
+
 install:
   - sudo apt-get update
   - sudo apt-get install libglu1-mesa
+  - export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
   - pip install -r requirements-dev.txt
   - pip install jupyter
   - pip install .
