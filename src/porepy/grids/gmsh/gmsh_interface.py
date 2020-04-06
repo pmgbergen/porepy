@@ -1,24 +1,22 @@
 # Methods to work directly with the gmsh format
 
 import numpy as np
-import os
 
+from typing import Union, List
 
-from typing import (
-    Union
-)
 from pathlib import Path
+
 try:
     import gmsh
 except ModuleNotFoundError:
     raise ModuleNotFoundError(
-        "To run gmsh python api on your system, " 
-        "download the relevant gmsh*-sdk.* from http://gmsh.info/bin/. " 
-        "Then, Add the 'lib' directory from the SDK to PYTHONPATH: \n" 
+        "To run gmsh python api on your system, "
+        "download the relevant gmsh*-sdk.* from http://gmsh.info/bin/. "
+        "Then, Add the 'lib' directory from the SDK to PYTHONPATH: \n"
         "export PYTHONPATH=${PYTHONPATH}:path/to/gmsh*-sdk.*/lib"
     )
 
-from porepy.utils import sort_points, read_config
+from porepy.utils import sort_points
 import porepy.grids.constants as gridding_constants
 
 
@@ -623,14 +621,10 @@ class GmshGridBucketWriter(object):
         return s
 
 
-
 # ------------------ End of GmshGridBucketWriter------------------------------
 
-def run_gmsh(
-        in_file: Union[str, Path],
-        out_file: Union[str, Path],
-        dim: int,
-) -> None:
+
+def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) -> None:
     """
     Convenience function to run gmsh.
 
@@ -646,15 +640,64 @@ def run_gmsh(
                 geometry).
 
     """
+    # Helper functions
+
+    def _file_stem(file: Union[str, Path]) -> str:
+        # Strip a file name down to its stem, return a string
+        file = Path(file)
+        file = file.parent / file.stem
+        return str(file)
+
+    def _dump_gmsh_log(log: List[str], file_name: str) -> str:
+        # Write a gmsh log to file.
+        # Return name of the log file
+        fn = in_file.split(".")[0]
+        debug_file_name = "gmsh_log_" + fn + ".dbg"
+        with open(debug_file_name, "w") as f:
+            for line in log:
+                f.write(line + "\n")
+
+        return debug_file_name
+
     if not Path(in_file).is_file():
         raise FileNotFoundError(f"file {in_file!r} not found.")
 
-    # Remove any suffixes from the out file name. gmsh will give it '.msh' suffix.
-    out_file = Path(out_file)
-    out_file = out_file.parent / out_file.stem
+    # Ensure that in_file has extension .geo, out_file extension .msh
+    in_file = _file_stem(in_file) + ".geo"
+    out_file = _file_stem(out_file) + ".msh"
 
     gmsh.initialize()
+
+    # Experimentation indicated that the gmsh api failed to raise error values when
+    # passed corrupted .geo files. To catch errors we therefore read the gmsh log, and
+    # look for error messages.
+    gmsh.logger.start()
     gmsh.open(in_file)
+
+    # Look for errors
+    log = gmsh.logger.get()
+    for line in log:
+        if "Error" in line:
+            fn = _dump_gmsh_log(log, in_file)
+            raise ValueError(
+                f"""Error when reading gmsh file {in_file}.
+                        Gmsh log written to file {fn}"""
+            )
+
+    # Generate the mesh
     gmsh.model.mesh.generate(dim=dim)
-    gmsh.write(str(out_file) + '.msh')
+
+    # Look for errors
+    log = gmsh.logger.get()
+    for line in log:
+        if "Error" in line:
+            fn = _dump_gmsh_log(log, in_file)
+            raise ValueError(
+                f"""Error in gmsh when generating mesh for {in_file}.
+                             Gmsh log written to file {fn}"""
+            )
+
+    # The gmsh write should be safe for errors
+    gmsh.write(out_file)
+    # Done
     gmsh.finalize()
