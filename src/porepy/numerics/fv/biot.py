@@ -29,6 +29,7 @@ from time import time
 import logging
 
 import porepy as pp
+from porepy.numerics.discretization import Discretization
 
 
 # Module-wide logger
@@ -1145,7 +1146,7 @@ class Biot(pp.Mpsa):
         return stress
 
 
-class GradP:
+class GradP(Discretization):
     """ Class for the pressure gradient term of the Biot equation.
     """
 
@@ -1345,7 +1346,7 @@ class GradP:
         pass
 
 
-class DivU:
+class DivU(Discretization):
     """ Class for the displacement divergence term of the Biot equation.
     """
 
@@ -1643,9 +1644,7 @@ class DivU:
         pass
 
 
-class BiotStabilization(
-    pp.numerics.interface_laws.elliptic_discretization.EllipticDiscretization
-):
+class BiotStabilization(Discretization):
     """ Class for the stabilization term of the Biot equation.
     """
 
@@ -1655,7 +1654,7 @@ class BiotStabilization(
         The keywords are used to access and store parameters and discretization
         matrices.
         """
-        super().__init__(keyword)
+        self.keyword = keyword
         # Set variable name for the scalar variable (pressure)
         self.variable = variable
 
