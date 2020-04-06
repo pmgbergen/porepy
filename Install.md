@@ -36,7 +36,7 @@ PorePy depends on `GMSH` for meshing of fractured domains.
 Our experience is that version 4 of Gmsh is much improved compared to earlier versions, in particular for complex geometries.
 
 To make this work, you need gmsh installed on your system, and PorePy needs to know where to look for it.
-It should work (on any operating system) to install the following python package: [gmsh-sdk](https://pypi.org/project/gmsh-sdk/), but we haven't tested this procedure. This will install `gmsh-sdk 4.5.5.post1`.
+It should work (on any operating system) to install the following python package: [gmsh-sdk](https://pypi.org/project/gmsh-sdk/).
 
 ##### Manual install:
 To run gmsh python api on your system, download the relevant gmsh*-sdk.* from http://gmsh.info/bin/.
