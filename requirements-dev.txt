@@ -4,7 +4,9 @@ scipy
 sympy
 gmsh-sdk
 numba
-matplotlib == 3.0.3
+vtk
+matplotlib
+meshio == 2.3.8
 cython == 0.29.7;platform_system=="Linux"
 future == 0.17.1
 six == 1.12.0
@@ -13,4 +15,3 @@ shapely[vectorized] == 1.6.4.post2
 pytest == 4.5.0
 pytest-cov == 2.6.1
 pytest-runner == 4.4
-vtk == 8.1.2
