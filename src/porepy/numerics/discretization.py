@@ -1,15 +1,58 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-""" Module with a do-nothing discretization class.
-
+""" Module contains two classes:
+    1) The abstract superclass for all discretizations
+    2) A do-nothing discretization
 
 """
-
+import abc
 import numpy as np
 import scipy.sparse as sps
+from typing import Dict, Union
+
+import porepy as pp
 
 
-class VoidDiscretization:
+class Discretization(abc.ABC):
+    """ Interface for all discretizations. Specifies methods that must be implemented
+    for a discretization class to be compatible with the assembler.
+
+    """
+
+    def __init__(self, keyword):
+        self.keyword = keyword
+
+    @abc.abstractmethod
+    def discretize(self, g: pp.Grid, data: Dict) -> None:
+        """ Construct discretization matrices.
+
+        The discretization matrices should be added to 
+            data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        Parameters:
+            g (pp.Grid): Grid to be discretized.
+            data (dictionary): With discretization parameters.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def assemble_matrix_rhs(
+        self, g: pp.Grid, data: Dict
+    ) -> Union[sps.spmatrix, np.ndarray]:
+        """ Assemble discretization matrix and rhs vector.
+
+        Parameters:
+            g (pp.Grid): Grid to be discretized.
+            data (dictionary): With discretization parameters.
+
+        Returns:
+            sps.csc_matrix: Discretization matrix.
+            np.array: Right hand side term.
+
+        """
+        pass
+
+
+class VoidDiscretization(Discretization):
     """ Do-nothing discretization object. Used if a discretizaiton object
     is needed for technical reasons, but not really necessary.
 
