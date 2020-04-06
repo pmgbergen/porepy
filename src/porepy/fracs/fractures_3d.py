@@ -733,12 +733,18 @@ class FractureNetwork3d(object):
         # Dump the network description to gmsh .geo format, and run gmsh to
         # generate grid
         in_3d = not dfn
-        self.to_gmsh(in_file, in_3d=in_3d, constraints=constraints)
-        gmsh_status = pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dims=3)
-        if gmsh_status > 0:
-            raise ValueError(f"Gmsh failed with status {gmsh_status}")
 
-        logger.info("Gmsh completed with status " + str(gmsh_status))
+        self.to_gmsh(in_file, in_3d=in_3d)
+        if dfn:
+            dim_meshing = 2
+        else:
+            dim_meshing = 3
+
+        self.to_gmsh(in_file, in_3d=in_3d, constraints=constraints)
+
+        pp.grids.gmsh.gmsh_interface.run_gmsh(
+            in_file, out_file, dim=dim_meshing
+        )
 
         if dfn:
             grid_list = pp.fracs.simplex.triangle_grid_embedded(self, out_file)
