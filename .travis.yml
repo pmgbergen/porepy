@@ -7,7 +7,7 @@ cache: pip
 matrix:
   include:
     - os: linux
-      dist: trusty
+      dist: xenial
       python: 3.6
     - os: linux
       dist: xenial
