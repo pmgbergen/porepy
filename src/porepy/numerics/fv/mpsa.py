@@ -15,12 +15,13 @@ import porepy as pp
 from time import time
 from typing import Dict, Tuple, Any, Generator
 
+from porepy.numerics.discretization import Discretization
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
 
-class Mpsa:
+class Mpsa(Discretization):
     """ Implementation of the Multi-point stress approximation.
 
     Attributes:
