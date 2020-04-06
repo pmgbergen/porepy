@@ -673,7 +673,9 @@ class Mpfa(pp.FVElliptic):
         #    interior subfaces, and on faces on the boundary.
         # NOTE: The second operation is reversed for Robin boundary conditions,
         #       see below.
-        pr_cont_grad_paired = pp.fvutils.compute_dist_face_cell(g, subcell_topology, eta)
+        pr_cont_grad_paired = pp.fvutils.compute_dist_face_cell(
+            g, subcell_topology, eta
+        )
 
         # Discretized Darcy's law: The flux over a subface is given by the
         # area weighted normal vector, multiplied with the subcell permeability,
