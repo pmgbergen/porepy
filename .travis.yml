@@ -29,21 +29,8 @@ install:
   # Show all packages, for debugging
 
 before_script:
-  # Download gmsh
-  - wget http://gmsh.info/bin/Linux/gmsh-4.1.3-Linux64.tgz
-  - pwd
-  - ls
-  - tar xvf gmsh-4.1.3-Linux64.tgz
 
-
-  # Create porepy config file
-  - cd $TRAVIS_BUILD_DIR
-  - echo $TRAVIS_BUILD_DIR
-  - echo "config = {\"gmsh_path\":\"$TRAVIS_BUILD_DIR/gmsh-4.1.3-Linux64/bin/gmsh\"} " > porepy_config.py
-  # add $HOME to $PYTHONPATH to make config file accessible
-  - export PYTHONPATH=${TRAVIS_BUILD_DIR}:${PYTHONPATH}
-
-  # Download fire for point-in-polyhedron test
+  # Download file for point-in-polyhedron test
   - wget https://raw.githubusercontent.com/keileg/polyhedron/master/polyhedron.py
   # Rename file
   - mv polyhedron.py robust_point_in_polyhedron.py
