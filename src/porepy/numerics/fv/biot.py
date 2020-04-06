@@ -1645,7 +1645,6 @@ class DivU(Discretization):
 
 
 class BiotStabilization(Discretization):
-
     """ Class for the stabilization term of the Biot equation.
     """
 
@@ -1655,7 +1654,7 @@ class BiotStabilization(Discretization):
         The keywords are used to access and store parameters and discretization
         matrices.
         """
-        super().__init__(keyword)
+        self.keyword = keyword
         # Set variable name for the scalar variable (pressure)
         self.variable = variable
 
