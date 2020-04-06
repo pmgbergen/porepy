@@ -14,3 +14,4 @@ pytest-cov == 2.6.1
 pytest-runner == 4.4
 numba == 0.47
 vtk == 8.1.2
+gmsh-sdk

@@ -11,3 +11,4 @@ shapely == 1.6.4.post2
 shapely[vectorized] == 1.6.4.post2
 numba == 0.47
 vtk == 8.1.2
+gmsh-sdk
