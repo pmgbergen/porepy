@@ -87,7 +87,6 @@ def triangle_grid_embedded(network, file_name, **kwargs):
 
     return grids
 
-
 def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
     """ Generate a list of grids dimensions {2, 1, 0}, starting from a gmsh mesh.
 

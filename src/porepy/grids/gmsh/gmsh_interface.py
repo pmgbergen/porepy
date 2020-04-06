@@ -1,9 +1,22 @@
 # Methods to work directly with the gmsh format
 
 import numpy as np
-import os
 
-from porepy.utils import sort_points, read_config
+from typing import Union, List
+
+from pathlib import Path
+
+try:
+    import gmsh
+except ModuleNotFoundError:
+    raise ModuleNotFoundError(
+        "To run gmsh python api on your system, "
+        "download the relevant gmsh*-sdk.* from http://gmsh.info/bin/. "
+        "Then, Add the 'lib' directory from the SDK to PYTHONPATH: \n"
+        "export PYTHONPATH=${PYTHONPATH}:path/to/gmsh*-sdk.*/lib"
+    )
+
+from porepy.utils import sort_points
 import porepy.grids.constants as gridding_constants
 
 
@@ -608,47 +621,83 @@ class GmshGridBucketWriter(object):
         return s
 
 
-def run_gmsh(in_file, out_file, dims, **kwargs):
+# ------------------ End of GmshGridBucketWriter------------------------------
+
+
+def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) -> None:
     """
     Convenience function to run gmsh.
 
-    Parameters:
-        in_file (str): Name of gmsh configuration file (.geo)
-        out_file (str): Name of output file for gmsh (.msh)
-        dims (int): Number of dimensions gmsh should grid. If dims is less than
-            the geometry dimensions, gmsh will grid all lower-dimensional
-            objcets described in in_file (e.g. all surfaces embeded in a 3D
-            geometry).
-        **kwargs: Options passed on to gmsh. See gmsh documentation for
-            possible values.
-
-    Returns:
-        double: Status of the generation, as returned by os.system. 0 means the
-            simulation completed successfully, >0 signifies problems.
+        Parameters:
+            in_file : str or pathlib.Path
+                Name of gmsh configuration file (.geo)
+            out_file : str or pathlib.Path
+                Name of output file for gmsh (.msh)
+            dim : int
+                Number of dimensions gmsh should grid. If dims is less than
+                the geometry dimensions, gmsh will grid all lower-dimensional
+                objcets described in in_file (e.g. all surfaces embeded in a 3D
+                geometry).
 
     """
-    if not os.path.isfile(in_file):
-        raise FileNotFoundError("file " + in_file + " not found")
+    # Helper functions
 
-    # Import config file to get location of gmsh executable.
-    config = read_config.read()
-    path_to_gmsh = config["gmsh_path"]
+    def _file_stem(file: Union[str, Path]) -> str:
+        # Strip a file name down to its stem, return a string
+        file = Path(file)
+        file = file.parent / file.stem
+        return str(file)
 
-    options = {"-v": 1}
-    options.update(**kwargs)
+    def _dump_gmsh_log(log: List[str], file_name: str) -> str:
+        # Write a gmsh log to file.
+        # Return name of the log file
+        fn = in_file.split(".")[0]
+        debug_file_name = "gmsh_log_" + fn + ".dbg"
+        with open(debug_file_name, "w") as f:
+            for line in log:
+                f.write(line + "\n")
 
-    opts = " "
-    for key, val in options.items():
-        # Gmsh keywords are specified with prefix '-'
-        if key[0] != "-":
-            key = "-" + key
-        opts += key + " " + str(val) + " "
+        return debug_file_name
 
-    if dims == 2:
-        cmd = path_to_gmsh + " -2 " + in_file + " -o " + out_file + opts
-    else:
-        cmd = path_to_gmsh + " -3 " + in_file + " -o " + out_file + opts
+    if not Path(in_file).is_file():
+        raise FileNotFoundError(f"file {in_file!r} not found.")
 
-    status = os.system(cmd)
+    # Ensure that in_file has extension .geo, out_file extension .msh
+    in_file = _file_stem(in_file) + ".geo"
+    out_file = _file_stem(out_file) + ".msh"
 
-    return status
+    gmsh.initialize()
+
+    # Experimentation indicated that the gmsh api failed to raise error values when
+    # passed corrupted .geo files. To catch errors we therefore read the gmsh log, and
+    # look for error messages.
+    gmsh.logger.start()
+    gmsh.open(in_file)
+
+    # Look for errors
+    log = gmsh.logger.get()
+    for line in log:
+        if "Error" in line:
+            fn = _dump_gmsh_log(log, in_file)
+            raise ValueError(
+                f"""Error when reading gmsh file {in_file}.
+                        Gmsh log written to file {fn}"""
+            )
+
+    # Generate the mesh
+    gmsh.model.mesh.generate(dim=dim)
+
+    # Look for errors
+    log = gmsh.logger.get()
+    for line in log:
+        if "Error" in line:
+            fn = _dump_gmsh_log(log, in_file)
+            raise ValueError(
+                f"""Error in gmsh when generating mesh for {in_file}.
+                             Gmsh log written to file {fn}"""
+            )
+
+    # The gmsh write should be safe for errors
+    gmsh.write(out_file)
+    # Done
+    gmsh.finalize()
