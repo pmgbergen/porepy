@@ -734,7 +734,6 @@ class FractureNetwork3d(object):
         # generate grid
         in_3d = not dfn
 
-        self.to_gmsh(in_file, in_3d=in_3d)
         if dfn:
             dim_meshing = 2
         else:
