@@ -409,8 +409,8 @@ class GmshWriter(object):
                     + "};"
                     + ls
                 )
-                if self.domain is not None:
-                    s += "Surface{" + surf_stem + str(pi) + "} In Volume{1};" + ls + ls
+            if not bound_tags[pi] and self.domain is not None:
+                s += "Surface{" + surf_stem + str(pi) + "} In Volume{1};" + ls + ls
 
             for li in self.e2f[pi]:
                 s += "Line{frac_line_" + str(li) + "} In Surface{" + surf_stem
