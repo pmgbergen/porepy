@@ -741,9 +741,7 @@ class FractureNetwork3d(object):
 
         self.to_gmsh(in_file, in_3d=in_3d, constraints=constraints)
 
-        pp.grids.gmsh.gmsh_interface.run_gmsh(
-            in_file, out_file, dim=dim_meshing
-        )
+        pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dim=dim_meshing)
 
         if dfn:
             grid_list = pp.fracs.simplex.triangle_grid_embedded(self, out_file)
@@ -1120,7 +1118,7 @@ class FractureNetwork3d(object):
 
         # Update the edges_2_frac map to refer to the new edges
         edges_2_frac_new = e_unique.shape[1] * [np.empty(0, dtype=np.int)]
-        is_boundary_edge_new = e_unique.shape[1] * [np.empty(0)]
+        is_boundary_edge_new = e_unique.shape[1] * [np.empty(0, dtype=np.int)]
 
         for old_i, new_i in enumerate(all_2_unique_e):
             edges_2_frac_new[new_i], ind = np.unique(
@@ -1652,15 +1650,14 @@ class FractureNetwork3d(object):
             for ei in np.unique(poly):
                 edge_2_poly[ei].append(poly_2_frac[pi])
 
-        # Count the number of referals to the edge from polygons belonging to
-        # different fractures (not polygons)
+        # Count the number of referals to the edge from different polygons
         # Only do this if the polygon is not a constraint
         num_referals = np.zeros(num_edges)
         for ei, ep in enumerate(edge_2_poly):
-            if not ei in constraints:
-                num_referals[ei] = np.unique(np.array(ep)).size
+            ep_not_constraint = np.setdiff1d(ep, constraints)
+            num_referals[ei] = np.unique(ep_not_constraint).size
 
-        # A 1-d grid is inserted where there is more than one fracture
+        # A 1-d grid will be inserted where there is more than one fracture
         # referring.
         has_1d_grid = np.where(num_referals > 1)[0]
 
@@ -1677,7 +1674,7 @@ class FractureNetwork3d(object):
 
         bound_ind = np.where(all_bound)[0]
         # Remove boundary  that are referred to by more than fracture - this takes
-        # care of L-type intersections, as well as
+        # care of L-type intersections
         bound_ind = np.setdiff1d(bound_ind, has_1d_grid)
 
         # Index of lines that should have a 1-d grid. This are all of the first
@@ -2152,7 +2149,7 @@ class FractureNetwork3d(object):
         """
         if constraints is None:
             constraints = np.array([], dtype=np.int)
-        
+
         # Extract geometrical information.
         p = self.decomposition["points"]
         edges = self.decomposition["edges"]
