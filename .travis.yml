@@ -30,7 +30,10 @@ install:
   # Show all packages, for debugging
 
 before_script:
-
+  - cd $TRAVIS_BUILD_DIR 
+  - echo $TRAVIS_BUILD_DIR
+  - export PYTHONPATH=${TRAVIS_BUILD_DIR}:${PYTHONPATH}
+  
   # Download file for point-in-polyhedron test
   - wget https://raw.githubusercontent.com/keileg/polyhedron/master/polyhedron.py
   # Rename file
