@@ -32,7 +32,7 @@ def refine_mesh_by_splitting(
         dim: int,
         network: Union[pp.FractureNetwork3d, pp.FractureNetwork2d],
         gb_set_projections: bool = True,
-) -> Generator[pp.GridBucket]:
+) -> Generator[pp.GridBucket, None, None]:
     """ Refine a mesh by splitting using gmsh
 
     The method generates refinements on the fly by yielding GridBuckets as desired.
