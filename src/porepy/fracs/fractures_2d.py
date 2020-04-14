@@ -237,7 +237,7 @@ class FractureNetwork2d(object):
             # Delete constraints corresponding to deleted edges
             constraints = np.delete(constraints, to_delete)
 
-        # Consider the dimension of the problem, normally 2d but if dfn it's a 1d
+        # Consider the dimension of the problem, normally 2d but if dfn is true 1d
         ndim = 2 - int(dfn)
 
         self._find_and_split_intersections(constraints)
@@ -409,7 +409,7 @@ class FractureNetwork2d(object):
             domain (dict or np.array, optional): Domain. See __init__ for description.
                 if not provided, self.domain will be used.
             add_domain_edges(bool, optional): Include or not the boundary edges and pts in
-                the list of edges.
+                the list of edges. Default value True.
 
         Returns:
             edges_deleted (np.array): Index of edges that were outside the bounding box
