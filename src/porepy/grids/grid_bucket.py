@@ -7,6 +7,7 @@ import warnings
 from scipy import sparse as sps
 import numpy as np
 
+import porepy as pp
 from porepy.utils import setmembership
 
 
@@ -34,6 +35,27 @@ class GridBucket(object):
         self._nodes = {}
         self._edges = {}
         self.name = "grid bucket"
+        
+    def __contains__(self, key):
+        """ Overload __contains__.
+
+        Parameters:
+            key (object): Object to be tested.
+
+        Return:
+            True if etiher key is a pp.Grid, and key is among the nodes of the graph
+                representation of this md-grid, *or* key is a 2-tuple, with both items
+                in self._nodes.
+
+        """
+        if isinstance(key, pp.Grid):
+            return key in self._nodes
+        elif isinstance(key, tuple):
+            if len(key) == 2 and isinstance(key[0], pp.Grid) and isinstance(key[1], pp.Grid):
+                return key[0] in self._nodes and key[1] in self.nodes
+            
+        # Everything else is not in self.
+        return False
 
     # --------- Iterators -------------------------
 
@@ -48,7 +70,7 @@ class GridBucket(object):
         """
         for g, data in self._nodes.items():
             yield g, data
-
+            
     def nodes(self):
         """ Iterator over the nodes in the GridBucket.
 
