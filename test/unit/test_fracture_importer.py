@@ -250,6 +250,7 @@ class TestImport3dElliptic(unittest.TestCase):
         self.assertTrue(f.p[1].min() == -1)
         self.assertTrue(f.p[2].min() == 0)
 
+
 class TestImportDFN(unittest.TestCase):
     def test_one_fracture(self):
         p = np.array([0, 0, 1, 1])
@@ -277,13 +278,15 @@ class TestImportDFN(unittest.TestCase):
         np.savetxt(file_name, f, delimiter=",")
 
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1.1}
-        network = pp.fracture_importer.network_2d_from_csv(file_name, domain=domain, skip_header=0)
+        network = pp.fracture_importer.network_2d_from_csv(
+            file_name, domain=domain, skip_header=0
+        )
         mesh_args = {"mesh_size_frac": 0.2, "mesh_size_bound": 0.2}
         gb = network.mesh(mesh_args, dfn=True)
 
-        self.assertTrue(gb.num_cells() == 6+5)
-        self.assertTrue(gb.num_faces() == 7+6)
-        self.assertTrue(gb.num_nodes() == 7+6)
+        self.assertTrue(gb.num_cells() == 6 + 5)
+        self.assertTrue(gb.num_faces() == 7 + 6)
+        self.assertTrue(gb.num_nodes() == 7 + 6)
         self.assertTrue(gb.dim_max() == 1)
         self.assertTrue(gb.dim_min() == 1)
         self.assertTrue(gb.num_graph_nodes() == 2)
@@ -312,9 +315,9 @@ class TestImportDFN(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.2, "mesh_size_bound": 0.2}
         gb = network.mesh(mesh_args, dfn=True)
 
-        self.assertTrue(gb.num_cells() == 8+6+1)
-        self.assertTrue(gb.num_faces() == 10+8+1)
-        self.assertTrue(gb.num_nodes() == 10+8+1)
+        self.assertTrue(gb.num_cells() == 8 + 6 + 1)
+        self.assertTrue(gb.num_faces() == 10 + 8 + 1)
+        self.assertTrue(gb.num_nodes() == 10 + 8 + 1)
         self.assertTrue(gb.dim_max() == 1)
         self.assertTrue(gb.dim_min() == 0)
         self.assertTrue(gb.num_graph_nodes() == 3)
@@ -336,6 +339,7 @@ class TestImportDFN(unittest.TestCase):
                 self.assertTrue(g.num_nodes == 1)
             else:
                 self.assertTrue(False)
+
 
 if __name__ == "__main__":
     unittest.main()
