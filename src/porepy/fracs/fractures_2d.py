@@ -220,7 +220,9 @@ class FractureNetwork2d(object):
         self.pts = p
 
         if not self.bounding_box_imposed:
-            edges_deleted = self.impose_external_boundary(self.domain, add_domain_edges=not dfn)
+            edges_deleted = self.impose_external_boundary(
+                self.domain, add_domain_edges=not dfn
+            )
 
             # Find edges of constraints to delete
             to_delete = np.where(np.isin(constraints, edges_deleted))[0]
@@ -236,7 +238,7 @@ class FractureNetwork2d(object):
             constraints = np.delete(constraints, to_delete)
 
         # Consider the dimension of the problem, normally 2d but if dfn it's a 1d
-        ndim = 2-int(dfn)
+        ndim = 2 - int(dfn)
 
         self._find_and_split_intersections(constraints)
         self._insert_auxiliary_points(**mesh_args)
@@ -487,7 +489,7 @@ class FractureNetwork2d(object):
             intersection_points=intersections,
             domain_boundary_points=self.decomposition["domain_boundary_points"],
             fracture_and_boundary_points=fracture_boundary_points,
-            nd=ndim
+            nd=ndim,
         )
         gw.write_geo(in_file)
 
