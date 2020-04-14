@@ -88,7 +88,7 @@ class GmshWriter(object):
         s += self._write_points()
 
         if self.nd == 1:
-            s += self.__write_fractures_1d()
+            s += self._write_fractures_1d()
 
         elif self.nd == 2:
             if self.domain is not None:
@@ -109,7 +109,7 @@ class GmshWriter(object):
         with open(file_name, "w") as f:
             f.write(s)
 
-    def __write_fractures_1d(self):
+    def _write_fractures_1d(self):
         # Both fractures and compartments are
         constants = gridding_constants.GmshConstants()
 
