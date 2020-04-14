@@ -445,10 +445,10 @@ class FractureNetwork2d(object):
             # Define the new boundary tags
             new_boundary_tags = boundary_tags + dom_lines.shape[1] * [True]
             self.tags["boundary"] = new_boundary_tags
-            # Add the domain boundary edges
-            self.edges = np.hstack((e, dom_lines + num_p))
 
             num_p = p.shape[1]
+            # Add the domain boundary edges and points
+            self.edges = np.hstack((e, dom_lines + num_p))
             self.pts = np.hstack((p, dom_p))
 
             self.decomposition["domain_boundary_points"] = num_p + np.arange(
