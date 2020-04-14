@@ -296,7 +296,9 @@ class TestImportDFN1d(unittest.TestCase):
 
         for g, _ in gb:
             _, bmax = g.bounding_box()
-            self.assertTrue(np.allclose(bmax, [1, 0.45, 0]) or np.allclose(bmax, [1, 1, 0]))
+            self.assertTrue(
+                np.allclose(bmax, [1, 0.45, 0]) or np.allclose(bmax, [1, 1, 0])
+            )
 
     def test_two_intersecting_fractures(self):
         p = np.array([[0, 0, 1, 0.5], [0, 1, 1, 0]])
@@ -316,11 +318,14 @@ class TestImportDFN1d(unittest.TestCase):
         for g, _ in gb:
             _, bmax = g.bounding_box()
             if g.dim == 1:
-                self.assertTrue(np.allclose(bmax, [1, 0.5, 0]) or np.allclose(bmax, [1, 1, 0]))
+                self.assertTrue(
+                    np.allclose(bmax, [1, 0.5, 0]) or np.allclose(bmax, [1, 1, 0])
+                )
             elif g.dim == 0:
                 self.assertTrue(np.allclose(bmax, [0.66666667, 0.33333333, 0]))
             else:
                 self.assertTrue(False)
+
 
 if __name__ == "__main__":
     unittest.main()
