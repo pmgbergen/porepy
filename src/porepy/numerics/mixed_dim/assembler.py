@@ -1208,8 +1208,7 @@ class Assembler:
     def variables_of_grid(
         self, g: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
     ) -> List[str]:
-        """
-        Get all variables defined for a given grid or edge.
+        """ Get all variables defined for a given grid or edge.
 
         Args:
             g (Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]): Target grid, or an edge
@@ -1240,7 +1239,7 @@ class Assembler:
         return s
 
     def __repr__(self) -> str:
-        s = f"Assembler objcet with in total {self.num_dof()} dofs"
+        s = f"Assembler object with in total {self.num_dof()} dofs"
         s += f" on {len(self.block_dof)} subdomain and interface variables.\n"
 
         s += f"Maximum grid dimension: {self.gb.dim_max()}.\n"
