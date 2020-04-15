@@ -251,5 +251,81 @@ class TestImport3dElliptic(unittest.TestCase):
         self.assertTrue(f.p[2].min() == 0)
 
 
+class TestImportDFN1d(unittest.TestCase):
+    def test_one_fracture(self):
+        p = np.array([0, 0, 1, 1])
+        f = np.hstack((0, p))
+        file_name = "frac.csv"
+        np.savetxt(file_name, f, delimiter=",")
+
+        network = pp.fracture_importer.network_2d_from_csv(file_name, skip_header=0)
+
+        mesh_args = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
+        gb = network.mesh(mesh_args, dfn=True)
+
+        bmin, bmax = gb.bounding_box()
+        self.assertTrue(np.allclose(bmin, [0, 0, 0]))
+        self.assertTrue(np.allclose(bmax, [1, 1, 0]))
+
+        self.assertTrue(gb.dim_max() == 1)
+        self.assertTrue(gb.dim_min() == 1)
+        self.assertTrue(gb.num_graph_nodes() == 1)
+        self.assertTrue(gb.num_graph_edges() == 0)
+
+    def test_two_fractures(self):
+        p = np.array([[0, 0, 1, 0.45], [0, 1, 1, 1]])
+        f = np.hstack(([[0], [1]], p))
+        file_name = "frac.csv"
+        np.savetxt(file_name, f, delimiter=",")
+
+        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1.1}
+        network = pp.fracture_importer.network_2d_from_csv(
+            file_name, domain=domain, skip_header=0
+        )
+        mesh_args = {"mesh_size_frac": 0.2, "mesh_size_bound": 0.2}
+        gb = network.mesh(mesh_args, dfn=True)
+
+        bmin, bmax = gb.bounding_box()
+        self.assertTrue(np.allclose(bmin, [0, 0, 0]))
+        self.assertTrue(np.allclose(bmax, [1, 1, 0]))
+
+        self.assertTrue(gb.dim_max() == 1)
+        self.assertTrue(gb.dim_min() == 1)
+        self.assertTrue(gb.num_graph_nodes() == 2)
+        self.assertTrue(gb.num_graph_edges() == 0)
+
+        for g, _ in gb:
+            _, bmax = g.bounding_box()
+            self.assertTrue(
+                np.allclose(bmax, [1, 0.45, 0]) ^ np.allclose(bmax, [1, 1, 0])
+            )
+
+    def test_two_intersecting_fractures(self):
+        p = np.array([[0, 0, 1, 0.5], [0, 1, 1, 0]])
+        f = np.hstack(([[0], [1]], p))
+        file_name = "frac.csv"
+        np.savetxt(file_name, f, delimiter=",")
+
+        network = pp.fracture_importer.network_2d_from_csv(file_name, skip_header=0)
+        mesh_args = {"mesh_size_frac": 0.2, "mesh_size_bound": 0.2}
+        gb = network.mesh(mesh_args, dfn=True)
+
+        self.assertTrue(gb.dim_max() == 1)
+        self.assertTrue(gb.dim_min() == 0)
+        self.assertTrue(gb.num_graph_nodes() == 3)
+        self.assertTrue(gb.num_graph_edges() == 2)
+
+        for g, _ in gb:
+            _, bmax = g.bounding_box()
+            if g.dim == 1:
+                self.assertTrue(
+                    np.allclose(bmax, [1, 0.5, 0]) ^ np.allclose(bmax, [1, 1, 0])
+                )
+            elif g.dim == 0:
+                self.assertTrue(np.allclose(bmax, [0.66666667, 0.33333333, 0]))
+            else:
+                self.assertTrue(False)
+
+
 if __name__ == "__main__":
     unittest.main()
