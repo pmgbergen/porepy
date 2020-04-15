@@ -52,7 +52,7 @@ class GridBucket(object):
             return key in self._nodes
         elif isinstance(key, tuple):
             if len(key) == 2 and isinstance(key[0], pp.Grid) and isinstance(key[1], pp.Grid):
-                return key[0] in self._nodes and key[1] in self.nodes
+                return key[0] in self._nodes and key[1] in self._nodes
             
         # Everything else is not in self.
         return False
