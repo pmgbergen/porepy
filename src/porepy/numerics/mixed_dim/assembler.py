@@ -1217,44 +1217,30 @@ class Assembler:
             List[str]: List of all variables known for this entity.
 
         """
-        names = []
-        for key in self.block_dof.keys():
-            if key[0] == g:
-                names.append(key[1])
-        return names
+        return [key[1] for key in self.block_dof.keys() if key[0] == g]
 
     def __str__(self) -> str:
-        s = f"Assembler object on a GridBucket with {self.gb.num_graph_nodes()} "
-        s += f"subdomains and {self.gb.num_graph_edges()} interfaces.\n"
-        s += f"Total number of degrees of freedom: {self.num_dof()}\n"
-        s += f"Total number of subdomain and interface variables: {len(self.block_dof)}\n"
-
-        names = []
-        for key in self.block_dof.keys():
-            names.append(key[1])
-
+        names = [key[1] for key in self.block_dof.keys()]
         unique_vars = list(set(names))
-        s += f"Variable names {unique_vars}"
+        s = f"Assembler object on a GridBucket with {self.gb.num_graph_nodes()} " \
+            f"subdomains and {self.gb.num_graph_edges()} interfaces.\n" \
+            f"Total number of degrees of freedom: {self.num_dof()}\n" \
+            f"Total number of subdomain and interface variables: {len(self.block_dof)}\n" \
+            f"Variable names: {unique_vars}"
 
         return s
 
     def __repr__(self) -> str:
-        s = f"Assembler object with in total {self.num_dof()} dofs"
-        s += f" on {len(self.block_dof)} subdomain and interface variables.\n"
-
-        s += f"Maximum grid dimension: {self.gb.dim_max()}.\n"
-        s += f"Minimum grid dimension: {self.gb.dim_min()}.\n"
+        s = f"Assembler objcet with in total {self.num_dof()} dofs" \
+            f" on {len(self.block_dof)} subdomain and interface variables.\n" \
+            f"Maximum grid dimension: {self.gb.dim_max()}.\n" \
+            f"Minimum grid dimension: {self.gb.dim_min()}.\n"
 
         for dim in range(self.gb.dim_max(), self.gb.dim_min() - 1, -1):
             s += f"In dimension {dim}: {len(self.gb.grids_of_dimension(dim))} grids.\n"
-            names = []
-            for key in self.block_dof.keys():
-                if isinstance(key[0], tuple):
-                    continue
-                elif key[0].dim == dim:
-                    names.append(key[1])
-
-            unique_vars = list(set(names))
+            unique_vars = {
+                key[1] for key in self.block_dof.keys() if not isinstance(key[0], tuple) and key[0].dim == dim
+            }
             s += f"All variables present in dimension {dim}: {unique_vars}\n"
 
             # Also check if some subdomains of this dimension have a subset of the
@@ -1267,31 +1253,26 @@ class Assembler:
                 # All variables on this subdomain
                 var = set(self.variables_of_grid(g))
                 # Check if this is a subset of the full variable list on this dimension
-                if len(var) != len(var.intersection(set(unique_vars))):
-
+                if var.issubset(unique_vars):
                     # We will only report each subset variable definition once.
-                    # By default, assume this subset is new
-                    new_comb = True
-                    # Check if we have found it before
-                    for spec in found_special_var_combination:
-                        if len(spec) == len(spec.intersection(set(var))):
-                            new_comb = False
-                            break
-                    # if not bound before, register the new one, and report it
-                    if new_comb:
+                    # If this subset hasn't already been reported, report it.
+                    already_reported = np.any(var == spec for spec in found_special_var_combination)
+                    if not already_reported:
                         found_special_var_combination.append(var)
-                        s += "Variable subset on at least one subdomain in "
-                        s += " dimension {dim}: {var}\n"
+                        s += f"Variable subset on at least one subdomain in " \
+                             f"dimension {dim}: {var}\n"
 
         for dim in range(self.gb.dim_max(), self.gb.dim_min(), -1):
-            names = []
-            for g in self.gb.grids_of_dimension(dim):
-                for e, _ in self.gb.edges_of_node(g):
-                    if isinstance(key[0], tuple):
-                        names += self.variables_of_grid(e)
-            unique_vars = list(set(names))
-            s += f"All variables present on edges between dimensions {dim} and {dim-1}"
-            s += f" {unique_vars}"
+            unique_vars = {
+                var
+                for g in self.gb.grids_of_dimension(dim)  # For each grid of dimension dim
+                for e, _ in self.gb.edges_of_node(g)      # for each edge of that grid
+                if self.gb.nodes_of_edge(e)[1] == g       # such that the edge neighbors a lower-dimensional grid
+                for var in self.variables_of_grid(e)      # get all variables on that edge
+            }
+
+            s += f"All variables present on edges between dimensions {dim} and {dim-1}: " \
+                 f"{unique_vars}\n"
 
             # Also check if some subdomains of this dimension have a subset of the
             # variables defined on the totality of the subdomains
@@ -1300,24 +1281,15 @@ class Assembler:
             found_special_var_combination: List[Set[str]] = []
             for g in self.gb.grids_of_dimension(dim):
                 for e, _ in self.gb.edges_of_node(g):
-                    if isinstance(key[0], tuple):
-                        var = set(self.variables_of_grid(e))
-                        # Check if this is a subset of the full variable list on this
-                        # dimension
-                        if len(var) != len(var.intersection(set(unique_vars))):
-
-                            # We will only report each subset variable definition once.
-                            # By default, assume this subset is new
-                            new_comb = True
-                            # Check if we have found it before
-                            for spec in found_special_var_combination:
-                                if len(spec) == len(spec.intersection(set(var))):
-                                    new_comb = False
-                                    break
-                            # if not bound before, register the new one, and report it
-                            if new_comb:
-                                found_special_var_combination.append(var)
-                                s += "Variable subset on at least one interface between"
-                                s += " dimension {dim} and {dim-1}: {var}\n"
+                    var = set(self.variables_of_grid(e))
+                    # Check if this is a subset of the full variable list on this dimension
+                    if var.issubset(unique_vars):
+                        # We will only report each subset variable definition once.
+                        # If this subset hasn't already been reported, report it.
+                        already_reported = np.any(var == spec for spec in found_special_var_combination)
+                        if not already_reported:
+                            found_special_var_combination.append(var)
+                            s += f"Variable subset on at least one interface between " \
+                                 f"dimension {dim} and {dim-1}: {var}\n"
 
         return s
