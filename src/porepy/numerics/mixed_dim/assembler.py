@@ -8,6 +8,8 @@ import numpy as np
 import scipy.sparse as sps
 import porepy as pp
 
+from typing import Set, List, Tuple, Union
+
 
 class Assembler:
     """ A class that assembles multi-physics problems on mixed-dimensional
@@ -1202,3 +1204,121 @@ class Assembler:
             int: Number of unknowns. Size of solution vector.
         """
         return self.full_dof.sum()
+
+    def variables_of_grid(
+        self, g: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
+    ) -> List[str]:
+        """
+        Get all variables defined for a given grid or edge.
+
+        Args:
+            g (Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]): Target grid, or an edge
+
+        Returns:
+            List[str]: List of all variables known for this entity.
+
+        """
+        names = []
+        for key in self.block_dof.keys():
+            if key[0] == g:
+                names.append(key[1])
+        return names
+
+    def __str__(self) -> str:
+        s = f"Assembler object on a GridBucket with {self.gb.num_graph_nodes()} "
+        s += f"subdomains and {self.gb.num_graph_edges()} interfaces.\n"
+        s += f"Total number of degrees of freedom: {self.num_dof()}\n"
+        s += f"Total number of subdomain and interface variables: {len(self.block_dof)}\n"
+
+        names = []
+        for key in self.block_dof.keys():
+            names.append(key[1])
+
+        unique_vars = list(set(names))
+        s += f"Variable names {unique_vars}"
+
+        return s
+
+    def __repr__(self) -> str:
+        s = f"Assembler objcet with in total {self.num_dof()} dofs"
+        s += f" on {len(self.block_dof)} subdomain and interface variables.\n"
+
+        s += f"Maximum grid dimension: {self.gb.dim_max()}.\n"
+        s += f"Minimum grid dimension: {self.gb.dim_min()}.\n"
+
+        for dim in range(self.gb.dim_max(), self.gb.dim_min() - 1, -1):
+            s += f"In dimension {dim}: {len(self.gb.grids_of_dimension(dim))} grids.\n"
+            names = []
+            for key in self.block_dof.keys():
+                if isinstance(key[0], tuple):
+                    continue
+                elif key[0].dim == dim:
+                    names.append(key[1])
+
+            unique_vars = list(set(names))
+            s += f"All variables present in dimension {dim}: {unique_vars}\n"
+
+            # Also check if some subdomains of this dimension have a subset of the
+            # variables defined on the totality of the subdomains
+
+            # List of found special (subset) variable combinations
+            found_special_var_combination: List[Set[str]] = []
+            # Loop over all grids of this dimension
+            for g in self.gb.grids_of_dimension(dim):
+                # All variables on this subdomain
+                var = set(self.variables_of_grid(g))
+                # Check if this is a subset of the full variable list on this dimension
+                if len(var) != len(var.intersection(set(unique_vars))):
+
+                    # We will only report each subset variable definition once.
+                    # By default, assume this subset is new
+                    new_comb = True
+                    # Check if we have found it before
+                    for spec in found_special_var_combination:
+                        if len(spec) == len(spec.intersection(set(var))):
+                            new_comb = False
+                            break
+                    # if not bound before, register the new one, and report it
+                    if new_comb:
+                        found_special_var_combination.append(var)
+                        s += "Variable subset on at least one subdomain in "
+                        s + " dimension {dim}: {var}\n"
+
+        for dim in range(self.gb.dim_max(), self.gb.dim_min(), -1):
+            names = []
+            for g in self.gb.grids_of_dimension(dim):
+                for e, _ in self.gb.edges_of_node(g):
+                    if isinstance(key[0], tuple):
+                        names += self.variables_of_grid(e)
+            unique_vars = list(set(names))
+            s += f"All variables present on edges between dimensions {dim} and {dim-1}"
+            s += f" {unique_vars}"
+
+            # Also check if some subdomains of this dimension have a subset of the
+            # variables defined on the totality of the subdomains
+
+            # List of found special (subset) variable combinations
+            found_special_var_combination: List[Set[str]] = []
+            for g in self.gb.grids_of_dimension(dim):
+                for e, _ in self.gb.edges_of_node(g):
+                    if isinstance(key[0], tuple):
+                        var = set(self.variables_of_grid(e))
+                        # Check if this is a subset of the full variable list on this
+                        # dimension
+                        if len(var) != len(var.intersection(set(unique_vars))):
+
+                            # We will only report each subset variable definition once.
+                            # By default, assume this subset is new
+                            new_comb = True
+                            # Check if we have found it before
+                            for spec in found_special_var_combination:
+                                if len(spec) == len(spec.intersection(set(var))):
+                                    new_comb = False
+                                    break
+                            # if not bound before, register the new one, and report it
+                            if new_comb:
+                                found_special_var_combination.append(var)
+                                s += "Variable subset on at least one interface between"
+                                s + " dimension {dim} and {dim-1}: {var}\n"
+
+        return s
