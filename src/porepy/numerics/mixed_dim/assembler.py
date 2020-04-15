@@ -1282,7 +1282,7 @@ class Assembler:
                     if new_comb:
                         found_special_var_combination.append(var)
                         s += "Variable subset on at least one subdomain in "
-                        s + " dimension {dim}: {var}\n"
+                        s += " dimension {dim}: {var}\n"
 
         for dim in range(self.gb.dim_max(), self.gb.dim_min(), -1):
             names = []
@@ -1319,6 +1319,6 @@ class Assembler:
                             if new_comb:
                                 found_special_var_combination.append(var)
                                 s += "Variable subset on at least one interface between"
-                                s + " dimension {dim} and {dim-1}: {var}\n"
+                                s += " dimension {dim} and {dim-1}: {var}\n"
 
         return s

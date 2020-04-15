@@ -70,7 +70,7 @@ class GridBucket(object):
         """
         for g, data in self._nodes.items():
             yield g, data
-            
+
     def nodes(self):
         """ Iterator over the nodes in the GridBucket.
 
