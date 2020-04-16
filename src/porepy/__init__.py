@@ -30,7 +30,6 @@ __all__ = []
 from porepy.params.bc import (
     BoundaryCondition,
     BoundaryConditionVectorial,
-    BoundaryConditionNode,
     face_on_side,
 )
 from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
