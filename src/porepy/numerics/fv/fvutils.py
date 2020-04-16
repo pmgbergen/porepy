@@ -1434,22 +1434,21 @@ def compute_darcy_flux(
     # Compute fluxes from pressures internal to the subdomain, and for global
     # boundary conditions.
     for g, d in gb:
-        if g.dim > 0:
-            parameter_dictionary = d[pp.PARAMETERS][keyword]
-            matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][keyword]
-            if "flux" in matrix_dictionary:
-                dis = (
-                    matrix_dictionary["flux"] * extract_variable(d, p_name)
-                    + matrix_dictionary["bound_flux"]
-                    * parameter_dictionary["bc_values"]
-                )
-            else:
-                raise ValueError(
-                    """Darcy_Flux can only be computed if a flux-based
-                                 discretization has been applied"""
-                )
+        parameter_dictionary = d[pp.PARAMETERS][keyword]
+        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][keyword]
+        if "flux" in matrix_dictionary:
+            dis = (
+                matrix_dictionary["flux"] * extract_variable(d, p_name)
+                + matrix_dictionary["bound_flux"]
+                * parameter_dictionary["bc_values"]
+            )
+        else:
+            raise ValueError(
+                """Darcy_Flux can only be computed if a flux-based
+                             discretization has been applied"""
+            )
 
-            d[pp.PARAMETERS][keyword_store][d_name] = dis
+        d[pp.PARAMETERS][keyword_store][d_name] = dis
     # Compute fluxes over internal faces, induced by the mortar flux. These
     # are a critical part of what makes MPFA consistent, but will not be
     # present for TPFA.
