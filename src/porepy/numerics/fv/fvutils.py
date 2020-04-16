@@ -1439,8 +1439,7 @@ def compute_darcy_flux(
         if "flux" in matrix_dictionary:
             dis = (
                 matrix_dictionary["flux"] * extract_variable(d, p_name)
-                + matrix_dictionary["bound_flux"]
-                * parameter_dictionary["bc_values"]
+                + matrix_dictionary["bound_flux"] * parameter_dictionary["bc_values"]
             )
         else:
             raise ValueError(
@@ -1505,4 +1504,5 @@ def boundary_to_sub_boundary(bound, subcell_topology):
         bound.robin_weight = bound.robin_weight[subcell_topology.fno_unique]
         bound.basis = bound.basis[subcell_topology.fno_unique]
     bound.num_faces = subcell_topology.num_subfno_unique
+    bound.bf = np.where(np.isin(subcell_topology.fno, bound.bf))[0]
     return bound
