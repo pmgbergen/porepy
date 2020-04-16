@@ -124,7 +124,7 @@ class Assembler:
         Parameters:
             matrix_format (str, optional): Matrix format used for the system matrix.
                 Defaults to CSR.
-            add_matrices (boolean, optional): If TruOptionale, a single system matrix is added,
+            add_matrices (boolean, optional): If True, a single system matrix is added,
                 else, separate matrices for each variable and term are returned in a
                 dictionary.
 
