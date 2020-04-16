@@ -1567,6 +1567,162 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(A[e2_ind, e1_ind] == -edge_other_val)
         self.assertTrue(A[e2_ind, e2_ind] == edge_self_val)
 
+    def test_variable_of_node(self):
+        # Test function variable of node. Two nodes, different variables.
+        # Also edge between nodes.
+        gb = self.define_gb()
+        variable_name_1 = "var_1"
+        variable_name_2 = "var_2"
+        for g, d in gb:
+            if g.grid_num == 1:
+                d[pp.PRIMARY_VARIABLES] = {
+                    variable_name_1: {"cells": 1},
+                    variable_name_2: {"cells": 1},
+                }
+                g1 = g
+            else:
+                g2 = g
+                d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}}
+
+        for e, d in gb.edges():
+            d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}}
+
+        # Assemble the global matrix
+        assembler = pp.Assembler(gb)
+        var = assembler.variables_of_grid(g1)
+        self.assertTrue(variable_name_1 in var)
+        self.assertTrue(variable_name_2 in var)
+
+        var = assembler.variables_of_grid(g2)
+        self.assertTrue(variable_name_1 in var)
+        self.assertFalse(variable_name_2 in var)
+
+        var = assembler.variables_of_grid(e)
+        self.assertTrue(variable_name_1 in var)
+        self.assertFalse(variable_name_2 in var)
+
+    def test_str_repr_two_nodes_different_variables(self):
+        # Assign two variables, check that the string returned by __str__ and
+        # __repr__ contain the correct information
+        # Test function variable of node. Two nodes, different variables.
+        # Also edge between nodes.
+        gb = self.define_gb()
+        variable_name_1 = "var_1"
+        variable_name_2 = "var_2"
+        for g, d in gb:
+            if g.grid_num == 1:
+                d[pp.PRIMARY_VARIABLES] = {
+                    variable_name_1: {"cells": 1},
+                    variable_name_2: {"cells": 1},
+                }
+            else:
+                d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}}
+                g.dim = 1
+
+        for e, d in gb.edges():
+            d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}}
+
+        # Assemble the global matrix
+        assembler = pp.Assembler(gb)
+        string = assembler.__str__()
+
+        # Check that the target line is in the string, or else the below if is
+        # meaningless
+        self.assertTrue("Variable names" in string)
+        for line in string.split("\n"):
+            # Check that the variables information is included in the right line
+            if "Variable names" in line:
+                self.assertTrue(variable_name_1 in line)
+                self.assertTrue(variable_name_2 in line)
+
+        rep = assembler.__repr__()
+        self.assertTrue("in dimension 2" in rep)
+        self.assertTrue("in dimension 1" in rep)
+
+        for line in rep.split("\n"):
+            if "in dimension 2" in line:
+                self.assertTrue(variable_name_1 in line)
+                self.assertTrue(variable_name_2 in line)
+            elif "in dimension 1" in line:
+                self.assertTrue(variable_name_1 in line)
+                self.assertTrue(not variable_name_2 in line)
+
+        self.assertTrue("dimensions 2 and 1" in rep)
+        for line in rep.split("\n"):
+            if "in dimensions 2 and 1" in line:
+                self.assertTrue(variable_name_1 in line)
+                self.assertTrue(not variable_name_2 in line)
+
+    def test_repr_three_nodes_three_edges_different_variables(self):
+        # Assembler.__str__ will be the same as in the above two-node test. Focus on
+        # __repr__, with heterogeneous physics
+        gb = self.define_gb_three_grids()
+        variable_name_1 = "var_1"
+        variable_name_2 = "var_2"
+        for g, d in gb:
+            if g.grid_num < 3:
+                d[pp.PRIMARY_VARIABLES] = {
+                    variable_name_1: {"cells": 1},
+                    variable_name_2: {"cells": 1},
+                }
+            else:
+                d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}}
+                g3 = g
+
+        for e, d in gb.edges():
+            if g3 in e:
+                d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}}
+            else:
+                d[pp.PRIMARY_VARIABLES] = {
+                    variable_name_1: {"cells": 1},
+                    variable_name_2: {"cells": 1},
+                }
+
+        # Assemble the global matrix
+        assembler = pp.Assembler(gb)
+        rep = assembler.__repr__()
+
+        self.assertTrue("in dimension 2" in rep)
+        self.assertTrue("in dimension 1" in rep)
+
+        found_var_1_subdomain = False
+        found_var_1_var_2_subdomain = False
+
+        for line in rep.split("\n"):
+            if "present in dimension 2" in line:
+                self.assertTrue(variable_name_1 in line)
+                self.assertTrue(variable_name_2 in line)
+            elif "present in dimension 1" in line:
+                self.assertTrue(variable_name_1 in line)
+                self.assertTrue(variable_name_2 in line)
+            if "subdomain in dimension 1" in line:
+                if variable_name_1 in line and variable_name_2 in line:
+                    found_var_1_var_2_subdomain = True
+                elif variable_name_1 in line:
+                    found_var_1_subdomain = True
+
+        self.assertTrue(found_var_1_subdomain)
+        self.assertTrue(found_var_1_var_2_subdomain)
+
+        self.assertTrue("edges between dimensions" in rep)
+        self.assertTrue("interface between dimension" in rep)
+
+        found_var_1_interface = False
+        found_var_1_var_2_interface = False
+
+        for line in rep.split("\n"):
+            if "edges between dimensions 2" in line:
+                self.assertTrue(variable_name_1 in line)
+                self.assertTrue(variable_name_2 in line)
+            if "interface between dimension" in line:
+                if variable_name_1 in line and variable_name_2 in line:
+                    found_var_1_var_2_interface = True
+                elif variable_name_1 in line:
+                    found_var_1_interface = True
+
+        self.assertTrue(found_var_1_interface)
+        self.assertTrue(found_var_1_var_2_interface)
+
 
 class MockNodeDiscretization(object):
     def __init__(self, value):
@@ -1602,10 +1758,10 @@ class MockEdgeDiscretization(
         cc[1, 2] = sps.coo_matrix(self.off_diag_val)
 
         return cc + local_matrix, np.empty(3)
- 
+
     def ndof(self, mg):
-        pass   
- 
+        pass
+
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         pass
 
@@ -1643,7 +1799,7 @@ class MockEdgeDiscretizationModifiesNode(
 
     def ndof(self, mg):
         pass
-    
+
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         pass
 
@@ -1667,12 +1823,13 @@ class MockEdgeDiscretizationOneSided(
         cc[0, 1] = sps.coo_matrix(self.off_diag_val)
 
         return cc + local_matrix, np.empty(2)
-    
+
     def ndof(self, mg):
         pass
-    
+
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         pass
+
 
 class MockEdgeDiscretizationOneSidedModifiesNode(
     porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
@@ -1700,9 +1857,10 @@ class MockEdgeDiscretizationOneSidedModifiesNode(
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         pass
-    
+
     def ndof(self, mg):
         pass
+
 
 class MockEdgeDiscretizationEdgeCouplings(
     porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
@@ -1754,6 +1912,7 @@ class MockEdgeDiscretizationEdgeCouplings(
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         pass
 
+
 if __name__ == "__main__":
-    TestAssembler().test_direct_edge_coupling()
+    TestAssembler().test_repr_three_nodes_three_edges_different_variables()
     unittest.main()
