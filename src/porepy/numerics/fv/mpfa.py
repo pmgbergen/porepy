@@ -642,10 +642,11 @@ class Mpfa(pp.FVElliptic):
         # Below, the boundary conditions should be defined on the subfaces.
         if bnd.num_faces == subcell_topology.num_subfno_unique:
             # The boundary conditions is already given on the subfaces
+            subcell_bnd = bnd
             subface_rhs = True
         else:
             # If bnd is not already a sub-face_bound we extend it
-            bnd = pp.fvutils.boundary_to_sub_boundary(bnd, subcell_topology)
+            subcell_bnd = pp.fvutils.boundary_to_sub_boundary(bnd, subcell_topology)
             subface_rhs = False
         # IS: Correct this paragraph!
         # Obtain normal_vector * k, pairings of cells and nodes (which together
@@ -732,7 +733,7 @@ class Mpfa(pp.FVElliptic):
         ## Discretize the Robin condition.
         # This takes the form
         #
-        #   f + bnd.robin_weight * pressure_face * subface_area = something.
+        #   f + subcell_bnd.robin_weight * pressure_face * subface_area = something.
         #
         # The scaling is important here: The f is a flux integrated over the
         # half face, thus the scaling with the subface area is necessary.
@@ -757,7 +758,7 @@ class Mpfa(pp.FVElliptic):
         # below (in computation of pr_cont_grad).
         num_nodes = np.diff(g.face_nodes.indptr)
         sgn_scaled_by_subface_area = (
-            bnd.robin_weight
+            subcell_bnd.robin_weight
             * sgn_unique
             * g.face_areas[subcell_topology.fno_unique]
             / num_nodes[subcell_topology.fno_unique]
@@ -768,7 +769,7 @@ class Mpfa(pp.FVElliptic):
         # Contribution from gradient.
         pr_trace_cell_all = sps.coo_matrix(
             (
-                bnd.robin_weight[subcell_topology.subfno]
+                subcell_bnd.robin_weight[subcell_topology.subfno]
                 * g.face_areas[subcell_topology.fno]
                 / num_nodes[subcell_topology.fno],
                 (subcell_topology.subfno, subcell_topology.cno),
@@ -788,7 +789,9 @@ class Mpfa(pp.FVElliptic):
         # The boundary faces will have either a Dirichlet or Neumann condition, or
         # Robin condition
         # Obtain mappings to exclude boundary faces.
-        bound_exclusion = pp.fvutils.ExcludeBoundaries(subcell_topology, bnd, g.dim)
+        bound_exclusion = pp.fvutils.ExcludeBoundaries(
+            subcell_topology, subcell_bnd, g.dim
+        )
 
         # No flux conditions for Dirichlet and Robin boundary faces
         nk_grad_n = bound_exclusion.exclude_robin_dirichlet(nk_grad_paired)
@@ -943,7 +946,7 @@ class Mpfa(pp.FVElliptic):
 
         # Boundary conditions
         rhs_bound = self._create_bound_rhs(
-            bnd,
+            subcell_bnd,
             bound_exclusion,
             subcell_topology,
             sgn_unique,
