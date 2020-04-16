@@ -577,7 +577,7 @@ class FractureNetwork2d(object):
         else:
             edges = self.edges
             pts = self.pts
-            
+
         import networkx as nx
 
         G = nx.Graph()
