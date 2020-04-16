@@ -1306,7 +1306,6 @@ class Assembler:
             f"Maximum grid dimension: {self.gb.dim_max()}.\n"
             f"Minimum grid dimension: {self.gb.dim_min()}.\n"
         )
-
         for dim in range(self.gb.dim_max(), self.gb.dim_min() - 1, -1):
             s += f"In dimension {dim}: {len(self.gb.grids_of_dimension(dim))} grids.\n"
             unique_vars = {
@@ -1330,7 +1329,7 @@ class Assembler:
                     # We will only report each subset variable definition once.
                     # If this subset hasn't already been reported, report it.
                     already_reported = np.any(
-                        var == spec for spec in found_special_var_combination
+                        [var == spec for spec in found_special_var_combination]
                     )
                     if not already_reported:
                         found_special_var_combination.append(var)
@@ -1369,7 +1368,7 @@ class Assembler:
                         # We will only report each subset variable definition once.
                         # If this subset hasn't already been reported, report it.
                         already_reported = np.any(
-                            var == spec for spec in found_special_var_combination
+                            [var == spec for spec in found_special_var_combination]
                         )
                         if not already_reported:
                             found_special_var_combination.append(var)
