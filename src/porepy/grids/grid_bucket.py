@@ -6,14 +6,25 @@ intersections in the form of a GridBucket.
 import warnings
 from scipy import sparse as sps
 import numpy as np
-from typing import Any, Tuple, Dict, Generator, List, Iterable, Callable, Union, TypeVar, Generic
+from typing import (
+    Any,
+    Tuple,
+    Dict,
+    Generator,
+    List,
+    Iterable,
+    Callable,
+    Union,
+    TypeVar,
+    Generic,
+)
 
 import porepy as pp
 from porepy.utils import setmembership
 
 # Needed to refer to pp.GridBucket in type hints. See documentation of typing, under
 # forward referencing.
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class GridBucket(Generic[T]):
@@ -711,9 +722,7 @@ class GridBucket(Generic[T]):
 
         return neighbors
 
-    def duplicate_without_dimension(
-        self, dim: int
-    ) -> Tuple[T, Dict[str, Dict]]:
+    def duplicate_without_dimension(self, dim: int) -> Tuple[T, Dict[str, Dict]]:
         """
         Remove all the nodes of dimension dim and add new edges between their
         neighbors by calls to remove_node.
@@ -878,63 +887,6 @@ class GridBucket(Generic[T]):
         )
         return trg_2_src_nodes
 
-    def cell_global2loc(self):
-        """
-        Create a global to local cell-mapping.
-
-        cell_global2loc(..) add a keyword cell_global2local to each node in the
-        GridBucket which is a sparse matrix R which restrict the global cell
-        number, to local cell number. I.e., R*global_cell_vector
-        equals the local cell ordering of that node. For the GridBucket:
-
-                                   0 1 4 2 3
-                                   - - x - -
-
-        where - represent 1D cells and x a 0D cell, and the numbers above is the
-        global cell ordering, cell_global2loc will give out the two matrices
-        R_1 = [[1,0,0,0,0],
-               [0,1,0,0,0],
-               [0,0,1,0,0],
-               [0,0,0,1,0]]
-        R_0 = [[0,0,0,0,1]]
-
-        If the GridBucket has mortar grids on the edges, a corresponding
-        restriction from global mortar cells to local mortar cells will be
-        made.
-        """
-
-        # Create node restriction
-        self.add_node_props("cell_global2loc")
-        for g, d in self:
-            pos_i = d["node_number"]
-            mat = np.empty(self.num_graph_nodes(), dtype=np.object)
-            # first initial empty matrix
-            for g_j, d_j in self:
-                pos_j = d_j["node_number"]
-                mat[pos_j] = sps.coo_matrix((g.num_cells, g_j.num_cells))
-
-            # overwrite the local matrix for grid g
-            mat[pos_i] = sps.eye(g.num_cells)
-            d["cell_global2loc"] = sps.hstack(mat, "csr")
-
-        # create mortar restriction
-        for _, d in self.edges():
-            if not d.get("mortar_grid"):
-                continue
-            gm = d["mortar_grid"]
-            pos_i = d["edge_number"]
-            mat = np.empty(self.num_graph_edges(), dtype=np.object)
-            # first initial empty matrix
-            for _, d_j in self.edges():
-                gm_j = d_j["mortar_grid"]
-                pos_j = d_j["edge_number"]
-                mat[pos_j] = sps.coo_matrix((gm.num_cells, gm_j.num_cells))
-
-            # overwrite the local matrix for grid g
-            mat[pos_i] = sps.eye(gm.num_cells)
-
-            d["cell_global2loc"] = sps.hstack(mat, "csr")
-
     def compute_geometry(self) -> None:
         """Compute geometric quantities for the grids.
         """
@@ -1067,29 +1019,6 @@ class GridBucket(Generic[T]):
         return sps.coo_matrix(
             (values, (i, j)), (self.num_graph_nodes(), self.num_graph_nodes())
         )
-
-    def apply_function(self, fct_nodes, fct_edges):
-        """
-        Loop on all the nodes and edges and evaluate a function on each of them.
-
-        Parameter:
-            fct_nodes: function to evaluate. It takes a grid and the related data
-                and returns a scalar.
-
-            fct_edges: function to evaluate. It returns a scalar and takes: the
-                higher and lower dimensional grids, the higher and lower
-                dimensional data, the global data.
-
-        Returns:
-            matrix: sparse triangular matrix containing the function
-                evaluated on each edge (pair of nodes) and node, ordered by their
-                relative 'node_number'. The diagonal contains the node
-                evaluation.
-
-        """
-        matrix = self.apply_function_to_edges(fct_edges)
-        matrix.setdiag(self.apply_function_to_nodes(fct_nodes))
-        return matrix
 
     # ---- Methods for getting information on the bucket, or its components ----
 
