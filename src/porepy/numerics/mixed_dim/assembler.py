@@ -6,7 +6,7 @@ import numpy as np
 import scipy.sparse as sps
 import porepy as pp
 
-from typing import Set, List, Tuple, Union, Dict, Any
+from typing import Set, List, Tuple, Union, Dict, Any, Callable, Optional
 
 
 class Assembler:
@@ -124,7 +124,7 @@ class Assembler:
         Parameters:
             matrix_format (str, optional): Matrix format used for the system matrix.
                 Defaults to CSR.
-            add_matrices (boolean, optional): If True, a single system matrix is added,
+            add_matrices (boolean, optional): If TruOptionale, a single system matrix is added,
                 else, separate matrices for each variable and term are returned in a
                 dictionary.
 
@@ -268,22 +268,24 @@ class Assembler:
 
             matrix, rhs = self._initialize_matrix_rhs(sps_matrix)
 
-            term_filter = None
-            variable_filter = None
+            # Make term and variable filters that let everything through
+            term_filter: Callable[[str], bool] = lambda x: True
+            variable_filter: Callable[[str], bool] = lambda x: True
             target_grid = kwargs.get("grid", None)
 
         elif operation == "discretize":
 
             variable_keys = kwargs.get("variable_filter", None)
             if variable_keys is None:
-                variable_filter = lambda x: True
+                variable_filter: Callable[[str], bool] = lambda x: True
             else:
-                variable_filter = lambda x: x in variable_keys
+                variable_filter: Callable[[str], bool] = lambda x: x in variable_keys
+
             term_keys = kwargs.get("term_filter", None)
             if term_keys is None:
-                term_filter = lambda x: True
+                term_filter: Callable[[str], bool] = lambda x: True
             else:
-                term_filter = lambda x: x in term_keys
+                term_filter: Callable[[str], bool] = lambda x: x in term_keys
 
             matrix = None
             rhs = None
@@ -313,8 +315,8 @@ class Assembler:
     def _operate_on_node(
         self,
         operation: str,
-        matrix: Union[sps.spmatrix, None],
-        rhs: Union[np.ndarray, None],
+        matrix: Union[Dict[str, np.ndarray], None],
+        rhs: Union[Dict[str, np.ndarray], None],
         variable_filter,
         term_filter,
         target_grid: pp.Grid,
@@ -471,7 +473,7 @@ class Assembler:
         operation: str,
         matrix: Dict[str, np.ndarray],
         rhs: Dict[str, np.ndarray],
-        variable_filter: List[str],
+        variable_filter: Callable[[str], bool],
         term_filter: List[str],
         sps_matrix: str,
     ) -> None:
@@ -831,7 +833,10 @@ class Assembler:
         block_dof_counter = 0
 
         # Dictionary that maps node/edge + variable combination to an index.
-        block_dof: Dict[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], int] = {}
+        block_dof: Union[
+            Dict[Tuple[pp.Grid, str], int],
+            Dict[Tuple[Tuple[pp.Grid, pp.Grid], str], int],
+        ] = {}
 
         # Storage for number of dofs per variable per node/edge, with respect
         # to the ordering specified in block_dof
@@ -1003,12 +1008,15 @@ class Assembler:
                 )
 
         # Array version of the number of dofs per node/edge and variable
-        self.full_dof = np.array(full_dof)
-        self.block_dof = block_dof
-        self.variable_combinations = variable_combinations
+        self.full_dof: np.ndarray = np.array(full_dof)
+        self.block_dof: Union[
+            Dict[Tuple[pp.Grid, str], int],
+            Dict[Tuple[Tuple[pp.Grid, pp.Grid], str], int],
+        ] = block_dof
+        self.variable_combinations: List[str] = variable_combinations
 
     def _initialize_matrix_rhs(
-        self, sps_matrix: str
+        self, sps_matrix: sps.spmatrix
     ) -> Tuple[Dict[str, sps.spmatrix], Dict[str, np.ndarray]]:
         """
         Initialize a set of matrices (for left hand sides) and vectors (rhs)
@@ -1152,7 +1160,7 @@ class Assembler:
             parameter.append(d[pp.PARAMETERS][keyword][parameter_name])
         return np.hstack(parameter)
 
-    def _local_variables(self, d: Dict) -> Dict[str, int]:
+    def _local_variables(self, d: Dict) -> Dict[str, Dict[str, int]]:
         """ Find variables defined in a data dictionary, and do intersection
         with defined active variables.
 
@@ -1175,7 +1183,7 @@ class Assembler:
             return loc_variables
         else:
             # Find intersection with decleared active variables.
-            var: Dict[str, int] = {}
+            var: Dict[str, Dict[str, int]] = {}
             for key, val in loc_variables.items():
                 if key in self.active_variables:
                     var[key] = val
