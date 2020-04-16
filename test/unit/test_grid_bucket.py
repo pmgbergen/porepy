@@ -7,7 +7,7 @@ from porepy.fracs import meshing
 import porepy as pp
 
 
-class MockGrid:
+class MockGrid(pp.Grid):
     def __init__(
         self,
         dim=1,
@@ -168,6 +168,33 @@ class TestBucket(unittest.TestCase):
         for e, _ in gb.edges():
             found[e] = True
         self.assertTrue(all([v for v in list(found.values())]))
+
+    def test_contains_node(self):
+        gb = self.simple_bucket(1)
+
+        for g, _ in gb.nodes():
+            self.assertTrue(g in gb)
+
+        # Define a grid that is not in the gb
+        g = MockGrid()
+        self.assertTrue(not g in gb)
+
+    def test_contains_edge(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid(1)
+        g2 = MockGrid(2)
+        g3 = MockGrid(3)
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+        gb.add_edge([g1, g2], None)
+
+        # This edge is defined
+        self.assertTrue((g1, g2) in gb)
+        # this is not
+        self.assertFalse((g1, g3) in gb)
+
+        # This is a list, and thus not an edge in the networkx sense
+        self.assertFalse([g1, g2] in gb)
 
     # ------------ Tests for add_node_props
 
@@ -622,4 +649,5 @@ class TestBucket(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    TestBucket().test_contains_node()
     unittest.main()
