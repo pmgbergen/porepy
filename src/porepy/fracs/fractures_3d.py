@@ -338,6 +338,7 @@ class Fracture(object):
 
         """
         from sympy.geometry import Point, Polygon
+
         if p is None:
             p = self.p
 
