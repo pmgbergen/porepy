@@ -315,37 +315,6 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
                     self.is_rob[:, faces[j]] = True
                     self.is_neu[:, faces[j]] = False
                     self.is_dir[:, faces[j]] = False
-                elif s.lower() == "dir_x":
-                    self.is_dir[0, faces[j]] = True
-                    self.is_neu[0, faces[j]] = False
-                    self.is_dir[1, faces[j]] = False
-                    self.is_neu[1, faces[j]] = True
-                    if self.dim == 3:
-                        self.is_dir[2, faces[j]] = False
-                        self.is_neu[2, faces[j]] = True
-                elif s.lower() == "dir_y":
-                    self.is_dir[0, faces[j]] = False
-                    self.is_dir[1, faces[j]] = True
-                    self.is_neu[0, faces[j]] = True
-                    self.is_neu[1, faces[j]] = False
-                    if self.dim == 3:
-                        self.is_dir[2, faces[j]] = False
-                        self.is_neu[2, faces[j]] = True
-                elif s.lower() == "dir_xy":
-                    self.is_dir[0, faces[j]] = True
-                    self.is_neu[0, faces[j]] = False
-                    self.is_dir[1, faces[j]] = True
-                    self.is_neu[1, faces[j]] = False
-                    if self.dim == 3:
-                        self.is_dir[2, faces[j]] = False
-                        self.is_neu[2, faces[j]] = True
-                elif s.lower() == "dir_z":
-                    self.is_dir[0, faces[j]] = False
-                    self.is_dir[1, faces[j]] = False
-                    self.is_dir[2, faces[j]] = True
-                    self.is_neu[0, faces[j]] = True
-                    self.is_neu[1, faces[j]] = True
-                    self.is_neu[2, faces[j]] = False
                 else:
                     raise ValueError(f"Unknown boundary condition {s}")
 
