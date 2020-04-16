@@ -150,6 +150,18 @@ class BoundaryCondition(AbstractBoundaryCondition):
                 else:
                     raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
 
+    def __repr__(self) -> str:
+        s = (
+            f"Boundary condition for scalar problem in {self.dim} dimensions\n"
+            f"Conditions set for {self.num_faces} faces, out of which "
+            f"{self.is_internal.sum()} are internal boundaries.\n"
+            f"Number of faces with Dirichlet conditions: {self.is_dir.sum()} \n"
+            f"Number of faces with Neumann conditions: {self.is_neu.sum()} \n"
+            f"Number of faces with Robin conditions: {self.is_rob.sum()} \n"
+        )
+
+        return s
+
 
 class BoundaryConditionNode(AbstractBoundaryCondition):
 
@@ -338,6 +350,32 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
         self.robin_weight = np.reshape(r_w, (g.dim, g.dim, g.num_faces), "F")
         basis = np.tile(np.eye(g.dim), (1, g.num_faces))
         self.basis = np.reshape(basis, (g.dim, g.dim, g.num_faces), "F")
+
+    def __repr__(self) -> str:
+        s = (
+            f"Boundary condition for vectorial problem in {self.dim} dimensions\n"
+            f"Conditions set for {self.num_faces} faces, out of which "
+            f"{self.is_internal.sum()} are internal boundaries.\n"
+        )
+
+        only_neu = np.sum(np.all(self.is_neu, axis=0))
+        only_dir = np.sum(np.all(self.is_dir, axis=0))
+        only_rob = np.sum(np.all(self.is_rob, axis=0))
+
+        neu_or_dir = (
+            np.sum(np.all(np.logical_or(self.is_dir, self.is_neu), axis=0))
+            - only_dir
+            - only_neu
+        )
+
+        s += (
+            f"Number of faces with all Dirichlet conditions: {only_dir} \n"
+            f"Number of faces with all Neumann conditions: {only_neu} \n"
+            f"Number of faces with all Robin conditions: {only_rob} \n"
+            f"Number of faces with combination of Dirichlet and Neumann {neu_or_dir}\n"
+        )
+
+        return s
 
     def set_bc(self, faces, cond):
 
