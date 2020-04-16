@@ -1245,35 +1245,6 @@ class Assembler:
                 else:
                     data[pp.STATE] = {var_name: values[dof[bi] : dof[bi + 1]]}
 
-    def merge_variable(self, var):
-        """ Merge a vector to the nodes and edges in the GridBucket.
-
-        The intended use is to merge the component parts of a vector into
-        its correct position in the global solution vector.
-
-        Parameters:
-            var ('string'): Name of vector to be merged. Should be located at the nodes and
-                edges.
-
-        """
-        dof = np.cumsum(np.append(0, np.asarray(self.full_dof)))
-
-        values = np.zeros(dof[-1])
-        for pair, bi in self.block_dof.items():
-            g = pair[0]
-            var_name = pair[1]
-            if isinstance(g, tuple):
-                # This is really an edge
-                data = self.gb.edge_props(g)
-            else:
-                data = self.gb.node_props(g)
-            if var_name == var:
-                loc_value = data[pp.STATE][var_name]
-            else:
-                loc_value = 0
-            values[dof[bi] : dof[bi + 1]] = loc_value
-        return values
-
     def dof_ind(
         self, g: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], name: str
     ) -> np.ndarray:
