@@ -336,6 +336,12 @@ def subproblems(
 
         yield sub_g, loc_faces, cells_in_partition, l2g_cells, l2g_faces    
 
+def remove_nonlocal_contribution(
+    raw_ind: np.ndarray, nd: int, *args: Any
+) -> None:
+    eliminate_ind = pp.fvutils.expand_indices_nd(raw_ind, nd)
+    for mat in args:
+        pp.fvutils.zero_out_sparse_rows(mat, eliminate_ind)
 
 # ------------- Methods related to block inversion ----------------------------
 
