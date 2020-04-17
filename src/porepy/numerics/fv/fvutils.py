@@ -1,9 +1,10 @@
 """
 Various FV specific utility functions.
 """
+import warnings
 import numpy as np
 import scipy.sparse as sps
-from typing import Tuple
+from typing import Tuple, Any, Generator, Dict
 
 import porepy as pp
 from porepy.utils import matrix_compression, mcolon
@@ -244,9 +245,99 @@ def determine_eta(g):
         return 0
 
 
-# ------------- Methods related to block inversion ----------------------------
+def find_active_indices(
+    parameter_dictionary: Dict[str, Any], g: pp.Grid
+) -> Tuple[np.ndarray, np.ndarray]:
+    """ Process information in parameter dictionary on whether the discretization
+    should consider a subgrid. Look for fields in the parameter dictionary called
+    specified_cells, specified_faces or specified_nodes. These are then processed by
+    the function pp.fvutils.cell-ind_for_partial_update.
 
-# @profile
+    If no relevant information is found, the active indices are all cells and 
+    faces in the grid.
+
+    Parameters:
+        parameter_dictionary (dict): Parameters, potentially containing fields
+            "specified_cells", "specified_faces", "specified_nodes".
+        g (pp.Grid): Grid to be discretized.
+
+    Returns:
+        np.ndarray: Cells to be included in the active grid.
+        np.ndarary: Faces to have their discretization updated. NOTE: This may not
+            be all faces in the grid.
+
+    """
+    # The discretization can be limited to a specified set of cells, faces or nodes
+    # If none of these are specified, the entire grid will be discretized
+    specified_cells = parameter_dictionary.get("specified_cells", None)
+    specified_faces = parameter_dictionary.get("specified_faces", None)
+    specified_nodes = parameter_dictionary.get("specified_nodes", None)
+
+    # Find the cells and faces that should be considered for discretization
+    if (
+        (specified_cells is not None)
+        or (specified_faces is not None)
+        or (specified_nodes is not None)
+    ):
+        warnings.warn(
+            "Partial update of mpsa discretization has not been thoroughly tested"
+        )
+        # Find computational stencil, based on specified cells, faces and nodes.
+        active_cells, active_faces = pp.fvutils.cell_ind_for_partial_update(
+            g, cells=specified_cells, faces=specified_faces, nodes=specified_nodes
+        )
+        parameter_dictionary["active_cells"] = active_cells
+        parameter_dictionary["active_faces"] = active_faces
+    else:
+        # All cells and faces in the grid should be updated
+        active_cells = np.arange(g.num_cells)
+        active_faces = np.arange(g.num_faces)
+        parameter_dictionary["active_cells"] = active_cells
+        parameter_dictionary["active_faces"] = active_faces
+
+    return active_cells, active_faces
+
+def subproblems(
+    active_grid: pp.Grid, max_memory: int, peak_memory_estimate: int
+) -> Generator[Any, None, None]:
+    num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(np.int)
+
+    # Let partitioning module apply the best available method
+    part: np.ndarray = pp.partition.partition(active_grid, num_part)
+
+    # Cell-node relation
+    cn: sps.csc_matrix = active_grid.cell_nodes()
+
+    # Loop over all partition regions, construct local problems, and transfer
+    # discretization to the entire active grid
+    for counter, p in enumerate(np.unique(part)):
+        # Cells in this partitioning
+        cells_in_partition: np.ndarray = np.argwhere(part == p).ravel("F")
+
+        # To discretize with as little overlap as possible, we use the
+        # keyword nodes to specify the update stencil. Find nodes of the
+        # local cells.
+        cells_in_partition_boolean = np.zeros(active_grid.num_cells, dtype=np.bool)
+        cells_in_partition_boolean[cells_in_partition] = 1
+
+        nodes_in_partition: np.ndarray = np.squeeze(
+            np.where((cn * cells_in_partition_boolean) > 0)
+        )
+
+        # Find computational stencil, based on the nodes in this partition
+        loc_cells, loc_faces = pp.fvutils.cell_ind_for_partial_update(
+            active_grid, nodes=nodes_in_partition
+        )
+
+        # Extract subgrid, together with mappings between local and active
+        # (global, or at least less local) cells
+        sub_g, l2g_faces, _ = pp.partition.extract_subgrid(active_grid, loc_cells)
+        l2g_cells = sub_g.parent_cell_ind
+
+        yield sub_g, loc_faces, cells_in_partition, l2g_cells, l2g_faces    
+
+
+# ------------- Methods related to block inversion ----------------------------
 
 
 def invert_diagonal_blocks(mat, s, method=None):
