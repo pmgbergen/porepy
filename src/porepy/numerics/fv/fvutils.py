@@ -4,7 +4,7 @@ Various FV specific utility functions.
 import warnings
 import numpy as np
 import scipy.sparse as sps
-from typing import Tuple, Any, Generator, Dict
+from typing import Tuple, Any, Generator, Dict, Optional
 
 import porepy as pp
 from porepy.utils import matrix_compression, mcolon
@@ -294,6 +294,7 @@ def find_active_indices(
 
     return active_cells, active_faces
 
+
 def subproblems(
     active_grid: pp.Grid, max_memory: int, peak_memory_estimate: int
 ) -> Generator[Any, None, None]:
@@ -331,14 +332,14 @@ def subproblems(
         sub_g, l2g_faces, _ = pp.partition.extract_subgrid(active_grid, loc_cells)
         l2g_cells = sub_g.parent_cell_ind
 
-        yield sub_g, loc_faces, cells_in_partition, l2g_cells, l2g_faces    
+        yield sub_g, loc_faces, cells_in_partition, l2g_cells, l2g_faces
 
-def remove_nonlocal_contribution(
-    raw_ind: np.ndarray, nd: int, *args: Any
-) -> None:
+
+def remove_nonlocal_contribution(raw_ind: np.ndarray, nd: int, *args: Any) -> None:
     eliminate_ind = pp.fvutils.expand_indices_nd(raw_ind, nd)
     for mat in args:
         pp.fvutils.zero_out_sparse_rows(mat, eliminate_ind)
+
 
 # ------------- Methods related to block inversion ----------------------------
 
@@ -1401,7 +1402,11 @@ def cell_ind_for_partial_update(
 
 
 def map_subgrid_to_grid(
-    g: pp.Grid, loc_faces: np.ndarray, loc_cells: np.ndarray, is_vector: bool
+    g: pp.Grid,
+    loc_faces: np.ndarray,
+    loc_cells: np.ndarray,
+    is_vector: bool,
+    nd: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """ Obtain mappings from the cells and faces of a subgrid back to a larger grid.
 
@@ -1413,6 +1418,7 @@ def map_subgrid_to_grid(
             corresponding cell in the larger grid.
         is_vector (bool): If True, the returned mappings are sized to fit with vector
             variables, with g.dim elements per cell and face.
+        nd (int, optional): Dimension. Defaults to g.dim.
 
     Retuns:
         sps.csr_matrix, size (g.num_faces, loc_faces.size): Mapping from local to
@@ -1421,11 +1427,12 @@ def map_subgrid_to_grid(
             local cells. If is_vector is True, the size is multiplied with g.dim.
 
     """
+    if nd is None:
+        nd = g.dim
 
     num_faces_loc = loc_faces.size
     num_cells_loc = loc_cells.size
 
-    nd = g.dim
     if is_vector:
         face_map = sps.csr_matrix(
             (
