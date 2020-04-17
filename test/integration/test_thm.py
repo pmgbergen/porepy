@@ -202,7 +202,10 @@ class TestContactMechanicsTHM(unittest.TestCase):
 
         setup = SetupTHM(ux_south=0, uy_south=0, ux_north=0, uy_north=0.001)
         setup.end_time *= 3
-
+        setup.mesh_args = [2, 2]
+        setup.simplex = False
+        setup.gamma = -1e-2
+        setup.T_0_Kelvin = 1
         u_mortar, contact_force, fracture_pressure, fracture_temperature = self._solve(
             setup
         )
@@ -224,8 +227,8 @@ class TestContactMechanicsTHM(unittest.TestCase):
         # increased in each time step. This leads to a too small fracture pressure.
         # Note that the pressure is different to the corresponding HM test, as there
         # is a feedback from the temperature, which is also reduced.
-        self.assertTrue(np.all(np.isclose(fracture_pressure, -1.31795896e-05)))
-        self.assertTrue(np.all(np.isclose(fracture_temperature, -1.34711919e-05)))
+        self.assertTrue(np.all(np.isclose(fracture_pressure, -3.67936546e-06)))
+        self.assertTrue(np.all(np.isclose(fracture_temperature, -3.67936546e-06)))
 
     def test_pull_north_reduce_to_biot(self):
         """
@@ -237,14 +240,15 @@ class TestContactMechanicsTHM(unittest.TestCase):
         """
         setup = SetupTHM(ux_south=0, uy_south=0, ux_north=0, uy_north=0.001)
         setup.beta, setup.gamma = 1e-12, 1e-12
+        setup.end_time *= 3
         setup.mesh_args = [2, 2]
         setup.simplex = False
-        # setup.subtract_fracture_pressure = False
+        #
         u_mortar, contact_force, fracture_pressure, fracture_temperature = self._solve(
             setup
         )
-        self.assertTrue(np.all(np.isclose(fracture_pressure, -0.00022357)))
-        self.assertTrue(np.all(np.isclose(u_mortar[1], -9.43991090e-04)))
+        self.assertTrue(np.all(np.isclose(fracture_pressure, -4.31072866e-06)))
+        self.assertTrue(np.all(np.isclose(u_mortar[1], -9.99187742e-04)))
         self.assertTrue(np.all(np.isclose(fracture_temperature, 0.0)))
 
     def test_pull_north_reduce_to_TM(self):
@@ -258,6 +262,7 @@ class TestContactMechanicsTHM(unittest.TestCase):
         to slightly more opening).
         """
         setup = SetupTHM(ux_south=0, uy_south=0, ux_north=0, uy_north=0.001)
+        setup.end_time *= 3
         setup.mesh_args = [2, 2]
         setup.simplex = False
         setup.T_0_Kelvin = 1
@@ -266,9 +271,8 @@ class TestContactMechanicsTHM(unittest.TestCase):
         u_mortar, contact_force, fracture_pressure, fracture_temperature = self._solve(
             setup
         )
-        d_h = setup.gb.node_props(setup._nd_grid())
-        self.assertTrue(np.all(np.isclose(fracture_temperature, -0.00023684)))
-        self.assertTrue(np.all(np.isclose(u_mortar[1], -1.02780375e-03)))
+        self.assertTrue(np.all(np.isclose(fracture_temperature, -2.05192594e-06)))
+        self.assertTrue(np.all(np.isclose(u_mortar[1], -1.00061081e-03)))
         self.assertTrue(np.all(np.isclose(fracture_pressure, 0.0)))
 
 
