@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class ContactMechanicsBiot(contact_model.ContactMechanics):
-    def __init__(self, params=None):
+    def __init__(self, params: Dict = None) -> None:
         super(ContactMechanicsBiot, self).__init__(params)
 
         # Time
@@ -52,13 +52,13 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         # Use parent class method for mechanics
         return super().bc_type(g)
 
-    def bc_type_scalar(self, g):
+    def bc_type_scalar(self, g: pp.Grid) -> pp.BoundaryCondition:
         # Define boundary regions
         all_bf, *_ = self.domain_boundary_sides(g)
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, all_bf, "dir")
 
-    def bc_values_mechanics(self, g):
+    def bc_values_mechanics(self, g: pp.Grid) -> np.ndarray:
         """
         Note that Dirichlet values should be divided by length_scale, and Neumann values by 
         scalar_scale.
@@ -66,40 +66,55 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         # Set the boundary values
         return super().bc_values(g)
 
-    def bc_values_scalar(self, g):
+    def bc_values_scalar(self, g: pp.Grid) -> np.ndarray:
         """
         Note that Dirichlet values should be divided by scalar_scale.
         """
         return np.zeros(g.num_faces)
 
-    def source_mechanics(self, g):
+    def source_mechanics(self, g: pp.Grid) -> np.ndarray:
         return super().source(g)
 
-    def source_scalar(self, g):
+    def source_scalar(self, g: pp.Grid) -> np.ndarray:
         return np.zeros(g.num_cells)
 
-    def biot_alpha(self, g):
+    def biot_alpha(self, g: pp.Grid) -> float:
         return 1
 
-    def compute_aperture(self, g):
-        apertures = np.ones(g.num_cells)
+    def aperture(self, g: pp.Grid) -> np.ndarray:
+        """
+        Aperture is a characteristic thickness of a cell, with units [m].
+        1 in matrix, thickness of fractures and "side length" of cross-sectional 
+        area/volume (or "specific volume") for intersections of co-dimension 2 and 3.
+        See also specific_volume.
+        """
+        aperture = np.ones(g.num_cells)
         if g.dim < self.Nd:
-            apertures *= 0.1
-        return apertures
+            aperture *= 0.1
+        return aperture
 
-    def set_parameters(self):
+    def specific_volume(self, g: pp.Grid) -> np.ndarray:
+        """
+        The specific volume of a cell accounts for the dimension reduction and has 
+        dimensions [m^(Nd - d)].
+        Typically equals 1 in Nd, the aperture in codimension 1 and the square/cube
+        of aperture in codimensions 2 and 3.
+        """
+        a = self.aperture(g)
+        return np.power(a, self.Nd - g.dim)
+
+    def set_parameters(self) -> None:
         """
         Set the parameters for the simulation.
         """
         self.set_scalar_parameters()
         self.set_mechanics_parameters()
 
-    def set_mechanics_parameters(self):
+    def set_mechanics_parameters(self) -> None:
         """
         Set the parameters for the simulation.
         """
         gb = self.gb
-
         for g, d in gb:
             if g.dim == self.Nd:
                 # Rock parameters
@@ -140,22 +155,16 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             mg = d["mortar_grid"]
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
-    def set_scalar_parameters(self):
-        gb = self.gb
-        self.Nd = gb.dim_max()
-
+    def set_scalar_parameters(self) -> None:
         tensor_scale = self.scalar_scale / self.length_scale ** 2
         kappa = 1 * tensor_scale
         mass_weight = 1 * self.scalar_scale
-        for g, d in gb:
+        for g, d in self.gb:
             bc = self.bc_type_scalar(g)
             bc_values = self.bc_values_scalar(g)
             source_values = self.source_scalar(g)
 
-            a = self.compute_aperture(g)
-            specific_volume = np.power(a, self.gb.dim_max() - g.dim) * np.ones(
-                g.num_cells
-            )
+            specific_volume = self.specific_volume(g)
             diffusivity = pp.SecondOrderTensor(
                 kappa * specific_volume * np.ones(g.num_cells)
             )
@@ -178,13 +187,25 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
         # Assign diffusivity in the normal direction of the fractures.
         for e, data_edge in self.gb.edges():
-            g1, _ = self.gb.nodes_of_edge(e)
-
-            a = self.compute_aperture(g1)
+            g_l, g_h = self.gb.nodes_of_edge(e)
             mg = data_edge["mortar_grid"]
+            import pdb
 
-            normal_diffusivity = kappa * 2 / (mg.slave_to_mortar_int() * a)
-
+            # pdb.set_trace()
+            a_l = self.aperture(g_l)
+            # Take trace of and then project specific volumes from g_h
+            v_h = (
+                mg.master_to_mortar_avg()
+                * np.abs(g_h.cell_faces)
+                * self.specific_volume(g_h)
+            )
+            # Division by a/2 may be thought of as taking the gradient in the normal
+            # direction of the fracture.
+            normal_diffusivity = kappa * 2 / (mg.slave_to_mortar_avg() * a_l)
+            # The interface flux is to match fluxes across faces of g_h,
+            # and therefore need to be weighted by the corresponding
+            # specific volumes
+            normal_diffusivity *= v_h
             data_edge = pp.initialize_data(
                 e,
                 data_edge,
@@ -192,7 +213,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 {"normal_diffusivity": normal_diffusivity},
             )
 
-    def assign_discretizations(self):
+    def assign_discretizations(self) -> None:
         """
         Assign discretizations to the nodes and edges of the grid bucket.
 
@@ -340,7 +361,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                     }
                 }
 
-    def assign_variables(self):
+    def assign_variables(self) -> None:
         """
         Assign primary variables to the nodes and edges of the grid bucket.
         """
@@ -370,7 +391,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             else:
                 d[pp.PRIMARY_VARIABLES] = {self.mortar_scalar_variable: {"cells": 1}}
 
-    def discretize_biot(self):
+    def discretize_biot(self) -> None:
         """
         To save computational time, the full Biot equation (without contact mechanics)
         is discretized once. This is to avoid computing the same terms multiple times.
@@ -385,7 +406,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         )
         biot.discretize(g, d)
 
-    def initial_condition(self):
+    def initial_condition(self) -> None:
         """
         Initial guess for Newton iteration, scalar variable and bc_values (for time
         discretization).
@@ -406,13 +427,13 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             initial_value = np.zeros(mg.num_cells)
             d[pp.STATE][self.mortar_scalar_variable] = initial_value
 
-    def export_step(self):
+    def export_step(self) -> None:
         pass
 
-    def export_pvd(self):
+    def export_pvd(self) -> None:
         pass
 
-    def discretize(self):
+    def discretize(self) -> None:
         """ Discretize all terms
         """
         if not hasattr(self, "assembler"):
@@ -440,29 +461,28 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
-    def before_newton_loop(self):
+    def before_newton_loop(self) -> None:
         """ Will be run before entering a Newton loop. 
         E.g.
            Discretize time-dependent quantities etc.
            Update time-dependent parameters (captured by assembly).
         """
         self.set_parameters()
-        # The following is expensive, as it includes Biot. Consider making a custom  method
-        # discretizing only the term you need!
-        # self.discretize()
 
-    def before_newton_iteration(self):
+    def before_newton_iteration(self) -> None:
         # Re-discretize the nonlinear term
         self.assembler.discretize(term_filter=self.friction_coupling_term)
 
-    def after_newton_iteration(self, solution):
+    def after_newton_iteration(self, solution: np.ndarray) -> None:
         self.update_state(solution)
 
-    def after_newton_convergence(self, solution, errors, iteration_counter):
+    def after_newton_convergence(
+        self, solution: np.ndarray, errors: List, iteration_counter: int
+    ) -> None:
         self.assembler.distribute_variable(solution)
         self.save_mechanical_bc_values()
 
-    def save_mechanical_bc_values(self):
+    def save_mechanical_bc_values(self) -> None:
         """
         The div_u term uses the mechanical bc values for both current and previous time
         step. In the case of time dependent bc values, these must be updated. As this
@@ -473,10 +493,10 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         d = self.gb.node_props(g)
         d[pp.STATE][key]["bc_values"] = d[pp.PARAMETERS][key]["bc_values"].copy()
 
-    def after_newton_divergence(self):
+    def after_newton_divergence(self) -> None:
         raise ValueError("Newton iterations did not converge")
 
-    def initialize_linear_solver(self):
+    def initialize_linear_solver(self) -> None:
 
         solver = self.params.get("linear_solver", "direct")
 
