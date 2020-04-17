@@ -73,61 +73,33 @@ def ismember_rows(a, b, sort=True):
     a = np.atleast_1d(a)
     num_a = a.shape[-1]
 
-    # If numpy >= 1.13 is available, we can utilize functionality in np.unique
-    # to speed up the calculation siginficantly.
-    # If this is not the case, this will take time.
-    np_version = np.version.version.split(".")
-    if int(np_version[0]) > 1 or int(np_version[1]) > 12:
-
-        # stack the arrays
-        c = np.hstack((sa, sb))
-        # Uniquify c. We don't care about the unique array itself, but rather
-        # the indices which maps the unique array back to the original c
-        if a.ndim > 1:
-            _, ind = np.unique(c, axis=1, return_inverse=True)
-        else:
-            _, ind = np.unique(c, return_inverse=True)
-
-        # Indices in a and b referring to the unique array.
-        # Elements in ind_a that are also in ind_b will correspond to rows
-        # in a that are also found in b
-        ind_a = ind[:num_a]
-        ind_b = ind[num_a:]
-
-        # Find common members
-        ismem_a = np.isin(ind_a, ind_b)
-
-        # Fonud this trick on
-        # https://stackoverflow.com/questions/8251541/numpy-for-every-element-in-one-array-find-the-index-in-another-array
-        # See answer by Joe Kington
-        sort_ind = np.argsort(ind_b)
-        ypos = np.searchsorted(ind_b[sort_ind], ind_a[ismem_a])
-        ia = sort_ind[ypos]
-
-        # We're done
-        return ismem_a, ia
-
+    # stack the arrays
+    c = np.hstack((sa, sb))
+    # Uniquify c. We don't care about the unique array itself, but rather
+    # the indices which maps the unique array back to the original c
+    if a.ndim > 1:
+        _, ind = np.unique(c, axis=1, return_inverse=True)
     else:
-        # Use straightforward search, based on a for loop. This is slow for
-        # large arrays, but as the alternative implementation is opaque, and
-        # there has been some doubts on its reliability, this version is kept
-        # as a safeguard.
-        ismem_a = np.zeros(num_a, dtype=np.bool)
-        ind_of_a_in_b = np.empty(0)
-        for i in range(num_a):
-            if sa.ndim == 1:
-                diff = np.abs(sb - sa[i])
-            else:
-                diff = np.sum(np.abs(sb - sa[:, i].reshape((-1, 1))), axis=0)
-            if np.any(diff == 0):
-                ismem_a[i] = True
-                hit = np.where(diff == 0)[0]
-                if hit.size > 1:
-                    hit = hit[0]
-                ind_of_a_in_b = np.append(ind_of_a_in_b, hit)
+        _, ind = np.unique(c, return_inverse=True)
 
-        return ismem_a, ind_of_a_in_b.astype("int")
+    # Indices in a and b referring to the unique array.
+    # Elements in ind_a that are also in ind_b will correspond to rows
+    # in a that are also found in b
+    ind_a = ind[:num_a]
+    ind_b = ind[num_a:]
 
+    # Find common members
+    ismem_a = np.isin(ind_a, ind_b)
+
+    # Fonud this trick on
+    # https://stackoverflow.com/questions/8251541/numpy-for-every-element-in-one-array-find-the-index-in-another-array
+    # See answer by Joe Kington
+    sort_ind = np.argsort(ind_b)
+    ypos = np.searchsorted(ind_b[sort_ind], ind_a[ismem_a])
+    ia = sort_ind[ypos]
+
+    # Done
+    return ismem_a, ia
 
 # ---------------------------------------------------------
 
