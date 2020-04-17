@@ -433,8 +433,8 @@ def extract_subgrid(
     if faces:
         return __extract_cells_from_faces(g, c, is_planar)
     # Local cell-face and face-node maps.
-    cf_sub, unique_faces = __extract_submatrix(g.cell_faces, c)
-    fn_sub, unique_nodes = __extract_submatrix(g.face_nodes, unique_faces)
+    cf_sub, unique_faces = __extract_submatrix(g.cell_faces.tocsc(), c)
+    fn_sub, unique_nodes = __extract_submatrix(g.face_nodes.tocsc(), unique_faces)
 
     # Append information on subgrid extraction to the new grid's history
     name = list(g.name)
