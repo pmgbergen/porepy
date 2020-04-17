@@ -49,10 +49,6 @@ class PrimalContactCoupling(
         self.discr_master = discr_master
         self.discr_slave = discr_slave
 
-        self.SURFACE_DISCRETIZATION_KEY = "surface_smoother"
-
-        self.use_surface_discr = use_surface_discr
-
         # Account for interaction between different, but intersecting, mortar grids
         self.edge_coupling_via_high_dim = True
 
@@ -69,12 +65,7 @@ class PrimalContactCoupling(
         tic = time.time()
         logging.debug("Discretize contact mechanics interface law")
         # Discretize the surface PDE
-        parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-
-        mg = data_edge["mortar_grid"]
-
-        # Projection onto the tangential space of the mortar grid
 
         # Tangential_normal projection
         tangential_normal_projection = data_edge["tangential_normal_projection"]
@@ -84,95 +75,6 @@ class PrimalContactCoupling(
         # The right hand side of the normal diffusion considers only the tangential part
         # of the normal forces.
         matrix_dictionary_edge["contact_force_map"] = normal_projection
-
-        # Keyword to control if the surface discretization should be rediscretized
-        # It is a linear term, so we may save time during Newton iterations here
-        discretize_surface = parameter_dictionary_edge.get("discretize_surface", True)
-
-        if self.use_surface_discr and discretize_surface:
-            # Discretize the surface pde if asked for.
-
-            # Lame parameters to be used for discretizing the surface elliptic equation.
-            mu = parameter_dictionary_edge["mu"]
-            lmbda = parameter_dictionary_edge["lambda"]
-
-            # Parameter used when mapping surface grids to their lower-dimensional planes.
-            # This is necessary for the mapping function, but at this point in the
-            # simulation workflow, it should not really be an issue.
-            deviation_from_plane_tol = 1e-5
-
-            # List of surface diffusion discretizations - one per side.
-            A_list = []
-
-            for _, side_grid in mg.project_to_side_grids():
-
-                unity = np.ones(side_grid.num_cells)
-
-                # Create an finite volume discretization for elasticity.
-                # Define parameters for the surface diffusion in an appropriate form.
-                mpsa = pp.Mpsa(self.keyword)
-
-                # The stiffness matrix is istropic, thus we need not care about the
-                # basis used for mapping grid coordinates into the tangential space.
-                # Simply define the parameters directly in 2d space.
-                stiffness = pp.FourthOrderTensor(
-                    side_grid.dim, mu * unity, lmbda * unity
-                )
-
-                bc = pp.BoundaryConditionVectorial(side_grid)
-
-                mpsa_parameters = pp.initialize_data(
-                    side_grid,
-                    {},
-                    self.keyword,
-                    {"fourth_order_tensor": stiffness, "bc": bc},
-                )
-
-                # Project the side grid into its natural dimension.
-                g = side_grid.copy()
-                # Use the same projection matrix as in the projections used on the
-                # variables.
-                rot = tangential_normal_projection.projection[:, :, 0]
-                if rot.shape == (2, 2):
-                    rot = np.vstack((np.hstack((rot, np.zeros((2, 1)))), np.zeros((3))))
-                cell_centers, face_normals, face_centers, _, _, nodes = pp.map_geometry.map_grid(
-                    g, deviation_from_plane_tol, R=rot
-                )
-                g.cell_centers = cell_centers
-                g.face_normals = face_normals
-                g.face_centers = face_centers
-                g.nodes = nodes
-
-                mpsa.discretize(g, mpsa_parameters)
-
-                # We are only interested in the elasticity discretization as a smoother.
-                # Construct the discretiation matrix, and disregard all other output.
-                A_loc = (
-                    pp.fvutils.vector_divergence(side_grid)
-                    * mpsa_parameters[pp.DISCRETIZATION_MATRICES][self.keyword][
-                        "stress"
-                    ]
-                )
-
-                # The local discretization must be mapped to the full mortar degrees of freedom.
-                # This entails a projection onto the normal plane, followed by a restriction to this
-                # side grid
-
-                # Projection to remove degrees of freedom in the normal direction to the grid
-                # This should be used after the projection to the tangent space,
-                # when we know which rows are
-                tangential_projection = tangential_normal_projection.project_tangential(
-                    side_grid.num_cells
-                )
-                A_list.append(A_loc * tangential_projection)
-
-            # Concatenate discretization matrices
-            A = sps.block_diag([mat for mat in A_list])
-
-            # The discretization is still a non-square matrix, it needs to be expanded to
-            # be compatible with the block assembler.
-            # The final equations should relate to continuity of the normal froces
-            matrix_dictionary_edge[self.SURFACE_DISCRETIZATION_KEY] = A
 
         # Discretization of the contact mechanics is done by a ColumbContact
         # object.
@@ -363,21 +265,6 @@ class PrimalContactCoupling(
         )
         # Minus to obtain -T_slave + T_master = 0.
         cc[mortar_ind, slave_ind] = -contact_traction_to_mortar
-
-        if self.use_surface_discr:
-            restrict_to_tangential_direction = projection.project_tangential(
-                mg.num_cells
-            )
-
-            # The first block contains the surface diffusion component. This has
-            # the surface diffusion operator for the mortar variables, and a
-            # mapping of contact forces on the slave variables.
-            # The second block gives continuity of forces in the normal direction.
-            surface_discr = matrix_dictionary_edge[self.SURFACE_DISCRETIZATION_KEY]
-
-            cc[mortar_ind, mortar_ind] += (
-                restrict_to_tangential_direction.T * surface_discr
-            )
 
         matrix += cc
 
