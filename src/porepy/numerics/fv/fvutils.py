@@ -279,9 +279,6 @@ def find_active_indices(
         or (specified_faces is not None)
         or (specified_nodes is not None)
     ):
-        warnings.warn(
-            "Partial update of mpsa discretization has not been thoroughly tested"
-        )
         # Find computational stencil, based on specified cells, faces and nodes.
         active_cells, active_faces = pp.fvutils.cell_ind_for_partial_update(
             g, cells=specified_cells, faces=specified_faces, nodes=specified_nodes
@@ -1394,7 +1391,7 @@ def cell_ind_for_partial_update(
         )
         active_faces[active_face_ind] = 1
 
-    face_ind = np.squeeze(np.where(active_faces))
+    face_ind = np.atleast_1d(np.squeeze(np.where(active_faces)))
 
     # Do a sort of the indexes to be returned.
     cell_ind.sort()
