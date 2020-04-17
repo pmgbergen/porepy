@@ -78,7 +78,7 @@ class Tpfa(pp.FVElliptic):
 
         if g.dim == 0:
             matrix_dictionary[self.flux_matrix_key] = sps.csr_matrix([0])
-            matrix_dictionary[self.bound_flux_matrix_key] = 0
+            matrix_dictionary[self.bound_flux_matrix_key] = sps.csr_matrix([0])
             matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csr_matrix([1])
             matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csr_matrix([0])
             return None
@@ -141,7 +141,7 @@ class Tpfa(pp.FVElliptic):
         t_b = t_b[bndr_ind]
         t[np.logical_or(is_neu, is_not_active)] = 0
         # Create flux matrix
-        flux = sps.coo_matrix((t[fi] * sgn, (fi, ci))).tocsc()
+        flux = sps.coo_matrix((t[fi] * sgn, (fi, ci))).tocsr()
 
         # Create boundary flux matrix
         bndr_sgn = (g.cell_faces[bndr_ind, :]).data
@@ -149,7 +149,7 @@ class Tpfa(pp.FVElliptic):
         bndr_sgn = bndr_sgn[sort_id]
         bound_flux = sps.coo_matrix(
             (t_b * bndr_sgn, (bndr_ind, bndr_ind)), (g.num_faces, g.num_faces)
-        ).tocsc()
+        ).tocsr()
         # Store the matrix in the right dictionary:
         matrix_dictionary[self.flux_matrix_key] = flux
         matrix_dictionary[self.bound_flux_matrix_key] = bound_flux
@@ -166,8 +166,8 @@ class Tpfa(pp.FVElliptic):
 
         bound_pressure_cell = sps.coo_matrix(
             (v_cell, (fi, ci)), (g.num_faces, g.num_cells)
-        )
-        bound_pressure_face = sps.dia_matrix((v_face, 0), (g.num_faces, g.num_faces))
+        ).tocsr()
+        bound_pressure_face = sps.dia_matrix((v_face, 0), (g.num_faces, g.num_faces)).tocsr()
         matrix_dictionary[self.bound_pressure_cell_matrix_key] = bound_pressure_cell
         matrix_dictionary[self.bound_pressure_face_matrix_key] = bound_pressure_face
 
