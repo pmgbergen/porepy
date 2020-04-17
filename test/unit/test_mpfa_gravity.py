@@ -107,7 +107,7 @@ class TestMPFAgravity(unittest.TestCase):
         p_bound[dir_faces] = an_sol.p_f(xf[0, dir_faces])
 
         # GCMPFA discretization, and system matrix
-        flux, bound_flux, _, _, div_g = pp.Mpfa("flow").mpfa(
+        flux, bound_flux, _, _, div_g = pp.Mpfa("flow")._flux_discretization(
             g, k, bound_cond, vector_source=True, inverter="python"
         )
         div = pp.fvutils.scalar_divergence(g)
@@ -181,7 +181,7 @@ class TestMPFAgravity(unittest.TestCase):
             p_bound[dir_faces] = an_sol.p_f(xf[0, dir_faces], xf[1, dir_faces])
 
             # GCMPFA discretization, and system matrix
-            flux, bound_flux, _, _, div_g = pp.Mpfa("flow").mpfa(
+            flux, bound_flux, _, _, div_g = pp.Mpfa("flow")._flux_discretization(
                 g, k, bound_cond, vector_source=True, inverter="python"
             )
             div = pp.fvutils.scalar_divergence(g)
@@ -194,7 +194,7 @@ class TestMPFAgravity(unittest.TestCase):
             q_ex = np.zeros(g.num_faces)
             self.assertTrue(np.allclose(p, p_ex))
             self.assertTrue(np.allclose(q, q_ex))
-
+            
 
 if __name__ == "__main__":
     unittest.main()

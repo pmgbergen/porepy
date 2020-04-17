@@ -19,7 +19,7 @@ class TestPartialMPFA(unittest.TestCase):
         g.compute_geometry()
         perm = pp.SecondOrderTensor(np.ones(g.num_cells))
         bnd = pp.BoundaryCondition(g)
-        flux, bound_flux, _, _ = pp.Mpfa("flow")._local_discr(
+        flux, bound_flux, _, _ = pp.Mpfa("flow")._flux_discretization(
             g, perm, bnd, inverter="python"
         )
         return g, perm, bnd, flux, bound_flux
@@ -28,13 +28,30 @@ class TestPartialMPFA(unittest.TestCase):
         # Compute update for a single cell in the interior.
         g, perm, bnd, flux, bound_flux = self.setup()
 
-        inner_cell = 12
         nodes_of_cell = np.array([14, 15, 20, 21])
         faces_of_cell = np.array([14, 15, 42, 47])
+        
+        specified_data = {'second_order_tensor': perm,
+                          'bc': bnd,
+                          'inverter': 'python',
+                          'specified_nodes': nodes_of_cell}
 
-        partial_flux, partial_bound, _, _, active_faces = pp.Mpfa("flow").partial_discr(
-            g, perm, bnd, nodes=nodes_of_cell, inverter="python"
+        keyword = "flow"
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
+
+        discr = pp.Mpfa(keyword)
+        discr.discretize(g, data)
+
+        partial_flux = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.flux_matrix_key
+        ]
+        partial_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_flux_matrix_key
+        ]
+
+        active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
 
         self.assertTrue(faces_of_cell.size == active_faces.size)
         self.assertTrue(np.all(np.sort(faces_of_cell) == np.sort(active_faces)))
@@ -55,12 +72,30 @@ class TestPartialMPFA(unittest.TestCase):
         # Compute update for a single cell on the boundary
         g, perm, bnd, flux, bound_flux = self.setup()
 
-        inner_cell = 10
+        # cell = 10
         nodes_of_cell = np.array([12, 13, 18, 19])
         faces_of_cell = np.array([12, 13, 40, 45])
-        partial_flux, partial_bound, _, _, active_faces = pp.Mpfa("flow").partial_discr(
-            g, perm, bnd, nodes=nodes_of_cell, inverter="python"
+        specified_data = {'second_order_tensor': perm,
+                          'bc': bnd,
+                          'inverter': 'python',
+                          'specified_nodes': nodes_of_cell}
+
+        keyword = "flow"
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
+
+        discr = pp.Mpfa(keyword)
+        discr.discretize(g, data)
+
+        partial_flux = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.flux_matrix_key
+        ]
+        partial_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_flux_matrix_key
+        ]
+
+        active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
 
         self.assertTrue(faces_of_cell.size == active_faces.size)
         self.assertTrue(np.all(np.sort(faces_of_cell) == np.sort(active_faces)))
@@ -76,6 +111,7 @@ class TestPartialMPFA(unittest.TestCase):
         partial_bound[faces_of_cell, :] = 0
         self.assertTrue(np.max(np.abs(partial_flux.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound.data)) == 0)
+
 
     def test_one_cell_a_time_node_keyword(self):
         # Update one and one cell, and verify that the result is the same as
@@ -104,9 +140,28 @@ class TestPartialMPFA(unittest.TestCase):
             ind = np.zeros(g.num_cells)
             ind[ci] = 1
             nodes = np.squeeze(np.where(cn * ind > 0))
-            partial_flux, partial_bound, _, _, active_faces = pp.Mpfa(
-                "flow"
-            ).partial_discr(g, perm, bnd, nodes=nodes, inverter="python")
+
+            specified_data = {'second_order_tensor': perm,
+                              'bc': bnd,
+                              'inverter': 'python',
+                              'specified_nodes': nodes}
+    
+            keyword = "flow"
+            data = pp.initialize_default_data(
+                g, {}, keyword, specified_parameters=specified_data
+            )
+    
+            discr = pp.Mpfa(keyword)
+            discr.discretize(g, data)
+    
+            partial_flux = data[pp.DISCRETIZATION_MATRICES][keyword][
+                discr.flux_matrix_key
+            ]
+            partial_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
+                discr.bound_flux_matrix_key
+            ]
+    
+            active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
 
             if np.any(faces_covered):
                 partial_flux[faces_covered, :] *= 0
@@ -116,7 +171,7 @@ class TestPartialMPFA(unittest.TestCase):
             flux += partial_flux
             bound_flux += partial_bound
 
-        flux_full, bound_flux_full, _, _ = pp.Mpfa("flow")._local_discr(
+        flux_full, bound_flux_full, *_ = pp.Mpfa("flow")._flux_discretization(
             g, perm, bnd, inverter="python"
         )
 
