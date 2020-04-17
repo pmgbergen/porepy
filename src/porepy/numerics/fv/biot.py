@@ -480,7 +480,7 @@ class Biot(pp.Mpsa):
             eliminate_face = np.where(
                 np.logical_not(np.in1d(l2g_faces, faces_in_subgrid))
             )[0]
-            self._remove_nonlocal_contribution(
+            pp.fvutils.remove_nonlocal_contribution(
                 eliminate_face,
                 g.dim,
                 loc_stress,
@@ -494,7 +494,7 @@ class Biot(pp.Mpsa):
             eliminate_cell = np.where(
                 np.logical_not(np.in1d(l2g_cells, cells_in_subgrid))
             )[0]
-            self._remove_nonlocal_contribution(
+            pp.fvutils.remove_nonlocal_contribution(
                 eliminate_cell, 1, loc_div_u, loc_bound_div_u, loc_biot_stab
             )
 
@@ -573,7 +573,7 @@ class Biot(pp.Mpsa):
 
         # Eliminate any contributions not associated with the active grid
         eliminate_faces = np.setdiff1d(np.arange(g.num_faces), active_faces)
-        self._remove_nonlocal_contribution(
+        pp.fvutils.remove_nonlocal_contribution(
             eliminate_faces,
             g.dim,
             stress,
@@ -593,7 +593,7 @@ class Biot(pp.Mpsa):
         af_vec[active_faces] = 1
         update_cell_ind = np.where(((tmp * af_vec) == tmp.sum(axis=1).A.T)[0])[0]
         eliminate_cells = np.setdiff1d(np.arange(g.num_cells), update_cell_ind)
-        self._remove_nonlocal_contribution(
+        pp.fvutils.remove_nonlocal_contribution(
             eliminate_cells, 1, div_u, bound_div_u, stabilization
         )
 

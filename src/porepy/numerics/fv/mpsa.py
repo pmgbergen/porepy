@@ -263,7 +263,7 @@ class Mpsa(Discretization):
             eliminate_face = np.where(
                 np.logical_not(np.in1d(l2g_faces, faces_in_subgrid))
             )[0]
-            self._remove_nonlocal_contribution(
+            pp.fvutils.remove_nonlocal_contribution(
                 eliminate_face,
                 g.dim,
                 loc_stress,
@@ -308,7 +308,7 @@ class Mpsa(Discretization):
         )
 
         eliminate_faces = np.setdiff1d(np.arange(g.num_faces), active_faces)
-        self._remove_nonlocal_contribution(
+        pp.fvutils.remove_nonlocal_contribution(
             eliminate_faces,
             g.dim,
             stress_glob,
@@ -1742,14 +1742,6 @@ class Mpsa(Discretization):
         # yuz = np.mod(y_indices - 7, nd*nd) == 0
 
         # ncasym.indices[y_pntr[yuz]] -= 2
-
-
-    def _remove_nonlocal_contribution(
-        self, raw_ind: np.ndarray, nd: int, *args: Any
-    ) -> None:
-        eliminate_ind = pp.fvutils.expand_indices_nd(raw_ind, nd)
-        for mat in args:
-            pp.fvutils.zero_out_sparse_rows(mat, eliminate_ind)
 
     def _reduce_grid_constit_2d(
         self, g: pp.Grid, constit: pp.FourthOrderTensor
