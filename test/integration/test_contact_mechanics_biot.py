@@ -180,13 +180,18 @@ class TestContactMechanicsBiot(unittest.TestCase):
         self.assertTrue(np.all(fracture_pressure > 1e-7))
 
     def test_time_dependent_pull_north_negative_scalar(self):
+        """ To obtain the value used in the corresponding TM test, 
+        test_pull_north_reduce_to_tm, uncomment the line
+        setup.subtract_fracture_pressure = False
+        """
         setup = SetupContactMechanicsBiot(
             ux_south=0, uy_south=0, ux_north=0, uy_north=0.001
         )
         setup.end_time *= 3
-
+        setup.mesh_args = [2, 2]
+        setup.simplex = False
+        # setup.subtract_fracture_pressure = False
         u_mortar, contact_force, fracture_pressure = self._solve(setup)
-
         # All components should be open in the normal direction
         self.assertTrue(np.all(u_mortar[1] < 0))
 
@@ -204,7 +209,7 @@ class TestContactMechanicsBiot(unittest.TestCase):
         # If the update of the mechanical BC values for the previous time step used in
         # div u is missing, the effect is similar to if the pull on the north is
         # increased in each time step. This leads to a too small fracture pressure.
-        self.assertTrue(np.all(np.isclose(fracture_pressure, -3.93090302e-06)))
+        self.assertTrue(np.all(np.isclose(fracture_pressure, -4.31072866e-06)))
 
 
 class SetupContactMechanicsBiot(
