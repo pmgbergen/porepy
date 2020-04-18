@@ -25,17 +25,22 @@ fractures are in contact. The relation [u_n^{k+1}] = g of eqs. 30 and 31 becomes
    u_n^{k+1} - Dg^k \dot u_t^{k+1} = g^k - Dg \dot u_t^{k},
 
 with Dg = dg/du_t. For the above g, we have Dg = -tan(dilation_angle) * u_t / || u_t ||.
+For the case u_t = 0, we extend the Jacobian to the limit value from the positive side 
+(arbitrary choice between + and -), i.e.
+    dg/du_t(|| u_t || = 0) = lim_{|| u_t || -> 0 +} dg/du_t = - tan(dilation_angle).        
 """
 import numpy as np
 
 import porepy as pp
 import logging
+from typing import Dict
+
 
 logger = logging.getLogger(__name__)
 
 
 class ColoumbContact:
-    def __init__(self, keyword, ambient_dimension, discr_h):
+    def __init__(self, keyword: str, ambient_dimension: int, discr_h) -> None:
         self.keyword = keyword
 
         self.dim = ambient_dimension
@@ -50,16 +55,18 @@ class ColoumbContact:
         self.discr_h = discr_h
         self.tol = 1e-10
 
-    def _key(self):
+    def _key(self) -> str:
         return self.keyword + "_"
 
-    def _discretization_key(self):
+    def _discretization_key(self) -> str:
         return self._key() + pp.keywords.DISCRETIZATION
 
-    def ndof(self, g):
+    def ndof(self, g) -> int:
         return g.num_cells * self.dim
 
-    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+    def discretize(
+        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
+    ) -> None:
         """ Discretize the contact conditions using a semi-smooth Newton
         approach.
 
@@ -71,14 +78,23 @@ class ColoumbContact:
         The discertization is stated in the coordinate system defined by the
         projection operator associated with the surface. The contact forces
         should be interpreted as tangential and normal to this plane.
+        
+        Parameters in data_l:
+            "friction_coefficient": float or np.ndarray (g_l.num_cells). A float
+        is interpreted as a homogenous coefficient for all cells of the fracture.
+            "c_num": float. Numerical parameter, defaults to 100. The sensitivity 
+        is currently unknown.
+
+        Optional parameters: float or np.ndarray (g_l.num_cells), all default to 0:
+            "initial_gap": The gap (minimum normal opening) in the undeformed state.
+            "dilation_angle": Angle for dilation relation, see above.
+            "cohesion": Threshold value for tangential traction.
 
         NOTES:
             Quantities stated in the global coordinate system (e.g.
         displacements on the adjacent mortar grids) must be projected to the
         local system, using the same projection operator, when paired with the
         produced discretization (that is, in the global assembly).
-            There is a numerical parameter c_num. The sensitivity is currently
-        unknown.
 
         Assumptions and other noteworthy aspects:  TODO: Rewrite this when the
         implementation is ready.
@@ -210,17 +226,22 @@ class ColoumbContact:
             * (displacement_jump_global_coord_iterate)
         ).reshape((self.dim - 1, g_l.num_cells), order="F")
 
-        # Compute gap if it is a function of tangential jump, i.e. gap = g(u) + gap_0 (careful with sign!)
-        # The dilation angle defaults to zero (see above), implying g(u) = 0
+        # Compute gap if it is a function of tangential jump, i.e.
+        # g = g(u) + g_0 (careful with sign!)
+        # Both dilation angle and g_0 default to zero (see above), implying g(u) = 0
         norm_displacement_jump_tangential = np.linalg.norm(
             cumulative_tangential_jump, axis=0
         )
         gap = initial_gap - np.tan(dilation_angle) * norm_displacement_jump_tangential
 
-        # Avoid dividing by zero
-        ind = np.logical_not(np.isclose(cumulative_tangential_jump, 0, rtol=self.tol, atol=self.tol))[0]
+        # Compute dg/du_t = - tan(dilation_angle) u_t / || u_t ||
+        # Avoid dividing by zero if u_t = 0. In this case, we extend to the limit value
+        # from the positive, see module level explanation.
+        ind = np.logical_not(
+            np.isclose(cumulative_tangential_jump, 0, rtol=self.tol, atol=self.tol)
+        )[0]
         d_gap = np.zeros((g_l.dim, g_l.num_cells))
-        d_gap[-1, :] = -np.tan(dilation_angle) 
+        d_gap[-1, :] = -np.tan(dilation_angle)
         # Compute dg/du_t where u_t is nonzero
         tan = np.atleast_2d(np.tan(dilation_angle)[ind])
         d_gap[:, ind] = (
@@ -311,9 +332,7 @@ class ColoumbContact:
                 # direction, a contribution from the previous iterate enters to cancel
                 # the gap
                 r_n = gap[i] - np.dot(d_gap[:, i], cumulative_tangential_jump[:, i].T)
-                assert np.isclose(
-                    r_n, initial_gap[i]
-                )  # TODO: Agree on cumulative with EK
+                # assert np.isclose(r_n, initial_gap[i])  # TODO: Agree on cumulative with EK
                 r_t = r + friction_bound[i] * v
                 r = np.vstack((r_t, r_n))
                 # Unit contribution from tangential force
@@ -346,7 +365,7 @@ class ColoumbContact:
                 # value in the normal direction.
                 r_t = displacement_jump_tangential[:, i]
                 r_n = gap[i] - np.dot(d_gap[:, i], cumulative_tangential_jump[:, i].T)
-                assert np.isclose(r_n, initial_gap[i])
+                # assert np.isclose(r_n, initial_gap[i])
                 r = np.hstack((r_t, r_n)).T
 
             elif ~penetration_bc[i]:  # not in contact
@@ -397,7 +416,7 @@ class ColoumbContact:
         data_l[pp.STATE]["previous_iterate"]["penetration"] = penetration_bc
         data_l[pp.STATE]["previous_iterate"]["sliding"] = sliding_bc
 
-    def assemble_matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(self, g: pp.Grid, data: Dict):
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         traction_coefficient = data[pp.DISCRETIZATION_MATRICES][self.keyword][
@@ -412,16 +431,16 @@ class ColoumbContact:
         return traction_coefficient, displacement_coefficient, rhs
 
     # Active and inactive boundary faces
-    def _sliding(self, Tt, ut, bf, ct):
+    def _sliding(self, Tt: np.ndarray, ut: np.ndarray, bf: np.ndarray, ct: np.ndarray):
         """ Find faces where the frictional bound is exceeded, that is, the face is
         sliding.
 
         Arguments:
-            Tt (np.array, nd-1 x num_faces): Tangential forces.
-            u_hat (np.array, nd-1 x num_faces): Displacements in tangential
+            Tt (np.array, nd-1 x num_cells): Tangential forces.
+            ut (np.array, nd-1 x num_cells): Displacements jump velocity in tangential
                 direction.
-            bf (np.array, num_faces): Friction bound.
-            ct (double): Numerical parameter that relates displacement jump to
+            bf (np.array, num_cells): Friction bound.
+            ct (np.array, num_cells): Numerical parameter that relates displacement jump to
                 tangential forces. See Huber et al for explanation.
 
         Returns:
@@ -432,17 +451,19 @@ class ColoumbContact:
         # Not sure about the sensitivity to the tolerance parameter here.
         return self._l2(-Tt + ct * ut) - bf > self.tol
 
-    def _penetration(self, Tn, un, cn, gap):
+    def _penetration(
+        self, Tn: np.ndarray, un: np.ndarray, cn: np.ndarray, gap: np.ndarray
+    ) -> np.ndarray:
         """ Find faces that are in contact.
 
         Arguments:
-            Tn (np.array, num_faces): Normal forces.
-            un (np.array, num_faces): Displament in normal direction.
-            cn (double): Numerical parameter that relates displacement jump to
+            Tn (np.array, num_cells): Normal forces.
+            un (np.array, num_cells): Displament jump in normal direction.
+            cn (np.array, num_cells): Numerical parameter that relates displacement jump to
                 normal forces. See Huber et al for explanation.
 
         Returns:
-            boolean, size num_faces: True if |-Tu + cn*un| > 0 for a face
+            boolean, size num_cells: True if |-Tu + cn*un| > 0 for a cell.
 
         """
         # Not sure about the sensitivity to the tolerance parameter here.
@@ -452,11 +473,11 @@ class ColoumbContact:
     ## Below here are different help function for calculating the Newton step
     #####
 
-    def _e(self, Tt, cut, bf):
+    def _e(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
         # Compute part of (32) in Berge et al.
         return bf / self._l2(-Tt + cut)
 
-    def _Q(self, Tt, cut, bf):
+    def _Q(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
         # Implementation of the term Q involved in the calculation of (32) in Berge
         # et al.
         # This is the regularized Q
@@ -468,18 +489,20 @@ class ColoumbContact:
 
         return numerator / denominator
 
-    def _M(self, Tt, cut, bf):
+    def _M(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
         """ Compute the coefficient M used in Eq. (32) in Berge et al.
         """
         Id = np.eye(Tt.shape[0])
         # M = e * (I - Q)
         return self._e(Tt, cut, bf) * (Id - self._Q(Tt, cut, bf))
 
-    def _hf(self, Tt, cut, bf):
+    def _hf(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
         # This is the product e * Q * (-Tt + cut), used in computation of r in (32)
         return self._e(Tt, cut, bf) * self._Q(Tt, cut, bf).dot(-Tt + cut)
 
-    def _sliding_coefficients(self, Tt, ut, bf, c):
+    def _sliding_coefficients(
+        self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray, c: np.ndarray
+    ) -> np.ndarray:
         """
         Compute the regularized versions of coefficients L, v and r, defined in
         Eq. (32) and section 3.2.1 in Berge et al.
@@ -538,7 +561,7 @@ class ColoumbContact:
         return np.sqrt(np.sum(x ** 2, axis=0))
 
 
-def set_projections(gb):
+def set_projections(gb: pp.GridBucket) -> None:
     """ Define a local coordinate system, and projection matrices, for all
     grids of co-dimension 1.
 
