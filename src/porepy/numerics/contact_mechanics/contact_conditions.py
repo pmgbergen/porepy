@@ -461,6 +461,7 @@ class ColoumbContact:
             un (np.array, num_cells): Displament jump in normal direction.
             cn (np.array, num_cells): Numerical parameter that relates displacement jump to
                 normal forces. See Huber et al for explanation.
+            gap (np.array, num_cells): Value of gap function.
 
         Returns:
             boolean, size num_cells: True if |-Tu + cn*un| > 0 for a cell.
@@ -501,7 +502,7 @@ class ColoumbContact:
         return self._e(Tt, cut, bf) * self._Q(Tt, cut, bf).dot(-Tt + cut)
 
     def _sliding_coefficients(
-        self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray, c: np.ndarray
+        self, Tt: np.ndarray, ut: np.ndarray, bf: np.ndarray, c: np.ndarray
     ) -> np.ndarray:
         """
         Compute the regularized versions of coefficients L, v and r, defined in
