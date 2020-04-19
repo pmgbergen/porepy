@@ -1,5 +1,6 @@
 import numpy as np
 import scipy
+from scipy.sparse.linalg import spsolve
 import sympy
 import unittest
 import porepy as pp
@@ -108,18 +109,12 @@ class TestMPFAgravity(unittest.TestCase):
 
         # GCMPFA discretization, and system matrix
         flux, bound_flux, _, _, div_g = pp.Mpfa("flow")._flux_discretization(
-            g, k, bound_cond, vector_source=True, inverter="python"
+            g, k, bound_cond, inverter="python"
         )
         div = pp.fvutils.scalar_divergence(g)
         a = div * flux
 
-        # take arithmetic mean of cell center gravities
-        fi, ci, _ = scipy.sparse.find(g.cell_faces)
-        fc_cc = g.face_centers[::, fi] - g.cell_centers[::, ci]
-        dist_face_cell = np.linalg.norm(fc_cc, 2, axis=0)
-        gforce = gforce[ci]
-        fg = np.bincount(fi, weights=dist_face_cell * gforce)
-        flux_g = fg * div_g
+        flux_g = div_g * gforce
         # assemble rhs
         b = -div * bound_flux * p_bound - div * flux_g
         # solve system
@@ -182,7 +177,7 @@ class TestMPFAgravity(unittest.TestCase):
 
             # GCMPFA discretization, and system matrix
             flux, bound_flux, _, _, div_g = pp.Mpfa("flow")._flux_discretization(
-                g, k, bound_cond, vector_source=True, inverter="python"
+                g, k, bound_cond, inverter="python"
             )
             div = pp.fvutils.scalar_divergence(g)
             a = div * flux
@@ -195,6 +190,264 @@ class TestMPFAgravity(unittest.TestCase):
             self.assertTrue(np.allclose(p, p_ex))
             self.assertTrue(np.allclose(q, q_ex))
             
+class TiltedGrids(unittest.TestCase):
+
+    def __init__(self, *args, **kwargs):
+        super(TiltedGrids, self).__init__(*args, **kwargs)
+        self.keyword = 'flow'
+        
+    def set_params_disrcetize(self, g, ambient_dim=3):
+        g.compute_geometry()
+        
+        bc = pp.BoundaryCondition(g)
+        k = pp.SecondOrderTensor(np.ones(g.num_cells))
+        
+        params = {'bc': bc,
+                  'second_order_tensor': k,
+                  'inverter': 'python',
+                  'ambient_dimension': ambient_dim}
+        
+        data = pp.initialize_data(g, {}, self.keyword, params)
+        
+        discr = pp.Mpfa(self.keyword)
+        discr.discretize(g, data)
+        
+        flux = data[pp.DISCRETIZATION_MATRICES][self.keyword][discr.flux_matrix_key]
+        vector_source = data[pp.DISCRETIZATION_MATRICES][self.keyword][discr.div_vector_source_key]
+        div = pp.fvutils.scalar_divergence(g)
+        return flux, vector_source, div
+    
+    def test_1d_ambient_dim_1(self):
+        dx = np.random.rand(1)[0]
+        g = pp.TensorGrid(np.array([0, dx, 2*dx]))
+        
+        ambient_dim = 1
+        flux, vector_source_discr, div = self.set_params_disrcetize(g, ambient_dim)
+        
+        # Prepare to solve problem        
+        A = div * flux
+        rhs = - div * vector_source_discr
+        
+        # Make source strength another random number
+        grav_strength = np.random.rand(1)
+        
+        # introduce a source term in x-direction
+        g_x = np.zeros(g.num_cells * ambient_dim)
+        g_x[::ambient_dim] = -1 * grav_strength#/2 * dx
+        p_x = np.linalg.pinv(A.toarray()).dot(rhs * g_x)
+        
+        # The solution should decrease with increasing x coordinate, with magnitude
+        # controlled by grid size and source stregth
+        self.assertTrue(np.allclose(p_x[0] - p_x[1], dx * grav_strength))
+        
+        flux_x = flux * p_x + vector_source_discr * g_x
+        # The net flux should still be zero
+        self.assertTrue(np.allclose(flux_x, 0))
+
+    def test_1d_ambient_dim_2(self):
+        dx = np.random.rand(1)[0]
+        g = pp.TensorGrid(np.array([0, dx, 2*dx]))
+        
+        ambient_dim = 2
+        flux, vector_source_discr, div = self.set_params_disrcetize(g, ambient_dim)
+        
+        # Prepare to solve problem        
+        A = div * flux
+        rhs = - div * vector_source_discr
+        
+        # Make source strength another random number
+        grav_strength = np.random.rand(1)
+        
+        # introduce a source term in x-direction
+        g_x = np.zeros(g.num_cells * ambient_dim)
+        g_x[::ambient_dim] = -1 * grav_strength#/2 * dx
+        p_x = np.linalg.pinv(A.toarray()).dot(rhs * g_x)
+        
+        # The solution should decrease with increasing x coordinate, with magnitude
+        # controlled by grid size and source stregth
+        self.assertTrue(np.allclose(p_x[0] - p_x[1], dx * grav_strength))
+        
+        flux_x = flux * p_x + vector_source_discr * g_x
+        # The net flux should still be zero
+        self.assertTrue(np.allclose(flux_x, 0))        
+
+        # introduce a source term in y-direction
+        g_y = np.zeros(g.num_cells * ambient_dim)
+        g_y[1::ambient_dim] = -1 * grav_strength
+        p_y = np.linalg.pinv(A.toarray()).dot(rhs * g_y)
+        self.assertTrue(np.allclose(p_y, 0))
+        
+        flux_y = flux * p_y + vector_source_discr * g_y
+        # The net flux should still be zero
+        self.assertTrue(np.allclose(flux_y, 0)) 
+
+    def test_1d_ambient_dim_2_nodes_reverted(self):
+        # Same test as above, but with the orientation of the grid rotated.
+        dx = np.random.rand(1)[0]
+        g = pp.TensorGrid(np.array([0, -dx, -2*dx]))
+        
+        ambient_dim = 2
+        flux, vector_source_discr, div = self.set_params_disrcetize(g, ambient_dim)
+        
+        # Prepare to solve problem        
+        A = div * flux
+        rhs = - div * vector_source_discr
+        
+        # Make source strength another random number
+        grav_strength = np.random.rand(1)
+        
+        # introduce a source term in x-direction
+        g_x = np.zeros(g.num_cells * ambient_dim)
+        g_x[::ambient_dim] = -1 * grav_strength#/2 * dx
+        p_x = np.linalg.pinv(A.toarray()).dot(rhs * g_x)
+        
+        # The solution should decrease with increasing x coordinate, with magnitude
+        # controlled by grid size and source stregth
+        self.assertTrue(np.allclose(p_x[0] - p_x[1], -dx * grav_strength))
+        flux_x = flux * p_x + vector_source_discr * g_x
+        # The net flux should still be zero
+        self.assertTrue(np.allclose(flux_x, 0))        
+
+        # introduce a source term in y-direction
+        g_y = np.zeros(g.num_cells * ambient_dim)
+        g_y[1::ambient_dim] = -1 * grav_strength
+        p_y = np.linalg.pinv(A.toarray()).dot(rhs * g_y)
+        self.assertTrue(np.allclose(p_y, 0))
+        
+        flux_y = flux * p_y + vector_source_discr * g_y
+        # The net flux should still be zero
+        self.assertTrue(np.allclose(flux_y, 0))        
+
+    def test_1d_ambient_dim_3(self):
+        dx = np.random.rand(1)[0]
+        g = pp.TensorGrid(np.array([0, dx, 2*dx]))
+        g.nodes[:] = np.array([0, dx, 2*dx])
+        
+        ambient_dim = 3
+        flux, vector_source_discr, div = self.set_params_disrcetize(g, ambient_dim)
+        
+        # Prepare to solve problem        
+        A = div * flux
+        rhs = - div * vector_source_discr
+        
+        # Make source strength another random number
+        grav_strength = np.random.rand(1)
+        
+        # introduce a source term in x-direction
+        g_x = np.zeros(g.num_cells * ambient_dim)
+        g_x[::ambient_dim] = -1 * grav_strength#/2 * dx
+        p_x = np.linalg.pinv(A.toarray()).dot(rhs * g_x)
+        
+        # The solution should decrease with increasing x coordinate, with magnitude
+        # controlled by grid size and source stregth
+        self.assertTrue(np.allclose(p_x[0] - p_x[1], dx * grav_strength))
+        
+        flux_x = flux * p_x + vector_source_discr * g_x
+        # The net flux should still be zero
+        self.assertTrue(np.allclose(flux_x, 0))        
+
+        # introduce a source term in y-direction
+        g_y = np.zeros(g.num_cells * ambient_dim)
+        g_y[1::ambient_dim] = -1 * grav_strength
+        p_y = np.linalg.pinv(A.toarray()).dot(rhs * g_y)
+        self.assertTrue(np.allclose(p_y, p_x))
+        
+        flux_y = flux * p_y + vector_source_discr * g_y
+        # The net flux should still be zero
+        self.assertTrue(np.allclose(flux_y, 0)) 
+                                       
+        
+    def test_2d_horizontal_ambient_dim_3(self):
+        # Cartesian grid in xy-plane. The rotation of the grid in the mpfa discretization
+        # will be trivial, leaving one source of error
+        
+        # Random size of the domain
+        dx = np.random.rand(1)[0]
+        
+        # 2x2 grid of the random size
+        g = pp.CartGrid([2, 2], [2*dx, 2*dx])
+        
+        # Embed in 3d, this means that the vector source is a 3-vector per cell
+        ambient_dim = 3
+                
+        # Discretization
+        flux, vector_source_discr, div = self.set_params_disrcetize(g, ambient_dim)
+        
+        # Prepare to solve problem        
+        A = div * flux
+        rhs = - div * vector_source_discr
+        
+        # Make source strength another random number
+        grav_strength = np.random.rand(1)
+        
+        # First set source in z-direction. This should have no impact on the solution
+        g_z = np.zeros(g.num_cells * ambient_dim)
+        g_z[2::ambient_dim] = -1
+        p_z = np.linalg.pinv(A.toarray()).dot(rhs * g_z)
+        # all zeros
+        self.assertTrue(np.allclose(p_z, 0))
+        flux_z = flux * p_z + vector_source_discr * g_z
+        self.assertTrue(np.allclose(flux_z, 0))
+        
+        # Next a source term in x-direction
+        g_x = np.zeros(g.num_cells * ambient_dim)
+        g_x[::ambient_dim] = -1 * grav_strength
+        p_x = np.linalg.pinv(A.toarray()).dot(rhs * g_x)
+        
+        # The solution should be higher in the first x-row of cells, with magnitude
+        # controlled by grid size and source stregth
+        self.assertTrue(np.allclose(p_x[0] - p_x[1], dx * grav_strength ))
+        self.assertTrue(np.allclose(p_x[2] - p_x[3], dx * grav_strength ))
+        # The solution should be equal for equal x-coordinate
+        self.assertTrue(np.allclose(p_x[0], p_x[2]))
+        self.assertTrue(np.allclose(p_x[1], p_x[3]))
+        
+        flux_x = flux * p_x + vector_source_discr * g_x
+        # The net flux should still be zero
+        self.assertTrue(np.allclose(flux_x, 0))   
+
+    def test_2d_horizontal_ambient_dim_2(self):
+        # Cartesian grid in xy-plane. The rotation of the grid in the mpfa discretization
+        # will be trivial, leaving one source of error
+        
+        # Random size of the domain
+        dx = np.random.rand(1)[0]
+        
+        # 2x2 grid of the random size
+        g = pp.CartGrid([2, 2], [2*dx, 2*dx])
+        
+        # Embed in 3d, this means that the vector source is a 3-vector per cell
+        ambient_dim = 2
+                
+        # Discretization
+        flux, vector_source_discr, div = self.set_params_disrcetize(g, ambient_dim)
+        
+        # Prepare to solve problem        
+        A = div * flux
+        rhs = - div * vector_source_discr
+        
+        # Make source strength another random number
+        grav_strength = np.random.rand(1)
+        
+        # introduce a source term in x-direction
+        g_x = np.zeros(g.num_cells * ambient_dim)
+        g_x[::ambient_dim] = -1 * grav_strength
+        p_x = np.linalg.pinv(A.toarray()).dot(rhs * g_x)
+        
+        # The solution should be higher in the first x-row of cells, with magnitude
+        # controlled by grid size and source stregth
+        self.assertTrue(np.allclose(p_x[0] - p_x[1], dx * grav_strength ))
+        self.assertTrue(np.allclose(p_x[2] - p_x[3], dx * grav_strength ))
+        # The solution should be equal for equal x-coordinate
+        self.assertTrue(np.allclose(p_x[0], p_x[2]))
+        self.assertTrue(np.allclose(p_x[1], p_x[3]))
+        
+        flux_x = flux * p_x + vector_source_discr * g_x
+        # The net flux should still be zero
+        self.assertTrue(np.allclose(flux_x, 0))   
+
 
 if __name__ == "__main__":
+    TestMPFAgravity().test_hydrostatic_pressure_1D()
+   # TiltedGrids().test_1d_ambient_dim_3()
     unittest.main()
