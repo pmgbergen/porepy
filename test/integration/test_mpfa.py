@@ -112,7 +112,7 @@ class TestMpfa(unittest.TestCase):
         )
 
         # Python inverter is most efficient for small problems
-        flux, bound_flux, _, _ = pp.Mpfa("flow")._flux_discretization(
+        flux, bound_flux, *_ = pp.Mpfa("flow")._flux_discretization(
             g, perm, bound, inverter="python"
         )
         div = g.cell_faces.T
@@ -149,7 +149,7 @@ class TestMpfa(unittest.TestCase):
         )
 
         # Python inverter is most efficient for small problems
-        flux, bound_flux, _, _ = pp.Mpfa("flow")._flux_discretization(
+        flux, bound_flux, *_ = pp.Mpfa("flow")._flux_discretization(
             g, perm, bound, inverter="python"
         )
         div = g.cell_faces.T

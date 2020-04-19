@@ -19,14 +19,14 @@ class TestPartialMPFA(unittest.TestCase):
         g.compute_geometry()
         perm = pp.SecondOrderTensor(np.ones(g.num_cells))
         bnd = pp.BoundaryCondition(g)
-        flux, bound_flux, _, _ = pp.Mpfa("flow")._flux_discretization(
+        flux, bound_flux, _, _, vector_source = pp.Mpfa("flow")._flux_discretization(
             g, perm, bnd, inverter="python"
         )
-        return g, perm, bnd, flux, bound_flux
+        return g, perm, bnd, flux, bound_flux, vector_source
 
     def test_inner_cell_node_keyword(self):
         # Compute update for a single cell in the interior.
-        g, perm, bnd, flux, bound_flux = self.setup()
+        g, perm, bnd, flux, bound_flux, vector_source = self.setup()
 
         nodes_of_cell = np.array([14, 15, 20, 21])
         faces_of_cell = np.array([14, 15, 42, 47])
@@ -50,6 +50,9 @@ class TestPartialMPFA(unittest.TestCase):
         partial_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
             discr.bound_flux_matrix_key
         ]
+        partial_vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.div_vector_source_key
+        ]
 
         active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
 
@@ -58,19 +61,23 @@ class TestPartialMPFA(unittest.TestCase):
 
         diff_flux = (flux - partial_flux).todense()
         diff_bound = (bound_flux - partial_bound).todense()
+        diff_vc = (vector_source - partial_vector_source).todense()
 
         self.assertTrue(np.max(np.abs(diff_flux[faces_of_cell])) == 0)
         self.assertTrue(np.max(np.abs(diff_bound[faces_of_cell])) == 0)
+        self.assertTrue(np.max(np.abs(diff_vc[faces_of_cell])) == 0)
 
         # Only the faces of the central cell should be zero
         partial_flux[faces_of_cell, :] = 0
         partial_bound[faces_of_cell, :] = 0
+        partial_vector_source[faces_of_cell] = 0
         self.assertTrue(np.max(np.abs(partial_flux.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound.data)) == 0)
+        self.assertTrue(np.max(np.abs(partial_vector_source.data)) == 0)
 
     def test_bound_cell_node_keyword(self):
         # Compute update for a single cell on the boundary
-        g, perm, bnd, flux, bound_flux = self.setup()
+        g, perm, bnd, flux, bound_flux, vector_source = self.setup()
 
         # cell = 10
         nodes_of_cell = np.array([12, 13, 18, 19])
@@ -94,6 +101,9 @@ class TestPartialMPFA(unittest.TestCase):
         partial_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
             discr.bound_flux_matrix_key
         ]
+        partial_vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.div_vector_source_key
+        ]
 
         active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
 
@@ -102,15 +112,19 @@ class TestPartialMPFA(unittest.TestCase):
 
         diff_flux = (flux - partial_flux).todense()
         diff_bound = (bound_flux - partial_bound).todense()
+        diff_vc = (vector_source - partial_vector_source).todense()
 
         self.assertTrue(np.max(np.abs(diff_flux[faces_of_cell])) == 0)
         self.assertTrue(np.max(np.abs(diff_bound[faces_of_cell])) == 0)
+        self.assertTrue(np.max(np.abs(diff_vc[faces_of_cell])) == 0)
 
         # Only the faces of the central cell should be zero
         partial_flux[faces_of_cell, :] = 0
         partial_bound[faces_of_cell, :] = 0
+        partial_vector_source[faces_of_cell, :] = 0
         self.assertTrue(np.max(np.abs(partial_flux.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound.data)) == 0)
+        self.assertTrue(np.max(np.abs(partial_vector_source.data)) == 0)
 
 
     def test_one_cell_a_time_node_keyword(self):
@@ -131,6 +145,7 @@ class TestPartialMPFA(unittest.TestCase):
 
         flux = sps.csr_matrix((g.num_faces, g.num_cells))
         bound_flux = sps.csr_matrix((g.num_faces, g.num_faces))
+        vc = sps.csr_matrix((g.num_faces, g.num_cells * g.dim))
         faces_covered = np.zeros(g.num_faces, np.bool)
 
         bnd = pp.BoundaryCondition(g)
@@ -160,18 +175,23 @@ class TestPartialMPFA(unittest.TestCase):
             partial_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
                 discr.bound_flux_matrix_key
             ]
+            partial_vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
+                discr.div_vector_source_key
+            ]
     
             active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
 
             if np.any(faces_covered):
                 partial_flux[faces_covered, :] *= 0
                 partial_bound[faces_covered, :] *= 0
+                partial_vector_source[faces_covered] *= 0
             faces_covered[active_faces] = True
 
             flux += partial_flux
             bound_flux += partial_bound
+            vc += partial_vector_source
 
-        flux_full, bound_flux_full, *_ = pp.Mpfa("flow")._flux_discretization(
+        flux_full, bound_flux_full, *_, vc_full = pp.Mpfa("flow")._flux_discretization(
             g, perm, bnd, inverter="python"
         )
 
@@ -179,7 +199,8 @@ class TestPartialMPFA(unittest.TestCase):
         self.assertTrue((flux_full - flux).min() > -1e-8)
         self.assertTrue((bound_flux - bound_flux_full).max() < 1e-8)
         self.assertTrue((bound_flux - bound_flux_full).min() > -1e-8)
-
+        self.assertTrue((vc - vc_full).max() < 1e-8)
+        self.assertTrue((vc - vc_full).min() > -1e-8)
 
 class TestPartialMPSA(unittest.TestCase):
     """ Test various partial assembly features for mpsa.
@@ -685,4 +706,5 @@ class PartialBiotMpsa(TestPartialMPSA):
 
 
 if __name__ == "__main__":
+    TestPartialMPFA().test_bound_cell_node_keyword()
     unittest.main()
