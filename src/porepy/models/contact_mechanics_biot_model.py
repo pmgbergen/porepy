@@ -16,7 +16,7 @@ import logging
 import time
 import scipy.sparse as sps
 import scipy.sparse.linalg as spla
-from typing import List
+from typing import List, Dict
 
 import porepy.models.contact_mechanics_model as contact_model
 from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations

@@ -8,9 +8,12 @@ import porepy as pp
 import test.common.contact_mechanics_examples
 
 
-class TestContactMechanics(unittest.TestCase):
+class TestDilation(unittest.TestCase):
     def _solve(self, setup):
-        pp.run_stationary_model(setup, {"convergence_tol": 1e-10})
+        if hasattr(setup, "end_time"):
+            pp.run_time_dependent_model(setup, {"convergence_tol": 1e-10})
+        else:
+            pp.run_stationary_model(setup, {"convergence_tol": 1e-10})
         gb = setup.gb
 
         nd = gb.dim_max()
@@ -157,6 +160,32 @@ class TestContactMechanics(unittest.TestCase):
         # The contact force in normal direction should be negative
         self.assertTrue(np.all(contact_force[1] < setup.zero_tol))
 
+    def test_two_steps(self):
+        """ First pull apart, then displace horizontally.
+        """
+        setup = SetupContactMechanics(
+            ux_south=0.1, uy_south=-0.09, ux_north=0, uy_north=0
+        )
+        setup.time, setup.time_step, setup.end_time = 0, 0.5, 0.5
+        setup.ux_south_initial = 0
+        setup.dilation_angle = np.pi / 4
+        setup.fracture_endpoints = np.array([0.0, 1.0])
+        u_mortar_0, contact_force_0 = self._solve(setup)
+        # Should be open
+        self.assertTrue(np.all(np.isclose(contact_force_0[1], 0)))
+        self.assertTrue(np.all(u_mortar_0[1] < setup.zero_tol))
+        # but no tangential displacement
+        self.assertTrue(np.all(np.isclose(u_mortar_0[0], 0)))
+        # Second step
+        setup.end_time = 1
+        u_mortar_1, contact_force_1 = self._solve(setup)
+        # Should be in contact (u_x > u_y on boundary):
+        self.assertTrue(np.all(contact_force_1[1] < setup.zero_tol))
+        # We have displaced more in the second step:
+        sign = np.sign(u_mortar_1[0, 0])
+        self.assertTrue(np.all(sign * (u_mortar_0[0] - u_mortar_1[0]) < setup.zero_tol))
+        self.assertTrue(np.all(u_mortar_0[1] - u_mortar_1[1] > setup.zero_tol))
+
 
 class SetupContactMechanics(
     test.common.contact_mechanics_examples.ContactMechanicsExample
@@ -173,6 +202,7 @@ class SetupContactMechanics(
         self.ux_north = ux_north
         self.uy_north = uy_north
         self.zero_tol = 1e-8
+        self.time = 1
 
     def create_grid(self):
         """
@@ -199,7 +229,11 @@ class SetupContactMechanics(
     def bc_values(self, g):
         _, _, _, north, south, _, _ = self.domain_boundary_sides(g)
         values = np.zeros((g.dim, g.num_faces))
-        values[0, south] = self.ux_south
+        # Dirty hack for the two-stage test. All other tests have time > 0
+        if hasattr(self, "ux_south_initial") and self.time < (1 - self.zero_tol):
+            values[0, south] = self.ux_south_initial
+        else:
+            values[0, south] = self.ux_south
         values[1, south] = self.uy_south
         values[0, north] = self.ux_north
         values[1, north] = self.uy_north
@@ -227,6 +261,14 @@ class SetupContactMechanics(
                 d[pp.PARAMETERS]["mechanics"].update(
                     {"initial_gap": initial_gap, "dilation_angle": dilation_angle}
                 )
+
+    def before_newton_loop(self):
+        """ Will be run before entering a Newton loop. 
+        E.g.
+           Discretize time-dependent quantities etc.
+           Update time-dependent parameters (captured by assembly).
+        """
+        self.set_parameters()
 
 
 if __name__ == "__main__":
