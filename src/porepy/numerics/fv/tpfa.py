@@ -25,7 +25,7 @@ class Tpfa(pp.FVElliptic):
     def __init__(self, keyword):
         super(Tpfa, self).__init__(keyword)
 
-    def discretize(self, g, data, vector_source=False, faces=None):
+    def discretize(self, g, data, faces=None):
         """
         Discretize the second order elliptic equation using two-point flux approximation.
 
@@ -69,7 +69,6 @@ class Tpfa(pp.FVElliptic):
         ----------
         g (pp.Grid): grid, or a subclass, with geometry fields computed.
         data (dict): For entries, see above.
-        vector_source (Boolean): optional. Defines flux contribution from vector source
         faces (np.ndarray): optional. Defines active faces.
         """
         # Get the dictionaries for storage of data and discretization matrices
@@ -167,20 +166,21 @@ class Tpfa(pp.FVElliptic):
         bound_pressure_cell = sps.coo_matrix(
             (v_cell, (fi, ci)), (g.num_faces, g.num_cells)
         ).tocsr()
-        bound_pressure_face = sps.dia_matrix((v_face, 0), (g.num_faces, g.num_faces)).tocsr()
+        bound_pressure_face = sps.dia_matrix(
+            (v_face, 0), (g.num_faces, g.num_faces)
+        ).tocsr()
         matrix_dictionary[self.bound_pressure_cell_matrix_key] = bound_pressure_cell
         matrix_dictionary[self.bound_pressure_face_matrix_key] = bound_pressure_face
 
-        if vector_source:
-            # discretization of vector source
-            # e.g. gravity in Darcy's law
-            # Implementation of standard method in 1D
-            # employing harmonic average of cell transmissibilities
-            # ready to be multiplied with arithmetic average of cell vector sources.
-            # This is only called for 1D problems,
-            # for higher dimensions method calls GCMPFA
-            if not g.dim == 1:
-                raise NotImplementedError(
-                    "Consistent treatment of gravity requires mpfa"
-                )
-            matrix_dictionary[self.div_vector_source_key] = t
+        # discretization of vector source
+        # e.g. gravity in Darcy's law
+        # Implementation of standard method in 1D
+        # employing harmonic average of cell transmissibilities
+        # ready to be multiplied with arithmetic average of cell vector sources.
+        # This is only constructed for 1d problems; for higher dimensions, mpfa should
+        # be invoked.
+        if g.dim == 1:
+            data = t[fi] * np.linalg.norm(fc_cc, 2, axis=0)
+            matrix_dictionary[self.div_vector_source_key] = sps.coo_matrix(
+                (data, (fi, ci))
+            ).tocsr()
