@@ -80,6 +80,7 @@ class Tpfa(pp.FVElliptic):
             matrix_dictionary[self.bound_flux_matrix_key] = sps.csr_matrix([0])
             matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csr_matrix([1])
             matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csr_matrix([0])
+            matrix_dictionary[self.div_vector_source_key] = sps.csr_matrix([0])
             return None
         if faces is None:
             is_not_active = np.zeros(g.num_faces, dtype=np.bool)
@@ -179,8 +180,7 @@ class Tpfa(pp.FVElliptic):
         # ready to be multiplied with arithmetic average of cell vector sources.
         # This is only constructed for 1d problems; for higher dimensions, mpfa should
         # be invoked.
-        if g.dim == 1:
-            data = t[fi] * np.linalg.norm(fc_cc, 2, axis=0)
-            matrix_dictionary[self.div_vector_source_key] = sps.coo_matrix(
-                (data, (fi, ci))
-            ).tocsr()
+        data = t[fi] * np.linalg.norm(fc_cc, 2, axis=0)
+        matrix_dictionary[self.div_vector_source_key] = sps.coo_matrix(
+            (data, (fi, ci))
+        ).tocsr()
