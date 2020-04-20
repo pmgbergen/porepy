@@ -50,7 +50,7 @@ class TestPartialMPFA(unittest.TestCase):
             discr.bound_flux_matrix_key
         ]
         partial_vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.div_vector_source_key
+            discr.vector_source_key
         ]
 
         active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
@@ -102,7 +102,7 @@ class TestPartialMPFA(unittest.TestCase):
             discr.bound_flux_matrix_key
         ]
         partial_vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.div_vector_source_key
+            discr.vector_source_key
         ]
 
         active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
@@ -178,7 +178,7 @@ class TestPartialMPFA(unittest.TestCase):
                 discr.bound_flux_matrix_key
             ]
             partial_vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
-                discr.div_vector_source_key
+                discr.vector_source_key
             ]
 
             active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
