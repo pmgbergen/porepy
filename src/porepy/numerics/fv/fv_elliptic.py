@@ -1,6 +1,7 @@
 """
 Module contains superclass for mpfa and tpfa.
 """
+import numpy as np
 import porepy as pp
 
 
@@ -189,7 +190,15 @@ class FVElliptic(pp.EllipticDiscretization):
 
         div = g.cell_faces.T
 
-        return -div * bound_flux * bc_val
+        # Also discretize vector sources.
+        # Discretization of the vector source term
+        vector_source_discr = matrix_dictionary[self.div_vector_source_key]
+        # The vector source, defaults to zero if not specified.
+        vector_source = parameter_dictionary.get(
+            "vector_source", np.zeros(vector_source_discr.shape[1])
+        )
+
+        return -div * bound_flux * bc_val - div * vector_source_discr * vector_source
 
     def assemble_int_bound_flux(
         self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
