@@ -119,5 +119,5 @@ class TestFVOnBenchmark(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    TestFVOnBenchmark().test_mpfa_blocking()
+    TestFVOnBenchmark().test_tpfa_blocking()
     unittest.main()

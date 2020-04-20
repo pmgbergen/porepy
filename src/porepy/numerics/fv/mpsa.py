@@ -196,7 +196,9 @@ class Mpsa(Discretization):
         # NOTE: active_faces are all faces to have their stencils updated, while
         # active_cells may form a larger set (to accurately update all faces on a
         # subgrid, it is necessary to assign some overlap in terms cells).
-        active_cells, active_faces = pp.fvutils.find_active_indices(parameter_dictionary, g)
+        active_cells, active_faces = pp.fvutils.find_active_indices(
+            parameter_dictionary, g
+        )
 
         # Extract a grid, and get global indices of its active faces and nodes
         active_grid, extracted_faces, extracted_nodes = pp.partition.extract_subgrid(
@@ -227,7 +229,7 @@ class Mpsa(Discretization):
 
         # Find an estimate of the peak memory need
         peak_memory_estimate = self._estimate_peak_memory_mpsa(active_grid)
-        
+
         # Loop over all partition regions, construct local problems, and transfer
         # discretization to the entire active grid
         for reg_i, (sub_g, faces_in_subgrid, _, l2g_cells, l2g_faces) in enumerate(
@@ -1091,8 +1093,6 @@ class Mpsa(Discretization):
     # Below here are helper functions, which tend to be less than well documented.
     #
     # -----------------------------------------------------------------------------
-
-
 
     def _estimate_peak_memory_mpsa(self, g: pp.Grid) -> int:
         """ Rough estimate of peak memory need for mpsa discretization.
