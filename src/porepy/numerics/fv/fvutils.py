@@ -1,7 +1,6 @@
 """
 Various FV specific utility functions.
 """
-import warnings
 import numpy as np
 import scipy.sparse as sps
 from typing import Tuple, Any, Generator, Dict, Optional
@@ -253,7 +252,7 @@ def find_active_indices(
     specified_cells, specified_faces or specified_nodes. These are then processed by
     the function pp.fvutils.cell-ind_for_partial_update.
 
-    If no relevant information is found, the active indices are all cells and 
+    If no relevant information is found, the active indices are all cells and
     faces in the grid.
 
     Parameters:
@@ -308,7 +307,7 @@ def subproblems(
 
     # Loop over all partition regions, construct local problems, and transfer
     # discretization to the entire active grid
-    for counter, p in enumerate(np.unique(part)):
+    for p in np.unique(part):
         # Cells in this partitioning
         cells_in_partition: np.ndarray = np.argwhere(part == p).ravel("F")
 

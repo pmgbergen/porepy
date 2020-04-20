@@ -1087,4 +1087,5 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    TestMortar2dSingleFractureCartesianGrid().test_tpfa_matching_grids_uniform_flow_larger_domain()
     unittest.main()
