@@ -282,8 +282,8 @@ def plot_gb(gb, cell_value, vector_value, info, **kwargs):
         kwargs["rgb"] = np.divide(kwargs.get("rgb", [1, 0, 0]), d["node_number"] + 1)
         plot_grid_xd(
             g,
-            d[pp.STATE].get(cell_value, None),
-            d[pp.STATE].get(vector_value, None),
+            d.get(pp.STATE, {}).get(cell_value, None),
+            d.get(pp.STATE, {}).get(vector_value, None),
             ax,
             **kwargs
         )
@@ -483,7 +483,8 @@ def plot_grid_2d(g, cell_value, ax, **kwargs):
 
         loc_n = g.face_nodes.indptr[faces_loc]
         pts_pairs = np.array([nodes[loc_n], nodes[loc_n + 1]])
-        ordering = pp.utils.sort_points.sort_point_pairs(pts_pairs)[0, :]
+        sorted_nodes, _ = pp.utils.sort_points.sort_point_pairs(pts_pairs)
+        ordering = sorted_nodes[0, :]
 
         pts = g.nodes[:, ordering]
         linewidth = kwargs.get("linewidth", 1)

@@ -33,21 +33,18 @@ To generate meshes for numerical analysis, GMSH (for meshing) and pymetis (for m
 
 ### GMSH
 PorePy depends on `GMSH` for meshing of fractured domains. 
-Our exprience is that version 4 of Gmsh is much improved compared to earlier versions, in particular for complex geometries.
+Our experience is that version 4 of Gmsh is much improved compared to earlier versions, in particular for complex geometries.
 
 To make this work, you need gmsh installed on your system, and PorePy needs to know where to look for it.
-For Linux users: Gmsh is available through apt-get, but be sure that the version available is >=4.0. If this is not possible, do the manual install below.
+It should work (on any operating system) to install the following python package: [gmsh-sdk](https://pypi.org/project/gmsh-sdk/).
 
-Manual install:
-First, visit the [Gmsh webpage](http://gmsh.info) and download a suitable version. Extract, and move the binary (probably located in the subfolder gmsh-x.x.x-Linux/bin or similar) to whereever you prefer.
+##### Manual install:
+To run gmsh python api on your system, download the relevant gmsh*-sdk.* from http://gmsh.info/bin/.
+Then, Add the 'lib' directory from the SDK to PYTHONPATH.
+Linux users can execute the following command: `export PYTHONPATH=${PYTHONPATH}:path/to/gmsh*-sdk.*/lib`.
 
-The location of the gmsh file is specific for each user's setup, and is therefore not included in the library. 
-Instead, to get the path to the gmsh executable, PorePy assumes there is a file called `porepy_config.py` somewhere in `$PYTHONPATH`. 
-So, open a file called `porepy_config.py`, and place the line
-```python
-config = {'gmsh_path': 'path/to/gmsh/executable'} # example config = {'gmsh_path': '/usr/bin/gmsh'}
-```
-Note that the path should be set as a string. To read more about the config system, see `porepy.utils.read_config.py`.
+If you manage packages with conda, it may be necessary to add the package to the conda environment as a development package. If so, you could execute `conda develop path/to/gmsh*-sdk.*/lib` in the terminal.
+
 
 ### Metis & pymetis
 The metis package is used to partition meshes. In order to use this package, you must install metis from George Karypis

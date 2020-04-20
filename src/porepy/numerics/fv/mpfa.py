@@ -2,17 +2,14 @@
 Implementation of the multi-point flux approximation O-method.
 
 """
-from __future__ import division
 import warnings
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.fv import fvutils
-from porepy.numerics.fv.fv_elliptic import FVElliptic
 
 
-class Mpfa(FVElliptic):
+class Mpfa(pp.FVElliptic):
     def __init__(self, keyword):
         super(Mpfa, self).__init__(keyword)
 
@@ -412,7 +409,7 @@ class Mpfa(FVElliptic):
             warnings.warn("Faces keyword for partial mpfa has not been tested")
 
         # Find computational stencil, based on specified cells, faces and nodes.
-        ind, active_faces = fvutils.cell_ind_for_partial_update(
+        ind, active_faces = pp.fvutils.cell_ind_for_partial_update(
             g, cells=cells, faces=faces, nodes=nodes
         )
 
@@ -448,7 +445,7 @@ class Mpfa(FVElliptic):
         loc_bnd = pp.BoundaryCondition(sub_g, faces=loc_bound_ind, cond=loc_cond)
 
         # Map to global indices
-        face_map, cell_map = fvutils.map_subgrid_to_grid(
+        face_map, cell_map = pp.fvutils.map_subgrid_to_grid(
             g, l2g_faces, l2g_cells, is_vector=False
         )
 
@@ -574,7 +571,7 @@ class Mpfa(FVElliptic):
         # _mpsa_local() in the mpsa.py module.
 
         if eta is None:
-            eta = fvutils.determine_eta(g)
+            eta = pp.fvutils.determine_eta(g)
 
         # The method reduces to the more efficient TPFA in one dimension, so that
         # method may be called. In 0D, there is no internal discretization to be
@@ -640,15 +637,16 @@ class Mpfa(FVElliptic):
         # Define subcell topology, that is, the local numbering of faces, subfaces,
         # sub-cells and nodes. This numbering is used throughout the
         # discretization.
-        subcell_topology = fvutils.SubcellTopology(g)
+        subcell_topology = pp.fvutils.SubcellTopology(g)
 
         # Below, the boundary conditions should be defined on the subfaces.
         if bnd.num_faces == subcell_topology.num_subfno_unique:
             # The boundary conditions is already given on the subfaces
+            subcell_bnd = bnd
             subface_rhs = True
         else:
             # If bnd is not already a sub-face_bound we extend it
-            bnd = pp.fvutils.boundary_to_sub_boundary(bnd, subcell_topology)
+            subcell_bnd = pp.fvutils.boundary_to_sub_boundary(bnd, subcell_topology)
             subface_rhs = False
         # IS: Correct this paragraph!
         # Obtain normal_vector * k, pairings of cells and nodes (which together
@@ -658,7 +656,7 @@ class Mpfa(FVElliptic):
         # The normal vectors used in the product are simply the face normals
         # (with areas downscaled to account for subfaces). The sign of
         # nk_grad_all coincides with the direction of the normal vector.
-        nk_grad_all, cell_node_blocks, sub_cell_index = fvutils.scalar_tensor_vector_prod(
+        nk_grad_all, cell_node_blocks, sub_cell_index = pp.fvutils.scalar_tensor_vector_prod(
             g, k, subcell_topology
         )
 
@@ -676,7 +674,9 @@ class Mpfa(FVElliptic):
         #    interior subfaces, and on faces on the boundary.
         # NOTE: The second operation is reversed for Robin boundary conditions,
         #       see below.
-        pr_cont_grad_paired = fvutils.compute_dist_face_cell(g, subcell_topology, eta)
+        pr_cont_grad_paired = pp.fvutils.compute_dist_face_cell(
+            g, subcell_topology, eta
+        )
 
         # Discretized Darcy's law: The flux over a subface is given by the
         # area weighted normal vector, multiplied with the subcell permeability,
@@ -733,7 +733,7 @@ class Mpfa(FVElliptic):
         ## Discretize the Robin condition.
         # This takes the form
         #
-        #   f + bnd.robin_weight * pressure_face * subface_area = something.
+        #   f + subcell_bnd.robin_weight * pressure_face * subface_area = something.
         #
         # The scaling is important here: The f is a flux integrated over the
         # half face, thus the scaling with the subface area is necessary.
@@ -758,7 +758,7 @@ class Mpfa(FVElliptic):
         # below (in computation of pr_cont_grad).
         num_nodes = np.diff(g.face_nodes.indptr)
         sgn_scaled_by_subface_area = (
-            bnd.robin_weight
+            subcell_bnd.robin_weight
             * sgn_unique
             * g.face_areas[subcell_topology.fno_unique]
             / num_nodes[subcell_topology.fno_unique]
@@ -769,7 +769,7 @@ class Mpfa(FVElliptic):
         # Contribution from gradient.
         pr_trace_cell_all = sps.coo_matrix(
             (
-                bnd.robin_weight[subcell_topology.subfno]
+                subcell_bnd.robin_weight[subcell_topology.subfno]
                 * g.face_areas[subcell_topology.fno]
                 / num_nodes[subcell_topology.fno],
                 (subcell_topology.subfno, subcell_topology.cno),
@@ -789,7 +789,9 @@ class Mpfa(FVElliptic):
         # The boundary faces will have either a Dirichlet or Neumann condition, or
         # Robin condition
         # Obtain mappings to exclude boundary faces.
-        bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bnd, g.dim)
+        bound_exclusion = pp.fvutils.ExcludeBoundaries(
+            subcell_topology, subcell_bnd, g.dim
+        )
 
         # No flux conditions for Dirichlet and Robin boundary faces
         nk_grad_n = bound_exclusion.exclude_robin_dirichlet(nk_grad_paired)
@@ -899,7 +901,7 @@ class Mpfa(FVElliptic):
         # Invert the system, and map back to the original form
         igrad = (
             cols2blk_diag
-            * fvutils.invert_diagonal_blocks(grad, size_of_blocks, method=inverter)
+            * pp.fvutils.invert_diagonal_blocks(grad, size_of_blocks, method=inverter)
             * rows2blk_diag
         )
 
@@ -944,7 +946,7 @@ class Mpfa(FVElliptic):
 
         # Boundary conditions
         rhs_bound = self._create_bound_rhs(
-            bnd,
+            subcell_bnd,
             bound_exclusion,
             subcell_topology,
             sgn_unique,
@@ -1002,7 +1004,7 @@ class Mpfa(FVElliptic):
             )
 
             # Output should be on cell-level (not sub-cell)
-            sc2c = fvutils.cell_vector_to_subcell(
+            sc2c = pp.fvutils.cell_vector_to_subcell(
                 g.dim, sub_cell_index, cell_node_blocks[0]
             )
 
