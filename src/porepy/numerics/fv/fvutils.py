@@ -1513,16 +1513,28 @@ def compute_darcy_flux(
         else:
             return d[pp.STATE][var]
 
+    def calculate_flux(param_dict, mat_dict, d):
+        # Calculate the flux. First contributions from pressure and boundary conditions
+        dis = (
+            mat_dict["flux"] * extract_variable(data, p_name)
+            + mat_dict["bound_flux"] * param_dict["bc_values"]
+        )
+        # Discretization of vector source terms
+        vector_source_discr = mat_dict["vector_source"]
+        # Get the actual source term - put to zero if not provided
+        vector_source = param_dict.get(
+            "vector_source", np.zeros(vector_source_discr.shape[1])
+        )
+        dis += vector_source_discr * vector_source
+        return dis
+
     if keyword_store is None:
         keyword_store = keyword
     if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
         parameter_dictionary = data[pp.PARAMETERS][keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
         if "flux" in matrix_dictionary:
-            dis = (
-                matrix_dictionary["flux"] * extract_variable(data, p_name)
-                + matrix_dictionary["bound_flux"] * parameter_dictionary["bc_values"]
-            )
+            dis = calculate_flux(parameter_dictionary, matrix_dictionary, data)
         else:
             raise ValueError(
                 """Darcy_Flux can only be computed if a flux-based
@@ -1537,10 +1549,7 @@ def compute_darcy_flux(
         parameter_dictionary = d[pp.PARAMETERS][keyword]
         matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][keyword]
         if "flux" in matrix_dictionary:
-            dis = (
-                matrix_dictionary["flux"] * extract_variable(d, p_name)
-                + matrix_dictionary["bound_flux"] * parameter_dictionary["bc_values"]
-            )
+            dis = calculate_flux(parameter_dictionary, matrix_dictionary, data)
         else:
             raise ValueError(
                 """Darcy_Flux can only be computed if a flux-based
