@@ -7,13 +7,12 @@ The implementation is based on the weakly symmetric version of MPSA, described i
         IJNME, 2017.
 
 """
-import warnings
 import numpy as np
 import scipy.sparse as sps
 import logging
 import porepy as pp
 from time import time
-from typing import Dict, Tuple, Any, Generator
+from typing import Dict, Tuple, Any
 
 from porepy.numerics.discretization import Discretization
 

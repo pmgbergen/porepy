@@ -2,7 +2,6 @@
 Implementation of the multi-point flux approximation O-method.
 
 """
-import warnings
 import numpy as np
 import scipy.sparse as sps
 
@@ -71,7 +70,7 @@ class Mpfa(pp.FVElliptic):
             bound_pressure_face: sps.csc_matrix (g.num_faces, g.num_faces)
                 Operator for reconstructing the pressure trace. Face contribution
             vector_source: sps.csc_matrix (g.num_faces, g.num_cells*dim)
-                Discretization of the flux due to vector source term, cell center 
+                Discretization of the flux due to vector source term, cell center
                 contribution.
 
         """
@@ -104,7 +103,7 @@ class Mpfa(pp.FVElliptic):
         )
 
         # Extract a grid, and get global indices of its active faces and nodes
-        active_grid, extracted_faces, extracted_nodes = pp.partition.extract_subgrid(
+        active_grid, extracted_faces, _ = pp.partition.extract_subgrid(
             g, active_cells
         )
         # Constitutive law and boundary condition for the active grid
