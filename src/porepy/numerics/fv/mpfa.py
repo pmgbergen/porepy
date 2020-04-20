@@ -70,7 +70,7 @@ class Mpfa(pp.FVElliptic):
                 Operator for reconstructing the pressure trace. Cell center contribution
             bound_pressure_face: sps.csc_matrix (g.num_faces, g.num_faces)
                 Operator for reconstructing the pressure trace. Face contribution
-            div_vector_source: sps.csc_matrix (g.num_faces, g.num_cells*dim)
+            vector_source: sps.csc_matrix (g.num_faces, g.num_cells*dim)
                 Discretization of the flux due to vector source term, cell center 
                 contribution.
 
@@ -308,7 +308,7 @@ class Mpfa(pp.FVElliptic):
                 active_faces
             ] = bound_pressure_face_glob[active_faces]
 
-            matrix_dictionary[self.div_vector_source_key][
+            matrix_dictionary[self.vector_source_key][
                 active_faces
             ] = vector_source_glob[active_faces]
 
@@ -321,7 +321,7 @@ class Mpfa(pp.FVElliptic):
             matrix_dictionary[
                 self.bound_pressure_face_matrix_key
             ] = bound_pressure_face_glob
-            matrix_dictionary[self.div_vector_source_key] = vector_source_glob
+            matrix_dictionary[self.vector_source_key] = vector_source_glob
 
     def _flux_discretization(self, g, k, bnd, inverter, eta=None):
         """
@@ -388,7 +388,7 @@ class Mpfa(pp.FVElliptic):
                 matrix_dictionary[self.bound_flux_matrix_key],
                 matrix_dictionary[self.bound_pressure_cell_matrix_key],
                 matrix_dictionary[self.bound_pressure_face_matrix_key],
-                matrix_dictionary[self.div_vector_source_key],
+                matrix_dictionary[self.vector_source_key],
             )
 
         elif g.dim == 0:
@@ -754,7 +754,7 @@ class Mpfa(pp.FVElliptic):
         # as a force on a subface due to imbalance in cell-center vector sources.
         # This term is computed on a sub-cell basis
         # and has dimensions (num_subfaces, num_subcells * nd)
-        discr_div_vector_source = self._discretize_div_vector_source(
+        discr_vector_source = self._discretize_vector_source(
             g,
             subcell_topology,
             bound_exclusion,
@@ -769,17 +769,17 @@ class Mpfa(pp.FVElliptic):
             g.dim, sub_cell_index, cell_node_blocks[0]
         )
 
-        div_vector_source = hf2f * discr_div_vector_source * sc2c
+        vector_source = hf2f * discr_vector_source * sc2c
 
         return (
             flux,
             bound_flux,
             pressure_trace_cell,
             pressure_trace_bound,
-            div_vector_source,
+            vector_source,
         )
 
-    def _discretize_div_vector_source(
+    def _discretize_vector_source(
         self,
         g,
         subcell_topology,
@@ -825,20 +825,20 @@ class Mpfa(pp.FVElliptic):
             (iii) 0            D * p_cc = 0
         Thus (i)-(iii) can be inverted to express the additional pressure gradients
         due to imbalance in vector sources as in terms of the cell center variables.
-        Thus we can compute the basis functions 'div_vector_source_jumps' on the sub-cells.
+        Thus we can compute the basis functions 'vector_source_jumps' on the sub-cells.
         To ensure flux continuity, as soon as a convention is chosen for what side
         the flux evaluation should be considered on, an additional term, called
-        'div_vector_source_faces', is added to the full flux. This latter term represents the flux
+        'vector_source_faces', is added to the full flux. This latter term represents the flux
         due to cell-center vector source acting on the face from the chosen side.
         The pair subfno_unique-unique_subfno gives the side convention.
         The full flux on the face is therefore given by
-        q = flux * p + bound_flux * p_b + (div_vector_source_jumps + div_vector_source_faces) * vector_source
+        q = flux * p + bound_flux * p_b + (vector_source_jumps + vector_source_faces) * vector_source
 
-        Output: div_vector_source = div_vector_source_jumps + div_vector_source_faces
+        Output: vector_source = vector_source_jumps + vector_source_faces
 
         The strategy is as follows.
-        1. assemble r.h.s. for the new linear system, needed for the term 'div_vector_source_jumps'
-        2. compute term 'div_vector_source_faces'
+        1. assemble r.h.s. for the new linear system, needed for the term 'vector_source_jumps'
+        2. compute term 'vector_source_faces'
         """
 
         num_subfno = subcell_topology.num_subfno
@@ -881,7 +881,7 @@ class Mpfa(pp.FVElliptic):
         # prepare for computation of imbalance coefficients,
         # that is jumps in cell-centers vector sources, ready to be
         # multiplied with inverse gradients
-        div_vector_source_jumps = -darcy * igrad * rhs_units * nk_grad_paired
+        vector_source_jumps = -darcy * igrad * rhs_units * nk_grad_paired
 
         # Step 2
 
@@ -897,9 +897,9 @@ class Mpfa(pp.FVElliptic):
         )
 
         # Prepare for computation of div_vector_source_faces term
-        div_vector_source_faces = map_unique_subfno * nk_grad_all
+        vector_source_faces = map_unique_subfno * nk_grad_all
 
-        return div_vector_source_jumps + div_vector_source_faces
+        return vector_source_jumps + vector_source_faces
 
     """
     The functions below are helper functions, which are not really necessary to
