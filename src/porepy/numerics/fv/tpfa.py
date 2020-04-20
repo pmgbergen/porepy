@@ -25,7 +25,7 @@ class Tpfa(pp.FVElliptic):
     def __init__(self, keyword):
         super(Tpfa, self).__init__(keyword)
 
-    def discretize(self, g, data, faces=None):
+    def discretize(self, g, data):
         """
         Discretize the second order elliptic equation using two-point flux approximation.
 
@@ -69,26 +69,19 @@ class Tpfa(pp.FVElliptic):
         ----------
         g (pp.Grid): grid, or a subclass, with geometry fields computed.
         data (dict): For entries, see above.
-        faces (np.ndarray): optional. Defines active faces.
         """
         # Get the dictionaries for storage of data and discretization matrices
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         if g.dim == 0:
+            # Short cut for 0d grids
             matrix_dictionary[self.flux_matrix_key] = sps.csr_matrix([0])
             matrix_dictionary[self.bound_flux_matrix_key] = sps.csr_matrix([0])
             matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csr_matrix([1])
             matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csr_matrix([0])
             matrix_dictionary[self.vector_source_key] = sps.csr_matrix([0])
             return None
-        if faces is None:
-            is_not_active = np.zeros(g.num_faces, dtype=np.bool)
-        else:
-            is_active = np.zeros(g.num_faces, dtype=np.bool)
-            is_active[faces] = True
-
-            is_not_active = np.logical_not(is_active)
 
         # Extract parameters
         k = parameter_dictionary["second_order_tensor"]
@@ -139,7 +132,7 @@ class Tpfa(pp.FVElliptic):
         t_b[is_dir] = -t[is_dir]
         t_b[is_neu] = 1
         t_b = t_b[bndr_ind]
-        t[np.logical_or(is_neu, is_not_active)] = 0
+        t[is_neu] = 0
         # Create flux matrix
         flux = sps.coo_matrix((t[fi] * sgn, (fi, ci))).tocsr()
 
