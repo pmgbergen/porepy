@@ -714,8 +714,6 @@ class ContactConditionColoumb2d(unittest.TestCase):
         self.verify(model)
 
 
-
-
 class ContactModel2d(ContactMechanics):
     def __init__(self, angle, u_mortar, contact_force, pos_tangent, pos_normal):
         super().__init__({})

@@ -5,7 +5,6 @@ from porepy.grids.grid import Grid
 
 
 class PointGrid(Grid):
-
     def __init__(self, pt: np.ndarray, name: str = None) -> None:
         """
         Constructor for 0D grid

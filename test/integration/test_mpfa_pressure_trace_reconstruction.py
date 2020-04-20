@@ -22,7 +22,9 @@ class MpfaReconstructPressure(unittest.TestCase):
         bc = pp.BoundaryCondition(g)
 
         mpfa = pp.Mpfa("flow")
-        _, _, grad_cell, grad_bound, *_ = mpfa._flux_discretization(g, k, bc, inverter="python")
+        _, _, grad_cell, grad_bound, *_ = mpfa._flux_discretization(
+            g, k, bc, inverter="python"
+        )
 
         grad_bound_known = np.array(
             [

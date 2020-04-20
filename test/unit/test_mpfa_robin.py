@@ -170,7 +170,7 @@ class RobinBoundTest(unittest.TestCase):
         self, g, k, bnd, robin_weight, p_bound, rob_bound, dir_ind, rob_ind, p_ex, u_ex
     ):
         bnd.robin_weight = robin_weight * np.ones(g.num_faces)
-        
+
         flux, bound_flux, *_ = pp.Mpfa("Flow")._flux_discretization(
             g, k, bnd, inverter="python"
         )

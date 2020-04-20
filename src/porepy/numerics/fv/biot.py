@@ -403,7 +403,9 @@ class Biot(pp.Mpsa):
         # NOTE: active_faces are all faces to have their stencils updated, while
         # active_cells may form a larger set (to accurately update all faces on a
         # subgrid, it is necessary to assign some overlap in terms cells).
-        active_cells, active_faces = pp.fvutils.find_active_indices(parameter_dictionary, g)
+        active_cells, active_faces = pp.fvutils.find_active_indices(
+            parameter_dictionary, g
+        )
 
         # Extract a grid, and get global indices of its active faces and nodes
         active_grid, extracted_faces, extracted_nodes = pp.partition.extract_subgrid(
@@ -444,7 +446,9 @@ class Biot(pp.Mpsa):
         for (
             reg_i,
             (sub_g, faces_in_subgrid, cells_in_subgrid, l2g_cells, l2g_faces),
-        ) in enumerate(pp.fvutils.subproblems(active_grid, max_memory, peak_memory_estimate)):
+        ) in enumerate(
+            pp.fvutils.subproblems(active_grid, max_memory, peak_memory_estimate)
+        ):
 
             tic = time()
             # Copy stiffness tensor, and restrict to local cells

@@ -13,6 +13,7 @@ import numpy as np
 
 import porepy as pp
 
+
 class TestFractureBoundaryIntersection(unittest.TestCase):
     def setup(self):
         self.f_1 = pp.Fracture(
