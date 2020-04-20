@@ -500,8 +500,10 @@ class TiltedGrids(unittest.TestCase):
         # The solution should be equal for equal x-coordinate
         self.assertTrue(np.allclose(p_x[0], p_x[2]))
         self.assertTrue(np.allclose(p_x[1], p_x[3]))
+        
+        data[pp.STATE] = {'pressure': p_x}
+        pp.fvutils.compute_darcy_flux(g, data=data)
 
 
 if __name__ == "__main__":
-    TiltedGrids().test_assembly()
-    # unittest.main()
+    unittest.main()
