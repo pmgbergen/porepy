@@ -61,7 +61,7 @@ To function optimally, PorePy should have access to some more packages:
 *  `pymetis` (for mesh partitioning).
 * Some computationally expensive methods can be accelerated with `Cython` or `Numba`.
 * We use `shapely` for certain geometry-operations.
-* Meshing: currently by [gmsh](http://gmsh.info/doc/texinfo/gmsh.html). For its configuration see [Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
+* Meshing: currently by [gmsh](http://gmsh.info/doc/texinfo/gmsh.html).
 
 # Testing
 To test build locally, the second command requires gmsh (see [Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md))
