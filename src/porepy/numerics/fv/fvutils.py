@@ -1516,7 +1516,7 @@ def compute_darcy_flux(
     def calculate_flux(param_dict, mat_dict, d):
         # Calculate the flux. First contributions from pressure and boundary conditions
         dis = (
-            mat_dict["flux"] * extract_variable(data, p_name)
+            mat_dict["flux"] * extract_variable(d, p_name)
             + mat_dict["bound_flux"] * param_dict["bc_values"]
         )
         # Discretization of vector source terms
@@ -1549,7 +1549,7 @@ def compute_darcy_flux(
         parameter_dictionary = d[pp.PARAMETERS][keyword]
         matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][keyword]
         if "flux" in matrix_dictionary:
-            dis = calculate_flux(parameter_dictionary, matrix_dictionary, data)
+            dis = calculate_flux(parameter_dictionary, matrix_dictionary, d)
         else:
             raise ValueError(
                 """Darcy_Flux can only be computed if a flux-based
