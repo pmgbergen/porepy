@@ -190,9 +190,6 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         for e, data_edge in self.gb.edges():
             g_l, g_h = self.gb.nodes_of_edge(e)
             mg = data_edge["mortar_grid"]
-            import pdb
-
-            # pdb.set_trace()
             a_l = self.aperture(g_l)
             # Take trace of and then project specific volumes from g_h
             v_h = (
