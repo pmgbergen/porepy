@@ -55,7 +55,7 @@ class Tpfa(pp.FVElliptic):
                 Operator for reconstructing the pressure trace. Cell center contribution
             bound_pressure_face: sps.csc_matrix (g.num_faces, g.num_faces)
                 Operator for reconstructing the pressure trace. Face contribution
-            div_vector_source: sps.csc_matrix (g.num_faces)
+            vector_source: sps.csc_matrix (g.num_faces)
                 discretization of flux due to vector source, e.g. gravity. Face contribution.
                 Active only if vector_source = True, and only for 1D.
 

@@ -334,7 +334,26 @@ def subproblems(
         yield sub_g, loc_faces, cells_in_partition, l2g_cells, l2g_faces
 
 
-def remove_nonlocal_contribution(raw_ind: np.ndarray, nd: int, *args: Any) -> None:
+def remove_nonlocal_contribution(
+    raw_ind: np.ndarray, nd: int, *args: sps.spmatrix
+) -> None:
+    """
+    For a set of matrices, zero out rows associated with given faces, adjusting for
+    the matrices being related to vector quantities if necessary.
+
+    Example: If raw_ind = np.array([2]), and nd = 2, rows 4 and 5 will be eliminated
+        (row 0 and 1 will in this case be associated with face 0, row 2 and 3 with face
+         1).
+
+    Args:
+        raw_ind (np.ndarray): Face indices to have their rows eliminated.
+        nd (int): Spatial dimension. Needed to map face indices to rows.
+        *args (sps.spmatrix): Set of matrices. Will be eliminated in place.
+
+    Returns:
+        None: DESCRIPTION.
+
+    """
     eliminate_ind = pp.fvutils.expand_indices_nd(raw_ind, nd)
     for mat in args:
         pp.fvutils.zero_out_sparse_rows(mat, eliminate_ind)
@@ -1416,7 +1435,7 @@ def map_subgrid_to_grid(
         loc_cells (np.ndarray): For each cell in the subgrid, the index of the
             corresponding cell in the larger grid.
         is_vector (bool): If True, the returned mappings are sized to fit with vector
-            variables, with g.dim elements per cell and face.
+            variables, with nd elements per cell and face.
         nd (int, optional): Dimension. Defaults to g.dim.
 
     Retuns:
