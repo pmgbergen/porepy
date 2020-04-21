@@ -173,7 +173,7 @@ class BasicsTest(unittest.TestCase):
         if not if_vtk:
             return
 
-        gb = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
+        gb, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
 
         gb.add_node_props(["scalar_dummy", "dummy_vector"])
 
@@ -210,7 +210,7 @@ class BasicsTest(unittest.TestCase):
     def test_gb_2(self):
         if not if_vtk:
             return
-        gb = pp.grid_buckets_2d.two_intersecting(
+        gb, _ = pp.grid_buckets_2d.two_intersecting(
             [4, 4], y_endpoints=[0.25, 0.75], simplex=False
         )
         gb.add_node_props(["dummy_scalar", "dummy_vector"])

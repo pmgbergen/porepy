@@ -65,7 +65,7 @@ class THM(parent_model.ContactMechanicsBiot):
         # Temperature mechanics coupling
         self.mechanics_temperature_parameter_key = "mech_temperature"
 
-    def set_parameters(self):
+    def set_parameters(self) -> None:
         """
         Set the parameters for the simulation.
         """
@@ -89,8 +89,6 @@ class THM(parent_model.ContactMechanicsBiot):
         """
         TM coupling coefficient
         """
-        if g.dim < self.Nd:
-            return 1.0 / self.T_0_Kelvin
         return 1.0
 
     def scalar_temperature_coupling_coefficient(self, g: pp.Grid) -> float:
@@ -122,13 +120,9 @@ class THM(parent_model.ContactMechanicsBiot):
         # Most values are handled as if this was a poro-elastic problem
         super().set_scalar_parameters()
         for g, d in self.gb:
-            a = self.compute_aperture(g)
-            specific_volume = np.power(a, self.gb.dim_max() - g.dim) * np.ones(
-                g.num_cells
-            )
             t2s_coupling = (
                 self.scalar_temperature_coupling_coefficient(g)
-                * specific_volume
+                * self.specific_volume(g)
                 * self.temperature_scale
             )
             pp.initialize_data(
@@ -145,7 +139,6 @@ class THM(parent_model.ContactMechanicsBiot):
         kappa: float = 1 * tensor_scale
         heat_capacity = 1
         mass_weight: float = heat_capacity * self.temperature_scale / self.T_0_Kelvin
-
         for g, d in self.gb:
             # By default, we set the same type of boundary conditions as for the
             # pressure problem, that is, zero Dirichlet everywhere
@@ -153,10 +146,7 @@ class THM(parent_model.ContactMechanicsBiot):
             bc_values = self.bc_values_temperature(g)
             source_values = self.source_temperature(g)
 
-            a = self.compute_aperture(g)
-            specific_volume = np.power(a, self.gb.dim_max() - g.dim) * np.ones(
-                g.num_cells
-            )
+            specific_volume = self.specific_volume(g)
             thermal_conductivity = pp.SecondOrderTensor(
                 kappa * specific_volume * np.ones(g.num_cells)
             )
@@ -189,12 +179,25 @@ class THM(parent_model.ContactMechanicsBiot):
                 {"mass_weight": s2t_coupling, "time_step": self.time_step},
             )
         # Assign diffusivity in the normal direction of the fractures.
+        # Also initialize fluxes.
         for e, data_edge in self.gb.edges():
-            g1, _ = self.gb.nodes_of_edge(e)
-            a = self.compute_aperture(g1)
+            g_l, g_h = self.gb.nodes_of_edge(e)
             mg = data_edge["mortar_grid"]
 
-            normal_diffusivity = kappa * 2 / (mg.slave_to_mortar_int() * a)
+            a_l = self.aperture(g_l)
+            v_h = (
+                mg.master_to_mortar_avg()
+                * np.abs(g_h.cell_faces)
+                * self.specific_volume(g_h)
+            )  #
+            # Division by a/2 may be thought of as taking the gradient in the normal
+            # direction of the fracture.
+            normal_diffusivity = kappa * 2 / (mg.slave_to_mortar_avg() * a_l)
+            # The interface flux is to match fluxes across faces of g_h,
+            # and therefore need to be weighted by the corresponding
+            # specific volumes
+            normal_diffusivity *= v_h
+
             data_edge = pp.initialize_data(
                 e,
                 data_edge,
@@ -205,7 +208,7 @@ class THM(parent_model.ContactMechanicsBiot):
                 },
             )
 
-    def assign_variables(self):
+    def assign_variables(self) -> None:
         """
         Assign primary variables to the nodes and edges of the grid bucket.
         """
@@ -467,7 +470,7 @@ class THM(parent_model.ContactMechanicsBiot):
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
-    def before_newton_iteration(self):
+    def before_newton_iteration(self) -> None:
         """ Re-discretize the nonlinear terms
         """
         self.compute_fluxes()
