@@ -53,6 +53,7 @@ class ColoumbContact:
         self.rhs_discretization = "contact_rhs"
 
         self.discr_h = discr_h
+        # Tolerance used to define numbers that effectively are zero.
         self.tol = 1e-10
 
     def _key(self) -> str:
