@@ -42,8 +42,6 @@ class Mpfa(pp.FVElliptic):
                 Stored in data[pp.PARAMETERS][self.keyword].
             matrix_dictionary, for storage of discretization matrices.
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
-            deviation_from_plane_tol: The geometrical tolerance, used in the check to
-                rotate 2d grids
 
         parameter_dictionary contains the entries:
             second_order_tensor: (SecondOrderTensor) Permeability defined
@@ -263,7 +261,9 @@ class Mpfa(pp.FVElliptic):
             vector_source_glob *= glob_R
 
         elif g.dim == 1 and vector_source_dim > 1:
-            # Get a unit vector in the direction of the grid
+            # In this case, Tpfa.discretize() has been invoked. There are no rotations
+            # therein, so no need to worry about getting the right coordinate axis.
+            # Simply get a unit vector in the direction of the grid
             direction = np.diff(g.nodes[:, :2], axis=1)
             dir_vec = direction / np.linalg.norm(direction)
             # The vector should be the same size as the ambient dimension
@@ -1159,7 +1159,7 @@ class Mpfa(pp.FVElliptic):
                 which the new conditions should be picked.
 
         Returns:
-            BoundaryConditionVectorial: New bc object, aimed at a smaller grid.
+            BoundaryCondition: New bc object, aimed at a smaller grid.
             Will have type of boundary condition, basis and robin_weight copied
             from the specified faces in the original grid.
 
@@ -1182,8 +1182,6 @@ class Mpfa(pp.FVElliptic):
         # Copy stiffness tensor, and restrict to local cells
         loc_c = constit.copy()
         loc_c.values = loc_c.values[::, ::, loc_cells]
-        # Also restrict the lambda and mu fields; we will copy the stiffness
-        # tensors later.
         return loc_c
 
 
