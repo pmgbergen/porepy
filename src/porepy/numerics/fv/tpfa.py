@@ -168,12 +168,22 @@ class Tpfa(pp.FVElliptic):
 
         # discretization of vector source
         # e.g. gravity in Darcy's law
-        # Implementation of standard method in 1D
-        # employing harmonic average of cell transmissibilities
-        # ready to be multiplied with arithmetic average of cell vector sources.
-        # This is only constructed for 1d problems; for higher dimensions, mpfa should
-        # be invoked.
-        data = t[fi] * np.linalg.norm(fc_cc, 2, axis=0)
-        matrix_dictionary[self.vector_source_key] = sps.coo_matrix(
-            (data, (fi, ci))
-        ).tocsr()
+        # Use harmonic average of cell transmissibilities
+
+        # Ambient dimension of the grid
+        vector_source_dim: int = parameter_dictionary.get("ambient_dimension", g.dim)
+
+        # The discretization involves the transmissibilities, multiplied with the
+        # distance between cell and face centers, and with the sgn adjustment (or else)
+        # the vector source will point in the wrong direction in certain cases.
+        # See Starnoni et al 2020, WRR for details.
+        data = (t[fi] * fc_cc * sgn)[:vector_source_dim].ravel("f")
+
+        # Rows and cols are given by fi / ci, expanded to account for the vector source
+        # having multiple dimensions
+        rows = np.tile(fi, (vector_source_dim, 1)).ravel("f")
+        cols = pp.fvutils.expand_indices_nd(ci, vector_source_dim)
+
+        vector_source = sps.coo_matrix((data, (rows, cols))).tocsr()
+
+        matrix_dictionary[self.vector_source_key] = vector_source
