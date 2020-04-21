@@ -133,24 +133,24 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         p = self.solve(gb)
 
-        self.assertTrue(np.all(p[:3] == 1))
-        self.assertTrue(np.all(p[3:] == 0))
+        self.assertTrue(np.allclose(p[:3], 1))
+        self.assertTrue(np.allclose(p[3:], 0))
 
     def test_tpfa_matching_grids_refine_1d_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
         self.set_param_flow(gb, no_flow=True, method="tpfa")
 
         p = self.solve(gb)
-        self.assertTrue(np.all(p[:4] == 1))
-        self.assertTrue(np.all(p[4:] == 0))
+        self.assertTrue(np.allclose(p[:4], 1))
+        self.assertTrue(np.allclose(p[4:], 0))
 
     def test_tpfa_matching_grids_refine_mortar_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
         self.set_param_flow(gb, no_flow=True, method="tpfa")
 
         p = self.solve(gb)
-        self.assertTrue(np.all(p[:3] == 1))
-        self.assertTrue(np.all(p[3:] == 0))
+        self.assertTrue(np.allclose(p[:3], 1))
+        self.assertTrue(np.allclose(p[3:], 0))
 
     def test_tpfa_matching_grids_uniform_flow(self):
 
@@ -239,8 +239,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         p = self.solve(gb, "mpfa")
 
-        self.assertTrue(np.all(p[:3] == 1))
-        self.assertTrue(np.all(p[3:] == 0))
+        self.assertTrue(np.allclose(p[:3], 1))
+        self.assertTrue(np.allclose(p[3:], 0))
 
     def test_mvem_matching_grids_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
@@ -248,8 +248,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         p = self.solve(gb, "mvem")
 
-        self.assertTrue(np.all(p[:3] == 1))
-        self.assertTrue(np.all(p[3:] == 0))
+        self.assertTrue(np.allclose(p[:3], 1))
+        self.assertTrue(np.allclose(p[3:], 0))
 
     def test_mpfa_matching_grids_refine_1d_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
@@ -257,8 +257,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         p = self.solve(gb, "mpfa")
 
-        self.assertTrue(np.all(p[:4] == 1))
-        self.assertTrue(np.all(p[4:] == 0))
+        self.assertTrue(np.allclose(p[:4], 1))
+        self.assertTrue(np.allclose(p[4:], 0))
 
     def test_mvem_matching_grids_refine_1d_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
@@ -274,8 +274,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         p = self.solve(gb, "mpfa")
 
-        self.assertTrue(np.all(p[:3] == 1))
-        self.assertTrue(np.all(p[3:] == 0))
+        self.assertTrue(np.allclose(p[:3], 1))
+        self.assertTrue(np.allclose(p[3:], 0))
 
     def test_mvem_matching_grids_refine_mortar_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
@@ -1087,5 +1087,4 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    TestMortar2dSingleFractureCartesianGrid().test_tpfa_matching_grids_uniform_flow_larger_domain()
     unittest.main()

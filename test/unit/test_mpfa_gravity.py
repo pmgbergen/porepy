@@ -205,12 +205,11 @@ class TiltedGrids(unittest.TestCase):
         params = {
             "bc": bc,
             "second_order_tensor": k,
-            "inverter": "python",
+            "mpfa_inverter": "python",
             "ambient_dimension": ambient_dim,
         }
 
         data = pp.initialize_data(g, {}, self.keyword, params)
-
         discr = pp.Mpfa(self.keyword)
         discr.discretize(g, data)
 
@@ -479,7 +478,7 @@ class TiltedGrids(unittest.TestCase):
             "bc": bc,
             "bc_values": np.zeros(g.num_faces),
             "second_order_tensor": k,
-            "inverter": "python",
+            "mpfa_inverter": "python",
             "ambient_dimension": ambient_dim,
             "vector_source": g_x,
         }
