@@ -180,5 +180,5 @@ class SetupContactMechanics(
 
 
 if __name__ == "__main__":
-    TestContactMechanics().test_displace_south_x_nonconstant_gap()
+    
     unittest.main()
