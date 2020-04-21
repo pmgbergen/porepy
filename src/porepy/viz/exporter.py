@@ -358,7 +358,9 @@ class Exporter:
         if self.is_GridBucket:
             for time, fn in zip(timestep, file_extension):
                 for dim in self.dims:
-                    o_file.write(fm % (time, self._make_file_name(self.file_name, fn, dim)))
+                    o_file.write(
+                        fm % (time, self._make_file_name(self.file_name, fn, dim))
+                    )
         else:
             for time, fn in zip(timestep, file_extension):
                 o_file.write(fm % (time, self._make_file_name(self.file_name, fn)))
@@ -541,7 +543,9 @@ class Exporter:
         # grids (or mortar grids) of this dimension are included in the vtk export
         for dim in self.dims:
             if self.gb_VTK[dim] is not None:
-                o_file.write(fm % self._make_file_name(self.file_name, time_step, dim=dim))
+                o_file.write(
+                    fm % self._make_file_name(self.file_name, time_step, dim=dim)
+                )
         for dim in self.m_dims:
             if self.m_gb_VTK[dim] is not None:
                 o_file.write(
@@ -849,15 +853,22 @@ class Exporter:
 
         return gVTK
 
-
     def _point_ind(
-        self, cell_ptr, face_ptr, face_cells, nodes_faces, nodes, fc, normals, num_cell_nodes
+        self,
+        cell_ptr,
+        face_ptr,
+        face_cells,
+        nodes_faces,
+        nodes,
+        fc,
+        normals,
+        num_cell_nodes,
     ):
         cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=np.int)
         counter = 0
         for ci in range(cell_ptr.size - 1):
             loc_c = slice(cell_ptr[ci], cell_ptr[ci + 1])
-    
+
             for fi in face_cells[loc_c]:
                 loc_f = slice(face_ptr[fi], face_ptr[fi + 1])
                 ptsId = nodes_faces[loc_f]
@@ -882,32 +893,48 @@ class Exporter:
                     + (1.0 - np.cos(angle)) * np.linalg.matrix_power(W, 2)
                 )
                 # pts is now a npt x 3 matrix
-                pts = np.array([R.dot(nodes_loc[:, i]) for i in range(nodes_loc.shape[1])])
+                pts = np.array(
+                    [R.dot(nodes_loc[:, i]) for i in range(nodes_loc.shape[1])]
+                )
                 center = R.dot(fc[:, fi])
                 # Distance from projected points to center
                 delta = np.array([pts[i] - center for i in range(pts.shape[0])])[:, :2]
                 nrm = np.sqrt(delta[:, 0] ** 2 + delta[:, 1] ** 2)
                 delta = delta / nrm[:, np.newaxis]
-    
+
                 argsort = np.argsort(np.arctan2(delta[:, 0], delta[:, 1]))
                 cell_nodes[counter : (counter + num_p_loc)] = ptsId[argsort]
                 counter += num_p_loc
-    
+
         return cell_nodes
-    
-    
-    
+
     def _point_ind_numba(
-        self, cell_ptr, face_ptr, faces_cells, nodes_faces, nodes, fc, normals, num_cell_nodes
+        self,
+        cell_ptr,
+        face_ptr,
+        faces_cells,
+        nodes_faces,
+        nodes,
+        fc,
+        normals,
+        num_cell_nodes,
     ):
         import numba
+
         @numba.jit(
             "i4[:](i4[:],i4[:],i4[:],i4[:],f8[:,:],f8[:,:],f8[:,:],i4[:])",
             nopython=True,
             nogil=False,
         )
         def _function_to_compile(
-            cell_ptr, face_ptr, faces_cells, nodes_faces, nodes, fc, normals, num_cell_nodes
+            cell_ptr,
+            face_ptr,
+            faces_cells,
+            nodes_faces,
+            nodes,
+            fc,
+            normals,
+            num_cell_nodes,
         ):
             """ Implementation note: This turned out to be less than pretty, and quite
             a bit more explicit than the corresponding pure python implementation.
@@ -933,9 +960,12 @@ class Exporter:
                     # Hand code cross product, not supported by current numba version
                     vect = np.array(
                         [
-                            normals[1, fi] * reference[2] - normals[2, fi] * reference[1],
-                            normals[2, fi] * reference[0] - normals[0, fi] * reference[2],
-                            normals[0, fi] * reference[1] - normals[1, fi] * reference[0],
+                            normals[1, fi] * reference[2]
+                            - normals[2, fi] * reference[1],
+                            normals[2, fi] * reference[0]
+                            - normals[0, fi] * reference[2],
+                            normals[0, fi] * reference[1]
+                            - normals[1, fi] * reference[0],
                         ],
                         dtype=np.float64,
                     )
@@ -967,7 +997,9 @@ class Exporter:
                     center = np.zeros(3)
                     for i in range(3):
                         center[i] = (
-                            R[i, 0] * fc_loc[0] + R[i, 1] * fc_loc[1] + R[i, 2] * fc_loc[2]
+                            R[i, 0] * fc_loc[0]
+                            + R[i, 1] * fc_loc[1]
+                            + R[i, 2] * fc_loc[2]
                         )
                     for i in range(num_p):
                         for j in range(3):
@@ -987,8 +1019,16 @@ class Exporter:
                     argsort = np.argsort(np.arctan2(delta[0], delta[1]))
                     cell_nodes[counter : (counter + num_p_loc)] = ptsId[argsort]
                     counter += num_p_loc
-    
+
             return cell_nodes
 
-        return _function_to_compile(cell_ptr, face_ptr, faces_cells, nodes_faces,
-                                   nodes, fc, normals, num_cell_nodes)
+        return _function_to_compile(
+            cell_ptr,
+            face_ptr,
+            faces_cells,
+            nodes_faces,
+            nodes,
+            fc,
+            normals,
+            num_cell_nodes,
+        )

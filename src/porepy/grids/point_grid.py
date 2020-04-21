@@ -5,16 +5,14 @@ from porepy.grids.grid import Grid
 
 
 class PointGrid(Grid):
-
-    # ------------------------------------------------------------------------------#
-
-    def __init__(self, pt, name=None):
+    def __init__(self, pt: np.ndarray, name: str = None) -> None:
         """
         Constructor for 0D grid
 
         Parameters
-            pt (np.array): Point which represent the grid
-            name (str): Name of grid, passed to super constructor
+            pt (np.array): Point which represent the grid.
+            name (str): Name of grid, passed to super constructor.
+
         """
 
         name = "PointGrid" if name is None else name
@@ -24,6 +22,3 @@ class PointGrid(Grid):
         pt = np.asarray(pt).reshape((3, 1))
 
         super(PointGrid, self).__init__(0, pt, face_nodes, cell_faces, name)
-
-
-# ------------------------------------------------------------------------------#

@@ -54,9 +54,9 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         dir_x = np.array([0, 3, 4, 7, 8, 11])
         dir_y = np.array([22])
         dir_both = np.array([12, 13, 14])
-    
+
         bound = pp.BoundaryConditionVectorial(g)
-        
+
         bound.is_dir[0, dir_x] = True
         bound.is_neu[0, dir_x] = False
         bound.is_dir[1, dir_y] = True

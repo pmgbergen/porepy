@@ -162,6 +162,7 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
 
     return grids
 
+
 def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
     """ Generate a list of grids dimensions {1, 0}, starting from a gmsh mesh.
 
@@ -232,6 +233,7 @@ def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
             logger.info(s)
 
     return grids
+
 
 def tetrahedral_grid_from_gmsh(network, file_name, constraints=None, **kwargs):
     """ Generate a list of grids of dimensions {3, 2, 1, 0}, starting from a gmsh

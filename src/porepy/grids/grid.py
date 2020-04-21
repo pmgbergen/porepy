@@ -19,7 +19,7 @@ import porepy as pp
 from porepy.utils import matrix_compression, mcolon, tags
 
 
-class Grid(object):
+class Grid:
     """
     Parent class for all grids.
 
@@ -116,7 +116,7 @@ class Grid(object):
 
         # Add tag for the boundary faces
         if tags is None:
-            self.tags: Dict = {}
+            self.tags: Dict[str, np.ndarray] = {}
             self.initiate_face_tags()
             self.update_boundary_face_tag()
 
@@ -217,15 +217,15 @@ class Grid(object):
         self.name.append("Compute geometry")
 
         if self.dim == 0:
-            self.__compute_geometry_0d()
+            self._compute_geometry_0d()
         elif self.dim == 1:
-            self.__compute_geometry_1d()
+            self._compute_geometry_1d()
         elif self.dim == 2:
-            self.__compute_geometry_2d()
+            self._compute_geometry_2d()
         else:
-            self.__compute_geometry_3d()
+            self._compute_geometry_3d()
 
-    def __compute_geometry_0d(self):
+    def _compute_geometry_0d(self) -> None:
         "Compute 0D geometry"
         self.face_areas = np.ones(1)
         self.face_centers = self.nodes
@@ -234,7 +234,7 @@ class Grid(object):
         self.cell_volumes = np.ones(1)
         self.cell_centers = self.nodes
 
-    def __compute_geometry_1d(self):
+    def _compute_geometry_1d(self) -> None:
         "Compute 1D geometry"
 
         self.face_areas = np.ones(self.num_faces)
@@ -275,7 +275,7 @@ class Grid(object):
         )
         self.face_normals[:, flip] *= -1
 
-    def __compute_geometry_2d(self):
+    def _compute_geometry_2d(self) -> None:
         "Compute 2D geometry, with method motivated by similar MRST function"
 
         R = pp.map_geometry.project_plane_matrix(self.nodes, check_planar=False)
@@ -351,7 +351,7 @@ class Grid(object):
         self.face_centers = np.dot(R.T, self.face_centers)
         self.cell_centers = np.dot(R.T, self.cell_centers)
 
-    def __compute_geometry_3d(self):
+    def _compute_geometry_3d(self):
         """
         Helper function to compute geometry for 3D grids
 
@@ -602,20 +602,20 @@ class Grid(object):
         Get indices of all faces tagged as either fractures, domain boundary or
         tip.
         """
-        return self.__indices(tags.all_face_tags(self.tags))
+        return self._indices(tags.all_face_tags(self.tags))
 
     def get_all_boundary_nodes(self) -> np.ndarray:
         """
         Get indices of all nodes tagged as either fractures, domain boundary or
         tip.
         """
-        return self.__indices(tags.all_node_tags(self.tags))
+        return self._indices(tags.all_node_tags(self.tags))
 
     def get_boundary_faces(self) -> np.ndarray:
         """
         Get indices of all faces tagged as domain boundary.
         """
-        return self.__indices(self.tags["domain_boundary_faces"])
+        return self._indices(self.tags["domain_boundary_faces"])
 
     def get_internal_faces(self) -> np.ndarray:
         """
@@ -637,7 +637,7 @@ class Grid(object):
             np.ndarray (1d), index of nodes on the boundary
 
         """
-        return self.__indices(self.tags["domain_boundary_nodes"])
+        return self._indices(self.tags["domain_boundary_nodes"])
 
     def update_boundary_face_tag(self) -> None:
         """ Tag faces on the boundary of the grid with boundary tag.
@@ -863,7 +863,7 @@ class Grid(object):
                 raise ValueError(f"Wrong size of value for tag {key}")
 
     @staticmethod
-    def __indices(true_false: np.ndarray) -> np.ndarray:
+    def _indices(true_false: np.ndarray) -> np.ndarray:
         """ Shorthand for np.argwhere.
         """
         return np.argwhere(true_false).ravel("F")
