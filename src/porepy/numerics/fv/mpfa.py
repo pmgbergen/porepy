@@ -101,9 +101,7 @@ class Mpfa(pp.FVElliptic):
         )
 
         # Extract a grid, and get global indices of its active faces and nodes
-        active_grid, extracted_faces, _ = pp.partition.extract_subgrid(
-            g, active_cells
-        )
+        active_grid, extracted_faces, _ = pp.partition.extract_subgrid(g, active_cells)
         # Constitutive law and boundary condition for the active grid
         active_constit: pp.SecondOrderTensor = self._constit_for_subgrid(
             k, active_cells
@@ -126,8 +124,17 @@ class Mpfa(pp.FVElliptic):
         active_bound_pressure_cell = sps.csr_matrix((nf, nc))
         active_bound_pressure_face = sps.csr_matrix((nf, nf))
 
-        # Vector source term.
-        active_vector_source = sps.csr_matrix((nf, nc * max(g.dim, 1)))
+        # Vector source term. This is a bit involved, since, if g.dim == 1,
+        # discretization is outsourced to pp.Tpfa, and the computed discretization is
+        # in the right dimension relative to the ambient dimension. If g.dim != 1, the
+        # discretization is first computed relative to g.dim, and then rotated to the
+        # ambient dimension towards the end of this function (see construction of
+        # vector_source_glob). This leads to a few instances of if g.dim == 1 here
+        # and below.
+        if g.dim == 1:
+            active_vector_source = sps.csr_matrix((nf, nc * vector_source_dim))
+        else:
+            active_vector_source = sps.csr_matrix((nf, nc * max(g.dim, 1)))
 
         # Find an estimate of the peak memory need
         peak_memory_estimate = self._estimate_peak_memory(active_grid)
@@ -151,7 +158,12 @@ class Mpfa(pp.FVElliptic):
             )
 
             discr_fields = self._flux_discretization(
-                sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter
+                sub_g,
+                loc_c,
+                loc_bnd,
+                eta=eta,
+                inverter=inverter,
+                ambient_dimension=vector_source_dim,
             )
 
             # Eliminate contribution from faces already discretized (the dual grids /
@@ -189,9 +201,19 @@ class Mpfa(pp.FVElliptic):
             )
             # The vector source is a field of dimension vector_source_dim, and must
             # be mapped accordingly
-            _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
-                active_grid, l2g_faces, l2g_cells, is_vector=True, nd=max(g.dim, 1)
-            )
+            if g.dim == 1:
+                # The matrix is already adjusted to vector_source_dim, courtesy Tpfa.
+                _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
+                    active_grid,
+                    l2g_faces,
+                    l2g_cells,
+                    is_vector=True,
+                    nd=vector_source_dim,
+                )
+            else:
+                _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
+                    active_grid, l2g_faces, l2g_cells, is_vector=True, nd=max(1, g.dim)
+                )
 
             active_vector_source += face_map * loc_vector_source * cell_map_vec
 
@@ -210,9 +232,16 @@ class Mpfa(pp.FVElliptic):
         )
         # The vector source term has a vector-sized number of rows, and need a
         # different cell_map
-        _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
-            g, extracted_faces, active_cells, is_vector=True, nd=max(g.dim, 1)
-        )
+        if g.dim == 1:
+            # The matrix is already adjusted to vector_source_dim, courtesy Tpfa.
+            _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
+                g, extracted_faces, active_cells, is_vector=True, nd=vector_source_dim
+            )
+        else:
+            _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
+                g, extracted_faces, active_cells, is_vector=True, nd=max(1, g.dim)
+            )
+
         vector_source_glob = face_map * active_vector_source * cell_map_vec
 
         # The vector source term was computed in the natural coordinates of the grid.
@@ -221,7 +250,11 @@ class Mpfa(pp.FVElliptic):
         # accordingly. The dimension of the vector source term is given by the parameter
         # vector_source_dim.
         # If the dimension of the grid is 3 (i.e. the maximum possible) or 0 (no vectors
-        # are possible), there is no need for adjustment.
+        # are possible), there is no need for adjustment. Likewise, if g.dim == 1, the
+        # discretization was done with tpfa, and the vector_source matrix is already
+        # in the full coordinates.
+
+        # What is left is to fix the projection if g.dim == 2.
         if g.dim == 2:
             # Use the same mapping of the geometry as was done in
             # self._flux_discretization(). This mapping is deterministic, thus the
@@ -258,28 +291,6 @@ class Mpfa(pp.FVElliptic):
                 glob_R = glob_R[:, dim_expanded.ravel("f")]
 
             # Append a mapping from the ambient dimension onto the plane of this grid
-            vector_source_glob *= glob_R
-
-        elif g.dim == 1 and vector_source_dim > 1:
-            # In this case, Tpfa.discretize() has been invoked. There are no rotations
-            # therein, so no need to worry about getting the right coordinate axis.
-            # Simply get a unit vector in the direction of the grid
-            direction = np.diff(g.nodes[:, :2], axis=1)
-            dir_vec = direction / np.linalg.norm(direction)
-            # The vector should be the same size as the ambient dimension
-            dir_vec = dir_vec[:vector_source_dim]
-
-            # Create the global rotation matrix as a projection onto this direction.
-            data = np.tile(dir_vec.ravel(), (1, g.num_cells))[0]
-            indices = np.arange(g.num_cells * vector_source_dim)
-            indptr = np.arange(
-                0, g.num_cells * vector_source_dim + 1, vector_source_dim
-            )
-            glob_R = sps.csr_matrix(
-                (data, indices, indptr),
-                shape=(g.num_cells, g.num_cells * vector_source_dim),
-            )
-            # Adjust the global source term
             vector_source_glob *= glob_R
 
         eliminate_faces = np.setdiff1d(np.arange(g.num_faces), active_faces)
@@ -322,7 +333,9 @@ class Mpfa(pp.FVElliptic):
             ] = bound_pressure_face_glob
             matrix_dictionary[self.vector_source_key] = vector_source_glob
 
-    def _flux_discretization(self, g, k, bnd, inverter, eta=None):
+    def _flux_discretization(
+        self, g, k, bnd, inverter, ambient_dimension=None, eta=None
+    ):
         """
         Actual implementation of the MPFA O-method. To calculate MPFA on a grid
         directly, either call this method, or, to respect the privacy of this
@@ -365,6 +378,8 @@ class Mpfa(pp.FVElliptic):
 
         if eta is None:
             eta = pp.fvutils.determine_eta(g)
+        if ambient_dimension is None:
+            ambient_dimension = g.dim
 
         # The method reduces to the more efficient TPFA in one dimension, so that
         # method may be called. In 0D, there is no internal discretization to be
@@ -374,6 +389,7 @@ class Mpfa(pp.FVElliptic):
             params = pp.Parameters(g)
             params["bc"] = bnd
             params["second_order_tensor"] = k
+            params["ambient_dimension"] = ambient_dimension
 
             d = {
                 pp.PARAMETERS: {self.keyword: params},
