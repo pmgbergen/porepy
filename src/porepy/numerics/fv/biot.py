@@ -1037,25 +1037,6 @@ class Biot(pp.Mpsa):
         div = div_op * vector_2_scalar
         return div
 
-    # ----------------------- Linear solvers -------------------------------------
-
-    def solve(self, A, solver="direct", **kwargs):
-
-        solver = solver.strip().lower()
-        if solver == "direct":
-
-            def slv(b):
-                x = la.spsolve(A, b)
-                return x
-
-        elif solver == "factorized":
-            slv = la.factorized(A.tocsc())
-
-        else:
-            raise ValueError("Unknown solver " + solver)
-
-        return slv
-
     # ----------------------- Methods for post processing -------------------------
     def extract_vector(self, g, u, dims=None, as_vector=False):
         """ Extract displacement field from solution.
