@@ -97,7 +97,7 @@ class Mpfa(pp.FVElliptic):
 
         # NOTE: active_faces are all faces to have their stencils updated, while
         # active_cells may form a larger set (to accurately update all faces on a
-        # subgrid, it is necessary to assign some overlap in terms cells).
+        # subgrid, it is necessary to assign some overlap in terms of cells).
         active_cells, active_faces = pp.fvutils.find_active_indices(
             parameter_dictionary, g
         )
