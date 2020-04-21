@@ -39,9 +39,11 @@ class TestContactMechanics(unittest.TestCase):
 
         return u_mortar_local_decomposed, contact_force
 
-    def test_pull_top_positive_opening(self):
+    def test_pull_north_positive_opening(self):
 
-        setup = SetupContactMechanics(ux_south=0, uy_bottom=0, ux_north=0, uy_top=0.001)
+        setup = SetupContactMechanics(
+            ux_south=0, uy_south=0, ux_north=0, uy_north=0.001
+        )
 
         u_mortar, contact_force = self._solve(setup)
 
@@ -53,14 +55,13 @@ class TestContactMechanics(unittest.TestCase):
         self.assertTrue(np.abs(np.sum(u_mortar[0])) < 1e-5)
 
         # The contact force in normal direction should be zero
-
         # NB: This assumes the contact force is expressed in local coordinates
         self.assertTrue(np.all(np.abs(contact_force) < 1e-7))
 
-    def test_pull_bottom_positive_opening(self):
+    def test_pull_south_positive_opening(self):
 
         setup = SetupContactMechanics(
-            ux_south=0, uy_bottom=-0.001, ux_north=0, uy_top=0
+            ux_south=0, uy_south=-0.001, ux_north=0, uy_north=0
         )
 
         u_mortar, contact_force = self._solve(setup)
@@ -77,10 +78,10 @@ class TestContactMechanics(unittest.TestCase):
         # NB: This assumes the contact force is expressed in local coordinates
         self.assertTrue(np.all(np.abs(contact_force) < 1e-7))
 
-    def test_push_top_zero_opening(self):
+    def test_push_north_zero_opening(self):
 
         setup = SetupContactMechanics(
-            ux_south=0, uy_bottom=0, ux_north=0, uy_top=-0.001
+            ux_south=0, uy_south=0, ux_north=0, uy_north=-0.001
         )
 
         u_mortar, contact_force = self._solve(setup)
@@ -90,9 +91,11 @@ class TestContactMechanics(unittest.TestCase):
         # Contact force in normal direction should be negative
         self.assertTrue(np.all(contact_force[1] < 0))
 
-    def test_push_bottom_zero_opening(self):
+    def test_push_south_zero_opening(self):
 
-        setup = SetupContactMechanics(ux_south=0, uy_bottom=0.001, ux_north=0, uy_top=0)
+        setup = SetupContactMechanics(
+            ux_south=0, uy_south=0.001, ux_north=0, uy_north=0
+        )
 
         u_mortar, contact_force = self._solve(setup)
 
@@ -106,19 +109,17 @@ class TestContactMechanics(unittest.TestCase):
 class SetupContactMechanics(
     test.common.contact_mechanics_examples.ContactMechanicsExample
 ):
-    def __init__(self, ux_south, uy_bottom, ux_north, uy_top):
+    def __init__(self, ux_south, uy_south, ux_north, uy_north):
         mesh_args = {
             "mesh_size_frac": 0.5,
             "mesh_size_min": 0.023,
             "mesh_size_bound": 0.5,
         }
-        super().__init__(
-            mesh_args, folder_name="dummy"
-        )  # , params={'linear_solver': 'pyamg'})
+        super().__init__(mesh_args, folder_name="dummy", params={"max_iterations": 25})
         self.ux_south = ux_south
-        self.uy_bottom = uy_bottom
+        self.uy_south = uy_south
         self.ux_north = ux_north
-        self.uy_top = uy_top
+        self.uy_north = uy_north
 
     def create_grid(self):
         """
@@ -149,9 +150,9 @@ class SetupContactMechanics(
         _, _, _, north, south, _, _ = self.domain_boundary_sides(g)
         values = np.zeros((g.dim, g.num_faces))
         values[0, south] = self.ux_south
-        values[1, south] = self.uy_bottom
+        values[1, south] = self.uy_south
         values[0, north] = self.ux_north
-        values[1, north] = self.uy_top
+        values[1, north] = self.uy_north
         return values.ravel("F")
 
     def bc_type(self, g):
@@ -165,6 +166,19 @@ class SetupContactMechanics(
         bc.is_dir[:, frac_face] = True
         return bc
 
+    def set_parameters(self):
+        super().set_parameters()
+        dilation_angle = getattr(self, "dilation_angle", 0)
+        for g, d in self.gb:
+            if g.dim < self.Nd:
+
+                initial_gap = getattr(self, "initial_gap", np.zeros(g.num_cells))
+
+                d[pp.PARAMETERS]["mechanics"].update(
+                    {"initial_gap": initial_gap, "dilation_angle": dilation_angle}
+                )
+
 
 if __name__ == "__main__":
+    
     unittest.main()

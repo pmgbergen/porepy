@@ -1077,7 +1077,7 @@ class GridBucket(Generic[T]):
     def size(self) -> int:
         """
         Returns:
-            int: Number of mono-dimensional grids in the bucket.
+            int: Number of mono-dimensional grids and interfaces in the bucket.
 
         """
         return self.num_graph_nodes() + self.num_graph_edges()
