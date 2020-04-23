@@ -121,9 +121,14 @@ def process_intersections(grids, intersections, global_ind_offset, list_of_grids
 
 def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids, tol):
 
-    combined_1d, global_ind_offset, g_in_combined, h_in_combined, g_sort, h_sort = merge_1d_grids(
-        g_1d, h_1d, global_ind_offset, tol
-    )
+    (
+        combined_1d,
+        global_ind_offset,
+        g_in_combined,
+        h_in_combined,
+        g_sort,
+        h_sort,
+    ) = merge_1d_grids(g_1d, h_1d, global_ind_offset, tol)
 
     # First update fields for first grid
     fn_orig = np.reshape(g.face_nodes.indices, (2, g.num_faces), order="F")

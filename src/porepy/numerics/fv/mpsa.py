@@ -1747,9 +1747,14 @@ class Mpsa(Discretization):
     ) -> Tuple[pp.Grid, pp.FourthOrderTensor]:
         g = g.copy()
 
-        cell_centers, face_normals, face_centers, _, _, nodes = pp.map_geometry.map_grid(
-            g
-        )
+        (
+            cell_centers,
+            face_normals,
+            face_centers,
+            _,
+            _,
+            nodes,
+        ) = pp.map_geometry.map_grid(g)
         g.cell_centers = cell_centers
         g.face_normals = face_normals
         g.face_centers = face_centers

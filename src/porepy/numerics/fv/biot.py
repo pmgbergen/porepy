@@ -865,9 +865,11 @@ class Biot(pp.Mpsa):
 
         # Obtain normal_vector * alpha, pairings of cells and nodes (which together
         # uniquely define sub-cells, and thus index for gradients)
-        nAlpha_grad, cell_node_blocks, sub_cell_index = pp.fvutils.scalar_tensor_vector_prod(
-            g, alpha_tensor, subcell_topology
-        )
+        (
+            nAlpha_grad,
+            cell_node_blocks,
+            sub_cell_index,
+        ) = pp.fvutils.scalar_tensor_vector_prod(g, alpha_tensor, subcell_topology)
         # transfer nAlpha to a subface-based quantity by pairing expressions on the
         # two sides of the subface
         unique_nAlpha_grad = subcell_topology.pair_over_subfaces(nAlpha_grad)

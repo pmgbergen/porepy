@@ -393,9 +393,12 @@ def create_0d_grids(
 
 def create_embedded_line_grid(loc_coord, glob_id, tol=1e-4):
     loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
-    sorted_coord, rot, active_dimension, sort_ind = pp.map_geometry.project_points_to_line(
-        loc_coord, tol
-    )
+    (
+        sorted_coord,
+        rot,
+        active_dimension,
+        sort_ind,
+    ) = pp.map_geometry.project_points_to_line(loc_coord, tol)
     g = pp.TensorGrid(sorted_coord)
 
     # Project back to active dimension

@@ -157,9 +157,11 @@ class PrimalContactCoupling(
         # NOTE: Both the contact conditions and the contact stresses are defined in the
         # local coordinate system of the surface. The displacements must therefore
         # be rotated to this local coordinate system during assembly.
-        traction_discr, displacement_jump_discr, rhs_slave = self.discr_slave.assemble_matrix_rhs(
-            g_slave, data_slave
-        )
+        (
+            traction_discr,
+            displacement_jump_discr,
+            rhs_slave,
+        ) = self.discr_slave.assemble_matrix_rhs(g_slave, data_slave)
         # The contact forces. Can be applied directly, these are in their own
         # local coordinate systems.
         cc[slave_ind, slave_ind] = traction_discr

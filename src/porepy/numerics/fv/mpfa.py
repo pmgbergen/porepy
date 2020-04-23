@@ -429,9 +429,14 @@ class Mpfa(pp.FVElliptic):
             # Rotate the grid into the xy plane and delete third dimension. First
             # make a copy to avoid alterations to the input grid
             g = g.copy()
-            cell_centers, face_normals, face_centers, R, _, nodes = pp.map_geometry.map_grid(
-                g
-            )
+            (
+                cell_centers,
+                face_normals,
+                face_centers,
+                R,
+                _,
+                nodes,
+            ) = pp.map_geometry.map_grid(g)
             g.cell_centers = cell_centers
             g.face_normals = face_normals
             g.face_centers = face_centers
@@ -461,9 +466,11 @@ class Mpfa(pp.FVElliptic):
         # The normal vectors used in the product are simply the face normals
         # (with areas downscaled to account for subfaces). The sign of
         # nk_grad_all coincides with the direction of the normal vector.
-        nk_grad_all, cell_node_blocks, sub_cell_index = pp.fvutils.scalar_tensor_vector_prod(
-            g, k, subcell_topology
-        )
+        (
+            nk_grad_all,
+            cell_node_blocks,
+            sub_cell_index,
+        ) = pp.fvutils.scalar_tensor_vector_prod(g, k, subcell_topology)
 
         ## Contribution from subcell gradients to local system.
         # The pressure at a subface continuity point is given by the subcell

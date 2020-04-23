@@ -454,9 +454,16 @@ class PartialBiotMpsa(TestPartialMPSA):
 
     def test_inner_cell_node_keyword(self):
         # Compute update for a single cell in the interior.
-        g, stiffness, bnd, div_u, bound_div_u, grad_p, stab, bound_pressure = (
-            self.setup_biot()
-        )
+        (
+            g,
+            stiffness,
+            bnd,
+            div_u,
+            bound_div_u,
+            grad_p,
+            stab,
+            bound_pressure,
+        ) = self.setup_biot()
 
         inner_cell = 12  # The target cell
         nodes_of_cell = np.array([14, 15, 20, 21])
@@ -530,9 +537,16 @@ class PartialBiotMpsa(TestPartialMPSA):
 
     def test_bound_cell_node_keyword(self):
         # Compute update for a single cell on the
-        g, stiffness, bnd, div_u, bound_div_u, grad_p, stab, bound_pressure = (
-            self.setup_biot()
-        )
+        (
+            g,
+            stiffness,
+            bnd,
+            div_u,
+            bound_div_u,
+            grad_p,
+            stab,
+            bound_pressure,
+        ) = self.setup_biot()
 
         inner_cell = 10
         nodes_of_cell = np.array([12, 13, 18, 19])
