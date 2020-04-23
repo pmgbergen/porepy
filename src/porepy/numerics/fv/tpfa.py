@@ -134,21 +134,37 @@ class Tpfa(pp.FVElliptic):
         t_b = t_b[bndr_ind]
         t[is_neu] = 0
 
-        # Calculate harmonic average for periodic boundary
+        # Calculate transmissibilities for periodic boundary faces.
+        # Left faces are periodic with right faces
         left = bnd.per_map[0]
         right = bnd.per_map[1]
         t_per = np.zeros(g.num_faces)
         t_per[left] = t[left] * t[right] / (t[left] + t[right])
         t_per[right] = t_per[left]
         t[bnd.is_per] = t_per[bnd.is_per]
+
+        # Add connection between the left cells and right faces (and vice versa).
+        # The flux over the periodic boundary face is defined equivalently to the
+        # flux over an internal face: flux_left = T_left * (p_left - p_right).
+        # The term T_left * p_left is already included in fi and ci, but we need
+        # to add the second term T_left * (-p_right). Equivalently for flux_right.
         left_fi, left_ci, left_sgn = sps.find(g.cell_faces[left])
         right_fi, right_ci, right_sgn = sps.find(g.cell_faces[right])
+        # Sort subface indices to not loose left to right mapping
+        I_left = np.argsort(left_fi)
+        I_right = np.argsort(right_fi)
+        if not (np.array_equal(left_fi[I_left], np.arange(left.size)) and
+                np.array_equal(right_fi[I_right], np.arange(right.size))):
+            raise RuntimeError("Could not find correct periodic boundary mapping")
+        left_ci = left_ci[I_left]
+        right_ci = right_ci[I_right]
+
+        # Add periodic boundaries to subface cell mapping
+        face_idx = np.hstack((fi, left, right))
+        cell_idx = np.hstack((ci, right_ci, left_ci))
+        sgn_face = np.hstack((sgn, -left_sgn, -right_sgn))
 
         # Create flux matrix
-        face_idx = np.hstack((fi, left[left_fi], right[right_fi]))
-        cell_idx = np.hstack((ci, right_ci, left_ci))
-        sgn_face = np.hstack((sgn, right_sgn, left_sgn))
-
         flux = sps.coo_matrix((t[face_idx] * sgn_face, (face_idx, cell_idx))).tocsc()
 
         # Create boundary flux matrix
