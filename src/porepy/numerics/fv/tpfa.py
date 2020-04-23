@@ -165,7 +165,7 @@ class Tpfa(pp.FVElliptic):
         sgn_face = np.hstack((sgn, -left_sgn, -right_sgn))
 
         # Create flux matrix
-        flux = sps.coo_matrix((t[face_idx] * sgn_face, (face_idx, cell_idx))).tocsc()
+        flux = sps.coo_matrix((t[face_idx] * sgn_face, (face_idx, cell_idx))).tocsr()
 
         # Create boundary flux matrix
         bndr_sgn = (g.cell_faces[bndr_ind, :]).data
