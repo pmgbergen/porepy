@@ -171,6 +171,10 @@ class BoundaryCondition(AbstractBoundaryCondition):
                 else:
                     raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
 
+            if not ( self.is_per.sum()% 2) == 0:
+                raise ValueError("The number of periodic boundary faces must be even!")
+
+
     def __repr__(self) -> str:
         num_cond = self.is_neu.sum() + self.is_dir.sum() + self.is_rob.sum() + self.is_per.sum()
         s = (
@@ -211,7 +215,7 @@ class BoundaryCondition(AbstractBoundaryCondition):
             faces. Face index per_map[0, i] is periodic with face index
             per_map[1, i]. The given map is stored to the attribute per_map
         """
-        map_shape = (2, self.is_per.sum() / 2)
+        map_shape = (2, self.is_per.sum() // 2)
         if not np.array_equal(per_map.shape, map_shape):
             raise ValueError('''Periodic map has wrong size. Given array size is: {},
                               but should be: {}'''.format(per_map.shape, map_shape))
