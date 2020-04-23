@@ -133,8 +133,23 @@ class Tpfa(pp.FVElliptic):
         t_b[is_neu] = 1
         t_b = t_b[bndr_ind]
         t[is_neu] = 0
+
+        # Calculate harmonic average for periodic boundary
+        left = bnd.per_map[0]
+        right = bnd.per_map[1]
+        t_per = np.zeros(g.num_faces)
+        t_per[left] = t[left] * t[right] / (t[left] + t[right])
+        t_per[right] = t_per[left]
+        t[bnd.is_per] = t_per[bnd.is_per]
+        left_fi, left_ci, left_sgn = sps.find(g.cell_faces[left])
+        right_fi, right_ci, right_sgn = sps.find(g.cell_faces[right])
+
         # Create flux matrix
-        flux = sps.coo_matrix((t[fi] * sgn, (fi, ci))).tocsr()
+        face_idx = np.hstack((fi, left[left_fi], right[right_fi]))
+        cell_idx = np.hstack((ci, right_ci, left_ci))
+        sgn_face = np.hstack((sgn, right_sgn, left_sgn))
+
+        flux = sps.coo_matrix((t[face_idx] * sgn_face, (face_idx, cell_idx))).tocsc()
 
         # Create boundary flux matrix
         bndr_sgn = (g.cell_faces[bndr_ind, :]).data
@@ -143,6 +158,7 @@ class Tpfa(pp.FVElliptic):
         bound_flux = sps.coo_matrix(
             (t_b * bndr_sgn, (bndr_ind, bndr_ind)), (g.num_faces, g.num_faces)
         ).tocsr()
+
         # Store the matrix in the right dictionary:
         matrix_dictionary[self.flux_matrix_key] = flux
         matrix_dictionary[self.bound_flux_matrix_key] = bound_flux
