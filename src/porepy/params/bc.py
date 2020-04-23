@@ -408,10 +408,15 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
         self.is_neu = np.zeros((g.dim, self.num_faces), dtype=bool)
         self.is_dir = np.zeros((g.dim, self.num_faces), dtype=bool)
         self.is_rob = np.zeros((g.dim, self.num_faces), dtype=bool)
+        self.is_per = np.zeros((g.dim, self.num_faces), dtype=bool)
 
         self.is_neu[:, self.bf] = True
         self.set_bc(faces, cond)
 
+        # No periodic boundaries by default
+        self.per_map = np.zeros((2, 0), dtype=int)
+
+        #  Default robin weights
         r_w = np.tile(np.eye(g.dim), (1, g.num_faces))
         self.robin_weight = np.reshape(r_w, (g.dim, g.dim, g.num_faces), "F")
         basis = np.tile(np.eye(g.dim), (1, g.num_faces))
@@ -495,6 +500,12 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
                     self.is_rob[:, faces[j]] = True
                     self.is_neu[:, faces[j]] = False
                     self.is_dir[:, faces[j]] = False
+                elif s.lower() == "per":
+                    self.is_per[:, faces[j]] = True
+                    self.is_rob[:, faces[j]] = False
+                    self.is_neu[:, faces[j]] = False
+                    self.is_dir[:, faces[j]] = False
+
                 else:
                     raise ValueError(f"Unknown boundary condition {s}")
 
