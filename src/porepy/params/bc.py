@@ -35,6 +35,8 @@ class AbstractBoundaryCondition(object):
         bc.dim = self.dim
         bc.is_internal = self.is_internal
         bc.bf = self.bf
+        bc.is_per = self.is_per
+        bc.per_map = self.per_map
         return bc
 
 
@@ -57,7 +59,13 @@ class BoundaryCondition(AbstractBoundaryCondition):
             face i has been assigned a Neumann condition.
         is_rob (np.ndarray, boolean, size g.num_faces): Element i is true if
             face i has been assigned a Robin condition.
-
+        is_per (np.ndarray, boolean, size g.num_faces): Element i is true if
+            face i has been assigned a periodic boundary condition. Note that
+            periodic boundary conditions are non-standard and might not work
+            for all discretizations. See also attribute per_map
+        per_map (np.ndarray, int, 2 x # periodic faces): Defines the periodic
+            faces. Face index per_map[0, i] is periodic with face index
+            per_map[1, i].
     """
 
     def __init__(self, g, faces=None, cond=None):
@@ -97,6 +105,11 @@ class BoundaryCondition(AbstractBoundaryCondition):
         self.is_neu = np.zeros(self.num_faces, dtype=bool)
         self.is_dir = np.zeros(self.num_faces, dtype=bool)
         self.is_rob = np.zeros(self.num_faces, dtype=bool)
+        self.is_per = np.zeros(self.num_faces, dtype=bool)
+
+        # No periodic boundaries by default
+        self.per_map = np.zeros((2, 0), dtype=int)
+
 
         # By default, all faces are Neumann.
         self.is_neu[self.bf] = True
@@ -144,15 +157,22 @@ class BoundaryCondition(AbstractBoundaryCondition):
                     self.is_dir[faces[l]] = True
                     self.is_neu[faces[l]] = False
                     self.is_rob[faces[l]] = False
+                    self.is_per[faces[l]] = False
                 elif s.lower() == "rob":
                     self.is_dir[faces[l]] = False
                     self.is_neu[faces[l]] = False
                     self.is_rob[faces[l]] = True
+                    self.is_per[faces[l]] = False
+                elif s.lower() == "per":
+                    self.is_dir[faces[l]] = False
+                    self.is_neu[faces[l]] = False
+                    self.is_rob[faces[l]] = False
+                    self.is_per[faces[l]] = True
                 else:
                     raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
 
     def __repr__(self) -> str:
-        num_cond = self.is_neu.sum() + self.is_dir.sum() + self.is_rob.sum()
+        num_cond = self.is_neu.sum() + self.is_dir.sum() + self.is_rob.sum() + self.is_per.sum()
         s = (
             f"Boundary condition for scalar problem in {self.dim + 1} dimensions\n"
             f"Grid has {self.num_faces} faces.\n"
@@ -161,9 +181,10 @@ class BoundaryCondition(AbstractBoundaryCondition):
             f"Number of faces with Dirichlet conditions: {self.is_dir.sum()} \n"
             f"Number of faces with Neumann conditions: {self.is_neu.sum()} \n"
             f"Number of faces with Robin conditions: {self.is_rob.sum()} \n"
+            f"Number of faces with Periodic conditions: {self.is_per.sum()} \n"
         )
 
-        bc_sum = self.is_neu + self.is_dir + self.is_rob
+        bc_sum = self.is_neu + self.is_dir + self.is_rob + self.is_per
         if np.any(bc_sum) > 1:
             s += "Conflicting boundary conditions set on {np.sum(bc_sum > 1)} faces.\n"
 
@@ -174,8 +195,119 @@ class BoundaryCondition(AbstractBoundaryCondition):
             s += f"Neumann conditions set on {self.is_neu[not_bound].sum()} non-boundary faces.\n"
         if np.any(self.is_rob[not_bound]):
             s += f"Robin conditions set on {self.is_rob[not_bound].sum()} non-boundary faces.\n"
+        if np.any(self.is_per[not_bound]):
+            s += f"Periodic conditions set on {self.is_per[not_bound].sum()} non-boundary faces.\n"
 
         return s
+
+    def set_periodic_map(self, per_map: np.ndarray):
+        """
+        Set the index map between periodic boundary faces. The mapping assumes
+        a one to one mapping between the periodic boundary faces (i.e., matching
+        faces).
+
+        Parameters
+        per_map (np.ndarray, int, 2 x # periodic faces): Defines the periodic
+            faces. Face index per_map[0, i] is periodic with face index
+            per_map[1, i]. The given map is stored to the attribute per_map
+        """
+        map_size = (2, self.is_per.sum())
+        if np.is_equal(per_map.size[0], map_size):
+            raise ValueError('''Periodic map has wrong size. Given array size is: {},
+                              but should be: {}'''.format(per_map.size, map_size))
+        self.per_map = per_map
+
+
+class BoundaryConditionNode(AbstractBoundaryCondition):
+
+    """ Class to store information on boundary conditions for nodal numerical
+        schemes.
+
+    The BCs are specified by node number, and can have type Dirichlet or
+    Neumann (Robin may be included later). For details on default values etc.,
+    see constructor.
+
+    Attributes:
+        num_nodes (int): Number of nodes in the grid
+        dim (int): Dimension of the boundary. One less than the dimension of
+            the grid.
+        is_neu (np.ndarray boolean, size g.num_nodes): Element i is true if
+            node i has been assigned a Neumann condition. Tacitly assumes that
+            the node is on the boundary. Should be false for internal nodes, as
+            well as Dirichlet nodes.
+        is_dir (np.ndarary, boolean, size g.num_nodes): Element i is true if
+            node i has been assigned a Neumann condition.
+
+    """
+
+    def __init__(self, g, nodes=None, cond=None):
+        """Constructor for BoundaryConditionsNode.
+
+        The conditions are specified by node numbers. Nodes that do not get an
+        explicit condition will have Neumann conditions assigned.
+
+        Parameters:
+            g (grid): For which boundary conditions are set.
+            nodes (np.ndarray): Nodes for which conditions are assigned.
+            cond (list of str): Conditions on the nodes, in the same order as
+                used in nodes. Should be as long as nodes.
+
+        """
+
+        self.num_nodes = g.num_nodes
+        self.dim = g.dim - 1
+
+        self.bc_type = "scalar"
+
+        # Find boundary nodes
+        bn = g.get_all_boundary_nodes()
+
+        # Keep track of internal boundaries
+        self.is_internal = g.tags["fracture_nodes"]
+
+        self.is_neu = np.zeros(self.num_nodes, dtype=np.bool)
+        self.is_dir = np.zeros(self.num_nodes, dtype=np.bool)
+
+        # By default, all nodes are Neumann.
+        self.is_neu[bn] = True
+
+        if nodes is not None:
+            # Validate arguments
+            assert cond is not None
+            if nodes.dtype == bool:
+                if nodes.size != self.num_nodes:
+                    raise ValueError(
+                        """When giving logical nodes, the size of
+                                        array must match number of nodes"""
+                    )
+                nodes = np.argwhere(nodes)
+            if not np.all(np.in1d(nodes, bn)):
+                raise ValueError(
+                    "Give boundary condition only on the \
+                                 boundary"
+                )
+            domain_boundary_and_tips = np.argwhere(
+                np.logical_or(g.tags["domain_boundary_nodes"], g.tags["tip_nodes"])
+            )
+            if not np.all(np.in1d(nodes, domain_boundary_and_tips)):
+                warnings.warn(
+                    "You are now specifying conditions on internal \
+                              boundaries. Be very careful!"
+                )
+            if isinstance(cond, str):
+                cond = [cond] * nodes.size
+            if nodes.size != len(cond):
+                raise ValueError("One BC per node")
+
+            for l in np.arange(nodes.size):
+                s = cond[l]
+                if s.lower() == "neu":
+                    pass  # Neumann is already default
+                elif s.lower() == "dir":
+                    self.is_dir[nodes[l]] = True
+                    self.is_neu[nodes[l]] = False
+                else:
+                    raise ValueError("Boundary should be Dirichlet or Neumann")
 
 
 class BoundaryConditionVectorial(AbstractBoundaryCondition):
