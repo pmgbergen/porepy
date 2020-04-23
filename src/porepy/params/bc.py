@@ -110,7 +110,6 @@ class BoundaryCondition(AbstractBoundaryCondition):
         # No periodic boundaries by default
         self.per_map = np.zeros((2, 0), dtype=int)
 
-
         # By default, all faces are Neumann.
         self.is_neu[self.bf] = True
 
@@ -171,12 +170,16 @@ class BoundaryCondition(AbstractBoundaryCondition):
                 else:
                     raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
 
-            if not ( self.is_per.sum()% 2) == 0:
+            if not (self.is_per.sum() % 2) == 0:
                 raise ValueError("The number of periodic boundary faces must be even!")
 
-
     def __repr__(self) -> str:
-        num_cond = self.is_neu.sum() + self.is_dir.sum() + self.is_rob.sum() + self.is_per.sum()
+        num_cond = (
+            self.is_neu.sum()
+            + self.is_dir.sum()
+            + self.is_rob.sum()
+            + self.is_per.sum()
+        )
         s = (
             f"Boundary condition for scalar problem in {self.dim + 1} dimensions\n"
             f"Grid has {self.num_faces} faces.\n"
@@ -217,8 +220,12 @@ class BoundaryCondition(AbstractBoundaryCondition):
         """
         map_shape = (2, self.is_per.sum() // 2)
         if not np.array_equal(per_map.shape, map_shape):
-            raise ValueError('''Periodic map has wrong size. Given array size is: {},
-                              but should be: {}'''.format(per_map.shape, map_shape))
+            raise ValueError(
+                """Periodic map has wrong size. Given array size is: {},
+                              but should be: {}""".format(
+                    per_map.shape, map_shape
+                )
+            )
         self.per_map = per_map
 
 
