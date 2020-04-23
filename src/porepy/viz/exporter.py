@@ -205,10 +205,13 @@ class Exporter:
         self.gb = grid
         self.file_name = file_name
         self.folder_name = folder_name
-        self.fixed_grid = kwargs.get("fixed_grid", True)
-        self.binary = kwargs.get("binary", True)
-        self.simplicial = kwargs.get("simplicial", False)
-
+        self.fixed_grid = kwargs.pop("fixed_grid", True)
+        self.binary = kwargs.pop("binary", True)
+        self.simplicial = kwargs.pop("simplicial", False)
+        if kwargs:
+            msg = "Exporter() got unexpected keyword argument '{}'"
+            raise TypeError(msg.format(kwargs.popitem()[0]))
+        
         self.is_GridBucket = isinstance(self.gb, pp.GridBucket)
         self.is_not_vtk = "vtk" not in sys.modules
 
