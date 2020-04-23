@@ -524,6 +524,9 @@ class Mpsa(Discretization):
         if bound.bc_type != "vectorial":
             raise AttributeError("MPSA must be given a vectorial boundary condition")
 
+        if bound.is_per.sum():
+            raise NotImplementedError("Periodic boundary conditions are not implemented for Mpsa")
+
         if g.dim == 1:
             tpfa_key = "tpfa_elasticity"
             discr = pp.Tpfa(tpfa_key)

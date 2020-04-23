@@ -211,10 +211,10 @@ class BoundaryCondition(AbstractBoundaryCondition):
             faces. Face index per_map[0, i] is periodic with face index
             per_map[1, i]. The given map is stored to the attribute per_map
         """
-        map_size = (2, self.is_per.sum())
-        if np.is_equal(per_map.size[0], map_size):
+        map_shape = (2, self.is_per.sum() / 2)
+        if not np.array_equal(per_map.shape, map_shape):
             raise ValueError('''Periodic map has wrong size. Given array size is: {},
-                              but should be: {}'''.format(per_map.size, map_size))
+                              but should be: {}'''.format(per_map.shape, map_shape))
         self.per_map = per_map
 
 
