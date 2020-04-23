@@ -80,6 +80,54 @@ class TestTPFA(unittest.TestCase):
 
         return a
 
+    def test_tpfa_cart_2d_periodic(self):
+        """ Apply TPFA on a periodic Cartesian grid, should obtain Laplacian stencil. """
+
+        # Set up 3 X 3 Cartesian grid
+        nx = np.array([3, 3])
+        g = pp.CartGrid(nx)
+        g.compute_geometry()
+
+        kxx = np.ones(g.num_cells)
+        perm = pp.SecondOrderTensor(kxx)
+
+        bound_faces = np.array([0, 3, 4, 7, 8, 11, 12, 13, 14, 21, 22, 23])
+        bound = pp.BoundaryCondition(g, bound_faces, "per")
+        left_faces = [0, 4, 8, 12, 13, 14]
+        right_faces = [3, 7, 11, 21, 22, 23]
+        per_map = np.vstack((left_faces, right_faces))
+        bound.set_periodic_map(per_map)
+
+        key = "flow"
+        d = pp.initialize_default_data(
+            g, {}, key, {"second_order_tensor": perm, "bc": bound}
+        )
+        discr = pp.Tpfa(key)
+
+        discr.discretize(g, d)
+        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][key]
+        trm, bound_flux = matrix_dictionary["flux"], matrix_dictionary["bound_flux"]
+        div = g.cell_faces.T
+        a = div * trm
+        b = -(div * bound_flux).A
+
+        # Create laplace matrix
+        A_lap = np.array([
+            [ 4., -1., -1., -1.,  0.,  0., -1.,  0.,  0.],
+            [-1.,  4., -1.,  0., -1.,  0.,  0., -1.,  0.],
+            [-1., -1.,  4.,  0.,  0., -1.,  0.,  0., -1.],
+            [-1.,  0.,  0.,  4., -1., -1., -1.,  0.,  0.],
+            [ 0., -1.,  0., -1.,  4., -1.,  0., -1.,  0.],
+            [ 0.,  0., -1., -1., -1.,  4.,  0.,  0., -1.],
+            [-1.,  0.,  0., -1.,  0.,  0.,  4., -1., -1.],
+            [ 0., -1.,  0.,  0., -1.,  0., -1.,  4., -1.],
+            [ 0.,  0., -1.,  0.,  0., -1., -1., -1.,  4.],
+        ])
+
+        self.assertTrue(np.allclose(a.A, A_lap))
+        self.assertTrue(np.allclose(b, 0))
+        return a
+    
 
 if __name__ == "__main__":
     unittest.main()
