@@ -25,7 +25,7 @@ class Tpfa(pp.FVElliptic):
     def __init__(self, keyword):
         super(Tpfa, self).__init__(keyword)
 
-    def discretize(self, g, data, vector_source=False, faces=None):
+    def discretize(self, g, data):
         """
         Discretize the second order elliptic equation using two-point flux approximation.
 
@@ -55,7 +55,7 @@ class Tpfa(pp.FVElliptic):
                 Operator for reconstructing the pressure trace. Cell center contribution
             bound_pressure_face: sps.csc_matrix (g.num_faces, g.num_faces)
                 Operator for reconstructing the pressure trace. Face contribution
-            div_vector_source: sps.csc_matrix (g.num_faces)
+            vector_source: sps.csc_matrix (g.num_faces)
                 discretization of flux due to vector source, e.g. gravity. Face contribution.
                 Active only if vector_source = True, and only for 1D.
 
@@ -69,26 +69,19 @@ class Tpfa(pp.FVElliptic):
         ----------
         g (pp.Grid): grid, or a subclass, with geometry fields computed.
         data (dict): For entries, see above.
-        vector_source (Boolean): optional. Defines flux contribution from vector source
-        faces (np.ndarray): optional. Defines active faces.
         """
         # Get the dictionaries for storage of data and discretization matrices
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         if g.dim == 0:
+            # Short cut for 0d grids
             matrix_dictionary[self.flux_matrix_key] = sps.csr_matrix([0])
-            matrix_dictionary[self.bound_flux_matrix_key] = 0
+            matrix_dictionary[self.bound_flux_matrix_key] = sps.csr_matrix([0])
             matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csr_matrix([1])
             matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csr_matrix([0])
+            matrix_dictionary[self.vector_source_key] = sps.csr_matrix([0])
             return None
-        if faces is None:
-            is_not_active = np.zeros(g.num_faces, dtype=np.bool)
-        else:
-            is_active = np.zeros(g.num_faces, dtype=np.bool)
-            is_active[faces] = True
-
-            is_not_active = np.logical_not(is_active)
 
         # Extract parameters
         k = parameter_dictionary["second_order_tensor"]
@@ -139,9 +132,9 @@ class Tpfa(pp.FVElliptic):
         t_b[is_dir] = -t[is_dir]
         t_b[is_neu] = 1
         t_b = t_b[bndr_ind]
-        t[np.logical_or(is_neu, is_not_active)] = 0
+        t[is_neu] = 0
         # Create flux matrix
-        flux = sps.coo_matrix((t[fi] * sgn, (fi, ci))).tocsc()
+        flux = sps.coo_matrix((t[fi] * sgn, (fi, ci))).tocsr()
 
         # Create boundary flux matrix
         bndr_sgn = (g.cell_faces[bndr_ind, :]).data
@@ -149,7 +142,7 @@ class Tpfa(pp.FVElliptic):
         bndr_sgn = bndr_sgn[sort_id]
         bound_flux = sps.coo_matrix(
             (t_b * bndr_sgn, (bndr_ind, bndr_ind)), (g.num_faces, g.num_faces)
-        ).tocsc()
+        ).tocsr()
         # Store the matrix in the right dictionary:
         matrix_dictionary[self.flux_matrix_key] = flux
         matrix_dictionary[self.bound_flux_matrix_key] = bound_flux
@@ -166,21 +159,31 @@ class Tpfa(pp.FVElliptic):
 
         bound_pressure_cell = sps.coo_matrix(
             (v_cell, (fi, ci)), (g.num_faces, g.num_cells)
-        )
-        bound_pressure_face = sps.dia_matrix((v_face, 0), (g.num_faces, g.num_faces))
+        ).tocsr()
+        bound_pressure_face = sps.dia_matrix(
+            (v_face, 0), (g.num_faces, g.num_faces)
+        ).tocsr()
         matrix_dictionary[self.bound_pressure_cell_matrix_key] = bound_pressure_cell
         matrix_dictionary[self.bound_pressure_face_matrix_key] = bound_pressure_face
 
-        if vector_source:
-            # discretization of vector source
-            # e.g. gravity in Darcy's law
-            # Implementation of standard method in 1D
-            # employing harmonic average of cell transmissibilities
-            # ready to be multiplied with arithmetic average of cell vector sources.
-            # This is only called for 1D problems,
-            # for higher dimensions method calls GCMPFA
-            if not g.dim == 1:
-                raise NotImplementedError(
-                    "Consistent treatment of gravity requires mpfa"
-                )
-            matrix_dictionary[self.div_vector_source_key] = t
+        # discretization of vector source
+        # e.g. gravity in Darcy's law
+        # Use harmonic average of cell transmissibilities
+
+        # Ambient dimension of the grid
+        vector_source_dim: int = parameter_dictionary.get("ambient_dimension", g.dim)
+
+        # The discretization involves the transmissibilities, multiplied with the
+        # distance between cell and face centers, and with the sgn adjustment (or else)
+        # the vector source will point in the wrong direction in certain cases.
+        # See Starnoni et al 2020, WRR for details.
+        data = (t[fi] * fc_cc * sgn)[:vector_source_dim].ravel("f")
+
+        # Rows and cols are given by fi / ci, expanded to account for the vector source
+        # having multiple dimensions
+        rows = np.tile(fi, (vector_source_dim, 1)).ravel("f")
+        cols = pp.fvutils.expand_indices_nd(ci, vector_source_dim)
+
+        vector_source = sps.coo_matrix((data, (rows, cols))).tocsr()
+
+        matrix_dictionary[self.vector_source_key] = vector_source

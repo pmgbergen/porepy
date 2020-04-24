@@ -12,7 +12,7 @@ class SortLinePairTest(unittest.TestCase):
         # Use numpy arrays to ease comparison of points
         known_lines = np.array([[1, 2], [2, 7], [7, 5], [5, 1]]).T
         known_sort_ind = np.array([0, 2, 3, 1])
-        
+
         self.assertTrue(np.allclose(known_lines, sp))
         self.assertTrue(np.allclose(known_sort_ind, sort_ind))
 
@@ -21,34 +21,34 @@ class SortLinePairTest(unittest.TestCase):
         # first and last column, thus no rearrangement is needed
         p = np.array([[1, 0], [1, 3], [3, 2]]).T
         sp, sort_ind = sort_points.sort_point_pairs(p, is_circular=False)
-        
+
         known_lines = np.array([[0, 1], [1, 3], [3, 2]]).T
         known_sort_ind = np.array([0, 1, 2])
-        
+
         self.assertTrue(test_utils.compare_arrays(known_lines, sp))
         self.assertTrue(np.allclose(known_sort_ind, sort_ind))
-        
+
     def test_not_circular_2(self):
         # The points are not circular, but the isolated points are contained in the
         # first column, thus re-arrangement should be automatic
         p = np.array([[1, 0], [3, 2], [1, 3]]).T
         sp, sort_ind = sort_points.sort_point_pairs(p, is_circular=False)
-        
+
         known_lines = np.array([[0, 1], [1, 3], [3, 2]]).T
         known_sort_ind = np.array([0, 2, 1])
-        
+
         self.assertTrue(test_utils.compare_arrays(sp, known_lines))
         self.assertTrue(np.allclose(known_sort_ind, sort_ind))
-        
+
     def test_not_circular_3(self):
         # The points are not circular, and the isolated points are not contained in the
         # first column, thus re-arrangement is needed
         p = np.array([[1, 3], [3, 2], [1, 0]]).T
         sp, sort_ind = sort_points.sort_point_pairs(p, is_circular=False)
-        
+
         known_lines = np.array([[2, 3], [3, 1], [1, 0]]).T
         known_sort_ind = np.array([1, 0, 2])
-        
+
         self.assertTrue(test_utils.compare_arrays(sp, known_lines))
         self.assertTrue(np.allclose(known_sort_ind, sort_ind))
 

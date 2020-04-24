@@ -29,6 +29,7 @@ from time import time
 import logging
 
 import porepy as pp
+from porepy.numerics.discretization import Discretization
 
 
 # Module-wide logger
@@ -402,7 +403,9 @@ class Biot(pp.Mpsa):
         # NOTE: active_faces are all faces to have their stencils updated, while
         # active_cells may form a larger set (to accurately update all faces on a
         # subgrid, it is necessary to assign some overlap in terms cells).
-        active_cells, active_faces = self._find_active_indices(parameter_dictionary, g)
+        active_cells, active_faces = pp.fvutils.find_active_indices(
+            parameter_dictionary, g
+        )
 
         # Extract a grid, and get global indices of its active faces and nodes
         active_grid, extracted_faces, extracted_nodes = pp.partition.extract_subgrid(
@@ -435,12 +438,17 @@ class Biot(pp.Mpsa):
         active_bound_displacement_face = sps.csr_matrix((nf * nd, nf * nd))
         active_bound_displacement_pressure = sps.csr_matrix((nf * nd, nc))
 
+        # Find an estimate of the peak memory need
+        peak_memory_estimate = self._estimate_peak_memory_mpsa(active_grid)
+
         # Loop over all partition regions, construct local problems, and transfer
         # discretization to the entire active grid
         for (
             reg_i,
             (sub_g, faces_in_subgrid, cells_in_subgrid, l2g_cells, l2g_faces),
-        ) in enumerate(self._subproblems(active_grid, max_memory)):
+        ) in enumerate(
+            pp.fvutils.subproblems(active_grid, max_memory, peak_memory_estimate)
+        ):
 
             tic = time()
             # Copy stiffness tensor, and restrict to local cells
@@ -476,7 +484,7 @@ class Biot(pp.Mpsa):
             eliminate_face = np.where(
                 np.logical_not(np.in1d(l2g_faces, faces_in_subgrid))
             )[0]
-            self._remove_nonlocal_contribution(
+            pp.fvutils.remove_nonlocal_contribution(
                 eliminate_face,
                 g.dim,
                 loc_stress,
@@ -490,7 +498,7 @@ class Biot(pp.Mpsa):
             eliminate_cell = np.where(
                 np.logical_not(np.in1d(l2g_cells, cells_in_subgrid))
             )[0]
-            self._remove_nonlocal_contribution(
+            pp.fvutils.remove_nonlocal_contribution(
                 eliminate_cell, 1, loc_div_u, loc_bound_div_u, loc_biot_stab
             )
 
@@ -569,7 +577,7 @@ class Biot(pp.Mpsa):
 
         # Eliminate any contributions not associated with the active grid
         eliminate_faces = np.setdiff1d(np.arange(g.num_faces), active_faces)
-        self._remove_nonlocal_contribution(
+        pp.fvutils.remove_nonlocal_contribution(
             eliminate_faces,
             g.dim,
             stress,
@@ -589,7 +597,7 @@ class Biot(pp.Mpsa):
         af_vec[active_faces] = 1
         update_cell_ind = np.where(((tmp * af_vec) == tmp.sum(axis=1).A.T)[0])[0]
         eliminate_cells = np.setdiff1d(np.arange(g.num_cells), update_cell_ind)
-        self._remove_nonlocal_contribution(
+        pp.fvutils.remove_nonlocal_contribution(
             eliminate_cells, 1, div_u, bound_div_u, stabilization
         )
 
@@ -1036,25 +1044,6 @@ class Biot(pp.Mpsa):
         div = div_op * vector_2_scalar
         return div
 
-    # ----------------------- Linear solvers -------------------------------------
-
-    def solve(self, A, solver="direct", **kwargs):
-
-        solver = solver.strip().lower()
-        if solver == "direct":
-
-            def slv(b):
-                x = la.spsolve(A, b)
-                return x
-
-        elif solver == "factorized":
-            slv = la.factorized(A.tocsc())
-
-        else:
-            raise ValueError("Unknown solver " + solver)
-
-        return slv
-
     # ----------------------- Methods for post processing -------------------------
     def extract_vector(self, g, u, dims=None, as_vector=False):
         """ Extract displacement field from solution.
@@ -1145,7 +1134,7 @@ class Biot(pp.Mpsa):
         return stress
 
 
-class GradP:
+class GradP(Discretization):
     """ Class for the pressure gradient term of the Biot equation.
     """
 
@@ -1345,7 +1334,7 @@ class GradP:
         pass
 
 
-class DivU:
+class DivU(Discretization):
     """ Class for the displacement divergence term of the Biot equation.
     """
 
@@ -1643,9 +1632,7 @@ class DivU:
         pass
 
 
-class BiotStabilization(
-    pp.numerics.interface_laws.elliptic_discretization.EllipticDiscretization
-):
+class BiotStabilization(Discretization):
     """ Class for the stabilization term of the Biot equation.
     """
 
@@ -1655,7 +1642,7 @@ class BiotStabilization(
         The keywords are used to access and store parameters and discretization
         matrices.
         """
-        super().__init__(keyword)
+        self.keyword = keyword
         # Set variable name for the scalar variable (pressure)
         self.variable = variable
 
