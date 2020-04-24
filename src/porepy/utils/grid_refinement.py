@@ -1,5 +1,6 @@
 import os
 import logging
+import gmsh
 from typing import (  # noqa
     Any,
     Coroutine,
@@ -64,15 +65,7 @@ def refine_mesh_by_splitting(
     out_file = Path(out_file)
     out_file = out_file.parent / out_file.stem
 
-    try:
-        import gmsh
-    except ModuleNotFoundError:
-        raise ModuleNotFoundError(
-            "To run gmsh python api on your system, "
-            "download the relevant gmsh*-sdk.* from http://gmsh.info/bin/. "
-            "Then, Add the 'lib' directory from the SDK to PYTHONPATH: \n"
-            "export PYTHONPATH=${PYTHONPATH}:path/to/gmsh*-sdk.*/lib"
-        )
+
 
     # gmsh must always be finalized after it has be initialized (see 'finally' clause).
     # Therefore, we wrap the entire function body in a try-finally context.
