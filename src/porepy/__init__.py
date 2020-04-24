@@ -50,6 +50,7 @@ from porepy.grids.structured import CartGrid, TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
 from porepy.grids.point_grid import PointGrid
+from porepy.grids import match_grids
 from porepy.grids.mortar_grid import MortarGrid, BoundaryMortar
 from porepy.grids.standard_grids import grid_buckets_2d
 from porepy.grids import grid_extrusion

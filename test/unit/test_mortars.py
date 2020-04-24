@@ -17,7 +17,7 @@ class TestGridMappings1d(unittest.TestCase):
     def test_merge_grids_all_common(self):
         g = pp.TensorGrid(np.arange(3))
         g.compute_geometry()
-        weights, new, old = pp.mortars.match_grids_1d(g, g, tol=1e-4)
+        weights, new, old = pp.match_grids.match_1d(g, g, tol=1e-4)
 
         self.assertTrue(np.allclose(weights, np.ones(2)))
         self.assertTrue(np.allclose(old, np.arange(2)))
@@ -29,7 +29,7 @@ class TestGridMappings1d(unittest.TestCase):
         h.nodes[0, 1] = 0.5
         g.compute_geometry()
         h.compute_geometry()
-        weights, new, old = pp.mortars.match_grids_1d(g, h, tol=1e-4)
+        weights, new, old = pp.match_grids.match_1d(g, h, tol=1e-4)
 
         # Weights give mappings from h to g. The first cell in h is
         # fully within the first cell in g. The second in h is split 1/3
@@ -44,7 +44,7 @@ class TestGridMappings1d(unittest.TestCase):
         h.nodes = h.nodes[:, ::-1]
         g.compute_geometry()
         h.compute_geometry()
-        weights, new, old = pp.mortars.match_grids_1d(g, h, tol=1e-4)
+        weights, new, old = pp.match_grids.match_1d(g, h, tol=1e-4)
         self.assertTrue(np.allclose(weights, np.array([1, 1])))
         # In this case, we don't know which ordering the combined grid uses
         # Instead, make sure that the two mappings are ordered in separate
@@ -68,7 +68,7 @@ class TestGridMappings1d(unittest.TestCase):
 
         g.compute_geometry()
         h.compute_geometry()
-        weights, new, old = pp.mortars.match_grids_1d(g, h, tol=1e-4)
+        weights, new, old = pp.match_grids.match_1d(g, h, tol=1e-4)
 
         # Weights give mappings from h to g. All cells are split in two
         self.assertTrue(np.allclose(weights, np.array([1.0, 1.0, 1.0, 1.0])))

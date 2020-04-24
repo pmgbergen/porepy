@@ -1,4 +1,3 @@
-import os
 import logging
 import gmsh
 from typing import (  # noqa
