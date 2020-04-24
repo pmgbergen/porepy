@@ -106,12 +106,14 @@ class Tpfa(pp.FVElliptic):
         # I.e., fi_left[i] maps to fi_right[i]
         I_left = np.argsort(left_sfi)
         I_right = np.argsort(right_sfi)
-        if not (np.array_equal(left_sfi[I_left], np.arange(fi_left.size)) and
-                np.array_equal(right_sfi[I_right], np.arange(fi_right.size))):
+        if not (
+            np.array_equal(left_sfi[I_left], np.arange(fi_left.size))
+            and np.array_equal(right_sfi[I_right], np.arange(fi_right.size))
+        ):
             raise RuntimeError("Could not find correct periodic boundary mapping")
         ci_left = ci_left[I_left]
         ci_right = ci_right[I_right]
-        # Now, ci_left gives the cell indices of the left cells, and ci_right gives 
+        # Now, ci_left gives the cell indices of the left cells, and ci_right gives
         # the indices of the right cells. Further, fi_left gives the face indices of the
         # left faces that is periodic with the faces with indices fi_right. This means
         # that ci_left[i] is connected to ci_right[i] over the face fi_left (face of
