@@ -163,6 +163,78 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
     return grids
 
 
+def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
+    """ Generate a list of grids dimensions {1, 0}, starting from a gmsh mesh.
+
+    Parameters:
+        file_name (str): Path to file of gmsh.msh specification.
+        constraints (np.array, optional): Index of fracture lines that are
+            constraints in the meshing, but should not have a lower-dimensional
+            mesh. Defaults to empty.
+
+    Returns:
+        list of list of grids: grids in 2d, 1d and 0d. If no grids exist in a
+            specified dimension, the inner list will be empty.
+
+    """
+
+    if constraints is None:
+        constraints = np.empty(0, dtype=np.int)
+
+    start_time = time.time()
+
+    if file_name.endswith(".msh"):
+        file_name = file_name[:-4]
+    out_file = file_name + ".msh"
+
+    mesh = meshio.read(out_file)
+
+    pts = mesh.points
+    cells = mesh.cells
+    cell_info = mesh.cell_data
+    # Invert phys_names dictionary to map from physical tags to corresponding
+    # physical names
+    phys_names = {v[0]: k for k, v in mesh.field_data.items()}
+
+    # Constants used in the gmsh.geo-file
+    const = constants.GmshConstants()
+
+    # Create grids from gmsh mesh.
+    logger.info("Create grids of various dimensions")
+    g_1d, _ = mesh_2_grid.create_1d_grids(
+        pts,
+        cells,
+        phys_names,
+        cell_info,
+        line_tag=const.PHYSICAL_NAME_FRACTURES,
+        constraints=constraints,
+        **kwargs,
+    )
+    g_0d = mesh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
+    grids = [g_1d, g_0d]
+
+    logger.info(
+        "Grid creation completed. Elapsed time " + str(time.time() - start_time)
+    )
+
+    for g_set in grids:
+        if len(g_set) > 0:
+            s = (
+                "Created "
+                + str(len(g_set))
+                + " "
+                + str(g_set[0].dim)
+                + "-d grids with "
+            )
+            num = 0
+            for g in g_set:
+                num += g.num_cells
+            s += str(num) + " cells"
+            logger.info(s)
+
+    return grids
+
+
 def tetrahedral_grid_from_gmsh(network, file_name, constraints=None, **kwargs):
     """ Generate a list of grids of dimensions {3, 2, 1, 0}, starting from a gmsh
     mesh.

@@ -51,7 +51,7 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
         gb = pp.meshing.cart_grid(
             [fracture], mesh_args, physdims=[unit_domain["xmax"], unit_domain["ymax"]]
         )
-    return gb
+    return gb, unit_domain
 
 
 def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex=True):
@@ -101,7 +101,7 @@ def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex
             physdims=[unit_domain["xmax"], unit_domain["ymax"]],
         )
         gb.compute_geometry()
-    return gb
+    return gb, unit_domain
 
 
 def seven_fractures_one_L_intersection(mesh_args=None):

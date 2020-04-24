@@ -175,6 +175,7 @@ class FractureNetwork2d(object):
         do_snap=True,
         constraints=None,
         file_name=None,
+        dfn=False,
         **kwargs,
     ):
         """ Create GridBucket (mixed-dimensional grid) for this fracture network.
@@ -188,6 +189,8 @@ class FractureNetwork2d(object):
             constraints (np.array of int): Index of network edges that should not
                 generate lower-dimensional meshes, but only act as constraints in
                 the meshing algorithm.
+            dfn (boolean, optional): If True, a DFN mesh (of the network, but not
+                the surrounding matrix) is created.
 
         Returns:
             GridBucket: Mixed-dimensional mesh.
@@ -217,7 +220,9 @@ class FractureNetwork2d(object):
         self.pts = p
 
         if not self.bounding_box_imposed:
-            edges_deleted = self.impose_external_boundary(self.domain)
+            edges_deleted = self.impose_external_boundary(
+                self.domain, add_domain_edges=not dfn
+            )
 
             # Find edges of constraints to delete
             to_delete = np.where(np.isin(constraints, edges_deleted))[0]
@@ -232,19 +237,26 @@ class FractureNetwork2d(object):
             # Delete constraints corresponding to deleted edges
             constraints = np.delete(constraints, to_delete)
 
+        # Consider the dimension of the problem, normally 2d but if dfn is true 1d
+        ndim = 2 - int(dfn)
+
         self._find_and_split_intersections(constraints)
         self._insert_auxiliary_points(**mesh_args)
-        self._to_gmsh(in_file)
+        self._to_gmsh(in_file, ndim=ndim)
+        pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dim=ndim)
 
-        gmsh_status = pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dims=2)
-        if gmsh_status > 0:
-            raise ValueError(f"Gmsh failed with status {gmsh_status}")
+        if dfn:
+            # Create list of grids
+            grid_list = porepy.fracs.simplex.line_grid_from_gmsh(
+                out_file, constraints=constraints
+            )
 
-        logger.info("Gmsh completed with status " + str(gmsh_status))
-        # Create list of grids
-        grid_list = porepy.fracs.simplex.triangle_grid_from_gmsh(
-            out_file, constraints=constraints
-        )
+        else:
+            # Create list of grids
+            grid_list = porepy.fracs.simplex.triangle_grid_from_gmsh(
+                out_file, constraints=constraints
+            )
+
         # Assemble in grid bucket
         gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
         return gb
@@ -384,18 +396,20 @@ class FractureNetwork2d(object):
         self.decomposition["edges"] = lines
         self.decomposition["mesh_size"] = mesh_size
 
-    def impose_external_boundary(self, domain=None):
+    def impose_external_boundary(self, domain=None, add_domain_edges=True):
         """
         Constrain the fracture network to lie within a domain.
 
         Fractures outside the imposed domain will be deleted.
 
-        The domain will be added to self.pts and self.edges. The domain boundary edges
-        can be identified from self.tags['boundary'].
+        The domain will be added to self.pts and self.edges, if add_domain_edges is True.
+        The domain boundary edges can be identified from self.tags['boundary'].
 
         Args:
             domain (dict or np.array, optional): Domain. See __init__ for description.
                 if not provided, self.domain will be used.
+            add_domain_edges(bool, optional): Include or not the boundary edges and pts in
+                the list of edges. Default value True.
 
         Returns:
             edges_deleted (np.array): Index of edges that were outside the bounding box
@@ -428,22 +442,28 @@ class FractureNetwork2d(object):
         # Define boundary tags. Set False to all existing edges (after cutting those
         # outside the boundary).
         boundary_tags = self.tags.get("boundary", [False] * e.shape[1])
-        new_boundary_tags = boundary_tags + dom_lines.shape[1] * [True]
 
-        num_p = p.shape[1]
-        self.pts = np.hstack((p, dom_p))
-        self.edges = np.hstack((e, dom_lines + num_p))
+        if add_domain_edges:
+            # Define the new boundary tags
+            new_boundary_tags = boundary_tags + dom_lines.shape[1] * [True]
+            self.tags["boundary"] = new_boundary_tags
 
-        self.tags["boundary"] = new_boundary_tags
+            num_p = p.shape[1]
+            # Add the domain boundary edges and points
+            self.edges = np.hstack((e, dom_lines + num_p))
+            self.pts = np.hstack((p, dom_p))
+
+            self.decomposition["domain_boundary_points"] = num_p + np.arange(
+                dom_p.shape[1], dtype=np.int
+            )
+        else:
+            self.tags["boundary"] = boundary_tags
+            self.decomposition["domain_boundary_points"] = np.empty(0, dtype=np.int)
 
         self.bounding_box_imposed = True
-
-        self.decomposition["domain_boundary_points"] = num_p + np.arange(
-            dom_p.shape[1], dtype=np.int
-        )
         return edges_deleted
 
-    def _to_gmsh(self, in_file):
+    def _to_gmsh(self, in_file, ndim):
 
         # Create a writer of gmsh .geo-files
         p = self.decomposition["points"]
@@ -469,6 +489,7 @@ class FractureNetwork2d(object):
             intersection_points=intersections,
             domain_boundary_points=self.decomposition["domain_boundary_points"],
             fracture_and_boundary_points=fracture_boundary_points,
+            nd=ndim,
         )
         gw.write_geo(in_file)
 
@@ -580,7 +601,7 @@ class FractureNetwork2d(object):
         else:
             edges = self.edges
             pts = self.pts
-            
+
         import networkx as nx
 
         G = nx.Graph()

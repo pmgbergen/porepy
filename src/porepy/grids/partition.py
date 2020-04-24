@@ -178,6 +178,19 @@ def partition_coordinates(
     if not hasattr(g, "cell_centers"):
         g.compute_geometry()
 
+    if g.dim == 0:
+        # Nothing really to do here.
+        return np.zeros(g.num_cells, dtype=np.int)
+
+    # The division into boxes must be done within the active dimensions of the grid.
+    # For 1d and 2d grids, this involves a mapping of the grid into its natural
+    # coordinates.
+    if g.dim == 1 or g.dim == 2:
+        g = g.copy()
+        cell_centers, *_, nodes = pp.map_geometry.map_grid(g)
+        g.cell_centers = np.vstack((cell_centers, np.zeros(g.num_cells)))
+        g.nodes = np.vstack((nodes, np.zeros(g.num_nodes)))
+
     # Rough computation of the size of the Cartesian coarse grid: Determine the
     # extension of the domain in each direction, transform into integer sizes,
     # and use function to determine coarse dimensions.
@@ -433,8 +446,8 @@ def extract_subgrid(
     if faces:
         return __extract_cells_from_faces(g, c, is_planar)
     # Local cell-face and face-node maps.
-    cf_sub, unique_faces = __extract_submatrix(g.cell_faces, c)
-    fn_sub, unique_nodes = __extract_submatrix(g.face_nodes, unique_faces)
+    cf_sub, unique_faces = __extract_submatrix(g.cell_faces.tocsc(), c)
+    fn_sub, unique_nodes = __extract_submatrix(g.face_nodes.tocsc(), unique_faces)
 
     # Append information on subgrid extraction to the new grid's history
     name = list(g.name)

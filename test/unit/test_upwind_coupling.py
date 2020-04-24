@@ -16,7 +16,8 @@ class TestUpwindCoupling(unittest.TestCase):
         # --------- horizontal fracture
         # |   |   |
         # --------
-        return pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
+        gb, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
+        return gb
 
     def block_matrix(self, gs):
         def ndof(g):

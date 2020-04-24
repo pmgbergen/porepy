@@ -23,7 +23,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class MassMatrix:
+class MassMatrix(pp.numerics.discretization.Discretization):
     """ Class that provides the discretization of a L2-mass bilinear form with constant
     test and trial functions.
     """

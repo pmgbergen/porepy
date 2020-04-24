@@ -124,9 +124,7 @@ def create_2d_grids(
             # Find unique points, and a mapping from local to global points
             pind_loc, p_map = np.unique(loc_tri_cells, return_inverse=True)
             loc_tri_ind = p_map.reshape((-1, 3))
-            g = pp.TriangleGrid(
-                pts[pind_loc, :].transpose(), loc_tri_ind.transpose()
-            )
+            g = pp.TriangleGrid(pts[pind_loc, :].transpose(), loc_tri_ind.transpose())
             # Add mapping to global point numbers
             g.global_point_ind = pind_loc
 

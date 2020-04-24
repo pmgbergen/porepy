@@ -44,15 +44,10 @@ class ContactMechanicsExample(contact_mechanics_model.ContactMechanics):
                 grid bucket.
 
         """
-        # List the fracture points
-        self.frac_pts = np.array([[0.2, 0.8], [0.5, 0.5]])
-        # Each column defines one fracture
-        frac_edges = np.array([[0], [1]])
-        self.box = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
-
-        network = pp.FractureNetwork2d(self.frac_pts, frac_edges, domain=self.box)
-        # Generate the mixed-dimensional mesh
-        gb = network.mesh(self.mesh_args)
+        x_endpoints = np.array([0.2, 0.8])
+        gb, self.box = gb, self.box = pp.grid_buckets_2d.single_horizontal(
+            self.mesh_args, x_endpoints, simplex=simplex
+        )
 
         # Set projections to local coordinates for all fractures
         pp.contact_conditions.set_projections(gb)
@@ -111,12 +106,14 @@ class ProblemDataTime:
         with_fracture = getattr(self, "with_fracture", True)
         simplex = getattr(self, "simplex", True)
         if with_fracture:
-            gb = pp.grid_buckets_2d.single_horizontal(self.mesh_args, simplex=simplex)
+            gb, self.box = pp.grid_buckets_2d.single_horizontal(
+                self.mesh_args, simplex=simplex
+            )
             pp.contact_conditions.set_projections(gb)
         else:
             nx = getattr(self, "nx", [3, 3])
             gb = pp.meshing.cart_grid([], nx, physdims=[1, 1])
-        self.box = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
+            self.box = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
         self.gb = gb
         self.Nd = gb.dim_max()
 
