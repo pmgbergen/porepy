@@ -909,6 +909,43 @@ class GridBucket(Generic[T]):
         gb_copy._edges = self._edges.copy()
         return gb_copy
 
+    def replace_grids(self, g_map: Dict[pp.Grid, pp.Grid] = None,
+                      mg_map: [pp.MortarGrid, pp.MortarGrid] = None, tol: float =1e-6) -> None:
+        """ Replace grids and / or mortar grids in the mixed-dimensional grid.
+    
+        Parameters:
+            gb (GridBucket): To be updated.
+            g_map (dictionary): Grids to replace. Keys are grids in the old bucket,
+                values are their replacements.
+            mg_map (dictionary): Mortar grids to replace. Keys are EITHER related
+                to mortar grids, or to edges. Probably, mg is most relevant, the we
+                need to identify the right edge shielded from user.
+    
+        """
+        if mg_map is None:
+            mg_map = {}
+    
+        # refine the mortar grids when specified
+        for mg_old, mg_new in mg_map.items():
+            mg_old.update_mortar(mg_new, tol)
+    
+        # update the grid bucket considering the new grids instead of the old one
+        # valid only for physical grids and not for mortar grids
+        if g_map is not None:
+            self.update_nodes(g_map)
+        else:
+            g_map = {}
+    
+        # refine the grids when specified
+        for g_old, g_new in g_map.items():
+            for _, d in self.edges_of_node(g_new):
+                mg = d["mortar_grid"]
+                if mg.dim == g_new.dim:
+                    # update the mortar grid of the same dimension
+                    mg.update_slave(g_new, tol)
+                else:  # g_new.dim == mg.dim + 1
+                    mg.update_master(g_new, g_old, tol)
+
     def _find_shared_face(self, g0: pp.Grid, g1: pp.Grid, g_l: pp.Grid) -> np.ndarray:
         """
         Given two nd grids meeting at a (n-1)d node (to be removed), find which two
