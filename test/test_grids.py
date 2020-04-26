@@ -208,7 +208,7 @@ class SimplexGrid2dDomainOneImmersedFracture:
         )
         g_new_1d = self.grid_1d(num_pts=num_1d, rotate_fracture=rotate_fracture)
 
-        pp.mortars.replace_grids_in_bucket(gb, g_map={g2: g_new_2d, g1: g_new_1d})
+        gb.replace_grids(g_map={g2: g_new_2d, g1: g_new_1d})
 
         gb.assign_node_ordering()
 

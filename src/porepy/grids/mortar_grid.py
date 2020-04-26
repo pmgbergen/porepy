@@ -4,6 +4,8 @@ import warnings
 import numpy as np
 from scipy import sparse as sps
 
+import porepy as pp
+
 # Module level constants, used to define sides of a mortar grid.
 # This is in essence an Enum, but that led to trouble in pickling a GridBucket.
 NONE_SIDE = 0
@@ -154,9 +156,10 @@ class MortarGrid(object):
             + str(self.dim)
             + "\n"
             + f"Number of cells {self.num_cells}\n"
+            + f"Number of sides {len(self.side_grids)}\n"
             + "Number of cells in lower-dimensional neighbor "
             + f"{self.mortar_to_slave_int().shape[0]}\n"
-            + "Number of cells in higher-dimensional neighbor "
+            + "Number of faces in higher-dimensional neighbor "
             + f"{self.mortar_to_master_int().shape[0]}\n"
         )
 
@@ -197,7 +200,7 @@ class MortarGrid(object):
 
     ### Methods to update the mortar grid, or the neighboring grids.
 
-    def update_mortar(self, side_matrix, side_grids):
+    def update_mortar(self, new_side_grids, tol):
         """
         Update the low_to_mortar_int and high_to_mortar_int maps when the mortar grids
         are changed.
@@ -207,7 +210,26 @@ class MortarGrid(object):
                 used when this MortarGrid was defined) a matrix representing the
                 new mapping between the old and new mortar grids.
         """
-
+        split_matrix = {}
+    
+        # For each side we compute the mapping between the old and the new mortar
+        # grids, we store them in a dictionary with SideTag as key.
+        for side, new_g in new_side_grids.items():
+            g = self.side_grids[side]
+            if g.dim != new_g.dim:
+                raise ValueError("Grid dimension has to be the same")
+    
+            if g.dim == 0:
+                # Nothing to do
+                return
+            elif g.dim == 1:
+                split_matrix[side] = _split_matrix_1d(g, new_g, tol)
+            elif g.dim == 2:
+                split_matrix[side] = _split_matrix_2d(g, new_g, tol)
+            else:
+                # No 3d mortar grid
+                raise ValueError        
+        
         # In the case of different side ordering between the input data and the
         # stored we need to remap it. The resulting matrix will be a block
         # diagonal matrix, where in each block we have the mapping between the
@@ -217,7 +239,7 @@ class MortarGrid(object):
         # Loop on all the side grids, if not given an identity matrix is
         # considered
         for pos, (side, g) in enumerate(self.side_grids.items()):
-            matrix[pos, pos] = side_matrix.get(side, sps.identity(g.num_cells))
+            matrix[pos, pos] = split_matrix.get(side, sps.identity(g.num_cells))
 
         # Once the global matrix is constructed the new low_to_mortar_int and
         # high_to_mortar_int maps are updated.
@@ -226,7 +248,7 @@ class MortarGrid(object):
         self._master_to_mortar_int = matrix * self._master_to_mortar_int
 
         # Update the side grids
-        for side, g in side_grids.items():
+        for side, g in new_side_grids.items():
             self.side_grids[side] = g.copy()
 
         # update the geometry
@@ -234,7 +256,7 @@ class MortarGrid(object):
 
         self._check_mappings()
 
-    def update_slave(self, side_matrix):
+    def update_slave(self, new_g, tol=1e-6):
         """
         Update the low_to_mortar_int map when the lower dimensional grid is changed.
 
@@ -243,7 +265,25 @@ class MortarGrid(object):
                 used when this MortarGrid was defined) a matrix representing the
                 new mapping between the old and new mortar grids.
         """
-
+        split_matrix = {}
+    
+        # For each side we compute the mapping between the new lower dimensional
+        # grid and the mortar grid, we store them in a dictionary with SideTag as key.
+        for side, g in self.side_grids.items():
+            if g.dim != new_g.dim:
+                raise ValueError("Grid dimension has to be the same")
+    
+            if self.dim == 0:
+                # Nothing to do
+                return
+            elif self.dim == 1:
+                split_matrix[side] = _split_matrix_1d(g, new_g, tol).T
+            elif self.dim == 2:
+                split_matrix[side] = _split_matrix_2d(g, new_g, tol).T
+            else:
+                # No 3d mortar grid
+                raise ValueError
+    
         # In the case of different side ordering between the input data and the
         # stored we need to remap it. The resulting matrix will be a block
         # matrix, where in each block we have the mapping between the
@@ -251,15 +291,54 @@ class MortarGrid(object):
         matrix = np.empty((self.num_sides(), 1), dtype=np.object)
 
         for pos, (side, _) in enumerate(self.side_grids.items()):
-            matrix[pos, 0] = side_matrix[side]
+            matrix[pos, 0] = split_matrix[side]
 
         # Update the low_to_mortar_int map. No need to update the high_to_mortar_int.
         self._slave_to_mortar_int = sps.bmat(matrix, format="csc")
         self._check_mappings()
 
-    def update_master(self, matrix):
+    def update_master(self, g_new, g_old, tol):
+        
+        split_matrix = {}
+    
+        if self.dim == 0:
+    
+            # retrieve the old faces and the corresponding coordinates
+            _, old_faces, _ = sps.find(self._master_to_mortar_int)
+            old_nodes = g_old.face_centers[:, old_faces]
+    
+            # retrieve the boundary faces and the corresponding coordinates
+            new_faces = g_new.get_all_boundary_faces()
+            new_nodes = g_new.face_centers[:, new_faces]
+    
+            # we assume only one old node
+            for i in range(1, old_nodes.shape[1]):
+                is_same = (
+                    pp.distances.point_pointset(old_nodes[:, 0], old_nodes[:, i]) < tol
+                )
+                if not is_same:
+                    raise ValueError("0d->1d mappings must map to the same physical point")
+            old_nodes = old_nodes[:, 0]
+            mask = pp.distances.point_pointset(old_nodes, new_nodes) < tol
+            new_faces = new_faces[mask]
+    
+            shape = (g_old.num_faces, g_new.num_faces)
+            matrix_DIJ = (np.ones(old_faces.shape), (old_faces, new_faces))
+            split_matrix = sps.csc_matrix(matrix_DIJ, shape=shape)
+    
+        elif self.dim == 1:
+            # The case is conceptually similar to 0d, but quite a bit more
+            # technical. Implementation is moved to separate function
+            split_matrix = pp.match_grids._match_grids_along_line_from_geometry(self, g_new, g_old, tol)
+    
+        else:  # should be mg.dim == 2
+            # It should be possible to use essentially the same approach as in 1d,
+            # but this is not yet covered.
+            raise NotImplementedError("Have not yet implemented this.")
+            
+        
         # Make a comment here
-        self._master_to_mortar_int = self._master_to_mortar_int * matrix
+        self._master_to_mortar_int = self._master_to_mortar_int * split_matrix
         self._check_mappings()
 
     def num_sides(self):
@@ -715,3 +794,48 @@ class BoundaryMortar(MortarGrid):
         We assume that they are not aligned with x (1d) or x, y (2d).
         """
         [g.compute_geometry() for g in self.side_grids.values()]
+
+
+# --- helper methods
+
+def _split_matrix_1d(g_old, g_new, tol):
+    """
+    By calling matching grid the function compute the cell mapping between two
+    different grids.
+
+    It is asumed that the two grids are aligned, with common start and
+    endpoints. However, their nodes can be ordered in oposite directions.
+
+    Parameters:
+        g_old (Grid): the first (old) grid
+        g_new (Grid): the second (new) grid
+    Return:
+        csr matrix: representing the cell mapping. The entries are the relative
+            cell measure between the two grids.
+
+    """
+    weights, new_cells, old_cells = pp.match_grids.match_1d(g_new, g_old, tol)
+    shape = (g_new.num_cells, g_old.num_cells)
+    return sps.csr_matrix((weights, (new_cells, old_cells)), shape=shape)
+
+
+def _split_matrix_2d(g_old, g_new, tol):
+    """
+    By calling matching grid the function compute the cell mapping between two
+    different grids.
+
+    It is asumed that the two grids have common boundary.
+
+    Parameters:
+        g_old (Grid): the first (old) grid
+        g_new (Grid): the second (new) grid
+    Return:
+        csr matrix: representing the cell mapping. The entries are the relative
+            cell measure between the two grids.
+
+    """
+    weights, new_cells, old_cells = pp.match_grids.match_2d(g_new, g_old, tol)
+    shape = (g_new.num_cells, g_old.num_cells)
+    # EK: Is it really safe to use csr_matrix here?
+    return sps.csr_matrix((weights, (new_cells, old_cells)), shape=shape)
+

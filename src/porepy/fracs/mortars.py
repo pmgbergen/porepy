@@ -32,7 +32,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-def update_mortar_grid(mg, new_side_grids, tol):
+def _update_mortar_grid(mg, new_side_grids, tol):
     """
     Update the maps in the mortar class when the mortar grids are changed.
     The update of the mortar grid is in-place.
@@ -72,7 +72,7 @@ def update_mortar_grid(mg, new_side_grids, tol):
 # ------------------------------------------------------------------------------#
 
 
-def update_physical_low_grid(mg, new_g, tol):
+def _update_physical_low_grid(mg, new_g, tol):
     """
     Update the maps in the mortar class when the lower dimensional grid is
     changed. The update of the lower dimensional grid in the grid bucket needs
@@ -111,44 +111,8 @@ def update_physical_low_grid(mg, new_g, tol):
     mg.update_slave(split_matrix)
 
 
-def update_physical_high_grid(mg, g_new, g_old, tol):
+def _update_physical_high_grid(mg, g_new, g_old, tol):
 
-    split_matrix = {}
-
-    if mg.dim == 0:
-
-        # retrieve the old faces and the corresponding coordinates
-        _, old_faces, _ = sps.find(mg._master_to_mortar_int)
-        old_nodes = g_old.face_centers[:, old_faces]
-
-        # retrieve the boundary faces and the corresponding coordinates
-        new_faces = g_new.get_all_boundary_faces()
-        new_nodes = g_new.face_centers[:, new_faces]
-
-        # we assume only one old node
-        for i in range(1, old_nodes.shape[1]):
-            is_same = (
-                pp.distances.point_pointset(old_nodes[:, 0], old_nodes[:, i]) < tol
-            )
-            if not is_same:
-                raise ValueError("0d->1d mappings must map to the same physical point")
-        old_nodes = old_nodes[:, 0]
-        mask = pp.distances.point_pointset(old_nodes, new_nodes) < tol
-        new_faces = new_faces[mask]
-
-        shape = (g_old.num_faces, g_new.num_faces)
-        matrix_DIJ = (np.ones(old_faces.shape), (old_faces, new_faces))
-        split_matrix = sps.csc_matrix(matrix_DIJ, shape=shape)
-
-    elif mg.dim == 1:
-        # The case is conceptually similar to 0d, but quite a bit more
-        # technical. Implementation is moved to separate function
-        split_matrix = pp.match_grids._match_grids_along_line_from_geometry(mg, g_new, g_old, tol)
-
-    else:  # should be mg.dim == 2
-        # It should be possible to use essentially the same approach as in 1d,
-        # but this is not yet covered.
-        raise NotImplementedError("Have not yet implemented this.")
 
     mg.update_master(split_matrix)
 
@@ -156,49 +120,8 @@ def update_physical_high_grid(mg, g_new, g_old, tol):
 # ------------------------------------------------------------------------------#
 
 
-def _split_matrix_1d(g_old, g_new, tol):
-    """
-    By calling matching grid the function compute the cell mapping between two
-    different grids.
 
-    It is asumed that the two grids are aligned, with common start and
-    endpoints. However, their nodes can be ordered in oposite directions.
-
-    Parameters:
-        g_old (Grid): the first (old) grid
-        g_new (Grid): the second (new) grid
-    Return:
-        csr matrix: representing the cell mapping. The entries are the relative
-            cell measure between the two grids.
-
-    """
-    weights, new_cells, old_cells = pp.match_grids.match_1d(g_new, g_old, tol)
-    shape = (g_new.num_cells, g_old.num_cells)
-    return sps.csr_matrix((weights, (new_cells, old_cells)), shape=shape)
-
-
-def _split_matrix_2d(g_old, g_new, tol):
-    """
-    By calling matching grid the function compute the cell mapping between two
-    different grids.
-
-    It is asumed that the two grids have common boundary.
-
-    Parameters:
-        g_old (Grid): the first (old) grid
-        g_new (Grid): the second (new) grid
-    Return:
-        csr matrix: representing the cell mapping. The entries are the relative
-            cell measure between the two grids.
-
-    """
-    weights, new_cells, old_cells = pp.match_grids.match_2d(g_new, g_old, tol)
-    shape = (g_new.num_cells, g_old.num_cells)
-    # EK: Is it really safe to use csr_matrix here?
-    return sps.csr_matrix((weights, (new_cells, old_cells)), shape=shape)
-
-
-def replace_grids_in_bucket(gb, g_map=None, mg_map=None, tol=1e-6):
+def _replace_grids_in_bucket(gb, g_map=None, mg_map=None, tol=1e-6):
     """ Replace grids and / or mortar grids in a grid_bucket. Recompute mortar
     mappings as needed.
 
