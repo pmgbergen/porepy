@@ -3,6 +3,7 @@
 import warnings
 import numpy as np
 from scipy import sparse as sps
+from typing import Dict, Optional, Generator, Tuple
 
 import porepy as pp
 
@@ -14,7 +15,7 @@ RIGHT_SIDE = 2
 WHOLE_SIDE = np.iinfo(type(NONE_SIDE)).max
 
 
-class MortarGrid(object):
+class MortarGrid:
     """
     Parent class for mortar grids it contains two grids representing the left
     and right part of the mortar grid and the weighted mapping from the higher
@@ -28,21 +29,31 @@ class MortarGrid(object):
         side_grids (dictionary of Grid): grid for each side. The key is an integer
             with value {0, 1, 2}, and the value is a Grid.
         sides (array of integers with values in {0, 1, 2}): ordering of the sides.
-        high_to_mortar_int (sps.csc-matrix): Face-cell relationships between the
+        _master_to_mortar_int (sps.csc-matrix): Face-cell relationships between the
             high dimensional grid and the mortar grids. Matrix size:
             num_faces x num_cells. In the beginning we assume matching grids,
             but it can be modified by calling refine_mortar(). The matrix
             elements represent the ratio between the geometrical objects.
-        low_to_mortar_int (sps.csc-matrix): Cell-cell relationships between the
+        _slave_to_mortar_int (sps.csc-matrix): Cell-cell relationships between the
             mortar grids and the low dimensional grid. Matrix size:
             num_cells x num_cells. Matrix elements represent the ratio between
             the geometrical objects.
         name (list): Information on the formation of the grid, such as the
             constructor, computations of geometry etc.
+        tol (double): Tolerance use when matching grids during update of mortar or
+            master / slave grids.
 
     """
 
-    def __init__(self, dim, side_grids, face_cells, name="", face_duplicate_ind=None):
+    def __init__(
+        self,
+        dim: int,
+        side_grids: Dict[int, pp.Grid],
+        face_cells: sps.spmatrix,
+        name: str = "",
+        face_duplicate_ind: Optional[np.ndarray] = None,
+        tol: float = 1e-6,
+    ):
         """Initialize the mortar grid
 
         See class documentation for further description of parameters.
@@ -54,18 +65,19 @@ class MortarGrid(object):
         NOTE: This behaviour can be overridden by providing indices of the extra faces
         in the parameter face_duplicate_ind.
 
-        Parameters
-        ----------
-        dim (int): grid dimension
-        side_grids (dictionary of Grid): grid on each side.
-        face_cells (sps.csc_matrix): Cell-face relations between the higher
-            dimensional grid and the lower dimensional grid.
-        name (str): Name of the grid. Can also be used to set various information on the
-            grid.
-        face_duplicate_ind (np.ndarray, optional): Which faces should be considered
-            duplicates, and mapped to the second of the side_grids. If not provided,
-            duplicate faces will be inferred from the indices of the faces. Will only
-            be used if len(side_Grids) == 2.
+        Parameters:
+            dim (int): grid dimension
+            side_grids (dictionary of Grid): grid on each side.
+            face_cells (sps.csc_matrix): Cell-face relations between the higher
+                dimensional grid and the lower dimensional grid.
+            name (str): Name of the grid. Can also be used to set various information on
+                the grid.
+            face_duplicate_ind (np.ndarray, optional): Which faces should be considered
+                duplicates, and mapped to the second of the side_grids. If not provided,
+                duplicate faces will be inferred from the indices of the faces. Will
+                only be used if len(side_Grids) == 2.
+            tol (double, optional): Tolerance used in geometric computations. Defaults
+                to 1e-6.
 
         """
 
@@ -75,8 +87,8 @@ class MortarGrid(object):
             raise ValueError("All the mortar grids have to have the same dimension")
 
         self.dim = dim
-        self.side_grids = side_grids.copy()
-        self.sides = np.array(list(self.side_grids.keys()))
+        self.side_grids: Dict[int, pp.Grid] = side_grids.copy()
+        self.sides: np.ndarray = np.array(list(self.side_grids.keys()))
 
         if not (self.num_sides() == 1 or self.num_sides() == 2):
             raise ValueError("The number of sides have to be 1 or 2")
@@ -86,15 +98,16 @@ class MortarGrid(object):
         else:
             self.name = [name]
         self.name.append("mortar_grid")
+        self.tol = tol
 
         # easy access attributes with a fixed ordering of the side grids
-        self.num_cells = np.sum(
+        self.num_cells: np.ndarray = np.sum(
             [g.num_cells for g in self.side_grids.values()], dtype=np.int
         )
-        self.cell_volumes = np.hstack(
+        self.cell_volumes: np.ndarray = np.hstack(
             [g.cell_volumes for g in self.side_grids.values()]
         )
-        self.cell_centers = np.hstack(
+        self.cell_centers: np.ndarray = np.hstack(
             [g.cell_centers for g in self.side_grids.values()]
         )
 
@@ -133,7 +146,7 @@ class MortarGrid(object):
                 cells[cells_on_second_side] += num_cells
 
         shape = (num_cells * self.num_sides(), face_cells.shape[1])
-        self._master_to_mortar_int = sps.csc_matrix(
+        self._master_to_mortar_int: sps.spmatrix = sps.csc_matrix(
             (data.astype(np.float), (cells, faces)), shape=shape
         )
 
@@ -141,9 +154,9 @@ class MortarGrid(object):
         # It is composed by two identity matrices since we are assuming matching
         # grids here.
         identity = [[sps.identity(num_cells)]] * self.num_sides()
-        self._slave_to_mortar_int = sps.bmat(identity, format="csc")
+        self._slave_to_mortar_int: sps.spmatrix = sps.bmat(identity, format="csc")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Implementation of __repr__
 
@@ -165,7 +178,7 @@ class MortarGrid(object):
 
         return s
 
-    def __str__(self):
+    def __str__(self) -> str:
         """ Implementation of __str__
         """
         s = (
@@ -179,7 +192,7 @@ class MortarGrid(object):
         )
         return s
 
-    def compute_geometry(self):
+    def compute_geometry(self) -> None:
         """
         Compute the geometry of the mortar grids.
         We assume that they are not aligned with x (1d) or x, y (2d).
@@ -200,7 +213,9 @@ class MortarGrid(object):
 
     ### Methods to update the mortar grid, or the neighboring grids.
 
-    def update_mortar(self, new_side_grids, tol):
+    def update_mortar(
+        self, new_side_grids: Dict[int, pp.Grid], tol: float = None
+    ) -> None:
         """
         Update the low_to_mortar_int and high_to_mortar_int maps when the mortar grids
         are changed.
@@ -209,16 +224,22 @@ class MortarGrid(object):
             side_matrix (dict): for each side (identified with values {0, 1, 2}, as
                 used when this MortarGrid was defined) a matrix representing the
                 new mapping between the old and new mortar grids.
+            tol (double, optional): Tolerance used for matching the new and old grids.
+                Defaults to self.tol.
+
         """
+        if tol is None:
+            tol = self.tol
+
         split_matrix = {}
-    
+
         # For each side we compute the mapping between the old and the new mortar
         # grids, we store them in a dictionary with SideTag as key.
         for side, new_g in new_side_grids.items():
             g = self.side_grids[side]
             if g.dim != new_g.dim:
                 raise ValueError("Grid dimension has to be the same")
-    
+
             if g.dim == 0:
                 # Nothing to do
                 return
@@ -228,8 +249,8 @@ class MortarGrid(object):
                 split_matrix[side] = _split_matrix_2d(g, new_g, tol)
             else:
                 # No 3d mortar grid
-                raise ValueError        
-        
+                raise ValueError
+
         # In the case of different side ordering between the input data and the
         # stored we need to remap it. The resulting matrix will be a block
         # diagonal matrix, where in each block we have the mapping between the
@@ -256,23 +277,27 @@ class MortarGrid(object):
 
         self._check_mappings()
 
-    def update_slave(self, new_g, tol=1e-6):
+    def update_slave(self, new_g: pp.Grid, tol: float = None) -> None:
         """
-        Update the low_to_mortar_int map when the lower dimensional grid is changed.
+        Update the _slave_to_mortar_int map when the lower dimensional grid is changed.
 
         Parameter:
-            side_matrix (dict): for each side (identified with values {0, 1, 2}, as
-                used when this MortarGrid was defined) a matrix representing the
-                new mapping between the old and new mortar grids.
+            new_g (pp.Grid): The new slave grid.
+            tol (double, optional): Tolerance used for matching the new and old grids.
+                Defaults to self.tol.
+
         """
+        if tol is None:
+            tol = self.tol
+
         split_matrix = {}
-    
+
         # For each side we compute the mapping between the new lower dimensional
         # grid and the mortar grid, we store them in a dictionary with SideTag as key.
         for side, g in self.side_grids.items():
             if g.dim != new_g.dim:
                 raise ValueError("Grid dimension has to be the same")
-    
+
             if self.dim == 0:
                 # Nothing to do
                 return
@@ -283,7 +308,7 @@ class MortarGrid(object):
             else:
                 # No 3d mortar grid
                 raise ValueError
-    
+
         # In the case of different side ordering between the input data and the
         # stored we need to remap it. The resulting matrix will be a block
         # matrix, where in each block we have the mapping between the
@@ -297,60 +322,76 @@ class MortarGrid(object):
         self._slave_to_mortar_int = sps.bmat(matrix, format="csc")
         self._check_mappings()
 
-    def update_master(self, g_new, g_old, tol):
-        
-        split_matrix = {}
-    
+    def update_master(self, g_new: pp.Grid, g_old: pp.Grid, tol: float = None):
+        """
+        Update the _slave_to_mortar_int map when the lower dimensional grid is changed.
+
+        Parameter:
+            g_new (pp.Grid): The new master grid.
+            g_old (pp.Grid): The old master grid.
+            tol (double, optional): Tolerance used for matching the new and old grids.
+                Defaults to self.tol.
+
+        """
+        # TODO: Why is the signature of this method different from update_slave?
+        if tol is None:
+            tol = self.tol
+
         if self.dim == 0:
-    
+
             # retrieve the old faces and the corresponding coordinates
             _, old_faces, _ = sps.find(self._master_to_mortar_int)
             old_nodes = g_old.face_centers[:, old_faces]
-    
+
             # retrieve the boundary faces and the corresponding coordinates
             new_faces = g_new.get_all_boundary_faces()
             new_nodes = g_new.face_centers[:, new_faces]
-    
+
             # we assume only one old node
             for i in range(1, old_nodes.shape[1]):
                 is_same = (
                     pp.distances.point_pointset(old_nodes[:, 0], old_nodes[:, i]) < tol
                 )
                 if not is_same:
-                    raise ValueError("0d->1d mappings must map to the same physical point")
+                    raise ValueError(
+                        "0d->1d mappings must map to the same physical point"
+                    )
             old_nodes = old_nodes[:, 0]
             mask = pp.distances.point_pointset(old_nodes, new_nodes) < tol
             new_faces = new_faces[mask]
-    
+
             shape = (g_old.num_faces, g_new.num_faces)
             matrix_DIJ = (np.ones(old_faces.shape), (old_faces, new_faces))
             split_matrix = sps.csc_matrix(matrix_DIJ, shape=shape)
-    
+
         elif self.dim == 1:
-            # The case is conceptually similar to 0d, but quite a bit more
-            # technical. Implementation is moved to separate function
-            split_matrix = pp.match_grids._match_grids_along_line_from_geometry(self, g_new, g_old, tol)
-    
+            # The case is conceptually similar to 0d, but quite a bit more technical
+            split_matrix = pp.match_grids._match_grids_along_line_from_geometry(
+                self, g_new, g_old, tol
+            )
+
         else:  # should be mg.dim == 2
             # It should be possible to use essentially the same approach as in 1d,
             # but this is not yet covered.
             raise NotImplementedError("Have not yet implemented this.")
-            
-        
+
         # Make a comment here
         self._master_to_mortar_int = self._master_to_mortar_int * split_matrix
         self._check_mappings()
 
-    def num_sides(self):
+    def num_sides(self) -> int:
         """
         Shortcut to compute the number of sides, it has to be 2 or 1.
 
         Return:
             Number of sides.
+
         """
         return len(self.side_grids)
 
-    def project_to_side_grids(self):
+    def project_to_side_grids(
+        self,
+    ) -> Generator[Tuple[sps.spmatrix, pp.Grid], None, None]:
         """ Generator for the side grids (pp.Grid) representation of the mortar
         cells, and projection operators from the mortar cells, combining cells on all
         the sides, to the specific side grids.
@@ -377,7 +418,7 @@ class MortarGrid(object):
 
     ## Methods to construct projection matrices
 
-    def master_to_mortar_int(self, nd=1):
+    def master_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
         """ Project values from faces of master to the mortar, by summing quantities
         from the master side.
 
@@ -398,7 +439,7 @@ class MortarGrid(object):
         """
         return self._convert_to_vector_variable(self._master_to_mortar_int, nd)
 
-    def slave_to_mortar_int(self, nd=1):
+    def slave_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
         """ Project values from cells on the slave side to the mortar, by
         summing quantities from the slave side.
 
@@ -419,7 +460,7 @@ class MortarGrid(object):
         """
         return self._convert_to_vector_variable(self._slave_to_mortar_int, nd)
 
-    def master_to_mortar_avg(self, nd=1):
+    def master_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
         """ Project values from faces of master to the mortar, by averaging quantities
         from the master side.
 
@@ -444,7 +485,7 @@ class MortarGrid(object):
             sps.diags(1.0 / row_sum) * self._master_to_mortar_int, nd
         )
 
-    def slave_to_mortar_avg(self, nd=1):
+    def slave_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
         """ Project values from cells at the slave to the mortar, by averaging
         quantities from the slave side.
 
@@ -473,7 +514,7 @@ class MortarGrid(object):
     # found by taking transposes, and switching average and integration (since we are
     # changing which side we are taking the area relative to.
 
-    def mortar_to_master_int(self, nd=1):
+    def mortar_to_master_int(self, nd: int = 1) -> sps.spmatrix:
         """ Project values from the mortar to faces of master, by summing quantities
         from the mortar side.
 
@@ -494,7 +535,7 @@ class MortarGrid(object):
         """
         return self._convert_to_vector_variable(self.master_to_mortar_avg().T, nd)
 
-    def mortar_to_slave_int(self, nd=1):
+    def mortar_to_slave_int(self, nd: int = 1) -> sps.spmatrix:
         """ Project values from the mortar to cells at the slave, by summing quantities
         from the mortar side.
 
@@ -515,7 +556,7 @@ class MortarGrid(object):
         """
         return self._convert_to_vector_variable(self.slave_to_mortar_avg().T, nd)
 
-    def mortar_to_master_avg(self, nd=1):
+    def mortar_to_master_avg(self, nd: int = 1) -> sps.spmatrix:
         """ Project values from the mortar to faces of master, by averaging
         quantities from the mortar side.
 
@@ -537,7 +578,7 @@ class MortarGrid(object):
         """
         return self._convert_to_vector_variable(self.master_to_mortar_int().T, nd)
 
-    def mortar_to_slave_avg(self, nd=1):
+    def mortar_to_slave_avg(self, nd: int = 1) -> sps.spmatrix:
         """ Project values from the mortar to slave, by averaging quantities from the
         mortar side.
 
@@ -559,14 +600,16 @@ class MortarGrid(object):
         """
         return self._convert_to_vector_variable(self.slave_to_mortar_int().T, nd)
 
-    def _convert_to_vector_variable(self, matrix, nd):
+    def _convert_to_vector_variable(
+        self, matrix: sps.spmatrix, nd: int
+    ) -> sps.spmatrix:
         """ Convert the scalar projection to a vector quantity. If the prescribed
         dimension is 1 (default for all the above methods), the projection matrix
         will in effect not be altered.
         """
         return sps.kron(matrix, sps.eye(nd)).tocsc()
 
-    def sign_of_mortar_sides(self, nd=1):
+    def sign_of_mortar_sides(self, nd: int = 1) -> sps.spmatrix:
         """ Assign positive or negative weight to the two sides of a mortar grid.
 
         This is needed e.g. to make projection operators into signed projections,
@@ -616,13 +659,13 @@ class MortarGrid(object):
             )
             return sps.dia_matrix((data, 0), shape=(nd * nc, nd * nc))
 
-    def cell_diameters(self):
+    def cell_diameters(self) -> np.ndarray:
         diams = np.empty(self.num_sides(), dtype=np.object)
         for pos, (_, g) in enumerate(self.side_grids.items()):
             diams[pos] = g.cell_diameters()
         return np.concatenate(diams).ravel()
 
-    def _check_mappings(self, tol=1e-4):
+    def _check_mappings(self, tol=1e-4) -> None:
         row_sum = self._master_to_mortar_int.sum(axis=1)
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the master grid")
@@ -661,7 +704,9 @@ class BoundaryMortar(MortarGrid):
 
     """
 
-    def __init__(self, dim, mortar_grid, master_slave, name=""):
+    def __init__(
+        self, dim: int, mortar_grid, master_slave: sps.spmatrix, name: str = ""
+    ) -> None:
         """Initialize the mortar grid
 
         See class documentation for further description of parameters.
@@ -670,7 +715,7 @@ class BoundaryMortar(MortarGrid):
         Parameters
         ----------
         dim (int): grid dimension
-        mortar_grid (pp.Grids): mortar grid. It is assumed that there is a
+        mortar_grid (pp.MortarGrid): mortar grid. It is assumed that there is a
             one to one mapping between the cells of the mortar grid and the
             faces of the slave grid given in master_slave
         master_slave (sps.csc_matrix): face-face relations between the slave
@@ -729,7 +774,7 @@ class BoundaryMortar(MortarGrid):
             (data.astype(np.float), (cells, slave_f)), shape=shape_slave
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Implementation of __repr__
 
@@ -750,7 +795,7 @@ class BoundaryMortar(MortarGrid):
 
         return s
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Implementation of __str__
         """
@@ -779,7 +824,7 @@ class BoundaryMortar(MortarGrid):
 
         return s
 
-    def num_sides(self):
+    def num_sides(self) -> int:
         """
         Shortcut to compute the number of sides, it has to be 2 or 1.
 
@@ -788,7 +833,7 @@ class BoundaryMortar(MortarGrid):
         """
         return len(self.side_grids)
 
-    def compute_geometry(self):
+    def compute_geometry(self) -> None:
         """
         Compute the geometry of the mortar grids.
         We assume that they are not aligned with x (1d) or x, y (2d).
@@ -798,7 +843,8 @@ class BoundaryMortar(MortarGrid):
 
 # --- helper methods
 
-def _split_matrix_1d(g_old, g_new, tol):
+
+def _split_matrix_1d(g_old: pp.Grid, g_new: pp.Grid, tol: float) -> sps.spmatrix:
     """
     By calling matching grid the function compute the cell mapping between two
     different grids.
@@ -807,8 +853,10 @@ def _split_matrix_1d(g_old, g_new, tol):
     endpoints. However, their nodes can be ordered in oposite directions.
 
     Parameters:
-        g_old (Grid): the first (old) grid
-        g_new (Grid): the second (new) grid
+        g_old (Grid): the first (old) grid.
+        g_new (Grid): the second (new) grid.
+        tol (double): Tolerance in the matching of the grids
+
     Return:
         csr matrix: representing the cell mapping. The entries are the relative
             cell measure between the two grids.
@@ -819,7 +867,7 @@ def _split_matrix_1d(g_old, g_new, tol):
     return sps.csr_matrix((weights, (new_cells, old_cells)), shape=shape)
 
 
-def _split_matrix_2d(g_old, g_new, tol):
+def _split_matrix_2d(g_old: pp.Grid, g_new: pp.Grid, tol: float) -> sps.spmatrix:
     """
     By calling matching grid the function compute the cell mapping between two
     different grids.
@@ -827,8 +875,10 @@ def _split_matrix_2d(g_old, g_new, tol):
     It is asumed that the two grids have common boundary.
 
     Parameters:
-        g_old (Grid): the first (old) grid
-        g_new (Grid): the second (new) grid
+        g_old (Grid): the first (old) grid.
+        g_new (Grid): the second (new) grid.
+        tol (double): Tolerance in the matching of the grids
+
     Return:
         csr matrix: representing the cell mapping. The entries are the relative
             cell measure between the two grids.
@@ -836,6 +886,4 @@ def _split_matrix_2d(g_old, g_new, tol):
     """
     weights, new_cells, old_cells = pp.match_grids.match_2d(g_new, g_old, tol)
     shape = (g_new.num_cells, g_old.num_cells)
-    # EK: Is it really safe to use csr_matrix here?
     return sps.csr_matrix((weights, (new_cells, old_cells)), shape=shape)
-
