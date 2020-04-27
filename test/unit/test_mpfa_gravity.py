@@ -192,11 +192,19 @@ class TestMPFAgravity(unittest.TestCase):
             self.assertTrue(np.allclose(q, q_ex))
 
 
-def set_params_disrcetize(g, ambient_dim, method):
+def set_params_disrcetize(g, ambient_dim, method, periodic=False):
     g.compute_geometry()
     keyword = "flow"
 
-    bc = pp.BoundaryCondition(g)
+    if periodic:
+        south = g.face_centers[1] < np.min(g.nodes[1]) + 1e-8
+        north = g.face_centers[1] > np.max(g.nodes[1]) - 1e-8
+        bc = pp.BoundaryCondition(g, north + south, "per")
+        south_idx = np.argwhere(south).ravel()
+        north_idx = np.argwhere(north).ravel()
+        bc.set_periodic_map(np.vstack((south_idx, north_idx)))
+    else:
+        bc = pp.BoundaryCondition(g)
     k = pp.SecondOrderTensor(np.ones(g.num_cells))
 
     params = {
@@ -460,6 +468,77 @@ def test_2d_horizontal_ambient_dim_2(method):
     flux_x = flux * p_x + vector_source_discr * g_x
     # The net flux should still be zero
     assert np.allclose(flux_x, 0)
+
+
+@pytest.mark.parametrize("method", ["tpfa"])
+def test_2d_horizontal_periodic_ambient_dim_2(method):
+    # Cartesian grid in xy-plane with periodic boundary conditions.
+
+    # Random size of the domain
+    dx = np.random.rand(1)[0]
+
+    # 2x2 grid of the random size
+    g = pp.CartGrid([2, 2], [2 * dx, 2 * dx])
+
+    # The vector source is a 2-vector per cell
+    ambient_dim = 2
+
+    # Discretization
+    flux, vector_source_discr, div = set_params_disrcetize(g, ambient_dim, method, True)
+
+    # Prepare to solve problem
+    A = div * flux
+    rhs = -div * vector_source_discr
+
+    # Make source strength another random number
+    grav_strength = np.random.rand(1)
+
+    # introduce a source term in x-direction
+    g_x = np.zeros(g.num_cells * ambient_dim)
+    g_x[::ambient_dim] = -1 * grav_strength
+    p_x = np.linalg.pinv(A.toarray()).dot(rhs * g_x)
+
+    # The solution should be higher in the first x-row of cells, with magnitude
+    # controlled by grid size and source stregth
+    assert np.allclose(p_x[0] - p_x[1], dx * grav_strength)
+    assert np.allclose(p_x[2] - p_x[3], dx * grav_strength)
+    # The solution should be equal for equal x-coordinate
+    assert np.allclose(p_x[0], p_x[2])
+    assert np.allclose(p_x[1], p_x[3])
+
+    flux_x = flux * p_x + vector_source_discr * g_x
+    # The net flux should still be zero
+    assert np.allclose(flux_x, 0)
+
+    # Check matrices:
+    A_known = np.array(
+        [
+            [3.0, -1.0, -2.0, 0.0],
+            [-1.0, 3.0, 0.0, -2.0],
+            [-2.0, 0.0, 3.0, -1.0],
+            [0.0, -2.0, -1.0, 3.0],
+        ]
+    )
+    # why 0.5?
+    vct_src_known = 0.5 * dx * np.array(
+        [
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            [0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            [0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+        ]
+    )
+
+    assert np.allclose(A.A, A_known)
+    assert np.allclose(vector_source_discr.A, vct_src_known)
 
 
 class TiltedGrids(unittest.TestCase):
