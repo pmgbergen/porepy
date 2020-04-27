@@ -197,6 +197,63 @@ class FractureNetwork2d(object):
 
         """
 
+        in_file = self.prepare_for_gmsh(
+            mesh_args, tol, do_snap, constraints, file_name, dfn
+        )
+        out_file = in_file[:-4] + ".msh"
+
+        # Consider the dimension of the problem, normally 2d but if dfn is true 1d
+        ndim = 2 - int(dfn)
+
+        pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dim=ndim)
+
+        if dfn:
+            # Create list of grids
+            grid_list = porepy.fracs.simplex.line_grid_from_gmsh(
+                out_file, constraints=constraints
+            )
+
+        else:
+            # Create list of grids
+            grid_list = porepy.fracs.simplex.triangle_grid_from_gmsh(
+                out_file, constraints=constraints
+            )
+
+        # Assemble in grid bucket
+        gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
+        return gb
+
+    def prepare_for_gmsh(
+        self,
+        mesh_args,
+        tol=None,
+        do_snap=True,
+        constraints=None,
+        file_name=None,
+        dfn=False,
+    ):
+        """ Process network intersections and write a gmsh .geo configuration file,
+        ready to be processed by gmsh.
+        
+        NOTE: Consider to use the mesh() function instead to get a ready GridBucket.
+        
+        Parameters:
+            mesh_args: Arguments passed on to mesh size control
+            tol (double, optional): Tolerance used for geometric computations.
+                Defaults to the tolerance of this network.
+            do_snap (boolean, optional): Whether to snap lines to avoid small
+                segments. Defults to True.
+            constraints (np.array of int): Index of network edges that should not
+                generate lower-dimensional meshes, but only act as constraints in
+                the meshing algorithm.
+            dfn (boolean, optional): If True, a DFN mesh (of the network, but not
+                the surrounding matrix) is created.
+
+        Returns:
+            GridBucket: Mixed-dimensional mesh.
+
+        """
+
         if tol is None:
             tol = self.tol
         if constraints is None:
@@ -208,7 +265,6 @@ class FractureNetwork2d(object):
         if file_name is None:
             file_name = "gmsh_frac_file"
         in_file = file_name + ".geo"
-        out_file = file_name + ".msh"
 
         p = self.pts
         e = self.edges
@@ -243,23 +299,7 @@ class FractureNetwork2d(object):
         self._find_and_split_intersections(constraints)
         self._insert_auxiliary_points(**mesh_args)
         self._to_gmsh(in_file, ndim=ndim)
-        pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dim=ndim)
-
-        if dfn:
-            # Create list of grids
-            grid_list = porepy.fracs.simplex.line_grid_from_gmsh(
-                out_file, constraints=constraints
-            )
-
-        else:
-            # Create list of grids
-            grid_list = porepy.fracs.simplex.triangle_grid_from_gmsh(
-                out_file, constraints=constraints
-            )
-
-        # Assemble in grid bucket
-        gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
-        return gb
+        return in_file
 
     def _find_and_split_intersections(self, constraints):
         # Unified description of points and lines for domain, and fractures
