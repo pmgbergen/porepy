@@ -5,19 +5,23 @@ Various methods to refine a grid.
 
 Created on Sat Nov 11 17:06:37 2017
 
-@author: Eirik Keilegavlen
 """
+import gmsh
 import numpy as np
 import scipy.sparse as sps
+import Path
+from typing import Union, Generator, Optional
 
 import porepy as pp
 
 from porepy.grids.grid import Grid
 from porepy.grids.structured import TensorGrid
 from porepy.grids.simplex import TriangleGrid
+from porepy.fracs.simplex import tetrahedral_grid_from_gmsh
+from porepy.fracs.meshing import grid_list_to_grid_bucket
 
 
-def distort_grid_1d(g, ratio=0.1, fixed_nodes=None):
+def distort_grid_1d(g: pp.Grid, ratio: Optional[float]=0.1, fixed_nodes: Optional[np.ndarray]=None) -> pp.Grid:
     """ Randomly distort internal nodes in a 1d grid.
 
      The boundary nodes are left untouched.
@@ -25,12 +29,12 @@ def distort_grid_1d(g, ratio=0.1, fixed_nodes=None):
      The perturbations will not perturb the topology of the mesh.
 
      Parameters:
-          g (grid): To be perturbed. Modifications will happen in place.
-          ratio (optional, defaults to 0.1): Perturbation ratio. A node can be
+          g (pp.grid): To be perturbed. Modifications will happen in place.
+          ratio (int, optional, defaults to 0.1): Perturbation ratio. A node can be
                moved at most half the distance in towards any of its
                neighboring nodes. The ratio will multiply the chosen
                distortion. Should be less than 1 to preserve grid topology.
-          fixed_nodes (np.array): Index of nodes to keep fixed under
+          fixed_nodes (np.array, optional): Index of nodes to keep fixed under
               distortion. Boundary nodes will always be fixed, even if not
               expli)itly included as fixed_node
 
@@ -54,12 +58,11 @@ def distort_grid_1d(g, ratio=0.1, fixed_nodes=None):
     g.compute_geometry()
     return g
 
-
-def refine_grid_1d(g, ratio=2):
+def refine_grid_1d(g: pp.Grid, ratio: Optional[int]=2) -> pp.Grid:
     """ Refine cells in a 1d grid.
 
     Parameters:
-        g (grid): A 1d grid, to be refined.
+        g (pp.Grid): A 1d grid, to be refined.
         ratio (int):
 
     Returns:
@@ -138,7 +141,7 @@ def refine_grid_1d(g, ratio=2):
     return g
 
 
-def refine_triangle_grid(g):
+def refine_triangle_grid(g: pp.TriangleGrid) -> pp.TriangleGrid:
     """ Uniform refinement of triangle grid, all cells are split into four
     subcells by combining existing nodes and face centrers.
 
@@ -148,7 +151,7 @@ def refine_triangle_grid(g):
     by faces may be a bit tricky.
 
     Parameters:
-        g TriangleGrid. To be refined.
+        g (pp.TriangleGrid). To be refined.
 
     Returns:
         TriangleGrid: New grid, with nd+2 times as many cells as g.
@@ -209,10 +212,7 @@ def refine_triangle_grid(g):
     return TriangleGrid(new_nodes, tri=new_tri, name=name), parent
 
 
-# ------------------------------------------------------------------------------#
-
-
-def remesh_1d(g_old, num_nodes, tol=1e-6):
+def remesh_1d(g_old: pp.Grid, num_nodes: int, tol: Optional[float]=1e-6) -> pp.Grid:
     """ Create a new 1d mesh covering the same domain as an old one.
 
     The new grid is equispaced, and there is no guarantee that the nodes in
@@ -220,13 +220,13 @@ def remesh_1d(g_old, num_nodes, tol=1e-6):
     grids with internal boundaries.
 
     Parameters:
-        g_old (grid): 1d grid to be replaced.
+        g_old (pp.Grid): 1d grid to be replaced.
         num_nodes (int): Number of nodes in the new grid.
         tol (double, optional): Tolerance used to compare node coornidates
             (for mapping of boundary conditions). Defaults to 1e-6.
 
     Returns:
-        grid: New grid.
+        pp.Grid: New grid.
 
     """
 
@@ -266,5 +266,77 @@ def remesh_1d(g_old, num_nodes, tol=1e-6):
 
     return g
 
+def refine_gb_by_splitting(
+        in_file: Union[str, Path],
+        out_file: Union[str, Path],
+        dim: int,
+        network: Union[pp.FractureNetwork3d, pp.FractureNetwork2d],
+        gb_set_projections: bool = True,
+) -> Generator[pp.GridBucket, None, None]:
+    """ Refine a GridBucket by splitting using gmsh
 
-# ------------------------------------------------------------------------------#
+    The method generates refinements on the fly by yielding GridBuckets as desired.
+
+    Note:
+    When the desired number of refinements is reached, you should call
+        refine_gb_by_splitting.close()
+    so that gmsh.finalize() is called.
+
+    Parameters
+    ----------
+    in_file : Union[str, Path]
+        path to .geo file to read
+    out_file : Union[str, Path]
+        path to new .msh file to store mesh in, excluding the ending '.msh'.
+    dim : int {2, 3}
+        Dimension of domain to mesh
+    network : Union[pp.FractureNetwork2d, pp.FractureNetwork3d]
+        PorePy class defining the fracture network that is described by the .geo in_file
+    gb_set_projections : bool (Default: True)
+        Call pp.contact_conditions.set_projections(gb) before yielding result
+    Returns
+    -------
+    Generator[gb]
+        A generator for the refined grid buckets, starting with the coarsest.
+    """
+    # Ensure that in- and out paths are formatted correctly.
+    assert Path(in_file).is_file()
+    out_file = Path(out_file)
+    out_file = out_file.parent / out_file.stem
+
+    # gmsh must always be finalized after it has be initialized (see 'finally' clause).
+    # Therefore, we wrap the entire function body in a try-finally context.
+    try:
+        # Initialize gmsh and generate the first (coarsest) mesh
+        gmsh.initialize()
+        gmsh.open(in_file)
+        gmsh.model.mesh.generate(dim=dim)
+
+        num_refinements = 0
+
+        # Enter an infinite loop
+        while True:
+            out_file_name = f"{out_file}_{num_refinements}.msh"
+
+            # The first mesh is already done. Start refining all subsequent meshes.
+            if num_refinements > 0:
+                gmsh.model.mesh.refine()  # Refine the mesh
+
+            gmsh.write(out_file_name)  # Write the result to '.msh' file
+            # Generate List[pp.Grid]
+            grids = tetrahedral_grid_from_gmsh(network=network, file_name=out_file_name)
+            # Convert List[pp.Grid] to pp.GridBucket
+            gb = grid_list_to_grid_bucket(grids)
+
+            # Set projection operators for mixed-dimensional grids
+            if gb_set_projections:
+                pp.contact_conditions.set_projections(gb)
+
+            # yield the resulting grid bucket
+            yield gb
+
+            # finally, prepare the next iteration
+            num_refinements += 1
+    finally:
+        # When refine_gb_by_splitting.close() is called, we get here.
+        gmsh.finalize()
