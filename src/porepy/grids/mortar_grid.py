@@ -366,7 +366,7 @@ class MortarGrid:
 
         elif self.dim == 1:
             # The case is conceptually similar to 0d, but quite a bit more technical
-            split_matrix = pp.match_grids._match_grids_along_line_from_geometry(
+            split_matrix = pp.match_grids.match_grids_along_1d_mortar(
                 self, g_new, g_old, tol
             )
 

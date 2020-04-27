@@ -6,13 +6,15 @@ Module contains various functions needed to
 import porepy as pp
 import numpy as np
 import scipy.sparse as sps
+import logging
 
-from porepy.utils.matrix_compression import rldecode
 from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 from porepy.grids.structured import TensorGrid
 
+logger = logging.getLogger(__name__)
 
-def match_1d(new_1d, old_1d, tol):
+
+def match_1d(new_1d: pp.Grid, old_1d: pp.Grid, tol: float):
     """ Obtain mappings between the cells of non-matching 1d grids.
 
     The function constructs an refined 1d grid that consists of all nodes
@@ -79,7 +81,7 @@ def match_1d(new_1d, old_1d, tol):
     return weights, new_g_ind, old_g_ind
 
 
-def match_2d(new_g, old_g, tol):
+def match_2d(new_g: pp.Grid, old_g: pp.Grid, tol: float):
     """ Match two simplex tessalations to identify overlapping cells.
 
     The overlaps are identified by the cell index of the two overlapping cells,
@@ -134,12 +136,32 @@ def match_2d(new_g, old_g, tol):
     return weights, new_g_ind, old_g_ind
 
 
-def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
+def match_grids_along_1d_mortar(
+    mg: pp.MortarGrid, g_new: pp.Grid, g_old: pp.Grid, tol: float
+) -> sps.csr_matrix:
+    """ Match the faces of two 2d grids along a 1d mortar grid.
+    
+    The function identifies faces on the 1d segment specified by the MortarGrid, and
+    finds the area weights of the matched faces. Both sides of the mortar grid are taken
+    care of.
 
-    # The purpose of this function is to construct a mapping between faces in
-    # the old and new grid. Specifically, we need to match faces that lies on
-    # the 1d segment identified by the mortar grid, and get the right area
-    # weightings when the two grids do not conform.
+    Args:
+        mg (pp.MortarGrid): MortarGrid that specifies the target 1d line. Must be of
+            dimension 1.
+        g_new (pp.Grid): New 2d grid. Should have faces split along the 1d line.
+            Dimension 2.
+        g_old (pp.Grid): Old 2d grid. Dimension 2. The mappings in mg from mortar to
+            master should be set for this grid.
+        tol (double): Tolerance used in comparison of geometric quantities.
+
+    Raises:
+        ValueError: If the matching procedure goes wrong.
+
+    Returns:
+        sps.csr_matrix: Matrix that can be used to update mg._master_to_mortar_int.
+
+    """
+
     #
     # The algorithm is technical, partly because we also need to differ between
     # the left and right side of the segment, as these will belong to different
@@ -370,7 +392,8 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
 
     return matrix.tocsr()
 
-def coarse_fine_cell_mapping(
+
+def structured_refinement(
     g: pp.Grid, g_ref: pp.Grid, point_in_poly_tol=1e-8
 ) -> sps.csc_matrix:
     """ Construct a mapping between cells of a grid and its refined version
