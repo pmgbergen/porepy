@@ -5,6 +5,7 @@ import numpy as np
 import logging
 import csv
 import time
+import copy
 
 import porepy as pp
 import porepy.fracs.simplex
@@ -102,6 +103,26 @@ class FractureNetwork2d(object):
                 )
         if domain is not None:
             logger.info("Domain specification :" + str(domain))
+            
+    def copy(self):
+        """ Create deep copy of the network.
+        
+        The method will create a deep copy of all fractures, as well as the domain, of
+        the network. Note that if the fractures have had extra points imposed as part
+        of a meshing procedure, these will included in the copied fractures.
+
+        Returns:
+            pp.FractureNetwork3d.
+
+        """
+        p_new = np.copy(self.pts)
+        edges_new = np.copy(self.edges)
+        domain = self.domain
+        if domain is not None:
+            # Get a deep copy of domain, but no need to do that if domain is None
+            domain = copy.deepcopy(domain)
+        
+        return FractureNetwork2d(p_new, edges_new, domain, self.tol)
 
     def add_network(self, fs):
         """ Add this fracture set to another one, and return a new set.
