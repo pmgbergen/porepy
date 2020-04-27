@@ -9,8 +9,9 @@ Created on Sat Nov 11 17:06:37 2017
 import gmsh
 import numpy as np
 import scipy.sparse as sps
-import Path
-from typing import Union, Generator, Optional
+from pathlib import Path
+from typing import Union, Generator, Optional, Dict
+import abc
 
 import porepy as pp
 
@@ -340,3 +341,30 @@ def refine_gb_by_splitting(
     finally:
         # When refine_gb_by_splitting.close() is called, we get here.
         gmsh.finalize()
+
+
+class GridSequenceFactory(abc.ABC):
+    
+    def __init__(self, network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d], params: Dict) -> None:
+        self.network = network.copy()
+        self.counter = 0
+        self.params = params
+        
+        file_name = 'gmsh_convergence'
+        
+        if params['mode'] == 'structured':
+            # Operate on a deep copy of the network to avoid that fractures etc. are
+            # unintentionally modified during operations.
+            net = network.copy()
+            net.prepare_for_gmsh(**params)
+        
+            
+        
+    def __iter__(self) -> pp.GridBucket:
+        if self.params['mode'] == 'structured':
+            pass
+            
+    
+    def set_parameters(self, grid_param):
+        pass
+        
