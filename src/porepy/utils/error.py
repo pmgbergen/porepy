@@ -1,6 +1,57 @@
 import numpy as np
+import porepy as pp
+from typing import List, Optional, Union, Callable, Tuple
 
 # ------------------------------------------------------------------------------#
+
+class ErrorAnalyzer:
+    
+    def __init__(self, params: Dict, variables: List[str]) -> None:
+        self.params = params
+        
+    def _l2_norm(self, gb: pp.GridBucket,
+             variables: Dict[str, str],
+             norm_type: Optional[int] = 2,
+             target_grids: Optional[Union[pp.Grid, List[pp.Grid]]] = None,
+             target_interfaces: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None):
+            
+        nrm: Callable[[Union[pp.Grid, pp.MortarGrid], np.ndarray], float] = lambda g, val:  g.cell_volumes * np.linalg.norm(nrm, norm_type)
+        
+        nrm_vec
+        
+        variable_filter: Callable[[str], bool] = lambda x: x in target_variables
+
+        if target_grids is None:
+            grid_filter: Callable[[pp.Grid], bool] = lambda x: True
+        else:
+            grid_filter: Callable[[pp.Grid], bool] = lambda x: x in target_grids
+
+        if target_interfaces is None:
+            interface_filter: Callable[[Tuple[pp.Grid, pp.Grid]], bool] = lambda x: True
+        else:
+            interface_filter: Callable[[Tuple[pp.Grid, pp.Grid]], bool] = lambda x: x in target_grids
+            
+        values = {v: 0 for v in variables.keys()}
+            
+        for g, d in gb:
+            if not grid_filter(g):
+                continue
+            for key, value = d[pp.STATE]:
+                if not variable_filter(g):
+                    values[(g, var)]
+                    
+                    
+    def _l2_cell(self, val: np.ndarray, g: pp.Grid):
+        if val.size == g.num_cells:
+            return np.sqrt(val**2 * g.cell_volumes)
+        elif val.size == g.num_cells * g.dim:
+            v = val.reshape((g.dim, g.num_cells, order='f'))
+            return np.sqrt(np.sum(v**2 * g.cell_volumes, axis=0))
+        else:
+            raise ValueError(f"Mismatch between variable of size {val.size} and grid of dimension {g.dim} with {g.num_cells} cells")            
+    
+                
+                
 
 
 def interpolate(g, fun):
