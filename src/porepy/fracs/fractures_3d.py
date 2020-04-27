@@ -10,6 +10,7 @@ import time
 import logging
 import numpy as np
 import csv
+import copy
 from typing import Tuple
 
 
@@ -674,6 +675,26 @@ class FractureNetwork3d(object):
         else:
             f.set_index(0)
         self._fractures.append(f)
+        
+    def copy(self):
+        """ Create deep copy of the network.
+        
+        The method will create a deep copy of all fractures, as well as the domain, of
+        the network. Note that if the fractures have had extra points imposed as part
+        of a meshing procedure, these will included in the copied fractures.
+
+        Returns:
+            pp.FractureNetwork3d.
+
+        """
+        fracs = [f.copy() for f in self._fractures]
+        
+        domain = self.domain
+        if domain is not None:
+            # Get a deep copy of domain, but no need to do that if domain is None
+            domain = copy.deepcopy(domain)
+            
+        return FractureNetwork3d(fracs, domain, self.tol)
 
     def mesh(self, mesh_args, dfn=False, file_name=None, constraints=None, **kwargs):
         """ Mesh the fracture network, and generate a mixed-dimensional grid.
