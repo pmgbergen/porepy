@@ -53,8 +53,6 @@ class RobinCoupling(
             # At least one of the neighboring discretizations is FV.
             self.kinv_scaling = False
 
-        self.kinv_scaling = True
-
     def ndof(self, mg):
         return mg.num_cells
 
