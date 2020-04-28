@@ -90,7 +90,53 @@ class Tpfa(pp.FVElliptic):
         k = parameter_dictionary["second_order_tensor"]
         bnd = parameter_dictionary["bc"]
 
-        fi, ci, sgn = sps.find(g.cell_faces)
+        fi_g, ci_g, sgn_g = sps.find(g.cell_faces)
+
+        # fi_g and ci_g now defines the geometric (grid) mapping from subfaces to cells.
+        # The cell with index ci_g[i] has the face with index fi_g[i].
+        # In addition to the geometric mappings, we need to add connections between
+        # cells and faces over the periodic boundary.
+        # The periodic boundary is defined by a mapping from left faces to right
+        # faces:
+        fi_left = bnd.per_map[0]
+        fi_right = bnd.per_map[1]
+
+        # We find the left(right)_face -> left(right)_cell mapping
+        left_sfi, ci_left, left_sgn = sps.find(g.cell_faces[fi_left])
+        right_sfi, ci_right, right_sgn = sps.find(g.cell_faces[fi_right])
+
+        # Sort subface indices to not loose left to right periodic mapping
+        # I.e., fi_left[i] maps to fi_right[i]
+        I_left = np.argsort(left_sfi)
+        I_right = np.argsort(right_sfi)
+        if not (
+            np.array_equal(left_sfi[I_left], np.arange(fi_left.size))
+            and np.array_equal(right_sfi[I_right], np.arange(fi_right.size))
+        ):
+            raise RuntimeError("Could not find correct periodic boundary mapping")
+        ci_left = ci_left[I_left]
+        ci_right = ci_right[I_right]
+        # Now, ci_left gives the cell indices of the left cells, and ci_right gives
+        # the indices of the right cells. Further, fi_left gives the face indices of the
+        # left faces that is periodic with the faces with indices fi_right. This means
+        # that ci_left[i] is connected to ci_right[i] over the face fi_left (face of
+        # ci_left[i]) and fi_right[i] (face of ci_right[i]).
+        #
+        # Next, we add connection between the left cells and right faces (and vice versa).
+        # The flux over the periodic boundary face is defined equivalently to the
+        # flux over an internal face: flux_left = T_left * (p_left - p_right).
+        # The term T_left * p_left is already included in fi_g and ci_g, but we need
+        # to add the second term T_left * (-p_right). Equivalently for flux_right.
+        # f_mat and c_mat defines the indices of these entries in the flux matrix.
+        fi_mat = np.hstack((fi_g, fi_left, fi_right))
+        ci_mat = np.hstack((ci_g, ci_right, ci_left))
+        sgn_mat = np.hstack((sgn_g, -left_sgn, -right_sgn))
+
+        # When calculating the subface transmissibilities, left cells should be mapped
+        # to left faces, while right cells should be mapped to right faces.
+        fi = np.hstack((fi_g, fi_right, fi_left))
+        ci = np.hstack((ci_g, ci_right, ci_left))
+        sgn = np.hstack((sgn_g, right_sgn, left_sgn))
 
         # Normal vectors and permeability for each face (here and there side)
         n = g.face_normals[:, fi]
@@ -118,8 +164,8 @@ class Tpfa(pp.FVElliptic):
 
         t_face = np.divide(t_face, dist_face_cell)
 
-        # Return harmonic average
-        t = 1 / np.bincount(fi, weights=1 / t_face)
+        # Return harmonic average. Note that we here use fi_mat to count indices.
+        t = 1 / np.bincount(fi_mat, weights=1 / t_face)
 
         # Save values for use in recovery of boundary face pressures
         t_full = t.copy()
@@ -136,8 +182,9 @@ class Tpfa(pp.FVElliptic):
         t_b[is_neu] = 1
         t_b = t_b[bndr_ind]
         t[is_neu] = 0
+
         # Create flux matrix
-        flux = sps.coo_matrix((t[fi] * sgn, (fi, ci))).tocsr()
+        flux = sps.coo_matrix((t[fi_mat] * sgn_mat, (fi_mat, ci_mat))).tocsr()
 
         # Create boundary flux matrix
         bndr_sgn = (g.cell_faces[bndr_ind, :]).data
@@ -146,6 +193,7 @@ class Tpfa(pp.FVElliptic):
         bound_flux = sps.coo_matrix(
             (t_b * bndr_sgn, (bndr_ind, bndr_ind)), (g.num_faces, g.num_faces)
         ).tocsr()
+
         # Store the matrix in the right dictionary:
         matrix_dictionary[self.flux_matrix_key] = flux
         matrix_dictionary[self.bound_flux_matrix_key] = bound_flux
@@ -180,12 +228,12 @@ class Tpfa(pp.FVElliptic):
         # distance between cell and face centers, and with the sgn adjustment (or else)
         # the vector source will point in the wrong direction in certain cases.
         # See Starnoni et al 2020, WRR for details.
-        data = (t[fi] * fc_cc * sgn)[:vector_source_dim].ravel("f")
+        data = (t[fi_mat] * fc_cc * sgn_mat)[:vector_source_dim].ravel("f")
 
         # Rows and cols are given by fi / ci, expanded to account for the vector source
         # having multiple dimensions
-        rows = np.tile(fi, (vector_source_dim, 1)).ravel("f")
-        cols = pp.fvutils.expand_indices_nd(ci, vector_source_dim)
+        rows = np.tile(fi_mat, (vector_source_dim, 1)).ravel("f")
+        cols = pp.fvutils.expand_indices_nd(ci_mat, vector_source_dim)
 
         vector_source = sps.coo_matrix((data, (rows, cols))).tocsr()
 
