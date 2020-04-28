@@ -211,6 +211,8 @@ class DualElliptic(
         is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
         is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
         is_rob = np.logical_and(bc.is_rob, np.logical_not(bc.is_internal))
+        if bc.is_per.sum():
+            raise NotImplementedError("Periodic boundary conditions are not implemented for DualElliptic")
 
         faces, _, sign = sps.find(g.cell_faces)
         sign = sign[np.unique(faces, return_index=True)[1]]
