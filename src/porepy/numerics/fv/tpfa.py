@@ -45,6 +45,9 @@ class Tpfa(pp.FVElliptic):
                 for intance apertures should be incorporated before calling
                 this function.
             bc : (BoundaryCondition) boundary conditions
+            ambient_dimension: (int) Optional. Ambient dimension, used in the
+                discretization of vector source terms. Defaults to the dimension of the
+                grid.
 
         matrix_dictionary will be updated with the following entries:
             flux: sps.csc_matrix (g.num_faces, g.num_cells)

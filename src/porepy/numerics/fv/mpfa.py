@@ -49,7 +49,7 @@ class Mpfa(pp.FVElliptic):
                 the permeability (such as with fracture apertures) should be
                 included in the permeability.
             bc: (BoundaryCondition) boundary conditions
-            vector_source_dim: (int) Optional. Ambient dimension, used in the
+            ambient_dimension: (int) Optional. Ambient dimension, used in the
                 discretization of vector source terms. Defaults to the dimension of the
                 grid.
             mpfa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of
