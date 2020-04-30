@@ -224,11 +224,13 @@ class RobinCoupling(
             self.keyword
         ]
         for block in range(cc.shape[1]):
-            # Scale the pressure blocks in the mortar problem
-            cc[2, block] = (
-                matrix_dictionary_edge[self.mortar_scaling_key] * cc[2, block]
+            # Scale the pressure blocks in the row of the primary mortar problem.
+            # The secondary mortar will be treated somewhere else (handled by the
+            # assembler).
+            cc[1, block] = (
+                matrix_dictionary_edge[self.mortar_scaling_key] * cc[1, block]
             )
-        rhs[2] = matrix_dictionary_edge[self.mortar_scaling_key] * rhs[2]
+        rhs[1] = matrix_dictionary_edge[self.mortar_scaling_key] * rhs[1]
 
         return cc, rhs
 
