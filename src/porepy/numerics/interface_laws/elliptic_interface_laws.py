@@ -212,9 +212,25 @@ class RobinCoupling(
             g, self.discr_master, mg_primary, mg_secondary, matrix
         )
 
-        return self.discr_master.assemble_int_bound_pressure_trace_between_interfaces(
+        # Assemble contribution between higher dimensions.
+        (
+            cc,
+            rhs,
+        ) = self.discr_master.assemble_int_bound_pressure_trace_between_interfaces(
             g, data_grid, proj_pressure, proj_flux, cc, matrix, rhs
         )
+        # Scale the equations (this will modify from K^-1 to K scaling if relevant)
+        matrix_dictionary_edge = data_primary_edge[pp.DISCRETIZATION_MATRICES][
+            self.keyword
+        ]
+        for block in range(cc.shape[1]):
+            # Scale the pressure blocks in the mortar problem
+            cc[2, block] = (
+                matrix_dictionary_edge[self.mortar_scaling_key] * cc[2, block]
+            )
+        rhs[2] = matrix_dictionary_edge[self.mortar_scaling_key] * rhs[2]
+
+        return cc, rhs
 
 
 class FluxPressureContinuity(RobinCoupling):
