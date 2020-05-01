@@ -239,8 +239,7 @@ class Exporter:
 
         self.has_numba = "numba" in sys.modules
 
-        if self.fixed_grid:
-            self._update_gb_VTK()
+        self._update_gb_VTK()
 
         # Counter for time step. Will be used to identify files of individual time step,
         # unless this is overridden by optional parameters in write_vtk
