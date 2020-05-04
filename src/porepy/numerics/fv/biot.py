@@ -87,7 +87,11 @@ class Biot(pp.Mpsa):
         self.scalar_variable = scalar_variable
 
         # Strings used to identify discretization matrices for various terms constructed
-        # by this class. Hardcoded here to enforce a common standard
+        # by this class. Hardcoded here to enforce a common standard.
+        # Since these keys are used also for discretizations of other terms in Biot
+        # (GradP, DivU), the keys should perhaps have been module level constants,
+        # but this would have broken with the system in other discretizaitons.
+        # TODO: Mark the attributes as _private.
         self.div_u_matrix_key = "div_u"
         self.bound_div_u_matrix_key = "bound_div_u"
         self.grad_p_matrix_key = "grad_p"
@@ -865,9 +869,11 @@ class Biot(pp.Mpsa):
 
         # Obtain normal_vector * alpha, pairings of cells and nodes (which together
         # uniquely define sub-cells, and thus index for gradients)
-        nAlpha_grad, cell_node_blocks, sub_cell_index = pp.fvutils.scalar_tensor_vector_prod(
-            g, alpha_tensor, subcell_topology
-        )
+        (
+            nAlpha_grad,
+            cell_node_blocks,
+            sub_cell_index,
+        ) = pp.fvutils.scalar_tensor_vector_prod(g, alpha_tensor, subcell_topology)
         # transfer nAlpha to a subface-based quantity by pairing expressions on the
         # two sides of the subface
         unique_nAlpha_grad = subcell_topology.pair_over_subfaces(nAlpha_grad)
@@ -1212,18 +1218,22 @@ class GradP(Discretization):
             ValueError if the pressure gradient term has not already been discretized.
         """
         mat_dict = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "grad_p" in mat_dict:
+
+        # Use the same key to acces the discretization matrix as the Biot class.
+        mat_key = Biot().grad_p_matrix_key
+
+        if not mat_key in mat_dict:
             raise ValueError(
                 """GradP class requires a pre-computed discretization to be
                              stored in the matrix dictionary."""
             )
         div_mech = pp.fvutils.vector_divergence(g)
         # Put together linear system
-        if mat_dict["grad_p"].shape[0] != g.dim * g.num_faces:
+        if mat_dict[mat_key].shape[0] != g.dim * g.num_faces:
             hf2f_nd = pp.fvutils.map_hf_2_f(g=g)
-            grad_p = hf2f_nd * mat_dict["grad_p"]
+            grad_p = hf2f_nd * mat_dict[mat_key]
         else:
-            grad_p = mat_dict["grad_p"]
+            grad_p = mat_dict[mat_key]
         return div_mech * grad_p
 
     def assemble_rhs(self, g, data):
@@ -1265,7 +1275,7 @@ class DivU(Discretization):
         self.flow_keyword = flow_keyword
         self.mechanics_keyword = mechanics_keyword
         # We also need to specify the names of the displacement variables on the node
-        # and adjacent edges. T
+        # and adjacent edges.
         # Set variable name for the vector variable (displacement).
         self.variable = variable
         # The following is only used for mixed-dimensional problems.
@@ -1337,13 +1347,17 @@ class DivU(Discretization):
             discretized.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
-        if not "div_u" in matrix_dictionary:
+
+        # Use the same key to acces the discretization matrix as the Biot class.
+        mat_key = Biot().div_u_matrix_key
+
+        if not mat_key in matrix_dictionary:
             raise ValueError(
                 """DivU class requires a pre-computed discretization to be
                              stored in the matrix dictionary."""
             )
         biot_alpha = data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
-        return matrix_dictionary["div_u"] * biot_alpha
+        return matrix_dictionary[mat_key] * biot_alpha
 
     def assemble_rhs(self, g, data):
         """ Return the right-hand side for a discretization of the displacement
@@ -1360,6 +1374,10 @@ class DivU(Discretization):
             np.ndarray: Zero right hand side vector with representation of boundary
                 conditions.
         """
+        # Use the same key to acces the discretization matrix as the Biot class.
+        div_u_key = Biot().div_u_matrix_key
+        bound_div_u_key = Biot().bound_div_u_matrix_key
+
         parameter_dictionary_mech = data[pp.PARAMETERS][self.mechanics_keyword]
         parameter_dictionary_flow = data[pp.PARAMETERS][self.flow_keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
@@ -1374,13 +1392,13 @@ class DivU(Discretization):
         # and coupling parameter from flow
         biot_alpha = parameter_dictionary_flow["biot_alpha"]
         rhs_bound = (
-            -matrix_dictionary["bound_div_u"] * (d_bound_1 - d_bound_0) * biot_alpha
+            -matrix_dictionary[bound_div_u_key] * (d_bound_1 - d_bound_0) * biot_alpha
         )
 
         # Time part
         d_cell = data[pp.STATE][self.variable]
 
-        div_u = matrix_dictionary["div_u"]
+        div_u = matrix_dictionary[div_u_key]
         rhs_time = np.squeeze(biot_alpha * div_u * d_cell)
 
         return rhs_bound + rhs_time
@@ -1598,13 +1616,16 @@ class BiotStabilization(Discretization):
             ValueError if the stabilization term has not already been
             discretized.
         """
+        # Use the same key to acces the discretization matrix as the Biot class.
+        mat_key = Biot().stabilization_matrix_key
+
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not "biot_stabilization" in matrix_dictionary:
+        if not mat_key in matrix_dictionary:
             raise ValueError(
                 """BiotStabilization class requires a pre-computed
                              discretization to be stored in the matrix dictionary."""
             )
-        return matrix_dictionary["biot_stabilization"]
+        return matrix_dictionary[mat_key]
 
     def assemble_rhs(self, g, data):
         """ Return the right-hand side for the stabilization part of the displacement
@@ -1621,13 +1642,16 @@ class BiotStabilization(Discretization):
             np.ndarray: Zero right hand side vector with representation of boundary
                 conditions.
         """
+        # Use the same key to acces the discretization matrix as the Biot class.
+        mat_key = Biot().stabilization_matrix_key
+
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         # The stabilization is the pressure contribution to the div u part of the
         # fluid mass conservation, thus needs a right hand side in the implicit Euler
         # discretization.
         pressure_0 = data[pp.STATE][self.variable]
-        A_stability = matrix_dictionary["biot_stabilization"]
+        A_stability = matrix_dictionary[mat_key]
         rhs_time = A_stability * pressure_0
 
         # The stabilization has no rhs.
