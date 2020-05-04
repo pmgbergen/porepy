@@ -1148,16 +1148,6 @@ class GradP(Discretization):
         """
         self.keyword = keyword
 
-    def _key(self):
-        """ Get the keyword of this object, on a format friendly to access relevant
-        fields in the data dictionary
-
-        Returns:
-            String, on the form self.keyword + '_'.
-
-        """
-        return self.keyword + "_"
-
     def ndof(self, g):
         """ Return the number of degrees of freedom associated to the method.
 
@@ -1173,23 +1163,6 @@ class GradP(Discretization):
 
         """
         return g.dim * g.num_cells
-
-    def extract_displacement(self, g, solution_array, d):
-        """ Extract the pressure part of a solution.
-        The method is trivial for finite volume methods, with the pressure
-        being the only primary variable.
-
-        Parameters:
-            g (grid): To which the solution array belongs.
-            solution_array (np.array): Solution for this grid obtained from
-                either a mono-dimensional or a mixed-dimensional problem.
-            d (dictionary): Data dictionary associated with the grid. Not used,
-                but included for consistency reasons.
-        Returns:
-            np.array (g.num_cells): Pressure solution vector. Will be identical
-                to solution_array.
-        """
-        return solution_array
 
     def discretize(self, g, data):
         """ Discretize the pressure gradient term of the Biot equation.
@@ -1269,70 +1242,6 @@ class GradP(Discretization):
         """
         return np.zeros(self.ndof(g))
 
-    def assemble_int_bound_displacement_trace(
-        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
-    ):
-        """ Assemble the contribution from the pressure to the the trace of the
-        displacement on internal boundaries.
-
-        The intended use is when the internal boundary is coupled to another
-        node in the GridBucket sense. Specific usage depends on the
-        interface condition between the nodes; this method will typically be
-        used to impose displacement continuity on an interface.
-
-        Implementations of this method will use an interplay between the grid on
-        the node and the mortar grid on the relevant edge.
-
-        Parameters:
-            g (Grid): Grid which the condition should be imposed on.
-            data (dictionary): Data dictionary for the node in the
-                mixed-dimensional grid.
-            data_edge (dictionary): Data dictionary for the edge in the
-                mixed-dimensional grid.
-            grid_swap (boolean): If True, the grid g is identified with the @
-                slave side of the mortar grid in data_adge.
-            cc (block matrix, 3x3): Block matrix for the coupling condition.
-                The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
-                The discretization of the relevant term is done in-place in cc.
-            matrix (block matrix 3x3): Discretization matrix for the edge and
-                the two adjacent nodes.
-            rhs (block_array 3x1): Right hand side contribution for the edge and
-                the two adjacent nodes.
-            self_ind (int): Index in cc and matrix associated with this node.
-                Should be either 1 or 2.
-
-        """
-        mg = data_edge["mortar_grid"]
-
-        # TODO: this should become first or second or something
-        if grid_swap:
-            proj = mg.slave_to_mortar_avg()
-        else:
-            proj = mg.master_to_mortar_avg()
-
-        # Expand indices as Fortran indexes
-        proj_avg = sps.kron(proj, sps.eye(g.dim)).tocsr()
-
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        bp = matrix_dictionary["bound_displacement_pressure"]
-
-        if proj_avg.shape[1] == g.dim * g.num_faces:
-            # In this case we projection is from faces to cells.
-            # The bound_displacement_pressure gives the pressure contribution to the
-            # subface displacement. We therefore need to map it to faces.
-            hf2f = pp.fvutils.map_hf_2_f(g=g)
-            num_nodes = np.diff(g.face_nodes.indptr)
-            weight = sps.kron(sps.eye(g.dim), sps.diags(1 / num_nodes))
-            # hf2f adds all subface values to one face value. For the displacement we want
-            # to take the average, therefore we divide each face by the number of subfaces.
-            cc[2, self_ind] += proj_avg * weight * hf2f * bp
-        else:
-            cc[2, self_ind] += proj_avg * bp
-
-    def enforce_neumann_int_bound(self, *_):
-        pass
-
 
 class DivU(Discretization):
     """ Class for the displacement divergence term of the Biot equation.
@@ -1378,24 +1287,6 @@ class DivU(Discretization):
 
         """
         return g.num_cells
-
-    def extract_displacement(self, g, solution_array, d):
-        """ Extract the displacement part of a solution.
-
-        The method is trivial for finite volume methods, with the displacement being
-        the only primary variable.
-
-        Parameters:
-            g (grid): To which the solution array belongs.
-            solution_array (np.array): Solution for this grid obtained from
-                either a mono-dimensional or a mixed-dimensional problem.
-            d (dictionary): Data dictionary associated with the grid. Not used,
-                but included for consistency reasons.
-        Returns:
-            np.array (g.num_cells): Displacement solution vector. Will be identical
-                to solution_array.
-        """
-        return solution_array
 
     def discretize(self, g, data):
         """ Discretize the displacement divergence term of the Biot equation.
@@ -1628,9 +1519,6 @@ class DivU(Discretization):
         # the rhs, yielding the same sign as for the k term on the lhs.
         rhs[self_ind] -= biot_alpha * vol * previous_displacement_jump_normal
 
-    def enforce_neumann_int_bound(self, *_):
-        pass
-
 
 class BiotStabilization(Discretization):
     """ Class for the stabilization term of the Biot equation.
@@ -1661,24 +1549,6 @@ class BiotStabilization(Discretization):
 
         """
         return g.num_cells
-
-    def extract_displacement(self, g, solution_array, d):
-        """ Extract the displacement part of a solution.
-
-        The method is trivial for finite volume methods, with the displacement being
-        the only primary variable.
-
-        Parameters:
-            g (grid): To which the solution array belongs.
-            solution_array (np.array): Solution for this grid obtained from
-                either a mono-dimensional or a mixed-dimensional problem.
-            d (dictionary): Data dictionary associated with the grid. Not used,
-                but included for consistency reasons.
-        Returns:
-            np.array (g.num_cells): Displacement solution vector. Will be identical
-                to solution_array.
-        """
-        return solution_array
 
     def discretize(self, g, data):
         """ Discretize the stabilization term of the Biot equation.
