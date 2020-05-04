@@ -25,6 +25,21 @@ class TestCartLeafGrid(unittest.TestCase):
         self.assertTrue(np.allclose(lg.face_nodes.A, g_t.face_nodes.A))
         self.assertTrue(np.allclose(lg.cell_faces.A, g_t.cell_faces.A))
 
+    def test_refinement_several_times(self):
+        lg = pp.CartLeafGrid([2, 2], [1, 1], 2)
+
+        lg.refine_cells(0)
+        lg.refine_cells(0)
+        lg.refine_cells(0)
+        lg.refine_cells(0)
+
+        g_t = pp.CartGrid([4, 4], [1, 1])
+
+        self.assertTrue(np.allclose(lg.nodes, g_t.nodes))
+        self.assertTrue(np.allclose(lg.face_nodes.A, g_t.face_nodes.A))
+        self.assertTrue(np.allclose(lg.cell_faces.A, g_t.cell_faces.A))
+
+        
     def test_refinement_singel_cell(self):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 2)
         lg.refine_cells(0)
