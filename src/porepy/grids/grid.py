@@ -299,7 +299,6 @@ class Grid:
         self.face_centers = 0.5 * (xe1 + xe2)
         n = edge_length_z.shape[0]
         self.face_normals = np.vstack((edge_length_y, -edge_length_x, np.zeros(n)))
-
         cell_faces, cellno = self.cell_faces.nonzero()
         cx = np.bincount(cellno, weights=self.face_centers[0, cell_faces])
         cy = np.bincount(cellno, weights=self.face_centers[1, cell_faces])
@@ -344,6 +343,7 @@ class Grid:
             np.logical_and(nrm(v) > nrm(vn), sgn > 0),
             np.logical_and(nrm(v) < nrm(vn), sgn < 0),
         )
+
         self.face_normals[:, flip] *= -1
 
         self.nodes = np.dot(R.T, self.nodes)
