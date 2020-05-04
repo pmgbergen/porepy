@@ -6,10 +6,22 @@ import warnings
 import porepy as pp
 
 class TestCartLeafGrid(unittest.TestCase):
-    def test_generation(self):
+    def test_generation_2_levels(self):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 2)
 
         g_t = [pp.CartGrid([2, 2], [1, 1]), pp.CartGrid([4, 4], [1, 1])]
+
+        for i, g in enumerate(lg.level_grids):
+            self.assertTrue(np.allclose(g.nodes, g_t[i].nodes))
+            self.assertTrue(np.allclose(g.face_nodes.A, g_t[i].face_nodes.A))
+            self.assertTrue(np.allclose(g.cell_faces.A, g_t[i].cell_faces.A))
+
+    def test_generation_3_levels(self):
+        lg = pp.CartLeafGrid([1, 2], [1, 1], 3)
+
+        g_t = [pp.CartGrid([1, 2], [1, 1]),
+               pp.CartGrid([2, 4], [1, 1]),
+               pp.CartGrid([4, 8], [1, 1])]
 
         for i, g in enumerate(lg.level_grids):
             self.assertTrue(np.allclose(g.nodes, g_t[i].nodes))

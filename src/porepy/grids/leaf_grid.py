@@ -19,7 +19,7 @@ class CartLeafGrid(pp.CartGrid):
         self.level_grids = []
         self.mesh_sizes = []
         for level in range(levels):
-            self.mesh_sizes.append( np.asarray(nx) * (level + 1) )
+            self.mesh_sizes.append( np.asarray(nx) * 2 **level )
             self.level_grids.append(pp.CartGrid(self.mesh_sizes[level], physdims))
             self.level_grids[-1].compute_geometry()
         self.name = ["CartLeafGrid"]
@@ -328,12 +328,12 @@ if __name__=="__main__":
     import matplotlib.pyplot as plt
 
     tic = time.time()
-    lg = CartLeafGrid([2, 2], [1, 1], 2)
+    lg = CartLeafGrid([2, 2], [1, 1], 3)
     print("time to generate leaf grid: {} s".format(time.time() - tic))
 
     tic = time.time()
     lg.refine_cells(0)
-    lg.refine_cells(0)
+#    lg.refine_cells(2)
     print("time to refine leaf grid: {} s".format(time.time() - tic))
 
     pp.plot_grid(lg)
