@@ -449,13 +449,15 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
         # Next, discretize term on the matrix grid not covered by the Biot discretization,
         # i.e. the source term
+        # Here, we also discretize the edge terms in the entire gb
         self.assembler.discretize(grid=g_max, term_filter=["source"])
 
         # Finally, discretize terms on the lower-dimensional grids. This can be done
         # in the traditional way, as there is no Biot discretization here.
         for g, _ in self.gb:
             if g.dim < self.Nd:
-                self.assembler.discretize(grid=g)
+                # No need to discretize edges here, this was done above.
+                self.assembler.discretize(grid=g, edges=False)
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
