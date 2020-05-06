@@ -394,8 +394,6 @@ class TestCartLeafGrid(unittest.TestCase):
         lg_ref.refine_cells([0, 1])
         lg_ref.refine_cells([0, 1, 2])
         lg_ref.refine_cells(10)
-        pp.plot_grid(lg_ref)
-        pp.plot_grid(lg)
         self._compare_grids(lg, lg_ref)
         
 

@@ -15,7 +15,7 @@ class CartLeafGrid(pp.CartGrid):
             Defaults to same as nx, that is, cells of unit size.
         levels (int): Number of grid levels. Defaults to 1
         """
-
+        self.num_levels = levels
         self.level_grids = []
         self.mesh_sizes = []
         for level in range(levels):
@@ -167,262 +167,103 @@ class CartLeafGrid(pp.CartGrid):
 
         # Find the current refinement level of the cells that should be refined
         current_level = self.cell_level[cell_global]
-
         # The matrix old_to_new gives the mapping from old leaf cells to new leaf cells
         old_to_new = sps.eye(self.num_cells, dtype=bool)
         # Refine the cells of each level seperately, from coarsest to finest
         ref_levels = np.unique(current_level)
         for level in ref_levels:
-            cells_of_level = self.cell_level == level
+            leaf_to_level = self.project_level_to_leaf(level, 'cell').T
             # Find cells that are on level and tagged for refinement:
-            level_cells_to_ref = np.zeros(cell_global.size, dtype=bool)
-            level_cells_to_ref[cells_of_level] = cell_global[cells_of_level]
+            remove_cells_of_level = leaf_to_level * cell_global
             # In addition to the tagged cells, we also refine all cells
             # that have previously been refined. That is, they have a level, less
             # than the coarse cell
-            level_cells_to_ref = level_cells_to_ref | (self.cell_level > level)
-            # We now refine the cells of level.
-            old_to_new = self.refine_level(level, level_cells_to_ref)
-            # In addition to refining this level we have to propogate the updated
-            # refinement to the finer cells:
+            self.active_cells[level] = self.active_cells[level] & ~remove_cells_of_level
 
-            for level2 in range(level + 1, np.max(self.cell_level)):
-                self.refine_level(level2, [])
+            # The removed cells should be added to the next level:
+            cell_p = self.cell_proj_level(level, level + 1)
+            self.active_cells[level + 1] +=  (cell_p.T * remove_cells_of_level).astype(bool)
 
-            # We can now remove the cells of the current level from the tagged cells:
-
-            cell_global[cells_of_level] = False
-            #The refinement has changed the leaf grid, thus we need to update
-            # the ordering and size of the cells to be refined at next level:
-            cell_global = old_to_new * cell_global
+        for level in range(self.num_levels):
+            old_to_new = self.update_leaf_grid(level)
 
         # The properites not needed in the grid refinement are only updated
         # when all cells are refined:
         self.update_grid_prop()
 
-    def refine_level(self, level, cells):
+    def update_leaf_grid(self, level):
+        active_cells = self.active_cells[level]
+        c2lc = _create_restriction_matrix(active_cells)
+        # c2lc is short for cells_2_leaf_cells
 
-        if not isinstance(np.asarray(cells).dtype, bool):
-            cells_leaf_to_ref = np.zeros(self.num_cells, dtype=bool)
-            cells_leaf_to_ref[cells] = True
-        else:
-            cells_leaf_to_ref = cells
+        # Next up, the faces:
+        # First, find all active faces of the current level
+        active_faces = (np.abs(self.level_grids[level].cell_faces) * active_cells) > 0
 
-        cell_to_leaf_c = self.project_level_to_leaf(level, 'cell')
-        cell_to_leaf_f = self.project_level_to_leaf(level + 1, 'cell')
+        if level < self.num_levels - 1:
+            # Not all of these should be included. If a neighbour cell is refined,
+            # we should use the refined faces instead:
+            proj_f = self.face_proj_level(level, level + 1) # projection from fine faces to coarse
+            cells_fine = self.active_cells[level + 1]
+            faces_fine = (np.abs(self.level_grids[level + 1].cell_faces) * cells_fine) > 0
 
-        cells_c = cell_to_leaf_c.T * ~cells_leaf_to_ref
+            active_faces = active_faces & (proj_f * ~faces_fine  > 0)
 
-        proj_c = self.cell_proj_level(level, level + 1)
-        proj_f = self.face_proj_level(level, level + 1)
-        proj_n = self.node_proj_level(level, level + 1)
+        f2lf = _create_restriction_matrix(active_faces)
+        # f2lf is short for faces_2_leaf_faces
 
-#        cells_f = proj_c.T * ~cells_c > 0
-        # Find fine cells
-        to_refine = proj_c.T * cell_to_leaf_c.T
-        fine_to_fine = cell_to_leaf_f.T * cell_to_leaf_f
-        # Fine cells are cells already fine:
-        cells_ff = fine_to_fine * np.ones(self.level_grids[level+1].num_cells, dtype=bool)
-        # of cells that should be refined
-        cells_fc = to_refine * cells_leaf_to_ref > 0
-        cells_f = cells_ff | cells_fc
-
-        num_c_cells = np.sum(cells_c)
-        num_f_cells = np.sum(cells_f)
-
-        indices = np.arange(num_c_cells)
-        indptr = np.zeros(cells_c.size + 1, dtype=int)
-        indptr[1:][cells_c] = 1
-        indptr = np.cumsum(indptr)
-        data = np.ones(indices.size, dtype=bool)
-        c2r = sps.csc_matrix((data, indices, indptr), shape=(num_c_cells, cells_c.size))
-
-        indices = np.arange(num_f_cells)
-        indptr = np.zeros(cells_f.size + 1 , dtype=int)
-        indptr[1:][cells_f] = 1
-        indptr = np.cumsum(indptr)
-        data = np.ones(indices.size, dtype=bool)
-        f2r = sps.csc_matrix((data, indices, indptr), shape=(num_f_cells, cells_f.size))
-
-        ###################
-        face_to_leaf_c = self.project_level_to_leaf(level, 'face')
-
-        faces_f = (np.abs(self.level_grids[level + 1].cell_faces) * cells_f) > 0
-        coarse_to_coarse = face_to_leaf_c.T * face_to_leaf_c
-        faces_c_to_c = coarse_to_coarse * np.ones(self.level_grids[level].num_faces, dtype=bool)
-        faces_c = (proj_f * ~faces_f  > 0) & faces_c_to_c
-
-        num_c_faces = np.sum(faces_c)
-        num_f_faces = np.sum(faces_f)
-        num_faces_new = num_c_faces + num_f_faces
-
-
-        coarse_idx = np.where(faces_c)[0]
-        indices = np.arange(num_c_faces)
-        indptr = np.zeros(faces_c.size + 1 , dtype=int)
-        indptr[1:][faces_c] = 1
-        indptr = np.cumsum(indptr)
-        data = np.ones(indices.size, dtype=bool)
-        cf2rf = sps.csc_matrix((data, indices, indptr), shape=(num_c_faces, faces_c.size))
-        
-        fine_idx = np.where(faces_f)[0]
-        indices = np.arange(num_f_faces)
-        indptr = np.zeros(faces_f.size + 1 , dtype=int)
-        indptr[1:][faces_f] = 1
-        indptr = np.cumsum(indptr)
-        data = np.ones(indices.size, dtype=bool)
-        ff2rf = sps.csc_matrix((data, indices, indptr), shape=(num_f_faces, faces_f.size))
-
-        # Map from fine faces to coarse cells
-        # First find coarse faces that has been refined
-
-        faces_fc = ((faces_f) * (proj_f.T  * np.abs(self.level_grids[level].cell_faces) * cells_c)) > 0
-        mask = sps.diags(faces_f, dtype=bool)
-        ff2c = ff2rf * mask
-
-        ## Map nodes
-        node_to_leaf_c = self.project_level_to_leaf(level, 'node')
-        nodes_f = (np.abs(self.level_grids[level + 1].face_nodes) * faces_f) > 0
-        coarse_to_coarse = node_to_leaf_c.T * node_to_leaf_c
-        nodes_c_to_c = coarse_to_coarse * np.ones(self.level_grids[level].num_nodes, dtype=bool)
-        nodes_c = (proj_n * ~nodes_f  > 0) & nodes_c_to_c
-
-        num_c_nodes = np.sum(nodes_c)
-        num_f_nodes = np.sum(nodes_f)
-        num_nodes_new = num_c_nodes + num_f_nodes
-
-        # Map from refined cells to coarse
-        indices = np.arange(num_c_nodes)
-        indptr = np.zeros(nodes_c.size + 1)
-        indptr[1:][nodes_c] = 1
-        indptr = np.cumsum(indptr)
-        data = np.ones(indices.size, dtype=bool)
-        rn2cn = sps.csc_matrix((data, indices, indptr), shape=(num_c_nodes, nodes_c.size))
-
-        # Map from refined cells to fine cells
-        indices = np.arange(num_f_nodes)
-        indptr = np.zeros(nodes_f.size + 1 , dtype=int)
-        indptr[1:][nodes_f] = 1
-        indptr = np.cumsum(indptr)
-        data = np.ones(indices.size, dtype=bool)
-        rn2fn = sps.csc_matrix((data, indices, indptr), shape=(num_f_nodes, nodes_f.size))
-
-        nodes_fc = ((nodes_f) * (proj_n.T * np.abs(self.level_grids[level].face_nodes) * faces_c)) > 0
-        mask = sps.diags(nodes_f, dtype=bool)
-        fn2c = rn2fn *  mask
-
-        ##############
-        # add cell_faces
-        cell_faces_c = cf2rf * self.level_grids[level].cell_faces * c2r.T
-        cell_faces_f = ff2rf * self.level_grids[level + 1].cell_faces * f2r.T
-        cell_faces_cf = ff2c * proj_f.T * self.level_grids[level].cell_faces * c2r.T
-#        cell_faces =  cell_faces_c + cell_faces_f + cell_faces_cf
-
-        face_nodes_c = rn2cn * self.level_grids[level].face_nodes * cf2rf.T
-        face_nodes_f = rn2fn * self.level_grids[level + 1].face_nodes * ff2rf.T
-        face_nodes_cf = fn2c * proj_n.T * self.level_grids[level].face_nodes * cf2rf.T
-        # Update grid
-        self.block_cell_faces[level, level] = cell_faces_c
-        self.block_cell_faces[level + 1, level] = cell_faces_cf
-        self.block_cell_faces[level + 1, level + 1] = cell_faces_f
-
+        # Map the faces of level - 1 to the active faces of this level
         if level > 0:
-            proj = cf2rf * self.face_projections[level].T
-            self.block_cell_faces[level, level - 1] =  proj * self.block_cell_faces[level, level - 1]
+            proj_f_coarse = self.face_proj_level(level - 1, level)
+            mask = sps.diags(active_faces, dtype=bool)
+            cf2lf = f2lf * mask * proj_f_coarse.T # coarse_face_2_leaf_face
 
-        if (level < len(self.level_grids) - 2 and
-            not self.block_cell_faces[level + 2, level + 1] is None):
+        # As for the faces, we only pick nodes that are not in a finer level
+        active_nodes = (np.abs(self.level_grids[level].face_nodes) * active_faces) > 0
+        if level < self.num_levels - 1:
+            proj_n = self.node_proj_level(level, level + 1) # projection from fine nodes to coarse
+            nodes_fine = (np.abs(self.level_grids[level + 1].face_nodes) * faces_fine) > 0
+            active_nodes = active_nodes & (proj_n * ~nodes_fine  > 0)
 
-            proj = self.cell_projections[level + 1] * f2r.T
-            new_copuling_cell_faces = self.block_cell_faces[level + 2, level + 1] * proj 
-            self.block_cell_faces[level + 2, level + 1] = new_copuling_cell_faces
+        # Map from level nodes to leaf nodes
+        n2ln = _create_restriction_matrix(active_nodes)
+        # n2ln is short for nodes_2_leaf_nodes
 
-        self.block_face_nodes[level, level] = face_nodes_c
-        self.block_face_nodes[level + 1, level] = face_nodes_cf
-        self.block_face_nodes[level + 1, level + 1] = face_nodes_f
+        # Map the nodes of this level to the faces of level - 1.
         if level > 0:
-            proj = rn2cn * self.node_projections[level].T
-            self.block_face_nodes[level, level - 1] = proj * self.block_face_nodes[level, level - 1]
-        if (level < len(self.level_grids) - 2 and
-            not self.block_face_nodes[level + 2, level + 1] is None):
+            proj_n_coarse = self.node_proj_level(level - 1, level)
+            mask = sps.diags(active_nodes, dtype=bool)
+            cn2ln = n2ln * mask * proj_n_coarse.T # coarse_nodes_2_leaf_nodes
 
-            proj = self.face_projections[level + 1] * ff2rf.T
-            new_copuling_face_nodes = self.block_face_nodes[level + 2, level + 1] * proj 
-            self.block_face_nodes[level + 2, level + 1] = new_copuling_face_nodes
+        # Update leaf grid for level
+        # cell_faces and face_nodes
+        cell_faces = f2lf * self.level_grids[level].cell_faces * c2lc.T
+        face_nodes = n2ln * self.level_grids[level].face_nodes * f2lf.T
+        self.block_cell_faces[level, level] = cell_faces
+        self.block_face_nodes[level, level] = face_nodes
 
+        # Update mappings between levels:
+        if level > 0:
+            face_nodes_coarse = cn2ln * self.level_grids[level - 1].face_nodes * self.face_projections[level - 1].T
+            cell_faces_coarse = cf2lf * self.level_grids[level - 1].cell_faces * self.cell_projections[level - 1].T
+            self.block_cell_faces[level, level - 1] = cell_faces_coarse
+            self.block_face_nodes[level, level -1] = face_nodes_coarse
 
-        self.block_nodes[level] = self.level_grids[level].nodes[:, nodes_c]
-        self.block_face_centers[level] = self.level_grids[level].face_centers[:, faces_c]
-        self.block_face_normals[level] = self.level_grids[level].face_normals[:, faces_c]
-        self.block_face_areas[level] = self.level_grids[level].face_areas[faces_c]
-        self.block_cell_volumes[level] = self.level_grids[level].cell_volumes[cells_c]
-        self.block_cell_centers[level] = self.level_grids[level].cell_centers[:, cells_c]
+        # Update leaf grid geometry:
+        self.block_nodes[level] = self.level_grids[level].nodes[:, active_nodes]
+        self.block_face_centers[level] = self.level_grids[level].face_centers[:, active_faces]
+        self.block_face_normals[level] = self.level_grids[level].face_normals[:, active_faces]
+        self.block_face_areas[level] = self.level_grids[level].face_areas[active_faces]
+        self.block_cell_volumes[level] = self.level_grids[level].cell_volumes[active_cells]
+        self.block_cell_centers[level] = self.level_grids[level].cell_centers[:, active_cells]
 
-        self.block_nodes[level + 1] = self.level_grids[level + 1].nodes[:, nodes_f]
-        self.block_face_centers[level + 1] = self.level_grids[level + 1].face_centers[:, faces_f]
-        self.block_face_normals[level + 1] = self.level_grids[level + 1].face_normals[:, faces_f]
-        self.block_face_areas[level + 1] = self.level_grids[level + 1].face_areas[faces_f]
-        self.block_cell_volumes[level + 1] = self.level_grids[level + 1].cell_volumes[cells_f]
-        self.block_cell_centers[level + 1] = self.level_grids[level + 1].cell_centers[:, cells_f]
-
-        self.cell_level = np.hstack([i * np.ones(cc.shape[1], dtype=int) for i, cc in enumerate(self.block_cell_centers) if cc is not None])
-        self.num_cells = self.cell_level.size 
-        self.num_faces = np.hstack(self.block_face_areas).size
-        self.num_nodes = np.hstack(self.block_nodes).shape[1]
-
-        
-        self.cell_projections[level] = c2r#sps.vstack([c2r, zercc], dtype=bool)
-        self.cell_projections[level + 1] = f2r#sps.vstack([zerfc, f2r], dtype=bool)
-
-        self.face_projections[level] = cf2rf
-        self.face_projections[level + 1] =  ff2rf
-
-        self.node_projections[level] = rn2cn
-        self.node_projections[level + 1] = rn2fn
-
-        new_cell_c = self.project_level_to_leaf(level, 'cell')
-        new_cell_f = self.project_level_to_leaf(level + 1, 'cell')
-        mask = sps.diags(cells_fc, dtype=bool)
-
-        old_to_new = new_cell_c * cell_to_leaf_c.T
-        old_to_new += new_cell_f * (cell_to_leaf_f.T + mask * proj_c.T * cell_to_leaf_c.T)
-
-        # Add projection from cells coarser than level. These did not change
-        identity_cells = np.array([], dtype=int)
-        num_cells = 0
-        for i in range(level):
-            identity_cells = np.r_[identity_cells, self.project_level_to_leaf(i, 'cell').indices]
-            num_cells += self.project_level_to_leaf(i, 'cell').indices.size
-        indptr = np.zeros(old_to_new.shape[1] + 1, dtype=int)
-        indptr[1:num_cells+1] = 1
-        indptr = np.cumsum(indptr)
-        data = np.ones(identity_cells.size, dtype=bool)
-        coarse_mapping =  sps.csc_matrix((data, identity_cells, indptr), shape=old_to_new.shape)
-
-        old_to_new += coarse_mapping
-
-        # Also add projection from finer cells than level + 1. These did not change
-        fine_cells = np.array([], dtype=int)
-        num_cells = 0
-        for i in range(level+2, len(self.level_grids)):
-            fine_cells = np.r_[fine_cells, self.project_level_to_leaf(i, 'cell').indices]
-            num_cells += self.project_level_to_leaf(i, 'cell').indices.size
-
-        indptr = np.zeros(old_to_new.shape[1] + 1, dtype=int)
-        if num_cells>0:
-            indptr[-num_cells:] = 1
-        indptr = np.cumsum(indptr)
-
-        data = np.ones(fine_cells.size, dtype=bool)
-        fine_mapping =  sps.csc_matrix((data, fine_cells, indptr), shape=old_to_new.shape)
-        old_to_new += fine_mapping
-
-        return old_to_new
-
+        # Store projections:
+        self.cell_projections[level] = c2lc
+        self.face_projections[level] = f2lf
+        self.node_projections[level] = n2ln
 
     def new_cell_projection(self):
         return sps.vstack(self.old_to_new)
-
 
     def update_grid_prop(self):
         self.cell_faces = sps.bmat(self.block_cell_faces, format='csc')
@@ -434,8 +275,15 @@ class CartLeafGrid(pp.CartGrid):
         self.face_areas = np.hstack(self.block_face_areas)
         self.cell_volumes = np.hstack(self.block_cell_volumes)
         self.cell_centers = np.hstack(self.block_cell_centers)
+        self.num_cells = self.cell_volumes.size
         self.num_faces = self.face_areas.size
         self.num_nodes = self.nodes.shape[1]
+        self.cell_level = np.hstack(
+            [i * np.ones(cc.shape[1], dtype=int)
+             for i, cc in enumerate(self.block_cell_centers) if cc is not None]
+        )
+
+
         self.initiate_face_tags()
         self.initiate_node_tags()
         self.update_boundary_face_tag()
@@ -455,8 +303,8 @@ class CartLeafGrid(pp.CartGrid):
                 'Unknwon element_type: {}. Possible choises are: cell, face, node'.format(element_type)
             )
 
-        block_mat = np.empty(len(self.level_grids), dtype=object)
-        for i in range(len(self.level_grids)):
+        block_mat = np.empty(self.num_levels, dtype=object)
+        for i in range(self.num_levels):
             if i==level:
                 block_mat[i] = active[level]
             else:
@@ -489,19 +337,19 @@ class CartLeafGrid(pp.CartGrid):
 
     def _init_active_cells(self):
         # Inital grid is the coarse grid:
-        active_c = [None] * len(self.level_grids)
-        active_c[0] = sps.diags(np.ones(self.num_cells, dtype=bool), dtype=bool)
+        active_c = [None] * self.num_levels
+        active_c[0] = np.ones(self.num_cells, dtype=bool)
         for level, g in enumerate(self.level_grids[1:]):
-            active_c[level + 1] = sps.csc_matrix((g.num_cells, g.num_cells), dtype=bool)
+            active_c[level + 1] = np.zeros(g.num_cells, dtype=bool)
         self.active_cells = active_c
 
-        active_f = [None] * len(self.level_grids)
+        active_f = [None] * self.num_levels
         active_f[0] = sps.diags(np.ones(self.level_grids[0].num_faces, dtype=bool), dtype=bool)
         for level, g in enumerate(self.level_grids[1:]):
             active_f[level + 1] = sps.csc_matrix((g.num_faces, g.num_faces), dtype=bool)
         self.active_faces = active_f
 
-        active_n = [None] * len(self.level_grids)
+        active_n = [None] * self.num_levels
         active_n[0] = sps.diags(np.ones(self.level_grids[0].num_nodes, dtype=bool), dtype=bool)
         for level, g in enumerate(self.level_grids[1:]):
             active_n[level + 1] = sps.csc_matrix((g.num_nodes, g.num_nodes), dtype=bool)
@@ -510,36 +358,45 @@ class CartLeafGrid(pp.CartGrid):
 
     def _init_projection(self):
         # Inital grid is the coarse grid:
-        proj_c = [None] * len(self.level_grids)
+        proj_c = [None] * self.num_levels
         proj_c[0] = sps.diags(np.ones(self.num_cells, dtype=bool), dtype=bool)
         for level, g in enumerate(self.level_grids[1:]):
             proj_c[level + 1] = sps.csc_matrix((0, g.num_cells))
         self.cell_projections = proj_c
 
-        proj_f = [None] * len(self.level_grids)
+        proj_f = [None] * self.num_levels
         proj_f[0] = sps.diags(np.ones(self.level_grids[0].num_faces, dtype=bool), dtype=bool)
         for level, g in enumerate(self.level_grids[1:]):
             proj_f[level + 1] = sps.csc_matrix((0, g.num_faces))
         self.face_projections = proj_f
 
-        proj_n = [None] * len(self.level_grids)
+        proj_n = [None] * self.num_levels
         proj_n[0] = sps.diags(np.ones(self.level_grids[0].num_nodes, dtype=bool), dtype=bool)
         for level, g in enumerate(self.level_grids[1:]):
             proj_n[level + 1] = sps.csc_matrix((0, g.num_nodes))
         self.node_projections = proj_n
 
-        proj_o2n = [None] * len(self.level_grids)
+        proj_o2n = [None] * self.num_levels
         proj_o2n[0] = sps.diags(np.ones(self.num_cells, dtype=bool), dtype=bool)
         # for level, g in enumerate(self.level_grids[1:]):
         #     proj_o2n[level + 1] = sps.csc_matrix((0, self.num_cells))
         self.old_to_new = proj_o2n
+
+def _create_restriction_matrix(keep):
+    size = keep.sum()
+    indices = np.arange(size)
+    indptr = np.zeros(keep.size + 1, dtype=int)
+    indptr[1:][keep] = 1
+    indptr = np.cumsum(indptr)
+    data = np.ones(indices.size, dtype=bool)
+    return sps.csc_matrix((data, indices, indptr), shape=(size, keep.size))
 
 if __name__=="__main__":
     import time
     import matplotlib.pyplot as plt
 
     tic = time.time()
-    lg = pp.CartLeafGrid([1, 2], [1, 1], 4)
+    lg = pp.CartLeafGrid([1, 2], [1, 1], 3)
     print("time to generate leaf grid: {} s".format(time.time() - tic))
 
     tic = time.time()
@@ -547,11 +404,8 @@ if __name__=="__main__":
 
     lg.refine_cells(0)
     pp.plot_grid(lg)
-    lg.refine_cells(1)
-    pp.plot_grid(lg)
-    lg.refine_cells(7) # should refine cell 0, 1, and 2 as well
-    pp.plot_grid(lg)
-    lg.compute_geometry()
+    lg.refine_cells([0, 1])
+#    lg.compute_geometry()
     print("time to refine leaf grid: {} s".format(time.time() - tic))
 
     plt.plot(lg.cell_centers[0], lg.cell_centers[1], '.')
