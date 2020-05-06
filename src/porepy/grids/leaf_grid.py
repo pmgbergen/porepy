@@ -152,7 +152,6 @@ class CartLeafGrid(pp.CartGrid):
         data = np.ones(indices.size, dtype=bool)
         return sps.csc_matrix((data, indices, indPtr))
 
-
     def refine_cells(self, cells):
         if self.cell_projections is None:
             self._init_projection()
@@ -163,10 +162,9 @@ class CartLeafGrid(pp.CartGrid):
         else:
             cell_global = cells
 
-        min_level = np.min(self.cell_level)
-        max_level = np.max(self.cell_level)
-
+        # Make sure neighbour cells are at most seperated by one level:
         cell_global = self.enforce_one_level_refinement(cell_global)
+
         # Find the current refinement level of the cells that should be refined
         current_level = self.cell_level[cell_global]
 
@@ -201,7 +199,6 @@ class CartLeafGrid(pp.CartGrid):
         # The properites not needed in the grid refinement are only updated
         # when all cells are refined:
         self.update_grid_prop()
-
 
     def refine_level(self, level, cells):
 
@@ -422,8 +419,10 @@ class CartLeafGrid(pp.CartGrid):
 
         return old_to_new
 
+
     def new_cell_projection(self):
         return sps.vstack(self.old_to_new)
+
 
     def update_grid_prop(self):
         self.cell_faces = sps.bmat(self.block_cell_faces, format='csc')
@@ -437,7 +436,9 @@ class CartLeafGrid(pp.CartGrid):
         self.cell_centers = np.hstack(self.block_cell_centers)
         self.num_faces = self.face_areas.size
         self.num_nodes = self.nodes.shape[1]
-
+        self.initiate_face_tags()
+        self.initiate_node_tags()
+        self.update_boundary_face_tag()
 
     def project_level_to_leaf(self, level, element_type):
         if element_type=="cell":
