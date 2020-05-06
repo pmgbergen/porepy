@@ -166,6 +166,7 @@ class CartLeafGrid(pp.CartGrid):
         min_level = np.min(self.cell_level)
         max_level = np.max(self.cell_level)
 
+        cell_global = self.enforce_one_level_refinement(cell_global)
         # Find the current refinement level of the cells that should be refined
         current_level = self.cell_level[cell_global]
 
@@ -191,6 +192,7 @@ class CartLeafGrid(pp.CartGrid):
                 self.refine_level(level2, [])
 
             # We can now remove the cells of the current level from the tagged cells:
+
             cell_global[cells_of_level] = False
             #The refinement has changed the leaf grid, thus we need to update
             # the ordering and size of the cells to be refined at next level:
@@ -244,16 +246,6 @@ class CartLeafGrid(pp.CartGrid):
         indptr = np.cumsum(indptr)
         data = np.ones(indices.size, dtype=bool)
         f2r = sps.csc_matrix((data, indices, indptr), shape=(num_f_cells, cells_f.size))
-
-        # # calculate mapping from old leaf cells to new leaf cells
-        # indices = np.arange(num_c_cells + num_f_cells)
-        # indptr = np.zeros(cells_c.sum()+1, dtype=int)
-        # indptr[1:][np.argwhere(~cells_c)] = 1
-        # indptr[1:][(~cells_c).sum():] = 4
-        # indptr = np.cumsum(indptr)
-        # data = np.ones(indices.size, dtype=bool)
-        # lo2ln = sps.csc_matrix((data, indices, indptr))
-
 
         ###################
         face_to_leaf_c = self.project_level_to_leaf(level, 'face')
@@ -397,6 +389,37 @@ class CartLeafGrid(pp.CartGrid):
 
         old_to_new = new_cell_c * cell_to_leaf_c.T
         old_to_new += new_cell_f * (cell_to_leaf_f.T + mask * proj_c.T * cell_to_leaf_c.T)
+
+        # Add projection from cells coarser than level. These did not change
+        identity_cells = np.array([], dtype=int)
+        num_cells = 0
+        for i in range(level):
+            identity_cells = np.r_[identity_cells, self.project_level_to_leaf(i, 'cell').indices]
+            num_cells += self.project_level_to_leaf(i, 'cell').indices.size
+        indptr = np.zeros(old_to_new.shape[1] + 1, dtype=int)
+        indptr[1:num_cells+1] = 1
+        indptr = np.cumsum(indptr)
+        data = np.ones(identity_cells.size, dtype=bool)
+        coarse_mapping =  sps.csc_matrix((data, identity_cells, indptr), shape=old_to_new.shape)
+
+        old_to_new += coarse_mapping
+
+        # Also add projection from finer cells than level + 1. These did not change
+        fine_cells = np.array([], dtype=int)
+        num_cells = 0
+        for i in range(level+2, len(self.level_grids)):
+            fine_cells = np.r_[fine_cells, self.project_level_to_leaf(i, 'cell').indices]
+            num_cells += self.project_level_to_leaf(i, 'cell').indices.size
+
+        indptr = np.zeros(old_to_new.shape[1] + 1, dtype=int)
+        if num_cells>0:
+            indptr[-num_cells:] = 1
+        indptr = np.cumsum(indptr)
+
+        data = np.ones(fine_cells.size, dtype=bool)
+        fine_mapping =  sps.csc_matrix((data, fine_cells, indptr), shape=old_to_new.shape)
+        old_to_new += fine_mapping
+
         return old_to_new
 
     def new_cell_projection(self):
@@ -438,6 +461,30 @@ class CartLeafGrid(pp.CartGrid):
             else:
                 block_mat[i] = sps.csc_matrix((active[i].shape[0], num_elements))
         return sps.vstack(block_mat, format="csc", dtype=bool)
+
+    def enforce_one_level_refinement(self, cell_global):
+        """
+        We make sure that two neighbour cells are at most 1 level appart after refinement
+        """
+
+        # no need to check levels less than maximm to refine
+        max_level = np.max(self.cell_level[cell_global])
+        for level in range(max_level, 0, -1):
+            cells_of_level = self.cell_level == level
+            # Find cells that are on level and tagged for refinement:
+            level_cells_to_ref = np.zeros(cell_global.size, dtype=bool)
+            level_cells_to_ref[cells_of_level] = cell_global[cells_of_level]
+
+            # Project to faces and back to cells to get neighbour cells
+            neighbour_mapping = np.abs(self.cell_faces.T) * np.abs(self.cell_faces)
+            neighbours = ( neighbour_mapping * level_cells_to_ref) > 0
+
+            refine_neighbours = np.zeros(self.num_cells, dtype=bool)
+            refine_neighbours[neighbours] = self.cell_level[neighbours] < level
+
+            cell_global = cell_global | refine_neighbours
+
+        return cell_global
 
     def _init_active_cells(self):
         # Inital grid is the coarse grid:
@@ -491,13 +538,18 @@ if __name__=="__main__":
     import matplotlib.pyplot as plt
 
     tic = time.time()
-    lg = CartLeafGrid([1, 2], [1, 1], 3)
+    lg = pp.CartLeafGrid([1, 2], [1, 1], 4)
     print("time to generate leaf grid: {} s".format(time.time() - tic))
 
     tic = time.time()
-    lg.refine_cells(0)
-    lg.refine_cells([0, 1])
 
+
+    lg.refine_cells(0)
+    pp.plot_grid(lg)
+    lg.refine_cells(1)
+    pp.plot_grid(lg)
+    lg.refine_cells(7) # should refine cell 0, 1, and 2 as well
+    pp.plot_grid(lg)
     lg.compute_geometry()
     print("time to refine leaf grid: {} s".format(time.time() - tic))
 
