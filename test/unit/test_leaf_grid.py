@@ -358,7 +358,7 @@ class TestCartLeafGrid(unittest.TestCase):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 3)
 
         lg.refine_cells(0)
-        lg.refine_cells(4) # Should refine cell 0 as well
+        lg.refine_cells(4)  # Should refine cell 0 as well
 
         lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 3)
         lg_ref.refine_cells([0, 1])
@@ -388,14 +388,65 @@ class TestCartLeafGrid(unittest.TestCase):
 
         lg.refine_cells(0)
         lg.refine_cells(1)
-        lg.refine_cells(7) # should refine cell 0, 1, and 2 as well
+        lg.refine_cells(7)  # should refine cell 0, 1, and 2 as well
 
         lg_ref = pp.CartLeafGrid([1, 2], [1, 1], 4)
         lg_ref.refine_cells([0, 1])
         lg_ref.refine_cells([0, 1, 2])
         lg_ref.refine_cells(10)
         self._compare_grids(lg, lg_ref)
-        
+
+    def test_coarsening_full_grid(self):
+        lg = pp.CartLeafGrid([2, 2], [1, 1], 2)
+        lg.refine_cells(np.ones(4, dtype=bool))
+        lg.coarsen_cells(np.ones(16, dtype=bool))
+
+        g_t = pp.CartGrid([2, 2], [1, 1])
+        g_t.compute_geometry()
+
+        self._compare_grids(lg, g_t)
+
+    def test_coarsening_one_cell(self):
+        lg = pp.CartLeafGrid([2, 2], [1, 1], 2)
+        lg.refine_cells(np.ones(4, dtype=bool))
+        lg.coarsen_cells([0, 1, 4, 5])
+
+        lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 2)
+        lg_ref.refine_cells([1, 2, 3])
+
+        self._compare_grids(lg, lg_ref)
+
+    def test_coarsening_multiple_cells(self):
+        lg = pp.CartLeafGrid([2, 2], [1, 1], 2)
+        lg.refine_cells(np.ones(4, dtype=bool))
+        lg.coarsen_cells([0, 1, 4, 5, 10, 11, 14, 15])
+
+        lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 2)
+        lg_ref.refine_cells([1, 2])
+
+        self._compare_grids(lg, lg_ref)
+
+    def test_coarsening_multiple_levels(self):
+        lg = pp.CartLeafGrid([2, 2], [1, 1], 3)
+        lg.refine_cells([0, 1])
+        lg.refine_cells(2)
+
+        lg.coarsen_cells([3, 4, 7, 8, 9, 10, 11, 12])
+
+        lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 2)
+        lg_ref.refine_cells(0)
+        self._compare_grids(lg, lg_ref)
+
+    def test_coarsening_no_prop(self):
+        lg = pp.CartLeafGrid([2, 2], [1, 1], 3)
+        lg.refine_cells([0, 1, 2, 3])
+        lg.refine_cells(1)
+        lg.coarsen_cells([1, 2, 5, 6])
+
+        lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 3)
+        lg_ref.refine_cells([0, 1, 2, 3])
+        lg_ref.refine_cells(1)
+        self._compare_grids(lg, lg_ref)
 
     def _compare_grids(self, g0, g1):
         self.assertTrue(np.allclose(g0.nodes, g1.nodes))

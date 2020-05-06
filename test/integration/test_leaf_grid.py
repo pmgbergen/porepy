@@ -21,7 +21,6 @@ class TestCartLeafGrid(unittest.TestCase):
 
         discr.discretize(g_ref, d_ref)
         discr.discretize(lg, d)
-        
 
         mat_dict = d[pp.DISCRETIZATION_MATRICES][key]
         mat_dict_ref = d[pp.DISCRETIZATION_MATRICES][key]
@@ -35,18 +34,18 @@ class TestCartLeafGrid(unittest.TestCase):
 
         keys = ["tpfa", "mpfa"]
         disc = [pp.Tpfa, pp.Mpfa]
-        error_tol = [0.06, 1e-10] # because of consistency error of TPFA,
-                                  # it does not reproduce linear pressure exactly 
+        error_tol = [0.06, 1e-10]  # because of consistency error of TPFA,
+        # it does not reproduce linear pressure exactly
 
         left_faces = np.argwhere(lg.face_centers[0] < 1e-5).ravel()
         right_faces = np.argwhere(lg.face_centers[0] > 1 - 1e-5).ravel()
 
         dir_faces = np.hstack((left_faces, right_faces))
-        bound = pp.BoundaryCondition(lg, dir_faces, 'dir')
+        bound = pp.BoundaryCondition(lg, dir_faces, "dir")
 
         d = {}
         for key in keys:
-            pp.initialize_default_data(lg, d, 'flow', {"bc": bound}, key)
+            pp.initialize_default_data(lg, d, "flow", {"bc": bound}, key)
 
         for i, key in enumerate(keys):
             discretization = disc[i](key)
@@ -56,11 +55,10 @@ class TestCartLeafGrid(unittest.TestCase):
         p_bc = np.zeros(lg.num_faces)
         p_bc[dir_faces] = p_ref(lg.face_centers[:, dir_faces])
 
-
         for key in keys:
             mat_dict = d[pp.DISCRETIZATION_MATRICES][key]
             mat_dict_ref = d[pp.DISCRETIZATION_MATRICES][key]
-        
+
             flux, bound_flux = mat_dict["flux"], mat_dict["bound_flux"]
 
             div = lg.cell_faces.T
