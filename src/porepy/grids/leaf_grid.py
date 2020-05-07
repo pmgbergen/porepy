@@ -192,12 +192,22 @@ class CartLeafGrid(pp.CartGrid):
                 bool
             )
 
+        # before we update the grid, store the old projections
+        old_cell_proj = [None] * self.num_levels
         for level in range(self.num_levels):
-            old_to_new = self.update_leaf_grid(level)
+            old_cell_proj[level] = self.project_level_to_leaf(level, 'cell').T.copy()
+
+        for level in range(self.num_levels):
+            self.update_leaf_grid(level)
 
         # The properites not needed in the grid refinement are only updated
         # when all cells are refined:
         self.update_grid_prop()
+
+        # Calculate the projections from old leaf cells to new leaf cells:
+        old_to_new = self._calculate_projection_old_leaf_2_new_leaf(old_cell_proj)
+
+        return old_to_new
 
     def coarsen_cells(self, cells):
         if self.cell_projections is None:
@@ -488,6 +498,17 @@ class CartLeafGrid(pp.CartGrid):
         #     proj_o2n[level + 1] = sps.csc_matrix((0, self.num_cells))
         self.old_to_new = proj_o2n
 
+    def _calculate_projection_old_leaf_2_new_leaf(self, old_cell_proj):
+        old_to_new = sps.csc_matrix((self.num_cells, old_cell_proj[0].shape[1]), dtype=bool)
+        for level in range(self.num_levels):
+            # Add old leaf cells of level that are also in the new leaf cells
+            old_to_new += self.project_level_to_leaf(level, 'cell') * old_cell_proj[level]
+            if level < self.num_levels - 1:
+                # Add old leaf cells that has been refined:
+                coarse_level_to_fine = self.cell_proj_level(level, level + 1).T
+                old_leaf_to_fine =  coarse_level_to_fine * old_cell_proj[level]
+                old_to_new += self.project_level_to_leaf(level + 1, 'cell') * old_leaf_to_fine
+        return old_to_new
 
 def _create_restriction_matrix(keep):
     size = keep.sum()
@@ -504,19 +525,20 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     tic = time.time()
-    lg = pp.CartLeafGrid([2, 2], [1, 1], 3)
+    lg = pp.CartLeafGrid([1, 2], [1, 1], 3)
     print("time to generate leaf grid: {} s".format(time.time() - tic))
 
     tic = time.time()
 
-    lg.refine_cells(np.arange(lg.num_cells))
-    lg.coarsen_cells([0, 1, 2, 3])
+    old_to_new0 = lg.refine_cells(0)
+    old_to_new1 = lg.refine_cells([0, 1])
+
     #    lg.compute_geometry()
     print("time to refine leaf grid: {} s".format(time.time() - tic))
+    if False:
+        plt.plot(lg.cell_centers[0], lg.cell_centers[1], ".")
+        plt.plot(lg.nodes[0], lg.nodes[1], "o")
+        plt.plot(lg.face_centers[0], lg.face_centers[1], "x")
+        plt.show()
 
-    plt.plot(lg.cell_centers[0], lg.cell_centers[1], ".")
-    plt.plot(lg.nodes[0], lg.nodes[1], "o")
-    plt.plot(lg.face_centers[0], lg.face_centers[1], "x")
-
-    plt.show()
     pp.plot_grid(lg)
