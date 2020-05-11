@@ -14,7 +14,7 @@ from porepy.grids.gmsh import mesh_2_grid
 logger = logging.getLogger(__name__)
 
 
-def triangle_grid_embedded(network, file_name, **kwargs):
+def triangle_grid_embedded(file_name, **kwargs):
     """ Create triangular (2D) grid of a domain embedded in 3D space, without
     meshing the 3D volume.
 
@@ -31,7 +31,6 @@ def triangle_grid_embedded(network, file_name, **kwargs):
     manual on how to set mesh sizes.
 
     Parameters:
-        network (FractureNetwork): To be meshed.
         file_name (str, optional): Filename for communication with gmsh.
             The config file for gmsh will be f_name.geo, with the grid output
             to f_name.msh. Defaults to dfn_network.
@@ -61,7 +60,6 @@ def triangle_grid_embedded(network, file_name, **kwargs):
         is_embedded=True,
         phys_names=phys_names,
         cell_info=cell_info,
-        network=network,
     )
     g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
     g_0d = mesh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
