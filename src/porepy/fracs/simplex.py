@@ -240,6 +240,10 @@ def tetrahedral_grid_from_gmsh(network, file_name, constraints=None, **kwargs):
         network (pp.FractureNetwork3d): The network used to generate the gmsh
             input file.
         file_name (str): Path to file of gmsh.msh specification.
+        TODO: Line tag is unused. Maybe surface_tag replaces it?? Fix docs.
+            This documentation is copied from mesh_2_grid.create_2d_grids().
+        constraints (np.array, optional): Array with lists of lines that should not
+            become grids. The array items should match the INDEX in line_tag, see above.
 
     Returns:
         list of list of grids: grids in 2d, 1d and 0d. If no grids exist in a
