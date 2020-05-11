@@ -65,6 +65,7 @@ def create_2d_grids(
         is_embedded (boolean, optional): If True, the triangle grids are embedded in
             3d space. If False (default), the grids are truly 2d.
         surface_tag (str, optional): Prefix tag to identify fractures.
+        TODO: Line tag is unused. Maybe surface_tag replaces it?? Fix docs
         constraints (np.array, optional): Array with lists of lines that should not
             become grids. The array items should match the INDEX in line_tag, see above.
 
