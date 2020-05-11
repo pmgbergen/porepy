@@ -67,8 +67,20 @@ class DualElliptic(
     """
 
     def __init__(self, keyword, name):
+
+        # Identify which parameters to use:
         self.keyword = keyword
         self.name = name
+
+        # Keywords used to identify individual terms in the discretization matrix dictionary
+        # Discretization of H_div mass matrix
+        self.mass_matrix_key = "mass"
+        # Discretization of divergence matrix
+        self.div_matrix_key = "div"
+        # Discretization of flux reconstruction
+        self.vector_proj_key = "vector_proj"
+        # Discretization of vector source terms (gravity)
+        self.vector_source_key = "vector_source"
 
     def ndof(self, g):
         """ Return the number of degrees of freedom associated to the method.
@@ -124,8 +136,8 @@ class DualElliptic(
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
-        mass = matrix_dictionary["mass"]
-        div = matrix_dictionary["div"]
+        mass = matrix_dictionary[self.mass_matrix_key]
+        div = matrix_dictionary[self.div_matrix_key]
         return sps.bmat([[mass, div.T], [div, None]], format="csr")
 
     def assemble_neumann_robin(self, g, data, M, bc_weight=None):
@@ -133,7 +145,9 @@ class DualElliptic(
         system matrix.
         """
         # Obtain the mass matrix
-        mass = data[pp.DISCRETIZATION_MATRICES][self.keyword]["mass"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        mass = matrix_dictionary[self.mass_matrix_key]
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
         bc = data[pp.PARAMETERS][self.keyword]["bc"]
@@ -189,8 +203,11 @@ class DualElliptic(
 
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
-        rhs = np.zeros(self.ndof(g))
+        # Get dictionary for discretization matrix storage
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        proj = matrix_dictionary[self.vector_proj_key]
 
+        rhs = np.zeros(self.ndof(g))
         if g.dim == 0:
             return rhs
 
@@ -198,6 +215,13 @@ class DualElliptic(
         bc_val = parameter_dictionary["bc_values"]
 
         assert not bool(bc is None) != bool(bc_val is None)
+
+        # The vector source, defaults to zero if not specified.
+        vector_source = parameter_dictionary.get(
+            "vector_source", np.zeros(proj.shape[0])
+        )
+        # Discretization of the vector source term
+        rhs[: g.num_faces] += proj.T * vector_source
 
         if bc is None:
             return rhs
@@ -212,7 +236,9 @@ class DualElliptic(
         is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
         is_rob = np.logical_and(bc.is_rob, np.logical_not(bc.is_internal))
         if bc.is_per.sum():
-            raise NotImplementedError("Periodic boundary conditions are not implemented for DualElliptic")
+            raise NotImplementedError(
+                "Periodic boundary conditions are not implemented for DualElliptic"
+            )
 
         faces, _, sign = sps.find(g.cell_faces)
         sign = sign[np.unique(faces, return_index=True)[1]]
