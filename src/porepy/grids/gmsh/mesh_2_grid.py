@@ -35,14 +35,14 @@ def create_3d_grids(pts, cells):
 
 
 def create_2d_grids(
-    pts,
-    cells,
-    phys_names,
-    cell_info,
-    is_embedded=False,
+    pts: np.ndarray,
+    cells: Dict[str, np.ndarray],
+    phys_names: Dict[str, str],
+    cell_info: Dict,
+    is_embedded: bool = False,
     network=None,
-    surface_tag=None,
-    constraints=None,
+    surface_tag: str = None,
+    constraints: np.ndarray = None,
 ):
     """ Create 2d grids for lines of a specified type from a gmsh tessalation.
 
