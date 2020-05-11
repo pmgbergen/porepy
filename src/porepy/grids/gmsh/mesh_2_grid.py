@@ -2,6 +2,8 @@
 Module for converting gmsh output file to our grid structure.
 Maybe we will add the reverse mapping.
 """
+from typing import Dict
+
 import numpy as np
 
 import porepy as pp
