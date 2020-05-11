@@ -61,13 +61,7 @@ def create_2d_grids(
         cell_info (dictionary): Should have a key 'vertex', with subdictionary with a
             single key gmsh:physical (this is how meshio works) that contains the
             physical names (in the gmsh sense) of the points.
-        line_tag (str, optional): The target physical name, all points that have
-            this tag will be assigned a grid. The string is assumed to be on the from
-            BASE_NAME_OF_TAG_{INDEX}, where _INDEX is a number. The comparison is made
-            between the physical names and the line, up to the last
-            underscore. If not provided, the physical names of fracture lines will be
-            used as target.
-        is_embedded (boolean, optional): If True, the tringle grids are embedded in
+        is_embedded (boolean, optional): If True, the triangle grids are embedded in
             3d space. If False (default), the grids are truly 2d.
         surface_tag (str, optional): Prefix tag to identify fractures.
         constraints (np.array, optional): Array with lists of lines that should not
