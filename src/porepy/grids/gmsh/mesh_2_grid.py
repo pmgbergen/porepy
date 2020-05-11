@@ -92,7 +92,7 @@ def create_2d_grids(
     if is_embedded:
 
         # Special treatment of the case with no fractures
-        if not "triangle" in cells:
+        if "triangle" not in cells:
             return g_2d
         # Recover cells on fracture surfaces, and create grids
         tri_cells = cells["triangle"]
@@ -107,12 +107,12 @@ def create_2d_grids(
             # the fracture number
             pn = phys_names[pn_ind]
             offset = pn.rfind("_")
-            frac_num = int(pn[offset + 1 :])
+            frac_num = int(pn[offset + 1:])
             plane_type = pn[:offset]
 
             # Check if the surface is of the target type, or if the surface is tagged
             # as a constraint
-            if plane_type != surface_tag[:-1] or int(pn[offset + 1 :]) in constraints:
+            if plane_type != surface_tag[:-1] or int(pn[offset + 1:]) in constraints:
                 continue
 
             # Cells of this surface
@@ -258,7 +258,7 @@ def create_1d_grids(
     g_1d = []
 
     # If there are no fracture intersections, we return empty lists
-    if not "line" in cells:
+    if "line" not in cells:
         return g_1d, np.empty(0)
 
     gmsh_const = constants.GmshConstants()
@@ -287,7 +287,7 @@ def create_1d_grids(
         # the standard PorePy procedure, but it may fail for externally generated
         # geo-files. If it fails, we simply set the frac_num to None in this case.
         try:
-            frac_num = int(pn[offset_index + 1 :])
+            frac_num = int(pn[offset_index + 1:])
         except ValueError:
             frac_num = None
 
@@ -381,7 +381,7 @@ def create_0d_grids(
                 g.global_point_ind = np.atleast_1d(np.asarray(point_cells[pi]))
 
                 # Store the index of this physical name tag.
-                g.physical_name_index = int(pn[offset_index + 1 :])
+                g.physical_name_index = int(pn[offset_index + 1:])
 
                 g_0d.append(g)
             else:
