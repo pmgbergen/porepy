@@ -366,6 +366,7 @@ def dfm_3d_from_fab(
     if domain is None:
         domain = network.bounding_box()
 
+    # TODO: No reference to simplex_grid in pp.fracs.meshing.py
     gb = pp.meshing.simplex_grid(domain=domain, network=network, **mesh_kwargs)
 
     if return_domain:
