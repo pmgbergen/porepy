@@ -59,8 +59,7 @@ def create_2d_grids(
             indices of the points that form 2d grids.
         phys_names (dict): mapping from the gmsh tags assigned to physical entities
             to the physical name of that tag.
-        cell_info (dictionary): Should have a key 'vertex', with subdictionary with a
-            single key gmsh:physical (this is how meshio works) that contains the
+        cell_info (dictionary): Should have a key 'triangle' that contains the
             physical names (in the gmsh sense) of the points.
         is_embedded (boolean, optional): If True, the triangle grids are embedded in
             3d space. If False (default), the grids are truly 2d.
@@ -94,7 +93,7 @@ def create_2d_grids(
         tri_cells = cells["triangle"]
 
         # Tags of all triangle grids
-        tri_tags = cell_info["triangle"]["gmsh:physical"]
+        tri_tags = cell_info["triangle"]
 
         # Loop over all gmsh tags associated with triangle grids
         for pn_ind in np.unique(tri_tags):
@@ -142,13 +141,13 @@ def create_2d_grids(
         # in the cell_info["line"]. The map phys_names recover the literal name.
 
         # create all the extra tags for the grids, by default they're false
-        for tag in np.unique(cell_info["line"]["gmsh:physical"]):
+        for tag in np.unique(cell_info["line"]):
             tag_name = phys_names[tag].lower() + "_faces"
             g_2d.tags[tag_name] = np.zeros(g_2d.num_faces, dtype=np.bool)
 
         # since there is not a cell-face relation from gmsh but only a cell-node
         # relation we need to recover the corresponding face.
-        for tag_id, tag in enumerate(cell_info["line"]["gmsh:physical"]):
+        for tag_id, tag in enumerate(cell_info["line"]):
             tag_name = phys_names[tag].lower() + "_faces"
             # check where is the first node indipendent on the position
             # in the triangle, being first, second or third node
@@ -220,8 +219,7 @@ def create_1d_grids(
             of the lines that form 1d grids.
         phys_names (dict): mapping from the gmsh tags assigned to physical entities
             to the physical name of that tag.
-        cell_info (dictionary): Should have a key 'vertex', with subdictionary with a
-            single key gmsh:physical (this is how meshio works) that contains the
+        cell_info (dictionary): Should have a key 'line', that contains the
             physical names (in the gmsh sense) of the points.
         line_tag (str, optional): The target physical name, all points that have
             this tag will be assigned a grid. The string is assumed to be on the from
@@ -260,7 +258,10 @@ def create_1d_grids(
     if "line" not in cells:
         return g_1d, np.empty(0)
 
-    line_tags = cell_info["line"]["gmsh:physical"]
+
+    gmsh_const = constants.GmshConstants()
+
+    line_tags = cell_info["line"]
     line_cells = cells["line"]
 
     gmsh_tip_num = []
@@ -336,8 +337,7 @@ def create_0d_grids(
             of the points that form point grids.
         phys_names (dict): mapping from the gmsh tags assigned to physical entities
             to the physical name of that tag.
-        cell_info (dictionary): Should have a key 'vertex', with subdictionary with a
-            single key gmsh:physical (this is how meshio works) that contains the
+        cell_info (dictionary): Should have a key 'vertex', that contains the
             physical names (in the gmsh sense) of the points.
         target_tag_stem (str, optional): The target physical name, all points that have
             this tag will be assigned a grid. The string is assumed to be on the from
@@ -361,7 +361,7 @@ def create_0d_grids(
 
         # Keys to the physical names table of the points that have been decleared as
         # physical
-        physical_name_indices = cell_info["vertex"]["gmsh:physical"]
+        physical_name_indices = cell_info["vertex"]
 
         # Loop over all physical points
         for pi, phys_names_ind in enumerate(physical_name_indices):
@@ -388,9 +388,12 @@ def create_0d_grids(
 
 def create_embedded_line_grid(loc_coord, glob_id, tol=1e-4):
     loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
-    sorted_coord, rot, active_dimension, sort_ind = pp.map_geometry.project_points_to_line(
-        loc_coord, tol
-    )
+    (
+        sorted_coord,
+        rot,
+        active_dimension,
+        sort_ind,
+    ) = pp.map_geometry.project_points_to_line(loc_coord, tol)
     g = pp.TensorGrid(sorted_coord)
 
     # Project back to active dimension
