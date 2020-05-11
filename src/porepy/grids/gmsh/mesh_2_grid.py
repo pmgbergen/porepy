@@ -42,7 +42,6 @@ def create_2d_grids(
     phys_names: Dict[str, str],
     cell_info: Dict,
     is_embedded: bool = False,
-    network=None,
     surface_tag: str = None,
     constraints: np.ndarray = None,
 ):
