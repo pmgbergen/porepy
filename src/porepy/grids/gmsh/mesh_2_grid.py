@@ -196,14 +196,14 @@ def create_2d_grids(
 
 
 def create_1d_grids(
-    pts,
-    cells,
-    phys_names,
-    cell_info,
-    line_tag=constants.GmshConstants().PHYSICAL_NAME_FRACTURE_LINE,
-    tol=1e-4,
-    constraints=None,
-    return_fracture_tips=True,
+    pts: np.ndarray,
+    cells: Dict[str, np.ndarray],
+    phys_names: Dict,
+    cell_info: Dict,
+    line_tag: str = None,
+    tol: float = 1e-4,
+    constraints: np.ndarray = None,
+    return_fracture_tips: bool = True,
 ):
     """ Create 1d grids for lines of a specified type from a gmsh tessalation.
 
@@ -242,6 +242,9 @@ def create_1d_grids(
             returned in return_fracture_tips is True.
 
     """
+    gmsh_constants = constants.GmshConstants()
+    if line_tag is None:
+        line_tag = gmsh_constants.PHYSICAL_NAME_FRACTURE_LINE
 
     if constraints is None:
         constraints = np.empty(0, dtype=np.int)
@@ -255,8 +258,6 @@ def create_1d_grids(
     # If there are no fracture intersections, we return empty lists
     if "line" not in cells:
         return g_1d, np.empty(0)
-
-    gmsh_const = constants.GmshConstants()
 
     line_tags = cell_info["line"]["gmsh:physical"]
     line_cells = cells["line"]
@@ -290,7 +291,7 @@ def create_1d_grids(
         if frac_num in constraints:
             continue
 
-        if line_type == gmsh_const.PHYSICAL_NAME_FRACTURE_TIP[:-1]:
+        if line_type == gmsh_constants.PHYSICAL_NAME_FRACTURE_TIP[:-1]:
             gmsh_tip_num.append(i)
 
             # We need not know which fracture the line is on the tip of (do
