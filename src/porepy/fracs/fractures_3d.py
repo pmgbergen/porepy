@@ -749,7 +749,8 @@ class FractureNetwork3d(object):
         else:
             # Process the gmsh .msh output file, to make a list of grids
             grid_list = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
-                self, out_file, constraints
+                file_name=out_file,
+                constraints=constraints,
             )
 
         # Merge the grids into a mixed-dimensional GridBucket
