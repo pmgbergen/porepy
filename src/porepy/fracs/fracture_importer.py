@@ -292,7 +292,7 @@ def network_2d_from_csv(
 # ------------ End of CSV-based functions. Start of gmsh related --------------#
 
 
-def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
+def dfm_from_gmsh(file_name: str, dim: int, **kwargs):
     """ Generate a GridBucket from a gmsh file.
 
     If the provided file is input for gmsh (.geo, not .msh), gmsh will be called
@@ -303,15 +303,11 @@ def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
             or .msh. In the former case, gmsh will be called upon to generate the
             mesh before the mixed-dimensional mesh is constructed.
         dim (int): Dimension of the problem. Should be 2 or 3.
-        network (FractureNetwork3d, only if dim==3): FractureNetwork. Needed
-            for the post-processing from gmsh, but only in 3d.
 
     Returns:
         GridBucket: Mixed-dimensional grid as contained in the gmsh file.
 
     """
-
-    verbose = kwargs.get("verbose", 1)
 
     # run gmsh to create .msh file if
     if file_name[-4:] == ".msh":
@@ -322,21 +318,16 @@ def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
         in_file = file_name + ".geo"
         out_file = file_name + ".msh"
 
-        gmsh_opts = kwargs.get("gmsh_opts", {})
-        gmsh_verbose = kwargs.get("gmsh_verbose", verbose)
-        gmsh_opts["-v"] = gmsh_verbose
-        gmsh_status = pp.grids.gmsh.gmsh_interface.run_gmsh(
-            in_file, out_file, dims=dim, **gmsh_opts
+        pp.grids.gmsh.gmsh_interface.run_gmsh(
+            in_file, out_file, dim=dim,
         )
-        if verbose:
-            print("Gmsh finished with status " + str(gmsh_status))
 
     if dim == 2:
         grids = pp.fracs.simplex.triangle_grid_from_gmsh(out_file, **kwargs)
     elif dim == 3:
-        if network is None:
-            raise ValueError("Need access to the network used to produce the .geo file")
-        grids = pp.fracs.simplex.tetrahedral_grid_from_gmsh(network, out_file, **kwargs)
+        grids = pp.fracs.simplex.tetrahedral_grid_from_gmsh(file_name=out_file, **kwargs)
+    else:
+        raise ValueError(f"Unknown dimension, dim: {dim}")
     return pp.meshing.grid_list_to_grid_bucket(grids, **kwargs)
 
 
