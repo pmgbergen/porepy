@@ -69,9 +69,7 @@ def create_2d_grids(
             used as target.
         is_embedded (boolean, optional): If True, the tringle grids are embedded in
             3d space. If False (default), the grids are truly 2d.
-        network (FractureNetwork3d, optional): FractureNetwork objcet that describes
-            the network which the 2d grids belong to. Must be specified if is_embedded
-            is True.
+        surface_tag (str, optional): Prefix tag to identify fractures.
         constraints (np.array, optional): Array with lists of lines that should not
             become grids. The array items should match the INDEX in line_tag, see above.
 
