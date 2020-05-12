@@ -7,6 +7,7 @@
 import numpy as np
 import scipy.sparse as sps
 import logging
+from typing import Dict
 
 import porepy as pp
 
@@ -251,7 +252,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
     def _compute_cell_face_to_opposite_node(
         self, g: pp.Grid, data: np.ndarray, recompute: bool = False
-    ):
+    ) -> None:
         """ Compute a map that given a face return the node on the opposite side,
         typical request of a Raviart-Thomas approximation.
         This function is mainly for internal use and, if the geometry is fixed during
