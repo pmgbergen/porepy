@@ -2,6 +2,8 @@
 Module for converting gmsh output file to our grid structure.
 Maybe we will add the reverse mapping.
 """
+from typing import Dict
+
 import numpy as np
 
 import porepy as pp
@@ -35,14 +37,13 @@ def create_3d_grids(pts, cells):
 
 
 def create_2d_grids(
-    pts,
-    cells,
-    phys_names,
-    cell_info,
-    is_embedded=False,
-    network=None,
-    surface_tag=None,
-    constraints=None,
+    pts: np.ndarray,
+    cells: Dict[str, np.ndarray],
+    phys_names: Dict[str, str],
+    cell_info: Dict,
+    is_embedded: bool = False,
+    surface_tag: str = None,
+    constraints: np.ndarray = None,
 ):
     """ Create 2d grids for lines of a specified type from a gmsh tessalation.
 
@@ -61,17 +62,10 @@ def create_2d_grids(
         cell_info (dictionary): Should have a key 'vertex', with subdictionary with a
             single key gmsh:physical (this is how meshio works) that contains the
             physical names (in the gmsh sense) of the points.
-        line_tag (str, optional): The target physical name, all points that have
-            this tag will be assigned a grid. The string is assumed to be on the from
-            BASE_NAME_OF_TAG_{INDEX}, where _INDEX is a number. The comparison is made
-            between the physical names and the line, up to the last
-            underscore. If not provided, the physical names of fracture lines will be
-            used as target.
-        is_embedded (boolean, optional): If True, the tringle grids are embedded in
+        is_embedded (boolean, optional): If True, the triangle grids are embedded in
             3d space. If False (default), the grids are truly 2d.
-        network (FractureNetwork3d, optional): FractureNetwork objcet that describes
-            the network which the 2d grids belong to. Must be specified if is_embedded
-            is True.
+        surface_tag (str, optional): Prefix tag to identify fractures.
+        TODO: Line tag is unused. Maybe surface_tag replaces it?? Fix docs
         constraints (np.array, optional): Array with lists of lines that should not
             become grids. The array items should match the INDEX in line_tag, see above.
 
@@ -94,7 +88,7 @@ def create_2d_grids(
     if is_embedded:
 
         # Special treatment of the case with no fractures
-        if not "triangle" in cells:
+        if "triangle" not in cells:
             return g_2d
         # Recover cells on fracture surfaces, and create grids
         tri_cells = cells["triangle"]
@@ -109,12 +103,12 @@ def create_2d_grids(
             # the fracture number
             pn = phys_names[pn_ind]
             offset = pn.rfind("_")
-            frac_num = int(pn[offset + 1 :])
+            frac_num = int(pn[offset + 1:])
             plane_type = pn[:offset]
 
             # Check if the surface is of the target type, or if the surface is tagged
             # as a constraint
-            if plane_type != surface_tag[:-1] or int(pn[offset + 1 :]) in constraints:
+            if plane_type != surface_tag[:-1] or int(pn[offset + 1:]) in constraints:
                 continue
 
             # Cells of this surface
@@ -203,14 +197,14 @@ def create_2d_grids(
 
 
 def create_1d_grids(
-    pts,
-    cells,
-    phys_names,
-    cell_info,
-    line_tag=constants.GmshConstants().PHYSICAL_NAME_FRACTURE_LINE,
-    tol=1e-4,
-    constraints=None,
-    return_fracture_tips=True,
+    pts: np.ndarray,
+    cells: Dict[str, np.ndarray],
+    phys_names: Dict,
+    cell_info: Dict,
+    line_tag: str = None,
+    tol: float = 1e-4,
+    constraints: np.ndarray = None,
+    return_fracture_tips: bool = True,
 ):
     """ Create 1d grids for lines of a specified type from a gmsh tessalation.
 
@@ -249,6 +243,9 @@ def create_1d_grids(
             returned in return_fracture_tips is True.
 
     """
+    gmsh_constants = constants.GmshConstants()
+    if line_tag is None:
+        line_tag = gmsh_constants.PHYSICAL_NAME_FRACTURE_LINE
 
     if constraints is None:
         constraints = np.empty(0, dtype=np.int)
@@ -260,10 +257,8 @@ def create_1d_grids(
     g_1d = []
 
     # If there are no fracture intersections, we return empty lists
-    if not "line" in cells:
+    if "line" not in cells:
         return g_1d, np.empty(0)
-
-    gmsh_const = constants.GmshConstants()
 
     line_tags = cell_info["line"]["gmsh:physical"]
     line_cells = cells["line"]
@@ -289,7 +284,7 @@ def create_1d_grids(
         # the standard PorePy procedure, but it may fail for externally generated
         # geo-files. If it fails, we simply set the frac_num to None in this case.
         try:
-            frac_num = int(pn[offset_index + 1 :])
+            frac_num = int(pn[offset_index + 1:])
         except ValueError:
             frac_num = None
 
@@ -297,7 +292,7 @@ def create_1d_grids(
         if frac_num in constraints:
             continue
 
-        if line_type == gmsh_const.PHYSICAL_NAME_FRACTURE_TIP[:-1]:
+        if line_type == gmsh_constants.PHYSICAL_NAME_FRACTURE_TIP[:-1]:
             gmsh_tip_num.append(i)
 
             # We need not know which fracture the line is on the tip of (do
@@ -383,7 +378,7 @@ def create_0d_grids(
                 g.global_point_ind = np.atleast_1d(np.asarray(point_cells[pi]))
 
                 # Store the index of this physical name tag.
-                g.physical_name_index = int(pn[offset_index + 1 :])
+                g.physical_name_index = int(pn[offset_index + 1:])
 
                 g_0d.append(g)
             else:
