@@ -7,7 +7,7 @@ variational formulation.
 
 import numpy as np
 import scipy.sparse as sps
-from typing import Tuple
+from typing import Tuple, Dict
 
 import porepy as pp
 
@@ -106,7 +106,7 @@ class DualElliptic(
             raise ValueError
 
     def assemble_matrix_rhs(
-        self, g: pp.Grid, data: dict
+        self, g: pp.Grid, data: Dict
     ) -> Tuple[sps.csr_matrix, np.ndarray]:
         """
         Return the matrix and righ-hand side for a discretization of a second
@@ -134,7 +134,7 @@ class DualElliptic(
         # Assemble right hand side term
         return M, self.assemble_rhs(g, data, bc_weight)
 
-    def assemble_matrix(self, g: pp.Grid, data: dict) -> sps.csr_matrix:
+    def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.csr_matrix:
         """ Assemble matrix from an existing discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
@@ -144,7 +144,7 @@ class DualElliptic(
         return sps.bmat([[mass, div.T], [div, None]], format="csr")
 
     def assemble_neumann_robin(
-        self, g: pp.Grid, data: dict, M, bc_weight: np.ndarray = None
+        self, g: pp.Grid, data: Dict, M, bc_weight: np.ndarray = None
     ) -> Tuple[sps.csr_matrix, np.ndarray]:
         """ Impose Neumann and Robin boundary discretization on an already assembled
         system matrix.
@@ -190,7 +190,7 @@ class DualElliptic(
         return M, norm
 
     def assemble_rhs(
-        self, g: pp.Grid, data: dict, bc_weight: float = 1.0
+        self, g: pp.Grid, data: Dict, bc_weight: float = 1.0
     ) -> np.ndarray:
         """
         Return the righ-hand side for a discretization of a second order elliptic
@@ -262,7 +262,7 @@ class DualElliptic(
 
         return rhs
 
-    def project_flux(self, g: pp.Grid, u: np.ndarray, data: dict) -> np.ndarray:
+    def project_flux(self, g: pp.Grid, u: np.ndarray, data: Dict) -> np.ndarray:
         """  Project the velocity computed with a dual solver to obtain a
         piecewise constant vector field, one triplet for each cell.
 
@@ -301,7 +301,7 @@ class DualElliptic(
     def _assemble_neumann_common(
         self,
         g: pp.Grid,
-        data: dict,
+        data: Dict,
         M: sps.csr_matrix,
         mass: sps.csr_matrix,
         bc_weight: float = None,
@@ -361,14 +361,14 @@ class DualElliptic(
     def assemble_int_bound_flux(
         self,
         g: pp.Grid,
-        data: dict,
-        data_edge: dict,
+        data: Dict,
+        data_edge: Dict,
         cc: np.ndarray,
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,
         use_slave_proj: bool = False,
-    ):
+    ) -> None:
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
 
@@ -414,13 +414,13 @@ class DualElliptic(
     def assemble_int_bound_source(
         self,
         g: pp.Grid,
-        data: dict,
-        data_edge: dict,
+        data: Dict,
+        data_edge: Dict,
         cc: np.ndarray,
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,
-    ):
+    ) -> None:
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
@@ -461,14 +461,14 @@ class DualElliptic(
     def assemble_int_bound_pressure_trace(
         self,
         g: pp.Grid,
-        data: dict,
-        data_edge: dict,
+        data: Dict,
+        data_edge: Dict,
         cc: np.ndarray,
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,
         use_slave_proj: bool = False,
-    ):
+    ) -> None:
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
@@ -515,7 +515,7 @@ class DualElliptic(
     def assemble_int_bound_pressure_trace_between_interfaces(
         self,
         g: pp.Grid,
-        data_grid: dict,
+        data_grid: Dict,
         data_primary_edge,
         data_secondary_edge,
         cc: np.ndarray,
@@ -551,13 +551,13 @@ class DualElliptic(
     def assemble_int_bound_pressure_cell(
         self,
         g: pp.Grid,
-        data: dict,
-        data_edge: dict,
+        data: Dict,
+        data_edge: Dict,
         cc: np.ndarray,
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,
-    ):
+    ) -> None:
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
 
@@ -599,8 +599,8 @@ class DualElliptic(
         cc[2, self_ind] -= sps.bmat([[sps.csr_matrix(shape)], [A]]).T
 
     def enforce_neumann_int_bound(
-        self, g: pp.Grid, data_edge: dict, matrix: np.ndarray, self_ind: int
-    ):
+        self, g: pp.Grid, data_edge: Dict, matrix: np.ndarray, self_ind: int
+    ) -> None:
         """ Enforce Neumann boundary conditions on a given system matrix.
 
         Methods based on a mixed variational form need this function to
@@ -636,7 +636,7 @@ class DualElliptic(
         matrix[self_ind, self_ind].setdiag(d)
 
     def extract_flux(
-        self, g: pp.Grid, solution_array: np.ndarray, data: dict
+        self, g: pp.Grid, solution_array: np.ndarray, data: Dict
     ) -> np.ndarray:
         """  Extract the velocity from a dual virtual element solution.
 
@@ -658,7 +658,7 @@ class DualElliptic(
         return solution_array[: g.num_faces]
 
     def extract_pressure(
-        self, g: pp.Grid, solution_array: np.ndarray, data: dict
+        self, g: pp.Grid, solution_array: np.ndarray, data: Dict
     ) -> np.ndarray:
         """  Extract the pressure from a dual virtual element solution.
 

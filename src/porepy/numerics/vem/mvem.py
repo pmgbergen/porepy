@@ -6,7 +6,7 @@
 import numpy as np
 import scipy.sparse as sps
 import logging
-from typing import Tuple
+from typing import Tuple, Dict
 
 import porepy as pp
 
