@@ -280,13 +280,13 @@ def tetrahedral_grid_from_gmsh(file_name, constraints=None, **kwargs):
     return grids
 
 
-def     (
+def _read_gmsh_file(
     file_name: str,
 ) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[int, str]]:
     """
     Read a gmsh .msh file, and convert the result to a format that is compatible with
     the porepy functionality for mesh processing.
-
+    
     Args:
         file_name (str): Name of the file to be processed.
 
