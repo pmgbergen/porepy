@@ -340,8 +340,9 @@ class DualElliptic(
 
         return M, norm
 
+    @staticmethod
     def _velocity_dof(
-        self, g: pp.Grid, mg: pp.MortarGrid, hat_E_int: sps.csc_matrix
+        g: pp.Grid, mg: pp.MortarGrid, hat_E_int: sps.csc_matrix
     ) -> sps.csr_matrix:
         # Recover the information for the grid-grid mapping
         faces_h, cells_h, sign_h = sps.find(g.cell_faces)
