@@ -1,8 +1,7 @@
 """
 Module for converting gmsh output file to our grid structure.
-Maybe we will add the reverse mapping.
 """
-from typing import Dict
+from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -10,7 +9,7 @@ import porepy as pp
 from porepy.grids import constants
 
 
-def create_3d_grids(pts, cells):
+def create_3d_grids(pts: np.ndarray, cells: Dict[str, np.ndarray]) -> List[pp.Grid]:
     """ Create a tetrahedral grid from a gmsh tessalation.
 
     Parameters:
@@ -44,7 +43,7 @@ def create_2d_grids(
     is_embedded: bool = False,
     surface_tag: str = None,
     constraints: np.ndarray = None,
-):
+) -> List[pp.Grid]:
     """ Create 2d grids for lines of a specified type from a gmsh tessalation.
 
     Only surfaces that were defined as 'physical' in the gmsh sense may have a grid
@@ -63,8 +62,12 @@ def create_2d_grids(
             physical names (in the gmsh sense) of the points.
         is_embedded (boolean, optional): If True, the triangle grids are embedded in
             3d space. If False (default), the grids are truly 2d.
-        surface_tag (str, optional): Prefix tag to identify fractures.
-        TODO: Line tag is unused. Maybe surface_tag replaces it?? Fix docs
+        surface_tag (str, optional): The target physical name, all surfaces that have
+            this tag will be assigned a grid. The string is assumed to be on the from
+            BASE_NAME_OF_TAG_{INDEX}, where _INDEX is a number. The comparison is made
+            between the physical names and the line, up to the last
+            underscore. If not provided, the physical names of fracture surfaces will be
+            used as target.
         constraints (np.array, optional): Array with lists of lines that should not
             become grids. The array items should match the INDEX in line_tag, see above.
 
@@ -102,12 +105,12 @@ def create_2d_grids(
             # the fracture number
             pn = phys_names[pn_ind]
             offset = pn.rfind("_")
-            frac_num = int(pn[offset + 1:])
+            frac_num = int(pn[offset + 1 :])
             plane_type = pn[:offset]
 
             # Check if the surface is of the target type, or if the surface is tagged
             # as a constraint
-            if plane_type != surface_tag[:-1] or int(pn[offset + 1:]) in constraints:
+            if plane_type != surface_tag[:-1] or int(pn[offset + 1 :]) in constraints:
                 continue
 
             # Cells of this surface
@@ -204,7 +207,7 @@ def create_1d_grids(
     tol: float = 1e-4,
     constraints: np.ndarray = None,
     return_fracture_tips: bool = True,
-):
+) -> Tuple[List[pp.Grid], np.ndarray]:
     """ Create 1d grids for lines of a specified type from a gmsh tessalation.
 
     Only lines that were defined as 'physical' in the gmsh sense may have a grid
@@ -221,7 +224,7 @@ def create_1d_grids(
             to the physical name of that tag.
         cell_info (dictionary): Should have a key 'line', that contains the
             physical names (in the gmsh sense) of the points.
-        line_tag (str, optional): The target physical name, all points that have
+        line_tag (str, optional): The target physical name, all lines that have
             this tag will be assigned a grid. The string is assumed to be on the from
             BASE_NAME_OF_TAG_{INDEX}, where _INDEX is a number. The comparison is made
             between the physical names and the line, up to the last
@@ -258,7 +261,6 @@ def create_1d_grids(
     if "line" not in cells:
         return g_1d, np.empty(0)
 
-
     gmsh_const = constants.GmshConstants()
 
     line_tags = cell_info["line"]
@@ -285,7 +287,7 @@ def create_1d_grids(
         # the standard PorePy procedure, but it may fail for externally generated
         # geo-files. If it fails, we simply set the frac_num to None in this case.
         try:
-            frac_num = int(pn[offset_index + 1:])
+            frac_num = int(pn[offset_index + 1 :])
         except ValueError:
             frac_num = None
 
@@ -317,12 +319,12 @@ def create_1d_grids(
 
 
 def create_0d_grids(
-    pts,
-    cells,
-    phys_names,
-    cell_info,
-    target_tag_stem=constants.GmshConstants().PHYSICAL_NAME_FRACTURE_POINT,
-):
+    pts: np.ndarray,
+    cells: Dict[str, np.ndarray],
+    phys_names: Dict[int, str],
+    cell_info: Dict[str, np.ndarray],
+    target_tag_stem: str = None,
+) -> List[pp.Grid]:
     """ Create 0d grids for points of a specified type from a gmsh tessalation.
 
     Only points that were defined as 'physical' in the gmsh sense may have a grid
@@ -351,6 +353,8 @@ def create_0d_grids(
             specified target tag.
 
     """
+    if target_tag_stem is None:
+        target_tag_stem = constants.GmshConstants().PHYSICAL_NAME_FRACTURE_POINT
 
     g_0d = []
 
@@ -378,7 +382,7 @@ def create_0d_grids(
                 g.global_point_ind = np.atleast_1d(np.asarray(point_cells[pi]))
 
                 # Store the index of this physical name tag.
-                g.physical_name_index = int(pn[offset_index + 1:])
+                g.physical_name_index = int(pn[offset_index + 1 :])
 
                 g_0d.append(g)
             else:
@@ -386,7 +390,23 @@ def create_0d_grids(
     return g_0d
 
 
-def create_embedded_line_grid(loc_coord, glob_id, tol=1e-4):
+def create_embedded_line_grid(
+    loc_coord: np.ndarray, glob_id: np.ndarray, tol: float = 1e-4
+) -> pp.Grid:
+    """
+    Create a 1d grid embedded in a higher dimensional space.
+
+    Args:
+        loc_coord (np.ndarray): Coordinates of points to be used in the grid.
+        glob_id (np.ndarray): Global indexes of the points. Typically refers to a global
+            mesh, where the points of this grid is a subset.
+        tol (float, optional): Tolerance used for check of collinearity of the points.
+            Defaults to 1e-4.
+
+    Returns:
+        g (TYPE): DESCRIPTION.
+
+    """
     loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
     (
         sorted_coord,
@@ -402,7 +422,6 @@ def create_embedded_line_grid(loc_coord, glob_id, tol=1e-4):
     g.nodes = nodes
 
     # Project back again to 3d coordinates
-
     irot = rot.transpose()
     g.nodes = irot.dot(g.nodes)
     g.nodes += loc_center
