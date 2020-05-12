@@ -177,38 +177,6 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         matrix_dictionary[self.div_matrix_key] = div
         matrix_dictionary[self.vector_proj_key] = proj
 
-    def project_flux(self, g: pp.Grid, u: np.ndarray, data: dict) -> np.ndarray:
-        """  Project the velocity computed with a rt0 solver to obtain a
-        piecewise constant vector field, one triplet for each cell.
-
-        We assume the following two sub-dictionaries to be present in the data
-        dictionary:
-            matrix_dictionary, for storage of discretization matrices.
-
-        Parameters
-        ----------
-        u : array (g.num_faces) Velocity at each face.
-        data: data of the current grid.
-
-        Return
-        ------
-        P0u : ndarray (3, g.num_faces) Velocity at each cell.
-
-        """
-        # Allow short variable names in backend function
-        # pylint: disable=invalid-name
-
-        if g.dim == 0:
-            return np.zeros(3).reshape((3, 1))
-
-        # Get dictionary for discretization matrix storage
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        proj = matrix_dictionary[self.vector_proj_key]
-        # perform the projection
-        proj_u = proj.dot(u)
-
-        return proj_u.reshape((3, -1), order="F")
-
     @staticmethod
     def massHdiv(
         inv_K: np.ndarray,
@@ -277,11 +245,13 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         f_delta = f_centers - coord
 
         # the resulting vector has always three componenets
-        P0 = np.zeros((3, coord.shape[1]))
-        P0[dim, :] = c_delta / np.einsum("ij,ij->j", f_delta, f_normals)
-        return np.dot(R.T, P0)
+        P = np.zeros((3, coord.shape[1]))
+        P[dim, :] = c_delta / np.einsum("ij,ij->j", f_delta, f_normals)
+        return np.dot(R.T, P)
 
-    def _compute_cell_face_to_opposite_node(self, g, data, recompute=False):
+    def _compute_cell_face_to_opposite_node(
+        self, g: pp.Grid, data: np.ndarray, recompute: bool = False
+    ):
         """ Compute a map that given a face return the node on the opposite side,
         typical request of a Raviart-Thomas approximation.
         This function is mainly for internal use and, if the geometry is fixed during
