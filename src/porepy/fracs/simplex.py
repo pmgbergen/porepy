@@ -14,7 +14,7 @@ from porepy.grids.gmsh import mesh_2_grid
 logger = logging.getLogger(__name__)
 
 
-def triangle_grid_embedded(network, file_name, **kwargs):
+def triangle_grid_embedded(file_name):
     """ Create triangular (2D) grid of a domain embedded in 3D space, without
     meshing the 3D volume.
 
@@ -31,11 +31,9 @@ def triangle_grid_embedded(network, file_name, **kwargs):
     manual on how to set mesh sizes.
 
     Parameters:
-        network (FractureNetwork): To be meshed.
         file_name (str, optional): Filename for communication with gmsh.
             The config file for gmsh will be f_name.geo, with the grid output
             to f_name.msh. Defaults to dfn_network.
-        **kwargs: Arguments sent to gmsh etc.
 
     Returns:
         list (length 3): For each dimension (2 -> 0), a list of all grids in
@@ -61,7 +59,6 @@ def triangle_grid_embedded(network, file_name, **kwargs):
         is_embedded=True,
         phys_names=phys_names,
         cell_info=cell_info,
-        network=network,
     )
     g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
     g_0d = mesh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
@@ -235,14 +232,16 @@ def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
     return grids
 
 
-def tetrahedral_grid_from_gmsh(network, file_name, constraints=None, **kwargs):
+def tetrahedral_grid_from_gmsh(file_name, constraints=None, **kwargs):
     """ Generate a list of grids of dimensions {3, 2, 1, 0}, starting from a gmsh
     mesh.
 
     Parameters:
-        network (pp.FractureNetwork3d): The network used to generate the gmsh
-            input file.
         file_name (str): Path to file of gmsh.msh specification.
+        TODO: Line tag is unused. Maybe surface_tag replaces it?? Fix docs.
+            This documentation is copied from mesh_2_grid.create_2d_grids().
+        constraints (np.array, optional): Array with lists of lines that should not
+            become grids. The array items should match the INDEX in line_tag, see above.
 
     Returns:
         list of list of grids: grids in 2d, 1d and 0d. If no grids exist in a
@@ -277,7 +276,6 @@ def tetrahedral_grid_from_gmsh(network, file_name, constraints=None, **kwargs):
         is_embedded=True,
         phys_names=phys_names,
         cell_info=cell_info,
-        network=network,
         constraints=constraints,
     )
 
