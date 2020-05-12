@@ -15,13 +15,13 @@ logger = logging.getLogger(__name__)
 
 
 class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
-    def __init__(self, keyword: str):
+    def __init__(self, keyword: str) -> None:
         super(RT0, self).__init__(keyword, "RT0")
         # variable name to store the structure that map a cell to the opposite nodes
         # of the local faces
         self.cell_face_to_opposite_node = "rt0_class_cell_face_to_opposite_node"
 
-    def discretize(self, g: pp.Grid, data: dict):
+    def discretize(self, g: pp.Grid, data: Dict) -> None:
         """ Discretize a second order elliptic equation using using a RT0-P0 method.
 
         We assume the following two sub-dictionaries to be present in the data

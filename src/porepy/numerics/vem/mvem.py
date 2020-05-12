@@ -23,10 +23,10 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
     """
 
-    def __init__(self, keyword: str):
+    def __init__(self, keyword: str) -> None:
         super(MVEM, self).__init__(keyword, "MVEM")
 
-    def discretize(self, g: pp.Grid, data: dict):
+    def discretize(self, g: pp.Grid, data: Dict) -> None:
         """ Discretize a second order elliptic equation using a dual virtual element
         method.
 

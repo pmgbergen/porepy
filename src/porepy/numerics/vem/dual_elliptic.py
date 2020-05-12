@@ -67,7 +67,7 @@ class DualElliptic(
 
     """
 
-    def __init__(self, keyword: str, name: str):
+    def __init__(self, keyword: str, name: str) -> None:
 
         # Identify which parameters to use:
         self.keyword = keyword
