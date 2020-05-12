@@ -261,8 +261,6 @@ def create_1d_grids(
     if "line" not in cells:
         return g_1d, np.empty(0)
 
-    gmsh_const = constants.GmshConstants()
-
     line_tags = cell_info["line"]
     line_cells = cells["line"]
 
