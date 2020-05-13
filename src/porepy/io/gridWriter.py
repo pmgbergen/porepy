@@ -333,6 +333,15 @@ def mergeGridsOfEqualDim(gb):
         d['mortar_grid'] = mg
 
     mergedGb.assign_node_ordering()
+    for g, _ in mergedGb:
+        g.tags: Dict = {}
+        g.initiate_face_tags()
+        g.update_boundary_face_tag()
+
+        # Add tag for the boundary nodes
+        g.initiate_node_tags()
+        g.update_boundary_node_tag()
+
     return mergedGb
 
 def purge0dFacesAndNodes(gb):
