@@ -484,7 +484,13 @@ def __extract_submatrix(mat, ind):
     cols = sub_mat.indptr
     data = sub_mat.data
     unique_rows, rows_sub = np.unique(sub_mat.indices, return_inverse=True)
-    return sps.csc_matrix((data, rows_sub, cols)), unique_rows
+    shape = (unique_rows.size, cols.size - 1)
+    if shape[0]!=0:
+        A = sps.csc_matrix((data, rows_sub, cols))
+        if np.any(A.shape != shape):
+            import pdb; pdb.set_trace()
+    
+    return sps.csc_matrix((data, rows_sub, cols), shape), unique_rows
 
 
 def __extract_cells_from_faces(g, f, is_planar):

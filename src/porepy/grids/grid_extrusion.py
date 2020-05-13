@@ -656,8 +656,8 @@ def _extrude_0d(
     num_pt = z.size
 
     # x and y coordinates of the right size
-    x = g.nodes[0, 0] * np.ones(num_pt)
-    y = g.nodes[1, 0] * np.ones(num_pt)
+    x = g.cell_centers[0, 0] * np.ones(num_pt)
+    y = g.cell_centers[1, 0] * np.ones(num_pt)
 
     # Initial 1d grid. Coordinates are wrong, but this we will fix later
     # There is no need to do anything special with tags here; the tags of a 0d grid are
