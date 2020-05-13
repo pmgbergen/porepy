@@ -6,7 +6,9 @@ from test import test_utils
 
 
 def setup_cart_2d(nx):
-    gb = pp.grid_buckets_2d.two_intersecting(nx, [0.2, 0.8], [0.8, 0.2], simplex=False)
+    gb, _ = pp.grid_buckets_2d.two_intersecting(
+        nx, [0.2, 0.8], [0.8, 0.2], simplex=False
+    )
     kw = "flow"
     aperture = 0.01 / np.max(nx)
     for g, d in gb:

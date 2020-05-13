@@ -14,7 +14,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_upwind_coupling_2d_1d_bottom_top(self):
-        gb = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
+        gb, _ = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
 
         # define discretization
         key = "transport"
@@ -94,7 +94,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_upwind_coupling_2d_1d_left_right(self):
-        gb = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
+        gb, _ = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
 
         tol = 1e-3
         # define discretization
@@ -111,7 +111,6 @@ class BasicsTest(unittest.TestCase):
         for g, d in gb:
 
             aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
-            #            specified_parameters = {"darcy_flux": upwind.darcy_flux(g, [0, 1, 0], aperture), "aperture": aperture}
             specified_parameters = {"aperture": aperture}
             bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
             if bound_faces.size != 0:
@@ -178,7 +177,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_upwind_coupling_2d_1d_left_right_cross(self):
-        gb = pp.grid_buckets_2d.two_intersecting([2, 2], simplex=False)
+        gb, _ = pp.grid_buckets_2d.two_intersecting([2, 2], simplex=False)
 
         # Enforce node orderning because of Python 3.5 and 2.7.
         # Don't do it in general.

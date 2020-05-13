@@ -35,6 +35,24 @@ class RobinCoupling(
         # No coupling via lower-dimensional interfaces.
         self.edge_coupling_via_low_dim = False
 
+        # Keys used to identify the discretization matrices of this discretization
+        self.mortar_discr_key = "robin_mortar_discr"
+        self.mortar_scaling_key = "mortar_scaling"
+
+        # Decide on whether to scale the mortar flux with K^-1 or not.
+        # This is the scaling of Darcy's law in mixed methods, and should be used in the
+        # interface law if the full system is on mixed form.
+        # We decide on this based on whether both neigboring discretizations are mixed
+        # or not. This leaves the case when one neighbor is mixed, the other is FV; in
+        # this case, we use a K-scaling, but it is not clear what is best.
+        if isinstance(
+            discr_master, pp.numerics.vem.dual_elliptic.DualElliptic
+        ) and isinstance(discr_slave, pp.numerics.vem.dual_elliptic.DualElliptic):
+            self.kinv_scaling = True
+        else:
+            # At least one of the neighboring discretizations is FV.
+            self.kinv_scaling = False
+
     def ndof(self, mg):
         return mg.num_cells
 
@@ -55,21 +73,30 @@ class RobinCoupling(
         # Mortar data structure.
         mg = data_edge["mortar_grid"]
 
-        faces_h, cells_h, _ = sps.find(g_h.cell_faces)
-        ind_faces_h = np.unique(faces_h, return_index=True)[1]
-        cells_h = cells_h[ind_faces_h]
+        kn = parameter_dictionary_edge["normal_diffusivity"]
+        # If normal diffusivity is given as a constant, parse to np.array
+        if not isinstance(kn, np.ndarray):
+            kn *= np.ones(mg.num_cells)
 
         inv_M = sps.diags(1.0 / mg.cell_volumes)
-
-        inv_k = 1.0 / (parameter_dictionary_edge["normal_diffusivity"])
-
-        # If normal diffusivity is given as a constant, parse to np.array
-        if not isinstance(inv_k, np.ndarray):
-            inv_k *= np.ones(mg.num_cells)
-
+        inv_k = 1.0 / kn
         Eta = sps.diags(inv_k)
+        matrix_dictionary_edge[self.mortar_discr_key] = -inv_M * Eta
+        if self.kinv_scaling:
+            # Use a discretization fit for mixed methods, with a K^-1 scaling of the
+            # mortar flux
+            # In this case, the scaling of the pressure blocks on the mortar rows is
+            # simple.
+            matrix_dictionary_edge[self.mortar_scaling_key] = sps.diags(
+                np.ones(mg.num_cells)
+            )
 
-        matrix_dictionary_edge["Robin_discr"] = -inv_M * Eta
+        else:
+            # Scale the the mortar equations with K, so that the this becomes a
+            # Darcy-type equation on standard form.
+            matrix_dictionary_edge[self.mortar_scaling_key] = sps.diags(
+                mg.cell_volumes * kn
+            )
 
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
@@ -103,7 +130,7 @@ class RobinCoupling(
         # The convention, for now, is to put the higher dimensional information
         # in the first column and row in matrix, lower-dimensional in the second
         # and mortar variables in the third
-        cc[2, 2] = matrix_dictionary_edge["Robin_discr"]
+        cc[2, 2] = matrix_dictionary_edge[self.mortar_discr_key]
 
         self.discr_master.assemble_int_bound_pressure_trace(
             g_master, data_master, data_edge, cc, matrix, rhs, master_ind
@@ -118,6 +145,13 @@ class RobinCoupling(
         self.discr_slave.assemble_int_bound_source(
             g_slave, data_slave, data_edge, cc, matrix, rhs, slave_ind
         )
+
+        for block in range(cc.shape[1]):
+            # Scale the pressure blocks in the mortar problem
+            cc[2, block] = (
+                matrix_dictionary_edge[self.mortar_scaling_key] * cc[2, block]
+            )
+        rhs[2] = matrix_dictionary_edge[self.mortar_scaling_key] * rhs[2]
 
         matrix += cc
 
@@ -178,9 +212,27 @@ class RobinCoupling(
             g, self.discr_master, mg_primary, mg_secondary, matrix
         )
 
-        return self.discr_master.assemble_int_bound_pressure_trace_between_interfaces(
+        # Assemble contribution between higher dimensions.
+        (
+            cc,
+            rhs,
+        ) = self.discr_master.assemble_int_bound_pressure_trace_between_interfaces(
             g, data_grid, proj_pressure, proj_flux, cc, matrix, rhs
         )
+        # Scale the equations (this will modify from K^-1 to K scaling if relevant)
+        matrix_dictionary_edge = data_primary_edge[pp.DISCRETIZATION_MATRICES][
+            self.keyword
+        ]
+        for block in range(cc.shape[1]):
+            # Scale the pressure blocks in the row of the primary mortar problem.
+            # The secondary mortar will be treated somewhere else (handled by the
+            # assembler).
+            cc[1, block] = (
+                matrix_dictionary_edge[self.mortar_scaling_key] * cc[1, block]
+            )
+        rhs[1] = matrix_dictionary_edge[self.mortar_scaling_key] * rhs[1]
+
+        return cc, rhs
 
 
 class FluxPressureContinuity(RobinCoupling):

@@ -59,7 +59,7 @@ class TestGridBuckets(unittest.TestCase):
         mesh_size_fracs of 0.2 and a fracture crossing the domain at y=0.5.
         """
 
-        self.gb = pp.grid_buckets_2d.single_horizontal()
+        self.gb, _ = pp.grid_buckets_2d.single_horizontal()
         self.check_matrix("simplex")
         self.check_fractures(1, [5])
         cc = np.vstack(
@@ -75,7 +75,7 @@ class TestGridBuckets(unittest.TestCase):
         Test the single horizontal gb generator for a cartesian grid, 6 by 2 cells and
         a fracture extending from (1/6, 1/2) to (1, 1/2).
         """
-        self.gb = pp.grid_buckets_2d.single_horizontal(
+        self.gb, _ = pp.grid_buckets_2d.single_horizontal(
             [6, 2], [1 / 6, 1], simplex=False
         )
         self.check_matrix("cartesian")
@@ -96,7 +96,7 @@ class TestGridBuckets(unittest.TestCase):
         Test the two intersecting fractures gb generator for the default values: simplex
         grid, mesh_size_fracs of 0.2 and two fractures intersecting at (0.5, 0.5).
         """
-        self.gb = pp.grid_buckets_2d.two_intersecting()
+        self.gb, _ = pp.grid_buckets_2d.two_intersecting()
         self.check_matrix("simplex")
         self.check_fractures(2, [6, 6])
         cc = np.arange(1 / 12, 1, 1 / 6)
@@ -113,7 +113,7 @@ class TestGridBuckets(unittest.TestCase):
         Test the two intersecting fractures gb generator for a cartesian grid, 4 by 4
         cells and the vertical fracture extending from y=1/4 to y=3/4.
         """
-        self.gb = pp.grid_buckets_2d.two_intersecting(
+        self.gb, _ = pp.grid_buckets_2d.two_intersecting(
             [4, 4], y_endpoints=[1 / 4, 3 / 4], simplex=False
         )
         self.check_matrix("cartesian")

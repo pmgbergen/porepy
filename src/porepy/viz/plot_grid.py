@@ -279,9 +279,7 @@ def plot_gb(gb, cell_value, vector_value, info, **kwargs):
 
     gb.assign_node_ordering()
     for g, d in gb:
-        kwargs["rgb"] = np.divide(
-            kwargs.get("rgb", [1, 0, 0]), d["node_number"] + 1
-        )
+        kwargs["rgb"] = np.divide(kwargs.get("rgb", [1, 0, 0]), d["node_number"] + 1)
         plot_grid_xd(
             g,
             d.get(pp.STATE, {}).get(cell_value, None),
