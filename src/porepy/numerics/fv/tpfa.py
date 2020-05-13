@@ -86,7 +86,12 @@ class Tpfa(pp.FVElliptic):
             matrix_dictionary[self.bound_flux_matrix_key] = sps.csr_matrix([0])
             matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csr_matrix([1])
             matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csr_matrix([0])
-            matrix_dictionary[self.vector_source_key] = sps.csr_matrix((1, vector_source_dim))
+            matrix_dictionary[self.vector_source_matrix_key] = sps.csr_matrix(
+                (1, vector_source_dim)
+            )
+            matrix_dictionary[
+                self.bound_pressure_vector_source_matrix_key
+            ] = sps.csr_matrix((1, vector_source_dim))
             return None
 
         # Extract parameters
@@ -237,4 +242,13 @@ class Tpfa(pp.FVElliptic):
 
         vector_source = sps.coo_matrix((data, (rows, cols))).tocsr()
 
-        matrix_dictionary[self.vector_source_key] = vector_source
+        matrix_dictionary[self.vector_source_matrix_key] = vector_source
+        # Gravity contribution to pressure reconstruction
+        val = np.zeros((vector_source_dim, fi.size))  # EK: or fi_mat?
+        val[:, bnd.is_neu[fi]] = (fc_cc * sgn_mat)[:vector_source_dim, bnd.is_neu[fi]]
+        bound_pressure_vector_source = sps.coo_matrix(
+            (val.ravel("f"), (rows, cols))
+        ).tocsr()
+        matrix_dictionary[
+            self.bound_pressure_vector_source_matrix_key
+        ] = bound_pressure_vector_source
