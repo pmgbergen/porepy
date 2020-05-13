@@ -133,8 +133,14 @@ class Mpfa(pp.FVElliptic):
         # and below.
         if g.dim == 1:
             active_vector_source = sps.csr_matrix((nf, nc * vector_source_dim))
+            active_bound_pressure_vector_source = sps.csr_matrix(
+                (nf, nc * vector_source_dim)
+            )
         else:
             active_vector_source = sps.csr_matrix((nf, nc * max(vector_source_dim, 1)))
+            active_bound_pressure_vector_source = sps.csr_matrix(
+                (nf, nc * max(vector_source_dim, 1))
+            )
 
         # Find an estimate of the peak memory need
         peak_memory_estimate = self._estimate_peak_memory(active_grid)
@@ -182,6 +188,7 @@ class Mpfa(pp.FVElliptic):
                 loc_bound_pressure_cell,
                 loc_bound_pressure_face,
                 loc_vector_source,
+                loc_bound_pressure_vector_source,
             ) = discr_fields
 
             # Next, transfer discretization matrices from the local to the active grid
@@ -218,8 +225,10 @@ class Mpfa(pp.FVElliptic):
                     is_vector=True,
                     nd=max(1, vector_source_dim),
                 )
-
             active_vector_source += face_map * loc_vector_source * cell_map_vec
+            active_bound_pressure_vector_source += (
+                face_map * loc_bound_pressure_vector_source * cell_map_vec
+            )
 
         # We have reached the end of the discretization, what remains is to map the
         # discretization back from the active grid to the entire grid
@@ -251,7 +260,9 @@ class Mpfa(pp.FVElliptic):
             )
 
         vector_source_glob = face_map * active_vector_source * cell_map_vec
-
+        bound_pressure_vector_source_glob = (
+            face_map * active_bound_pressure_vector_source * cell_map_vec
+        )
         # The vector source term was computed in the natural coordinates of the grid.
         # If the grid is embedded in a higher dimension, the source term will have the
         # size of that dimensions, and the discretization matrix should be adjusted
@@ -300,6 +311,7 @@ class Mpfa(pp.FVElliptic):
 
             # Append a mapping from the ambient dimension onto the plane of this grid
             vector_source_glob *= glob_R
+            bound_pressure_vector_source_glob *= glob_R
 
         eliminate_faces = np.setdiff1d(np.arange(g.num_faces), active_faces)
         pp.fvutils.remove_nonlocal_contribution(
@@ -310,6 +322,7 @@ class Mpfa(pp.FVElliptic):
             bound_pressure_cell_glob,
             bound_pressure_face_glob,
             vector_source_glob,
+            bound_pressure_vector_source_glob,
         )
 
         if update:
@@ -326,9 +339,12 @@ class Mpfa(pp.FVElliptic):
                 active_faces
             ] = bound_pressure_face_glob[active_faces]
 
-            matrix_dictionary[self.vector_source_key][
+            matrix_dictionary[self.vector_source_matrix_key][
                 active_faces
             ] = vector_source_glob[active_faces]
+            matrix_dictionary[self.bound_pressure_vector_source_matrix_key][
+                active_faces
+            ] = bound_pressure_vector_source_glob[active_faces]
 
         else:
             matrix_dictionary[self.flux_matrix_key] = flux_glob
@@ -339,7 +355,10 @@ class Mpfa(pp.FVElliptic):
             matrix_dictionary[
                 self.bound_pressure_face_matrix_key
             ] = bound_pressure_face_glob
-            matrix_dictionary[self.vector_source_key] = vector_source_glob
+            matrix_dictionary[self.vector_source_matrix_key] = vector_source_glob
+            matrix_dictionary[
+                self.bound_pressure_vector_source_matrix_key
+            ] = bound_pressure_vector_source_glob
 
     def _flux_discretization(
         self, g, k, bnd, inverter, ambient_dimension=None, eta=None
@@ -411,7 +430,8 @@ class Mpfa(pp.FVElliptic):
                 matrix_dictionary[self.bound_flux_matrix_key],
                 matrix_dictionary[self.bound_pressure_cell_matrix_key],
                 matrix_dictionary[self.bound_pressure_face_matrix_key],
-                matrix_dictionary[self.vector_source_key],
+                matrix_dictionary[self.vector_source_matrix_key],
+                matrix_dictionary[self.bound_pressure_vector_source_matrix_key],
             )
 
         elif g.dim == 0:
@@ -420,6 +440,7 @@ class Mpfa(pp.FVElliptic):
                 sps.csr_matrix([0]),
                 sps.csr_matrix([0]),
                 sps.csr_matrix([0]),
+                sps.csr_matrix((1, ambient_dimension)),
                 sps.csr_matrix((1, ambient_dimension)),
             )
 
@@ -777,12 +798,13 @@ class Mpfa(pp.FVElliptic):
         # as a force on a subface due to imbalance in cell-center vector sources.
         # This term is computed on a sub-cell basis
         # and has dimensions (num_subfaces, num_subcells * nd)
-        discr_vector_source = self._discretize_vector_source(
+        discr_vector_source, vector_source_bound = self._discretize_vector_source(
             g,
             subcell_topology,
             bound_exclusion,
             darcy,
             igrad,
+            dist_grad,
             nk_grad_all,
             nk_grad_paired,
         )
@@ -793,6 +815,7 @@ class Mpfa(pp.FVElliptic):
         )
 
         vector_source = hf2f * discr_vector_source * sc2c
+        bound_pressure_vector_source = hf2f * area_mat * vector_source_bound * sc2c
 
         return (
             flux,
@@ -800,6 +823,7 @@ class Mpfa(pp.FVElliptic):
             pressure_trace_cell,
             pressure_trace_bound,
             vector_source,
+            bound_pressure_vector_source,
         )
 
     def _discretize_vector_source(
@@ -809,6 +833,7 @@ class Mpfa(pp.FVElliptic):
         bound_exclusion,
         darcy,
         igrad,
+        dist_grad,
         nk_grad_all,
         nk_grad_paired,
     ):
@@ -893,19 +918,19 @@ class Mpfa(pp.FVElliptic):
             - bound_exclusion.exclude_neu_rob.shape[0]
         )
 
-        rhs_units_pres_var = sps.coo_matrix(
-            (num_subfno - num_dir_subface, num_subfno_unique)
-        )
+        rhs_zeros = sps.coo_matrix((num_subfno - num_dir_subface, num_subfno_unique))
 
-        rhs_units = -sps.vstack([rhs_units, rhs_units_pres_var])
+        rhs = -sps.vstack([rhs_units, rhs_zeros])
 
-        del rhs_units_pres_var
+        del rhs_zeros
 
         # prepare for computation of imbalance coefficients,
         # that is jumps in cell-centers vector sources, ready to be
         # multiplied with inverse gradients
-        vector_source_jumps = -darcy * igrad * rhs_units * nk_grad_paired
-
+        prod = igrad * rhs * nk_grad_paired
+        vector_source_jumps = -darcy * prod
+        # EK: Eureka, this is a pressure difference!
+        vector_source_bound = -dist_grad * prod
         # Step 2
 
         # mapping from subface to unique subface for scalar problems.
@@ -922,7 +947,7 @@ class Mpfa(pp.FVElliptic):
         # Prepare for computation of div_vector_source_faces term
         vector_source_faces = map_unique_subfno * nk_grad_all
 
-        return vector_source_jumps + vector_source_faces
+        return (vector_source_jumps + vector_source_faces, vector_source_bound)
 
     """
     The functions below are helper functions, which are not really necessary to
@@ -1050,7 +1075,9 @@ class Mpfa(pp.FVElliptic):
         is_per = bnd.is_per
 
         if is_per.sum():
-            raise NotImplementedError("Periodic boundary conditions are not implemented for Mpfa")
+            raise NotImplementedError(
+                "Periodic boundary conditions are not implemented for Mpfa"
+            )
 
         fno = subcell_topology.fno_unique
         num_neu = np.sum(is_neu)

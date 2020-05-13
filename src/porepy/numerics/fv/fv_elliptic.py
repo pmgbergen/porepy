@@ -29,7 +29,8 @@ class FVElliptic(pp.EllipticDiscretization):
         # condition set on faces) in reconstruction of boundary pressures
         self.bound_pressure_face_matrix_key = "bound_pressure_face"
         # Discretization of vector source terms (gravity)
-        self.vector_source_key = "vector_source"
+        self.vector_source_matrix_key = "vector_source"
+        self.bound_pressure_vector_source_matrix_key = "bound_pressure_vector_source"
 
     def ndof(self, g):
         """
@@ -190,7 +191,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
         div = g.cell_faces.T
 
-        # Also discretize vector sources.
+        # Also assemble vector sources.
         # Discretization of the vector source term
         vector_source_discr = matrix_dictionary[self.vector_source_key]
         # The vector source, defaults to zero if not specified.
@@ -333,6 +334,7 @@ class FVElliptic(pp.EllipticDiscretization):
         mg = data_edge["mortar_grid"]
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
         if use_slave_proj:
             proj = mg.slave_to_mortar_avg()
@@ -349,8 +351,17 @@ class FVElliptic(pp.EllipticDiscretization):
         # faces. For TPFA this will be zero, but for MPFA we will get a contribution
         # on the fractures extending to the boundary due to the interaction region
         # around a node.
-        bc_val = data[pp.PARAMETERS][self.keyword]["bc_values"]
+        bc_val = parameter_dictionary["bc_values"]
         rhs[2] -= proj * matrix_dictionary[self.bound_pressure_face_matrix_key] * bc_val
+        # Add gravity contribution
+        vector_source_discr = matrix_dictionary[
+            self.bound_pressure_vector_source_matrix_key
+        ]
+        # The vector source, defaults to zero if not specified.
+        vector_source = parameter_dictionary.get(
+            "vector_source", np.zeros(vector_source_discr.shape[1])
+        )
+        rhs[2] -= proj * vector_source_discr * vector_source
 
     def assemble_int_bound_pressure_trace_between_interfaces(
         self, g, data_grid, proj_primary, proj_secondary, cc, matrix, rhs
