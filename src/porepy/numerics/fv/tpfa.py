@@ -77,13 +77,16 @@ class Tpfa(pp.FVElliptic):
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
+        # Ambient dimension of the grid
+        vector_source_dim: int = parameter_dictionary.get("ambient_dimension", g.dim)
+
         if g.dim == 0:
             # Short cut for 0d grids
             matrix_dictionary[self.flux_matrix_key] = sps.csr_matrix([0])
             matrix_dictionary[self.bound_flux_matrix_key] = sps.csr_matrix([0])
             matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csr_matrix([1])
             matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csr_matrix([0])
-            matrix_dictionary[self.vector_source_key] = sps.csr_matrix([0])
+            matrix_dictionary[self.vector_source_key] = sps.csr_matrix((1, vector_source_dim))
             return None
 
         # Extract parameters
@@ -220,9 +223,6 @@ class Tpfa(pp.FVElliptic):
         # discretization of vector source
         # e.g. gravity in Darcy's law
         # Use harmonic average of cell transmissibilities
-
-        # Ambient dimension of the grid
-        vector_source_dim: int = parameter_dictionary.get("ambient_dimension", g.dim)
 
         # The discretization involves the transmissibilities, multiplied with the
         # distance between cell and face centers, and with the sgn adjustment (or else)

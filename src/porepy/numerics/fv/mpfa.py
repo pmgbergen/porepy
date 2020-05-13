@@ -134,7 +134,7 @@ class Mpfa(pp.FVElliptic):
         if g.dim == 1:
             active_vector_source = sps.csr_matrix((nf, nc * vector_source_dim))
         else:
-            active_vector_source = sps.csr_matrix((nf, nc * max(g.dim, 1)))
+            active_vector_source = sps.csr_matrix((nf, nc * max(vector_source_dim, 1)))
 
         # Find an estimate of the peak memory need
         peak_memory_estimate = self._estimate_peak_memory(active_grid)
@@ -212,7 +212,11 @@ class Mpfa(pp.FVElliptic):
                 )
             else:
                 _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
-                    active_grid, l2g_faces, l2g_cells, is_vector=True, nd=max(1, g.dim)
+                    active_grid,
+                    l2g_faces,
+                    l2g_cells,
+                    is_vector=True,
+                    nd=max(1, vector_source_dim),
                 )
 
             active_vector_source += face_map * loc_vector_source * cell_map_vec
@@ -239,7 +243,11 @@ class Mpfa(pp.FVElliptic):
             )
         else:
             _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
-                g, extracted_faces, active_cells, is_vector=True, nd=max(1, g.dim)
+                g,
+                extracted_faces,
+                active_cells,
+                is_vector=True,
+                nd=max(1, vector_source_dim),
             )
 
         vector_source_glob = face_map * active_vector_source * cell_map_vec
@@ -412,7 +420,7 @@ class Mpfa(pp.FVElliptic):
                 sps.csr_matrix([0]),
                 sps.csr_matrix([0]),
                 sps.csr_matrix([0]),
-                sps.csr_matrix([0]),
+                sps.csr_matrix((1, ambient_dimension)),
             )
 
         # The grid coordinates are always three-dimensional, even if the grid is
