@@ -37,6 +37,7 @@ class RobinCoupling(
 
         # Keys used to identify the discretization matrices of this discretization
         self.mortar_discr_key = "robin_mortar_discr"
+        self.mortar_vector_source_key = "robin_vector_source_discr"
         self.mortar_scaling_key = "mortar_scaling"
 
         # Decide on whether to scale the mortar flux with K^-1 or not.
@@ -70,6 +71,7 @@ class RobinCoupling(
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
+        parameter_dictionary_l = data_l[pp.PARAMETERS][self.keyword]
         # Mortar data structure.
         mg = data_edge["mortar_grid"]
 
@@ -82,6 +84,34 @@ class RobinCoupling(
         inv_k = 1.0 / kn
         Eta = sps.diags(inv_k)
         matrix_dictionary_edge[self.mortar_discr_key] = -inv_M * Eta
+
+        # Vector source. Contribution is last term of
+        # lambda = - \kappa_n [p_l - p_h +  a/2 g \cdot n],
+        # where n is the outwards normal.
+        # Ambient dimension of the grid
+        vector_source_dim: int = parameter_dictionary_l.get(
+            "ambient_dimension", g_h.dim
+        )  # Dangerous. Consider no default.
+        # Construct the dot product between normals on fracture faces and the identity
+        # matrix. IS: This was simply copied from elsewhere. We should consider writing
+        # a utility function for this like we discussed, EK.
+        ci_mortar, fi_h, weight = sps.find(mg.master_to_mortar_avg())
+        sgn_w = g_h.sign_of_faces(fi_h) * weight
+        fracture_normals = g_h.face_normals[:vector_source_dim, fi_h]
+        outwards_unit_fracture_normals = (
+            fracture_normals * sgn_w / np.linalg.norm(fracture_normals, axis=0)
+        )
+
+        vals = outwards_unit_fracture_normals[:vector_source_dim].ravel("f")
+        # The mortar cell indices are expanded to account for the vector source
+        # having multiple dimensions
+        rows = np.tile(ci_mortar, (vector_source_dim, 1)).ravel("f")
+        cols = pp.fvutils.expand_indices_nd(ci_mortar, vector_source_dim)
+
+        mortar_normals = sps.coo_matrix((vals, (rows, cols))).tocsr()
+        # On assembly, the outwards normals on the mortars will be multiplied by the
+        # interface vector source.
+        matrix_dictionary_edge[self.mortar_vector_source_key] = mortar_normals
         if self.kinv_scaling:
             # Use a discretization fit for mixed methods, with a K^-1 scaling of the
             # mortar flux
@@ -109,7 +139,12 @@ class RobinCoupling(
             g_slave: Grid on the other neighboring subdomain.
             data_master: Data dictionary for the master suddomain
             data_slave: Data dictionary for the slave subdomain.
-            data_edge: Data dictionary for the edge between the subdomains
+            data_edge: Data dictionary for the edge between the subdomains. 
+                If gravity is taken into consideration, the parameter sub-
+                dictionary should contain something like a/2 * g, where
+                g is the ambient_dimension x n_mortar_cells gravity vector
+                as used in Starnoni et al 2020, typically with 
+                    g[ambient_dimension]= -G * rho.
             matrix: original discretization
 
             The discretization matrices must be included since they will be
@@ -118,7 +153,7 @@ class RobinCoupling(
 
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-
+        parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
         mg = data_edge["mortar_grid"]
 
         master_ind = 0
@@ -145,6 +180,15 @@ class RobinCoupling(
         self.discr_slave.assemble_int_bound_source(
             g_slave, data_slave, data_edge, cc, matrix, rhs, slave_ind
         )
+        # Also assemble vector sources.
+        # Discretization of the vector source term
+        vector_source_discr = matrix_dictionary_edge[self.mortar_vector_source_key]
+        # The vector source, defaults to zero if not specified.
+        vector_source = parameter_dictionary_edge.get(
+            "vector_source", np.zeros(vector_source_discr.shape[1])
+        )
+
+        rhs[2] = rhs[2] - vector_source_discr * vector_source
 
         for block in range(cc.shape[1]):
             # Scale the pressure blocks in the mortar problem
