@@ -408,11 +408,11 @@ class Mpfa(pp.FVElliptic):
 
         elif g.dim == 0:
             return (
-                sps.csr_matrix([0]),
-                sps.csr_matrix([0]),
-                sps.csr_matrix([0]),
-                sps.csr_matrix([0]),
-                sps.csr_matrix([0]),
+                sps.csr_matrix((0, g.num_cells)),
+                sps.csr_matrix((0, 0)),
+                sps.csr_matrix((0, g.num_cells)),
+                sps.csr_matrix((0, 0)),
+                sps.csr_matrix((0, g.num_cells)),
             )
 
         # The grid coordinates are always three-dimensional, even if the grid is

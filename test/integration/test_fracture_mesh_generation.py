@@ -125,7 +125,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         for g in gb.grids_of_dimension(0):
             found = False
             for p in isect_pt:
-                if test_utils.compare_arrays(p, g.nodes):
+                if test_utils.compare_arrays(p, g.cell_centers):
                     found = True
                     break
             self.assertTrue(found)
@@ -133,7 +133,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         for p in isect_pt:
             found = False
             for g in gb.grids_of_dimension(0):
-                if test_utils.compare_arrays(p, g.nodes):
+                if test_utils.compare_arrays(p, g.cell_centers):
                     found = True
                     break
             self.assertTrue(found)
@@ -1137,9 +1137,12 @@ class TestStructuredGrids(unittest.TestCase):
         self.assertTrue(np.all([g.num_cells == 1 for g in g_1]))
         self.assertTrue(np.all([g.num_faces == 2 for g in g_1]))
 
-        g_all = np.hstack([g_3, g_2, g_1, g_0])
-        for g in g_all:
+        g_321 = np.hstack([g_3, g_2, g_1])
+        for g in g_321:
             d = np.all(np.abs(g.nodes - np.array([[0.5], [0.5], [0.5]])) < 1e-6, axis=0)
+            self.assertTrue(any(d))
+        for g in g_0:
+            d = np.all(np.abs(g.cell_centers - np.array([[0.5], [0.5], [0.5]])) < 1e-6, axis=0)
             self.assertTrue(any(d))
 
     def test_T_intersection_2d(self):

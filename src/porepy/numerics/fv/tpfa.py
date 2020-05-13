@@ -79,11 +79,11 @@ class Tpfa(pp.FVElliptic):
 
         if g.dim == 0:
             # Short cut for 0d grids
-            matrix_dictionary[self.flux_matrix_key] = sps.csr_matrix([0])
-            matrix_dictionary[self.bound_flux_matrix_key] = sps.csr_matrix([0])
-            matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csr_matrix([1])
-            matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csr_matrix([0])
-            matrix_dictionary[self.vector_source_key] = sps.csr_matrix([0])
+            matrix_dictionary[self.flux_matrix_key] = sps.csr_matrix((0, g.num_cells))
+            matrix_dictionary[self.bound_flux_matrix_key] = sps.csr_matrix((0, 0))
+            matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csr_matrix((0, g.num_cells))
+            matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csr_matrix((0, 0))
+            matrix_dictionary[self.vector_source_key] = sps.csr_matrix((0, g.num_cells))
             return None
 
         # Extract parameters
