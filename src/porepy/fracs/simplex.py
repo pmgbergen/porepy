@@ -5,7 +5,7 @@ import time
 import numpy as np
 import meshio
 import logging
-
+from typing import Dict, Tuple
 
 from porepy.grids import constants
 from porepy.grids.gmsh import mesh_2_grid
@@ -14,7 +14,7 @@ from porepy.grids.gmsh import mesh_2_grid
 logger = logging.getLogger(__name__)
 
 
-def triangle_grid_embedded(network, file_name, **kwargs):
+def triangle_grid_embedded(file_name):
     """ Create triangular (2D) grid of a domain embedded in 3D space, without
     meshing the 3D volume.
 
@@ -31,11 +31,9 @@ def triangle_grid_embedded(network, file_name, **kwargs):
     manual on how to set mesh sizes.
 
     Parameters:
-        network (FractureNetwork): To be meshed.
         file_name (str, optional): Filename for communication with gmsh.
             The config file for gmsh will be f_name.geo, with the grid output
             to f_name.msh. Defaults to dfn_network.
-        **kwargs: Arguments sent to gmsh etc.
 
     Returns:
         list (length 3): For each dimension (2 -> 0), a list of all grids in
@@ -48,12 +46,7 @@ def triangle_grid_embedded(network, file_name, **kwargs):
 
     out_file = file_name + ".msh"
 
-    mesh = meshio.read(out_file)
-
-    pts = mesh.points
-    cells = mesh.cells
-    cell_info = mesh.cell_data
-    phys_names = {v[0]: k for k, v in mesh.field_data.items()}
+    pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
     g_2d = mesh_2_grid.create_2d_grids(
         pts,
@@ -61,7 +54,6 @@ def triangle_grid_embedded(network, file_name, **kwargs):
         is_embedded=True,
         phys_names=phys_names,
         cell_info=cell_info,
-        network=network,
     )
     g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
     g_0d = mesh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
@@ -87,6 +79,7 @@ def triangle_grid_embedded(network, file_name, **kwargs):
 
     return grids
 
+
 def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
     """ Generate a list of grids dimensions {2, 1, 0}, starting from a gmsh mesh.
 
@@ -111,14 +104,7 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
         file_name = file_name[:-4]
     out_file = file_name + ".msh"
 
-    mesh = meshio.read(out_file)
-
-    pts = mesh.points
-    cells = mesh.cells
-    cell_info = mesh.cell_data
-    # Invert phys_names dictionary to map from physical tags to corresponding
-    # physical names
-    phys_names = {v[0]: k for k, v in mesh.field_data.items()}
+    pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
     # Constants used in the gmsh.geo-file
     const = constants.GmshConstants()
@@ -161,6 +147,7 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
 
     return grids
 
+
 def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
     """ Generate a list of grids dimensions {1, 0}, starting from a gmsh mesh.
 
@@ -185,14 +172,7 @@ def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
         file_name = file_name[:-4]
     out_file = file_name + ".msh"
 
-    mesh = meshio.read(out_file)
-
-    pts = mesh.points
-    cells = mesh.cells
-    cell_info = mesh.cell_data
-    # Invert phys_names dictionary to map from physical tags to corresponding
-    # physical names
-    phys_names = {v[0]: k for k, v in mesh.field_data.items()}
+    pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
     # Constants used in the gmsh.geo-file
     const = constants.GmshConstants()
@@ -232,14 +212,17 @@ def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
 
     return grids
 
-def tetrahedral_grid_from_gmsh(network, file_name, constraints=None, **kwargs):
+
+def tetrahedral_grid_from_gmsh(file_name, constraints=None, **kwargs):
     """ Generate a list of grids of dimensions {3, 2, 1, 0}, starting from a gmsh
     mesh.
 
     Parameters:
-        network (pp.FractureNetwork3d): The network used to generate the gmsh
-            input file.
         file_name (str): Path to file of gmsh.msh specification.
+        TODO: Line tag is unused. Maybe surface_tag replaces it?? Fix docs.
+            This documentation is copied from mesh_2_grid.create_2d_grids().
+        constraints (np.array, optional): Array with lists of lines that should not
+            become grids. The array items should match the INDEX in line_tag, see above.
 
     Returns:
         list of list of grids: grids in 2d, 1d and 0d. If no grids exist in a
@@ -255,14 +238,7 @@ def tetrahedral_grid_from_gmsh(network, file_name, constraints=None, **kwargs):
         file_name = file_name[:-4]
     file_name = file_name + ".msh"
 
-    mesh = meshio.read(file_name)
-
-    pts = mesh.points
-    cells = mesh.cells
-    cell_info = mesh.cell_data
-    # Invert phys_names dictionary to map from physical tags to corresponding
-    # physical names
-    phys_names = {v[0]: k for k, v in mesh.field_data.items()}
+    pts, cells, cell_info, phys_names = _read_gmsh_file(file_name)
 
     # Call upon helper functions to create grids in various dimensions.
     # The constructors require somewhat different information, reflecting the
@@ -274,7 +250,6 @@ def tetrahedral_grid_from_gmsh(network, file_name, constraints=None, **kwargs):
         is_embedded=True,
         phys_names=phys_names,
         cell_info=cell_info,
-        network=network,
         constraints=constraints,
     )
 
@@ -303,3 +278,77 @@ def tetrahedral_grid_from_gmsh(network, file_name, constraints=None, **kwargs):
                 logger.info(s)
 
     return grids
+
+
+def _read_gmsh_file(
+    file_name: str,
+) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[int, str]]:
+    """
+    Read a gmsh .msh file, and convert the result to a format that is compatible with
+    the porepy functionality for mesh processing.
+    
+    Args:
+        file_name (str): Name of the file to be processed.
+
+    Returns:
+        pts (np.ndarray, npt x dim): Coordinates of all vertexes in the grid.
+        cells (dict): Mapping between cells of different shapes, and the index of
+            vertexes for the cells.
+        cell_info (dict): Mapping between cells of different shapes, and the tags of
+            each cell.
+        phys_names (TYPE): Mapping from gmsh tags to the physical names assigned in the
+            gmsh .geo file.
+
+    """
+    mesh = meshio.read(file_name)
+
+    pts = mesh.points
+    cells = mesh.cells
+    cell_info = mesh.cell_data
+    # Invert phys_names dictionary to map from physical tags to corresponding
+    # physical names
+    # The first
+    phys_names = {v[0]: k for k, v in mesh.field_data.items()}
+
+    # The API of meshio is constantly changing; this if-else is needed to take care
+    # of different generations of meshio.
+    if isinstance(cells, list):
+        # This is tested for meshio v4
+        # The cells are stored as a list of namedtuples, consisting of an attribute
+        # 'type' which is the type of the cell (line, triangle etc.), and an attribute
+        # 'data', which gives the vertex numbers for each cell.
+        # We will convert this into a simpler dictionary, that maps the type to an
+        # array of vertexes.
+        # Moreover, the cell_info, which gives the tags of each cell, is stored in a
+        # list, with ordering equal to that of the cells. This list will again be split
+        # into a dictionary with the cell type as keys, and tags as values.
+
+        # Initialize the dictionaries to be constructed
+        tmp_cells, tmp_info = {}, {}
+        keys = set([cb.type for cb in cells])
+        for key in keys:
+            tmp_cells[key] = []
+            tmp_info[key] = []
+
+        # Loop simulatneously over cells and the cell info; process data
+        for cb, info in zip(cells, cell_info["gmsh:physical"]):
+            tmp_cells[cb.type].append(cb.data)
+            tmp_info[cb.type].append(info)
+
+        # Repack the data
+        for k, v in tmp_cells.items():
+            tmp_cells[k] = np.vstack([part for part in v])
+        for k, v in tmp_info.items():
+            tmp_info[k] = np.hstack([part for part in v])
+
+        cells = tmp_cells
+        cell_info = tmp_info
+    else:
+        # Meshio v2. May also work for v3?
+        # This data format is much closer to what is used in the further processing in
+        # porepy. The only thing we need to do is to dump a subdictionary level in
+        # cell_info.
+        for k, v in cell_info.items():
+            cell_info[k] = v["gmsh:physical"]
+
+    return pts, cells, cell_info, phys_names

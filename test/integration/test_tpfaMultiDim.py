@@ -14,7 +14,7 @@ def setup_2d_1d(nx, simplex_grid=False):
 
     end_x = [0.2, 0.8]
     end_y = [0.8, 0.2]
-    gb = pp.grid_buckets_2d.two_intersecting(mesh_args, end_x, end_y, simplex_grid)
+    gb, _ = pp.grid_buckets_2d.two_intersecting(mesh_args, end_x, end_y, simplex_grid)
     aperture = 0.01 / np.max(nx)
     for g, d in gb:
         a = np.power(aperture, gb.dim_max() - g.dim) * np.ones(g.num_cells)

@@ -739,7 +739,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_2d_1d_cart(self):
-        gb = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
+        gb, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
 
         for g, _ in gb:
 
@@ -806,7 +806,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_2d_1d_cart_complex(self):
-        gb = pp.grid_buckets_2d.two_intersecting(
+        gb, _ = pp.grid_buckets_2d.two_intersecting(
             [4, 4], y_endpoints=[0.25, 0.75], simplex=False
         )
 
