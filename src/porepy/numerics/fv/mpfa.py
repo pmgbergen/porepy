@@ -131,16 +131,20 @@ class Mpfa(pp.FVElliptic):
         # ambient dimension towards the end of this function (see construction of
         # vector_source_glob). This leads to a few instances of if g.dim == 1 here
         # and below.
-        if g.dim == 1:
-            active_vector_source = sps.csr_matrix((nf, nc * vector_source_dim))
-            active_bound_pressure_vector_source = sps.csr_matrix(
-                (nf, nc * vector_source_dim)
-            )
+
+        # Update IS:
+        if g.dim == 2:
+            # In the 2d case, the discretization is done in 2d. This is compensated
+            # for by the rotation matrix below.
+            cell_vector_dim = 2
         else:
-            active_vector_source = sps.csr_matrix((nf, nc * max(vector_source_dim, 1)))
-            active_bound_pressure_vector_source = sps.csr_matrix(
-                (nf, nc * max(vector_source_dim, 1))
-            )
+            # Else, the discretization of the vector source is in vector_source_dim.
+            # Exception: vector_source_dim = 0, assumedly for no assigned ambient dimension
+            # and g.dim = 0. Then we need matrices of shape=[1,1]
+            cell_vector_dim = max(1, vector_source_dim)
+
+        active_vector_source = sps.csr_matrix((nf, nc * cell_vector_dim))
+        active_bound_pressure_vector_source = sps.csr_matrix((nf, nc * cell_vector_dim))
 
         # Find an estimate of the peak memory need
         peak_memory_estimate = self._estimate_peak_memory(active_grid)
@@ -162,7 +166,6 @@ class Mpfa(pp.FVElliptic):
             loc_bnd: pp.BoundaryCondition = self._bc_for_subgrid(
                 active_bound, sub_g, l2g_faces
             )
-
             discr_fields = self._flux_discretization(
                 sub_g,
                 loc_c,
@@ -208,23 +211,9 @@ class Mpfa(pp.FVElliptic):
             )
             # The vector source is a field of dimension vector_source_dim, and must
             # be mapped accordingly
-            if g.dim == 1:
-                # The matrix is already adjusted to vector_source_dim, courtesy Tpfa.
-                _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
-                    active_grid,
-                    l2g_faces,
-                    l2g_cells,
-                    is_vector=True,
-                    nd=vector_source_dim,
-                )
-            else:
-                _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
-                    active_grid,
-                    l2g_faces,
-                    l2g_cells,
-                    is_vector=True,
-                    nd=max(1, vector_source_dim),
-                )
+            _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
+                active_grid, l2g_faces, l2g_cells, is_vector=True, nd=cell_vector_dim
+            )
             active_vector_source += face_map * loc_vector_source * cell_map_vec
             active_bound_pressure_vector_source += (
                 face_map * loc_bound_pressure_vector_source * cell_map_vec
@@ -243,22 +232,11 @@ class Mpfa(pp.FVElliptic):
         bound_pressure_face_glob = (
             face_map * active_bound_pressure_face * face_map.transpose()
         )
-        # The vector source term has a vector-sized number of rows, and need a
-        # different cell_map
-        if g.dim == 1:
-            # The matrix is already adjusted to vector_source_dim, courtesy Tpfa.
-            _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
-                g, extracted_faces, active_cells, is_vector=True, nd=vector_source_dim
-            )
-        else:
-            _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
-                g,
-                extracted_faces,
-                active_cells,
-                is_vector=True,
-                nd=max(1, vector_source_dim),
-            )
-
+        # The vector source term has a vector-sized number of rows, and needs a
+        # different cell_map. See explanation of cell map dimension above.
+        _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
+            g, extracted_faces, active_cells, is_vector=True, nd=cell_vector_dim
+        )
         vector_source_glob = face_map * active_vector_source * cell_map_vec
         bound_pressure_vector_source_glob = (
             face_map * active_bound_pressure_vector_source * cell_map_vec
