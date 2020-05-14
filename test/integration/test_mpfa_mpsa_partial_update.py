@@ -19,7 +19,7 @@ class TestPartialMPFA(unittest.TestCase):
         g.compute_geometry()
         perm = pp.SecondOrderTensor(np.ones(g.num_cells))
         bnd = pp.BoundaryCondition(g)
-        flux, bound_flux, _, _, vector_source = pp.Mpfa("flow")._flux_discretization(
+        flux, bound_flux, _, _, vector_source, _ = pp.Mpfa("flow")._flux_discretization(
             g, perm, bnd, inverter="python"
         )
         return g, perm, bnd, flux, bound_flux, vector_source
@@ -77,7 +77,7 @@ class TestPartialMPFA(unittest.TestCase):
 
     def test_bound_cell_node_keyword(self):
         # Compute update for a single cell on the boundary
-        g, perm, bnd, flux, bound_flux, vector_source, _ = self.setup()
+        g, perm, bnd, flux, bound_flux, vector_source = self.setup()
 
         # cell = 10
         nodes_of_cell = np.array([12, 13, 18, 19])
