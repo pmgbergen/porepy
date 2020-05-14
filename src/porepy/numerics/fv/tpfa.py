@@ -87,11 +87,11 @@ class Tpfa(pp.FVElliptic):
             matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csr_matrix([1])
             matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csr_matrix([0])
             matrix_dictionary[self.vector_source_matrix_key] = sps.csr_matrix(
-                (1, vector_source_dim)
+                (1, max(vector_source_dim, 1))
             )
             matrix_dictionary[
                 self.bound_pressure_vector_source_matrix_key
-            ] = sps.csr_matrix((1, vector_source_dim))
+            ] = sps.csr_matrix((1, max(vector_source_dim, 1)))
             return None
 
         # Extract parameters
