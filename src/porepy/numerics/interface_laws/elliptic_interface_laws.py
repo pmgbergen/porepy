@@ -71,7 +71,7 @@ class RobinCoupling(
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
-        parameter_dictionary_l = data_l[pp.PARAMETERS][self.keyword]
+        parameter_dictionary_h = data_h[pp.PARAMETERS][self.keyword]
         # Mortar data structure.
         mg = data_edge["mortar_grid"]
 
@@ -89,7 +89,7 @@ class RobinCoupling(
         # lambda = - \kappa_n [p_l - p_h +  a/2 g \cdot n],
         # where n is the outwards normal.
         # Ambient dimension of the grid
-        vector_source_dim: int = parameter_dictionary_l.get(
+        vector_source_dim: int = parameter_dictionary_h.get(
             "ambient_dimension", g_h.dim
         )  # Dangerous. Consider no default.
         # Construct the dot product between normals on fracture faces and the identity
@@ -97,10 +97,11 @@ class RobinCoupling(
         # a utility function for this like we discussed, EK.
         ci_mortar, fi_h, weight = sps.find(mg.master_to_mortar_avg())
         sgn_w = g_h.sign_of_faces(fi_h) * weight
-        fracture_normals = g_h.face_normals[:vector_source_dim, fi_h]
-        outwards_unit_fracture_normals = (
-            fracture_normals * sgn_w / np.linalg.norm(fracture_normals, axis=0)
+        unit_fracture_normals = (
+            g_h.face_normals[:vector_source_dim, fi_h] / g_h.face_areas[fi_h]
         )
+
+        outwards_unit_fracture_normals = unit_fracture_normals * sgn_w
 
         vals = outwards_unit_fracture_normals[:vector_source_dim].ravel("f")
         # The mortar cell indices are expanded to account for the vector source
@@ -187,7 +188,7 @@ class RobinCoupling(
         vector_source = parameter_dictionary_edge.get(
             "vector_source", np.zeros(vector_source_discr.shape[1])
         )
-
+        # IS: Insert warning about ambient dimension if the dimensions don't match?
         rhs[2] = rhs[2] - vector_source_discr * vector_source
 
         for block in range(cc.shape[1]):
