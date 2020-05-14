@@ -780,14 +780,13 @@ class Mpfa(pp.FVElliptic):
         pressure_trace_cell = dist_grad * igrad * rhs_cells + cell_centers
         pressure_trace_bound = dist_grad * igrad * rhs_bound
 
+        area_scaling = 1.0 / (hf2f * np.ones(hf2f.shape[1]))
+        area_mat = sps.diags(hf2f.T * area_scaling)
         if not subface_rhs:
             # In this case we set the value at a face, thus, we need to distribute the
             # face values to the subfaces. We do this by an area-weighted average. The flux
             # will in this case be integrated over the faces, that is:
             # flux *\cdot * normal * face_area
-            area_scaling = 1.0 / (hf2f * np.ones(hf2f.shape[1]))
-            area_mat = sps.diags(hf2f.T * area_scaling)
-
             bound_flux = hf2f * bound_flux * hf2f.T
             flux = hf2f * flux
             pressure_trace_bound = hf2f * area_mat * pressure_trace_bound * hf2f.T
