@@ -147,7 +147,7 @@ class TestFvutils(unittest.TestCase):
         matrix_dictionary["flux"] = flux
         matrix_dictionary["bound_flux"] = bound_flux
         matrix_dictionary["vector_source"] = vector_source
-        
+
         data[pp.STATE]["pressure"] = np.array([3.14])
         fvutils.compute_darcy_flux(g, data=data)
 

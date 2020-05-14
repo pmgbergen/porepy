@@ -440,8 +440,8 @@ class Mpfa(pp.FVElliptic):
                 sps.csr_matrix([0]),
                 sps.csr_matrix([0]),
                 sps.csr_matrix([0]),
-                sps.csr_matrix((1, max(ambient_dimension,1))),
-                sps.csr_matrix((1, max(ambient_dimension,1))),
+                sps.csr_matrix((1, max(ambient_dimension, 1))),
+                sps.csr_matrix((1, max(ambient_dimension, 1))),
             )
 
         # The grid coordinates are always three-dimensional, even if the grid is
