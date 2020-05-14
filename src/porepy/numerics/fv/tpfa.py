@@ -245,7 +245,7 @@ class Tpfa(pp.FVElliptic):
         matrix_dictionary[self.vector_source_matrix_key] = vector_source
         # Gravity contribution to pressure reconstruction
         val = np.zeros((vector_source_dim, fi.size))  # EK: or fi_mat?
-        val[:, bnd.is_neu[fi]] = (fc_cc * sgn_mat)[:vector_source_dim, bnd.is_neu[fi]]
+        val[:, bnd.is_neu[fi]] = fc_cc[:vector_source_dim, bnd.is_neu[fi]]
         bound_pressure_vector_source = sps.coo_matrix(
             (val.ravel("f"), (rows, cols))
         ).tocsr()

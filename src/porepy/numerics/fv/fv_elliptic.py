@@ -193,7 +193,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
         # Also assemble vector sources.
         # Discretization of the vector source term
-        vector_source_discr = matrix_dictionary[self.vector_source_key]
+        vector_source_discr = matrix_dictionary[self.vector_source_matrix_key]
         # The vector source, defaults to zero if not specified.
         vector_source = parameter_dictionary.get(
             "vector_source", np.zeros(vector_source_discr.shape[1])
