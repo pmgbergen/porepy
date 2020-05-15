@@ -4,6 +4,7 @@ Implementation of the multi-point flux approximation O-method.
 """
 import numpy as np
 import scipy.sparse as sps
+from typing import Tuple
 
 import porepy as pp
 
@@ -132,16 +133,18 @@ class Mpfa(pp.FVElliptic):
         # vector_source_glob). This leads to a few instances of if g.dim == 1 here
         # and below.
 
-        # Update IS:
+        # For the vector sources, some extra care is needed in the projections between
+        # local and global discretization matrices. The variable cell_vector_dim is used
+        # at various places below.
         if g.dim == 2:
             # In the 2d case, the discretization is done in 2d. This is compensated
-            # for by the rotation matrix below.
-            cell_vector_dim = 2
+            # for by the rotation towards the end of this function.
+            cell_vector_dim: int = 2
         else:
             # Else, the discretization of the vector source is in vector_source_dim.
-            # Exception: vector_source_dim = 0, assumedly for no assigned ambient dimension
-            # and g.dim = 0. Then we need matrices of shape=[1,1]
-            cell_vector_dim = max(1, vector_source_dim)
+            # Exception: vector_source_dim = 0, assumedly for no assigned ambient
+            #  dimension and g.dim = 0. Then we need matrices of shape=[1,1]
+            cell_vector_dim: int = max(1, vector_source_dim)
 
         active_vector_source = sps.csr_matrix((nf, nc * cell_vector_dim))
         active_bound_pressure_vector_source = sps.csr_matrix((nf, nc * cell_vector_dim))
@@ -252,6 +255,8 @@ class Mpfa(pp.FVElliptic):
         # in the full coordinates.
 
         # What is left is to fix the projection if g.dim == 2.
+        # This is the part of the code that explains the special g.dim == 2 when
+        # cell_vector_dim is set above.
         if g.dim == 2:
             # Use the same mapping of the geometry as was done in
             # self._flux_discretization(). This mapping is deterministic, thus the
@@ -436,9 +441,14 @@ class Mpfa(pp.FVElliptic):
             # Rotate the grid into the xy plane and delete third dimension. First
             # make a copy to avoid alterations to the input grid
             g = g.copy()
-            cell_centers, face_normals, face_centers, R, _, nodes = pp.map_geometry.map_grid(
-                g
-            )
+            (
+                cell_centers,
+                face_normals,
+                face_centers,
+                R,
+                _,
+                nodes,
+            ) = pp.map_geometry.map_grid(g)
             g.cell_centers = cell_centers
             g.face_normals = face_normals
             g.face_centers = face_centers
@@ -468,9 +478,11 @@ class Mpfa(pp.FVElliptic):
         # The normal vectors used in the product are simply the face normals
         # (with areas downscaled to account for subfaces). The sign of
         # nk_grad_all coincides with the direction of the normal vector.
-        nk_grad_all, cell_node_blocks, sub_cell_index = pp.fvutils.scalar_tensor_vector_prod(
-            g, k, subcell_topology
-        )
+        (
+            nk_grad_all,
+            cell_node_blocks,
+            sub_cell_index,
+        ) = pp.fvutils.scalar_tensor_vector_prod(g, k, subcell_topology)
 
         ## Contribution from subcell gradients to local system.
         # The pressure at a subface continuity point is given by the subcell
@@ -508,7 +520,7 @@ class Mpfa(pp.FVElliptic):
         #    interior subfaces, and on faces on the boundary.
         nk_grad_paired = subcell_topology.pair_over_subfaces(nk_grad_all)
 
-        ### Contribution from cell center potentials to local systems.
+        ## Contribution from cell center potentials to local systems.
 
         # Cell center pressure contribution to flux continuity on subfaces:
         # There is no contribution (fluxes are driven by gradients only).
@@ -805,21 +817,21 @@ class Mpfa(pp.FVElliptic):
 
     def _discretize_vector_source(
         self,
-        g,
-        subcell_topology,
-        bound_exclusion,
-        darcy,
-        igrad,
-        dist_grad,
-        nk_grad_all,
-        nk_grad_paired,
-    ):
+        g: pp.Grid,
+        subcell_topology: pp.fvutils.SubcellTopology,
+        bound_exclusion: pp.fvutils.ExcludeBoundaries,
+        darcy: sps.spmatrix,
+        igrad: sps.spmatrix,
+        dist_grad: sps.spmatrix,
+        nk_grad_all: sps.spmatrix,
+        nk_grad_paired: sps.spmatrix,
+    ) -> Tuple[sps.spmatrix, sps.spmatrix]:
         """
         Consistent discretization of the divergence of the vector source term
         in MPFA-O method. An example of a vector source is the gravitational
         forces in Darcy's law.
-        For more details, see Starnoni et al (2019), Consistent discretization
-        of flow for inhomogeneoug gravitational fields, WRR
+        For more details, see Starnoni et al (2020), Consistent discretization
+        of flow for inhomogeneoug gravitational fields, WRR.
 
         Parameters:
             g (core.grids.grid): grid to be discretized
@@ -873,21 +885,23 @@ class Mpfa(pp.FVElliptic):
         # The vector source term in the flux continuity equation is discretized
         # as a force on the faces. The right hand side is thus formed of the
         # unit vector.
+
+        # Construct a mapping from all subfaces to those with flux conditions, that is,
+        # all but Dirichlet boundary faces
+        # Identity matrix, one row per subface
         vals = np.ones(num_subfno_unique)
-        rows = subcell_topology.subfno_unique
-        cols = subcell_topology.subfno_unique
-        rhs_units = sps.coo_matrix(
-            (vals, (rows, cols)), shape=(num_subfno_unique, num_subfno_unique)
+        I_subfno = sps.dia_matrix(
+            (vals, 0), shape=(num_subfno_unique, num_subfno_unique)
         )
 
-        # The vector source term is added to all internal faces, all Neumann faces
-        # and all Robin faces.
-        rhs_units_n = bound_exclusion.exclude_robin_dirichlet(rhs_units)
+        # Exclude Dirichlet and Robin faces
+        flux_eq_map_internal_neumann = bound_exclusion.exclude_robin_dirichlet(I_subfno)
         # Robin condition is only applied to Robin boundary faces
-        rhs_units_r = bound_exclusion.keep_robin(rhs_units)
-        # The Robin condition is added after all flux equations (internal and Neumann
-        # faces)
-        rhs_units = sps.vstack([rhs_units_n, rhs_units_r])
+        flux_eq_map_robin = bound_exclusion.keep_robin(I_subfno)
+
+        # The Robin condition is appended at the end of the flux balance equations
+        # This map is thus applicable to all flux balance equations
+        flux_eq_map = sps.vstack([flux_eq_map_internal_neumann, flux_eq_map_robin])
 
         # No right hand side for cell pressure equations.
         num_dir_subface = (
@@ -895,19 +909,29 @@ class Mpfa(pp.FVElliptic):
             - bound_exclusion.exclude_neu_rob.shape[0]
         )
 
-        rhs_zeros = sps.coo_matrix((num_subfno - num_dir_subface, num_subfno_unique))
+        pressure_eq_map = sps.coo_matrix(
+            (num_subfno - num_dir_subface, num_subfno_unique)
+        )
 
-        rhs = -sps.vstack([rhs_units, rhs_zeros])
+        rhs_map = -sps.vstack([flux_eq_map, pressure_eq_map])
 
-        del rhs_zeros
-
-        # prepare for computation of imbalance coefficients,
-        # that is jumps in cell-centers vector sources, ready to be
-        # multiplied with inverse gradients
-        prod = igrad * rhs * nk_grad_paired
+        # prepare for computation of imbalance coefficients, that is jumps in
+        # cell-centers vector sources, ready to be  multiplied with inverse gradients.
+        # This is the middle term on the right hand side in Eq (31) in Starnoni et al
+        prod = igrad * rhs_map * nk_grad_paired
         vector_source_jumps = -darcy * prod
-        # EK: Eureka, this is a pressure difference!
+
+        # The vector source should have no impact on the boundary conditions (on
+        # Dirichlet boundaries, the pressure is set directly, on Neumann, the flux set
+        # is interpreted as a total flux). However, to recover the face pressure at a
+        # Neumann boundary, the contribution from the vector source must be accounted
+        # for. Referring to (27)-(28) in Starnoni et al, the variable prod can be
+        # interpreted as giving the pressure gradients resulting from a unit vector
+        # source (note that in a boundary cell, nk_grad_paired will only contain
+        # contribution from the single neighboring cell). Multiply this by the distance
+        # from the cell center to the continuity point to get the pressure offset.
         vector_source_bound = -dist_grad * prod
+
         # Step 2
 
         # mapping from subface to unique subface for scalar problems.
@@ -1105,7 +1129,8 @@ class Mpfa(pp.FVElliptic):
         # the number of nodes per face because the flux of face is the sum of its
         # half-faces.
         #
-        # EK: My understanding of the multiple -1s in the flux equation for boundary conditions:
+        # EK: My understanding of the multiple -1s in the flux equation for boundary
+        # conditions:
         # 1) -nk_grad in the local system gets its sign changed if the boundary
         #    normal vector points into the cell.
         # 2) During global assembly, the flux matrix is hit by the divergence
