@@ -485,11 +485,6 @@ def __extract_submatrix(mat, ind):
     data = sub_mat.data
     unique_rows, rows_sub = np.unique(sub_mat.indices, return_inverse=True)
     shape = (unique_rows.size, cols.size - 1)
-    if shape[0]!=0:
-        A = sps.csc_matrix((data, rows_sub, cols))
-        if np.any(A.shape != shape):
-            import pdb; pdb.set_trace()
-    
     return sps.csc_matrix((data, rows_sub, cols), shape), unique_rows
 
 
