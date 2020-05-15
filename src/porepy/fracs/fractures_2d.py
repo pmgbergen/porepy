@@ -879,7 +879,7 @@ class FractureNetwork2d(object):
         if pts.shape[0] == 2:
             pts = np.vstack((pts, np.zeros(pts.shape[1])))
 
-        for fi, edge in enumerate(self.edges.T):
+        for edge in self.edges.T:
 
             # Add local points
             pts_vtk.InsertNextPoint(*pts[:, edge[0]])
