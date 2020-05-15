@@ -243,7 +243,10 @@ class Tpfa(pp.FVElliptic):
         vector_source = sps.coo_matrix((data, (rows, cols))).tocsr()
 
         matrix_dictionary[self.vector_source_matrix_key] = vector_source
+
         # Gravity contribution to pressure reconstruction
+        # The pressure difference is computed by the dot product between the
+        # vector source and the distance vector from cell to face centers.
         val = np.zeros((vector_source_dim, fi.size))  # EK: or fi_mat?
         val[:, bnd.is_neu[fi]] = fc_cc[:vector_source_dim, bnd.is_neu[fi]]
         bound_pressure_vector_source = sps.coo_matrix(
