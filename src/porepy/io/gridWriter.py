@@ -129,8 +129,10 @@ def merge_grids(grids):
 
         if hasattr(grid, "cell_facetag"):
             import pdb; pdb.set_trace()
-
             grid.cell_facetag = np.hstack((grid.cell_facetag, sg.cell_facetag))
+
+        for key in grid.tags.keys():
+            grid.tags[key] = np.hstack((grid.tags[key], sg.tags[key]))
 
     return grid
         
@@ -333,14 +335,14 @@ def mergeGridsOfEqualDim(gb):
         d['mortar_grid'] = mg
 
     mergedGb.assign_node_ordering()
-    for g, _ in mergedGb:
-        g.tags: Dict = {}
-        g.initiate_face_tags()
-        g.update_boundary_face_tag()
+    # for g, _ in mergedGb:
+    #     g.tags: Dict = {}
+    #     g.initiate_face_tags()
+    #     g.update_boundary_face_tag()
 
-        # Add tag for the boundary nodes
-        g.initiate_node_tags()
-        g.update_boundary_node_tag()
+    #     # Add tag for the boundary nodes
+    #     g.initiate_node_tags()
+    #     g.update_boundary_node_tag()
 
     return mergedGb
 
