@@ -227,7 +227,7 @@ class Tpfa(pp.FVElliptic):
         matrix_dictionary[self.bound_pressure_cell_matrix_key] = bound_pressure_cell
         matrix_dictionary[self.bound_pressure_face_matrix_key] = bound_pressure_face
 
-        # discretization of vector source
+        # Discretization of vector source
         # e.g. gravity in Darcy's law
         # Use harmonic average of cell transmissibilities
 
@@ -235,24 +235,24 @@ class Tpfa(pp.FVElliptic):
         # distance between cell and face centers, and with the sgn adjustment (or else)
         # the vector source will point in the wrong direction in certain cases.
         # See Starnoni et al 2020, WRR for details.
-        data = (t[fi_periodic] * fc_cc * sgn_periodic)[:vector_source_dim].ravel("f")
+        vals = (t[fi_periodic] * fc_cc * sgn_periodic)[:vector_source_dim].ravel("f")
 
         # Rows and cols are given by fi / ci, expanded to account for the vector source
-        # having multiple dimensions
+        # having multiple dimensions.
         rows = np.tile(fi_periodic, (vector_source_dim, 1)).ravel("f")
         cols = pp.fvutils.expand_indices_nd(ci_periodic, vector_source_dim)
 
-        vector_source = sps.coo_matrix((data, (rows, cols))).tocsr()
+        vector_source = sps.coo_matrix((vals, (rows, cols))).tocsr()
 
         matrix_dictionary[self.vector_source_matrix_key] = vector_source
 
         # Gravity contribution to pressure reconstruction
-        # The pressure difference is computed by the dot product between the
+        # The pressure difference is computed as the dot product between the
         # vector source and the distance vector from cell to face centers.
-        val = np.zeros((vector_source_dim, fi.size))  # EK: or fi_mat?
-        val[:, bnd.is_neu[fi]] = fc_cc[:vector_source_dim, bnd.is_neu[fi]]
+        vals = np.zeros((vector_source_dim, fi.size))
+        vals[:, bnd.is_neu[fi]] = fc_cc[:vector_source_dim, bnd.is_neu[fi]]
         bound_pressure_vector_source = sps.coo_matrix(
-            (val.ravel("f"), (rows, cols))
+            (vals.ravel("f"), (rows, cols))
         ).tocsr()
         matrix_dictionary[
             self.bound_pressure_vector_source_matrix_key

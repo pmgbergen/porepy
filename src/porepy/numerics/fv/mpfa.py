@@ -255,7 +255,7 @@ class Mpfa(pp.FVElliptic):
         # in the full coordinates.
 
         # What is left is to fix the projection if g.dim == 2.
-        # This is the part of the code that explains the special g.dim == 2 when
+        # This is the part of the code that requires the special g.dim == 2 when
         # cell_vector_dim is set above.
         if g.dim == 2:
             # Use the same mapping of the geometry as was done in
@@ -1126,8 +1126,8 @@ class Mpfa(pp.FVElliptic):
         # For the Neumann/Robin boundary conditions, we define the value as seen from
         # the innside of the domain. E.g. outflow is defined to be positive. We
         # therefore set the matrix indices to -1. We also have to scale it with
-        # the number of nodes per face because the flux of face is the sum of its
-        # half-faces.
+        # the number of nodes per face because the flux of a face is the sum of its
+        # half-face fluxes.
         #
         # EK: My understanding of the multiple -1s in the flux equation for boundary
         # conditions:
@@ -1144,7 +1144,7 @@ class Mpfa(pp.FVElliptic):
             scaled_sgn = -1 * np.ones(neu_rob_ind_all.size)
         else:
             # In this case we set the value at a face, thus, we need to distribute the
-            #  face values to the subfaces. We do this by an area-weighted average. Note
+            # face values to the subfaces. We do this by an area-weighted average. Note
             # that the rhs values should in this case be integrated over the faces, that is:
             # flux_neumann *\cdot * normal * face_area
             scaled_sgn = -1 / num_face_nodes[fno[neu_rob_ind_all]]

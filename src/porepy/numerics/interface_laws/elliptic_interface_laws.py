@@ -85,9 +85,11 @@ class RobinCoupling(
         Eta = sps.diags(inv_k)
         matrix_dictionary_edge[self.mortar_discr_key] = -inv_M * Eta
 
-        # Vector source. Contribution is last term of
+        ## Vector source.
+        # This contribution is last term of
         # lambda = - \kappa_n [p_l - p_h +  a/2 g \cdot n],
         # where n is the outwards normal.
+
         # Ambient dimension of the problem, as specified for the higher-dimensional
         # neighbor.
         # IMPLEMENTATION NOTE: The default value is needed to avoid that
@@ -136,7 +138,7 @@ class RobinCoupling(
         # high as g_h, thus taking the first vector_source_dim components of the normal
         # vector should be fine. The pathological case, where g_h is a 1d grid aligned
         # with the y-axis will need ambient_dimension set to 2 for the gravity
-        # implementation to work.
+        # implementation to work. IS: I don't follow this pathological case.
         # The computed values will be the values of our normal vectors.
         vals = outwards_unit_mortar_normals[:vector_source_dim].ravel("f")
 
