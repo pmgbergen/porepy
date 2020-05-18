@@ -57,7 +57,7 @@ class TestGridExtrusion0d(unittest.TestCase):
 
     def test_ignore_original_z(self):
         # Assign non-zero z-coordinate of the point grid. This should be ignored
-        self.g.nodes[2, 0] = 3
+        self.g.cell_centers[2, 0] = 3
         z = np.array([0, 1])
         gn, cell_map, face_map = pp.grid_extrusion._extrude_0d(self.g, z)
         coord_known = self.known_array(z)
