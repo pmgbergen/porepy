@@ -7,11 +7,22 @@ from test import test_utils
 
 
 class TestMixedDimGravity(unittest.TestCase):
+    """ Tests for md flow with gravity. Only finite volumes for now.
+    
+    Much of the code is copied and slightly modified from unit/test_darcy_mortar.py
+    
+    Logic in all tests:
+        1) Set up a grid, with the methods set_grids and (submethod) simplex_gb
+        2) Set parameters.
+        3) Run test cases.
+    
+    """
+    
     def mortar_nodes(self):
-        return [3]
+        return [3, 4]
 
     def fracture_nodes(self):
-        return [3]
+        return [2, 3, 4]
 
     def flow_methods(self):
         return ["mpfa", "tpfa"]
@@ -180,24 +191,10 @@ class TestMixedDimGravity(unittest.TestCase):
         return g
 
     def simplex_gb(
-        self, remove_tags=False, num_1d=3, pert_node=False, flip_normal=False
+        self, remove_tags=False, num_1d=3, num_nodes_mortar=3, pert_node=False, flip_normal=False
     ):
         g2 = self.grid_2d()
         g1 = self.grid_1d()
-        nodes = np.array(
-            [
-                [0, 0, 0],
-                [1, 0, 0],
-                [1, 0.5, 0],
-                [0.5, 0.5, 0],
-                [0, 0.5, 0],
-                [0, 0.5, 0],
-                [0.5, 0.5, 0],
-                [1, 0.5, 0],
-                [1, 1, 0],
-                [0, 1, 0],
-            ]
-        ).T
 
         gb = pp.meshing._assemble_in_bucket([[g2], [g1]])
 
@@ -213,7 +210,15 @@ class TestMixedDimGravity(unittest.TestCase):
 
         g_new_2d = self.grid_2d(pert_node=pert_node, flip_normal=flip_normal)
         g_new_1d = self.grid_1d(num_1d)
-        #        pp.mortars.replace_grids_in_bucket(gb, g_map={g2: g_new_2d, g1: g_new_1d})
+        pp.mortars.replace_grids_in_bucket(gb, g_map={g2: g_new_2d, g1: g_new_1d})
+        for e, d in gb.edges():
+            mg = d["mortar_grid"]
+
+        new_side_grids = {
+            s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
+            for s, g in mg.side_grids.items()
+        }
+        pp.mortars.update_mortar_grid(mg, new_side_grids, tol=1e-4)
 
         gb.assign_node_ordering()
         self.gb = gb
@@ -227,7 +232,7 @@ class TestMixedDimGravity(unittest.TestCase):
         simplex=False,
     ):
         if simplex:
-            self.simplex_gb(num_1d=num_nodes_1d)
+            self.simplex_gb(num_1d=num_nodes_1d, num_nodes_mortar=num_nodes_mortar)
             return
         f1 = np.array([[0, physdims[0]], [0.5, 0.5]])
 
@@ -247,7 +252,7 @@ class TestMixedDimGravity(unittest.TestCase):
             }
 
             pp.mortars.update_mortar_grid(mg, new_side_grids, tol=1e-4)
-            continue
+            #continue
             # refine the 1d-physical grid
             old_g = gb.nodes_of_edge(e)[0]
             new_g = pp.refinement.remesh_1d(old_g, num_nodes=num_nodes_1d)
@@ -273,11 +278,6 @@ class TestMixedDimGravity(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(p)
         return p
-
-    def verify_cv(self, gb):
-        for g, d in gb.nodes():
-            p = d[pp.STATE]["pressure"]
-            self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=1e-3, atol=1e-3))
 
     def verify_pressure(self, p_known=0):
         for g, d in self.gb.nodes():
@@ -316,6 +316,11 @@ class TestMixedDimGravity(unittest.TestCase):
             self.assertTrue(np.allclose(lmbda, 0, rtol=1e-3, atol=1e-3))
 
     def test_no_flow_neumann(self):
+        """ Use homogeneoous Neumann boundary conditions on top and bottom. 
+
+        The pressure distribution should be hydrostatic.
+
+        """
         nx = 3
         for method in self.flow_methods():
             for num_nodes_mortar in self.mortar_nodes():
@@ -325,22 +330,31 @@ class TestMixedDimGravity(unittest.TestCase):
                             num_nodes_mortar != num_nodes_1d or method == "tpfa"
                         ):
                             # Different number of mortar and 1d cells not implemented for simplex
+                            # Also, tpfa cannot be expected to produce pressure profiles
+                            # with sufficient accuracy for the test to make sense.
                             continue
                         self.set_grids(
                             [nx, 2], num_nodes_mortar, num_nodes_1d, simplex=simplex
                         )
                         self.set_param_flow(neu_val_top=0, method=method)
-                        x = self.solve()
+                        self.solve()
 
                         self.verify_hydrostatic()
                         self.verify_mortar_flux(0)
 
     def test_no_flow_rotate_gravity(self):
+        """
+        Rotate the angle of gravity. Neumann boundaries, there should be no flow.
+
+        """
+        
         # The angle pi/2 requires nx = 1
         nx = 1
         for method in self.flow_methods():
             for num_nodes_mortar in self.mortar_nodes():
-                for num_nodes_1d in self.fracture_nodes():
+                # For the below tests of uniform pressure and no uniform flow to make
+                # sense, there can only be a single cell in the fracture grid.
+                for num_nodes_1d in [2]:
                     for simplex in [False, True]:
                         if (
                             simplex
@@ -364,6 +378,12 @@ class TestMixedDimGravity(unittest.TestCase):
                             self.verify_mortar_flux(0)
 
     def test_no_flow_dirichlet(self):
+        """
+        Dirichlet boundary conditions, but set so that the the pressure is hydrostatic,
+        and there is no flow.
+
+        """
+        
         nx = 3
         for method in self.flow_methods():
             for num_nodes_mortar in self.mortar_nodes():
@@ -383,6 +403,10 @@ class TestMixedDimGravity(unittest.TestCase):
                         self.verify_mortar_flux(0)
 
     def test_inflow_top(self):
+        """
+        Prescribed inflow at the top. Strength of the flow counteracts gravity, so that
+        the pressure is uniform.
+        """
         nx = 2
         a = 1e-2
         for method in self.flow_methods():
@@ -397,6 +421,7 @@ class TestMixedDimGravity(unittest.TestCase):
                         self.set_grids(
                             [nx, 2], num_nodes_mortar, num_nodes_1d, simplex=simplex
                         )
+                        # Flux density is 1/2.
                         val = -1 if simplex else -1 / nx
                         self.set_param_flow(neu_val_top=val, method=method, aperture=a)
                         x = self.solve(method=method)
@@ -404,6 +429,10 @@ class TestMixedDimGravity(unittest.TestCase):
                         self.verify_mortar_flux(1 / (num_nodes_mortar - 1))
 
     def test_uniform_pressure(self):
+        """
+        Prescribed pressure at the top. Strength of the flow counteracts gravity, so
+        that the pressure is uniform.
+        """        
         a = 3e-3
         for method in self.flow_methods():
             for num_nodes_mortar in self.mortar_nodes():
@@ -534,5 +563,5 @@ class TestMortar3D(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    # TestMixedDimGravity().test_uniform_pressure()
+    TestMixedDimGravity().test_no_flow_rotate_gravity()
     unittest.main()
