@@ -107,7 +107,7 @@ class TestMeshing(unittest.TestCase):
                 np.allclose(g.face_centers[:, f_p[0]], g.face_centers[:, f_p[1]])
             )
 
-        self.assertTrue(np.allclose(g_0[0].nodes, np.array([1, 1, 1])))
+        self.assertTrue(np.allclose(g_0[0].cell_centers, np.array([1, 1, 1])))
 
 
 if __name__ == "__main__":
