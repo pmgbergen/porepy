@@ -82,6 +82,10 @@ def generate_coarse_grid(g, subdiv):
 
     """
     if isinstance(g, grid.Grid):
+        if isinstance(subdiv, dict):
+            # If the subdiv is a dictionary with g as a key (this can happen if we are
+            # forwarded here from coarsen), the input must be simplified.
+            subdiv = subdiv[g][1]
         _generate_coarse_grid_single(g, subdiv, False)
 
     if isinstance(g, grid_bucket.GridBucket):
