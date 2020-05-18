@@ -88,28 +88,71 @@ class RobinCoupling(
         # Vector source. Contribution is last term of
         # lambda = - \kappa_n [p_l - p_h +  a/2 g \cdot n],
         # where n is the outwards normal.
-        # Ambient dimension of the grid
+        # Ambient dimension of the problem, as specified for the higher-dimensional
+        # neighbor.
+        # IMPLEMENTATION NOTE: The default value is needed to avoid that
+        # ambient_dimension becomes a required parameter. If neither ambient dimension,
+        # nor the actual vector_source is specified, there will be no problems (in the
+        # assembly, a zero vector soucre of a size that fits with the discretization is
+        # created). If a vector_source is specified, but the ambient dimension is not,
+        # a dimension mismatch will result unless the ambient dimension implied by
+        # the size of the vector source matches g_h.dim. This is okay for domains with
+        # no subdomains with co-dimension more than 1, but will fail for fracture
+        # intersections. The default value is thus the least bad option in this case.
         vector_source_dim: int = parameter_dictionary_h.get(
             "ambient_dimension", g_h.dim
-        )  # Dangerous. Consider no default.
-        # Construct the dot product between normals on fracture faces and the identity
-        # matrix. IS: This was simply copied from elsewhere. We should consider writing
-        # a utility function for this like we discussed, EK.
-        ci_mortar, fi_h, weight = sps.find(mg.master_to_mortar_avg())
-        sgn_w = g_h.sign_of_faces(fi_h) * weight
-        unit_fracture_normals = (
-            g_h.face_normals[:vector_source_dim, fi_h] / g_h.face_areas[fi_h]
         )
+        # The ambient dimension cannot be less than the dimension of g_h.
+        # If this is broken, we risk ending up with zero normal vectors below, so it is
+        # better to break this off now
+        if vector_source_dim < g_h.dim:
+            raise ValueError(
+                "Ambient dimension cannot be lower than the grid dimension"
+            )
 
-        outwards_unit_fracture_normals = unit_fracture_normals * sgn_w
+        # Construct the dot product between normals on fracture faces and the identity
+        # matrix.
 
-        vals = outwards_unit_fracture_normals[:vector_source_dim].ravel("f")
+        # Find the mortar normal vectors by projection of the normal vectors in g_h
+        normals_h = g_h.face_normals
+
+        # projection matrix
+        proj = mg.master_to_mortar_avg()
+
+        # Ensure that the normal vectors point out of g_h
+        # Indices of faces neighboring this mortar grid
+        _, fi_h, _ = sps.find(proj)
+        # Switch direction of vectors if relevant
+        normals_h[:, fi_h] *= g_h.sign_of_faces(fi_h)
+
+        # Project the normal vectors, we need to do some transposes to get this right
+        normals_mortar = (proj * normals_h.T).T
+        nrm = np.linalg.norm(normals_mortar, axis=0)
+        # Sanity check
+        assert np.all(nrm > 1e-10)
+        outwards_unit_mortar_normals = normals_mortar / nrm
+
+        # We know that the ambient dimension for the vector source must be at least as
+        # high as g_h, thus taking the first vector_source_dim components of the normal
+        # vector should be fine. The pathological case, where g_h is a 1d grid aligned
+        # with the y-axis will need ambient_dimension set to 2 for the gravity
+        # implementation to work.
+        # The computed values will be the values of our normal vectors.
+        vals = outwards_unit_mortar_normals[:vector_source_dim].ravel("f")
+
+        # The values in vals are sorted by the mortar cell index ordering (proj is a
+        # csr matrix).
+        ci_mortar = np.arange(mg.num_cells, dtype=np.int)
+
         # The mortar cell indices are expanded to account for the vector source
         # having multiple dimensions
         rows = np.tile(ci_mortar, (vector_source_dim, 1)).ravel("f")
+        # Columns must account for the values being vector values.
         cols = pp.fvutils.expand_indices_nd(ci_mortar, vector_source_dim)
 
+        # And we have the normal vectors
         mortar_normals = sps.coo_matrix((vals, (rows, cols))).tocsr()
+
         # On assembly, the outwards normals on the mortars will be multiplied by the
         # interface vector source.
         matrix_dictionary_edge[self.mortar_vector_source_key] = mortar_normals
@@ -183,12 +226,22 @@ class RobinCoupling(
         )
         # Also assemble vector sources.
         # Discretization of the vector source term
-        vector_source_discr = matrix_dictionary_edge[self.mortar_vector_source_key]
+        vector_source_discr: sps.spmatrix = matrix_dictionary_edge[
+            self.mortar_vector_source_key
+        ]
         # The vector source, defaults to zero if not specified.
-        vector_source = parameter_dictionary_edge.get(
+        vector_source: np.ndarray = parameter_dictionary_edge.get(
             "vector_source", np.zeros(vector_source_discr.shape[1])
         )
-        # IS: Insert warning about ambient dimension if the dimensions don't match?
+        if vector_source_discr.shape[1] != vector_source.size:
+            # If this happens chances are that either the ambient dimension was not set,
+            # and thereby its default value was used. Another not unlikely reason is
+            # that the ambient dimension is set, but with a value that does not match
+            # the specified vector source.
+            raise ValueError(
+                "Mismatch in vector source dimensions. Did you forget to specify the ambient dimension?"
+            )
+
         rhs[2] = rhs[2] - vector_source_discr * vector_source
 
         for block in range(cc.shape[1]):
