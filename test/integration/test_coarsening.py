@@ -754,7 +754,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test0(self):
-        gb = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
+        gb, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
 
         part = co.create_partition(co.tpfa_matrix(gb), gb)
         co.generate_coarse_grid(gb, part)
@@ -772,7 +772,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_create_partition_2d_1d_test1(self):
 
-        gb = pp.grid_buckets_2d.single_horizontal(
+        gb, _ = pp.grid_buckets_2d.single_horizontal(
             [2, 2], x_endpoints=[0.5, 0], simplex=False
         )
         part = co.create_partition(co.tpfa_matrix(gb), gb)
@@ -790,7 +790,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test2(self):
-        gb = pp.grid_buckets_2d.single_horizontal(
+        gb, _ = pp.grid_buckets_2d.single_horizontal(
             [2, 2], x_endpoints=[0, 0.5], simplex=False
         )
 
@@ -813,7 +813,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test3(self):
-        gb = pp.grid_buckets_2d.single_horizontal(
+        gb, _ = pp.grid_buckets_2d.single_horizontal(
             [2, 2], x_endpoints=[0.5, 1], simplex=False
         )
 
@@ -832,7 +832,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test4(self):
-        gb = pp.grid_buckets_2d.single_horizontal(
+        gb, _ = pp.grid_buckets_2d.single_horizontal(
             [2, 2], x_endpoints=[0.5, 1], simplex=False
         )
 

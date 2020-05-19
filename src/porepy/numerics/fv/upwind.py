@@ -4,7 +4,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class Upwind:
+class Upwind(pp.numerics.discretization.Discretization):
     """
     Discretize a hyperbolic transport equation using a single point upstream
     weighting scheme.
@@ -295,7 +295,10 @@ class Upwind:
         assert beta.size == 3
 
         if g.dim == 0:
-            dot_prod = np.dot(g.face_normals.ravel("F"), face_apertures * beta)
+            if g.num_faces==0:
+                dot_prod = np.zeros(0)
+            else:
+                dot_prod = np.dot(g.face_normals.ravel("F"), face_apertures * beta)
             return np.atleast_1d(dot_prod)
 
         return np.array(
