@@ -136,10 +136,7 @@ class RobinCoupling(
 
         # We know that the ambient dimension for the vector source must be at least as
         # high as g_h, thus taking the first vector_source_dim components of the normal
-        # vector should be fine. The pathological case, where g_h is a 1d grid aligned
-        # with the y-axis will need ambient_dimension set to 2 for the gravity
-        # implementation to work. IS: I don't follow this pathological case.
-        # The computed values will be the values of our normal vectors.
+        # vector should be fine.
         vals = outwards_unit_mortar_normals[:vector_source_dim].ravel("f")
 
         # The values in vals are sorted by the mortar cell index ordering (proj is a
