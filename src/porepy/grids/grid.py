@@ -227,12 +227,15 @@ class Grid:
 
     def _compute_geometry_0d(self) -> None:
         "Compute 0D geometry"
-        self.face_areas = np.ones(1)
+        self.face_areas = np.zeros(0)
         self.face_centers = self.nodes
-        self.face_normals = np.zeros((3, 1))  # not well-defined
+        self.face_normals = np.zeros((3, 0))  # not well-defined
 
-        self.cell_volumes = np.ones(1)
-        self.cell_centers = self.nodes
+        self.cell_volumes = np.ones(self.num_cells)
+        if not hasattr(self, "cell_centers"):
+            raise ValueError("Can not compute geometry of 0d grid without cell centers")
+        # Here, we should assign the cell centers, however this does nothing:
+        # self.cell_centers = self.cell_centers
 
     def _compute_geometry_1d(self) -> None:
         "Compute 1D geometry"
@@ -564,12 +567,14 @@ class Grid:
         """
         # Local version of cell-face map, using absolute value to avoid
         # artifacts from +- in the original version.
+        shape = (self.num_faces, self.num_cells)
         cf_loc = sps.csc_matrix(
             (
                 np.abs(self.cell_faces.data),
                 self.cell_faces.indices,
                 self.cell_faces.indptr,
-            )
+            ),
+            shape,
         )
 
         mat = (self.face_nodes * cf_loc) > 0
@@ -797,7 +802,11 @@ class Grid:
             np.array (size 3): Maximum node coordinates in each direction.
 
         """
-        return np.amin(self.nodes, axis=1), np.amax(self.nodes, axis=1)
+        if self.dim==0:
+            coords = self.cell_centers
+        else:
+            coords = self.nodes
+        return np.amin(coords, axis=1), np.amax(coords, axis=1)
 
     def closest_cell(self, p: np.ndarray, return_distance: bool = False) -> np.ndarray:
         """ For a set of points, find closest cell by cell center.

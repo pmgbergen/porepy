@@ -299,6 +299,14 @@ def subproblems(
 ) -> Generator[Any, None, None]:
     num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(np.int)
 
+    if active_grid.dim ==0:
+        # nothing realy to do here
+        loc_faces = np.ones(active_grid.num_faces, dtype=bool)
+        loc_cells = np.ones(active_grid.num_cells, dtype=bool)
+        loc2g_cells = sps.eye(active_grid.num_cells, dtype=bool)
+        loc2g_face = sps.eye(active_grid.num_faces, dtype=bool)
+        return active_grid, loc_faces, loc_cells, loc2g_cells, loc2g_face
+
     # Let partitioning module apply the best available method
     part: np.ndarray = pp.partition.partition(active_grid, num_part)
 
