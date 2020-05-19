@@ -116,7 +116,7 @@ class RobinCoupling(
         # matrix.
 
         # Find the mortar normal vectors by projection of the normal vectors in g_h
-        normals_h = g_h.face_normals
+        normals_h = g_h.face_normals.copy()
 
         # projection matrix
         proj = mg.master_to_mortar_avg()
