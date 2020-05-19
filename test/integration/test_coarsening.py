@@ -537,7 +537,7 @@ class BasicsTest(unittest.TestCase):
     def test_create_partition_2d_cart(self):
         g = pp.CartGrid([5, 5])
         g.compute_geometry()
-        part = co.create_partition(co.tpfa_matrix(g), g)
+        part = co.create_partition(co._tpfa_matrix(g), g)
         known = np.array(
             [0, 0, 0, 1, 1, 0, 0, 2, 1, 1, 3, 2, 2, 2, 1, 3, 3, 2, 4, 4, 3, 3, 4, 4, 4]
         )
@@ -549,7 +549,7 @@ class BasicsTest(unittest.TestCase):
     def test_create_partition_2d_tri(self):
         g = pp.StructuredTriangleGrid([3, 2])
         g.compute_geometry()
-        part = co.create_partition(co.tpfa_matrix(g), g)
+        part = co.create_partition(co._tpfa_matrix(g), g)
         known = np.array([1, 1, 1, 0, 0, 1, 0, 2, 2, 0, 2, 2])
         known_map = np.array([4, 3, 7, 5, 11, 8, 1, 2, 10, 6, 12, 9]) - 1
         part = next(iter(part.values()))[1]
@@ -560,7 +560,7 @@ class BasicsTest(unittest.TestCase):
     def test_create_partition_2d_cart_cdepth4(self):
         g = pp.CartGrid([10, 10])
         g.compute_geometry()
-        part = co.create_partition(co.tpfa_matrix(g), g, cdepth=4)
+        part = co.create_partition(co._tpfa_matrix(g), g, cdepth=4)
         known = (
             np.array(
                 [
@@ -676,7 +676,7 @@ class BasicsTest(unittest.TestCase):
     def test_create_partition_3d_cart(self):
         g = pp.CartGrid([4, 4, 4])
         g.compute_geometry()
-        part = co.create_partition(co.tpfa_matrix(g), g)
+        part = co.create_partition(co._tpfa_matrix(g), g)
         known = (
             np.array(
                 [
@@ -756,7 +756,7 @@ class BasicsTest(unittest.TestCase):
     def test_create_partition_2d_1d_test0(self):
         gb, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
 
-        part = co.create_partition(co.tpfa_matrix(gb), gb)
+        part = co.create_partition(co._tpfa_matrix(gb), gb)
         co.generate_coarse_grid(gb, part)
 
         # Test
@@ -775,7 +775,7 @@ class BasicsTest(unittest.TestCase):
         gb, _ = pp.grid_buckets_2d.single_horizontal(
             [2, 2], x_endpoints=[0.5, 0], simplex=False
         )
-        part = co.create_partition(co.tpfa_matrix(gb), gb)
+        part = co.create_partition(co._tpfa_matrix(gb), gb)
         co.generate_coarse_grid(gb, part)
 
         # Test
@@ -798,7 +798,7 @@ class BasicsTest(unittest.TestCase):
         known_seeds = np.array([0, 2])
         self.assertTrue(np.array_equal(seeds, known_seeds))
 
-        part = co.create_partition(co.tpfa_matrix(gb), gb, seeds=seeds)
+        part = co.create_partition(co._tpfa_matrix(gb), gb, seeds=seeds)
         co.generate_coarse_grid(gb, part)
 
         # Test
@@ -817,7 +817,7 @@ class BasicsTest(unittest.TestCase):
             [2, 2], x_endpoints=[0.5, 1], simplex=False
         )
 
-        part = co.create_partition(co.tpfa_matrix(gb), gb)
+        part = co.create_partition(co._tpfa_matrix(gb), gb)
         co.generate_coarse_grid(gb, part)
 
         # Test
@@ -840,7 +840,7 @@ class BasicsTest(unittest.TestCase):
         known_seeds = np.array([1, 3])
         self.assertTrue(np.array_equal(seeds, known_seeds))
 
-        part = co.create_partition(co.tpfa_matrix(gb), gb, seeds=seeds)
+        part = co.create_partition(co._tpfa_matrix(gb), gb, seeds=seeds)
         co.generate_coarse_grid(gb, part)
 
         # Test
@@ -863,7 +863,7 @@ class BasicsTest(unittest.TestCase):
             gb = pp.meshing.cart_grid([f1, f2], [6, 6])
             gb.compute_geometry()
 
-            part = co.create_partition(co.tpfa_matrix(gb), gb, cdepth=3)
+            part = co.create_partition(co._tpfa_matrix(gb), gb, cdepth=3)
             co.generate_coarse_grid(gb, part)
 
             cell_centers_1 = np.array(
@@ -926,7 +926,7 @@ class BasicsTest(unittest.TestCase):
             known_seeds = np.array([8, 9, 26, 27, 13, 16, 19, 22])
             self.assertTrue(np.array_equal(np.sort(seeds), np.sort(known_seeds)))
 
-            part = co.create_partition(co.tpfa_matrix(gb), gb, cdepth=3, seeds=seeds)
+            part = co.create_partition(co._tpfa_matrix(gb), gb, cdepth=3, seeds=seeds)
             co.generate_coarse_grid(gb, part)
 
             cell_centers_1 = np.array(
@@ -990,7 +990,7 @@ class BasicsTest(unittest.TestCase):
             known_seeds = np.array([29, 30, 369, 370, 181, 198, 201, 218])
             self.assertTrue(np.array_equal(np.sort(seeds), np.sort(known_seeds)))
 
-            part = co.create_partition(co.tpfa_matrix(gb), gb, cdepth=3, seeds=seeds)
+            part = co.create_partition(co._tpfa_matrix(gb), gb, cdepth=3, seeds=seeds)
             co.generate_coarse_grid(gb, part)
 
             cell_centers_1 = np.array(
