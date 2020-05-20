@@ -87,8 +87,9 @@ class RobinCoupling(
 
         ## Vector source.
         # This contribution is last term of
-        # lambda = - \kappa_n [p_l - p_h +  a/2 g \cdot n],
-        # where n is the outwards normal.
+        # lambda = -\int{\kappa_n [p_l - p_h +  a/2 g \cdot n]} dV,
+        # where n is the outwards normal and the integral is taken over the mortar cell.
+        # (Note: This assumes a P0 discretization of mortar fluxes).
 
         # Ambient dimension of the problem, as specified for the higher-dimensional
         # neighbor.

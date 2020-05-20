@@ -125,14 +125,6 @@ class Mpfa(pp.FVElliptic):
         active_bound_pressure_cell = sps.csr_matrix((nf, nc))
         active_bound_pressure_face = sps.csr_matrix((nf, nf))
 
-        # Vector source term. This is a bit involved, since, if g.dim == 1,
-        # discretization is outsourced to pp.Tpfa, and the computed discretization is
-        # in the right dimension relative to the ambient dimension. If g.dim != 1, the
-        # discretization is first computed relative to g.dim, and then rotated to the
-        # ambient dimension towards the end of this function (see construction of
-        # vector_source_glob). This leads to a few instances of if g.dim == 1 here
-        # and below.
-
         # For the vector sources, some extra care is needed in the projections between
         # local and global discretization matrices. The variable cell_vector_dim is used
         # at various places below.
