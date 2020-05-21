@@ -29,8 +29,8 @@ T = TypeVar("T")
 
 class GridBucket(Generic[T]):
     """
-    Container for the hiererchy of grids formed by fractures and their
-    intersection.
+    Container for the hierarchy of grids formed by fractures and their
+    intersections.
 
     The mixed-dimensional grid can be considered a graph, with the fixed-dimensional grids
     defining nodes, and interfaces edges. The terminology in the implementation,
@@ -40,16 +40,16 @@ class GridBucket(Generic[T]):
     and the the lowest-dimensional neighboring grid.
 
     Attributes:
-        _nodes (dictionary): For all fixed-dimensional grids, a dictionary with
-            grids as keys, and data associated with the grid as node.
-        _edges (dictionary): For all fixed-dimensional grids, a dictionary with
-            the edges as keys, and data associated with the grid as node.
+        _nodes (dictionary): For all mixed-dimensional grids, a dictionary with
+            grids as keys, and data associated with the grid as values.
+        _edges (dictionary): For all mixed-dimensional grids, a dictionary with
+            the edges as keys, and data associated with the grid as values.
 
     """
 
     def __init__(self) -> None:
-        self._nodes = {}
-        self._edges = {}
+        self._nodes: Dict[pp.Grid, Dict] = {}
+        self._edges: Dict[Tuple[pp.Grid, pp.Grid], Dict] = {}
         self.name = "grid bucket"
 
     def __contains__(self, key: Any) -> bool:
@@ -80,12 +80,11 @@ class GridBucket(Generic[T]):
     # --------- Iterators -------------------------
 
     def __iter__(self) -> Generator[Tuple[pp.Grid, Dict], None, None]:
-        """
-        Iterator over the nodes in the GridBucket.
+        """ Iterator over the nodes in the GridBucket.
 
         Yields:
-            core.grid.nodes: The grid associated with a node.
-            data: The dictionary storing all information in this node.
+            g (pp.Grid): The grid associated with a node.
+            data (dict): The dictionary storing all information in this node.
 
         """
         for g, data in self._nodes.items():
@@ -98,8 +97,8 @@ class GridBucket(Generic[T]):
         with self.edges()
 
         Yields:
-            g: Grid associated with the current node.
-            data: The dictionary storing all information in this node.
+            g (pp.Grid): Grid associated with the current node.
+            data (dict): The dictionary storing all information in this node.
 
         """
         for g, data in self._nodes.items():
@@ -110,8 +109,10 @@ class GridBucket(Generic[T]):
         Iterator over the edges in the GridBucket
 
         Yields:
-            e: Grid pair associated with the current edge.
-            data: The dictionary storing all information in this edge..
+            e (Tuple[pp.Grid, pp.Grid]):
+                Grid pair associated with the current edge.
+            data (dict):
+                The dictionary storing all information in this edge..
 
         """
         for e, data in self._edges.items():
@@ -120,8 +121,7 @@ class GridBucket(Generic[T]):
     # ---------- Navigate within the graph --------
 
     def nodes_of_edge(self, e: Tuple[pp.Grid, pp.Grid]) -> Tuple[pp.Grid, pp.Grid]:
-        """
-        Obtain the vertices of an edge.
+        """ Obtain the vertices of an edge.
 
         The nodes will be given in ascending order with respect their
         dimension. If the edge is between grids of the same dimension, the node
@@ -129,7 +129,8 @@ class GridBucket(Generic[T]):
         of nodes exists, assign_node_ordering() will be called by this method.
 
         Parameters:
-            e: An edge in the graph.
+            e (Tuple[pp.Grid, pp.Grid]):
+                An edge in the graph.
 
         Returns:
             pp.Grid: The first vertex of the edge.
@@ -158,15 +159,16 @@ class GridBucket(Generic[T]):
     def edges_of_node(
         self, n
     ) -> Generator[Tuple[Tuple[pp.Grid, pp.Grid], Dict], None, None]:
-        """
-        Iterator over the edges of the specific node.
+        """ Iterator over the edges of the specific node.
 
         Parameters:
             n: A node in the graph.
 
         Yields:
-            core.grid.edges: The edge (pair of grids) associated with an edge.
-            data: The dictionary storing all information in this edge.
+            e (Tuple[pp.Grid, pp.Grid]):
+                The edge (pair of grids) associated with an edge.
+            data (dict):
+                The dictionary storing all information in this edge.
 
         """
         for e, _ in self._edges.items():
@@ -176,21 +178,20 @@ class GridBucket(Generic[T]):
     def node_neighbors(
         self, node: pp.Grid, only_higher: bool = False, only_lower: bool = False
     ) -> np.ndarray:
-        """
-        Get neighbors of a node in the graph.
+        """ Get neighbors of a node in the graph.
 
         Optionally, return only neighbors corresponding to higher or lower
         dimension. At most one of only_higher and only_lower can be True.
 
         Parameters:
-            node (Grid): node in the graph.
+            node (pp.Grid): node in the graph.
             only_higher (boolean, optional): Consider only the higher
                 dimensional neighbors. Defaults to False.
             only_lower (boolean, optional): Consider only the lower dimensional
                 neighbors. Defaults to False.
 
         Return:
-            np.array: Neighbors of node 'node'
+            np.ndarray: Neighbors of node 'node'
 
         Raises:
             ValueError if both only_higher and only_lower is True.
@@ -222,8 +223,7 @@ class GridBucket(Generic[T]):
     # ------------ Getters for grids
 
     def get_grids(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
-        """
-        Obtain the grids, optionally filtered by a specified condition.
+        """ Obtain the grids, optionally filtered by a specified condition.
 
         Example:
         g = self.gb.get_grids(lambda g: g.dim == dim)
@@ -242,10 +242,10 @@ class GridBucket(Generic[T]):
         return np.array([g for g, _ in self if cond(g)])
 
     def grids_of_dimension(self, dim: int) -> np.ndarray:
-        """
-        Get all grids in the bucket of a specific dimension.
+        """ Get all grids in the bucket of a specific dimension.
+
         Returns:
-            list: Of grids of the specified dimension
+            grids (np.ndarray): Array of grids of the specified dimension
 
         """
 
@@ -254,8 +254,7 @@ class GridBucket(Generic[T]):
     def get_mortar_grids(
         self, cond: Callable[[pp.Grid], bool] = None, name: str = "mortar_grid"
     ) -> np.ndarray:
-        """
-        Obtain the mortar grids, optionally filtered by a specified condition.
+        """ Obtain the mortar grids, optionally filtered by a specified condition.
 
         Example:
         g = self.gb.get_mortar_grids(lambda g: g.dim == dim)
@@ -266,7 +265,7 @@ class GridBucket(Generic[T]):
             name (str, optional): key to identify mortar grids on edges.
 
         Returns:
-            grids: np.array of the grids.
+            grids (np.ndarray): Array of the grids.
 
         """
         if cond is None:
@@ -281,8 +280,7 @@ class GridBucket(Generic[T]):
         g: Union[pp.Grid, List[pp.Grid]] = None,
         overwrite: bool = True,
     ) -> None:
-        """
-        Add a new property to existing nodes in the graph.
+        """ Add a new property to existing nodes in the graph.
 
         Properties can be added either to all nodes, or to selected nodes as
         specified by their grid. In the former case, all nodes will be assigned
@@ -331,8 +329,7 @@ class GridBucket(Generic[T]):
         grid_pairs: List[Tuple[pp.Grid, pp.Grid]] = None,
         overwrite: bool = True,
     ) -> None:
-        """
-        Associate a property with an edge.
+        """ Associate a property with an edge.
 
         Properties can be added either to all edges, or to selected edges as
         specified by their grid pair. In the former case, all edges will be
@@ -343,7 +340,7 @@ class GridBucket(Generic[T]):
 
         Parameters:
             keys (object or list of object): Key to the property to be handled.
-            grid_pairs (list of 2-tuple of core.grids.grid, optional): Grid pairs
+            grid_pairs (list of 2-tuple of pp.Grid, optional): Grid pairs
                 defining the edges to be assigned. values. Defaults to None, in
                 which case all edges are assigned the same value.
             overwrite (bool, optional): Whether to overwrite existing keys.
@@ -366,8 +363,8 @@ class GridBucket(Generic[T]):
     # ------------ Getters for node and edge properties
 
     def has_nodes_prop(self, grids: Iterable[pp.Grid], key: Any) -> Tuple[bool]:
-        """
-        Test if a key exists for a node property of the bucket, for several nodes.
+        """ Test if a key exists for a node property of the bucket, for several nodes.
+
         Note: the property may contain None but the outcome of the test is
         still true.
 
@@ -382,8 +379,7 @@ class GridBucket(Generic[T]):
         return tuple([key in self._nodes[g] for g in grids])
 
     def node_props(self, g: pp.Grid, key: Any = None) -> Any:
-        """
-        Getter for a node property of the bucket.
+        """ Getter for a node property of the bucket.
 
         Parameters:
             g (pp.Grid): The grid associated with the node.
@@ -401,12 +397,10 @@ class GridBucket(Generic[T]):
             return self._nodes[g][key]
 
     def edge_props(self, gp: Tuple[pp.Grid, pp.Grid], key: Any = None) -> Any:
-        """
-        Getter for an edge properties of the bucket.
+        """ Getter for an edge properties of the bucket.
 
         Parameters:
-            gp (list of core.grids.grid): The two grids making up the
-                edge.
+            gp (Tuple of pp.Grid): The two grids making up the edge.
             key (object, optional): Keys for the properties to be retrieved.
                 If key is None (default) the entire data dictionary for the
                 edge is returned.
@@ -446,7 +440,7 @@ class GridBucket(Generic[T]):
         Parameters:
             g (pp.Grid): Grid identifying the node.
             key (object): Key identifying the field to add.
-            val: Value to be added.
+            val (Any): Value to be added.
 
         """
         self._nodes[g][key] = val
@@ -464,7 +458,7 @@ class GridBucket(Generic[T]):
         Parameters:
             gp (2-tuple of grids): Grid pair identifying the edge.
             key (object): Key identifying the field to add.
-            val: Value to be added.
+            val (Any): Value to be added.
 
         Raises:
             KeyError if the two grids do not form an edge.
@@ -483,8 +477,7 @@ class GridBucket(Generic[T]):
     def remove_node_props(
         self, keys: Union[Any, List[Any]], g: Union[pp.Grid, List[pp.Grid]] = None
     ) -> None:
-        """
-        Remove property to existing nodes in the graph.
+        """ Remove property to existing nodes in the graph.
 
         Properties can be removed either to all nodes, or to selected nodes as
         specified by their grid. In the former case, to all nodes the property
@@ -492,7 +485,7 @@ class GridBucket(Generic[T]):
 
         Parameters:
             keys (object or list of object): Key to the property to be handled.
-            g (list of grids.grid, optional): Nodes to be removed the values.
+            g (list of pp.Grid, optional): Nodes to be removed the values.
                 Defaults to None, in which case the property is removed from
                 all nodes.
 
