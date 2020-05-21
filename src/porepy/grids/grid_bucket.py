@@ -276,7 +276,7 @@ class GridBucket(Generic[T]):
     # ----------- Adders for node and edge properties (introduce keywords)
 
     def add_node_props(
-        self, keys: Union[Any, List[Any]], g: Union[pp.Grid, List[pp.Grid]] = None
+        self, keys: Union[Any, List[Any]], g: Union[pp.Grid, List[pp.Grid]] = None, overwrite: bool = True
     ) -> None:
         """
         Add a new property to existing nodes in the graph.
@@ -287,14 +287,16 @@ class GridBucket(Generic[T]):
 
         The property gets value None, other values must be assigned later.
 
-        No tests are done on whether the key already exist, values are simply
-        overwritten.
+        By default, existing keys are overwritten.
+        If existing keys should be kept, set overwrite to False.
 
         Parameters:
             keys (object or list of object): Key to the property to be handled.
-            g (list of grids.grid, optional): Nodes to be assigned values.
+            g (list of pp.Grid, optional): Nodes to be assigned values.
                 Defaults to None, in which case all nodes are assigned the same
                 value.
+            overwrite (bool, optional): Whether to overwrite existing keys.
+                If false, any existing key on any grid will not be overwritten.
 
         Raises:
             ValueError if the key is 'node_number', this is reserved for other
@@ -309,22 +311,22 @@ class GridBucket(Generic[T]):
         # Do some checks of parameters first
         if g is not None and not isinstance(g, list):
             g = [g]
+        if g is None:
+            g = list(self._nodes)
 
         keys = [keys] if isinstance(keys, str) else list(keys)
 
         for key in keys:
-            if g is None:
-                for data in self._nodes.values():
+            for grid in g:
+                data = self._nodes[grid]
+                if overwrite or key not in data:
                     data[key] = None
-            else:
-                for h, n in self:
-                    if h in g:
-                        n[key] = None
 
     def add_edge_props(
         self,
         keys: Union[Any, List[Any]],
         grid_pairs: List[Tuple[pp.Grid, pp.Grid]] = None,
+        overwrite: bool = True,
     ) -> None:
         """
         Associate a property with an edge.
@@ -333,35 +335,30 @@ class GridBucket(Generic[T]):
         specified by their grid pair. In the former case, all edges will be
         assigned the property, with None as the default option.
 
-        No tests are done on whether the key already exist, values are simply
-        overwritten.
+        By default, existing keys are overwritten.
+        If existing keys should be kept, set overwrite to False.
 
         Parameters:
             keys (object or list of object): Key to the property to be handled.
             grid_pairs (list of 2-tuple of core.grids.grid, optional): Grid pairs
                 defining the edges to be assigned. values. Defaults to None, in
                 which case all edges are assigned the same value.
+            overwrite (bool, optional): Whether to overwrite existing keys.
+                If false, any existing key on any grid-pair will not be overwritten.
 
         Raises:
             KeyError if a grid pair is not an existing edge in the grid.
 
         """
         keys = [keys] if isinstance(keys, str) else list(keys)
-        for key in np.atleast_1d(keys):
-            if grid_pairs is None:
-                for gp in self._edges.keys():
-                    self._edges[gp][key] = None
-            else:
-                for gp in grid_pairs:
-                    if tuple(gp) in list(self._edges.keys()):
-                        self._edges[(gp[0], gp[1])][key] = None
-                    elif tuple(gp[::-1]) in list(self._edges.keys()):
-                        self._edges[(gp[1], gp[0])][key] = None
-                    else:
-                        raise KeyError(
-                            "Cannot assign property to undefined\
-                                         edge"
-                        )
+        if grid_pairs is None:
+            grid_pairs = list(self._edges)
+
+        for key in keys:
+            for gp in grid_pairs:
+                data = self.edge_props(gp)
+                if overwrite or key not in data:
+                    data[key] = None
 
     # ------------ Getters for node and edge properties
 
