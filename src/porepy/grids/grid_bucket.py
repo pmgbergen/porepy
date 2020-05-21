@@ -309,7 +309,7 @@ class GridBucket(Generic[T]):
         if g is not None and not isinstance(g, list):
             g = [g]
 
-        keys = list(keys)
+        keys = [keys] if isinstance(keys, str) else list(keys)
 
         for key in keys:
             if g is None:
@@ -345,7 +345,7 @@ class GridBucket(Generic[T]):
             KeyError if a grid pair is not an existing edge in the grid.
 
         """
-        keys = list(keys)
+        keys = [keys] if isinstance(keys, str) else list(keys)
         for key in np.atleast_1d(keys):
             if grid_pairs is None:
                 for gp in self._edges.keys():
