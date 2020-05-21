@@ -509,20 +509,19 @@ class GridBucket(Generic[T]):
         # Do some checks of parameters first
         if g is not None and not isinstance(g, list):
             g = [g]
+        if g is None:
+            g = list(self._nodes)
 
-        keys = list(keys)
+        keys = [keys] if isinstance(keys, str) else list(keys)
 
         for key in keys:
-            if g is None:
-                for _, d in self:
-                    del d[key]
-            else:
-                for h, d in self:
-                    if h in g:
-                        del d[key]
+            for grid in g:
+                data = self._nodes[grid]
+                if key in data:
+                    del data[key]
 
     def remove_edge_props(
-        self, keys: Union[Any, List[Any]], e: List[Tuple[pp.Grid, pp.Grid]] = None
+        self, keys: Union[Any, List[Any]], edges: List[Tuple[pp.Grid, pp.Grid]] = None
     ) -> None:
         """
         Remove property to existing edges in the graph.
@@ -532,8 +531,8 @@ class GridBucket(Generic[T]):
         will be removed.
 
         Parameters:
-            keys (object or list of objcets): Key to the property to be handled.
-            e (list of pair of grids.grid, optional): Edges to be removed the
+            keys (object or list of objects): Key to the property to be handled.
+            edges (List of tuples of pp.Grid, optional): Edges to be removed the
                 values. Defaults to None, in which case the property is removed
                 from all edges.
 
@@ -542,25 +541,28 @@ class GridBucket(Generic[T]):
                 purposes. See self.assign_node_ordering() for details.
 
         """
+        keys = [keys] if isinstance(keys, str) else list(keys)
 
         # Check that the key is not 'edge_number' - this is reserved
         if "edge_number" in keys:
             raise ValueError("Edge number is a reserved key, stay away")
 
-        # Do some checks of parameters first
-        if e is not None and not any(isinstance(el, list) for el in e):
-            e = [e]
+        # Check if a single edge is passed. If so, turn it into a list.
+        if (
+                isinstance(edges, (Tuple, List))
+                and len(edges) == 2
+                and all(isinstance(e, pp.Grid) for e in edges)
+        ):
+            edges = [edges]
 
-        keys = list(keys)
+        if edges is None:
+            edges = list(self._edges)
 
         for key in keys:
-            if e is None:
-                for _, d in self.edges():
-                    del d[key]
-            else:
-                for ed, d in self.edges():
-                    if ed in e:
-                        del d[key]
+            for edge in edges:
+                data = self.edge_props(edge)
+                if key in data:
+                    del data[key]
 
     # ------------ Add new nodes and edges ----------
 
