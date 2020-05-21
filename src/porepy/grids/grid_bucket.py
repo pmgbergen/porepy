@@ -276,7 +276,10 @@ class GridBucket(Generic[T]):
     # ----------- Adders for node and edge properties (introduce keywords)
 
     def add_node_props(
-        self, keys: Union[Any, List[Any]], g: Union[pp.Grid, List[pp.Grid]] = None, overwrite: bool = True
+        self,
+        keys: Union[Any, List[Any]],
+        g: Union[pp.Grid, List[pp.Grid]] = None,
+        overwrite: bool = True,
     ) -> None:
         """
         Add a new property to existing nodes in the graph.
@@ -1295,12 +1298,14 @@ class GridBucket(Generic[T]):
         for g in max_dim:
             num_nodes += g.num_nodes
             num_cells += g.num_cells
-        s = f"Mixed dimensional grid. \n" \
-            f"Maximum dimension {self.dim_max()}\n" \
-            f"Minimum dimension {self.dim_min()}\n" \
-            f"Size of highest dimensional grid: Cells: {num_cells}. " \
-            f"Nodes: {num_nodes}\n" \
+        s = (
+            f"Mixed dimensional grid. \n"
+            f"Maximum dimension {self.dim_max()}\n"
+            f"Minimum dimension {self.dim_min()}\n"
+            f"Size of highest dimensional grid: Cells: {num_cells}. "
+            f"Nodes: {num_nodes}\n"
             f"In lower dimensions: \n"
+        )
         for dim in range(self.dim_max() - 1, self.dim_min() - 1, -1):
             gl = self.grids_of_dimension(dim)
             s += f"{len(gl)} grids of dimension {dim}\n"
