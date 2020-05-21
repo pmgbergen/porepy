@@ -59,7 +59,7 @@ class GridBucket(Generic[T]):
             key (object): Object to be tested.
 
         Return:
-            True if etiher key is a pp.Grid, and key is among the nodes of the graph
+            True if either key is a pp.Grid, and key is among the nodes of the graph
                 representation of this md-grid, *or* key is a 2-tuple, with both items
                 in self._nodes.
 
@@ -263,6 +263,7 @@ class GridBucket(Generic[T]):
         Parameters:
             cond: Predicate to select a grid. If None is given (default), all
                 grids will be returned.
+            name (str, optional): key to identify mortar grids on edges.
 
         Returns:
             grids: np.array of the grids.
@@ -371,7 +372,7 @@ class GridBucket(Generic[T]):
         still true.
 
         Parameters:
-            grids (core.grids.grid): The grids associated with the nodes.
+            grids (list of pp.Grid): The grids associated with the nodes.
             key (object): Key for the property to be tested.
 
         Returns:
@@ -385,7 +386,7 @@ class GridBucket(Generic[T]):
         Getter for a node property of the bucket.
 
         Parameters:
-            grid (grid): The grid associated with the node.
+            g (pp.Grid): The grid associated with the node.
             key (object, optional): Keys for the properties to be retrieved.
                 If key is None (default) the entire data dictionary for the
                 node is returned.
@@ -404,7 +405,7 @@ class GridBucket(Generic[T]):
         Getter for an edge properties of the bucket.
 
         Parameters:
-            grids_pair (list of core.grids.grid): The two grids making up the
+            gp (list of core.grids.grid): The two grids making up the
                 edge.
             key (object, optional): Keys for the properties to be retrieved.
                 If key is None (default) the entire data dictionary for the
@@ -443,7 +444,7 @@ class GridBucket(Generic[T]):
         generated.
 
         Parameters:
-            g (grid): Grid identifying the node.
+            g (pp.Grid): Grid identifying the node.
             key (object): Key identifying the field to add.
             val: Value to be added.
 
@@ -461,7 +462,7 @@ class GridBucket(Generic[T]):
         generated.
 
         Parameters:
-            g (2-tuple of grids): Grid pair identifying the edge.
+            gp (2-tuple of grids): Grid pair identifying the edge.
             key (object): Key identifying the field to add.
             val: Value to be added.
 
@@ -570,7 +571,7 @@ class GridBucket(Generic[T]):
         The grids are added to self.grids.
 
         Parameters:
-            grids (pp.Grid or Iterable of pp.Grids): The grids to be added. None of
+            new_grids (pp.Grid or Iterable of pp.Grid): The grids to be added. None of
                 these should have been added previously.
 
         Raises:
@@ -1166,7 +1167,7 @@ class GridBucket(Generic[T]):
             cond: optional, predicate with a grid as input.
 
         Return:
-            cell_volumes (ndArray): The cell volumes of all mortar cells in the
+            cell_volumes (np.ndarray): The cell volumes of all mortar cells in the
                 GridBucket.
 
         """
