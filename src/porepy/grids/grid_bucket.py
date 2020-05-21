@@ -800,7 +800,7 @@ class GridBucket(Generic[T]):
         # Check whether 'node_number' is defined for the grids already.
         ordering_exists = True
         for _, n in self:
-            if not "node_number" in n.keys():
+            if "node_number" not in n.keys():
                 ordering_exists = False
         if ordering_exists and not overwrite_existing:
             return
@@ -941,11 +941,11 @@ class GridBucket(Generic[T]):
             cells 1 and 2 of g1 (second dimension of the array).
         """
         # Sort nodes according to node_number
-        g0, g1 = self.nodes_of_edge([g0, g1])
+        g0, g1 = self.nodes_of_edge((g0, g1))
 
         # Identify the faces connecting the neighbors to the grid to be removed
-        fc1 = self.edge_props([g0, g_l])
-        fc2 = self.edge_props([g1, g_l])
+        fc1 = self.edge_props((g0, g_l))
+        fc2 = self.edge_props((g1, g_l))
         _, faces_1 = fc1["face_cells"].nonzero()
         _, faces_2 = fc2["face_cells"].nonzero()
         # Extract the corresponding cells
@@ -1298,21 +1298,21 @@ class GridBucket(Generic[T]):
         for g in max_dim:
             num_nodes += g.num_nodes
             num_cells += g.num_cells
-        s = "Mixed dimensional grid. \n"
-        s += "Maximum dimension " + str(self.dim_max()) + "\n"
-        s += "Minimum dimension " + str(self.dim_min()) + "\n"
-        s += "Size of highest dimensional grid: Cells: " + str(num_cells)
-        s += ". Nodes: " + str(num_nodes) + "\n"
-        s += "In lower dimensions: \n"
+        s = f"Mixed dimensional grid. \n" \
+            f"Maximum dimension {self.dim_max()}\n" \
+            f"Minimum dimension {self.dim_min()}\n" \
+            f"Size of highest dimensional grid: Cells: {num_cells}. " \
+            f"Nodes: {num_nodes}\n" \
+            f"In lower dimensions: \n"
         for dim in range(self.dim_max() - 1, self.dim_min() - 1, -1):
             gl = self.grids_of_dimension(dim)
-            s += str(len(gl)) + " grids of dimension " + str(dim) + "\n"
+            s += f"{len(gl)} grids of dimension {dim}\n"
         return s
 
     def __repr__(self) -> str:
-        s = "Grid bucket containing " + str(self.num_graph_nodes()) + " grids:\n"
+        s = f"Grid bucket containing {self.num_graph_nodes()} grids:\n"
         if self.num_graph_nodes() > 0:
             for dim in range(self.dim_max(), self.dim_min() - 1, -1):
                 gl = self.grids_of_dimension(dim)
-                s += str(len(gl)) + " grids of dimension " + str(dim) + "\n"
+                s += f"{len(gl)} grids of dimension {dim}\n"
         return s
