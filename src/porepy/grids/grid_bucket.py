@@ -336,7 +336,7 @@ class GridBucket(Generic[T]):
         overwritten.
 
         Parameters:
-            key (object): Key to the property to be handled.
+            keys (object or list of object): Key to the property to be handled.
             grid_pairs (list of 2-tuple of core.grids.grid, optional): Grid pairs
                 defining the edges to be assigned. values. Defaults to None, in
                 which case all edges are assigned the same value.
