@@ -542,9 +542,9 @@ class GridBucket(Generic[T]):
 
         # Check if a single edge is passed. If so, turn it into a list.
         if (
-                isinstance(edges, (Tuple, List))
-                and len(edges) == 2
-                and all(isinstance(e, pp.Grid) for e in edges)
+            isinstance(edges, (Tuple, List))
+            and len(edges) == 2
+            and all(isinstance(e, pp.Grid) for e in edges)
         ):
             edges = [edges]
 
