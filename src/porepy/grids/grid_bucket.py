@@ -365,7 +365,7 @@ class GridBucket(Generic[T]):
 
     # ------------ Getters for node and edge properties
 
-    def has_nodes_prop(self, grids: Iterable[pp.Grid], key: Any) -> Tuple[Any]:
+    def has_nodes_prop(self, grids: Iterable[pp.Grid], key: Any) -> Tuple[bool]:
         """
         Test if a key exists for a node property of the bucket, for several nodes.
         Note: the property may contain None but the outcome of the test is
@@ -1099,10 +1099,10 @@ class GridBucket(Generic[T]):
         """
         return np.amax([g.dim for g, _ in self])
 
-    def all_dims(self) -> int:
+    def all_dims(self) -> np.array:
         """
         Returns:
-            int: Active dimensions of the grids present in the hierarchy.
+            np.array: Active dimensions of the grids present in the hierarchy.
 
         """
         return np.unique([g.dim for g, _ in self])
@@ -1157,7 +1157,7 @@ class GridBucket(Generic[T]):
             cond = lambda g: True
         return np.hstack([g.cell_centers for g, _ in self._nodes.items() if cond(g)])
 
-    def cell_volumes_mortar(self, cond: Callable[[pp.Grid], bool] = None) -> None:
+    def cell_volumes_mortar(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
         """
         Get the cell volumes of all mortar cellse of the grid bucket, considering a loop
         on all the grids.  It is possible to specify a condition based on the
