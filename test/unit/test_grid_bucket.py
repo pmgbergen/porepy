@@ -285,7 +285,7 @@ class TestBucket(unittest.TestCase):
 
         gb.add_edge([g1, g2], None)
         # Add property, with reverse order of grid pair
-        gb.add_edge_props("a", grid_pairs=[[g2, g1]])
+        gb.add_edge_props("a", edges=[[g2, g1]])
 
         for _, d in gb.edges():
             self.assertTrue("a" in d.keys())
