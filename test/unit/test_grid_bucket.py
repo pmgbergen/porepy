@@ -412,9 +412,9 @@ class TestBucket(unittest.TestCase):
         self.assertTrue(all([k in all_keys.keys() for k in keys]))
 
         # The other edge has no properties, Python should raise KeyError
-        self.assertRaises(KeyError, gb.edge_props, gp=pairs[1], key="a")
+        self.assertRaises(KeyError, gb.edge_props, edge=pairs[1], key="a")
         # Try a non-existing edge, the method itself should raise KeyError
-        self.assertRaises(KeyError, gb.edge_props, gp=[g1, g3], key="a")
+        self.assertRaises(KeyError, gb.edge_props, edge=[g1, g3], key="a")
 
     def test_update_nodes(self):
         gb = pp.GridBucket()
