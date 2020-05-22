@@ -94,6 +94,31 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             aperture *= 0.1
         return aperture
 
+    def reconstruct_stress(self) -> None:
+        """
+        Compute the stress in the highest-dimensional grid based on the displacement
+        and pressure states in that grid, adjacent interfaces and global boundary
+        conditions.
+        
+        The stress is stored in the data dictionary of the highest dimensional grid,
+        in [pp.STATE]['stress'].
+        
+        """
+        # First the mechanical part of the stress
+        super().reconstruct_stress
+
+        g = self._nd_grid()
+        d = self.gb.node_props(g)
+
+        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.mechanics_parameter_key]
+
+        # Stress contribution from the scalar variable
+        d[pp.STATE]["stress"] += (
+            matrix_dictionary["grad_p"] * d[pp.STATE][self.scalar_variable]
+        )
+
+        # Is it correct there is no contribution from the global boundary conditions?
+
     def specific_volume(self, g: pp.Grid) -> np.ndarray:
         """
         The specific volume of a cell accounts for the dimension reduction and has 
