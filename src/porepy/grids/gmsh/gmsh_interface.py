@@ -695,46 +695,41 @@ class GmshGridBucketWriter(object):
 
 
 def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) -> None:
-    """
-    Convenience function to run gmsh.
+    """ Convenience function to run gmsh.
 
-        Parameters:
-            in_file : str or pathlib.Path
-                Name of gmsh configuration file (.geo)
-            out_file : str or pathlib.Path
-                Name of output file for gmsh (.msh)
-            dim : int
-                Number of dimensions gmsh should grid. If dims is less than
-                the geometry dimensions, gmsh will grid all lower-dimensional
-                objcets described in in_file (e.g. all surfaces embeded in a 3D
-                geometry).
+    Parameters:
+        in_file : str or pathlib.Path
+            Name of (or path to) gmsh configuration file (.geo)
+        out_file : str or pathlib.Path
+            Name of (or path to) output file for gmsh (.msh)
+        dim : int
+            Number of dimensions gmsh should grid. If dims is less than
+            the geometry dimensions, gmsh will grid all lower-dimensional
+            objects described in in_file (e.g. all surfaces embedded in a 3D
+            geometry).
 
     """
     # Helper functions
 
-    def _file_stem(file: Union[str, Path]) -> str:
-        # Strip a file name down to its stem, return a string
-        file = Path(file)
-        file = file.parent / file.stem
-        return str(file)
+    def _dump_gmsh_log(_log: List[str], in_file_name: Path) -> Path:
+        """ Write a gmsh log to file.
 
-    def _dump_gmsh_log(log: List[str], file_name: str) -> str:
-        # Write a gmsh log to file.
-        # Return name of the log file
-        fn = in_file.split(".")[0]
-        debug_file_name = "gmsh_log_" + fn + ".dbg"
-        with open(debug_file_name, "w") as f:
-            for line in log:
-                f.write(line + "\n")
+        Takes in the entire log and path to the in_file (from outer scope)
+        Return name of the log file
+        """
+        debug_file_name = in_file_name.with_name(f"gmsh_log_{in_file_name.stem}.dbg")
+        with debug_file_name.open(mode='w') as f:
+            for _line in _log:
+                f.write(_line + "\n")
 
         return debug_file_name
 
-    if not Path(in_file).is_file():
-        raise FileNotFoundError(f"file {in_file!r} not found.")
-
     # Ensure that in_file has extension .geo, out_file extension .msh
-    in_file = _file_stem(in_file) + ".geo"
-    out_file = _file_stem(out_file) + ".msh"
+    in_file = Path(in_file).with_suffix(".geo")
+    out_file = Path(out_file).with_suffix(".msh")
+
+    if not in_file.is_file():
+        raise FileNotFoundError(f"file {in_file!r} not found.")
 
     gmsh.initialize()
 
@@ -742,7 +737,7 @@ def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) ->
     # passed corrupted .geo files. To catch errors we therefore read the gmsh log, and
     # look for error messages.
     gmsh.logger.start()
-    gmsh.open(in_file)
+    gmsh.open(str(in_file))
 
     # Look for errors
     log = gmsh.logger.get()
@@ -763,11 +758,11 @@ def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) ->
         if "Error" in line:
             fn = _dump_gmsh_log(log, in_file)
             raise ValueError(
-                f"""Error in gmsh when generating mesh for {in_file}.
-                             Gmsh log written to file {fn}"""
+                f"Error in gmsh when generating mesh for {in_file}\n"
+                f"Gmsh log written to file {fn}"
             )
 
     # The gmsh write should be safe for errors
-    gmsh.write(out_file)
+    gmsh.write(str(out_file))
     # Done
     gmsh.finalize()
