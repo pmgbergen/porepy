@@ -40,9 +40,9 @@ class GridBucket(Generic[T]):
     and the the lowest-dimensional neighboring grid.
 
     Attributes:
-        _nodes (dictionary): For all mixed-dimensional grids, a dictionary with
+        _nodes (dictionary): For each subdomain grid, a dictionary with
             grids as keys, and data associated with the grid as values.
-        _edges (dictionary): For all mixed-dimensional grids, a dictionary with
+        _edges (dictionary): For each interface grid, a dictionary with
             the edges as keys, and data associated with the grid as values.
 
     """
@@ -61,7 +61,7 @@ class GridBucket(Generic[T]):
         Return:
             True if either key is a pp.Grid, and key is among the nodes of the graph
                 representation of this md-grid, *or* key is a 2-tuple, with both items
-                in self._nodes.
+                in self._nodes and the tuple is in self._edges.
 
         """
         if isinstance(key, pp.Grid):
@@ -369,7 +369,7 @@ class GridBucket(Generic[T]):
     # ------------ Getters for node and edge properties
 
     def has_nodes_prop(self, grids: Iterable[pp.Grid], key: Any) -> Tuple[bool]:
-        """ Test if a key exists for a node property of the bucket, for several nodes.
+        """ Test if a key exists in the data dictionary related to each of a list of nodes.
 
         Note: the property may contain None but the outcome of the test is
         still true.
