@@ -821,7 +821,7 @@ class GridBucket(Generic[T]):
 
         self.add_edge_props("edge_number")
         counter = 0
-        for edge, data in self.edges():
+        for _, data in self.edges():
             data["edge_number"] = counter
             counter += 1
 
