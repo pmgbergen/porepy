@@ -186,6 +186,7 @@ class TestBucket(unittest.TestCase):
         g3 = MockGrid(3)
         gb.add_nodes(g1)
         gb.add_nodes(g2)
+        gb.add_nodes(g3)
         gb.add_edge([g1, g2], None)
 
         # This edge is defined
