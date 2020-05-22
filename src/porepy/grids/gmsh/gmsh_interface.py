@@ -742,7 +742,7 @@ def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) ->
     # Look for errors
     log = gmsh.logger.get()
     for line in log:
-        if "Error" in line:
+        if "Error:" in line:
             fn = _dump_gmsh_log(log, in_file)
             raise ValueError(
                 f"""Error when reading gmsh file {in_file}.
@@ -755,7 +755,7 @@ def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) ->
     # Look for errors
     log = gmsh.logger.get()
     for line in log:
-        if "Error" in line:
+        if "Error:" in line:
             fn = _dump_gmsh_log(log, in_file)
             raise ValueError(
                 f"Error in gmsh when generating mesh for {in_file}\n"
