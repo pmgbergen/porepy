@@ -72,7 +72,13 @@ class GridBucket(Generic[T]):
                 and isinstance(key[0], pp.Grid)
                 and isinstance(key[1], pp.Grid)
             ):
-                return key[0] in self._nodes and key[1] in self._nodes
+                for e, _ in self.edges():
+                    if (e[0] == key[0] and e[1] == key[1]) or (
+                        e[1] == key[0] and e[0] == key[1]
+                    ):
+                        return True
+                # None of the edges were a match
+                return False
 
         # Everything else is not in self.
         return False
