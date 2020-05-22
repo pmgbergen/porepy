@@ -246,6 +246,20 @@ class TestBucket(unittest.TestCase):
         gb = self.simple_bucket(1)
         self.assertRaises(ValueError, gb.add_node_props, "node_number")
 
+    def test_overwrite_node_props(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid()
+        gb.add_nodes(g1)
+        key = "foo"
+        val = 42
+        gb.set_node_prop(g1, key, val)
+
+        gb.add_node_props(key, overwrite=False)
+        self.assertTrue(gb.node_props(g1, key) == val)
+
+        gb.add_node_props(key)
+        self.assertTrue(gb.node_props(g1, key) is None)
+
     # -------------- Tests for add_edge_props
 
     def test_add_single_edge_prop(self):
@@ -324,6 +338,25 @@ class TestBucket(unittest.TestCase):
             else:
                 self.assertTrue(p2 in d.keys())
                 self.assertTrue(not p1 in d.keys())
+
+    def test_overwrite_edge_props(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid()
+        g2 = MockGrid()
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+        e = (g1, g2)
+        gb.add_edge(e, None)
+
+        key = "foo"
+        val = 42
+        gb.set_edge_prop(e, key, val)
+
+        gb.add_edge_props(key, overwrite=False)
+        self.assertTrue(gb.edge_props(e, key) == val)
+
+        gb.add_edge_props(key)
+        self.assertTrue(gb.edge_props(e, key) is None)
 
     # ----------- Tests for getters of node properties ----------
 
