@@ -399,21 +399,28 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         u_mortar_local = project_to_local * displacement_jump_global_coord
         return u_mortar_local.reshape((self.Nd, -1), order="F")
 
-    def reconstruct_stress(self) -> None:
+    def reconstruct_stress(self, previous_iterate: bool = False) -> None:
         """
         Compute the stress in the highest-dimensional grid based on the displacement
         states in that grid, adjacent interfaces and global boundary conditions.
         
         The stress is stored in the data dictionary of the highest-dimensional grid,
         in [pp.STATE]['stress'].
-        
+
+        Parameters:
+            previous_iterate (boolean, optional): If True, use values from previous
+                iteration to compute the stress. Defaults to False.
+
         """
         g = self._nd_grid()
         d = self.gb.node_props(g)
 
         mpsa = pp.Mpsa(self.mechanics_parameter_key)
 
-        u = d[pp.STATE][self.displacement_variable]
+        if previous_iterate:
+            u = d[pp.STATE]["previous_iterate"][self.displacement_variable]
+        else:
+            u = d[pp.STATE][self.displacement_variable]
 
         matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.mechanics_parameter_key]
 
