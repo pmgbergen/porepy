@@ -424,7 +424,7 @@ class THM(parent_model.ContactMechanicsBiot):
             from_iterate=True,
         )
 
-    def reconstruct_stress(self) -> None:
+    def reconstruct_stress(self, previous_iterate: bool = False) -> None:
         """
         Compute the stress in the highest-dimensional grid based on the displacement
         pressure and temperature states in that grid, adjacent interfaces and global boundary
@@ -432,22 +432,27 @@ class THM(parent_model.ContactMechanicsBiot):
         
         The stress is stored in the data dictionary of the highest dimensional grid,
         in [pp.STATE]['stress'].
-        
+
+        Parameters:
+            previous_iterate (boolean, optional): If True, use values from previous
+                iteration to compute the stress. Defaults to False.
+
         """
         # First the hydro-mechanical part of the stress
-        super().reconstruct_stress
+        super().reconstruct_stress(previous_iterate)
         g = self._nd_grid()
         d = self.gb.node_props(g)
 
         matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][
             self.mechanics_temperature_parameter_key
         ]
+        if previous_iterate:
+            T = d[pp.STATE]["previous_iterate"][self.temperature_variable]
+        else:
+            T = d[pp.STATE][self.temperature_variable]
 
         # Stress contribution from the scalar variable
-        d[pp.STATE]["stress"] += (
-            matrix_dictionary[biot.grad_p_matrix_key]
-            * d[pp.STATE][self.temperature_variable]
-        )
+        d[pp.STATE]["stress"] += matrix_dictionary["grad_p"] * T
 
     def discretize(self) -> None:
         """ Discretize all terms
