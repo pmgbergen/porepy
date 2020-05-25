@@ -35,6 +35,25 @@ class RobinCoupling(
         # No coupling via lower-dimensional interfaces.
         self.edge_coupling_via_low_dim = False
 
+        # Keys used to identify the discretization matrices of this discretization
+        self.mortar_discr_key = "robin_mortar_discr"
+        self.mortar_vector_source_key = "robin_vector_source_discr"
+        self.mortar_scaling_key = "mortar_scaling"
+
+        # Decide on whether to scale the mortar flux with K^-1 or not.
+        # This is the scaling of Darcy's law in mixed methods, and should be used in the
+        # interface law if the full system is on mixed form.
+        # We decide on this based on whether both neigboring discretizations are mixed
+        # or not. This leaves the case when one neighbor is mixed, the other is FV; in
+        # this case, we use a K-scaling, but it is not clear what is best.
+        if isinstance(
+            discr_master, pp.numerics.vem.dual_elliptic.DualElliptic
+        ) and isinstance(discr_slave, pp.numerics.vem.dual_elliptic.DualElliptic):
+            self.kinv_scaling = True
+        else:
+            # At least one of the neighboring discretizations is FV.
+            self.kinv_scaling = False
+
     def ndof(self, mg):
         return mg.num_cells
 
@@ -52,24 +71,106 @@ class RobinCoupling(
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
+        parameter_dictionary_h = data_h[pp.PARAMETERS][self.keyword]
         # Mortar data structure.
         mg = data_edge["mortar_grid"]
 
-        faces_h, cells_h, _ = sps.find(g_h.cell_faces)
-        ind_faces_h = np.unique(faces_h, return_index=True)[1]
-        cells_h = cells_h[ind_faces_h]
+        kn = parameter_dictionary_edge["normal_diffusivity"]
+        # If normal diffusivity is given as a constant, parse to np.array
+        if not isinstance(kn, np.ndarray):
+            kn *= np.ones(mg.num_cells)
 
         inv_M = sps.diags(1.0 / mg.cell_volumes)
-
-        inv_k = 1.0 / (parameter_dictionary_edge["normal_diffusivity"])
-
-        # If normal diffusivity is given as a constant, parse to np.array
-        if not isinstance(inv_k, np.ndarray):
-            inv_k *= np.ones(mg.num_cells)
-
+        inv_k = 1.0 / kn
         Eta = sps.diags(inv_k)
+        matrix_dictionary_edge[self.mortar_discr_key] = -inv_M * Eta
 
-        matrix_dictionary_edge["Robin_discr"] = -inv_M * Eta
+        ## Vector source.
+        # This contribution is last term of
+        # lambda = -\int{\kappa_n [p_l - p_h +  a/2 g \cdot n]} dV,
+        # where n is the outwards normal and the integral is taken over the mortar cell.
+        # (Note: This assumes a P0 discretization of mortar fluxes).
+
+        # Ambient dimension of the problem, as specified for the higher-dimensional
+        # neighbor.
+        # IMPLEMENTATION NOTE: The default value is needed to avoid that
+        # ambient_dimension becomes a required parameter. If neither ambient dimension,
+        # nor the actual vector_source is specified, there will be no problems (in the
+        # assembly, a zero vector soucre of a size that fits with the discretization is
+        # created). If a vector_source is specified, but the ambient dimension is not,
+        # a dimension mismatch will result unless the ambient dimension implied by
+        # the size of the vector source matches g_h.dim. This is okay for domains with
+        # no subdomains with co-dimension more than 1, but will fail for fracture
+        # intersections. The default value is thus the least bad option in this case.
+        vector_source_dim: int = parameter_dictionary_h.get(
+            "ambient_dimension", g_h.dim
+        )
+        # The ambient dimension cannot be less than the dimension of g_h.
+        # If this is broken, we risk ending up with zero normal vectors below, so it is
+        # better to break this off now
+        if vector_source_dim < g_h.dim:
+            raise ValueError(
+                "Ambient dimension cannot be lower than the grid dimension"
+            )
+
+        # Construct the dot product between normals on fracture faces and the identity
+        # matrix.
+
+        # Find the mortar normal vectors by projection of the normal vectors in g_h
+        normals_h = g_h.face_normals.copy()
+
+        # projection matrix
+        proj = mg.master_to_mortar_avg()
+
+        # Ensure that the normal vectors point out of g_h
+        # Indices of faces neighboring this mortar grid
+        _, fi_h, _ = sps.find(proj)
+        # Switch direction of vectors if relevant
+        normals_h[:, fi_h] *= g_h.sign_of_faces(fi_h)
+
+        # Project the normal vectors, we need to do some transposes to get this right
+        normals_mortar = (proj * normals_h.T).T
+        nrm = np.linalg.norm(normals_mortar, axis=0)
+        # Sanity check
+        assert np.all(nrm > 1e-10)
+        outwards_unit_mortar_normals = normals_mortar / nrm
+
+        # We know that the ambient dimension for the vector source must be at least as
+        # high as g_h, thus taking the first vector_source_dim components of the normal
+        # vector should be fine.
+        vals = outwards_unit_mortar_normals[:vector_source_dim].ravel("f")
+
+        # The values in vals are sorted by the mortar cell index ordering (proj is a
+        # csr matrix).
+        ci_mortar = np.arange(mg.num_cells, dtype=np.int)
+
+        # The mortar cell indices are expanded to account for the vector source
+        # having multiple dimensions
+        rows = np.tile(ci_mortar, (vector_source_dim, 1)).ravel("f")
+        # Columns must account for the values being vector values.
+        cols = pp.fvutils.expand_indices_nd(ci_mortar, vector_source_dim)
+
+        # And we have the normal vectors
+        mortar_normals = sps.coo_matrix((vals, (rows, cols))).tocsr()
+
+        # On assembly, the outwards normals on the mortars will be multiplied by the
+        # interface vector source.
+        matrix_dictionary_edge[self.mortar_vector_source_key] = mortar_normals
+        if self.kinv_scaling:
+            # Use a discretization fit for mixed methods, with a K^-1 scaling of the
+            # mortar flux
+            # In this case, the scaling of the pressure blocks on the mortar rows is
+            # simple.
+            matrix_dictionary_edge[self.mortar_scaling_key] = sps.diags(
+                np.ones(mg.num_cells)
+            )
+
+        else:
+            # Scale the the mortar equations with K, so that the this becomes a
+            # Darcy-type equation on standard form.
+            matrix_dictionary_edge[self.mortar_scaling_key] = sps.diags(
+                mg.cell_volumes * kn
+            )
 
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
@@ -82,7 +183,12 @@ class RobinCoupling(
             g_slave: Grid on the other neighboring subdomain.
             data_master: Data dictionary for the master suddomain
             data_slave: Data dictionary for the slave subdomain.
-            data_edge: Data dictionary for the edge between the subdomains
+            data_edge: Data dictionary for the edge between the subdomains. 
+                If gravity is taken into consideration, the parameter sub-
+                dictionary should contain something like a/2 * g, where
+                g is the ambient_dimension x n_mortar_cells gravity vector
+                as used in Starnoni et al 2020, typically with 
+                    g[ambient_dimension]= -G * rho.
             matrix: original discretization
 
             The discretization matrices must be included since they will be
@@ -91,7 +197,7 @@ class RobinCoupling(
 
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-
+        parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
         mg = data_edge["mortar_grid"]
 
         master_ind = 0
@@ -103,7 +209,7 @@ class RobinCoupling(
         # The convention, for now, is to put the higher dimensional information
         # in the first column and row in matrix, lower-dimensional in the second
         # and mortar variables in the third
-        cc[2, 2] = matrix_dictionary_edge["Robin_discr"]
+        cc[2, 2] = matrix_dictionary_edge[self.mortar_discr_key]
 
         self.discr_master.assemble_int_bound_pressure_trace(
             g_master, data_master, data_edge, cc, matrix, rhs, master_ind
@@ -118,6 +224,32 @@ class RobinCoupling(
         self.discr_slave.assemble_int_bound_source(
             g_slave, data_slave, data_edge, cc, matrix, rhs, slave_ind
         )
+        # Also assemble vector sources.
+        # Discretization of the vector source term
+        vector_source_discr: sps.spmatrix = matrix_dictionary_edge[
+            self.mortar_vector_source_key
+        ]
+        # The vector source, defaults to zero if not specified.
+        vector_source: np.ndarray = parameter_dictionary_edge.get(
+            "vector_source", np.zeros(vector_source_discr.shape[1])
+        )
+        if vector_source_discr.shape[1] != vector_source.size:
+            # If this happens chances are that either the ambient dimension was not set,
+            # and thereby its default value was used. Another not unlikely reason is
+            # that the ambient dimension is set, but with a value that does not match
+            # the specified vector source.
+            raise ValueError(
+                "Mismatch in vector source dimensions. Did you forget to specify the ambient dimension?"
+            )
+
+        rhs[2] = rhs[2] - vector_source_discr * vector_source
+
+        for block in range(cc.shape[1]):
+            # Scale the pressure blocks in the mortar problem
+            cc[2, block] = (
+                matrix_dictionary_edge[self.mortar_scaling_key] * cc[2, block]
+            )
+        rhs[2] = matrix_dictionary_edge[self.mortar_scaling_key] * rhs[2]
 
         matrix += cc
 
@@ -178,9 +310,27 @@ class RobinCoupling(
             g, self.discr_master, mg_primary, mg_secondary, matrix
         )
 
-        return self.discr_master.assemble_int_bound_pressure_trace_between_interfaces(
+        # Assemble contribution between higher dimensions.
+        (
+            cc,
+            rhs,
+        ) = self.discr_master.assemble_int_bound_pressure_trace_between_interfaces(
             g, data_grid, proj_pressure, proj_flux, cc, matrix, rhs
         )
+        # Scale the equations (this will modify from K^-1 to K scaling if relevant)
+        matrix_dictionary_edge = data_primary_edge[pp.DISCRETIZATION_MATRICES][
+            self.keyword
+        ]
+        for block in range(cc.shape[1]):
+            # Scale the pressure blocks in the row of the primary mortar problem.
+            # The secondary mortar will be treated somewhere else (handled by the
+            # assembler).
+            cc[1, block] = (
+                matrix_dictionary_edge[self.mortar_scaling_key] * cc[1, block]
+            )
+        rhs[1] = matrix_dictionary_edge[self.mortar_scaling_key] * rhs[1]
+
+        return cc, rhs
 
 
 class FluxPressureContinuity(RobinCoupling):

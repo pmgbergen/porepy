@@ -808,6 +808,7 @@ class FractureNetwork3d(object):
         # generate grid
         in_3d = not dfn
 
+
         self._to_gmsh(in_file, in_3d=in_3d, constraints=constraints)
         return in_file
 
@@ -1556,7 +1557,16 @@ class FractureNetwork3d(object):
             the bounding box will be disregarded, while fractures crossing the
             boundary will be truncated.
 
+        Raises
+        ------
+        ValueError
+            If the FractureNetwork contains no fractures and no domain was passed
+            to this method.
+
         """
+        if domain is None and not self._fractures:
+            # Cannot automatically calculate external boundary for non-fractured grids.
+            raise ValueError("A domain must be supplied to constrain non-fractured media.")
         self.bounding_box_imposed = True
 
         if domain is not None:

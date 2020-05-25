@@ -1,9 +1,10 @@
-# -*- coding: utf-8 -*-
+""" Module with methods to coarsen a grid. The main method is coarsen(), see this for more information.
 
+"""
 import numpy as np
 import scipy.sparse as sps
-import scipy.stats as stats
 import porepy as pp
+from typing import Union, Tuple, Any, Dict
 
 from porepy.grids import grid, grid_bucket
 
@@ -15,7 +16,9 @@ from porepy.utils import half_space, tags
 # ------------------------------------------------------------------------------#
 
 
-def coarsen(g, method, **method_kwargs):
+def coarsen(
+    g: Union[pp.Grid, pp.GridBucket], method: str, **method_kwargs
+) -> Union[None, sps.spmatrix]:
     """ Create a coarse grid from a given grid. If a grid bucket is passed the
     procedure is applied to the higher in dimension.
     Note: the grid is modified in place.
@@ -37,7 +40,7 @@ def coarsen(g, method, **method_kwargs):
         seeds = np.empty(0, dtype=np.int)
         if method_kwargs.get("if_seeds", False):
             seeds = generate_seeds(g)
-        matrix = tpfa_matrix(g)
+        matrix = _tpfa_matrix(g)
         partition = create_partition(matrix, g, seeds=seeds, **method_kwargs)
 
     else:
@@ -79,20 +82,28 @@ def generate_coarse_grid(g, subdiv):
 
     """
     if isinstance(g, grid.Grid):
-        generate_coarse_grid_single(g, subdiv, False)
+        if isinstance(subdiv, dict):
+            # If the subdiv is a dictionary with g as a key (this can happen if we are
+            # forwarded here from coarsen), the input must be simplified.
+            subdiv = subdiv[g][1]
+        _generate_coarse_grid_single(g, subdiv, False)
 
     if isinstance(g, grid_bucket.GridBucket):
-        generate_coarse_grid_gb(g, subdiv)
+        _generate_coarse_grid_gb(g, subdiv)
 
 
 # ------------------------------------------------------------------------------#
 
 
-def reorder_partition(subdiv):
+def reorder_partition(
+    subdiv: Union[Dict[Any, Tuple[Any, np.ndarray]], np.ndarray]
+) -> Union[Dict[Any, Tuple[Any, np.ndarray]], np.ndarray]:
     """
     Re-order the partition id in case to obtain contiguous numbers.
+
     Parameters:
         subdiv: array where for each cell one id
+
     Return:
         the subdivision written in a contiguous way
     """
@@ -112,7 +123,7 @@ def reorder_partition(subdiv):
 # ------------------------------------------------------------------------------#
 
 
-def generate_coarse_grid_single(g, subdiv, face_map):
+def _generate_coarse_grid_single(g, subdiv, face_map):
     """
     Specific function for a single grid. Use the common interface instead.
     """
@@ -230,7 +241,7 @@ def generate_coarse_grid_single(g, subdiv, face_map):
 # ------------------------------------------------------------------------------#
 
 
-def generate_coarse_grid_gb(gb, subdiv):
+def _generate_coarse_grid_gb(gb, subdiv):
     """
     Specific function for a grid bucket. Use the common interface instead.
     """
@@ -242,7 +253,7 @@ def generate_coarse_grid_gb(gb, subdiv):
     for g, (_, partition) in subdiv.items():
 
         # Construct the coarse grids
-        face_map = generate_coarse_grid_single(g, partition, True)
+        face_map = _generate_coarse_grid_single(g, partition, True)
 
         # Update all the master_to_mortar_int for all the 'edges' connected to the grid
         # We update also all the face_cells
@@ -278,7 +289,7 @@ def generate_coarse_grid_gb(gb, subdiv):
 # ------------------------------------------------------------------------------#
 
 
-def tpfa_matrix(g, perm=None):
+def _tpfa_matrix(g, perm=None):
     """
     Compute a two-point flux approximation matrix useful related to a call of
     create_partition.

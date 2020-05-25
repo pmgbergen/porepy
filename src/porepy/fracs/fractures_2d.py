@@ -7,6 +7,17 @@ import csv
 import time
 import copy
 
+# Imports of external packages that may not be present at the system. The
+# module will work without any of these, but with limited functionalbility.
+try:
+    import vtk
+    import vtk.util.numpy_support as vtk_np
+except ImportError:
+    warnings.warn(
+        "VTK module is not available. Export of fracture network to\
+    vtk will not work."
+    )
+
 import porepy as pp
 import porepy.fracs.simplex
 from porepy.grids import constants
@@ -898,6 +909,81 @@ class FractureNetwork2d(object):
                 data.extend(self.pts[:, edge[0]])
                 data.extend(self.pts[:, edge[1]])
                 csv_writer.writerow(data)
+
+    def to_vtk(self, file_name, data=None, binary=True):
+        """
+        Export the fracture network to vtk.
+
+        The fractures are treated as lines, with no special treatment
+        of intersections.
+
+        Fracture numbers are always exported (1-offset). In addition, it is
+        possible to export additional data, as specified by the
+        keyword-argument data.
+
+        Parameters:
+            file_name (str): Name of the target file.
+            data (dictionary, optional): Data associated with the fractures.
+                The values in the dictionary should be numpy arrays. 1d and 3d
+                data is supported. Fracture numbers are always exported.
+            binary (boolean, optional): Use binary export format. Defaults to
+                True.
+
+        """
+        network_vtk = vtk.vtkUnstructuredGrid()
+
+        point_counter = 0
+        pts_vtk = vtk.vtkPoints()
+
+        pts = self.pts
+        # make points 3d
+        if pts.shape[0] == 2:
+            pts = np.vstack((pts, np.zeros(pts.shape[1])))
+
+        for edge in self.edges.T:
+
+            # Add local points
+            pts_vtk.InsertNextPoint(*pts[:, edge[0]])
+            pts_vtk.InsertNextPoint(*pts[:, edge[1]])
+
+            # Indices of local points
+            loc_pt_id = point_counter + np.arange(2)
+            # Update offset
+            point_counter += 2
+
+            # Add bounding polygon
+            frac_vtk = vtk.vtkIdList()
+            [frac_vtk.InsertNextId(p) for p in loc_pt_id]
+            # Close polygon
+            frac_vtk.InsertNextId(loc_pt_id[0])
+
+            network_vtk.InsertNextCell(vtk.VTK_POLYGON, frac_vtk)
+
+        # Add the points
+        network_vtk.SetPoints(pts_vtk)
+
+        writer = vtk.vtkXMLUnstructuredGridWriter()
+        writer.SetInputData(network_vtk)
+        writer.SetFileName(file_name)
+
+        if not binary:
+            writer.SetDataModeToAscii()
+
+        # Cell-data to be exported is at least the fracture numbers
+        if data is None:
+            data = {}
+        # Use offset 1 for fracture numbers (should we rather do 0?)
+        data["Fracture_Number"] = 1 + np.arange(self.edges.shape[1])
+
+        for name, data in data.items():
+            data_vtk = vtk_np.numpy_to_vtk(
+                data.ravel(order="F"), deep=True, array_type=vtk.VTK_DOUBLE
+            )
+            data_vtk.SetName(name)
+            data_vtk.SetNumberOfComponents(1 if data.ndim == 1 else 3)
+            network_vtk.GetCellData().AddArray(data_vtk)
+
+        writer.Update()
 
     def __str__(self):
         s = "Fracture set consisting of " + str(self.num_frac) + " fractures"
