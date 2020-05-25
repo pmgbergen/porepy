@@ -100,7 +100,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         and pressure states in that grid, adjacent interfaces and global boundary
         conditions.
         
-        The stress is stored in the data dictionary of the highest dimensional grid,
+        The stress is stored in the data dictionary of the highest-dimensional grid,
         in [pp.STATE]['stress'].
         
         """

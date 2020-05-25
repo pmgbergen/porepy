@@ -427,7 +427,7 @@ class THM(parent_model.ContactMechanicsBiot):
     def reconstruct_stress(self) -> None:
         """
         Compute the stress in the highest-dimensional grid based on the displacement
-        and pressure states in that grid, adjacent interfaces and global boundary
+        pressure and temperature states in that grid, adjacent interfaces and global boundary
         conditions.
         
         The stress is stored in the data dictionary of the highest dimensional grid,
