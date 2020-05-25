@@ -239,8 +239,7 @@ class Exporter:
 
         self.has_numba = "numba" in sys.modules
 
-        if self.fixed_grid:
-            self._update_gb_VTK()
+        self._update_gb_VTK()
 
         # Counter for time step. Will be used to identify files of individual time step,
         # unless this is overridden by optional parameters in write_vtk
@@ -302,10 +301,10 @@ class Exporter:
         elif not self.fixed_grid and grid is not None:
             self.gb = grid
             self.is_GridBucket = isinstance(self.gb, pp.GridBucket)
-            self._update_gVTK()
+            self._update_gb_VTK()
 
         # If the problem is time dependent, but no time step is set, we set one
-        if time_dependent and time_step is not None:
+        if time_dependent and time_step is None:
             time_step = self._time_step_counter
             self._time_step_counter += 1
 

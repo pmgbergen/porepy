@@ -184,6 +184,7 @@ class Assembler:
         variable_filter: List[str] = None,
         term_filter: List[str] = None,
         grid: pp.Grid = None,
+        edges: bool = True,
     ) -> None:
         """ Run the discretization operation on discretizations specified in
         the mixed-dimensional grid.
@@ -232,6 +233,9 @@ class Assembler:
                 (default), all terms for all active variables are discretized.
             g (pp.Grid, optional): Grid in GridBucket. If specified, only this
                 grid will be considered.
+            edges (bool, optional): If True (default), terms on edges and coupling
+                terms are discretized. As these typically are cheaper than grid
+                discretizations, the operation cannot be filtered on specific edges.
 
         """
         self._operate_on_gb(
@@ -239,6 +243,7 @@ class Assembler:
             variable_filter=variable_filter,
             term_filter=term_filter,
             grid=grid,
+            edges=edges,
         )
 
     def _operate_on_gb(
@@ -300,12 +305,12 @@ class Assembler:
         self._operate_on_node(
             operation, matrix, rhs, variable_filter, term_filter, target_grid
         )
+        if kwargs.get("edges", True):
+            self._operate_on_edge(operation, matrix, rhs, variable_filter, term_filter)
 
-        self._operate_on_edge(operation, matrix, rhs, variable_filter, term_filter)
-
-        self._operate_on_edge_coupling(
-            operation, matrix, rhs, variable_filter, term_filter, sps_matrix
-        )
+            self._operate_on_edge_coupling(
+                operation, matrix, rhs, variable_filter, term_filter, sps_matrix
+            )
 
         if operation == "assemble":
             return matrix, rhs
