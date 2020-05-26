@@ -22,7 +22,9 @@ from porepy.fracs.simplex import tetrahedral_grid_from_gmsh
 from porepy.fracs.meshing import grid_list_to_grid_bucket
 
 
-def distort_grid_1d(g: pp.Grid, ratio: Optional[float]=0.1, fixed_nodes: Optional[np.ndarray]=None) -> pp.Grid:
+def distort_grid_1d(
+    g: pp.Grid, ratio: Optional[float] = 0.1, fixed_nodes: Optional[np.ndarray] = None
+) -> pp.Grid:
     """ Randomly distort internal nodes in a 1d grid.
 
      The boundary nodes are left untouched.
@@ -59,7 +61,8 @@ def distort_grid_1d(g: pp.Grid, ratio: Optional[float]=0.1, fixed_nodes: Optiona
     g.compute_geometry()
     return g
 
-def refine_grid_1d(g: pp.Grid, ratio: Optional[int]=2) -> pp.Grid:
+
+def refine_grid_1d(g: pp.Grid, ratio: Optional[int] = 2) -> pp.Grid:
     """ Refine cells in a 1d grid.
 
     Parameters:
@@ -213,7 +216,7 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> pp.TriangleGrid:
     return TriangleGrid(new_nodes, tri=new_tri, name=name), parent
 
 
-def remesh_1d(g_old: pp.Grid, num_nodes: int, tol: Optional[float]=1e-6) -> pp.Grid:
+def remesh_1d(g_old: pp.Grid, num_nodes: int, tol: Optional[float] = 1e-6) -> pp.Grid:
     """ Create a new 1d mesh covering the same domain as an old one.
 
     The new grid is equispaced, and there is no guarantee that the nodes in
@@ -267,12 +270,13 @@ def remesh_1d(g_old: pp.Grid, num_nodes: int, tol: Optional[float]=1e-6) -> pp.G
 
     return g
 
+
 def refine_gb_by_splitting(
-        in_file: Union[str, Path],
-        out_file: Union[str, Path],
-        dim: int,
-        network: Union[pp.FractureNetwork3d, pp.FractureNetwork2d],
-        gb_set_projections: bool = True,
+    in_file: Union[str, Path],
+    out_file: Union[str, Path],
+    dim: int,
+    network: Union[pp.FractureNetwork3d, pp.FractureNetwork2d],
+    gb_set_projections: bool = True,
 ) -> Generator[pp.GridBucket, None, None]:
     """ Refine a GridBucket by splitting using gmsh
 
@@ -343,28 +347,102 @@ def refine_gb_by_splitting(
         gmsh.finalize()
 
 
+class GridSequenceIterator:
+    def __init__(self, factory):
+        self._factory = factory
+        self._counter = 0
+
+    def __next__(self):
+        if self._counter >= self._factory._num_refinements:
+            self._factory.close()
+            raise StopIteration()
+
+        else:
+            gb = self._factory._generate(self._counter)
+            self._counter += 1
+            return gb
+
+
 class GridSequenceFactory(abc.ABC):
+    """ Factory class to generate a set of refined grids.
     
-    def __init__(self, network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d], params: Dict) -> None:
-        self.network = network.copy()
-        self.counter = 0
-        self.params = params
-        
-        file_name = 'gmsh_convergence'
-        
-        if params['mode'] == 'structured':
-            # Operate on a deep copy of the network to avoid that fractures etc. are
-            # unintentionally modified during operations.
-            net = network.copy()
-            net.prepare_for_gmsh(**params)
-        
-            
-        
-    def __iter__(self) -> pp.GridBucket:
-        if self.params['mode'] == 'structured':
-            pass
-            
-    
-    def set_parameters(self, grid_param):
-        pass
-        
+    To define new refinement types, inherit from this class and override the _generate()
+    method.
+    """
+
+    def __init__(
+        self, network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d], params: Dict
+    ) -> None:
+        self._network = network.copy()
+        self._counter = 0
+        self._set_parameters(params)
+
+        if isinstance(network, pp.FractureNetwork2d):
+            self.dim = 2
+        elif isinstance(network, pp.FractureNetwork3d):
+            self.dim = 3
+        else:
+            raise ValueError("Invalid type for fracture network")
+
+        if self._refinement_mode == "nested":
+            self._prepare_nested()
+
+    def __iter__(self):
+        return GridSequenceIterator(self)
+
+    def close(self):
+        if hasattr(self, "_gmsh"):
+            self._gmsh.finalize()
+
+    def _generate(self, counter):
+        if self._refinement_mode == "nested":
+            return self._generate_nested(counter)
+        elif self._refinement_mode == "unstructured":
+            return self._generate_unstructured(counter)
+
+    def _prepare_nested(self):
+        # Operate on a deep copy of the network to avoid that fractures etc. are
+        # unintentionally modified during operations.
+        net = self._network.copy()
+
+        file_name = "gmsh_convergence"
+        in_file = net.prepare_for_gmsh(
+            self._mesh_parameters, **self._grid_parameters, file_name=file_name
+        )
+
+        gmsh.initialize()
+        gmsh.open(in_file)
+        gmsh.model.mesh.generate(dim=self.dim)
+        self._in_file = in_file
+        self._out_file = file_name
+        self._gmsh = gmsh
+
+    def _generate_nested(self, counter: int):
+        assert Path(self._in_file).is_file()
+        out_file = Path(self._out_file)
+        out_file = out_file.parent / out_file.stem
+        out_file_name = f"{out_file}_{counter}.msh"
+
+        # The first mesh is already done. Start refining all subsequent meshes.
+        self._gmsh.model.mesh.refine()  # Refine the mesh
+
+        self._gmsh.write(out_file_name)  # Write the result to '.msh' file
+
+        gb = pp.fracture_importer.dfm_from_gmsh(out_file_name, self.dim)
+        pp.contact_conditions.set_projections(gb)
+        return gb
+
+    def _generate_unstructured(self, counter: int):
+        net = self._network.copy()
+        mesh_args = self._mesh_parameters[counter]
+        grid_param = self._grid_parameters
+        gb = net.mesh(mesh_args, **grid_param)
+        return gb
+
+    def _set_parameters(self, param):
+        self._refinement_mode = param["mode"]
+
+        self._num_refinements = param["num_refinements"]
+
+        self._mesh_parameters = param["mesh_param"]
+        self._grid_parameters = param.get("grid_param", {})
