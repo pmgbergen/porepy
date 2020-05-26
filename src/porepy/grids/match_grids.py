@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Module contains various functions needed to 
+Module contains various functions to find overlaps between grid cells.
 """
 import porepy as pp
 import numpy as np
@@ -140,7 +138,7 @@ def match_grids_along_1d_mortar(
     mg: pp.MortarGrid, g_new: pp.Grid, g_old: pp.Grid, tol: float
 ) -> sps.csr_matrix:
     """ Match the faces of two 2d grids along a 1d mortar grid.
-    
+
     The function identifies faces on the 1d segment specified by the MortarGrid, and
     finds the area weights of the matched faces. Both sides of the mortar grid are taken
     care of.
@@ -162,7 +160,6 @@ def match_grids_along_1d_mortar(
 
     """
 
-    #
     # The algorithm is technical, partly because we also need to differ between
     # the left and right side of the segment, as these will belong to different
     # mortar grids.

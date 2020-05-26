@@ -918,7 +918,7 @@ class GridBucket(Generic[T]):
         tol: float = 1e-6,
     ) -> None:
         """ Replace grids and / or mortar grids in the mixed-dimensional grid.
-    
+
         Parameters:
             gb (GridBucket): To be updated.
             g_map (dictionary): Grids to replace. Keys are grids in the old bucket,
@@ -926,7 +926,7 @@ class GridBucket(Generic[T]):
             mg_map (dictionary): Mortar grids to replace. Keys are EITHER related
                 to mortar grids, or to edges. Probably, mg is most relevant, the we
                 need to identify the right edge shielded from user.
-    
+
         """
         if mg_map is None:
             mg_map = {}
