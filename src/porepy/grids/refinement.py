@@ -10,7 +10,7 @@ import gmsh
 import numpy as np
 import scipy.sparse as sps
 from pathlib import Path
-from typing import Union, Generator, Optional, Dict
+from typing import Union, Optional, Dict
 import abc
 
 import porepy as pp
@@ -18,8 +18,6 @@ import porepy as pp
 from porepy.grids.grid import Grid
 from porepy.grids.structured import TensorGrid
 from porepy.grids.simplex import TriangleGrid
-from porepy.fracs.simplex import tetrahedral_grid_from_gmsh
-from porepy.fracs.meshing import grid_list_to_grid_bucket
 
 
 def distort_grid_1d(
@@ -289,14 +287,41 @@ class GridSequenceIterator:
 
 class GridSequenceFactory(abc.ABC):
     """ Factory class to generate a set of refined grids.
-    
+
     To define new refinement types, inherit from this class and override the _generate()
     method.
+
+    The class can be used in (for now) two ways: Either by nested or unstructured
+    refinement. This is set by setting the parameter 'mode' to 'nested' or
+    'unstructured', respectively.
+
+    The number of refinemnet is set by the parameter 'num_refinements'.
+
+    Mesh sizes is set by the standard FractureNetwork.mesh() arguments 'mesh_size_fracs'
+    and 'mesh_size_bound'. These are set by the parameter 'mesh_param'. If the mode is
+    'nested', 'mesh_param' should be a single dictionary; subsequent mesh refinements
+    are then set by nested refinement. If the mode is 'unstructured', mesh_params should
+    be a list, where each list element is a dictionary with mesh size parameters to be
+    passed to the FractureNetwork.
+
+    Further argument, such as fractures that are really constraints, can be given by
+    params['grid_params']. These are passed on the FractureNetwork.mesh(), essentially
+    as **kwargs.
+
     """
 
     def __init__(
         self, network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d], params: Dict
     ) -> None:
+        """
+        Construct a GridSequenceFactory.
+
+        Args:
+            network (Union[pp.FractureNetwork2d, pp.FractureNetwork3d]): Define domain
+                to be discretized.
+            params (Dict): Parameter dictionary. See class documentation for details.
+
+        """
         self._network = network.copy()
         self._counter = 0
         self._set_parameters(params)
