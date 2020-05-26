@@ -911,6 +911,47 @@ class GridBucket(Generic[T]):
         gb_copy._edges = self._edges.copy()
         return gb_copy
 
+    def replace_grids(
+        self,
+        g_map: Dict[pp.Grid, pp.Grid] = None,
+        mg_map: [pp.MortarGrid, pp.MortarGrid] = None,
+        tol: float = 1e-6,
+    ) -> None:
+        """ Replace grids and / or mortar grids in the mixed-dimensional grid.
+
+        Parameters:
+            gb (GridBucket): To be updated.
+            g_map (dictionary): Grids to replace. Keys are grids in the old bucket,
+                values are their replacements.
+            mg_map (dictionary): Mortar grids to replace. Keys are EITHER related
+                to mortar grids, or to edges. Probably, mg is most relevant, the we
+                need to identify the right edge shielded from user.
+
+        """
+        if mg_map is None:
+            mg_map = {}
+
+        # refine the mortar grids when specified
+        for mg_old, mg_new in mg_map.items():
+            mg_old.update_mortar(mg_new, tol)
+
+        # update the grid bucket considering the new grids instead of the old one
+        # valid only for physical grids and not for mortar grids
+        if g_map is not None:
+            self.update_nodes(g_map)
+        else:
+            g_map = {}
+
+        # refine the grids when specified
+        for g_old, g_new in g_map.items():
+            for _, d in self.edges_of_node(g_new):
+                mg = d["mortar_grid"]
+                if mg.dim == g_new.dim:
+                    # update the mortar grid of the same dimension
+                    mg.update_slave(g_new, tol)
+                else:  # g_new.dim == mg.dim + 1
+                    mg.update_master(g_new, g_old, tol)
+
     def _find_shared_face(self, g0: pp.Grid, g1: pp.Grid, g_l: pp.Grid) -> np.ndarray:
         """
         Given two nd grids meeting at a (n-1)d node (to be removed), find which two
@@ -1123,7 +1164,9 @@ class GridBucket(Generic[T]):
         """
         if cond is None:
             cond = lambda g: True
-        return np.hstack([grid.cell_volumes for grid, _ in self._nodes.items() if cond(grid)])
+        return np.hstack(
+            [grid.cell_volumes for grid, _ in self._nodes.items() if cond(grid)]
+        )
 
     def face_centers(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
         """
@@ -1139,7 +1182,9 @@ class GridBucket(Generic[T]):
         """
         if cond is None:
             cond = lambda g: True
-        return np.hstack([grid.face_centers for grid, _ in self._nodes.items() if cond(grid)])
+        return np.hstack(
+            [grid.face_centers for grid, _ in self._nodes.items() if cond(grid)]
+        )
 
     def cell_centers(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
         """
@@ -1156,7 +1201,9 @@ class GridBucket(Generic[T]):
         """
         if cond is None:
             cond = lambda g: True
-        return np.hstack([grid.cell_centers for grid, _ in self._nodes.items() if cond(grid)])
+        return np.hstack(
+            [grid.cell_centers for grid, _ in self._nodes.items() if cond(grid)]
+        )
 
     def cell_volumes_mortar(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
         """
@@ -1300,22 +1347,65 @@ class GridBucket(Generic[T]):
             num_nodes += g.num_nodes
             num_cells += g.num_cells
         s = (
-            f"Mixed dimensional grid. \n"
-            f"Maximum dimension {self.dim_max()}\n"
-            f"Minimum dimension {self.dim_min()}\n"
-            f"Size of highest dimensional grid: Cells: {num_cells}. "
-            f"Nodes: {num_nodes}\n"
-            f"In lower dimensions: \n"
+            "Mixed dimensional grid. \n"
+            f"Maximum dimension present: {self.dim_max()} \n"
+            f"Minimum dimension present: {self.dim_min()} \n"
         )
+        s += "Size of highest dimensional grid: Cells: " + str(num_cells)
+        s += ". Nodes: " + str(num_nodes) + "\n"
+        s += "In lower dimensions: \n"
         for dim in range(self.dim_max() - 1, self.dim_min() - 1, -1):
             gl = self.grids_of_dimension(dim)
-            s += f"{len(gl)} grids of dimension {dim}\n"
+            num_nodes = 0
+            num_cells = 0
+            for g in gl:
+                num_nodes += g.num_nodes
+                num_cells += g.num_cells
+
+            s += (
+                f"{len(gl)} grids of dimension {dim}, with in total "
+                f"{num_cells} cells and {num_nodes} nodes. \n"
+            )
+
+        s += f"Total number of interfaces: {self.num_graph_edges()}\n"
+        for dim in range(self.dim_max(), self.dim_min(), -1):
+            num_e = 0
+            for e, _ in self.edges():
+                if e[0].dim == dim:
+                    num_e += 1
+
+            s += f"{num_e} interfaces between grids of dimension {dim} and {dim-1}\n"
         return s
 
     def __repr__(self) -> str:
-        s = f"Grid bucket containing {self.num_graph_nodes()} grids:\n"
+        s = (
+            f"Grid bucket containing {self.num_graph_nodes() } grids and "
+            f"{self.num_graph_edges()} interfaces\n"
+            f"Maximum dimension present: {self.dim_max()} \n"
+            f"Minimum dimension present: {self.dim_min()} \n"
+        )
+
         if self.num_graph_nodes() > 0:
             for dim in range(self.dim_max(), self.dim_min() - 1, -1):
                 gl = self.grids_of_dimension(dim)
-                s += f"{len(gl)} grids of dimension {dim}\n"
+                nc = 0
+                for g in gl:
+                    nc += g.num_cells
+                s += (
+                    f"{len(gl)} grids of dimension {dim}" f" with in total {nc} cells\n"
+                )
+        if self.num_graph_edges() > 0:
+            for dim in range(self.dim_max(), self.dim_min(), -1):
+                num_e = 0
+                num_mc = 0
+                for e, d in self.edges():
+                    if e[0].dim == dim:
+                        num_e += 1
+                        num_mc += d["mortar_grid"].num_cells
+
+                s += (
+                    f"{num_e} interfaces between grids of dimension {dim} and {dim-1}"
+                    f" with in total {num_mc} mortar cells\n"
+                )
+
         return s

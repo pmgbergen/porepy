@@ -10,6 +10,7 @@ import time
 import logging
 import numpy as np
 import csv
+import copy
 
 
 # Imports of external packages that may not be present at the system. The
@@ -674,6 +675,26 @@ class FractureNetwork3d(object):
             f.set_index(0)
         self._fractures.append(f)
 
+    def copy(self):
+        """ Create deep copy of the network.
+
+        The method will create a deep copy of all fractures, as well as the domain, of
+        the network. Note that if the fractures have had extra points imposed as part
+        of a meshing procedure, these will included in the copied fractures.
+
+        Returns:
+            pp.FractureNetwork3d.
+
+        """
+        fracs = [f.copy() for f in self._fractures]
+
+        domain = self.domain
+        if domain is not None:
+            # Get a deep copy of domain, but no need to do that if domain is None
+            domain = copy.deepcopy(domain)
+
+        return FractureNetwork3d(fracs, domain, self.tol)
+
     def mesh(self, mesh_args, dfn=False, file_name=None, constraints=None, **kwargs):
         """ Mesh the fracture network, and generate a mixed-dimensional grid.
 
@@ -698,6 +719,58 @@ class FractureNetwork3d(object):
             GridBucket: Mixed-dimensional mesh.
 
         """
+
+        in_file = self.prepare_for_gmsh(mesh_args, dfn, file_name, constraints)
+
+        if dfn:
+            dim_meshing = 2
+        else:
+            dim_meshing = 3
+
+        out_file = in_file[:-4] + ".msh"
+
+        pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dim=dim_meshing)
+
+        if dfn:
+            grid_list = pp.fracs.simplex.triangle_grid_embedded(out_file)
+        else:
+            # Process the gmsh .msh output file, to make a list of grids
+            grid_list = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
+                out_file, constraints
+            )
+
+        # Merge the grids into a mixed-dimensional GridBucket
+        gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
+        return gb
+
+    def prepare_for_gmsh(
+        self, mesh_args, dfn=False, file_name=None, constraints=None
+    ) -> str:
+        """ Process network intersections and write a gmsh .geo configuration file,
+        ready to be processed by gmsh.
+        
+        NOTE: Consider to use the mesh() function instead to get a ready GridBucket.
+
+        Parameters:
+            mesh_args (dict): Should contain fields 'mesh_size_frac', 'mesh_size_min',
+                which represent the ideal mesh size at the fracture, and the
+                minimum mesh size passed to gmsh. Can also contain
+                'mesh_size_bound', wihch gives the far-field (boundary) mehs
+                size.
+            dfn (boolean, optional): If True, a DFN mesh (of the network, but not
+                the surrounding matrix) is created.
+            file_name (str, optional): Name of file used to communicate with gmsh.
+                defaults to gmsh_frac_file. The gmsh configuration file will be
+                file_name.geo, while the mesh is dumped to file_name.msh.
+            constraints (np.array): Index list of elements in the fracture list that
+                should be treated as constraints in meshing, but not added as separate
+                fracture grids (no splitting of nodes etc).
+
+        Returns:
+            str: Name of .geo file.
+
+        """
+
         # The implementation in this function is fairly straightforward, all
         # technical difficulties are hidden in other functions.
         if not dfn and not self.bounding_box_imposed:
@@ -729,33 +802,13 @@ class FractureNetwork3d(object):
         if file_name is None:
             file_name = "gmsh_frac_file"
         in_file = file_name + ".geo"
-        out_file = file_name + ".msh"
 
         # Dump the network description to gmsh .geo format, and run gmsh to
         # generate grid
         in_3d = not dfn
 
-        if dfn:
-            dim_meshing = 2
-        else:
-            dim_meshing = 3
-
-        self.to_gmsh(in_file, in_3d=in_3d, constraints=constraints)
-
-        pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dim=dim_meshing)
-
-        if dfn:
-            grid_list = pp.fracs.simplex.triangle_grid_embedded(file_name=out_file)
-        else:
-            # Process the gmsh .msh output file, to make a list of grids
-            grid_list = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
-                file_name=out_file,
-                constraints=constraints,
-            )
-
-        # Merge the grids into a mixed-dimensional GridBucket
-        gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
-        return gb
+        self._to_gmsh(in_file, in_3d=in_3d, constraints=constraints)
+        return in_file
 
     def __getitem__(self, position):
         return self._fractures[position]
@@ -1511,7 +1564,9 @@ class FractureNetwork3d(object):
         """
         if domain is None and not self._fractures:
             # Cannot automatically calculate external boundary for non-fractured grids.
-            raise ValueError("A domain must be supplied to constrain non-fractured media.")
+            raise ValueError(
+                "A domain must be supplied to constrain non-fractured media."
+            )
         self.bounding_box_imposed = True
 
         if domain is not None:
@@ -2142,7 +2197,7 @@ class FractureNetwork3d(object):
 
         writer.Update()
 
-    def to_gmsh(self, file_name, constraints=None, in_3d=True, **kwargs):
+    def _to_gmsh(self, file_name, constraints=None, in_3d=True, **kwargs):
         """ Write the fracture network as input for mesh generation by gmsh.
 
         It is assumed that intersections have been found and processed (e.g. by
