@@ -13,6 +13,7 @@ try:
     import vtk
     import vtk.util.numpy_support as vtk_np
 except ImportError:
+    import warnings
     warnings.warn(
         "VTK module is not available. Export of fracture network to\
     vtk will not work."
