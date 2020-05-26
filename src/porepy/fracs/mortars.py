@@ -113,12 +113,10 @@ def _update_physical_low_grid(mg, new_g, tol):
 
 def _update_physical_high_grid(mg, g_new, g_old, tol):
 
-
     mg.update_master(split_matrix)
 
 
 # ------------------------------------------------------------------------------#
-
 
 
 def _replace_grids_in_bucket(gb, g_map=None, mg_map=None, tol=1e-6):

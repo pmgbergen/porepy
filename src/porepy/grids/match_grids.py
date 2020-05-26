@@ -393,7 +393,9 @@ def match_grids_along_1d_mortar(
     return matrix.tocsr()
 
 
-def gb_refinement(gb: pp.GridBucket, gb_ref: pp.GridBucket, tol: float=1e-8, mode: str='nested'):
+def gb_refinement(
+    gb: pp.GridBucket, gb_ref: pp.GridBucket, tol: float = 1e-8, mode: str = "nested"
+):
     """ Wrapper for coarse_fine_cell_mapping to construct mapping for grids in
     GridBucket.
     
@@ -446,11 +448,11 @@ def gb_refinement(gb: pp.GridBucket, gb_ref: pp.GridBucket, tol: float=1e-8, mod
 
         # Compute the mapping for this grid-pair,
         # and assign the result to the node of the coarse gb
-        if mode == 'nested':
+        if mode == "nested":
             mapping = structured_refinement(g, g_ref, point_in_poly_tol=tol)
         else:
             raise NotImplementedError("Unknown refinement mode")
-            
+
         gb.set_node_prop(g=g, key="coarse_fine_cell_mapping", val=mapping)
 
 

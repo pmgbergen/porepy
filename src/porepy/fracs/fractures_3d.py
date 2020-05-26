@@ -675,7 +675,7 @@ class FractureNetwork3d(object):
         else:
             f.set_index(0)
         self._fractures.append(f)
-        
+
     def copy(self):
         """ Create deep copy of the network.
         
@@ -688,12 +688,12 @@ class FractureNetwork3d(object):
 
         """
         fracs = [f.copy() for f in self._fractures]
-        
+
         domain = self.domain
         if domain is not None:
             # Get a deep copy of domain, but no need to do that if domain is None
             domain = copy.deepcopy(domain)
-            
+
         return FractureNetwork3d(fracs, domain, self.tol)
 
     def mesh(self, mesh_args, dfn=False, file_name=None, constraints=None, **kwargs):
@@ -807,7 +807,6 @@ class FractureNetwork3d(object):
         # Dump the network description to gmsh .geo format, and run gmsh to
         # generate grid
         in_3d = not dfn
-
 
         self._to_gmsh(in_file, in_3d=in_3d, constraints=constraints)
         return in_file
@@ -1566,7 +1565,9 @@ class FractureNetwork3d(object):
         """
         if domain is None and not self._fractures:
             # Cannot automatically calculate external boundary for non-fractured grids.
-            raise ValueError("A domain must be supplied to constrain non-fractured media.")
+            raise ValueError(
+                "A domain must be supplied to constrain non-fractured media."
+            )
         self.bounding_box_imposed = True
 
         if domain is not None:

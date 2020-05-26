@@ -14,6 +14,7 @@ try:
     import vtk.util.numpy_support as vtk_np
 except ImportError:
     import warnings
+
     warnings.warn(
         "VTK module is not available. Export of fracture network to\
     vtk will not work."
@@ -115,7 +116,7 @@ class FractureNetwork2d(object):
                 )
         if domain is not None:
             logger.info("Domain specification :" + str(domain))
-            
+
     def copy(self):
         """ Create deep copy of the network.
         
@@ -133,7 +134,7 @@ class FractureNetwork2d(object):
         if domain is not None:
             # Get a deep copy of domain, but no need to do that if domain is None
             domain = copy.deepcopy(domain)
-        
+
         return FractureNetwork2d(p_new, edges_new, domain, self.tol)
 
     def add_network(self, fs):

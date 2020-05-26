@@ -9,10 +9,10 @@ logger = logging.getLogger(__name__)
 
 
 def grid_error(
-        gb: 'pp.GridBucket',
-        gb_ref: 'pp.GridBucket',
-        variable: List[str],
-        variable_dof: List[int],
+    gb: "pp.GridBucket",
+    gb_ref: "pp.GridBucket",
+    variable: List[str],
+    variable_dof: List[int],
 ) -> dict:
     """ Compute grid errors a grid bucket and refined reference grid bucket
 
@@ -42,8 +42,9 @@ def grid_error(
         variable = [variable]
     if not isinstance(variable_dof, list):
         variable_dof = [variable_dof]
-    assert len(variable) == len(variable_dof), "Each variable must have associated " \
-                                               "with it a number of degrees of freedom."
+    assert len(variable) == len(variable_dof), (
+        "Each variable must have associated " "with it a number of degrees of freedom."
+    )
     n_variables = len(variable)
 
     errors = {}
@@ -76,26 +77,34 @@ def grid_error(
             state_ref_keys = set(states_ref.keys())
             check_keys = state_keys.intersection(state_ref_keys)
             if var not in check_keys:
-                logger.info(f"{var} not present on grid number "
-                            f"{node_number} of dim {g.dim}.")
+                logger.info(
+                    f"{var} not present on grid number "
+                    f"{node_number} of dim {g.dim}."
+                )
                 continue
 
             # Compute errors relative to the reference grid
             # TODO: Should the solution be divided by g.cell_volumes or similar?
             # TODO: If scaling is used, consider that - or use the export-ready variables,
             #   'u_exp', 'p_exp', etc.
-            sol = states[var].reshape((var_dof, -1), order='F').T  # (num_cells x var_dof)
+            sol = (
+                states[var].reshape((var_dof, -1), order="F").T
+            )  # (num_cells x var_dof)
             mapped_sol: np.ndarray = mapping.dot(sol)  # (num_cells x variable_dof)
-            sol_ref = states_ref[var].reshape((var_dof, -1), order='F').T  # (num_cells x var_dof)
+            sol_ref = (
+                states_ref[var].reshape((var_dof, -1), order="F").T
+            )  # (num_cells x var_dof)
 
             # axis=0 gives component-wise norm.
             absolute_error = np.linalg.norm(mapped_sol - sol_ref, axis=0)
             norm_ref = np.linalg.norm(sol_ref, axis=0)
 
             if np.any(norm_ref < 1e-10):
-                logger.info(f"Relative error not reportable. "
-                            f"Norm of reference solution is {norm_ref}. "
-                            f"Reporting absolute error")
+                logger.info(
+                    f"Relative error not reportable. "
+                    f"Norm of reference solution is {norm_ref}. "
+                    f"Reporting absolute error"
+                )
                 error = absolute_error
                 is_relative = False
             else:
@@ -103,15 +112,13 @@ def grid_error(
                 is_relative = True
 
             errors[node_number][var] = {
-                "error":
-                    error,
-                "is_relative":
-                    is_relative,
-                }
+                "error": error,
+                "is_relative": is_relative,
+            }
 
     return errors
-    
-    
+
+
 def interpolate(g, fun):
     """
     Interpolate a scalar or vector function on the cell centers of the grid.
