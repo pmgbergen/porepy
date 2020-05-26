@@ -12,7 +12,7 @@ import unittest
 
 from porepy.grids.structured import TensorGrid
 from porepy.grids import refinement
-from porepy.fracs import meshing, mortars
+from porepy.fracs import meshing
 from test import test_utils
 
 
