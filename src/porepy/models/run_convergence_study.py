@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 def run_model_for_convergence_study(
         model: Type[AbstractModel],
         grid_factory: Type[pp.refinement.GridSequenceFactory],
-        
         run_model_method: Callable,
         params: dict,
         newton_params: dict = None,
@@ -78,29 +77,26 @@ def run_model_for_convergence_study(
 
     logger.info(f"Preparing setup for convergence study on {datetime.now().isoformat()}")
 
-    # 1. Step: Create n grids by uniform refinement.
-    gb_generator = gb_refinements(
-        network=network,
-        gmsh_folder_path=params['folder_name'],
-        mesh_args=params['mesh_args'],
-    )
-    gb_list = [next(gb_generator) for _ in range(0, n_refinements + 1)]
-    gb_generator.close()
 
     # -----------------------
     # --- SETUP AND SOLVE ---
     # -----------------------
     newton_params = newton_params if newton_params else {}
 
-    for gb in gb_list:
+    gb_list = []
+
+    for gb in grid_factory:
         setup = model(params=params)
-        # Critical to this step is that setup.prepare_simulation() (specifically setup.create_grid())
-        # doesn't overwrite that we manually set a grid bucket to the model.
+        # Critical to this step is that setup.prepare_simulation() (specifically 
+        # setup.create_grid()) doesn't overwrite that we manually set a grid bucket to
+        # the model.
         setup.gb = gb
         pp.contact_conditions.set_projections(setup.gb)
 
         run_model_method(setup, params=newton_params)
+        gb_list.append(gb)
 
+    grid_factory.close()
     # ----------------------
     # --- COMPUTE ERRORS ---
     # ----------------------
