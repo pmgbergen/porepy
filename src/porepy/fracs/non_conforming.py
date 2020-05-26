@@ -233,7 +233,7 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
 
     # Create a new 1d grid.
     # First use a 1d coordinate to initialize topology
-    new_grid = pp.structured.TensorGrid(np.arange(num_new_grid))
+    new_grid = pp.TensorGrid(np.arange(num_new_grid))
     # Then set the right, 3d coordinates
     new_grid.nodes = pp.map_geometry.force_point_collinearity(combined_sorted)
 

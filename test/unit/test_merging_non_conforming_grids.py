@@ -16,8 +16,8 @@ Created on Sun Nov  5 11:19:02 2017
 import unittest
 import numpy as np
 import scipy.sparse as sps
+import porepy as pp
 
-from porepy.grids.structured import TensorGrid
 from porepy.fracs import non_conforming
 from porepy.utils import tags
 from porepy.utils.setmembership import ismember_rows
@@ -25,7 +25,7 @@ from porepy.utils.setmembership import ismember_rows
 
 class TestMeshMerging(unittest.TestCase):
     def test_merge_1d_grids_equal_nodes(self):
-        g = TensorGrid(np.array([0, 1, 2]))
+        g = pp.TensorGrid(np.array([0, 1, 2]))
         g.compute_geometry()
         h, offset, g_in_comb, g_in_comb, g_sort, _ = non_conforming.merge_1d_grids(
             g, g, global_ind_offset=0, tol=1e-4
@@ -34,8 +34,8 @@ class TestMeshMerging(unittest.TestCase):
         self.assertTrue(np.allclose(h.nodes[:, g_in_comb], g.nodes[:, g_sort]))
 
     def test_merge_1d_grids_partly_equal_nodes(self):
-        g = TensorGrid(np.array([0, 1, 2]))
-        h = TensorGrid(np.array([0, 0.5, 1, 2]))
+        g = pp.TensorGrid(np.array([0, 1, 2]))
+        h = pp.TensorGrid(np.array([0, 0.5, 1, 2]))
         g.compute_geometry()
         h.compute_geometry()
         gh, offset, g_in_comb, h_in_comb, g_sort, h_sort = non_conforming.merge_1d_grids(
@@ -47,8 +47,8 @@ class TestMeshMerging(unittest.TestCase):
 
     def test_merge_1d_grids_unequal_nodes(self):
         # Unequal nodes along the x-axis
-        g = TensorGrid(np.array([0, 1, 2]))
-        h = TensorGrid(np.array([0, 0.5, 2]))
+        g = pp.TensorGrid(np.array([0, 1, 2]))
+        h = pp.TensorGrid(np.array([0, 0.5, 2]))
         g.compute_geometry()
         h.compute_geometry()
         gh, offset, g_in_comb, h_in_comb, g_sort, h_sort = non_conforming.merge_1d_grids(
@@ -60,10 +60,10 @@ class TestMeshMerging(unittest.TestCase):
 
     def test_merge_1d_grids_rotation(self):
         # 1d grids rotated
-        g = TensorGrid(np.array([0, 1, 2]))
+        g = pp.TensorGrid(np.array([0, 1, 2]))
         g.nodes = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]]).T
         g.compute_geometry()
-        h = TensorGrid(np.array([0, 1, 2]))
+        h = pp.TensorGrid(np.array([0, 1, 2]))
         h.nodes = np.array([[0, 0, 0], [0.5, 0.5, 0.5], [2, 2, 2]]).T
         h.compute_geometry()
 
@@ -74,12 +74,12 @@ class TestMeshMerging(unittest.TestCase):
         self.assertTrue(np.allclose(gh.nodes[:, h_in_comb], h.nodes[:, h_sort]))
 
     def test_merge_1d_permuted_nodes(self):
-        g = TensorGrid(np.array([0, 1, 2]))
+        g = pp.TensorGrid(np.array([0, 1, 2]))
         g.nodes = np.array([[1, -1, 0], [0, 0, 0], [0, 0, 0]])
         g.global_point_ind = np.array([2, 0, 1])
         g.face_nodes.indices = np.array([1, 2, 0])
 
-        h = TensorGrid(np.array([-1, 0, 1]))
+        h = pp.TensorGrid(np.array([-1, 0, 1]))
         h.global_point_ind = np.array([0, 1, 2])
         g.compute_geometry()
         h.compute_geometry()
@@ -419,9 +419,9 @@ class TestMeshMerging(unittest.TestCase):
         g2 = MockGrid(
             2, num_faces=3, face_nodes=fn, cell_faces=cf, num_cells=1, nodes=nodes_2
         )
-        g_11 = TensorGrid(np.array([0, 1]))
+        g_11 = pp.TensorGrid(np.array([0, 1]))
         g_11.global_point_ind = np.arange(2)
-        g_22 = TensorGrid(np.array([0, 1]))
+        g_22 = pp.TensorGrid(np.array([0, 1]))
         g_22.global_point_ind = np.arange(2)
 
         gl = [[[g1], [g_11]], [[g2], [g_22]]]
@@ -482,20 +482,20 @@ class TestMeshMerging(unittest.TestCase):
         )
 
         # Bottom 1d grid, as seen from g1
-        g_11 = TensorGrid(np.array([0, 1]))
+        g_11 = pp.TensorGrid(np.array([0, 1]))
         g_11.global_point_ind = np.arange(2)
         # Top 1d grid, as seen from g1
-        g_13 = TensorGrid(np.array([0, 1]))
+        g_13 = pp.TensorGrid(np.array([0, 1]))
         g_13.nodes = np.array([[0, 1], [1, 1], [0, 0]])
         # Note global point indices here, in accordance with the ordering in
         # nodes_1
         g_13.global_point_ind = np.array([2, 3])
 
         # Bottom 1d grid, as seen from g2
-        g_22 = TensorGrid(np.array([0, 1]))
+        g_22 = pp.TensorGrid(np.array([0, 1]))
         g_22.global_point_ind = np.arange(2)
         # Top 1d grid, as seen from g3
-        g_33 = TensorGrid(np.array([1, 2]))
+        g_33 = pp.TensorGrid(np.array([1, 2]))
         g_33.nodes = np.array([[0, 1], [1, 1], [0, 0]])
         # Global point indices, as ordered in nodes_3
         g_33.global_point_ind = np.array([1, 2])
@@ -554,19 +554,19 @@ class TestMeshMerging(unittest.TestCase):
             2, num_faces=3, face_nodes=fn, cell_faces=cf, num_cells=1, nodes=nodes_3
         )
         # First 1d grid, as seen from g1
-        g_11 = TensorGrid(np.array([0, 1]))
+        g_11 = pp.TensorGrid(np.array([0, 1]))
         g_11.global_point_ind = np.arange(2)
         # Second 1d grid, as seen from g1
-        g_13 = TensorGrid(np.array([0, 1]))
+        g_13 = pp.TensorGrid(np.array([0, 1]))
         g_13.nodes = np.array([[0, 0], [0, 1], [0, 0]])
         # Point indices adjusted according to ordering in nodes_1
         g_13.global_point_ind = np.array([0, 2])
 
         # First 1d grid, as seen from g2
-        g_22 = TensorGrid(np.array([0, 1]))
+        g_22 = pp.TensorGrid(np.array([0, 1]))
         g_22.global_point_ind = np.arange(2)
         # Second 1d grid, as seen from g3
-        g_33 = TensorGrid(np.array([0, 1]))
+        g_33 = pp.TensorGrid(np.array([0, 1]))
         g_33.nodes = np.array([[0, 0], [0, 1], [0, 0]])
         g_33.global_point_ind = np.arange(2)
 
@@ -630,12 +630,12 @@ class TestMeshMerging(unittest.TestCase):
             2, num_faces=3, face_nodes=fn_2, cell_faces=cf_2, num_cells=1, nodes=nodes_2
         )
         # First 1d grid, as seen from g1
-        g_11 = TensorGrid(np.array([0, 1, 2]))
+        g_11 = pp.TensorGrid(np.array([0, 1, 2]))
         g_11.global_point_ind = np.arange(3)
         # Second 1d grid, as seen from g1
 
         # First 1d grid, as seen from g2
-        g_22 = TensorGrid(np.array([0, 2]))
+        g_22 = pp.TensorGrid(np.array([0, 2]))
         g_22.global_point_ind = np.arange(2)
         # Second 1d grid, as seen from g3
 
@@ -696,19 +696,19 @@ class TestMeshMerging(unittest.TestCase):
         )
 
         # First 1d grid, as seen from g1
-        g_11 = TensorGrid(np.array([0, 1, 2]))
+        g_11 = pp.TensorGrid(np.array([0, 1, 2]))
         g_11.global_point_ind = np.arange(3)
         # Second 1d grid, as seen from g1
-        g_13 = TensorGrid(np.array([0, 1]))
+        g_13 = pp.TensorGrid(np.array([0, 1]))
         g_13.nodes = np.array([[0, 1], [0, 1], [0, 0]])
         # Point indices adjusted according to ordering in nodes_1
         g_13.global_point_ind = np.array([0, 3])
 
         # First 1d grid, as seen from g2
-        g_22 = TensorGrid(np.array([0, 2]))
+        g_22 = pp.TensorGrid(np.array([0, 2]))
         g_22.global_point_ind = np.arange(2)
         # Second 1d grid, as seen from g3
-        g_33 = TensorGrid(np.array([0, 1]))
+        g_33 = pp.TensorGrid(np.array([0, 1]))
         g_33.nodes = np.array([[0, 1], [0, 1], [0, 0]])
         g_33.global_point_ind = np.arange(2)
 
@@ -766,30 +766,30 @@ class TestMeshMerging(unittest.TestCase):
         )
 
         # First 1d grid, as seen from g1
-        g_1x = TensorGrid(np.array([0, 1, 2]))
+        g_1x = pp.TensorGrid(np.array([0, 1, 2]))
         g_1x.nodes = np.array([[-1, 0, 1], [0, 0, 0], [0, 0, 0]])
         g_1x.global_point_ind = np.array([0, 1, 2])
         # Third 1d grid, as seen from g1
-        g_1y = TensorGrid(np.array([0, 1, 2]))
+        g_1y = pp.TensorGrid(np.array([0, 1, 2]))
         g_1y.nodes = np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]])
         # Point indices adjusted according to ordering in nodes_1
         g_1y.global_point_ind = np.array([3, 1, 4])
 
         # First 1d grid, as seen from g2
-        g_2x = TensorGrid(np.array([0, 1, 2]))
+        g_2x = pp.TensorGrid(np.array([0, 1, 2]))
         g_2x.nodes = np.array([[-1, 0, 1], [0, 0, 0], [0, 0, 0]])
         g_2x.global_point_ind = np.arange(3)
         # Third 1d grid, as seen from g2
-        g_2z = TensorGrid(np.array([0, 1, 2]))
+        g_2z = pp.TensorGrid(np.array([0, 1, 2]))
         g_2z.nodes = np.array([[0, 0, 0], [0, 0, 0], [-1, 0, 1]])
         # Point indices adjusted according to ordering in nodes_1
         g_2z.global_point_ind = np.array([3, 1, 4])
 
-        g_3y = TensorGrid(np.array([0, 1, 2]))
+        g_3y = pp.TensorGrid(np.array([0, 1, 2]))
         g_3y.nodes = np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]])
         g_3y.global_point_ind = np.arange(3)
         # Second 1d grid, as seen from g1
-        g_3z = TensorGrid(np.array([0, 1, 2]))
+        g_3z = pp.TensorGrid(np.array([0, 1, 2]))
         g_3z.nodes = np.array([[0, 0, 0], [0, 0, 0], [-1, 0, 1]])
         # Point indices adjusted according to ordering in nodes_1
         g_3z.global_point_ind = np.array([3, 1, 4])
@@ -859,31 +859,31 @@ class TestMeshMerging(unittest.TestCase):
         )
 
         # First 1d grid, as seen from g1
-        g_1x = TensorGrid(np.array([0, 1, 2]))
+        g_1x = pp.TensorGrid(np.array([0, 1, 2]))
         g_1x.nodes = np.array([[1, 0, -1], [0, 0, 0], [0, 0, 0]])
         g_1x.global_point_ind = np.array([2, 1, 0])
         # g_1x.face_nodes.indices = np.array([1, 2, 0])
         # Third 1d grid, as seen from g1
-        g_1y = TensorGrid(np.array([0, 1, 2]))
+        g_1y = pp.TensorGrid(np.array([0, 1, 2]))
         g_1y.nodes = np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]])
         # Point indices adjusted according to ordering in nodes_1
         g_1y.global_point_ind = np.array([3, 1, 4])
 
         # First 1d grid, as seen from g2
-        g_2x = TensorGrid(np.array([0, 1, 2]))
+        g_2x = pp.TensorGrid(np.array([0, 1, 2]))
         g_2x.nodes = np.array([[-1, 0, 1], [0, 0, 0], [0, 0, 0]])
         g_2x.global_point_ind = np.arange(3)
         # Third 1d grid, as seen from g2
-        g_2z = TensorGrid(np.array([0, 1, 2]))
+        g_2z = pp.TensorGrid(np.array([0, 1, 2]))
         g_2z.nodes = np.array([[0, 0, 0], [0, 0, 0], [-1, 0, 1]])
         # Point indices adjusted according to ordering in nodes_1
         g_2z.global_point_ind = np.array([3, 1, 4])
 
-        g_3y = TensorGrid(np.array([0, 1, 2]))
+        g_3y = pp.TensorGrid(np.array([0, 1, 2]))
         g_3y.nodes = np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]])
         g_3y.global_point_ind = np.arange(3)
         # Second 1d grid, as seen from g1
-        g_3z = TensorGrid(np.array([0, 1, 2]))
+        g_3z = pp.TensorGrid(np.array([0, 1, 2]))
         g_3z.nodes = np.array([[0, 0, 0], [0, 0, 0], [-1, 0, 1]])
         # Point indices adjusted according to ordering in nodes_1
         g_3z.global_point_ind = np.array([3, 1, 4])
@@ -968,30 +968,30 @@ class TestMeshMerging(unittest.TestCase):
         )
 
         # First 1d grid, as seen from g1
-        g_1x = TensorGrid(np.array([0, 1, 2, 3]))
+        g_1x = pp.TensorGrid(np.array([0, 1, 2, 3]))
         g_1x.nodes = np.array([[-1, -0.5, 0, 1], [0, 0, 0, 0], [0, 0, 0, 0]])
         g_1x.global_point_ind = np.arange(4)
         # Third 1d grid, as seen from g1
-        g_1y = TensorGrid(np.array([0, 1, 2]))
+        g_1y = pp.TensorGrid(np.array([0, 1, 2]))
         g_1y.nodes = np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]])
         # Point indices adjusted according to ordering in nodes_1
         g_1y.global_point_ind = np.array([4, 2, 5])
 
         # First 1d grid, as seen from g2
-        g_2x = TensorGrid(np.array([0, 1, 2]))
+        g_2x = pp.TensorGrid(np.array([0, 1, 2]))
         g_2x.nodes = np.array([[-1, 0, 1], [0, 0, 0], [0, 0, 0]])
         g_2x.global_point_ind = np.arange(3)
         # Third 1d grid, as seen from g2
-        g_2z = TensorGrid(np.array([0, 1, 2]))
+        g_2z = pp.TensorGrid(np.array([0, 1, 2]))
         g_2z.nodes = np.array([[0, 0, 0], [0, 0, 0], [-1, 0, 1]])
         # Point indices adjusted according to ordering in nodes_1
         g_2z.global_point_ind = np.array([3, 1, 4])
 
-        g_3y = TensorGrid(np.array([0, 1, 2]))
+        g_3y = pp.TensorGrid(np.array([0, 1, 2]))
         g_3y.nodes = np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]])
         g_3y.global_point_ind = np.arange(3)
         # Second 1d grid, as seen from g1
-        g_3z = TensorGrid(np.array([0, 1, 2]))
+        g_3z = pp.TensorGrid(np.array([0, 1, 2]))
         g_3z.nodes = np.array([[0, 0, 0], [0, 0, 0], [-1, 0, 1]])
         # Point indices adjusted according to ordering in nodes_1
         g_3z.global_point_ind = np.array([3, 1, 4])

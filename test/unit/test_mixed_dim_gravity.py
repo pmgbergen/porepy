@@ -260,7 +260,7 @@ class TestMixedDimGravity(unittest.TestCase):
 
         g_new_2d = self.grid_2d(pert_node=pert_node, flip_normal=flip_normal)
         g_new_1d = self.grid_1d(num_1d)
-        pp.mortars.replace_grids_in_bucket(gb, g_map={g2: g_new_2d, g1: g_new_1d})
+        gb.replace_grids(g_map={g2: g_new_2d, g1: g_new_1d})
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
@@ -268,7 +268,7 @@ class TestMixedDimGravity(unittest.TestCase):
             s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
             for s, g in mg.side_grids.items()
         }
-        pp.mortars.update_mortar_grid(mg, new_side_grids, tol=1e-4)
+        mg.update_mortar(new_side_grids, tol=1e-4)
 
         gb.assign_node_ordering()
         self.gb = gb
@@ -301,7 +301,7 @@ class TestMixedDimGravity(unittest.TestCase):
                 for s, g in mg.side_grids.items()
             }
 
-            pp.mortars.update_mortar_grid(mg, new_side_grids, tol=1e-4)
+            mg.update_mortar(new_side_grids, tol=1e-4)
             # refine the 1d-physical grid
             old_g = gb.nodes_of_edge(e)[0]
             new_g = pp.refinement.remesh_1d(old_g, num_nodes=num_nodes_1d)
@@ -309,7 +309,7 @@ class TestMixedDimGravity(unittest.TestCase):
 
             gb.update_nodes({old_g: new_g})
             mg = d["mortar_grid"]
-            pp.mortars.update_physical_low_grid(mg, new_g, tol=1e-4)
+            mg.update_slave(new_g, tol=1e-4)
         self.gb = gb
 
     def solve(self, method):

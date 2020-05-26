@@ -11,7 +11,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_1d(self):
-        g = pp.structured.CartGrid(3, 1)
+        g = pp.CartGrid(3, 1)
 
         self.assertTrue(np.array_equal(g.tags["fracture_faces"], [False] * g.num_faces))
         self.assertTrue(np.array_equal(g.tags["fracture_nodes"], [False] * g.num_nodes))
@@ -24,7 +24,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_2d_simplex(self):
-        g = pp.simplex.StructuredTriangleGrid([3] * 2, [1] * 2)
+        g = pp.StructuredTriangleGrid([3] * 2, [1] * 2)
 
         self.assertTrue(np.array_equal(g.tags["fracture_faces"], [False] * g.num_faces))
         self.assertTrue(np.array_equal(g.tags["fracture_nodes"], [False] * g.num_nodes))
@@ -95,7 +95,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_2d_cart(self):
-        g = pp.structured.CartGrid([4] * 2, [1] * 2)
+        g = pp.CartGrid([4] * 2, [1] * 2)
 
         self.assertTrue(np.array_equal(g.tags["fracture_faces"], [False] * g.num_faces))
         self.assertTrue(np.array_equal(g.tags["fracture_nodes"], [False] * g.num_nodes))
@@ -183,7 +183,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_3d_simplex(self):
-        g = pp.simplex.StructuredTetrahedralGrid([2] * 3, [1] * 3)
+        g = pp.StructuredTetrahedralGrid([2] * 3, [1] * 3)
 
         self.assertTrue(np.array_equal(g.tags["fracture_faces"], [False] * g.num_faces))
         self.assertTrue(np.array_equal(g.tags["fracture_nodes"], [False] * g.num_nodes))
@@ -352,7 +352,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_3d_cart(self):
-        g = pp.structured.CartGrid([4] * 3, [1] * 3)
+        g = pp.CartGrid([4] * 3, [1] * 3)
 
         self.assertTrue(np.array_equal(g.tags["fracture_faces"], [False] * g.num_faces))
         self.assertTrue(np.array_equal(g.tags["fracture_nodes"], [False] * g.num_nodes))
