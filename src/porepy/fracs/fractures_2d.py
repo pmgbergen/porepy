@@ -119,7 +119,7 @@ class FractureNetwork2d(object):
 
     def copy(self):
         """ Create deep copy of the network.
-        
+
         The method will create a deep copy of all fractures, as well as the domain, of
         the network. Note that if the fractures have had extra points imposed as part
         of a meshing procedure, these will included in the copied fractures.
