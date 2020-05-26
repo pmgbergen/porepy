@@ -802,7 +802,7 @@ class Grid:
             np.array (size 3): Maximum node coordinates in each direction.
 
         """
-        if self.dim==0:
+        if self.dim == 0:
             coords = self.cell_centers
         else:
             coords = self.nodes

@@ -993,7 +993,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A_2_permuted.todense()))
 
     def test_one_and_two_variables_coupling_between_node_and_edge_mixed_dependencies(
-        self
+        self,
     ):
         """ One of the nodes has a single variable. A mortar variable depends on a combination
         mixture of the two variables
@@ -1080,7 +1080,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A_2_permuted.todense()))
 
     def test_one_and_two_variables_coupling_between_node_and_edge_mixed_dependencies_two_discretizations(
-        self
+        self,
     ):
         """ One of the nodes has a single variable. A mortar variable depends on a combination
         mixture of the two variables. The mortar variable has two discretizations.
@@ -1173,7 +1173,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A_2_permuted.todense()))
 
     def test_one_and_two_variables_coupling_between_node_and_edge_mixed_dependencies_two_discretizations_2(
-        self
+        self,
     ):
         """ One of the nodes has a single variable. A mortar variable depends on a combination
         mixture of the two variables. The mortar variable has two discretizations.
@@ -1309,7 +1309,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A.todense()))
 
     def test_one_variable_one_sided_coupling_between_node_and_edge_different_operator_variable_names_modifies_node(
-        self
+        self,
     ):
         """ Coupling between edge and one of the subdomains, but not the other
         """
