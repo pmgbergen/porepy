@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 def grid_error(
-        gb: pp.GridBucket,
-        gb_ref: pp.GridBucket,
+        gb: 'pp.GridBucket',
+        gb_ref: 'pp.GridBucket',
         variable: List[str],
         variable_dof: List[int],
 ) -> dict:
