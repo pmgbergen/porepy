@@ -159,7 +159,7 @@ def network_2d_from_csv(
     polyline=False,
     return_frac_id=False,
     domain=None,
-    **kwargs
+    **kwargs,
 ):
     """ Read csv file with fractures to obtain fracture description.
 
@@ -325,7 +325,9 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs):
     if dim == 2:
         grids = pp.fracs.simplex.triangle_grid_from_gmsh(out_file, **kwargs)
     elif dim == 3:
-        grids = pp.fracs.simplex.tetrahedral_grid_from_gmsh(file_name=out_file, **kwargs)
+        grids = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
+            file_name=out_file, **kwargs
+        )
     else:
         raise ValueError(f"Unknown dimension, dim: {dim}")
     return pp.meshing.grid_list_to_grid_bucket(grids, **kwargs)

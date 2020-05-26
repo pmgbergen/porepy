@@ -295,7 +295,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         assert beta.size == 3
 
         if g.dim == 0:
-            if g.num_faces==0:
+            if g.num_faces == 0:
                 dot_prod = np.zeros(0)
             else:
                 dot_prod = np.dot(g.face_normals.ravel("F"), face_apertures * beta)

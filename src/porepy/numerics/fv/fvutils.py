@@ -299,7 +299,7 @@ def subproblems(
 ) -> Generator[Any, None, None]:
     num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(np.int)
 
-    if active_grid.dim ==0:
+    if active_grid.dim == 0:
         # nothing realy to do here
         loc_faces = np.ones(active_grid.num_faces, dtype=bool)
         loc_cells = np.ones(active_grid.num_cells, dtype=bool)

@@ -49,11 +49,7 @@ def triangle_grid_embedded(file_name):
     pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
     g_2d = mesh_2_grid.create_2d_grids(
-        pts,
-        cells,
-        is_embedded=True,
-        phys_names=phys_names,
-        cell_info=cell_info,
+        pts, cells, is_embedded=True, phys_names=phys_names, cell_info=cell_info,
     )
     g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
     g_0d = mesh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)

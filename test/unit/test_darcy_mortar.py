@@ -79,7 +79,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         for e, d in gb.edges():
             mg = d["mortar_grid"]
-            
+
         new_side_grids = {
             s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
             for s, g in mg.side_grids.items()
@@ -94,9 +94,9 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         gb.update_nodes({old_g: new_g})
         mg = d["mortar_grid"]
-        
+
         mg.update_slave(new_g, tol=1e-4)
-        
+
         return gb
 
     def solve(self, gb, method=None):

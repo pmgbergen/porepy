@@ -1164,7 +1164,9 @@ class GridBucket(Generic[T]):
         """
         if cond is None:
             cond = lambda g: True
-        return np.hstack([grid.cell_volumes for grid, _ in self._nodes.items() if cond(grid)])
+        return np.hstack(
+            [grid.cell_volumes for grid, _ in self._nodes.items() if cond(grid)]
+        )
 
     def face_centers(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
         """
@@ -1180,7 +1182,9 @@ class GridBucket(Generic[T]):
         """
         if cond is None:
             cond = lambda g: True
-        return np.hstack([grid.face_centers for grid, _ in self._nodes.items() if cond(grid)])
+        return np.hstack(
+            [grid.face_centers for grid, _ in self._nodes.items() if cond(grid)]
+        )
 
     def cell_centers(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
         """
@@ -1197,7 +1201,9 @@ class GridBucket(Generic[T]):
         """
         if cond is None:
             cond = lambda g: True
-        return np.hstack([grid.cell_centers for grid, _ in self._nodes.items() if cond(grid)])
+        return np.hstack(
+            [grid.cell_centers for grid, _ in self._nodes.items() if cond(grid)]
+        )
 
     def cell_volumes_mortar(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
         """

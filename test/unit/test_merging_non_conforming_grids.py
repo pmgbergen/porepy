@@ -38,9 +38,14 @@ class TestMeshMerging(unittest.TestCase):
         h = pp.TensorGrid(np.array([0, 0.5, 1, 2]))
         g.compute_geometry()
         h.compute_geometry()
-        gh, offset, g_in_comb, h_in_comb, g_sort, h_sort = non_conforming.merge_1d_grids(
-            g, h, global_ind_offset=0, tol=1e-4
-        )
+        (
+            gh,
+            offset,
+            g_in_comb,
+            h_in_comb,
+            g_sort,
+            h_sort,
+        ) = non_conforming.merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4)
 
         self.assertTrue(np.allclose(gh.nodes[:, g_in_comb], g.nodes[:, g_sort]))
         self.assertTrue(np.allclose(gh.nodes[:, h_in_comb], h.nodes[:, h_sort]))
@@ -51,9 +56,14 @@ class TestMeshMerging(unittest.TestCase):
         h = pp.TensorGrid(np.array([0, 0.5, 2]))
         g.compute_geometry()
         h.compute_geometry()
-        gh, offset, g_in_comb, h_in_comb, g_sort, h_sort = non_conforming.merge_1d_grids(
-            g, h, global_ind_offset=0, tol=1e-4
-        )
+        (
+            gh,
+            offset,
+            g_in_comb,
+            h_in_comb,
+            g_sort,
+            h_sort,
+        ) = non_conforming.merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4)
 
         self.assertTrue(np.allclose(gh.nodes[:, g_in_comb], g.nodes[:, g_sort]))
         self.assertTrue(np.allclose(gh.nodes[:, h_in_comb], h.nodes[:, h_sort]))
@@ -67,9 +77,14 @@ class TestMeshMerging(unittest.TestCase):
         h.nodes = np.array([[0, 0, 0], [0.5, 0.5, 0.5], [2, 2, 2]]).T
         h.compute_geometry()
 
-        gh, offset, g_in_comb, h_in_comb, g_sort, h_sort = non_conforming.merge_1d_grids(
-            g, h, global_ind_offset=0
-        )
+        (
+            gh,
+            offset,
+            g_in_comb,
+            h_in_comb,
+            g_sort,
+            h_sort,
+        ) = non_conforming.merge_1d_grids(g, h, global_ind_offset=0)
         self.assertTrue(np.allclose(gh.nodes[:, g_in_comb], g.nodes[:, g_sort]))
         self.assertTrue(np.allclose(gh.nodes[:, h_in_comb], h.nodes[:, h_sort]))
 
@@ -829,7 +844,7 @@ class TestMeshMerging(unittest.TestCase):
         self.assertTrue(np.allclose(gyz.nodes[:, maps], g_1d.nodes))
 
     def test_merge_three_grids_internal_intersection_no_hanging_node_reverse_order(
-        self
+        self,
     ):
         # Merge three grids, where a central cell share one face each with the two
         # other. Importantly, one node will be involved in both shared faces.
