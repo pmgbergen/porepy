@@ -19,7 +19,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_vem_1d_iso(self):
-        g = pp.structured.CartGrid(3, 1)
+        g = pp.CartGrid(3, 1)
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -49,7 +49,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_vem_1d_ani(self):
-        g = pp.structured.CartGrid(3, 1)
+        g = pp.CartGrid(3, 1)
         g.compute_geometry()
 
         kxx = np.sin(g.cell_centers[0, :]) + 1
@@ -96,7 +96,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_iso_cart(self):
-        g = pp.structured.CartGrid([2, 1], [1, 1])
+        g = pp.CartGrid([2, 1], [1, 1])
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -129,7 +129,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_ani_cart(self):
-        g = pp.structured.CartGrid([2, 1], [1, 1])
+        g = pp.CartGrid([2, 1], [1, 1])
         g.compute_geometry()
 
         kxx = np.square(g.cell_centers[1, :]) + 1
@@ -234,7 +234,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_iso_simplex(self):
-        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -283,7 +283,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_iso_simplex_mixed_bc(self):
-        g = pp.simplex.StructuredTriangleGrid([2, 2], [1, 1])
+        g = pp.StructuredTriangleGrid([2, 2], [1, 1])
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -334,7 +334,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_ani_simplex(self):
-        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
 
         kxx = np.square(g.cell_centers[1, :]) + 1
@@ -385,7 +385,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_vem_3d_iso_cart(self):
-        g = pp.structured.CartGrid([2, 2, 2], [1, 1, 1])
+        g = pp.CartGrid([2, 2, 2], [1, 1, 1])
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -406,7 +406,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_vem_3d_ani_cart(self):
-        g = pp.structured.CartGrid([2, 2, 2], [1, 1, 1])
+        g = pp.CartGrid([2, 2, 2], [1, 1, 1])
         g.compute_geometry()
 
         kxx = np.square(g.cell_centers[1, :]) + 1
@@ -430,7 +430,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_vem_1d_iso_line(self):
-        g = pp.structured.CartGrid(3, 1)
+        g = pp.CartGrid(3, 1)
         R = pp.map_geometry.rotation_matrix(np.pi / 6.0, [0, 0, 1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
@@ -464,7 +464,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_iso_cart_surf(self):
-        g = pp.structured.CartGrid([2, 1], [1, 1])
+        g = pp.CartGrid([2, 1], [1, 1])
         R = pp.map_geometry.rotation_matrix(np.pi / 4.0, [0, 1, 0])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
@@ -500,7 +500,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_ani_cart_surf(self):
-        g = pp.structured.CartGrid([2, 1], [1, 1])
+        g = pp.CartGrid([2, 1], [1, 1])
         g.compute_geometry()
 
         kxx = np.square(g.cell_centers[1, :]) + 1
@@ -610,7 +610,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_iso_simplex_surf(self):
-        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         R = pp.map_geometry.rotation_matrix(-np.pi / 4.0, [1, 1, -1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
@@ -662,7 +662,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_ani_simplex_surf(self):
-        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
 
         kxx = np.square(g.cell_centers[1, :]) + 1
