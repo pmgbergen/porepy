@@ -733,11 +733,11 @@ class FractureNetwork3d(object):
         pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dim=dim_meshing)
 
         if dfn:
-            grid_list = pp.fracs.simplex.triangle_grid_embedded(self, out_file)
+            grid_list = pp.fracs.simplex.triangle_grid_embedded(out_file)
         else:
             # Process the gmsh .msh output file, to make a list of grids
             grid_list = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
-                self, out_file, constraints
+                out_file, constraints
             )
 
         # Merge the grids into a mixed-dimensional GridBucket
