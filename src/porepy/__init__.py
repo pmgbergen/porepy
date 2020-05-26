@@ -140,7 +140,7 @@ from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
 # Modules
 from porepy.fracs import utils as frac_utils
-from porepy.fracs import meshing, fracture_importer, mortars
+from porepy.fracs import meshing, fracture_importer
 from porepy.grids import coarsening, partition, refinement
 import porepy.utils.derived_discretizations
 
