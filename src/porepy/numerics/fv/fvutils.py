@@ -475,7 +475,7 @@ def invert_diagonal_blocks(mat, s, method=None):
         dat = a.data
 
         # Just in time compilation
-        @numba.jit("f8[:](i4[:],i4[:],f8[:],i8[:])", nopython=True, nogil=False)
+        @numba.jit("f8[:](i4[:],i4[:],f8[:],i8[:])", nopython=True, cache=True)
         def inv_python(indptr, ind, data, sz):
             """
             Invert block matrices by explicitly forming local matrices. The code
