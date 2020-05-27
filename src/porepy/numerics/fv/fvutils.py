@@ -295,51 +295,58 @@ def find_active_indices(
 
 
 def subproblems(
-    active_grid: pp.Grid, max_memory: int, peak_memory_estimate: int
+    g: pp.Grid, max_memory: int, peak_memory_estimate: int
 ) -> Generator[Any, None, None]:
+
+    if g.dim == 0:
+        # nothing realy to do here
+        loc_faces = np.ones(g.num_faces, dtype=bool)
+        loc_cells = np.ones(g.num_cells, dtype=bool)
+        loc2g_cells = sps.eye(g.num_cells, dtype=bool)
+        loc2g_face = sps.eye(g.num_faces, dtype=bool)
+        return g, loc_faces, loc_cells, loc2g_cells, loc2g_face
+
     num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(np.int)
 
-    if active_grid.dim == 0:
-        # nothing realy to do here
-        loc_faces = np.ones(active_grid.num_faces, dtype=bool)
-        loc_cells = np.ones(active_grid.num_cells, dtype=bool)
-        loc2g_cells = sps.eye(active_grid.num_cells, dtype=bool)
-        loc2g_face = sps.eye(active_grid.num_faces, dtype=bool)
-        return active_grid, loc_faces, loc_cells, loc2g_cells, loc2g_face
+    if num_part == 1:
+        yield g, np.arange(g.num_faces), np.arange(g.num_cells), np.arange(
+            g.num_cells
+        ), np.arange(g.num_faces)
 
-    # Let partitioning module apply the best available method
-    part: np.ndarray = pp.partition.partition(active_grid, num_part)
+    else:
+        # Let partitioning module apply the best available method
+        part: np.ndarray = pp.partition.partition(g, num_part)
 
-    # Cell-node relation
-    cn: sps.csc_matrix = active_grid.cell_nodes()
+        # Cell-node relation
+        cn: sps.csc_matrix = g.cell_nodes()
 
-    # Loop over all partition regions, construct local problems, and transfer
-    # discretization to the entire active grid
-    for p in np.unique(part):
-        # Cells in this partitioning
-        cells_in_partition: np.ndarray = np.argwhere(part == p).ravel("F")
+        # Loop over all partition regions, construct local problemsac, and transfer
+        # discretization to the entire active grid
+        for p in np.unique(part):
+            # Cells in this partitioning
+            cells_in_partition: np.ndarray = np.argwhere(part == p).ravel("F")
 
-        # To discretize with as little overlap as possible, we use the
-        # keyword nodes to specify the update stencil. Find nodes of the
-        # local cells.
-        cells_in_partition_boolean = np.zeros(active_grid.num_cells, dtype=np.bool)
-        cells_in_partition_boolean[cells_in_partition] = 1
+            # To discretize with as little overlap as possible, we use the
+            # keyword nodes to specify the update stencil. Find nodes of the
+            # local cells.
+            cells_in_partition_boolean = np.zeros(g.num_cells, dtype=np.bool)
+            cells_in_partition_boolean[cells_in_partition] = 1
 
-        nodes_in_partition: np.ndarray = np.squeeze(
-            np.where((cn * cells_in_partition_boolean) > 0)
-        )
+            nodes_in_partition: np.ndarray = np.squeeze(
+                np.where((cn * cells_in_partition_boolean) > 0)
+            )
 
-        # Find computational stencil, based on the nodes in this partition
-        loc_cells, loc_faces = pp.fvutils.cell_ind_for_partial_update(
-            active_grid, nodes=nodes_in_partition
-        )
+            # Find computational stencil, based on the nodes in this partition
+            loc_cells, loc_faces = pp.fvutils.cell_ind_for_partial_update(
+                g, nodes=nodes_in_partition
+            )
 
-        # Extract subgrid, together with mappings between local and active
-        # (global, or at least less local) cells
-        sub_g, l2g_faces, _ = pp.partition.extract_subgrid(active_grid, loc_cells)
-        l2g_cells = sub_g.parent_cell_ind
+            # Extract subgrid, together with mappings between local and active
+            # (global, or at least less local) cells
+            sub_g, l2g_faces, _ = pp.partition.extract_subgrid(g, loc_cells)
+            l2g_cells = sub_g.parent_cell_ind
 
-        yield sub_g, loc_faces, cells_in_partition, l2g_cells, l2g_faces
+            yield sub_g, loc_faces, cells_in_partition, l2g_cells, l2g_faces
 
 
 def remove_nonlocal_contribution(
@@ -981,6 +988,7 @@ class ExcludeBoundaries(object):
         # Short hand notation
         num_subfno = subcell_topology.num_subfno_unique
         self.num_subfno = num_subfno
+        self.any_rob = np.any(bound.is_rob)
 
         # Define mappings to exclude boundary values
         if self.bc_type == "scalar":
