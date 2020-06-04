@@ -19,7 +19,7 @@ class TestPartialMPFA(unittest.TestCase):
         g.compute_geometry()
         perm = pp.SecondOrderTensor(np.ones(g.num_cells))
         bnd = pp.BoundaryCondition(g)
-        flux, bound_flux, _, _, vector_source = pp.Mpfa("flow")._flux_discretization(
+        flux, bound_flux, _, _, vector_source, _ = pp.Mpfa("flow")._flux_discretization(
             g, perm, bnd, inverter="python"
         )
         return g, perm, bnd, flux, bound_flux, vector_source
@@ -50,7 +50,7 @@ class TestPartialMPFA(unittest.TestCase):
             discr.bound_flux_matrix_key
         ]
         partial_vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.vector_source_key
+            discr.vector_source_matrix_key
         ]
 
         active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
@@ -102,7 +102,7 @@ class TestPartialMPFA(unittest.TestCase):
             discr.bound_flux_matrix_key
         ]
         partial_vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
-            discr.vector_source_key
+            discr.vector_source_matrix_key
         ]
 
         active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
@@ -178,7 +178,7 @@ class TestPartialMPFA(unittest.TestCase):
                 discr.bound_flux_matrix_key
             ]
             partial_vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
-                discr.vector_source_key
+                discr.vector_source_matrix_key
             ]
 
             active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
@@ -195,9 +195,9 @@ class TestPartialMPFA(unittest.TestCase):
             bound_flux += partial_bound
             vc += partial_vector_source
 
-        flux_full, bound_flux_full, *_, vc_full = pp.Mpfa("flow")._flux_discretization(
-            g, perm, bnd, inverter="python"
-        )
+        flux_full, bound_flux_full, *_, vc_full, _ = pp.Mpfa(
+            "flow"
+        )._flux_discretization(g, perm, bnd, inverter="python")
 
         self.assertTrue((flux_full - flux).max() < 1e-8)
         self.assertTrue((flux_full - flux).min() > -1e-8)
@@ -454,9 +454,16 @@ class PartialBiotMpsa(TestPartialMPSA):
 
     def test_inner_cell_node_keyword(self):
         # Compute update for a single cell in the interior.
-        g, stiffness, bnd, div_u, bound_div_u, grad_p, stab, bound_pressure = (
-            self.setup_biot()
-        )
+        (
+            g,
+            stiffness,
+            bnd,
+            div_u,
+            bound_div_u,
+            grad_p,
+            stab,
+            bound_pressure,
+        ) = self.setup_biot()
 
         inner_cell = 12  # The target cell
         nodes_of_cell = np.array([14, 15, 20, 21])
@@ -530,9 +537,16 @@ class PartialBiotMpsa(TestPartialMPSA):
 
     def test_bound_cell_node_keyword(self):
         # Compute update for a single cell on the
-        g, stiffness, bnd, div_u, bound_div_u, grad_p, stab, bound_pressure = (
-            self.setup_biot()
-        )
+        (
+            g,
+            stiffness,
+            bnd,
+            div_u,
+            bound_div_u,
+            grad_p,
+            stab,
+            bound_pressure,
+        ) = self.setup_biot()
 
         inner_cell = 10
         nodes_of_cell = np.array([12, 13, 18, 19])

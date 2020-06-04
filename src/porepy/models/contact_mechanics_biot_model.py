@@ -94,6 +94,38 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             aperture *= 0.1
         return aperture
 
+    def reconstruct_stress(self, previous_iterate: bool = False) -> None:
+        """
+        Compute the stress in the highest-dimensional grid based on the displacement
+        and pressure states in that grid, adjacent interfaces and global boundary
+        conditions.
+
+        The stress is stored in the data dictionary of the highest-dimensional grid,
+        in [pp.STATE]['stress'].
+
+        Parameters:
+            previous_iterate (boolean, optional): If True, use values from previous
+                iteration to compute the stress. Defaults to False.
+
+        """
+        # First the mechanical part of the stress
+        super().reconstruct_stress(previous_iterate)
+
+        g = self._nd_grid()
+        d = self.gb.node_props(g)
+
+        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.mechanics_parameter_key]
+
+        if previous_iterate:
+            p = d[pp.STATE]["previous_iterate"][self.scalar_variable]
+        else:
+            p = d[pp.STATE][self.scalar_variable]
+
+        # Stress contribution from the scalar variable
+        d[pp.STATE]["stress"] += matrix_dictionary["grad_p"] * p
+
+        # Is it correct there is no contribution from the global boundary conditions?
+
     def specific_volume(self, g: pp.Grid) -> np.ndarray:
         """
         The specific volume of a cell accounts for the dimension reduction and has 
@@ -449,13 +481,15 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
         # Next, discretize term on the matrix grid not covered by the Biot discretization,
         # i.e. the source term
+        # Here, we also discretize the edge terms in the entire gb
         self.assembler.discretize(grid=g_max, term_filter=["source"])
 
         # Finally, discretize terms on the lower-dimensional grids. This can be done
         # in the traditional way, as there is no Biot discretization here.
         for g, _ in self.gb:
             if g.dim < self.Nd:
-                self.assembler.discretize(grid=g)
+                # No need to discretize edges here, this was done above.
+                self.assembler.discretize(grid=g, edges=False)
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 

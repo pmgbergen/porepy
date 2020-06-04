@@ -186,6 +186,7 @@ class TestBucket(unittest.TestCase):
         g3 = MockGrid(3)
         gb.add_nodes(g1)
         gb.add_nodes(g2)
+        gb.add_nodes(g3)
         gb.add_edge([g1, g2], None)
 
         # This edge is defined
@@ -245,6 +246,20 @@ class TestBucket(unittest.TestCase):
         gb = self.simple_bucket(1)
         self.assertRaises(ValueError, gb.add_node_props, "node_number")
 
+    def test_overwrite_node_props(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid()
+        gb.add_nodes(g1)
+        key = "foo"
+        val = 42
+        gb.set_node_prop(g1, key, val)
+
+        gb.add_node_props(key, overwrite=False)
+        self.assertTrue(gb.node_props(g1, key) == val)
+
+        gb.add_node_props(key)
+        self.assertTrue(gb.node_props(g1, key) is None)
+
     # -------------- Tests for add_edge_props
 
     def test_add_single_edge_prop(self):
@@ -270,7 +285,7 @@ class TestBucket(unittest.TestCase):
 
         gb.add_edge([g1, g2], None)
         # Add property, with reverse order of grid pair
-        gb.add_edge_props("a", grid_pairs=[[g2, g1]])
+        gb.add_edge_props("a", edges=[[g2, g1]])
 
         for _, d in gb.edges():
             self.assertTrue("a" in d.keys())
@@ -323,6 +338,25 @@ class TestBucket(unittest.TestCase):
             else:
                 self.assertTrue(p2 in d.keys())
                 self.assertTrue(not p1 in d.keys())
+
+    def test_overwrite_edge_props(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid()
+        g2 = MockGrid()
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+        e = (g1, g2)
+        gb.add_edge(e, None)
+
+        key = "foo"
+        val = 42
+        gb.set_edge_prop(e, key, val)
+
+        gb.add_edge_props(key, overwrite=False)
+        self.assertTrue(gb.edge_props(e, key) == val)
+
+        gb.add_edge_props(key)
+        self.assertTrue(gb.edge_props(e, key) is None)
 
     # ----------- Tests for getters of node properties ----------
 
@@ -378,9 +412,9 @@ class TestBucket(unittest.TestCase):
         self.assertTrue(all([k in all_keys.keys() for k in keys]))
 
         # The other edge has no properties, Python should raise KeyError
-        self.assertRaises(KeyError, gb.edge_props, gp=pairs[1], key="a")
+        self.assertRaises(KeyError, gb.edge_props, edge=pairs[1], key="a")
         # Try a non-existing edge, the method itself should raise KeyError
-        self.assertRaises(KeyError, gb.edge_props, gp=[g1, g3], key="a")
+        self.assertRaises(KeyError, gb.edge_props, edge=[g1, g3], key="a")
 
     def test_update_nodes(self):
         gb = pp.GridBucket()

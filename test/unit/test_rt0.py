@@ -15,11 +15,12 @@ class BasicsTest(unittest.TestCase):
             g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
         )
         solver.discretize(g, data)
-
-        return solver.assemble_matrix(g, data).todense()
+        M = solver.assemble_matrix(g, data).todense()
+        P = data[pp.DISCRETIZATION_MATRICES]["flow"][solver.vector_proj_key].todense()
+        return M, P
 
     def test_rt0_1d_iso(self):
-        g = pp.structured.CartGrid(3, 1)
+        g = pp.CartGrid(3, 1)
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -27,7 +28,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
 
-        M = self._matrix(g, perm, bc)
+        M, P = self._matrix(g, perm, bc)
         M_known = np.matrix(
             [
                 [0.11111111, 0.05555556, 0.0, 0.0, 1.0, 0.0, 0.0],
@@ -43,17 +44,33 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(M, M.T))
         self.assertTrue(np.allclose(M, M_known))
 
+        P_known = np.matrix(
+            [
+                [5.0000e-01, 5.0000e-01, 0.0000e00, 0.0000e00],
+                [0.0000e00, 0.0000e00, 0.0000e00, 0.0000e00],
+                [-5.5511e-17, -5.5511e-17, 0.0000e00, 0.0000e00],
+                [0.0000e00, 5.0000e-01, 5.0000e-01, 0.0000e00],
+                [0.0000e00, 0.0000e00, 0.0000e00, 0.0000e00],
+                [0.0000e00, -5.5511e-17, -5.5511e-17, 0.0000e00],
+                [0.0000e00, 0.0000e00, 5.0000e-01, 5.0000e-01],
+                [0.0000e00, 0.0000e00, 0.0000e00, 0.0000e00],
+                [0.0000e00, 0.0000e00, -5.5511e-17, -5.5511e-17],
+            ]
+        )
+
+        self.assertTrue(np.allclose(P, P_known))
+
     # ------------------------------------------------------------------------------#
 
     def test_rt0_1d_ani(self):
-        g = pp.structured.CartGrid(3, 1)
+        g = pp.CartGrid(3, 1)
         g.compute_geometry()
 
         kxx = 1.0 / (np.sin(g.cell_centers[0, :]) + 1)
         perm = pp.SecondOrderTensor(kxx, kyy=1, kzz=1)
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        M = self._matrix(g, perm, bc)
+        M, P = self._matrix(g, perm, bc)
 
         M_known = np.matrix(
             [
@@ -69,6 +86,22 @@ class BasicsTest(unittest.TestCase):
 
         self.assertTrue(np.allclose(M, M.T))
         self.assertTrue(np.allclose(M, M_known))
+
+        P_known = np.matrix(
+            [
+                [5.0000e-01, 5.0000e-01, 0.0000e00, 0.0000e00],
+                [0.0000e00, 0.0000e00, 0.0000e00, 0.0000e00],
+                [-5.5511e-17, -5.5511e-17, 0.0000e00, 0.0000e00],
+                [0.0000e00, 5.0000e-01, 5.0000e-01, 0.0000e00],
+                [0.0000e00, 0.0000e00, 0.0000e00, 0.0000e00],
+                [0.0000e00, -5.5511e-17, -5.5511e-17, 0.0000e00],
+                [0.0000e00, 0.0000e00, 5.0000e-01, 5.0000e-01],
+                [0.0000e00, 0.0000e00, 0.0000e00, 0.0000e00],
+                [0.0000e00, 0.0000e00, -5.5511e-17, -5.5511e-17],
+            ]
+        )
+
+        self.assertTrue(np.allclose(P, P_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -91,7 +124,7 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        M = self._matrix(g, perm, bc)
+        M, P = self._matrix(g, perm, bc)
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -106,10 +139,20 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(M, M.T))
         self.assertTrue(np.allclose(M, M_known))
 
+        P_known = np.matrix(
+            [
+                [0.33333333, 0.33333333, -0.66666667],
+                [-0.66666667, 0.33333333, 0.33333333],
+                [0.0, 0.0, 0.0],
+            ]
+        )
+
+        self.assertTrue(np.allclose(P, P_known))
+
     # ------------------------------------------------------------------------------#
 
     def test_rt0_2d_iso_simplex(self):
-        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -117,7 +160,7 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        M = self._matrix(g, perm, bc)
+        M, P = self._matrix(g, perm, bc)
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -135,10 +178,23 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(M, M.T))
         self.assertTrue(np.allclose(M, M_known))
 
+        P_known = np.matrix(
+            [
+                [-0.33333333, 0.0, -0.33333333, 0.66666667, 0.0],
+                [-0.66666667, 0.0, 0.33333333, 0.33333333, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, -0.66666667, -0.33333333, 0.0, 0.33333333],
+                [0.0, -0.33333333, 0.33333333, 0.0, 0.66666667],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+            ]
+        )
+
+        self.assertTrue(np.allclose(P, P_known))
+
     # ------------------------------------------------------------------------------#
 
     def test_rt0_2d_iso_simplex_mixed_bc(self):
-        g = pp.simplex.StructuredTriangleGrid([2, 2], [1, 1])
+        g = pp.StructuredTriangleGrid([2, 2], [1, 1])
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -823,7 +879,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_rt0_2d_ani_simplex(self):
-        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
 
         al = np.square(g.cell_centers[1, :]) + np.square(g.cell_centers[0, :]) + 1
@@ -835,7 +891,7 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        M = self._matrix(g, perm, bc)
+        M, P = self._matrix(g, perm, bc)
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -852,6 +908,19 @@ class BasicsTest(unittest.TestCase):
 
         self.assertTrue(np.allclose(M, M.T))
         self.assertTrue(np.allclose(M, M_known))
+
+        P_known = np.matrix(
+            [
+                [-0.33333333, 0.0, -0.33333333, 0.66666667, 0.0],
+                [-0.66666667, 0.0, 0.33333333, 0.33333333, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, -0.66666667, -0.33333333, 0.0, 0.33333333],
+                [0.0, -0.33333333, 0.33333333, 0.0, 0.66666667],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+            ]
+        )
+
+        self.assertTrue(np.allclose(P, P_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -874,7 +943,7 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        M = self._matrix(g, perm, bc)
+        M, P = self._matrix(g, perm, bc)
         M_known = np.matrix(
             [
                 [0.53333333, 0.03333333, -0.13333333, -0.13333333, -1.0],
@@ -888,11 +957,17 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(M, M.T))
         self.assertTrue(np.allclose(M, M_known))
 
+        P_known = np.matrix(
+            [[0.5, 0.5, -1.5, 0.5], [0.5, 0.5, 0.5, -1.5], [-1.5, 0.5, 0.5, 0.5]]
+        )
+
+        self.assertTrue(np.allclose(P, P_known))
+
     # ------------------------------------------------------------------------------#
 
     def test_rt0_3d(self):
 
-        g = pp.simplex.StructuredTetrahedralGrid([1, 1, 1], [1, 1, 1])
+        g = pp.StructuredTetrahedralGrid([1, 1, 1], [1, 1, 1])
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -900,16 +975,17 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        M = self._matrix(g, perm, bc)
-        M_known = matrix_for_test_rt0_3d()
+        M, P = self._matrix(g, perm, bc)
+        M_known, P_known = matrix_for_test_rt0_3d()
 
         self.assertTrue(np.allclose(M, M.T))
         self.assertTrue(np.allclose(M, M_known))
+        self.assertTrue(np.allclose(P, P_known))
 
     # ------------------------------------------------------------------------------#
 
     def test_dual_rt0_1d_iso_line(self):
-        g = pp.structured.CartGrid(3, 1)
+        g = pp.CartGrid(3, 1)
         R = pp.map_geometry.rotation_matrix(np.pi / 6.0, [0, 0, 1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
@@ -920,7 +996,7 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        M = self._matrix(g, perm, bc)
+        M, P = self._matrix(g, perm, bc)
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -938,10 +1014,26 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(M, M.T))
         self.assertTrue(np.allclose(M, M_known))
 
+        P_known = np.matrix(
+            [
+                [4.33012702e-01, 4.33012702e-01, 0.00000000e00, 0.00000000e00],
+                [2.50000000e-01, 2.50000000e-01, 0.00000000e00, 0.00000000e00],
+                [5.55111512e-17, 5.55111512e-17, 0.00000000e00, 0.00000000e00],
+                [0.00000000e00, 4.33012702e-01, 4.33012702e-01, 0.00000000e00],
+                [0.00000000e00, 2.50000000e-01, 2.50000000e-01, 0.00000000e00],
+                [0.00000000e00, 5.55111512e-17, 5.55111512e-17, 0.00000000e00],
+                [0.00000000e00, 0.00000000e00, 4.33012702e-01, 4.33012702e-01],
+                [0.00000000e00, 0.00000000e00, 2.50000000e-01, 2.50000000e-01],
+                [0.00000000e00, 0.00000000e00, 5.55111512e-17, 5.55111512e-17],
+            ]
+        )
+
+        self.assertTrue(np.allclose(P, P_known))
+
     # ------------------------------------------------------------------------------#
 
     def test_rt0_2d_iso_simplex_surf(self):
-        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         R = pp.map_geometry.rotation_matrix(-np.pi / 4.0, [1, 1, -1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
@@ -952,7 +1044,7 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        M = self._matrix(g, perm, bc)
+        M, P = self._matrix(g, perm, bc)
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -968,13 +1060,25 @@ class BasicsTest(unittest.TestCase):
         )
 
         self.assertTrue(np.allclose(M, M.T))
-        # We test only the mass-Hdiv part
         self.assertTrue(np.allclose(M, M_known))
+
+        P_known = np.matrix(
+            [
+                [-0.06116781, 0.0, -0.37178502, 0.43295283, 0.0],
+                [-0.70511836, 0.0, 0.0996195, 0.60549886, 0.0],
+                [0.23371384, 0.0, -0.27216553, 0.03845169, 0.0],
+                [0.0, -0.43295283, -0.37178502, 0.0, 0.06116781],
+                [0.0, -0.60549886, 0.0996195, 0.0, 0.70511836],
+                [0.0, -0.03845169, -0.27216553, 0.0, -0.23371384],
+            ]
+        )
+
+        self.assertTrue(np.allclose(P, P_known))
 
     # ------------------------------------------------------------------------------#
 
     def test_rt0_2d_ani_simplex_surf(self):
-        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
 
         al = np.square(g.cell_centers[1, :]) + np.square(g.cell_centers[0, :]) + 1
@@ -991,7 +1095,7 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        M = self._matrix(g, perm, bc)
+        M, P = self._matrix(g, perm, bc)
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -1007,17 +1111,30 @@ class BasicsTest(unittest.TestCase):
         )
 
         self.assertTrue(np.allclose(M, M.T))
-        # We test only the mass-Hdiv part
         self.assertTrue(np.allclose(M, M_known))
+
+        P_known = np.matrix(
+            [
+                [-0.41666667, 0.0, -0.16666667, 0.58333333, 0.0],
+                [-0.58333333, 0.0, 0.16666667, 0.41666667, 0.0],
+                [-0.20412415, 0.0, 0.40824829, -0.20412415, 0.0],
+                [0.0, -0.58333333, -0.16666667, 0.0, 0.41666667],
+                [0.0, -0.41666667, 0.16666667, 0.0, 0.58333333],
+                [0.0, 0.20412415, 0.40824829, 0.0, 0.20412415],
+            ]
+        )
+
+        self.assertTrue(np.allclose(P, P_known))
 
     # ------------------------------------------------------------------------------#
 
     def test_convergence_rt0_2d_iso_simplex_exact(self):
 
         p_ex = lambda pt: 2 * pt[0, :] - 3 * pt[1, :] - 9
+        u_ex = np.array([-2, 3, 0])
 
         for i in np.arange(5):
-            g = pp.simplex.StructuredTriangleGrid([3 + i] * 2, [1, 1])
+            g = pp.StructuredTriangleGrid([3 + i] * 2, [1, 1])
             g.compute_geometry()
 
             kxx = np.ones(g.num_cells)
@@ -1038,10 +1155,18 @@ class BasicsTest(unittest.TestCase):
 
             solver.discretize(g, data)
             M, rhs = solver.assemble_matrix_rhs(g, data)
-
             up = sps.linalg.spsolve(M, rhs)
             p = solver.extract_pressure(g, up, data)
             err = np.sum(np.abs(p - p_ex(g.cell_centers)))
+
+            self.assertTrue(np.isclose(err, 0))
+
+            P = data[pp.DISCRETIZATION_MATRICES]["flow"][solver.vector_proj_key]
+            u = solver.extract_flux(g, up, data)
+            P0u = solver.project_flux(g, u, data)
+            err = np.sum(
+                np.abs(P0u - np.tile(u_ex, g.num_cells).reshape((3, -1), order="F"))
+            )
 
             self.assertTrue(np.isclose(err, 0))
 
@@ -1054,8 +1179,24 @@ class BasicsTest(unittest.TestCase):
             np.sin(2 * np.pi * pt[0, :]), np.sin(2 * np.pi * pt[1, :])
         )
         p_ex = lambda pt: rhs_ex(pt) / a
+        u_ex_0 = (
+            lambda pt: np.multiply(
+                -np.cos(2 * np.pi * pt[0, :]), np.sin(2 * np.pi * pt[1, :])
+            )
+            * 2
+            * np.pi
+            / a
+        )
+        u_ex_1 = (
+            lambda pt: np.multiply(
+                -np.sin(2 * np.pi * pt[0, :]), np.cos(2 * np.pi * pt[1, :])
+            )
+            * 2
+            * np.pi
+            / a
+        )
 
-        errs_known = np.array(
+        p_errs_known = np.array(
             [
                 0.00128247705764,
                 0.000770088925769,
@@ -1065,8 +1206,20 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        for i, err_known in zip(np.arange(5), errs_known):
-            g = pp.simplex.StructuredTriangleGrid([3 + i] * 2, [1, 1])
+        u_errs_known = np.array(
+            [
+                0.024425617686195795,
+                0.016806807988931593,
+                0.012859109258624914,
+                0.01044523811171081,
+                0.008811844361691244,
+            ]
+        )
+
+        for i, p_err_known, u_err_known in zip(
+            np.arange(5), p_errs_known, u_errs_known
+        ):
+            g = pp.StructuredTriangleGrid([3 + i] * 2, [1, 1])
             g.compute_geometry()
 
             kxx = np.ones(g.num_cells)
@@ -1102,7 +1255,23 @@ class BasicsTest(unittest.TestCase):
                     np.multiply(g.cell_volumes, np.power(p - p_ex(g.cell_centers), 2))
                 )
             )
-            self.assertTrue(np.isclose(err, err_known))
+            self.assertTrue(np.isclose(err, p_err_known))
+
+            P = data[pp.DISCRETIZATION_MATRICES]["flow"][solver.vector_proj_key]
+            u = solver.extract_flux(g, up, data)
+            P0u = solver.project_flux(g, u, data)
+            uu_ex_0 = u_ex_0(g.cell_centers)
+            uu_ex_1 = u_ex_1(g.cell_centers)
+            uu_ex_2 = np.zeros(g.num_cells)
+            uu_ex = np.vstack((uu_ex_0, uu_ex_1, uu_ex_2))
+            err = np.sqrt(
+                np.sum(
+                    np.multiply(
+                        g.cell_volumes, np.sum(np.power(P0u - uu_ex, 2), axis=0)
+                    )
+                )
+            )
+            self.assertTrue(np.isclose(err, u_err_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -1114,8 +1283,10 @@ class BasicsTest(unittest.TestCase):
             - 6 * np.power(pt[1, :], 2)
             + np.multiply(pt[0, :], pt[1, :])
         )
+        u_ex_0 = lambda pt: -9 * pt[0, :] + 10 * pt[1, :]
+        u_ex_1 = lambda pt: -6 * pt[0, :] + 23 * pt[1, :]
 
-        errs_known = np.array(
+        p_errs_known = np.array(
             [
                 0.014848639601,
                 0.00928479234915,
@@ -1124,9 +1295,20 @@ class BasicsTest(unittest.TestCase):
                 0.00334170283883,
             ]
         )
+        u_errs_known = np.array(
+            [
+                1.7264059760345325,
+                1.34164231163404,
+                1.0925566034251666,
+                0.9198698104736417,
+                0.7936243780450762,
+            ]
+        )
 
-        for i, err_known in zip(np.arange(5), errs_known):
-            g = pp.simplex.StructuredTriangleGrid([3 + i] * 2, [1, 1])
+        for i, p_err_known, u_err_known in zip(
+            np.arange(5), p_errs_known, u_errs_known
+        ):
+            g = pp.StructuredTriangleGrid([3 + i] * 2, [1, 1])
             g.compute_geometry()
 
             kxx = 2 * np.ones(g.num_cells)
@@ -1162,637 +1344,1019 @@ class BasicsTest(unittest.TestCase):
                     np.multiply(g.cell_volumes, np.power(p - p_ex(g.cell_centers), 2))
                 )
             )
-            self.assertTrue(np.isclose(err, err_known))
+            self.assertTrue(np.isclose(err, p_err_known))
+
+            P = data[pp.DISCRETIZATION_MATRICES]["flow"][solver.vector_proj_key]
+            u = solver.extract_flux(g, up, data)
+            P0u = solver.project_flux(g, u, data)
+            uu_ex_0 = u_ex_0(g.cell_centers)
+            uu_ex_1 = u_ex_1(g.cell_centers)
+            uu_ex_2 = np.zeros(g.num_cells)
+            uu_ex = np.vstack((uu_ex_0, uu_ex_1, uu_ex_2))
+            err = np.sqrt(
+                np.sum(
+                    np.multiply(
+                        g.cell_volumes, np.sum(np.power(P0u - uu_ex, 2), axis=0)
+                    )
+                )
+            )
+            self.assertTrue(np.isclose(err, u_err_known))
 
 
 def matrix_for_test_rt0_3d():
-    return np.matrix(
-        [
+    return (
+        np.matrix(
             [
-                0.53333333,
-                0.13333333,
-                -0.13333333,
-                0.0,
-                -0.03333333,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
+                [
+                    0.53333333,
+                    0.13333333,
+                    -0.13333333,
+                    0.0,
+                    -0.03333333,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.13333333,
+                    0.53333333,
+                    0.13333333,
+                    0.0,
+                    0.03333333,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    -0.13333333,
+                    0.13333333,
+                    0.53333333,
+                    0.0,
+                    -0.03333333,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.66666667,
+                    0.0,
+                    0.16666667,
+                    0.0,
+                    0.16666667,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.33333333,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    -0.03333333,
+                    0.03333333,
+                    -0.03333333,
+                    0.0,
+                    0.66666667,
+                    -0.13333333,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.13333333,
+                    0.0,
+                    0.0,
+                    0.36666667,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.16666667,
+                    -0.13333333,
+                    0.8,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.2,
+                    0.0,
+                    0.16666667,
+                    -0.03333333,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.8,
+                    0.03333333,
+                    0.0,
+                    0.0,
+                    -0.03333333,
+                    0.0,
+                    0.0,
+                    0.36666667,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.16666667,
+                    0.0,
+                    0.0,
+                    0.03333333,
+                    0.8,
+                    0.0,
+                    0.0,
+                    0.2,
+                    0.16666667,
+                    0.0,
+                    0.13333333,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    1.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.66666667,
+                    0.16666667,
+                    0.16666667,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.33333333,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.13333333,
+                    0.2,
+                    0.0,
+                    0.0,
+                    0.16666667,
+                    0.8,
+                    0.0,
+                    0.0,
+                    0.03333333,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.16666667,
+                    0.0,
+                    0.0,
+                    1.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -0.03333333,
+                    0.2,
+                    0.16666667,
+                    0.0,
+                    0.8,
+                    0.0,
+                    0.0,
+                    -0.13333333,
+                    0.0,
+                    0.0,
+                    0.16666667,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.33333333,
+                    0.0,
+                    0.16666667,
+                    0.0,
+                    0.16666667,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.66666667,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.36666667,
+                    -0.03333333,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.03333333,
+                    0.0,
+                    0.0,
+                    0.8,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.36666667,
+                    0.13333333,
+                    0.0,
+                    0.0,
+                    -0.13333333,
+                    0.0,
+                    0.0,
+                    0.66666667,
+                    -0.03333333,
+                    0.03333333,
+                    0.0,
+                    -0.03333333,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    -1.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -0.03333333,
+                    0.53333333,
+                    0.13333333,
+                    0.0,
+                    -0.13333333,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.03333333,
+                    0.13333333,
+                    0.53333333,
+                    0.0,
+                    0.13333333,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.33333333,
+                    0.16666667,
+                    0.16666667,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.66666667,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -0.03333333,
+                    -0.13333333,
+                    0.13333333,
+                    0.0,
+                    0.53333333,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                ],
+                [
+                    1.0,
+                    -1.0,
+                    1.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    -1.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    1.0,
+                    -1.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+            ]
+        ),
+        np.matrix(
             [
-                0.13333333,
-                0.53333333,
-                0.13333333,
-                0.0,
-                0.03333333,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
-            [
-                -0.13333333,
-                0.13333333,
-                0.53333333,
-                0.0,
-                -0.03333333,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.66666667,
-                0.0,
-                0.16666667,
-                0.0,
-                0.16666667,
-                0.0,
-                0.0,
-                0.0,
-                0.33333333,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -1.0,
-                0.0,
-                0.0,
-            ],
-            [
-                -0.03333333,
-                0.03333333,
-                -0.03333333,
-                0.0,
-                0.66666667,
-                -0.13333333,
-                0.0,
-                0.0,
-                0.0,
-                0.13333333,
-                0.0,
-                0.0,
-                0.36666667,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -1.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.16666667,
-                -0.13333333,
-                0.8,
-                0.0,
-                0.0,
-                0.0,
-                0.2,
-                0.0,
-                0.16666667,
-                -0.03333333,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -1.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.8,
-                0.03333333,
-                0.0,
-                0.0,
-                -0.03333333,
-                0.0,
-                0.0,
-                0.36666667,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -1.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.16666667,
-                0.0,
-                0.0,
-                0.03333333,
-                0.8,
-                0.0,
-                0.0,
-                0.2,
-                0.16666667,
-                0.0,
-                0.13333333,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -1.0,
-                1.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.66666667,
-                0.16666667,
-                0.16666667,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.33333333,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.13333333,
-                0.2,
-                0.0,
-                0.0,
-                0.16666667,
-                0.8,
-                0.0,
-                0.0,
-                0.03333333,
-                0.0,
-                0.0,
-                0.0,
-                0.16666667,
-                0.0,
-                0.0,
-                1.0,
-                -1.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -0.03333333,
-                0.2,
-                0.16666667,
-                0.0,
-                0.8,
-                0.0,
-                0.0,
-                -0.13333333,
-                0.0,
-                0.0,
-                0.16666667,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                -1.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.33333333,
-                0.0,
-                0.16666667,
-                0.0,
-                0.16666667,
-                0.0,
-                0.0,
-                0.0,
-                0.66666667,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.36666667,
-                -0.03333333,
-                0.0,
-                0.0,
-                0.0,
-                0.03333333,
-                0.0,
-                0.0,
-                0.8,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.36666667,
-                0.13333333,
-                0.0,
-                0.0,
-                -0.13333333,
-                0.0,
-                0.0,
-                0.66666667,
-                -0.03333333,
-                0.03333333,
-                0.0,
-                -0.03333333,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                -1.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -0.03333333,
-                0.53333333,
-                0.13333333,
-                0.0,
-                -0.13333333,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.03333333,
-                0.13333333,
-                0.53333333,
-                0.0,
-                0.13333333,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -1.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.33333333,
-                0.16666667,
-                0.16666667,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.66666667,
-                0.0,
-                0.0,
-                0.0,
-                -1.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -0.03333333,
-                -0.13333333,
-                0.13333333,
-                0.0,
-                0.53333333,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-            ],
-            [
-                1.0,
-                -1.0,
-                1.0,
-                0.0,
-                -1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                -1.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                -1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                -1.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                -1.0,
-                0.0,
-                1.0,
-                0.0,
-                -1.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -1.0,
-                1.0,
-                0.0,
-                0.0,
-                -1.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -1.0,
-                1.0,
-                -1.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
-        ]
+                [
+                    -0.5,
+                    0.5,
+                    1.5,
+                    0.0,
+                    0.5,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    -0.5,
+                    -1.5,
+                    -0.5,
+                    0.0,
+                    0.5,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    1.5,
+                    0.5,
+                    -0.5,
+                    0.0,
+                    0.5,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -0.5,
+                    0.5,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -0.5,
+                    0.0,
+                    0.0,
+                    -1.5,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    -1.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.5,
+                    0.5,
+                    -0.5,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.5,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.5,
+                    -0.5,
+                    0.5,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.5,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    -0.5,
+                    0.0,
+                    0.5,
+                    0.0,
+                    -0.5,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.5,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.5,
+                    0.0,
+                    -0.5,
+                    0.0,
+                    0.5,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -0.5,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.5,
+                    0.5,
+                    0.0,
+                    0.0,
+                    -0.5,
+                    0.0,
+                    0.0,
+                    0.5,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -0.5,
+                    -1.5,
+                    -0.5,
+                    0.0,
+                    0.5,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -0.5,
+                    0.5,
+                    1.5,
+                    0.0,
+                    0.5,
+                ],
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -0.5,
+                    0.5,
+                    -0.5,
+                    0.0,
+                    -1.5,
+                ],
+            ]
+        ),
     )
 
 

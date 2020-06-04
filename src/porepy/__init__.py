@@ -25,6 +25,21 @@ __version__ = "1.1.0"
 
 __all__ = []
 
+from porepy.utils.common_constants import *
+
+from porepy.utils import error, grid_utils
+from porepy.utils.tangential_normal_projection import TangentialNormalProjection
+
+from porepy.utils import permutations
+
+from porepy.geometry import (
+    intersections,
+    distances,
+    constrain_geometry,
+    map_geometry,
+    geometry_property_checks,
+    bounding_box,
+)
 
 # Parameters
 from porepy.params.bc import (
@@ -45,13 +60,14 @@ from porepy.params.fluid import Water, UnitFluid
 # Grids
 from porepy.grids.grid import Grid
 from porepy.grids.fv_sub_grid import FvSubGrid
+from porepy.grids.mortar_grid import MortarGrid, BoundaryMortar
 from porepy.grids.grid_bucket import GridBucket
 from porepy.grids.structured import CartGrid, TensorGrid
 from porepy.grids.leaf_grid import CartLeafGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
 from porepy.grids.point_grid import PointGrid
-from porepy.grids.mortar_grid import MortarGrid, BoundaryMortar
+from porepy.grids import match_grids
 from porepy.grids.standard_grids import grid_buckets_2d
 from porepy.grids import grid_extrusion
 
@@ -115,28 +131,18 @@ from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
 from porepy.numerics.linear_solvers import LinearSolver
 from porepy.models.run_models import run_stationary_model, run_time_dependent_model
 
+from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
+from porepy.models.contact_mechanics_model import ContactMechanics
+
 # Visualization
 from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
 # Modules
-from porepy.utils import permutations
-
-from porepy.geometry import (
-    intersections,
-    distances,
-    constrain_geometry,
-    map_geometry,
-    geometry_property_checks,
-    bounding_box,
-)
 from porepy.fracs import utils as frac_utils
-from porepy.fracs import meshing, fracture_importer, mortars
-from porepy.grids import structured, simplex, coarsening, partition, refinement
-from porepy.utils import error, grid_utils
-from porepy.utils.tangential_normal_projection import TangentialNormalProjection
+from porepy.fracs import meshing, fracture_importer
+from porepy.grids import coarsening, partition, refinement
 import porepy.utils.derived_discretizations
 
-# Constants, units and keywords
-from porepy.utils.common_constants import *
+

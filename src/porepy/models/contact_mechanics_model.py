@@ -71,12 +71,13 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             self.params = params
             self.viz_folder_name = params.get("folder_name", "contact_mechanics_viz")
 
-    def create_grid(self):
-        """
-        Method that creates a GridBucket of a 2D domain with one fracture and sets
-        projections to local coordinates for all fractures.
+        # Initialize grid bucket
+        self.gb = None
 
-        The method requires the following attribute:
+    def create_grid(self):
+        """ Create a (fractured) domain in 2D or 3D, with projections to local coordinates set for all fractures.
+
+        The method requires the following attribute, which is stored in self.params:
             mesh_args (dict): Containing the mesh sizes.
 
         The method assigns the following attributes to self:
@@ -398,6 +399,50 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         project_to_local = projection.project_tangential_normal(int(mg.num_cells / 2))
         u_mortar_local = project_to_local * displacement_jump_global_coord
         return u_mortar_local.reshape((self.Nd, -1), order="F")
+
+    def reconstruct_stress(self, previous_iterate: bool = False) -> None:
+        """
+        Compute the stress in the highest-dimensional grid based on the displacement
+        states in that grid, adjacent interfaces and global boundary conditions.
+        
+        The stress is stored in the data dictionary of the highest-dimensional grid,
+        in [pp.STATE]['stress'].
+
+        Parameters:
+            previous_iterate (boolean, optional): If True, use values from previous
+                iteration to compute the stress. Defaults to False.
+
+        """
+        g = self._nd_grid()
+        d = self.gb.node_props(g)
+
+        mpsa = pp.Mpsa(self.mechanics_parameter_key)
+
+        if previous_iterate:
+            u = d[pp.STATE]["previous_iterate"][self.displacement_variable]
+        else:
+            u = d[pp.STATE][self.displacement_variable]
+
+        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.mechanics_parameter_key]
+
+        # Stress contribution from internal cell center displacements
+        stress = matrix_dictionary[mpsa.stress_matrix_key] * u
+
+        # Contributions from global boundary conditions
+        bound_stress_discr = matrix_dictionary[mpsa.bound_stress_matrix_key]
+        global_bc_val = d[pp.PARAMETERS][self.mechanics_parameter_key]["bc_values"]
+        stress += bound_stress_discr * global_bc_val
+
+        # Contributions from the mortar displacement variables
+        for e, d_e in self.gb:
+            # Only contributions from interfaces to the highest dimensional grid
+            mg = d_e["mortar_grid"]
+            if mg.dim == self.Nd - 1:
+                u_e = d_e[pp.STATE][self.mortar_displacement_variable]
+
+                stress += bound_stress_discr * mg.mortar_to_master_avg(nd=self.Nd) * u_e
+
+        d[pp.STATE]["stress"] = stress
 
     def _set_friction_coefficient(self, g):
         """ The friction coefficient is uniform, and equal to 1.

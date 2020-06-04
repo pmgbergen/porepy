@@ -5,6 +5,20 @@ import numpy as np
 import logging
 import csv
 import time
+import copy
+
+# Imports of external packages that may not be present at the system. The
+# module will work without any of these, but with limited functionalbility.
+try:
+    import vtk
+    import vtk.util.numpy_support as vtk_np
+except ImportError:
+    import warnings
+
+    warnings.warn(
+        "VTK module is not available. Export of fracture network to\
+    vtk will not work."
+    )
 
 import porepy as pp
 import porepy.fracs.simplex
@@ -103,6 +117,26 @@ class FractureNetwork2d(object):
         if domain is not None:
             logger.info("Domain specification :" + str(domain))
 
+    def copy(self):
+        """ Create deep copy of the network.
+
+        The method will create a deep copy of all fractures, as well as the domain, of
+        the network. Note that if the fractures have had extra points imposed as part
+        of a meshing procedure, these will included in the copied fractures.
+
+        Returns:
+            pp.FractureNetwork3d.
+
+        """
+        p_new = np.copy(self.pts)
+        edges_new = np.copy(self.edges)
+        domain = self.domain
+        if domain is not None:
+            # Get a deep copy of domain, but no need to do that if domain is None
+            domain = copy.deepcopy(domain)
+
+        return FractureNetwork2d(p_new, edges_new, domain, self.tol)
+
     def add_network(self, fs):
         """ Add this fracture set to another one, and return a new set.
 
@@ -197,6 +231,63 @@ class FractureNetwork2d(object):
 
         """
 
+        in_file = self.prepare_for_gmsh(
+            mesh_args, tol, do_snap, constraints, file_name, dfn
+        )
+        out_file = in_file[:-4] + ".msh"
+
+        # Consider the dimension of the problem, normally 2d but if dfn is true 1d
+        ndim = 2 - int(dfn)
+
+        pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dim=ndim)
+
+        if dfn:
+            # Create list of grids
+            grid_list = porepy.fracs.simplex.line_grid_from_gmsh(
+                out_file, constraints=constraints
+            )
+
+        else:
+            # Create list of grids
+            grid_list = porepy.fracs.simplex.triangle_grid_from_gmsh(
+                out_file, constraints=constraints
+            )
+
+        # Assemble in grid bucket
+        gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
+        return gb
+
+    def prepare_for_gmsh(
+        self,
+        mesh_args,
+        tol=None,
+        do_snap=True,
+        constraints=None,
+        file_name=None,
+        dfn=False,
+    ):
+        """ Process network intersections and write a gmsh .geo configuration file,
+        ready to be processed by gmsh.
+        
+        NOTE: Consider to use the mesh() function instead to get a ready GridBucket.
+        
+        Parameters:
+            mesh_args: Arguments passed on to mesh size control
+            tol (double, optional): Tolerance used for geometric computations.
+                Defaults to the tolerance of this network.
+            do_snap (boolean, optional): Whether to snap lines to avoid small
+                segments. Defults to True.
+            constraints (np.array of int): Index of network edges that should not
+                generate lower-dimensional meshes, but only act as constraints in
+                the meshing algorithm.
+            dfn (boolean, optional): If True, a DFN mesh (of the network, but not
+                the surrounding matrix) is created.
+
+        Returns:
+            GridBucket: Mixed-dimensional mesh.
+
+        """
+
         if tol is None:
             tol = self.tol
         if constraints is None:
@@ -208,7 +299,6 @@ class FractureNetwork2d(object):
         if file_name is None:
             file_name = "gmsh_frac_file"
         in_file = file_name + ".geo"
-        out_file = file_name + ".msh"
 
         p = self.pts
         e = self.edges
@@ -243,23 +333,7 @@ class FractureNetwork2d(object):
         self._find_and_split_intersections(constraints)
         self._insert_auxiliary_points(**mesh_args)
         self._to_gmsh(in_file, ndim=ndim)
-        pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dim=ndim)
-
-        if dfn:
-            # Create list of grids
-            grid_list = porepy.fracs.simplex.line_grid_from_gmsh(
-                out_file, constraints=constraints
-            )
-
-        else:
-            # Create list of grids
-            grid_list = porepy.fracs.simplex.triangle_grid_from_gmsh(
-                out_file, constraints=constraints
-            )
-
-        # Assemble in grid bucket
-        gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
-        return gb
+        return in_file
 
     def _find_and_split_intersections(self, constraints):
         # Unified description of points and lines for domain, and fractures
@@ -837,6 +911,81 @@ class FractureNetwork2d(object):
                 data.extend(self.pts[:, edge[0]])
                 data.extend(self.pts[:, edge[1]])
                 csv_writer.writerow(data)
+
+    def to_vtk(self, file_name, data=None, binary=True):
+        """
+        Export the fracture network to vtk.
+
+        The fractures are treated as lines, with no special treatment
+        of intersections.
+
+        Fracture numbers are always exported (1-offset). In addition, it is
+        possible to export additional data, as specified by the
+        keyword-argument data.
+
+        Parameters:
+            file_name (str): Name of the target file.
+            data (dictionary, optional): Data associated with the fractures.
+                The values in the dictionary should be numpy arrays. 1d and 3d
+                data is supported. Fracture numbers are always exported.
+            binary (boolean, optional): Use binary export format. Defaults to
+                True.
+
+        """
+        network_vtk = vtk.vtkUnstructuredGrid()
+
+        point_counter = 0
+        pts_vtk = vtk.vtkPoints()
+
+        pts = self.pts
+        # make points 3d
+        if pts.shape[0] == 2:
+            pts = np.vstack((pts, np.zeros(pts.shape[1])))
+
+        for edge in self.edges.T:
+
+            # Add local points
+            pts_vtk.InsertNextPoint(*pts[:, edge[0]])
+            pts_vtk.InsertNextPoint(*pts[:, edge[1]])
+
+            # Indices of local points
+            loc_pt_id = point_counter + np.arange(2)
+            # Update offset
+            point_counter += 2
+
+            # Add bounding polygon
+            frac_vtk = vtk.vtkIdList()
+            [frac_vtk.InsertNextId(p) for p in loc_pt_id]
+            # Close polygon
+            frac_vtk.InsertNextId(loc_pt_id[0])
+
+            network_vtk.InsertNextCell(vtk.VTK_POLYGON, frac_vtk)
+
+        # Add the points
+        network_vtk.SetPoints(pts_vtk)
+
+        writer = vtk.vtkXMLUnstructuredGridWriter()
+        writer.SetInputData(network_vtk)
+        writer.SetFileName(file_name)
+
+        if not binary:
+            writer.SetDataModeToAscii()
+
+        # Cell-data to be exported is at least the fracture numbers
+        if data is None:
+            data = {}
+        # Use offset 1 for fracture numbers (should we rather do 0?)
+        data["Fracture_Number"] = 1 + np.arange(self.edges.shape[1])
+
+        for name, data in data.items():
+            data_vtk = vtk_np.numpy_to_vtk(
+                data.ravel(order="F"), deep=True, array_type=vtk.VTK_DOUBLE
+            )
+            data_vtk.SetName(name)
+            data_vtk.SetNumberOfComponents(1 if data.ndim == 1 else 3)
+            network_vtk.GetCellData().AddArray(data_vtk)
+
+        writer.Update()
 
     def __str__(self):
         s = "Fracture set consisting of " + str(self.num_frac) + " fractures"
