@@ -222,11 +222,11 @@ def initialize_default_data(
         specified_parameters = {}
     if not keyword:
         keyword = parameter_type
-    if parameter_type is "flow":
+    if parameter_type == "flow":
         d = dicts.flow_dictionary(g, specified_parameters)
-    elif parameter_type is "transport":
+    elif parameter_type == "transport":
         d = dicts.transport_dictionary(g, specified_parameters)
-    elif parameter_type is "mechanics":
+    elif parameter_type == "mechanics":
         d = dicts.mechanics_dictionary(g, specified_parameters)
     else:
         raise KeyError(
