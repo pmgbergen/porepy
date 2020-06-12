@@ -1,78 +1,13 @@
 import numpy as np
 import scipy.sparse as sps
 import unittest
-import warnings
 
 from porepy.grids.grid_bucket import GridBucket
 from porepy.fracs import meshing
 import porepy as pp
 
 
-class TestGridBucket(unittest.TestCase):
-    def test_cell_global2loc_1_grid(self):
-        gb = meshing.cart_grid([], [2, 2])
-        gb.cell_global2loc()
-        R = sps.eye(4)
-        for g, d in gb:
-            self.assertTrue(np.sum(d["cell_global2loc"] != R) == 0)
-
-    def test_cell_global2loc_1_frac(self):
-        f = np.array([[0, 1], [1, 1]])
-        gb = meshing.cart_grid([f], [2, 2])
-        gb.cell_global2loc()
-        glob = np.arange(5)
-        # test grids
-        for g, d in gb:
-            if g.dim == 2:
-                loc = np.array([0, 1, 2, 3])
-            elif g.dim == 1:
-                loc = np.array([4])
-            else:
-                self.assertTrue(False)
-            R = d["cell_global2loc"]
-            self.assertTrue(np.all(R * glob == loc))
-        # test mortars
-        glob = np.array([0, 1])
-        for _, d in gb.edges():
-            loc = np.array([0, 1])
-            R = d["cell_global2loc"]
-            self.assertTrue(np.all(R * glob == loc))
-
-    def test_cell_global2loc_2_fracs(self):
-        f1 = np.array([[0, 1], [1, 1]])
-        f2 = np.array([[1, 2], [1, 1]])
-        f3 = np.array([[1, 1], [0, 1]])
-        f4 = np.array([[1, 1], [1, 2]])
-
-        gb = meshing.cart_grid([f1, f2, f3, f4], [2, 2])
-        gb.cell_global2loc()
-        glob = np.arange(9)
-        # test grids
-        for g, d in gb:
-            if g.dim == 2:
-                loc = np.array([0, 1, 2, 3])
-            elif g.dim == 1:
-                i = d["node_number"]
-                loc = np.arange(4 + (i - 1), 4 + i)
-            else:
-                loc = np.array([8])
-            R = d["cell_global2loc"]
-            self.assertTrue(np.all(R * glob == loc))
-
-        # test mortars
-        glob = np.arange(12)
-        start = 0
-        end = 0
-        for e, d in gb.edges():
-            i = d["edge_number"]
-            end += d["mortar_grid"].num_cells
-            loc = np.arange(start, end)
-            start = end
-            R = d["cell_global2loc"]
-            self.assertTrue(np.all(R * glob == loc))
-
-
-class MockGrid:
+class MockGrid(pp.Grid):
     def __init__(
         self,
         dim=1,
@@ -108,6 +43,7 @@ class TestBucket(unittest.TestCase):
         gb = self.simple_bucket(3)
         self.assertTrue(gb.size() == 3)
 
+    # ----- Tests of adding nodes and edges ----- #
     def test_add_nodes(self):
         # Simply add grid. Should work.
         gb = pp.GridBucket()
@@ -135,6 +71,25 @@ class TestBucket(unittest.TestCase):
         self.assertRaises(ValueError, gb.add_edge, [g1, g2], None)
         # Should not be able to add couplings two dimensions appart
         self.assertRaises(ValueError, gb.add_edge, [g1, g3], None)
+
+    def test_dimension_ordering_edges(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid(1)
+        g2 = MockGrid(2)
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+        gb.add_edge([g1, g2], None)
+        gb.add_edge([g1, g1], None)
+        for e, _ in gb.edges():
+            self.assertTrue(e[0].dim >= e[1].dim)
+
+        gb = pp.GridBucket()
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+        gb.add_edge([g2, g1], None)
+        gb.add_edge([g1, g1], None)
+        for e, _ in gb.edges():
+            self.assertTrue(e[0].dim >= e[1].dim)
 
     def test_node_neighbor_no_dim(self):
         # Test node neighbors, not caring about dimensions
@@ -183,6 +138,64 @@ class TestBucket(unittest.TestCase):
         self.assertTrue(neigh_2[0] == g1)
 
         self.assertRaises(ValueError, gb.node_neighbors, g1, True, True)
+
+    # ------ Test of iterators ------*
+    def test_node_edge_iterators(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid(1)
+        g2 = MockGrid(2)
+        g3 = MockGrid(3)
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+        gb.add_nodes(g3)
+        gb.add_edge([g1, g2], None)
+        gb.add_edge([g2, g3], None)
+
+        # First test traversal by gb.__iter__
+        found = {g1: False, g2: False, g3: False}
+        for g, _ in gb:
+            found[g] = True
+        self.assertTrue(all([v for v in list(found.values())]))
+
+        # Next, use the node() function
+        found = {g1: False, g2: False, g3: False}
+        for g, _ in gb.nodes():
+            found[g] = True
+        self.assertTrue(all([v for v in list(found.values())]))
+
+        # Finally, check the edges
+        found = {(g2, g1): False, (g3, g2): False}
+        for e, _ in gb.edges():
+            found[e] = True
+        self.assertTrue(all([v for v in list(found.values())]))
+
+    def test_contains_node(self):
+        gb = self.simple_bucket(1)
+
+        for g, _ in gb.nodes():
+            self.assertTrue(g in gb)
+
+        # Define a grid that is not in the gb
+        g = MockGrid()
+        self.assertTrue(not g in gb)
+
+    def test_contains_edge(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid(1)
+        g2 = MockGrid(2)
+        g3 = MockGrid(3)
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+        gb.add_nodes(g3)
+        gb.add_edge([g1, g2], None)
+
+        # This edge is defined
+        self.assertTrue((g1, g2) in gb)
+        # this is not
+        self.assertFalse((g1, g3) in gb)
+
+        # This is a list, and thus not an edge in the networkx sense
+        self.assertFalse([g1, g2] in gb)
 
     # ------------ Tests for add_node_props
 
@@ -233,6 +246,20 @@ class TestBucket(unittest.TestCase):
         gb = self.simple_bucket(1)
         self.assertRaises(ValueError, gb.add_node_props, "node_number")
 
+    def test_overwrite_node_props(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid()
+        gb.add_nodes(g1)
+        key = "foo"
+        val = 42
+        gb.set_node_prop(g1, key, val)
+
+        gb.add_node_props(key, overwrite=False)
+        self.assertTrue(gb.node_props(g1, key) == val)
+
+        gb.add_node_props(key)
+        self.assertTrue(gb.node_props(g1, key) is None)
+
     # -------------- Tests for add_edge_props
 
     def test_add_single_edge_prop(self):
@@ -258,7 +285,7 @@ class TestBucket(unittest.TestCase):
 
         gb.add_edge([g1, g2], None)
         # Add property, with reverse order of grid pair
-        gb.add_edge_props("a", grid_pairs=[[g2, g1]])
+        gb.add_edge_props("a", edges=[[g2, g1]])
 
         for _, d in gb.edges():
             self.assertTrue("a" in d.keys())
@@ -311,6 +338,25 @@ class TestBucket(unittest.TestCase):
             else:
                 self.assertTrue(p2 in d.keys())
                 self.assertTrue(not p1 in d.keys())
+
+    def test_overwrite_edge_props(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid()
+        g2 = MockGrid()
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+        e = (g1, g2)
+        gb.add_edge(e, None)
+
+        key = "foo"
+        val = 42
+        gb.set_edge_prop(e, key, val)
+
+        gb.add_edge_props(key, overwrite=False)
+        self.assertTrue(gb.edge_props(e, key) == val)
+
+        gb.add_edge_props(key)
+        self.assertTrue(gb.edge_props(e, key) is None)
 
     # ----------- Tests for getters of node properties ----------
 
@@ -366,9 +412,9 @@ class TestBucket(unittest.TestCase):
         self.assertTrue(all([k in all_keys.keys() for k in keys]))
 
         # The other edge has no properties, Python should raise KeyError
-        self.assertRaises(KeyError, gb.edge_props, gp=pairs[1], key="a")
+        self.assertRaises(KeyError, gb.edge_props, edge=pairs[1], key="a")
         # Try a non-existing edge, the method itself should raise KeyError
-        self.assertRaises(KeyError, gb.edge_props, gp=[g1, g3], key="a")
+        self.assertRaises(KeyError, gb.edge_props, edge=[g1, g3], key="a")
 
     def test_update_nodes(self):
         gb = pp.GridBucket()
@@ -450,6 +496,19 @@ class TestBucket(unittest.TestCase):
         self.assertTrue(gb.num_faces(l) == g1.num_faces)
         self.assertTrue(gb.num_nodes(l) == g1.num_nodes)
 
+    def test_num_graph_nodes_edges(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid(1)
+        g2 = MockGrid(2)
+        g3 = MockGrid(3)
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+        gb.add_nodes(g3)
+        gb.add_edge([g1, g2], None)
+        gb.add_edge([g2, g3], None)
+        self.assertTrue(gb.num_graph_edges() == 2)
+        self.assertTrue(gb.num_graph_nodes() == 3)
+
     def test_str_repr(self):
 
         g1 = MockGrid(dim=1, num_cells=1, num_faces=3, num_nodes=3)
@@ -508,6 +567,57 @@ class TestBucket(unittest.TestCase):
         gb = self.simple_bucket(1)
         self.assertRaises(ValueError, gb.remove_node_props, "node_number")
 
+    def test_cell_volumes(self):
+        gb = pp.GridBucket()
+        g1 = pp.CartGrid([1, 1, 1])
+        g1.nodes += 0.1 * np.random.random((g1.dim, g1.num_nodes))
+        g1.compute_geometry()
+        g2 = pp.CartGrid([1, 1, 1])
+        g2.nodes += 0.1 * np.random.random((g2.dim, g2.num_nodes))
+        g2.compute_geometry()
+
+        gb.add_nodes([g1, g2])
+
+        cond = lambda g: g == g1
+        cell_volumes = np.hstack((g1.cell_volumes, g2.cell_volumes))
+
+        self.assertTrue(np.all(cell_volumes == gb.cell_volumes()))
+        self.assertTrue(np.all(g1.cell_volumes == gb.cell_volumes(cond)))
+
+    def test_cell_centers(self):
+        gb = pp.GridBucket()
+        g1 = pp.CartGrid([1, 1, 1])
+        g1.nodes += 0.1 * np.random.random((g1.dim, g1.num_nodes))
+        g1.compute_geometry()
+        g2 = pp.CartGrid([1, 1, 1])
+        g2.nodes += 0.1 * np.random.random((g2.dim, g2.num_nodes))
+        g2.compute_geometry()
+
+        gb.add_nodes([g1, g2])
+        cond = lambda g: g == g1
+        cell_centers = np.hstack((g1.cell_centers, g2.cell_centers))
+
+        self.assertTrue(np.all(cell_centers == gb.cell_centers()))
+        self.assertTrue(np.all(g1.cell_centers == gb.cell_centers(cond)))
+
+    def test_face_centers(self):
+        gb = pp.GridBucket()
+        g1 = pp.CartGrid([1, 1, 1])
+        g1.nodes += 0.1 * np.random.random((g1.dim, g1.num_nodes))
+        g1.compute_geometry()
+        g2 = pp.CartGrid([1, 1, 1])
+        g2.nodes += 0.1 * np.random.random((g2.dim, g2.num_nodes))
+        g2.compute_geometry()
+
+        gb.add_nodes([g1, g2])
+
+        cond = lambda g: g == g1
+        face_centers = np.hstack((g1.face_centers, g2.face_centers))
+
+        self.assertTrue(np.all(face_centers == gb.face_centers()))
+        self.assertTrue(np.all(g1.face_centers == gb.face_centers(cond)))
+
 
 if __name__ == "__main__":
+    TestBucket().test_contains_node()
     unittest.main()

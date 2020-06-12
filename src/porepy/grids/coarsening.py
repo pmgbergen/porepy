@@ -1,9 +1,10 @@
-# -*- coding: utf-8 -*-
+""" Module with methods to coarsen a grid. The main method is coarsen(), see this for more information.
 
+"""
 import numpy as np
 import scipy.sparse as sps
-import scipy.stats as stats
 import porepy as pp
+from typing import Union, Tuple, Any, Dict
 
 from porepy.grids import grid, grid_bucket
 
@@ -15,7 +16,9 @@ from porepy.utils import half_space, tags
 # ------------------------------------------------------------------------------#
 
 
-def coarsen(g, method, **method_kwargs):
+def coarsen(
+    g: Union[pp.Grid, pp.GridBucket], method: str, **method_kwargs
+) -> Union[None, sps.spmatrix]:
     """ Create a coarse grid from a given grid. If a grid bucket is passed the
     procedure is applied to the higher in dimension.
     Note: the grid is modified in place.
@@ -37,8 +40,8 @@ def coarsen(g, method, **method_kwargs):
         seeds = np.empty(0, dtype=np.int)
         if method_kwargs.get("if_seeds", False):
             seeds = generate_seeds(g)
-        matrix = tpfa_matrix(g)
-        partition = create_partition(matrix, seeds=seeds, **method_kwargs)
+        matrix = _tpfa_matrix(g)
+        partition = create_partition(matrix, g, seeds=seeds, **method_kwargs)
 
     else:
         raise ValueError("Undefined coarsening algorithm")
@@ -79,20 +82,28 @@ def generate_coarse_grid(g, subdiv):
 
     """
     if isinstance(g, grid.Grid):
-        generate_coarse_grid_single(g, subdiv, False)
+        if isinstance(subdiv, dict):
+            # If the subdiv is a dictionary with g as a key (this can happen if we are
+            # forwarded here from coarsen), the input must be simplified.
+            subdiv = subdiv[g][1]
+        _generate_coarse_grid_single(g, subdiv, False)
 
     if isinstance(g, grid_bucket.GridBucket):
-        generate_coarse_grid_gb(g, subdiv)
+        _generate_coarse_grid_gb(g, subdiv)
 
 
 # ------------------------------------------------------------------------------#
 
 
-def reorder_partition(subdiv):
+def reorder_partition(
+    subdiv: Union[Dict[Any, Tuple[Any, np.ndarray]], np.ndarray]
+) -> Union[Dict[Any, Tuple[Any, np.ndarray]], np.ndarray]:
     """
     Re-order the partition id in case to obtain contiguous numbers.
+
     Parameters:
         subdiv: array where for each cell one id
+
     Return:
         the subdivision written in a contiguous way
     """
@@ -112,7 +123,7 @@ def reorder_partition(subdiv):
 # ------------------------------------------------------------------------------#
 
 
-def generate_coarse_grid_single(g, subdiv, face_map):
+def _generate_coarse_grid_single(g, subdiv, face_map):
     """
     Specific function for a single grid. Use the common interface instead.
     """
@@ -219,7 +230,7 @@ def generate_coarse_grid_single(g, subdiv, face_map):
     g.cell_faces = cell_faces
     g.num_cells = g.cell_faces.shape[1]
     g.cell_volumes = cell_volumes
-    g.cell_centers = half_space.star_shape_cell_centers(g)
+    g.cell_centers = half_space.star_shape_cell_centers(g, as_nan=True)
     is_nan = np.isnan(g.cell_centers[0, :])
     g.cell_centers[:, is_nan] = cell_centers[:, is_nan]
 
@@ -230,7 +241,7 @@ def generate_coarse_grid_single(g, subdiv, face_map):
 # ------------------------------------------------------------------------------#
 
 
-def generate_coarse_grid_gb(gb, subdiv):
+def _generate_coarse_grid_gb(gb, subdiv):
     """
     Specific function for a grid bucket. Use the common interface instead.
     """
@@ -242,7 +253,7 @@ def generate_coarse_grid_gb(gb, subdiv):
     for g, (_, partition) in subdiv.items():
 
         # Construct the coarse grids
-        face_map = generate_coarse_grid_single(g, partition, True)
+        face_map = _generate_coarse_grid_single(g, partition, True)
 
         # Update all the master_to_mortar_int for all the 'edges' connected to the grid
         # We update also all the face_cells
@@ -278,7 +289,7 @@ def generate_coarse_grid_gb(gb, subdiv):
 # ------------------------------------------------------------------------------#
 
 
-def tpfa_matrix(g, perm=None):
+def _tpfa_matrix(g, perm=None):
     """
     Compute a two-point flux approximation matrix useful related to a call of
     create_partition.
@@ -337,7 +348,7 @@ def generate_seeds(gb):
         cells = np.unique(cells[index])
 
         # recover the mapping between the slave and the master grid
-        mg = gb.graph.adj[g][g_h]["mortar_grid"]
+        mg = gb._edges[(g_h, g)]["mortar_grid"]
         m2m = mg.master_to_mortar_int()
         l2m = mg.slave_to_mortar_int()
         # this is the old face_cells mapping
@@ -381,7 +392,7 @@ def create_aggregations(g, **kwargs):
 
         # Compute the inverse of the harminc mean
         weight = kwargs.get("weight", 1.0)
-        mean = weight / stats.hmean(1.0 / volumes)
+        mean = weight * np.mean(volumes)
 
         new_id = 1
         while np.any(partition_local < 0):
@@ -479,7 +490,7 @@ def __get_neigh(cells_id, c2c, partition):
 # ------------------------------------------------------------------------------#
 
 
-def create_partition(A, seeds=None, **kwargs):
+def create_partition(A, g, seeds=None, **kwargs):
     """
     Create the partition based on an input matrix using the algebraic multigrid
     method coarse/fine-splittings based on direct couplings. The standard values
@@ -491,15 +502,17 @@ def create_partition(A, seeds=None, **kwargs):
     Parameters
     ----------
     A: sparse matrix used for the agglomeration
+    g: grid or grid bucket
+    seeds: (optional) to define a-priori coarse cells
     cdepth: the greather is the more intense the aggregation will be, e.g. less
         cells if it is used combined with generate_coarse_grid
     epsilon: weight for the off-diagonal entries to define the "strong
         negatively cupling"
-    seeds: (optional) to define a-priori coarse cells
+
 
     Returns
     -------
-    out: agglomeration indices
+    out: map from old to the new grid with agglomeration indices
 
     How to use
     ----------
@@ -510,6 +523,12 @@ def create_partition(A, seeds=None, **kwargs):
 
     cdepth = int(kwargs.get("cdepth", 2))
     epsilon = kwargs.get("epsilon", 0.25)
+
+    # NOTE: Extract the higher dimensional grids, we suppose it is unique
+    if isinstance(g, pp.GridBucket):
+        g_high = g.grids_of_dimension(g.dim_max())[0]
+    else:
+        g_high = g
 
     if A.size == 0:
         return np.zeros(1)
@@ -540,8 +559,6 @@ def create_partition(A, seeds=None, **kwargs):
                 continue
             row = np.hstack([STold.rows[r] for r in rowj])
             ST[j, np.concatenate((rowj, row))] = True
-
-    del STold
 
     ST.setdiag(False)
     lmbda = np.array([len(s) for s in ST.rows])
@@ -679,7 +696,8 @@ def create_partition(A, seeds=None, **kwargs):
             vals += sps.csr_matrix((nv, (nc, np.repeat(mi, len(nc)))), shape=(Nc, NC))
 
     coarse, fine = primal.tocsr().nonzero()
-    return coarse[np.argsort(fine)]
+    partition = {g_high: (g_high.copy(), coarse[np.argsort(fine)])}
+    return partition
 
 
 # ------------------------------------------------------------------------------#

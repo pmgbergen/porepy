@@ -4,6 +4,7 @@ The tests verify that the output has the same format (outputs the same string)
 as before. Failure of any test thus indicates that something in the export
 filter, or in the vtk python bindings has changed. If the change is external to
 PorePy, this does not necessarily mean that something is wrong.
+
 """
 import shutil
 import numpy as np
@@ -172,9 +173,7 @@ class BasicsTest(unittest.TestCase):
         if not if_vtk:
             return
 
-        f1 = np.array([[0, 1], [0.5, 0.5]])
-        gb = pp.meshing.cart_grid([f1], [4] * 2, **{"physdims": [1, 1]})
-        gb.compute_geometry()
+        gb, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
 
         gb.add_node_props(["scalar_dummy", "dummy_vector"])
 
@@ -211,12 +210,9 @@ class BasicsTest(unittest.TestCase):
     def test_gb_2(self):
         if not if_vtk:
             return
-
-        f1 = np.array([[0, 1], [0.5, 0.5]])
-        f2 = np.array([[0.5, 0.5], [0.25, 0.75]])
-        gb = pp.meshing.cart_grid([f1, f2], [4] * 2, **{"physdims": [1, 1]})
-        gb.compute_geometry()
-
+        gb, _ = pp.grid_buckets_2d.two_intersecting(
+            [4, 4], y_endpoints=[0.25, 0.75], simplex=False
+        )
         gb.add_node_props(["dummy_scalar", "dummy_vector"])
 
         for g, d in gb:
@@ -2378,9 +2374,9 @@ class BasicsTest(unittest.TestCase):
           1 1 1 1 1 1
           1 1
         </DataArray>
-        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="3">
-          0 1 2 3 0 1
-          2 3
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="7">
+          0 1 2 3 4 5
+          6 7
         </DataArray>
         <DataArray type="Int32" Name="grid_edge_number" format="ascii" RangeMin="0" RangeMax="0">
           0 0 0 0 0 0
@@ -2603,9 +2599,9 @@ class BasicsTest(unittest.TestCase):
           1 1 1 1 1 1
           1 1 1 1 1 1
         </DataArray>
-        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="3">
-          0 1 2 3 0 1
-          2 3 0 1 0 1
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="7">
+          0 1 2 3 4 5
+          6 7 0 1 2 3
         </DataArray>
         <DataArray type="Int32" Name="grid_edge_number" format="ascii" RangeMin="0" RangeMax="1">
           0 0 0 0 0 0

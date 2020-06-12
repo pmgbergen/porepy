@@ -1,9 +1,5 @@
-from __future__ import division, print_function
 import numpy as np
 import scipy.sparse as sps
-import scipy.optimize as opt
-
-from porepy.utils.sort_points import sort_point_pairs
 
 
 def half_space_int(n, x0, pts):
@@ -95,6 +91,8 @@ def half_space_pt(n, x0, pts, recompute=True):
     http://www.qhull.org/html/qhalf.htm#notes
 
     """
+    import scipy.optimize as opt
+
     dim = (1, n.shape[1])
     c = np.array([0, 0, 0, 0, -1])
     A_ub = np.concatenate((n, [np.sum(-n * x0, axis=0)], np.ones(dim))).T
@@ -115,18 +113,24 @@ def half_space_pt(n, x0, pts, recompute=True):
     if res.success and not np.all(np.isclose(res.x[3:], 0)):
         return np.array(res.x[:3]) / res.x[3]
     else:
-        return np.array([np.nan, np.nan, np.nan])
+        raise ValueError("Half space intersection empty")
 
 
 # ------------------------------------------------------------------------------#
 
 
-def star_shape_cell_centers(g):
+def star_shape_cell_centers(g, as_nan=False):
     """
     For a given grid compute the star shape center for each cell.
     The algorithm computes the half space intersections, by using the above method half_space_pt,
     of the spaces defined by the cell faces and the face normals.
     This is a wrapper method that operate on a grid.
+
+    Parameters
+    ----------
+    g: the grid
+    as_nan: (default False) in the case some cells are not star-shaped return nan as new center.
+        Otherwise an exception is raised (default behaviour).
     """
 
     # no need for 1d or 0d grids
@@ -158,7 +162,16 @@ def star_shape_cell_centers(g):
         x0, x1 = xn[:, nodes[loc_n]], xn[:, nodes[loc_n + 1]]
         coords = np.concatenate((x0, x1), axis=1)
         # compute a point in the half space intersection of all cell faces
-        cell_centers[:, c] = half_space_pt(normal, (x1 + x0) / 2.0, coords)
+        try:
+            cell_centers[:, c] = half_space_pt(normal, (x1 + x0) / 2.0, coords)
+        except ValueError:
+            # the cell is not star-shaped
+            if as_nan:
+                cell_centers[:, c] = np.array([np.nan, np.nan, np.nan])
+            else:
+                raise ValueError(
+                    "Cell not star-shaped impossible to compute the centre"
+                )
 
     # shift back the computed cell centers and return them
     return cell_centers + np.tile(xn_shift, (g.num_cells, 1)).T

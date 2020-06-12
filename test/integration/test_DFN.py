@@ -17,12 +17,9 @@ class TestDFN(unittest.TestCase):
         We use the numerical scheme MVEM.
         """
         dfn_dim = 1
-        f1 = np.array([[1.0, 1.0], [0.0, 2.0]])
-        f2 = np.array([[0.0, 2.0], [1.0, 1.0]])
 
         # create the grid bucket
-        gb = pp.meshing.cart_grid([f1, f2], [2, 2])
-        gb.compute_geometry()
+        gb, _ = pp.grid_buckets_2d.two_intersecting([2, 2], simplex=False)
         create_dfn(gb, dfn_dim)
 
         # setup data and assembler
@@ -165,12 +162,7 @@ class TestDFN(unittest.TestCase):
         We use the numerical scheme Tpfa.
         """
         dfn_dim = 1
-        f1 = np.array([[1.0, 1.0], [0.0, 2.0]])
-        f2 = np.array([[0.0, 2.0], [1.0, 1.0]])
-
-        # create the grid bucket
-        gb = pp.meshing.cart_grid([f1, f2], [2, 2])
-        gb.compute_geometry()
+        gb, _ = pp.grid_buckets_2d.two_intersecting([2, 2], simplex=False)
         create_dfn(gb, dfn_dim)
 
         # setup data and assembler
@@ -487,5 +479,4 @@ def create_dfn(gb, dim):
 
 
 if __name__ == "__main__":
-    TestDFN().test_tpfa_1()
     unittest.main()

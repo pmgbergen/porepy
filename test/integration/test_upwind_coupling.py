@@ -14,10 +14,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_upwind_coupling_2d_1d_bottom_top(self):
-        f = np.array([[0, 1], [1, 1]])
-        gb = pp.meshing.cart_grid([f], [1, 2])
-        gb.compute_geometry()
-        gb.assign_node_ordering()
+        gb, _ = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
 
         # define discretization
         key = "transport"
@@ -37,7 +34,7 @@ class BasicsTest(unittest.TestCase):
             if bound_faces.size != 0:
                 bound_face_centers = g.face_centers[:, bound_faces]
 
-                top = bound_face_centers[1, :] > 2 - tol
+                top = bound_face_centers[1, :] > 1 - tol
                 bottom = bound_face_centers[1, :] < tol
 
                 labels = np.array(["neu"] * bound_faces.size)
@@ -97,10 +94,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_upwind_coupling_2d_1d_left_right(self):
-        f = np.array([[0, 1], [1, 1]])
-        gb = pp.meshing.cart_grid([f], [1, 2])
-        gb.compute_geometry()
-        gb.assign_node_ordering()
+        gb, _ = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
 
         tol = 1e-3
         # define discretization
@@ -117,7 +111,6 @@ class BasicsTest(unittest.TestCase):
         for g, d in gb:
 
             aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
-            #            specified_parameters = {"darcy_flux": upwind.darcy_flux(g, [0, 1, 0], aperture), "aperture": aperture}
             specified_parameters = {"aperture": aperture}
             bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
             if bound_faces.size != 0:
@@ -162,17 +155,16 @@ class BasicsTest(unittest.TestCase):
 
         U_known = np.array(
             [
-                [1.0, 0.0, 0.0, 0.0, 1.0],
-                [0.0, 1.0, 0.0, 1.0, 0.0],
+                [0.5, 0.0, 0.0, 0.0, 1.0],
+                [0.0, 0.5, 0.0, 1.0, 0.0],
                 [0.0, 0.0, 0.01, -1.0, -1.0],
                 [0.0, 0.0, 0.0, -1.0, 0.0],
                 [0.0, 0.0, 0.0, 0.0, -1.0],
             ]
         )
 
-        rhs_known = np.array([1, 1, 1e-2, 0, 0])
+        rhs_known = np.array([0.5, 0.5, 1e-2, 0, 0])
         theta_known = np.array([1, 1, 1, 0, 0])
-        deltaT_known = 5 * 1e-1
 
         rtol = 1e-15
         atol = rtol
@@ -185,26 +177,21 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_upwind_coupling_2d_1d_left_right_cross(self):
-        f1 = np.array([[0, 2], [1, 1]])
-        f2 = np.array([[1, 1], [0, 2]])
-
-        gb = pp.meshing.cart_grid([f1, f2], [2, 2])
-        gb.compute_geometry()
-        gb.assign_node_ordering()
+        gb, _ = pp.grid_buckets_2d.two_intersecting([2, 2], simplex=False)
 
         # Enforce node orderning because of Python 3.5 and 2.7.
         # Don't do it in general.
         cell_centers_1 = np.array(
             [
-                [1.50000000e00, 5.00000000e-01],
-                [1.00000000e00, 1.00000000e00],
+                [7.50000000e-01, 2.5000000e-01],
+                [0.50000000e00, 0.50000000e00],
                 [-5.55111512e-17, 5.55111512e-17],
             ]
         )
         cell_centers_2 = np.array(
             [
-                [1.00000000e00, 1.00000000e00],
-                [1.50000000e00, 5.00000000e-01],
+                [0.50000000e00, 0.50000000e00],
+                [7.50000000e-01, 2.5000000e-01],
                 [-5.55111512e-17, 5.55111512e-17],
             ]
         )
@@ -259,7 +246,7 @@ class BasicsTest(unittest.TestCase):
                 bound_face_centers = g.face_centers[:, bound_faces]
 
                 left = bound_face_centers[0, :] < tol
-                right = bound_face_centers[0, :] > 2 - tol
+                right = bound_face_centers[0, :] > 1 - tol
 
                 labels = np.array(["neu"] * bound_faces.size)
                 labels[np.logical_or(left, right)] = ["dir"]
@@ -322,7 +309,7 @@ class BasicsTest(unittest.TestCase):
                 ],
                 [
                     0.0,
-                    1.0,
+                    0.5,
                     0.0,
                     0.0,
                     0.0,
@@ -370,7 +357,7 @@ class BasicsTest(unittest.TestCase):
                     0.0,
                     0.0,
                     0.0,
-                    1.0,
+                    0.5,
                     0.0,
                     0.0,
                     0.0,
@@ -603,7 +590,7 @@ class BasicsTest(unittest.TestCase):
                     0.0,
                     0.0,
                     0.0,
-                    -1.0,
+                    -0.5,
                     0.0,
                     0.0,
                     0.0,
@@ -627,7 +614,7 @@ class BasicsTest(unittest.TestCase):
                     0.0,
                     0.0,
                     0.0,
-                    -1.0,
+                    -0.5,
                     0.0,
                     0.0,
                     0.0,
@@ -645,7 +632,7 @@ class BasicsTest(unittest.TestCase):
                 [
                     0.0,
                     0.0,
-                    1.0,
+                    0.5,
                     0.0,
                     0.0,
                     0.0,
@@ -666,7 +653,7 @@ class BasicsTest(unittest.TestCase):
                     0.0,
                 ],
                 [
-                    1.0,
+                    0.5,
                     0.0,
                     0.0,
                     0.0,
@@ -784,14 +771,36 @@ class BasicsTest(unittest.TestCase):
         )
 
         theta_known = np.array(
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, -1, -1, 1, 1, 0.01, -0.01, 0, 0]
+            [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                0,
+                0,
+                0,
+                0,
+                -0.5,
+                -0.5,
+                0.5,
+                0.5,
+                0.01,
+                -0.01,
+                0,
+                0,
+            ]
         )
 
         rhs_known = np.array(
             [
-                1.0,
+                0.5,
                 0.0,
-                1.0,
+                0.5,
                 0.0,
                 0.0,
                 0.01,
@@ -812,8 +821,6 @@ class BasicsTest(unittest.TestCase):
                 0,
             ]
         )
-
-        deltaT_known = 5 * 1e-3
 
         rtol = 1e-15
         atol = rtol
@@ -1146,7 +1153,10 @@ class BasicsTest(unittest.TestCase):
 
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
-        U_known, rhs_known = (
+        (
+            U_known,
+            rhs_known,
+        ) = (
             _helper_test_upwind_coupling.matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d()
         )
 

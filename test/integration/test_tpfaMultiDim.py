@@ -7,23 +7,14 @@ from test import test_utils
 
 def setup_2d_1d(nx, simplex_grid=False):
     if not simplex_grid:
-        frac1 = np.array([[0.2, 0.8], [0.5, 0.5]])
-        frac2 = np.array([[0.5, 0.5], [0.8, 0.2]])
-        fracs = [frac1, frac2]
-
-        gb = pp.meshing.cart_grid(fracs, nx, physdims=[1, 1])
+        mesh_args = nx
     else:
-        p = np.array([[0.2, 0.8, 0.5, 0.5], [0.5, 0.5, 0.8, 0.2]])
-        e = np.array([[0, 2], [1, 3]])
-        domain = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
-        network = pp.FractureNetwork2d(p, e, domain)
         mesh_size = 0.08
-        mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
+        mesh_args = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
 
-        gb = network.mesh(mesh_kwargs)
-
-    gb.compute_geometry()
-    gb.assign_node_ordering()
+    end_x = [0.2, 0.8]
+    end_y = [0.8, 0.2]
+    gb, _ = pp.grid_buckets_2d.two_intersecting(mesh_args, end_x, end_y, simplex_grid)
     aperture = 0.01 / np.max(nx)
     for g, d in gb:
         a = np.power(aperture, gb.dim_max() - g.dim) * np.ones(g.num_cells)

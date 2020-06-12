@@ -3,13 +3,8 @@ import csv
 
 import porepy as pp
 
-from porepy.grids.gmsh import gmsh_interface
-from porepy.fracs import meshing, simplex
-from porepy.fracs.fractures import Fracture, EllipticFracture
-from porepy.utils.setmembership import unique_columns_tol
 
-
-def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
+def network_3d_from_csv(file_name, has_domain=True, tol=1e-4, **kwargs):
     """
     Create the fracture network from a set of 3d fractures stored in a csv file and
     domain. In the csv file, we assume the following structure
@@ -21,9 +16,11 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
     Lines that start with a # are ignored.
 
     Parameters:
-        file_name: name of the file
-        has_domain: if the first line in the csv file specify the domain
-        tol: (optional) tolerance for the methods
+        file_name (str): path to the csv file
+        has_domain (boolean): if the first line in the csv file specify the domain
+        tol: (double, optional) geometric tolerance used in the computations.
+            Defaults to 1e-4.
+        **kwargs: Keyword arguments passed on to Fracture and FractureNetwork3d
 
     Return:
         network: the fracture network
@@ -63,7 +60,13 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
             if pts.size == 0:
                 continue
 
-            frac_list.append(Fracture(pts.reshape((3, -1), order="F")))
+            check_convexity = kwargs.get("check_convexity", True)
+
+            frac_list.append(
+                pp.Fracture(
+                    pts.reshape((3, -1), order="F"), check_convexity=check_convexity
+                )
+            )
 
     # Create the network
     if has_domain:
@@ -137,7 +140,7 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
             num_points = data[8]
 
             frac_list.append(
-                EllipticFracture(
+                pp.EllipticFracture(
                     centers, maj_ax, min_ax, maj_ax_ang, strike_ang, dip_ang, num_points
                 )
             )
@@ -156,7 +159,7 @@ def network_2d_from_csv(
     polyline=False,
     return_frac_id=False,
     domain=None,
-    **kwargs
+    **kwargs,
 ):
     """ Read csv file with fractures to obtain fracture description.
 
@@ -267,7 +270,7 @@ def network_2d_from_csv(
         overlap = kwargs.get("domain_overlap", 0)
         domain = pp.bounding_box.from_points(pts, overlap)
 
-    pts, _, old_2_new = unique_columns_tol(pts, tol=tol)
+    pts, _, old_2_new = pp.utils.setmembership.unique_columns_tol(pts, tol=tol)
 
     edges[:2] = old_2_new[edges[:2].astype(np.int)]
 
@@ -289,7 +292,7 @@ def network_2d_from_csv(
 # ------------ End of CSV-based functions. Start of gmsh related --------------#
 
 
-def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
+def dfm_from_gmsh(file_name: str, dim: int, **kwargs):
     """ Generate a GridBucket from a gmsh file.
 
     If the provided file is input for gmsh (.geo, not .msh), gmsh will be called
@@ -297,18 +300,14 @@ def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
 
     Parameters:
         file_name (str): Name of gmsh in and out file. Should have extsion .geo
-            or .msh. In the latter case, gmsh will be called upon to generate the
+            or .msh. In the former case, gmsh will be called upon to generate the
             mesh before the mixed-dimensional mesh is constructed.
         dim (int): Dimension of the problem. Should be 2 or 3.
-        network (FractureNetwork3d, only if dim==3): FractureNetwork. Needed
-            for the post-processing from gmsh, but only in 3d.
 
     Returns:
         GridBucket: Mixed-dimensional grid as contained in the gmsh file.
 
     """
-
-    verbose = kwargs.get("verbose", 1)
 
     # run gmsh to create .msh file if
     if file_name[-4:] == ".msh":
@@ -319,20 +318,19 @@ def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
         in_file = file_name + ".geo"
         out_file = file_name + ".msh"
 
-        gmsh_opts = kwargs.get("gmsh_opts", {})
-        gmsh_verbose = kwargs.get("gmsh_verbose", verbose)
-        gmsh_opts["-v"] = gmsh_verbose
-        gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=dim, **gmsh_opts)
-        if verbose:
-            print("Gmsh finished with status " + str(gmsh_status))
+        pp.grids.gmsh.gmsh_interface.run_gmsh(
+            in_file, out_file, dim=dim,
+        )
 
     if dim == 2:
-        grids = simplex.triangle_grid_from_gmsh(out_file, **kwargs)
+        grids = pp.fracs.simplex.triangle_grid_from_gmsh(out_file, **kwargs)
     elif dim == 3:
-        if network is None:
-            raise ValueError("Need access to the network used to produce the .geo file")
-        grids = simplex.tetrahedral_grid_from_gmsh(network, out_file, **kwargs)
-    return meshing.grid_list_to_grid_bucket(grids, **kwargs)
+        grids = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
+            file_name=out_file, **kwargs
+        )
+    else:
+        raise ValueError(f"Unknown dimension, dim: {dim}")
+    return pp.meshing.grid_list_to_grid_bucket(grids, **kwargs)
 
 
 # ------------ End of gmsh-based functions, start of fab related --------------#
@@ -361,7 +359,8 @@ def dfm_3d_from_fab(
     if domain is None:
         domain = network.bounding_box()
 
-    gb = meshing.simplex_grid(domain=domain, network=network, **mesh_kwargs)
+    # TODO: No reference to simplex_grid in pp.fracs.meshing.py
+    gb = pp.meshing.simplex_grid(domain=domain, network=network, **mesh_kwargs)
 
     if return_domain:
         return gb, domain
@@ -472,7 +471,7 @@ def network_3d_from_fab(f_name, return_all=False, tol=None):
                 # Check for keywords not yet implemented.
                 raise ValueError("Unknown section type " + line)
 
-    fractures = [Fracture(f) for f in fracs]
+    fractures = [pp.Fracture(f) for f in fracs]
     if tol is not None:
         network = pp.FractureNetwork3d(fractures, tol=tol)
     else:

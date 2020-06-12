@@ -1,38 +1,10 @@
-from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 
-# ------------------------------------------------------------------------------#
 
-# class _UpwindMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
-#    def __init__(self, keyword="transport"):
-#        self.keyword = keyword
-#
-#        self.discr = Upwind(self.keyword)
-#        self.discr_ndof = self.discr.ndof
-#        self.coupling_conditions = UpwindCoupling(self.discr)
-#
-#        self.solver = pp.numerics.mixed_dim.coupler.Coupler(
-#            self.discr, self.coupling_conditions
-#        )
-#
-#    def cfl(self, gb):
-#        deltaT = gb.apply_function(self.discr.cfl, self.coupling_conditions.cfl).data
-#        return np.amin(deltaT)
-#
-#    def outflow(self, gb):
-#        def bind(g, d):
-#            return self.discr.outflow(g, d), np.zeros(g.num_cells)
-#
-#        return pp.Coupler(self.discr, solver_fct=bind).matrix_rhs(gb)[0]
-
-
-# ------------------------------------------------------------------------------#
-
-
-class Upwind:
+class Upwind(pp.numerics.discretization.Discretization):
     """
     Discretize a hyperbolic transport equation using a single point upstream
     weighting scheme.
@@ -323,7 +295,10 @@ class Upwind:
         assert beta.size == 3
 
         if g.dim == 0:
-            dot_prod = np.dot(g.face_normals.ravel("F"), face_apertures * beta)
+            if g.num_faces == 0:
+                dot_prod = np.zeros(0)
+            else:
+                dot_prod = np.dot(g.face_normals.ravel("F"), face_apertures * beta)
             return np.atleast_1d(dot_prod)
 
         return np.array(

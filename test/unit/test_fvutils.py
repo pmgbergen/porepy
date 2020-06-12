@@ -69,3 +69,7 @@ class TestFvutils(unittest.TestCase):
         self.assertTrue(fvutils.determine_eta(g) == 1 / 3)
         g = structured.CartGrid([1, 1])
         self.assertTrue(fvutils.determine_eta(g) == 0)
+
+
+if __name__ == "__main__":
+    unittest.main()

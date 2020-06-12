@@ -9,6 +9,7 @@ from porepy.utils.half_space import half_space_int
 from porepy.utils import sparse_mat, tags
 from porepy.utils.graph import Graph
 from porepy.utils.mcolon import mcolon
+from porepy.utils import setmembership
 
 
 def split_fractures(bucket, **kwargs):
@@ -85,7 +86,12 @@ def split_fractures(bucket, **kwargs):
         # the node into four, while at the fracture boundary it is not split.
 
         gl = [e[1] for e in edges]
-        gl_2_gh_nodes = [bucket.target_2_source_nodes(g, gh) for g in gl]
+        gl_2_gh_nodes = []
+        for g in gl:
+            source = np.atleast_2d(g.global_point_ind).astype(np.int32)
+            target = np.atleast_2d(gh.global_point_ind).astype(np.int32)
+            _, mapping = setmembership.ismember_rows(source, target)
+            gl_2_gh_nodes.append(mapping)
 
         split_nodes(gh, gl, gl_2_gh_nodes, offset)
 
@@ -297,6 +303,16 @@ def update_cell_connectivity(g, face_id, normal, x0):
     normal    - Normal of faces that have been duplicated. Note that we assume
                 that all faces have the same normal
     x0        - A point in the plane where the faces lie
+
+    Returns:
+    ----------
+    int: Flag that informs on what action has been taken. 0 means g.cell_faces has been
+        split. -1 means the fracture was on the boundary, and no action taken.
+
+    Raises:
+    ----------
+    ValueError: If the fracture is not planar
+
     """
 
     # We find the cells attached to the tagged faces.
@@ -318,9 +334,10 @@ def update_cell_connectivity(g, face_id, normal, x0):
 
     # Assume that fracture is either on boundary (above case) or completely
     # innside domain. Check that each face added two cells:
-    assert sum(left_cell) * 2 == left_cell.size, (
-        "Fractures must either be" "on boundary or completely innside domain"
-    )
+    if sum(left_cell) * 2 != left_cell.size:
+        raise ValueError(
+            "Fractures must either be" "on boundary or completely innside domain"
+        )
 
     # We create a cell_faces mapping for the new faces. This will be added
     # on the end of the excisting cell_faces mapping. We have here assumed

@@ -8,11 +8,18 @@ classes handling the arising coupling terms are provided.
 
 import numpy as np
 import scipy.sparse as sps
+import logging
+import time
 
 import porepy as pp
+import porepy.numerics.interface_laws.abstract_interface_law
+
+logger = logging.getLogger(__name__)
 
 
-class PrimalContactCoupling(object):
+class PrimalContactCoupling(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     """ Implement the coupling conditions for the pure mechanics problem.
 
     The primary variables for this formulation are displacement in the ambient dimension,
@@ -37,20 +44,13 @@ class PrimalContactCoupling(object):
     """
 
     def __init__(self, keyword, discr_master, discr_slave, use_surface_discr=False):
-        self.keyword = keyword
+        super(PrimalContactCoupling, self).__init__(keyword)
         self.mortar_displacement_variable = "mortar_u"
         self.discr_master = discr_master
         self.discr_slave = discr_slave
 
-        self.SURFACE_DISCRETIZATION_KEY = "surface_smoother"
-
-        self.use_surface_discr = use_surface_discr
-
-    def _key(self):
-        return self.keyword + "_"
-
-    def _discretization_key(self):
-        return self._key() + pp.keywords.DISCRETIZATION
+        # Account for interaction between different, but intersecting, mortar grids
+        self.edge_coupling_via_high_dim = True
 
     def ndof(self, mg):
         """ Get the number of dof for this coupling.
@@ -62,13 +62,10 @@ class PrimalContactCoupling(object):
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
 
+        tic = time.time()
+        logging.debug("Discretize contact mechanics interface law")
         # Discretize the surface PDE
-        parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-
-        mg = data_edge["mortar_grid"]
-
-        # Projection onto the tangential space of the mortar grid
 
         # Tangential_normal projection
         tangential_normal_projection = data_edge["tangential_normal_projection"]
@@ -79,95 +76,6 @@ class PrimalContactCoupling(object):
         # of the normal forces.
         matrix_dictionary_edge["contact_force_map"] = normal_projection
 
-        # Keyword to control if the surface discretization should be rediscretized
-        # It is a linear term, so we may save time during Newton iterations here
-        discretize_surface = parameter_dictionary_edge.get("discretize_surface", True)
-
-        if self.use_surface_discr and discretize_surface:
-            # Discretize the surface pde if asked for.
-
-            # Lame parameters to be used for discretizing the surface elliptic equation.
-            mu = parameter_dictionary_edge["mu"]
-            lmbda = parameter_dictionary_edge["lambda"]
-
-            # Parameter used when mapping surface grids to their lower-dimensional planes.
-            # This is necessary for the mapping function, but at this point in the
-            # simulation workflow, it should not really be an issue.
-            deviation_from_plane_tol = 1e-5
-
-            # List of surface diffusion discretizations - one per side.
-            A_list = []
-
-            for _, side_grid in mg.project_to_side_grids():
-
-                unity = np.ones(side_grid.num_cells)
-
-                # Create an finite volume discretization for elasticity.
-                # Define parameters for the surface diffusion in an appropriate form.
-                mpsa = pp.Mpsa(self.keyword)
-
-                # The stiffness matrix is istropic, thus we need not care about the
-                # basis used for mapping grid coordinates into the tangential space.
-                # Simply define the parameters directly in 2d space.
-                stiffness = pp.FourthOrderTensor(
-                    side_grid.dim, mu * unity, lmbda * unity
-                )
-
-                bc = pp.BoundaryConditionVectorial(side_grid)
-
-                mpsa_parameters = pp.initialize_data(
-                    side_grid,
-                    {},
-                    self.keyword,
-                    {"fourth_order_tensor": stiffness, "bc": bc},
-                )
-
-                # Project the side grid into its natural dimension.
-                g = side_grid.copy()
-                # Use the same projection matrix as in the projections used on the
-                # variables.
-                rot = tangential_normal_projection.projection[:, :, 0]
-                if rot.shape == (2, 2):
-                    rot = np.vstack((np.hstack((rot, np.zeros((2, 1)))), np.zeros((3))))
-                cell_centers, face_normals, face_centers, _, _, nodes = pp.map_geometry.map_grid(
-                    g, deviation_from_plane_tol, R=rot
-                )
-                g.cell_centers = cell_centers
-                g.face_normals = face_normals
-                g.face_centers = face_centers
-                g.nodes = nodes
-
-                mpsa.discretize(g, mpsa_parameters)
-
-                # We are only interested in the elasticity discretization as a smoother.
-                # Construct the discretiation matrix, and disregard all other output.
-                A_loc = (
-                    pp.fvutils.vector_divergence(side_grid)
-                    * mpsa_parameters[pp.DISCRETIZATION_MATRICES][self.keyword][
-                        "stress"
-                    ]
-                )
-
-                # The local discretization must be mapped to the full mortar degrees of freedom.
-                # This entails a projection onto the normal plane, followed by a restriction to this
-                # side grid
-
-                # Projection to remove degrees of freedom in the normal direction to the grid
-                # This should be used after the projection to the tangent space,
-                # when we know which rows are
-                tangential_projection = tangential_normal_projection.project_tangential(
-                    side_grid.num_cells
-                )
-                A_list.append(A_loc * tangential_projection)
-
-            # Concatenate discretization matrices
-            A = sps.block_diag([mat for mat in A_list])
-
-            # The discretization is still a non-square matrix, it needs to be expanded to
-            # be compatible with the block assembler.
-            # The final equations should relate to continuity of the normal froces
-            matrix_dictionary_edge[self.SURFACE_DISCRETIZATION_KEY] = A
-
         # Discretization of the contact mechanics is done by a ColumbContact
         # object.
         # The resulting equations are located at the lower-dimensional grid,
@@ -175,6 +83,8 @@ class PrimalContactCoupling(object):
         # It is therefore constructed here.
 
         self.discr_slave.discretize(g_h, g_l, data_h, data_l, data_edge)
+
+        logger.debug("Done. Elapsed time {}".format(time.time() - tic))
 
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
@@ -205,46 +115,9 @@ class PrimalContactCoupling(object):
         mg = data_edge["mortar_grid"]
         projection = data_edge["tangential_normal_projection"]
 
-        dof_master = self.discr_master.ndof(g_master)
-        dof_slave = self.discr_slave.ndof(g_slave)
-
-        if not dof_master == matrix[master_ind, master_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the master discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the slave discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not mg.num_cells * ambient_dimension == matrix[master_ind, 2].shape[1]:
-            raise ValueError(
-                """The number of dofs of the edge discretization given
-            in the PrimalContactCoupling must match the number of dofs given by the matrix
-            """
-            )
-
-        # We know the number of dofs from the master and slave side from their
-        # discretizations
-        #        dof = np.array([dof_master, dof_slave, mg.num_cells])
-        dof = np.array(
-            [
-                matrix[master_ind, master_ind].shape[1],
-                matrix[slave_ind, slave_ind].shape[1],
-                mg.num_cells,
-            ]
+        cc, rhs = self._define_local_block_matrix(
+            g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix
         )
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc = cc.reshape((3, 3))
-
-        rhs = np.empty(3, dtype=np.object)
-        rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[mortar_ind] = np.zeros(mg.num_cells * ambient_dimension)
-
         # IMPLEMENTATION NOTE: The current implementation is geared towards
         # using mpsa for the mechanics problem. A more general approach would
         # be possible - for an example see the flow problem with the RobinCoupling
@@ -284,9 +157,11 @@ class PrimalContactCoupling(object):
         # NOTE: Both the contact conditions and the contact stresses are defined in the
         # local coordinate system of the surface. The displacements must therefore
         # be rotated to this local coordinate system during assembly.
-        traction_discr, displacement_jump_discr, rhs_slave = self.discr_slave.assemble_matrix_rhs(
-            g_slave, data_slave
-        )
+        (
+            traction_discr,
+            displacement_jump_discr,
+            rhs_slave,
+        ) = self.discr_slave.assemble_matrix_rhs(g_slave, data_slave)
         # The contact forces. Can be applied directly, these are in their own
         # local coordinate systems.
         cc[slave_ind, slave_ind] = traction_discr
@@ -393,27 +268,88 @@ class PrimalContactCoupling(object):
         # Minus to obtain -T_slave + T_master = 0.
         cc[mortar_ind, slave_ind] = -contact_traction_to_mortar
 
-        if self.use_surface_discr:
-            restrict_to_tangential_direction = projection.project_tangential(
-                mg.num_cells
-            )
-
-            # The first block contains the surface diffusion component. This has
-            # the surface diffusion operator for the mortar variables, and a
-            # mapping of contact forces on the slave variables.
-            # The second block gives continuity of forces in the normal direction.
-            surface_discr = matrix_dictionary_edge[self.SURFACE_DISCRETIZATION_KEY]
-
-            cc[mortar_ind, mortar_ind] += (
-                restrict_to_tangential_direction.T * surface_discr
-            )
-
         matrix += cc
 
         return matrix, rhs
 
+    def assemble_edge_coupling_via_high_dim(
+        self,
+        g_between,
+        data_between,
+        edge_primary,
+        data_edge_primary,
+        edge_secondary,
+        data_edge_secondary,
+        matrix,
+    ):
+        """ Assemble the stress contribution from the mortar displacement on one edge
+        on the stress balance on a neighboring edge, in the sense that the two edges
+        share a node located at the corner.
 
-class MatrixScalarToForceBalance:
+        The impact of the boundary condition gives an additional term in the stress
+        balance on the primary mortar.
+
+        Parameters:
+            g_between (pp.Grid): Grid of the higher dimensional neighbor to the
+                main interface
+            data_between (dict): Data dictionary of the intermediate grid.
+            edge_primary (tuple of grids): The grids of the primary edge
+            data_edge_primary (dict): Data dictionary of the primary interface.
+            edge_secondary (tuple of grids): The grids of the secondary edge.
+            data_edge_secondary (dict): Data dictionary of the secondary interface.
+            matrix: original discretization.
+
+        Returns:
+            np.array: Block matrix of size 3 x 3, whwere each block represents
+                coupling between variables on this interface. Index 0, 1 and 2
+                represent the master grid, the primary and secondary interface,
+                respectively.
+            np.array: Block matrix of size 3 x 1, representing the right hand
+                side of this coupling. Index 0, 1 and 2 represent the master grid,
+                the primary and secondary interface, respectively.
+
+        """
+        # Bookkeeping
+        mg_prim: pp.MortarGrid = data_edge_primary["mortar_grid"]
+        mg_sec: pp.MortarGrid = data_edge_secondary["mortar_grid"]
+
+        # Initialize matrices of the correct sizes
+        cc, rhs = self._define_local_block_matrix_edge_coupling(
+            g_between, self.discr_master, mg_prim, mg_sec, matrix
+        )
+
+        # Ambient dimension.
+        Nd = g_between.dim
+
+        faces_on_fracture_surface = mg_prim.master_to_mortar_int().tocsr().indices
+        sign_switcher = pp.grid_utils.switch_sign_if_inwards_normal(
+            g_between, Nd, faces_on_fracture_surface
+        )
+
+        proj_sec = mg_sec.mortar_to_master_avg(nd=Nd)
+        proj_prim = mg_prim.master_to_mortar_int(nd=Nd)
+
+        # Discretization of boundary conditions
+        bound_stress = data_between[pp.DISCRETIZATION_MATRICES][
+            self.discr_master.keyword
+        ][self.discr_master.bound_stress_matrix_key]
+
+        # The term to be discretized is the mapping of the induced stress down to the
+        # primary mortar grid. The term should be exactly equivalent to the expression
+        # for c[mortar_ind, mortar_ind] in assemble_matrix_rhs() above.
+        #
+        # Only the impact from secondary onto primary edge is assembled. There is a
+        # corresponding term from primary to secondary, but the assembler will switch
+        # roles of the two edges, and thus take care of this automatically.
+        cc[1, 2] = proj_prim * sign_switcher * bound_stress * proj_sec
+
+        matrix += cc
+        return matrix, rhs
+
+
+class MatrixScalarToForceBalance(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     """
     This class adds the matrix scalar (pressure) contribution to the force balance posed
     on the mortar grid by PrimalContactCoupling.
@@ -444,11 +380,17 @@ class MatrixScalarToForceBalance:
                 pressure, respectively. Used for #DOFs. In FV, one cell variable is
                 expected.
         """
+        super(MatrixScalarToForceBalance, self).__init__(keyword)
         # Set node discretizations
         self.discr_master = discr_master
         self.discr_slave = discr_slave
         # Keyword used to retrieve gradP discretization.
-        self.keyword = keyword
+
+    def ndof(self, mg):
+        # Assume the interface law is defined only on mortar grids next to the
+        # ambient dimension
+        ambient_dimension = mg.dim + 1
+        return ambient_dimension * mg.num_cells
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """
@@ -475,51 +417,14 @@ class MatrixScalarToForceBalance:
         ambient_dimension = g_master.dim
 
         master_ind = 0
-        slave_ind = 1
         mortar_ind = 2
 
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
-
-        dof_master = self.discr_master.ndof(g_master)
-        dof_slave = self.discr_slave.ndof(g_slave)
-
-        if not dof_master == matrix[master_ind, master_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the master discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the slave discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not mg.num_cells * ambient_dimension == matrix[master_ind, 2].shape[1]:
-            raise ValueError(
-                """The number of dofs of the edge discretization given
-            in the PrimalContactCoupling must match the number of dofs given by the matrix
-            """
-            )
-
-        # We know the number of dofs from the master and slave side from their
-        # discretizations
-        dof = np.array(
-            [
-                matrix[master_ind, master_ind].shape[1],
-                matrix[slave_ind, slave_ind].shape[1],
-                mg.num_cells * ambient_dimension,
-            ]
+        cc, rhs = self._define_local_block_matrix(
+            g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix
         )
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc = cc.reshape((3, 3))
-
-        rhs = np.empty(3, dtype=np.object)
-        rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[mortar_ind] = np.zeros(mg.num_cells * ambient_dimension)
 
         master_scalar_gradient = data_master[pp.DISCRETIZATION_MATRICES][self.keyword][
             "grad_p"
@@ -561,7 +466,9 @@ class MatrixScalarToForceBalance:
         return matrix, rhs
 
 
-class FractureScalarToForceBalance:
+class FractureScalarToForceBalance(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     """
     This class adds the fracture pressure contribution to the force balance posed on the
     mortar grid by PrimalContactCoupling and modified to account for matrix pressure by
@@ -577,7 +484,7 @@ class FractureScalarToForceBalance:
 
     """
 
-    def __init__(self, discr_master, discr_slave):
+    def __init__(self, discr_master, discr_slave, keyword=None):
         """
         Parameters:
             keyword used for storage of the gradP discretization. If the GradP class is
@@ -587,9 +494,16 @@ class FractureScalarToForceBalance:
                 pressure, respectively. Used for #DOFs. In FV, one cell variable is
                 expected.
         """
+        super(FractureScalarToForceBalance, self).__init__(keyword)
         # Set node discretizations
         self.discr_master = discr_master
         self.discr_slave = discr_slave
+
+    def ndof(self, mg):
+        # Assume the interface law is defined only on mortar grids next to the
+        # ambient dimension
+        ambient_dimension = mg.dim + 1
+        return ambient_dimension * mg.num_cells
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """
@@ -615,7 +529,6 @@ class FractureScalarToForceBalance:
 
         ambient_dimension = g_master.dim
 
-        master_ind = 0
         slave_ind = 1
         mortar_ind = 2
 
@@ -623,44 +536,9 @@ class FractureScalarToForceBalance:
         # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
 
-        dof_master = self.discr_master.ndof(g_master)
-        dof_slave = self.discr_slave.ndof(g_slave)
-
-        if not dof_master == matrix[master_ind, master_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the master discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the slave discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not mg.num_cells * ambient_dimension == matrix[master_ind, 2].shape[1]:
-            raise ValueError(
-                """The number of dofs of the edge discretization given
-            in the PrimalContactCoupling must match the number of dofs given by the matrix
-            """
-            )
-
-        # We know the number of dofs from the master and slave side from their
-        # discretizations
-        dof = np.array(
-            [
-                matrix[master_ind, master_ind].shape[1],
-                matrix[slave_ind, slave_ind].shape[1],
-                mg.num_cells * ambient_dimension,
-            ]
+        cc, rhs = self._define_local_block_matrix(
+            g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix
         )
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc = cc.reshape((3, 3))
-
-        rhs = np.empty(3, dtype=np.object)
-        rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[mortar_ind] = np.zeros(mg.num_cells * ambient_dimension)
 
         ## Ensure that the contact variable is only the force from the contact of the
         # two sides of the fracture. This requires subtraction of the pressure force.
@@ -698,7 +576,9 @@ class FractureScalarToForceBalance:
         return matrix, rhs
 
 
-class DivUCoupling:
+class DivUCoupling(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     """
     Coupling conditions for DivU term.
 
@@ -708,7 +588,8 @@ class DivUCoupling:
     to the div u term in fracture ("div aperture") and matrix.
     """
 
-    def __init__(self, variable, discr_master, discr_slave):
+    def __init__(self, variable, discr_master, discr_slave, keyword=None):
+        super(DivUCoupling, self).__init__(keyword)
         # Set variable names for the vector variable on the nodes (displacement), used
         # to access solutions from previous time steps.
         self.variable = variable
@@ -717,6 +598,11 @@ class DivUCoupling:
         self.discr_master = discr_master
         # assemble_int_bound_displacement_source for the slave.
         self.discr_slave = discr_slave
+
+    def ndof(self, mg):
+        # Assume the interface law is defined only on mortar grids next to the
+        # ambient dimension
+        return (mg.dim + 1) * mg.num_cells
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """
@@ -739,53 +625,17 @@ class DivUCoupling:
             matrix: original discretization matrix, to which the coupling terms will be
                 added.
         """
-        ambient_dimension = g_master.dim
 
         master_ind = 0
         slave_ind = 1
-        mortar_ind = 2
 
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
 
-        dof_master = self.discr_master.ndof(g_master)
-        dof_slave = self.discr_slave.ndof(g_slave)
-
-        if not dof_master == matrix[master_ind, master_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the master discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the slave discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
-            """
-            )
-        elif not mg.num_cells * ambient_dimension == matrix[master_ind, 2].shape[1]:
-            raise ValueError(
-                """The number of dofs of the edge discretization given
-            in the PrimalContactCoupling must match the number of dofs given by the matrix
-            """
-            )
-
-        # We know the number of dofs from the master and slave side from their
-        # discretizations
-        dof = np.array(
-            [
-                matrix[master_ind, master_ind].shape[1],
-                matrix[slave_ind, slave_ind].shape[1],
-                mg.num_cells * ambient_dimension,
-            ]
+        cc, rhs = self._define_local_block_matrix(
+            g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix
         )
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc = cc.reshape((3, 3))
-        rhs = np.empty(3, dtype=np.object)
-        rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[mortar_ind] = np.zeros(mg.num_cells * ambient_dimension)
 
         grid_swap = False
         # Let the DivU class assemble the contribution from mortar to master

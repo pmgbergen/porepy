@@ -7,6 +7,7 @@ variational formulation.
 
 import numpy as np
 import scipy.sparse as sps
+from typing import Tuple, Dict
 
 import porepy as pp
 
@@ -28,9 +29,6 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
     """
 
     for g, d in gb:
-        if g.dim == 0:
-            continue
-
         # we need to recover the flux from the mortar variable before
         # the projection, only lower dimensional edges need to be considered.
         edge_flux = np.zeros(d[pp.STATE][flux].size)
@@ -69,11 +67,23 @@ class DualElliptic(
 
     """
 
-    def __init__(self, keyword, name):
+    def __init__(self, keyword: str, name: str) -> None:
+
+        # Identify which parameters to use:
         self.keyword = keyword
         self.name = name
 
-    def ndof(self, g):
+        # Keywords used to identify individual terms in the discretization matrix dictionary
+        # Discretization of H_div mass matrix
+        self.mass_matrix_key = "mass"
+        # Discretization of divergence matrix
+        self.div_matrix_key = "div"
+        # Discretization of flux reconstruction
+        self.vector_proj_key = "vector_proj"
+        # Discretization of vector source terms (gravity)
+        self.vector_source_key = "vector_source"
+
+    def ndof(self, g: pp.Grid) -> int:
         """ Return the number of degrees of freedom associated to the method.
 
         In this case number of faces (velocity dofs) plus the number of cells
@@ -95,7 +105,9 @@ class DualElliptic(
         else:
             raise ValueError
 
-    def assemble_matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(
+        self, g: pp.Grid, data: Dict
+    ) -> Tuple[sps.csr_matrix, np.ndarray]:
         """
         Return the matrix and righ-hand side for a discretization of a second
         order elliptic equation using mixed method.
@@ -122,22 +134,29 @@ class DualElliptic(
         # Assemble right hand side term
         return M, self.assemble_rhs(g, data, bc_weight)
 
-    def assemble_matrix(self, g, data):
+    def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.csr_matrix:
         """ Assemble matrix from an existing discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
-        mass = matrix_dictionary["mass"]
-        div = matrix_dictionary["div"]
+        mass = matrix_dictionary[self.mass_matrix_key]
+        div = matrix_dictionary[self.div_matrix_key]
         return sps.bmat([[mass, div.T], [div, None]], format="csr")
 
-    def assemble_neumann_robin(self, g, data, M, bc_weight=None):
+    def assemble_neumann_robin(
+        self, g: pp.Grid, data: Dict, M, bc_weight: np.ndarray = None
+    ) -> Tuple[sps.csr_matrix, np.ndarray]:
         """ Impose Neumann and Robin boundary discretization on an already assembled
         system matrix.
         """
         # Obtain the mass matrix
-        mass = data[pp.DISCRETIZATION_MATRICES][self.keyword]["mass"]
-        norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        mass = matrix_dictionary[self.mass_matrix_key]
+        if mass.shape[0]==0:
+            norm = 1
+        else:
+            norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
         bc = data[pp.PARAMETERS][self.keyword]["bc"]
 
@@ -171,11 +190,11 @@ class DualElliptic(
             rob_val[is_rob] = 1.0 / (bc.robin_weight[is_rob] * g.face_areas[is_rob])
             M += sps.dia_matrix((rob_val, 0), shape=(rob_val.size, rob_val.size))
 
-        if bc_weight:
-            return M, norm
-        return M
+        return M, norm
 
-    def assemble_rhs(self, g, data, bc_weight=1):
+    def assemble_rhs(
+        self, g: pp.Grid, data: Dict, bc_weight: float = 1.0
+    ) -> np.ndarray:
         """
         Return the righ-hand side for a discretization of a second order elliptic
         equation using RT0-P0 method. See self.matrix_rhs for a detaild
@@ -192,8 +211,11 @@ class DualElliptic(
 
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
-        rhs = np.zeros(self.ndof(g))
+        # Get dictionary for discretization matrix storage
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        proj = matrix_dictionary[self.vector_proj_key]
 
+        rhs = np.zeros(self.ndof(g))
         if g.dim == 0:
             return rhs
 
@@ -201,6 +223,13 @@ class DualElliptic(
         bc_val = parameter_dictionary["bc_values"]
 
         assert not bool(bc is None) != bool(bc_val is None)
+
+        # The vector source, defaults to zero if not specified.
+        vector_source = parameter_dictionary.get(
+            "vector_source", np.zeros(proj.shape[0])
+        )
+        # Discretization of the vector source term
+        rhs[: g.num_faces] += proj.T * vector_source
 
         if bc is None:
             return rhs
@@ -214,6 +243,10 @@ class DualElliptic(
         is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
         is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
         is_rob = np.logical_and(bc.is_rob, np.logical_not(bc.is_internal))
+        if bc.is_per.sum():
+            raise NotImplementedError(
+                "Periodic boundary conditions are not implemented for DualElliptic"
+            )
 
         faces, _, sign = sps.find(g.cell_faces)
         sign = sign[np.unique(faces, return_index=True)[1]]
@@ -232,7 +265,50 @@ class DualElliptic(
 
         return rhs
 
-    def _assemble_neumann_common(self, g, data, M, mass, bc_weight=None):
+    def project_flux(self, g: pp.Grid, u: np.ndarray, data: Dict) -> np.ndarray:
+        """  Project the velocity computed with a dual solver to obtain a
+        piecewise constant vector field, one triplet for each cell.
+
+        We assume the following two sub-dictionaries to be present in the data
+        dictionary:
+            matrix_dictionary, for storage of discretization matrices.
+                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
+                with matrix named self.vector_proj_key and constructed in the discretize
+                method.
+
+        Parameters
+        ----------
+        g : grid, or a subclass, with geometry fields computed.
+        u : array (g.num_faces) Velocity at each face.
+        data: data of the current grid.
+
+        Return
+        ------
+        P0u : ndarray (3, g.num_faces) Velocity at each cell.
+
+        """
+        # Allow short variable names in backend function
+        # pylint: disable=invalid-name
+
+        if g.dim == 0:
+            return np.zeros(3).reshape((3, 1))
+
+        # Get dictionary for discretization matrix storage
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        proj = matrix_dictionary[self.vector_proj_key]
+        # perform the projection
+        proj_u = proj.dot(u)
+
+        return proj_u.reshape((3, -1), order="F")
+
+    def _assemble_neumann_common(
+        self,
+        g: pp.Grid,
+        data: Dict,
+        M: sps.csr_matrix,
+        mass: sps.csr_matrix,
+        bc_weight: float = None,
+    ) -> Tuple[sps.csr_matrix, np.ndarray]:
         """ Impose Neumann boundary discretization on an already assembled
         system matrix.
 
@@ -265,11 +341,12 @@ class DualElliptic(
             d[is_neu] = norm
             M.setdiag(d)
 
-        if bc_weight:
-            return M, norm
-        return M
+        return M, norm
 
-    def _velocity_dof(self, g, g_m, grid_swap):
+    @staticmethod
+    def _velocity_dof(
+        g: pp.Grid, mg: pp.MortarGrid, hat_E_int: sps.csc_matrix
+    ) -> sps.csr_matrix:
         # Recover the information for the grid-grid mapping
         faces_h, cells_h, sign_h = sps.find(g.cell_faces)
         ind_faces_h = np.unique(faces_h, return_index=True)[1]
@@ -279,18 +356,22 @@ class DualElliptic(
         # Velocity degree of freedom matrix
         U = sps.diags(sign_h)
 
-        shape = (g.num_cells, g_m.num_cells)
-        if grid_swap:
-            hat_E_int = g_m.mortar_to_slave_int()
-        else:
-            hat_E_int = g_m.mortar_to_master_int()
+        shape = (g.num_cells, mg.num_cells)
 
         hat_E_int = sps.bmat([[U * hat_E_int], [sps.csr_matrix(shape)]])
         return hat_E_int
 
     def assemble_int_bound_flux(
-        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
-    ):
+        self,
+        g: pp.Grid,
+        data: Dict,
+        data_edge: Dict,
+        cc: np.ndarray,
+        matrix: np.ndarray,
+        rhs: np.ndarray,
+        self_ind: int,
+        use_slave_proj: bool = False,
+    ) -> None:
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
 
@@ -308,8 +389,6 @@ class DualElliptic(
                 mixed-dimensional grid.
             data_edge (dictionary): Data dictionary for the edge in the
                 mixed-dimensional grid.
-            grid_swap (boolean): If True, the grid g is identified with the @
-                slave side of the mortar grid in data_adge.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
                 master and slave side; the third belongs to the edge variable.
@@ -320,18 +399,31 @@ class DualElliptic(
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
+            use_slave_proj (boolean): If True, the slave side projection operator is
+                used. Needed for periodic boundary conditions.
 
         """
 
         # The matrix must be the VEM discretization matrix.
         mg = data_edge["mortar_grid"]
+        if use_slave_proj:
+            proj = mg.mortar_to_slave_int()
+        else:
+            proj = mg.mortar_to_master_int()
 
-        hat_E_int = self._velocity_dof(g, mg, grid_swap)
+        hat_E_int = self._velocity_dof(g, mg, proj)
         cc[self_ind, 2] += matrix[self_ind, self_ind] * hat_E_int
 
     def assemble_int_bound_source(
-        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
-    ):
+        self,
+        g: pp.Grid,
+        data: Dict,
+        data_edge: Dict,
+        cc: np.ndarray,
+        matrix: np.ndarray,
+        rhs: np.ndarray,
+        self_ind: int,
+    ) -> None:
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
@@ -349,8 +441,6 @@ class DualElliptic(
                 mixed-dimensional grid.
             data_edge (dictionary): Data dictionary for the edge in the
                 mixed-dimensional grid.
-            grid_swap (boolean): If True, the grid g is identified with the @
-                slave side of the mortar grid in data_adge.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
                 master and slave side; the third belongs to the edge variable.
@@ -365,18 +455,23 @@ class DualElliptic(
         """
         mg = data_edge["mortar_grid"]
 
-        if grid_swap:
-            proj = mg.master_to_mortar_avg()
-        else:
-            proj = mg.slave_to_mortar_avg()
+        proj = mg.slave_to_mortar_avg()
 
         A = proj.T
         shape = (g.num_faces, A.shape[1])
         cc[self_ind, 2] += sps.bmat([[sps.csr_matrix(shape)], [A]])
 
     def assemble_int_bound_pressure_trace(
-        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
-    ):
+        self,
+        g: pp.Grid,
+        data: Dict,
+        data_edge: Dict,
+        cc: np.ndarray,
+        matrix: np.ndarray,
+        rhs: np.ndarray,
+        self_ind: int,
+        use_slave_proj: bool = False,
+    ) -> None:
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
@@ -394,8 +489,6 @@ class DualElliptic(
                 mixed-dimensional grid.
             data_edge (dictionary): Data dictionary for the edge in the
                 mixed-dimensional grid.
-            grid_swap (boolean): If True, the grid g is identified with the @
-                slave side of the mortar grid in data_adge.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
                 master and slave side; the third belongs to the edge variable.
@@ -406,17 +499,68 @@ class DualElliptic(
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
+            use_slave_proj (boolean): If True, the slave side projection operator is
+                used. Needed for periodic boundary conditions.
+
         """
         mg = data_edge["mortar_grid"]
 
-        hat_E_int = self._velocity_dof(g, mg, grid_swap)
+        if use_slave_proj:
+            proj = mg.mortar_to_slave_int()
+        else:
+            proj = mg.mortar_to_master_int()
+
+        hat_E_int = self._velocity_dof(g, mg, proj)
 
         cc[2, self_ind] -= hat_E_int.T * matrix[self_ind, self_ind]
         cc[2, 2] -= hat_E_int.T * matrix[self_ind, self_ind] * hat_E_int
 
+    def assemble_int_bound_pressure_trace_between_interfaces(
+        self,
+        g: pp.Grid,
+        data_grid: Dict,
+        data_primary_edge,
+        data_secondary_edge,
+        cc: np.ndarray,
+        matrix: np.ndarray,
+        rhs: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """ Assemble the contribution from an internal
+        boundary, manifested as a condition on the boundary pressure.
+
+        No contribution for this method.
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data_grid (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+            data_primary_edge (dictionary): Data dictionary for the primary edge in the
+                mixed-dimensional grid.
+            data_secondary_edge (dictionary): Data dictionary for the secondary edge in the
+                mixed-dimensional grid.
+            cc (block matrix, 3x3): Block matrix of size 3 x 3, whwere each block represents
+                coupling between variables on this interface. Index 0, 1 and 2
+                represent the master grid, the primary and secondary interface,
+                respectively.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            rhs (block_array 3x1): Block matrix of size 3 x 1, representing the right hand
+                side of this coupling. Index 0, 1 and 2 represent the master grid,
+                the primary and secondary interface, respectively.
+
+        """
+        return cc, rhs
+
     def assemble_int_bound_pressure_cell(
-        self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
-    ):
+        self,
+        g: pp.Grid,
+        data: Dict,
+        data_edge: Dict,
+        cc: np.ndarray,
+        matrix: np.ndarray,
+        rhs: np.ndarray,
+        self_ind: int,
+    ) -> None:
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
 
@@ -449,19 +593,17 @@ class DualElliptic(
 
         """
         mg = data_edge["mortar_grid"]
-        # proj = mg.slave_to_mortar_avg()
 
-        if grid_swap:
-            proj = mg.master_to_mortar_avg()
-        else:
-            proj = mg.slave_to_mortar_avg()
+        proj = mg.slave_to_mortar_avg()
 
         A = proj.T
         shape = (g.num_faces, A.shape[1])
 
         cc[2, self_ind] -= sps.bmat([[sps.csr_matrix(shape)], [A]]).T
 
-    def enforce_neumann_int_bound(self, g, data_edge, matrix, swap_grid, self_ind):
+    def enforce_neumann_int_bound(
+        self, g: pp.Grid, data_edge: Dict, matrix: np.ndarray, self_ind: int
+    ) -> None:
         """ Enforce Neumann boundary conditions on a given system matrix.
 
         Methods based on a mixed variational form need this function to
@@ -473,11 +615,12 @@ class DualElliptic(
             g (Grid): On which the equation is discretized
             data (dictionary): Of data related to the discretization.
             matrix (scipy.sparse.matrix): Discretization matrix to be modified.
+            self_ind (int): Index in local block system of this grid and variable.
 
         """
         mg = data_edge["mortar_grid"]
 
-        hat_E_int = self._velocity_dof(g, mg, swap_grid)
+        hat_E_int = self._velocity_dof(g, mg, mg.mortar_to_master_int())
 
         dof = np.where(hat_E_int.sum(axis=1).A.astype(np.bool))[0]
         norm = np.linalg.norm(matrix[self_ind, self_ind].diagonal(), np.inf)
@@ -495,7 +638,9 @@ class DualElliptic(
         d[dof] = norm
         matrix[self_ind, self_ind].setdiag(d)
 
-    def extract_flux(self, g, solution_array, data):
+    def extract_flux(
+        self, g: pp.Grid, solution_array: np.ndarray, data: Dict
+    ) -> np.ndarray:
         """  Extract the velocity from a dual virtual element solution.
 
         Parameters
@@ -515,7 +660,9 @@ class DualElliptic(
         # pylint: disable=invalid-name
         return solution_array[: g.num_faces]
 
-    def extract_pressure(self, g, solution_array, data):
+    def extract_pressure(
+        self, g: pp.Grid, solution_array: np.ndarray, data: Dict
+    ) -> np.ndarray:
         """  Extract the pressure from a dual virtual element solution.
 
         Parameters
@@ -534,3 +681,75 @@ class DualElliptic(
         """
         # pylint: disable=invalid-name
         return solution_array[g.num_faces :]
+
+    @staticmethod
+    def _inv_matrix_1d(K: np.ndarray) -> np.ndarray:
+        """ Explicit inversion of a matrix 1x1.
+
+        Parameters
+        ----------
+        K : the matrix to be inverted 1x1
+
+        Return
+        ------
+        The inverted matrix 1x1
+        """
+        return np.array([[1.0 / K[0, 0]]])
+
+    @staticmethod
+    def _inv_matrix_2d(K: np.ndarray) -> np.ndarray:
+        """ Explicit inversion of a symmetric matrix 2x2.
+
+        Parameters
+        ----------
+        K : the matrix to be inverted 2x2
+
+        Return
+        ------
+        The inverted matrix 2x2
+        """
+        det = K[0, 0] * K[1, 1] - K[0, 1] * K[0, 1]
+        return np.array([[K[1, 1], -K[0, 1]], [-K[0, 1], K[0, 0]]]) / det
+
+    @staticmethod
+    def _inv_matrix_3d(K: np.ndarray) -> np.ndarray:
+        """ Explicit inversion of a symmetric matrix 3x3.
+
+        Parameters
+        ----------
+        K : the matrix to be inverted 3x3
+
+        Return
+        ------
+        The inverted matrix 3x3
+        """
+
+        det = (
+            K[0, 0] * K[1, 1] * K[2, 2]
+            - K[0, 0] * K[1, 2] * K[1, 2]
+            - K[0, 1] * K[0, 1] * K[2, 2]
+            + 2 * K[0, 1] * K[0, 2] * K[1, 2]
+            - K[0, 2] * K[0, 2] * K[1, 1]
+        )
+        return (
+            np.array(
+                [
+                    [
+                        K[1, 1] * K[2, 2] - K[1, 2] * K[1, 2],
+                        K[0, 2] * K[1, 2] - K[0, 1] * K[2, 2],
+                        K[0, 1] * K[1, 2] - K[0, 2] * K[1, 1],
+                    ],
+                    [
+                        K[0, 2] * K[1, 2] - K[0, 1] * K[2, 2],
+                        K[0, 0] * K[2, 2] - K[0, 2] * K[0, 2],
+                        K[0, 2] * K[1, 0] - K[0, 0] * K[1, 2],
+                    ],
+                    [
+                        K[0, 1] * K[1, 2] - K[0, 2] * K[1, 1],
+                        K[0, 1] * K[0, 2] - K[0, 0] * K[1, 2],
+                        K[0, 0] * K[1, 1] - K[0, 1] * K[0, 1],
+                    ],
+                ]
+            )
+            / det
+        )

@@ -7,16 +7,144 @@ on any problems if ran as a main method.
 """
 import numpy as np
 import unittest
+from porepy.fracs import structured
+from collections import namedtuple
 
 import porepy as pp
+from test import test_utils
+
+# Named tuple used to identify intersections of fractures by their parent fractures
+# and their coordinates
+IntersectionInfo = namedtuple("IsectInfo", ["parent_0", "parent_1", "coord"])
+IntersectionInfo3Frac = namedtuple(
+    "IsectInfo3", ["parent_0", "parent_1", "parent_2", "coord"]
+)
 
 
 class TestDFMMeshGeneration(unittest.TestCase):
+    def check_gb(
+        self,
+        gb,
+        domain,
+        fractures=None,
+        isect_line=None,
+        isect_pt=None,
+        expected_num_1d_grids=0,
+        expected_num_0d_grids=0,
+    ):
+
+        if fractures is None:
+            fractures = []
+        if isect_line is None:
+            isect_line = []
+        if isect_pt is None:
+            isect_pt = []
+
+        def compare_bounding_boxes(box_1, box_2):
+            for k, v in box_1.items():
+                if np.abs(box_2[k] - v) > 1e-10:
+                    return False
+            return True
+
+        bb = pp.bounding_box.from_points(gb.grids_of_dimension(3)[0].nodes)
+
+        self.assertTrue(compare_bounding_boxes(bb, domain))
+
+        self.assertTrue(len(fractures) == len(gb.grids_of_dimension(2)))
+        self.assertTrue(expected_num_1d_grids == len(gb.grids_of_dimension(1)))
+        self.assertTrue(expected_num_0d_grids == len(gb.grids_of_dimension(0)))
+
+        # Loop over all fractures, find the grid with the corresponding frac_num. Check
+        # that their bounding boxes are the same.
+        for fi, f in enumerate(fractures):
+            for g in gb.grids_of_dimension(2):
+                if g.frac_num == fi:
+                    self.assertTrue(
+                        compare_bounding_boxes(
+                            pp.bounding_box.from_points(f.p),
+                            pp.bounding_box.from_points(g.nodes),
+                        )
+                    )
+
+        ii_computed_box = {}
+
+        for isect in isect_line:
+            if isinstance(isect, IntersectionInfo):
+                p_0, p_1 = sorted([isect.parent_0, isect.parent_1])
+
+                ii_computed_box[(p_0, p_1)] = {
+                    "coord": {
+                        "xmin": np.inf,
+                        "xmax": -np.inf,
+                        "ymin": np.inf,
+                        "ymax": -np.inf,
+                        "zmin": np.inf,
+                        "zmax": -np.inf,
+                    },
+                    "isect": isect,
+                }
+            elif isinstance(isect, IntersectionInfo3Frac):
+                p_0, p_1, p_2 = sorted([isect.parent_0, isect.parent_1, isect.parent_2])
+                ii_computed_box[(p_0, p_1, p_2)] = {
+                    "coord": {
+                        "xmin": np.inf,
+                        "xmax": -np.inf,
+                        "ymin": np.inf,
+                        "ymax": -np.inf,
+                        "zmin": np.inf,
+                        "zmax": -np.inf,
+                    },
+                    "isect": isect,
+                }
+
+        def update_box(box, update):
+            for k in ["xmin", "ymin", "zmin"]:
+                box["coord"][k] = min(box["coord"][k], update[k])
+            for k in ["xmax", "ymax", "zmax"]:
+                box["coord"][k] = max(box["coord"][k], update[k])
+
+        for g in gb.grids_of_dimension(1):
+            n = gb.node_neighbors(g, only_higher=True)
+            box = pp.bounding_box.from_points(g.nodes)
+
+            if n.size == 2:
+                f_0, f_1 = sorted([n[0].frac_num, n[1].frac_num])
+                update_box(ii_computed_box[(f_0, f_1)], box)
+
+            elif n.size == 3:
+                f_0, f_1, f_2 = sorted([n[0].frac_num, n[1].frac_num, n[2].frac_num])
+                update_box(ii_computed_box[(f_0, f_1, f_2)], box)
+
+        for val in ii_computed_box.values():
+            coord = val["coord"]
+            isect = val["isect"]
+            self.assertTrue(
+                compare_bounding_boxes(coord, pp.bounding_box.from_points(isect.coord))
+            )
+
+        for g in gb.grids_of_dimension(0):
+            found = False
+            for p in isect_pt:
+                if test_utils.compare_arrays(p, g.cell_centers):
+                    found = True
+                    break
+            self.assertTrue(found)
+
+        for p in isect_pt:
+            found = False
+            for g in gb.grids_of_dimension(0):
+                if test_utils.compare_arrays(p, g.cell_centers):
+                    found = True
+                    break
+            self.assertTrue(found)
+
     def test_no_fracture(self):
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         network = pp.FractureNetwork3d(domain=domain)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        self.check_gb(gb, domain)
 
     def test_single_isolated_fracture(self):
         """
@@ -26,7 +154,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         network = pp.FractureNetwork3d(f_1, domain=domain)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        self.check_gb(gb, domain, fractures=[f_1])
 
     def test_two_intersecting_fractures(self, **kwargs):
         """
@@ -46,7 +176,19 @@ class TestDFMMeshGeneration(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.5, "mesh_size_bound": 1, "mesh_size_min": 0.2}
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
 
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        isect_coord = np.array([[0, 0], [0, 0], [-0.7, 0.8]])
+
+        isect = IntersectionInfo(0, 1, isect_coord)
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=[isect],
+            expected_num_1d_grids=1,
+        )
 
     def test_three_intersecting_fractures(self, **kwargs):
         """
@@ -65,7 +207,27 @@ class TestDFMMeshGeneration(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.5, "mesh_size_bound": 1, "mesh_size_min": 0.2}
         network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
 
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        isect_0_coord = np.array([[0, 0], [0, 0], [-0.7, 0.8]])
+        isect_1_coord = np.array([[-1, 1], [0, 0], [0, 0]])
+        isect_2_coord = np.array([[0, 0], [-1, 1], [0, 0]])
+
+        isect_0 = IntersectionInfo(0, 1, isect_0_coord)
+        isect_1 = IntersectionInfo(0, 2, isect_1_coord)
+        isect_2 = IntersectionInfo(1, 2, isect_2_coord)
+
+        isect_pt = np.array([0, 0, 0]).reshape((-1, 1))
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2, f_3],
+            isect_line=[isect_0, isect_1, isect_2],
+            isect_pt=[isect_pt],
+            expected_num_1d_grids=6,
+            expected_num_0d_grids=1,
+        )
 
     def test_one_fracture_intersected_by_two(self, **kwargs):
         """
@@ -83,7 +245,21 @@ class TestDFMMeshGeneration(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        isect_0_coord = np.array([[0, 0], [0, 0], [-0.7, 0.8]])
+
+        isect_1_coord = np.array([[0.5, 0.5], [0, 0], [-0.7, 0.8]])
+
+        isect_0 = IntersectionInfo(0, 1, isect_0_coord)
+        isect_1 = IntersectionInfo(0, 2, isect_1_coord)
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2, f_3],
+            isect_line=[isect_0, isect_1],
+            expected_num_1d_grids=2,
+        )
 
     def test_split_into_octants(self, **kwargs):
         f_1 = pp.Fracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
@@ -93,7 +269,26 @@ class TestDFMMeshGeneration(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+        isect_0_coord = np.array([[0, 0], [0, 0], [-1, 1]])
+        isect_1_coord = np.array([[-1, 1], [0, 0], [0, 0]])
+        isect_2_coord = np.array([[0, 0], [-1, 1], [0, 0]])
+
+        isect_0 = IntersectionInfo(0, 2, isect_0_coord)
+        isect_1 = IntersectionInfo(0, 1, isect_1_coord)
+        isect_2 = IntersectionInfo(1, 2, isect_2_coord)
+
+        isect_pt = np.array([0, 0, 0]).reshape((-1, 1))
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2, f_3],
+            isect_line=[isect_0, isect_1, isect_2],
+            isect_pt=[isect_pt],
+            expected_num_1d_grids=6,
+            expected_num_0d_grids=1,
+        )
 
     def test_three_fractures_sharing_line_same_segment(self, **kwargs):
         """
@@ -107,7 +302,19 @@ class TestDFMMeshGeneration(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        isect_coord = np.array([[0, 0], [0, 0], [-1, 1]])
+        isect = IntersectionInfo3Frac(0, 1, 2, isect_coord)
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2, f_3],
+            isect_line=[isect],
+            expected_num_1d_grids=1,
+            expected_num_0d_grids=0,
+        )
 
     def test_three_fractures_split_segments(self, **kwargs):
         """
@@ -120,11 +327,39 @@ class TestDFMMeshGeneration(unittest.TestCase):
             np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-0.5, -0.5, 0.5, 0.5]])
         )
         f_3 = pp.Fracture(np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
+
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        # Fractures 0 and 2 intersect both in the interval z\in[-1, -0.5] and
+        # [0.5, 1]. The test for intersection lines is not smart enough for this,
+        # so we will simply define a full line of [-1, 1]. This is not ideal, but
+        # better than nothing.
+        isect_coord_full = np.array([[0, 0], [0, 0], [-1, 1]])
+        isect_0 = IntersectionInfo(0, 2, isect_coord_full)
+
+        # The intersection between three lines can be handled properly.
+        isect_coord_middle = np.array([[0, 0], [0, 0], [-0.5, 0.5]])
+        isect_1 = IntersectionInfo3Frac(0, 1, 2, isect_coord_middle)
+
+        isect_pt = [
+            np.array([0, 0, -0.5]).reshape((-1, 1)),
+            np.array([0, 0, 0.5]).reshape((-1, 1)),
+        ]
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2, f_3],
+            isect_line=[isect_0, isect_1],
+            isect_pt=isect_pt,
+            # Note that we expect three intersection grids here
+            expected_num_1d_grids=3,
+            expected_num_0d_grids=2,
+        )
 
     def test_two_fractures_L_intersection(self, **kwargs):
         """
@@ -136,7 +371,19 @@ class TestDFMMeshGeneration(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        isect_coord = np.array([[0, 0], [0, 1], [0, 0]])
+
+        isect_0 = IntersectionInfo(0, 1, isect_coord)
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=[isect_0],
+            expected_num_1d_grids=1,
+        )
 
     def test_two_fractures_L_intersection_part_of_segment(self, **kwargs):
         """
@@ -149,7 +396,19 @@ class TestDFMMeshGeneration(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        isect_coord = np.array([[0, 0], [0.3, 0.7], [0, 0]])
+
+        isect_0 = IntersectionInfo(0, 1, isect_coord)
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=[isect_0],
+            expected_num_1d_grids=1,
+        )
 
     def test_two_fractures_L_intersection_one_displaced(self, **kwargs):
         """
@@ -162,6 +421,18 @@ class TestDFMMeshGeneration(unittest.TestCase):
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
         network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        isect_coord = np.array([[0, 0], [0.5, 1], [0, 0]])
+
+        isect_0 = IntersectionInfo(0, 1, isect_coord)
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=[isect_0],
+            expected_num_1d_grids=1,
+        )
 
     def test_T_intersection_within_plane(self, **kwargs):
         f_1 = pp.Fracture(np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T)
@@ -175,7 +446,19 @@ class TestDFMMeshGeneration(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        isect_coord = np.array([[0.5, 0.5], [0.5, 0.9], [0, 0]])
+
+        isect_0 = IntersectionInfo(0, 1, isect_coord)
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=[isect_0],
+            expected_num_1d_grids=1,
+        )
 
     def test_T_intersection_one_outside_plane(self, **kwargs):
         f_1 = pp.Fracture(np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T)
@@ -185,7 +468,19 @@ class TestDFMMeshGeneration(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        isect_coord = np.array([[0.5, 0.5], [0.5, 1.0], [0, 0]])
+
+        isect_0 = IntersectionInfo(0, 1, isect_coord)
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=[isect_0],
+            expected_num_1d_grids=1,
+        )
 
     def test_T_intersection_both_outside_plane(self, **kwargs):
         f_1 = pp.Fracture(np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T)
@@ -195,7 +490,19 @@ class TestDFMMeshGeneration(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        isect_coord = np.array([[0.5, 0.5], [0.0, 1.0], [0, 0]])
+
+        isect_0 = IntersectionInfo(0, 1, isect_coord)
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=[isect_0],
+            expected_num_1d_grids=1,
+        )
 
     def test_T_intersection_both_on_boundary(self, **kwargs):
         f_1 = pp.Fracture(np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T)
@@ -205,7 +512,19 @@ class TestDFMMeshGeneration(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        isect_coord = np.array([[0.0, 1.0], [0.5, 0.5], [0, 0]])
+
+        isect_0 = IntersectionInfo(0, 1, isect_coord)
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=[isect_0],
+            expected_num_1d_grids=1,
+        )
 
     def test_T_intersection_one_boundary_one_outside(self, **kwargs):
         f_1 = pp.Fracture(np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T)
@@ -215,7 +534,19 @@ class TestDFMMeshGeneration(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        isect_coord = np.array([[0.0, 1.0], [0.5, 0.5], [0, 0]])
+
+        isect_0 = IntersectionInfo(0, 1, isect_coord)
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=[isect_0],
+            expected_num_1d_grids=1,
+        )
 
     def test_T_intersection_one_boundary_one_inside(self, **kwargs):
         f_1 = pp.Fracture(np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T)
@@ -225,7 +556,19 @@ class TestDFMMeshGeneration(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
-        network.mesh(mesh_args)
+        gb = network.mesh(mesh_args)
+
+        isect_coord = np.array([[0.2, 1.0], [0.5, 0.5], [0, 0]])
+
+        isect_0 = IntersectionInfo(0, 1, isect_coord)
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=[isect_0],
+            expected_num_1d_grids=1,
+        )
 
     def test_issue_54(self):
         domain = {"xmin": -1, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
@@ -317,6 +660,197 @@ class TestDFMMeshGeneration(unittest.TestCase):
 
         network = pp.FractureNetwork3d([f_1, f_2])
         network.mesh(mesh_args)
+
+
+class TestDFMMeshGenerationWithConstraints(TestDFMMeshGeneration):
+    """ Tests similar to some those of the mother class, but with some fractures as
+    constraints.
+    """
+
+    def test_single_isolated_fracture(self):
+        """
+        A single fracture completely immersed in a boundary grid.
+        """
+        f_1 = pp.Fracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
+        network = pp.FractureNetwork3d(f_1, domain=domain)
+        mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
+        gb = network.mesh(mesh_args, constraints=np.array([0]))
+
+        self.check_gb(gb, domain)
+
+    def test_two_intersecting_fractures(self, **kwargs):
+        """
+        Two fractures intersecting along a line.
+
+        The example also sets different characteristic mesh lengths on the boundary
+        and at the fractures.
+
+        """
+
+        f_1 = pp.Fracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
+        f_2 = pp.Fracture(
+            np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
+        )
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
+
+        mesh_args = {"mesh_size_frac": 0.5, "mesh_size_bound": 1, "mesh_size_min": 0.2}
+        network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
+
+        gb = network.mesh(mesh_args, constraints=np.array([1]))
+
+        self.check_gb(gb, domain, fractures=[f_1])
+
+    def test_three_intersecting_fractures_one_constraint(self, **kwargs):
+        """
+        Three fractures intersecting, with intersecting intersections (point)
+        """
+
+        f_1 = pp.Fracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
+        f_2 = pp.Fracture(
+            np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
+        )
+        f_3 = pp.Fracture(np.array([[-1, 1, 1, -1], [-1, -1, 1, 1], [0, 0, 0, 0]]))
+
+        # Add some parameters for grid size
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
+
+        mesh_args = {"mesh_size_frac": 0.5, "mesh_size_bound": 1, "mesh_size_min": 0.2}
+        network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
+
+        gb = network.mesh(mesh_args, constraints=[2])
+
+        isect_0_coord = np.array([[0, 0], [0, 0], [-0.7, 0.8]])
+
+        isect_0 = IntersectionInfo(0, 1, isect_0_coord)
+
+        isect_pt = np.array([0, 0, 0]).reshape((-1, 1))
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=[isect_0],
+            isect_pt=[isect_pt],
+            expected_num_1d_grids=2,
+            expected_num_0d_grids=1,
+        )
+
+    def test_three_fractures_sharing_segment_one_constraint(self, **kwargs):
+        """
+        Three fractures that all share an intersection line. This can be considered
+        as three intersection lines that coincide.
+        """
+        f_1 = pp.Fracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
+        f_2 = pp.Fracture(np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
+        f_3 = pp.Fracture(np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
+        mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
+
+        network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
+        gb = network.mesh(mesh_args, constraints=[2])
+
+        isect_coord = np.array([[0, 0], [0, 0], [-1, 1]])
+        isect = IntersectionInfo(0, 1, isect_coord)
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=[isect],
+            expected_num_1d_grids=1,
+            expected_num_0d_grids=0,
+        )
+
+    def test_three_fractures_sharing_segment_two_constraints(self, **kwargs):
+        """
+        Three fractures that all share an intersection line. This can be considered
+        as three intersection lines that coincide.
+        """
+        f_1 = pp.Fracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
+        f_2 = pp.Fracture(np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
+        f_3 = pp.Fracture(np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
+        mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
+
+        network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
+        gb = network.mesh(mesh_args, constraints=[1, 2])
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1],
+            expected_num_1d_grids=0,
+            expected_num_0d_grids=0,
+        )
+
+    def test_two_fractures_L_intersection_one_constraint(self, **kwargs):
+        """
+        Two fractures sharing a segment in an L-intersection.
+        """
+        f_1 = pp.Fracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]))
+        f_2 = pp.Fracture(np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1]]))
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
+        mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
+
+        network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
+        gb = network.mesh(mesh_args, constraints=[1])
+
+        self.check_gb(gb, domain, fractures=[f_1])
+
+    def test_T_intersection_is_also_within_constraint(self, **kwargs):
+        # a fracture
+        f_1 = pp.Fracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]))
+        # a fracture that abuts the first fracture
+        f_2 = pp.Fracture(np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]]))
+        # a fracture, to be constraint, that intersects in the same line
+        f_3 = pp.Fracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [-1, 1, 1, -1]]))
+
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
+        mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
+
+        network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
+        gb = network.mesh(mesh_args, constraints=[2])
+
+        isect_coord = np.array([[0.5, 0.5], [0, 1], [0, 0]])
+        isect = IntersectionInfo(0, 1, isect_coord)
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=[isect],
+            expected_num_1d_grids=1,
+            expected_num_0d_grids=0,
+        )
+
+    def test_T_intersection_is_partially_within_constraint(self, **kwargs):
+        # a fracture
+        f_1 = pp.Fracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]))
+        # a fracture that abuts the first fracture
+        f_2 = pp.Fracture(
+            np.array([[0.5, 0.5, 0.5, 0.5], [0.3, 1, 1, 0], [0, 0, 1, 1]])
+        )
+        # a fracture, to be constraint, that intersects in the same line
+        f_3 = pp.Fracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [-1, 1, 1, -1]]))
+
+        domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
+        mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
+
+        network = pp.FractureNetwork3d([f_1, f_2, f_3], domain=domain)
+        gb = network.mesh(mesh_args, constraints=[2])
+
+        isect_coord = np.array([[0.5, 0.5], [0.3, 1], [0, 0]])
+        isect = IntersectionInfo(0, 1, isect_coord)
+
+        self.check_gb(
+            gb,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=[isect],
+            expected_num_1d_grids=1,
+            expected_num_0d_grids=0,
+        )
 
 
 class TestMeshGenerationFractureHitsBoundary(unittest.TestCase):
@@ -482,6 +1016,158 @@ class TestDFMNonConvexDomain(unittest.TestCase):
         self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
 
 
+class Test2dDomain(unittest.TestCase):
+    def setUp(self):
+        self.domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        self.mesh_args = {
+            "mesh_size_bound": 1,
+            "mesh_size_frac": 1,
+            "mesh_size_min": 0.1,
+        }
+
+        self.p1 = np.array([[0.2, 0.8], [0.2, 0.8]])
+        self.e1 = np.array([[0], [1]])
+        self.p2 = np.array([[0.2, 0.8, 0.2, 0.8], [0.2, 0.8, 0.8, 0.2]])
+        self.e2 = np.array([[0, 2], [1, 3]])
+
+    def test_no_fractures(self):
+        self.setUp()
+        network = pp.FractureNetwork2d(domain=self.domain)
+        gb = network.mesh(self.mesh_args)
+        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(1)) == 0)
+        self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+
+    def test_one_fracture(self):
+        self.setUp()
+        network = pp.FractureNetwork2d(self.p1, self.e1, domain=self.domain)
+        gb = network.mesh(self.mesh_args)
+        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(1)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+
+    def test_two_fractures(self):
+        self.setUp()
+        network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
+        gb = network.mesh(self.mesh_args)
+        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(1)) == 2)
+        self.assertTrue(len(gb.grids_of_dimension(0)) == 1)
+
+    def test_one_constraint(self):
+        self.setUp()
+        network = pp.FractureNetwork2d(self.p1, self.e1, domain=self.domain)
+        gb = network.mesh(self.mesh_args, constraints=np.array([0]))
+        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(1)) == 0)
+        self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+
+    def test_two_constraints(self):
+        self.setUp()
+        network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
+        gb = network.mesh(self.mesh_args, constraints=np.arange(2))
+        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(1)) == 0)
+        self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+
+    def test_one_fracture_one_constraint(self):
+        self.setUp()
+        network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
+        gb = network.mesh(self.mesh_args, constraints=np.array(1))
+        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(1)) == 1)
+        self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+
+
+class TestStructuredGrids(unittest.TestCase):
+    def test_x_intersection_2d(self):
+        """ Check that no error messages are created in the process of creating a
+        split_fracture.
+        """
+
+        f_1 = np.array([[0, 2], [1, 1]])
+        f_2 = np.array([[1, 1], [0, 2]])
+
+        f_set = [f_1, f_2]
+        nx = [3, 3]
+
+        grids = structured._cart_grid_2d(f_set, nx, physdims=nx)
+
+        num_grids = [1, 2, 1]
+        for i, g in enumerate(grids):
+            self.assertTrue(len(g) == num_grids[i])
+
+        g_2d = grids[0][0]
+        g_1d_1 = grids[1][0]
+        g_1d_2 = grids[1][1]
+        g_0d = grids[2][0]
+
+        f_nodes_1 = [4, 5, 6]
+        f_nodes_2 = [1, 5, 9]
+        f_nodes_0 = [5]
+        glob_1 = np.sort(g_1d_1.global_point_ind)
+        glob_2 = np.sort(g_1d_2.global_point_ind)
+        glob_0 = np.sort(np.atleast_1d(g_0d.global_point_ind))
+        self.assertTrue(np.all(f_nodes_1 == glob_1))
+        self.assertTrue(np.all(f_nodes_2 == glob_2))
+        self.assertTrue(np.all(f_nodes_0 == glob_0))
+
+    def test_tripple_x_intersection_3d(self):
+        """
+        Create a cartesian grid in the unit cube, and insert three fractures.
+        """
+
+        f1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
+        f2 = np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
+        f3 = np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
+
+        gb = pp.meshing.cart_grid([f1, f2, f3], [2, 2, 2], physdims=[1, 1, 1])
+        g_3 = gb.grids_of_dimension(3)
+        g_2 = gb.grids_of_dimension(2)
+        g_1 = gb.grids_of_dimension(1)
+        g_0 = gb.grids_of_dimension(0)
+
+        self.assertTrue(len(g_3) == 1)
+        self.assertTrue(len(g_2) == 3)
+        self.assertTrue(len(g_1) == 6)
+        self.assertTrue(len(g_0) == 1)
+
+        self.assertTrue(np.all([g.num_cells == 4 for g in g_2]))
+        self.assertTrue(np.all([g.num_faces == 16 for g in g_2]))
+        self.assertTrue(np.all([g.num_cells == 1 for g in g_1]))
+        self.assertTrue(np.all([g.num_faces == 2 for g in g_1]))
+
+        g_321 = np.hstack([g_3, g_2, g_1])
+        for g in g_321:
+            d = np.all(np.abs(g.nodes - np.array([[0.5], [0.5], [0.5]])) < 1e-6, axis=0)
+            self.assertTrue(any(d))
+        for g in g_0:
+            d = np.all(
+                np.abs(g.cell_centers - np.array([[0.5], [0.5], [0.5]])) < 1e-6, axis=0
+            )
+            self.assertTrue(any(d))
+
+    def test_T_intersection_2d(self):
+        f_1 = np.array([[2, 6], [5, 5]])
+        f_2 = np.array([[4, 4], [2, 5]])
+        f = [f_1, f_2]
+        gb = pp.meshing.cart_grid(f, [10, 10], physdims=[10, 10])
+
+    def test_L_intersection_2d(self):
+        f_1 = np.array([[2, 6], [5, 5]])
+        f_2 = np.array([[6, 6], [2, 5]])
+        f = [f_1, f_2]
+
+        gb = pp.meshing.cart_grid(f, [10, 10], physdims=[10, 10])
+
+    def test_several_intersections_3d(self):
+        f_1 = np.array([[2, 5, 5, 2], [2, 2, 5, 5], [5, 5, 5, 5]])
+        f_2 = np.array([[2, 2, 5, 5], [5, 5, 5, 5], [2, 5, 5, 2]])
+        f_3 = np.array([[4, 4, 4, 4], [1, 1, 8, 8], [1, 8, 8, 1]])
+        f_4 = np.array([[3, 3, 6, 6], [3, 3, 3, 3], [3, 7, 7, 3]])
+        f = [f_1, f_2, f_3, f_4]
+        gb = pp.meshing.cart_grid(f, np.array([8, 8, 8]))
+
+
 if __name__ == "__main__":
-    TestDFMNonConvexDomain().test_fracture_cut_not_split_by_domain()
     unittest.main()

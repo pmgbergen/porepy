@@ -20,10 +20,6 @@ try:
     import vtk.util.numpy_support as ns
 except ImportError:
     warnings.warn("No vtk module loaded. Export with pp.Exporter will not work.")
-try:
-    import numba
-except ImportError:
-    warnings.warn("Numba not available. Export may be slow for large grids")
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -158,15 +154,15 @@ class Fields(object):
 
 
 class Exporter:
-    def __init__(self, grid, name, folder=None, **kwargs):
+    def __init__(self, grid, file_name, folder_name=None, **kwargs):
         """
         Class for exporting data to vtu files.
 
         Parameters:
         grid: the grid or grid bucket
-        name: the root of file name without any extension.
-        folder: (optional) the folder to save the file. If the folder does not
-            exist it will be created.
+        file_name: the root of file name without any extension.
+        folder_name: (optional) the name of the folder to save the file. 
+            If the folder does not exist it will be created.
 
         Optional arguments in kwargs:
         fixed_grid: (optional) in a time dependent simulation specify if the
@@ -176,17 +172,17 @@ class Exporter:
 
         How to use:
         If you need to export a single grid:
-        save = Exporter(g, "solution", folder="results")
+        save = Exporter(g, "solution", folder_name="results")
         save.write_vtk({"cells_id": cells_id, "pressure": pressure})
 
         In a time loop:
-        save = Exporter(gb, "solution", folder="results")
+        save = Exporter(gb, "solution", folder_name="results")
         while time:
             save.write_vtk({"conc": conc}, time_step=i)
         save.write_pvd(steps*deltaT)
 
         if you need to export the state of variables as stored in the GridBucket:
-        save = Exporter(gb, "solution", folder="results")
+        save = Exporter(gb, "solution", folder_name="results")
         # export the field stored in data[pp.STATE]["pressure"]
         save.write_vtk(gb, ["pressure"])
 
@@ -207,12 +203,15 @@ class Exporter:
         """
 
         self.gb = grid
-        self.name = name
-        self.folder = folder
-        self.fixed_grid = kwargs.get("fixed_grid", True)
-        self.binary = kwargs.get("binary", True)
-        self.simplicial = kwargs.get("simplicial", False)
-
+        self.file_name = file_name
+        self.folder_name = folder_name
+        self.fixed_grid = kwargs.pop("fixed_grid", True)
+        self.binary = kwargs.pop("binary", True)
+        self.simplicial = kwargs.pop("simplicial", False)
+        if kwargs:
+            msg = "Exporter() got unexpected keyword argument '{}'"
+            raise TypeError(msg.format(kwargs.popitem()[0]))
+        
         self.is_GridBucket = isinstance(self.gb, pp.GridBucket)
         self.is_not_vtk = "vtk" not in sys.modules
 
@@ -233,10 +232,14 @@ class Exporter:
         else:
             self.gb_VTK = None
 
+        try:
+            import numba
+        except ImportError:
+            warnings.warn("Numba not available. Export may be slow for large grids")
+
         self.has_numba = "numba" in sys.modules
 
-        if self.fixed_grid:
-            self._update_gb_VTK()
+        self._update_gb_VTK()
 
         # Counter for time step. Will be used to identify files of individual time step,
         # unless this is overridden by optional parameters in write_vtk
@@ -246,15 +249,15 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def change_name(self, name):
+    def change_name(self, file_name):
         """
         Change the root name of the files, useful when different keywords are
         considered but on the same grid.
 
         Parameters:
-        name: the new root name of the files.
+        file_name: the new root name of the files.
         """
-        self.name = name
+        self.file_name = file_name
 
     # ------------------------------------------------------------------------------#
 
@@ -298,10 +301,10 @@ class Exporter:
         elif not self.fixed_grid and grid is not None:
             self.gb = grid
             self.is_GridBucket = isinstance(self.gb, pp.GridBucket)
-            self._update_gVTK()
+            self._update_gb_VTK()
 
         # If the problem is time dependent, but no time step is set, we set one
-        if time_dependent and time_step is not None:
+        if time_dependent and time_step is None:
             time_step = self._time_step_counter
             self._time_step_counter += 1
 
@@ -342,7 +345,7 @@ class Exporter:
         if file_extension is None:
             file_extension = self._exported_time_step_file_names
 
-        o_file = open(self._make_folder(self.folder, self.name) + ".pvd", "w")
+        o_file = open(self._make_folder(self.folder_name, self.file_name) + ".pvd", "w")
         b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
         c = ' compressor="vtkZLibDataCompressor"'
         header = (
@@ -357,10 +360,12 @@ class Exporter:
         if self.is_GridBucket:
             for time, fn in zip(timestep, file_extension):
                 for dim in self.dims:
-                    o_file.write(fm % (time, self._make_file_name(self.name, fn, dim)))
+                    o_file.write(
+                        fm % (time, self._make_file_name(self.file_name, fn, dim))
+                    )
         else:
             for time, fn in zip(timestep, file_extension):
-                o_file.write(fm % (time, self._make_file_name(self.name, fn)))
+                o_file.write(fm % (time, self._make_file_name(self.file_name, fn)))
 
         o_file.write("</Collection>\n" + "</VTKFile>")
         o_file.close()
@@ -372,7 +377,7 @@ class Exporter:
         Export a single grid (not grid bucket) to a vtu file.
         """
         # No need of special naming, create the folder
-        name = self._make_folder(self.folder, self.name)
+        name = self._make_folder(self.folder_name, self.file_name)
         name = self._make_file_name(name, time_step)
 
         # Provide an empty dict if data is None
@@ -445,16 +450,16 @@ class Exporter:
 
         # collect the data and extra data in a single stack for each dimension
         for dim in self.dims:
-            file_name = self._make_file_name(self.name, time_step, dim)
-            file_name = self._make_folder(self.folder, file_name)
+            file_name = self._make_file_name(self.file_name, time_step, dim)
+            file_name = self._make_folder(self.folder_name, file_name)
             for field in fields:
                 grids = self.gb.get_grids(lambda g: g.dim == dim)
                 values = np.empty(grids.size, dtype=np.object)
                 for i, g in enumerate(grids):
                     if field.name in data:
-                        values[i] = self.gb.graph.node[g][pp.STATE][field.name]
+                        values[i] = self.gb._nodes[g][pp.STATE][field.name]
                     else:
-                        values[i] = self.gb.graph.node[g][field.name]
+                        values[i] = self.gb._nodes[g][field.name]
                     field.check(values[i], g)
                 field.set_values(np.hstack(values))
 
@@ -482,18 +487,20 @@ class Exporter:
             d["is_mortar"] = {}
             d["mortar_side"] = {}
             mg = d["mortar_grid"]
+            mg_num_cells = 0
             for side, g in mg.side_grids.items():
                 ones = np.ones(g.num_cells, dtype=np.int)
                 d["grid_dim"][side] = g.dim * ones
                 d["is_mortar"][side] = ones.astype(np.bool)
                 d["mortar_side"][side] = int(side) * ones
-                d["cell_id"][side] = np.arange(g.num_cells, dtype=np.int)
+                d["cell_id"][side] = np.arange(g.num_cells, dtype=np.int) + mg_num_cells
+                mg_num_cells += g.num_cells
                 d["grid_edge_number"][side] = d["edge_number"] * ones
 
         # collect the data and extra data in a single stack for each dimension
         for dim in self.m_dims:
-            file_name = self._make_file_name_mortar(self.name, time_step, dim)
-            file_name = self._make_folder(self.folder, file_name)
+            file_name = self._make_file_name_mortar(self.file_name, time_step, dim)
+            file_name = self._make_folder(self.folder_name, file_name)
 
             mgs = self.gb.get_mortar_grids(lambda g: g.dim == dim)
             cond = lambda d: d["mortar_grid"].dim == dim
@@ -513,16 +520,16 @@ class Exporter:
             if self.m_gb_VTK[dim] is not None:
                 self._write_vtk(extra_fields, file_name, self.m_gb_VTK[dim])
 
-        file_name = self._make_file_name(self.name, time_step, extension=".pvd")
-        file_name = self._make_folder(self.folder, file_name)
+        file_name = self._make_file_name(self.file_name, time_step, extension=".pvd")
+        file_name = self._make_folder(self.folder_name, file_name)
         self._export_pvd_gb(file_name, time_step)
 
         self.gb.remove_edge_props(extra_fields.names())
 
     # ------------------------------------------------------------------------------#
 
-    def _export_pvd_gb(self, name, time_step):
-        o_file = open(name, "w")
+    def _export_pvd_gb(self, file_name, time_step):
+        o_file = open(file_name, "w")
         b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
         c = ' compressor="vtkZLibDataCompressor"'
         header = (
@@ -538,11 +545,13 @@ class Exporter:
         # grids (or mortar grids) of this dimension are included in the vtk export
         for dim in self.dims:
             if self.gb_VTK[dim] is not None:
-                o_file.write(fm % self._make_file_name(self.name, time_step, dim=dim))
+                o_file.write(
+                    fm % self._make_file_name(self.file_name, time_step, dim=dim)
+                )
         for dim in self.m_dims:
             if self.m_gb_VTK[dim] is not None:
                 o_file.write(
-                    fm % self._make_file_name_mortar(self.name, time_step, dim=dim)
+                    fm % self._make_file_name_mortar(self.file_name, time_step, dim=dim)
                 )
 
         o_file.write("</Collection>\n" + "</VTKFile>")
@@ -603,30 +612,45 @@ class Exporter:
         gVTK = vtk.vtkUnstructuredGrid()
         ptsVTK = vtk.vtkPoints()
 
+        # Offset for the assignment of point indices. Needed to unify the counting of
+        # points for all grids in gs
         ptsId_global = 0
         for g in gs:
+            # Cell-face and face-node relations
             faces_cells, _, _ = sps.find(g.cell_faces)
             nodes_faces, _, _ = sps.find(g.face_nodes)
 
+            # For each cell, find its boundary edges, as a list of start and endpoints,
+            # sorted so that the edges form a closed loop around the cell
             for c in np.arange(g.num_cells):
-                loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+                # Faces of this cell
+                loc_faces = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+                # Points of the faces
                 ptsId = np.array(
                     [
                         nodes_faces[g.face_nodes.indptr[f] : g.face_nodes.indptr[f + 1]]
-                        for f in faces_cells[loc]
+                        for f in faces_cells[loc_faces]
                     ]
                 ).T
-                ptsId = (
-                    pp.utils.sort_points.sort_point_pairs(ptsId)[0, :] + ptsId_global
-                )
+                # Sort the points.
+                # Note that the indices assigned here also adjusts to the global point
+                # numbering
+                # Split computation in two to catch extra return argument
+                ptsId_paired, _ = pp.utils.sort_points.sort_point_pairs(ptsId)
+                ptsId_paired = ptsId_paired[0, :] + ptsId_global
 
+                # Create a list of Ids, add all point pairs.
                 fsVTK = vtk.vtkIdList()
-                [fsVTK.InsertNextId(p) for p in ptsId]
-
+                for p in ptsId_paired:
+                    fsVTK.InsertNextId(p)
+                # Add a new polygon
                 gVTK.InsertNextCell(vtk.VTK_POLYGON, fsVTK)
 
+            # Adjust the offset with the number of nodes in this grid
             ptsId_global += g.num_nodes
-            [ptsVTK.InsertNextPoint(*node) for node in g.nodes.T]
+            # Add the new nodes to the point list
+            for node in g.nodes.T:
+                ptsVTK.InsertNextPoint(*node)
 
         gVTK.SetPoints(ptsVTK)
 
@@ -645,10 +669,10 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _write_vtk(self, fields, name, g_VTK):
+    def _write_vtk(self, fields, file_name, g_VTK):
         writer = vtk.vtkXMLUnstructuredGridWriter()
         writer.SetInputData(g_VTK)
-        writer.SetFileName(name)
+        writer.SetFileName(file_name)
 
         if fields is not None:
             for field in fields:
@@ -695,47 +719,47 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _make_folder(self, folder, name=None):
-        if folder is None:
+    def _make_folder(self, folder_name, name=None):
+        if folder_name is None:
             return name
 
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-        return os.path.join(folder, name)
+        if not os.path.exists(folder_name):
+            os.makedirs(folder_name)
+        return os.path.join(folder_name, name)
 
     # ------------------------------------------------------------------------------#
 
-    def _make_file_name(self, name, time_step=None, dim=None, extension=".vtu"):
+    def _make_file_name(self, file_name, time_step=None, dim=None, extension=".vtu"):
 
         padding = 6
         if dim is None:  # normal grid
             if time_step is None:
-                return name + extension
+                return file_name + extension
             else:
                 time = str(time_step).zfill(padding)
-                return name + "_" + time + extension
+                return file_name + "_" + time + extension
         else:  # part of a grid bucket
             if time_step is None:
-                return name + "_" + str(dim) + extension
+                return file_name + "_" + str(dim) + extension
             else:
                 time = str(time_step).zfill(padding)
-                return name + "_" + str(dim) + "_" + time + extension
+                return file_name + "_" + str(dim) + "_" + time + extension
 
     # ------------------------------------------------------------------------------#
 
-    def _make_file_name_mortar(self, name, time_step=None, dim=None):
+    def _make_file_name_mortar(self, file_name, time_step=None, dim=None):
 
         # we keep the order as in _make_file_name
         assert dim is not None
 
         extension = ".vtu"
-        name = name + "_mortar_"
+        file_name = file_name + "_mortar_"
         padding = 6
         if time_step is None:
-            return name + str(dim) + extension
+            return file_name + str(dim) + extension
         else:
             time = str(time_step).zfill(padding)
-            return name + str(dim) + "_" + time + extension
+            return file_name + str(dim) + "_" + time + extension
 
     # ------------------------------------------------------------------------------#
 
@@ -767,7 +791,7 @@ class Exporter:
             # The number 1000 here is somewhat random.
             if self.has_numba and g.num_cells > 1000:
                 logger.info("Construct 3d grid information using numba")
-                cell_nodes = _point_ind_numba(
+                cell_nodes = self._point_ind_numba(
                     cptr,
                     fptr,
                     faces_cells,
@@ -779,7 +803,7 @@ class Exporter:
                 )
             else:
                 logger.info("Construct 3d grid information using pure python")
-                cell_nodes = _point_ind(
+                cell_nodes = self._point_ind(
                     cptr,
                     fptr,
                     faces_cells,
@@ -831,143 +855,182 @@ class Exporter:
 
         return gVTK
 
-
-def _point_ind(
-    cell_ptr, face_ptr, face_cells, nodes_faces, nodes, fc, normals, num_cell_nodes
-):
-    cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=np.int)
-    counter = 0
-    for ci in range(cell_ptr.size - 1):
-        loc_c = slice(cell_ptr[ci], cell_ptr[ci + 1])
-
-        for fi in face_cells[loc_c]:
-            loc_f = slice(face_ptr[fi], face_ptr[fi + 1])
-            ptsId = nodes_faces[loc_f]
-            num_p_loc = ptsId.size
-            nodes_loc = nodes[:, ptsId]
-            # Sort points. Cut-down version of
-            # sort_points.sort_points_plane() and subfunctions
-            reference = np.array([0.0, 0.0, 1])
-            angle = np.arccos(np.dot(normals[:, fi], reference))
-            vect = np.cross(normals[:, fi], reference)
-            # Cut-down version of cg.rot()
-            W = np.array(
-                [
-                    [0.0, -vect[2], vect[1]],
-                    [vect[2], 0.0, -vect[0]],
-                    [-vect[1], vect[0], 0.0],
-                ]
-            )
-            R = (
-                np.identity(3)
-                + np.sin(angle) * W
-                + (1.0 - np.cos(angle)) * np.linalg.matrix_power(W, 2)
-            )
-            # pts is now a npt x 3 matrix
-            pts = np.array([R.dot(nodes_loc[:, i]) for i in range(nodes_loc.shape[1])])
-            center = R.dot(fc[:, fi])
-            # Distance from projected points to center
-            delta = np.array([pts[i] - center for i in range(pts.shape[0])])[:, :2]
-            nrm = np.sqrt(delta[:, 0] ** 2 + delta[:, 1] ** 2)
-            delta = delta / nrm[:, np.newaxis]
-
-            argsort = np.argsort(np.arctan2(delta[:, 0], delta[:, 1]))
-            cell_nodes[counter : (counter + num_p_loc)] = ptsId[argsort]
-            counter += num_p_loc
-
-    return cell_nodes
-
-
-if "numba" in sys.modules:
-
-    @numba.jit(
-        "i4[:](i4[:],i4[:],i4[:],i4[:],f8[:,:],f8[:,:],f8[:,:],i4[:])",
-        nopython=True,
-        nogil=False,
-    )
-    def _point_ind_numba(
-        cell_ptr, face_ptr, faces_cells, nodes_faces, nodes, fc, normals, num_cell_nodes
+    def _point_ind(
+        self,
+        cell_ptr,
+        face_ptr,
+        face_cells,
+        nodes_faces,
+        nodes,
+        fc,
+        normals,
+        num_cell_nodes,
     ):
-        """ Implementation note: This turned out to be less than pretty, and quite
-        a bit more explicit than the corresponding pure python implementation.
-        The process was basically to circumvent whatever statements numba did not
-        like. Not sure about why this ended so, but there you go.
-        """
-        cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=np.int32)
+        cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=np.int)
         counter = 0
-        fc.astype(np.float64)
         for ci in range(cell_ptr.size - 1):
             loc_c = slice(cell_ptr[ci], cell_ptr[ci + 1])
-            for fi in faces_cells[loc_c]:
-                loc_f = np.arange(face_ptr[fi], face_ptr[fi + 1])
+
+            for fi in face_cells[loc_c]:
+                loc_f = slice(face_ptr[fi], face_ptr[fi + 1])
                 ptsId = nodes_faces[loc_f]
                 num_p_loc = ptsId.size
-                nodes_loc = np.zeros((3, num_p_loc))
-                for iter1 in range(num_p_loc):
-                    nodes_loc[:, iter1] = nodes[:, ptsId[iter1]]
-                #            # Sort points. Cut-down version of
-                #            # sort_points.sort_points_plane() and subfunctions
+                nodes_loc = nodes[:, ptsId]
+                # Sort points. Cut-down version of
+                # sort_points.sort_points_plane() and subfunctions
                 reference = np.array([0.0, 0.0, 1])
                 angle = np.arccos(np.dot(normals[:, fi], reference))
-                # Hand code cross product, not supported by current numba version
-                vect = np.array(
-                    [
-                        normals[1, fi] * reference[2] - normals[2, fi] * reference[1],
-                        normals[2, fi] * reference[0] - normals[0, fi] * reference[2],
-                        normals[0, fi] * reference[1] - normals[1, fi] * reference[0],
-                    ],
-                    dtype=np.float64,
-                )
-                ##            # Cut-down version of cg.rot()
+                vect = np.cross(normals[:, fi], reference)
+                # Cut-down version of cg.rot()
                 W = np.array(
                     [
-                        0.0,
-                        -vect[2],
-                        vect[1],
-                        vect[2],
-                        0.0,
-                        -vect[0],
-                        -vect[1],
-                        vect[0],
-                        0.0,
+                        [0.0, -vect[2], vect[1]],
+                        [vect[2], 0.0, -vect[0]],
+                        [-vect[1], vect[0], 0.0],
                     ]
-                ).reshape((3, 3))
+                )
                 R = (
                     np.identity(3)
-                    + np.sin(angle) * W.reshape((3, 3))
-                    + (
-                        (1.0 - np.cos(angle)) * np.linalg.matrix_power(W, 2).ravel()
-                    ).reshape((3, 3))
+                    + np.sin(angle) * W
+                    + (1.0 - np.cos(angle)) * np.linalg.matrix_power(W, 2)
                 )
-                ##            # pts is now a npt x 3 matrix
-                num_p = nodes_loc.shape[1]
-                pts = np.zeros((3, num_p))
-                fc_loc = fc[:, fi]
-                center = np.zeros(3)
-                for i in range(3):
-                    center[i] = (
-                        R[i, 0] * fc_loc[0] + R[i, 1] * fc_loc[1] + R[i, 2] * fc_loc[2]
-                    )
-                for i in range(num_p):
-                    for j in range(3):
-                        pts[j, i] = (
-                            R[j, 0] * nodes_loc[0, i]
-                            + R[j, 1] * nodes_loc[1, i]
-                            + +R[j, 2] * nodes_loc[2, i]
-                        )
-                ##            # Distance from projected points to center
-                delta = 0 * pts
-                for i in range(num_p):
-                    delta[:, i] = pts[:, i] - center
-                nrm = np.sqrt(delta[0] ** 2 + delta[1] ** 2)
-                for i in range(num_p):
-                    delta[:, i] = delta[:, i] / nrm[i]
-                ##
-                argsort = np.argsort(np.arctan2(delta[0], delta[1]))
+                # pts is now a npt x 3 matrix
+                pts = np.array(
+                    [R.dot(nodes_loc[:, i]) for i in range(nodes_loc.shape[1])]
+                )
+                center = R.dot(fc[:, fi])
+                # Distance from projected points to center
+                delta = np.array([pts[i] - center for i in range(pts.shape[0])])[:, :2]
+                nrm = np.sqrt(delta[:, 0] ** 2 + delta[:, 1] ** 2)
+                delta = delta / nrm[:, np.newaxis]
+
+                argsort = np.argsort(np.arctan2(delta[:, 0], delta[:, 1]))
                 cell_nodes[counter : (counter + num_p_loc)] = ptsId[argsort]
                 counter += num_p_loc
 
         return cell_nodes
 
+    def _point_ind_numba(
+        self,
+        cell_ptr,
+        face_ptr,
+        faces_cells,
+        nodes_faces,
+        nodes,
+        fc,
+        normals,
+        num_cell_nodes,
+    ):
+        import numba
 
-# ------------------------------------------------------------------------------#
+        @numba.jit(
+            "i4[:](i4[:],i4[:],i4[:],i4[:],f8[:,:],f8[:,:],f8[:,:],i4[:])",
+            nopython=True,
+            nogil=False,
+        )
+        def _function_to_compile(
+            cell_ptr,
+            face_ptr,
+            faces_cells,
+            nodes_faces,
+            nodes,
+            fc,
+            normals,
+            num_cell_nodes,
+        ):
+            """ Implementation note: This turned out to be less than pretty, and quite
+            a bit more explicit than the corresponding pure python implementation.
+            The process was basically to circumvent whatever statements numba did not
+            like. Not sure about why this ended so, but there you go.
+            """
+            cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=np.int32)
+            counter = 0
+            fc.astype(np.float64)
+            for ci in range(cell_ptr.size - 1):
+                loc_c = slice(cell_ptr[ci], cell_ptr[ci + 1])
+                for fi in faces_cells[loc_c]:
+                    loc_f = np.arange(face_ptr[fi], face_ptr[fi + 1])
+                    ptsId = nodes_faces[loc_f]
+                    num_p_loc = ptsId.size
+                    nodes_loc = np.zeros((3, num_p_loc))
+                    for iter1 in range(num_p_loc):
+                        nodes_loc[:, iter1] = nodes[:, ptsId[iter1]]
+                    #            # Sort points. Cut-down version of
+                    #            # sort_points.sort_points_plane() and subfunctions
+                    reference = np.array([0.0, 0.0, 1])
+                    angle = np.arccos(np.dot(normals[:, fi], reference))
+                    # Hand code cross product, not supported by current numba version
+                    vect = np.array(
+                        [
+                            normals[1, fi] * reference[2]
+                            - normals[2, fi] * reference[1],
+                            normals[2, fi] * reference[0]
+                            - normals[0, fi] * reference[2],
+                            normals[0, fi] * reference[1]
+                            - normals[1, fi] * reference[0],
+                        ],
+                        dtype=np.float64,
+                    )
+                    ##            # Cut-down version of cg.rot()
+                    W = np.array(
+                        [
+                            0.0,
+                            -vect[2],
+                            vect[1],
+                            vect[2],
+                            0.0,
+                            -vect[0],
+                            -vect[1],
+                            vect[0],
+                            0.0,
+                        ]
+                    ).reshape((3, 3))
+                    R = (
+                        np.identity(3)
+                        + np.sin(angle) * W.reshape((3, 3))
+                        + (
+                            (1.0 - np.cos(angle)) * np.linalg.matrix_power(W, 2).ravel()
+                        ).reshape((3, 3))
+                    )
+                    ##            # pts is now a npt x 3 matrix
+                    num_p = nodes_loc.shape[1]
+                    pts = np.zeros((3, num_p))
+                    fc_loc = fc[:, fi]
+                    center = np.zeros(3)
+                    for i in range(3):
+                        center[i] = (
+                            R[i, 0] * fc_loc[0]
+                            + R[i, 1] * fc_loc[1]
+                            + R[i, 2] * fc_loc[2]
+                        )
+                    for i in range(num_p):
+                        for j in range(3):
+                            pts[j, i] = (
+                                R[j, 0] * nodes_loc[0, i]
+                                + R[j, 1] * nodes_loc[1, i]
+                                + R[j, 2] * nodes_loc[2, i]
+                            )
+                    ##            # Distance from projected points to center
+                    delta = 0 * pts
+                    for i in range(num_p):
+                        delta[:, i] = pts[:, i] - center
+                    nrm = np.sqrt(delta[0] ** 2 + delta[1] ** 2)
+                    for i in range(num_p):
+                        delta[:, i] = delta[:, i] / nrm[i]
+                    ##
+                    argsort = np.argsort(np.arctan2(delta[0], delta[1]))
+                    cell_nodes[counter : (counter + num_p_loc)] = ptsId[argsort]
+                    counter += num_p_loc
+
+            return cell_nodes
+
+        return _function_to_compile(
+            cell_ptr,
+            face_ptr,
+            faces_cells,
+            nodes_faces,
+            nodes,
+            fc,
+            normals,
+            num_cell_nodes,
+        )

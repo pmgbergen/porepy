@@ -6,12 +6,9 @@ from test import test_utils
 
 
 def setup_cart_2d(nx):
-    frac1 = np.array([[0.2, 0.8], [0.5, 0.5]])
-    frac2 = np.array([[0.5, 0.5], [0.8, 0.2]])
-    fracs = [frac1, frac2]
-    gb = pp.meshing.cart_grid(fracs, nx, physdims=[1, 1])
-    gb.compute_geometry()
-    gb.assign_node_ordering()
+    gb, _ = pp.grid_buckets_2d.two_intersecting(
+        nx, [0.2, 0.8], [0.8, 0.2], simplex=False
+    )
     kw = "flow"
     aperture = 0.01 / np.max(nx)
     for g, d in gb:

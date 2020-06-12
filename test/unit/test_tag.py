@@ -1,8 +1,7 @@
 import numpy as np
 import unittest
 
-from porepy.grids import structured, simplex
-from porepy.fracs import meshing
+import porepy as pp
 
 # ------------------------------------------------------------------------------#
 
@@ -12,7 +11,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_1d(self):
-        g = structured.CartGrid(3, 1)
+        g = pp.CartGrid(3, 1)
 
         self.assertTrue(np.array_equal(g.tags["fracture_faces"], [False] * g.num_faces))
         self.assertTrue(np.array_equal(g.tags["fracture_nodes"], [False] * g.num_nodes))
@@ -25,7 +24,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_2d_simplex(self):
-        g = simplex.StructuredTriangleGrid([3] * 2, [1] * 2)
+        g = pp.StructuredTriangleGrid([3] * 2, [1] * 2)
 
         self.assertTrue(np.array_equal(g.tags["fracture_faces"], [False] * g.num_faces))
         self.assertTrue(np.array_equal(g.tags["fracture_nodes"], [False] * g.num_nodes))
@@ -96,7 +95,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_2d_cart(self):
-        g = structured.CartGrid([4] * 2, [1] * 2)
+        g = pp.CartGrid([4] * 2, [1] * 2)
 
         self.assertTrue(np.array_equal(g.tags["fracture_faces"], [False] * g.num_faces))
         self.assertTrue(np.array_equal(g.tags["fracture_nodes"], [False] * g.num_nodes))
@@ -184,7 +183,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_3d_simplex(self):
-        g = simplex.StructuredTetrahedralGrid([2] * 3, [1] * 3)
+        g = pp.StructuredTetrahedralGrid([2] * 3, [1] * 3)
 
         self.assertTrue(np.array_equal(g.tags["fracture_faces"], [False] * g.num_faces))
         self.assertTrue(np.array_equal(g.tags["fracture_nodes"], [False] * g.num_nodes))
@@ -353,7 +352,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_3d_cart(self):
-        g = structured.CartGrid([4] * 3, [1] * 3)
+        g = pp.CartGrid([4] * 3, [1] * 3)
 
         self.assertTrue(np.array_equal(g.tags["fracture_faces"], [False] * g.num_faces))
         self.assertTrue(np.array_equal(g.tags["fracture_nodes"], [False] * g.num_nodes))
@@ -740,8 +739,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_2d_1d_cart(self):
-        f1 = np.array([[0, 1], [0.5, 0.5]])
-        gb = meshing.cart_grid([f1], [4, 4], **{"physdims": [1, 1]})
+        gb, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
 
         for g, _ in gb:
 
@@ -808,9 +806,9 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_2d_1d_cart_complex(self):
-        f1 = np.array([[0, 1], [0.5, 0.5]])
-        f2 = np.array([[0.5, 0.5], [0.25, 0.75]])
-        gb = meshing.cart_grid([f1, f2], [4, 4], **{"physdims": [1, 1]})
+        gb, _ = pp.grid_buckets_2d.two_intersecting(
+            [4, 4], y_endpoints=[0.25, 0.75], simplex=False
+        )
 
         for g, _ in gb:
 
@@ -900,4 +898,6 @@ class BasicsTest(unittest.TestCase):
 
 # ------------------------------------------------------------------------------#
 
-BasicsTest().test_tag_2d_1d_cart_complex()
+
+if __name__ == "__main__":
+    unittest.main()

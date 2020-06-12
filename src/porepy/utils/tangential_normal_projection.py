@@ -6,6 +6,8 @@ vectors.
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
+
 
 class TangentialNormalProjection:
     """ Represent a set of projections into tangent and normal vectors.
@@ -48,7 +50,6 @@ class TangentialNormalProjection:
         self.normals = normal
 
     ## Methods for genertation of projection matrices
-
     def project_tangential_normal(self, num=None):
         """ Define a projection matrix to decompose a matrix into tangential
         and normal components.
@@ -80,13 +81,16 @@ class TangentialNormalProjection:
 
         """
         if num is None:
-            return sps.block_diag(
-                [self.projection[:, :, i] for i in range(self.projection.shape[-1])]
-            ).tocsc()
+            num = self.projection.shape[-1]
+            data = np.array([self.projection[:, :, i] for i in range(num)]).ravel(
+                order="F"
+            )
         else:
-            return sps.block_diag(
-                [self.projection[:, :, 0] for i in range(num)]
-            ).tocsc()
+            data = np.tile(self.projection[:, :, 0].ravel(order="F"), num)
+
+        mat = pp.utils.sparse_mat.csc_matrix_from_blocks(data, self.dim, num)
+
+        return mat
 
     def project_tangential(self, num=None):
         """ Define a projection matrix of a specific size onto the tangent space.

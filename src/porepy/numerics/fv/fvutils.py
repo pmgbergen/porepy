@@ -1,9 +1,9 @@
 """
 Various FV specific utility functions.
 """
-from __future__ import division
 import numpy as np
 import scipy.sparse as sps
+from typing import Tuple, Any, Generator, Dict, Optional
 
 import porepy as pp
 from porepy.utils import matrix_compression, mcolon
@@ -244,9 +244,137 @@ def determine_eta(g):
         return 0
 
 
-# ------------- Methods related to block inversion ----------------------------
+def find_active_indices(
+    parameter_dictionary: Dict[str, Any], g: pp.Grid
+) -> Tuple[np.ndarray, np.ndarray]:
+    """ Process information in parameter dictionary on whether the discretization
+    should consider a subgrid. Look for fields in the parameter dictionary called
+    specified_cells, specified_faces or specified_nodes. These are then processed by
+    the function pp.fvutils.cell-ind_for_partial_update.
 
-# @profile
+    If no relevant information is found, the active indices are all cells and
+    faces in the grid.
+
+    Parameters:
+        parameter_dictionary (dict): Parameters, potentially containing fields
+            "specified_cells", "specified_faces", "specified_nodes".
+        g (pp.Grid): Grid to be discretized.
+
+    Returns:
+        np.ndarray: Cells to be included in the active grid.
+        np.ndarary: Faces to have their discretization updated. NOTE: This may not
+            be all faces in the grid.
+
+    """
+    # The discretization can be limited to a specified set of cells, faces or nodes
+    # If none of these are specified, the entire grid will be discretized
+    specified_cells = parameter_dictionary.get("specified_cells", None)
+    specified_faces = parameter_dictionary.get("specified_faces", None)
+    specified_nodes = parameter_dictionary.get("specified_nodes", None)
+
+    # Find the cells and faces that should be considered for discretization
+    if (
+        (specified_cells is not None)
+        or (specified_faces is not None)
+        or (specified_nodes is not None)
+    ):
+        # Find computational stencil, based on specified cells, faces and nodes.
+        active_cells, active_faces = pp.fvutils.cell_ind_for_partial_update(
+            g, cells=specified_cells, faces=specified_faces, nodes=specified_nodes
+        )
+        parameter_dictionary["active_cells"] = active_cells
+        parameter_dictionary["active_faces"] = active_faces
+    else:
+        # All cells and faces in the grid should be updated
+        active_cells = np.arange(g.num_cells)
+        active_faces = np.arange(g.num_faces)
+        parameter_dictionary["active_cells"] = active_cells
+        parameter_dictionary["active_faces"] = active_faces
+
+    return active_cells, active_faces
+
+
+def subproblems(
+    g: pp.Grid, max_memory: int, peak_memory_estimate: int
+) -> Generator[Any, None, None]:
+
+    if g.dim == 0:
+        # nothing realy to do here
+        loc_faces = np.ones(g.num_faces, dtype=bool)
+        loc_cells = np.ones(g.num_cells, dtype=bool)
+        loc2g_cells = sps.eye(g.num_cells, dtype=bool)
+        loc2g_face = sps.eye(g.num_faces, dtype=bool)
+        return g, loc_faces, loc_cells, loc2g_cells, loc2g_face
+
+    num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(np.int)
+
+    if num_part == 1:
+        yield g, np.arange(g.num_faces), np.arange(g.num_cells), np.arange(
+            g.num_cells
+        ), np.arange(g.num_faces)
+
+    else:
+        # Let partitioning module apply the best available method
+        part: np.ndarray = pp.partition.partition(g, num_part)
+
+        # Cell-node relation
+        cn: sps.csc_matrix = g.cell_nodes()
+
+        # Loop over all partition regions, construct local problemsac, and transfer
+        # discretization to the entire active grid
+        for p in np.unique(part):
+            # Cells in this partitioning
+            cells_in_partition: np.ndarray = np.argwhere(part == p).ravel("F")
+
+            # To discretize with as little overlap as possible, we use the
+            # keyword nodes to specify the update stencil. Find nodes of the
+            # local cells.
+            cells_in_partition_boolean = np.zeros(g.num_cells, dtype=np.bool)
+            cells_in_partition_boolean[cells_in_partition] = 1
+
+            nodes_in_partition: np.ndarray = np.squeeze(
+                np.where((cn * cells_in_partition_boolean) > 0)
+            )
+
+            # Find computational stencil, based on the nodes in this partition
+            loc_cells, loc_faces = pp.fvutils.cell_ind_for_partial_update(
+                g, nodes=nodes_in_partition
+            )
+
+            # Extract subgrid, together with mappings between local and active
+            # (global, or at least less local) cells
+            sub_g, l2g_faces, _ = pp.partition.extract_subgrid(g, loc_cells)
+            l2g_cells = sub_g.parent_cell_ind
+
+            yield sub_g, loc_faces, cells_in_partition, l2g_cells, l2g_faces
+
+
+def remove_nonlocal_contribution(
+    raw_ind: np.ndarray, nd: int, *args: sps.spmatrix
+) -> None:
+    """
+    For a set of matrices, zero out rows associated with given faces, adjusting for
+    the matrices being related to vector quantities if necessary.
+
+    Example: If raw_ind = np.array([2]), and nd = 2, rows 4 and 5 will be eliminated
+        (row 0 and 1 will in this case be associated with face 0, row 2 and 3 with face
+         1).
+
+    Args:
+        raw_ind (np.ndarray): Face indices to have their rows eliminated.
+        nd (int): Spatial dimension. Needed to map face indices to rows.
+        *args (sps.spmatrix): Set of matrices. Will be eliminated in place.
+
+    Returns:
+        None: DESCRIPTION.
+
+    """
+    eliminate_ind = pp.fvutils.expand_indices_nd(raw_ind, nd)
+    for mat in args:
+        pp.fvutils.zero_out_sparse_rows(mat, eliminate_ind)
+
+
+# ------------- Methods related to block inversion ----------------------------
 
 
 def invert_diagonal_blocks(mat, s, method=None):
@@ -314,8 +442,7 @@ def invert_diagonal_blocks(mat, s, method=None):
             import porepy.numerics.fv.cythoninvert as cythoninvert
         except:
             raise ImportError(
-                "Compiled Cython module not available. Is cython\
-            installed?"
+                """Compiled Cython module not available. Is cython installed?"""
             )
 
         a.sorted_indices()
@@ -355,7 +482,7 @@ def invert_diagonal_blocks(mat, s, method=None):
         dat = a.data
 
         # Just in time compilation
-        @numba.jit("f8[:](i4[:],i4[:],f8[:],i8[:])", nopython=True, nogil=False)
+        @numba.jit("f8[:](i4[:],i4[:],f8[:],i8[:])", nopython=True, cache=True)
         def inv_python(indptr, ind, data, sz):
             """
             Invert block matrices by explicitly forming local matrices. The code
@@ -430,6 +557,8 @@ def invert_diagonal_blocks(mat, s, method=None):
     if method == "numba" or method is None:
         try:
             inv_vals = invert_diagonal_blocks_numba(mat, s)
+        except np.linalg.LinAlgError:
+            raise ValueError("Error in inversion of local linear systems")
         except:
             # This went wrong, fall back on cython
             try_cython = True
@@ -585,21 +714,49 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
     return hf2f
 
 
-def map_sc_2_c(nd, sub_cell_index, cell_index):
+def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
+
+    """
+    Create mapping from sub-cells to cells for scalar problems.
+    For example, discretization of div_g-term in mpfa with gravity,
+    where g is a cell-center vector (dim nd)
+
+    Parameters
+        nd: dimension
+        sub_cell_index: sub-cell indices
+        cell_index: cell indices
+
+    Returns:
+        scipy.sparse.csr_matrix (shape num_subcells * nd, num_cells * nd):
+
+    """
+
+    num_cells = cell_index.max() + 1
+
+    rows = sub_cell_index.ravel("F")
+    cols = expand_indices_nd(cell_index, nd)
+    vals = np.ones(rows.size)
+    mat = sps.coo_matrix(
+        (vals, (rows, cols)), shape=(sub_cell_index.size, num_cells * nd)
+    ).tocsr()
+
+    return mat
+
+
+def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
 
     """
     Create mapping from sub-cells to cells for vector problems.
-    For example, discretization of grad_p-term in Biot
+    For example, discretization of grad_p-term in Biot,
+    where p is a cell-center scalar
 
     Parameters
-    ----------
-    nd: dimension
-    sub_cell_index:
-    cell_index:
+        nd: dimension
+        sub_cell_index: sub-cell indices
+        cell_index: cell indices
 
-
-    Returns
-    -------
+    Returns:
+        scipy.sparse.csr_matrix (shape num_subcells * nd, num_cells):
 
     """
 
@@ -622,7 +779,7 @@ def map_sc_2_c(nd, sub_cell_index, cell_index):
     return sc2c
 
 
-def scalar_divergence(g):
+def scalar_divergence(g: pp.Grid) -> sps.csr_matrix:
     """
     Get divergence operator for a grid.
 
@@ -639,10 +796,10 @@ def scalar_divergence(g):
     -------
     divergence operator
     """
-    return g.cell_faces.T
+    return g.cell_faces.T.tocsr()
 
 
-def vector_divergence(g):
+def vector_divergence(g: pp.Grid) -> sps.csr_matrix:
     """
     Get vector divergence operator for a grid g
 
@@ -665,12 +822,14 @@ def vector_divergence(g):
     # Vector extension, convert to coo-format to avoid odd errors when one
     # grid dimension is 1 (this may return a bsr matrix)
     # The order of arguments to sps.kron is important.
-    block_div = sps.kron(scalar_div, sps.eye(g.dim)).tocsr()
+    block_div = sps.kron(scalar_div, sps.eye(g.dim)).tocsc()
 
-    return block_div.transpose()
+    return block_div.transpose().tocsr()
 
 
-def scalar_tensor_vector_prod(g, k, subcell_topology):
+def scalar_tensor_vector_prod(
+    g: pp.Grid, k: pp.SecondOrderTensor, subcell_topology: SubcellTopology
+) -> Tuple[sps.csr_matrix, np.ndarray, np.ndarray]:
     """
     Compute product of normal vectors and tensors on a sub-cell level.
     This is essentially defining Darcy's law for each sub-face in terms of
@@ -681,8 +840,8 @@ def scalar_tensor_vector_prod(g, k, subcell_topology):
     it is tacitly assumed that g.dim == g.nodes.shape[0] ==
     g.face_normals.shape[0] etc. See implementation note in main method.
     Parameters:
-        g (core.grids.grid): Discretization grid
-        k (core.constit.second_order_tensor): The permeability tensor
+        g (pp.Grid): Discretization grid
+        k (pp.Second_order_tensor): The permeability tensor
         subcell_topology (fvutils.SubcellTopology): Wrapper class containing
             subcell numbering.
     Returns:
@@ -829,6 +988,7 @@ class ExcludeBoundaries(object):
         # Short hand notation
         num_subfno = subcell_topology.num_subfno_unique
         self.num_subfno = num_subfno
+        self.any_rob = np.any(bound.is_rob)
 
         # Define mappings to exclude boundary values
         if self.bc_type == "scalar":
@@ -1088,7 +1248,12 @@ class ExcludeBoundaries(object):
 # -----------------End of class ExcludeBoundaries-----------------------------
 
 
-def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
+def cell_ind_for_partial_update(
+    g: pp.Grid,
+    cells: np.ndarray = None,
+    faces: np.ndarray = None,
+    nodes: np.ndarray = None,
+) -> Tuple[np.ndarray, np.ndarray]:
     """ Obtain indices of cells and faces needed for a partial update of the
     discretization stencil.
 
@@ -1261,7 +1426,7 @@ def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
         )
         active_faces[active_face_ind] = 1
 
-    face_ind = np.squeeze(np.where(active_faces))
+    face_ind = np.atleast_1d(np.squeeze(np.where(active_faces)))
 
     # Do a sort of the indexes to be returned.
     cell_ind.sort()
@@ -1270,12 +1435,38 @@ def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
     return cell_ind.astype("int"), face_ind.astype("int")
 
 
-def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
+def map_subgrid_to_grid(
+    g: pp.Grid,
+    loc_faces: np.ndarray,
+    loc_cells: np.ndarray,
+    is_vector: bool,
+    nd: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """ Obtain mappings from the cells and faces of a subgrid back to a larger grid.
+
+    Parameters:
+        g (pp.Grid): The larger grid.
+        loc_faces (np.ndarray): For each face in the subgrid, the index of the
+            corresponding face in the larger grid.
+        loc_cells (np.ndarray): For each cell in the subgrid, the index of the
+            corresponding cell in the larger grid.
+        is_vector (bool): If True, the returned mappings are sized to fit with vector
+            variables, with nd elements per cell and face.
+        nd (int, optional): Dimension. Defaults to g.dim.
+
+    Retuns:
+        sps.csr_matrix, size (g.num_faces, loc_faces.size): Mapping from local to
+            global faces. If is_vector is True, the size is multiplied with g.dim.
+        sps.csr_matrix, size (loc_cells.size, g.num_cells): Mapping from global to
+            local cells. If is_vector is True, the size is multiplied with g.dim.
+
+    """
+    if nd is None:
+        nd = g.dim
 
     num_faces_loc = loc_faces.size
     num_cells_loc = loc_cells.size
 
-    nd = g.dim
     if is_vector:
         face_map = sps.csr_matrix(
             (
@@ -1304,9 +1495,6 @@ def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
     return face_map, cell_map
 
 
-# ------------------------------------------------------------------------------
-
-
 def compute_darcy_flux(
     gb,
     keyword="flow",
@@ -1315,6 +1503,7 @@ def compute_darcy_flux(
     p_name="pressure",
     lam_name="mortar_solution",
     data=None,
+    from_iterate=False,
 ):
     """
     Computes darcy_flux over all faces in the entire grid /grid bucket given
@@ -1328,14 +1517,16 @@ def compute_darcy_flux(
         'bc_val': Boundary condition values.
             and the following edge property field for all connected grids:
         'coupling_flux': Discretization of the coupling fluxes.
-    keyword (string): defaults to 'flow'. The parameter keyword used to obtain the
+    keyword (str): defaults to 'flow'. The parameter keyword used to obtain the
         data necessary to compute the fluxes.
-    keyword_store (string): defaults to keyword. The parameter keyword determining
-        where the data will be stored
-    d_name (string): defaults to 'darcy_flux'. The parameter name which the computed
+    keyword_store (str): defaults to keyword. The parameter keyword determining
+        where the data will be stored.
+    d_name (str): defaults to 'darcy_flux'. The parameter name which the computed
         darcy_flux will be stored by in the dictionary.
-    p_name (string): defaults to 'pressure'. The keyword that the pressure
-        field is stored by in the dictionary
+    p_name (str): defaults to 'pressure'. The keyword that the pressure
+        field is stored by in the dictionary.
+    lam_name (str): defaults to 'mortar_solution'. The keyword that the mortar flux
+        field is stored by in the dictionary.
     data (dictionary): defaults to None. If gb is mono-dimensional grid the data
         dictionary must be given. If gb is a multi-dimensional grid, this variable has
         no effect.
@@ -1348,17 +1539,37 @@ def compute_darcy_flux(
         those of the higher grid. For edges beteween grids of equal dimension,
         there is an implicit assumption that all normals point from the second
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
+
     """
+
+    def extract_variable(d, var):
+        if from_iterate:
+            return d[pp.STATE]["previous_iterate"][var]
+        else:
+            return d[pp.STATE][var]
+
+    def calculate_flux(param_dict, mat_dict, d):
+        # Calculate the flux. First contributions from pressure and boundary conditions
+        dis = (
+            mat_dict["flux"] * extract_variable(d, p_name)
+            + mat_dict["bound_flux"] * param_dict["bc_values"]
+        )
+        # Discretization of vector source terms
+        vector_source_discr = mat_dict["vector_source"]
+        # Get the actual source term - put to zero if not provided
+        vector_source = param_dict.get(
+            "vector_source", np.zeros(vector_source_discr.shape[1])
+        )
+        dis += vector_source_discr * vector_source
+        return dis
+
     if keyword_store is None:
         keyword_store = keyword
     if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
         parameter_dictionary = data[pp.PARAMETERS][keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
         if "flux" in matrix_dictionary:
-            dis = (
-                matrix_dictionary["flux"] * data[pp.STATE][p_name]
-                + matrix_dictionary["bound_flux"] * parameter_dictionary["bc_values"]
-            )
+            dis = calculate_flux(parameter_dictionary, matrix_dictionary, data)
         else:
             raise ValueError(
                 """Darcy_Flux can only be computed if a flux-based
@@ -1370,22 +1581,17 @@ def compute_darcy_flux(
     # Compute fluxes from pressures internal to the subdomain, and for global
     # boundary conditions.
     for g, d in gb:
-        if g.dim > 0:
-            parameter_dictionary = d[pp.PARAMETERS][keyword]
-            matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][keyword]
-            if "flux" in matrix_dictionary:
-                dis = (
-                    matrix_dictionary["flux"] * d[pp.STATE][p_name]
-                    + matrix_dictionary["bound_flux"]
-                    * parameter_dictionary["bc_values"]
-                )
-            else:
-                raise ValueError(
-                    """Darcy_Flux can only be computed if a flux-based
-                                 discretization has been applied"""
-                )
+        parameter_dictionary = d[pp.PARAMETERS][keyword]
+        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][keyword]
+        if "flux" in matrix_dictionary:
+            dis = calculate_flux(parameter_dictionary, matrix_dictionary, d)
+        else:
+            raise ValueError(
+                """Darcy_Flux can only be computed if a flux-based
+                             discretization has been applied"""
+            )
 
-            d[pp.PARAMETERS][keyword_store][d_name] = dis
+        d[pp.PARAMETERS][keyword_store][d_name] = dis
     # Compute fluxes over internal faces, induced by the mortar flux. These
     # are a critical part of what makes MPFA consistent, but will not be
     # present for TPFA.
@@ -1400,12 +1606,14 @@ def compute_darcy_flux(
 
         bound_flux = d_h[pp.DISCRETIZATION_MATRICES][keyword]["bound_flux"]
         induced_flux = (
-            bound_flux * d["mortar_grid"].mortar_to_master_int() * d[pp.STATE][lam_name]
+            bound_flux
+            * d["mortar_grid"].mortar_to_master_int()
+            * extract_variable(d, lam_name)
         )
         # Remove contribution directly on the boundary faces.
         induced_flux[g_h.tags["fracture_faces"]] = 0
         d_h[pp.PARAMETERS][keyword_store][d_name] += induced_flux
-        d[pp.PARAMETERS][keyword_store][d_name] = d[pp.STATE][lam_name].copy()
+        d[pp.PARAMETERS][keyword_store][d_name] = extract_variable(d, lam_name).copy()
 
 
 def boundary_to_sub_boundary(bound, subcell_topology):
@@ -1440,4 +1648,5 @@ def boundary_to_sub_boundary(bound, subcell_topology):
         bound.robin_weight = bound.robin_weight[subcell_topology.fno_unique]
         bound.basis = bound.basis[subcell_topology.fno_unique]
     bound.num_faces = subcell_topology.num_subfno_unique
+    bound.bf = np.where(np.isin(subcell_topology.fno, bound.bf))[0]
     return bound

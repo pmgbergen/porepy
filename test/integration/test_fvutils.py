@@ -137,6 +137,7 @@ class TestFvutils(unittest.TestCase):
         bound_flux = sps.csc_matrix(
             np.array([[0, 0, 0, 3], [5, 0, 0, 0], [1, 0, 0, 0], [3, 0, 0, 0]])
         )
+        vector_source = sps.csc_matrix((g.num_faces, g.num_cells * g.dim))
 
         bc_val = np.array([1, 2, 3, 4])
         specified_parameters = {"bc_values": bc_val}
@@ -145,6 +146,8 @@ class TestFvutils(unittest.TestCase):
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         matrix_dictionary["flux"] = flux
         matrix_dictionary["bound_flux"] = bound_flux
+        matrix_dictionary["vector_source"] = vector_source
+
         data[pp.STATE]["pressure"] = np.array([3.14])
         fvutils.compute_darcy_flux(g, data=data)
 

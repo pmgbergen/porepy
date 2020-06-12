@@ -12,7 +12,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class DualScalarSource:
+class DualScalarSource(pp.numerics.discretization.Discretization):
     """
     Discretization of the integrated source term
     int q * dx
@@ -92,11 +92,11 @@ class DualScalarSource:
             (np.zeros(g.num_faces, dtype=np.bool), np.ones(g.num_cells, dtype=np.bool))
         )
         # A minus sign is apparently needed here to be consistent with the user
-        # side convention of the finite volume method 
+        # side convention of the finite volume method
         rhs[is_p] = -sources
         return rhs
 
-    def discretize(self, g, data, faces=None):
+    def discretize(self, g, data):
         """ Discretize an integrated source term.
 
         Parameters:

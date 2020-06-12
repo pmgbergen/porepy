@@ -121,9 +121,14 @@ def process_intersections(grids, intersections, global_ind_offset, list_of_grids
 
 def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids, tol):
 
-    combined_1d, global_ind_offset, g_in_combined, h_in_combined, g_sort, h_sort = merge_1d_grids(
-        g_1d, h_1d, global_ind_offset, tol
-    )
+    (
+        combined_1d,
+        global_ind_offset,
+        g_in_combined,
+        h_in_combined,
+        g_sort,
+        h_sort,
+    ) = merge_1d_grids(g_1d, h_1d, global_ind_offset, tol)
 
     # First update fields for first grid
     fn_orig = np.reshape(g.face_nodes.indices, (2, g.num_faces), order="F")
@@ -233,7 +238,7 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
 
     # Create a new 1d grid.
     # First use a 1d coordinate to initialize topology
-    new_grid = pp.structured.TensorGrid(np.arange(num_new_grid))
+    new_grid = pp.TensorGrid(np.arange(num_new_grid))
     # Then set the right, 3d coordinates
     new_grid.nodes = pp.map_geometry.force_point_collinearity(combined_sorted)
 
