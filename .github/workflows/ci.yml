@@ -47,10 +47,13 @@ jobs:
         pip install black flake8 mypy
 
     - name: black
+      if: ${{ always() }}
       run: black --check src
 
     - name: flake8
+      if: ${{ always() }}
       run: flake8 src 
 
     - name: mypy
+      if: ${{ always() }}
       run: mypy src
