@@ -3,7 +3,9 @@ Module with functions for computing intersections between geometric objects.
 
 """
 import numpy as np
+import scipy.sparse as sps
 import logging
+from typing import Tuple, List
 
 import porepy as pp
 
@@ -1164,6 +1166,9 @@ def triangulations(p_1, p_2, t_1, t_2):
             of the overlapping triangles in the first and second tessalation,
             and their common area.
 
+    See also:
+        surface_tessalations()
+
     """
     import shapely.geometry as shapely_geometry
     import shapely.speedups as shapely_speedups
@@ -1276,6 +1281,176 @@ def line_tesselation(p1, p2, l1, l2):
                 raise AssertionError()
 
     return intersections
+
+
+def surface_tessalations(
+    poly_sets: List[List[np.ndarray]],
+) -> Tuple[List[np.ndarray], List[sps.csr_matrix]]:
+    """ Intersect a set of surface tessalations to find a finer subdivision that does
+    not intersect with any of the input tessalations.
+
+    It is assumed that the polygon sets are 2d.
+
+    The implementation relies heavily on shapely's intersection finders.
+
+    Args:
+        poly_sets (List[List[np.ndarray]]): Sets of polygons to be intersected.
+
+    Returns:
+        List[np.ndarray]: Each list element is a polygon so that the list together form
+            a subdivision of the intersection of all polygons in the input sets.
+        List[sps.csr_matrix]: Mappings from each of the input polygons to the
+            intersected polygons. If the mapping's item[i][j, k] is non-zero, polygon k
+             in set i has a (generally partial) overlap with polygon j in the
+             intersected polygon set. Specifically the value will be 1.
+
+    """
+
+    # local imports
+    import shapely.geometry as shapely_geometry
+    import shapely.speedups as shapely_speedups
+
+    try:
+        shapely_speedups.enable()
+    except AttributeError:
+        # Nothing to do here, but this may be slow.
+        pass
+
+    def _min_max_coord(coord):
+        # Convenience function to get max and minimum coordinates for a set of polygons
+        min_coord = np.array([c.min() for c in coord])
+        max_coord = np.array([c.max() for c in coord])
+
+        return min_coord, max_coord
+
+    # Convert polygons into a more convenient form
+    list_of_sets: List[Tuple[np.ndarray, np.ndarray]] = []
+    for poly in poly_sets:
+        x = [poly[i][0] for i in range(len(poly))]
+        y = [poly[i][1] for i in range(len(poly))]
+
+        list_of_sets.append((x, y))
+
+    # The below algorithm relies heavily on shapely's functionality for intersection of
+    # polygons. The idea is to intersect represent each set of polygons in the shapely
+    # format, do the intersections with a new set of polygons to find a finer
+    # intersection, and move on.
+    # Also keep track of the mapping from each of the sets of polygons to the
+    # intersected mesh.
+
+    # Initialize the intersection set as the first set of polygons
+    poly_x, poly_y = list_of_sets[0]
+
+    min_x_poly, max_x_poly = _min_max_coord(poly_x)
+    min_y_poly, max_y_poly = _min_max_coord(poly_y)
+
+    # poly_shapely will at any time represent the intersected polygon in shapely format,
+    # for the currently covered set of polygon sets.
+    poly_shapely: shapely_geometry.Polygon = []
+    for px, py in zip(poly_x, poly_y):
+        poly_shapely.append(
+            shapely_geometry.Polygon([(px[i], py[i]) for i in range(px.size)])
+        )
+
+    # Data structure for mappings from original polygon sets to the intersected one
+    # As the partition is extended to cover more polygons, a new mapping will be added
+    # and the previous mappings are updated to account for the new intersection level.
+    nc = len(poly_shapely)
+    mappings: List[sps.csr_matrix] = [
+        sps.dia_matrix((np.ones(nc, dtype=np.int), 0), shape=(nc, nc)).tocsr()
+    ]
+
+    # Loop over all set of polygons, do intersection with existing
+    for i in range(1, len(list_of_sets)):
+
+        # Represent this polygon as in shapely format. Also find max and min coordinates
+        new_x, new_y = list_of_sets[i]
+        min_x_new, max_x_new = _min_max_coord(new_x)
+        min_y_new, max_y_new = _min_max_coord(new_y)
+        new_shapely = []
+        for px, py in zip(new_x, new_y):
+            new_shapely.append(
+                shapely_geometry.Polygon([(px[i], py[i]) for i in range(px.size)])
+            )
+        num_new = len(new_shapely)
+
+        # Data structure to store the new intersected polygon
+        isect_x, isect_y = [], []
+
+        # Data structure to construct mappings to the new intersection from both
+        # this and the previously covered polygons
+        row_new, row_poly = [], []
+        col_new, col_poly = [], []
+
+        isect_counter = 0
+
+        # Loop over all elements in the intersected polygon
+        for j in range(len(poly_shapely)):
+
+            # Find cells in the new polygon that are clearly outside this polygon
+            # This corresponds to creating a box around this intersected polygon, and
+            # disregard all new polygons clearly outside this box
+            right = np.squeeze(np.where(min_x_new > max_x_poly[j]))
+            left = np.squeeze(np.where(max_x_new < min_x_poly[j]))
+            above = np.squeeze(np.where(min_y_new > max_y_poly[j]))
+            below = np.squeeze(np.where(max_y_new < min_y_poly[j]))
+
+            outside = np.unique(np.hstack((right, left, above, below)))
+            # Candidates are near this box
+            candidates = np.setdiff1d(np.arange(num_new), outside, assume_unique=True)
+
+            # Loop over remaining candidates, call upon shapely to find
+            # intersection
+            for k in candidates:
+                isect = poly_shapely[j].intersection(new_shapely[k])
+                if isinstance(isect, shapely_geometry.Polygon):
+                    # This is what must be done to get the coordinates from shapely
+                    c = list(isect.exterior.coords)
+                    # The shapely Polygon has the start/endpoint represented twice.
+                    # Disregard the end.
+                    isect_x.append(np.array([c[ci][0] for ci in range(len(c) - 1)]))
+                    isect_y.append(np.array([c[ci][1] for ci in range(len(c) - 1)]))
+
+                    # Build up the mapping to the new intersected polygon
+                    col_new += [k]
+                    col_poly += [j]
+                    row_new += [isect_counter]
+                    row_poly += [isect_counter]
+                    isect_counter += 1
+
+        # Mapping from the previously conisdered polygon to the newly find dissection.
+        # This will be applied to update all previous mappings.
+        matrix = sps.coo_matrix(
+            (np.ones(isect_counter, dtype=np.int), (row_poly, col_poly)),
+            shape=(isect_counter, len(poly_shapely)),
+        ).tocsr()
+        for mi in range(len(mappings)):
+            mappings[mi] = matrix * mappings[mi]
+
+        # Add a mapping between the current polygon and the newly found intersection.
+        mappings.append(
+            sps.coo_matrix(
+                (np.ones(isect_counter, dtype=np.int), (row_new, col_new)),
+                shape=(isect_counter, len(new_shapely)),
+            ).tocsr()
+        )
+
+        # Define the new set of intersected polygons
+        min_x_poly, max_x_poly = _min_max_coord(isect_x)
+        min_y_poly, max_y_poly = _min_max_coord(isect_y)
+        poly_shapely = []
+        for px, py in zip(isect_x, isect_y):
+            poly_shapely.append(
+                shapely_geometry.Polygon([(px[i], py[i]) for i in range(px.size)])
+            )
+
+    # Finally translate the intersected polygons back to a list of np.ndarrays
+    isect_polys: List[np.ndarray] = []
+
+    for px, py in zip(isect_x, isect_y):
+        isect_polys.append(np.vstack((px, py)))
+
+    return isect_polys, mappings
 
 
 def split_intersecting_segments_2d(p, e, tol=1e-4):
