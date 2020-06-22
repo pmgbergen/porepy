@@ -15,3 +15,6 @@ pytest-runner
 numba >= 0.50
 vtk
 gmsh
+flake8
+mypy
+black == 19.10b0
