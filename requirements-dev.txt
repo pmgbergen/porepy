@@ -9,7 +9,7 @@ future
 six
 shapely
 shapely[vectorized]
-pytest
+pytest >= 4.6
 pytest-cov
 pytest-runner
 numba >= 0.50
