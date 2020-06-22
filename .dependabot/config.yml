@@ -1,0 +1,11 @@
+# Documentation: https://dependabot.com/docs/config-file/
+version: 1
+update_configs:
+  # Update requirements.txt weekly
+  - package_manager: "python"
+    directory: "/"
+    update_schedule: "daily"
+    
+  # Apply default reviewers
+    default_reviewers:
+      - "keileg"
