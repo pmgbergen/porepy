@@ -73,7 +73,7 @@ def single_vertical(mesh_args=None, y_endpoints=None, simplex=True):
     """
     if y_endpoints is None:
         y_endpoints = [0, 1]
-    
+
     if simplex:
         if mesh_args is None:
             mesh_args = {"mesh_size_frac": 0.2}

@@ -153,7 +153,7 @@ class DualElliptic(
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         mass = matrix_dictionary[self.mass_matrix_key]
-        if mass.shape[0]==0:
+        if mass.shape[0] == 0:
             norm = 1
         else:
             norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
