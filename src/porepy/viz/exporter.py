@@ -211,7 +211,7 @@ class Exporter:
         if kwargs:
             msg = "Exporter() got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
-        
+
         self.is_GridBucket = isinstance(self.gb, pp.GridBucket)
         self.is_not_vtk = "vtk" not in sys.modules
 

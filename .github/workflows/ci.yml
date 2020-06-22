@@ -44,7 +44,6 @@ jobs:
         pip install shapely
         pip install shapely[vectorized]
         pip freeze
-        pip install black flake8 mypy
 
     - name: black
       if: ${{ always() }}
