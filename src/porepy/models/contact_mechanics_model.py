@@ -434,11 +434,16 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         stress += bound_stress_discr * global_bc_val
 
         # Contributions from the mortar displacement variables
-        for e, d_e in self.gb:
+        for e, d_e in self.gb.edges():
             # Only contributions from interfaces to the highest dimensional grid
             mg = d_e["mortar_grid"]
             if mg.dim == self.Nd - 1:
-                u_e = d_e[pp.STATE][self.mortar_displacement_variable]
+                if previous_iterate:
+                    u_e = d_e[pp.STATE]["previous_iterate"][
+                        self.mortar_displacement_variable
+                    ]
+                else:
+                    u_e = d_e[pp.STATE][self.mortar_displacement_variable]
 
                 stress += bound_stress_discr * mg.mortar_to_master_avg(nd=self.Nd) * u_e
 
