@@ -9,6 +9,6 @@ future
 six
 shapely
 shapely[vectorized]
-numba==0.49.1
+numba>=0.50
 vtk
 gmsh
