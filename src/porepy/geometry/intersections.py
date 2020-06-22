@@ -1284,7 +1284,7 @@ def line_tesselation(p1, p2, l1, l2):
 
 
 def surface_tessalations(
-    poly_sets: List[List[np.ndarray]],
+    poly_sets: List[List[np.ndarray]], return_simplexes: bool = False
 ) -> Tuple[List[np.ndarray], List[sps.csr_matrix]]:
     """ Intersect a set of surface tessalations to find a finer subdivision that does
     not intersect with any of the input tessalations.
@@ -1295,6 +1295,9 @@ def surface_tessalations(
 
     Args:
         poly_sets (List[List[np.ndarray]]): Sets of polygons to be intersected.
+        return_simplexes (boolean, optional): If True, the subdivision is further split
+            into a triangulation. The mappings from the original polygons is updated
+            accordingly. Defaults to False.
 
     Returns:
         List[np.ndarray]: Each list element is a polygon so that the list together form
@@ -1303,6 +1306,10 @@ def surface_tessalations(
             intersected polygons. If the mapping's item[i][j, k] is non-zero, polygon k
              in set i has a (generally partial) overlap with polygon j in the
              intersected polygon set. Specifically the value will be 1.
+
+    Raises:
+        NotImplementedError: If a triangulation of a non-convex polygon is attempted.
+            Can only happen if return_simplexes is True.
 
     """
 
@@ -1323,7 +1330,7 @@ def surface_tessalations(
 
         return min_coord, max_coord
 
-    # Convert polygons into a more convenient form
+    # Convert polygons into a more convenient data structure
     list_of_sets: List[Tuple[np.ndarray, np.ndarray]] = []
     for poly in poly_sets:
         x = [poly[i][0] for i in range(len(poly))]
@@ -1449,6 +1456,92 @@ def surface_tessalations(
 
     for px, py in zip(isect_x, isect_y):
         isect_polys.append(np.vstack((px, py)))
+
+    if return_simplexes:
+        # Finally, if requested, convert the subdivision into a triangulation.
+        # This option is primarily intended for easy quadrature on the subdivision.
+        # Note that no guarantees are given on the quality of the triangulation.
+
+        # IMPLEMENTATION NOTE: This could have been turned into a separate function.
+        # However, the code is only tested for a limited set of cases (specifically,
+        # we have considered intersection of non-matching grids on surfaces), so it
+        # seems premature to promote it to a general-purpose function.
+
+        # We will need a triangulation below
+        from scipy.spatial import Delaunay
+
+        # Data structure for the mapping from isect_polys to the triangulation
+        rows: int = []
+        cols: int = []
+        tri_counter: int = 0
+        # Data structure for the triangulation
+        tri: List[np.ndarray] = []
+
+        # Loop over all isect_polys, split those with more than three vertexes
+        for pi, poly in enumerate(isect_polys):
+            if poly.shape[1] == 3:
+                # Triangles can be used as they are
+                tri.append(poly)
+                cols.append(pi)
+                rows.append(tri_counter)
+                tri_counter += 1
+
+            else:
+                # Check if the polygon is convex. Loop over the polygon vertexes, and
+                # check if they form a CW or CCW part of the polygon. If they all
+                # have the same configuration, the polygon is convex
+
+                # Three representation of the polygon vertexes, by shifting their order
+                start = poly
+                middle = np.roll(poly, -1, axis=1)  # This is the vertex we test
+                end = np.roll(poly, -2, axis=1)
+                # Use ccw test on all vertexes in the polygon
+                is_ccw = np.array(
+                    [
+                        pp.geometry_property_checks.is_ccw_polyline(
+                            start[:, i], middle[:, i], end[:, i]
+                        )
+                        for i in range(poly.shape[1])
+                    ]
+                )
+
+                if np.all(is_ccw) or np.all(np.logical_not(is_ccw)):
+                    # This is a convex polygon. The triangulation can be formed by a
+                    # Delaunay tessalation of the polygon. In an attempt to improve the
+                    # quality of the simplexes, we add the center of the polygon
+                    # (defined as the mean coordinate, should be fine since the polygon
+                    # is convex) to the points to be triangulated. This may not be
+                    # necessary, and should be up for revision. If the polygon has a bad
+                    # shape, the triangulation will also have bad triangles - to improve
+                    # we would need to do a more careful triangulation, adding more
+                    # points
+                    center = np.mean(poly, axis=1).reshape((-1, 1))
+                    ext_poly = np.hstack((poly, center)).T
+                    for t in Delaunay(ext_poly).simplices:
+                        tri.append(ext_poly[t].T)
+                        #
+                        cols.append(pi)
+                        rows.append(tri_counter)
+                        tri_counter += 1
+                else:
+                    # For non-convex polygons, the Delaunay triangulation will generate
+                    # simplexes not inside the polygon; specifically the triangulation
+                    # will cover the convex hull of the polygon. These can likely be
+                    # pruned by excluding triangles with a center not inside the
+                    # polygon (would need a point-in-polygon test for non-convex
+                    # polygons), but that would be for another day.
+                    raise NotImplementedError("Non-convex polygons not covered")
+
+        # Also update the mapping.
+        matrix = sps.coo_matrix(
+            (np.ones(len(rows), dtype=np.int), (rows, cols)),
+            shape=(len(rows), len(isect_polys)),
+        ).tocsr()
+
+        for mi in range(len(mappings)):
+            mappings[mi] = matrix * mappings[mi]
+
+        isect_polys = tri
 
     return isect_polys, mappings
 
