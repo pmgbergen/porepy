@@ -230,5 +230,206 @@ class LineTesselation(unittest.TestCase):
                 self.assertTrue(False)
 
 
+class SurfaceTessalation(unittest.TestCase):
+    # The naming is a bit confusing here, the sets of polygons do not cover the same
+    # areas, thus they are not tessalations, but the tests serve their purpose.
+
+    def test_two_tessalations_one_cell_each(self):
+        # Two triangles, partly overlapping.
+        p1 = [np.array([[0, 1, 0], [0, 0, 1]])]
+        p2 = [np.array([[0, 1, 0], [0, 1, 1]])]
+
+        isect, mappings = pp.intersections.surface_tessalations([p1, p2])
+
+        known_isect = np.array([[0, 0.5, 0], [0, 0.5, 1]])
+
+        # Mappings are both identity mappings
+
+        self.assertTrue(test_utils.compare_arrays(isect[0], known_isect))
+        for i in range(2):
+            self.assertTrue(mappings[i].shape == (1, 1))
+            self.assertTrue(mappings[i].toarray() == np.array([[1]]))
+
+    def test_two_tessalations_no_overlap(self):
+        # Two triangles, partly overlapping.
+        p1 = [np.array([[0, 1, 0], [0, 0, 1]])]
+        p2 = [np.array([[0, 1, 0], [1, 1, 2]])]
+
+        isect, mappings = pp.intersections.surface_tessalations([p1, p2])
+
+        # Mappings are both identity mappings
+
+        self.assertTrue(len(isect) == 0)
+        for i in range(2):
+            self.assertTrue(mappings[i].shape == (0, 1))
+
+    def test_two_tessalations_one_quad(self):
+        # Quad and triangle. Partly overlapping
+        p1 = [np.array([[0, 1, 1, 0], [0, 0, 1, 1]])]
+        p2 = [np.array([[0, 1, 0], [0, 1, 2]])]
+
+        isect, mappings = pp.intersections.surface_tessalations([p1, p2])
+
+        known_isect = np.array([[0, 1, 0], [0, 1, 1]])
+
+        # Mappings are both identity mappings
+
+        self.assertTrue(test_utils.compare_arrays(isect[0], known_isect))
+        for i in range(2):
+            self.assertTrue(mappings[i].shape == (1, 1))
+            self.assertTrue(mappings[i].toarray() == np.array([[1]]))
+
+    def test_two_tessalations_non_convex_intersection(self):
+        # Quad and triangle. Partly overlapping
+        p1 = [np.array([[0, 1, 1, 0], [0, 0, 1, 1]])]
+        p2 = [np.array([[0, 1, 1, 0.5, 0], [0, 0, 1, 0.5, 1]])]
+
+        isect, mappings = pp.intersections.surface_tessalations([p1, p2])
+
+        known_isect = p2[0]
+
+        # Mappings are both identity mappings
+
+        self.assertTrue(test_utils.compare_arrays(isect[0], known_isect))
+        for i in range(2):
+            self.assertTrue(mappings[i].shape == (1, 1))
+            self.assertTrue(mappings[i].toarray() == np.array([[1]]))
+
+    def test_two_tessalations_one_with_two_cells(self):
+        # First consists of quad + triangle
+        p1 = [np.array([[0, 1, 1, 0], [0, 0, 1, 1]]), np.array([[0, 1, 0], [1, 1, 2]])]
+        # second is a single triangle
+        p2 = [np.array([[0, 1, 0], [0, 1, 2]])]
+
+        isect, mappings = pp.intersections.surface_tessalations([p1, p2])
+
+        # intersection is split in two
+        known_isect = [
+            np.array([[0, 1, 0], [0, 1, 1]]),
+            np.array([[0, 1, 0], [1, 1, 2]]),
+        ]
+
+        self.assertTrue(mappings[0].shape == (2, 2))
+        # To find the order of triangles in isect relative to the polygons in p1,
+        # we consider the mapping for p1
+        if mappings[0][0, 0] == 1:
+            self.assertTrue(test_utils.compare_arrays(isect[0], known_isect[0]))
+            self.assertTrue(test_utils.compare_arrays(isect[1], known_isect[1]))
+            self.assertTrue(
+                np.allclose(mappings[0].toarray(), np.array([[1, 0], [0, 1]]))
+            )
+        else:
+            self.assertTrue(test_utils.compare_arrays(isect[0], known_isect[1]))
+            self.assertTrue(test_utils.compare_arrays(isect[1], known_isect[0]))
+            self.assertTrue(
+                np.allclose(mappings[0].toarray(), np.array([[0, 1], [1, 0]]))
+            )
+
+        # p2 is much simpler
+        self.assertTrue(mappings[1].shape == (2, 1))
+        self.assertTrue(np.allclose(mappings[1].toarray(), np.array([[1], [1]])))
+
+    def test_two_tessalations_two_cells_each_one_no_overlap(self):
+        # First consists of quad + triangle
+        p1 = [np.array([[0, 1, 1, 0], [0, 0, 1, 1]]), np.array([[0, 1, 0], [1, 1, 2]])]
+        # second has two triangles, one of which has no overlap with the first tessalation
+        p2 = [
+            np.array([[0, 1, 0], [0, 1, 2]]),
+            np.array([[0, -1, 0], [0, 1, 2]]),
+        ]
+
+        isect, mappings = pp.intersections.surface_tessalations([p1, p2])
+        # No need to test intersection points, they are identical with
+        # self.test_two_tessalations_one_with_two_cells()
+
+        self.assertTrue(mappings[1].shape == (2, 2))
+        self.assertTrue(np.allclose(mappings[1].toarray(), np.array([[1, 0], [1, 0]])))
+
+    def test_three_tessalations(self):
+        # First consists of quad + triangle
+        p1 = [np.array([[0, 1, 1, 0], [0, 0, 1, 1]]), np.array([[0, 1, 0], [1, 1, 2]])]
+        # second is a single triangle
+        p2 = [np.array([[0, 1, 0], [0, 1, 2]])]
+        # A third, with a single triangle
+        p3 = [np.array([[0, 1, 0], [0, 0, 1]])]
+
+        isect, mappings = pp.intersections.surface_tessalations([p1, p2, p3])
+
+        self.assertTrue(len(isect) == 1)
+        self.assertTrue(
+            test_utils.compare_arrays(isect[0], np.array([[0, 0.5, 0], [0, 0.5, 1]]))
+        )
+
+        self.assertTrue(len(mappings) == 3)
+        self.assertTrue(mappings[0].shape == (1, 2))
+        self.assertTrue(np.allclose(mappings[0].toarray(), np.array([[1, 0]])))
+
+        self.assertTrue(mappings[1].shape == (1, 1))
+        self.assertTrue(np.allclose(mappings[1].toarray(), np.array([[1]])))
+        self.assertTrue(mappings[2].shape == (1, 1))
+        self.assertTrue(np.allclose(mappings[2].toarray(), np.array([[1]])))
+
+    ## Tests of the simplex tessalation of the subdivision
+    def test_return_simplex(self):
+        # First is unit square, split into two
+        p1 = [
+            np.array([[0, 1, 1, 0], [0, 0, 0.5, 0.5]]),
+            np.array([[0, 1, 1, 0], [0.5, 0.5, 1, 1]]),
+        ]
+        # Second is unit square
+        p2 = [np.array([[0, 1, 1, 0], [0, 0, 1, 1]])]
+
+        isect, mappings = pp.intersections.surface_tessalations(
+            [p1, p2], return_simplexes=True
+        )
+
+        # Intersection is split into eight, with the
+        known_isect = [
+            np.array([[0, 0.5, 0], [0, 0.25, 0.5]]),
+            np.array([[0, 0.5, 1], [0, 0.25, 0]]),
+            np.array([[0, 0.5, 1], [0.5, 0.25, 0.5]]),
+            np.array([[1, 0.5, 1], [0, 0.25, 0.5]]),
+            np.array([[0, 0.5, 0], [0.5, 0.75, 1]]),
+            np.array([[0, 0.5, 1], [0.5, 0.75, 0.5]]),
+            np.array([[0, 0.5, 1], [1, 0.75, 1]]),
+            np.array([[1, 0.5, 1], [0.5, 0.75, 1]]),
+        ]
+        num_known = len(known_isect)
+        num_isect = len(isect)
+        self.assertTrue(num_known == num_isect)
+
+        found_isect = np.zeros(num_isect, dtype=np.bool)
+        found_known_isect = np.zeros(num_known, dtype=np.bool)
+
+        for i in range(num_isect):
+            for k in range(num_known):
+                if test_utils.compare_arrays(isect[i], known_isect[k]):
+                    self.assertFalse(found_isect[i])
+                    found_isect[i] = True
+                    self.assertFalse(found_known_isect[k])
+                    found_known_isect[k] = True
+
+                    # Also check that the mapping is updated correctly for the first
+                    # polygon (the second is trivial)
+                    if k < 4:  # The lower quad
+                        self.assertTrue(mappings[0][i, 0] == 1)
+                        self.assertTrue(mappings[0][i, 1] == 0)
+                    else:
+                        self.assertTrue(mappings[0][i, 1] == 1)
+                        self.assertTrue(mappings[0][i, 0] == 0)
+
+        self.assertTrue(np.all(found_isect))
+        self.assertTrue(np.all(found_known_isect))
+
+    def test_return_simplex_non_convex_intersection_raise_error(self):
+        # Non-convex intersection. Should return an error
+        p1 = [np.array([[0, 1, 1, 0], [0, 0, 1, 1]])]
+        p2 = [np.array([[0, 1, 1, 0.5, 0], [0, 0, 1, 0.5, 1]])]
+
+        self.assertRaises(
+            NotImplementedError, pp.intersections.surface_tessalations, [p1, p2], True
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
