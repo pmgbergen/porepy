@@ -143,5 +143,3 @@ from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer
 from porepy.grids import coarsening, partition, refinement
 import porepy.utils.derived_discretizations
-
-

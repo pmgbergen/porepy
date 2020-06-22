@@ -228,6 +228,7 @@ class BoundaryCondition(AbstractBoundaryCondition):
             )
         self.per_map = per_map
 
+
 class BoundaryConditionVectorial(AbstractBoundaryCondition):
 
     """

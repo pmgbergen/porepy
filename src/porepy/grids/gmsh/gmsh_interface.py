@@ -718,7 +718,7 @@ def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) ->
         Return name of the log file
         """
         debug_file_name = in_file_name.with_name(f"gmsh_log_{in_file_name.stem}.dbg")
-        with debug_file_name.open(mode='w') as f:
+        with debug_file_name.open(mode="w") as f:
             for _line in _log:
                 f.write(_line + "\n")
 
