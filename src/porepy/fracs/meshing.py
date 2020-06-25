@@ -169,7 +169,10 @@ def _tag_faces(grids, check_highest_dim=True):
         domain_boundary_tags[bnd_faces] = True
         g_h.tags["domain_boundary_faces"] = domain_boundary_tags
         bnd_nodes, _, _ = sps.find(g_h.face_nodes[:, bnd_faces])
-        bnd_nodes = np.unique(bnd_nodes)
+
+        # Boundary nodes of g_h in terms of global indices
+        bnd_nodes_glb = g_h.global_point_ind[np.unique(bnd_nodes)]
+
         for g_dim in grids[1:-1]:
             for g in g_dim:
                 # We find the global nodes of all boundary faces
@@ -181,7 +184,7 @@ def _tag_faces(grids, check_highest_dim=True):
                 nodes_glb = g.global_point_ind[nodes_loc]
                 # We then tag each node as a tip node if it is not a global
                 # boundary node
-                is_tip = np.in1d(nodes_glb, bnd_nodes, invert=True)
+                is_tip = np.in1d(nodes_glb, bnd_nodes_glb, invert=True)
                 # We reshape the nodes such that each column equals the nodes of
                 # one face. If a face only contains global boundary nodes, the
                 # local face is also a boundary face. Otherwise, we add a TIP tag.
