@@ -18,13 +18,13 @@ numba = "^0.50.0"
 scipy = "^1.4.1"
 numpy = "^1.18.5"
 gmsh = "^4.5"
-vtk = "^8.1.2"
+vtk = "^9.0.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.4.3"
 pytest-cov = "^2.10.0"
 pytest-runner = "^5.2"
-black = "^19.10b0"
+black = "19.10b0"
 mypy = "^0.781"
 flake8 = "^3.8.3"
 
