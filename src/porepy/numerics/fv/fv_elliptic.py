@@ -3,6 +3,7 @@ Module contains superclass for mpfa and tpfa.
 """
 import numpy as np
 import porepy as pp
+import scipy.sparse as sps
 
 
 class FVElliptic(pp.EllipticDiscretization):
@@ -448,3 +449,126 @@ class FVElliptic(pp.EllipticDiscretization):
         """
         # Operation is void for finite volume methods
         pass
+
+class EllipticDiscretizationZeroPermeability(FVElliptic):
+    """ Specialized discretization for domains with zero tangential permeability.
+
+    Intended usage is to impose full continuity conditions between domains of higher
+    dimensions separated by a lower-dimensional domain (think two intersecting
+    fractures), in cases where one does not want to eliminate the lower-dimensional
+    domain from the GridBucket. The class is designed to interact with the class
+    FluxPressureContinuity. Wider usage is possible, but be cautious.
+
+    The subclassing from FVElliptic was convenient, but other options could also have
+    worked.
+
+    NOTICE: There seems  no point in assigning this method as the higher-dimensional
+    discretization. Accordingly, the methods for assembly of interface contributions
+    from the master side of a mortar grid are delibierately designed to fail.
+
+    """
+
+    def discretize(self, g, data):
+        """
+        Formal discretization method - nothing to do here.
+
+        Parameters
+        ----------
+        g (pp.Grid): grid, or a subclass.
+        data (dict).
+
+        """
+        pass
+
+    def assemble_matrix(self, g, data):
+        """ Assemble system matrix. Will be zero matrix of appropriate size.
+
+        Parameters:
+            g (Grid): Computational grid, with geometry fields computed.
+            data (dictionary): With data stored.
+
+        Returns:
+            scipy.sparse.csr_matrix: Zero matrix.
+
+        """
+        return sps.csc_matrix((self.ndof(g), self.ndof(g)))
+
+    def assemble_rhs(self, g, data):
+        """ Assemble right hand side vector. Will be zero vector of appropriate size.
+
+        Parameters:
+            g (Grid): Computational grid, with geometry fields computed.
+            data (dictionary): With data stored.
+
+        Returns:
+            np.array: Zero vector.
+
+        """
+
+        return np.zeros(self.ndof(g))
+
+    def assemble_int_bound_flux(
+        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
+    ):
+        """Assemble the contribution from an internal boundary, manifested as a
+        flux boundary condition.
+
+        This method should not be used for the zero-permeability case; it would
+        require a flux in the higher-dimensional grid. Therefore raise an error if
+        this method is invoked.
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+            data_edge (dictionary): Data dictionary for the edge in the
+                mixed-dimensional grid.
+            cc (block matrix, 3x3): Block matrix for the coupling condition.
+                The first and second rows and columns are identified with the
+                master and slave side; the third belongs to the edge variable.
+                The discretization of the relevant term is done in-place in cc.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
+            self_ind (int): Index in cc and matrix associated with this node.
+                Should be either 1 or 2.
+            use_slave_proj (boolean): If True, the slave side projection operator is
+                used. Needed for periodic boundary conditions.
+
+        """
+        raise NotImplementedError("""This class should not be used as a
+                                  higher-dimensional discretization""")
+
+    def assemble_int_bound_pressure_trace(
+        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
+    ):
+        """ Assemble the contribution from an internal
+        boundary, manifested as a condition on the boundary pressure.
+
+        This method should not be used for the zero-permeability case; it would
+        require a flux in the higher-dimensional grid. Therefore raise an error if
+        this method is invoked.
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+            data_edge (dictionary): Data dictionary for the edge in the
+                mixed-dimensional grid.
+            cc (block matrix, 3x3): Block matrix for the coupling condition.
+                The first and second rows and columns are identified with the
+                master and slave side; the third belongs to the edge variable.
+                The discretization of the relevant term is done in-place in cc.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
+            self_ind (int): Index in cc and matrix associated with this node.
+                Should be either 1 or 2.
+            use_slave_proj (boolean): If True, the slave side projection operator is
+                used. Needed for periodic boundary conditions.
+
+        """
+        raise NotImplementedError("""This class should not be used as a
+                                  higher-dimensional discretization""")
