@@ -21,16 +21,20 @@ jobs:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        python-version = [3.6, 3.7. 3.8]
+
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
     
-    - name: Setup Python 3.7
+    - name: Setup Python ${{ matrix.python-version}}
       uses: actions/setup-python@v1.2.0
       with:
         # Version range or exact version of a Python version to use, using SemVer's version range syntax.
-        python-version: 3.7
+        python-version: ${{ matrix.python-version}}
         architecture: x64
     
     - name: Install PorePy
