@@ -450,6 +450,7 @@ class FVElliptic(pp.EllipticDiscretization):
         # Operation is void for finite volume methods
         pass
 
+
 class EllipticDiscretizationZeroPermeability(FVElliptic):
     """ Specialized discretization for domains with zero tangential permeability.
 
@@ -537,8 +538,10 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
                 used. Needed for periodic boundary conditions.
 
         """
-        raise NotImplementedError("""This class should not be used as a
-                                  higher-dimensional discretization""")
+        raise NotImplementedError(
+            """This class should not be used as a
+                                  higher-dimensional discretization"""
+        )
 
     def assemble_int_bound_pressure_trace(
         self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
@@ -570,5 +573,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
                 used. Needed for periodic boundary conditions.
 
         """
-        raise NotImplementedError("""This class should not be used as a
-                                  higher-dimensional discretization""")
+        raise NotImplementedError(
+            """This class should not be used as a
+                                  higher-dimensional discretization"""
+        )
