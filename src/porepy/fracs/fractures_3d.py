@@ -1554,6 +1554,12 @@ class FractureNetwork3d(object):
             truncate_fractures (boolean, optional): If True, fractures outside
             the bounding box will be disregarded, while fractures crossing the
             boundary will be truncated.
+            
+        Returns:
+            np.array: Mapping from old to new fractures, referring to the fractures in
+                self._fractures before and after imposing the external boundary.
+                The mapping does not account for the boundary fractures added to the
+                end of the fracture array.
 
         Raises
         ------
@@ -1619,17 +1625,18 @@ class FractureNetwork3d(object):
         else:
             split_frac = np.zeros(0, dtype=np.int)
 
+        ind_map = np.delete(old_frac_ind, delete_frac)
+
         # Update the fractures with the new data format
         for poly, ind in zip(constrained_polys, inds):
             if ind not in split_frac:
                 self._fractures[ind].p = poly
         # Special handling of fractures that are split in two
-        # TODO: This will destroy the numbering of the fractures that eventually is
-        # inserted into g_2d.frac_num. We should fix this.
         for fi in split_frac:
             hit = np.where(inds == fi)[0]
             for sub_i in hit:
                 self.add(Fracture(constrained_polys[sub_i]))
+                ind_map = np.hstack((ind_map, fi))
 
         # Delete fractures that have all points outside the bounding box
         # There may be some uncovered cases here, with a fracture barely
@@ -1650,6 +1657,7 @@ class FractureNetwork3d(object):
         self.tags["boundary"] = boundary_tags
 
         self._reindex_fractures()
+        return ind_map
 
     def _make_bounding_planes_from_box(self, box, keep_box=True):
         """
