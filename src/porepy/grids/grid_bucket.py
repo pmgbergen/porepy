@@ -917,18 +917,16 @@ class GridBucket(Generic[T]):
     def replace_grids(
         self,
         g_map: Dict[pp.Grid, pp.Grid] = None,
-        mg_map: [pp.MortarGrid, pp.MortarGrid] = None,
+        mg_map: Dict[pp.MortarGrid, pp.MortarGrid] = None,
         tol: float = 1e-6,
     ) -> None:
-        """ Replace grids and / or mortar grids in the mixed-dimensional grid.
+        """ Replace grids and / or mortar grids in a mixed-dimensional grid.
 
         Parameters:
-            gb (GridBucket): To be updated.
             g_map (dictionary): Grids to replace. Keys are grids in the old bucket,
                 values are their replacements.
-            mg_map (dictionary): Mortar grids to replace. Keys are EITHER related
-                to mortar grids, or to edges. Probably, mg is most relevant, the we
-                need to identify the right edge shielded from user.
+            mg_map (dictionary): Mortar grids to replace. Keys are mortar grids in 
+                the old bucket, values are their replacements.
 
         """
         if mg_map is None:
@@ -936,7 +934,8 @@ class GridBucket(Generic[T]):
 
         # refine the mortar grids when specified
         for mg_old, mg_new in mg_map.items():
-            mg_old.update_mortar(mg_new, tol)
+            side_grids_new = mg_new.side_grids
+            mg_old.update_mortar(side_grids_new, tol)
 
         # update the grid bucket considering the new grids instead of the old one
         # valid only for physical grids and not for mortar grids
