@@ -18,19 +18,22 @@ self._key() + "mass" or self._key() + "inv_mass".
 The corresponding (null) rhs vectors are stored as
 self._key() + "bound_mass" or self._key() + "bound_inv_mass", respectively.
 """
+from typing import Tuple
+
 import numpy as np
 import scipy.sparse as sps
 import porepy as pp
+from porepy.numerics.discretization import Discretization
 
 
-class MassMatrix(pp.numerics.discretization.Discretization):
-    """ Class that provides the discretization of a L2-mass bilinear form with constant
+class MassMatrix(Discretization):
+    """ Class that provides the discretization of a L2-mass bilinear form with variable
     test and trial functions.
     """
 
     # ------------------------------------------------------------------------------#
 
-    def __init__(self, keyword="flow"):
+    def __init__(self, keyword: str = "flow"):
         """ Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
@@ -38,11 +41,11 @@ class MassMatrix(pp.numerics.discretization.Discretization):
             keyword (str): Identifier of all information used for this
                 discretization.
         """
-        self.keyword = keyword
+        super().__init__(keyword)
 
     # ------------------------------------------------------------------------------#
 
-    def _key(self):
+    def _key(self) -> str:
         """ Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
 
@@ -54,7 +57,7 @@ class MassMatrix(pp.numerics.discretization.Discretization):
 
     # ------------------------------------------------------------------------------#
 
-    def ndof(self, g):
+    def ndof(self, g: pp.Grid) -> int:
         """ Return the number of degrees of freedom associated to the method.
         In this case number of cells.
 
@@ -69,11 +72,9 @@ class MassMatrix(pp.numerics.discretization.Discretization):
 
     # ------------------------------------------------------------------------------#
 
-    def assemble_matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(self, g: pp.Grid, data: dict) -> Tuple[sps.csr_matrix, np.ndarray]:
         """ Return the matrix and right-hand side (null) for a discretization of a
-        L2-mass bilinear form with constant test and trial functions. Also
-        discretize the necessary operators if the data dictionary does not contain
-        a mass matrix.
+        L2-mass bilinear form with variable test and trial functions.
 
         Parameters:
             g : grid, or a subclass, with geometry fields computed.
@@ -89,9 +90,9 @@ class MassMatrix(pp.numerics.discretization.Discretization):
 
     # ------------------------------------------------------------------------------#
 
-    def assemble_matrix(self, g, data):
+    def assemble_matrix(self, g: pp.Grid, data: dict) -> sps.csr_matrix:
         """ Return the matrix for a discretization of a L2-mass bilinear form with
-        constant test and trial functions.
+        variable test and trial functions.
 
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
@@ -103,13 +104,19 @@ class MassMatrix(pp.numerics.discretization.Discretization):
 
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        ndof = self.ndof(g)
 
-        M = matrix_dictionary["mass"]
+        w: np.ndarray = parameter_dictionary["mass_weight"]
+        m: sps.dia_matrix = matrix_dictionary["mass"]
+
+        M = m * sps.dia_matrix((w, 0), shape=(ndof, ndof))
+
         return M
 
     # ------------------------------------------------------------------------------#
 
-    def assemble_rhs(self, g, data):
+    def assemble_rhs(self, g: pp.Grid, data: dict) -> np.ndarray:
         """ Return the (null) right-hand side for a discretization of a L2-mass bilinear
         form with constant test and trial functions.
 
@@ -129,11 +136,13 @@ class MassMatrix(pp.numerics.discretization.Discretization):
 
     # ------------------------------------------------------------------------------#
 
-    def discretize(self, g, data, faces=None):
+    def discretize(self, g: pp.Grid, data: dict) -> None:
         """ Discretize a L2-mass bilinear form with constant test and trial functions.
 
         Note that the porosity is not included in the volumes, and should be included
         in the mass weight if appropriate.
+
+        The inclusion of the mass_weight term occurs on assembly.
 
         We assume the following two sub-dictionaries to be present in the data
         dictionary:
@@ -158,15 +167,13 @@ class MassMatrix(pp.numerics.discretization.Discretization):
             data: dictionary to store the data.
 
 
+
         """
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         ndof = self.ndof(g)
-        w = parameter_dictionary["mass_weight"]
         volumes = g.cell_volumes
-        coeff = volumes * w
 
-        matrix_dictionary["mass"] = sps.dia_matrix((coeff, 0), shape=(ndof, ndof))
+        matrix_dictionary["mass"] = sps.dia_matrix((volumes, 0), shape=(ndof, ndof))
         matrix_dictionary["bound_mass"] = np.zeros(ndof)
 
 

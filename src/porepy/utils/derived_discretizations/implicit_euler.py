@@ -15,7 +15,7 @@ class ImplicitMassMatrix(pp.MassMatrix):
     pp.STATE field of the data dictionary.
     """
 
-    def __init__(self, keyword="flow", variable="pressure"):
+    def __init__(self, keyword: str = "flow", variable: str = "pressure"):
         """ Set the discretization, with the keyword used for storing various
         information associated with the discretization. The time discretisation also
         requires the previous solution, thus the variable needs to be specified.
@@ -27,14 +27,20 @@ class ImplicitMassMatrix(pp.MassMatrix):
         super().__init__(keyword)
         self.variable = variable
 
-    def assemble_rhs(self, g, data):
+    def assemble_rhs(self, g: pp.Grid, data: dict) -> np.ndarray:
         """ Overwrite MassMatrix method to return the correct rhs for an IE time
         discretization, e.g. of the Biot problem.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         previous_solution = data[pp.STATE][self.variable]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        ndof = self.ndof(g)
 
-        return matrix_dictionary["mass"] * previous_solution
+        w: np.ndarray = parameter_dictionary["mass_weight"]
+        m: sps.dia_matrix = matrix_dictionary["mass"]
+        M = m * sps.dia_matrix((w, 0), shape=(ndof, ndof))
+
+        return M * previous_solution
 
 
 class ImplicitMpfa(pp.Mpfa):
