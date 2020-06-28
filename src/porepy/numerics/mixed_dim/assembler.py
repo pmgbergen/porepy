@@ -205,42 +205,60 @@ class Assembler:
         in a advection-diffusion system).
 
         The filters can be combined to select specified terms for specified equations.
+        See examples 1 and 2.
 
-        Example (discretization internal to a node or edge:
+        -- Experimental feature --
+        If you pass a filter where each item is prefixed by "!", this is interpreted as
+        exclusion. Then every variable/term will be discretized except those present in
+        the filter. See example 3 and 4.
+
+        Parameters
+        ----------
+        variable_filter : List[str] (optional)
+            List of variables to be discretized. If None (default), all active
+            variables are discretized.
+        term_filter : List[str] (optional)
+            List of terms to be discretized. If None (default), all terms for
+            all active variables are discretized.
+        grid : List[pp.Grid] (optional)
+            Grids in GridBucket. If specified, only these grids will be considered.
+        edges : bool (optional)
+            If True (default), terms on edges and coupling terms are discretized.
+            As these typically are cheaper than grid discretizations, the
+            operation cannot be filtered on specific edges.
+
+        Examples
+        --------
+
+        1) Example (discretization internal to a node or edge):
             For a discretizaiton of the form
 
             data[pp.DISCRETIZATION] = {'temp': {'advection': Foo(), 'diffusion': Bar()},
                                        'pressure' : {'diffusion': FlowFoo()}}
 
-            variable_filter = ['temp'] will discretize all temp terms
+            a) variable_filter = ['temp'] will discretize all temp terms
 
-            term_filter = ['diffusion'] will discretize duffusion for both the temp and
+            b) term_filter = ['diffusion'] will discretize duffusion for both the temp and
                 pressure variable
 
-            variable_filter = ['temp'], term_filter = ['diffusion'] will only discretize
+            c) variable_filter = ['temp'], term_filter = ['diffusion'] will only discretize
                 the diffusion term for variable temp
 
-        Example (coupling terms):
+            * Experimental: *
+            d) variable_filter = ['!temp'] will only discretize the pressure terms.
+
+            e) term_filter = ['!diffusion'] will only discretize the advection term of the
+                pressure variable.
+
+        2) Example (coupling terms):
             Variable filter works as intenal to nodes / edges.
             The term filter acts on the identifier of a coupling, so
 
-            dd[[pp.COUPLING_DISCRETIZATION]] = {'coupling_id' : {g1: {'temp': 'diffusion'},
-                                                                 g2:  {'pressure': diffusion'},
-                                                                 (g1, g2): {'coupling_variable': FooBar()}}}
+            d[pp.COUPLING_DISCRETIZATION] = {'coupling_id' : {g1: {'temp': 'diffusion'},
+                                                              g2:  {'pressure': diffusion'},
+                                                              (g1, g2): {'coupling_variable': FooBar()}}}
 
             will survive term_filter = ['coupling_id']
-
-
-        Parameters:
-            variable_filter (optional): List of variables to be discretized. If
-                None (default), all active variables are discretized.
-            term_filter (optional): List of terms to be discretized. If None
-                (default), all terms for all active variables are discretized.
-            grid (pp.Grid, optional): Grid in GridBucket. If specified, only this
-                grid will be considered.
-            edges (bool, optional): If True (default), terms on edges and coupling
-                terms are discretized. As these typically are cheaper than grid
-                discretizations, the operation cannot be filtered on specific edges.
 
         """
         self._operate_on_gb(
@@ -264,6 +282,33 @@ class Assembler:
         Implemented actions are discretizaiton and assembly.
 
         """
+        def make_filter(var_term_list: List[str] = None) -> Callable[[str], bool]:
+            """ Construct a filter for variable and terms
+
+            The result is a callable which takes one argument (a string).
+            I
+            filter is a list of strings.
+            """
+            def return_true(s):
+                return True
+
+            if not var_term_list:
+                # If not variable or term list is passed, return a Callable
+                # that always returns True.
+                return return_true
+
+            def _var_term_filter(x):
+                include = set(key for key in var_term_list if not key.startswith("!"))
+                exclude = set(key[1:] for key in var_term_list if key.startswith("!"))
+                if include:
+                    # Keep elements only in include.
+                    include.difference_update(exclude)
+                    return x in include
+                elif exclude:
+                    # Keep elements not in exclude
+                    return x not in exclude
+
+            return _var_term_filter
 
         if operation == "assemble":
 
@@ -283,23 +328,17 @@ class Assembler:
             matrix, rhs = self._initialize_matrix_rhs(sps_matrix)
 
             # Make term and variable filters that let everything through
-            term_filter: Callable[[str], bool] = lambda x: True
-            variable_filter: Callable[[str], bool] = lambda x: True
+            term_filter: Callable[[str], bool] = make_filter()
+            variable_filter: Callable[[str], bool] = make_filter()
             target_grid = kwargs.get("grid", None)
 
         elif operation == "discretize":
 
-            variable_keys = kwargs.get("variable_filter", None)
-            if variable_keys is None:
-                variable_filter: Callable[[str], bool] = lambda x: True
-            else:
-                variable_filter: Callable[[str], bool] = lambda x: x in variable_keys
+            variable_keys: List[str] = kwargs.get("variable_filter", None)
+            variable_filter = make_filter(variable_keys)
 
             term_keys = kwargs.get("term_filter", None)
-            if term_keys is None:
-                term_filter: Callable[[str], bool] = lambda x: True
-            else:
-                term_filter: Callable[[str], bool] = lambda x: x in term_keys
+            term_filter = make_filter(term_keys)
 
             matrix = None
             rhs = None
