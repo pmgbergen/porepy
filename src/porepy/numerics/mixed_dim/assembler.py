@@ -886,36 +886,34 @@ class Assembler:
             # combinations internal to the node
             if self._local_variables(d) is None:
                 continue
-            for key_1, v in self._local_variables(d).items():
+            for local_var, local_dofs in self._local_variables(d).items():
 
                 # First assign a block index.
                 # Note that the keys in the dictionary is a tuple, with a grid
                 # and a variable name (str)
-                block_dof[(g, key_1)] = block_dof_counter
+                block_dof[(g, local_var)] = block_dof_counter
                 block_dof_counter += 1
 
                 # Count number of dofs for this variable on this grid and store it.
                 # The number of dofs for each grid entitiy type defaults to zero.
-                loc_dof = (
-                    g.num_cells * v.get("cells", 0)
-                    + g.num_faces * v.get("faces", 0)
-                    + g.num_nodes * v.get("nodes", 0)
+                total_local_dofs = (
+                    g.num_cells * local_dofs.get("cells", 0)
+                    + g.num_faces * local_dofs.get("faces", 0)
+                    + g.num_nodes * local_dofs.get("nodes", 0)
                 )
-                full_dof.append(loc_dof)
+                full_dof.append(total_local_dofs)
 
                 # Next, identify all defined discretization terms for this variable.
                 # Do a second loop over the variables of the grid, the combination
-                # of the two keys givs us all coupling terms (e.g. an off-diagonal
+                # of the two variables gives us all coupling terms (e.g. an off-diagonal
                 # block in the global matrix)
-                for key_2 in self._local_variables(d).keys():
+                for other_local_var in self._local_variables(d):
                     # We need to identify identify individual discretization terms
-                    # defined for this equaton. This are identified either by
-                    # the key k (for variable dependence on itself), or the
-                    # combination k_k2 if the variables are mixed
-                    if key_1 == key_2:
-                        merged_key = key_1
-                    else:
-                        merged_key = key_1 + "_" + key_2
+                    # defined for this equation. These are identified either by
+                    # the variable k (for variable dependence on itself), or the
+                    # combination var1_var2 if the variables are mixed
+                    merged_vars = self._discretization_key(local_var, other_local_var)
+
                     # Get hold of the discretization operators defined for this
                     # node / edge; we really just need the keys in the
                     # discretization map.
@@ -930,13 +928,13 @@ class Assembler:
                     # Loop over all the discretization operations, if any, and
                     # add it to the list of observed variables.
                     # We will take care of duplicates below.
-                    terms = discr.get(merged_key, None)
+                    terms = discr.get(merged_vars, None)
                     if terms is None:
                         continue
 
-                    for term in terms.keys():
+                    for term in terms:
                         variable_combinations.append(
-                            self._variable_term_key(term, key_1, key_2)
+                            self._variable_term_key(term, local_var, other_local_var)
                         )
 
         # Next do the equivalent operation for edges in the grid.
@@ -947,33 +945,30 @@ class Assembler:
 
             if self._local_variables(d) is None:
                 continue
-            for key_1, v in self._local_variables(d).items():
+            for local_var, local_dofs in self._local_variables(d).items():
 
                 # First count the number of dofs per variable. Note that the
                 # identifier here is a tuple of the edge and a variable str.
-                block_dof[(e, key_1)] = block_dof_counter
+                block_dof[(e, local_var)] = block_dof_counter
                 block_dof_counter += 1
 
                 # We only allow for cell variables on the mortar grid.
-                # This will not change in the forseable future
-                loc_dof = mg.num_cells * v.get("cells", 0)
-                full_dof.append(loc_dof)
+                # This will not change in the foreseeable future
+                total_local_dofs = mg.num_cells * local_dofs.get("cells", 0)
+                full_dof.append(total_local_dofs)
 
                 # Then identify all discretization terms for this variable
-                for key_2 in self._local_variables(d).keys():
-                    if key_1 == key_2:
-                        merged_key = key_1
-                    else:
-                        merged_key = key_1 + "_" + key_2
+                for other_local_var in self._local_variables(d).keys():
+                    merged_vars = self._discretization_key(local_var, other_local_var)
                     discr = d.get(pp.DISCRETIZATION, None)
                     if discr is None:
                         continue
-                    terms = discr.get(merged_key, None)
+                    terms = discr.get(merged_vars, None)
                     if terms is None:
                         continue
                     for term in terms.keys():
                         variable_combinations.append(
-                            self._variable_term_key(term, key_1, key_2)
+                            self._variable_term_key(term, local_var, other_local_var)
                         )
 
             # Finally, identify variable combinations for coupling terms.
@@ -1195,7 +1190,7 @@ class Assembler:
         """ Find variables defined in a data dictionary, and do intersection
         with defined active variables.
 
-        If no active variables are specified, returned all decleared variables.
+        If no active variables are specified, returned all declared variables.
 
         Parameters:
             d (dict): Data dictionary defined on a GridBucket node or edge
@@ -1212,7 +1207,7 @@ class Assembler:
             # No restriction necessary.
             return loc_variables
         else:
-            # Find intersection with decleared active variables.
+            # Find intersection with declared active variables.
             var: Dict[str, Dict[str, int]] = {}
             for key, val in loc_variables.items():
                 if key in self.active_variables:
