@@ -601,6 +601,7 @@ class Assembler:
                 if master_vals is None:
                     # An empty identifying string will create no problems below.
                     master_var_key = ""
+                    master_term_key = ""
                     # If the master variable index is None, this signifies that
                     # the master variable index is not active
                     mi = None
@@ -628,6 +629,7 @@ class Assembler:
                 slave_vals: Tuple[str, str] = coupling_term.get(g_slave, None)
                 if slave_vals is None:
                     slave_var_key = ""
+                    slave_term_key = ""
                     si = None
 
                     # If operation is 'assemble', set mat_key_slave to None here
@@ -663,6 +665,8 @@ class Assembler:
                             variable_filter(master_var_key)
                             and variable_filter(slave_var_key)
                             and variable_filter(edge_var_key)
+                            and term_filter(master_term_key)
+                            and term_filter(slave_term_key)
                         ):
                             edge_discr.discretize(
                                 g_master, g_slave, data_master, data_slave, data_edge
