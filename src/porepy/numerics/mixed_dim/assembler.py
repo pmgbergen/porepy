@@ -33,7 +33,7 @@ class Assembler:
                 discretized. The data dictionaries on nodes and edges should contain
                 variable and discretization information, see tutorial for details.
             active_variables (list of str, optional): Names of variables to be assembled.
-                If provided, only decleared primary variables with a name found in the
+                If provided, only declared primary variables with a name found in the
                 list will be assembled, and the size of the matrix will be reduced
                 accordingly.
                 NOTE: For edge coupling terms where the edge variable is defined
@@ -251,11 +251,11 @@ class Assembler:
                 pressure variable.
 
         2) Example (coupling terms):
-            Variable filter works as intenal to nodes / edges.
+            Variable filter works as internal to nodes / edges.
             The term filter acts on the identifier of a coupling, so
 
             d[pp.COUPLING_DISCRETIZATION] = {'coupling_id' : {g1: {'temp': 'diffusion'},
-                                                              g2:  {'pressure': diffusion'},
+                                                              g2:  {'pressure': 'diffusion'},
                                                               (g1, g2): {'coupling_variable': FooBar()}}}
 
             will survive term_filter = ['coupling_id']
@@ -279,7 +279,7 @@ class Assembler:
         """ Helper method, loop over the GridBucket, identify nodes / edges
         variables and discretizations, and perform an operation on these.
 
-        Implemented actions are discretizaiton and assembly.
+        Implemented actions are discretization and assembly.
 
         """
         def make_filter(var_term_list: List[str] = None) -> Callable[[str], bool]:
@@ -314,10 +314,10 @@ class Assembler:
 
             # Initialize the global matrix.
             # This gives us a set of matrices (essentially one per term per variable)
-            # and a simial set of rhs vectors. Furthermore, we get block indices
+            # and a similar set of rhs vectors. Furthermore, we get block indices
             # of variables on individual nodes and edges, and count the number of
             # dofs per local variable.
-            # For details, and some nuances, see documentation of the funciton
+            # For details, and some nuances, see documentation of the function
             # _initialize_matrix_rhs.
             matrix_format: str = kwargs.get("matrix_format", "csc")
             if matrix_format == "csc":
@@ -547,6 +547,23 @@ class Assembler:
                 partial discretization or assembly. The usage of these terms is
                 currently unclear. Use with care.
 
+        Examples
+        --------
+
+        For reference, the following is an example of the contents of
+        pp.COUPLING_DISCRETIZATION, annotated for the code below:
+
+            d[pp.COUPLING_DISCRETIZATION] = {
+                "scalar_coupling_term": {                           <-- coupling_key
+                    g_h: ("pressure", "diffusion"),                 <-- (master_var_key, master_term_key)
+                    g_l: ("pressure", "diffusion"),                 <-- (slave_var_key, slave_term_key)
+                    e: (
+                        "mortar_pressure",                          <-- edge_var_key
+                        pp.RobinCoupling("flow", pp.Mpfa("flow"),   <-- edge_discr
+                    ),
+                },
+            }
+
         """
         # Loop over all edges
         for e, data_edge in self.gb.edges():
@@ -563,7 +580,8 @@ class Assembler:
                 continue
 
             for coupling_key, coupling_term in discr.items():  # coupling_key: str, coupling_term: Dict
-                edge_vals: Tuple[str, AbstractInterfaceLaw] = coupling_term.get(e)
+                # Get edge coupling discretization
+                edge_vals: Tuple[str, Any] = coupling_term.get(e)
                 edge_var_key, edge_discr = edge_vals
 
                 # Only continue if this is an active variable
@@ -592,7 +610,7 @@ class Assembler:
                     mat_key_master = None
                 else:
                     # Name of the relevant variable on the master grid
-                    master_var_key, master_discr_key = master_vals
+                    master_var_key, master_term_key = master_vals
 
                     # Only continue if this is an active variable
                     if not self._is_active_variable(master_var_key):
@@ -604,7 +622,7 @@ class Assembler:
                     # Also define the key to access the matrix of the discretization of
                     # the master variable on the master node.
                     mat_key_master = self._variable_term_key(
-                        master_discr_key, master_var_key, master_var_key
+                        master_term_key, master_var_key, master_var_key
                     )
                 # Do similar operations for the slave variable.
                 slave_vals: Tuple[str, str] = coupling_term.get(g_slave, None)
@@ -616,7 +634,7 @@ class Assembler:
                     # and throw and error when the 'matrix' dictionary is accessed.
                     mat_key_slave = None
                 else:
-                    slave_var_key, slave_discr_key = slave_vals
+                    slave_var_key, slave_term_key = slave_vals
                     # Only continue if this is an active variable
                     if not self._is_active_variable(slave_var_key):
                         continue
@@ -625,7 +643,7 @@ class Assembler:
                     # Also define the key to access the matrix of the discretization of
                     # the slave variable on the slave node.
                     mat_key_slave = self._variable_term_key(
-                        slave_discr_key, slave_var_key, slave_var_key
+                        slave_term_key, slave_var_key, slave_var_key
                     )
 
                 # Key to the matrix dictionary used to access this coupling
@@ -670,13 +688,15 @@ class Assembler:
                         if mat_key_master:
                             loc_mat[0, 0] = matrix[mat_key_master][mi, mi]
                         else:
-                            raise ValueError(f"No discretization found on the master grid for the coupling term"
-                                             f"{coupling_term}.")
+                            raise ValueError(f"No discretization found on the master grid "
+                                             f"of dimension {g_master.dim}, for the "
+                                             f"coupling term {coupling_term}.")
                         if mat_key_slave:
                             loc_mat[1, 1] = matrix[mat_key_slave][si, si]
                         else:
-                            raise ValueError(f"No discretization found on the slave grid for the coupling term"
-                                             f"{coupling_term}.")
+                            raise ValueError(f"No discretization found on the slave grid "
+                                             f"of dimension {g_slave.dim}, for the "
+                                             f"coupling term {coupling_term}.")
 
                         # Run the discretization, and assign the resulting matrix
                         # to a temporary construct
@@ -689,8 +709,8 @@ class Assembler:
                             loc_mat,
                         )
                         # The edge column and row should be assigned to mat_key
-                        matrix[mat_key][(ei), (mi, si, ei)] = tmp_mat[(2), (0, 1, 2)]
-                        matrix[mat_key][(mi, si), (ei)] = tmp_mat[(0, 1), (2)]
+                        matrix[mat_key][ei, (mi, si, ei)] = tmp_mat[2, (0, 1, 2)]
+                        matrix[mat_key][(mi, si), ei] = tmp_mat[(0, 1), 2]
                         # Also update the discretization on the master and slave
                         # nodes
                         matrix[mat_key_master][mi, mi] = tmp_mat[0, 0]
@@ -700,13 +720,11 @@ class Assembler:
                         rhs[mat_key][[mi, si, ei]] += loc_rhs
 
                 elif mi is not None:
+                    # TODO: Term filters are not applied to this case
                     # si is None
                     # The operation is a simplified version of the full option above.
                     if operation == "discretize":
                         if variable_filter(master_var_key) and variable_filter(edge_var_key):
-                            # TODO: This is technically inconsistent (arguments missing), unless the edge
-                            #  discretization object inherits from something other than AbstractInterfaceLaw.
-                            #  The same applies
                             edge_discr.discretize(g_master, data_master, data_edge)
                     elif operation == "assemble":
 
@@ -717,7 +735,7 @@ class Assembler:
                         tmp_mat, loc_rhs = edge_discr.assemble_matrix_rhs(
                             g_master, data_master, data_edge, loc_mat
                         )
-                        matrix[mat_key][(ei), (mi, ei)] = tmp_mat[(1), (0, 1)]
+                        matrix[mat_key][ei, (mi, ei)] = tmp_mat[1, (0, 1)]
                         matrix[mat_key][mi, ei] = tmp_mat[0, 1]
 
                         # Also update the discretization on the master and slave
@@ -727,6 +745,7 @@ class Assembler:
                         rhs[mat_key][[mi, ei]] += loc_rhs
 
                 elif si is not None:
+                    # TODO: Term filters are not applied to this case
                     # mi is None
                     # The operation is a simplified version of the full option above.
                     if operation == "discretize":
@@ -886,7 +905,7 @@ class Assembler:
 
         """
         # Implementation note: To fully understand the structure of this function
-        # it is useful to consider an example of a data dictionary with decleared
+        # it is useful to consider an example of a data dictionary with declared
         # primary variables and discretization operators.
         # The function needs to dig deep into the dictionaries used in these
         # declarations, thus the code is rather involved.
@@ -1097,7 +1116,7 @@ class Assembler:
 
         Parameters:
             sps_matrix (class): Class for sparse matrices, used to initialize
-                individual blokcs in the matrix.
+                individual blocks in the matrix.
 
         Returns:
             dict: Global system matrices, on block form (one per node/edge per
