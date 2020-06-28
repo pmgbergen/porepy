@@ -188,7 +188,7 @@ class Assembler:
         self,
         variable_filter: List[str] = None,
         term_filter: List[str] = None,
-        grid: pp.Grid = None,
+        grid: Union[pp.Grid, List[pp.Grid]] = None,
         edges: bool = True,
     ) -> None:
         """ Run the discretization operation on discretizations specified in
@@ -354,7 +354,7 @@ class Assembler:
             operation, matrix, rhs, variable_filter, term_filter, target_grid
         )
         if kwargs.get("edges", True):
-            self._operate_on_edge(operation, matrix, rhs, variable_filter, term_filter)
+            self._operate_on_edge(operation, matrix, rhs, variable_filter, term_filter, target_grid)
 
             self._operate_on_edge_coupling(
                 operation, matrix, rhs, variable_filter, term_filter, sps_matrix,
@@ -370,9 +370,9 @@ class Assembler:
         operation: str,
         matrix: Union[Dict[str, np.ndarray], None],
         rhs: Union[Dict[str, np.ndarray], None],
-        variable_filter,
-        term_filter,
-        target_grid: pp.Grid,
+        variable_filter: Callable[[str], bool],
+        term_filter: Callable[[str], bool],
+        target_grids: List[pp.Grid],
     ) -> None:
         """ Perform operation on all nodes in self.GridBucket.
 
@@ -401,56 +401,21 @@ class Assembler:
         # Loop over all grids, discretize (if necessary) and assemble. This
         # will populate the main diagonal of the equation.
         for g, data in self.gb:
-            if target_grid is not None and g is not target_grid:
+            if target_grids and g not in target_grids:
                 continue
-            loc_var = self._local_variables(data)
-            for row in loc_var.keys():
-                for col in loc_var.keys():
-                    # Block indices, row and column
-                    ri = self.block_dof[(g, row)]
-                    ci = self.block_dof[(g, col)]
+            self.__operate_on_node_or_edge(
+                g, data, operation, matrix, rhs, variable_filter, term_filter
+            )
 
-                    # Get the specified discretization, if any.
-                    discr_data = data.get(pp.DISCRETIZATION, None)
-                    if discr_data is None:
-                        continue
-                    discr = discr_data.get(self._discretization_key(row, col), None)
-
-                    if discr is None:
-                        continue
-                    else:
-                        # Only if non-empty discretization operators are defined,
-                        # we should do something.
-                        # Loop over all discretizations
-                        for term, d in discr.items():
-
-                            if operation == "discretize":
-                                if (
-                                    variable_filter(row)
-                                    and variable_filter(col)
-                                    and term_filter(term)
-                                ):
-                                    d.discretize(g, data)
-                            elif operation == "assemble":
-                                # Assemble the matrix and right hand side. This will also
-                                # discretize if not done before.
-                                loc_A, loc_b = d.assemble_matrix_rhs(g, data)
-
-                                # Assign values in global matrix: Create the same key used
-                                # defined when initializing matrices (see that function)
-                                var_key_name = self._variable_term_key(term, row, col)
-
-                                # Check if the current block is None or not, it could
-                                # happend based on the problem setting. Better to stay
-                                # on the safe side.
-                                if matrix[var_key_name][ri, ci] is None:
-                                    matrix[var_key_name][ri, ci] = loc_A
-                                else:
-                                    matrix[var_key_name][ri, ci] += loc_A
-                                # The right hand side vector is always initialized.
-                                rhs[var_key_name][ri] += loc_b
-
-    def _operate_on_edge(self, operation, matrix, rhs, variable_filter, term_filter):
+    def _operate_on_edge(
+            self,
+            operation: str,
+            matrix: Union[Dict[str, np.ndarray], None],
+            rhs: Union[Dict[str, np.ndarray], None],
+            variable_filter: Callable[[str], bool],
+            term_filter: Callable[[str], bool],
+            target_grids: List[pp.Grid],
+    ):
         """ Perform operation on all edges in self.GridBucket.
 
         This method should not be invoked directly, but instead accessed via the public
@@ -475,51 +440,79 @@ class Assembler:
 
         """
         for e, data_edge in self.gb.edges():
+            g_l, g_h = self.gb.nodes_of_edge(e)
+            if target_grids and not (g_l in target_grids or g_h in target_grids):
+                continue
+            self.__operate_on_node_or_edge(
+                e, data_edge, operation, matrix, rhs, variable_filter, term_filter
+            )
 
-            # Extract the active local variables for edge
-            active_edge_var = self._local_variables(data_edge)
+    def __operate_on_node_or_edge(
+            self,
+            node_or_edge: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]],
+            data: Dict,
+            operation: str,
+            matrix: Union[Dict[str, np.ndarray], None],
+            rhs: Union[Dict[str, np.ndarray], None],
+            variable_filter: Callable[[str], bool],
+            term_filter: Callable[[str], bool],
+    ):
+        # Extract the active local variables
+        loc_var = self._local_variables(data)
+        for row in loc_var:
+            for col in loc_var:
+                # Block indices, row and column
+                ri = self.block_dof[(node_or_edge, row)]
+                ci = self.block_dof[(node_or_edge, col)]
 
-            # First discretize interaction between edge variables locally.
-            # This is in direct analogue with the corresponding operation on
-            # nodes.
-            for row in active_edge_var.keys():
-                for col in active_edge_var.keys():
-                    ri = self.block_dof[(e, row)]
-                    ci = self.block_dof[(e, col)]
+                # Get the specified discretization, if any.
+                discr_data = data.get(pp.DISCRETIZATION, None)
+                if discr_data is None:
+                    continue
+                discr = discr_data.get(self._discretization_key(row, col), None)
 
-                    discr_data = data_edge.get(pp.DISCRETIZATION)
-                    if discr_data is None:
-                        continue
-                    discr = discr_data.get(self._discretization_key(row, col), None)
+                if discr is None:
+                    continue
+                else:
+                    # Only if non-empty discretization operators are defined,
+                    # we should do something.
+                    # Loop over all discretizations
+                    for term_key, term_discr in discr.items():
 
-                    if discr is None:
-                        continue
-                    else:
-                        # Loop over all discretizations
-                        for term, d in discr.items():
-                            if operation == "discretize":
-                                if (
+                        if operation == "discretize":
+                            if (
                                     variable_filter(row)
                                     and variable_filter(col)
-                                    and term_filter(term)
-                                ):
-                                    d.discretize(data_edge)
-                            elif operation == "assemble":
-                                # Assemble the matrix and right hand side. This will also
-                                # discretize if not done before.
-
-                                loc_A, loc_b = d.assemble_matrix_rhs(data_edge)
-
-                                # Assign values in global matrix
-                                var_key_name = self._variable_term_key(term, row, col)
-                                # Check if the current block is None or not, it could
-                                # happend based on the problem setting. Better to stay
-                                # on the safe side.
-                                if matrix[var_key_name][ri, ci] is None:
-                                    matrix[var_key_name][ri, ci] = loc_A
+                                    and term_filter(term_key)
+                            ):
+                                # Call appropriate discretization method for
+                                # nodes and edges, respectively.
+                                if isinstance(node_or_edge, pp.Grid):
+                                    term_discr.discretize(node_or_edge, data)
                                 else:
-                                    matrix[var_key_name][ri, ci] += loc_A
-                                rhs[var_key_name][ri] += loc_b
+                                    term_discr.discretize(data)
+                        elif operation == "assemble":
+                            # Assemble the matrix and right hand side. This will also
+                            # discretize if not done before.
+                            # Call appropriate assembler for nodes and edges, respectively.
+                            if isinstance(node_or_edge, pp.Grid):
+                                loc_A, loc_b = term_discr.assemble_matrix_rhs(node_or_edge, data)
+                            else:
+                                loc_A, loc_b = term_discr.assemble_matrix_rhs(data)
+
+                            # Assign values in global matrix: Create the same key used
+                            # defined when initializing matrices (see that function)
+                            var_key_name = self._variable_term_key(term_key, row, col)
+
+                            # Check if the current block is None or not, it could
+                            # happen based on the problem setting. Better to stay
+                            # on the safe side.
+                            if matrix[var_key_name][ri, ci] is None:
+                                matrix[var_key_name][ri, ci] = loc_A
+                            else:
+                                matrix[var_key_name][ri, ci] += loc_A
+                            # The right hand side vector is always initialized.
+                            rhs[var_key_name][ri] += loc_b
 
     def _operate_on_edge_coupling(
         self,
