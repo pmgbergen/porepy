@@ -281,11 +281,19 @@ class Assembler:
 
         """
         def make_filter(var_term_list: List[str] = None) -> Callable[[str], bool]:
-            """ Construct a filter for variable and terms
+            """ Construct a filter for variables and terms
 
-            The result is a callable which takes one argument (a string).
-            I
-            filter is a list of strings.
+            The input should be either
+            a) a list of variables (terms) that are to be discretized.
+                Then, only the variables (terms) in that list will be
+                discretized on any node.
+            b) a list of variables (terms), each prefixed by "!", that
+                are to be excluded from discretization.
+                Then, every term will be discretized, except those
+                associated with the given list of variables (terms).
+
+            The result is a callable which takes one argument (a string),
+            and returns a boolean.
             """
             def return_true(s):
                 return True
