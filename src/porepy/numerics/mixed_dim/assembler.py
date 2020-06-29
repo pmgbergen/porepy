@@ -188,7 +188,7 @@ class Assembler:
         self,
         variable_filter: List[str] = None,
         term_filter: List[str] = None,
-        grid: Union[pp.Grid, List[pp.Grid]] = None,
+        grid: pp.Grid = None,
         edges: bool = True,
     ) -> None:
         """ Run the discretization operation on discretizations specified in
@@ -354,7 +354,7 @@ class Assembler:
             operation, matrix, rhs, variable_filter, term_filter, target_grid
         )
         if kwargs.get("edges", True):
-            self._operate_on_edge(operation, matrix, rhs, variable_filter, term_filter, target_grid)
+            self._operate_on_edge(operation, matrix, rhs, variable_filter, term_filter)
 
             self._operate_on_edge_coupling(
                 operation, matrix, rhs, variable_filter, term_filter, sps_matrix,
@@ -372,7 +372,7 @@ class Assembler:
         rhs: Union[Dict[str, np.ndarray], None],
         variable_filter: Callable[[str], bool],
         term_filter: Callable[[str], bool],
-        target_grids: List[pp.Grid],
+        target_grid: pp.Grid,
     ) -> None:
         """ Perform operation on all nodes in self.GridBucket.
 
@@ -401,7 +401,7 @@ class Assembler:
         # Loop over all grids, discretize (if necessary) and assemble. This
         # will populate the main diagonal of the equation.
         for g, data in self.gb:
-            if target_grids and g not in target_grids:
+            if target_grid and g is not target_grid:
                 continue
             self.__operate_on_node_or_edge(
                 g, data, operation, matrix, rhs, variable_filter, term_filter
@@ -414,7 +414,6 @@ class Assembler:
             rhs: Union[Dict[str, np.ndarray], None],
             variable_filter: Callable[[str], bool],
             term_filter: Callable[[str], bool],
-            target_grids: List[pp.Grid],
     ):
         """ Perform operation on all edges in self.GridBucket.
 
@@ -440,9 +439,6 @@ class Assembler:
 
         """
         for e, data_edge in self.gb.edges():
-            g_l, g_h = self.gb.nodes_of_edge(e)
-            if target_grids and not (g_l in target_grids or g_h in target_grids):
-                continue
             self.__operate_on_node_or_edge(
                 e, data_edge, operation, matrix, rhs, variable_filter, term_filter
             )
@@ -665,8 +661,6 @@ class Assembler:
                             variable_filter(master_var_key)
                             and variable_filter(slave_var_key)
                             and variable_filter(edge_var_key)
-                            and term_filter(master_term_key)
-                            and term_filter(slave_term_key)
                         ):
                             edge_discr.discretize(
                                 g_master, g_slave, data_master, data_slave, data_edge
