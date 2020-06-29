@@ -8,8 +8,6 @@ import porepy as pp
 
 from typing import Set, List, Tuple, Union, Dict, Any, Callable, Type, Optional
 
-from porepy.numerics.interface_laws.abstract_interface_law import AbstractInterfaceLaw
-
 csc_or_csr_matrix = Union[sps.csc_matrix, sps.csr_matrix]
 
 
