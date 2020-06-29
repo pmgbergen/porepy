@@ -8,8 +8,18 @@ import porepy as pp
 class NodeDiscretization(BaseModel):
     """ Node discretization object"""
     var: str
+    coupling_var: str = None
     term_key: str
     term: Discretization
+
+    class Config:
+        # Needed to allow Discretization objects
+        arbitrary_types_allowed = True
+
+
+class EdgeDiscretization(NodeDiscretization):
+    """ Edge discretization object"""
+    term: Any
 
 
 class CouplingDiscretization(BaseModel):
@@ -41,7 +51,7 @@ class CouplingDiscretization(BaseModel):
 
     # Validate the input parameters
     @root_validator()
-    def check_at_least_gh_or_gl_is_set(self, values):
+    def check_at_least_gh_or_gl_is_set(cls, values):
         g_h, master_var, master_term_key = values["g_h"], values["master_var"], values["master_term_key"]
         g_l, slave_var, slave_term_key = values["g_l"], values["slave_var"], values["slave_term_key"]
         if not g_h:
@@ -56,7 +66,7 @@ class CouplingDiscretization(BaseModel):
         return values
 
     @validator("edge")
-    def check_gl_gh_in_edge(self, v, values):
+    def check_gl_gh_in_edge(cls, v, values):
         g_l, g_h = values["g_l"], values["g_h"]
         if g_l:
             assert g_l in v
