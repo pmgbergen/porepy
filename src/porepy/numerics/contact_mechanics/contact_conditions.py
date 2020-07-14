@@ -108,34 +108,41 @@ class ColoumbContact:
             etc.
 
         """
-
         # CLARIFICATIONS NEEDED:
         #   1) Do projection and rotation commute on non-matching grids? The
         #   gut feel says yes, but I'm not sure.
 
         # Process input
-        parameters_l = data_l[pp.PARAMETERS][self.keyword]
+        parameters_l = data_l[pp.PARAMETERS]
 
-        # Mandatory cellwise friction coefficient relates normal and tangential forces.
-        friction_coefficient = parameters_l["friction_coefficient"]
-        if np.asarray(friction_coefficient).size == 1:
-            friction_coefficient = friction_coefficient * np.ones(g_l.num_cells)
         # Numerical parameter, value and sensitivity is currently unknown.
         # The thesis of Hueeber is probably a good place to look for information.
-        c_num = parameters_l.get("contact_mechanics_numerical_parameter", 100)
+        c_num = parameters_l[self.keyword].get(
+            "contact_mechanics_numerical_parameter", 100
+        )
+        # Obtain the four cellwise parameters:
+        # Mandatory friction coefficient relates normal and tangential forces.
         # The initial gap will usually be zero.
         # The gap value may be a function of tangential displacement.
         # We assume g(u_t) = - tan(dilation_angle) * || u_t ||
         # The cohesion represents a minimal force, independent of the normal force,
         # that must be overcome before the onset of sliding.
-        cellwise_parameters = ["initial_gap", "dilation_angle", "cohesion"]
-        vals = []
-        for pa in cellwise_parameters:
-            val = parameters_l.get(pa, 0)
-            if np.asarray(val).size == 1:
-                val *= np.ones(g_l.num_cells)
-            vals.append(val)
-        initial_gap, dilation_angle, cohesion = vals
+        cellwise_parameters = [
+            "friction_coefficient",
+            "initial_gap",
+            "dilation_angle",
+            "cohesion",
+        ]
+        defaults = [None, 0, 0, 0]
+        vals = parameters_l.expand_scalars(
+            g_l.num_cells, self.keyword, cellwise_parameters, defaults
+        )
+        friction_coefficient, initial_gap, dilation_angle, cohesion = (
+            vals[0],
+            vals[1],
+            vals[2],
+            vals[3],
+        )
 
         mg = data_edge["mortar_grid"]
 
@@ -539,7 +546,6 @@ class ColoumbContact:
         # Regularization during the iterations requires computations of parameters
         # alpha, beta, delta
         alpha = -Tt.T.dot(-Tt + cut) / (self._l2(-Tt) * self._l2(-Tt + cut))
-
         # Parameter delta.
         # NOTE: The denominator bf is correct. The definition given in Berge is wrong.
         delta = min(self._l2(-Tt) / bf, 1)

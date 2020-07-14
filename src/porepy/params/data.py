@@ -67,6 +67,7 @@ import porepy as pp
 import numbers
 import warnings
 import porepy.params.parameter_dictionaries as dicts
+from typing import List
 
 
 class Parameters(dict):
@@ -184,6 +185,35 @@ class Parameters(dict):
         """
         for (p, v) in zip(parameters, values):
             modify_variable(self[keyword][p], v)
+
+    def expand_scalars(
+        self, n_vals: int, keyword: str, parameters: List[str], defaults=None
+    ) -> List:
+        """ Expand parameters assigned as a single scalar to n_vals arrays. 
+        Used e.g. for parameters which may be heterogeneous in space (cellwise),
+        but are often homogeneous and assigned as a scalar.
+        Parameters:
+            n_vals: Size of the expanded arrays. E.g. g.num_cells
+            keyword: The parameter keyword.
+            parameters: List of parameters.
+            defaults (optional): List of default values, one for each parameter.
+                If not set, no default values will be provided and an error
+                will ensue if one of the listed parameters is not present in
+                the dictionary. This avoids assigning None to unset mandatory
+                parameters.
+        """
+        values = []
+        if defaults is None:
+            defaults = [None] * len(parameters)
+        for p, d in zip(parameters, defaults):
+            if d is None:
+                val = self[keyword].get(p)
+            else:
+                val = self[keyword].get(p, d)
+            if np.asarray(val).size == 1:
+                val *= np.ones(n_vals)
+            values.append(val)
+        return values
 
 
 """
