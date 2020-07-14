@@ -115,27 +115,34 @@ class ColoumbContact:
         # Process input
         parameters_l = data_l[pp.PARAMETERS]
 
-        # Mandatory cellwise friction coefficient relates normal and tangential forces.
-        friction_coefficient = parameters_l[self.keyword]["friction_coefficient"]
-        if np.asarray(friction_coefficient).size == 1:
-            friction_coefficient = friction_coefficient * np.ones(g_l.num_cells)
         # Numerical parameter, value and sensitivity is currently unknown.
         # The thesis of Hueeber is probably a good place to look for information.
         c_num = parameters_l[self.keyword].get(
             "contact_mechanics_numerical_parameter", 100
         )
-
+        # Obtain the four cellwise parameters:
+        # Mandatory friction coefficient relates normal and tangential forces.
         # The initial gap will usually be zero.
         # The gap value may be a function of tangential displacement.
         # We assume g(u_t) = - tan(dilation_angle) * || u_t ||
         # The cohesion represents a minimal force, independent of the normal force,
         # that must be overcome before the onset of sliding.
-        cellwise_parameters = ["initial_gap", "dilation_angle", "cohesion"]
-        defaults = [0, 0, 0]
+        cellwise_parameters = [
+            "friction_coefficient",
+            "initial_gap",
+            "dilation_angle",
+            "cohesion",
+        ]
+        defaults = [None, 0, 0, 0]
         vals = parameters_l.expand_scalars(
             g_l.num_cells, self.keyword, cellwise_parameters, defaults
         )
-        initial_gap, dilation_angle, cohesion = vals[0], vals[1], vals[2]
+        friction_coefficient, initial_gap, dilation_angle, cohesion = (
+            vals[0],
+            vals[1],
+            vals[2],
+            vals[3],
+        )
 
         mg = data_edge["mortar_grid"]
 
