@@ -217,7 +217,10 @@ class BiotTest(unittest.TestCase):
         general_assembler = pp.Assembler(gb)
         general_assembler.discretize(
             term_filter=[
-                "!stress_divergence", "!pressure_gradient", "!displacement_divergence", "!stabilization"
+                "!stress_divergence",
+                "!pressure_gradient",
+                "!displacement_divergence",
+                "!stabilization",
             ]
         )
         A, b = general_assembler.assemble_matrix_rhs()

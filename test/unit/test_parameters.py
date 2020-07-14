@@ -119,6 +119,17 @@ class TestParameters(unittest.TestCase):
         )
         self.assertNotIn("array_key", self.p["other_kw"])
 
+    def test_expand_scalars(self):
+        """ Expand scalars to arrays
+        """
+        self.p.update_dictionaries(["dummy_kw"], [{"scalar": 1, "number": 2}])
+        keys = ["scalar", "number", "not_present"]
+        defaults = [3] * 3
+        array_list = self.p.expand_scalars(2, "dummy_kw", keys, defaults)
+        for i in range(3):
+            self.assertEqual(array_list[i].size, 2)
+            self.assertEqual(np.sum(array_list[i]), 2 * (i + 1))
+
 
 if __name__ == "__main__":
     unittest.main()
