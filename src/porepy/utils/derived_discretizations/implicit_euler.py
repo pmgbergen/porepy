@@ -224,9 +224,12 @@ class ImplicitUpwind(pp.Upwind):
         parameter_dictionary = data[pp.PARAMETERS]
         dt = parameter_dictionary[self.keyword]["time_step"]
         # Obtain the cellwise advection weights
-        w = parameter_dictionary.expand_scalars(
-            g.num_cells, self.keyword, ["advection_weight"]
-        )[0] * dt
+        w = (
+            parameter_dictionary.expand_scalars(
+                g.num_cells, self.keyword, ["advection_weight"]
+            )[0]
+            * dt
+        )
         a, b = super().assemble_matrix_rhs(g, data)
         a = a * sps.diags(w)
         b = b * sps.diags(w)
@@ -269,12 +272,18 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
         parameter_dictionary_slave = data_slave[pp.PARAMETERS]
         lam_flux = data_edge[pp.PARAMETERS][self.keyword]["darcy_flux"]
         dt = parameter_dictionary_master[self.keyword]["time_step"]
-        w_master = parameter_dictionary_master.expand_scalars(
-            g_master.num_cells, self.keyword, ["advection_weight"]
-        )[0] * dt
-        w_slave = parameter_dictionary_slave.expand_scalars(
-            g_slave.num_cells, self.keyword, ["advection_weight"]
-        )[0] * dt
+        w_master = (
+            parameter_dictionary_master.expand_scalars(
+                g_master.num_cells, self.keyword, ["advection_weight"]
+            )[0]
+            * dt
+        )
+        w_slave = (
+            parameter_dictionary_slave.expand_scalars(
+                g_slave.num_cells, self.keyword, ["advection_weight"]
+            )[0]
+            * dt
+        )
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
         g_m = data_edge["mortar_grid"]
