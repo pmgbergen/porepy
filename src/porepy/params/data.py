@@ -272,7 +272,9 @@ def initialize_default_data(
     return initialize_data(g, data, keyword, d)
 
 
-def initialize_data(g, data, keyword, specified_parameters=None):
+def initialize_data(
+    g, data: Dict, keyword: str, specified_parameters: Optional[Dict] = None
+):
     """ Initialize a data dictionary for a single keyword.
 
     The initialization consists of adding a parameter dictionary and initializing a
@@ -299,7 +301,7 @@ def initialize_data(g, data, keyword, specified_parameters=None):
     return data
 
 
-def set_state(data, state=None):
+def set_state(data: Dict, state: Optional[Dict] = None) -> Dict:
     """ Initialize or update a state dictionary.
 
     The initialization consists of adding a state dictionary in the proper field of the
@@ -322,7 +324,7 @@ def set_state(data, state=None):
     return data
 
 
-def set_iterate(data: Dict, iterate: Dict = None) -> Dict:
+def set_iterate(data: Dict, iterate: Optional[Dict] = None) -> Dict:
     """Initialize or update an iterate dictionary.
     
     Same as set_state for subfield pp.ITERATE    
