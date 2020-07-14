@@ -187,7 +187,11 @@ class Parameters(dict):
             modify_variable(self[keyword][p], v)
 
     def expand_scalars(
-        self, n_vals: int, keyword: str, parameters: List[str], defaults=Optional[Dict]
+        self,
+        n_vals: int,
+        keyword: str,
+        parameters: List[str],
+        defaults: Optional[Dict] = None,
     ) -> List:
         """ Expand parameters assigned as a single scalar to n_vals arrays. 
         Used e.g. for parameters which may be heterogeneous in space (cellwise),

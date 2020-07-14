@@ -760,7 +760,7 @@ class ContactModel2d(ContactMechanics):
 
         b_c = b[dof_contact]
 
-        data_l = self.gb.node_props(self.g1)[pp.STATE]["previous_iterate"]
+        data_l = self.gb.node_props(self.g1)[pp.STATE][pp.ITERATE]
         penetration = data_l["penetration"]
         sliding = data_l["sliding"]
 
@@ -871,7 +871,7 @@ class ContactModel2d(ContactMechanics):
                 state = {
                     # Set value for previous iterate. This becomes what decides the
                     # state used in discretization.
-                    "previous_iterate": {self.contact_traction_variable: traction},
+                    pp.ITERATE: {self.contact_traction_variable: traction},
                     # Zero state in previous time step, just to avoid confusion
                     self.contact_traction_variable: 0 * traction,
                 }
@@ -888,7 +888,7 @@ class ContactModel2d(ContactMechanics):
                     self.mortar_displacement_variable: 0 * u_mortar,
                     # Set value for previous iterate. This becomes what decides the
                     # state used in discretization.
-                    "previous_iterate": {self.mortar_displacement_variable: u_mortar},
+                    pp.ITERATE: {self.mortar_displacement_variable: u_mortar},
                 }
             else:
                 state = {}
