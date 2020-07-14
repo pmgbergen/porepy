@@ -67,7 +67,7 @@ import porepy as pp
 import numbers
 import warnings
 import porepy.params.parameter_dictionaries as dicts
-from typing import List
+from typing import List, Dict, Optional
 
 
 class Parameters(dict):
@@ -187,7 +187,7 @@ class Parameters(dict):
             modify_variable(self[keyword][p], v)
 
     def expand_scalars(
-        self, n_vals: int, keyword: str, parameters: List[str], defaults=None
+        self, n_vals: int, keyword: str, parameters: List[str], defaults=Optional[Dict]
     ) -> List:
         """ Expand parameters assigned as a single scalar to n_vals arrays. 
         Used e.g. for parameters which may be heterogeneous in space (cellwise),
@@ -309,12 +309,29 @@ def set_state(data, state=None):
     Returns:
         data: The filled dictionary.
     """
-    if not state:
+    if state is None:
         state = {}
     if pp.STATE in data:
         data[pp.STATE].update(state)
     else:
         data[pp.STATE] = state
+    return data
+
+
+def set_iterate(data: Dict, iterate: Dict = None) -> Dict:
+    """Initialize or update an iterate dictionary.
+    
+    Same as set_state for subfield pp.ITERATE    
+    Also checks whether pp.STATE field is set, and adds it if not, see set_state.
+    """
+    if not pp.STATE in data:
+        set_state(data)
+    if iterate is None:
+        iterate = {}
+    if pp.ITERATE in data[pp.STATE]:
+        data[pp.STATE][pp.ITERATE].update(iterate)
+    else:
+        data[pp.STATE][pp.ITERATE] = iterate
     return data
 
 

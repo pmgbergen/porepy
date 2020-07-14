@@ -53,6 +53,7 @@ from porepy.params.data import (
     initialize_data,
     initialize_default_data,
     set_state,
+    set_iterate,
 )
 from porepy.params.rock import UnitRock, Shale, SandStone, Granite
 from porepy.params.fluid import Water, UnitFluid
