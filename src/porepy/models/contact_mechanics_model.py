@@ -277,9 +277,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                     (np.zeros((g.dim, g.num_cells)), -1 * np.ones(g.num_cells))
                 ).ravel(order="F")
                 state = {
-                    "previous_iterate": {self.contact_traction_variable: traction},
                     self.contact_traction_variable: traction,
                 }
+                pp.set_iterate(d, {self.contact_traction_variable: traction})
             else:
                 state = {}
             pp.set_state(d, state)
@@ -289,12 +289,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
             if mg.dim == self.Nd - 1:
                 size = mg.num_cells * self.Nd
-                state = {
-                    self.mortar_displacement_variable: np.zeros(size),
-                    "previous_iterate": {
-                        self.mortar_displacement_variable: np.zeros(size)
-                    },
-                }
+                state = {self.mortar_displacement_variable: np.zeros(size)}
+                iterate = {self.mortar_displacement_variable: np.zeros(size)}
+                pp.set_iterate(d, iterate)
             else:
                 state = {}
             pp.set_state(d, state)
@@ -303,7 +300,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         """
         Extract parts of the solution for current iterate.
 
-        The iterate solutions in d[pp.STATE]["previous_iterate"] are updated for the
+        The iterate solutions in d[pp.STATE][pp.ITERATE] are updated for the
         mortar displacements and contact traction are updated.
         Method is a tailored copy from assembler.distribute_variable.
 
@@ -330,7 +327,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                     if name == self.mortar_displacement_variable:
                         mortar_u = solution_vector[dof[bi] : dof[bi + 1]]
                         data = self.gb.edge_props(g)
-                        data[pp.STATE]["previous_iterate"][
+                        data[pp.STATE][pp.ITERATE][
                             self.mortar_displacement_variable
                         ] = mortar_u.copy()
                 else:
@@ -343,7 +340,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                         if name == self.contact_traction_variable:
                             contact = solution_vector[dof[bi] : dof[bi + 1]]
                             data = self.gb.node_props(g)
-                            data[pp.STATE]["previous_iterate"][
+                            data[pp.STATE][pp.ITERATE][
                                 self.contact_traction_variable
                             ] = contact.copy()
 
@@ -384,7 +381,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         """
         mg = data_edge["mortar_grid"]
         if from_iterate:
-            mortar_u = data_edge[pp.STATE]["previous_iterate"][
+            mortar_u = data_edge[pp.STATE][pp.ITERATE][
                 self.mortar_displacement_variable
             ]
         else:
@@ -419,7 +416,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         mpsa = pp.Mpsa(self.mechanics_parameter_key)
 
         if previous_iterate:
-            u = d[pp.STATE]["previous_iterate"][self.displacement_variable]
+            u = d[pp.STATE][pp.ITERATE][self.displacement_variable]
         else:
             u = d[pp.STATE][self.displacement_variable]
 
@@ -439,9 +436,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             mg = d_e["mortar_grid"]
             if mg.dim == self.Nd - 1:
                 if previous_iterate:
-                    u_e = d_e[pp.STATE]["previous_iterate"][
-                        self.mortar_displacement_variable
-                    ]
+                    u_e = d_e[pp.STATE][pp.ITERATE][self.mortar_displacement_variable]
                 else:
                     u_e = d_e[pp.STATE][self.mortar_displacement_variable]
 
@@ -506,7 +501,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         """
         Extract parts of the solution for current iterate.
 
-        The iterate solutions in d[pp.STATE]["previous_iterate"] are updated for the
+        The iterate solutions in d[pp.STATE][pp.ITERATE] are updated for the
         mortar displacements and contact traction are updated.
         Method is a tailored copy from assembler.distribute_variable.
 

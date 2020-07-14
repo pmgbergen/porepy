@@ -389,10 +389,7 @@ class THM(parent_model.ContactMechanicsBiot):
             state = {self.temperature_variable: cell_zeros}
             iterate = {self.scalar_variable: cell_zeros}  # For initial flux
             d[pp.STATE].update(state)
-            if "previous_iterate" in d[pp.STATE]:
-                d[pp.STATE]["previous_iterate"].update(iterate)
-            else:
-                d[pp.STATE]["previous_iterate"] = iterate
+            pp.set_iterate(d, iterate)
 
         for _, d in self.gb.edges():
             mg = d["mortar_grid"]
@@ -404,10 +401,7 @@ class THM(parent_model.ContactMechanicsBiot):
             iterate = {self.mortar_scalar_variable: cell_zeros}
             d[pp.STATE].update(state)
 
-            if "previous_iterate" in d[pp.STATE]:
-                d[pp.STATE]["previous_iterate"].update(iterate)
-            else:
-                d[pp.STATE]["previous_iterate"] = iterate
+            pp.set_iterate(d, iterate)
 
     def compute_fluxes(self) -> None:
         """ Compute the fluxes in the mixed-dimensional grid from the current state of
@@ -447,7 +441,7 @@ class THM(parent_model.ContactMechanicsBiot):
             self.mechanics_temperature_parameter_key
         ]
         if previous_iterate:
-            T = d[pp.STATE]["previous_iterate"][self.temperature_variable]
+            T = d[pp.STATE][pp.ITERATE][self.temperature_variable]
         else:
             T = d[pp.STATE][self.temperature_variable]
 
@@ -514,12 +508,14 @@ class THM(parent_model.ContactMechanicsBiot):
     def copy_biot_discretizations(self) -> None:
         g: pp.Grid = self.gb.grids_of_dimension(self.Nd)[0]
         d: Dict = self.gb.node_props(g)
+        beta = self.biot_beta(g)
+        alpha = self.biot_alpha(g)
         # For grad p term of u equation
-        weight_grad_t = self.biot_beta(g) / self.biot_alpha(g)
+        weight_grad_t = beta / alpha
         # Account for scaling
         weight_grad_t *= self.temperature_scale / self.scalar_scale
         # Stabilization is derived from the grad p discretization
-        weight_stabilization = self.biot_beta(g) / self.biot_alpha(g)
+        weight_stabilization = beta / alpha
         weight_stabilization *= self.temperature_scale / self.scalar_scale
         # The stabilization terms appear in the T/p equations, whereof only the first
         # is divided by T_0_Kelvin.
@@ -541,7 +537,7 @@ class THM(parent_model.ContactMechanicsBiot):
             weight_grad_t * matrices_ms["bound_displacement_pressure"]
         )
         # For div u term of t equation
-        weight_div_u = self.biot_beta(g)
+        weight_div_u = beta
         key_m_from_t = self.mechanics_temperature_parameter_key
         d[pp.DISCRETIZATION_MATRICES][key_m_from_t] = matrices_mt
         d[pp.PARAMETERS][key_m_from_t] = {"biot_alpha": weight_div_u}
@@ -569,7 +565,7 @@ class THM(parent_model.ContactMechanicsBiot):
         Extract parts of the solution for current iterate.
         
         Calls ContactMechanicsBiot version, and additionally updates the iterate solutions 
-        in d[pp.STATE]["previous_iterate"] are updated for the scalar variable, to be used
+        in d[pp.STATE][pp.ITERATE] are updated for the scalar variable, to be used
         for flux computations by compute_darcy_fluxes.
         Method is a tailored copy from assembler.distribute_variable.
 
@@ -596,7 +592,7 @@ class THM(parent_model.ContactMechanicsBiot):
                     if name == self.mortar_scalar_variable:
                         mortar_p = solution_vector[dof[bi] : dof[bi + 1]]
                         data = self.gb.edge_props(g)
-                        data[pp.STATE]["previous_iterate"][
+                        data[pp.STATE][pp.ITERATE][
                             self.mortar_scalar_variable
                         ] = mortar_p.copy()
                 else:
@@ -608,6 +604,8 @@ class THM(parent_model.ContactMechanicsBiot):
                     if name == self.scalar_variable:
                         p = solution_vector[dof[bi] : dof[bi + 1]]
                         data = self.gb.node_props(g)
-                        data[pp.STATE]["previous_iterate"][
-                            self.scalar_variable
-                        ] = p.copy()
+                        data[pp.STATE][pp.ITERATE][self.scalar_variable] = p.copy()
+                    elif name == self.temperature_variable:
+                        T = solution_vector[dof[bi] : dof[bi + 1]]
+                        data = self.gb.node_props(g)
+                        data[pp.STATE][pp.ITERATE][self.temperature_variable] = T.copy()
