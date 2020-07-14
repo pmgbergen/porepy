@@ -176,7 +176,7 @@ class ColoumbContact:
         projection = data_edge["tangential_normal_projection"]
 
         # The contact force is already computed in local coordinates
-        contact_force = data_l[pp.STATE]["previous_iterate"][self.contact_variable]
+        contact_force = data_l[pp.STATE][pp.ITERATE][self.contact_variable]
 
         # Pick out the tangential and normal direction of the contact force.
         # The contact force of the first cell is in the first self.dim elements
@@ -196,7 +196,7 @@ class ColoumbContact:
         # its sign switched).
         # The tangential displacements are relative to the initial state, which in the
         # transient case equals the previous time step.
-        previous_displacement_iterate = data_edge[pp.STATE]["previous_iterate"][
+        previous_displacement_iterate = data_edge[pp.STATE][pp.ITERATE][
             self.mortar_displacement_variable
         ]
         previous_displacement_time = data_edge[pp.STATE][
@@ -421,8 +421,8 @@ class ColoumbContact:
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_discretization] = rhs
 
         # Also store the contact state
-        data_l[pp.STATE]["previous_iterate"]["penetration"] = penetration_bc
-        data_l[pp.STATE]["previous_iterate"]["sliding"] = sliding_bc
+        data_l[pp.STATE][pp.ITERATE]["penetration"] = penetration_bc
+        data_l[pp.STATE][pp.ITERATE]["sliding"] = sliding_bc
 
     def assemble_matrix_rhs(self, g: pp.Grid, data: Dict):
         # Generate matrix for the coupling. This can probably be generalized
