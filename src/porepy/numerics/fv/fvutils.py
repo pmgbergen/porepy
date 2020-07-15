@@ -1544,7 +1544,7 @@ def compute_darcy_flux(
 
     def extract_variable(d, var):
         if from_iterate:
-            return d[pp.STATE]["previous_iterate"][var]
+            return d[pp.STATE][pp.ITERATE][var]
         else:
             return d[pp.STATE][var]
 
