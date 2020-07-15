@@ -274,7 +274,7 @@ def initialize_default_data(
 
 def initialize_data(
     g, data: Dict, keyword: str, specified_parameters: Optional[Dict] = None
-):
+) -> Dict:
     """ Initialize a data dictionary for a single keyword.
 
     The initialization consists of adding a parameter dictionary and initializing a
@@ -315,8 +315,7 @@ def set_state(data: Dict, state: Optional[Dict] = None) -> Dict:
     Returns:
         data: The filled dictionary.
     """
-    if state is None:
-        state = {}
+    state = state or {}
     if pp.STATE in data:
         data[pp.STATE].update(state)
     else:
@@ -332,8 +331,7 @@ def set_iterate(data: Dict, iterate: Optional[Dict] = None) -> Dict:
     """
     if not pp.STATE in data:
         set_state(data)
-    if iterate is None:
-        iterate = {}
+    iterate = iterate or {}
     if pp.ITERATE in data[pp.STATE]:
         data[pp.STATE][pp.ITERATE].update(iterate)
     else:
