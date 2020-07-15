@@ -67,7 +67,7 @@ import porepy as pp
 import numbers
 import warnings
 import porepy.params.parameter_dictionaries as dicts
-from typing import List
+from typing import List, Dict, Optional
 
 
 class Parameters(dict):
@@ -187,7 +187,11 @@ class Parameters(dict):
             modify_variable(self[keyword][p], v)
 
     def expand_scalars(
-        self, n_vals: int, keyword: str, parameters: List[str], defaults=None
+        self,
+        n_vals: int,
+        keyword: str,
+        parameters: List[str],
+        defaults: Optional[Dict] = None,
     ) -> List:
         """ Expand parameters assigned as a single scalar to n_vals arrays. 
         Used e.g. for parameters which may be heterogeneous in space (cellwise),
@@ -268,7 +272,9 @@ def initialize_default_data(
     return initialize_data(g, data, keyword, d)
 
 
-def initialize_data(g, data, keyword, specified_parameters=None):
+def initialize_data(
+    g, data: Dict, keyword: str, specified_parameters: Optional[Dict] = None
+) -> Dict:
     """ Initialize a data dictionary for a single keyword.
 
     The initialization consists of adding a parameter dictionary and initializing a
@@ -295,7 +301,7 @@ def initialize_data(g, data, keyword, specified_parameters=None):
     return data
 
 
-def set_state(data, state=None):
+def set_state(data: Dict, state: Optional[Dict] = None) -> Dict:
     """ Initialize or update a state dictionary.
 
     The initialization consists of adding a state dictionary in the proper field of the
@@ -309,12 +315,27 @@ def set_state(data, state=None):
     Returns:
         data: The filled dictionary.
     """
-    if not state:
-        state = {}
+    state = state or {}
     if pp.STATE in data:
         data[pp.STATE].update(state)
     else:
         data[pp.STATE] = state
+    return data
+
+
+def set_iterate(data: Dict, iterate: Optional[Dict] = None) -> Dict:
+    """Initialize or update an iterate dictionary.
+    
+    Same as set_state for subfield pp.ITERATE    
+    Also checks whether pp.STATE field is set, and adds it if not, see set_state.
+    """
+    if not pp.STATE in data:
+        set_state(data)
+    iterate = iterate or {}
+    if pp.ITERATE in data[pp.STATE]:
+        data[pp.STATE][pp.ITERATE].update(iterate)
+    else:
+        data[pp.STATE][pp.ITERATE] = iterate
     return data
 
 

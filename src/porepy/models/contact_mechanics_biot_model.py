@@ -117,7 +117,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.mechanics_parameter_key]
 
         if previous_iterate:
-            p = d[pp.STATE]["previous_iterate"][self.scalar_variable]
+            p = d[pp.STATE][pp.ITERATE][self.scalar_variable]
         else:
             p = d[pp.STATE][self.scalar_variable]
 
@@ -448,7 +448,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             initial_scalar_value = np.zeros(g.num_cells)
             d[pp.STATE].update({self.scalar_variable: initial_scalar_value})
             if g.dim == self.Nd:
-                bc_values = d[pp.PARAMETERS][self.mechanics_parameter_key]["bc_values"]
+                bc_values = self.bc_values_mechanics(g)
                 mech_dict = {"bc_values": bc_values}
                 d[pp.STATE].update({self.mechanics_parameter_key: mech_dict})
 
