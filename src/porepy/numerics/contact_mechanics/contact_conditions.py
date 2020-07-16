@@ -288,16 +288,20 @@ class ColoumbContact:
         )
         # Find cells with non-zero tangential traction. This excludes cells that were
         # not in contact in the previous iteration.
-        non_zero_tangential_traction = (
-            np.sum(contact_force_tangential ** 2, axis=0) > self.tol ** 2
-        )
+        # non_zero_tangential_traction = (
+        #     np.sum(contact_force_tangential ** 2, axis=0) > self.tol ** 2
+        # )
 
         # The discretization of the sliding state tacitly assumes that the tangential
         # traction in the previous iteration - or else we will divide by zero.
         # Therefore, only allow for sliding if the tangential traciton is non-zero.
         # In practice this means that a cell is not allowed to go directly from
         # non-penetration to sliding.
-        sliding_bc = np.logical_and(sliding_criterion, non_zero_tangential_traction)
+        # This feature was turned off due to convergence issues.
+        # TODO: Either purge entirely or, if found to be useful in some simulations,
+        # convert to a optional feature.
+        sliding_bc = sliding_criterion
+        # np.logical_and(sliding_criterion, non_zero_tangential_traction)
 
         # Structures for storing the computed coefficients.
         displacement_weight = []  # Multiplies displacement jump
@@ -544,16 +548,18 @@ class ColoumbContact:
         coeff_M = self._M(Tt, cut, bf)
 
         # Regularization during the iterations requires computations of parameters
-        # alpha, beta, delta
-        alpha = -Tt.T.dot(-Tt + cut) / (self._l2(-Tt) * self._l2(-Tt + cut))
-        # Parameter delta.
-        # NOTE: The denominator bf is correct. The definition given in Berge is wrong.
-        delta = min(self._l2(-Tt) / bf, 1)
+        # alpha, beta, delta. In degenerate cases, use
+        beta = 1
+        # Avoid division by zero:
+        l2_Tt = self._l2(-Tt)
+        if not np.isclose(l2_Tt, 0):
+            alpha = -Tt.T.dot(-Tt + cut) / (l2_Tt * self._l2(-Tt + cut))
+            # Parameter delta.
+            # NOTE: The denominator bf is correct. The definition given in Berge is wrong.
+            delta = min(l2_Tt / bf, 1)
 
-        if alpha < 0:
-            beta = 1 / (1 - alpha * delta)
-        else:
-            beta = 1
+            if alpha < 0:
+                beta = 1 / (1 - alpha * delta)
 
         # The expression (I - beta * M)^-1
         # NOTE: In the definition of \tilde{L} in Berge, the inverse on the inner
