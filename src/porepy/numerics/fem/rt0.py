@@ -58,9 +58,12 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
-            matrix_dictionary[self.mass_matrix_key] = sps.dia_matrix(([1], 0), (1, 1))
-            matrix_dictionary[self.div_matrix_key] = sps.csr_matrix((1, 1))
-            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, 1))
+            mass = sps.dia_matrix(([1], 0), (g.num_faces, g.num_faces))                                                
+            matrix_dictionary[self.mass_matrix_key] = mass                                                             
+            matrix_dictionary[self.div_matrix_key] = sps.csr_matrix(                                                   
+                (g.num_faces, g.num_cells)                                                                             
+            )                                                                                                          
+            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, g.num_cells))  
             return
 
         # Get dictionary for parameter storage
