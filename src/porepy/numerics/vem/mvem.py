@@ -65,7 +65,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             matrix_dictionary[self.div_matrix_key] = sps.csr_matrix(
                 (g.num_faces, g.num_cells)
             )
-            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, g.num_cells))  
+            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, g.num_cells))
             return
 
         # Get dictionary for parameter storage
