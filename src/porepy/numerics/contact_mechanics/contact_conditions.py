@@ -33,7 +33,7 @@ import numpy as np
 
 import porepy as pp
 import logging
-from typing import Dict
+from typing import Dict, Tuple
 
 
 logger = logging.getLogger(__name__)
@@ -288,16 +288,20 @@ class ColoumbContact:
         )
         # Find cells with non-zero tangential traction. This excludes cells that were
         # not in contact in the previous iteration.
-        non_zero_tangential_traction = (
-            np.sum(contact_force_tangential ** 2, axis=0) > self.tol ** 2
-        )
+        # non_zero_tangential_traction = (
+        #     np.sum(contact_force_tangential ** 2, axis=0) > self.tol ** 2
+        # )
 
         # The discretization of the sliding state tacitly assumes that the tangential
         # traction in the previous iteration - or else we will divide by zero.
         # Therefore, only allow for sliding if the tangential traciton is non-zero.
         # In practice this means that a cell is not allowed to go directly from
         # non-penetration to sliding.
-        sliding_bc = np.logical_and(sliding_criterion, non_zero_tangential_traction)
+        # This feature was turned off due to convergence issues.
+        # TODO: Either purge entirely or, if found to be useful in some simulations,
+        # convert to a optional feature.
+        sliding_bc = sliding_criterion
+        # np.logical_and(sliding_criterion, non_zero_tangential_traction)
 
         # Structures for storing the computed coefficients.
         displacement_weight = []  # Multiplies displacement jump
@@ -511,17 +515,22 @@ class ColoumbContact:
 
     def _sliding_coefficients(
         self, Tt: np.ndarray, ut: np.ndarray, bf: np.ndarray, c: np.ndarray
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Compute the regularized versions of coefficients L, v and r, defined in
-        Eq. (32) and section 3.2.1 in Berge et al.
+        Eq. (32) and section 3.2.1 in Berge et al. and used in Eq. (31).
 
         Arguments:
             Tt: Tangential forces. np array, one or two elements
-            ut: Tangential displacement. Same size as Tt
+            ut: Tangential displacement increment. Same size as Tt.
             bf: Friction bound for this mortar cell.
             c: Numerical parameter
-
+        
+        Returns:
+            L: Weights for tangential displacement increment.
+            v: Weights for normal traction.
+            r: rhs contribution.
+            
         """
         if Tt.ndim <= 1:
             Tt = np.atleast_2d(Tt).T
@@ -544,25 +553,29 @@ class ColoumbContact:
         coeff_M = self._M(Tt, cut, bf)
 
         # Regularization during the iterations requires computations of parameters
-        # alpha, beta, delta
-        alpha = -Tt.T.dot(-Tt + cut) / (self._l2(-Tt) * self._l2(-Tt + cut))
-        # Parameter delta.
-        # NOTE: The denominator bf is correct. The definition given in Berge is wrong.
-        delta = min(self._l2(-Tt) / bf, 1)
+        # alpha, beta, delta. In degenerate cases, use
+        beta = 1
+        # Avoid division by zero:
+        l2_Tt = self._l2(-Tt)
+        if l2_Tt > self.tol:
+            alpha = -Tt.T.dot(-Tt + cut) / (l2_Tt * self._l2(-Tt + cut))
+            # Parameter delta.
+            # NOTE: The denominator bf is correct. The definition given in Berge is wrong.
+            delta = min(l2_Tt / bf, 1)
 
-        if alpha < 0:
-            beta = 1 / (1 - alpha * delta)
-        else:
-            beta = 1
+            if alpha < 0:
+                beta = 1 / (1 - alpha * delta)
 
         # The expression (I - beta * M)^-1
         # NOTE: In the definition of \tilde{L} in Berge, the inverse on the inner
         # paranthesis is missing.
         IdM_inv = np.linalg.inv(Id - beta * coeff_M)
 
+        L = c * (IdM_inv - Id)
+        r = -IdM_inv.dot(self._hf(Tt, cut, bf))
         v = IdM_inv.dot(-Tt + cut) / self._l2(-Tt + cut)
 
-        return c * (IdM_inv - Id), -IdM_inv.dot(self._hf(Tt, cut, bf)), v
+        return L, r, v
 
     def _l2(self, x):
         x = np.atleast_2d(x)
