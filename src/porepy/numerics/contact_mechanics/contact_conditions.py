@@ -33,7 +33,7 @@ import numpy as np
 
 import porepy as pp
 import logging
-from typing import Dict
+from typing import Dict, Tuple
 
 
 logger = logging.getLogger(__name__)
@@ -515,17 +515,22 @@ class ColoumbContact:
 
     def _sliding_coefficients(
         self, Tt: np.ndarray, ut: np.ndarray, bf: np.ndarray, c: np.ndarray
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Compute the regularized versions of coefficients L, v and r, defined in
-        Eq. (32) and section 3.2.1 in Berge et al.
+        Eq. (32) and section 3.2.1 in Berge et al. and used in Eq. (31).
 
         Arguments:
             Tt: Tangential forces. np array, one or two elements
-            ut: Tangential displacement. Same size as Tt
+            ut: Tangential displacement increment. Same size as Tt.
             bf: Friction bound for this mortar cell.
             c: Numerical parameter
-
+        
+        Returns:
+            L: Weights for tangential displacement increment.
+            v: Weights for normal traction.
+            r: rhs contribution.
+            
         """
         if Tt.ndim <= 1:
             Tt = np.atleast_2d(Tt).T
@@ -552,7 +557,7 @@ class ColoumbContact:
         beta = 1
         # Avoid division by zero:
         l2_Tt = self._l2(-Tt)
-        if not np.isclose(l2_Tt, 0):
+        if l2_Tt > self.tol:
             alpha = -Tt.T.dot(-Tt + cut) / (l2_Tt * self._l2(-Tt + cut))
             # Parameter delta.
             # NOTE: The denominator bf is correct. The definition given in Berge is wrong.
@@ -566,9 +571,11 @@ class ColoumbContact:
         # paranthesis is missing.
         IdM_inv = np.linalg.inv(Id - beta * coeff_M)
 
+        L = c * (IdM_inv - Id)
+        r = -IdM_inv.dot(self._hf(Tt, cut, bf))
         v = IdM_inv.dot(-Tt + cut) / self._l2(-Tt + cut)
 
-        return c * (IdM_inv - Id), -IdM_inv.dot(self._hf(Tt, cut, bf)), v
+        return L, r, v
 
     def _l2(self, x):
         x = np.atleast_2d(x)
