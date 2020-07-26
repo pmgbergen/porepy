@@ -288,7 +288,7 @@ def plot_gb(gb, cell_value, vector_value, info, **kwargs):
             **kwargs
         )
 
-    val = np.array([lim(g.nodes) for g, _ in gb])
+    val = np.array([lim(g.nodes) for g, _ in gb if g.dim > 0])
 
     x = [np.amin(val[:, 0, :]), np.amax(val[:, 0, :])]
     y = [np.amin(val[:, 1, :]), np.amax(val[:, 1, :])]
