@@ -450,7 +450,7 @@ def gb_refinement(
         else:
             raise NotImplementedError("Unknown refinement mode")
 
-        gb.set_node_prop(g=g, key="coarse_fine_cell_mapping", val=mapping)
+        gb.set_node_prop(grid=g, key="coarse_fine_cell_mapping", val=mapping)
 
 
 def structured_refinement(
@@ -509,7 +509,9 @@ def structured_refinement(
     5. Assemble the mapping.
 
     """
-
+    if g.dim == 0:
+        mapping = sps.csc_matrix((np.ones(1), ([0], [0])))
+        return mapping
     assert g.num_cells < g_ref.num_cells, "Wrong order of input grids"
     assert g.dim == g_ref.dim, "Grids must be of same dimension"
 
