@@ -327,7 +327,7 @@ class CartGrid(TensorGrid):
         # Create point distribution, and then leave construction to
         # TensorGrid constructor
         if dims is ():  # dirty trick
-            nodes_x = xmin + np.linspace(0, physdims[0], nx + 1)
+            nodes_x = xmin + np.linspace(0, physdims, nx + 1)
             super(self.__class__, self).__init__(nodes_x, name=name)
         elif dims[0] == 2:
             nodes_x = xmin + np.linspace(0, physdims[0], nx[0] + 1)
