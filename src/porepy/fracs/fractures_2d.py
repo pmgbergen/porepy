@@ -223,6 +223,7 @@ class FractureNetwork2d(object):
         constraints=None,
         file_name=None,
         dfn=False,
+        preserve_fracture_tags=False,
         **kwargs,
     ):
         """ Create GridBucket (mixed-dimensional grid) for this fracture network.
@@ -238,12 +239,13 @@ class FractureNetwork2d(object):
                 the meshing algorithm.
             dfn (boolean, optional): If True, a DFN mesh (of the network, but not
                 the surrounding matrix) is created.
+            preserve_tags (boolean, optional default False): If True the tags of
+                the network are passed to the fracture grids.
 
         Returns:
             GridBucket: Mixed-dimensional mesh.
 
         """
-
         in_file = self.prepare_for_gmsh(
             mesh_args, tol, do_snap, constraints, file_name, dfn
         )
@@ -266,9 +268,18 @@ class FractureNetwork2d(object):
                 out_file, constraints=constraints
             )
 
+        if preserve_fracture_tags:
+            # preserve tags for the fractures from the network
+            # we are assuming a coherent numeration between the network
+            # and the created grids
+            frac = np.setdiff1d(np.arange(self.edges.shape[1]), constraints, assume_unique=True)
+            for idg, g in enumerate(grid_list[1 - int(dfn)]):
+                for key, value in self.tags.items():
+                    if key not in g.tags:
+                        g.tags[key] = value[frac][idg]
+
         # Assemble in grid bucket
-        gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
-        return gb
+        return pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
 
     def prepare_for_gmsh(
         self,
