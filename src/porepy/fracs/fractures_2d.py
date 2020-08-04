@@ -135,7 +135,9 @@ class FractureNetwork2d(object):
             # Get a deep copy of domain, but no need to do that if domain is None
             domain = copy.deepcopy(domain)
 
-        return FractureNetwork2d(p_new, edges_new, domain, self.tol)
+        fn = FractureNetwork2d(p_new, edges_new, domain, self.tol)
+        fn.tags = self.tags.copy()
+        return fn
 
     def add_network(self, fs):
         """ Add this fracture set to another one, and return a new set.
@@ -162,6 +164,15 @@ class FractureNetwork2d(object):
 
         p = np.hstack((self.pts, fs.pts))
         e = np.hstack((self.edges[:2], fs.edges[:2] + self.pts.shape[1]))
+        tags = {}
+        # copy the tags of the first network
+        for key, value in self.tags.items():
+            fs_tag = fs.tags.get(key, [None]*fs.edges.shape[1])
+            tags[key] = np.hstack((value, fs_tag))
+        # copy the tags of the second network
+        for key, value in fs.tags.items():
+            if key not in tags:
+                tags[key] = np.hstack(([None]*self.edges.shape[1], value))
 
         # Deal with tags
         # Create separate tag arrays for self and fs, with 0 rows if no tags exist
@@ -200,7 +211,9 @@ class FractureNetwork2d(object):
         else:
             domain = None
 
-        return FractureNetwork2d(p, e, domain, self.tol)
+        fn = FractureNetwork2d(p, e, domain, self.tol)
+        fn.tags = tags
+        return fn
 
     def mesh(
         self,
@@ -268,9 +281,9 @@ class FractureNetwork2d(object):
     ):
         """ Process network intersections and write a gmsh .geo configuration file,
         ready to be processed by gmsh.
-        
+
         NOTE: Consider to use the mesh() function instead to get a ready GridBucket.
-        
+
         Parameters:
             mesh_args: Arguments passed on to mesh size control
             tol (double, optional): Tolerance used for geometric computations.
@@ -518,14 +531,17 @@ class FractureNetwork2d(object):
         boundary_tags = self.tags.get("boundary", [False] * e.shape[1])
 
         if add_domain_edges:
-            # Define the new boundary tags
-            new_boundary_tags = boundary_tags + dom_lines.shape[1] * [True]
-            self.tags["boundary"] = new_boundary_tags
-
             num_p = p.shape[1]
             # Add the domain boundary edges and points
             self.edges = np.hstack((e, dom_lines + num_p))
             self.pts = np.hstack((p, dom_p))
+            # preserve the tags
+            for key, value in self.tags.items():
+                self.tags[key] = np.hstack((value[edges_kept], [None]*dom_lines.shape[1]))
+
+            # Define the new boundary tags
+            new_boundary_tags = boundary_tags + dom_lines.shape[1] * [True]
+            self.tags["boundary"] = np.array(new_boundary_tags)
 
             self.decomposition["domain_boundary_points"] = num_p + np.arange(
                 dom_p.shape[1], dtype=np.int
@@ -705,10 +721,18 @@ class FractureNetwork2d(object):
         if tol is None:
             tol = self.tol
 
-        p, e = pp.intersections.split_intersecting_segments_2d(
-            self.pts, self.edges, tol=self.tol
+        p, e, argsort = pp.intersections.split_intersecting_segments_2d(
+            self.pts, self.edges, tol=self.tol, return_argsort=True
         )
-        return FractureNetwork2d(p, e, self.domain, tol=self.tol)
+        # map the tags
+        tags = {}
+        for key, value in self.tags.items():
+            tags[key] = value[argsort]
+
+        fn = FractureNetwork2d(p, e, self.domain, tol=self.tol)
+        fn.tags = tags
+
+        return fn
 
     # --------- Utility functions below here
 
