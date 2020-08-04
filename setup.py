@@ -57,12 +57,12 @@ def _requirements_from_pyproject(path):
     text = path.read_text()
     data = toml.loads(text)
 
-    requirements = data["tool"]["poetry"]["dependencies"]
-    dev_requirements = data["tool"]["poetry"]["dev-dependencies"]
+    requirements = data['tool']['poetry']['dependencies']
+    dev_requirements = data['tool']['poetry']['dev-dependencies']
 
     merged = {**requirements, **dev_requirements}
     # Drop the python version requirement
-    merged.pop("python")
+    merged.pop('python')
     return merged
 
 
@@ -70,7 +70,7 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
-required = _requirements_from__pyproject(pathlib.Path("pyproject.toml"))
+required = _requirements_from_pyproject(pathlib.Path('pyproject.toml'))
 
 long_description = read("Readme.rst")
 
