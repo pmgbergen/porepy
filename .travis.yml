@@ -23,8 +23,8 @@ install:
   - sudo apt-get update
   - sudo apt-get install libglu1-mesa
   - export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
-  - pip install poetry
-  - poetry install
+  - pip install -U pip
+  - pip install .
   - pip install jupyter
   - pip install shapely
   - pip install shapely[vectorized]
