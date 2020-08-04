@@ -32,5 +32,4 @@ black = "19.10b0"
 mypy = "^0.781"
 flake8 = "^3.8.3"
 toml = "^0.10.1"
-nbconvert = "^5.6.1"
-
+nbconvert = "^5.6"
