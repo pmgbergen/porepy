@@ -43,7 +43,7 @@ before_script:
   - mv polyhedron.py robust_point_in_polyhedron.py
 
 script: 
-  - python setup.py test
+  - pytest
   - sh ./test/regression/run_cron_test.sh
 
 after_success:
