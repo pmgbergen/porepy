@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+import pathlib
+import toml
+
 import os.path
 from glob import glob
 from os.path import basename, splitext
@@ -48,13 +51,26 @@ if USE_CYTHON:
 # --------------------- End of cython part
 
 
+# Get requriements from pyproject.toml.
+# Credit: https://stackoverflow.com/questions/62362693/how-do-i-read-project-dependencies-from-pyproject-toml-from-my-setup-py-to-avoi
+def _requirements_from_pyproject(path):
+    text = path.read_text()
+    data = toml.loads(text)
+
+    requirements = data["tool"]["poetry"]["dependencies"]
+    dev_requirements = data["tool"]["poetry"]["dev-dependencies"]
+
+    merged = {**requirements, **dev_requirements}
+    # Drop the python version requirement
+    merged.pop("python")
+    return merged
+
+
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
-with open("requirements.txt") as f:
-    required = f.read().splitlines()
-
+required = _requirements_from__pyproject(pathlib.Path("pyproject.toml"))
 
 long_description = read("Readme.rst")
 
@@ -63,13 +79,13 @@ setup(
     version="1.1.0",
     license="GPL",
     keywords=["porous media simulation fractures deformable"],
-    author="Eirik Keilegavlen, Runar Berge, Alessio Fumagalli, Michele Starnoni, Ivar Stefansson and Jhabriel Varela",
+    author="Eirik Keilegavlen, Runar Berge, Alessio Fumagalli, Michele Starnoni, Ivar Stefansson and Jhabriel Varela, Haakon Ervik",
     install_requires=required,
     description="Simulation tool for fractured and deformable porous media",
     long_description=long_description,
     maintainer="Eirik Keilegavlen",
     maintainer_email="Eirik.Keilegavlen@uib.no",
-    platforms=["Linux", "Windows"],
+    platforms=["Linux"],
     package_data={"porepy": ["py.typed"]},
     packages=find_packages("src"),
     package_dir={"": "src"},
