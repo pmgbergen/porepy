@@ -45,11 +45,9 @@ jobs:
         sudo apt-get update
         sudo apt-get install libglu1-mesa
         export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
-        pip install -r requirements-dev.txt
-        pip install jupyter
-        pip install .
-        pip install shapely
-        pip install shapely[vectorized]
+        pip install poetry
+        poetry update
+        poetry install
         pip freeze
 
     - name: black
