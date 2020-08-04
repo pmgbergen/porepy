@@ -249,7 +249,6 @@ class ColoumbContact:
             np.isclose(cumulative_tangential_jump, 0, rtol=self.tol, atol=self.tol)
         )[0]
         d_gap = np.zeros((g_l.dim, g_l.num_cells))
-        d_gap[:] = -np.tan(dilation_angle)
         # Compute dg/du_t where u_t is nonzero
         tan = np.atleast_2d(np.tan(dilation_angle)[ind])
         d_gap[:, ind] = (
