@@ -308,6 +308,9 @@ class GridSequenceFactory(abc.ABC):
     params['grid_params']. These are passed on the FractureNetwork.mesh(), essentially
     as **kwargs.
 
+    Acknowledgement: The design idea and the majority of the code was contributed by
+        Haakon Ervik.
+
     """
 
     def __init__(
