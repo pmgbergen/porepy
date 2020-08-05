@@ -748,7 +748,7 @@ class Grid:
             scipy.sparse.csr_matrix, size num_cells * num_cells: Boolean
                 matrix, element (i,j) is true if cells i and j share a face.
                 The matrix is thus symmetric.
-                
+
         """
 
         # Create a copy of the cell-face relation, so that we can modify it at
@@ -788,8 +788,8 @@ class Grid:
         if fi.size != faces.size:
             raise ValueError("sign of internal faces does not make sense")
 
-        I = np.argsort(fi)
-        sgn = sgn[I]
+        fi_sorted = np.argsort(fi)
+        sgn = sgn[fi_sorted]
         sgn = sgn[IC]
         return sgn
 

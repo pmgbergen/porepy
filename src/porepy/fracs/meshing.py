@@ -195,7 +195,7 @@ def _tag_faces(grids, check_highest_dim=True):
 
                 g.tags["tip_faces"][bnd_faces_l[is_tip]] = True
                 domain_boundary_tags = np.zeros(g.num_faces, dtype=bool)
-                domain_boundary_tags[bnd_faces_l[is_tip == False]] = True
+                domain_boundary_tags[bnd_faces_l[np.logical_not(is_tip)]] = True
                 g.tags["domain_boundary_faces"] = domain_boundary_tags
 
 

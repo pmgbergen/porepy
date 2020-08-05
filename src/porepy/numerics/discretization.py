@@ -24,7 +24,7 @@ class Discretization(abc.ABC):
     def discretize(self, g: pp.Grid, data: Dict) -> None:
         """ Construct discretization matrices.
 
-        The discretization matrices should be added to 
+        The discretization matrices should be added to
             data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         Parameters:

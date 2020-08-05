@@ -25,9 +25,9 @@ fractures are in contact. The relation [u_n^{k+1}] = g of eqs. 30 and 31 becomes
    u_n^{k+1} - Dg^k \dot u_t^{k+1} = g^k - Dg \dot u_t^{k},
 
 with Dg = dg/du_t. For the above g, we have Dg = -tan(dilation_angle) * u_t / || u_t ||.
-For the case u_t = 0, we extend the Jacobian to the limit value from the positive side 
+For the case u_t = 0, we extend the Jacobian to the limit value from the positive side
 (arbitrary choice between + and -), i.e.
-    dg/du_t(|| u_t || = 0) = lim_{|| u_t || -> 0 +} dg/du_t = - tan(dilation_angle).        
+    dg/du_t(|| u_t || = 0) = lim_{|| u_t || -> 0 +} dg/du_t = - tan(dilation_angle).
 """
 import numpy as np
 
@@ -79,11 +79,11 @@ class ColoumbContact:
         The discertization is stated in the coordinate system defined by the
         projection operator associated with the surface. The contact forces
         should be interpreted as tangential and normal to this plane.
-        
+
         Parameters in data_l:
             "friction_coefficient": float or np.ndarray (g_l.num_cells). A float
         is interpreted as a homogenous coefficient for all cells of the fracture.
-            "c_num": float. Numerical parameter, defaults to 100. The sensitivity 
+            "c_num": float. Numerical parameter, defaults to 100. The sensitivity
         is currently unknown.
 
         Optional parameters: float or np.ndarray (g_l.num_cells), all default to 0:
@@ -524,12 +524,12 @@ class ColoumbContact:
             ut: Tangential displacement increment. Same size as Tt.
             bf: Friction bound for this mortar cell.
             c: Numerical parameter
-        
+
         Returns:
             L: Weights for tangential displacement increment.
             v: Weights for normal traction.
             r: rhs contribution.
-            
+
         """
         if Tt.ndim <= 1:
             Tt = np.atleast_2d(Tt).T

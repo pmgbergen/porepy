@@ -183,11 +183,11 @@ class RobinCoupling(
             g_slave: Grid on the other neighboring subdomain.
             data_master: Data dictionary for the master suddomain
             data_slave: Data dictionary for the slave subdomain.
-            data_edge: Data dictionary for the edge between the subdomains. 
+            data_edge: Data dictionary for the edge between the subdomains.
                 If gravity is taken into consideration, the parameter sub-
                 dictionary should contain something like a/2 * g, where
                 g is the ambient_dimension x n_mortar_cells gravity vector
-                as used in Starnoni et al 2020, typically with 
+                as used in Starnoni et al 2020, typically with
                     g[ambient_dimension]= -G * rho.
             matrix: original discretization
 
@@ -239,7 +239,8 @@ class RobinCoupling(
             # that the ambient dimension is set, but with a value that does not match
             # the specified vector source.
             raise ValueError(
-                "Mismatch in vector source dimensions. Did you forget to specify the ambient dimension?"
+                """Mismatch in vector source dimensions.
+                Did you forget to specify the ambient dimension?"""
             )
 
         rhs[2] = rhs[2] - vector_source_discr * vector_source

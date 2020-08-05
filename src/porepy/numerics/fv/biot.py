@@ -22,7 +22,6 @@ turn into a standard poro-elasticity equation for non-fractured domains).
 
 """
 import scipy.sparse as sps
-import scipy.sparse.linalg as la
 import numpy as np
 from typing import Dict, Tuple, Any
 from time import time
@@ -1222,7 +1221,7 @@ class GradP(Discretization):
         # Use the same key to acces the discretization matrix as the Biot class.
         mat_key = Biot().grad_p_matrix_key
 
-        if not mat_key in mat_dict:
+        if mat_key not in mat_dict.keys():
             raise ValueError(
                 """GradP class requires a pre-computed discretization to be
                              stored in the matrix dictionary."""
@@ -1351,7 +1350,7 @@ class DivU(Discretization):
         # Use the same key to acces the discretization matrix as the Biot class.
         mat_key = Biot().div_u_matrix_key
 
-        if not mat_key in matrix_dictionary:
+        if mat_key not in matrix_dictionary.keys():
             raise ValueError(
                 """DivU class requires a pre-computed discretization to be
                              stored in the matrix dictionary."""
@@ -1624,7 +1623,7 @@ class BiotStabilization(Discretization):
         mat_key = Biot().stabilization_matrix_key
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not mat_key in matrix_dictionary:
+        if mat_key not in matrix_dictionary.keys():
             raise ValueError(
                 """BiotStabilization class requires a pre-computed
                              discretization to be stored in the matrix dictionary."""

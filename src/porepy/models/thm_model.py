@@ -1,26 +1,31 @@
 """
-This is a setup class for solving the THM equations with contact mechanics at the fractures, if present.
+This is a setup class for solving the THM equations with contact mechanics at the
+fractures, if present.
 
-We build on two other model classes: The class ContactMechanicsBiot inherits from ContactMechanics,
-which is a model for the purely mechanical problem with contact conditions on the fractures,
-and ContactMechanicsBiot, where the displacement solution is coupled to a scalar variable, e.g.
-pressure (Biot equations) or temperature.
-Here, we expand to two scalar variables. The "scalar_variable" used in ContactMechanicsBiot is
-assumed to be the pressure, and the Biot discretization is applied to this. Then the discretizations
-are copied for the TM coupling, and TH coupling discretizations are provided.
-Note that we solve for the temperature increment T-T_0, and that the
-energy balance equation is divided by T_0 (in Kelvin!) to make the HM and TM coupling terms as similar as possible.
-Parameters, variables and discretizations are set in the model class, and the problem may be solved using run_biot.
+We build on two other model classes: The class ContactMechanicsBiot inherits from
+ContactMechanics, which is a model for the purely mechanical problem with contact
+conditions on the fractures, and ContactMechanicsBiot, where the displacement solution is
+coupled to a scalar variable, e.g. pressure (Biot equations) or temperature.
 
-In addition, the discretization yields a stabilization term for each of the scalar equations.
+Here, we expand to two scalar variables. The "scalar_variable" used in ContactMechanicsBiot
+is assumed to be the pressure, and the Biot discretization is applied to this. Then the
+discretizations are copied for the TM coupling, and TH coupling discretizations are
+provided. Note that we solve for the temperature increment T-T_0, and that the energy
+balance equation is divided by T_0 (in Kelvin!) to make the HM and TM coupling terms as
+similar as possible. Parameters, variables and discretizations are set in the model class,
+and the problem may be solved using run_biot.
 
-Equation scaling: For monolithic solution of coupled systems, the condition number of the global
-matrix may become a severe restriction. To alleviate this, the model is set up with three scaling
-parameters. length_scaling allows to solve on a unit size domain, and result interpretation on e.g.
-a kilometer scale. pressure_scale and temperature_scale may be used to solve for scaled pressure
-(p_scaled = p_physical/pressure_scale) and temperature. For typical reservoir conditions, choosing
-a large (e.g. 1e6) pressure_scale is a good place to start. To obtain an idea about the effect
-on the matrix, set the logging level to DEBUG.
+In addition, the discretization yields a stabilization term for each of the scalar
+equations.
+
+Equation scaling: For monolithic solution of coupled systems, the condition number of
+the global matrix may become a severe restriction. To alleviate this, the model is set
+up with three scaling parameters. length_scaling allows to solve on a unit size domain,
+and result interpretation on e.g. a kilometer scale. pressure_scale and temperature_scale
+may be used to solve for scaled pressure (p_scaled = p_physical/pressure_scale) and
+temperature. For typical reservoir conditions, choosing a large (e.g. 1e6) pressure_scale
+is a good place to start. To obtain an idea about the effect on the matrix, set the
+logging level to DEBUG.
 
 NOTE: This module should be considered an experimental feature, which will likely
 undergo major changes (or be deleted).
@@ -377,9 +382,10 @@ class THM(parent_model.ContactMechanicsBiot):
 
     def initial_condition(self) -> None:
         """
-        In addition to the values set by the parent class, we set initial value for the temperature
-        variable, and a previous iterate value for the scalar value. The latter is used for
-        computation of Darcy fluxes, needed for the advective term of the energy equation.
+        In addition to the values set by the parent class, we set initial value for the
+        temperature variable, and a previous iterate value for the scalar value. The
+        latter is used for computation of Darcy fluxes, needed for the advective term of
+        the energy equation.
         """
         super().initial_condition()
 
@@ -406,7 +412,7 @@ class THM(parent_model.ContactMechanicsBiot):
     def compute_fluxes(self) -> None:
         """ Compute the fluxes in the mixed-dimensional grid from the current state of
         the pressure variables.
-        
+
         """
         pp.fvutils.compute_darcy_flux(
             self.gb,
@@ -421,9 +427,9 @@ class THM(parent_model.ContactMechanicsBiot):
     def reconstruct_stress(self, previous_iterate: bool = False) -> None:
         """
         Compute the stress in the highest-dimensional grid based on the displacement
-        pressure and temperature states in that grid, adjacent interfaces and global boundary
-        conditions.
-        
+        pressure and temperature states in that grid, adjacent interfaces and global
+        boundary conditions.
+
         The stress is stored in the data dictionary of the highest dimensional grid,
         in [pp.STATE]['stress'].
 
@@ -563,8 +569,8 @@ class THM(parent_model.ContactMechanicsBiot):
     def update_state(self, solution_vector: np.ndarray) -> None:
         """
         Extract parts of the solution for current iterate.
-        
-        Calls ContactMechanicsBiot version, and additionally updates the iterate solutions 
+
+        Calls ContactMechanicsBiot version, and additionally updates the iterate solutions
         in d[pp.STATE][pp.ITERATE] are updated for the scalar variable, to be used
         for flux computations by compute_darcy_fluxes.
         Method is a tailored copy from assembler.distribute_variable.

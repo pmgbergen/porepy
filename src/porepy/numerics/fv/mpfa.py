@@ -907,16 +907,19 @@ class Mpfa(pp.FVElliptic):
         Thus we can compute the basis functions 'vector_source_jumps' on the sub-cells.
         To ensure flux continuity, as soon as a convention is chosen for what side
         the flux evaluation should be considered on, an additional term, called
-        'vector_source_faces', is added to the full flux. This latter term represents the flux
-        due to cell-center vector source acting on the face from the chosen side.
+        'vector_source_faces', is added to the full flux. This latter term represents the
+        flux due to cell-center vector source acting on the face from the chosen side.
         The pair subfno_unique-unique_subfno gives the side convention.
         The full flux on the face is therefore given by
-        q = flux * p + bound_flux * p_b + (vector_source_jumps + vector_source_faces) * vector_source
+
+        q = flux * p + bound_flux * p_b
+            + (vector_source_jumps + vector_source_faces) * vector_source
 
         Output: vector_source = vector_source_jumps + vector_source_faces
 
         The strategy is as follows.
-        1. assemble r.h.s. for the new linear system, needed for the term 'vector_source_jumps'
+        1. assemble r.h.s. for the new linear system, needed for the term
+            'vector_source_jumps'
         2. compute term 'vector_source_faces'
         """
 

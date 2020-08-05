@@ -36,7 +36,8 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
                 Stored in data[pp.PARAMETERS][self.keyword].
             matrix_dictionary, for storage of discretization matrices.
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
-            deviation_from_plane_tol: The geometrical tolerance, used in the check to rotate 2d and 1d grids
+            deviation_from_plane_tol: The geometrical tolerance, used in the check to
+                rotate 2d and 1d grids
 
         parameter_dictionary contains the entries:
             second_order_tensor: (pp.SecondOrderTensor) Permeability defined

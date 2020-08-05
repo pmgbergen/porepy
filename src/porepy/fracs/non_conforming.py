@@ -320,7 +320,6 @@ def update_nodes(
     # Nodes to be added will have indicies towards the end
     num_nodes_orig = g.num_nodes
     num_delete_nodes = delete_nodes.size
-    num_nodes_not_on_fracture = num_nodes_orig - num_delete_nodes
 
     # Define indices of new nodes.
     new_nodes = num_nodes_orig - delete_nodes.size + np.arange(new_grid_1d.num_nodes)
@@ -360,7 +359,7 @@ def update_nodes(
     # nodes are found along intersections.
 
     # The new grid should also be added to the list, if it is not there before
-    if not new_grid_1d in list_of_grids:
+    if new_grid_1d not in list_of_grids:
         list_of_grids.append(new_grid_1d)
     update_global_point_ind(
         list_of_grids,
