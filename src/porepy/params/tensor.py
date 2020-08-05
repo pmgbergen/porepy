@@ -7,7 +7,6 @@ Created on Sat Feb 27 20:22:25 2016
 The tensor module contains classes for second and fourth order tensors,
 intended e.g. for representation of permeability and stiffness, respectively.
 """
-import copy
 import numpy as np
 
 

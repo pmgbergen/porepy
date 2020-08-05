@@ -102,8 +102,6 @@ class PrimalContactCoupling(
                 added.
 
         """
-        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-
         ambient_dimension = g_master.dim
 
         master_ind = 0

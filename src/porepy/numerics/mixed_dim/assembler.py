@@ -563,8 +563,10 @@ class Assembler:
 
             d[pp.COUPLING_DISCRETIZATION] = {
                 "scalar_coupling_term": {                           <-- coupling_key
-                    g_h: ("pressure", "diffusion"),                 <-- (master_var_key, master_term_key)
-                    g_l: ("pressure", "diffusion"),                 <-- (slave_var_key, slave_term_key)
+                    g_h: ("pressure", "diffusion"),                 <-- (master_var_key,
+                                                                         master_term_key)
+                    g_l: ("pressure", "diffusion"),                 <-- (slave_var_key,
+                                                                         slave_term_key)
                     e: (
                         "mortar_pressure",                          <-- edge_var_key
                         pp.RobinCoupling("flow", pp.Mpfa("flow"),   <-- edge_discr

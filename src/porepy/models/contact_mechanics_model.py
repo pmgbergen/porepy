@@ -10,7 +10,6 @@ undergo major changes (or be deleted).
 
 """
 import numpy as np
-import scipy.sparse as sps
 import scipy.sparse.linalg as spla
 import logging
 import time
@@ -75,7 +74,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         self.gb = None
 
     def create_grid(self):
-        """ Create a (fractured) domain in 2D or 3D, with projections to local coordinates set for all fractures.
+        """ Create a (fractured) domain in 2D or 3D, with projections to local
+        coordinates set for all fractures.
 
         The method requires the following attribute, which is stored in self.params:
             mesh_args (dict): Containing the mesh sizes.
@@ -401,7 +401,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         """
         Compute the stress in the highest-dimensional grid based on the displacement
         states in that grid, adjacent interfaces and global boundary conditions.
-        
+
         The stress is stored in the data dictionary of the highest-dimensional grid,
         in [pp.STATE]['stress'].
 
@@ -661,53 +661,17 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         A, b = self.assembler.assemble_matrix_rhs()
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
         logger.debug(
-            f"Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."
+            f"Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min"
+            + f" {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."
         )
         if self.linear_solver == "direct":
             return spla.spsolve(A, b)
         elif self.linear_solver == "pyamg":
-            g = self.gb.grids_of_dimension(self.Nd)[0]
-            assembler = self.assembler
-            mechanics_dof = assembler.dof_ind(g, self.displacement_variable)
-            mortar_dof = np.setdiff1d(np.arange(b.size), mechanics_dof)
-
-            A_el_m = A[mechanics_dof, :][:, mortar_dof]
-            A_m_el = A[mortar_dof, :][:, mechanics_dof]
-            A_m_m = A[mortar_dof, :][:, mortar_dof]
-
-            # Also create a factorization of the mortar variable. This is relatively cheap, so why not
-            A_m_m_solve = sps.linalg.factorized(A_m_m)
-
-            def precond_schur(r):
-                # Mortar residual
-                rm = r[mortar_dof]
-                # Residual for the elasticity is the local one, plus the mapping of the mortar residual
-                r_el = r[mechanics_dof] - A_el_m * A_m_m_solve(rm)
-                # Solve, using specified solver
-                du = self.mechanics_precond(r_el)
-                # Map back to mortar residual
-                dm = A_m_m_solve(rm - A_m_el * du)
-                x = np.zeros_like(r)
-                x[mechanics_dof] = du
-                x[mortar_dof] = dm
-                return x
-
-            residuals = []
-
-            def callback(r):
-                logger.info(f"Linear solver iteration {len(residuals)}, residual {r}")
-                residuals.append(r)
-
-            M = sps.linalg.LinearOperator(A.shape, precond_schur)
-            sol, info = spla.gmres(
-                A, b, M=M, restart=100, maxiter=1000, tol=tol, callback=callback
-            )
-            logger.info(f"Completed a total of {len(residuals)} iterations.")
-            return sol
+            raise NotImplementedError("Not that far yet")
 
     def _is_nonlinear_problem(self):
         """
-        If there is no fracture, the problem is usually linear. 
+        If there is no fracture, the problem is usually linear.
         Overwrite this function if e.g. parameter nonlinearities are included.
         """
         return self.gb.dim_min() < self.Nd

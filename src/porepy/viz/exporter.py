@@ -8,7 +8,8 @@ time steps, a single pvd file takes care of the ordering of all printed vtu
 files.
 """
 
-import sys, os
+import sys
+import os
 import numpy as np
 import scipy.sparse as sps
 import logging
@@ -161,7 +162,7 @@ class Exporter:
         Parameters:
         grid: the grid or grid bucket
         file_name: the root of file name without any extension.
-        folder_name: (optional) the name of the folder to save the file. 
+        folder_name: (optional) the name of the folder to save the file.
             If the folder does not exist it will be created.
 
         Optional arguments in kwargs:
@@ -232,12 +233,8 @@ class Exporter:
         else:
             self.gb_VTK = None
 
-        try:
-            import numba
-        except ImportError:
-            warnings.warn("Numba not available. Export may be slow for large grids")
-
-        self.has_numba = "numba" in sys.modules
+        # Assume numba is available
+        self.has_numba = True
 
         self._update_gb_VTK()
 
@@ -768,7 +765,6 @@ class Exporter:
         gVTK = vtk.vtkUnstructuredGrid()
         ptsVTK = vtk.vtkPoints()
 
-        ptsId_global = 0
         for g in gs:
             faces_cells, cells, _ = sps.find(g.cell_faces)
             nodes_faces, faces, _ = sps.find(g.face_nodes)

@@ -440,7 +440,7 @@ def invert_diagonal_blocks(mat, s, method=None):
         """
         try:
             import porepy.numerics.fv.cythoninvert as cythoninvert
-        except:
+        except ImportError:
             raise ImportError(
                 """Compiled Cython module not available. Is cython installed?"""
             )
@@ -472,7 +472,7 @@ def invert_diagonal_blocks(mat, s, method=None):
         """
         try:
             import numba
-        except:
+        except ImportError:
             raise ImportError("Numba not available on the system")
 
         # Sort matrix storage before pulling indices and data
@@ -559,7 +559,7 @@ def invert_diagonal_blocks(mat, s, method=None):
             inv_vals = invert_diagonal_blocks_numba(mat, s)
         except np.linalg.LinAlgError:
             raise ValueError("Error in inversion of local linear systems")
-        except:
+        except Exception:
             # This went wrong, fall back on cython
             try_cython = True
     # Variable to check if we should fall back on python

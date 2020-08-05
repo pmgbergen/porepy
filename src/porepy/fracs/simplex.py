@@ -282,7 +282,7 @@ def _read_gmsh_file(
     """
     Read a gmsh .msh file, and convert the result to a format that is compatible with
     the porepy functionality for mesh processing.
-    
+
     Args:
         file_name (str): Name of the file to be processed.
 
