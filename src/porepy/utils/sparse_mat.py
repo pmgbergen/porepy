@@ -69,7 +69,7 @@ def merge_matrices(A, B, lines):
     ---------
     A (scipy.sparse.spmatrix): A sparce matrix
     B (scipy.sparse.spmatrix): A sparce matrix
-    lines (ndarray): Lines of A to be replaced by B. 
+    lines (ndarray): Lines of A to be replaced by B.
 
     Return
     ------
@@ -136,10 +136,10 @@ def merge_matrices(A, B, lines):
 def stack_mat(A, B):
     """
     Stack matrix B at the end of matrix A.
-    If A and B are csc matrices this function is equivalent to 
-    A = scipy.sparse.hstack((A, B))
-    If A and B are csr matrices this function is equivalent to 
-    A = scipy.sparse.vstack((A, B))
+    If A and B are csc matrices this function is equivalent to
+        A = scipy.sparse.hstack((A, B))
+    If A and B are csr matrices this function is equivalent to
+        A = scipy.sparse.vstack((A, B))
 
     Parameters:
     -----------

@@ -61,8 +61,8 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
     def bc_values_mechanics(self, g: pp.Grid) -> np.ndarray:
         """
-        Note that Dirichlet values should be divided by length_scale, and Neumann values by 
-        scalar_scale.
+        Note that Dirichlet values should be divided by length_scale, and Neumann values
+        by scalar_scale.
         """
         # Set the boundary values
         return super().bc_values(g)
@@ -85,7 +85,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
     def aperture(self, g: pp.Grid) -> np.ndarray:
         """
         Aperture is a characteristic thickness of a cell, with units [m].
-        1 in matrix, thickness of fractures and "side length" of cross-sectional 
+        1 in matrix, thickness of fractures and "side length" of cross-sectional
         area/volume (or "specific volume") for intersections of co-dimension 2 and 3.
         See also specific_volume.
         """
@@ -128,7 +128,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
     def specific_volume(self, g: pp.Grid) -> np.ndarray:
         """
-        The specific volume of a cell accounts for the dimension reduction and has 
+        The specific volume of a cell accounts for the dimension reduction and has
         dimensions [m^(Nd - d)].
         Typically equals 1 in Nd, the aperture in codimension 1 and the square/cube
         of aperture in codimensions 2 and 3.
@@ -494,7 +494,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
     def before_newton_loop(self) -> None:
-        """ Will be run before entering a Newton loop. 
+        """ Will be run before entering a Newton loop.
         E.g.
            Discretize time-dependent quantities etc.
            Update time-dependent parameters (captured by assembly).
@@ -592,7 +592,8 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             def precond_schur(r):
                 # Mortar residual
                 rm = r[mortar_dof]
-                # Residual for the elasticity is the local one, plus the mapping of the mortar residual
+                # Residual for the elasticity is the local one, plus the mapping of the
+                # mortar residual
                 r_el = r[mechanics_dof] - A_el_m * A_m_m_solve(rm)
                 # Solve, using specified solver
                 du = self.mechanics_precond(r_el)

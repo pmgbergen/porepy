@@ -210,9 +210,9 @@ class ImplicitTpfa(pp.Tpfa):
 
 class ImplicitUpwind(pp.Upwind):
     """
-    Multiply all contributions by the time step and advection weight. 
+    Multiply all contributions by the time step and advection weight.
     The latter may be a scalar or cellwise values, in which case the upwind
-    value is used. Note that the interior cell value is taken for BCs, 
+    value is used. Note that the interior cell value is taken for BCs,
     regardless of the direction of the flux on the boundary.
     """
 

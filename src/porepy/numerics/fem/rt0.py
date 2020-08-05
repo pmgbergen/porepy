@@ -206,16 +206,14 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         out: ndarray (num_faces_of_cell, num_faces_of_cell)
             Local mass Hdiv matrix.
         """
-        # Allow short variable names in this function
-        # pylint: disable=invalid-name
-        I = np.eye(dim + 1)
+        ind = np.eye(dim + 1)
         # expand the inv_K tensor
         inv_K_exp = (
-            I[:, np.newaxis, :, np.newaxis]
+            ind[:, np.newaxis, :, np.newaxis]
             * inv_K[np.newaxis, :, np.newaxis, :]
             / c_volume
         )
-        inv_K_exp.shape = (I.shape[0] * inv_K.shape[0], I.shape[1] * inv_K.shape[1])
+        inv_K_exp.shape = (ind.shape[0] * inv_K.shape[0], ind.shape[1] * inv_K.shape[1])
 
         N = coord.flatten("F").reshape((-1, 1)) * np.ones(
             (1, dim + 1)
