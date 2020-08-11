@@ -58,8 +58,6 @@ def dumpGridToFile(g, fn):
         outfile.write(" ".join(map(str, g.cell_faces.indptr)) + "\n")
         if hasattr(g, "cell_facetag"):
             cell_face_tag = np.ravel(np.vstack((g.cell_faces.indices, g.cell_facetag)),'F')
-            import pdb; pdb.set_trace()
-
             outfile.write(" ".join(map(str, cell_face_tag)) + "\n")
         else:
             outfile.write(" ".join(map(str, g.cell_faces.indices)) + "\n")
@@ -365,12 +363,34 @@ def addCellFaceTag(gb):
         if "CartGrid" in g.name:
             raise NotImplementedError('Have not implemented addCellFaceTag for dimension 3')
 
+    tol = 1e-10
     for g in gb.grids_of_dimension(2):
         if "CartGrid" in g.name:
             g.cell_facetag = np.zeros(g.cell_faces.indptr[-1], dtype=int)
             for k in range(g.num_cells):
+                cc = g.cell_centers[:, k]
                 for i in range(4):
-                    g.cell_facetag[k * 4 + i] = i
+                    face = g.cell_faces.indices[k * 4 + i]
+                    fc = g.face_centers[:, face]
+
+                    diff = cc - fc
+
+                    num_tags = 0
+                    if diff[0] < - tol:
+                        g.cell_facetag[k * 4 + i] = 0
+                        num_tags += 1
+                    if diff[0] > tol:
+                        g.cell_facetag[k * 4 + i] = 1
+                        num_tags += 1
+                    if diff[1] < -tol:
+                        g.cell_facetag[k * 4 + i] = 2
+                        num_tags += 1
+                    if diff[1] > tol:
+                        g.cell_facetag[k * 4 + i] = 3
+                        num_tags += 1
+
+                    if num_tags!=1:
+                        raise AttributeError("Could not find EWNS face of cell {}".format(k))
 
 def circumcenterCellCenters(gb):
     if len(gb.grids_of_dimension(3))>0:
