@@ -10,7 +10,7 @@ class CartLeafGrid(pp.CartGrid):
 
         Parameters
         ----------
-        nx (np.ndarray): Number of cells in each direction. Should be 2D or 3D
+        nx (np.ndarray): Number of cells in each direction. Should be 1D or 2D
         physdims (np.ndarray): Physical dimensions in each direction.
             Defaults to same as nx, that is, cells of unit size.
         levels (int): Number of grid levels. Defaults to 1
@@ -26,6 +26,7 @@ class CartLeafGrid(pp.CartGrid):
 
         # default to first level:
         self.dim = self.level_grids[0].dim
+
         self.nodes = self.level_grids[0].nodes.copy()
         self.cell_faces = self.level_grids[0].cell_faces.copy()
         self.face_nodes = self.level_grids[0].face_nodes.copy()
@@ -85,26 +86,52 @@ class CartLeafGrid(pp.CartGrid):
             )
 
         if self.cell_projections_level[level0] is None:
-            g0 = self.level_grids[level0]
-            g1 = self.level_grids[level1]
+            if self.dim==1:
+                self.cell_proj_level_1d_(level0, level1)
+            elif self.dim==2:
+                self.cell_proj_level_2d_(level0, level1)
+            else:
+                raise NotImplementedError("Cell projections only implemented for 1d or 2d")
 
-            nx0 = self.mesh_sizes[level0]
-            nx1 = self.mesh_sizes[level1]
-
-            offset = np.atleast_2d(np.cumsum([nx0[0]] * nx0[1])).T
-            offset -= offset[0]
-            cell_indices = np.tile(
-                np.tile(np.arange(nx0[0]), (2, 2)).ravel("F"), (nx0[1], 1)
-            )
-            cell_indices += offset
-            cell_indices = cell_indices.ravel("C")
-
-            cell_ptr = np.arange(g1.num_cells + 1)
-            data = np.ones(cell_indices.size, dtype=int)
-            self.cell_projections_level[level0] = sps.csc_matrix(
-                (data, cell_indices, cell_ptr)
-            )
         return self.cell_projections_level[level0]
+
+
+    def cell_proj_level_1d_(self, level0, level1):
+        g0 = self.level_grids[level0]
+        g1 = self.level_grids[level1]
+
+        nx0 = self.mesh_sizes[level0]
+        nx1 = self.mesh_sizes[level1]
+
+        cell_indices = np.tile(np.arange(nx0), (2, 1)).ravel("F")
+
+        cell_ptr = np.arange(g1.num_cells + 1)
+        data = np.ones(cell_indices.size, dtype=int)
+        self.cell_projections_level[level0] = sps.csc_matrix(
+            (data, cell_indices, cell_ptr)
+        )
+
+
+    def cell_proj_level_2d_(self, level0, level1):
+        g0 = self.level_grids[level0]
+        g1 = self.level_grids[level1]
+
+        nx0 = self.mesh_sizes[level0]
+        nx1 = self.mesh_sizes[level1]
+
+        offset = np.atleast_2d(np.cumsum([nx0[0]] * nx0[1])).T
+        offset -= offset[0]
+        cell_indices = np.tile(
+            np.tile(np.arange(nx0[0]), (2, 2)).ravel("F"), (nx0[1], 1)
+        )
+        cell_indices += offset
+        cell_indices = cell_indices.ravel("C")
+
+        cell_ptr = np.arange(g1.num_cells + 1)
+        data = np.ones(cell_indices.size, dtype=int)
+        self.cell_projections_level[level0] = sps.csc_matrix(
+            (data, cell_indices, cell_ptr)
+        )
 
     def face_proj_level(self, level0, level1):
         if level1 - level0 != 1:
@@ -112,40 +139,65 @@ class CartLeafGrid(pp.CartGrid):
                 "Can only calculate projection between grids 1 level apart"
             )
         if self.face_projections_level[level0] is None:
-            g0 = self.level_grids[level0]
-            g1 = self.level_grids[level1]
+            if self.dim==1:
+                self.face_projections_level[level0] = self.face_proj_level_1d_(level0, level1)
+            elif self.dim==2:
+                self.face_projections_level[level0] = self.face_proj_level_2d_(level0, level1)
+            else:
+                raise NotImplementedError("Face projections only implemented for 1d or 2d")
 
-            nx0 = self.mesh_sizes[level0] + 1
-            nx1 = self.mesh_sizes[level1] + 1
+        return self.face_proj_level[level0]
 
-            faces_x = np.ones(nx1[0], dtype=bool)
-            faces_x[1::2] = False
-            faces_y = np.ones(nx1[1] - 1, dtype=bool)
-            faces_XX, faces_YY = np.meshgrid(faces_x, faces_y)
-            do_match_x = faces_XX.flatten() * faces_YY.flatten()
 
-            faces_x = np.ones(nx1[0] - 1, dtype=bool)
-            faces_y = np.ones(nx1[1], dtype=bool)
-            faces_y[1::2] = False
-            faces_XX, faces_YY = np.meshgrid(faces_x, faces_y)
-            do_match_y = faces_XX.flatten() * faces_YY.flatten()
+    def face_proj_level_1d_(self, level0, level1):
+        g0 = self.level_grids[level0]
+        g1 = self.level_grids[level1]
 
-            do_match = np.r_[do_match_x, do_match_y]
+        nx0 = self.mesh_sizes[level0] + 1
+        nx1 = self.mesh_sizes[level1] + 1
 
-            do_match_padded = np.r_[0, do_match]
-            indPtr = np.cumsum(do_match_padded)
-            indices_x_row = np.arange(nx0[0] * (nx0[1] - 1)).reshape((-1, nx0[0]))
-            indices_x = np.tile(indices_x_row, (1, 2)).ravel()
-            start_y = nx0[0] * (nx0[1] - 1)
-            indices_y = np.repeat(
-                np.arange(start_y, start_y + nx0[1] * (nx0[0] - 1)), 2
-            )
-            indices = np.r_[indices_x, indices_y]
-            data = np.ones(indices.size, dtype=bool)
-            self.face_projections_level[level0] = sps.csc_matrix(
-                (data, indices, indPtr)
-            )
-        return self.face_projections_level[level0]
+        faces_x = np.ones(nx1, dtype=bool)
+        faces_x[1::2] = False
+
+        do_match_padded = np.r_[0, faces_x]
+        indPtr = np.cumsum(do_match_padded)
+        indices = np.arange(nx0)
+        data = np.ones(indices.size, dtype=bool)
+        return sps.csc_matrix((data, indices, indPtr))
+
+    def face_proj_level_2d_(self, level0, level1):
+        g0 = self.level_grids[level0]
+        g1 = self.level_grids[level1]
+
+        nx0 = self.mesh_sizes[level0] + 1
+        nx1 = self.mesh_sizes[level1] + 1
+
+        faces_x = np.ones(nx1[0], dtype=bool)
+        faces_x[1::2] = False
+        faces_y = np.ones(nx1[1] - 1, dtype=bool)
+        faces_XX, faces_YY = np.meshgrid(faces_x, faces_y)
+        do_match_x = faces_XX.flatten() * faces_YY.flatten()
+
+        faces_x = np.ones(nx1[0] - 1, dtype=bool)
+        faces_y = np.ones(nx1[1], dtype=bool)
+        faces_y[1::2] = False
+        faces_XX, faces_YY = np.meshgrid(faces_x, faces_y)
+        do_match_y = faces_XX.flatten() * faces_YY.flatten()
+
+        do_match = np.r_[do_match_x, do_match_y]
+
+        do_match_padded = np.r_[0, do_match]
+        indPtr = np.cumsum(do_match_padded)
+        indices_x_row = np.arange(nx0[0] * (nx0[1] - 1)).reshape((-1, nx0[0]))
+        indices_x = np.tile(indices_x_row, (1, 2)).ravel()
+        start_y = nx0[0] * (nx0[1] - 1)
+        indices_y = np.repeat(
+            np.arange(start_y, start_y + nx0[1] * (nx0[0] - 1)), 2
+        )
+        indices = np.r_[indices_x, indices_y]
+        data = np.ones(indices.size, dtype=bool)
+        return sps.csc_matrix((data, indices, indPtr))
+
 
     def node_proj_level(self, level0, level1):
         if level1 - level0 != 1:
@@ -153,29 +205,40 @@ class CartLeafGrid(pp.CartGrid):
                 "Can only calculate projection between grids 1 level apart"
             )
         if self.node_projections_level[level0] is None:
-            g0 = self.level_grids[level0]
-            g1 = self.level_grids[level1]
+            if self.dim==1:
+                self.node_projections_level[level0] = self.node_proj_level_1d_(level0, level1)
+            elif self.dim==2:
+                self.node_projections_level[level0] = self.node_proj_level_2d_(level0, level1)
+            else:
+                raise NotImplementedError("Node projections only implemented for 1d or 2d")
 
-            nx0 = self.mesh_sizes[level0] + 1
-            nx1 = self.mesh_sizes[level1] + 1
+        return self.face_proj_level[level0]
 
-            nodes_x = np.ones(nx1[0], dtype=bool)
-            nodes_x[1::2] = False
-            nodes_y = np.ones(nx1[1], dtype=bool)
-            nodes_y[1::2] = False
+    def node_proj_level_1d_(self, level0, level1):
+        return self.face_proj_level_1d(level0, level1)
 
-            nodes_XX, nodes_YY = np.meshgrid(nodes_x, nodes_y)
+    def node_proj_level_2d_(self, level0, level1):
+        g0 = self.level_grids[level0]
+        g1 = self.level_grids[level1]
 
-            do_match = nodes_XX.flatten() * nodes_YY.flatten()
+        nx0 = self.mesh_sizes[level0] + 1
+        nx1 = self.mesh_sizes[level1] + 1
 
-            do_match_padded = np.r_[0, do_match]
-            indPtr = np.cumsum(do_match_padded)
-            indices = np.arange(do_match.sum())
-            data = np.ones(indices.size, dtype=bool)
-            self.node_projections_level[level0] = sps.csc_matrix(
-                (data, indices, indPtr)
-            )
-        return self.node_projections_level[level0]
+        nodes_x = np.ones(nx1[0], dtype=bool)
+        nodes_x[1::2] = False
+        nodes_y = np.ones(nx1[1], dtype=bool)
+        nodes_y[1::2] = False
+
+        nodes_XX, nodes_YY = np.meshgrid(nodes_x, nodes_y)
+
+        do_match = nodes_XX.flatten() * nodes_YY.flatten()
+
+        do_match_padded = np.r_[0, do_match]
+        indPtr = np.cumsum(do_match_padded)
+        indices = np.arange(do_match.sum())
+        data = np.ones(indices.size, dtype=bool)
+        return sps.csc_matrix((data, indices, indPtr))
+
 
     def refine_cells(self, cells):
         if self.cell_projections is None:
