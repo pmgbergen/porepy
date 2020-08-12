@@ -297,7 +297,7 @@ class CartGrid(TensorGrid):
 
         Parameters
         ----------
-        nx (np.ndarray): Number of cells in each direction. Should be 2D or 3D
+        nx (np.ndarray): Number of cells in each direction. Should be 1D, 2D or 3D
         physdims (np.ndarray): Physical dimensions in each direction.
             Defaults to same as nx, that is, cells of unit size.
         """
