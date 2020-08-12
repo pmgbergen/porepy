@@ -23,10 +23,14 @@ class CartLeafGrid(pp.CartGrid):
             self.level_grids.append(pp.CartGrid(self.mesh_sizes[level], physdims))
             self.level_grids[-1].compute_geometry()
         self.name = ["CartLeafGrid"]
-
-        # default to first level:
         self.dim = self.level_grids[0].dim
 
+        # Number of subcell a cell is split into:
+        if self.dim==2:
+            self.num_subcells = 4 # for cartesian
+        elif self.dim==1:
+            self.num_subcells = 2
+        # default to first level:
         self.nodes = self.level_grids[0].nodes.copy()
         self.cell_faces = self.level_grids[0].cell_faces.copy()
         self.face_nodes = self.level_grids[0].face_nodes.copy()
@@ -146,7 +150,7 @@ class CartLeafGrid(pp.CartGrid):
             else:
                 raise NotImplementedError("Face projections only implemented for 1d or 2d")
 
-        return self.face_proj_level[level0]
+        return self.face_projections_level[level0]
 
 
     def face_proj_level_1d_(self, level0, level1):
@@ -212,10 +216,10 @@ class CartLeafGrid(pp.CartGrid):
             else:
                 raise NotImplementedError("Node projections only implemented for 1d or 2d")
 
-        return self.face_proj_level[level0]
+        return self.node_projections_level[level0]
 
     def node_proj_level_1d_(self, level0, level1):
-        return self.face_proj_level_1d(level0, level1)
+        return self.face_proj_level_1d_(level0, level1)
 
     def node_proj_level_2d_(self, level0, level1):
         g0 = self.level_grids[level0]
@@ -330,7 +334,7 @@ class CartLeafGrid(pp.CartGrid):
             leaf_to_level = self.project_level_to_leaf(level, "cell").T
             # Find cells that are on level and tagged for refinement:
             cell_p = self.cell_proj_level(level - 1, level)
-            remove_cells_of_level = cell_p.T * cell_p * leaf_to_level * cell_global > 3
+            remove_cells_of_level = cell_p.T * cell_p * leaf_to_level * cell_global > self.num_subcells - 1
 
             # Here, we made the choice to only coarsen a cell if all (four) fine cells of the
             # coarse cell is tagged for refinement. An other option would be to refine

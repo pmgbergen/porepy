@@ -6,7 +6,7 @@ import warnings
 import porepy as pp
 
 
-class TestCartLeafGrid(unittest.TestCase):
+class TestCartLeafGrid_2d(unittest.TestCase):
     def test_generation_2_levels(self):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 2)
 
@@ -637,6 +637,163 @@ class TestCartLeafGrid(unittest.TestCase):
         self.assertTrue(np.allclose(lg.cell_volumes, lg_ref.cell_volumes))
         self.assertTrue(np.allclose(lg.cell_centers, lg_ref.cell_centers))
         self.assertTrue(np.allclose(lg.per_map, per_ref))
+
+    def _compare_grids(self, g0, g1):
+        self.assertTrue(np.allclose(g0.nodes, g1.nodes))
+        self.assertTrue(np.allclose(g0.face_nodes.A, g1.face_nodes.A))
+        self.assertTrue(np.allclose(g0.cell_faces.A, g1.cell_faces.A))
+
+        self.assertTrue(np.allclose(g0.face_areas, g1.face_areas))
+        self.assertTrue(np.allclose(g0.face_centers, g1.face_centers))
+        self.assertTrue(np.allclose(g0.face_normals, g1.face_normals))
+        self.assertTrue(np.allclose(g0.cell_volumes, g1.cell_volumes))
+        self.assertTrue(np.allclose(g0.cell_centers, g1.cell_centers))
+
+class TestCartLeafGrid_1d(unittest.TestCase):
+    def test_generation_2_levels(self):
+        lg = pp.CartLeafGrid(2, 1, 2)
+
+        g_t = [pp.CartGrid(2, 1), pp.CartGrid(4, 1)]
+
+        for i, g in enumerate(lg.level_grids):
+            self.assertTrue(np.allclose(g.nodes, g_t[i].nodes))
+            self.assertTrue(np.allclose(g.face_nodes.A, g_t[i].face_nodes.A))
+            self.assertTrue(np.allclose(g.cell_faces.A, g_t[i].cell_faces.A))
+
+    def test_generation_3_levels(self):
+        lg = pp.CartLeafGrid(1, 1, 3)
+
+        g_t = [
+            pp.CartGrid(1, 1),
+            pp.CartGrid(2, 1),
+            pp.CartGrid(4, 1),
+        ]
+
+        for i, g in enumerate(lg.level_grids):
+            self.assertTrue(np.allclose(g.nodes, g_t[i].nodes))
+            self.assertTrue(np.allclose(g.face_nodes.A, g_t[i].face_nodes.A))
+            self.assertTrue(np.allclose(g.cell_faces.A, g_t[i].cell_faces.A))
+
+    def test_refinement_full_grid(self):
+        lg = pp.CartLeafGrid(2, 1, 2)
+        old_to_new = lg.refine_cells(np.ones(2, dtype=bool))
+        g_t = pp.CartGrid(4, 1)
+
+        proj_ref = np.array([
+            [1, 0],
+            [1, 0],
+            [0, 1],
+            [0, 1],
+        ])
+        self.assertTrue(np.allclose(lg.nodes, g_t.nodes))
+        self.assertTrue(np.allclose(lg.face_nodes.A, g_t.face_nodes.A))
+        self.assertTrue(np.allclose(lg.cell_faces.A, g_t.cell_faces.A))
+        self.assertTrue(np.allclose(old_to_new.A, proj_ref))
+
+    def test_refinement_multiple_levels(self):
+        lg = pp.CartLeafGrid(1, 1, 3)
+        old2new = lg.refine_cells(0)
+        old2new = lg.refine_cells(1) * old2new
+        nodes = np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [0.5, 0.0, 0.0],
+                [0.75, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+            ]
+        ).T
+
+        face_nodes = sps.csc_matrix(
+            np.array(
+                [
+                    [1, 0, 0, 0],
+                    [0, 1, 0, 0],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1],
+                ]
+            )
+        )
+
+        cell_faces = sps.csc_matrix(
+            np.array(
+                [
+                    [-1.0, 0.0, 0.0],
+                    [1.0, -1.0, 0.0],
+                    [0.0, 1.0, -1.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            )
+        )
+        g_t = pp.Grid(1, nodes, face_nodes, cell_faces, ["Ref"])
+        proj_known = np.array([[1, 1, 1]]).T
+        g_t.compute_geometry()
+        self._compare_grids(lg, g_t)
+        self.assertTrue(np.allclose(old2new.A, proj_known))
+
+    def test_coarse_cell_ref_after_fine_cell_ref(self):
+        lg = pp.CartLeafGrid(2, 1, 3)
+
+        old2new = lg.refine_cells(0)  # refine cell 0
+        old2new = lg.refine_cells(1) * old2new  # cell 2 is first cell of level 1
+        old2new = lg.refine_cells(0) * old2new  # Cell 0 is still on level 0
+
+        # This should be equivalent to refinging cell 0, 1 and then cell 0
+        lg_ref = pp.CartLeafGrid(2, 1, 3)
+
+        old2new_ref = lg_ref.refine_cells([0, 1])
+        old2new_ref = lg_ref.refine_cells(0)  * old2new_ref
+
+
+        self._compare_grids(lg, lg_ref)
+        self.assertTrue(np.allclose(old2new.A, old2new_ref.A))
+
+
+    def test_max_one_level_ref_rec(self):
+        """
+        Refine CartGrid(2, 1) to:
+
+        |---|-|-|---|---|
+        """
+        lg = pp.CartLeafGrid(2, 1, 4)
+
+        old2new = lg.refine_cells(0)
+        old2new = lg.refine_cells(2) * old2new # should refine cell 0 as well
+
+        lg_ref = pp.CartLeafGrid(2, 1, 4)
+        old2new_ref = lg_ref.refine_cells([0, 1])
+        old2new_ref = lg_ref.refine_cells(1) * old2new_ref
+
+        self._compare_grids(lg, lg_ref)
+        self.assertTrue(np.allclose(old2new.A, old2new_ref.A))
+
+    def test_coarsening_full_grid(self):
+        lg = pp.CartLeafGrid(2, 1, 2)
+        old2new = lg.refine_cells(np.ones(2, dtype=bool))
+        old2new = lg.coarsen_cells(np.ones(4, dtype=bool)) * old2new
+
+        g_t = pp.CartGrid(2, 1)
+        g_t.compute_geometry()
+
+        proj_ref = np.eye(2)
+
+        self._compare_grids(lg, g_t)
+        self.assertTrue(np.allclose(old2new.A, proj_ref))
+
+    def test_coarsening_one_cell(self):
+        lg = pp.CartLeafGrid(2, 1, 2)
+        old2new = lg.refine_cells(np.ones(2, dtype=bool))
+        old2new = lg.coarsen_cells([0, 1]) * old2new
+
+        lg_ref = pp.CartLeafGrid(2, 1, 2)
+        lg_ref.refine_cells(1)
+        proj_ref = np.array([
+            [1, 0, 0],
+            [0, 1, 1],
+        ]).T
+
+        self._compare_grids(lg, lg_ref)
+        self.assertTrue(np.allclose(old2new.A, proj_ref))
+
 
     def _compare_grids(self, g0, g1):
         self.assertTrue(np.allclose(g0.nodes, g1.nodes))
