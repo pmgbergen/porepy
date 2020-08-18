@@ -324,7 +324,7 @@ class MortarGrid:
 
     def update_master(self, g_new: pp.Grid, g_old: pp.Grid, tol: float = None):
         """
-        Update the _slave_to_mortar_int map when the lower dimensional grid is changed.
+        Update the _master_to_mortar_int map when the master (higher dimensional) grid is changed.
 
         Parameter:
             g_new (pp.Grid): The new master grid.
