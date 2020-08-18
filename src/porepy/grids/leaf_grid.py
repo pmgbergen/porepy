@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.sparse as sps
+import copy
 import porepy as pp
 
 
@@ -18,6 +19,7 @@ class CartLeafGrid(pp.CartGrid):
         self.num_levels = levels
         self.level_grids = []
         self.mesh_sizes = []
+        self.physdims = physdims
         for level in range(levels):
             self.mesh_sizes.append(np.asarray(nx) * 2 ** level)
             self.level_grids.append(pp.CartGrid(self.mesh_sizes[level], physdims))
@@ -81,7 +83,64 @@ class CartLeafGrid(pp.CartGrid):
         self.active_cells = None
         self.active_faces = None
         self.active_nodes = None
+
         self._init_active_cells()
+        self._init_projection()
+
+    def copy(self):
+        h = CartLeafGrid(self.mesh_sizes[0], self.physdims, self.num_levels)
+        h.nodes = self.nodes.copy()
+        h.num_faces = self.num_faces
+        h.num_nodes = self.num_nodes
+        h.num_cells = self.num_cells
+        h.face_nodes = self.face_nodes.copy()
+        h.cell_faces = self.cell_faces.copy()
+        h.mesh_sizes = copy.deepcopy(self.mesh_sizes.copy())
+        h.physdims = copy.deepcopy(self.physdims)
+        h.num_levels = self.num_levels
+
+        if hasattr(self, "cell_volumes"):
+            h.cell_volumes = self.cell_volumes.copy()
+        if hasattr(self, "cell_centers"):
+            h.cell_centers = self.cell_centers.copy()
+        if hasattr(self, "face_centers"):
+            h.face_centers = self.face_centers.copy()
+        if hasattr(self, "face_normals"):
+            h.face_normals = self.face_normals.copy()
+        if hasattr(self, "face_areas"):
+            h.face_areas = self.face_areas.copy()
+        if hasattr(self, "tags"):
+            h.tags = self.tags.copy()
+
+        for level in range(self.num_levels):
+            h.level_grids[level] = self.level_grids[level].copy()
+        h.cell_projections = copy.deepcopy(self.cell_projections)
+        h.face_projections = copy.deepcopy(self.face_projections)
+        h.node_projections = copy.deepcopy(self.node_projections)
+
+        h.cell_level_to_leaf = copy.deepcopy(self.cell_level_to_leaf)
+        h.face_level_to_leaf = copy.deepcopy(self.face_level_to_leaf)
+        h.node_level_to_leaf = copy.deepcopy(self.node_level_to_leaf)
+
+        h.cell_projections_level = copy.deepcopy(self.cell_projections_level)
+        h.face_projections_level = copy.deepcopy(self.face_projections_level)
+        h.node_projections_level = copy.deepcopy(self.node_projections_level)
+
+        h.block_cell_faces = self.block_cell_faces.copy()
+        h.block_face_nodes = self.block_face_nodes.copy()
+        h.block_nodes = copy.deepcopy(self.block_nodes)
+        h.block_face_centers = copy.deepcopy(self.block_face_centers)
+        h.block_face_areas = copy.deepcopy(self.block_face_areas)
+        h.block_normals = copy.deepcopy(self.block_face_normals)
+        h.block_cell_centers = copy.deepcopy(self.block_cell_centers)
+        h.block_cell_volumes = copy.deepcopy(self.block_cell_volumes)
+
+        h.cell_level = self.cell_level
+
+        h.active_cells = self.active_cells
+        h.active_faces = self.active_faces
+        h.active_nodes = self.active_nodes
+        return h
 
     def cell_proj_level(self, level0, level1):
         if level1 - level0 != 1:
@@ -258,8 +317,13 @@ class CartLeafGrid(pp.CartGrid):
         cell_global = self.enforce_one_level_refinement(cell_global)
 
         if cell_global.sum() == 0:
-            return sps.diags(
-                np.ones(self.num_cells, dtype=bool), format="csc", dtype=bool
+            return (
+                sps.diags(
+                    np.ones(self.num_cells, dtype=bool), format="csc", dtype=bool
+                ),
+                sps.diags(
+                    np.ones(self.num_faces, dtype=bool), format="csc", dtype=bool
+                )
             )
 
         # Find the current refinement level of the cells that should be refined
@@ -285,8 +349,10 @@ class CartLeafGrid(pp.CartGrid):
 
         # before we update the grid, store the old projections
         old_cell_proj = [None] * self.num_levels
+        old_face_proj = [None] * self.num_levels
         for level in range(self.num_levels):
             old_cell_proj[level] = self.project_level_to_leaf(level, "cell").T.copy()
+            old_face_proj[level] = self.project_level_to_leaf(level, "face").T.copy()
 
         for level in range(self.num_levels):
             if (
@@ -305,9 +371,13 @@ class CartLeafGrid(pp.CartGrid):
         self.update_grid_prop()
 
         # Calculate the projections from old leaf cells to new leaf cells:
-        old_to_new = self._calculate_projection_old_leaf_2_new_leaf(old_cell_proj)
+        old_cell_to_new = self._calculate_projection_old_leaf_2_new_leaf(old_cell_proj, "cell")
+        old_face_to_new = self._calculate_projection_old_leaf_2_new_leaf(old_face_proj, "face")
 
-        return old_to_new
+        # Propogate old face properties to new faces
+        self.update_face_prop(old_face_to_new)
+
+        return old_cell_to_new, old_face_to_new
 
     def coarsen_cells(self, cells):
         if self.cell_projections is None:
@@ -322,9 +392,13 @@ class CartLeafGrid(pp.CartGrid):
         cell_global = self.enforce_one_level_coarsening(cell_global)
 
         if cell_global.sum() == 0:
-            return sps.diags(
+            old2new = sps.diags(
                 np.ones(self.num_cells, dtype=bool), format="csc", dtype=bool
             )
+            old_face_to_new = sps.diags(
+                np.ones(self.num_faces, dtype=bool), format="csc", dtype=bool
+            )
+            return old2new, old_face_to_new
 
         # Find the current refinement level of the cells that should be coarsened
         current_level = self.cell_level[cell_global]
@@ -350,15 +424,17 @@ class CartLeafGrid(pp.CartGrid):
             )
         # before we update the grid, store the old projections
         old_cell_proj = [None] * self.num_levels
+        old_face_proj = [None] * self.num_levels
         for level in range(self.num_levels):
             old_cell_proj[level] = self.project_level_to_leaf(level, "cell").T.copy()
+            old_face_proj[level] = self.project_level_to_leaf(level, "face").T.copy()
 
         must_update = np.unique(
             np.r_[coarsen_levels, coarsen_levels - 1, coarsen_levels + 1]
         )
         for level in range(self.num_levels):
             if level in must_update:
-                old_to_new = self.update_leaf_grid(level)
+                self.update_leaf_grid(level)
 
         for level in range(self.num_levels):
             for entity in ["cell", "face", "node"]:
@@ -369,8 +445,13 @@ class CartLeafGrid(pp.CartGrid):
         self.update_grid_prop()
 
         # Calculate the projections from old leaf cells to new leaf cells:
-        old_to_new = self._calculate_projection_old_leaf_2_new_leaf(old_cell_proj)
-        return old_to_new
+        old_cell_to_new = self._calculate_projection_old_leaf_2_new_leaf(old_cell_proj, "cell")
+        old_face_to_new = self._calculate_projection_old_leaf_2_new_leaf(old_face_proj, "face")
+
+        # Propogate old face properties to new faces
+        self.update_face_prop(old_face_to_new)
+
+        return old_cell_to_new, old_face_to_new
 
     def update_leaf_grid(self, level):
         active_cells = self.active_cells[level]
@@ -388,6 +469,13 @@ class CartLeafGrid(pp.CartGrid):
             per_faces = active_faces[per_map[0]] | active_faces[per_map[1]]
             active_faces[per_map[0]] = per_faces
             active_faces[per_map[1]] = per_faces
+        # For fracture faces, we add the faces if either side of the
+        # fracture boundary is active.
+        if hasattr(self, "frac_pairs"):
+            frac_map = self.level_grids[level].frac_pairs
+            frac_faces = active_faces[frac_map[0]] | active_faces[frac_map[1]]
+            active_faces[frac_map[0]] = frac_faces
+            active_faces[frac_map[1]] = frac_faces
 
         if level < self.num_levels - 1:
             # Not all of these should be included. If a neighbour cell is refined,
@@ -399,8 +487,8 @@ class CartLeafGrid(pp.CartGrid):
             faces_fine = (
                 np.abs(self.level_grids[level + 1].cell_faces) * cells_fine
             ) > 0
-            # For periodic faces, we add the faces if either side of the
-            # periodic boundary is active.
+            # For periodic faces or fracture faces, we add the faces if either
+            # side of the boundary is active.
             if hasattr(self, "per_map"):
                 per_map_fine = self.level_grids[level + 1].per_map
                 per_faces_fine = (
@@ -408,7 +496,13 @@ class CartLeafGrid(pp.CartGrid):
                 )
                 faces_fine[per_map_fine[0]] = per_faces_fine
                 faces_fine[per_map_fine[1]] = per_faces_fine
-
+            if hasattr(self, "frac_pairs"):
+                frac_map_fine = self.level_grids[level + 1].frac_pairs
+                frac_faces_fine = (
+                    faces_fine[frac_map_fine[0]] | faces_fine[frac_map_fine[1]]
+                )
+                faces_fine[frac_map_fine[0]] = frac_faces_fine
+                faces_fine[frac_map_fine[1]] = frac_faces_fine
             active_faces = active_faces & (proj_f * ~faces_fine > 0)
 
         f2lf = _create_restriction_matrix(active_faces)
@@ -510,10 +604,6 @@ class CartLeafGrid(pp.CartGrid):
             ]
         )
 
-        self.initiate_face_tags()
-        self.initiate_node_tags()
-        self.update_boundary_face_tag()
-
         if hasattr(self, "per_map"):
             self.per_map = np.ones((2, 0), dtype=int)
             for level in range(self.num_levels):
@@ -543,6 +633,18 @@ class CartLeafGrid(pp.CartGrid):
 
                 per_map_level = np.vstack((left_leaf, right_leaf))
                 self.per_map = np.c_[self.per_map, per_map_level]
+
+    def update_face_prop(self, old_to_new_face):
+        for key in self.tags.keys():
+            if self.tags[key].size == old_to_new_face.shape[1]:
+                self.tags[key] = (old_to_new_face * self.tags[key]) > 0
+
+        if hasattr(self, "frac_pairs"):
+            for i in range(len(self.frac_pairs)):
+                side = np.zeros(old_to_new_face.shape[1], dtype=int)
+                side[self.frac_pairs[i]] = True
+                self.frac_pairs[i] = np.argwhere(old_to_new_face * side).ravel()
+                
 
     def project_level_to_leaf(self, level, element_type):
         if element_type == "cell":
@@ -635,6 +737,23 @@ class CartLeafGrid(pp.CartGrid):
                 )
                 neighbour_mapping += per_cell_map
 
+            # Refine over fractures
+            if hasattr(self, "frac_pairs"):
+                is_left = np.zeros(self.num_faces, dtype=bool)
+                is_right = np.zeros(self.num_faces, dtype=bool)
+                is_left[self.frac_pairs[0]] = True
+                is_right[self.frac_pairs[1]] = True
+                col = self.frac_pairs[0]
+                row = self.frac_pairs[1]
+                data = np.ones(self.frac_pairs[0].size, dtype=bool)
+                shape = (self.num_faces, self.num_faces)
+                left_to_right = sps.coo_matrix((data, (row, col)), shape=shape)
+                per_face_map = left_to_right + left_to_right.T
+                per_cell_map = (
+                    np.abs(self.cell_faces.T) * per_face_map * np.abs(self.cell_faces)
+                )
+                neighbour_mapping += per_cell_map
+
             neighbours = (neighbour_mapping * level_cells_to_ref) > 0
 
             refine_neighbours = np.zeros(self.num_cells, dtype=bool)
@@ -674,6 +793,23 @@ class CartLeafGrid(pp.CartGrid):
                 col = self.per_map[0]
                 row = self.per_map[1]
                 data = np.ones(self.per_map.shape[1], dtype=bool)
+                shape = (self.num_faces, self.num_faces)
+                left_to_right = sps.coo_matrix((data, (row, col)), shape=shape)
+                per_face_map = left_to_right + left_to_right.T
+                per_cell_map = (
+                    np.abs(self.cell_faces.T) * per_face_map * np.abs(self.cell_faces)
+                )
+                neighbour_mapping += per_cell_map
+
+                # Add neighbourship over fracture boundary:
+            if hasattr(self, "frac_pairs"):
+                is_left = np.zeros(self.num_faces, dtype=bool)
+                is_right = np.zeros(self.num_faces, dtype=bool)
+                is_left[self.frac_pairs[0]] = True
+                is_right[self.frac_pairs[1]] = True
+                col = self.frac_pairs[0]
+                row = self.frac_pairs[1]
+                data = np.ones(self.frac_pairs[0].size, dtype=bool)
                 shape = (self.num_faces, self.num_faces)
                 left_to_right = sps.coo_matrix((data, (row, col)), shape=shape)
                 per_face_map = left_to_right + left_to_right.T
@@ -753,30 +889,54 @@ class CartLeafGrid(pp.CartGrid):
         #     proj_o2n[level + 1] = sps.csc_matrix((0, self.num_cells))
         self.old_to_new = proj_o2n
 
-    def _calculate_projection_old_leaf_2_new_leaf(self, old_cell_proj):
+        for level in range(self.num_levels - 1):
+            self.cell_proj_level(level, level + 1)
+            self.face_proj_level(level, level + 1)
+            self.node_proj_level(level, level + 1)
+
+
+    def _calculate_projection_old_leaf_2_new_leaf(self, old_proj, element_type="cell"):
+        if element_type=="cell":
+            number_of_elements = self.num_cells
+        elif element_type=="face":
+            number_of_elements = self.num_faces
+        else:
+            raise ValueError("Unknown type: " + str(element_type))
         old_to_new = sps.csc_matrix(
-            (self.num_cells, old_cell_proj[0].shape[1]), dtype=bool
+            (number_of_elements, old_proj[0].shape[1]), dtype=bool
         )
         for level in range(self.num_levels):
-            # Add old leaf cells of level that are also in the new leaf cells
+            # Add old leaf elements of level that are also in the new leaf elements
             old_to_new += (
-                self.project_level_to_leaf(level, "cell") * old_cell_proj[level]
+                self.project_level_to_leaf(level, element_type) * old_proj[level]
             )
             if level < self.num_levels - 1:
-                # Add old leaf cells that has been refined:
-                coarse_level_to_fine = self.cell_proj_level(level, level + 1).T
-                old_leaf_to_fine = coarse_level_to_fine * old_cell_proj[level]
+                # Add old leaf elements that has been refined:
+                if element_type=="cell":
+                    coarse_level_to_fine = self.cell_proj_level(level, level + 1).T
+                elif element_type=="face":
+                    coarse_level_to_fine = self.face_proj_level(level, level + 1).T
+                else:
+                    raise ValueError("Unknown type: " + str(element_type))
+
+                old_leaf_to_fine = coarse_level_to_fine * old_proj[level]
                 old_to_new += (
-                    self.project_level_to_leaf(level + 1, "cell") * old_leaf_to_fine
+                    self.project_level_to_leaf(level + 1, element_type) * old_leaf_to_fine
                 )
             if level > 0:
-                # Add old leaf cells that has been coarsened:
-                fine_level_to_coarse = self.cell_proj_level(level - 1, level)
-                old_leaf_to_coarse = fine_level_to_coarse * old_cell_proj[level]
+                # Add old leaf elements that has been coarsened:
+                if element_type=="cell":
+                    fine_level_to_coarse = self.cell_proj_level(level - 1, level)
+                elif element_type=="face":
+                    fine_level_to_coarse = self.face_proj_level(level - 1, level)
+                else:
+                    raise ValueError("Unknown type: " + str(element_type))
+
+                old_leaf_to_coarse = fine_level_to_coarse * old_proj[level]
                 old_to_leaf = (
-                    self.project_level_to_leaf(level - 1, "cell") * old_leaf_to_coarse
+                    self.project_level_to_leaf(level - 1, element_type) * old_leaf_to_coarse
                 )
-                # When coarsening a cell we take the average
+                # When coarsening an element we take the average
                 weight = np.bincount(old_to_leaf.indices)
                 _, IA = np.unique(old_to_leaf.indices, return_inverse=True)
                 weight = np.bincount(IA)

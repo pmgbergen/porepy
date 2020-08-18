@@ -33,7 +33,7 @@ class TestCartLeafGrid_2d(unittest.TestCase):
 
     def test_refinement_full_grid(self):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 2)
-        old_to_new = lg.refine_cells(np.ones(4, dtype=bool))
+        old_to_new, _ = lg.refine_cells(np.ones(4, dtype=bool))
         g_t = pp.CartGrid([4, 4], [1, 1])
 
         proj_ref = np.array([
@@ -61,8 +61,8 @@ class TestCartLeafGrid_2d(unittest.TestCase):
 
     def test_refinement_multiple_levels(self):
         lg = pp.CartLeafGrid([1, 2], [1, 1], 3)
-        old2new = lg.refine_cells(0)
-        old2new = lg.refine_cells([0, 1]) * old2new
+        old2new, _ = lg.refine_cells(0)
+        old2new = lg.refine_cells([0, 1])[0] * old2new
         nodes = np.array(
             [
                 [1.0, 0.0, 0.0],
@@ -170,10 +170,10 @@ class TestCartLeafGrid_2d(unittest.TestCase):
 
     def test_refinement_several_times(self):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 2)
-        old2new = lg.refine_cells(0)
-        old2new = lg.refine_cells(0) * old2new
-        old2new = lg.refine_cells(0) * old2new
-        old2new = lg.refine_cells(0) * old2new
+        old2new, _ = lg.refine_cells(0)
+        old2new = lg.refine_cells(0)[0] * old2new
+        old2new = lg.refine_cells(0)[0] * old2new
+        old2new = lg.refine_cells(0)[0] * old2new
 
         g_t = pp.CartGrid([4, 4], [1, 1])
         g_t.compute_geometry()
@@ -191,8 +191,8 @@ class TestCartLeafGrid_2d(unittest.TestCase):
     def test_recursive_refinement_blocks(self):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 3)
 
-        old2new = lg.refine_cells([0, 1])
-        old2new = lg.refine_cells([2, 3, 4, 5]) * old2new
+        old2new, _ = lg.refine_cells([0, 1])
+        old2new = lg.refine_cells([2, 3, 4, 5])[0] * old2new
 
         g0 = pp.CartGrid([2, 1], [1, 0.5])
         g0.nodes[1] += 0.5
@@ -220,15 +220,15 @@ class TestCartLeafGrid_2d(unittest.TestCase):
     def test_coarse_cell_ref_after_fine_cell_ref(self):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 3)
 
-        old2new = lg.refine_cells(0)  # refine cell 0
-        old2new = lg.refine_cells(3) * old2new  # cell 3 is first cell of level 1
-        old2new = lg.refine_cells(0) * old2new  # Cell 0 is still on level 0
+        old2new, _ = lg.refine_cells(0)  # refine cell 0
+        old2new = lg.refine_cells(3)[0] * old2new  # cell 3 is first cell of level 1
+        old2new = lg.refine_cells(0)[0] * old2new  # Cell 0 is still on level 0
 
         # This should be equivalent to refinging cell 0, 1 and then cell 2
         lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 3)
 
-        old2new_ref = lg_ref.refine_cells([0, 1])
-        old2new_ref = lg_ref.refine_cells(2)  * old2new_ref
+        old2new_ref = lg_ref.refine_cells([0, 1])[0]
+        old2new_ref = lg_ref.refine_cells(2)[0]  * old2new_ref
 
         self._compare_grids(lg, lg_ref)
         self.assertTrue(np.allclose(old2new.A, old2new_ref.A))
@@ -236,8 +236,8 @@ class TestCartLeafGrid_2d(unittest.TestCase):
     def test_recursive_refinement(self):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 3)
 
-        old2new = lg.refine_cells(0)
-        old2new = lg.refine_cells(3) * old2new
+        old2new, _ = lg.refine_cells(0)
+        old2new = lg.refine_cells(3)[0] * old2new
 
         cell_centers = np.array(
             [
@@ -325,7 +325,7 @@ class TestCartLeafGrid_2d(unittest.TestCase):
 
     def test_refinement_singel_cell(self):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 2)
-        old2new = lg.refine_cells(0)
+        old2new, _ = lg.refine_cells(0)
 
         nodes = np.array(
             [
@@ -413,12 +413,12 @@ class TestCartLeafGrid_2d(unittest.TestCase):
         """
         lg = pp.CartLeafGrid([2, 2], [1, 1], 3)
 
-        old2new = lg.refine_cells(0)
-        old2new = lg.refine_cells(4) * old2new  # Should refine cell 0 as well
+        old2new, _ = lg.refine_cells(0)
+        old2new = lg.refine_cells(4)[0] * old2new  # Should refine cell 0 as well
 
         lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 3)
-        old2new_ref = lg_ref.refine_cells([0, 1])
-        old2new_ref = lg_ref.refine_cells(3) * old2new_ref
+        old2new_ref = lg_ref.refine_cells([0, 1])[0]
+        old2new_ref = lg_ref.refine_cells(3)[0] * old2new_ref
 
         self._compare_grids(lg, lg_ref)
         self.assertTrue(np.allclose(old2new.A, old2new_ref.A))
@@ -443,21 +443,21 @@ class TestCartLeafGrid_2d(unittest.TestCase):
         """
         lg = pp.CartLeafGrid([1, 2], [1, 1], 4)
 
-        old2new = lg.refine_cells(0)
-        old2new = lg.refine_cells(1) * old2new
-        old2new = lg.refine_cells(7) * old2new # should refine cell 0, 1, and 2 as well
+        old2new, _ = lg.refine_cells(0)
+        old2new = lg.refine_cells(1)[0] * old2new
+        old2new = lg.refine_cells(7)[0] * old2new # should refine cell 0, 1, and 2 as well
 
         lg_ref = pp.CartLeafGrid([1, 2], [1, 1], 4)
-        old2new_ref = lg_ref.refine_cells([0, 1])
-        old2new_ref = lg_ref.refine_cells([0, 1, 2]) * old2new_ref
-        old2new_ref = lg_ref.refine_cells(10) * old2new_ref
+        old2new_ref = lg_ref.refine_cells([0, 1])[0]
+        old2new_ref = lg_ref.refine_cells([0, 1, 2])[0] * old2new_ref
+        old2new_ref = lg_ref.refine_cells(10)[0] * old2new_ref
         self._compare_grids(lg, lg_ref)
         self.assertTrue(np.allclose(old2new.A, old2new_ref.A))
 
     def test_coarsening_full_grid(self):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 2)
-        old2new = lg.refine_cells(np.ones(4, dtype=bool))
-        old2new = lg.coarsen_cells(np.ones(16, dtype=bool)) * old2new
+        old2new, _ = lg.refine_cells(np.ones(4, dtype=bool))
+        old2new = lg.coarsen_cells(np.ones(16, dtype=bool))[0] * old2new
 
         g_t = pp.CartGrid([2, 2], [1, 1])
         g_t.compute_geometry()
@@ -468,8 +468,8 @@ class TestCartLeafGrid_2d(unittest.TestCase):
 
     def test_coarsening_one_cell(self):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 2)
-        old2new = lg.refine_cells(np.ones(4, dtype=bool))
-        old2new = lg.coarsen_cells([0, 1, 4, 5]) * old2new
+        old2new, _ = lg.refine_cells(np.ones(4, dtype=bool))
+        old2new = lg.coarsen_cells([0, 1, 4, 5])[0] * old2new
 
         lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 2)
         lg_ref.refine_cells([1, 2, 3])
@@ -486,8 +486,8 @@ class TestCartLeafGrid_2d(unittest.TestCase):
     def test_coarsening_multiple_cells(self):
         """ Refine cell 1 and 2. Refine and coarsen back cell 0 and 3"""
         lg = pp.CartLeafGrid([2, 2], [1, 1], 2)
-        old2new = lg.refine_cells(np.ones(4, dtype=bool))
-        old2new = lg.coarsen_cells([0, 1, 4, 5, 10, 11, 14, 15]) * old2new
+        old2new, _ = lg.refine_cells(np.ones(4, dtype=bool))
+        old2new = lg.coarsen_cells([0, 1, 4, 5, 10, 11, 14, 15])[0] * old2new
 
         lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 2)
         lg_ref.refine_cells([1, 2])
@@ -503,10 +503,10 @@ class TestCartLeafGrid_2d(unittest.TestCase):
 
     def test_coarsening_multiple_levels(self):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 3)
-        old2new = lg.refine_cells([0, 1])
-        old2new = lg.refine_cells(2) * old2new
+        old2new, _ = lg.refine_cells([0, 1])
+        old2new = lg.refine_cells(2)[0] * old2new
 
-        old2new = lg.coarsen_cells([3, 4, 7, 8, 9, 10, 11, 12]) * old2new
+        old2new = lg.coarsen_cells([3, 4, 7, 8, 9, 10, 11, 12])[0] * old2new
 
         lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 2)
         lg_ref.refine_cells(0)
@@ -526,7 +526,7 @@ class TestCartLeafGrid_2d(unittest.TestCase):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 3)
         lg.refine_cells([0, 1, 2, 3])
         lg.refine_cells(1)
-        old2new = lg.coarsen_cells([1, 2, 5, 6])
+        old2new, _ = lg.coarsen_cells([1, 2, 5, 6])
 
         lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 3)
         lg_ref.refine_cells([0, 1, 2, 3])
@@ -676,7 +676,7 @@ class TestCartLeafGrid_1d(unittest.TestCase):
 
     def test_refinement_full_grid(self):
         lg = pp.CartLeafGrid(2, 1, 2)
-        old_to_new = lg.refine_cells(np.ones(2, dtype=bool))
+        old_to_new, _ = lg.refine_cells(np.ones(2, dtype=bool))
         g_t = pp.CartGrid(4, 1)
 
         proj_ref = np.array([
@@ -692,8 +692,8 @@ class TestCartLeafGrid_1d(unittest.TestCase):
 
     def test_refinement_multiple_levels(self):
         lg = pp.CartLeafGrid(1, 1, 3)
-        old2new = lg.refine_cells(0)
-        old2new = lg.refine_cells(1) * old2new
+        old2new, _ = lg.refine_cells(0)
+        old2new = lg.refine_cells(1)[0] * old2new
         nodes = np.array(
             [
                 [0.0, 0.0, 0.0],
@@ -733,15 +733,15 @@ class TestCartLeafGrid_1d(unittest.TestCase):
     def test_coarse_cell_ref_after_fine_cell_ref(self):
         lg = pp.CartLeafGrid(2, 1, 3)
 
-        old2new = lg.refine_cells(0)  # refine cell 0
-        old2new = lg.refine_cells(1) * old2new  # cell 2 is first cell of level 1
-        old2new = lg.refine_cells(0) * old2new  # Cell 0 is still on level 0
+        old2new, _ = lg.refine_cells(0)  # refine cell 0
+        old2new = lg.refine_cells(1)[0] * old2new  # cell 2 is first cell of level 1
+        old2new = lg.refine_cells(0)[0] * old2new  # Cell 0 is still on level 0
 
         # This should be equivalent to refinging cell 0, 1 and then cell 0
         lg_ref = pp.CartLeafGrid(2, 1, 3)
 
-        old2new_ref = lg_ref.refine_cells([0, 1])
-        old2new_ref = lg_ref.refine_cells(0)  * old2new_ref
+        old2new_ref, _ = lg_ref.refine_cells([0, 1])
+        old2new_ref = lg_ref.refine_cells(0)[0]  * old2new_ref
 
 
         self._compare_grids(lg, lg_ref)
@@ -756,20 +756,20 @@ class TestCartLeafGrid_1d(unittest.TestCase):
         """
         lg = pp.CartLeafGrid(2, 1, 4)
 
-        old2new = lg.refine_cells(0)
-        old2new = lg.refine_cells(2) * old2new # should refine cell 0 as well
+        old2new, _ = lg.refine_cells(0)
+        old2new = lg.refine_cells(2)[0] * old2new # should refine cell 0 as well
 
         lg_ref = pp.CartLeafGrid(2, 1, 4)
-        old2new_ref = lg_ref.refine_cells([0, 1])
-        old2new_ref = lg_ref.refine_cells(1) * old2new_ref
+        old2new_ref = lg_ref.refine_cells([0, 1])[0]
+        old2new_ref = lg_ref.refine_cells(1)[0] * old2new_ref
 
         self._compare_grids(lg, lg_ref)
         self.assertTrue(np.allclose(old2new.A, old2new_ref.A))
 
     def test_coarsening_full_grid(self):
         lg = pp.CartLeafGrid(2, 1, 2)
-        old2new = lg.refine_cells(np.ones(2, dtype=bool))
-        old2new = lg.coarsen_cells(np.ones(4, dtype=bool)) * old2new
+        old2new, _ = lg.refine_cells(np.ones(2, dtype=bool))
+        old2new = lg.coarsen_cells(np.ones(4, dtype=bool))[0] * old2new
 
         g_t = pp.CartGrid(2, 1)
         g_t.compute_geometry()
@@ -781,8 +781,8 @@ class TestCartLeafGrid_1d(unittest.TestCase):
 
     def test_coarsening_one_cell(self):
         lg = pp.CartLeafGrid(2, 1, 2)
-        old2new = lg.refine_cells(np.ones(2, dtype=bool))
-        old2new = lg.coarsen_cells([0, 1]) * old2new
+        old2new, _ = lg.refine_cells(np.ones(2, dtype=bool))
+        old2new = lg.coarsen_cells([0, 1])[0] * old2new
 
         lg_ref = pp.CartLeafGrid(2, 1, 2)
         lg_ref.refine_cells(1)
