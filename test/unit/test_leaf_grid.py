@@ -36,24 +36,26 @@ class TestCartLeafGrid_2d(unittest.TestCase):
         old_to_new, _ = lg.refine_cells(np.ones(4, dtype=bool))
         g_t = pp.CartGrid([4, 4], [1, 1])
 
-        proj_ref = np.array([
-            [1, 0, 0, 0],
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 1, 0, 0],
-            [1, 0, 0, 0],
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, 0],
-            [0, 0, 1, 0],
-            [0, 0, 0, 1],
-            [0, 0, 0, 1],
-            [0, 0, 1, 0],
-            [0, 0, 1, 0],
-            [0, 0, 0, 1],
-            [0, 0, 0, 1],
-        ])
+        proj_ref = np.array(
+            [
+                [1, 0, 0, 0],
+                [1, 0, 0, 0],
+                [0, 1, 0, 0],
+                [0, 1, 0, 0],
+                [1, 0, 0, 0],
+                [1, 0, 0, 0],
+                [0, 1, 0, 0],
+                [0, 1, 0, 0],
+                [0, 0, 1, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+                [0, 0, 0, 1],
+                [0, 0, 1, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+                [0, 0, 0, 1],
+            ]
+        )
         self.assertTrue(np.allclose(lg.nodes, g_t.nodes))
         self.assertTrue(np.allclose(lg.face_nodes.A, g_t.face_nodes.A))
         self.assertTrue(np.allclose(lg.cell_faces.A, g_t.cell_faces.A))
@@ -162,8 +164,9 @@ class TestCartLeafGrid_2d(unittest.TestCase):
             )
         )
         g_t = pp.Grid(2, nodes, face_nodes, cell_faces, ["Ref"])
-        proj_known = np.array([[1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1],
-                               [0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0]]).T
+        proj_known = np.array(
+            [[1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1], [0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0]]
+        ).T
         g_t.compute_geometry()
         self._compare_grids(lg, g_t)
         self.assertTrue(np.allclose(old2new.A, proj_known))
@@ -177,16 +180,17 @@ class TestCartLeafGrid_2d(unittest.TestCase):
 
         g_t = pp.CartGrid([4, 4], [1, 1])
         g_t.compute_geometry()
-        proj_known = np.array([
-            [1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1]
-        ]).T
+        proj_known = np.array(
+            [
+                [1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1],
+            ]
+        ).T
 
         self._compare_grids(lg, g_t)
         self.assertTrue(np.allclose(old2new.A, proj_known))
-
 
     def test_recursive_refinement_blocks(self):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 3)
@@ -205,12 +209,14 @@ class TestCartLeafGrid_2d(unittest.TestCase):
         g2 = pp.CartGrid([8, 2], [1, 0.25])
         g2.compute_geometry()
 
-        proj_known = np.array([
-            [0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0],
-            [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1],
-            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        ]).T
+        proj_known = np.array(
+            [
+                [0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0],
+                [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            ]
+        ).T
 
         self.assertTrue(np.allclose(lg.cell_centers[:, :2], g0.cell_centers))
         self.assertTrue(np.allclose(lg.cell_centers[:, 2:6], g1.cell_centers))
@@ -228,7 +234,7 @@ class TestCartLeafGrid_2d(unittest.TestCase):
         lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 3)
 
         old2new_ref = lg_ref.refine_cells([0, 1])[0]
-        old2new_ref = lg_ref.refine_cells(2)[0]  * old2new_ref
+        old2new_ref = lg_ref.refine_cells(2)[0] * old2new_ref
 
         self._compare_grids(lg, lg_ref)
         self.assertTrue(np.allclose(old2new.A, old2new_ref.A))
@@ -311,12 +317,14 @@ class TestCartLeafGrid_2d(unittest.TestCase):
             ]
         ).T
 
-        proj_ref = np.array([
-            [0, 0, 0, 1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
-        ]).T
+        proj_ref = np.array(
+            [
+                [0, 0, 0, 1, 1, 1, 1, 1, 1, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+            ]
+        ).T
 
         self.assertTrue(np.allclose(lg.nodes, nodes))
         self.assertTrue(np.allclose(lg.face_centers, face_centers))
@@ -383,15 +391,17 @@ class TestCartLeafGrid_2d(unittest.TestCase):
             ]
         )
 
-        proj_ref = np.array([
-            [0, 1, 0, 0],
-            [0, 0, 1, 0],
-            [0, 0, 0, 1],
-            [1, 0, 0, 0],
-            [1, 0, 0, 0],
-            [1, 0, 0, 0],
-            [1, 0, 0, 0],
-            ])
+        proj_ref = np.array(
+            [
+                [0, 1, 0, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+                [1, 0, 0, 0],
+                [1, 0, 0, 0],
+                [1, 0, 0, 0],
+                [1, 0, 0, 0],
+            ]
+        )
 
         self.assertTrue(np.allclose(lg.nodes, nodes))
         self.assertTrue(np.allclose(lg.face_nodes.A, face_nodes))
@@ -413,15 +423,20 @@ class TestCartLeafGrid_2d(unittest.TestCase):
         """
         lg = pp.CartLeafGrid([2, 2], [1, 1], 3)
 
-        old2new, _ = lg.refine_cells(0)
-        old2new = lg.refine_cells(4)[0] * old2new  # Should refine cell 0 as well
+        old2new, old2new_f = lg.refine_cells(0)
+        old2new_tmp, old2new_f_tmp = lg.refine_cells(4)  # Should refine cell 0 as well
+        old2new = old2new_tmp * old2new
+        old2new_f = old2new_f_tmp * old2new_f
 
         lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 3)
-        old2new_ref = lg_ref.refine_cells([0, 1])[0]
-        old2new_ref = lg_ref.refine_cells(3)[0] * old2new_ref
+        old2new_ref, old2new_f_ref = lg_ref.refine_cells([0, 1])
+        old2new_ref_tmp, old2new_f_ref_tmp = lg_ref.refine_cells(3)
+        old2new_ref = old2new_ref_tmp * old2new_ref
+        old2new_f_ref = old2new_f_ref_tmp * old2new_f_ref
 
         self._compare_grids(lg, lg_ref)
         self.assertTrue(np.allclose(old2new.A, old2new_ref.A))
+        self.assertTrue(np.allclose(old2new_f.A, old2new_f_ref.A))
 
     def test_max_one_level_ref_rec(self):
         """
@@ -445,7 +460,9 @@ class TestCartLeafGrid_2d(unittest.TestCase):
 
         old2new, _ = lg.refine_cells(0)
         old2new = lg.refine_cells(1)[0] * old2new
-        old2new = lg.refine_cells(7)[0] * old2new # should refine cell 0, 1, and 2 as well
+        old2new = (
+            lg.refine_cells(7)[0] * old2new
+        )  # should refine cell 0, 1, and 2 as well
 
         lg_ref = pp.CartLeafGrid([1, 2], [1, 1], 4)
         old2new_ref = lg_ref.refine_cells([0, 1])[0]
@@ -468,20 +485,63 @@ class TestCartLeafGrid_2d(unittest.TestCase):
 
     def test_coarsening_one_cell(self):
         lg = pp.CartLeafGrid([2, 2], [1, 1], 2)
-        old2new, _ = lg.refine_cells(np.ones(4, dtype=bool))
-        old2new = lg.coarsen_cells([0, 1, 4, 5])[0] * old2new
+        old2new, old2new_f = lg.refine_cells(np.ones(4, dtype=bool))
+        old2new_tmp, old2new_f_tmp = lg.coarsen_cells([0, 1, 4, 5])
+        old2new = old2new_tmp * old2new
+        old2new_f = old2new_f_tmp * old2new_f
 
         lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 2)
         lg_ref.refine_cells([1, 2, 3])
-        proj_ref = np.array([
-            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1]
-        ]).T
+        proj_ref = np.array(
+            [
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1],
+            ]
+        ).T
+        proj_f_ref = np.array(
+            [
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+            ]
+        )
 
         self._compare_grids(lg, lg_ref)
         self.assertTrue(np.allclose(old2new.A, proj_ref))
+        self.assertTrue(np.allclose(old2new_f.A, proj_f_ref))
 
     def test_coarsening_multiple_cells(self):
         """ Refine cell 1 and 2. Refine and coarsen back cell 0 and 3"""
@@ -491,12 +551,14 @@ class TestCartLeafGrid_2d(unittest.TestCase):
 
         lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 2)
         lg_ref.refine_cells([1, 2])
-        proj_ref = np.array([
-            [1., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-            [0., 0., 1., 1., 1., 1., 0., 0., 0., 0.],
-            [0., 0., 0., 0., 0., 0., 1., 1., 1., 1.],
-            [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.]
-        ]).T
+        proj_ref = np.array(
+            [
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0],
+                [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            ]
+        ).T
 
         self._compare_grids(lg, lg_ref)
         self.assertTrue(np.allclose(old2new.A, proj_ref))
@@ -510,14 +572,17 @@ class TestCartLeafGrid_2d(unittest.TestCase):
 
         lg_ref = pp.CartLeafGrid([2, 2], [1, 1], 2)
         lg_ref.refine_cells(0)
-        proj_ref = np.array([
-            [0., 1., 0., 0.],
-            [0., 0., 1., 0.],
-            [0., 0., 0., 1.],
-            [1., 0., 0., 0.],
-            [1., 0., 0., 0.],
-            [1., 0., 0., 0.],
-            [1., 0., 0., 0.]])
+        proj_ref = np.array(
+            [
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+                [1.0, 0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0, 0.0],
+            ]
+        )
 
         self._compare_grids(lg, lg_ref)
         self.assertTrue(np.allclose(old2new.A, proj_ref))
@@ -542,70 +607,80 @@ class TestCartLeafGrid_2d(unittest.TestCase):
             the face on the righ boundary is also refined
         """
         lg = pp.CartLeafGrid([2, 2], [1, 1], 2)
-        
+
         lg.per_map = np.array([[6, 7], [10, 11]])
         lg.level_grids[0].per_map = np.array([[6, 7], [10, 11]])
         lg.level_grids[1].per_map = np.array([[20, 21, 22, 23], [36, 37, 38, 39]])
         lg.level_grids[1].face_centers[:, lg.level_grids[1].per_map.ravel()]
         lg.refine_cells(0)
 
-        nodes = np.array([[1.  , 0.  , 0.  ],
-       [1.  , 0.5 , 0.  ],
-       [1.  , 1.  , 0.  ],
-       [0.  , 0.  , 0.  ],
-       [0.25, 0.  , 0.  ],
-       [0.5 , 0.  , 0.  ],
-       [0.  , 0.25, 0.  ],
-       [0.25, 0.25, 0.  ],
-       [0.5 , 0.25, 0.  ],
-       [0.  , 0.5 , 0.  ],
-       [0.25, 0.5 , 0.  ],
-       [0.5 , 0.5 , 0.  ],
-       [0.  , 1.  , 0.  ],
-       [0.25, 1.  , 0.  ],
-       [0.5 , 1.  , 0.  ]]).T
+        nodes = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [1.0, 0.5, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.25, 0.0, 0.0],
+                [0.5, 0.0, 0.0],
+                [0.0, 0.25, 0.0],
+                [0.25, 0.25, 0.0],
+                [0.5, 0.25, 0.0],
+                [0.0, 0.5, 0.0],
+                [0.25, 0.5, 0.0],
+                [0.5, 0.5, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.25, 1.0, 0.0],
+                [0.5, 1.0, 0.0],
+            ]
+        ).T
 
-        face_nodes = np.array([
-            [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0],
-            [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0],
-            [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
-            [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]])
+        face_nodes = np.array(
+            [
+                [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0],
+                [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0],
+                [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+                [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            ]
+        )
 
-        cell_faces = np.array([
-            [ 1.,  0.,  0.,  0.,  0.,  0.,  0.],
-            [ 0., -1.,  0.,  0.,  0.,  0.,  0.],
-            [ 0.,  1., -1.,  0.,  0.,  0.,  0.],
-            [ 0.,  0.,  1.,  0.,  0.,  0.,  0.],
-            [-1.,  0.,  0.,  0.,  0.,  0.,  0.],
-            [ 1.,  0., -1.,  0.,  0.,  0.,  0.],
-            [ 0.,  0.,  1.,  0.,  0.,  0.,  0.],
-            [ 0.,  0.,  0., -1.,  0.,  0.,  0.],
-            [ 0.,  0.,  0.,  1., -1.,  0.,  0.],
-            [-1.,  0.,  0.,  0.,  1.,  0.,  0.],
-            [ 0.,  0.,  0.,  0.,  0., -1.,  0.],
-            [ 0.,  0.,  0.,  0.,  0.,  1., -1.],
-            [-1.,  0.,  0.,  0.,  0.,  0.,  1.],
-            [ 0.,  0.,  0., -1.,  0.,  0.,  0.],
-            [ 0.,  0.,  0.,  0., -1.,  0.,  0.],
-            [ 0.,  0.,  0.,  1.,  0., -1.,  0.],
-            [ 0.,  0.,  0.,  0.,  1.,  0., -1.],
-            [ 0., -1.,  0.,  0.,  0.,  1.,  0.],
-            [ 0., -1.,  0.,  0.,  0.,  0.,  1.],
-            [ 0.,  1.,  0.,  0.,  0.,  0.,  0.],
-            [ 0.,  1.,  0.,  0.,  0.,  0.,  0.]])
+        cell_faces = np.array(
+            [
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0, -1.0, 0.0, 0.0],
+                [-1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0],
+                [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+                [0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0, 0.0, -1.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0],
+                [0.0, -1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+                [0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+                [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            ]
+        )
 
-        per_ref = np.array([[ 4, 13, 14], [ 6, 19, 20]])
+        per_ref = np.array([[4, 13, 14], [6, 19, 20]])
 
         self.assertTrue(np.allclose(lg.nodes, nodes))
         self.assertTrue(np.allclose(lg.face_nodes.A, face_nodes))
@@ -620,10 +695,9 @@ class TestCartLeafGrid_2d(unittest.TestCase):
         lg.per_map = np.array([[6, 7], [10, 11]])
         lg.level_grids[0].per_map = np.array([[6, 7], [10, 11]])
         lg.level_grids[1].per_map = np.array([[20, 21, 22, 23], [36, 37, 38, 39]])
-        lg.level_grids[2].per_map = np.array([
-            [ 72,  73,  74,  75,  76,  77,  78,  79],
-            [136, 137, 138, 139, 140, 141, 142, 143]
-        ])
+        lg.level_grids[2].per_map = np.array(
+            [[72, 73, 74, 75, 76, 77, 78, 79], [136, 137, 138, 139, 140, 141, 142, 143]]
+        )
 
         lg.refine_cells(0)
         lg.refine_cells(3)
@@ -632,7 +706,7 @@ class TestCartLeafGrid_2d(unittest.TestCase):
         lg_ref.refine_cells(0)
         lg_ref.refine_cells([1, 3])
 
-        per_ref = np.array([[ 2, 15, 28, 29], [ 4, 21, 34, 35]])
+        per_ref = np.array([[2, 15, 28, 29], [4, 21, 34, 35]])
 
         self.assertTrue(np.allclose(lg.cell_volumes, lg_ref.cell_volumes))
         self.assertTrue(np.allclose(lg.cell_centers, lg_ref.cell_centers))
@@ -648,6 +722,7 @@ class TestCartLeafGrid_2d(unittest.TestCase):
         self.assertTrue(np.allclose(g0.face_normals, g1.face_normals))
         self.assertTrue(np.allclose(g0.cell_volumes, g1.cell_volumes))
         self.assertTrue(np.allclose(g0.cell_centers, g1.cell_centers))
+
 
 class TestCartLeafGrid_1d(unittest.TestCase):
     def test_generation_2_levels(self):
@@ -679,12 +754,7 @@ class TestCartLeafGrid_1d(unittest.TestCase):
         old_to_new, _ = lg.refine_cells(np.ones(2, dtype=bool))
         g_t = pp.CartGrid(4, 1)
 
-        proj_ref = np.array([
-            [1, 0],
-            [1, 0],
-            [0, 1],
-            [0, 1],
-        ])
+        proj_ref = np.array([[1, 0], [1, 0], [0, 1], [0, 1],])
         self.assertTrue(np.allclose(lg.nodes, g_t.nodes))
         self.assertTrue(np.allclose(lg.face_nodes.A, g_t.face_nodes.A))
         self.assertTrue(np.allclose(lg.cell_faces.A, g_t.cell_faces.A))
@@ -695,33 +765,16 @@ class TestCartLeafGrid_1d(unittest.TestCase):
         old2new, _ = lg.refine_cells(0)
         old2new = lg.refine_cells(1)[0] * old2new
         nodes = np.array(
-            [
-                [0.0, 0.0, 0.0],
-                [0.5, 0.0, 0.0],
-                [0.75, 0.0, 0.0],
-                [1.0, 0.0, 0.0],
-            ]
+            [[0.0, 0.0, 0.0], [0.5, 0.0, 0.0], [0.75, 0.0, 0.0], [1.0, 0.0, 0.0],]
         ).T
 
         face_nodes = sps.csc_matrix(
-            np.array(
-                [
-                    [1, 0, 0, 0],
-                    [0, 1, 0, 0],
-                    [0, 0, 1, 0],
-                    [0, 0, 0, 1],
-                ]
-            )
+            np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1],])
         )
 
         cell_faces = sps.csc_matrix(
             np.array(
-                [
-                    [-1.0, 0.0, 0.0],
-                    [1.0, -1.0, 0.0],
-                    [0.0, 1.0, -1.0],
-                    [0.0, 0.0, 1.0],
-                ]
+                [[-1.0, 0.0, 0.0], [1.0, -1.0, 0.0], [0.0, 1.0, -1.0], [0.0, 0.0, 1.0],]
             )
         )
         g_t = pp.Grid(1, nodes, face_nodes, cell_faces, ["Ref"])
@@ -741,12 +794,10 @@ class TestCartLeafGrid_1d(unittest.TestCase):
         lg_ref = pp.CartLeafGrid(2, 1, 3)
 
         old2new_ref, _ = lg_ref.refine_cells([0, 1])
-        old2new_ref = lg_ref.refine_cells(0)[0]  * old2new_ref
-
+        old2new_ref = lg_ref.refine_cells(0)[0] * old2new_ref
 
         self._compare_grids(lg, lg_ref)
         self.assertTrue(np.allclose(old2new.A, old2new_ref.A))
-
 
     def test_max_one_level_ref_rec(self):
         """
@@ -756,28 +807,37 @@ class TestCartLeafGrid_1d(unittest.TestCase):
         """
         lg = pp.CartLeafGrid(2, 1, 4)
 
-        old2new, _ = lg.refine_cells(0)
-        old2new = lg.refine_cells(2)[0] * old2new # should refine cell 0 as well
+        old2new, old2new_f = lg.refine_cells(0)
+        old2new_tmp, old2new_f_tmp = lg.refine_cells(2)  # should refine cell 0 as well
+        old2new = old2new_tmp * old2new
+        old2new_f = old2new_f_tmp * old2new_f
 
         lg_ref = pp.CartLeafGrid(2, 1, 4)
-        old2new_ref = lg_ref.refine_cells([0, 1])[0]
-        old2new_ref = lg_ref.refine_cells(1)[0] * old2new_ref
+        old2new_ref, old2new_f_ref = lg_ref.refine_cells([0, 1])
+        old2new_ref_tmp, old2new_f_ref_tmp = lg_ref.refine_cells(1)
+        old2new_ref = old2new_ref_tmp * old2new_ref
+        old2new_f_ref = old2new_f_ref_tmp * old2new_f_ref
 
         self._compare_grids(lg, lg_ref)
         self.assertTrue(np.allclose(old2new.A, old2new_ref.A))
+        self.assertTrue(np.allclose(old2new_f.A, old2new_f_ref.A))
 
     def test_coarsening_full_grid(self):
         lg = pp.CartLeafGrid(2, 1, 2)
-        old2new, _ = lg.refine_cells(np.ones(2, dtype=bool))
-        old2new = lg.coarsen_cells(np.ones(4, dtype=bool))[0] * old2new
+        old2new, old2new_f = lg.refine_cells(np.ones(2, dtype=bool))
+        old2new_tmp, old2new_f_tmp = lg.coarsen_cells(np.ones(4, dtype=bool))
+        old2new = old2new_tmp * old2new
+        old2new_f = old2new_f_tmp * old2new_f
 
         g_t = pp.CartGrid(2, 1)
         g_t.compute_geometry()
 
         proj_ref = np.eye(2)
+        proj_f_ref = np.eye(3)
 
         self._compare_grids(lg, g_t)
         self.assertTrue(np.allclose(old2new.A, proj_ref))
+        self.assertTrue(np.allclose(old2new_f.A, proj_f_ref))
 
     def test_coarsening_one_cell(self):
         lg = pp.CartLeafGrid(2, 1, 2)
@@ -786,14 +846,10 @@ class TestCartLeafGrid_1d(unittest.TestCase):
 
         lg_ref = pp.CartLeafGrid(2, 1, 2)
         lg_ref.refine_cells(1)
-        proj_ref = np.array([
-            [1, 0, 0],
-            [0, 1, 1],
-        ]).T
+        proj_ref = np.array([[1, 0, 0], [0, 1, 1],]).T
 
         self._compare_grids(lg, lg_ref)
         self.assertTrue(np.allclose(old2new.A, proj_ref))
-
 
     def _compare_grids(self, g0, g1):
         self.assertTrue(np.allclose(g0.nodes, g1.nodes))
