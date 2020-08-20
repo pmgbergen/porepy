@@ -180,6 +180,15 @@ class Assembler:
 
             return matrix, rhs
 
+    def update_discretization(self) -> None:
+        """ Update discretizations without a full rediscretization.
+
+        For the moment this is a placeholder method which will be expanded to
+        utilize corresponding update_discretization() methods in individual
+        discretization classes.
+        """
+        self.discretize()
+
     def discretize(
         self,
         variable_filter: List[str] = None,
