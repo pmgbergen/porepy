@@ -1,6 +1,11 @@
 """ Discretization filters to allow partial discretization or assembly.
 
-Content: 
+Content:
+    AllPassFilter does no filtering.
+    ListFilter: filters based on grid quantities, variables and lists.
+
+New filter classes should be implemented by subclassing the abstract base
+class AssemblerFilter.
 
 Credits: Design idea and main implementation by Haakon Ervik.
 
@@ -16,73 +21,207 @@ from porepy import Grid
 grid_like_type = Union[Grid, Tuple[Grid, Grid], Tuple[Grid, Grid, Tuple[Grid, Grid]]]
 
 
-class DiscretizationFilter(abc.ABC):
+class AssemblerFilter(abc.ABC):
     """ Abstract base class of filters for use with the Assembler.
     """
 
     @abc.abstractmethod
-    def node_filter(
-            self,
-            discr: NodeDiscretization,
-            node_or_edge: Union[Grid, Tuple[Grid, Grid]],
-    ) -> bool:
-        pass
-
-    @abc.abstractmethod
-    def edge_coupling_filter(
-            self,
-            discr: CouplingDiscretization,
-    ) -> bool:
-        pass
-
-    @abc.abstractmethod
     def filter(
-            self, grid_like: 
-            )
+        self,
+        grid: Optional[grid_like_type],
+        variables: Optional[Union[str, List[str]]],
+        terms: Optional[str],
+    ) -> bool:
+        """ Filter grids (in a general sense), variables and discretization terms.
+
+        The filter should return true if the combination of grids, variables and
+        terms are considered 'active' by the filter. Intended use is to allow the
+        assembler to implement partial discretization or assembly.
+
+        Parameters:
+            grid: Grid-like quantity found in a pp.GridBucket.
+                Can be either a Grid (GridBucket node), an interface (a GridBucket
+                edge), or a combination of two neighboring grids and an interface.
+            variables: A variable, or a list of variables. A list will be passed
+                for off-diagonal terms (internal to nodes or edges), and for
+                coupling terms.
+            term: Term for a discretization. See Assembler for further explanation.
+
+        Returns:
+            boolean: True if the grid-variable-term combination passes the filter.
+
+        """
 
 
+class AllPassFilter(AssemblerFilter):
+    """ All pass filter. The filter method always return True.
+    """
 
-class AllPassFilter(DiscretizationFilter):
+    def filter(
+        self,
+        grid: Optional[grid_like_type],
+        variables: Optional[Union[str, List[str]]],
+        terms: Optional[str],
+    ) -> bool:
+        """ Filter grids (in a general sense), variables and discretization terms.
 
-    def node_filter(self, *_) -> bool:
+        The filter should return true if the combination of grids, variables and
+        terms are considered 'active' by the filter. Intended use is to allow the
+        assembler to implement partial discretization or assembly.
+
+        Parameters:
+            grid: Grid-like quantity found in a pp.GridBucket.
+                Can be either a Grid (GridBucket node), an interface (a GridBucket
+                edge), or a combination of two neighboring grids and an interface.
+            variables: A variable, or a list of variables. A list will be passed
+                for off-diagonal terms (internal to nodes or edges), and for
+                coupling terms.
+            term: Term for a discretization. See Assembler for further explanation.
+
+        Returns:
+            boolean: True if the grid-variable-term combination passes the filter.
+
+        """
         return True
 
-    def edge_coupling_filter(self, *_) -> bool:
-        return True
 
+class ListFilter(AssemblerFilter):
+    """ Filter based on lists of (generalized) grids, variables and terms.
 
-class ListFilter(DiscretizationFilter):
-    def __init__(self, variable_list, term_list):
-        self.variable_list: Optional[List[str]] = variable_list
-        self.term_list: Optional[List[str]] = term_list
+    The filter is initialized with lists of grids (specification below),
+    variabels and terms that should pass the filter. The filter function will pass a
+    combination of a grid, a set of variables and a term if they are all found
+    in the lists of acceptables.
 
-        self.var_filter: Callable[[str], bool] = self.make_filter(self.variable_list)
-        self.term_filter: Callable[[str], bool] = self.make_filter(self.term_list)
+    If a list of grids, variables and/or  terms are not provided at the time of
+    initialization, all objects of this the unspecified type will pass the filter.
+    Thus, if neither grids, variables nor terms are specified, the filter effectively
+    becomes an AllPassFilter.
 
-    def node_filter(
-            self, discr: NodeDiscretization, _,
-    ) -> bool:
-        vf, tf = self.var_filter, self.term_filter
-        return vf(discr.var) and tf(discr.term_key)
+    Acceptable variables and terms can be specified as a negation with the
+    syntax !variable_name. It is not possible to use both negated and standard
+    specification of, say, variables, but negated variables combined with standard
+    terms (or reverse) is permissible.
 
-    def edge_coupling_filter(
-            self, discr: CouplingDiscretization,
-    ) -> bool:
-        vf, tf = self.var_filter, self.term_filter
-        if discr.g_h and discr.g_l:
-            return (
-                vf(discr.master_var)
-                and vf(discr.slave_var)
-                and vf(discr.edge_var)
-            )
+    The generalized grids should be one of
+        i) grids: nodes in the GridBucket
+        ii) interfaces: (Grid, Grid) tuples, edges in the GridBucket
+        iii) couplings: (Grid, Grid, (Grid, Grid)) tuples, so an edge, together
+            with its neighboring subdomains.
 
-    def make_filter(self, var_term_list: Optional[List[str]]) -> Callable[[str], bool]:
-        """ Construct a filter for variable and terms
+    """
+
+    def __init__(
+        self,
+        grid_list: Optional[grid_like_type] = None,
+        variable_list: Optional[List] = None,
+        term_list: Optional[List[str]] = None,
+    ) -> None:
+        """
+        Parameters:
+            grid_list: List of grid-like objects that should pass the filter.
+                See class documentation for specification.
+            variable_list: List of variables to pass the filter.
+            term_list: List of terms to pass the filter.
+
+        """
+        nodes, edges, couplings = self._parse_grid_list(grid_list)
+        self._nodes: List[Grid] = nodes
+        self._edges: List[Tuple[Grid, Grid]] = edges
+        self._couplings: List[Tuple[Grid, Grid, Tuple[Grid, Grid]]] = couplings
+        self._grid_filter = self._make_grid_filter()
+
+        self._variable_list: Optional[List[str]] = variable_list
+        self._term_list: Optional[List[str]] = term_list
+
+        self._var_filter: Callable[[str], bool] = self._make_string_filter(
+            self._variable_list
+        )
+        self._term_filter: Callable[[str], bool] = self._make_string_filter(
+            self._term_list
+        )
+
+    def filter(
+        self,
+        grids: Optional[grid_like_type],
+        variables: Optional[Union[str, List[str]]],
+        terms: Optional[str],
+    ):
+        """ Filter grids (in a general sense), variables and discretization terms.
+
+        See class documentation for how to use the filter.
+
+        Parameters:
+            grid: Grid-like quantity found in a pp.GridBucket.
+                Can be either a Grid (GridBucket node), an interface (a GridBucket
+                edge), or a combination of two neighboring grids and an interface.
+            variables: A variable, or a list of variables. A list will be passed
+                for off-diagonal terms (internal to nodes or edges), and for
+                coupling terms.
+            term: Term for a discretization. See Assembler for further explanation.
+
+        Returns:
+            boolean: True if the grid-variable-term combination passes the filter.
+
+        """
+        return (
+            self._grid_filter(grids)
+            and self._var_filter(variables)
+            and self._term_filter(terms)
+        )
+
+    def _parse_grid_list(self, grid_list):
+        nodes = []
+        edges = []
+        couplings = []
+        for g in grid_list:
+            if isinstance(g, Grid):
+                nodes.append(g)
+            elif isinstance(g, tuple) and len(g) == 2:
+                if not (isinstance(g[0], Grid) and isinstance(g[1], Grid)):
+                    raise ValueError(f"Invalid grid-like object for filtering {g}")
+                edges.append(g)
+            else:
+                if not len(g) == 3:
+                    raise ValueError(f"Invalid grid-like object for filtering {g}")
+                couplings.append(g)
+        return nodes, edges, couplings
+
+    def _make_grid_filter(self, grids: Optional[grid_like_type] = None):
+        def return_true(s):
+            return True
+
+        if not grids:
+            return return_true
+        if (
+            len(self._nodes) == 0
+            and len(self._edges) == 0
+            and len(self._couplings) == 0
+        ):
+            return return_true
+
+        def _grid_filter(g):
+            if g in self._nodes:
+                return True
+            elif g in self._edges:
+                return True
+            elif g in self._couplings:
+                return True
+            else:
+                return False
+
+        return _grid_filter
+
+    def _make_string_filter(
+        self, var_term_list: Optional[List[str]]
+    ) -> Callable[[str], bool]:
+        """ Construct a filter used to operate on strings
 
         The result is a callable which takes one argument (a string).
         I
         filter is a list of strings.
         """
+
         def return_true(s):
             return True
 
@@ -94,6 +233,10 @@ class ListFilter(DiscretizationFilter):
         def _var_term_filter(x):
             include = set(key for key in var_term_list if not key.startswith("!"))
             exclude = set(key[1:] for key in var_term_list if key.startswith("!"))
+            if include and exclude:
+                raise ValueError(
+                    "A filter cannot combine negated and standard variables"
+                )
             if include:
                 # Keep elements only in include.
                 include.difference_update(exclude)
@@ -101,5 +244,8 @@ class ListFilter(DiscretizationFilter):
             elif exclude:
                 # Keep elements not in exclude
                 return x not in exclude
+
+            # This should not be possible (either the strings start with !, or they don't)
+            raise ValueError("Error in filter specification")
 
         return _var_term_filter
