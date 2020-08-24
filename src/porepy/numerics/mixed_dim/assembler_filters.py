@@ -15,6 +15,7 @@ from typing import List, Callable, Optional, Union, Tuple
 
 from porepy import Grid
 
+
 # Discretizations can be defined either on a subdomain, on an
 # edge (Tuple of two grids), or it is a coupling between
 # two subdomains and an interface
@@ -28,9 +29,9 @@ class AssemblerFilter(abc.ABC):
     @abc.abstractmethod
     def filter(
         self,
-        grid: Optional[grid_like_type],
-        variables: Optional[Union[str, List[str]]],
-        terms: Optional[str],
+        grid: Optional[grid_like_type] = None,
+        variables: Optional[Union[str, List[str]]] = None,
+        terms: Optional[str] = None,
     ) -> bool:
         """ Filter grids (in a general sense), variables and discretization terms.
 
@@ -59,9 +60,9 @@ class AllPassFilter(AssemblerFilter):
 
     def filter(
         self,
-        grid: Optional[grid_like_type],
-        variables: Optional[Union[str, List[str]]],
-        terms: Optional[str],
+        grid: Optional[grid_like_type] = None,
+        variables: Optional[Union[str, List[str]]] = None,
+        terms: Optional[str] = None,
     ) -> bool:
         """ Filter grids (in a general sense), variables and discretization terms.
 
@@ -105,7 +106,7 @@ class ListFilter(AssemblerFilter):
 
     The generalized grids should be one of
         i) grids: nodes in the GridBucket
-        ii) interfaces: (Grid, Grid) tuples, edges in the GridBucket
+        ii) interfaces: (Grid, Grid) tuples, edges in the GridBucket.
         iii) couplings: (Grid, Grid, (Grid, Grid)) tuples, so an edge, together
             with its neighboring subdomains.
 
@@ -125,6 +126,7 @@ class ListFilter(AssemblerFilter):
             term_list: List of terms to pass the filter.
 
         """
+
         nodes, edges, couplings = self._parse_grid_list(grid_list)
         self._nodes: List[Grid] = nodes
         self._edges: List[Tuple[Grid, Grid]] = edges
@@ -143,9 +145,9 @@ class ListFilter(AssemblerFilter):
 
     def filter(
         self,
-        grids: Optional[grid_like_type],
-        variables: Optional[Union[str, List[str]]],
-        terms: Optional[str],
+        grids: Optional[grid_like_type] = None,
+        variables: Optional[Union[str, List[str]]] = None,
+        terms: Optional[str] = None,
     ):
         """ Filter grids (in a general sense), variables and discretization terms.
 
@@ -174,6 +176,9 @@ class ListFilter(AssemblerFilter):
         nodes = []
         edges = []
         couplings = []
+        if not grid_list:
+            grid_list = []
+
         for g in grid_list:
             if isinstance(g, Grid):
                 nodes.append(g)
@@ -181,18 +186,18 @@ class ListFilter(AssemblerFilter):
                 if not (isinstance(g[0], Grid) and isinstance(g[1], Grid)):
                     raise ValueError(f"Invalid grid-like object for filtering {g}")
                 edges.append(g)
+                # Also append the reverse ordering of the grids.
+                edges.append((g[1], g[0]))
             else:
                 if not len(g) == 3:
                     raise ValueError(f"Invalid grid-like object for filtering {g}")
                 couplings.append(g)
         return nodes, edges, couplings
 
-    def _make_grid_filter(self, grids: Optional[grid_like_type] = None):
+    def _make_grid_filter(self):
         def return_true(s):
             return True
 
-        if not grids:
-            return return_true
         if (
             len(self._nodes) == 0
             and len(self._edges) == 0
@@ -200,15 +205,17 @@ class ListFilter(AssemblerFilter):
         ):
             return return_true
 
-        def _grid_filter(g):
-            if g in self._nodes:
-                return True
-            elif g in self._edges:
-                return True
-            elif g in self._couplings:
-                return True
-            else:
-                return False
+        def _grid_filter(gl):
+            if not isinstance(gl, list):
+                gl = [gl]
+            for g in gl:
+                if (
+                    g not in self._nodes
+                    and g not in self._edges
+                    and g not in self._couplings
+                ):
+                    return False
+            return True
 
         return _grid_filter
 
@@ -218,7 +225,7 @@ class ListFilter(AssemblerFilter):
         """ Construct a filter used to operate on strings
 
         The result is a callable which takes one argument (a string).
-        I
+
         filter is a list of strings.
         """
 
@@ -231,21 +238,56 @@ class ListFilter(AssemblerFilter):
             return return_true
 
         def _var_term_filter(x):
+            if not x:
+                # Filtering of a None type is always positive
+                return True
+
             include = set(key for key in var_term_list if not key.startswith("!"))
             exclude = set(key[1:] for key in var_term_list if key.startswith("!"))
+
             if include and exclude:
                 raise ValueError(
                     "A filter cannot combine negated and standard variables"
                 )
             if include:
-                # Keep elements only in include.
-                include.difference_update(exclude)
-                return x in include
+                return all([y in include for y in x])
             elif exclude:
                 # Keep elements not in exclude
-                return x not in exclude
+                return all([y not in exclude for y in x])
 
             # This should not be possible (either the strings start with !, or they don't)
             raise ValueError("Error in filter specification")
 
         return _var_term_filter
+
+    def __repr__(self) -> str:
+        s = "ListFilter based on"
+        if self._nodes or self._edges or self._couplings:
+            s += " (generalized) grids,"
+        if self._variable_list:
+            s += " variables "
+        if self._term_list:
+            s += " terms "
+
+        s += "\n"
+        s += "Filter has:\n"
+        if self._nodes:
+            s += f"In total {len(self._nodes)} standard grids\n"
+        if self._edges:
+            s += f"In total {len(self._edges)} interfaces\n"
+        if self._couplings:
+            s += f"In total {len(self._couplings)} geometric couplings\n"
+
+        if self._variable_list:
+            s += "Variables: "
+            for v in self._variable_list:
+                s += f"{v}, "
+            s += "\n"
+
+        if self._term_list:
+            s += "Terms: "
+            for t in self._term_list:
+                s += f"{t}, "
+            s += "\n"
+
+        return s
