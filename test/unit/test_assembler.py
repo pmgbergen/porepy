@@ -330,6 +330,7 @@ class TestAssembler(unittest.TestCase):
         A_known = np.array([[1, 0], [0, 2]])
         g1_ind = general_assembler.block_dof[(g1, variable_name)]
         A_known[g1_ind, g1_ind] = 1
+
         self.assertTrue(np.allclose(A_known, A.todense()))
 
     def test_define_edge_variable_active_node_variable_inactive(self):
@@ -1913,6 +1914,83 @@ class MockEdgeDiscretizationEdgeCouplings(
         pass
 
 
+class TestAssemblerFilters(unittest.TestCase):
+    def test_all_pass(self):
+        # The AllPassFilter should pass anything. Test this with by
+        # sending in a variable
+        filt = pp.assembler_filters.AllPassFilter()
+        self.assertTrue(filt.filter(variables="var not in fliter"))
+
+    def test_list_filter_grid_keyword(self):
+        g1 = pp.CartGrid([1])
+        g2 = pp.CartGrid([1])
+        g3 = pp.CartGrid([1])
+
+        # Single grid
+        filt = pp.assembler_filters.ListFilter(grid_list=[g1])
+        self.assertTrue(filt.filter(g1))
+        self.assertFalse(filt.filter(g2))
+        # Pass a list with one grid
+        self.assertTrue(filt.filter([g1]))
+
+        # two grids
+        filt = pp.assembler_filters.ListFilter(grid_list=[g1, g2])
+        self.assertTrue(filt.filter(g1))
+        self.assertTrue(filt.filter(g2))
+        self.assertFalse(filt.filter(g3))
+
+        # interface
+        filt = pp.assembler_filters.ListFilter(grid_list=[(g1, g2)])
+        self.assertTrue(filt.filter((g1, g2)))
+        self.assertFalse(filt.filter((g3, g2)))
+        # Check that we can pass a list of interfaces
+        self.assertTrue(filt.filter([(g1, g2)]))
+
+        # couplings
+        filter = pp.assembler_filters.ListFilter(grid_list=[(g1, g2, (g1, g2))])
+        self.assertTrue(filter.filter((g1, g2, (g1, g2))))
+        self.assertFalse(filter.filter((g1, g3, (g1, g3))))
+
+    def test_list_filter_variable_keyword(self):
+        # Note: Since variable and term filters share the implementation, we test
+        # only the former
+        v1 = "var1"
+        v2 = "var2"
+        v3 = "var3"
+
+        filt = pp.assembler_filters.ListFilter(variable_list=["var1"])
+        self.assertTrue(filt.filter(variables=[v1]))
+        self.assertFalse(filt.filter(variables=[v2]))
+        self.assertFalse(filt.filter(variables=[v1, v2]))
+
+        filt = pp.assembler_filters.ListFilter(variable_list=["var1", "var2"])
+        self.assertTrue(filt.filter(variables=[v1]))
+        self.assertTrue(filt.filter(variables=[v2]))
+        self.assertTrue(filt.filter(variables=[v2, v1]))
+        self.assertFalse(filt.filter(variables=[v3]))
+        self.assertFalse(filt.filter(variables=[v1, v3]))
+
+        n1 = "!var1"
+        filt = pp.assembler_filters.ListFilter(variable_list=[n1])
+        self.assertTrue(filt.filter(variables=[v2]))
+        self.assertFalse(filt.filter(variables=[v1]))
+
+        # It should not be possible to create a filter with both a variable
+        # and its negation
+        self.assertRaises(ValueError, pp.assembler_filters.ListFilter, v1, n1)
+
+    def test_grid_and_variable_keywords(self):
+        var1 = "v1"
+        var2 = "v2"
+
+        g1 = pp.CartGrid(1)
+        g2 = pp.CartGrid(2)
+
+        filter = pp.assembler_filters.ListFilter(grid_list=[g1], variable_list=[var1])
+        self.assertTrue(filter.filter(grids=[g1], variables=[var1]))
+        self.assertFalse(filter.filter(grids=[g2], variables=[var1]))
+        self.assertFalse(filter.filter(grids=[g1], variables=[var2]))
+
+
 if __name__ == "__main__":
-    TestAssembler().test_repr_three_nodes_three_edges_different_variables()
     unittest.main()
