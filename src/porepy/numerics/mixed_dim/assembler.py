@@ -112,7 +112,7 @@ class Assembler:
             return "_".join([term, key_1, key_2, key_3])
 
     def assemble_matrix_rhs(
-        self, matrix_format: str = "csr", add_matrices: bool = True
+        self, filt=None, matrix_format: str = "csr", add_matrices: bool = True
     ) -> Union[
         Tuple[Union[csc_or_csr_matrix, np.ndarray], np.ndarray],
         Tuple[Dict[str, sps.spmatrix], Dict[str, np.ndarray]],
@@ -171,7 +171,9 @@ class Assembler:
                 return self._initialize_matrix_rhs(sps_matrix)
 
         # Assemble
-        matrix, rhs = self._operate_on_gb("assemble", matrix_format=matrix_format)
+        matrix, rhs = self._operate_on_gb(
+            filt=filt, operation="assemble", matrix_format=matrix_format
+        )
 
         # At this stage, all assembly is done. The remaining step is optionally to
         # add the matrices associated with different terms, and anyhow convert
@@ -206,13 +208,7 @@ class Assembler:
         """
         self.discretize()
 
-    def discretize(
-        self,
-        variable_filter: List[str] = None,
-        term_filter: List[str] = None,
-        grid: pp.Grid = None,
-        edges: bool = True,
-    ) -> None:
+    def discretize(self, filt=None) -> None:
         """ Run the discretization operation on discretizations specified in
         the mixed-dimensional grid.
 
@@ -287,16 +283,10 @@ class Assembler:
             will survive term_filter = ['coupling_id']
 
         """
-        self._operate_on_gb(
-            "discretize",
-            variable_filter=variable_filter,
-            term_filter=term_filter,
-            grid=grid,
-            edges=edges,
-        )
+        self._operate_on_gb("discretize", filt=filt)
 
     def _operate_on_gb(
-        self, operation: str, **kwargs
+        self, operation: str, filt=None, **kwargs
     ) -> Union[
         Tuple[csc_or_csr_matrix, np.ndarray],
         Tuple[Dict[str, csc_or_csr_matrix], Dict[str, np.ndarray]],
@@ -308,46 +298,12 @@ class Assembler:
         Implemented actions are discretization and assembly.
 
         """
+        if filt is None:
+            # If the filter is not specified, do no filtering.
+            filt = pp.assembler_filters.AllPassFilter()
 
-        def make_filter(var_term_list: List[str] = None) -> Callable[[str], bool]:
-            """ Construct a filter for variables and terms
-
-            The input should be either
-            a) a list of variables (terms) that are to be discretized.
-                Then, only the variables (terms) in that list will be
-                discretized on any node.
-            b) a list of variables (terms), each prefixed by "!", that
-                are to be excluded from discretization.
-                Then, every term will be discretized, except those
-                associated with the given list of variables (terms).
-
-            The result is a callable which takes one argument (a string),
-            and returns a boolean.
-            """
-
-            def return_true(s):
-                return True
-
-            if not var_term_list:
-                # If not variable or term list is passed, return a Callable
-                # that always returns True.
-                return return_true
-
-            def _var_term_filter(x):
-                include = set(key for key in var_term_list if not key.startswith("!"))
-                exclude = set(key[1:] for key in var_term_list if key.startswith("!"))
-                if include:
-                    # Keep elements only in include.
-                    include.difference_update(exclude)
-                    return x in include
-                elif exclude:
-                    # Keep elements not in exclude
-                    return x not in exclude
-
-            return _var_term_filter
-
+        # Both assemble and discretize relies on t
         if operation == "assemble":
-
             # Initialize the global matrix.
             # This gives us a set of matrices (essentially one per term per variable)
             # and a similar set of rhs vectors. Furthermore, we get block indices
@@ -364,21 +320,10 @@ class Assembler:
             matrix, rhs = self._initialize_matrix_rhs(sps_matrix)
 
             # Make term and variable filters that let everything through
-            term_filter: Callable[[str], bool] = make_filter()
-            variable_filter: Callable[[str], bool] = make_filter()
-            target_grid = kwargs.get("grid", None)
 
         elif operation == "discretize":
-
-            variable_keys: List[str] = kwargs.get("variable_filter", None)
-            variable_filter = make_filter(variable_keys)
-
-            term_keys = kwargs.get("term_filter", None)
-            term_filter = make_filter(term_keys)
-
             matrix = None
             rhs = None
-            target_grid = kwargs.get("grid", None)
             sps_matrix = None
 
         else:
@@ -386,16 +331,16 @@ class Assembler:
             # from the outside.
             raise ValueError("Unknown gb operation " + str(operation))
 
-        self._operate_on_nodes_and_edges(
-            operation, matrix, rhs, variable_filter, term_filter, target_grid
-        )
-        if kwargs.get("edges", True):
-            #            self._operate_on_edge(operation, matrix, rhs, variable_filter, term_filter)
+        # First take care of operations internal to nodes and edges
+        self._operate_on_nodes_and_edges(filt, operation, matrix, rhs)
 
+        # Next, handle coupling over edges
+        if kwargs.get("edges", True):
             self._operate_on_edge_coupling(
-                operation, matrix, rhs, variable_filter, term_filter, sps_matrix,
+                filt, operation, matrix, rhs, sps_matrix,
             )
 
+        # Return type depends on operation
         if operation == "assemble":
             return matrix, rhs
         else:
@@ -403,42 +348,59 @@ class Assembler:
 
     def _operate_on_nodes_and_edges(
         self,
+        filt: pp.assembler_filters.AssemblerFilter,
         operation: str,
         matrix: Union[Dict[str, np.ndarray], None],
         rhs: Union[Dict[str, np.ndarray], None],
-        variable_filter: Callable[[str], bool],
-        term_filter: Callable[[str], bool],
-        grid_filter,
     ):
         for combination in self._grid_variable_term_combinations:
+            # Coupling terms should not be considered here
             if isinstance(combination, CouplingVariableTerm):
                 continue
-            node_or_edge = combination.grid
-            if isinstance(node_or_edge, pp.Grid):
-                data = self.gb.node_props(combination.grid)
+            if not filt.filter(
+                [combination.grid],
+                [combination.row, combination.col],
+                [combination.term],
+            ):
+                continue
+
+            # The grid-like quantity is either a grid or an interface.
+            # The two require slightly different function calls etc.
+
+            grid = combination.grid
+            is_node = isinstance(grid, pp.Grid)
+            # Get hold of data dictionary
+            if is_node:
+                data = self.gb.node_props(grid)
             else:
-                data = self.gb.edge_props(combination.grid)
+                data = self.gb.edge_props(grid)
+
+            # Discretization
+            # NOTE: For the edge, this is not the coupling discretization,
+            # for that see self._operate_on_nodes_and_edges().
             discr = data[pp.DISCRETIZATION][
                 self._discretization_key(combination.row, combination.col)
             ][combination.term]
+
+            # Either discretize or assemble
             if operation == "discretize":
-                if isinstance(node_or_edge, pp.Grid):
-                    discr.discretize(node_or_edge, data)
+                if is_node:
+                    discr.discretize(grid, data)
                 else:
                     discr.discretize(data)
             else:  # assemble
                 # Assemble the matrix and right hand side. This will also
                 # discretize if not done before.
                 # Call appropriate assembler for nodes and edges, respectively.
-                if isinstance(node_or_edge, pp.Grid):
-                    loc_A, loc_b = discr.assemble_matrix_rhs(node_or_edge, data)
+                if is_node:
+                    loc_A, loc_b = discr.assemble_matrix_rhs(grid, data)
                 else:
                     loc_A, loc_b = discr.assemble_matrix_rhs(data)
-                    # Assign values in global matrix: Create the same key used
-                    # defined when initializing matrices (see that function)
 
-                ri = self.block_dof[(node_or_edge, combination.row)]
-                ci = self.block_dof[(node_or_edge, combination.col)]
+                # Assign values in global matrix: Create the same key used
+                # defined when initializing matrices (see that function)
+                ri = self.block_dof[(grid, combination.row)]
+                ci = self.block_dof[(grid, combination.col)]
                 var_key_name = self._variable_term_key(
                     combination.term, combination.row, combination.col
                 )
@@ -455,11 +417,10 @@ class Assembler:
 
     def _operate_on_edge_coupling(
         self,
+        filt: pp.assembler_filters.AssemblerFilter,
         operation: str,
         matrix: Optional[Dict[str, np.ndarray]],
         rhs: Dict[str, np.ndarray],
-        variable_filter: Callable[[str], bool],
-        term_filter: Callable[[str], bool],
         sps_matrix: Type[csc_or_csr_matrix],
     ) -> None:
         """ Perform operation on all edge-node couplings.
@@ -507,7 +468,15 @@ class Assembler:
 
         """
         for combination in self._grid_variable_term_combinations:
+            # Only CouplingVariableTerms are considered
             if isinstance(combination, GridVariableTerm):
+                continue
+            # Check if this is filtered out
+            if not filt.filter(
+                combination.coupling,
+                [combination.master, combination.slave, combination.edge],
+                combination.term,
+            ):
                 continue
 
             e = combination.coupling
