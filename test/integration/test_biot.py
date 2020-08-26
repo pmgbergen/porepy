@@ -223,9 +223,8 @@ class BiotTest(unittest.TestCase):
                 "!displacement_divergence",
                 "!stabilization",
             ],
-            )
-        general_assembler.discretize(filt=filt
         )
+        general_assembler.discretize(filt=filt)
         A, b = general_assembler.assemble_matrix_rhs()
 
         # Re-discretize and assemble using the Biot class
