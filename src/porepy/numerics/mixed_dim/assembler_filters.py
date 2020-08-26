@@ -29,7 +29,7 @@ class AssemblerFilter(abc.ABC):
     @abc.abstractmethod
     def filter(
         self,
-        grid: Optional[grid_like_type] = None,
+        grids: Optional[grid_like_type] = None,
         variables: Optional[Union[str, List[str]]] = None,
         terms: Optional[str] = None,
     ) -> bool:
@@ -60,7 +60,7 @@ class AllPassFilter(AssemblerFilter):
 
     def filter(
         self,
-        grid: Optional[grid_like_type] = None,
+        grids: Optional[grid_like_type] = None,
         variables: Optional[Union[str, List[str]]] = None,
         terms: Optional[str] = None,
     ) -> bool:
@@ -146,8 +146,8 @@ class ListFilter(AssemblerFilter):
     def filter(
         self,
         grids: Optional[grid_like_type] = None,
-        variables: Optional[Union[str, List[str]]] = None,
-        terms: Optional[str] = None,
+        variables: Optional[List[str]] = None,
+        terms: Optional[List[str]] = None,
     ):
         """ Filter grids (in a general sense), variables and discretization terms.
 

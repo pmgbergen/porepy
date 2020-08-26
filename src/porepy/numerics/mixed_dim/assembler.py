@@ -2,7 +2,7 @@
 The module contains the Assembler class, which is responsible for assembly of
 system matrix and right hand side for a general multi-domain, multi-physics problem.
 """
-from typing import Set, List, Tuple, Union, Dict, Any, Callable, Type, Optional
+from typing import Set, List, Tuple, Union, Dict, Any, Type, Optional
 from collections import namedtuple
 import numpy as np
 import scipy.sparse as sps
@@ -327,10 +327,9 @@ class Assembler:
         self._operate_on_nodes_and_edges(filt, operation, matrix, rhs)
 
         # Next, handle coupling over edges
-        if kwargs.get("edges", True):
-            self._operate_on_edge_coupling(
-                filt, operation, matrix, rhs, sps_matrix,
-            )
+        self._operate_on_edge_coupling(
+            filt, operation, matrix, rhs, sps_matrix,
+        )
 
         # Return type depends on operation
         if operation == "assemble":
@@ -350,9 +349,9 @@ class Assembler:
             if isinstance(combination, CouplingVariableTerm):
                 continue
             if not filt.filter(
-                [combination.grid],
-                [combination.row, combination.col],
-                [combination.term],
+                grids=[combination.grid],
+                variables=[combination.row, combination.col],
+                terms=[combination.term],
             ):
                 continue
 
@@ -465,24 +464,20 @@ class Assembler:
                 continue
             # Check if this is filtered out
             if not filt.filter(
-                combination.coupling,
-                [combination.master, combination.slave, combination.edge],
-                combination.term,
+                grids=[combination.coupling],
+                variables=[combination.master, combination.slave, combination.edge],
+                terms=[combination.term],
             ):
                 continue
 
-            e = combination.coupling
-            g_slave, g_master = self.gb.nodes_of_edge(e)
+            g_master, g_slave, e = combination.coupling
             data_slave = self.gb.node_props(g_slave)
             data_master = self.gb.node_props(g_master)
             data_edge = self.gb.edge_props(e)
 
             term_key = combination.term
             coupling = data_edge[pp.COUPLING_DISCRETIZATION][term_key]
-            #            for (
-            #                coupling_key,
-            #                coupling_term,
-            #            ) in discr.items():  # coupling_key: str, coupling_term: Dict
+
             # Get edge coupling discretization
             edge_vals: Tuple[str, Any] = coupling.get(e)
             edge_var_key, edge_discr = edge_vals
@@ -553,7 +548,6 @@ class Assembler:
                     )
 
                 elif operation == "assemble":
-
                     # Assign a local matrix, which will be populated with the
                     # current state of the local system.
                     # Local here refers to the variable and term on the two
@@ -962,7 +956,9 @@ class Assembler:
                     self._variable_term_key(term, key_edge, key_slave, key_master)
                 )
                 grid_variable_term_combinations.append(
-                    CouplingVariableTerm(e, key_edge, key_master, key_slave, term)
+                    CouplingVariableTerm(
+                        (g_master, g_slave, e), key_edge, key_master, key_slave, term
+                    )
                 )
         # Array version of the number of dofs per node/edge and variable
         self.full_dof: np.ndarray = np.array(full_dof)
@@ -971,8 +967,6 @@ class Assembler:
         ] = block_dof
         self.variable_combinations: List[str] = variable_combinations
         self._grid_variable_term_combinations = grid_variable_term_combinations
-
-    #        breakpoint()
 
     def _initialize_matrix_rhs(
         self, sps_matrix: Type[csc_or_csr_matrix],
