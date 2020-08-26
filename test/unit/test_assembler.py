@@ -720,7 +720,9 @@ class TestAssembler(unittest.TestCase):
 
         for e, d in gb.edges():
             d[pp.PRIMARY_VARIABLES] = {variable_name_e: {"cells": 1}}
-            d[pp.DISCRETIZATION] = {variable_name_e: {term_e: MockNodeDiscretization(7)}}
+            d[pp.DISCRETIZATION] = {
+                variable_name_e: {term_e: MockNodeDiscretization(7)}
+            }
             d[pp.COUPLING_DISCRETIZATION] = {
                 term_e: {
                     g1: (variable_name, term_g1),
@@ -733,19 +735,19 @@ class TestAssembler(unittest.TestCase):
         g1_ind = general_assembler.block_dof[(g1, variable_name)]
         g2_ind = general_assembler.block_dof[(g2, variable_name)]
         e_ind = general_assembler.block_dof[(e, variable_name_e)]
-        
+
         # Only grid 1
         filt = ListFilter(grid_list=[g1])
         A, b = general_assembler.assemble_matrix_rhs(filt=filt)
         A_known = np.zeros((3, 3))
         A_known[g1_ind, g1_ind] = 1
-        self.assertTrue(np.allclose(A_known, A.todense())) 
+        self.assertTrue(np.allclose(A_known, A.todense()))
 
         filt = ListFilter(grid_list=[e])
         A, b = general_assembler.assemble_matrix_rhs(filt=filt)
         A_known = np.zeros((3, 3))
         A_known[e_ind, e_ind] = 7
-        self.assertTrue(np.allclose(A_known, A.todense())) 
+        self.assertTrue(np.allclose(A_known, A.todense()))
 
     ### Tests with coupling internal to each node
     def test_two_variables_coupling_within_node_and_edge(self):
@@ -2031,6 +2033,7 @@ class TestAssemblerFilters(unittest.TestCase):
         self.assertTrue(filter.filter(grids=[g1], variables=[var1]))
         self.assertFalse(filter.filter(grids=[g2], variables=[var1]))
         self.assertFalse(filter.filter(grids=[g1], variables=[var2]))
+
 
 TestAssembler().test_filter_grid()
 if __name__ == "__main__":
