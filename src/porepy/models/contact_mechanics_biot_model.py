@@ -481,15 +481,25 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
         # Next, discretize term on the matrix grid not covered by the Biot discretization,
         # i.e. the source term
-        # Here, we also discretize the edge terms in the entire gb
-        self.assembler.discretize(grid=g_max, term_filter=["source"])
+        filt = pp.assembler_filters.ListFilter(grid_list=[g_max], term_list=["source"])
+        self.assembler.discretize(filt=filt)
+
+        # Build a list of all edges, and all couplings
+        edge_list = []
+        for e, _ in self.gb.edges():
+            edge_list.append(e)
+            edge_list.append((e[0], e[1], e))
+        if len(edge_list) > 0:
+            filt = pp.assembler_filters.ListFilter(grid_list=edge_list)
+            self.assembler.discretize(filt=filt)
 
         # Finally, discretize terms on the lower-dimensional grids. This can be done
         # in the traditional way, as there is no Biot discretization here.
-        for g, _ in self.gb:
-            if g.dim < self.Nd:
-                # No need to discretize edges here, this was done above.
-                self.assembler.discretize(grid=g, edges=False)
+        for dim in range(0, self.Nd):
+            grid_list = self.gb.grids_of_dimension(dim)
+            if len(grid_list) > 0:
+                filt = pp.assembler_filters.ListFilter(grid_list=grid_list)
+                self.assembler.discretize(filt=filt)
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
@@ -503,7 +513,8 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
     def before_newton_iteration(self) -> None:
         # Re-discretize the nonlinear term
-        self.assembler.discretize(term_filter=self.friction_coupling_term)
+        filt = pp.assembler_filters.ListFilter(term_list=[self.friction_coupling_term])
+        self.assembler.discretize(filt=filt)
 
     def after_newton_iteration(self, solution: np.ndarray) -> None:
         self.update_state(solution)
