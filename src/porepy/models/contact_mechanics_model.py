@@ -495,7 +495,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
     def before_newton_iteration(self):
         # Re-discretize the nonlinear term
-        self.assembler.discretize(term_filter=self.friction_coupling_term)
+        filt = pp.assembler_filters.ListFilter(term_list=[self.friction_coupling_term])
+        self.assembler.discretize(filt=filt)
 
     def after_newton_iteration(self, solution_vector):
         """
