@@ -471,32 +471,47 @@ class THM(parent_model.ContactMechanicsBiot):
 
         # Next, discretize term on the matrix grid not covered by the Biot discretization,
         # i.e. the source term
-        pressure_terms = ["source"]
-        self.assembler.discretize(
-            grid=self._nd_grid(),
-            term_filter=pressure_terms,
-            variable_filter=self.scalar_variable,
+        filt = pp.assembler_filters.ListFilter(
+            grid_list=[self._nd_grid()],
+            variable_list=[self.scalar_variable],
+            term_list=["source"],
         )
+        self.assembler.discretize(filt=filt)
+
         # Then the temperature discretizations
         temperature_terms = ["source", "diffusion", "mass", self.advection_term]
-        self.assembler.discretize(
-            grid=self._nd_grid(),
-            term_filter=temperature_terms,
-            variable_filter=self.temperature_variable,
+        filt = pp.assembler_filters.ListFilter(
+            grid_list=[self._nd_grid()],
+            variable_list=[self.temperature_variable],
+            term_list=temperature_terms,
         )
+        self.assembler.discretize(filt=filt)
 
+        # Coupling terms
         coupling_terms = [self.s2t_coupling_term, self.t2s_coupling_term]
-        self.assembler.discretize(
-            grid=self._nd_grid(),
-            term_filter=coupling_terms,
-            variable_filter=[self.temperature_variable, self.scalar_variable],
+        filt = pp.assembler_filters.ListFilter(
+            grid_list=[self._nd_grid()],
+            variable_list=[self.temperature_variable, self.scalar_variable],
+            term_list=coupling_terms,
         )
+        self.assembler.discretize(filt=filt)
+
+        # Build a list of all edges, and all couplings
+        edge_list = []
+        for e, _ in self.gb.edges():
+            edge_list.append(e)
+            edge_list.append((e[0], e[1], e))
+        if len(edge_list) > 0:
+            filt = pp.assembler_filters.ListFilter(grid_list=edge_list)
+            self.assembler.discretize(filt=filt)
 
         # Finally, discretize terms on the lower-dimensional grids. This can be done
         # in the traditional way, as there is no Biot discretization here.
-        for g, _ in self.gb:
-            if g.dim < self.Nd:
-                self.assembler.discretize(grid=g)
+        for dim in range(0, self.Nd):
+            grid_list = self.gb.grids_of_dimension(dim)
+            if len(grid_list) > 0:
+                filt = pp.assembler_filters.ListFilter(grid_list=grid_list)
+                self.assembler.discretize(filt=filt)
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
@@ -509,7 +524,8 @@ class THM(parent_model.ContactMechanicsBiot):
             self.advection_term,
             self.advection_coupling_term,
         ]
-        self.assembler.discretize(term_filter=terms)
+        filt = pp.assembler_filters.ListFilter(term_list=terms)
+        self.assembler.discretize(filt=filt)
 
     def copy_biot_discretizations(self) -> None:
         g: pp.Grid = self.gb.grids_of_dimension(self.Nd)[0]
