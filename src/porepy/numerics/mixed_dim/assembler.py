@@ -40,23 +40,16 @@ class Assembler:
 
     """
 
-    def __init__(self, gb: pp.GridBucket, active_variables: List[str] = None) -> None:
+    def __init__(self, gb: pp.GridBucket) -> None:
         """ Construct an assembler for a given GridBucket on a given set of variables.
 
         Parameters:
             self.gb (pp.GridBucket): Mixed-dimensional grid where the equations are
                 discretized. The data dictionaries on nodes and edges should contain
                 variable and discretization information, see tutorial for details.
-            active_variables (list of str, optional): Names of variables to be assembled.
-                If provided, only declared primary variables with a name found in the
-                list will be assembled, and the size of the matrix will be reduced
-                accordingly.
-                NOTE: For edge coupling terms where the edge variable is defined
-                as active, all involved node variables must also be active.
 
         """
         self.gb = gb
-        self.active_variables = active_variables
 
         # Identify all variable couplings in the GridBucket, and assign degrees of
         # freedom for each block.
@@ -159,8 +152,7 @@ class Assembler:
         else:
             sps_matrix = sps.csr_matrix
 
-        # If there are no variables - most likely if the active_variables do not
-        # match any of the decleared variables, we can return now.
+        # If there are no variables, w can return now
         if self.full_dof.size == 0:
             if add_matrices:
                 # If a single returned value is expected, (summed matrices) it is most easy
@@ -947,20 +939,11 @@ class Assembler:
 
                 # Get the name of the edge variable (it is the first item in a tuple)
                 key_edge: str = val.get(e)[0]
-                if not self._is_active_variable(key_edge):
-                    continue
 
                 # Get name of the edge variable, if it exists
                 key_slave = val.get(g_slave)
                 if key_slave is not None:
                     key_slave = key_slave[0]
-                    if not self._is_active_variable(key_slave):
-                        raise ValueError(
-                            "Edge variable "
-                            + key_edge
-                            + " is coupled to an inactive node variable "
-                            + key_slave
-                        )
 
                 else:
                     # This can happen if the the coupling is one-sided, e.g.
@@ -972,13 +955,6 @@ class Assembler:
                 key_master = val.get(g_master)
                 if key_master is not None:
                     key_master = key_master[0]
-                    if not self._is_active_variable(key_master):
-                        raise ValueError(
-                            "Edge variable "
-                            + key_edge
-                            + " is coupled to an inactive node variable "
-                            + key_master
-                        )
                 else:
                     key_master = ""
 
@@ -1161,22 +1137,6 @@ class Assembler:
 
         # Active variables
         return d.get(pp.PRIMARY_VARIABLES, None)
-
-    def _is_active_variable(self, key: str) -> bool:
-        """ Check if a key denotes an active variable
-
-        Parameters:
-            key (str): Variable identifier.
-
-        Returns:
-            boolean: True if key is in active_variables, or active_variables
-                is None.
-
-        """
-        if self.active_variables is None:
-            return True
-        else:
-            return key in self.active_variables
 
     def distribute_variable(
         self, values: np.ndarray, variable_names: List[str] = None,
