@@ -105,7 +105,10 @@ class Assembler:
             return "_".join([term, key_1, key_2, key_3])
 
     def assemble_matrix_rhs(
-        self, filt=None, matrix_format: str = "csr", add_matrices: bool = True
+        self,
+        filt: Optional[pp.assembler_filters.AssemblerFilter] = None,
+        matrix_format: Optional[str] = "csr",
+        add_matrices: Optional[bool] = True,
     ) -> Union[
         Tuple[Union[csc_or_csr_matrix, np.ndarray], np.ndarray],
         Tuple[Dict[str, sps.spmatrix], Dict[str, np.ndarray]],
@@ -128,11 +131,17 @@ class Assembler:
               terms, or one matrix per term per variable. The latter is useful e.g. in
               operator splitting or time stepping schemes.
 
+        The latter two effects can be achieved by applying a filter to the assembly
+        operation, see for instance pp.assembler_filters.ListFilter.
+
         In all cases, it is assumed that a discretization object for the relevant terms
         is available. It is up to the user to ensure that the resulting problem is
         well posed.
 
         Parameters:
+            filt (pp.assembler_filters.AssemblerFilter, optional): Filter to invoke
+                selected discretizations. Defaults to a PassAllFilter, which will
+                lead to discretization of all terms in the entire GridBucket.
             matrix_format (str, optional): Matrix format used for the system matrix.
                 Defaults to CSR.
             add_matrices (boolean, optional): If True, a single system matrix is added,
@@ -191,88 +200,31 @@ class Assembler:
 
             return matrix, rhs
 
-    def update_discretization(self) -> None:
+    def update_discretization(
+        self, filt: Optional[pp.assembler_filters.AssemblerFilter] = None
+    ) -> None:
         """ Update discretizations without a full rediscretization.
 
         For the moment this is a placeholder method which will be expanded to
         utilize corresponding update_discretization() methods in individual
         discretization classes.
         """
-        self.discretize()
+        self.discretize(filt)
 
-    def discretize(self, filt=None) -> None:
+    def discretize(
+        self, filt: Optional[pp.assembler_filters.AssemblerFilter] = None
+    ) -> None:
         """ Run the discretization operation on discretizations specified in
         the mixed-dimensional grid.
 
-        Only active variables will be considered. Moreover, the discretization
-        operation can be filtered to only consider specified variables, or terms.
-        If the variable filter is active, only discretizations where all variables
-        survive the filter will be discretized (for diagonal terms, the variable
-        must survive, for off-diagonal terms, both terms must survive).
+        Discretization can be applied selectively to specific discretization objcets
+        in the GridBucket by passing an appropriate filter. See pp.assembler_filters
+        for details, in particular the class ListFilter.
 
-        Filtering on terms works on the more detailed levels of indivdiual terms
-        in a multi-physics discretization (say, zoom-in on the advection term
-        in a advection-diffusion system).
-
-        The filters can be combined to select specified terms for specified equations.
-        See examples 1 and 2.
-
-        -- Experimental feature --
-        If you pass a filter where each item is prefixed by "!", this is interpreted as
-        exclusion. Then every variable/term will be discretized except those present in
-        the filter. See example 3 and 4.
-
-        Parameters
-        ----------
-        variable_filter : List[str] (optional)
-            List of variables to be discretized. If None (default), all active
-            variables are discretized.
-        term_filter : List[str] (optional)
-            List of terms to be discretized. If None (default), all terms for
-            all active variables are discretized.
-        grid : List[pp.Grid] (optional)
-            Grids in GridBucket. If specified, only these grids will be considered.
-        edges : bool (optional)
-            If True (default), terms on edges and coupling terms are discretized.
-            As these typically are cheaper than grid discretizations, the
-            operation cannot be filtered on specific edges.
-
-        Examples
-        --------
-
-        1) Example (discretization internal to a node or edge):
-            For a discretizaiton of the form
-
-            data[pp.DISCRETIZATION] = {'temp': {'advection': Foo(), 'diffusion': Bar()},
-                                       'pressure' : {'diffusion': FlowFoo()}}
-
-            a) variable_filter = ['temp'] will discretize all temp terms
-
-            b) term_filter = ['diffusion'] will discretize duffusion for both the temp and
-                pressure variable
-
-            c) variable_filter = ['temp'], term_filter = ['diffusion'] will only discretize
-                the diffusion term for variable temp
-
-            * Experimental: *
-            d) variable_filter = ['!temp'] will only discretize the pressure terms.
-
-            e) term_filter = ['!diffusion'] will only discretize the advection term of the
-                pressure variable.
-
-        2) Example (coupling terms):
-            Variable filter works as internal to nodes / edges.
-            The term filter acts on the identifier of a coupling, so
-
-            d[pp.COUPLING_DISCRETIZATION] = {
-                'coupling_id' : {
-                    g1: {'temp': 'diffusion'},
-                    g2:  {'pressure': 'diffusion'},
-                    (g1, g2): {'coupling_variable': FooBar()}
-                }
-            }
-
-            will survive term_filter = ['coupling_id']
+        Parameters:
+            filt (pp.assembler_filters.AssemblerFilter, optional): Filter to invoke
+                selected discretizations. Defaults to a PassAllFilter, which will
+                lead to discretization of all terms in the entire GridBucket.
 
         """
         self._operate_on_gb("discretize", filt=filt)
