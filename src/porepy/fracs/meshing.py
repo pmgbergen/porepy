@@ -55,7 +55,7 @@ def grid_list_to_grid_bucket(
 
     logger.info("Assemble in bucket")
     tm_bucket = time.time()
-    gb = _assemble_in_bucket(grids, **kwargs)
+    gb = _assemble_in_bucket(grids)
     logger.info("Done. Elapsed time " + str(time.time() - tm_bucket))
 
     logger.info("Compute geometry")
@@ -117,7 +117,8 @@ def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucke
     frac1 = np.array([[1, 4], [2, 2]])
     frac2 = np.array([[2, 2], [1, 4]])
     fracs = [frac1, frac2]
-    gb = cart_grid_2d(fracs, [5, 5])
+    gb = cart_grid(fracs, [5, 5])
+
     """
     ndim = np.asarray(nx).size
     physdims = kwargs.get("physdims", None)
@@ -168,7 +169,10 @@ def _tag_faces(grids, check_highest_dim=True):
         domain_boundary_tags[bnd_faces] = True
         g_h.tags["domain_boundary_faces"] = domain_boundary_tags
         bnd_nodes, _, _ = sps.find(g_h.face_nodes[:, bnd_faces])
-        bnd_nodes = np.unique(bnd_nodes)
+
+        # Boundary nodes of g_h in terms of global indices
+        bnd_nodes_glb = g_h.global_point_ind[np.unique(bnd_nodes)]
+
         for g_dim in grids[1:-1]:
             for g in g_dim:
                 # We find the global nodes of all boundary faces
@@ -180,7 +184,7 @@ def _tag_faces(grids, check_highest_dim=True):
                 nodes_glb = g.global_point_ind[nodes_loc]
                 # We then tag each node as a tip node if it is not a global
                 # boundary node
-                is_tip = np.in1d(nodes_glb, bnd_nodes, invert=True)
+                is_tip = np.in1d(nodes_glb, bnd_nodes_glb, invert=True)
                 # We reshape the nodes such that each column equals the nodes of
                 # one face. If a face only contains global boundary nodes, the
                 # local face is also a boundary face. Otherwise, we add a TIP tag.
@@ -191,7 +195,7 @@ def _tag_faces(grids, check_highest_dim=True):
 
                 g.tags["tip_faces"][bnd_faces_l[is_tip]] = True
                 domain_boundary_tags = np.zeros(g.num_faces, dtype=bool)
-                domain_boundary_tags[bnd_faces_l[is_tip == False]] = True
+                domain_boundary_tags[bnd_faces_l[np.logical_not(is_tip)]] = True
                 g.tags["domain_boundary_faces"] = domain_boundary_tags
 
 
@@ -252,9 +256,7 @@ def _assemble_in_bucket(grids, **kwargs):
             fn = np.sort(fn, axis=0)
 
             for lg in grids[dim + 1]:
-                cell_2_face, cell = tools.obtain_interdim_mappings(
-                    lg, fn, n_per_face, **kwargs
-                )
+                cell_2_face, cell = tools.obtain_interdim_mappings(lg, fn, n_per_face)
                 if cell_2_face.size > 0:
                     face_cells = sps.csc_matrix(
                         (np.ones(cell.size, dtype=bool), (cell, cell_2_face)),

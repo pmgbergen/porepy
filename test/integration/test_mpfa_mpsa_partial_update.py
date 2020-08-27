@@ -19,63 +19,113 @@ class TestPartialMPFA(unittest.TestCase):
         g.compute_geometry()
         perm = pp.SecondOrderTensor(np.ones(g.num_cells))
         bnd = pp.BoundaryCondition(g)
-        flux, bound_flux, _, _ = pp.Mpfa("flow")._local_discr(
+        flux, bound_flux, _, _, vector_source, _ = pp.Mpfa("flow")._flux_discretization(
             g, perm, bnd, inverter="python"
         )
-        return g, perm, bnd, flux, bound_flux
+        return g, perm, bnd, flux, bound_flux, vector_source
 
     def test_inner_cell_node_keyword(self):
         # Compute update for a single cell in the interior.
-        g, perm, bnd, flux, bound_flux = self.setup()
+        g, perm, bnd, flux, bound_flux, vector_source = self.setup()
 
-        inner_cell = 12
         nodes_of_cell = np.array([14, 15, 20, 21])
         faces_of_cell = np.array([14, 15, 42, 47])
 
-        partial_flux, partial_bound, _, _, active_faces = pp.Mpfa("flow").partial_discr(
-            g, perm, bnd, nodes=nodes_of_cell, inverter="python"
+        specified_data = {
+            "second_order_tensor": perm,
+            "bc": bnd,
+            "inverter": "python",
+            "specified_nodes": nodes_of_cell,
+        }
+
+        keyword = "flow"
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
+        discr = pp.Mpfa(keyword)
+        discr.discretize(g, data)
+
+        partial_flux = data[pp.DISCRETIZATION_MATRICES][keyword][discr.flux_matrix_key]
+        partial_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_flux_matrix_key
+        ]
+        partial_vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.vector_source_matrix_key
+        ]
+
+        active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
 
         self.assertTrue(faces_of_cell.size == active_faces.size)
         self.assertTrue(np.all(np.sort(faces_of_cell) == np.sort(active_faces)))
 
         diff_flux = (flux - partial_flux).todense()
         diff_bound = (bound_flux - partial_bound).todense()
+        diff_vc = (vector_source - partial_vector_source).todense()
 
         self.assertTrue(np.max(np.abs(diff_flux[faces_of_cell])) == 0)
         self.assertTrue(np.max(np.abs(diff_bound[faces_of_cell])) == 0)
+        self.assertTrue(np.max(np.abs(diff_vc[faces_of_cell])) == 0)
 
         # Only the faces of the central cell should be zero
-        partial_flux[faces_of_cell, :] = 0
-        partial_bound[faces_of_cell, :] = 0
+        pp.fvutils.zero_out_sparse_rows(partial_flux, faces_of_cell)
+        pp.fvutils.zero_out_sparse_rows(partial_bound, faces_of_cell)
+        pp.fvutils.zero_out_sparse_rows(partial_vector_source, faces_of_cell)
+
         self.assertTrue(np.max(np.abs(partial_flux.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound.data)) == 0)
+        self.assertTrue(np.max(np.abs(partial_vector_source.data)) == 0)
 
     def test_bound_cell_node_keyword(self):
         # Compute update for a single cell on the boundary
-        g, perm, bnd, flux, bound_flux = self.setup()
+        g, perm, bnd, flux, bound_flux, vector_source = self.setup()
 
-        inner_cell = 10
+        # cell = 10
         nodes_of_cell = np.array([12, 13, 18, 19])
         faces_of_cell = np.array([12, 13, 40, 45])
-        partial_flux, partial_bound, _, _, active_faces = pp.Mpfa("flow").partial_discr(
-            g, perm, bnd, nodes=nodes_of_cell, inverter="python"
+        specified_data = {
+            "second_order_tensor": perm,
+            "bc": bnd,
+            "inverter": "python",
+            "specified_nodes": nodes_of_cell,
+        }
+
+        keyword = "flow"
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
         )
+
+        discr = pp.Mpfa(keyword)
+        discr.discretize(g, data)
+
+        partial_flux = data[pp.DISCRETIZATION_MATRICES][keyword][discr.flux_matrix_key]
+        partial_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.bound_flux_matrix_key
+        ]
+        partial_vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
+            discr.vector_source_matrix_key
+        ]
+
+        active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
 
         self.assertTrue(faces_of_cell.size == active_faces.size)
         self.assertTrue(np.all(np.sort(faces_of_cell) == np.sort(active_faces)))
 
         diff_flux = (flux - partial_flux).todense()
         diff_bound = (bound_flux - partial_bound).todense()
+        diff_vc = (vector_source - partial_vector_source).todense()
 
         self.assertTrue(np.max(np.abs(diff_flux[faces_of_cell])) == 0)
         self.assertTrue(np.max(np.abs(diff_bound[faces_of_cell])) == 0)
+        self.assertTrue(np.max(np.abs(diff_vc[faces_of_cell])) == 0)
 
         # Only the faces of the central cell should be zero
-        partial_flux[faces_of_cell, :] = 0
-        partial_bound[faces_of_cell, :] = 0
+        pp.fvutils.zero_out_sparse_rows(partial_flux, faces_of_cell)
+        pp.fvutils.zero_out_sparse_rows(partial_bound, faces_of_cell)
+        pp.fvutils.zero_out_sparse_rows(partial_vector_source, faces_of_cell)
+
         self.assertTrue(np.max(np.abs(partial_flux.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound.data)) == 0)
+        self.assertTrue(np.max(np.abs(partial_vector_source.data)) == 0)
 
     def test_one_cell_a_time_node_keyword(self):
         # Update one and one cell, and verify that the result is the same as
@@ -95,6 +145,7 @@ class TestPartialMPFA(unittest.TestCase):
 
         flux = sps.csr_matrix((g.num_faces, g.num_cells))
         bound_flux = sps.csr_matrix((g.num_faces, g.num_faces))
+        vc = sps.csr_matrix((g.num_faces, g.num_cells * g.dim))
         faces_covered = np.zeros(g.num_faces, np.bool)
 
         bnd = pp.BoundaryCondition(g)
@@ -104,26 +155,56 @@ class TestPartialMPFA(unittest.TestCase):
             ind = np.zeros(g.num_cells)
             ind[ci] = 1
             nodes = np.squeeze(np.where(cn * ind > 0))
-            partial_flux, partial_bound, _, _, active_faces = pp.Mpfa(
-                "flow"
-            ).partial_discr(g, perm, bnd, nodes=nodes, inverter="python")
+
+            specified_data = {
+                "second_order_tensor": perm,
+                "bc": bnd,
+                "inverter": "python",
+                "specified_nodes": nodes,
+            }
+
+            keyword = "flow"
+            data = pp.initialize_default_data(
+                g, {}, keyword, specified_parameters=specified_data
+            )
+
+            discr = pp.Mpfa(keyword)
+            discr.discretize(g, data)
+
+            partial_flux = data[pp.DISCRETIZATION_MATRICES][keyword][
+                discr.flux_matrix_key
+            ]
+            partial_bound = data[pp.DISCRETIZATION_MATRICES][keyword][
+                discr.bound_flux_matrix_key
+            ]
+            partial_vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
+                discr.vector_source_matrix_key
+            ]
+
+            active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
 
             if np.any(faces_covered):
-                partial_flux[faces_covered, :] *= 0
-                partial_bound[faces_covered, :] *= 0
+                fi = np.where(faces_covered)[0]
+                pp.fvutils.remove_nonlocal_contribution(
+                    fi, 1, partial_flux, partial_bound, partial_vector_source
+                )
+
             faces_covered[active_faces] = True
 
             flux += partial_flux
             bound_flux += partial_bound
+            vc += partial_vector_source
 
-        flux_full, bound_flux_full, _, _ = pp.Mpfa("flow")._local_discr(
-            g, perm, bnd, inverter="python"
-        )
+        flux_full, bound_flux_full, *_, vc_full, _ = pp.Mpfa(
+            "flow"
+        )._flux_discretization(g, perm, bnd, inverter="python")
 
         self.assertTrue((flux_full - flux).max() < 1e-8)
         self.assertTrue((flux_full - flux).min() > -1e-8)
         self.assertTrue((bound_flux - bound_flux_full).max() < 1e-8)
         self.assertTrue((bound_flux - bound_flux_full).min() > -1e-8)
+        self.assertTrue((vc - vc_full).max() < 1e-8)
+        self.assertTrue((vc - vc_full).min() > -1e-8)
 
 
 class TestPartialMPSA(unittest.TestCase):
@@ -205,8 +286,9 @@ class TestPartialMPSA(unittest.TestCase):
         self.assertTrue(np.max(np.abs(diff_bound[faces_of_cell])) == 0)
 
         # Only the faces of the central cell should be zero
-        partial_stress[faces_of_cell, :] = 0
-        partial_bound[faces_of_cell, :] = 0
+        pp.fvutils.remove_nonlocal_contribution(
+            faces_of_cell, 1, partial_stress, partial_bound
+        )
         self.assertTrue(np.max(np.abs(partial_stress.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound.data)) == 0)
 
@@ -253,9 +335,9 @@ class TestPartialMPSA(unittest.TestCase):
         self.assertTrue(np.max(np.abs(diff_bound[faces_of_cell])) == 0)
 
         # Only the faces of the central cell should be non-zero.
-        # Zero out these ones, and the entire
-        partial_stress[faces_of_cell, :] = 0
-        partial_bound[faces_of_cell, :] = 0
+        pp.fvutils.remove_nonlocal_contribution(
+            faces_of_cell, 1, partial_stress, partial_bound
+        )
         self.assertTrue(np.max(np.abs(partial_stress.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound.data)) == 0)
 
@@ -316,8 +398,10 @@ class TestPartialMPSA(unittest.TestCase):
 
             if np.any(faces_covered):
                 del_faces = self.expand_indices_nd(np.where(faces_covered)[0], g.dim)
-                partial_stress[del_faces, :] *= 0
-                partial_bound[del_faces, :] *= 0
+                # del_faces is already expanded, set dimension to 1
+                pp.fvutils.remove_nonlocal_contribution(
+                    del_faces, 1, partial_stress, partial_bound
+                )
             faces_covered[active_faces] = True
 
             stress += partial_stress
@@ -370,9 +454,16 @@ class PartialBiotMpsa(TestPartialMPSA):
 
     def test_inner_cell_node_keyword(self):
         # Compute update for a single cell in the interior.
-        g, stiffness, bnd, div_u, bound_div_u, grad_p, stab, bound_pressure = (
-            self.setup_biot()
-        )
+        (
+            g,
+            stiffness,
+            bnd,
+            div_u,
+            bound_div_u,
+            grad_p,
+            stab,
+            bound_pressure,
+        ) = self.setup_biot()
 
         inner_cell = 12  # The target cell
         nodes_of_cell = np.array([14, 15, 20, 21])
@@ -431,11 +522,13 @@ class PartialBiotMpsa(TestPartialMPSA):
         self.assertTrue(np.max(np.abs(diff_bound_pressure[faces_of_cell_vec])) == 0)
 
         # Only the faces of the central cell should be zero
-        partial_div_u[inner_cell, :] = 0
-        partial_bound_div_u[inner_cell, :] = 0
-        partial_grad_p[faces_of_cell_vec, :] = 0
-        partial_stab[inner_cell, :] = 0
-        partial_bound_pressure[faces_of_cell_vec, :] = 0
+        pp.fvutils.remove_nonlocal_contribution(
+            inner_cell, 1, partial_div_u, partial_bound_div_u, partial_stab
+        )
+        pp.fvutils.remove_nonlocal_contribution(
+            faces_of_cell, g.dim, partial_grad_p, partial_bound_pressure
+        )
+
         self.assertTrue(np.max(np.abs(partial_div_u.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound_div_u.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_grad_p.data)) == 0)
@@ -444,9 +537,16 @@ class PartialBiotMpsa(TestPartialMPSA):
 
     def test_bound_cell_node_keyword(self):
         # Compute update for a single cell on the
-        g, stiffness, bnd, div_u, bound_div_u, grad_p, stab, bound_pressure = (
-            self.setup_biot()
-        )
+        (
+            g,
+            stiffness,
+            bnd,
+            div_u,
+            bound_div_u,
+            grad_p,
+            stab,
+            bound_pressure,
+        ) = self.setup_biot()
 
         inner_cell = 10
         nodes_of_cell = np.array([12, 13, 18, 19])
@@ -505,11 +605,13 @@ class PartialBiotMpsa(TestPartialMPSA):
         self.assertTrue(np.max(np.abs(diff_bound_pressure[faces_of_cell_vec])) == 0)
 
         # Only the faces of the central cell should be zero
-        partial_div_u[inner_cell, :] = 0
-        partial_bound_div_u[inner_cell, :] = 0
-        partial_grad_p[faces_of_cell_vec, :] = 0
-        partial_stab[inner_cell, :] = 0
-        partial_bound_pressure[faces_of_cell_vec, :] = 0
+        pp.fvutils.remove_nonlocal_contribution(
+            inner_cell, 1, partial_div_u, partial_bound_div_u, partial_stab
+        )
+        pp.fvutils.remove_nonlocal_contribution(
+            faces_of_cell, g.dim, partial_grad_p, partial_bound_pressure
+        )
+
         self.assertTrue(np.max(np.abs(partial_div_u.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound_div_u.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_grad_p.data)) == 0)
@@ -605,11 +707,14 @@ class PartialBiotMpsa(TestPartialMPSA):
 
             if np.any(faces_covered):
                 del_faces = self.expand_indices_nd(np.where(faces_covered)[0], g.dim)
-                partial_grad_p[del_faces, :] *= 0
-                partial_bound_pressure[del_faces, :] *= 0
-                partial_stab[cells_covered, :] *= 0
-                partial_div_u[cells_covered, :] *= 0
-                partial_bound_div_u[cells_covered, :] *= 0
+                del_cells = np.where(cells_covered)[0]
+                pp.fvutils.remove_nonlocal_contribution(
+                    del_cells, 1, partial_div_u, partial_bound_div_u, partial_stab
+                )
+                # del_faces is already expanded, set dimension to 1
+                pp.fvutils.remove_nonlocal_contribution(
+                    del_faces, 1, partial_grad_p, partial_bound_pressure
+                )
 
             faces_covered[active_faces] = True
             cells_covered[ci] = True

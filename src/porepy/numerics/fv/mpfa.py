@@ -2,17 +2,14 @@
 Implementation of the multi-point flux approximation O-method.
 
 """
-from __future__ import division
-import warnings
 import numpy as np
 import scipy.sparse as sps
+from typing import Tuple
 
 import porepy as pp
-from porepy.numerics.fv import fvutils
-from porepy.numerics.fv.fv_elliptic import FVElliptic
 
 
-class Mpfa(FVElliptic):
+class Mpfa(pp.FVElliptic):
     def __init__(self, keyword):
         super(Mpfa, self).__init__(keyword)
 
@@ -46,8 +43,6 @@ class Mpfa(FVElliptic):
                 Stored in data[pp.PARAMETERS][self.keyword].
             matrix_dictionary, for storage of discretization matrices.
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
-            deviation_from_plane_tol: The geometrical tolerance, used in the check to
-                rotate 2d grids
 
         parameter_dictionary contains the entries:
             second_order_tensor: (SecondOrderTensor) Permeability defined
@@ -55,14 +50,12 @@ class Mpfa(FVElliptic):
                 the permeability (such as with fracture apertures) should be
                 included in the permeability.
             bc: (BoundaryCondition) boundary conditions
-            vector_source: (boolean) Optional. Discretization of the divergence of
-                a vector source. For example, gravity in the flow equations. If False,
-                standard MPFA is used.
+            ambient_dimension: (int) Optional. Ambient dimension, used in the
+                discretization of vector source terms. Defaults to the dimension of the
+                grid.
             mpfa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of
                 pressure continuity point. If not given, porepy tries to set an optimal
                 value.
-            reconstruction_eta: (float/np.ndarray) Optional. Range [0, 1]. Location of
-                pressure reconstruction point at faces. If not given, mpfa_eta is used.
             mpfa_inverter (str): Optional. Inverter to apply for local problems.
                 Can take values 'numba' (default), 'cython' or 'python'.
 
@@ -75,460 +68,320 @@ class Mpfa(FVElliptic):
                 Operator for reconstructing the pressure trace. Cell center contribution
             bound_pressure_face: sps.csc_matrix (g.num_faces, g.num_faces)
                 Operator for reconstructing the pressure trace. Face contribution
-            div_vector_source: sps.csc_matrix (g.num_faces, g.num_cells*dim)
-                Discretization of the flux due to vector source term, cell center contribution
-                Only if vector_source is True
+            vector_source: sps.csc_matrix (g.num_faces, g.num_cells*dim)
+                Discretization of the flux due to vector source term, cell center
+                contribution.
 
-        Parameters
-        ----------
-        g (pp.Grid): grid, or a subclass, with geometry fields computed.
-        data (dict): For entries, see above.
-        faces (np.ndarray): optional. Defines active faces.
         """
-        deviation_from_plane_tol = data.get("deviation_from_plane_tol", 1e-5)
-
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         # Extract parameters
-        k = parameter_dictionary["second_order_tensor"]
-        bnd = parameter_dictionary["bc"]
+        k: pp.SecondOrderTensor = parameter_dictionary["second_order_tensor"]
+        bnd: pp.BoundaryCondition = parameter_dictionary["bc"]
 
-        vector_source = parameter_dictionary.get("mpfa_vector_source", False)
+        # Dimension for vector source term field. Defaults to the same as the grid.
+        # For grids embedded in a higher dimension, this must be set to the ambient
+        # dimension.
+        vector_source_dim: int = parameter_dictionary.get("ambient_dimension", g.dim)
 
-        eta = parameter_dictionary.get("mpfa_eta", None)
-        eta_reconstruction = parameter_dictionary.get("reconstruction_eta", None)
-        inverter = parameter_dictionary.get("mpfa_inverter", None)
+        eta: float = parameter_dictionary.get("mpfa_eta", None)
+        inverter: str = parameter_dictionary.get("mpfa_inverter", "numba")
 
-        if not vector_source:
-            trm, bound_flux, bp_cell, bp_face = self.mpfa(
-                g,
-                k,
-                bnd,
-                deviation_from_plane_tol,
-                vector_source=vector_source,
-                eta=eta,
-                eta_reconstruction=eta_reconstruction,
-                inverter=inverter,
+        max_memory: int = parameter_dictionary.get("max_memory", 1e9)
+
+        # Whether to update an existing discretization, or construct a new one.
+        # If True, either specified_cells, _faces or _nodes should also be given, or
+        # else a full new discretization will be computed
+        update: bool = parameter_dictionary.get("update_discretization", False)
+
+        # NOTE: active_faces are all faces to have their stencils updated, while
+        # active_cells may form a larger set (to accurately update all faces on a
+        # subgrid, it is necessary to assign some overlap in terms of cells).
+        active_cells, active_faces = pp.fvutils.find_active_indices(
+            parameter_dictionary, g
+        )
+
+        if active_cells.size < g.num_cells:
+            # Extract a grid, and get global indices of its active faces and nodes
+            active_grid, extracted_faces, _ = pp.partition.extract_subgrid(
+                g, active_cells
+            )
+            # Constitutive law and boundary condition for the active grid
+            active_constit: pp.SecondOrderTensor = self._constit_for_subgrid(
+                k, active_cells
+            )
+
+            # Extract the relevant part of the boundary condition
+            active_bound: pp.BoundaryCondition = self._bc_for_subgrid(
+                bnd, active_grid, extracted_faces
             )
         else:
-            trm, bound_flux, bp_cell, bp_face, div_vec_source = self.mpfa(
-                g,
-                k,
-                bnd,
-                deviation_from_plane_tol,
-                vector_source=vector_source,
-                eta=eta,
-                eta_reconstruction=eta_reconstruction,
-                inverter=inverter,
+            # The active grid is simply the grid
+            active_grid = g
+            extracted_faces = active_faces
+            active_constit = k
+            active_bound = bnd
+
+        # Empty matrices for stress, bound_stress and boundary displacement
+        # reconstruction.
+        # Will be expanded as we go.
+        # Implementation note: It should be relatively straightforward to
+        # estimate the memory need of stress (face_nodes -> node_cells -> unique).
+        # bookkeeping
+        nf = active_grid.num_faces
+        nc = active_grid.num_cells
+        active_flux = sps.csr_matrix((nf, nc))
+        active_bound_flux = sps.csr_matrix((nf, nf))
+        active_bound_pressure_cell = sps.csr_matrix((nf, nc))
+        active_bound_pressure_face = sps.csr_matrix((nf, nf))
+
+        # For the vector sources, some extra care is needed in the projections between
+        # local and global discretization matrices. The variable cell_vector_dim is used
+        # at various places below.
+        if g.dim == 2:
+            # In the 2d case, the discretization is done in 2d. This is compensated
+            # for by the rotation towards the end of this function.
+            cell_vector_dim: int = 2
+        else:
+            # Else, the discretization of the vector source is in vector_source_dim.
+            # Exception: vector_source_dim = 0, assumedly for no assigned ambient
+            #  dimension and g.dim = 0. Then we need matrices of shape=[1,1]
+            cell_vector_dim: int = max(1, vector_source_dim)
+
+        active_vector_source = sps.csr_matrix((nf, nc * cell_vector_dim))
+        active_bound_pressure_vector_source = sps.csr_matrix((nf, nc * cell_vector_dim))
+
+        # Find an estimate of the peak memory need
+        peak_memory_estimate = self._estimate_peak_memory(active_grid)
+
+        # Loop over all partition regions, construct local problems, and transfer
+        # discretization to the entire active grid
+        for reg_i, (sub_g, faces_in_subgrid, _, l2g_cells, l2g_faces) in enumerate(
+            pp.fvutils.subproblems(active_grid, max_memory, peak_memory_estimate)
+        ):
+
+            # Copy stiffness tensor, and restrict to local cells
+            loc_c: pp.SecondOrderTensor = self._constit_for_subgrid(
+                active_constit, l2g_cells
             )
 
-            matrix_dictionary[self.div_vector_source_key] = div_vec_source
+            # Boundary conditions are slightly more complex. Find local faces
+            # that are on the global boundary.
+            # Then transfer boundary condition on those faces.
+            loc_bnd: pp.BoundaryCondition = self._bc_for_subgrid(
+                active_bound, sub_g, l2g_faces
+            )
+            discr_fields = self._flux_discretization(
+                sub_g,
+                loc_c,
+                loc_bnd,
+                eta=eta,
+                inverter=inverter,
+                ambient_dimension=vector_source_dim,
+            )
 
-        matrix_dictionary[self.flux_matrix_key] = trm
-        matrix_dictionary[self.bound_flux_matrix_key] = bound_flux
-        matrix_dictionary[self.bound_pressure_cell_matrix_key] = bp_cell
-        matrix_dictionary[self.bound_pressure_face_matrix_key] = bp_face
+            # Eliminate contribution from faces already discretized (the dual grids /
+            # interaction regions may be structured so that some faces have previously
+            # been partially discretized even if it has not been their turn until now)
+            eliminate_face = np.where(
+                np.logical_not(np.in1d(l2g_faces, faces_in_subgrid))
+            )[0]
 
-    def mpfa(
-        self,
-        g,
-        k,
-        bnd,
-        deviation_from_plane_tol=1e-5,
-        vector_source=False,
-        eta=None,
-        eta_reconstruction=None,
-        inverter=None,
-        max_memory=None,
-        **kwargs
-    ):
-        """
-        Discretize the scalar elliptic equation by the multi-point flux
-        approximation method.
-        The method computes fluxes over faces in terms of pressures in adjacent
-        cells (defined as all cells sharing at least one vertex with the face).
-        This corresponds to the MPFA-O method, see
-        Aavatsmark (2002): An introduction to the MPFA-O method on
-                quadrilateral grids, Comp. Geosci. for details.
-        Implementation needs:
-            1) The local linear systems should be scaled with the permeability and
-            the local grid size, so that we avoid rounding errors accumulating
-            under grid refinement / convergence tests.
-            2) It probably makes sense to create a wrapper class to store the
-            discretization, interface to linear solvers etc.
-        Right now, there are concrete plans for 2).
+            pp.fvutils.remove_nonlocal_contribution(eliminate_face, 1, *discr_fields)
 
-        Parameters:
-            g (pp.Grid): grid to be discretized
-            k (pp.Second_order_tensor) permeability tensor. This is
-                the effective permeability; for lower-dimensional grids, any
-                aperture scaling of the permeability should be included in k.
-            bnd (pp.BoundaryCondition) class for boundary values
-            deviation_from_plane_tol: The geometrical tolerance, used in the check to
-                rotate 2d grids
-            vector_source: discretization of the divergence of vector source term,
-                e.g. gravity in the flow equations. Default False. If True,
-                vector sources are discretized as part of the discrete flux operator
-            eta Location of pressure continuity point. Defaults to 1/3 for simplex
-                grids, 0 otherwise. On boundary faces with Dirichlet conditions,
-                eta=0 will be enforced.
-            eta_reconstruction Location of pressure reconstruction point on faces.
-            inverter (string) Block inverter to be used, either numba (default),
-                cython or python. See fvutils.invert_diagonal_blocks for details.
-            max_memory (double): Threshold for peak memory during discretization.
-                If the **estimated** memory need is larger than the provided
-                threshold, the discretization will be split into an appropriate
-                number of sub-calculations, using mpfa_partial().
+            # Split the discretization.
+            (
+                loc_flux,
+                loc_bound_flux,
+                loc_bound_pressure_cell,
+                loc_bound_pressure_face,
+                loc_vector_source,
+                loc_bound_pressure_vector_source,
+            ) = discr_fields
 
-        Returns:
-            scipy.sparse.csr_matrix (shape num_faces, num_cells): flux
-                discretization, in the form of mapping from cell pressures to face
-                fluxes.
-            scipy.sparse.csr_matrix (shape num_faces, num_faces): discretization of
-                boundary conditions. Interpreted as fluxes induced by the boundary
-                condition (both Dirichlet and Neumann). For Neumann, this will be
-                the prescribed flux over the boundary face, and possibly fluxes
-                over faces having nodes on the boundary. For Dirichlet, the values
-                will be fluxes induced by the prescribed pressure. Incorporation as
-                a right hand side in linear system by multiplication with
-                divergence operator.
-            scipy.sparse.csr_matrix (shape num_faces, num_cells): Used to recover
-                pressure on boundary faces. Contribution from computed cell
-                pressures only; contribution from faces (below) also needed.
-            scipy.sparse.csr_matrix (shape num_faces, num_faces): Used to recover
-                pressure on boundary faces. Contribution from boundary conditions.
-            scipy.sparse.csr_matrix (shape num_faces, num_cells*dim): discretization of
-                the flux due to vector source term, in the form of mapping from cell vector
-                sources to face fluxes. Only if vector_source is True
-        Example:
-            # Set up a Cartesian grid
-            g = structured.CartGrid([5, 5])
-            k = tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
-            g.compute_geometry()
-            # Dirirchlet boundary conditions
-            bound_faces = g.tags['domain_boundary_faces'].ravel()
-            bnd = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
-            # Discretization
-            flux, bound_flux, bp_cell, bp_face = mpfa(g, k, bnd)
-            # Source in the middle of the domain
-            q = np.zeros(g.num_cells)
-            q[12] = 1
-            # Divergence operator for the grid
-            div = fvutils.scalar_divergence(g)
-            # Discretization matrix
-            A = div * flux
-            # Assign boundary values to all faces on the bounary
-            bound_vals = np.zeros(g.num_faces)
-            bound_vals[bound_faces] = np.arange(bound_faces.size)
-            # Assemble the right hand side and solve
-            rhs = q + div * bound_flux * bound_vals
-            x = sps.linalg.spsolve(A, rhs)
-            # Recover flux
-            f = flux * x - bound_flux * bound_vals
-            # Recover boundary pressure
-            bp = bp_cell * x + bp_face * bound_vals
-        """
+            # Next, transfer discretization matrices from the local to the active grid
 
-        if max_memory is None:
-            # For the moment nothing to do here, just call main mpfa method for the
-            # entire grid.
-            # TODO: We may want to estimate the memory need, and give a warning if
-            # this seems excessive
-
-            if not vector_source:
-                flux, bound_flux, bound_pressure_cell, bound_pressure_face = self._local_discr(
-                    g,
-                    k,
-                    bnd,
-                    deviation_from_plane_tol,
-                    vector_source=vector_source,
-                    eta=eta,
-                    eta_reconstruction=eta_reconstruction,
-                    inverter=inverter,
-                )
+            if (
+                sub_g.num_cells == active_grid.num_cells
+                and sub_g.num_faces == active_grid.num_faces
+            ):
+                # Shortcut
+                active_flux = loc_flux
+                active_bound_flux = loc_bound_flux
+                active_bound_pressure_cell = loc_bound_pressure_cell
+                active_bound_pressure_face = loc_bound_pressure_face
+                active_vector_source = loc_vector_source
+                active_bound_pressure_vector_source = loc_bound_pressure_vector_source
             else:
-                flux, bound_flux, bound_pressure_cell, bound_pressure_face, div_vector_source = self._local_discr(
-                    g,
-                    k,
-                    bnd,
-                    deviation_from_plane_tol,
-                    vector_source=vector_source,
-                    eta=eta,
-                    eta_reconstruction=eta_reconstruction,
-                    inverter=inverter,
+                # Get a mapping from the local to the active grid
+                face_map, cell_map = pp.fvutils.map_subgrid_to_grid(
+                    active_grid, l2g_faces, l2g_cells, is_vector=False
                 )
+                # Update discretization on the active grid.
+                active_flux += face_map * loc_flux * cell_map
+                active_bound_flux += face_map * loc_bound_flux * face_map.transpose()
+
+                # Update global face fields.
+                active_bound_pressure_cell += (
+                    face_map * loc_bound_pressure_cell * cell_map
+                )
+                active_bound_pressure_face += (
+                    face_map * loc_bound_pressure_face * face_map.transpose()
+                )
+                # The vector source is a field of dimension vector_source_dim, and must
+                # be mapped accordingly
+                _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
+                    active_grid,
+                    l2g_faces,
+                    l2g_cells,
+                    is_vector=True,
+                    nd=cell_vector_dim,
+                )
+                active_vector_source += face_map * loc_vector_source * cell_map_vec
+                active_bound_pressure_vector_source += (
+                    face_map * loc_bound_pressure_vector_source * cell_map_vec
+                )
+
+        # We have reached the end of the discretization, what remains is to map the
+        # discretization back from the active grid to the entire grid
+
+        if (
+            active_grid.num_cells == g.num_cells
+            and active_grid.num_faces == g.num_faces
+        ):
+            # Shortcut
+            flux_glob = active_flux
+            bound_flux_glob = active_bound_flux
+            bound_pressure_cell_glob = active_bound_pressure_cell
+            bound_pressure_face_glob = active_bound_pressure_face
+            # The vector source term has a vector-sized number of rows, and needs a
+            # different cell_map. See explanation of cell map dimension above.
+
+            vector_source_glob = active_vector_source
+            bound_pressure_vector_source_glob = active_bound_pressure_vector_source
         else:
-            # Estimate number of partitions necessary based on prescribed memory
-            # usage
-            peak_mem = self._estimate_peak_memory(g)
-            num_part = np.ceil(peak_mem / max_memory)
-
-            # Let partitioning module apply the best available method
-            part = pp.partition.partition(g, num_part)
-
-            # Empty fields for flux and bound_flux. Will be expanded as we go.
-            # Implementation note: It should be relatively straightforward to
-            # estimate the memory need of flux (face_nodes -> node_cells ->
-            # unique).
-            flux = sps.csr_matrix(g.num_faces, g.num_cells)
-            bound_flux = sps.csr_matrix(g.num_faces, g.num_faces)
-            bound_pressure_cell = sps.csr_matrix(g.num_faces, g.num_cells)
-            bound_pressure_face = sps.csr_matrix(g.num_faces, g.num_faces)
-
-            cn = g.cell_nodes()
-
-            face_covered = np.zeros(g.num_faces, dtype=np.bool)
-
-            for p in range(part.max()):
-                # Cells in this partitioning
-                cell_ind = np.argwhere(part == p).ravel("F")
-                # To discretize with as little overlap as possible, we use the
-                # keyword nodes to specify the update stencil. Find nodes of the
-                # local cells.
-                active_cells = np.zeros(g.num_cells, dtype=np.bool)
-                active_cells[cell_ind] = 1
-                active_nodes = np.squeeze(np.where((cn * active_cells) > 0))
-
-                # Perform local discretization.
-                if not vector_source:
-                    loc_flux, loc_bound_flux, loc_bp_cell, loc_bp_face, loc_faces = self.partial_discr(
-                        g,
-                        k,
-                        bnd,
-                        deviation_from_plane_tol,
-                        vector_source=vector_source,
-                        eta=eta,
-                        eta_reconstruction=eta_reconstruction,
-                        inverter=inverter,
-                        nodes=active_nodes,
-                    )
-                else:
-                    div_vector_source = sps.csr_matrix(g.num_faces, g.num_cells * g.dim)
-                    loc_flux, loc_bound_flux, loc_bp_cell, loc_bp_face, loc_div_vector_source, loc_faces = self.partial_discr(
-                        g,
-                        k,
-                        bnd,
-                        deviation_from_plane_tol,
-                        vector_source=vector_source,
-                        eta=eta,
-                        eta_reconstruction=eta_reconstruction,
-                        inverter=inverter,
-                        nodes=active_nodes,
-                    )
-                    loc_div_vector_source[face_covered, :] *= 0
-                    div_vector_source += loc_div_vector_source
-
-                # Eliminate contribution from faces already covered
-                loc_flux[face_covered, :] *= 0
-                loc_bound_flux[face_covered, :] *= 0
-                loc_bp_cell[face_covered, :] *= 0
-                loc_bp_face[face_covered, :] *= 0
-
-                face_covered[loc_faces] = 1
-
-                flux += loc_flux
-                bound_flux += loc_bound_flux
-                bound_pressure_cell += loc_bp_cell
-                bound_pressure_face += loc_bp_face
-
-        if not vector_source:
-            return flux, bound_flux, bound_pressure_cell, bound_pressure_face
-        else:
-            return (
-                flux,
-                bound_flux,
-                bound_pressure_cell,
-                bound_pressure_face,
-                div_vector_source,
+            face_map, cell_map = pp.fvutils.map_subgrid_to_grid(
+                g, extracted_faces, active_cells, is_vector=False
             )
 
-    def partial_discr(
-        self,
-        g,
-        k,
-        bnd,
-        deviation_from_plane_tol=1e-5,
-        vector_source=False,
-        eta=0,
-        eta_reconstruction=None,
-        inverter="numba",
-        cells=None,
-        faces=None,
-        nodes=None,
-    ):
-        """
-        Run an MPFA discretization on subgrid, and return discretization in terms
-        of global variable numbers.
+            # Update global face fields.
+            flux_glob = face_map * active_flux * cell_map
+            bound_flux_glob = face_map * active_bound_flux * face_map.transpose()
+            bound_pressure_cell_glob = face_map * active_bound_pressure_cell * cell_map
+            bound_pressure_face_glob = (
+                face_map * active_bound_pressure_face * face_map.transpose()
+            )
+            # The vector source term has a vector-sized number of rows, and needs a
+            # different cell_map. See explanation of cell map dimension above.
+            _, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
+                g, extracted_faces, active_cells, is_vector=True, nd=cell_vector_dim
+            )
+            vector_source_glob = face_map * active_vector_source * cell_map_vec
+            bound_pressure_vector_source_glob = (
+                face_map * active_bound_pressure_vector_source * cell_map_vec
+            )
 
-        Scenarios where the method will be used include updates of permeability,
-        and the introduction of an internal boundary (e.g. fracture growth).
+        # The vector source term was computed in the natural coordinates of the grid.
+        # If the grid is embedded in a higher dimension, the source term will have the
+        # size of that dimensions, and the discretization matrix should be adjusted
+        # accordingly. The dimension of the vector source term is given by the parameter
+        # vector_source_dim.
+        # If the dimension of the grid is 3 (i.e. the maximum possible) or 0 (no vectors
+        # are possible), there is no need for adjustment. Likewise, if g.dim == 1, the
+        # discretization was done with tpfa, and the vector_source matrix is already
+        # in the full coordinates.
 
-        The subgrid can be specified in terms of cells, faces and nodes to be
-        updated. For details on the implementation, see
-        fv_utils.cell_ind_for_partial_update()
+        # What is left is to fix the projection if g.dim == 2.
+        # This is the part of the code that requires the special g.dim == 2 when
+        # cell_vector_dim is set above.
+        if g.dim == 2:
+            # Use the same mapping of the geometry as was done in
+            # self._flux_discretization(). This mapping is deterministic, thus the
+            # rotation matrix should be the same as applied before. In this case, we
+            # only need the rotation, and the active dimensions
+            *_, R, dim, _ = pp.map_geometry.map_grid(g)
 
-        Parameters:
-            g (pp.Grid): grid to be discretized
-            k (pp.Second_order_tensor) permeability tensor. This is
-                the effective permeability; for lower-dimensional grids, any
-                aperture scaling of the permeability should be included in k.
-            bnd (pp.BoundaryCondition) class for boundary values
-            faces (np.ndarray) faces to be considered. Intended for partial
-                discretization, may change in the future
-            bnd (core.bc.bc) class for boundary values
-            deviation_from_plane_tol: The geometrical tolerance, used in the check to
-                rotate 2d grids
-            vector_source: discretization of the divergence of a vector source,
-                e.g. gravity in the flow equations. Default False. If True,
-                vector sources are discretized as part of the discrete flux operator
-            eta Location of pressure continuity point. Should be 1/3 for simplex
-                grids, 0 otherwise. On boundary faces with Dirichlet conditions,
-                eta=0 will be enforced.
-            eta_reconstruction Location of pressure reconstruction point on faces.
-            inverter (string) Block inverter to be used, either numba (default),
-                cython or python. See fvutils.invert_diagonal_blocks for details.
-            cells (np.array, int, optional): Index of cells on which to base the
-                subgrid computation. Defaults to None.
-            faces (np.array, int, optional): Index of faces on which to base the
-                subgrid computation. Defaults to None.
-            nodes (np.array, int, optional): Index of nodes on which to base the
-                subgrid computation. Defaults to None.
+            # We need to pick out the parts of the rotation matrix that gives the
+            # in-plane (relative to the grid) parts, and apply this to all cells in the
+            # grid. The simplest way to do this is to expand R[dim] via sps.block_diags,
+            # however this scales poorly with the number of blocks. Instead, use the
+            # existing workaround to create a csr matrix based on R, and then pick out
+            # the right parts of that one
+            full_rot_mat = pp.utils.sparse_mat.csr_matrix_from_blocks(
+                # Replicate R with the right ordering of data elements
+                np.tile(R.ravel(), (1, g.num_cells)).ravel(),
+                # size of the blocks - this will always be the dimension of the rotation
+                # matrix, that is, 3 - due to the grid coordinates being 3d
+                # If the ambient dimension really is 2, this is adjusted below
+                3,
+                # Number of blocks
+                g.num_cells,
+            )
+            # Get the right components of the rotation matrix.
+            dim_expanded = np.where(dim)[0].reshape(
+                (-1, 1)
+            ) + vector_source_dim * np.array(np.arange(g.num_cells))
+            # Dump the irrelevant rows of the global rotation matrix
+            glob_R = full_rot_mat[dim_expanded.ravel("f")]
 
-            Note that if all of {cells, faces, nodes} are None, empty matrices will
-            be returned.
+            # If the grid is truly 2d, we also need to dump the irrelevant columns of
+            # the rotation matrix
+            if g.dim == vector_source_dim:
+                glob_R = glob_R[:, dim_expanded.ravel("f")]
 
-        Returns:
-            sps.csr_matrix (g.num_faces x g.num_cells): Flux discretization,
-                computed on a subgrid.
-            sps.csr_matrix (g,num_faces x g.num_faces): Boundary flux
-                discretization, computed on a subgrid
-            np.array (int): Global of the faces where the flux discretization is
-                computed.
+            # Append a mapping from the ambient dimension onto the plane of this grid
+            vector_source_glob *= glob_R
+            bound_pressure_vector_source_glob *= glob_R
 
-        """
-        if cells is not None:
-            warnings.warn("Cells keyword for partial mpfa has not been tested")
-        if faces is not None:
-            warnings.warn("Faces keyword for partial mpfa has not been tested")
-
-        # Find computational stencil, based on specified cells, faces and nodes.
-        ind, active_faces = fvutils.cell_ind_for_partial_update(
-            g, cells=cells, faces=faces, nodes=nodes
+        eliminate_faces = np.setdiff1d(np.arange(g.num_faces), active_faces)
+        pp.fvutils.remove_nonlocal_contribution(
+            eliminate_faces,
+            1,
+            flux_glob,
+            bound_flux_glob,
+            bound_pressure_cell_glob,
+            bound_pressure_face_glob,
+            vector_source_glob,
+            bound_pressure_vector_source_glob,
         )
 
-        # Extract subgrid, together with mappings between local and global
-        # cells
-        sub_g, l2g_faces, _ = pp.grids.partition.extract_subgrid(g, ind)
-        l2g_cells = sub_g.parent_cell_ind
+        if update:
+            matrix_dictionary[self.flux_matrix_key][active_faces] = flux_glob[
+                active_faces
+            ]
+            matrix_dictionary[self.bound_flux_matrix_key][
+                active_faces
+            ] = bound_flux_glob[active_faces]
+            matrix_dictionary[self.bound_pressure_cell_matrix_key][
+                active_faces
+            ] = bound_pressure_cell_glob[active_faces]
+            matrix_dictionary[self.bound_pressure_face_matrix_key][
+                active_faces
+            ] = bound_pressure_face_glob[active_faces]
 
-        # Local parameter fields
-        # Copy permeability field, and restrict to local cells
-        loc_k = k.copy()
-        loc_k.values = loc_k.values[::, ::, l2g_cells]
-
-        glob_bound_face = g.get_all_boundary_faces()
-
-        # Boundary conditions are slightly more complex. Find local faces
-        # that are on the global boundary.
-        loc_bound_ind = np.argwhere(np.in1d(l2g_faces, glob_bound_face)).ravel("F")
-        loc_cond = np.array(loc_bound_ind.size * ["neu"])
-        # Then pick boundary condition on those faces.
-        if loc_bound_ind.size > 0:
-            # We could have avoided to explicitly define Neumann conditions,
-            # since these are default.
-            # For primal-like discretizations like the MPFA, internal boundaries
-            # are handled by assigning Neumann conditions.
-            is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
-            is_neu = np.logical_or(bnd.is_neu, bnd.is_internal)
-
-            is_dir = is_dir[l2g_faces[loc_bound_ind]]
-            is_neu = is_neu[l2g_faces[loc_bound_ind]]
-
-            loc_cond[is_dir] = "dir"
-        loc_bnd = pp.BoundaryCondition(sub_g, faces=loc_bound_ind, cond=loc_cond)
-
-        # Map to global indices
-        face_map, cell_map = fvutils.map_subgrid_to_grid(
-            g, l2g_faces, l2g_cells, is_vector=False
-        )
-
-        # By design of mpfa, and the subgrids, the discretization will update faces
-        # outside the active faces. Prepare for this.
-        outside = np.setdiff1d(np.arange(g.num_faces), active_faces, assume_unique=True)
-
-        # Discretization of sub-problem
-        if not vector_source:
-            flux_loc, bound_flux_loc, bound_pressure_cell, bound_pressure_face = self._local_discr(
-                sub_g,
-                loc_k,
-                loc_bnd,
-                deviation_from_plane_tol,
-                vector_source=vector_source,
-                eta=eta,
-                eta_reconstruction=eta_reconstruction,
-                inverter=inverter,
-            )
+            matrix_dictionary[self.vector_source_matrix_key][
+                active_faces
+            ] = vector_source_glob[active_faces]
+            matrix_dictionary[self.bound_pressure_vector_source_matrix_key][
+                active_faces
+            ] = bound_pressure_vector_source_glob[active_faces]
 
         else:
-            flux_loc, bound_flux_loc, bound_pressure_cell, bound_pressure_face, div_vector_source_loc = self._local_discr(
-                sub_g,
-                loc_k,
-                loc_bnd,
-                deviation_from_plane_tol,
-                vector_source=vector_source,
-                eta=eta,
-                eta_reconstruction=eta_reconstruction,
-                inverter=inverter,
-            )
-            # NOTE MS: I am not sure about this mapping since div_vector_source is ready to be
-            # multiplied with a cell center vector. cell_map in this case should
-            # have dimensions of (num_cells_loc * g.dim, g.num_cells * g.dim).
-            # I think fvutils.map_subgrid_to_grid should be modified in order
-            # to return 3 objects: face_map, cell_map, cell_map_nd
-            # Anyhow, for most applications, discretization goes via _local_discr
-            # this is just a reminder where issues may arise
-            div_vector_source_glob = face_map * div_vector_source_loc * cell_map
-            div_vector_source_glob[outside, :] = 0
+            matrix_dictionary[self.flux_matrix_key] = flux_glob
+            matrix_dictionary[self.bound_flux_matrix_key] = bound_flux_glob
+            matrix_dictionary[
+                self.bound_pressure_cell_matrix_key
+            ] = bound_pressure_cell_glob
+            matrix_dictionary[
+                self.bound_pressure_face_matrix_key
+            ] = bound_pressure_face_glob
+            matrix_dictionary[self.vector_source_matrix_key] = vector_source_glob
+            matrix_dictionary[
+                self.bound_pressure_vector_source_matrix_key
+            ] = bound_pressure_vector_source_glob
 
-        flux_glob = face_map * flux_loc * cell_map
-        bound_flux_glob = face_map * bound_flux_loc * face_map.transpose()
-        bound_pressure_cell_glob = face_map * bound_pressure_cell * cell_map
-        bound_pressure_face_glob = face_map * bound_pressure_face * face_map.T
-
-        # Kill faces outside the activa faces
-        flux_glob[outside, :] = 0
-        bound_flux_glob[outside, :] = 0
-        bound_pressure_cell_glob[outside, :] = 0
-        bound_pressure_face_glob[outside, :] = 0
-
-        if not vector_source:
-            return (
-                flux_glob,
-                bound_flux_glob,
-                bound_pressure_cell_glob,
-                bound_pressure_face_glob,
-                active_faces,
-            )
-        else:
-            return (
-                flux_glob,
-                bound_flux_glob,
-                bound_pressure_cell_glob,
-                bound_pressure_face_glob,
-                div_vector_source_glob,
-                active_faces,
-            )
-
-    def _local_discr(
-        self,
-        g,
-        k,
-        bnd,
-        deviation_from_plane_tol=1e-5,
-        vector_source=False,
-        eta=None,
-        eta_reconstruction=None,
-        inverter="numba",
+    def _flux_discretization(
+        self, g, k, bnd, inverter, ambient_dimension=None, eta=None
     ):
         """
         Actual implementation of the MPFA O-method. To calculate MPFA on a grid
@@ -569,12 +422,11 @@ class Mpfa(FVElliptic):
         Neumann conditions will have a non-zero right hand side for (i), while
         Dirichlet gives a right hand side for (iii).
         """
-        # Implementational note on boundary conditions: A note on the possibility of
-        # subface boundary conditions in mpfa/mpsa can be found in the function
-        # _mpsa_local() in the mpsa.py module.
 
         if eta is None:
-            eta = fvutils.determine_eta(g)
+            eta = pp.fvutils.determine_eta(g)
+        if ambient_dimension is None:
+            ambient_dimension = g.dim
 
         # The method reduces to the more efficient TPFA in one dimension, so that
         # method may be called. In 0D, there is no internal discretization to be
@@ -584,30 +436,33 @@ class Mpfa(FVElliptic):
             params = pp.Parameters(g)
             params["bc"] = bnd
             params["second_order_tensor"] = k
+            params["ambient_dimension"] = ambient_dimension
 
             d = {
                 pp.PARAMETERS: {self.keyword: params},
                 pp.DISCRETIZATION_MATRICES: {self.keyword: {}},
             }
-            discr.discretize(g, d, vector_source=vector_source)
+            discr.discretize(g, d)
             matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.keyword]
-            if not vector_source:
-                return (
-                    matrix_dictionary[self.flux_matrix_key],
-                    matrix_dictionary[self.bound_flux_matrix_key],
-                    matrix_dictionary[self.bound_pressure_cell_matrix_key],
-                    matrix_dictionary[self.bound_pressure_face_matrix_key],
-                )
-            else:
-                return (
-                    matrix_dictionary[self.flux_matrix_key],
-                    matrix_dictionary[self.bound_flux_matrix_key],
-                    matrix_dictionary[self.bound_pressure_cell_matrix_key],
-                    matrix_dictionary[self.bound_pressure_face_matrix_key],
-                    matrix_dictionary[self.div_vector_source_key],
-                )
+
+            return (
+                matrix_dictionary[self.flux_matrix_key],
+                matrix_dictionary[self.bound_flux_matrix_key],
+                matrix_dictionary[self.bound_pressure_cell_matrix_key],
+                matrix_dictionary[self.bound_pressure_face_matrix_key],
+                matrix_dictionary[self.vector_source_matrix_key],
+                matrix_dictionary[self.bound_pressure_vector_source_matrix_key],
+            )
+
         elif g.dim == 0:
-            return sps.csr_matrix([0]), 0, 0, 0
+            return (
+                sps.csr_matrix((0, g.num_cells)),
+                sps.csr_matrix((0, 0)),
+                sps.csr_matrix((0, g.num_cells)),
+                sps.csr_matrix((0, 0)),
+                sps.csr_matrix((0, g.num_cells * max(ambient_dimension, 1))),
+                sps.csr_matrix((0, g.num_cells * max(ambient_dimension, 1))),
+            )
 
         # The grid coordinates are always three-dimensional, even if the grid is
         # really 2D. This means that there is not a 1-1 relation between the number
@@ -623,9 +478,14 @@ class Mpfa(FVElliptic):
             # Rotate the grid into the xy plane and delete third dimension. First
             # make a copy to avoid alterations to the input grid
             g = g.copy()
-            cell_centers, face_normals, face_centers, R, _, nodes = pp.map_geometry.map_grid(
-                g, deviation_from_plane_tol
-            )
+            (
+                cell_centers,
+                face_normals,
+                face_centers,
+                R,
+                _,
+                nodes,
+            ) = pp.map_geometry.map_grid(g)
             g.cell_centers = cell_centers
             g.face_normals = face_normals
             g.face_centers = face_centers
@@ -640,27 +500,26 @@ class Mpfa(FVElliptic):
         # Define subcell topology, that is, the local numbering of faces, subfaces,
         # sub-cells and nodes. This numbering is used throughout the
         # discretization.
-        subcell_topology = fvutils.SubcellTopology(g)
+        subcell_topology = pp.fvutils.SubcellTopology(g)
 
         # Below, the boundary conditions should be defined on the subfaces.
         if bnd.num_faces == subcell_topology.num_subfno_unique:
             # The boundary conditions is already given on the subfaces
+            subcell_bnd = bnd
             subface_rhs = True
         else:
             # If bnd is not already a sub-face_bound we extend it
-            bnd = pp.fvutils.boundary_to_sub_boundary(bnd, subcell_topology)
+            subcell_bnd = pp.fvutils.boundary_to_sub_boundary(bnd, subcell_topology)
             subface_rhs = False
-        # IS: Correct this paragraph!
-        # Obtain normal_vector * k, pairings of cells and nodes (which together
-        # uniquely define sub-cells, and thus index for gradients. See comment
-        # below for the ordering of elements in the subcell gradient.
 
         # The normal vectors used in the product are simply the face normals
         # (with areas downscaled to account for subfaces). The sign of
         # nk_grad_all coincides with the direction of the normal vector.
-        nk_grad_all, cell_node_blocks, sub_cell_index = fvutils.scalar_tensor_vector_prod(
-            g, k, subcell_topology
-        )
+        (
+            nk_grad_all,
+            cell_node_blocks,
+            sub_cell_index,
+        ) = pp.fvutils.scalar_tensor_vector_prod(g, k, subcell_topology)
 
         ## Contribution from subcell gradients to local system.
         # The pressure at a subface continuity point is given by the subcell
@@ -676,7 +535,9 @@ class Mpfa(FVElliptic):
         #    interior subfaces, and on faces on the boundary.
         # NOTE: The second operation is reversed for Robin boundary conditions,
         #       see below.
-        pr_cont_grad_paired = fvutils.compute_dist_face_cell(g, subcell_topology, eta)
+        pr_cont_grad_paired = pp.fvutils.compute_dist_face_cell(
+            g, subcell_topology, eta
+        )
 
         # Discretized Darcy's law: The flux over a subface is given by the
         # area weighted normal vector, multiplied with the subcell permeability,
@@ -696,7 +557,7 @@ class Mpfa(FVElliptic):
         #    interior subfaces, and on faces on the boundary.
         nk_grad_paired = subcell_topology.pair_over_subfaces(nk_grad_all)
 
-        ### Contribution from cell center potentials to local systems.
+        ## Contribution from cell center potentials to local systems.
 
         # Cell center pressure contribution to flux continuity on subfaces:
         # There is no contribution (fluxes are driven by gradients only).
@@ -733,7 +594,7 @@ class Mpfa(FVElliptic):
         ## Discretize the Robin condition.
         # This takes the form
         #
-        #   f + bnd.robin_weight * pressure_face * subface_area = something.
+        #   f + subcell_bnd.robin_weight * pressure_face * subface_area = something.
         #
         # The scaling is important here: The f is a flux integrated over the
         # half face, thus the scaling with the subface area is necessary.
@@ -758,7 +619,7 @@ class Mpfa(FVElliptic):
         # below (in computation of pr_cont_grad).
         num_nodes = np.diff(g.face_nodes.indptr)
         sgn_scaled_by_subface_area = (
-            bnd.robin_weight
+            subcell_bnd.robin_weight
             * sgn_unique
             * g.face_areas[subcell_topology.fno_unique]
             / num_nodes[subcell_topology.fno_unique]
@@ -769,7 +630,7 @@ class Mpfa(FVElliptic):
         # Contribution from gradient.
         pr_trace_cell_all = sps.coo_matrix(
             (
-                bnd.robin_weight[subcell_topology.subfno]
+                subcell_bnd.robin_weight[subcell_topology.subfno]
                 * g.face_areas[subcell_topology.fno]
                 / num_nodes[subcell_topology.fno],
                 (subcell_topology.subfno, subcell_topology.cno),
@@ -789,16 +650,23 @@ class Mpfa(FVElliptic):
         # The boundary faces will have either a Dirichlet or Neumann condition, or
         # Robin condition
         # Obtain mappings to exclude boundary faces.
-        bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bnd, g.dim)
+        bound_exclusion = pp.fvutils.ExcludeBoundaries(
+            subcell_topology, subcell_bnd, g.dim
+        )
 
         # No flux conditions for Dirichlet and Robin boundary faces
         nk_grad_n = bound_exclusion.exclude_robin_dirichlet(nk_grad_paired)
         nk_cell = bound_exclusion.exclude_robin_dirichlet(nk_cell)
 
         # Robin condition is only applied to Robin boundary faces
-        nk_grad_r = bound_exclusion.keep_robin(nk_grad_paired)
-        pr_trace_grad = bound_exclusion.keep_robin(pr_trace_grad_all)
-        pr_trace_cell = bound_exclusion.keep_robin(pr_trace_cell_all)
+        if bound_exclusion.any_rob:
+            nk_grad_r = bound_exclusion.keep_robin(nk_grad_paired)
+            pr_trace_grad = bound_exclusion.keep_robin(pr_trace_grad_all)
+            pr_trace_cell = bound_exclusion.keep_robin(pr_trace_cell_all)
+        else:
+            nk_grad_r = sps.csr_matrix((0, nk_grad_paired.shape[1]))
+            pr_trace_grad = sps.csr_matrix((0, pr_trace_grad_all.shape[1]))
+            pr_trace_cell = sps.csr_matrix((0, pr_trace_cell_all.shape[1]))
 
         # No pressure condition for Neumann or Robin boundary faces
         pr_cont_grad = bound_exclusion.exclude_neumann_robin(pr_cont_grad_paired)
@@ -838,16 +706,6 @@ class Mpfa(FVElliptic):
         #      from the first and third row.
         #  iii) For Dirichlet subfaces, only the third block row is kept.
         #
-        # In each case, the boundary subface only has contribution from one
-        # IS: Close the parenthesis!
-        # adjacent cell. By defining an appropriate RHS column (say, unit flux
-        # on a subface, with all subfaces having zero value, the subscale
-        # gradient for this boundary condition is found [in practice this means
-        # continuity of flux and pressure for internal subfaces, on boundary
-        # subfaces it enforces zero flux (Neumann), pressure (Dirichlet) or
-        # combination (Robin). That is, the boundary dofs do not interfere with
-        # each other].
-        #
         # As an implementation note, the fastest approach found is to explicitly
         # calculate the inverse of the matrix
         #
@@ -863,15 +721,6 @@ class Mpfa(FVElliptic):
 
         # System of equations for the subcell gradient variables. On block diagonal
         # form.
-        # NOTE: I think in the discretization for sub_cells a flow out of the cell is
-        # negative. This is a contradiction to what is done for the boundary conditions
-        # where we want to set dot(n, flux) where n is the normal pointing outwards.
-        # thats why we need +nk_grad_r - pr_trace_grad -pr_trace_cell = rhs
-        # instead of how we would expect: -nk_grad_r + pr_trace_grad +pr_trace_cell= rhs.
-        # This is also why we multiply with -1 in scaled_sgn in _create_bound_rhs
-        # EK: Not really, The nk_grad terms are calculated according to what
-        # happens to be the normal vector of the face.
-        # IS: Should we delete these two comments?
         grad_eqs = sps.vstack([nk_grad_n, nk_grad_r - pr_trace_grad, pr_cont_grad])
 
         num_nk_cell = nk_cell.shape[0]
@@ -899,7 +748,7 @@ class Mpfa(FVElliptic):
         # Invert the system, and map back to the original form
         igrad = (
             cols2blk_diag
-            * fvutils.invert_diagonal_blocks(grad, size_of_blocks, method=inverter)
+            * pp.fvutils.invert_diagonal_blocks(grad, size_of_blocks, method=inverter)
             * rows2blk_diag
         )
 
@@ -923,7 +772,7 @@ class Mpfa(FVElliptic):
         # say, to represent heterogeneous gravity), while the latter group
         # gives gradients induced by cell center pressures.
         #
-        # Note tacit assumptions: 1) Each cell has exactly Nd faces meeting in a
+        # ASSUMPTIONS: 1) Each cell has exactly Nd faces meeting in a
         # vertex; or else, there would not be an exact match between the
         # number of equal (nno-cno) pairs and the number of components in the
         # gradient. This assumption is always okay in 2d, in 3d it rules out cells
@@ -944,7 +793,7 @@ class Mpfa(FVElliptic):
 
         # Boundary conditions
         rhs_bound = self._create_bound_rhs(
-            bnd,
+            subcell_bnd,
             bound_exclusion,
             subcell_topology,
             sgn_unique,
@@ -958,79 +807,73 @@ class Mpfa(FVElliptic):
         bound_flux = darcy * igrad * rhs_bound
 
         # Obtain the reconstruction of the pressure
-        if eta_reconstruction is None:
-            # If no reconstruction eta is given, use the continuity points
-            eta_reconstruction = eta
-
-        dist_grad, cell_centers = reconstruct_presssure(
-            g, subcell_topology, eta_reconstruction
-        )
+        dist_grad, cell_centers = reconstruct_presssure(g, subcell_topology, eta)
 
         pressure_trace_cell = dist_grad * igrad * rhs_cells + cell_centers
         pressure_trace_bound = dist_grad * igrad * rhs_bound
 
+        area_scaling = 1.0 / (hf2f * np.ones(hf2f.shape[1]))
+        area_mat = hf2f * sps.diags(hf2f.T * area_scaling)
         if not subface_rhs:
             # In this case we set the value at a face, thus, we need to distribute the
             # face values to the subfaces. We do this by an area-weighted average. The flux
             # will in this case be integrated over the faces, that is:
             # flux *\cdot * normal * face_area
-            area_scaling = 1.0 / (hf2f * np.ones(hf2f.shape[1]))
-            area_mat = sps.diags(hf2f.T * area_scaling)
-
             bound_flux = hf2f * bound_flux * hf2f.T
             flux = hf2f * flux
-            pressure_trace_bound = hf2f * area_mat * pressure_trace_bound * hf2f.T
-            pressure_trace_cell = hf2f * area_mat * pressure_trace_cell
+            pressure_trace_bound = area_mat * pressure_trace_bound * hf2f.T
+            pressure_trace_cell = area_mat * pressure_trace_cell
 
-        if not vector_source:
-            return flux, bound_flux, pressure_trace_cell, pressure_trace_bound
-        else:
-            # in this case, we consider the full darcy's law in the presence of
-            # a vector source, e.g. gravity.
-            # discr_div_vector_source is the discretised vector source, which is interpreted
-            # as a force on a subface due to imbalance in cell-center vector sources.
-            # This term is computed on a sub-cell basis
-            # and has dimensions (num_subfaces, num_subcells * nd)
-            discr_div_vector_source = self.discretize_div_vector_source(
-                g,
-                subcell_topology,
-                bound_exclusion,
-                darcy,
-                igrad,
-                nk_grad_all,
-                nk_grad_paired,
-            )
+        # Also discretize vector source terms for Darcy's law.
+        # discr_div_vector_source is the discretised vector source, which is interpreted
+        # as a force on a subface due to imbalance in cell-center vector sources.
+        # This term is computed on a sub-cell basis
+        # and has dimensions (num_subfaces, num_subcells * nd)
+        discr_vector_source, vector_source_bound = self._discretize_vector_source(
+            g,
+            subcell_topology,
+            bound_exclusion,
+            darcy,
+            igrad,
+            dist_grad,
+            nk_grad_all,
+            nk_grad_paired,
+        )
 
-            # Output should be on cell-level (not sub-cell)
-            sc2c = fvutils.cell_vector_to_subcell(
-                g.dim, sub_cell_index, cell_node_blocks[0]
-            )
+        # Output should be on cell-level (not sub-cell)
+        sc2c = pp.fvutils.cell_vector_to_subcell(
+            g.dim, sub_cell_index, cell_node_blocks[0]
+        )
 
-            div_vector_source = hf2f * discr_div_vector_source * sc2c
-            return (
-                flux,
-                bound_flux,
-                pressure_trace_cell,
-                pressure_trace_bound,
-                div_vector_source,
-            )
+        vector_source = hf2f * discr_vector_source * sc2c
+        bound_pressure_vector_source = area_mat * vector_source_bound * sc2c
 
-    def discretize_div_vector_source(
+        return (
+            flux,
+            bound_flux,
+            pressure_trace_cell,
+            pressure_trace_bound,
+            vector_source,
+            bound_pressure_vector_source,
+        )
+
+    def _discretize_vector_source(
         self,
-        g,
-        subcell_topology,
-        bound_exclusion,
-        darcy,
-        igrad,
-        nk_grad_all,
-        nk_grad_paired,
-    ):
+        g: pp.Grid,
+        subcell_topology: pp.fvutils.SubcellTopology,
+        bound_exclusion: pp.fvutils.ExcludeBoundaries,
+        darcy: sps.spmatrix,
+        igrad: sps.spmatrix,
+        dist_grad: sps.spmatrix,
+        nk_grad_all: sps.spmatrix,
+        nk_grad_paired: sps.spmatrix,
+    ) -> Tuple[sps.spmatrix, sps.spmatrix]:
         """
         Consistent discretization of the divergence of the vector source term
         in MPFA-O method. An example of a vector source is the gravitational
         forces in Darcy's law.
-        For more details, see Starnoni et al (2019), Consistent discretization
-        of flow for inhomogeneoug gravitational fields, WRR
+        For more details, see Starnoni et al (2020), Consistent discretization
+        of flow for inhomogeneoug gravitational fields, WRR.
 
         Parameters:
             g (core.grids.grid): grid to be discretized
@@ -1061,20 +904,23 @@ class Mpfa(FVElliptic):
             (iii) 0            D * p_cc = 0
         Thus (i)-(iii) can be inverted to express the additional pressure gradients
         due to imbalance in vector sources as in terms of the cell center variables.
-        Thus we can compute the basis functions 'div_vector_source_jumps' on the sub-cells.
+        Thus we can compute the basis functions 'vector_source_jumps' on the sub-cells.
         To ensure flux continuity, as soon as a convention is chosen for what side
         the flux evaluation should be considered on, an additional term, called
-        'div_vector_source_faces', is added to the full flux. This latter term represents the flux
-        due to cell-center vector source acting on the face from the chosen side.
+        'vector_source_faces', is added to the full flux. This latter term represents the
+        flux due to cell-center vector source acting on the face from the chosen side.
         The pair subfno_unique-unique_subfno gives the side convention.
         The full flux on the face is therefore given by
-        q = flux * p + bound_flux * p_b + (div_vector_source_jumps + div_vector_source_faces) * vector_source
 
-        Output: div_vector_source = div_vector_source_jumps + div_vector_source_faces
+        q = flux * p + bound_flux * p_b
+            + (vector_source_jumps + vector_source_faces) * vector_source
+
+        Output: vector_source = vector_source_jumps + vector_source_faces
 
         The strategy is as follows.
-        1. assemble r.h.s. for the new linear system, needed for the term 'div_vector_source_jumps'
-        2. compute term 'div_vector_source_faces'
+        1. assemble r.h.s. for the new linear system, needed for the term
+            'vector_source_jumps'
+        2. compute term 'vector_source_faces'
         """
 
         num_subfno = subcell_topology.num_subfno
@@ -1084,40 +930,60 @@ class Mpfa(FVElliptic):
         # The vector source term in the flux continuity equation is discretized
         # as a force on the faces. The right hand side is thus formed of the
         # unit vector.
+
+        # Construct a mapping from all subfaces to those with flux conditions, that is,
+        # all but Dirichlet boundary faces
+        # Identity matrix, one row per subface
         vals = np.ones(num_subfno_unique)
-        rows = subcell_topology.subfno_unique
-        cols = subcell_topology.subfno_unique
-        rhs_units = sps.coo_matrix(
-            (vals, (rows, cols)), shape=(num_subfno_unique, num_subfno_unique)
+        I_subfno = sps.dia_matrix(
+            (vals, 0), shape=(num_subfno_unique, num_subfno_unique)
         )
 
-        # The vector source term is added to all internal faces, all Neumann faces
-        # and all Robin faces.
-        rhs_units_n = bound_exclusion.exclude_robin_dirichlet(rhs_units)
-        # Robin condition is only applied to Robin boundary faces
-        rhs_units_r = bound_exclusion.keep_robin(rhs_units)
-        # The Robin condition is added after all flux equations (internal and Neumann
-        # faces)
-        rhs_units = sps.vstack([rhs_units_n, rhs_units_r])
+        flux_eq_map_internal_neumann = bound_exclusion.exclude_robin_dirichlet(I_subfno)
+        # Exclude Dirichlet and Robin faces
+        if bound_exclusion.any_rob:
+            # Robin condition is only applied to Robin boundary faces
+            flux_eq_map_robin = bound_exclusion.keep_robin(I_subfno)
+
+            # The Robin condition is appended at the end of the flux balance equations
+            # This map is thus applicable to all flux balance equations
+            flux_eq_map = sps.vstack([flux_eq_map_internal_neumann, flux_eq_map_robin])
+        else:
+            # We can use the internal and Neumann faces
+            flux_eq_map = flux_eq_map_internal_neumann
 
         # No right hand side for cell pressure equations.
         num_dir_subface = (
             bound_exclusion.exclude_neu_rob.shape[1]
             - bound_exclusion.exclude_neu_rob.shape[0]
         )
+        # Size of the pressure continuity system
+        num_zeros = num_subfno - num_dir_subface
+        # Expand the flux_eq_map with zeros in the rows corresponding to the pressure
+        # contiuity equations
+        # This should really be renamed, but resize only works in place, and vstack or
+        # similar takes much more time
+        new_shape = (flux_eq_map.shape[0] + num_zeros, flux_eq_map.shape[1])
+        flux_eq_map.resize(new_shape)
+        # Right hand side term is multiplied with -1
+        rhs_map = -flux_eq_map
 
-        rhs_units_pres_var = sps.coo_matrix(
-            (num_subfno - num_dir_subface, num_subfno_unique)
-        )
+        # prepare for computation of imbalance coefficients, that is jumps in
+        # cell-centers vector sources, ready to be  multiplied with inverse gradients.
+        # This is the middle term on the right hand side in Eq (31) in Starnoni et al
+        prod = igrad * rhs_map * nk_grad_paired
+        vector_source_jumps = -darcy * prod
 
-        rhs_units = -sps.vstack([rhs_units, rhs_units_pres_var])
-
-        del rhs_units_pres_var
-
-        # prepare for computation of imbalance coefficients,
-        # that is jumps in cell-centers vector sources, ready to be
-        # multiplied with inverse gradients
-        div_vector_source_jumps = -darcy * igrad * rhs_units * nk_grad_paired
+        # The vector source should have no impact on the boundary conditions (on
+        # Dirichlet boundaries, the pressure is set directly, on Neumann, the flux set
+        # is interpreted as a total flux). However, to recover the face pressure at a
+        # Neumann boundary, the contribution from the vector source must be accounted
+        # for. Referring to (27)-(28) in Starnoni et al, the variable prod can be
+        # interpreted as giving the pressure gradients resulting from a unit vector
+        # source (note that in a boundary cell, nk_grad_paired will only contain
+        # contribution from the single neighboring cell). Multiply this by the distance
+        # from the cell center to the continuity point to get the pressure offset.
+        vector_source_bound = -dist_grad * prod
 
         # Step 2
 
@@ -1128,13 +994,14 @@ class Mpfa(FVElliptic):
             (
                 np.ones(num_subfno_unique),
                 (subcell_topology.subfno_unique, subcell_topology.unique_subfno),
-            )
+            ),
+            shape=(subcell_topology.num_subfno_unique, subcell_topology.fno.size),
         )
 
         # Prepare for computation of div_vector_source_faces term
-        div_vector_source_faces = map_unique_subfno * nk_grad_all
+        vector_source_faces = map_unique_subfno * nk_grad_all
 
-        return div_vector_source_jumps + div_vector_source_faces
+        return (vector_source_jumps + vector_source_faces, vector_source_bound)
 
     """
     The functions below are helper functions, which are not really necessary to
@@ -1147,6 +1014,9 @@ class Mpfa(FVElliptic):
         Rough estimate of peak memory need
         """
         nd = g.dim
+        if nd == 0:
+            return 0
+
         num_cell_nodes = g.cell_nodes().toarray().sum(axis=1)
 
         # Number of unknowns around a vertex: nd per cell that share the vertex for
@@ -1259,6 +1129,12 @@ class Mpfa(FVElliptic):
         is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
         is_neu = np.logical_or(bnd.is_neu, bnd.is_internal)
         is_rob = np.logical_and(bnd.is_rob, np.logical_not(bnd.is_internal))
+        is_per = bnd.is_per
+
+        if is_per.sum():
+            raise NotImplementedError(
+                "Periodic boundary conditions are not implemented for Mpfa"
+            )
 
         fno = subcell_topology.fno_unique
         num_neu = np.sum(is_neu)
@@ -1278,12 +1154,17 @@ class Mpfa(FVElliptic):
         neu_ind = np.argwhere(
             bound_exclusion.exclude_robin_dirichlet(is_neu.astype("int64"))
         ).ravel("F")
-        rob_ind = np.argwhere(bound_exclusion.keep_robin(is_rob.astype("int64"))).ravel(
-            "F"
-        )
-        neu_rob_ind = np.argwhere(
-            bound_exclusion.exclude_dirichlet((is_rob + is_neu).astype("int64"))
-        ).ravel("F")
+        if bound_exclusion.any_rob:
+            rob_ind = np.argwhere(
+                bound_exclusion.keep_robin(is_rob.astype("int64"))
+            ).ravel("F")
+            neu_rob_ind = np.argwhere(
+                bound_exclusion.exclude_dirichlet((is_rob + is_neu).astype("int64"))
+            ).ravel("F")
+        else:
+            # Shortcut if no Robin conditions
+            rob_ind = np.array([], dtype=np.int64)
+            neu_rob_ind = neu_ind
 
         # We also need to map the respective Neumann, Robin, and Dirichlet half-faces to
         # the global half-face numbering (also interior faces). The latter should
@@ -1292,7 +1173,7 @@ class Mpfa(FVElliptic):
         neu_ind_all = np.argwhere(is_neu.astype("int")).ravel("F")
         rob_ind_all = np.argwhere(is_rob.astype("int")).ravel("F")
         dir_ind_all = np.argwhere(is_dir.astype("int")).ravel("F")
-        num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(order="F")
+        num_face_nodes = np.diff(g.face_nodes.indptr)
 
         # We now merge the neuman and robin indices since they are treated equivalent
         if rob_ind.size == 0:
@@ -1306,10 +1187,11 @@ class Mpfa(FVElliptic):
         # For the Neumann/Robin boundary conditions, we define the value as seen from
         # the innside of the domain. E.g. outflow is defined to be positive. We
         # therefore set the matrix indices to -1. We also have to scale it with
-        # the number of nodes per face because the flux of face is the sum of its
-        # half-faces.
+        # the number of nodes per face because the flux of a face is the sum of its
+        # half-face fluxes.
         #
-        # EK: My understanding of the multiple -1s in the flux equation for boundary conditions:
+        # EK: My understanding of the multiple -1s in the flux equation for boundary
+        # conditions:
         # 1) -nk_grad in the local system gets its sign changed if the boundary
         #    normal vector points into the cell.
         # 2) During global assembly, the flux matrix is hit by the divergence
@@ -1323,37 +1205,34 @@ class Mpfa(FVElliptic):
             scaled_sgn = -1 * np.ones(neu_rob_ind_all.size)
         else:
             # In this case we set the value at a face, thus, we need to distribute the
-            #  face values to the subfaces. We do this by an area-weighted average. Note
+            # face values to the subfaces. We do this by an area-weighted average. Note
             # that the rhs values should in this case be integrated over the faces, that is:
             # flux_neumann *\cdot * normal * face_area
             scaled_sgn = -1 / num_face_nodes[fno[neu_rob_ind_all]]
 
+        # Build up the boundary conditions. First for flux continuity equations
         if neu_rob_ind.size > 0:
-            neu_rob_cell = sps.coo_matrix(
-                (scaled_sgn, (neu_rob_ind, np.arange(neu_rob_ind.size))),
-                shape=(num_flux + num_rob, num_bound),
-            )
+            # Prepare for construction of a coo-matrix
+            rows = neu_rob_ind
+            cols = np.arange(neu_rob_ind.size)
+            data = scaled_sgn
         else:
-            # Special handling when no elements are found. Not sure if this is
-            # necessary, or if it is me being stupid
-            neu_rob_cell = sps.coo_matrix((num_flux + num_rob, num_bound))
+            # Special handling when no elements are found.
+            rows = np.array([], dtype=np.int)
+            cols = np.array([], dtype=np.int)
+            data = np.array([], dtype=np.int)
 
         # Dirichlet boundary conditions
         dir_ind = np.argwhere(
             bound_exclusion.exclude_neumann_robin(is_dir.astype("int64"))
         ).ravel("F")
         if dir_ind.size > 0:
-            dir_cell = sps.coo_matrix(
-                (
-                    sgn[dir_ind_all],
-                    (dir_ind, num_neu + num_rob + np.arange(dir_ind.size)),
-                ),
-                shape=(num_pr, num_bound),
-            )
+            rows = np.hstack((rows, num_flux + num_rob + dir_ind))
+            cols = np.hstack((cols, num_neu + num_rob + np.arange(dir_ind.size)))
+            data = np.hstack((data, sgn[dir_ind_all]))
         else:
-            # Special handling when no elements are found. Not sure if this is
-            # necessary, or if it is me being stupid
-            dir_cell = sps.coo_matrix((num_pr, num_bound))
+            # No need to do anything here
+            pass
 
         # Number of elements in neu_ind and neu_ind_all are equal, we can test with
         # any of them. Same with dir.
@@ -1374,10 +1253,53 @@ class Mpfa(FVElliptic):
             (np.ones(num_bound), (np.arange(num_bound), neu_rob_dir_ind)),
             shape=(num_bound, num_subfno),
         )
+        mat = sps.coo_matrix(
+            (data, (rows, cols)), shape=(num_flux + num_rob + num_pr, num_bound)
+        )
+        rhs_bound = mat * bnd_2_all_hf
 
-        rhs_bound = sps.vstack([neu_rob_cell, dir_cell]) * bnd_2_all_hf
+        return rhs_bound.tocsr()
 
-        return rhs_bound
+    def _bc_for_subgrid(
+        self, bc: pp.BoundaryCondition, sub_g: pp.Grid, face_map: np.ndarray
+    ) -> pp.BoundaryCondition:
+        """ Obtain a representation of a boundary condition for a subgrid of
+        the original grid.
+
+        This is somehow better fit for the BoundaryCondition class, but it is not clear
+        whether the implementation is sufficiently general to be put there.
+
+        Parameters:
+            sub_g (pp.Grid): Grid for which the new condition applies. Is
+                assumed to be a subgrid of the grid to initialize this object.
+            face_map (np.ndarray): Index of faces of the original grid from
+                which the new conditions should be picked.
+
+        Returns:
+            BoundaryCondition: New bc object, aimed at a smaller grid.
+            Will have type of boundary condition, basis and robin_weight copied
+            from the specified faces in the original grid.
+
+        """
+
+        sub_bc = pp.BoundaryCondition(sub_g)
+
+        sub_bc.is_dir = bc.is_dir[face_map]
+        sub_bc.is_rob = bc.is_rob[face_map]
+        sub_bc.is_neu[sub_bc.is_dir + sub_bc.is_rob] = False
+
+        sub_bc.robin_weight = bc.robin_weight[face_map]
+        sub_bc.basis = bc.basis[face_map]
+
+        return sub_bc
+
+    def _constit_for_subgrid(
+        self, constit: pp.SecondOrderTensor, loc_cells: np.ndarray
+    ) -> pp.SecondOrderTensor:
+        # Copy stiffness tensor, and restrict to local cells
+        loc_c = constit.copy()
+        loc_c.values = loc_c.values[::, ::, loc_cells]
+        return loc_c
 
 
 def reconstruct_presssure(g, subcell_topology, eta):

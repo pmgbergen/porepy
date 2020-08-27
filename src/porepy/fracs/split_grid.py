@@ -9,6 +9,7 @@ from porepy.utils.half_space import half_space_int
 from porepy.utils import sparse_mat, tags
 from porepy.utils.graph import Graph
 from porepy.utils.mcolon import mcolon
+from porepy.utils import setmembership
 
 
 def split_fractures(bucket, **kwargs):
@@ -85,7 +86,12 @@ def split_fractures(bucket, **kwargs):
         # the node into four, while at the fracture boundary it is not split.
 
         gl = [e[1] for e in edges]
-        gl_2_gh_nodes = [bucket.target_2_source_nodes(g, gh) for g in gl]
+        gl_2_gh_nodes = []
+        for g in gl:
+            source = np.atleast_2d(g.global_point_ind).astype(np.int32)
+            target = np.atleast_2d(gh.global_point_ind).astype(np.int32)
+            _, mapping = setmembership.ismember_rows(source, target)
+            gl_2_gh_nodes.append(mapping)
 
         split_nodes(gh, gl, gl_2_gh_nodes, offset)
 

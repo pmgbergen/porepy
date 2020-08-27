@@ -1,17 +1,22 @@
 # Methods to work directly with the gmsh format
 
 import numpy as np
-import os
 
-# meshio has changed the name of the module taking care of gmsh import.
-# Ensure compatibility with both versions with a try-except
+from typing import Union, List
+
+from pathlib import Path
+
 try:
-    # This will work for meshio.__version__ < 2.3.5
-    from meshio import gmsh_io
-except:
-    from meshio import msh_io as gmsh_io
+    import gmsh
+except ModuleNotFoundError:
+    raise ModuleNotFoundError(
+        "To run gmsh python api on your system, "
+        "download the relevant gmsh*-sdk.* from http://gmsh.info/bin/. "
+        "Then, Add the 'lib' directory from the SDK to PYTHONPATH: \n"
+        "export PYTHONPATH=${PYTHONPATH}:path/to/gmsh*-sdk.*/lib"
+    )
 
-from porepy.utils import sort_points, read_config
+from porepy.utils import sort_points
 import porepy.grids.constants as gridding_constants
 
 
@@ -34,8 +39,9 @@ class GmshWriter(object):
         intersection_points=None,
         tolerance=None,
         edges_2_frac=None,
-        meshing_algorithm=None,
         fracture_tags=None,
+        domain_boundary_points=None,
+        fracture_and_boundary_points=None,
     ):
         """
 
@@ -67,7 +73,8 @@ class GmshWriter(object):
         self.tolerance = tolerance
         self.e2f = edges_2_frac
 
-        self.meshing_algorithm = meshing_algorithm
+        self.domain_boundary_points = domain_boundary_points
+        self.fracture_and_boundary_points = fracture_and_boundary_points
 
     def write_geo(self, file_name):
 
@@ -75,33 +82,108 @@ class GmshWriter(object):
             s = "Geometry.Tolerance = " + str(self.tolerance) + ";\n"
         else:
             s = "\n"
-        s += self.__write_points()
 
-        if self.nd == 2:
+        # Define the points
+        s += self._write_points()
+
+        if self.nd == 1:
+            s += self._write_fractures_1d()
+
+        elif self.nd == 2:
             if self.domain is not None:
-                s += self.__write_boundary_2d()
-            s += self.__write_fractures_compartments_2d()
+                s += self._write_boundary_2d()
+            s += self._write_fractures_2d()
+
         elif self.nd == 3:
-            s += self.__write_lines()
+            # First, define the edges that are combined into polygons
+            s += self._write_lines()
+            # Write domain boundary if relevant. This is a combination of the edges
             if self.domain is not None:
-                s += self.__write_boundary_3d()
-            s += self.__write_polygons()
+                s += self._write_boundary_3d()
+            # Finally, write the fractures
+            s += self._write_polygons()
 
-        s += self.__write_physical_points()
-        s += self.__write_meshing_algorithm()
+        s += self._write_physical_points()
 
         with open(file_name, "w") as f:
             f.write(s)
 
-    def __write_fractures_compartments_2d(self):
+    def _write_fractures_1d(self):
         # Both fractures and compartments are
         constants = gridding_constants.GmshConstants()
 
-        # We consider fractures, boundary tag, an auxiliary tag (fake fractures/mesh constraints)
+        # We consider fractures, boundary tag, an auxiliary tag (fake fractures/mesh
+        # constraints)
         ind = np.argwhere(
             np.logical_or.reduce(
                 (
                     self.lines[2] == constants.COMPARTMENT_BOUNDARY_TAG,
+                    self.lines[2] == constants.FRACTURE_TAG,
+                    self.lines[2] == constants.AUXILIARY_TAG,
+                )
+            )
+        ).ravel()
+        lines = self.lines[:, ind]
+        tag = self.lines[2, ind]
+
+        lines_id = lines[3, :]
+        if lines_id.size == 0:
+            return str()
+        range_id = np.arange(np.amin(lines_id), np.amax(lines_id) + 1)
+
+        s = "// Start specification of fractures/compartment boundary/auxiliary elements\n"
+        seg_id = 0
+        for i in range_id:
+            local_seg_id = str()
+            for mask in np.flatnonzero(lines_id == i):
+
+                # give different name for fractures/boundary and auxiliary
+                if tag[mask] != constants.AUXILIARY_TAG:
+                    name = "frac_line_"
+                    physical_name = constants.PHYSICAL_NAME_FRACTURES
+                else:
+                    name = "seg_line_"
+                    physical_name = constants.PHYSICAL_NAME_AUXILIARY
+
+                s += (
+                    name
+                    + str(seg_id)
+                    + " = newl; "
+                    + "Line("
+                    + name
+                    + str(seg_id)
+                    + ") = {"
+                    + "p"
+                    + str(int(lines[0, mask]))
+                    + ", p"
+                    + str(int(lines[1, mask]))
+                    + "};\n"
+                )
+                local_seg_id += name + str(seg_id) + ", "
+                seg_id += 1
+
+            local_seg_id = local_seg_id[:-2]
+            s += (
+                'Physical Line("'
+                + physical_name
+                + str(i)
+                + '") = { '
+                + local_seg_id
+                + " };\n"
+            )
+            s += "\n"
+
+        s += "// End of /compartment boundary/auxiliary elements specification\n\n"
+        return s
+
+    def _write_fractures_2d(self):
+        # Both fractures and compartments are
+        constants = gridding_constants.GmshConstants()
+
+        # We consider fractures and boundary tag
+        ind = np.argwhere(
+            np.logical_or.reduce(
+                (
                     self.lines[2] == constants.FRACTURE_TAG,
                     self.lines[2] == constants.AUXILIARY_TAG,
                 )
@@ -164,13 +246,13 @@ class GmshWriter(object):
         s += "// End of /compartment boundary/auxiliary elements specification\n\n"
         return s
 
-    def __write_boundary_2d(self):
+    def _write_boundary_2d(self):
         constants = gridding_constants.GmshConstants()
         bound_line_ind = np.argwhere(
             self.lines[2] == constants.DOMAIN_BOUNDARY_TAG
         ).ravel()
         bound_line = self.lines[:, bound_line_ind]
-        bound_line = sort_points.sort_point_pairs(bound_line, check_circular=True)
+        bound_line, _ = sort_points.sort_point_pairs(bound_line, check_circular=True)
 
         s = "// Start of specification of domain"
         s += "// Define lines that make up the domain boundary\n"
@@ -223,18 +305,18 @@ class GmshWriter(object):
         s += "// End of domain specification\n\n"
         return s
 
-    def __write_boundary_3d(self):
+    def _write_boundary_3d(self):
         ls = "\n"
         s = "// Start domain specification" + ls
         # Write surfaces:
-        s += self.__write_polygons(boundary=True)
+        s += self._write_polygons(boundary=True)
 
         # Make a box out of them
         s += "domain_loop = newsl;" + ls
         s += "Surface Loop(domain_loop) = {"
         for pi in range(len(self.polygons[0])):
             if self.polygon_tags["boundary"][pi]:
-                s += "auxiliary_" + str(pi) + ","
+                s += " boundary_surface_" + str(pi) + ","
         s = s[:-1]
         s += "};" + ls
         s += "Volume(1) = {domain_loop};" + ls
@@ -248,7 +330,7 @@ class GmshWriter(object):
         s += "// End of domain specification\n\n"
         return s
 
-    def __write_points(self, boundary=False):
+    def _write_points(self, boundary=False):
         p = self.pts
         num_p = p.shape[1]
         if p.shape[0] == 2:
@@ -265,14 +347,13 @@ class GmshWriter(object):
         s += "// End of point specification\n\n"
         return s
 
-    def __write_lines(self, embed_in=None):
-        l = self.lines
-        num_lines = l.shape[1]
+    def _write_lines(self, embed_in=None):
+        lines = self.lines
+        num_lines = lines.shape[1]
         ls = "\n"
         s = "// Define lines " + ls
         constants = gridding_constants.GmshConstants()
-        if l.shape[0] > 2:
-            lt = l[2]
+        if lines.shape[0] > 2:
             has_tags = True
         else:
             has_tags = False
@@ -281,21 +362,25 @@ class GmshWriter(object):
             s += (
                 "frac_line_"
                 + si
-                + "= newl; Line(frac_line_"
+                + " = newl; Line(frac_line_"
                 + si
                 + ") = {p"
-                + str(l[0, i])
+                + str(lines[0, i])
                 + ", p"
-                + str(l[1, i])
+                + str(lines[1, i])
                 + "};"
                 + ls
             )
             if has_tags:
                 s += 'Physical Line("'
-                if l[2, i] == constants.FRACTURE_TIP_TAG:
+                if lines[2, i] == constants.FRACTURE_TIP_TAG:
                     s += constants.PHYSICAL_NAME_FRACTURE_TIP
-                elif l[2, i] == constants.FRACTURE_INTERSECTION_LINE_TAG:
+                elif lines[2, i] == constants.FRACTURE_INTERSECTION_LINE_TAG:
                     s += constants.PHYSICAL_NAME_FRACTURE_LINE
+                elif lines[2, i] == constants.DOMAIN_BOUNDARY_TAG:
+                    s += constants.PHYSICAL_NAME_DOMAIN_BOUNDARY
+                elif lines[2, i] == constants.FRACTURE_LINE_ON_DOMAIN_BOUNDARY_TAG:
+                    s += constants.PHYSICAL_NAME_FRACTURE_BOUNDARY_LINE
                 else:
                     # This is a line that need not be physical (recognized by
                     # the parser of output from gmsh). Applies to boundary and
@@ -308,31 +393,23 @@ class GmshWriter(object):
         s += "// End of line specification " + ls + ls
         return s
 
-    def __write_polygons(self, boundary=False):
+    def _write_polygons(self, boundary=False):
         """
         Writes either all fractures or all boundary planes.
         """
         constants = gridding_constants.GmshConstants()
         bound_tags = self.polygon_tags.get("boundary", [False] * len(self.polygons[0]))
-        subd_tags = self.polygon_tags.get("subdomain", [False] * len(self.polygons[0]))
+        constraint_tags = self.polygon_tags["constraint"]
 
         ls = "\n"
         # Name boundary or fracture
-        f_or_b = "auxiliary" if boundary else "fracture"
         if not boundary:
             s = "// Start fracture specification" + ls
         else:
-            s = ""
+            s = "// Start boundary surface specification" + ls
         for pi in range(len(self.polygons[0])):
             if bound_tags[pi] != boundary:
                 continue
-            # Check if the polygon is a subdomain boundary, i.e., auxiliary
-            # polygon.
-            auxiliary = subd_tags[pi]
-            if auxiliary:
-                # Keep track of "fake fractures", i.e., subdomain
-                # boundaries.
-                f_or_b = "auxiliary"
             p = self.polygons[0][pi].astype("int")
             reverse = self.polygons[1][pi]
             # First define line loop
@@ -347,41 +424,66 @@ class GmshWriter(object):
 
             s += "};" + ls
 
-            n = f_or_b + "_"
+            if boundary:
+                surf_stem = "boundary_surface_"
+            else:
+                if constraint_tags[pi]:
+                    surf_stem = "auxiliary_surface_"
+                else:
+                    surf_stem = "fracture_"
+
             # Then the surface
-            s += n + str(pi) + " = news; "
+            s += surf_stem + str(pi) + " = news; "
             s += (
-                "Plane Surface(" + n + str(pi) + ") = {frac_loop_" + str(pi) + "};" + ls
+                "Plane Surface("
+                + surf_stem
+                + str(pi)
+                + ") = {frac_loop_"
+                + str(pi)
+                + "};"
+                + ls
             )
 
-            if bound_tags[pi] or auxiliary:
-                # Domain boundary or "fake fracture" = subdomain boundary
+            if bound_tags[pi]:
+                # Domain boundary
                 s += (
                     'Physical Surface("'
-                    + constants.PHYSICAL_NAME_AUXILIARY
+                    + constants.PHYSICAL_NAME_DOMAIN_BOUNDARY_SURFACE
                     + str(pi)
-                    + '") = {auxiliary_'
+                    + '") = {'
+                    + surf_stem
                     + str(pi)
                     + "};"
                     + ls
                 )
-
+            elif constraint_tags[pi]:
+                s += (
+                    'Physical Surface("'
+                    + constants.PHYSICAL_NAME_AUXILIARY
+                    + str(pi)
+                    + '") = {'
+                    + surf_stem
+                    + str(pi)
+                    + "};"
+                    + ls
+                )
             else:
                 # Normal fracture
                 s += (
                     'Physical Surface("'
                     + constants.PHYSICAL_NAME_FRACTURES
                     + str(pi)
-                    + '") = {fracture_'
+                    + '") = {'
+                    + surf_stem
                     + str(pi)
                     + "};"
                     + ls
                 )
-                if self.domain is not None:
-                    s += "Surface{" + n + str(pi) + "} In Volume{1};" + ls + ls
+            if not bound_tags[pi] and self.domain is not None:
+                s += "Surface{" + surf_stem + str(pi) + "} In Volume{1};" + ls + ls
 
             for li in self.e2f[pi]:
-                s += "Line{frac_line_" + str(li) + "} In Surface{" + n
+                s += "Line{frac_line_" + str(li) + "} In Surface{" + surf_stem
                 s += str(pi) + "};" + ls
             s += ls
 
@@ -390,7 +492,7 @@ class GmshWriter(object):
 
         return s
 
-    def __write_physical_points(self):
+    def _write_physical_points(self):
         ls = "\n"
         s = "// Start physical point specification" + ls
         constants = gridding_constants.GmshConstants()
@@ -405,18 +507,33 @@ class GmshWriter(object):
                 + "};"
                 + ls
             )
+
+        if self.domain_boundary_points is not None:
+            for i, p in enumerate(self.domain_boundary_points):
+                s += (
+                    'Physical Point("'
+                    + constants.PHYSICAL_NAME_BOUNDARY_POINT
+                    + str(i)
+                    + '") = {p'
+                    + str(p)
+                    + "};"
+                    + ls
+                )
+
+        if self.fracture_and_boundary_points is not None:
+            for i, p in enumerate(self.fracture_and_boundary_points):
+                s += (
+                    'Physical Point("'
+                    + constants.PHYSICAL_NAME_FRACTURE_BOUNDARY_POINT
+                    + str(i)
+                    + '") = {p'
+                    + str(p)
+                    + "};"
+                    + ls
+                )
+
         s += "// End of physical point specification" + ls + ls
         return s
-
-    def __write_meshing_algorithm(self):
-        # See: http://www.manpagez.com/info/gmsh/gmsh-2.4.0/gmsh_76.php
-        if self.meshing_algorithm is None:
-            return ""
-        else:
-            return "\nMesh.Algorithm = " + str(self.meshing_algorithm) + ";"
-
-
-# ----------- end of GmshWriter ----------------------------------------------
 
 
 class GmshGridBucketWriter(object):
@@ -577,44 +694,75 @@ class GmshGridBucketWriter(object):
 # ------------------ End of GmshGridBucketWriter------------------------------
 
 
-def run_gmsh(in_file, out_file, dims, **kwargs):
-    """
-    Convenience function to run gmsh.
+def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) -> None:
+    """ Convenience function to run gmsh.
 
     Parameters:
-        in_file (str): Name of gmsh configuration file (.geo)
-        out_file (str): Name of output file for gmsh (.msh)
-        dims (int): Number of dimensions gmsh should grid. If dims is less than
+        in_file : str or pathlib.Path
+            Name of (or path to) gmsh configuration file (.geo)
+        out_file : str or pathlib.Path
+            Name of (or path to) output file for gmsh (.msh)
+        dim : int
+            Number of dimensions gmsh should grid. If dims is less than
             the geometry dimensions, gmsh will grid all lower-dimensional
-            objcets described in in_file (e.g. all surfaces embeded in a 3D
+            objects described in in_file (e.g. all surfaces embedded in a 3D
             geometry).
-        **kwargs: Options passed on to gmsh. See gmsh documentation for
-            possible values.
-
-    Returns:
-        double: Status of the generation, as returned by os.system. 0 means the
-            simulation completed successfully, >0 signifies problems.
 
     """
-    if not os.path.isfile(in_file):
-        raise FileNotFoundError("file " + in_file + " not found")
+    # Helper functions
 
-    # Import config file to get location of gmsh executable.
-    config = read_config.read()
-    path_to_gmsh = config["gmsh_path"]
+    def _dump_gmsh_log(_log: List[str], in_file_name: Path) -> Path:
+        """ Write a gmsh log to file.
 
-    opts = " "
-    for key, val in kwargs.items():
-        # Gmsh keywords are specified with prefix '-'
-        if key[0] != "-":
-            key = "-" + key
-        opts += key + " " + str(val) + " "
+        Takes in the entire log and path to the in_file (from outer scope)
+        Return name of the log file
+        """
+        debug_file_name = in_file_name.with_name(f"gmsh_log_{in_file_name.stem}.dbg")
+        with debug_file_name.open(mode="w") as f:
+            for _line in _log:
+                f.write(_line + "\n")
 
-    if dims == 2:
-        cmd = path_to_gmsh + " -2 " + in_file + " -o " + out_file + opts
-    else:
-        cmd = path_to_gmsh + " -3 " + in_file + " -o " + out_file + opts
+        return debug_file_name
 
-    status = os.system(cmd)
+    # Ensure that in_file has extension .geo, out_file extension .msh
+    in_file = Path(in_file).with_suffix(".geo")
+    out_file = Path(out_file).with_suffix(".msh")
 
-    return status
+    if not in_file.is_file():
+        raise FileNotFoundError(f"file {in_file!r} not found.")
+
+    gmsh.initialize()
+
+    # Experimentation indicated that the gmsh api failed to raise error values when
+    # passed corrupted .geo files. To catch errors we therefore read the gmsh log, and
+    # look for error messages.
+    gmsh.logger.start()
+    gmsh.open(str(in_file))
+
+    # Look for errors
+    log = gmsh.logger.get()
+    for line in log:
+        if "Error:" in line:
+            fn = _dump_gmsh_log(log, in_file)
+            raise ValueError(
+                f"""Error when reading gmsh file {in_file}.
+                        Gmsh log written to file {fn}"""
+            )
+
+    # Generate the mesh
+    gmsh.model.mesh.generate(dim=dim)
+
+    # Look for errors
+    log = gmsh.logger.get()
+    for line in log:
+        if "Error:" in line:
+            fn = _dump_gmsh_log(log, in_file)
+            raise ValueError(
+                f"Error in gmsh when generating mesh for {in_file}\n"
+                f"Gmsh log written to file {fn}"
+            )
+
+    # The gmsh write should be safe for errors
+    gmsh.write(str(out_file))
+    # Done
+    gmsh.finalize()

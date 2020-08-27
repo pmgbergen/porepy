@@ -13,14 +13,34 @@ at the previous time step. The state should be available in
 and may usually be set to zero for stationary problems. The ColoumbContact
 discretization operates on relative tangential jumps and absolute normal jumps.
 See also contact_mechanics_interface_laws.py
+
+Option added to the Berge model:
+Include a simple relationship between the gap and tangential displacements, i.e.
+
+   g = g_0 - tan(dilation_angle) * || u_t ||,
+
+with g_0 indicating initial gap distance. This only affects the normal relations when
+fractures are in contact. The relation [u_n^{k+1}] = g of eqs. 30 and 31 becomes
+
+   u_n^{k+1} - Dg^k \dot u_t^{k+1} = g^k - Dg \dot u_t^{k},
+
+with Dg = dg/du_t. For the above g, we have Dg = -tan(dilation_angle) * u_t / || u_t ||.
+For the case u_t = 0, we extend the Jacobian to the limit value from the positive side
+(arbitrary choice between + and -), i.e.
+    dg/du_t(|| u_t || = 0) = lim_{|| u_t || -> 0 +} dg/du_t = - tan(dilation_angle).
 """
 import numpy as np
 
 import porepy as pp
+import logging
+from typing import Dict, Tuple
+
+
+logger = logging.getLogger(__name__)
 
 
 class ColoumbContact:
-    def __init__(self, keyword, ambient_dimension):
+    def __init__(self, keyword: str, ambient_dimension: int, discr_h) -> None:
         self.keyword = keyword
 
         self.dim = ambient_dimension
@@ -32,16 +52,22 @@ class ColoumbContact:
         self.displacement_discretization = "displacement_discretization"
         self.rhs_discretization = "contact_rhs"
 
-    def _key(self):
+        self.discr_h = discr_h
+        # Tolerance used to define numbers that effectively are zero.
+        self.tol = 1e-10
+
+    def _key(self) -> str:
         return self.keyword + "_"
 
-    def _discretization_key(self):
+    def _discretization_key(self) -> str:
         return self._key() + pp.keywords.DISCRETIZATION
 
-    def ndof(self, g):
+    def ndof(self, g) -> int:
         return g.num_cells * self.dim
 
-    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+    def discretize(
+        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
+    ) -> None:
         """ Discretize the contact conditions using a semi-smooth Newton
         approach.
 
@@ -54,13 +80,22 @@ class ColoumbContact:
         projection operator associated with the surface. The contact forces
         should be interpreted as tangential and normal to this plane.
 
+        Parameters in data_l:
+            "friction_coefficient": float or np.ndarray (g_l.num_cells). A float
+        is interpreted as a homogenous coefficient for all cells of the fracture.
+            "c_num": float. Numerical parameter, defaults to 100. The sensitivity
+        is currently unknown.
+
+        Optional parameters: float or np.ndarray (g_l.num_cells), all default to 0:
+            "initial_gap": The gap (minimum normal opening) in the undeformed state.
+            "dilation_angle": Angle for dilation relation, see above.
+            "cohesion": Threshold value for tangential traction.
+
         NOTES:
             Quantities stated in the global coordinate system (e.g.
         displacements on the adjacent mortar grids) must be projected to the
         local system, using the same projection operator, when paired with the
         produced discretization (that is, in the global assembly).
-            There is a numerical parameter c_num. The sensitivity is currently
-        unknown.
 
         Assumptions and other noteworthy aspects:  TODO: Rewrite this when the
         implementation is ready.
@@ -73,25 +108,63 @@ class ColoumbContact:
             etc.
 
         """
-
         # CLARIFICATIONS NEEDED:
         #   1) Do projection and rotation commute on non-matching grids? The
         #   gut feel says yes, but I'm not sure.
 
         # Process input
         parameters_l = data_l[pp.PARAMETERS]
-        friction_coefficient = parameters_l[self.keyword]["friction_coefficient"]
-
-        if np.asarray(friction_coefficient).size == 1:
-            friction_coefficient = friction_coefficient * np.ones(g_l.num_cells)
 
         # Numerical parameter, value and sensitivity is currently unknown.
-        # The thesis of Huber is probably a good place to look for information.
+        # The thesis of Hueeber is probably a good place to look for information.
         c_num = parameters_l[self.keyword].get(
             "contact_mechanics_numerical_parameter", 100
         )
+        # Obtain the four cellwise parameters:
+        # Mandatory friction coefficient relates normal and tangential forces.
+        # The initial gap will usually be zero.
+        # The gap value may be a function of tangential displacement.
+        # We assume g(u_t) = - tan(dilation_angle) * || u_t ||
+        # The cohesion represents a minimal force, independent of the normal force,
+        # that must be overcome before the onset of sliding.
+        cellwise_parameters = [
+            "friction_coefficient",
+            "initial_gap",
+            "dilation_angle",
+            "cohesion",
+        ]
+        defaults = [None, 0, 0, 0]
+        vals = parameters_l.expand_scalars(
+            g_l.num_cells, self.keyword, cellwise_parameters, defaults
+        )
+        friction_coefficient, initial_gap, dilation_angle, cohesion = (
+            vals[0],
+            vals[1],
+            vals[2],
+            vals[3],
+        )
 
         mg = data_edge["mortar_grid"]
+
+        # In an attempt to reduce the sensitivity of the numerical parameter on the
+        # model parameters, we scale it with area and an order-of-magnitude estimate
+        # for the elastic moduli.
+        area = g_l.cell_volumes
+
+        parameters_h = data_h[pp.PARAMETERS][self.discr_h.keyword]
+        constit_h = parameters_h["fourth_order_tensor"]
+        mean_constit = (
+            mg.mortar_to_slave_avg()
+            * mg.master_to_mortar_avg()
+            * 0.5
+            * np.abs(g_h.cell_faces * (constit_h.mu + constit_h.lmbda))
+        )
+
+        c_num_normal = c_num * mean_constit * area
+        c_num_tangential = c_num * mean_constit * area
+
+        # The tractions are scaled with area, so do the same with the cohesion.
+        scaled_cohesion = cohesion * area
 
         # TODO: Implement a single method to get the normal vector with right sign
         # thus the right local coordinate system.
@@ -103,7 +176,7 @@ class ColoumbContact:
         projection = data_edge["tangential_normal_projection"]
 
         # The contact force is already computed in local coordinates
-        contact_force = data_l[pp.STATE]["previous_iterate"][self.contact_variable]
+        contact_force = data_l[pp.STATE][pp.ITERATE][self.contact_variable]
 
         # Pick out the tangential and normal direction of the contact force.
         # The contact force of the first cell is in the first self.dim elements
@@ -123,7 +196,7 @@ class ColoumbContact:
         # its sign switched).
         # The tangential displacements are relative to the initial state, which in the
         # transient case equals the previous time step.
-        previous_displacement_iterate = data_edge[pp.STATE]["previous_iterate"][
+        previous_displacement_iterate = data_edge[pp.STATE][pp.ITERATE][
             self.mortar_displacement_variable
         ]
         previous_displacement_time = data_edge[pp.STATE][
@@ -156,11 +229,45 @@ class ColoumbContact:
             )
         ).reshape((self.dim - 1, g_l.num_cells), order="F")
 
+        cumulative_tangential_jump = (
+            projection.project_tangential(g_l.num_cells)
+            * (displacement_jump_global_coord_iterate)
+        ).reshape((self.dim - 1, g_l.num_cells), order="F")
+
+        # Compute gap if it is a function of tangential jump, i.e.
+        # g = g(u) + g_0 (careful with sign!)
+        # Both dilation angle and g_0 default to zero (see above), implying g(u) = 0
+        norm_displacement_jump_tangential = np.linalg.norm(
+            cumulative_tangential_jump, axis=0
+        )
+        gap = initial_gap - np.tan(dilation_angle) * norm_displacement_jump_tangential
+
+        # Compute dg/du_t = - tan(dilation_angle) u_t / || u_t ||
+        # Avoid dividing by zero if u_t = 0. In this case, we extend to the limit value
+        # from the positive, see module level explanation.
+        ind = np.logical_not(
+            np.isclose(cumulative_tangential_jump, 0, rtol=self.tol, atol=self.tol)
+        )[0]
+        d_gap = np.zeros((g_l.dim, g_l.num_cells))
+        # Compute dg/du_t where u_t is nonzero
+        tan = np.atleast_2d(np.tan(dilation_angle)[ind])
+        d_gap[:, ind] = (
+            -tan
+            * cumulative_tangential_jump[:, ind]
+            / norm_displacement_jump_tangential[ind]
+        )
+
         # The friction bound is computed from the previous state of the contact
         # force and normal component of the displacement jump.
         # Note that the displacement jump is rotated before adding to the contact force
-        friction_bound = friction_coefficient * np.clip(
-            -contact_force_normal + c_num * displacement_jump_normal, 0, np.inf
+        friction_bound = (
+            friction_coefficient
+            * np.clip(
+                -contact_force_normal + c_num_normal * (displacement_jump_normal - gap),
+                0,
+                np.inf,
+            )
+            + scaled_cohesion
         )
 
         num_cells = friction_coefficient.size
@@ -169,14 +276,31 @@ class ColoumbContact:
 
         # Contact region is determined from the normal direction.
         penetration_bc = self._penetration(
-            contact_force_normal, displacement_jump_normal, c_num
+            contact_force_normal, displacement_jump_normal, c_num_normal, gap
         )
-        sliding_bc = self._sliding(
+        # Check criterion for sliding
+        sliding_criterion = self._sliding(
             contact_force_tangential,
             displacement_jump_tangential,
             friction_bound,
-            c_num,
+            c_num_tangential,
         )
+        # Find cells with non-zero tangential traction. This excludes cells that were
+        # not in contact in the previous iteration.
+        # non_zero_tangential_traction = (
+        #     np.sum(contact_force_tangential ** 2, axis=0) > self.tol ** 2
+        # )
+
+        # The discretization of the sliding state tacitly assumes that the tangential
+        # traction in the previous iteration - or else we will divide by zero.
+        # Therefore, only allow for sliding if the tangential traciton is non-zero.
+        # In practice this means that a cell is not allowed to go directly from
+        # non-penetration to sliding.
+        # This feature was turned off due to convergence issues.
+        # TODO: Either purge entirely or, if found to be useful in some simulations,
+        # convert to a optional feature.
+        sliding_bc = sliding_criterion
+        # np.logical_and(sliding_criterion, non_zero_tangential_traction)
 
         # Structures for storing the computed coefficients.
         displacement_weight = []  # Multiplies displacement jump
@@ -197,53 +321,63 @@ class ColoumbContact:
         #   the coefficient in a Robin boundary condition (using the terminology of
         #   the mpsa implementation)
         # r is the right hand side term
-        # IS: Comment about the traction weight?
 
         for i in range(num_cells):
             if sliding_bc[i] & penetration_bc[i]:  # in contact and sliding
-                # The equation for the normal direction is computed from equation
-                # (24)-(25) in Berge et al.
-                # Compute coeffecients L, r, v
-                loc_displacement_tangential, r, v = self._L_r(
+                # This is Eq (31) in Berge et al, including the regularization
+                # described in (32) and onwards. The expressions are somewhat complex,
+                # and are therefore moved to subfunctions.
+                loc_displacement_tangential, r, v = self._sliding_coefficients(
                     contact_force_tangential[:, i],
                     displacement_jump_tangential[:, i],
                     friction_bound[i],
-                    c_num,
+                    c_num_tangential[i],
                 )
 
                 # There is no interaction between displacement jumps in normal and
                 # tangential direction
                 L = np.hstack((loc_displacement_tangential, np.atleast_2d(zer).T))
-                loc_displacement_weight = np.vstack((L, zer1))
+                normal_displacement = np.hstack((-d_gap[:, i], 1))
+                loc_displacement_weight = np.vstack((L, normal_displacement))
                 # Right hand side is computed from (24-25). In the normal
-                # direction, zero displacement is enforced.
-                # This assumes that the original distance, g, between the fracture
-                # walls is zero.
-                r = np.vstack((r + friction_bound[i] * v, 0))
+                # direction, a contribution from the previous iterate enters to cancel
+                # the gap
+                r_n = gap[i] - np.dot(d_gap[:, i], cumulative_tangential_jump[:, i].T)
+                # assert np.isclose(r_n, initial_gap[i])  # TODO: Agree on cumulative with EK
+                r_t = r + friction_bound[i] * v
+                r = np.vstack((r_t, r_n))
                 # Unit contribution from tangential force
                 loc_traction_weight = np.eye(self.dim)
                 # Zero weight on normal force
                 loc_traction_weight[-1, -1] = 0
                 # Contribution from normal force
+                # NOTE: The sign is different from Berge (31); the paper is wrong
                 loc_traction_weight[:-1, -1] = -friction_coefficient[i] * v.ravel()
 
             elif ~sliding_bc[i] & penetration_bc[i]:  # In contact and sticking
-                # Weight for contact force computed according to (23)
+                # Weight for contact force computed according to (30) in Berge.
+                # NOTE: There is a sign error in the paper, the coefficient for the
+                # normal contact force should have a minus in front of it
                 loc_traction_tangential = (
-                    -friction_coefficient[i]
+                    -friction_coefficient[i]  # The minus sign is correct
                     * displacement_jump_tangential[:, i].ravel("F")
                     / friction_bound[i]
                 )
                 # Unit coefficient for all displacement jumps
                 loc_displacement_weight = np.eye(self.dim)
+                # For non-constant gap, relate normal and tangential jumps
+                loc_displacement_weight[-1, :-1] = -d_gap[:, i]
 
                 # Tangential traction dependent on normal one
                 loc_traction_weight = np.zeros((self.dim, self.dim))
                 loc_traction_weight[:-1, -1] = loc_traction_tangential
 
-                # The right hand side is the previous tangential jump, and zero
-                # in the normal direction.
-                r = np.hstack((displacement_jump_tangential[:, i], 0)).T
+                # The right hand side is the previous tangential jump, and the gap
+                # value in the normal direction.
+                r_t = displacement_jump_tangential[:, i]
+                r_n = gap[i] - np.dot(d_gap[:, i], cumulative_tangential_jump[:, i].T)
+                # assert np.isclose(r_n, initial_gap[i])
+                r = np.hstack((r_t, r_n)).T
 
             elif ~penetration_bc[i]:  # not in contact
                 # This is a free boundary, no conditions on displacement
@@ -289,7 +423,11 @@ class ColoumbContact:
         )
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_discretization] = rhs
 
-    def assemble_matrix_rhs(self, g, data):
+        # Also store the contact state
+        data_l[pp.STATE][pp.ITERATE]["penetration"] = penetration_bc
+        data_l[pp.STATE][pp.ITERATE]["sliding"] = sliding_bc
+
+    def assemble_matrix_rhs(self, g: pp.Grid, data: Dict):
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         traction_coefficient = data[pp.DISCRETIZATION_MATRICES][self.keyword][
@@ -304,16 +442,16 @@ class ColoumbContact:
         return traction_coefficient, displacement_coefficient, rhs
 
     # Active and inactive boundary faces
-    def _sliding(self, Tt, ut, bf, ct):
+    def _sliding(self, Tt: np.ndarray, ut: np.ndarray, bf: np.ndarray, ct: np.ndarray):
         """ Find faces where the frictional bound is exceeded, that is, the face is
         sliding.
 
         Arguments:
-            Tt (np.array, nd-1 x num_faces): Tangential forces.
-            u_hat (np.array, nd-1 x num_faces): Displacements in tangential
+            Tt (np.array, nd-1 x num_cells): Tangential forces.
+            ut (np.array, nd-1 x num_cells): Displacements jump velocity in tangential
                 direction.
-            bf (np.array, num_faces): Friction bound.
-            ct (double): Numerical parameter that relates displacement jump to
+            bf (np.array, num_cells): Friction bound.
+            ct (np.array, num_cells): Numerical parameter that relates displacement jump to
                 tangential forces. See Huber et al for explanation.
 
         Returns:
@@ -322,33 +460,39 @@ class ColoumbContact:
         """
         # Use thresholding to not pick up faces that are just about sticking
         # Not sure about the sensitivity to the tolerance parameter here.
-        return self._l2(-Tt + ct * ut) - bf > 1e-10
+        return self._l2(-Tt + ct * ut) - bf > self.tol
 
-    def _penetration(self, Tn, un, cn):
+    def _penetration(
+        self, Tn: np.ndarray, un: np.ndarray, cn: np.ndarray, gap: np.ndarray
+    ) -> np.ndarray:
         """ Find faces that are in contact.
 
         Arguments:
-            Tn (np.array, num_faces): Normal forces.
-            un (np.array, num_faces): Displament in normal direction.
-            ct (double): Numerical parameter that relates displacement jump to
+            Tn (np.array, num_cells): Normal forces.
+            un (np.array, num_cells): Displament jump in normal direction.
+            cn (np.array, num_cells): Numerical parameter that relates displacement jump to
                 normal forces. See Huber et al for explanation.
+            gap (np.array, num_cells): Value of gap function.
 
         Returns:
-            boolean, size num_faces: True if |-Tt + ct*ut| > bf for a face
+            boolean, size num_cells: True if |-Tu + cn*un| > 0 for a cell.
 
         """
         # Not sure about the sensitivity to the tolerance parameter here.
-        tol = 1e-12 * cn
-        return (-Tn + cn * un) > tol
+        return (-Tn + cn * (un - gap)) > self.tol
 
-    # Below here are different help function for calculating the Newton step
-    def _ef(self, Tt, cut, bf):
-        # Compute part of (25) in Berge et al.
+    #####
+    ## Below here are different help function for calculating the Newton step
+    #####
+
+    def _e(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
+        # Compute part of (32) in Berge et al.
         return bf / self._l2(-Tt + cut)
 
-    def _Ff(self, Tt, cut, bf):
-        # Implementation of the term Q involved in the calculation of (25) in Berge
+    def _Q(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
+        # Implementation of the term Q involved in the calculation of (32) in Berge
         # et al.
+        # This is the regularized Q
         numerator = -Tt.dot((-Tt + cut).T)
 
         # Regularization to avoid issues during the iterations to avoid dividing by
@@ -357,25 +501,34 @@ class ColoumbContact:
 
         return numerator / denominator
 
-    def _M(self, Tt, cut, bf):
-        """ Compute the coefficient M used in Eq. (25) in Berge et al.
+    def _M(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
+        """ Compute the coefficient M used in Eq. (32) in Berge et al.
         """
         Id = np.eye(Tt.shape[0])
-        return self._ef(Tt, cut, bf) * (Id - self._Ff(Tt, cut, bf))
+        # M = e * (I - Q)
+        return self._e(Tt, cut, bf) * (Id - self._Q(Tt, cut, bf))
 
-    def _hf(self, Tt, cut, bf):
-        return self._ef(Tt, cut, bf) * self._Ff(Tt, cut, bf).dot(-Tt + cut)
+    def _hf(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
+        # This is the product e * Q * (-Tt + cut), used in computation of r in (32)
+        return self._e(Tt, cut, bf) * self._Q(Tt, cut, bf).dot(-Tt + cut)
 
-    def _L_r(self, Tt, ut, bf, c):
+    def _sliding_coefficients(
+        self, Tt: np.ndarray, ut: np.ndarray, bf: np.ndarray, c: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Compute the coefficient L, defined in Eq. (25) in Berge et al.
+        Compute the regularized versions of coefficients L, v and r, defined in
+        Eq. (32) and section 3.2.1 in Berge et al. and used in Eq. (31).
 
         Arguments:
-            Tt: Tangential forces. np array, two or three elements
-            ut: Tangential displacement. Same size as Tt
+            Tt: Tangential forces. np array, one or two elements
+            ut: Tangential displacement increment. Same size as Tt.
             bf: Friction bound for this mortar cell.
             c: Numerical parameter
 
+        Returns:
+            L: Weights for tangential displacement increment.
+            v: Weights for normal traction.
+            r: rhs contribution.
 
         """
         if Tt.ndim <= 1:
@@ -388,7 +541,7 @@ class ColoumbContact:
 
         # Shortcut if the friction coefficient is effectively zero.
         # Numerical tolerance here is likely somewhat arbitrary.
-        if bf <= 1e-10:
+        if bf <= self.tol:
             return (
                 0 * Id,
                 bf * np.ones((Id.shape[0], 1)),
@@ -399,28 +552,36 @@ class ColoumbContact:
         coeff_M = self._M(Tt, cut, bf)
 
         # Regularization during the iterations requires computations of parameters
-        # alpha, beta, delta
-        alpha = -Tt.T.dot(-Tt + cut) / (self._l2(-Tt) * self._l2(-Tt + cut))
-        delta = min(self._l2(-Tt) / bf, 1)
+        # alpha, beta, delta. In degenerate cases, use
+        beta = 1
+        # Avoid division by zero:
+        l2_Tt = self._l2(-Tt)
+        if l2_Tt > self.tol:
+            alpha = -Tt.T.dot(-Tt + cut) / (l2_Tt * self._l2(-Tt + cut))
+            # Parameter delta.
+            # NOTE: The denominator bf is correct. The definition given in Berge is wrong.
+            delta = min(l2_Tt / bf, 1)
 
-        if alpha < 0:
-            beta = 1 / (1 - alpha * delta)
-        else:
-            beta = 1
+            if alpha < 0:
+                beta = 1 / (1 - alpha * delta)
 
         # The expression (I - beta * M)^-1
+        # NOTE: In the definition of \tilde{L} in Berge, the inverse on the inner
+        # paranthesis is missing.
         IdM_inv = np.linalg.inv(Id - beta * coeff_M)
 
+        L = c * (IdM_inv - Id)
+        r = -IdM_inv.dot(self._hf(Tt, cut, bf))
         v = IdM_inv.dot(-Tt + cut) / self._l2(-Tt + cut)
 
-        return c * (IdM_inv - Id), -IdM_inv.dot(self._hf(Tt, cut, bf)), v
+        return L, r, v
 
     def _l2(self, x):
         x = np.atleast_2d(x)
         return np.sqrt(np.sum(x ** 2, axis=0))
 
 
-def set_projections(gb):
+def set_projections(gb: pp.GridBucket) -> None:
     """ Define a local coordinate system, and projection matrices, for all
     grids of co-dimension 1.
 

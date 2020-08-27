@@ -120,9 +120,100 @@ class ImplicitMpfa(pp.Mpfa):
         cc[self_ind, 2] -= proj * dt
 
 
+class ImplicitTpfa(pp.Tpfa):
+    """
+    Multiply all contributions by the time step.
+
+    Implementation note: This is a copy of ImplicitMpfa, modified to inherit from Tpfa.
+    A unified implementation would have been preferrable.
+
+    """
+
+    def assemble_matrix_rhs(self, g, data):
+        """ Overwrite MPFA method to be consistent with the Biot dt convention.
+        """
+        a, b = super().assemble_matrix_rhs(g, data)
+
+        dt = data[pp.PARAMETERS][self.keyword]["time_step"]
+        a = a * dt
+        b = b * dt
+        return a, b
+
+    def assemble_int_bound_flux(
+        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
+    ):
+        """
+        Overwrite the MPFA method to be consistent with the Biot dt convention
+        """
+        dt = data[pp.PARAMETERS][self.keyword]["time_step"]
+
+        div = g.cell_faces.T
+
+        bound_flux = data[pp.DISCRETIZATION_MATRICES][self.keyword]["bound_flux"]
+        # Projection operators to grid
+        mg = data_edge["mortar_grid"]
+
+        if use_slave_proj:
+            proj = mg.mortar_to_slave_int()
+        else:
+            proj = mg.mortar_to_master_int()
+
+        if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
+            # If bound flux is gven as sub-faces we have to map it from sub-faces
+            # to faces
+            hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
+            bound_flux = hf2f * bound_flux
+        if g.dim > 0 and bound_flux.shape[1] != proj.shape[0]:
+            raise ValueError(
+                """Inconsistent shapes. Did you define a
+            sub-face boundary condition but only a face-wise mortar?"""
+            )
+
+        cc[self_ind, 2] += dt * div * bound_flux * proj
+
+    def assemble_int_bound_source(self, g, data, data_edge, cc, matrix, rhs, self_ind):
+        """ Abstract method. Assemble the contribution from an internal
+        boundary, manifested as a source term.
+
+        The intended use is when the internal boundary is coupled to another
+        node in a mixed-dimensional method. Specific usage depends on the
+        interface condition between the nodes; this method will typically be
+        used to impose flux continuity on a lower-dimensional domain.
+
+        Implementations of this method will use an interplay between the grid on
+        the node and the mortar grid on the relevant edge.
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+            data_edge (dictionary): Data dictionary for the edge in the
+                mixed-dimensional grid.
+            cc (block matrix, 3x3): Block matrix for the coupling condition.
+                The first and second rows and columns are identified with the
+                master and slave side; the third belongs to the edge variable.
+                The discretization of the relevant term is done in-place in cc.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
+            self_ind (int): Index in cc and matrix associated with this node.
+                Should be either 1 or 2.
+
+        """
+        mg = data_edge["mortar_grid"]
+
+        proj = mg.mortar_to_slave_int()
+        dt = data[pp.PARAMETERS][self.keyword]["time_step"]
+        cc[self_ind, 2] -= proj * dt
+
+
 class ImplicitUpwind(pp.Upwind):
     """
     Multiply all contributions by the time step and advection weight.
+    The latter may be a scalar or cellwise values, in which case the upwind
+    value is used. Note that the interior cell value is taken for BCs,
+    regardless of the direction of the flux on the boundary.
     """
 
     def assemble_matrix_rhs(self, g, data):
@@ -130,12 +221,18 @@ class ImplicitUpwind(pp.Upwind):
             data["flow_faces"] = sps.csr_matrix([0.0])
             return sps.csr_matrix([0.0]), np.array([0.0])
 
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        dt = parameter_dictionary["time_step"]
-        w = parameter_dictionary["advection_weight"] * dt
+        parameter_dictionary = data[pp.PARAMETERS]
+        dt = parameter_dictionary[self.keyword]["time_step"]
+        # Obtain the cellwise advection weights
+        w = (
+            parameter_dictionary.expand_scalars(
+                g.num_cells, self.keyword, ["advection_weight"]
+            )[0]
+            * dt
+        )
         a, b = super().assemble_matrix_rhs(g, data)
-        a = a * w
-        b = b * w
+        a = a * sps.diags(w)
+        b = b * sps.diags(w)
         return a, b
 
 
@@ -171,10 +268,22 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
         # Normal component of the velocity from the higher dimensional grid
 
         # @ALL: This should perhaps be defined by a globalized keyword
-        parameter_dictionary_master = data_master[pp.PARAMETERS][self.keyword]
+        parameter_dictionary_master = data_master[pp.PARAMETERS]
+        parameter_dictionary_slave = data_slave[pp.PARAMETERS]
         lam_flux = data_edge[pp.PARAMETERS][self.keyword]["darcy_flux"]
-        dt = parameter_dictionary_master["time_step"]
-        w = parameter_dictionary_master["advection_weight"] * dt
+        dt = parameter_dictionary_master[self.keyword]["time_step"]
+        w_master = (
+            parameter_dictionary_master.expand_scalars(
+                g_master.num_cells, self.keyword, ["advection_weight"]
+            )[0]
+            * dt
+        )
+        w_slave = (
+            parameter_dictionary_slave.expand_scalars(
+                g_slave.num_cells, self.keyword, ["advection_weight"]
+            )[0]
+            * dt
+        )
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
         g_m = data_edge["mortar_grid"]
@@ -214,12 +323,14 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
         # If fluid flux(lam_flux) is positive we use the upper value as weight,
         # i.e., T_masterat * fluid_flux = lambda.
         # We set cc[2, 0] = T_masterat * fluid_flux
-        cc[2, 0] = sps.diags(w * lam_flux * flag) * hat_P_avg * div.T
+        # import pdb
+        # pdb.set_trace()
+        cc[2, 0] = sps.diags(lam_flux * flag) * hat_P_avg * div.T * sps.diags(w_master)
 
         # If fluid flux is negative we use the lower value as weight,
         # i.e., T_check * fluid_flux = lambda.
         # we set cc[2, 1] = T_check * fluid_flux
-        cc[2, 1] = sps.diags(w * lam_flux * not_flag) * check_P_avg
+        cc[2, 1] = sps.diags(lam_flux * not_flag) * check_P_avg * sps.diags(w_slave)
 
         # The rhs of T * fluid_flux = lambda
         # Recover the information for the grid-grid mapping

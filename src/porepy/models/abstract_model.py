@@ -1,19 +1,18 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Fri Sep  6 11:29:05 2019
 
-@author: eke001
+
 """
+import abc
 import numpy as np
 
 
-class AbstractModel:
+class AbstractModel(abc.ABC):
     """ This is an abstract class that specifies methods that a model must implement to
     be compatible with the Newton and time stepping methods.
 
     """
 
+    @abc.abstractmethod
     def get_state_vector(self):
         """ Get a vector of the current state of the variables; with the same ordering
             as in the assembler.
@@ -22,8 +21,9 @@ class AbstractModel:
             np.array: The current state of the system.
 
         """
-        raise NotImplementedError("This must be implemented for any new Model")
+        pass
 
+    @abc.abstractmethod
     def prepare_simulation(self):
         """ Method called prior to the start of time stepping, or prior to entering the
         non-linear solver for stationary problems.
@@ -32,8 +32,9 @@ class AbstractModel:
         and time-independent terms, and generally prepare for the simulation.
 
         """
-        raise NotImplementedError("This must be implemented for any new Model")
+        pass
 
+    @abc.abstractmethod
     def before_newton_loop(self):
         """ Method to be called before entering the non-linear solver, thus at the start
         of a new time step.
@@ -41,16 +42,18 @@ class AbstractModel:
         Possible usage is to update time-dependent parameters, discertizations etc.
 
         """
-        raise NotImplementedError("This must be implemented for any new Model")
+        pass
 
+    @abc.abstractmethod
     def before_newton_iteration(self):
         """ Method to be called at the start of every non-linear iteration.
 
         Possible usage is to update non-linear parameters, discertizations etc.
 
         """
-        raise NotImplementedError("This must be implemented for any new Model")
+        pass
 
+    @abc.abstractmethod
     def after_newton_iteration(self, solution_vector):
         """ Method to be called after every non-linear iteration.
 
@@ -61,8 +64,9 @@ class AbstractModel:
             np.array: The new solution state, as computed by the non-linear solver.
 
         """
-        raise NotImplementedError("This must be implemented for any new Model")
+        pass
 
+    @abc.abstractmethod
     def after_newton_convergence(self, solution, errors, iteration_counter):
         """ Method to be called after every non-linear iteration.
 
@@ -72,8 +76,9 @@ class AbstractModel:
             np.array: The new solution state, as computed by the non-linear solver.
 
         """
-        raise NotImplementedError("This must be implemented for any new Model")
+        pass
 
+    @abc.abstractmethod
     def after_newton_failure(self, solution, errors, iteration_counter):
         """ Method called after a non-linear solver has failed.
 
@@ -83,15 +88,17 @@ class AbstractModel:
         The actual implementation depends on the model at hand.
 
         """
-        raise ValueError("Newton iterations did not converge")
+        pass
 
-    def check_convergence(self, solution, prev_solution, nl_params):
+    @abc.abstractmethod
+    def check_convergence(self, solution, prev_solution, init_solution, nl_params):
         """ Implements a convergence check, to be called by a non-linear solver.
 
         Parameters:
             solution (np.array): Newly obtained solution vector
             prev_solution (np.array): Solution obtained in the previous non-linear
                 iteration.
+            init_solution (np.array): Solution obtained from the previous time-step.
             nl_params (dict): Dictionary of parameters used for the convergence check.
                 Which items are required will depend on the converegence test to be
                 implemented.
@@ -104,8 +111,9 @@ class AbstractModel:
                 implemented by this method.
 
         """
-        raise NotImplementedError("This must be implemented for any new Model")
+        pass
 
+    @abc.abstractmethod
     def assemble_and_solve_linear_system(self, tol):
         """ Assemble the linearized system, described by the current state of the model,
         solve and return the new solution vector.
@@ -118,7 +126,7 @@ class AbstractModel:
             np.array: Solution vector.
 
         """
-        raise NotImplementedError("This must be implemented for any new Model")
+        pass
 
     def l2_norm_cell(self, g, u):
         """

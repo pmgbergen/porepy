@@ -174,5 +174,6 @@ class TestSegmentSegmentIntersection(unittest.TestCase):
         p_known = np.array([1, 0, 0.5]).reshape((-1, 1))
         self.assertTrue(np.min(np.sum(np.abs(p_int - p_known), axis=0)) < 1e-8)
 
-    if __name__ == "__main__":
-        unittest.main()
+
+if __name__ == "__main__":
+    unittest.main()

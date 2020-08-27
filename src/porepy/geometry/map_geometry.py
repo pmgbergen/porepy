@@ -145,7 +145,7 @@ def project_points_to_line(p, tol=1e-4):
 
     """
     center = np.mean(p, axis=1).reshape((-1, 1))
-    p -= center
+    p = p - center
 
     if p.shape[0] == 2:
         p = np.vstack((p, np.zeros(p.shape[1])))
@@ -318,7 +318,7 @@ def tangent_matrix(pts=None, normal=None):
     return np.eye(3) - normal_matrix(pts, normal)
 
 
-def compute_normal(pts):
+def compute_normal(pts, check=True):
     """ Compute the normal of a set of points.
 
     The algorithm assume that the points lie on a plane.
@@ -326,6 +326,7 @@ def compute_normal(pts):
 
     Parameters:
     pts: np.ndarray, 3xn, the points. Need n > 2.
+    check (boolean, optional): Do sanity check on the results. Defaults to True.
 
     Returns:
     normal: np.array, 1x3, the normal.
@@ -333,10 +334,11 @@ def compute_normal(pts):
     """
 
     assert pts.shape[1] > 2
-    normal = np.cross(pts[:, 0] - pts[:, 1], compute_tangent(pts))
-    if np.allclose(normal, np.zeros(3)):
+    normal = np.cross(pts[:, 0] - pts[:, 1], compute_tangent(pts, check))
+    if check and np.allclose(normal, np.zeros(3)):
         return compute_normal(pts[:, 1:])
-    return normal / np.linalg.norm(normal)
+    else:
+        return normal / np.linalg.norm(normal)
 
 
 def compute_normals_1d(pts):
@@ -345,13 +347,14 @@ def compute_normals_1d(pts):
     return np.r_["1,2,0", n, np.dot(rotation_matrix(np.pi / 2.0, t), n)]
 
 
-def compute_tangent(pts):
+def compute_tangent(pts, check=True):
     """ Compute a tangent vector of a set of points.
 
     The algorithm assume that the points lie on a plane.
 
     Parameters:
     pts: np.ndarray, 3xn, the points.
+    check: boolean, optional. Do sanity check on the result. Defaults to True.
 
     Returns:
     tangent: np.array, 1x3, the tangent.
@@ -365,5 +368,6 @@ def compute_tangent(pts):
     # Find the point that is furthest away from the mean point
     max_ind = np.argmax(np.sum(tangent ** 2, axis=0))
     tangent = tangent[:, max_ind]
-    assert not np.allclose(tangent, np.zeros(3))
+    if check:
+        assert not np.allclose(tangent, np.zeros(3))
     return tangent / np.linalg.norm(tangent)

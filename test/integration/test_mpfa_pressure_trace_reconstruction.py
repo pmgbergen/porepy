@@ -22,7 +22,9 @@ class MpfaReconstructPressure(unittest.TestCase):
         bc = pp.BoundaryCondition(g)
 
         mpfa = pp.Mpfa("flow")
-        _, _, grad_cell, grad_bound = mpfa.mpfa(g, k, bc, inverter="python")
+        _, _, grad_cell, grad_bound, *_ = mpfa._flux_discretization(
+            g, k, bc, inverter="python"
+        )
 
         grad_bound_known = np.array(
             [
@@ -64,7 +66,7 @@ class MpfaReconstructPressure(unittest.TestCase):
 
         mpfa = pp.Mpfa("flow")
 
-        flux, bound_flux, p_t_cell, p_t_bound = mpfa.mpfa(
+        flux, bound_flux, p_t_cell, p_t_bound, *_ = mpfa._flux_discretization(
             g, k, bc, eta=0, inverter="python"
         )
 
@@ -104,7 +106,7 @@ class MpfaReconstructPressure(unittest.TestCase):
         p_b = np.random.randn(g.face_centers.shape[1])
 
         mpfa = pp.Mpfa("flow")
-        flux, bound_flux, p_t_cell, p_t_bound = mpfa.mpfa(
+        flux, bound_flux, p_t_cell, p_t_bound, *_ = mpfa._flux_discretization(
             g, k, bc, eta=0, inverter="python"
         )
 
@@ -139,7 +141,7 @@ class MpfaReconstructPressure(unittest.TestCase):
         p_b = p_b[s_t.fno_unique]
 
         mpfa = pp.Mpfa("flow")
-        flux, bound_flux, p_t_cell, p_t_bound = mpfa.mpfa(
+        flux, bound_flux, p_t_cell, p_t_bound, *_ = mpfa._flux_discretization(
             g, k, bc, eta=0, inverter="python"
         )
 
