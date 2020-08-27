@@ -11,6 +11,8 @@ that of split_grid.
 import warnings
 import numpy as np
 import scipy.sparse as sps
+from typing import Tuple
+
 import porepy as pp
 
 
@@ -32,30 +34,29 @@ def propagate_fractures(gb, faces):
         updates.
         partial_update, a boolean flag indicating that the grids have been
         updated.
+
     """
     dim_h = gb.dim_max()
     g_h = gb.grids_of_dimension(dim_h)[0]
+
     # First initialise certain tags to get rid of any existing tags from
     # previous calls
     for g, d in gb:
         if g.dim == dim_h:
-            d['new_cells'] = np.empty(0, dtype=int)
-            d['new_faces'] = np.empty(0, dtype=int)
-        else:
-            d['new_cells'] = np.empty(0, dtype=int)
-            d['new_faces'] = np.empty(0, dtype=int)
+            d["new_cells"] = np.empty(0, dtype=int)
+            d["new_faces"] = np.empty(0, dtype=int)
 
     for i, g_l in enumerate(gb.grids_of_dimension(dim_h - 1)):
         faces_h = np.array(faces[i])
         if faces_h.size == 0:
             for g, d in gb:
-                d['partial_update'] = True
+                d["partial_update"] = True
                 if g.dim == gb.dim_max():
-                    d['new_cells'] = np.empty(0, dtype=int)
-                    d['new_faces'] = np.empty(0, dtype=int)
+                    d["new_cells"] = np.empty(0, dtype=int)
+                    d["new_faces"] = np.empty(0, dtype=int)
                 else:
-                    d['new_cells'] = np.empty(0, dtype=int)
-                    d['new_faces'] = np.empty(0, dtype=int)
+                    d["new_cells"] = np.empty(0, dtype=int)
+                    d["new_faces"] = np.empty(0, dtype=int)
             return
 
         # Keep track of original information:
@@ -65,7 +66,7 @@ def propagate_fractures(gb, faces):
 
         # It is convenient to tag the nodes lying on the domain boundary. This
         # helps updating the face tags later:
-        pp.utils.tags.add_node_tags_from_face_tags(gb, 'domain_boundary')
+        pp.utils.tags.add_node_tags_from_face_tags(gb, "domain_boundary")
 
         # Get the "involved nodes", i.e., the union between the new nodes in
         # the lower dimension and the boundary nodes where the fracture
@@ -75,18 +76,26 @@ def propagate_fractures(gb, faces):
         # Update the connectivity matrices (cell_faces and face_nodes) and tag
         # the lower-dimensional faces, including re-classification of (former)
         # tips to internal faces, where appropriate.
-        n_new_faces, new_face_centers \
-            = update_connectivity(g_l, g_h, n_old_nodes_l, unique_node_ind_l,
-                                  n_old_faces_l, n_old_cells_l,
-                                  unique_node_ind_h, faces_h)
+        n_new_faces, new_face_centers = update_connectivity(
+            g_l,
+            g_h,
+            unique_node_ind_l,
+            unique_node_ind_h,
+            n_old_nodes_l,
+            n_old_faces_l,
+            n_old_cells_l,
+            faces_h,
+        )
         # Add new faces to g_l
+        # Note: This simply expands arrays with face geometry, but it does not
+        # compute reasonable values for the geometry
         append_face_geometry(g_l, n_new_faces, new_face_centers)
-        # Same for cells
+        # Same for cells. Here the geometry quantities are copied from the
+        # face values of g_h, thus values should be reasonable.
         new_cells = update_cells(g_h, g_l, faces_h)
 
         # Split g_h along faces_h
-        split_fracture_extension(gb, g_h, g_l, faces_h, unique_node_ind_h,
-                                 new_cells)
+        split_fracture_extension(gb, g_h, g_l, faces_h, unique_node_ind_h, new_cells)
 
         # Store information on which faces and cells have just been added.
         # Note that we only keep track of the faces and cells from the last
@@ -94,19 +103,27 @@ def propagate_fractures(gb, faces):
         new_faces_h = g_h.frac_pairs[1, np.isin(g_h.frac_pairs[0], faces_h)]
         d_h = gb.node_props(g_h)
         d_l = gb.node_props(g_l)
-        d_h['partial_update'] = True
-        d_l['partial_update'] = True
-        d_h['new_faces'] = np.append(d_h['new_faces'], new_faces_h)
-        d_l['new_cells'] = np.append(d_l['new_cells'], new_cells)
+        d_h["partial_update"] = True
+        d_l["partial_update"] = True
+        d_h["new_faces"] = np.append(d_h["new_faces"], new_faces_h)
+        d_l["new_cells"] = np.append(d_l["new_cells"], new_cells)
         new_faces_l = np.arange(g_l.num_faces - n_new_faces, g_l.num_faces)
-        d_l['new_faces'] = np.append(d_l['new_faces'], new_faces_l)
+        d_l["new_faces"] = np.append(d_l["new_faces"], new_faces_l)
 
         # Update geometry on each iteration to ensure correct tags.
         gb.compute_geometry()
 
 
-def update_connectivity(g_l, g_h, n_old_nodes_l, unique_node_indices_l,
-                        n_old_faces_l, n_old_cells_l, unique_nodes_h, faces_h):
+def update_connectivity(
+    g_l: pp.Grid,  # higher dimensional grid
+    g_h: pp.Grid,  # lower dimensional grid
+    unique_nodes_h: np.ndarray,  # nodes in g_h involved in the propagation
+    unique_node_indices_l: np.ndarray,  # nodes in g_l involved in the propagation
+    n_old_nodes_l: int,  # number of nodes in g_l before splitting
+    n_old_faces_l: int,  # number of faces in g_l before splitting
+    n_old_cells_l: int,  # number of cells in g_l before splitting
+    faces_h,  # faces in g_h to be split
+) -> Tuple[int, np.ndarray]:
     """
     Update of cell_faces of the lower grid after insertion of new cells at the
     higher-dimensional faces_h. Also tags the faces as domain_boundary or tip
@@ -114,130 +131,200 @@ def update_connectivity(g_l, g_h, n_old_nodes_l, unique_node_indices_l,
     and geometry of g_l by append_face_geometry and append_face_tags.
     """
     # Extract immediate information
+
+    # Each split face gives a new cell in g_l
     n_new_cells_l = faces_h.size
+    # index of the new cells in g_l
     new_cells_l = np.arange(n_old_cells_l, n_old_cells_l + n_new_cells_l)
-    # Initialize
+
+    # Initialize fields for new faces in g_l
     new_faces_l = np.empty((g_l.dim, 0))
     new_face_centers_l = np.empty((3, 0))
     face_counter_l = n_old_faces_l
+
     # Copy what is to be updated
     old_cell_faces = g_l.cell_faces.copy()
     old_face_nodes = g_l.face_nodes.copy()
+
     # Get the face_node indices to form lower-dimensional faces on the form
     # [[nodes of face 1], [nodes of face 2], ...], i.e., array where each face
     # is represented by the nodes it consists of.
-    all_faces_l = np.reshape(g_l.face_nodes.indices,
-                             (n_old_faces_l, g_l.dim)).T
+    # ASSUMPTION: This breaks if not all faces have the same number of cells
+    # Rewrite is possible, but more technical
+    all_faces_l = np.reshape(
+        g_l.face_nodes.indices, (g_l.dim, n_old_faces_l), order="f"
+    )
 
     # Initialize indices and values for the cell_faces update
-    (ind_f, ind_c, cf_val) = (np.empty(0), np.empty(0), np.empty(0))
+    ind_f, ind_c, cf_val = np.empty(0), np.empty(0), np.empty(0)
     # and for the face_nodes update
-    (fn_ind_f, fn_ind_n) = (np.empty(0), np.empty(0))
+    fn_ind_f, fn_ind_n = np.empty(0), np.empty(0)
 
+    # Loop over all new cells to be created
     for i, c in enumerate(new_cells_l):
-        # Find the nodes involved
+        # Find the nodes of the corresponding higher-dimensional face
         face_h = faces_h[i]
         local_nodes_h = g_h.face_nodes[:, face_h].nonzero()[0]
-        in_unique_nodes = pp.utils.setmembership.ismember_rows(local_nodes_h,
-                                                               unique_nodes_h,
-                                                               sort=False)[1]
-        local_nodes_l = np.array(unique_node_indices_l[in_unique_nodes],
-                                 dtype=int)
+        # Find the nodes' place among the active higher-dimensional nodes
+        in_unique_nodes = pp.utils.setmembership.ismember_rows(
+            local_nodes_h, unique_nodes_h, sort=False
+        )[1]
+        # Find the corresponding lower-dimensional nodes
+        local_nodes_l = np.array(unique_node_indices_l[in_unique_nodes], dtype=int)
+
         # Get geometry information
         local_pts = g_l.nodes[:, local_nodes_l]
+        # The new cell center is taken as the mean of the node coordinates.
+        # This should be okay for simplexes, not sure what we get for general cells.
         local_cell_center = np.mean(local_pts, axis=1)
+
         # Store face center for the update of g_l.face_centers
 
         # Faces are defined by one node in 1d and two in 2d. This requires
         # dimension dependent treatment:
         if g_l.dim == 2:
             # Sort nodes clockwise (!)
-            map_to_sorted \
-                = pp.utils.sort_points.sort_point_plane(local_pts,
-                                                        local_cell_center)
+            # ASSUMPTION: This assumes that the new cell is star-shaped with respect to the
+            # local cell center. This should be okay.
+            map_to_sorted = pp.utils.sort_points.sort_point_plane(
+                local_pts, local_cell_center
+            )
             sorted_nodes_l = local_nodes_l[map_to_sorted]
             sorted_nodes_h = local_nodes_h[map_to_sorted]
-            # Define the faces of c (size: 2 x faces_per_cell_l). "Duplicate"
+            # Define the faces of the new cell c (size: 2 x faces_per_cell_l). "Duplicate"
             # of the higher dimension used for tag identification.
-            faces_l = np.vstack((sorted_nodes_l,
-                                 np.append(sorted_nodes_l[1:],
-                                           sorted_nodes_l[0])))
-            local_faces_h = np.vstack((sorted_nodes_h,
-                                       np.append(sorted_nodes_h[1:],
-                                                 sorted_nodes_h[0])))
+            faces_l = np.vstack(
+                (sorted_nodes_l, np.append(sorted_nodes_l[1:], sorted_nodes_l[0]))
+            )
+            local_faces_h = np.vstack(
+                (sorted_nodes_h, np.append(sorted_nodes_h[1:], sorted_nodes_h[0]))
+            )
         else:
             # Faces and nodes are 1:1, but ismember_rows requires 2d array
             faces_l = np.atleast_2d(local_nodes_l)
             local_faces_h = np.atleast_2d(local_nodes_h)
 
-        # Now the faces_per_cell_l faces of c are defined by sorted_nodes_l
+        # Now the faces of c are defined by sorted_nodes_l
         # and their arrangement in faces_l.
         n_local_faces_l = faces_l.shape[-1]
 
         # Check which faces exist in g_l already, either from before propgation
         # or from previous runs through current loop:
-        (exist, existing_faces_l) \
-            = pp.utils.setmembership.ismember_rows(faces_l, all_faces_l)
-        # The existing faces are no longer tips (but internal). The new faces
-        # are tips (or on the domain boundary).
-        g_l.tags['tip_faces'][existing_faces_l] = False
+        (exist, existing_faces_l) = pp.utils.setmembership.ismember_rows(
+            faces_l, all_faces_l
+        )
+        # The existing faces are no longer tips (but internal).
+        g_l.tags["tip_faces"][existing_faces_l] = False
+
+        # Number of genuinely new local faces in g_l created for this cell
         n_new_local_faces_l = np.sum(~exist)
 
-        new_face_indices_l = np.arange(face_counter_l,
-                                       face_counter_l
-                                       + n_new_local_faces_l)
+        # Index of the new faces, they will be appended to the face array
+        new_face_indices_l = np.arange(
+            face_counter_l, face_counter_l + n_new_local_faces_l
+        )
+        # Update face counter to be ready for the next cell
         face_counter_l += n_new_local_faces_l
+
+        ## Assign tags to the new faces
+        # First expand tag arrays to make space for new faces
         append_face_tags(g_l, n_new_local_faces_l)
+
         # The existing faces are tagged according to the information from the
         # node tags of g_h.
         fi = local_faces_h[:, ~exist]
-        domain_boundary_faces \
-            = np.all(g_h.tags['domain_boundary_nodes'][fi], axis=0)
-        g_l.tags['tip_faces'][new_face_indices_l] = ~domain_boundary_faces
-        g_l.tags['domain_boundary_faces'][new_face_indices_l] \
-            = domain_boundary_faces
-        # Add the new faces
+
+        # The new faces are either on the domain boundary, or tip faces
+        domain_boundary_faces = np.all(g_h.tags["domain_boundary_nodes"][fi], axis=0)
+        g_l.tags["tip_faces"][new_face_indices_l] = ~domain_boundary_faces
+        g_l.tags["domain_boundary_faces"][new_face_indices_l] = domain_boundary_faces
+
+        # Expand face geometry fields to make room for new faces
+        # This will set placeholder values for face areas, normal vector and center
         all_faces_l = np.append(all_faces_l, faces_l[:, ~exist], axis=1)
-        # Find indices of face_nodes to be updated.
+
+        # Find node indices faces to be updated.
         ind_n_local = faces_l[:, ~exist]
+        # TODO: What happens here if ~exist is more than one face?
         local_pts = g_l.nodes[:, ind_n_local]
         local_face_centers = np.mean(local_pts, axis=1)
-        new_face_centers_l = np.append(new_face_centers_l,
-                                       np.atleast_2d(local_face_centers),
-                                       axis=1)
+
+        # New face center set to the mean of the face's vertexes.
+        # This is reasonable at least for simplex (and Cartesian) faces
+        new_face_centers_l = np.append(
+            new_face_centers_l, np.atleast_2d(local_face_centers), axis=1
+        )
         new_faces_l = np.append(new_faces_l, ind_n_local, axis=1)
+
+        # Expand face-node and cell-face relations
+        # Build index of all local faces (both new, and already existing)
         all_local_faces = np.empty(faces_l.shape[-1])
         all_local_faces[exist] = existing_faces_l
         all_local_faces[~exist] = new_face_indices_l
+        # Add both existing and new faces to face-nodes?
+        # Why include exist here, they should have been added already?
+        # Answer: We could have dropped it, but this will simply add the same
+        # information twice to the face-node relation. Since this has boolean
+        # data, adding a 2 instead of a 1 will make no difference.
         ind_f_local = np.tile(all_local_faces, g_l.dim)
         fn_ind_f = np.append(fn_ind_f, ind_f_local)
         fn_ind_n = np.append(fn_ind_n, faces_l)
-        # Same for cell_faces:
+
+        # Cell-face relation
+        # Here all faces should be added, existing or not
         ind_f = np.append(ind_f, all_local_faces)
-        ind_c = np.append(ind_c, c*np.ones(n_local_faces_l))
-        # and find the sign:
+        ind_c = np.append(ind_c, c * np.ones(n_local_faces_l))
+
+        # To get the sign correct, some work is needed.
+        # We distinguish between three cases
+        # 1) This is a new face. We will assign positive sign, thus outer normal
+        # 2) This is a face which existed before we entered the loop over
+        #    cells. The sign will be oposite of that used in the previous occurence
+        #    of the face
+        # 3) This is a face that has been added before for a previous new cell.
+        #    The sign will be oposite of when first added, that is, -1.
         cf_val_loc = np.zeros(n_local_faces_l)
+        # The faces that did not exist, are assigned sign 1
+        # (should get outer normal)
         cf_val_loc[~exist] = 1
+
+        # Find faces that were in the original grid (before entering the outer loop
+        # over cells)
         are_in_original = existing_faces_l < n_old_faces_l
+
+        # Faces that existed before the cell loop
         ind_in_original = existing_faces_l[are_in_original]
-        ind_not_in_original = existing_faces_l[~are_in_original]
+        # Index of these faces in cf_val_loc
         ind_local = np.in1d(all_local_faces, ind_in_original)
+        # The sign of this cell should be the oposite of that used in the
+        # original grid.
+        # NOTE: The below assignment works because there is exactly one
+        # nonzero element in each row of g_l.cell_faces[ind_in_original]
+        cf_val_loc[ind_local] = -g_l.cell_faces[ind_in_original, :].data
+
+        # Faces that were not in the original grid, but were added before this iteration
+        # of the cell loop
+        ind_not_in_original = existing_faces_l[~are_in_original]
+        # Index of these faces in cf_val_loc
         ind_not_local = np.in1d(all_local_faces, ind_not_in_original)
-        cf_val_loc[ind_local] = - g_l.cell_faces[ind_in_original, :].data
+        # These are assigned the value -1; since it was given +1 when first added
+        # to cf_val (see call cf_val_loc[~exist] above)
         cf_val_loc[ind_not_local] = -1
 
+        # Store signs of cf_val. This effectively is the sign of the normal vectors
         cf_val = np.append(cf_val, cf_val_loc)
 
+    # Done with the expansion of all faces and cells. What is left is to update
+    # g_l.cell_faces and face_nodes.
+
     # Resize and update face_nodes ...
-    g_l.face_nodes = sps.csc_matrix((g_l.num_nodes, face_counter_l),
-                                    dtype=bool)
+    g_l.face_nodes = sps.csc_matrix((g_l.num_nodes, face_counter_l), dtype=bool)
     g_l.face_nodes[:n_old_nodes_l, :n_old_faces_l] = old_face_nodes
     g_l.face_nodes[fn_ind_n, fn_ind_f] = True
     g_l.face_nodes.eliminate_zeros()
-    # ... and cell_faces
 
-    g_l.cell_faces = sps.csc_matrix((face_counter_l,
-                                    n_old_cells_l + n_new_cells_l))
+    # ... and cell_faces
+    g_l.cell_faces = sps.csc_matrix((face_counter_l, n_old_cells_l + n_new_cells_l))
     g_l.cell_faces[0:n_old_faces_l, 0:n_old_cells_l] = old_cell_faces
     g_l.cell_faces[ind_f, ind_c] = cf_val
     g_l.cell_faces.eliminate_zeros()
@@ -254,8 +341,7 @@ def update_cells(g_h, g_l, faces_h):
     n_new_cells = g_l.num_cells + faces_h.size
     new_cells = np.arange(g_l.num_cells, n_new_cells)
     g_l.num_cells = n_new_cells
-    g_l.cell_centers = np.append(g_l.cell_centers,
-                                 g_h.face_centers[:, faces_h], axis=1)
+    g_l.cell_centers = np.append(g_l.cell_centers, g_h.face_centers[:, faces_h], axis=1)
     g_l.cell_volumes = np.append(g_l.cell_volumes, g_h.face_areas[faces_h])
     return new_cells
 
@@ -276,22 +362,30 @@ def update_nodes(g_h, g_l, faces_h):
     unique_nodes_h = np.unique(nodes_h)
     unique_global_nodes = g_h.global_point_ind[unique_nodes_h]
 
-    are_old_global_nodes_in_l = np.in1d(unique_global_nodes,
-                                        g_l.global_point_ind)
+    # Some of the nodes of the face to be split will be in g_l already (as tip nodes)
+    # Find which are present, and which should be added
+    are_old_global_nodes_in_l = np.in1d(unique_global_nodes, g_l.global_point_ind)
     are_new_global_nodes_in_l = np.logical_not(are_old_global_nodes_in_l)
+
+    # Index in g_h, of nodes to be added to g_l
     new_node_indices_h = unique_nodes_h[are_new_global_nodes_in_l]
+    # Global indices of nodes to be added to g_l
     new_global_node_indices_l = unique_global_nodes[are_new_global_nodes_in_l]
-    g_l.global_point_ind = np.append(g_l.global_point_ind,
-                                     new_global_node_indices_l)
+
+    # Append nodes to g_l and update bookkeeping
     new_nodes_l = g_h.nodes[:, new_node_indices_h].copy()
-
-    # Order preserving find:
-    unique_nodes_l = pp.utils.setmembership.ismember_rows(unique_global_nodes,
-                                                          g_l.global_point_ind,
-                                                          sort=False)[1]
-
     g_l.nodes = np.append(g_l.nodes, new_nodes_l, axis=1)
     g_l.num_nodes += new_nodes_l.shape[1]
+
+    # Append global point indices to g_l
+    g_l.global_point_ind = np.append(g_l.global_point_ind, new_global_node_indices_l)
+
+    # Find index of the updated nodes in g_l that belong to the split faces
+    # Order preserving find:
+    unique_nodes_l = pp.utils.setmembership.ismember_rows(
+        unique_global_nodes, g_l.global_point_ind, sort=False
+    )[1]
+
     return unique_nodes_l, unique_nodes_h
 
 
@@ -300,11 +394,9 @@ def append_face_geometry(g, n_new_faces, new_centers):
     Appends and updates faces geometry information for new faces. Also updates
     num_faces.
     """
-    g.face_normals = np.append(g.face_normals,
-                               np.zeros((3, n_new_faces)), axis=1)
+    g.face_normals = np.append(g.face_normals, np.zeros((3, n_new_faces)), axis=1)
     g.face_areas = np.append(g.face_areas, np.ones(n_new_faces))
-    g.face_centers = np.append(g.face_centers,
-                               new_centers, axis=1)
+    g.face_centers = np.append(g.face_centers, new_centers, axis=1)
     g.num_faces += n_new_faces
 
 
@@ -317,7 +409,14 @@ def append_face_tags(g, n_new_faces):
     pp.utils.tags.append_tags(g.tags, keys, new_tags)
 
 
-def split_fracture_extension(bucket, g_h, g_l, faces_h, nodes_h, cells_l):
+def split_fracture_extension(
+    bucket: pp.GridBucket,
+    g_h: pp.Grid,
+    g_l: pp.Grid,
+    faces_h: np.ndarray,
+    nodes_h: np.ndarray,
+    cells_l: np.ndarray,
+):
     """
     Split the higher-dimensional grid along specified faces. Updates made to
     face_cells of the grid pair and the nodes and faces of the higher-
@@ -344,21 +443,21 @@ def split_fracture_extension(bucket, g_h, g_l, faces_h, nodes_h, cells_l):
     g_l_ind = np.nonzero(low_dim_neigh == g_l)[0]
     if len(edges) == 0:
         # No lower dim grid. Nothing to do.
-        warnings.warn('Unexpected neighbourless g_h in fracture propagation')
+        warnings.warn("Unexpected neighbourless g_h in fracture propagation")
         return
 
-    face_cell_list = [bucket.edge_props(e, 'face_cells') for e in edges]
+    face_cell_list = [bucket.edge_props(e, "face_cells") for e in edges]
 
     # We split all the faces that are connected to faces_h
     # The new faces will share the same nodes and properties (normals,
     # etc.)
-    face_cell_list = pp.fracs.split_grid.split_certain_faces(g_h,
-                                                             face_cell_list,
-                                                             faces_h, cells_l,
-                                                             g_l_ind)
+    face_cell_list = pp.fracs.split_grid.split_specific_faces(
+        g_h, face_cell_list, faces_h, cells_l, g_l_ind
+    )
 
+    # Replace the face-cell relation on the GridBucket edge
     for e, f in zip(edges, face_cell_list):
-        bucket.edge_props(e)['face_cells'] = f
+        bucket.edge_props(e)["face_cells"] = f
 
     # We now find which lower-dim nodes correspond to which higher-
     # dim nodes. We split these nodes according to the topology of
@@ -385,19 +484,19 @@ def tag_affected_cells_and_faces(gb):
     g_l = gb.grids_of_dimension(dl)[0]
     dh = gb.node_props(g_h)
     dl = gb.node_props(g_l)
-    cells_l = dl['new_cells']
-    faces_h = dh['new_faces']
+    cells_l = dl["new_cells"]
+    faces_h = dh["new_faces"]
     old_faces_h = g_h.frac_pairs[0, np.isin(g_h.frac_pairs[1], faces_h)]
     all_faces_h = np.concatenate((old_faces_h, faces_h))
     t = np.zeros(g_h.num_faces, dtype=bool)
     t[all_faces_h] = True
-    g_h.tags['discretize_faces'] = t
+    g_h.tags["discretize_faces"] = t
 
     # TODO: Fix tpfa, so that local 1d update is possible (MPFA calls TPFA for
     # 1d). Once fixed, change to t = np.zeros(...) in this line:
     t = np.ones(g_l.num_cells, dtype=bool)
     t[cells_l] = True
-    g_l.tags['discretize_cells'] = t
+    g_l.tags["discretize_cells"] = t
 
 
 def propgation_angle(K):
@@ -419,8 +518,9 @@ def propgation_angle(K):
     if K.shape[0] == 2:
         K = np.vstack([K, np.zeros((1, K.shape[1]))])
     aK = np.absolute(K)
-    phi = (A * aK[1]/(K[0] + aK[1] + aK[2])
-            + B * np.square(aK[2]/(K[0] + aK[1] + aK[2])))
+    phi = A * aK[1] / (K[0] + aK[1] + aK[2]) + B * np.square(
+        aK[2] / (K[0] + aK[1] + aK[2])
+    )
     neg_ind = K[1] > 0  # ?
-    phi[neg_ind] = - phi[neg_ind]
+    phi[neg_ind] = -phi[neg_ind]
     return phi
