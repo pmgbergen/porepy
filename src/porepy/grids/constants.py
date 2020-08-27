@@ -8,6 +8,8 @@ class GmshConstants(object):
     """
 
     def __init__(self):
+        # Indicate a neutral point (or line?), that is, internal to everything
+        self.NEUTRAL_TAG = 0
         self.DOMAIN_BOUNDARY_TAG = 1
         self.COMPARTMENT_BOUNDARY_TAG = 2
         self.FRACTURE_TAG = 3
@@ -22,13 +24,19 @@ class GmshConstants(object):
         # General auxiliary tag
         self.AUXILIARY_TAG = 7
 
+        self.FRACTURE_LINE_ON_DOMAIN_BOUNDARY_TAG = 8
+
         self.PHYSICAL_NAME_DOMAIN = "DOMAIN"
         self.PHYSICAL_NAME_DOMAIN_BOUNDARY = "DOMAIN_BOUNDARY_"
+        self.PHYSICAL_NAME_DOMAIN_BOUNDARY_SURFACE = "DOMAIN_BOUNDARY_SURFACE_"
         self.PHYSICAL_NAME_FRACTURES = "FRACTURE_"
         self.PHYSICAL_NAME_AUXILIARY = "AUXILIARY_"
+        self.PHYSICAL_NAME_BOUNDARY_POINT = "DOMAIN_BOUNDARY_POINT_"
 
         # Physical name for fracture tips
         self.PHYSICAL_NAME_FRACTURE_TIP = "FRACTURE_TIP_"
         self.PHYSICAL_NAME_FRACTURE_LINE = "FRACTURE_LINE_"
         self.PHYSICAL_NAME_AUXILIARY_LINE = "AUXILIARY_LINE_"
         self.PHYSICAL_NAME_FRACTURE_POINT = "FRACTURE_POINT_"
+        self.PHYSICAL_NAME_FRACTURE_BOUNDARY_POINT = "FRACTURE_BOUNDARY_POINT_"
+        self.PHYSICAL_NAME_FRACTURE_BOUNDARY_LINE = "FRACTURE_BOUNDARY_LINE_"

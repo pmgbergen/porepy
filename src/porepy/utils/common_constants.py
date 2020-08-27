@@ -31,6 +31,7 @@ DISCRETIZATION_MATRICES = "discretization_matrices"
 
 # Used in data dictionary to store the system state, e.g. primary variables.
 STATE = "state"
+ITERATE = "iterate"
 
 """ Units """
 # SI Prefixes
@@ -66,7 +67,7 @@ MILLIDARCY = MILLI * DARCY
 
 PASCAL = 1.0
 BAR = 100000 * PASCAL
-ATMOSPHERIC_PRESSURE = BAR
+ATMOSPHERIC_PRESSURE = 101325 * PASCAL
 
 
 GRAVITY_ACCELERATION = 9.80665 * METER / SECOND ** 2

@@ -7,20 +7,20 @@ The implementation is based on the weakly symmetric version of MPSA, described i
         IJNME, 2017.
 
 """
-import warnings
 import numpy as np
 import scipy.sparse as sps
 import logging
 import porepy as pp
 from time import time
-from typing import Dict, Tuple, Any, Generator
+from typing import Dict, Tuple, Any
 
+from porepy.numerics.discretization import Discretization
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
 
-class Mpsa:
+class Mpsa(Discretization):
     """ Implementation of the Multi-point stress approximation.
 
     Attributes:
@@ -85,20 +85,45 @@ class Mpsa:
     ) -> np.ndarray:
         """ Extract the displacement part of a solution.
 
-        The method is trivial for finite volume methods, with the displacement
-        being the only primary variable.
+        Parameters:
+            g (grid): To which the solution array belongs.
+            solution_array (np.array): Solution for this grid.
+            d (dictionary): Data dictionary associated with the grid. Not used,
+                but included for consistency reasons.
+
+        Returns:
+            np.array (g.num_cells): Displacement solution vector. Will be identical
+                to solution_array.
+
+        """
+        return solution_array
+
+    def extract_stress(
+        self, g: pp.Grid, solution_array: np.ndarray, d: Dict
+    ) -> np.ndarray:
+        """ Extract the stress corresponding to a solution
+
+        The stress is composed of contributions from the solution variable and the
+        boundary conditions.
 
         Parameters:
             g (grid): To which the solution array belongs.
-            solution_array (np.array): Solution for this grid obtained from
-                either a mono-dimensional or a mixed-dimensional problem.
-            d (dictionary): Data dictionary associated with the grid. Not used,
-                but included for consistency reasons.
+            solution_array (np.array): Solution for this grid.
+            d (dictionary): Data dictionary associated with the grid.
+
         Returns:
-            np.array (g.num_cells): Pressure solution vector. Will be identical
-                to solution_array.
+            np.array (g.num_cells): Vector of stresses on the grid faces.
+
         """
-        return solution_array
+        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = d[pp.PARAMETERS][self.keyword]
+
+        stress = matrix_dictionary[self.stress_matrix_key].tocsr()
+        bound_stress = matrix_dictionary[self.bound_stress_matrix_key].tocsr()
+
+        bc_val = parameter_dictionary["bc_values"]
+
+        return stress * solution_array + bound_stress * bc_val
 
     def discretize(self, g: pp.Grid, data: Dict) -> None:
         """
@@ -170,7 +195,9 @@ class Mpsa:
         # NOTE: active_faces are all faces to have their stencils updated, while
         # active_cells may form a larger set (to accurately update all faces on a
         # subgrid, it is necessary to assign some overlap in terms cells).
-        active_cells, active_faces = self._find_active_indices(parameter_dictionary, g)
+        active_cells, active_faces = pp.fvutils.find_active_indices(
+            parameter_dictionary, g
+        )
 
         # Extract a grid, and get global indices of its active faces and nodes
         active_grid, extracted_faces, extracted_nodes = pp.partition.extract_subgrid(
@@ -199,10 +226,13 @@ class Mpsa:
         active_bound_displacement_cell = sps.csr_matrix((nf * nd, nc * nd))
         active_bound_displacement_face = sps.csr_matrix((nf * nd, nf * nd))
 
+        # Find an estimate of the peak memory need
+        peak_memory_estimate = self._estimate_peak_memory_mpsa(active_grid)
+
         # Loop over all partition regions, construct local problems, and transfer
         # discretization to the entire active grid
         for reg_i, (sub_g, faces_in_subgrid, _, l2g_cells, l2g_faces) in enumerate(
-            self._subproblems(active_grid, max_memory)
+            pp.fvutils.subproblems(active_grid, max_memory, peak_memory_estimate)
         ):
             tic = time()
 
@@ -234,7 +264,7 @@ class Mpsa:
             eliminate_face = np.where(
                 np.logical_not(np.in1d(l2g_faces, faces_in_subgrid))
             )[0]
-            self._remove_nonlocal_contribution(
+            pp.fvutils.remove_nonlocal_contribution(
                 eliminate_face,
                 g.dim,
                 loc_stress,
@@ -279,7 +309,7 @@ class Mpsa:
         )
 
         eliminate_faces = np.setdiff1d(np.arange(g.num_faces), active_faces)
-        self._remove_nonlocal_contribution(
+        pp.fvutils.remove_nonlocal_contribution(
             eliminate_faces,
             g.dim,
             stress_glob,
@@ -493,6 +523,11 @@ class Mpsa:
 
         if bound.bc_type != "vectorial":
             raise AttributeError("MPSA must be given a vectorial boundary condition")
+
+        if bound.is_per.sum():
+            raise NotImplementedError(
+                "Periodic boundary conditions are not implemented for Mpsa"
+            )
 
         if g.dim == 1:
             tpfa_key = "tpfa_elasticity"
@@ -752,9 +787,9 @@ class Mpsa:
         # Here you have to be carefull if you ever change hook_cell to something else than
         # 0. Because we have pulled the Neumann conditions out of the stress condition
         # the following would give an index error. Instead you would have to make a
-        # hook_cell_neu equal the number neumann_sub_faces, and a hook_cell_int equal the number
-        # of internal sub_faces and use .keep_neu and .exclude_bnd. But since this is all zeros,
-        # thi indexing does not matter.
+        # hook_cell_neu equal the number neumann_sub_faces, and a hook_cell_int equal the
+        # number of internal sub_faces and use .keep_neu and .exclude_bnd. But since this
+        # is all zeros, this indexing does not matter.
         hook_cell = bound_exclusion.exclude_robin_dirichlet(hook_cell)
 
         # Matrices to enforce displacement continuity
@@ -822,7 +857,8 @@ class Mpsa:
         # Define right hand side for Neumann boundary conditions
         # First row indices in rhs matrix
         # Pick out the subface indices
-        # The boundary conditions should be given in the given basis, therefore no transformation
+        # The boundary conditions should be given in the given basis, therefore no
+        # transformation
         subfno_neu = bound_exclusion.keep_neumann(
             subfno_nd.ravel("C"), transform=False
         ).ravel("F")
@@ -1062,50 +1098,6 @@ class Mpsa:
     # Below here are helper functions, which tend to be less than well documented.
     #
     # -----------------------------------------------------------------------------
-
-    def _subproblems(
-        self, active_grid: pp.Grid, max_memory: int
-    ) -> Generator[Any, None, None]:
-        peak_mem: int = self._estimate_peak_memory_mpsa(active_grid)
-
-        num_part: int = np.ceil(peak_mem / max_memory).astype(np.int)
-
-        # Let partitioning module apply the best available method
-        part: np.ndarray = pp.partition.partition(active_grid, num_part)
-
-        # Cell-node relation
-        cn: sps.csc_matrix = active_grid.cell_nodes()
-
-        tic = time()
-        logger.info("Split MPSA discretization into " + str(num_part) + " parts")
-
-        # Loop over all partition regions, construct local problems, and transfer
-        # discretization to the entire active grid
-        for counter, p in enumerate(np.unique(part)):
-            # Cells in this partitioning
-            cells_in_partition: np.ndarray = np.argwhere(part == p).ravel("F")
-
-            # To discretize with as little overlap as possible, we use the
-            # keyword nodes to specify the update stencil. Find nodes of the
-            # local cells.
-            cells_in_partition_boolean = np.zeros(active_grid.num_cells, dtype=np.bool)
-            cells_in_partition_boolean[cells_in_partition] = 1
-
-            nodes_in_partition: np.ndarray = np.squeeze(
-                np.where((cn * cells_in_partition_boolean) > 0)
-            )
-
-            # Find computational stencil, based on the nodes in this partition
-            loc_cells, loc_faces = pp.fvutils.cell_ind_for_partial_update(
-                active_grid, nodes=nodes_in_partition
-            )
-
-            # Extract subgrid, together with mappings between local and active
-            # (global, or at least less local) cells
-            sub_g, l2g_faces, _ = pp.partition.extract_subgrid(active_grid, loc_cells)
-            l2g_cells = sub_g.parent_cell_ind
-
-            yield sub_g, loc_faces, cells_in_partition, l2g_cells, l2g_faces
 
     def _estimate_peak_memory_mpsa(self, g: pp.Grid) -> int:
         """ Rough estimate of peak memory need for mpsa discretization.
@@ -1756,73 +1748,19 @@ class Mpsa:
 
         # ncasym.indices[y_pntr[yuz]] -= 2
 
-    def _find_active_indices(
-        self, parameter_dictionary: Dict[str, Any], g: pp.Grid
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """ Process information in parameter dictionary on whether the discretization
-        should consider a subgrid. Look for fields in the parameter dictionary called
-        specified_cells, specified_faces or specified_nodes. These are then processed by
-        the function pp.fvutils.cell-ind_for_partial_update.
-
-        If no relevant information is found, the active indices are all cells and 
-        faces in the grid.
-
-        Parameters:
-            parameter_dictionary (dict): Parameters, potentially containing fields
-                "specified_cells", "specified_faces", "specified_nodes".
-            g (pp.Grid): Grid to be discretized.
-
-        Returns:
-            np.ndarray: Cells to be included in the active grid.
-            np.ndarary: Faces to have their discretization updated. NOTE: This may not
-                be all faces in the grid.
-
-        """
-        # The discretization can be limited to a specified set of cells, faces or nodes
-        # If none of these are specified, the entire grid will be discretized
-        specified_cells = parameter_dictionary.get("specified_cells", None)
-        specified_faces = parameter_dictionary.get("specified_faces", None)
-        specified_nodes = parameter_dictionary.get("specified_nodes", None)
-
-        # Find the cells and faces that should be considered for discretization
-        if (
-            (specified_cells is not None)
-            or (specified_faces is not None)
-            or (specified_nodes is not None)
-        ):
-            warnings.warn(
-                "Partial update of mpsa discretization has not been thoroughly tested"
-            )
-            # Find computational stencil, based on specified cells, faces and nodes.
-            active_cells, active_faces = pp.fvutils.cell_ind_for_partial_update(
-                g, cells=specified_cells, faces=specified_faces, nodes=specified_nodes
-            )
-            parameter_dictionary["active_cells"] = active_cells
-            parameter_dictionary["active_faces"] = active_faces
-        else:
-            # All cells and faces in the grid should be updated
-            active_cells = np.arange(g.num_cells)
-            active_faces = np.arange(g.num_faces)
-            parameter_dictionary["active_cells"] = active_cells
-            parameter_dictionary["active_faces"] = active_faces
-
-        return active_cells, active_faces
-
-    def _remove_nonlocal_contribution(
-        self, raw_ind: np.ndarray, nd: int, *args: Any
-    ) -> None:
-        eliminate_ind = pp.fvutils.expand_indices_nd(raw_ind, nd)
-        for mat in args:
-            pp.fvutils.zero_out_sparse_rows(mat, eliminate_ind)
-
     def _reduce_grid_constit_2d(
         self, g: pp.Grid, constit: pp.FourthOrderTensor
     ) -> Tuple[pp.Grid, pp.FourthOrderTensor]:
         g = g.copy()
 
-        cell_centers, face_normals, face_centers, _, _, nodes = pp.map_geometry.map_grid(
-            g
-        )
+        (
+            cell_centers,
+            face_normals,
+            face_centers,
+            _,
+            _,
+            nodes,
+        ) = pp.map_geometry.map_grid(g)
         g.cell_centers = cell_centers
         g.face_normals = face_normals
         g.face_centers = face_centers

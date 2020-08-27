@@ -15,8 +15,8 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
     surely be imporved.
 
     Parameters:
-    lines: np.ndarray, 2xn, the line pairs. If lines has more than 2 rows, we assume that
-        the points are stored in the first two rows.
+    lines: np.ndarray, 2xn, the line pairs. If lines has more than 2 rows, we assume
+        that the points are stored in the first two rows.
     check_circular: Verify that the sorted polyline form a circle.
                     Defaluts to true.
     ordering: np.array, return in the original order if a line is flipped or not
@@ -25,6 +25,8 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
     Returns:
     sorted_lines: np.ndarray, 2xn, sorted line pairs. If lines had more than 2 rows,
         the extra are sorted accordingly.
+    sort_ind: np.ndarray, n: Sorted column indices, so that
+        sorted_lines = lines[:, sort_ind], modulu flipping of rows in individual columns
 
     """
 
@@ -33,6 +35,9 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
 
     # Keep track of which lines have been found, which are still candidates
     found = np.zeros(num_lines, dtype=np.bool)
+
+    # Initialize array of sorting indices
+    sort_ind = np.zeros(num_lines, dtype=np.int)
 
     # In the case of non-circular ordering ensure to start from the correct one
     if not is_circular:
@@ -51,6 +56,7 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
         if np.count_nonzero(lines == sorted_lines[0, 0]) > 1:
             sorted_lines[:2, 0] = np.flip(sorted_lines[:2, 0], 0)
         found[hit] = True
+        sort_ind[0] = hit
 
         # No check for circularity here
         check_circular = False
@@ -61,7 +67,7 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
     # The starting point for the next line
     prev = sorted_lines[1, 0]
 
-    # Order of the origin line list, store if they're flip or not to form the chain
+    # Order of the origin line list, store if they are flipped or not to form the chain
     is_ordered = np.zeros(num_lines, dtype=np.bool)
     is_ordered[0] = True
 
@@ -77,20 +83,23 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
                 found[j] = True
                 prev = lines[1, j]
                 is_ordered[j] = True
+                sort_ind[i] = j
+
                 break
             elif not found[j] and lines[1, j] == prev:
                 sorted_lines[:, i] = lines[:, j]
                 sorted_lines[:2, i] = np.flip(sorted_lines[:2, i], 0)
                 found[j] = True
                 prev = lines[0, j]
+                sort_ind[i] = j
                 break
     # By now, we should have used all lines
     assert np.all(found)
     if check_circular:
         assert sorted_lines[0, 0] == sorted_lines[1, -1]
     if ordering:
-        return sorted_lines, is_ordered
-    return sorted_lines
+        return sorted_lines, sort_ind, is_ordered
+    return sorted_lines, sort_ind
 
 
 def sort_point_plane(pts, centre, normal=None, tol=1e-5):
@@ -109,6 +118,7 @@ def sort_point_plane(pts, centre, normal=None, tol=1e-5):
     map_pts: np.array, 1xn, sorted point ids.
 
     """
+    centre = centre.reshape((-1, 1))
     R = pp.map_geometry.project_plane_matrix(pts, normal)
     # project points and center,  project to plane
     delta = np.dot(R, pts - centre)
@@ -220,7 +230,7 @@ def sort_triangle_edges(t):
                 t[hit_new_1, ti_new] = q[1]
         else:
             # q1 before q0 in the sorted column, reverse in the other
-            if hit_new_1 - hit_new_2 or (hit_new_0 == 2 and hit_new_1 == 0):
+            if hit_new_1 - hit_new_0 or (hit_new_0 == 2 and hit_new_1 == 0):
                 t[hit_new_0, ti_new] = q[0]
                 t[hit_new_1, ti_new] = q[1]
             else:
