@@ -1526,19 +1526,17 @@ class DivU(Discretization):
         # The same procedure is applied to the unknown displacements, by assembling the
         # jump operator, projection and normal component extraction in the coupling matrix.
         # Finally, we integrate over the cell volume.
-        # The jump on the slave is defined to be negative for an open fracture (!),
-        # hence the negative sign.
         vol = sps.dia_matrix((g.cell_volumes, 0), shape=(g.num_cells, g.num_cells))
-        cc[self_ind, 2] -= (
+        cc[self_ind, 2] += (
             sps.diags(biot_alpha) * vol * normal_component * jump_on_slave
         )
 
         # We assume implicit Euler in Biot, thus the div_u term appears
         # on the rhs as div_u^{k-1}. This results in a contribution to the
         # rhs for the coupling variable also.
-        # See note above on sign. This term is negative (u^k - u^{k-1}), and moved to
+        # This term is negative (u^k - u^{k-1}) and moved to
         # the rhs, yielding the same sign as for the k term on the lhs.
-        rhs[self_ind] -= sps.diags(biot_alpha) * vol * previous_displacement_jump_normal
+        rhs[self_ind] += sps.diags(biot_alpha) * vol * previous_displacement_jump_normal
 
 
 class BiotStabilization(Discretization):
