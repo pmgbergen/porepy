@@ -41,23 +41,20 @@ def propagate_fractures(gb, faces):
 
     # First initialise certain tags to get rid of any existing tags from
     # previous calls
-    for g, d in gb:
-        if g.dim == dim_h:
-            d["new_cells"] = np.empty(0, dtype=int)
-            d["new_faces"] = np.empty(0, dtype=int)
+    d = gb.node_props(g_h)
+    d["new_cells"] = np.empty(0, dtype=int)
+    d["new_faces"] = np.empty(0, dtype=int)
 
     for i, g_l in enumerate(gb.grids_of_dimension(dim_h - 1)):
+        # Initialize data on new faces and cells
+        d = gb.node_props(g_l)
+        d["new_cells"] = np.empty(0, dtype=int)
+        d["new_faces"] = np.empty(0, dtype=int)
+
+        # If there is no propagation for this fracture, we continue
         faces_h = np.array(faces[i])
         if faces_h.size == 0:
-            for g, d in gb:
-                d["partial_update"] = True
-                if g.dim == gb.dim_max():
-                    d["new_cells"] = np.empty(0, dtype=int)
-                    d["new_faces"] = np.empty(0, dtype=int)
-                else:
-                    d["new_cells"] = np.empty(0, dtype=int)
-                    d["new_faces"] = np.empty(0, dtype=int)
-            return
+            continue
 
         # Keep track of original information:
         n_old_faces_l = g_l.num_faces
@@ -95,7 +92,9 @@ def propagate_fractures(gb, faces):
         new_cells = update_cells(g_h, g_l, faces_h)
 
         # Split g_h along faces_h
-        split_fracture_extension(gb, g_h, g_l, faces_h, unique_node_ind_h, new_cells)
+        split_fracture_extension(
+            gb, g_h, g_l, faces_h, unique_node_ind_h, new_cells, non_planar=True
+        )
 
         # Store information on which faces and cells have just been added.
         # Note that we only keep track of the faces and cells from the last
@@ -117,8 +116,8 @@ def propagate_fractures(gb, faces):
 def update_connectivity(
     g_l: pp.Grid,  # higher dimensional grid
     g_h: pp.Grid,  # lower dimensional grid
-    unique_nodes_h: np.ndarray,  # nodes in g_h involved in the propagation
-    unique_node_indices_l: np.ndarray,  # nodes in g_l involved in the propagation
+    nodes_l: np.ndarray,  # nodes in g_h involved in the propagation
+    nodes_h: np.ndarray,  # nodes in g_l involved in the propagation
     n_old_nodes_l: int,  # number of nodes in g_l before splitting
     n_old_faces_l: int,  # number of faces in g_l before splitting
     n_old_cells_l: int,  # number of cells in g_l before splitting
@@ -167,10 +166,10 @@ def update_connectivity(
         local_nodes_h = g_h.face_nodes[:, face_h].nonzero()[0]
         # Find the nodes' place among the active higher-dimensional nodes
         in_unique_nodes = pp.utils.setmembership.ismember_rows(
-            local_nodes_h, unique_nodes_h, sort=False
+            local_nodes_h, nodes_h, sort=False
         )[1]
         # Find the corresponding lower-dimensional nodes
-        local_nodes_l = np.array(unique_node_indices_l[in_unique_nodes], dtype=int)
+        local_nodes_l = np.array(nodes_l[in_unique_nodes], dtype=int)
 
         # Get geometry information
         local_pts = g_l.nodes[:, local_nodes_l]
@@ -346,7 +345,9 @@ def update_cells(g_h, g_l, faces_h):
     return new_cells
 
 
-def update_nodes(g_h, g_l, faces_h):
+def update_nodes(
+    g_h: pp.Grid, g_l: pp.Grid, faces_h: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Finds the nodes in the lower-dimensional grid corresponding to the higher-
     dimensional faces to be split. Updates node information in g_l:
@@ -416,6 +417,7 @@ def split_fracture_extension(
     faces_h: np.ndarray,
     nodes_h: np.ndarray,
     cells_l: np.ndarray,
+    non_planar: bool = False,
 ):
     """
     Split the higher-dimensional grid along specified faces. Updates made to
@@ -452,7 +454,7 @@ def split_fracture_extension(
     # The new faces will share the same nodes and properties (normals,
     # etc.)
     face_cell_list = pp.fracs.split_grid.split_specific_faces(
-        g_h, face_cell_list, faces_h, cells_l, g_l_ind
+        g_h, face_cell_list, faces_h, cells_l, g_l_ind, non_planar
     )
 
     # Replace the face-cell relation on the GridBucket edge
