@@ -145,6 +145,12 @@ class MortarGrid:
                 cells_on_second_side = np.in1d(faces, face_duplicate_ind)
                 cells[cells_on_second_side] += num_cells
 
+            # Cells in cells_on_second_side will be assigend negative numbers by the
+            # function sign_of_mortar_sides (see construction below).
+            # Store which cells are given negative signs, this will be of use in
+            # further manipulation of the mortar grid; e.g. during fracture propagation
+            self._negative_signs = cells_on_second_side
+
         shape = (num_cells * self.num_sides(), face_cells.shape[1])
         self._master_to_mortar_int: sps.spmatrix = sps.csc_matrix(
             (data.astype(np.float), (cells, faces)), shape=shape
@@ -633,7 +639,6 @@ class MortarGrid:
         Parameters:
             nd (int, optional): Spatial dimension of the projected quantity.
                 Defaults to 1 (mapping for scalar quantities).
-
         Returns:
             sps.diag_matrix: Diagonal matrix with positive signs on variables
                 belonging to the first of the side_grids.
