@@ -109,8 +109,117 @@ def propagate_fractures(gb, faces):
         new_faces_l = np.arange(g_l.num_faces - n_new_faces, g_l.num_faces)
         d_l["new_faces"] = np.append(d_l["new_faces"], new_faces_l)
 
-        # Update geometry on each iteration to ensure correct tags.
-        gb.compute_geometry()
+        # Sanity check on the grid; most likely something will have gone wrong
+        # long before
+        if not np.min(new_cells) >= n_old_cells_l:
+            raise ValueError("New cells are assumed to be appended to cell array")
+        if not np.min(new_faces_l) >= n_old_faces_l:
+            raise ValueError("New faces are assumed to be appended to face array")
+
+        _update_geometry(g_h, g_l, new_cells, n_old_cells_l, n_old_faces_l)
+
+
+def _update_geometry(g_h, g_l, new_cells, n_old_cells_l, n_old_faces_l):
+    # Update geometry on each iteration to ensure correct tags.
+
+    # The geometry of the higher-dimensional grid can be computed straightforwardly.
+    g_h.compute_geometry()
+
+    if g_h.dim == 2:
+        # 1d geometry computation is valid also for manifolds
+        g_l.compute_geometry()
+    else:
+        # The implementation of 2d compute_geometry() assumes that the
+        # grid is planar. The simplest option is to treat one cell at
+        # a time, and then merge the arrays at the end.
+
+        # Initialize arrays for geometric quantities
+        fa = np.empty(0)  # Face areas
+        fc = np.empty((3, 0))  # Face centers
+        fn = np.empty((3, 0))  # Face normals
+        cv = np.empty(0)  # Cell volumes
+        cc = np.empty((3, 0))  # Cell centers
+        # Many of the faces will have their quantities computed twice,
+        # once from each side. Keep track of which faces we are dealing with
+        face_ind = np.array([], dtype=np.int)
+
+        for ci in new_cells:
+            sub_g, fi, _ = pp.partition.extract_subgrid(g_l, ci)
+            sub_g.compute_geometry()
+
+            fa = np.append(fa, sub_g.face_areas)
+            fc = np.append(fc, sub_g.face_centers, axis=1)
+            fn = np.append(fn, sub_g.face_normals, axis=1)
+            cv = np.append(cv, sub_g.cell_volumes)
+            cc = np.append(cc, sub_g.cell_centers, axis=1)
+
+            face_ind = np.append(face_ind, fi)
+
+        # The new cell geometry is composed of values from the previous grid, and
+        # the values computed one by one for the new cells
+        g_l.cell_volumes = np.hstack((g_l.cell_volumes[:n_old_cells_l], cv))
+        g_l.cell_centers = np.hstack((g_l.cell_centers[:, :n_old_cells_l], cc))
+
+        # For the faces, more work is needed
+        face_areas = np.zeros(g_l.num_faces)
+        face_centers = np.zeros((3, g_l.num_faces))
+        face_normals = np.zeros((3, g_l.num_faces))
+
+        # For the old faces, transfer already computed values
+        face_areas[:n_old_faces_l] = g_l.face_areas[:n_old_faces_l]
+        face_centers[:, :n_old_faces_l] = g_l.face_centers[:, :n_old_faces_l]
+        face_normals[:, :n_old_faces_l] = g_l.face_normals[:, :n_old_faces_l]
+
+        # Get a dense version of the cell-face map (really cell neighbors of faces).
+        # We will use this in the computation of normal vectors.
+        face_neighs = g_l.cell_face_as_dense()
+
+        for fi in range(n_old_faces_l, g_l.num_faces):
+            # Geometric quantities for this face
+            hit = np.where(face_ind == fi)[0]
+            # There should be 1 or 2 hits
+            assert hit.size > 0 and hit.size < 3
+
+            # For areas and centers, the computations based on the two neighboring
+            # cells should give the same result. Check, and then use the value.
+            mean_area = np.mean(fa[hit])
+            mean_center = np.mean(fc[:, hit], axis=1)
+            assert np.allclose(fa[hit], mean_area)
+            assert np.allclose(fc[:, hit], mean_center.reshape((3, 1)))
+            face_areas[fi] = mean_area
+            face_centers[:, fi] = mean_center
+
+            # The normal is more difficult, since this is not unique.
+            # The direction of the normal vectors computed from subgrids should be
+            # consistent with the +- convention in the main grid. However, better safe
+            # than sorry: Compute the vector between cell centers, directed according to
+            # the divergence operator.
+            vec = np.reshape(
+                g_l.cell_centers[:, face_neighs[1, fi]]
+                - g_l.cell_centers[:, face_neighs[0, fi]],
+                (3, 1),
+            )
+            # Normal vectors found for this global face
+            normals = fn[:, hit]
+            if normals.size == 3:
+                normals = normals.reshape((3, 1))
+
+            # Force normal vector to point in the same direction as the vector between
+            # the cell centers.
+            # Note that for extremely curved fractures (> 90 degrees), this may give
+            # wrong geometries
+            sgn = np.sign(np.sum(normals * vec, axis=1))
+            signed_normals = sgn * normals
+
+            # For the moment, use the mean of the two values.
+            mean_normal = np.mean(signed_normals, axis=1)
+
+            face_normals[:, fi] = mean_normal
+
+        # Store computed values
+        g_l.face_areas = face_areas
+        g_l.face_centers = face_centers
+        g_l.face_normals = face_normals
 
 
 def update_connectivity(
