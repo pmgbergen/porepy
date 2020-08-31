@@ -653,8 +653,8 @@ class MortarGrid:
             # the indexing [1] and [2] (and not [0])
             data = np.hstack(
                 (
-                    np.ones(self.side_grids[1].num_cells * nd),
-                    -np.ones(self.side_grids[2].num_cells * nd),
+                    -np.ones(self.side_grids[1].num_cells * nd),
+                    np.ones(self.side_grids[2].num_cells * nd),
                 )
             )
             return sps.dia_matrix((data, 0), shape=(nd * nc, nd * nc))
