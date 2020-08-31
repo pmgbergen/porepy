@@ -39,11 +39,18 @@ def propagate_fractures(gb, faces):
     dim_h = gb.dim_max()
     g_h = gb.grids_of_dimension(dim_h)[0]
 
+    n_old_faces_h = g_h.num_faces
+
     # First initialise certain tags to get rid of any existing tags from
     # previous calls
     d = gb.node_props(g_h)
     d["new_cells"] = np.empty(0, dtype=int)
     d["new_faces"] = np.empty(0, dtype=int)
+
+    # Store a copy of the face-cell map on all edges - we will need this for the
+    # update of the mortar grid
+    for _, d in gb.edges_of_node(g_h):
+        d["face_cells_old"] = d["face_cells"].copy()
 
     for i, g_l in enumerate(gb.grids_of_dimension(dim_h - 1)):
         # Initialize data on new faces and cells
@@ -100,6 +107,10 @@ def propagate_fractures(gb, faces):
         # Note that we only keep track of the faces and cells from the last
         # propagation call!
         new_faces_h = g_h.frac_pairs[1, np.isin(g_h.frac_pairs[0], faces_h)]
+
+        # Sanity check
+        assert np.all(new_faces_h >= n_old_faces_h)
+
         d_h = gb.node_props(g_h)
         d_l = gb.node_props(g_l)
         d_h["partial_update"] = True
@@ -117,6 +128,82 @@ def propagate_fractures(gb, faces):
             raise ValueError("New faces are assumed to be appended to face array")
 
         _update_geometry(g_h, g_l, new_cells, n_old_cells_l, n_old_faces_l)
+
+    # When all faces have been split, we can update the mortar grids
+    for e, d_e in gb.edges_of_node(g_h):
+        g_h, g_l = e
+        d_l = gb.node_props(g_l)
+        _update_mortar_grid(g_h, g_l, d_e, d_l["new_cells"], d_l["new_faces"])
+
+
+def _update_mortar_grid(g_h, g_l, d_e, new_cells, new_faces_h):
+
+    mg_old = d_e["mortar_grid"]
+
+    # Face-cell map. This has been updated during splitting, thus it has
+    # the shapes of the new grids
+    face_cells = d_e["face_cells"]
+
+    cells, faces, _ = sps.find(face_cells)
+
+    # If this is ever broken, we have a problem
+    other_side_old = np.where(mg_old.mortar_to_master_avg() * mg_old._other_side)[0]
+
+    other_side_new = np.copy(other_side_old)
+
+    # Make sure that the + and - side of the new mortar cells is
+    # coherent with those already in place. This may not be strictly
+    # necessary, as the normal vectors of the grid will be adjusted
+    # locally to the +- convention, however, it will ease the interpretation
+    # of results, including debugging.
+
+    #
+    for ci in new_cells:
+        # Find the occurences of this new cell in the face-cell map.
+        # There should be exactly two of these.
+        hit = np.where(ci == cells)[0]
+        assert hit.size == 2
+        # Find the faces in the higher-dimensional grid that correspond
+        # to this new cell
+        loc_faces = faces[hit]
+
+        # The new faces will be on each side of the fracture, and
+        # there will be at least one node not shared by the faces.
+        # We need to pick one of the faces, and find its neighboring
+        # faces along the fracture, on the same side of the fracture.
+        # The sign of the new face (in the mortar grid) will be the
+        # same as the old one
+
+        # We need to focus on split nodes, or else we risk finding neighboring
+        # faces on both sides of the fracture.
+        # Nodes of both local faces
+        local_nodes_0 = g_h.face_nodes[:, loc_faces[0]].indices
+        local_nodes_1 = g_h.face_nodes[:, loc_faces[1]].indices
+
+        # Nodes that belong only to the first local face
+        local_nodes_0_only = np.setdiff1d(local_nodes_0, local_nodes_1)
+
+        # Get the other faces of these nodes. These will include both faces
+        # on the fracture, and faces internal to g_h
+        _, other_faces, _ = sps.find(g_h.face_nodes[local_nodes_0_only])
+
+        # Pick those of the other faces that were not added during splitting
+        old_other_faces = np.setdiff1d(other_faces, new_faces_h)
+
+        if np.any(np.in1d(old_other_faces, other_side_old)):
+            other_side_new = np.append(other_side_old, loc_faces[0])
+        else:
+            other_side_new = np.append(other_side_new, loc_faces[1])
+
+    # The new mortar grid is constructed to be matching with g_l.
+    # If splitting is undertaken for a non-matching grid, all bets are off.
+    side_grids = {1: g_l, 2: g_l}
+
+    mg_new = pp.MortarGrid(
+        g_l.dim, side_grids, d_e["face_cells"], face_duplicate_ind=other_side_new
+    )
+
+    d_e["mortar_grid"] = mg_new
 
 
 def _update_geometry(g_h, g_l, new_cells, n_old_cells_l, n_old_faces_l):
