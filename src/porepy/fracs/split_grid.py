@@ -151,6 +151,7 @@ def split_specific_faces(
     faces: np.ndarray,
     cells: np.ndarray,
     gl_ind: np.ndarray,
+    non_planar: bool = False,
 ):
     """
     For a given pair of gh and gl.
@@ -177,15 +178,31 @@ def split_specific_faces(
             return face_cell_list
 
         # We now set the cell_faces map based on which side of the
-        # fractures the cells lie. We assume that all fractures are
-        # flat surfaces and pick the normal of the first face as
-        # a normal for the whole fracture.
-        # TODO: This will not work if applied to a non-planar fracture.
-        # In this case, a loop over the elements in face_id should do the job.
-        n = np.reshape(gh.face_normals[:, face_id[0]], (3, 1))
-        n = n / np.linalg.norm(n)
-        x0 = np.reshape(gh.face_centers[:, face_id[0]], (3, 1))
-        flag = update_cell_connectivity(gh, face_id, n, x0)
+        # fractures the cells lie.
+        if non_planar:
+            # In this case, a loop over the elements in face_id should do the job.
+            flag_array: List[int] = []
+            for fi in face_id:
+                n = np.reshape(gh.face_normals[:, fi], (3, 1))
+                n = n / np.linalg.norm(n)
+                x0 = np.reshape(gh.face_centers[:, fi], (3, 1))
+                this_flag: int = update_cell_connectivity(gh, np.array([fi]), n, x0)
+                flag_array.append(this_flag)
+
+            if np.allclose(np.asarray(flag_array), 0):
+                flag = 0
+            elif np.allclose(np.asarray(flag_array), -1):
+                flag = -1
+            else:
+                # Not sure what to do here - probably a partial update of connectivity
+                raise ValueError("Split only some faces in non-planar ")
+        else:
+            # The fracture is considered flat, we can use the same normal vector
+            # for all faces. This should make the computations faster
+            n = np.reshape(gh.face_normals[:, face_id[0]], (3, 1))
+            n = n / np.linalg.norm(n)
+            x0 = np.reshape(gh.face_centers[:, face_id[0]], (3, 1))
+            flag = update_cell_connectivity(gh, face_id, n, x0)
 
         if flag == 0:
             # if flag== 0 we added left and right faces (if it is -1 no faces
