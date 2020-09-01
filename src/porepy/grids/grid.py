@@ -154,6 +154,8 @@ class Grid:
             h.face_areas = self.face_areas.copy()
         if hasattr(self, "tags"):
             h.tags = self.tags.copy()
+        if hasattr(self, "per_map"):
+            h.per_map = self.per_map.copy()
         return h
 
     def __repr__(self) -> str:
@@ -656,6 +658,18 @@ class Grid:
             ).ravel("F")
             self.tags["domain_boundary_faces"][bd_faces] = True
 
+    def set_periodic_map(self, per_map: np.ndarray) -> None:
+        if per_map.shape[0] != 2:
+            raise ValueError("dimension 0 of per_map must be of size 2")
+        if np.max(per_map) > self.num_faces:
+            raise ValueError("periodic face number larger than number of faces")
+        if np.min(per_map) < 0:
+            raise ValueError("periodic face number cannot be negative")
+
+        self.per_map = per_map
+        self.tags["domain_boundary_faces"][self.per_map.ravel()] = False
+
+
     def update_boundary_node_tag(self) -> None:
         """ Tag nodes on the boundary of the grid with boundary tag.
 
@@ -748,7 +762,7 @@ class Grid:
             scipy.sparse.csr_matrix, size num_cells * num_cells: Boolean
                 matrix, element (i,j) is true if cells i and j share a face.
                 The matrix is thus symmetric.
-                
+
         """
 
         # Create a copy of the cell-face relation, so that we can modify it at
@@ -788,8 +802,8 @@ class Grid:
         if fi.size != faces.size:
             raise ValueError("sign of internal faces does not make sense")
 
-        I = np.argsort(fi)
-        sgn = sgn[I]
+        fi_sorted = np.argsort(fi)
+        sgn = sgn[fi_sorted]
         sgn = sgn[IC]
         return sgn
 

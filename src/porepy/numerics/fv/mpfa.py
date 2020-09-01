@@ -646,6 +646,13 @@ class Mpfa(pp.FVElliptic):
                 (subcell_topology.fno_unique, subcell_topology.subfno_unique),
             )
         )
+        if hasattr(g, "per_map"):
+            indices = np.arange(g.num_faces)
+            indices[g.per_map[1]] = g.per_map[0]
+            indptr = np.arange(g.num_faces + 1)
+            data = np.ones(g.num_faces, dtype=int)
+            periodic2face = sps.csr_matrix((data, indices, indptr))
+            hf2f = periodic2face * hf2f
 
         # The boundary faces will have either a Dirichlet or Neumann condition, or
         # Robin condition
