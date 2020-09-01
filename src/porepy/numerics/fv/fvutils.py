@@ -1655,7 +1655,7 @@ def boundary_to_sub_boundary(bound, subcell_topology):
 
 
 def append_dofs_of_discretization(g, d, kw1, kw2, k_dof):
-        """
+    """
         Appends rows to existing discretizations stored as 'stress' and
         'bound_stress' in the data dictionary on the nodes. Only applies to the
         highest dimension (for now, at least). The newly added faces are found
@@ -1669,27 +1669,24 @@ def append_dofs_of_discretization(g, d, kw1, kw2, k_dof):
         kw2 -   keyword for the stored boundary discretization in the data
                 dictionary, e.g. 'bound_flux'
         """
-        cells = d['new_cells']
-        faces = d['new_faces']
-        n_new_cells = cells.size * k_dof
-        n_new_faces = faces.size * k_dof
+    cells = d["new_cells"]
+    faces = d["new_faces"]
+    n_new_cells = cells.size * k_dof
+    n_new_faces = faces.size * k_dof
 
-        # kw1
-        new_rows = sps.csr_matrix((n_new_faces,
-                                   g.num_cells * k_dof - n_new_cells))
-        new_columns = sps.csr_matrix((g.num_faces * k_dof, n_new_cells))
-        d[kw1] = sps.hstack([sps.vstack([d[kw1], new_rows]),
-                             new_columns], format='csr')
-        # kw2
-        new_rows = sps.csr_matrix((n_new_faces,
-                                   g.num_faces * k_dof - n_new_faces))
-        new_columns = sps.csr_matrix((g.num_faces * k_dof, n_new_faces))
-        d[kw2] = sps.hstack([sps.vstack([d[kw2], new_rows]),
-                             new_columns], format='csr')
+    # kw1
+    new_rows = sps.csr_matrix((n_new_faces, g.num_cells * k_dof - n_new_cells))
+    new_columns = sps.csr_matrix((g.num_faces * k_dof, n_new_cells))
+    d[kw1] = sps.hstack([sps.vstack([d[kw1], new_rows]), new_columns], format="csr")
+    # kw2
+    new_rows = sps.csr_matrix((n_new_faces, g.num_faces * k_dof - n_new_faces))
+    new_columns = sps.csr_matrix((g.num_faces * k_dof, n_new_faces))
+    d[kw2] = sps.hstack([sps.vstack([d[kw2], new_rows]), new_columns], format="csr")
 
 
-def partial_discretization(g, data, tensor, bnd, apertures, partial_discr,
-                           physics='flow'):
+def partial_discretization(
+    g, data, tensor, bnd, apertures, partial_discr, physics="flow"
+):
     """
     Perform a partial (local) multi-point discretization on a grid with
     provided data, tensor and boundary conditions by
@@ -1701,23 +1698,30 @@ def partial_discretization(g, data, tensor, bnd, apertures, partial_discr,
         4)  Inserting the newly computed values to the just deleted rows.
     """
     # Get keywords and affected geometry
-    known_physics = ['flow', 'mechanics']
+    known_physics = ["flow", "mechanics"]
     assert physics in known_physics
-    if physics == 'flow':
-        kw1, kw2 = 'flux', 'bound_flux'
+    if physics == "flow":
+        kw1, kw2 = "flux", "bound_flux"
         dof_multiplier = 1
-    elif physics == 'mechanics':
-        kw1, kw2 = 'stress', 'bound_stress'
+    elif physics == "mechanics":
+        kw1, kw2 = "stress", "bound_stress"
         dof_multiplier = g.dim
-    cells = g.tags.get('discretize_cells')
-    faces = g.tags.get('discretize_faces')
-    nodes = g.tags.get('discretize_nodes')
+    cells = g.tags.get("discretize_cells")
+    faces = g.tags.get("discretize_faces")
+    nodes = g.tags.get("discretize_nodes")
 
     # Update the existing discretization to the right size
     append_dofs_of_discretization(g, data, kw1, kw2, dof_multiplier)
-    trm, bound_flux, affected_faces = \
-        partial_discr(g, tensor, bnd, cells=cells, faces=faces, nodes=nodes,
-                      apertures=apertures, inverter=None)
+    trm, bound_flux, affected_faces = partial_discr(
+        g,
+        tensor,
+        bnd,
+        cells=cells,
+        faces=faces,
+        nodes=nodes,
+        apertures=apertures,
+        inverter=None,
+    )
 
     # Account for dof offset for mechanical problem
     affected_faces = expand_indices_nd(affected_faces, dof_multiplier)
