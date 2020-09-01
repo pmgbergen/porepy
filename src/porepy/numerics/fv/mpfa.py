@@ -646,12 +646,23 @@ class Mpfa(pp.FVElliptic):
                 (subcell_topology.fno_unique, subcell_topology.subfno_unique),
             )
         )
+
+        # If the grid has a periodic boundary, the left faces is topologically
+        # connected to the right faces. This is included in the SubcellTopology
+        # class by merging the right faces with the left faces. This means that 
+        # hf2f is a mapping from topological unique half faces to topological unique
+        # faces. However, we want the discretization to be
+        # applied to the topology of g (where the left and right faces are different).
+        # We therefore map the left faces of the SubcellTopology to the right
+        # faces of the grid:
         if hasattr(g, "per_map"):
             indices = np.arange(g.num_faces)
+            # The left faces should be mapped to the right faces
             indices[g.per_map[1]] = g.per_map[0]
             indptr = np.arange(g.num_faces + 1)
             data = np.ones(g.num_faces, dtype=int)
             periodic2face = sps.csr_matrix((data, indices, indptr))
+            # Update hf2f so that it maps to the faces of g.
             hf2f = periodic2face * hf2f
 
         # The boundary faces will have either a Dirichlet or Neumann condition, or
