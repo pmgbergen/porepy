@@ -137,7 +137,7 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
             maj_ax_ang = data[5] * (1 - degrees + degrees * np.pi / 180)
             strike_ang = data[6] * (1 - degrees + degrees * np.pi / 180)
             dip_ang = data[7] * (1 - degrees + degrees * np.pi / 180)
-            num_points = data[8]
+            num_points = int(data[8])
 
             frac_list.append(
                 pp.EllipticFracture(

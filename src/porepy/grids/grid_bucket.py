@@ -688,14 +688,17 @@ class GridBucket(Generic[T]):
             data = self._nodes[old]
             self._nodes[new] = data
             del self._nodes[old]
+            new_dict = {}
 
             for edge, data in self._edges.items():
                 if edge[0] == old:
-                    self._edges[(new, edge[1])] = data
-                    del self._edges[edge]
+                    new_dict[(new, edge[1])] = data
                 elif edge[1] == old:
-                    self._edges[(edge[0], new)] = data
-                    del self._edges[edge]
+                    new_dict[(edge[0], new)] = data
+                else:
+                    new_dict[edge] = data
+
+            self._edges = new_dict
 
     def eliminate_node(self, node: pp.Grid) -> List[pp.Grid]:
         """

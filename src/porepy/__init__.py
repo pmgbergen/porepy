@@ -16,7 +16,7 @@ viz: Visualization; paraview, matplotlib.
 
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.3"
 
 # ------------------------------------
 # Simplified namespaces. The rue of thumb is that classes and modules that a
@@ -53,6 +53,7 @@ from porepy.params.data import (
     initialize_data,
     initialize_default_data,
     set_state,
+    set_iterate,
 )
 from porepy.params.rock import UnitRock, Shale, SandStone, Granite
 from porepy.params.fluid import Water, UnitFluid
@@ -83,7 +84,10 @@ from porepy.numerics.interface_laws.elliptic_discretization import (
 # Control volume, elliptic
 from porepy.numerics.fv import fvutils
 from porepy.numerics.fv.mpsa import Mpsa
-from porepy.numerics.fv.fv_elliptic import FVElliptic
+from porepy.numerics.fv.fv_elliptic import (
+    FVElliptic,
+    EllipticDiscretizationZeroPermeability,
+)
 from porepy.numerics.fv.tpfa import Tpfa
 from porepy.numerics.fv.mpfa import Mpfa
 from porepy.numerics.fv.biot import Biot, GradP, DivU, BiotStabilization
@@ -105,6 +109,7 @@ from porepy.numerics.interface_laws.elliptic_interface_laws import (
 )
 
 from porepy.numerics.interface_laws.cell_dof_face_dof_map import CellDofFaceDofMap
+from porepy.numerics.mixed_dim import assembler_filters
 from porepy.numerics.mixed_dim.assembler import Assembler
 
 import porepy.numerics
@@ -143,5 +148,3 @@ from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer
 from porepy.grids import coarsening, partition, refinement
 import porepy.utils.derived_discretizations
-
-

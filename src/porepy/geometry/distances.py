@@ -131,7 +131,8 @@ def two_segments(s1_start, s1_end, s2_start, s2_end):
     dot_2_starts = d2.dot(d_starts)
     discr = dot_1_1 * dot_2_2 - dot_1_2 ** 2
 
-    # Variable used to fine almost parallel lines. Sensitivity to this value has not been tested.
+    # Variable used to fine almost parallel lines. Sensitivity to this value has not
+    # been tested.
     SMALL_TOLERANCE = 1e-8 * np.minimum(dot_1_1, dot_2_2)
 
     # Sanity check

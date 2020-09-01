@@ -58,9 +58,12 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
-            matrix_dictionary[self.mass_matrix_key] = sps.dia_matrix(([1], 0), (1, 1))
-            matrix_dictionary[self.div_matrix_key] = sps.csr_matrix((1, 1))
-            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, 1))
+            mass = sps.dia_matrix(([1], 0), (g.num_faces, g.num_faces))
+            matrix_dictionary[self.mass_matrix_key] = mass
+            matrix_dictionary[self.div_matrix_key] = sps.csr_matrix(
+                (g.num_faces, g.num_cells)
+            )
+            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, g.num_cells))
             return
 
         # Get dictionary for parameter storage
@@ -203,16 +206,14 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         out: ndarray (num_faces_of_cell, num_faces_of_cell)
             Local mass Hdiv matrix.
         """
-        # Allow short variable names in this function
-        # pylint: disable=invalid-name
-        I = np.eye(dim + 1)
+        ind = np.eye(dim + 1)
         # expand the inv_K tensor
         inv_K_exp = (
-            I[:, np.newaxis, :, np.newaxis]
+            ind[:, np.newaxis, :, np.newaxis]
             * inv_K[np.newaxis, :, np.newaxis, :]
             / c_volume
         )
-        inv_K_exp.shape = (I.shape[0] * inv_K.shape[0], I.shape[1] * inv_K.shape[1])
+        inv_K_exp.shape = (ind.shape[0] * inv_K.shape[0], ind.shape[1] * inv_K.shape[1])
 
         N = coord.flatten("F").reshape((-1, 1)) * np.ones(
             (1, dim + 1)
