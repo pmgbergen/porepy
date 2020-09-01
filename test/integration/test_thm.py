@@ -140,7 +140,7 @@ class TestContactMechanicsTHM(unittest.TestCase):
         )
 
         # All components should be open in the normal direction
-        self.assertTrue(np.all(u_mortar[1] < 0))
+        self.assertTrue(np.all(u_mortar[1] > 0))
 
         # By symmetry (reasonable to expect from this grid), the jump in tangential
         # deformation should be zero.
@@ -165,7 +165,7 @@ class TestContactMechanicsTHM(unittest.TestCase):
         )
 
         # All components should be open in the normal direction
-        self.assertTrue(np.all(u_mortar[1] < 0))
+        self.assertTrue(np.all(u_mortar[1] > 0))
 
         # By symmetry (reasonable to expect from this grid), the jump in tangential
         # deformation should be zero.
@@ -211,7 +211,7 @@ class TestContactMechanicsTHM(unittest.TestCase):
         )
 
         # All components should be open in the normal direction
-        self.assertTrue(np.all(u_mortar[1] < 0))
+        self.assertTrue(np.all(u_mortar[1] > 0))
 
         # By symmetry (reasonable to expect from this grid), the jump in tangential
         # deformation should be zero.
@@ -248,7 +248,7 @@ class TestContactMechanicsTHM(unittest.TestCase):
             setup
         )
         self.assertTrue(np.all(np.isclose(fracture_pressure, -4.31072866e-06)))
-        self.assertTrue(np.all(np.isclose(u_mortar[1], -9.99187742e-04)))
+        self.assertTrue(np.all(np.isclose(u_mortar[1], 9.99187742e-04)))
         self.assertTrue(np.all(np.isclose(fracture_temperature, 0.0)))
 
     def test_pull_north_reduce_to_TM(self):
@@ -272,7 +272,7 @@ class TestContactMechanicsTHM(unittest.TestCase):
             setup
         )
         self.assertTrue(np.all(np.isclose(fracture_temperature, -2.05192594e-06)))
-        self.assertTrue(np.all(np.isclose(u_mortar[1], -1.00061081e-03)))
+        self.assertTrue(np.all(np.isclose(u_mortar[1], 1.00061081e-03)))
         self.assertTrue(np.all(np.isclose(fracture_pressure, 0.0)))
 
 

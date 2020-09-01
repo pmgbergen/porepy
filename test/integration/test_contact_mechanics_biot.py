@@ -85,7 +85,7 @@ class TestContactMechanicsBiot(unittest.TestCase):
         # setup.subtract_fracture_pressure = False
         u_mortar, contact_force, fracture_pressure = self._solve(setup)
         # All components should be open in the normal direction
-        self.assertTrue(np.all(u_mortar[1] < 0))
+        self.assertTrue(np.all(u_mortar[1] > 0))
 
         # By symmetry (reasonable to expect from this grid), the jump in tangential
         # deformation should be zero.
@@ -108,7 +108,7 @@ class TestContactMechanicsBiot(unittest.TestCase):
         u_mortar, contact_force, fracture_pressure = self._solve(setup)
 
         # All components should be open in the normal direction
-        self.assertTrue(np.all(u_mortar[1] < 0))
+        self.assertTrue(np.all(u_mortar[1] > 0))
 
         # By symmetry (reasonable to expect from this grid), the jump in tangential
         # deformation should be zero.
@@ -165,7 +165,7 @@ class TestContactMechanicsBiot(unittest.TestCase):
         u_mortar, contact_force, fracture_pressure = self._solve(setup)
 
         # All components should be open in the normal direction
-        self.assertTrue(np.all(u_mortar[1] < 0))
+        self.assertTrue(np.all(u_mortar[1] > 0))
 
         # By symmetry (reasonable to expect from this grid), the jump in tangential
         # deformation should be zero.
@@ -193,7 +193,7 @@ class TestContactMechanicsBiot(unittest.TestCase):
         # setup.subtract_fracture_pressure = False
         u_mortar, contact_force, fracture_pressure = self._solve(setup)
         # All components should be open in the normal direction
-        self.assertTrue(np.all(u_mortar[1] < 0))
+        self.assertTrue(np.all(u_mortar[1] > 0))
 
         # By symmetry (reasonable to expect from this grid), the jump in tangential
         # deformation should be zero.

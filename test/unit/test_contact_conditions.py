@@ -46,8 +46,10 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
     def verify(self, model):
         A_mc, A_cm, A_cc, b_c, penetration, sliding = model.get_matrices()
-
+        # print(A_mc, self.known_Amc)
         self.assertTrue(np.allclose(A_mc, self.known_Amc))
+        # if not np.allclose(A_cm, self.known_Acm):
+        print(A_cm, self.known_Acm)
         self.assertTrue(np.allclose(A_cm, self.known_Acm))
         self.assertTrue(np.allclose(A_cc, self.known_Acc))
         self.assertTrue(np.allclose(b_c, self.known_bc))
@@ -59,7 +61,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         # Coefficient in matrix that maps contact forces to the mortar space.
         # The main ingredient is a rotation from tangential-normal space to the global
         # coordinates.
-        # The coefficients are are independent on the contact state, that is, they
+        # The coefficients are independent on the contact state, that is, they
         # are functions of rotation angle only.
         # Also make variables for the direction of the tangential and normal
         # vectors of the fracture.
@@ -105,11 +107,11 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         # The full projection matrix is found by stacking two copies of mat, with a
         # sign change on the second copy, to reflect Newton's third law
-        full_mat = np.vstack((mat, -mat))
+        # This step corresponds to the jump operator / mg.sign_of_mortar_sides
+        full_mat = np.vstack((-mat, mat))
 
-        # finally, do change sign to compensate for sign convention in
-        # A[mortar_ind, contact_ind] in PrimalContactCoupling
-        self.known_Amc = -full_mat
+        # Store information
+        self.known_Amc = full_mat
 
     """ Below are tests for no penetration conditions. In this case, the coefficients
     for contact are very simple - the contact force is zero. The non-trivial aspect to
@@ -266,21 +268,21 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         # Projection of xy displacemnet jump onto the normal direction
         u_jump_normal = (
-            -s * u_mortar[0] + c * u_mortar[1] - (-s * u_mortar[2] + c * u_mortar[3])
+            -s * u_mortar[2] + c * u_mortar[3] - (-s * u_mortar[0] + c * u_mortar[1])
         )
 
         if not self.pos_normal:
             u_jump_normal *= -1
 
         u_jump_tangential = (
-            c * u_mortar[0] + s * u_mortar[1] - (c * u_mortar[2] + s * u_mortar[3])
+            c * u_mortar[2] + s * u_mortar[3] - (c * u_mortar[0] + s * u_mortar[1])
         )
         if not self.pos_tangent:
             u_jump_tangential *= -1
 
         # Definition of the friction bound from Berge et al
         friction_bound = friction_coefficient * (
-            -contact_force[1] + cnum * u_jump_normal
+            -contact_force[1] - cnum * u_jump_normal
         )
 
         # Test that the initial conditions for the discretization are set so that the
@@ -294,7 +296,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         self.assertTrue(friction_bound >= 0)
         # The condition for contact and sticking should be fulfilled
         self.assertTrue(
-            np.abs(-contact_force[0] + cnum * u_jump_tangential) < friction_bound
+            np.abs(-contact_force[0] - cnum * u_jump_tangential) < friction_bound
         )
 
         # Coefficient set according to (30) in Berge et al
@@ -304,19 +306,21 @@ class ContactConditionColoumb2d(unittest.TestCase):
         self.known_bc[0] = u_jump_tangential
 
         # Coefficient
-        self.known_Acm[0, 0] = c
-        self.known_Acm[0, 1] = s
-        self.known_Acm[0, 2] = -self.known_Acm[0, 0]
-        self.known_Acm[0, 3] = -self.known_Acm[0, 1]
+        # This is the same computation as in the above definition of
+        # u_jump_tangential
+        self.known_Acm[0, 0] = -c
+        self.known_Acm[0, 1] = -s
+        self.known_Acm[0, 2] = c
+        self.known_Acm[0, 3] = s
         if not self.pos_tangent:
             self.known_Acm[0] *= -1
 
         # Normal direction: coefficients are the projection of the jump onto the normal
         # direction
-        self.known_Acm[1, 0] = -s
-        self.known_Acm[1, 1] = c
-        self.known_Acm[1, 2] = -self.known_Acm[1, 0]
-        self.known_Acm[1, 3] = -self.known_Acm[1, 1]
+        self.known_Acm[1, 0] = s
+        self.known_Acm[1, 1] = -c
+        self.known_Acm[1, 2] = -s
+        self.known_Acm[1, 3] = c
         if not self.pos_normal:
             self.known_Acm[1] *= -1
 
@@ -450,7 +454,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         self._set_coefficients_contact_sticking(angle, u_mortar, contact_force)
         self.verify(model)
 
-    def _set_coefficients_contact_silding(self, angle, u_mortar, contact_force):
+    def _set_coefficients_contact_sliding(self, angle, u_mortar, contact_force):
         # _set_coefficients_sticking()
 
         # In addition, we need the coefficients for the normal contact force
@@ -466,21 +470,21 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         # Projection of xy displacemnet jump onto the normal direction
         u_jump_normal = (
-            -s * u_mortar[0] + c * u_mortar[1] - (-s * u_mortar[2] + c * u_mortar[3])
+            -s * u_mortar[2] + c * u_mortar[3] - (-s * u_mortar[0] + c * u_mortar[1])
         )
 
         if not self.pos_normal:
             u_jump_normal *= -1
 
         u_jump_tangential = (
-            c * u_mortar[0] + s * u_mortar[1] - (c * u_mortar[2] + s * u_mortar[3])
+            c * u_mortar[2] + s * u_mortar[3] - (c * u_mortar[0] + s * u_mortar[1])
         )
         if not self.pos_tangent:
             u_jump_tangential *= -1
 
         # Definition of the friction bound from Berge et al
         friction_bound = friction_coefficient * (
-            -contact_force[1] + cnum * u_jump_normal
+            -contact_force[1] - cnum * u_jump_normal
         )
 
         # Test that the initial conditions for the discretization are set so that the
@@ -494,7 +498,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         self.assertTrue(friction_bound >= 0)
         # The condition for contact and sticking should be fulfilled
         self.assertTrue(
-            np.abs(-contact_force[0] + cnum * u_jump_tangential) >= friction_bound
+            np.abs(-contact_force[0] - cnum * u_jump_tangential) >= friction_bound
         )
 
         # Coefficient set according to (30) in Berge et al
@@ -505,10 +509,10 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         alpha = (
             -contact_force[0]
-            * (-contact_force[0] + cnum * u_jump_tangential)
+            * (-contact_force[0] - cnum * u_jump_tangential)
             / (
                 np.abs(contact_force[0])
-                * np.abs(-contact_force[0] + cnum * u_jump_tangential)
+                * np.abs(-contact_force[0] - cnum * u_jump_tangential)
             )
         )
         # Delta coefficient. Note that the definition given in Berge is wrong - the
@@ -523,14 +527,14 @@ class ContactConditionColoumb2d(unittest.TestCase):
         # Regularized coefficient Q
         Q = (
             -contact_force[0]
-            * (-contact_force[0] + cnum * u_jump_tangential)
+            * (-contact_force[0] - cnum * u_jump_tangential)
             / (
                 np.abs(contact_force[0])
-                * np.abs(-contact_force[0] + cnum * u_jump_tangential)
+                * np.abs(-contact_force[0] - cnum * u_jump_tangential)
             )
         )
         # Coefficient e
-        e = friction_bound / (np.abs(-contact_force[0] + cnum * u_jump_tangential))
+        e = friction_bound / (np.abs(-contact_force[0] - cnum * u_jump_tangential))
 
         # Regularized coefficient M
         M = e * (1 - Q)
@@ -543,23 +547,23 @@ class ContactConditionColoumb2d(unittest.TestCase):
             1
             / (1 - M)
             * (
-                (-contact_force[0] + cnum * u_jump_tangential)
-                / (np.abs(-contact_force[0] + cnum * u_jump_tangential))
+                (-contact_force[0] - cnum * u_jump_tangential)
+                / (np.abs(-contact_force[0] - cnum * u_jump_tangential))
             )
         )
 
         # Coefficient r
-        r = -1 / (1 - M) * e * Q * (-contact_force[0] + cnum * u_jump_tangential)
+        r = -1 / (1 - M) * e * Q * (-contact_force[0] - cnum * u_jump_tangential)
 
         # Finally ready to define the coefficients. First tangential direction
         # (both u and lambda contributions)
 
         # Contribution to A_cm: Projection from global to tangential direction, scaled
         # with L
-        self.known_Acm[0, 0] = c * L
-        self.known_Acm[0, 1] = s * L
-        self.known_Acm[0, 2] = -self.known_Acm[0, 0]
-        self.known_Acm[0, 3] = -self.known_Acm[0, 1]
+        self.known_Acm[0, 0] = -c * L
+        self.known_Acm[0, 1] = -s * L
+        self.known_Acm[0, 2] = c * L
+        self.known_Acm[0, 3] = s * L
         if not self.pos_tangent:
             self.known_Acm[0] *= -1
 
@@ -572,10 +576,10 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         # Normal direction: coefficients are the projection of the jump onto the normal
         # direction. No contribution to A_cc
-        self.known_Acm[1, 0] = -s
-        self.known_Acm[1, 1] = c
-        self.known_Acm[1, 2] = -self.known_Acm[1, 0]
-        self.known_Acm[1, 3] = -self.known_Acm[1, 1]
+        self.known_Acm[1, 0] = s
+        self.known_Acm[1, 1] = -c
+        self.known_Acm[1, 2] = -s
+        self.known_Acm[1, 3] = c
         if not self.pos_normal:
             self.known_Acm[1] *= -1
 
@@ -605,7 +609,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         self._set_known_contact_to_mortar(angle, model)
 
-        self._set_coefficients_contact_silding(angle, u_mortar, contact_force)
+        self._set_coefficients_contact_sliding(angle, u_mortar, contact_force)
 
         self.verify(model)
 
@@ -631,7 +635,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         self._set_known_contact_to_mortar(angle, model)
 
-        self._set_coefficients_contact_silding(angle, u_mortar, contact_force)
+        self._set_coefficients_contact_sliding(angle, u_mortar, contact_force)
 
         self.verify(model)
 
@@ -657,7 +661,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         self._set_known_contact_to_mortar(angle, model)
 
-        self._set_coefficients_contact_silding(angle, u_mortar, contact_force)
+        self._set_coefficients_contact_sliding(angle, u_mortar, contact_force)
 
         self.verify(model)
 
@@ -683,7 +687,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         self._set_known_contact_to_mortar(angle, model)
 
-        self._set_coefficients_contact_silding(angle, u_mortar, contact_force)
+        self._set_coefficients_contact_sliding(angle, u_mortar, contact_force)
 
         self.verify(model)
 
@@ -709,7 +713,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
         self._set_known_contact_to_mortar(angle, model)
 
-        self._set_coefficients_contact_silding(angle, u_mortar, contact_force)
+        self._set_coefficients_contact_sliding(angle, u_mortar, contact_force)
 
         self.verify(model)
 
