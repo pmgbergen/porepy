@@ -82,26 +82,42 @@ class SubcellTopology(object):
         sub_faces = sub_face_mat * M
         sub_faces = (sub_faces.data - 1).astype(int)
 
+        # If the grid has periodic faces the topology of the subcells are changed.
+        # The left and right faces should be intrepreted as one face topologically.
+        # The face_nodes and cell_faces maps in the grid geometry does not consider
+        # this. We therefore have to merge the left subfaces with the right subfaces.
         if hasattr(g, "per_map"):
             sorted_left = np.sort(g.per_map[0])
             sorted_right = np.sort(g.per_map[1])
+            # It should be straightforward to generalize to the case where the faces
+            # are not sorted. You have to first sort g.per_map[0] and g.per_map[1],
+            # then use the two sorted arrays to find the left and right subfaces, then
+            # map the subfaces back to the original g.per_map.
             if not np.allclose(sorted_left, g.per_map[0]):
                 raise NotImplementedError("Can not create subcell topology for periodic faces that are not sorted")
             if not np.allclose(sorted_right, g.per_map[1]):
                 raise NotImplementedError("Can not create subcell topology for periodic faces that are not sorted")
             left_subfaces = np.where(np.isin(faces_duplicated, g.per_map[0]))[0]
             right_subfaces= np.where(np.isin(faces_duplicated, g.per_map[1]))[0]
-
+            # We loose the ordering of g.per map using np.isin. But since we have assumed
+            # g.per_map[0] and g.per_map[1] to be sorted, we can easily retrive the ordering
+            # by this trick:
             left_subfaces = left_subfaces[np.argsort(faces_duplicated[left_subfaces])]
             right_subfaces = right_subfaces[np.argsort(faces_duplicated[right_subfaces])]
 
-
+            # The right subface nodes should be equal to the left subface nodes. We
+            # also have to change the nodes of any other subface that has a node that
+            # is on the rigth boundary.
             for i in range(right_subfaces.size):
+                # We loop over each righ subface and find all other nodes that has the
+                # same index as the right node. These node indices are swapped with the
+                # corresponding left node index.
                 nodes_duplicated = np.where(
                     nodes_duplicated == nodes_duplicated[right_subfaces[i]],
                     nodes_duplicated[left_subfaces[i]],
                     nodes_duplicated
                 )
+            # Set the right subfaces equal the left subfaces
             sub_faces[right_subfaces] = sub_faces[left_subfaces]
 
         # Sort data
@@ -115,9 +131,14 @@ class SubcellTopology(object):
         self.subhfno = np.arange(idx.size, dtype=">i4")
         self.num_cno = self.cno.max() + 1
         self.num_nodes = self.nno.max() + 1
+        # If we have periodic faces, the subface indices might have gaps. E.g., if
+        # subface 4 is mapped to subface 1, the index 4 is not included into subfno.
+        # The following code will then subtract 1 from all subface indices larger than 4.
         _, Ia, Ic = np.unique(self.subfno, return_index=True, return_inverse=True)        
         self.subfno = self.subfno - np.cumsum(np.diff(np.r_[-1, self.subfno[Ia]]) - 1)[Ic]
 
+        # Make subface indices unique, that is, pair the indices from the two
+        # adjacent cells
         _, unique_subfno = np.unique(self.subfno, return_index=True)
 
         self.num_subfno = self.subfno.max() + 1
