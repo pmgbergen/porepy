@@ -12,22 +12,26 @@ at the previous time step. The state should be available in
 
 and may usually be set to zero for stationary problems. The ColoumbContact
 discretization operates on relative tangential jumps and absolute normal jumps.
-See also contact_mechanics_interface_laws.py
+See also contact_mechanics_interface_laws.py.
+
+Signs of displacement jumps are reversed compared to Berge due to the PorePy definition
+of the jump as [[ var ]] = var_k - var_j, which implies that positive normal jumps
+correspond to fracture opening. Note that the fracture normal is in agreement with
+Berge, i.e. it equals the outwards normal on the j side.
 
 Option added to the Berge model:
 Include a simple relationship between the gap and tangential displacements, i.e.
 
-   g = g_0 - tan(dilation_angle) * || u_t ||,
+   g = g_0 + tan(dilation_angle) * || u_t ||,
 
 with g_0 indicating initial gap distance. This only affects the normal relations when
 fractures are in contact. The relation [u_n^{k+1}] = g of eqs. 30 and 31 becomes
 
    u_n^{k+1} - Dg^k \dot u_t^{k+1} = g^k - Dg \dot u_t^{k},
 
-with Dg = dg/du_t. For the above g, we have Dg = -tan(dilation_angle) * u_t / || u_t ||.
-For the case u_t = 0, we extend the Jacobian to the limit value from the positive side
-(arbitrary choice between + and -), i.e.
-    dg/du_t(|| u_t || = 0) = lim_{|| u_t || -> 0 +} dg/du_t = - tan(dilation_angle).
+with Dg = dg/du_t. For the above g, we have Dg = tan(dilation_angle) * u_t / || u_t ||.
+For the case u_t = 0, we extend the Jacobian to 0, i.e.
+    dg/du_t(|| u_t || = 0) = 0.
 """
 import numpy as np
 
@@ -240,7 +244,7 @@ class ColoumbContact:
         norm_displacement_jump_tangential = np.linalg.norm(
             cumulative_tangential_jump, axis=0
         )
-        gap = initial_gap - np.tan(dilation_angle) * norm_displacement_jump_tangential
+        gap = initial_gap + np.tan(dilation_angle) * norm_displacement_jump_tangential
 
         # Compute dg/du_t = - tan(dilation_angle) u_t / || u_t ||
         # Avoid dividing by zero if u_t = 0. In this case, we extend to the limit value
@@ -252,7 +256,7 @@ class ColoumbContact:
         # Compute dg/du_t where u_t is nonzero
         tan = np.atleast_2d(np.tan(dilation_angle)[ind])
         d_gap[:, ind] = (
-            -tan
+            tan
             * cumulative_tangential_jump[:, ind]
             / norm_displacement_jump_tangential[ind]
         )
@@ -263,7 +267,7 @@ class ColoumbContact:
         friction_bound = (
             friction_coefficient
             * np.clip(
-                -contact_force_normal + c_num_normal * (displacement_jump_normal - gap),
+                -contact_force_normal - c_num_normal * (displacement_jump_normal - gap),
                 0,
                 np.inf,
             )
@@ -279,28 +283,12 @@ class ColoumbContact:
             contact_force_normal, displacement_jump_normal, c_num_normal, gap
         )
         # Check criterion for sliding
-        sliding_criterion = self._sliding(
+        sliding_bc = self._sliding(
             contact_force_tangential,
             displacement_jump_tangential,
             friction_bound,
             c_num_tangential,
         )
-        # Find cells with non-zero tangential traction. This excludes cells that were
-        # not in contact in the previous iteration.
-        # non_zero_tangential_traction = (
-        #     np.sum(contact_force_tangential ** 2, axis=0) > self.tol ** 2
-        # )
-
-        # The discretization of the sliding state tacitly assumes that the tangential
-        # traction in the previous iteration - or else we will divide by zero.
-        # Therefore, only allow for sliding if the tangential traciton is non-zero.
-        # In practice this means that a cell is not allowed to go directly from
-        # non-penetration to sliding.
-        # This feature was turned off due to convergence issues.
-        # TODO: Either purge entirely or, if found to be useful in some simulations,
-        # convert to a optional feature.
-        sliding_bc = sliding_criterion
-        # np.logical_and(sliding_criterion, non_zero_tangential_traction)
 
         # Structures for storing the computed coefficients.
         displacement_weight = []  # Multiplies displacement jump
@@ -335,15 +323,16 @@ class ColoumbContact:
                 )
 
                 # There is no interaction between displacement jumps in normal and
-                # tangential direction
-                L = np.hstack((loc_displacement_tangential, np.atleast_2d(zer).T))
+                # tangential direction. Opposite sign compared to Berge because
+                # of jump conventions being opposite.
+                L = -np.hstack((loc_displacement_tangential, np.atleast_2d(zer).T))
                 normal_displacement = np.hstack((-d_gap[:, i], 1))
                 loc_displacement_weight = np.vstack((L, normal_displacement))
                 # Right hand side is computed from (24-25). In the normal
                 # direction, a contribution from the previous iterate enters to cancel
                 # the gap
                 r_n = gap[i] - np.dot(d_gap[:, i], cumulative_tangential_jump[:, i].T)
-                # assert np.isclose(r_n, initial_gap[i])  # TODO: Agree on cumulative with EK
+
                 r_t = r + friction_bound[i] * v
                 r = np.vstack((r_t, r_n))
                 # Unit contribution from tangential force
@@ -460,7 +449,7 @@ class ColoumbContact:
         """
         # Use thresholding to not pick up faces that are just about sticking
         # Not sure about the sensitivity to the tolerance parameter here.
-        return self._l2(-Tt + ct * ut) - bf > self.tol
+        return self._l2(-Tt - ct * ut) - bf > self.tol
 
     def _penetration(
         self, Tn: np.ndarray, un: np.ndarray, cn: np.ndarray, gap: np.ndarray
@@ -479,7 +468,7 @@ class ColoumbContact:
 
         """
         # Not sure about the sensitivity to the tolerance parameter here.
-        return (-Tn + cn * (un - gap)) > self.tol
+        return (-Tn - cn * (un - gap)) > self.tol
 
     #####
     ## Below here are different help function for calculating the Newton step
@@ -487,17 +476,17 @@ class ColoumbContact:
 
     def _e(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
         # Compute part of (32) in Berge et al.
-        return bf / self._l2(-Tt + cut)
+        return bf / self._l2(-Tt - cut)
 
     def _Q(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
         # Implementation of the term Q involved in the calculation of (32) in Berge
         # et al.
         # This is the regularized Q
-        numerator = -Tt.dot((-Tt + cut).T)
+        numerator = -Tt.dot((-Tt - cut).T)
 
         # Regularization to avoid issues during the iterations to avoid dividing by
         # zero if the faces are not in contact durign iterations.
-        denominator = max(bf, self._l2(-Tt)) * self._l2(-Tt + cut)
+        denominator = max(bf, self._l2(-Tt)) * self._l2(-Tt - cut)
 
         return numerator / denominator
 
@@ -510,7 +499,7 @@ class ColoumbContact:
 
     def _hf(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
         # This is the product e * Q * (-Tt + cut), used in computation of r in (32)
-        return self._e(Tt, cut, bf) * self._Q(Tt, cut, bf).dot(-Tt + cut)
+        return self._e(Tt, cut, bf) * self._Q(Tt, cut, bf).dot(-Tt - cut)
 
     def _sliding_coefficients(
         self, Tt: np.ndarray, ut: np.ndarray, bf: np.ndarray, c: np.ndarray
@@ -545,7 +534,7 @@ class ColoumbContact:
             return (
                 0 * Id,
                 bf * np.ones((Id.shape[0], 1)),
-                (-Tt + cut) / self._l2(-Tt + cut),
+                (-Tt - cut) / self._l2(-Tt - cut),
             )
 
         # Compute the coefficient M
@@ -557,7 +546,7 @@ class ColoumbContact:
         # Avoid division by zero:
         l2_Tt = self._l2(-Tt)
         if l2_Tt > self.tol:
-            alpha = -Tt.T.dot(-Tt + cut) / (l2_Tt * self._l2(-Tt + cut))
+            alpha = -Tt.T.dot(-Tt - cut) / (l2_Tt * self._l2(-Tt - cut))
             # Parameter delta.
             # NOTE: The denominator bf is correct. The definition given in Berge is wrong.
             delta = min(l2_Tt / bf, 1)
@@ -572,7 +561,7 @@ class ColoumbContact:
 
         L = c * (IdM_inv - Id)
         r = -IdM_inv.dot(self._hf(Tt, cut, bf))
-        v = IdM_inv.dot(-Tt + cut) / self._l2(-Tt + cut)
+        v = IdM_inv.dot(-Tt - cut) / self._l2(-Tt - cut)
 
         return L, r, v
 
