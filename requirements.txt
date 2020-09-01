@@ -1,14 +1,14 @@
 meshio
-networkx == 2.3
-numpy == 1.16.3
-scipy == 1.2.1
-sympy == 1.4
-matplotlib == 3.0.3
-cython == 0.29.7;platform_system=="Linux"
-future == 0.17.1
-six == 1.12.0
-shapely == 1.6.4.post2
-shapely[vectorized] == 1.6.4.post2
-numba == 0.47
-vtk == 8.1.2
-gmsh-sdk
+networkx
+numpy
+scipy
+sympy
+matplotlib
+cython;platform_system=="Linux"
+future
+six
+shapely
+shapely[vectorized]
+numba>=0.50
+vtk
+gmsh

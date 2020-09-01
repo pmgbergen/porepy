@@ -148,25 +148,25 @@ class BoundaryCondition(AbstractBoundaryCondition):
             if faces.size != len(cond):
                 raise ValueError("One BC per face")
 
-            for l in np.arange(faces.size):
-                s = cond[l]
+            for ind in np.arange(faces.size):
+                s = cond[ind]
                 if s.lower() == "neu":
                     pass  # Neumann is already default
                 elif s.lower() == "dir":
-                    self.is_dir[faces[l]] = True
-                    self.is_neu[faces[l]] = False
-                    self.is_rob[faces[l]] = False
-                    self.is_per[faces[l]] = False
+                    self.is_dir[faces[ind]] = True
+                    self.is_neu[faces[ind]] = False
+                    self.is_rob[faces[ind]] = False
+                    self.is_per[faces[ind]] = False
                 elif s.lower() == "rob":
-                    self.is_dir[faces[l]] = False
-                    self.is_neu[faces[l]] = False
-                    self.is_rob[faces[l]] = True
-                    self.is_per[faces[l]] = False
+                    self.is_dir[faces[ind]] = False
+                    self.is_neu[faces[ind]] = False
+                    self.is_rob[faces[ind]] = True
+                    self.is_per[faces[ind]] = False
                 elif s.lower() == "per":
-                    self.is_dir[faces[l]] = False
-                    self.is_neu[faces[l]] = False
-                    self.is_rob[faces[l]] = False
-                    self.is_per[faces[l]] = True
+                    self.is_dir[faces[ind]] = False
+                    self.is_neu[faces[ind]] = False
+                    self.is_rob[faces[ind]] = False
+                    self.is_per[faces[ind]] = True
                 else:
                     raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
 
@@ -197,13 +197,17 @@ class BoundaryCondition(AbstractBoundaryCondition):
 
         not_bound = np.setdiff1d(np.arange(self.num_faces), self.bf)
         if np.any(self.is_dir[not_bound]):
-            s += f"Dirichlet conditions set on {self.is_dir[not_bound].sum()} non-boundary faces.\n"
+            s += f"Dirichlet conditions set on {self.is_dir[not_bound].sum()}"
+            s += " non-boundary faces.\n"
         if np.any(self.is_neu[not_bound]):
-            s += f"Neumann conditions set on {self.is_neu[not_bound].sum()} non-boundary faces.\n"
+            s += f"Neumann conditions set on {self.is_neu[not_bound].sum()}"
+            s += " non-boundary faces.\n"
         if np.any(self.is_rob[not_bound]):
-            s += f"Robin conditions set on {self.is_rob[not_bound].sum()} non-boundary faces.\n"
+            s += f"Robin conditions set on {self.is_rob[not_bound].sum()} "
+            s += "non-boundary faces.\n"
         if np.any(self.is_per[not_bound]):
-            s += f"Periodic conditions set on {self.is_per[not_bound].sum()} non-boundary faces.\n"
+            s += f"Periodic conditions set on {self.is_per[not_bound].sum()} "
+            s += "non-boundary faces.\n"
 
         return s
 
@@ -227,6 +231,7 @@ class BoundaryCondition(AbstractBoundaryCondition):
                 )
             )
         self.per_map = per_map
+
 
 class BoundaryConditionVectorial(AbstractBoundaryCondition):
 

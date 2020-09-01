@@ -67,6 +67,7 @@ import porepy as pp
 import numbers
 import warnings
 import porepy.params.parameter_dictionaries as dicts
+from typing import List, Dict, Optional
 
 
 class Parameters(dict):
@@ -185,6 +186,39 @@ class Parameters(dict):
         for (p, v) in zip(parameters, values):
             modify_variable(self[keyword][p], v)
 
+    def expand_scalars(
+        self,
+        n_vals: int,
+        keyword: str,
+        parameters: List[str],
+        defaults: Optional[Dict] = None,
+    ) -> List:
+        """ Expand parameters assigned as a single scalar to n_vals arrays.
+        Used e.g. for parameters which may be heterogeneous in space (cellwise),
+        but are often homogeneous and assigned as a scalar.
+        Parameters:
+            n_vals: Size of the expanded arrays. E.g. g.num_cells
+            keyword: The parameter keyword.
+            parameters: List of parameters.
+            defaults (optional): List of default values, one for each parameter.
+                If not set, no default values will be provided and an error
+                will ensue if one of the listed parameters is not present in
+                the dictionary. This avoids assigning None to unset mandatory
+                parameters.
+        """
+        values = []
+        if defaults is None:
+            defaults = [None] * len(parameters)
+        for p, d in zip(parameters, defaults):
+            if d is None:
+                val = self[keyword].get(p)
+            else:
+                val = self[keyword].get(p, d)
+            if np.asarray(val).size == 1:
+                val *= np.ones(n_vals)
+            values.append(val)
+        return values
+
 
 """
 Utility methods for handling of dictionaries.
@@ -222,11 +256,11 @@ def initialize_default_data(
         specified_parameters = {}
     if not keyword:
         keyword = parameter_type
-    if parameter_type is "flow":
+    if parameter_type == "flow":
         d = dicts.flow_dictionary(g, specified_parameters)
-    elif parameter_type is "transport":
+    elif parameter_type == "transport":
         d = dicts.transport_dictionary(g, specified_parameters)
-    elif parameter_type is "mechanics":
+    elif parameter_type == "mechanics":
         d = dicts.mechanics_dictionary(g, specified_parameters)
     else:
         raise KeyError(
@@ -238,7 +272,9 @@ def initialize_default_data(
     return initialize_data(g, data, keyword, d)
 
 
-def initialize_data(g, data, keyword, specified_parameters=None):
+def initialize_data(
+    g, data: Dict, keyword: str, specified_parameters: Optional[Dict] = None
+) -> Dict:
     """ Initialize a data dictionary for a single keyword.
 
     The initialization consists of adding a parameter dictionary and initializing a
@@ -265,7 +301,7 @@ def initialize_data(g, data, keyword, specified_parameters=None):
     return data
 
 
-def set_state(data, state=None):
+def set_state(data: Dict, state: Optional[Dict] = None) -> Dict:
     """ Initialize or update a state dictionary.
 
     The initialization consists of adding a state dictionary in the proper field of the
@@ -279,12 +315,27 @@ def set_state(data, state=None):
     Returns:
         data: The filled dictionary.
     """
-    if not state:
-        state = {}
+    state = state or {}
     if pp.STATE in data:
         data[pp.STATE].update(state)
     else:
         data[pp.STATE] = state
+    return data
+
+
+def set_iterate(data: Dict, iterate: Optional[Dict] = None) -> Dict:
+    """Initialize or update an iterate dictionary.
+
+    Same as set_state for subfield pp.ITERATE
+    Also checks whether pp.STATE field is set, and adds it if not, see set_state.
+    """
+    if pp.STATE not in data:
+        set_state(data)
+    iterate = iterate or {}
+    if pp.ITERATE in data[pp.STATE]:
+        data[pp.STATE][pp.ITERATE].update(iterate)
+    else:
+        data[pp.STATE][pp.ITERATE] = iterate
     return data
 
 

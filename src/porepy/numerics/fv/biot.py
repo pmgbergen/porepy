@@ -22,7 +22,6 @@ turn into a standard poro-elasticity equation for non-fractured domains).
 
 """
 import scipy.sparse as sps
-import scipy.sparse.linalg as la
 import numpy as np
 from typing import Dict, Tuple, Any
 from time import time
@@ -1222,7 +1221,7 @@ class GradP(Discretization):
         # Use the same key to acces the discretization matrix as the Biot class.
         mat_key = Biot().grad_p_matrix_key
 
-        if not mat_key in mat_dict:
+        if mat_key not in mat_dict.keys():
             raise ValueError(
                 """GradP class requires a pre-computed discretization to be
                              stored in the matrix dictionary."""
@@ -1351,7 +1350,7 @@ class DivU(Discretization):
         # Use the same key to acces the discretization matrix as the Biot class.
         mat_key = Biot().div_u_matrix_key
 
-        if not mat_key in matrix_dictionary:
+        if mat_key not in matrix_dictionary.keys():
             raise ValueError(
                 """DivU class requires a pre-computed discretization to be
                              stored in the matrix dictionary."""
@@ -1511,8 +1510,10 @@ class DivU(Discretization):
         rotation = data_edge["tangential_normal_projection"]
         normal_component = rotation.project_normal(g.num_cells)
 
-        biot_alpha = data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
-
+        # Obtain possibly heterogeneous biot alpha values
+        biot_alpha = data[pp.PARAMETERS].expand_scalars(
+            g.num_cells, self.flow_keyword, ["biot_alpha"]
+        )[0]
         # Project the previous solution to the slave grid
         previous_displacement_jump_global_coord = (
             jump_on_slave * data_edge[pp.STATE][self.mortar_variable]
@@ -1525,17 +1526,17 @@ class DivU(Discretization):
         # The same procedure is applied to the unknown displacements, by assembling the
         # jump operator, projection and normal component extraction in the coupling matrix.
         # Finally, we integrate over the cell volume.
-        # The jump on the slave is defined to be negative for an open fracture (!),
-        # hence the negative sign.
         vol = sps.dia_matrix((g.cell_volumes, 0), shape=(g.num_cells, g.num_cells))
-        cc[self_ind, 2] -= biot_alpha * vol * normal_component * jump_on_slave
+        cc[self_ind, 2] += (
+            sps.diags(biot_alpha) * vol * normal_component * jump_on_slave
+        )
 
         # We assume implicit Euler in Biot, thus the div_u term appears
         # on the rhs as div_u^{k-1}. This results in a contribution to the
         # rhs for the coupling variable also.
-        # See note above on sign. This term is negative (u^k - u^{k-1}), and moved to
+        # This term is negative (u^k - u^{k-1}) and moved to
         # the rhs, yielding the same sign as for the k term on the lhs.
-        rhs[self_ind] -= biot_alpha * vol * previous_displacement_jump_normal
+        rhs[self_ind] += sps.diags(biot_alpha) * vol * previous_displacement_jump_normal
 
 
 class BiotStabilization(Discretization):
@@ -1620,7 +1621,7 @@ class BiotStabilization(Discretization):
         mat_key = Biot().stabilization_matrix_key
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not mat_key in matrix_dictionary:
+        if mat_key not in matrix_dictionary.keys():
             raise ValueError(
                 """BiotStabilization class requires a pre-computed
                              discretization to be stored in the matrix dictionary."""

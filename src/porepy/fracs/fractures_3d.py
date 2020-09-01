@@ -748,7 +748,7 @@ class FractureNetwork3d(object):
     ) -> str:
         """ Process network intersections and write a gmsh .geo configuration file,
         ready to be processed by gmsh.
-        
+
         NOTE: Consider to use the mesh() function instead to get a ready GridBucket.
 
         Parameters:
@@ -1555,6 +1555,12 @@ class FractureNetwork3d(object):
             the bounding box will be disregarded, while fractures crossing the
             boundary will be truncated.
 
+        Returns:
+            np.array: Mapping from old to new fractures, referring to the fractures in
+                self._fractures before and after imposing the external boundary.
+                The mapping does not account for the boundary fractures added to the
+                end of the fracture array.
+
         Raises
         ------
         ValueError
@@ -1619,17 +1625,18 @@ class FractureNetwork3d(object):
         else:
             split_frac = np.zeros(0, dtype=np.int)
 
+        ind_map = np.delete(old_frac_ind, delete_frac)
+
         # Update the fractures with the new data format
         for poly, ind in zip(constrained_polys, inds):
             if ind not in split_frac:
                 self._fractures[ind].p = poly
         # Special handling of fractures that are split in two
-        # TODO: This will destroy the numbering of the fractures that eventually is
-        # inserted into g_2d.frac_num. We should fix this.
         for fi in split_frac:
             hit = np.where(inds == fi)[0]
             for sub_i in hit:
                 self.add(Fracture(constrained_polys[sub_i]))
+                ind_map = np.hstack((ind_map, fi))
 
         # Delete fractures that have all points outside the bounding box
         # There may be some uncovered cases here, with a fracture barely
@@ -1650,6 +1657,7 @@ class FractureNetwork3d(object):
         self.tags["boundary"] = boundary_tags
 
         self._reindex_fractures()
+        return ind_map
 
     def _make_bounding_planes_from_box(self, box, keep_box=True):
         """
@@ -1802,7 +1810,7 @@ class FractureNetwork3d(object):
                     # a domain boundary edge
                     on_one_domain_edge = False
                     for pi in np.where(edge_of_domain_boundary)[0]:
-                        if not e in self.decomposition["line_in_frac"][e2f[pi]]:
+                        if e not in self.decomposition["line_in_frac"][e2f[pi]]:
                             on_one_domain_edge = True
                             break
 
