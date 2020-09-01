@@ -1136,12 +1136,6 @@ class Mpfa(pp.FVElliptic):
         is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
         is_neu = np.logical_or(bnd.is_neu, bnd.is_internal)
         is_rob = np.logical_and(bnd.is_rob, np.logical_not(bnd.is_internal))
-        is_per = bnd.is_per
-
-        if is_per.sum():
-            raise NotImplementedError(
-                "Periodic boundary conditions are not implemented for Mpfa"
-            )
 
         fno = subcell_topology.fno_unique
         num_neu = np.sum(is_neu)
