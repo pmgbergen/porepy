@@ -91,12 +91,13 @@ class TestTPFA(unittest.TestCase):
         kxx = np.ones(g.num_cells)
         perm = pp.SecondOrderTensor(kxx)
 
-        bound_faces = np.array([0, 3, 4, 7, 8, 11, 12, 13, 14, 21, 22, 23])
-        bound = pp.BoundaryCondition(g, bound_faces, "per")
+
         left_faces = [0, 4, 8, 12, 13, 14]
         right_faces = [3, 7, 11, 21, 22, 23]
         per_map = np.vstack((left_faces, right_faces))
-        bound.set_periodic_map(per_map)
+        g.set_periodic_map(per_map)
+
+        bound = pp.BoundaryCondition(g)
 
         key = "flow"
         d = pp.initialize_default_data(

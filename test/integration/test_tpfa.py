@@ -46,14 +46,10 @@ class TestTPFA(unittest.TestCase):
         right_faces = np.argwhere(g.face_centers[0] > 1 - 1e-5).ravel()
 
         dir_faces = np.hstack((left_faces, right_faces))
-        per_faces = np.hstack((top_faces, bot_faces))
 
-        bound_faces = np.hstack((dir_faces, per_faces))
-        label = ["dir"] * dir_faces.size + ["per"] * per_faces.size
+        g.set_periodic_map(np.vstack((bot_faces, top_faces)))
 
-        bound = pp.BoundaryCondition(g, bound_faces, label)
-
-        bound.set_periodic_map(np.vstack((bot_faces, top_faces)))
+        bound = pp.BoundaryCondition(g, dir_faces, "dir")
 
         # Solve
         key = "flow"
@@ -101,14 +97,12 @@ class TestTPFA(unittest.TestCase):
         right_faces = np.argwhere(g.face_centers[0] > 1 - 1e-5).ravel()
 
         dir_faces = np.hstack((left_faces, right_faces))
-        per_faces = np.hstack((top_faces, bot_faces))
 
-        bound_faces = np.hstack((dir_faces, per_faces))
-        label = ["dir"] * dir_faces.size + ["per"] * per_faces.size
+        g.set_periodic_map(np.vstack((bot_faces, top_faces)))
 
-        bound = pp.BoundaryCondition(g, bound_faces, label)
+        bound = pp.BoundaryCondition(g, dir_faces, "dir")
 
-        bound.set_periodic_map(np.vstack((bot_faces, top_faces)))
+
 
         # Solve
         key = "flow"
