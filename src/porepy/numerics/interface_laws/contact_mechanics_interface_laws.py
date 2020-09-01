@@ -68,7 +68,7 @@ class PrimalContactCoupling(
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         # Tangential_normal projection
-        tangential_normal_projection = data_edge["tangential_normal_projection"]
+        tangential_normal_projection = data_l["tangential_normal_projection"]
 
         normal_projection = tangential_normal_projection.project_normal()
 
@@ -111,7 +111,7 @@ class PrimalContactCoupling(
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
-        projection = data_edge["tangential_normal_projection"]
+        projection = data_slave["tangential_normal_projection"]
 
         cc, rhs = self._define_local_block_matrix(
             g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix

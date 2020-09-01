@@ -37,7 +37,7 @@ import numpy as np
 
 import porepy as pp
 import logging
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional, List
 
 
 logger = logging.getLogger(__name__)
@@ -177,7 +177,7 @@ class ColoumbContact:
         # IMPLEMENATION NOTE: It is paramount that this projection is used for all
         # operations relating to this surface, or else directions of normal vectors
         # will get confused.
-        projection = data_edge["tangential_normal_projection"]
+        projection = data_l["tangential_normal_projection"]
 
         # The contact force is already computed in local coordinates
         contact_force = data_l[pp.STATE][pp.ITERATE][self.contact_variable]
@@ -570,7 +570,9 @@ class ColoumbContact:
         return np.sqrt(np.sum(x ** 2, axis=0))
 
 
-def set_projections(gb: pp.GridBucket) -> None:
+def set_projections(
+    gb: pp.GridBucket, edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None
+) -> None:
     """ Define a local coordinate system, and projection matrices, for all
     grids of co-dimension 1.
 
@@ -585,12 +587,16 @@ def set_projections(gb: pp.GridBucket) -> None:
     It is assumed that the surface is planar.
 
     """
+    if edges is None:
+        edges = [e for e, _ in gb.edges()]
+
     # Information on the vector normal to the surface is not available directly
     # from the surface grid (it could be constructed from the surface geometry,
     # which spans the tangential plane). We instead get the normal vector from
     # the adjacent higher dimensional grid.
     # We therefore access the grids via the edges of the mixed-dimensional grid.
-    for e, d_m in gb.edges():
+    for e in edges:
+        d_m = gb.edge_props(e)
 
         mg = d_m["mortar_grid"]
         # Only consider edges where the lower-dimensional neighbor is of co-dimension 1
@@ -598,7 +604,7 @@ def set_projections(gb: pp.GridBucket) -> None:
             continue
 
         # Neigboring grids
-        _, g_h = gb.nodes_of_edge(e)
+        g_l, g_h = gb.nodes_of_edge(e)
 
         # Find faces of the higher dimensional grid that coincide with the mortar
         # grid. Go via the master to mortar projection
@@ -625,6 +631,12 @@ def set_projections(gb: pp.GridBucket) -> None:
         # thus assuming the surface is planar.
         outwards_unit_vector_mortar = mg.master_to_mortar_int().dot(unit_normal.T).T
 
+        normal_other_side_zero = outwards_unit_vector_mortar * np.logical_not(
+            mg._other_side
+        )
+
+        normal_lower = mg.mortar_to_slave_int().dot(normal_other_side_zero.T).T
+
         # NOTE: The normal vector is based on the first cell in the mortar grid,
         # and will be pointing from that cell towards the other side of the
         # mortar grid. This defines the positive direction in the normal direction.
@@ -635,9 +647,8 @@ def set_projections(gb: pp.GridBucket) -> None:
         #
         # NOTE: The basis for the tangential direction is determined by the
         # construction internally in TangentialNormalProjection.
-        projection = pp.TangentialNormalProjection(
-            outwards_unit_vector_mortar[:, 0].reshape((-1, 1))
-        )
+        projection = pp.TangentialNormalProjection(normal_lower)
 
-        # Store the projection operator in the mortar data
-        d_m["tangential_normal_projection"] = projection
+        d_l = gb.node_props(g_l)
+        # Store the projection operator in the lower-dimensional data
+        d_l["tangential_normal_projection"] = projection

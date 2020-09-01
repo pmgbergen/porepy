@@ -205,6 +205,8 @@ def _update_mortar_grid(g_h, g_l, d_e, new_cells, new_faces_h):
 
     d_e["mortar_grid"] = mg_new
 
+    # Also update tangential-normal projection object
+
 
 def _update_geometry(g_h, g_l, new_cells, n_old_cells_l, n_old_faces_l):
     # Update geometry on each iteration to ensure correct tags.
