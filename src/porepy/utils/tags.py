@@ -105,7 +105,7 @@ def add_node_tags_from_face_tags(gb, tag_base):
     be domain_boundary.
     """
     for g, _ in gb:
-        nodes = g.face_nodes[:, g.tags[tag_base + '_faces']].nonzero()[0]
+        nodes = g.face_nodes[:, g.tags[tag_base + "_faces"]].nonzero()[0]
         t = np.zeros(g.num_nodes, dtype=bool)
         t[np.unique(nodes)] = True
-        g.tags[tag_base + '_nodes'] = t
+        g.tags[tag_base + "_nodes"] = t

@@ -150,4 +150,3 @@ from porepy.grids import coarsening, partition, refinement
 import porepy.utils.derived_discretizations
 from porepy.numerics import displacement_correlation
 from porepy.fracs import propagate_fracture
-

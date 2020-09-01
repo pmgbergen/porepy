@@ -18,6 +18,7 @@ import porepy as pp
 
 # ---------------------propagation criteria----------------------------------#
 
+
 def faces_to_open(gb, u, critical_sifs, **kw):
     """
     Determine where a fracture should propagate based on the displacement
@@ -64,27 +65,31 @@ def faces_to_open(gb, u, critical_sifs, **kw):
     g_h = gb.grids_of_dimension(dim_h)[0]
     d_h = gb.node_props(g_h)
 
-    E = d_h['Young']
-    poisson = d_h['Poisson']
+    E = d_h["Young"]
+    poisson = d_h["Poisson"]
     mu = E / (2 * (1 + poisson))
     kappa = 3 - 4 * poisson
 
     sifs = []
     faces_h_to_open = []
     for i, g_l in enumerate(gb.grids_of_dimension(dim_l)):
-        rm = kw.get('rm', estimate_rm(g_l, **kw))
+        rm = kw.get("rm", estimate_rm(g_l, **kw))
 
-        face_cells = gb.edge_props((g_h, g_l), 'face_cells')
+        face_cells = gb.edge_props((g_h, g_l), "face_cells")
 
         # Obtain the g_h.dim components of the relative displacement vector
         # corresponding to each fracture tip face of the lower dimension.
-        cells_l, faces_l, rm_vectors, rm_distances, normal_rm \
-            = identify_correlation_points(g_h, g_l, rm, u, face_cells)
+        (
+            cells_l,
+            faces_l,
+            rm_vectors,
+            rm_distances,
+            normal_rm,
+        ) = identify_correlation_points(g_h, g_l, rm, u, face_cells)
 
-        delta_u = relative_displacements(u, face_cells, g_l, cells_l, faces_l,
-                                         g_h)
+        delta_u = relative_displacements(u, face_cells, g_l, cells_l, faces_l, g_h)
 
-        if kw.get('use_normal_rm_distance', False) and g_l.dim > 1:
+        if kw.get("use_normal_rm_distance", False) and g_l.dim > 1:
             rm_distances = normal_rm
 
         # Use them to compute the SIFs locally.
@@ -92,8 +97,9 @@ def faces_to_open(gb, u, critical_sifs, **kw):
 
         tips_to_propagate = determine_onset(sifs_i, np.array(critical_sifs))
         # Find the right direction. For now, only normal extension is allowed.
-        faces_h_to_open_i = identify_faces_to_open(g_h, g_l, tips_to_propagate,
-                                                   rm_vectors)
+        faces_h_to_open_i = identify_faces_to_open(
+            g_h, g_l, tips_to_propagate, rm_vectors
+        )
         faces_h_to_open_i = np.unique(faces_h_to_open_i)
 
         faces_h_to_open.append(faces_h_to_open_i)
@@ -119,7 +125,7 @@ def identify_faces_to_open(g_h, g_l, tips_to_propagate, rm_vectors):
     Returns:
         faces_h (array): The higher-dimensional faces which should be opened.
     """
-    faces_l = g_l.tags['tip_faces'].nonzero()[0]
+    faces_l = g_l.tags["tip_faces"].nonzero()[0]
     # Construct points lying just outside the fracture tips
     extended_points = g_l.face_centers[:, faces_l] + rm_vectors / 100
     # Find closest higher-dimensional face.
@@ -127,7 +133,9 @@ def identify_faces_to_open(g_h, g_l, tips_to_propagate, rm_vectors):
     for i in range(extended_points.shape[1]):
         if tips_to_propagate[i]:
             p = extended_points[:, i]
-            distances = pp.cg.dist_point_pointset(p, g_h.face_centers)  # This is not ideal. Should be found among the faces
+            distances = pp.cg.dist_point_pointset(
+                p, g_h.face_centers
+            )  # This is not ideal. Should be found among the faces
             # having the tip as a node!
             faces_h.append(np.argmin(distances))
 
@@ -206,11 +214,10 @@ def identify_correlation_points(g_h, g_l, rm, u, face_cells):
     """
     # Find the g_l cell center which is closest to the optimal correlation
     # point for each fracture tip
-    faces_l = g_l.tags['tip_faces'].nonzero()[0]
+    faces_l = g_l.tags["tip_faces"].nonzero()[0]
     n_tips = faces_l.size
     ind = g_l.cell_faces[faces_l].nonzero()[1]
-    normals_l = np.divide(g_l.face_normals[:, faces_l],
-                          g_l.face_areas[faces_l])
+    normals_l = np.divide(g_l.face_normals[:, faces_l], g_l.face_areas[faces_l])
     # Get the sign right (outwards normals)
     normals_l = np.multiply(normals_l, g_l.cell_faces[faces_l, ind])
     rm_vectors = np.multiply(normals_l, rm)
@@ -223,8 +230,9 @@ def identify_correlation_points(g_h, g_l, rm, u, face_cells):
         p = optimal_points[:, i]
         distances = pp.cg.dist_point_pointset(p, g_l.cell_centers)
         cell_ind = np.argmin(distances)
-        dist = pp.cg.dist_point_pointset(g_l.face_centers[:, faces_l[i]],
-                                         g_l.cell_centers[:, cell_ind])
+        dist = pp.cg.dist_point_pointset(
+            g_l.face_centers[:, faces_l[i]], g_l.cell_centers[:, cell_ind]
+        )
 
         cells_l.append(cell_ind)
         actual_rm.append(dist)
@@ -233,7 +241,8 @@ def identify_correlation_points(g_h, g_l, rm, u, face_cells):
             p0 = g_l.nodes[:, nodes[0]].reshape((3, 1))
             p1 = g_l.nodes[:, nodes[1]].reshape((3, 1))
             normal_dist, _ = pp.cg.dist_points_segments(
-                    g_l.cell_centers[:, cell_ind], p0, p1)
+                g_l.cell_centers[:, cell_ind], p0, p1
+            )
             normal_rm.append(normal_dist[0])
 
     actual_rm = np.array(actual_rm)
@@ -265,15 +274,15 @@ def relative_displacements(u, face_cells, g_l, cells_l, faces_l, g_h):
     # of the tip faces
     n_tips = faces_l.size
     faces_h = face_cells[cells_l].nonzero()[1]
-    faces_h = faces_h.reshape((2, n_tips), order='F')
+    faces_h = faces_h.reshape((2, n_tips), order="F")
     # Extract the displacement differences between pairs of higher-dimensional
     # fracture faces
-    n_fracture_cells = int(round((u.size - g_h.num_cells * g_h.dim) /
-                                 g_h.dim / 2))
-    i_l = np.arange(g_h.num_cells * g_h.dim,
-                    (g_h.num_cells + n_fracture_cells) * g_h.dim)
+    n_fracture_cells = int(round((u.size - g_h.num_cells * g_h.dim) / g_h.dim / 2))
+    i_l = np.arange(
+        g_h.num_cells * g_h.dim, (g_h.num_cells + n_fracture_cells) * g_h.dim
+    )
     i_r = np.arange((g_h.num_cells + n_fracture_cells) * g_h.dim, u.size)
-    du_faces = np.reshape(u[i_l] - u[i_r], (g_h.dim, -1), order='F')
+    du_faces = np.reshape(u[i_l] - u[i_r], (g_h.dim, -1), order="F")
 
     delta_us = np.empty((g_h.dim, 0))
     # For each face center pair, rotate to local coordinate system aligned with
@@ -288,19 +297,20 @@ def relative_displacements(u, face_cells, g_l, cells_l, faces_l, g_h):
         nodes = cell_nodes[:, cell_l].nonzero()[0]
         pts = g_l.nodes[:, nodes]
         pts -= g_l.cell_centers[:, cell_l].reshape((3, 1))
-        normal_h_1 = g_h.face_normals[:, face_pair[1]] \
-            * g_h.cell_faces[face_pair[1]].data
+        normal_h_1 = (
+            g_h.face_normals[:, face_pair[1]] * g_h.cell_faces[face_pair[1]].data
+        )
         if g_h.dim == 3:
             # Rotate to xz, i.e., normal alignes with y. Pass normal of the
             # second face to ensure that the first one is on top in the local
             # coordinate system
 
-            R1 = pp.cg.project_plane_matrix(pts, normal=normal_h_1,
-                                            reference=[0, 1, 0])
+            R1 = pp.cg.project_plane_matrix(pts, normal=normal_h_1, reference=[0, 1, 0])
             # Rotate so that tangent aligns with z-coordinate
             nodes_l = g_l.face_nodes[:, faces_l[i]].nonzero()[0]
-            translated_pts = g_l.nodes[:, nodes_l] \
-                - g_l.face_centers[:, face_l].reshape((3,1))
+            translated_pts = g_l.nodes[:, nodes_l] - g_l.face_centers[
+                :, face_l
+            ].reshape((3, 1))
             pts = np.dot(R1, translated_pts)
         else:
             R1 = np.eye(3)
@@ -312,21 +322,22 @@ def relative_displacements(u, face_cells, g_l, cells_l, faces_l, g_h):
         if np.all(np.isclose(normal_r, np.array([1, 0, 0]))):
             R2 = np.eye(3)
         elif np.all(np.isclose(normal_r, np.array([-1, 0, 0]))):
-            R2 = - np.eye(3)
+            R2 = -np.eye(3)
             R2[3 - g_l.dim, 3 - g_l.dim] = 1
         else:
-            R2 = pp.cg.project_line_matrix(pts, tangent=normal_r,
-                                           reference=[1, 0, 0])
+            R2 = pp.cg.project_line_matrix(pts, tangent=normal_r, reference=[1, 0, 0])
         R = np.dot(R2, R1)
         normal_h_1_r = np.dot(R, normal_h_1) / np.linalg.norm(normal_h_1)
 
         h_1_sign = normal_h_1_r[1]
         assert np.all(np.isclose(h_1_sign * normal_h_1_r, np.array([0, 1, 0])))
         # Find what frac-pair the tip i corresponds to
-        j = pp.utils.setmembership.ismember_rows(face_pair[:, np.newaxis],
-                                                 g_h.frac_pairs)[1]
-        d_u = np.dot(R, np.append(du_faces[:, j],
-                                  np.zeros((1, 3 - g_h.dim))))[:g_h.dim]
+        j = pp.utils.setmembership.ismember_rows(
+            face_pair[:, np.newaxis], g_h.frac_pairs
+        )[1]
+        d_u = np.dot(R, np.append(du_faces[:, j], np.zeros((1, 3 - g_h.dim))))[
+            : g_h.dim
+        ]
         # Normal_h_1 points outward from the right cell in g_h.frac_pairs. If
         # it now points downwards, that cell is on the upper side in the
         # rotated coordinate system. Thne, d_u should be u_right - u_left,
@@ -350,8 +361,8 @@ def estimate_rm(g, **kw):
         rm  - distance estimate.
     """
     # Constant, see Nejati et al.
-    k = kw.get('rm_factor', .8)
-    faces = g.tags['tip_faces'].nonzero()[0]
+    k = kw.get("rm_factor", 0.8)
+    faces = g.tags["tip_faces"].nonzero()[0]
     if g.dim == 2:
         rm = k * g.face_areas[faces]
     else:
