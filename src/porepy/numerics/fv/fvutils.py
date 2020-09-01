@@ -80,7 +80,29 @@ class SubcellTopology(object):
             (face_nodes_data, face_nodes_indices, face_nodes_indptr)
         )
         sub_faces = sub_face_mat * M
-        sub_faces = sub_faces.data - 1
+        sub_faces = (sub_faces.data - 1).astype(int)
+
+        if hasattr(g, "per_map"):
+            sorted_left = np.sort(g.per_map[0])
+            sorted_right = np.sort(g.per_map[1])
+            if not np.allclose(sorted_left, g.per_map[0]):
+                raise NotImplementedError("Can not create subcell topology for periodic faces that are not sorted")
+            if not np.allclose(sorted_right, g.per_map[1]):
+                raise NotImplementedError("Can not create subcell topology for periodic faces that are not sorted")
+            left_subfaces = np.where(np.isin(faces_duplicated, g.per_map[0]))[0]
+            right_subfaces= np.where(np.isin(faces_duplicated, g.per_map[1]))[0]
+
+            left_subfaces = left_subfaces[np.argsort(faces_duplicated[left_subfaces])]
+            right_subfaces = right_subfaces[np.argsort(faces_duplicated[right_subfaces])]
+
+
+            for i in range(right_subfaces.size):
+                nodes_duplicated = np.where(
+                    nodes_duplicated == nodes_duplicated[right_subfaces[i]],
+                    nodes_duplicated[left_subfaces[i]],
+                    nodes_duplicated
+                )
+            sub_faces[right_subfaces] = sub_faces[left_subfaces]
 
         # Sort data
         idx = np.lexsort(
@@ -93,27 +115,15 @@ class SubcellTopology(object):
         self.subhfno = np.arange(idx.size, dtype=">i4")
         self.num_cno = self.cno.max() + 1
         self.num_nodes = self.nno.max() + 1
-
-        # Make subface indices unique, that is, pair the indices from the two
-        # adjacent cells
-        self.subfno_periodic = self.subfno.copy()
-        if hasattr(g, "per_map"):
-            left_subfno = np.where(np.isin(self.fno, g.per_map[0]))[0]
-            right_subfno = np.where(np.isin(self.fno, g.per_map[1]))[0]
-            for i in range(right_subfno.size):
-                self.nno = np.where(
-                    self.nno == self.nno[right_subfno[i]], self.nno[left_subfno[i]], self.nno
-                )
-            self.subfno[right_subfno] = self.subfno[left_subfno]
+        _, Ia, Ic = np.unique(self.subfno, return_index=True, return_inverse=True)        
+        self.subfno = self.subfno - np.cumsum(np.diff(np.r_[-1, self.subfno[Ia]]) - 1)[Ic]
 
         _, unique_subfno = np.unique(self.subfno, return_index=True)
-        _, unique_subfno_periodic = np.unique(self.subfno_periodic, return_index=True)
 
         self.num_subfno = self.subfno.max() + 1
         # Reduce topology to one field per subface
         self.nno_unique = self.nno[unique_subfno]
         self.fno_unique = self.fno[unique_subfno]
-        self.fno_unique_periodic = self.fno[unique_subfno_periodic]
         self.cno_unique = self.cno[unique_subfno]
         self.subfno_unique = self.subfno[unique_subfno]
         self.num_subfno_unique = self.subfno_unique.max() + 1
@@ -565,6 +575,8 @@ def invert_diagonal_blocks(mat, s, method=None):
         v = inv_python(ptr, indices, dat, size)
         return v
 
+    # Remove blocks of size 0
+    s = s[s>0]
     # Variable to check if we have tried and failed with numba
     try_cython = False
     if method == "numba" or method is None:

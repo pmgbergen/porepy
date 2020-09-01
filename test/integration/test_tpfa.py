@@ -6,7 +6,7 @@ Created on Wed Apr 13 15:36:14 2016
 from __future__ import division
 import random
 import numpy as np
-import unittest
+import pytest
 
 import porepy as pp
 
@@ -30,104 +30,117 @@ def setup_periodic_pressure_field(g, kxx):
     return pr_bound, pr_cell, src
 
 
-class TestTPFA(unittest.TestCase):
-    def test_periodic_pressure_field_2d(self):
-        """
-        Test that TPFA approximate an analytical periodic solution by imposing
-        periodic boundary conditions to the bottom and top faces of the unit square.
-        """
-        # Structured Cartesian grid
-        g, kxx = setup_cart_2d(np.array([10, 10]), [1, 1])
 
-        bot_faces = np.argwhere(g.face_centers[1] < 1e-5).ravel()
-        top_faces = np.argwhere(g.face_centers[1] > 1 - 1e-5).ravel()
 
-        left_faces = np.argwhere(g.face_centers[0] < 1e-5).ravel()
-        right_faces = np.argwhere(g.face_centers[0] > 1 - 1e-5).ravel()
+@pytest.mark.parametrize("method", ["tpfa", "mpfa"])
+def test_periodic_pressure_field_2d(method):
+    """
+    Test that TPFA approximate an analytical periodic solution by imposing
+    periodic boundary conditions to the bottom and top faces of the unit square.
+    """
+    # Structured Cartesian grid
+    g, kxx = setup_cart_2d(np.array([10, 10]), [1, 1])
 
-        dir_faces = np.hstack((left_faces, right_faces))
+    bot_faces = np.argwhere(g.face_centers[1] < 1e-5).ravel()
+    top_faces = np.argwhere(g.face_centers[1] > 1 - 1e-5).ravel()
 
-        g.set_periodic_map(np.vstack((bot_faces, top_faces)))
+    left_faces = np.argwhere(g.face_centers[0] < 1e-5).ravel()
+    right_faces = np.argwhere(g.face_centers[0] > 1 - 1e-5).ravel()
 
-        bound = pp.BoundaryCondition(g, dir_faces, "dir")
+    dir_faces = np.hstack((left_faces, right_faces))
 
-        # Solve
-        key = "flow"
-        d = pp.initialize_default_data(
-            g, {}, key, {"second_order_tensor": pp.SecondOrderTensor(kxx), "bc": bound}
-        )
+    g.set_periodic_map(np.vstack((bot_faces, top_faces)))
+
+    bound = pp.BoundaryCondition(g, dir_faces, "dir")
+
+    # Solve
+    key = "flow"
+    d = pp.initialize_default_data(
+        g, {}, key, {"second_order_tensor": pp.SecondOrderTensor(kxx), "bc": bound}
+    )
+    if method =="tpfa":
         discr = pp.Tpfa(key)
-        discr.discretize(g, d)
-        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][key]
-        flux, bound_flux = matrix_dictionary["flux"], matrix_dictionary["bound_flux"]
+    elif method =="mpfa":
+        discr = pp.Mpfa(key)
+    else:
+        assert(False)
+    discr.discretize(g, d)
+    matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][key]
+    flux, bound_flux = matrix_dictionary["flux"], matrix_dictionary["bound_flux"]
 
-        div = g.cell_faces.T
+    div = g.cell_faces.T
 
-        a = div * flux
+    a = div * flux
 
-        pr_bound, pr_cell, src = setup_periodic_pressure_field(g, kxx)
+    pr_bound, pr_cell, src = setup_periodic_pressure_field(g, kxx)
 
-        rhs = -div * bound_flux * pr_bound + src * g.cell_volumes
-        pr = np.linalg.solve(a.todense(), rhs)
+    rhs = -div * bound_flux * pr_bound + src * g.cell_volumes
+    pr = np.linalg.solve(a.todense(), rhs)
 
-        p_diff = pr - pr_cell
+    p_diff = pr - pr_cell
 
-        self.assertTrue(np.max(np.abs(p_diff)) < 0.06)
+    assert(np.max(np.abs(p_diff)) < 0.06)
 
-    def test_symmetry_periodic_pressure_field_2d(self):
-        """
-        Test that we obtain a symmetric solution accross the periodic boundary.
-        The test consider the unit square with periodic boundary conditions
-        on the top and bottom boundary. A source is added to the bottom row of
-        cells and we test that the solution is periodic.
-        Setup, with x denoting the source:
-               --------
-              |       |
-        p = 0 |       | p = 0
-              |   x   |
-               -------
-        """
-        # Structured Cartesian grid
-        g, kxx = setup_cart_2d(np.array([5, 5]), [1, 1])
+@pytest.mark.parametrize("method", ["tpfa", "mpfa"])
+def test_symmetry_periodic_pressure_field_2d(method):
+    """
+    Test that we obtain a symmetric solution accross the periodic boundary.
+    The test consider the unit square with periodic boundary conditions
+    on the top and bottom boundary. A source is added to the bottom row of
+    cells and we test that the solution is periodic.
+    Setup, with x denoting the source:
+           --------
+          |       |
+    p = 0 |       | p = 0
+          |   x   |
+           -------
+    """
+    # Structured Cartesian grid
+    g, kxx = setup_cart_2d(np.array([5, 5]), [1, 1])
 
-        bot_faces = np.argwhere(g.face_centers[1] < 1e-5).ravel()
-        top_faces = np.argwhere(g.face_centers[1] > 1 - 1e-5).ravel()
+    bot_faces = np.argwhere(g.face_centers[1] < 1e-5).ravel()
+    top_faces = np.argwhere(g.face_centers[1] > 1 - 1e-5).ravel()
 
-        left_faces = np.argwhere(g.face_centers[0] < 1e-5).ravel()
-        right_faces = np.argwhere(g.face_centers[0] > 1 - 1e-5).ravel()
+    left_faces = np.argwhere(g.face_centers[0] < 1e-5).ravel()
+    right_faces = np.argwhere(g.face_centers[0] > 1 - 1e-5).ravel()
 
-        dir_faces = np.hstack((left_faces, right_faces))
+    dir_faces = np.hstack((left_faces, right_faces))
 
-        g.set_periodic_map(np.vstack((bot_faces, top_faces)))
+    g.set_periodic_map(np.vstack((bot_faces, top_faces)))
 
-        bound = pp.BoundaryCondition(g, dir_faces, "dir")
+    bound = pp.BoundaryCondition(g, dir_faces, "dir")
 
 
 
-        # Solve
-        key = "flow"
-        d = pp.initialize_default_data(
-            g, {}, key, {"second_order_tensor": pp.SecondOrderTensor(kxx), "bc": bound}
-        )
+    # Solve
+    key = "flow"
+    d = pp.initialize_default_data(
+        g, {}, key, {"second_order_tensor": pp.SecondOrderTensor(kxx), "bc": bound}
+    )
+    if method =="tpfa":
         discr = pp.Tpfa(key)
-        discr.discretize(g, d)
-        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][key]
-        flux, bound_flux = matrix_dictionary["flux"], matrix_dictionary["bound_flux"]
+    elif method =="mpfa":
+        discr = pp.Mpfa(key)
+    else:
+        assert(False)
 
-        div = g.cell_faces.T
+    discr.discretize(g, d)
+    matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][key]
+    flux, bound_flux = matrix_dictionary["flux"], matrix_dictionary["bound_flux"]
 
-        a = div * flux
+    div = g.cell_faces.T
 
-        pr_bound = np.zeros(g.num_faces)
-        src = np.zeros(g.num_cells)
-        src[2] = 1
+    a = div * flux
 
-        rhs = -div * bound_flux * pr_bound + src
-        pr = np.linalg.solve(a.todense(), rhs)
+    pr_bound = np.zeros(g.num_faces)
+    src = np.zeros(g.num_cells)
+    src[2] = 1
 
-        p_diff = pr[5:15] - np.hstack((pr[-5:], pr[-10:-5]))
+    rhs = -div * bound_flux * pr_bound + src
+    pr = np.linalg.solve(a.todense(), rhs)
 
-        self.assertTrue(np.max(np.abs(p_diff)) < 1e-10)
+    p_diff = pr[5:15] - np.hstack((pr[-5:], pr[-10:-5]))
+    assert(np.max(np.abs(p_diff)) < 1e-10)
 
 
 if __name__ == "__main__":
