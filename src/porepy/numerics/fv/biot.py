@@ -1507,7 +1507,7 @@ class DivU(Discretization):
         nd = g.dim + 1
         proj = mg.mortar_to_slave_avg(nd=nd)
         jump_on_slave = proj * mg.sign_of_mortar_sides(nd=nd)
-        rotation = data_edge["tangential_normal_projection"]
+        rotation = data["tangential_normal_projection"]
         normal_component = rotation.project_normal(g.num_cells)
 
         # Obtain possibly heterogeneous biot alpha values

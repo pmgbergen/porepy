@@ -366,7 +366,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
         return state
 
-    def reconstruct_local_displacement_jump(self, data_edge, from_iterate=True):
+    def reconstruct_local_displacement_jump(
+        self, data_edge, projection, from_iterate=True
+    ):
         """
         Reconstruct the displacement jump in local coordinates.
 
@@ -391,7 +393,6 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             * mg.sign_of_mortar_sides(nd=self.Nd)
             * mortar_u
         )
-        projection = data_edge["tangential_normal_projection"]
         # Rotated displacement jumps. these are in the local coordinates, on
         project_to_local = projection.project_tangential_normal(int(mg.num_cells / 2))
         u_mortar_local = project_to_local * displacement_jump_global_coord
