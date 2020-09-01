@@ -1243,6 +1243,8 @@ class Mpfa(pp.FVElliptic):
             neu_rob_dir_ind = neu_rob_ind_all
         elif dir_ind.size > 0:
             neu_rob_dir_ind = dir_ind_all
+        elif num_bound==0: # all of them are empty
+            neu_rob_dir_ind = neu_rob_ind
         else:
             raise ValueError("Boundary values should be either Dirichlet or " "Neumann")
 
