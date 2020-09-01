@@ -332,7 +332,7 @@ class ColoumbContact:
                 # direction, a contribution from the previous iterate enters to cancel
                 # the gap
                 r_n = gap[i] - np.dot(d_gap[:, i], cumulative_tangential_jump[:, i].T)
-                # assert np.isclose(r_n, initial_gap[i])  # TODO: Agree on cumulative with EK
+
                 r_t = r + friction_bound[i] * v
                 r = np.vstack((r_t, r_n))
                 # Unit contribution from tangential force
