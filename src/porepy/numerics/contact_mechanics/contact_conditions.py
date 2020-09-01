@@ -17,7 +17,7 @@ See also contact_mechanics_interface_laws.py.
 Signs of displacement jumps are reversed compared to Berge due to the PorePy definition
 of the jump as [[ var ]] = var_k - var_j, which implies that positive normal jumps
 correspond to fracture opening. Note that the fracture normal is in agreement with
-Berge, i.e. it equals the outwards normal on the j side. 
+Berge, i.e. it equals the outwards normal on the j side.
 
 Option added to the Berge model:
 Include a simple relationship between the gap and tangential displacements, i.e.
