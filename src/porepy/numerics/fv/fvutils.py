@@ -91,17 +91,29 @@ class SubcellTopology(object):
         self.fno = faces_duplicated[idx]
         self.subfno = sub_faces[idx].astype(int)
         self.subhfno = np.arange(idx.size, dtype=">i4")
-        self.num_subfno = self.subfno.max() + 1
         self.num_cno = self.cno.max() + 1
         self.num_nodes = self.nno.max() + 1
 
         # Make subface indices unique, that is, pair the indices from the two
         # adjacent cells
-        _, unique_subfno = np.unique(self.subfno, return_index=True)
+        self.subfno_periodic = self.subfno.copy()
+        if hasattr(g, "per_map"):
+            left_subfno = np.where(np.isin(self.fno, g.per_map[0]))[0]
+            right_subfno = np.where(np.isin(self.fno, g.per_map[1]))[0]
+            for i in range(right_subfno.size):
+                self.nno = np.where(
+                    self.nno == self.nno[right_subfno[i]], self.nno[left_subfno[i]], self.nno
+                )
+            self.subfno[right_subfno] = self.subfno[left_subfno]
 
+        _, unique_subfno = np.unique(self.subfno, return_index=True)
+        _, unique_subfno_periodic = np.unique(self.subfno_periodic, return_index=True)
+
+        self.num_subfno = self.subfno.max() + 1
         # Reduce topology to one field per subface
         self.nno_unique = self.nno[unique_subfno]
         self.fno_unique = self.fno[unique_subfno]
+        self.fno_unique_periodic = self.fno[unique_subfno_periodic]
         self.cno_unique = self.cno[unique_subfno]
         self.subfno_unique = self.subfno[unique_subfno]
         self.num_subfno_unique = self.subfno_unique.max() + 1
@@ -210,6 +222,7 @@ def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
 
     ind_ptr = np.hstack((np.arange(0, cols.size, dims), cols.size))
     mat = sps.csr_matrix((dist.ravel("F"), cols.ravel("F"), ind_ptr))
+
     if return_paired:
         return subcell_topology.pair_over_subfaces(mat)
     else:
@@ -440,7 +453,7 @@ def invert_diagonal_blocks(mat, s, method=None):
         """
         try:
             import porepy.numerics.fv.cythoninvert as cythoninvert
-        except:
+        except ImportError:
             raise ImportError(
                 """Compiled Cython module not available. Is cython installed?"""
             )
@@ -472,7 +485,7 @@ def invert_diagonal_blocks(mat, s, method=None):
         """
         try:
             import numba
-        except:
+        except ImportError:
             raise ImportError("Numba not available on the system")
 
         # Sort matrix storage before pulling indices and data
@@ -559,7 +572,7 @@ def invert_diagonal_blocks(mat, s, method=None):
             inv_vals = invert_diagonal_blocks_numba(mat, s)
         except np.linalg.LinAlgError:
             raise ValueError("Error in inversion of local linear systems")
-        except:
+        except Exception:
             # This went wrong, fall back on cython
             try_cython = True
     # Variable to check if we should fall back on python
@@ -1544,7 +1557,7 @@ def compute_darcy_flux(
 
     def extract_variable(d, var):
         if from_iterate:
-            return d[pp.STATE]["previous_iterate"][var]
+            return d[pp.STATE][pp.ITERATE][var]
         else:
             return d[pp.STATE][var]
 
@@ -1647,6 +1660,6 @@ def boundary_to_sub_boundary(bound, subcell_topology):
     else:
         bound.robin_weight = bound.robin_weight[subcell_topology.fno_unique]
         bound.basis = bound.basis[subcell_topology.fno_unique]
-    bound.num_faces = subcell_topology.num_subfno_unique
+    bound.num_faces = np.max(subcell_topology.subfno) + 1
     bound.bf = np.where(np.isin(subcell_topology.fno, bound.bf))[0]
     return bound
