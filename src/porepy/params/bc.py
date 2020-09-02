@@ -150,13 +150,8 @@ class BoundaryCondition(AbstractBoundaryCondition):
                 else:
                     raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
 
-
     def __repr__(self) -> str:
-        num_cond = (
-            self.is_neu.sum()
-            + self.is_dir.sum()
-            + self.is_rob.sum()
-        )
+        num_cond = self.is_neu.sum() + self.is_dir.sum() + self.is_rob.sum()
         s = (
             f"Boundary condition for scalar problem in {self.dim + 1} dimensions\n"
             f"Grid has {self.num_faces} faces.\n"
