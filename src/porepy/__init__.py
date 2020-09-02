@@ -128,7 +128,8 @@ from porepy.numerics.interface_laws.contact_mechanics_interface_laws import (
     FractureScalarToForceBalance,
 )
 from porepy.numerics.fracture_deformation.contact_conditions import ColoumbContact
-from porepy.numerics.fracture_deformation import contact_conditions
+from porepy.numerics.fracture_deformation import contact_conditions, propagate_fracture
+from porepy.numerics.fracture_deformation.propagation_model import FracturePropagation
 
 # Related to models and solvers
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
@@ -149,4 +150,3 @@ from porepy.fracs import meshing, fracture_importer
 from porepy.grids import coarsening, partition, refinement
 import porepy.utils.derived_discretizations
 from porepy.numerics import displacement_correlation
-from porepy.fracs import propagate_fracture
