@@ -644,7 +644,8 @@ class Mpfa(pp.FVElliptic):
             (
                 np.ones(subcell_topology.unique_subfno.size),
                 (subcell_topology.fno_unique, subcell_topology.subfno_unique),
-            )
+            ),
+            shape = (g.num_faces, subcell_topology.num_subfno_unique)
         )
 
         # If the grid has a periodic boundary, the left faces is topologically
@@ -661,7 +662,7 @@ class Mpfa(pp.FVElliptic):
             indices[g.per_map[1]] = g.per_map[0]
             indptr = np.arange(g.num_faces + 1)
             data = np.ones(g.num_faces, dtype=int)
-            periodic2face = sps.csr_matrix((data, indices, indptr))
+            periodic2face = sps.csr_matrix((data, indices, indptr), (g.num_faces, g.num_faces))
             # Update hf2f so that it maps to the faces of g.
             hf2f = periodic2face * hf2f
 
