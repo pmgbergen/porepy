@@ -170,11 +170,10 @@ class FracturePropagation:
         (dim, n_points) = d_u.shape
         K = np.zeros(d_u.shape)
         rm = rm.T
-        # TODO: revert miunuses when pp convention changes
-        K[0] = -np.sqrt(2 * np.pi / rm) * np.divide(mu, kappa + 1) * d_u[1, :]
-        K[1] = -np.sqrt(2 * np.pi / rm) * np.divide(mu, kappa + 1) * d_u[0, :]
+        K[0] = np.sqrt(2 * np.pi / rm) * np.divide(mu, kappa + 1) * d_u[1, :]
+        K[1] = np.sqrt(2 * np.pi / rm) * np.divide(mu, kappa + 1) * d_u[0, :]
         if dim == 3:
-            K[2] = -np.sqrt(2 * np.pi / rm) * np.divide(mu, 4) * d_u[2, :]
+            K[2] = np.sqrt(2 * np.pi / rm) * np.divide(mu, 4) * d_u[2, :]
 
         return K
 
