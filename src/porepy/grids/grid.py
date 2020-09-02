@@ -686,7 +686,6 @@ class Grid:
         self.per_map = per_map
         self.tags["domain_boundary_faces"][self.per_map.ravel()] = False
 
-
     def update_boundary_node_tag(self) -> None:
         """ Tag nodes on the boundary of the grid with boundary tag.
 

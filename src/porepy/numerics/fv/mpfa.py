@@ -649,7 +649,7 @@ class Mpfa(pp.FVElliptic):
 
         # If the grid has a periodic boundary, the left faces is topologically
         # connected to the right faces. This is included in the SubcellTopology
-        # class by merging the right faces with the left faces. This means that 
+        # class by merging the right faces with the left faces. This means that
         # hf2f is a mapping from topological unique half faces to topological unique
         # faces. However, we want the discretization to be
         # applied to the topology of g (where the left and right faces are different).
@@ -1254,7 +1254,7 @@ class Mpfa(pp.FVElliptic):
             neu_rob_dir_ind = neu_rob_ind_all
         elif dir_ind.size > 0:
             neu_rob_dir_ind = dir_ind_all
-        elif num_bound==0: # all of them are empty
+        elif num_bound == 0:  # all of them are empty
             neu_rob_dir_ind = neu_rob_ind
         else:
             raise ValueError("Boundary values should be either Dirichlet or " "Neumann")
