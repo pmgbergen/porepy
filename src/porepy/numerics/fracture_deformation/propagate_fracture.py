@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Propagation of fractures. Much in common with (and reuse of) split_grid.
 For now assumes:
@@ -7,6 +5,10 @@ For now assumes:
 When this assumption is relieved, some (re)structuring will be needed.
 The structure for multi-fracture propagation may possibly strongly resemble
 that of split_grid.
+
+WARNING: This should be considered experimental code, which cannot be assumed
+to be bug free.
+
 """
 import warnings
 import numpy as np
