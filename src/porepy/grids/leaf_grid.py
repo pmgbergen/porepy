@@ -111,6 +111,8 @@ class CartLeafGrid(pp.CartGrid):
             h.face_areas = self.face_areas.copy()
         if hasattr(self, "tags"):
             h.tags = self.tags.copy()
+        if hasattr(self, "per_map"):
+            h.per_map = self.per_map.copy()
 
         for level in range(self.num_levels):
             h.level_grids[level] = self.level_grids[level].copy()
