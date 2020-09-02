@@ -524,7 +524,7 @@ class Mpsa(Discretization):
         if bound.bc_type != "vectorial":
             raise AttributeError("MPSA must be given a vectorial boundary condition")
 
-        if bound.is_per.sum():
+        if hasattr(g, "per_map"):
             raise NotImplementedError(
                 "Periodic boundary conditions are not implemented for Mpsa"
             )
@@ -787,9 +787,9 @@ class Mpsa(Discretization):
         # Here you have to be carefull if you ever change hook_cell to something else than
         # 0. Because we have pulled the Neumann conditions out of the stress condition
         # the following would give an index error. Instead you would have to make a
-        # hook_cell_neu equal the number neumann_sub_faces, and a hook_cell_int equal the number
-        # of internal sub_faces and use .keep_neu and .exclude_bnd. But since this is all zeros,
-        # thi indexing does not matter.
+        # hook_cell_neu equal the number neumann_sub_faces, and a hook_cell_int equal the
+        # number of internal sub_faces and use .keep_neu and .exclude_bnd. But since this
+        # is all zeros, this indexing does not matter.
         hook_cell = bound_exclusion.exclude_robin_dirichlet(hook_cell)
 
         # Matrices to enforce displacement continuity
@@ -857,7 +857,8 @@ class Mpsa(Discretization):
         # Define right hand side for Neumann boundary conditions
         # First row indices in rhs matrix
         # Pick out the subface indices
-        # The boundary conditions should be given in the given basis, therefore no transformation
+        # The boundary conditions should be given in the given basis, therefore no
+        # transformation
         subfno_neu = bound_exclusion.keep_neumann(
             subfno_nd.ravel("C"), transform=False
         ).ravel("F")

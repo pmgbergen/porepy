@@ -298,11 +298,10 @@ class CartGrid(TensorGrid):
         Parameters
         ----------
         nx (np.ndarray): Number of cells in each direction. Should be 1D, 2D or 3D
+            1d grids can also be specified by a scalar.
         physdims (np.ndarray): Physical dimensions in each direction.
             Defaults to same as nx, that is, cells of unit size.
         """
-
-        #        nx = nx.astype(np.int)
 
         if physdims is None:
             physdims = nx
@@ -313,8 +312,11 @@ class CartGrid(TensorGrid):
 
         # Create point distribution, and then leave construction to
         # TensorGrid constructor
-        if dims is ():  # dirty trick
+        if len(dims) == 0:
             nodes_x = np.linspace(0, physdims, nx + 1)
+            super(self.__class__, self).__init__(nodes_x, name=name)
+        elif dims[0] == 1:
+            nodes_x = np.linspace(0, physdims, nx[0] + 1).ravel()
             super(self.__class__, self).__init__(nodes_x, name=name)
         elif dims[0] == 2:
             nodes_x = np.linspace(0, physdims[0], nx[0] + 1)

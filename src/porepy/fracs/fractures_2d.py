@@ -268,9 +268,9 @@ class FractureNetwork2d(object):
     ):
         """ Process network intersections and write a gmsh .geo configuration file,
         ready to be processed by gmsh.
-        
+
         NOTE: Consider to use the mesh() function instead to get a ready GridBucket.
-        
+
         Parameters:
             mesh_args: Arguments passed on to mesh size control
             tol (double, optional): Tolerance used for geometric computations.
@@ -795,10 +795,10 @@ class FractureNetwork2d(object):
 
         # compute the length for each segment
         norm = lambda e0, e1: np.linalg.norm(self.pts[:, e0] - self.pts[:, e1])
-        l = np.array([norm(e[0], e[1]) for e in self.edges.T])
+        length = np.array([norm(e[0], e[1]) for e in self.edges.T])
 
         # compute the total length based on the fracture id
-        tot_l = lambda f: np.sum(l[np.isin(fi, f)])
+        tot_l = lambda f: np.sum(length[np.isin(fi, f)])
         return np.array([tot_l(f) for f in np.unique(fi)])
 
     def orientation(self, fi=None):
