@@ -135,6 +135,9 @@ def propagate_fractures(gb, faces):
         d_l = gb.node_props(g_l)
         _update_mortar_grid(g_h, g_l, d_e, d_l["new_cells"], d_l["new_faces"])
 
+        # Also update projection operators
+        pp.contact_conditions.set_projections(gb, [e])
+
 
 def _update_mortar_grid(g_h, g_l, d_e, new_cells, new_faces_h):
 
@@ -204,8 +207,6 @@ def _update_mortar_grid(g_h, g_l, d_e, new_cells, new_faces_h):
     )
 
     d_e["mortar_grid"] = mg_new
-
-    # Also update tangential-normal projection object
 
 
 def _update_geometry(g_h, g_l, new_cells, n_old_cells_l, n_old_faces_l):
@@ -297,7 +298,7 @@ def _update_geometry(g_h, g_l, new_cells, n_old_cells_l, n_old_faces_l):
             # the cell centers.
             # Note that for extremely curved fractures (> 90 degrees), this may give
             # wrong geometries
-            sgn = np.sign(np.sum(normals * vec, axis=1))
+            sgn = np.sign(np.sum(normals * vec, axis=0))
             signed_normals = sgn * normals
 
             # For the moment, use the mean of the two values.
