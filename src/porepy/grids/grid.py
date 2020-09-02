@@ -659,6 +659,23 @@ class Grid:
             self.tags["domain_boundary_faces"][bd_faces] = True
 
     def set_periodic_map(self, per_map: np.ndarray) -> None:
+        """
+        Set the index map between periodic boundary faces. The mapping assumes
+        a one to one mapping between the periodic boundary faces (i.e., matching
+        faces).
+
+        Parameters:
+        per_map (np.ndarray, int, 2 x # periodic faces): Defines the periodic
+            faces. Face index per_map[0, i] is periodic with face index
+            per_map[1, i]. The given map is stored to the attribute per_map
+
+        New attributes:
+        per_map (np.ndarray, int, 2 x # periodic faces): See per_map in Parameters.
+
+        Changes attributes:
+        tags["domain_boundary_faces"]: The domain boundary tags are set to False
+            for all faces in per_map.
+        """
         if per_map.shape[0] != 2:
             raise ValueError("dimension 0 of per_map must be of size 2")
         if np.max(per_map) > self.num_faces:
