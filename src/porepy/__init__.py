@@ -136,7 +136,11 @@ from porepy.numerics.fracture_deformation.conforming_propagation import (
 # Related to models and solvers
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
 from porepy.numerics.linear_solvers import LinearSolver
-from porepy.models.run_models import run_stationary_model, run_time_dependent_model
+from porepy.models.run_models import (
+    run_stationary_model,
+    run_time_dependent_model,
+    run_iterative_model,
+)
 
 from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 from porepy.models.contact_mechanics_model import ContactMechanics
