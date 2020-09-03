@@ -73,6 +73,10 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         # Initialize grid bucket
         self.gb = None
 
+        # Set a convergence study. Not sure if a boolean is sufficient, or whether
+        # we should have an enum here.
+        self.convergence_status = False
+
     def create_grid(self):
         """ Create a (fractured) domain in 2D or 3D, with projections to local
         coordinates set for all fractures.
@@ -492,7 +496,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
     def before_newton_loop(self):
         """ Will be run before entering a Newton loop. Discretize time-dependent quantities etc.
         """
-        pass
+        self.convergence_status = False
 
     def before_newton_iteration(self):
         # Re-discretize the nonlinear term
@@ -524,6 +528,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
     def after_newton_convergence(self, solution, errors, iteration_counter):
         self.assembler.distribute_variable(solution)
+        self.convergence_status = True
 
     def check_convergence(self, solution, prev_solution, init_solution, nl_params=None):
         g_max = self._nd_grid()

@@ -49,6 +49,11 @@ class ConformingFracturePropagation(FracturePropagation):
     and fields are made.
     """
 
+    def has_propagated(self) -> bool:
+        if not hasattr(self, "propagated_fracture"):
+            return False
+        return self.propagated_fracture
+
     def evaluate_propagation(self) -> None:
         """
         Evaluate propagation for all fractures based on the current solution.
@@ -72,6 +77,8 @@ class ConformingFracturePropagation(FracturePropagation):
 
         face_list = []
 
+        self.propagated_fracture = False
+
         for e, d in gb.edges():
             g_l, g_h = gb.nodes_of_edge(e)
             if g_h.dim == self.Nd:
@@ -84,6 +91,7 @@ class ConformingFracturePropagation(FracturePropagation):
             if d["propagation_face_map"].data.size > 0:
                 row, col, _ = sps.find(d["propagation_face_map"])
                 face_list.append(col)
+                self.propagated_fracture = True
             else:
                 face_list.append([])
         pp.propagate_fracture.propagate_fractures(gb, face_list)

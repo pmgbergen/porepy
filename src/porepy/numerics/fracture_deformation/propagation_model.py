@@ -39,6 +39,11 @@ class FracturePropagation(abc.ABC):
         whether the adaptive meshing is applied etc.
         """
 
+    @abc.abstractmethod
+    def has_propagated(self) -> bool:
+        """ Should return True if fractures were propagated in the previous step.
+        """
+
     def update_variables(self):
         for g, d in self.gb:
             if not ("cell_index_map" in d and "face_index_map" in d):

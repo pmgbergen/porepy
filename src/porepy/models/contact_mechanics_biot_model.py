@@ -522,7 +522,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
     def after_newton_convergence(
         self, solution: np.ndarray, errors: List, iteration_counter: int
     ) -> None:
-        self.assembler.distribute_variable(solution)
+        super().after_newton_convergence(solution, errors, iteration_counter)
         self.save_mechanical_bc_values()
 
     def save_mechanical_bc_values(self) -> None:
