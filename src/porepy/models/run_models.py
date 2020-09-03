@@ -51,3 +51,34 @@ def run_time_dependent_model(setup, params):
         solver.solve(setup)
 
     setup.after_simulation()
+
+
+def run_iterative_model(setup, params):
+    """ Intended use is for multi-step models with iterative couplings.
+
+    Only known instance so far is the combination of fracture deformation
+    and propagation.
+    """
+    # Assign parameters, variables and discretizations. Discretize time-indepedent terms
+    if params.get("prepare_simulation", True):
+        setup.prepare_simulation()
+
+    # Prepare for the time loop
+    t_end = setup.end_time
+    k = 0
+    if setup._is_nonlinear_problem():
+        solver = pp.NewtonSolver(params)
+    else:
+        solver = pp.LinearSolver(params)
+    while setup.time < t_end:
+        setup.time += setup.time_step
+        k += 1
+        logger.info(
+            "\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
+                k, setup.time, t_end, setup.time_step
+            )
+        )
+        while not setup.has_converged():
+            solver.solve(setup)
+
+    setup.after_simulation()
