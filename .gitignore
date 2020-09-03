@@ -32,3 +32,5 @@ bin/*
 *.eps
 *.pdf
 .eggs/
+*.nbc
+*.nbi
