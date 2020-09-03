@@ -13,7 +13,7 @@ to be bug free.
 import warnings
 import numpy as np
 import scipy.sparse as sps
-from typing import Tuple
+from typing import Tuple, List
 
 import porepy as pp
 
@@ -45,24 +45,34 @@ def propagate_fractures(gb, faces):
 
     # First initialise certain tags to get rid of any existing tags from
     # previous calls
-    d = gb.node_props(g_h)
-    d["new_cells"] = np.empty(0, dtype=int)
-    d["new_faces"] = np.empty(0, dtype=int)
+    d_h = gb.node_props(g_h)
+    d_h["new_cells"] = np.empty(0, dtype=int)
+    d_h["new_faces"] = np.empty(0, dtype=int)
 
-    # Store a copy of the face-cell map on all edges - we will need this for the
-    # update of the mortar grid
-    for _, d in gb.edges_of_node(g_h):
-        d["face_cells_old"] = d["face_cells"].copy()
+    # By default, we will not update the higher-dimensional grid. This will be
+    # changed in the below for loop if the grid gets faces split.
+    d_h["partial_update"] = False
+
+    # Initialize mapping between old and new faces for g_h. We will store the updates
+    # from splitting related to each lower-dimensional grid, and then merge towards the
+    # end; the split data may be handy for debugging
+    face_map_h: List[sps.spmatrix] = [
+        sps.dia_matrix((np.ones(g_h.num_faces), 0), (g_h.num_faces, g_h.num_faces))
+    ]
 
     for i, g_l in enumerate(gb.grids_of_dimension(dim_h - 1)):
         # Initialize data on new faces and cells
-        d = gb.node_props(g_l)
-        d["new_cells"] = np.empty(0, dtype=int)
-        d["new_faces"] = np.empty(0, dtype=int)
+        d_l = gb.node_props(g_l)
+        d_l["new_cells"] = np.empty(0, dtype=int)
+        d_l["new_faces"] = np.empty(0, dtype=int)
 
         # If there is no propagation for this fracture, we continue
         faces_h = np.array(faces[i])
         if faces_h.size == 0:
+            # No need to update discretization of this grid
+            d_l["partial_update"] = False
+            # Identity mapping of faces in this step
+            face_map_h.append(sps.identity(g_h.num_faces))
             continue
 
         # Keep track of original information:
@@ -108,34 +118,77 @@ def propagate_fractures(gb, faces):
         # Store information on which faces and cells have just been added.
         # Note that we only keep track of the faces and cells from the last
         # propagation call!
-        new_faces_h = g_h.frac_pairs[1, np.isin(g_h.frac_pairs[0], faces_h)]
-
-        # Sanity check
-        assert np.all(new_faces_h >= n_old_faces_h)
-
-        d_h = gb.node_props(g_h)
-        d_l = gb.node_props(g_l)
-        d_h["partial_update"] = True
-        d_l["partial_update"] = True
-        d_h["new_faces"] = np.append(d_h["new_faces"], new_faces_h)
-        d_l["new_cells"] = np.append(d_l["new_cells"], new_cells)
         new_faces_l = np.arange(g_l.num_faces - n_new_faces, g_l.num_faces)
-        d_l["new_faces"] = np.append(d_l["new_faces"], new_faces_l)
+        new_faces_h = g_h.frac_pairs[1, np.isin(g_h.frac_pairs[0], faces_h)]
 
         # Sanity check on the grid; most likely something will have gone wrong
         # long before
+        assert np.all(new_faces_h >= n_old_faces_h)
         if not np.min(new_cells) >= n_old_cells_l:
             raise ValueError("New cells are assumed to be appended to cell array")
         if not np.min(new_faces_l) >= n_old_faces_l:
             raise ValueError("New faces are assumed to be appended to face array")
 
+        # Update the geometry
         _update_geometry(g_h, g_l, new_cells, n_old_cells_l, n_old_faces_l)
+
+        # Finally some bookkeeping that can become useful in a larger-scale simulation.
+
+        # Mark both grids for a partial update
+        d_h["partial_update"] = True
+        d_l["partial_update"] = True
+
+        # Append arrays of new faces (g_l, g_h) and cells (g_l)
+        d_h["new_faces"] = np.append(d_h["new_faces"], new_faces_h)
+        d_l["new_cells"] = np.append(d_l["new_cells"], new_cells)
+        d_l["new_faces"] = np.append(d_l["new_faces"], new_faces_l)
+
+        # Create mappings between the old and and faces and cells in g_l
+        arr = np.arange(n_old_faces_l)
+        face_map_l = sps.coo_matrix(
+            (np.ones(n_old_faces_l, dtype=np.int), (arr, arr)),
+            shape=(g_l.num_faces, n_old_faces_l),
+        ).tocsr()
+        arr = np.arange(n_old_cells_l)
+        cell_map_l = sps.coo_matrix(
+            (np.ones(n_old_cells_l, dtype=np.int), (arr, arr)),
+            shape=(g_l.num_cells, n_old_cells_l),
+        ).tocsr()
+
+        # These can be stored directly - there should be no more changes for g_l
+        d_l["face_index_map"] = face_map_l
+        d_l["cell_index_map"] = cell_map_l
+
+        # For g_h we construct the map of faces for the splitting of this g_l
+        # and append it to the list of face_maps
+        arr = np.arange(n_old_faces_h)
+        face_map_h.append(
+            sps.coo_matrix(
+                (np.ones(n_old_faces_h, dtype=np.int), (arr, arr)),
+                shape=(g_h.num_faces, n_old_faces_h),
+            ).tocsr()
+        )
+
+    # Done with all splitting.
+
+    # Compose the mapping of faces for g_l
+    fm = face_map_h[0]
+    for m in face_map_h[1:]:
+        fm = m * fm
+    d_h["face_index_map"] = fm
+    # Also make a cell-map, this is a 1-1 mapping in this case
+    d_h["cell_index_map"] = sps.identity(g_h.num_cells)
 
     # When all faces have been split, we can update the mortar grids
     for e, d_e in gb.edges_of_node(g_h):
         g_h, g_l = e
         d_l = gb.node_props(g_l)
         _update_mortar_grid(g_h, g_l, d_e, d_l["new_cells"], d_l["new_faces"])
+
+        # Mapping of cell indices on the mortar grid is composed by the corresponding
+        # map for g_l.
+        cell_map = sps.kron(sps.identity(2), d_l["cell_index_map"]).tocsr()
+        d_e["cell_index_map"] = cell_map
 
         # Also update projection operators
         pp.contact_conditions.set_projections(gb, [e])
