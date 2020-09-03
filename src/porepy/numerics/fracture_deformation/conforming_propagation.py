@@ -9,8 +9,9 @@ WARNING: This should be considered experimental code and should be used with
     to resolve.
 
 Contains:
-    FracturePropagation - class to be used together with a pp Model for propagation
-    simulations.
+    ConformingFracturePropagation - class to be used together with a pp Model for
+    propagation simulation.
+
     Required additional mechanical parameters:
         poisson_ratio (d_h)
         shear_modulus (d_h)
@@ -31,14 +32,19 @@ import scipy.sparse as sps
 import porepy as pp
 import logging
 from typing import Dict, Tuple
-
+from .propagation_model import FracturePropagation
 
 logger = logging.getLogger(__name__)
 
 
-class FracturePropagation:
+class ConformingFracturePropagation(FracturePropagation):
     """
-    Class for fracture propagation. 
+    Class for fracture propagation along existing faces in the higher-dimensional
+    grid. 
+
+    The propagation criteria is based on stress intensity factors, computed from
+    a displacement correlation approach.
+
     Should be used in combination with a Model class, i.e. assumptions on methods
     and fields are made.
     """
@@ -58,6 +64,10 @@ class FracturePropagation:
         None.
 
         """
+        # IMPLEMENTATION NOTE: Warnings from debuggers relating to self not having
+        # a gb is okay; this is provided by the Model class which this class should
+        # be combined with.
+        # It may not be the most pythonic approach, though.
         gb = self.gb
 
         face_list = []
@@ -66,10 +76,10 @@ class FracturePropagation:
             g_l, g_h = gb.nodes_of_edge(e)
             if g_h.dim == self.Nd:
                 d_l, d_h = gb.node_props(g_l), gb.node_props(g_h)
-                self.displacement_correlation(g_h, g_l, d_h, d_l, d)
-                self.propagation_criterion(d_l)
-                self.angle_criterion(d_l)
-                self.pick_propagation_faces(g_h, g_l, d_h, d_l, d)
+                self._displacement_correlation(g_h, g_l, d_h, d_l, d)
+                self._propagation_criterion(d_l)
+                self._angle_criterion(d_l)
+                self._pick_propagation_faces(g_h, g_l, d_h, d_l, d)
 
             if d["propagation_face_map"].data.size > 0:
                 row, col, _ = sps.find(d["propagation_face_map"])
@@ -78,7 +88,7 @@ class FracturePropagation:
                 face_list.append([])
         pp.propagate_fracture.propagate_fractures(gb, face_list)
 
-    def displacement_correlation(
+    def _displacement_correlation(
         self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
     ) -> None:
         """
@@ -125,7 +135,7 @@ class FracturePropagation:
         u_l = u_l.reshape((self.Nd, g_l.num_cells), order="F")[:, tip_cells]
         # Pick out components in the tip basis
 
-        tip_bases = self.tip_bases(
+        tip_bases = self._tip_bases(
             g_l, data_l["tangential_normal_projection"], tip_faces
         )
         d_u_tips = np.zeros((tip_bases.shape[1:3]))
@@ -139,12 +149,12 @@ class FracturePropagation:
         fc_cc = g_l.face_centers[::, tip_faces] - g_l.cell_centers[::, tip_cells]
         dist_face_cell = np.linalg.norm(fc_cc, 2, axis=0)
         sifs = np.zeros((self.Nd, g_l.num_faces))
-        sifs[:, tip_faces] = self.sifs_from_delta_u(
+        sifs[:, tip_faces] = self._sifs_from_delta_u(
             d_u_tips, dist_face_cell, parameters_h
         )
         parameters_l["SIFs"] = sifs
 
-    def sifs_from_delta_u(self, d_u, rm, parameters):
+    def _sifs_from_delta_u(self, d_u, rm, parameters):
         """
         Compute the stress intensity factors from the relative displacements.
         
@@ -177,10 +187,10 @@ class FracturePropagation:
 
         return K
 
-    def propagation_criterion(self, d: Dict) -> None:
+    def _propagation_criterion(self, d: Dict) -> None:
         """
         Tag faces for propagation if the equivalent SIF exceeds a critical value.
-        
+
         No checks on whether the faces are tips.
         See Eq. (4) in Thomas et al./(7) and (25) in Richard et al.
 
@@ -194,7 +204,7 @@ class FracturePropagation:
         -------
         None
             DESCRIPTION.
-        
+
         Stores a boolean array identifying the faces to be propagated.
         """
         parameters = d[pp.PARAMETERS][self.mechanics_parameter_key]
@@ -208,7 +218,7 @@ class FracturePropagation:
         K_equivalent = K[0] + np.sqrt(K[0] ** 2 + shear_contribution)
         parameters["propagate_faces"] = K_equivalent >= K_crit[0]
 
-    def angle_criterion(self, d: Dict) -> None:
+    def _angle_criterion(self, d: Dict) -> None:
         """
         Compute propagation angle based on SIFs.
         
@@ -254,7 +264,7 @@ class FracturePropagation:
         # picking of faces to propagate along.
         # parameters["propagation_angle_tangential"]
 
-    def pick_propagation_faces(
+    def _pick_propagation_faces(
         self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
     ) -> None:
         """
@@ -292,7 +302,9 @@ class FracturePropagation:
         parameters_l = data_l[pp.PARAMETERS][self.mechanics_parameter_key]
         faces_l = parameters_l["propagate_faces"].nonzero()[0]
 
-        tip_bases = self.tip_bases(g_l, data_l["tangential_normal_projection"], faces_l)
+        tip_bases = self._tip_bases(
+            g_l, data_l["tangential_normal_projection"], faces_l
+        )
         angles = parameters_l["propagation_angle_normal"][faces_l]
 
         # Find the edges
@@ -361,7 +373,7 @@ class FracturePropagation:
         vals[cells] = 1
         data_h[pp.STATE]["neighbor_cells"] = vals
 
-    def tip_bases(
+    def _tip_bases(
         self, g, projection: pp.TangentialNormalProjection, faces: np.ndarray,
     ):
         """

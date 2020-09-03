@@ -129,7 +129,9 @@ from porepy.numerics.interface_laws.contact_mechanics_interface_laws import (
 )
 from porepy.numerics.fracture_deformation.contact_conditions import ColoumbContact
 from porepy.numerics.fracture_deformation import contact_conditions, propagate_fracture
-from porepy.numerics.fracture_deformation.propagation_model import FracturePropagation
+from porepy.numerics.fracture_deformation.conforming_propagation import (
+    ConformingFracturePropagation,
+)
 
 # Related to models and solvers
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
