@@ -678,10 +678,11 @@ class Grid:
         """
         if per_map.shape[0] != 2:
             raise ValueError("dimension 0 of per_map must be of size 2")
-        if np.max(per_map) > self.num_faces:
-            raise ValueError("periodic face number larger than number of faces")
-        if np.min(per_map) < 0:
-            raise ValueError("periodic face number cannot be negative")
+        if per_map.shape[1] > 0:
+            if np.max(per_map) > self.num_faces:
+                raise ValueError("periodic face number larger than number of faces")
+            if np.min(per_map) < 0:
+                raise ValueError("periodic face number cannot be negative")
 
         self.per_map = per_map
         self.tags["domain_boundary_faces"][self.per_map.ravel()] = False
