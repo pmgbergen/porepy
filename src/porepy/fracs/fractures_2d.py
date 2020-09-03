@@ -889,7 +889,7 @@ class FractureNetwork2d(object):
             **kwargs: Keyword arguments to be passed on to matplotlib.
 
         """
-        pp.plot_fractures(self.domain, self.pts, self.edges, **kwargs)
+        pp.plot_fractures(self.pts, self.edges, domain=self.domain, **kwargs)
 
     def to_csv(self, file_name):
         """
