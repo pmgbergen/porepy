@@ -920,6 +920,44 @@ class Assembler:
         self.variable_combinations: List[str] = variable_combinations
         self._grid_variable_term_combinations = grid_variable_term_combinations
 
+    def update_dof_count(self) -> None:
+        """ Update the count of degrees of freedom related to a GridBucket.
+
+        The method loops thruogh the defined combinations of grids (standard or mortar)
+        and variables, and updates the number of fine-scale degree of freedom for this
+        combination. The system size will be updated if the grid has changed or
+        (perhaps less realistically) a variable has had its number of dofs per grid
+        quantity changed.
+
+        The method will not identify any new variables, for this, the preferred approach
+        is to define a new assembler object.
+
+        """
+        # Loop over identified grid-varibale combinations
+        for key, index in self.block_dof.items():
+            # Grid quantity (grid or interface), and variable
+            grid, variable = key
+            # Get data dictionary - this is slightly different for grid and interface
+            if isinstance(grid, pp.Grid):
+                d = self.gb.node_props(grid)
+            else:  # This is an edge
+                d = self.gb.edge_props(grid)
+                # Also fetch mortar grid
+                grid = d["mortar_grid"]
+
+            dof: Dict[str, int] = d[pp.PRIMARY_VARIABLES][variable]
+            # Dofs related to cell
+            num_dofs: int = grid.num_cells * dof.get("cells", 0)
+
+            if isinstance(grid, pp.Grid):
+                # Add dofs on faces and nodes, but not on interfaces
+                num_dofs += grid.num_faces * dof.get(
+                    "faces", 0
+                ) + grid.num_nodes * dof.get("nodes", 0)
+
+            # Update local counting
+            self.full_dof[index] = num_dofs
+
     def _initialize_matrix_rhs(
         self, sps_matrix: Type[csc_or_csr_matrix],
     ) -> Tuple[Dict[str, csc_or_csr_matrix], Dict[str, np.ndarray]]:

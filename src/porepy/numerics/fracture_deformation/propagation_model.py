@@ -86,3 +86,5 @@ class FracturePropagation(abc.ABC):
                     d[pp.STATE][pp.ITERATE][var] = (
                         mapping * d[pp.STATE][pp.ITERATE][var]
                     )
+        # Also update the assembler's counting of dofs
+        self.assembler.update_dof_count()
