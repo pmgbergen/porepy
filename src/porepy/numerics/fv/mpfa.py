@@ -380,6 +380,47 @@ class Mpfa(pp.FVElliptic):
                 self.bound_pressure_vector_source_matrix_key
             ] = bound_pressure_vector_source_glob
 
+    def update_discretization(self, g, data):
+
+        update_info = data["update_discretization"]
+
+        update_cells = update_info["modified_cells"]
+        update_faces = update_info["modified_faces"]
+
+        cell_map = update_info["map_cells"]
+        face_map = update_info["map_faces"]
+
+        param = data[pp.PARAMETERS][self.keyword]
+        param["active_cells"] = update_cells
+        param["active_faces"] = update_faces
+
+        mat_dict = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        cell_right = [
+            self.flux_matrix_key,
+            self.bound_pressure_cell_matrix_key,
+            self.vector_source_matrix_key,
+        ]
+
+        # NOTE: Do not use the update_discretization keyword, we will combine
+        # the information in a slightly different manner
+        mat_dict_copy = {}
+        for key, val in mat_dict.items():
+            mat = val
+            if key in cell_right:
+                mat = mat * cell_map.T
+            else:
+                mat = mat * face_map.T
+
+            mat_dict_copy[key] = face_map * mat
+
+        self.discretize(g, data)
+
+        for key, val in data[pp.DISCRETIZATION_MATRICES][self.keyword].items():
+            mat_dict_copy[key] += val
+
+        data[pp.DISCRETIZATION_MATRICES][self.keyword] = mat_dict_copy
+
     def _flux_discretization(
         self, g, k, bnd, inverter, ambient_dimension=None, eta=None
     ):
