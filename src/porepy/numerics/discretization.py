@@ -68,12 +68,9 @@ class Discretization(abc.ABC):
         a grid quantity may be rediscretized even if it is not marked as modified.
         The dictionary should further have keys:
 
-            map_cells, map_faces, map_nodes
+            cell_index_map, face_index_map, node_index_map
 
-        these should specify 2 x n np.ndarrays, that maps old (first row) to new
-        (second row) indices of unchanged grid quantities. The index of all cells,
-        faces and nodes should be found in *exactly one* of the respective modified
-        and map fields.
+        these should specify sparse matrices that maps old to new indices.
 
         It is up to the caller to specify which parts of the grid to recompute, and
         how to update the numbering of degrees of freedom. If the discretization
