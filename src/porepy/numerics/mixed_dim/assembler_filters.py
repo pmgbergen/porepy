@@ -179,6 +179,8 @@ class ListFilter(AssemblerFilter):
         if not grid_list:
             grid_list = []
 
+        self._grid_list = grid_list
+
         for g in grid_list:
             if isinstance(g, Grid):
                 nodes.append(g)
