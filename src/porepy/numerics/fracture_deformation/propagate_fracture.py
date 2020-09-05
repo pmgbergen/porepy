@@ -183,7 +183,7 @@ def propagate_fractures(gb, faces):
     for e, d_e in gb.edges_of_node(g_h):
         g_h, g_l = e
         d_l = gb.node_props(g_l)
-        _update_mortar_grid(g_h, g_l, d_e, d_l["new_cells"], d_l["new_faces"])
+        _update_mortar_grid(g_h, g_l, d_e, d_l["new_cells"], d_h["new_faces"])
 
         # Mapping of cell indices on the mortar grid is composed by the corresponding
         # map for g_l.
@@ -251,7 +251,7 @@ def _update_mortar_grid(g_h, g_l, d_e, new_cells, new_faces_h):
         if np.any(np.in1d(old_other_faces, other_side_old)):
             other_side_new = np.append(other_side_old, loc_faces[0])
         else:
-            other_side_new = np.append(other_side_new, loc_faces[1])
+            other_side_new = np.append(other_side_old, loc_faces[1])
 
     # The new mortar grid is constructed to be matching with g_l.
     # If splitting is undertaken for a non-matching grid, all bets are off.
