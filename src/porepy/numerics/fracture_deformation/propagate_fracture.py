@@ -249,9 +249,9 @@ def _update_mortar_grid(g_h, g_l, d_e, new_cells, new_faces_h):
         old_other_faces = np.setdiff1d(other_faces, new_faces_h)
 
         if np.any(np.in1d(old_other_faces, other_side_old)):
-            other_side_new = np.append(other_side_old, loc_faces[0])
+            other_side_new = np.append(other_side_new, loc_faces[0])
         else:
-            other_side_new = np.append(other_side_old, loc_faces[1])
+            other_side_new = np.append(other_side_new, loc_faces[1])
 
     # The new mortar grid is constructed to be matching with g_l.
     # If splitting is undertaken for a non-matching grid, all bets are off.
