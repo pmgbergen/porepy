@@ -149,7 +149,8 @@ class MortarGrid:
             # function sign_of_mortar_sides (see construction below).
             # Store which cells are given negative signs, this will be of use in
             # further manipulation of the mortar grid; e.g. during fracture propagation
-            self._other_side = cells_on_second_side
+            self._face_is_on_other_side = cells_on_second_side
+            self._ind_face_on_other_side = faces[cells_on_second_side]
 
         shape = (num_cells * self.num_sides(), face_cells.shape[1])
         self._master_to_mortar_int: sps.spmatrix = sps.csc_matrix(
