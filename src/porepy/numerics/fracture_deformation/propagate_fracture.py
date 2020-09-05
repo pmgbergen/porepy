@@ -207,7 +207,7 @@ def _update_mortar_grid(g_h, g_l, d_e, new_cells, new_faces_h):
     cells, faces, _ = sps.find(face_cells)
 
     # If this is ever broken, we have a problem
-    other_side_old = np.where(mg_old.mortar_to_master_avg() * mg_old._other_side)[0]
+    other_side_old = mg_old._ind_face_on_other_side
 
     other_side_new = np.copy(other_side_old)
 
@@ -258,7 +258,6 @@ def _update_mortar_grid(g_h, g_l, d_e, new_cells, new_faces_h):
     # The new mortar grid is constructed to be matching with g_l.
     # If splitting is undertaken for a non-matching grid, all bets are off.
     side_grids = {1: g_l, 2: g_l}
-
     mg_new = pp.MortarGrid(
         g_l.dim, side_grids, d_e["face_cells"], face_duplicate_ind=other_side_new
     )
