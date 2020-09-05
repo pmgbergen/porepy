@@ -71,6 +71,8 @@ def propagate_fractures(gb, faces):
         if faces_h.size == 0:
             # No need to update discretization of this grid
             d_l["partial_update"] = False
+            d_l["face_index_map"] = sps.identity(g_l.num_faces)
+            d_l["cell_index_map"] = sps.identity(g_l.num_cells)
             # Identity mapping of faces in this step
             face_map_h.append(sps.identity(g_h.num_faces))
             continue
