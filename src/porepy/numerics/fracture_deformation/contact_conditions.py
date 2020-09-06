@@ -632,7 +632,7 @@ def set_projections(
         outwards_unit_vector_mortar = mg.master_to_mortar_int().dot(unit_normal.T).T
 
         normal_other_side_zero = outwards_unit_vector_mortar * np.logical_not(
-            mg._other_side
+            mg._face_is_on_other_side
         )
 
         normal_lower = mg.mortar_to_slave_int().dot(normal_other_side_zero.T).T
