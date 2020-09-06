@@ -75,6 +75,18 @@ def propagate_fractures(gb, faces):
             d_l["cell_index_map"] = sps.identity(g_l.num_cells)
             # Identity mapping of faces in this step
             face_map_h.append(sps.identity(g_h.num_faces))
+            arr = np.arange(g_l.num_faces)
+            face_map_l = sps.coo_matrix(
+                (np.ones(g_l.num_faces, dtype=np.int), (arr, arr)),
+                shape=(g_l.num_faces, g_l.num_faces),
+            ).tocsr()
+            arr = np.arange(g_l.num_cells)
+            cell_map_l = sps.coo_matrix(
+                (np.ones(g_l.num_cells, dtype=np.int), (arr, arr)),
+                shape=(g_l.num_cells, g_l.num_cells),
+            ).tocsr()
+            d_l["face_index_map"] = face_map_l
+            d_l["cell_index_map"] = cell_map_l
             continue
 
         # Keep track of original information:
