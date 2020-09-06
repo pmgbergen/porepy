@@ -337,30 +337,20 @@ def _update_geometry(g_h, g_l, new_cells, n_old_cells_l, n_old_faces_l):
 
             # The normal is more difficult, since this is not unique.
             # The direction of the normal vectors computed from subgrids should be
-            # consistent with the +- convention in the main grid. However, better safe
-            # than sorry: Compute the vector between cell centers, directed according to
-            # the divergence operator.
-            vec = np.reshape(
-                g_l.cell_centers[:, face_neighs[1, fi]]
-                - g_l.cell_centers[:, face_neighs[0, fi]],
-                (3, 1),
-            )
+            # consistent with the +- convention in the main grid.
+
             # Normal vectors found for this global face
             normals = fn[:, hit]
             if normals.size == 3:
                 normals = normals.reshape((3, 1))
 
-            # Force normal vector to point in the same direction as the vector between
-            # the cell centers.
-            # Note that for extremely curved fractures (> 90 degrees), this may give
-            # wrong geometries
-            sgn = np.sign(np.sum(normals * vec, axis=0))
-            signed_normals = sgn * normals
-
             # For the moment, use the mean of the two values.
-            mean_normal = np.mean(signed_normals, axis=1)
+            mean_normal = np.mean(normals, axis=1)
 
             face_normals[:, fi] = mean_normal
+
+        # Sanity check
+        assert np.allclose(np.linalg.norm(face_normals, axis=0), face_areas)
 
         # Store computed values
         g_l.face_areas = face_areas
