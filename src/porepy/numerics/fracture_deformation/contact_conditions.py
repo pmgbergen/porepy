@@ -622,20 +622,13 @@ def set_projections(
         unit_normal[:, faces_on_surface] *= sgn
 
         # Now we need to pick out *one*  normal vector of the higher dimensional grid
-        # which coincides with this mortar grid. This could probably have been
-        # done with face tags, but we instead project the normal vectors onto the
-        # mortar grid to kill off all irrelevant faces. Restriction to a single
-        # normal vector is done in the construction of the projection object
-        # (below).
-        # NOTE: Use a single normal vector to span the tangential and normal space,
-        # thus assuming the surface is planar.
+        # which coincides with this mortar grid, so we kill off all entries for the
+        # "other" side:
+        unit_normal[:, mg._ind_face_on_other_side] = 0
+
+        # Project to the mortar and then to the fracture
         outwards_unit_vector_mortar = mg.master_to_mortar_int().dot(unit_normal.T).T
-
-        normal_other_side_zero = outwards_unit_vector_mortar * np.logical_not(
-            mg._face_is_on_other_side
-        )
-
-        normal_lower = mg.mortar_to_slave_int().dot(normal_other_side_zero.T).T
+        normal_lower = mg.mortar_to_slave_int().dot(outwards_unit_vector_mortar.T).T
 
         # NOTE: The normal vector is based on the first cell in the mortar grid,
         # and will be pointing from that cell towards the other side of the
