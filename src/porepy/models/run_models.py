@@ -76,7 +76,7 @@ def run_iterative_model(model, params):
         model.propagation_index = 0
         model.time += model.time_step
         model.time_index += 1
-        model.start_of_time_step()
+        model.before_propagation_loop()
         logger.info(
             "\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
                 model.time_index, model.time, t_end, model.time_step
@@ -84,7 +84,7 @@ def run_iterative_model(model, params):
         )
         while not model.has_converged():
             model.propagation_index += 1
-            
+
             solver.solve(model)
-        model.end_of_time_step()
+        model.after_propagation_loop()
     model.after_simulation()

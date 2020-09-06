@@ -93,3 +93,17 @@ class FracturePropagation(abc.ABC):
                     )
         # Also update the assembler's counting of dofs
         self.assembler.update_dof_count()
+
+    @abc.abstractmethod
+    def before_propagation_loop(self) -> None:
+        """ Will be called at the very end of a time step.
+        
+        Intended use: E.g. updates of parameters.
+        """
+        
+    @abc.abstractmethod
+    def after_propagation_loop(self) -> None:
+        """ Will be called at the very end of a time step.
+        
+        Intended use: E.g. export.
+        """
