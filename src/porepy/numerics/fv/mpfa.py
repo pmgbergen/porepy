@@ -656,10 +656,10 @@ class Mpfa(pp.FVElliptic):
         # applied to the topology of g (where the left and right faces are different).
         # We therefore map the left faces of the SubcellTopology to the right
         # faces of the grid:
-        if hasattr(g, "per_map"):
+        if hasattr(g, "periodic_face_map"):
             indices = np.arange(g.num_faces)
             # The left faces should be mapped to the right faces
-            indices[g.per_map[1]] = g.per_map[0]
+            indices[g.periodic_face_map[1]] = g.periodic_face_map[0]
             indptr = np.arange(g.num_faces + 1)
             data = np.ones(g.num_faces, dtype=int)
             periodic2face = sps.csr_matrix(

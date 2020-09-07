@@ -154,8 +154,8 @@ class Grid:
             h.face_areas = self.face_areas.copy()
         if hasattr(self, "tags"):
             h.tags = self.tags.copy()
-        if hasattr(self, "per_map"):
-            h.per_map = self.per_map.copy()
+        if hasattr(self, "periodic_face_map"):
+            h.periodic_face_map = self.periodic_face_map.copy()
         return h
 
     def __repr__(self) -> str:
@@ -658,33 +658,34 @@ class Grid:
             ).ravel("F")
             self.tags["domain_boundary_faces"][bd_faces] = True
 
-    def set_periodic_map(self, per_map: np.ndarray) -> None:
+    def set_periodic_map(self, periodic_face_map: np.ndarray) -> None:
         """
         Set the index map between periodic boundary faces. The mapping assumes
         a one to one mapping between the periodic boundary faces (i.e., matching
         faces).
 
         Parameters:
-        per_map (np.ndarray, int, 2 x # periodic faces): Defines the periodic
-            faces. Face index per_map[0, i] is periodic with face index
-            per_map[1, i]. The given map is stored to the attribute per_map
+        periodic_face_map (np.ndarray, int, 2 x # periodic faces): Defines the periodic
+            faces. Face index periodic_face_map[0, i] is periodic with face index
+            periodic_face_map[1, i]. The given map is stored to the attribute periodic_face_map
 
         New attributes:
-        per_map (np.ndarray, int, 2 x # periodic faces): See per_map in Parameters.
+        periodic_face_map (np.ndarray, int, 2 x # periodic faces): See periodic_face_map
+            in Parameters.
 
         Changes attributes:
         tags["domain_boundary_faces"]: The domain boundary tags are set to False
-            for all faces in per_map.
+            for all faces in periodic_face_map.
         """
-        if per_map.shape[0] != 2:
-            raise ValueError("dimension 0 of per_map must be of size 2")
-        if np.max(per_map) > self.num_faces:
+        if periodic_face_map.shape[0] != 2:
+            raise ValueError("dimension 0 of periodic_face_map must be of size 2")
+        if np.max(periodic_face_map) > self.num_faces:
             raise ValueError("periodic face number larger than number of faces")
-        if np.min(per_map) < 0:
+        if np.min(periodic_face_map) < 0:
             raise ValueError("periodic face number cannot be negative")
 
-        self.per_map = per_map
-        self.tags["domain_boundary_faces"][self.per_map.ravel()] = False
+        self.periodic_face_map = periodic_face_map
+        self.tags["domain_boundary_faces"][self.periodic_face_map.ravel()] = False
 
     def update_boundary_node_tag(self) -> None:
         """ Tag nodes on the boundary of the grid with boundary tag.
