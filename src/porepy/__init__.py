@@ -16,7 +16,7 @@ viz: Visualization; paraview, matplotlib.
 
 """
 
-__version__ = "1.2.3"
+__version__ = "1.2.4"
 
 # ------------------------------------
 # Simplified namespaces. The rue of thumb is that classes and modules that a
