@@ -110,9 +110,9 @@ class Tpfa(pp.FVElliptic):
         # cells and faces over the periodic boundary.
         # The periodic boundary is defined by a mapping from left faces to right
         # faces:
-        if hasattr(g, "per_map"):
-            fi_left = g.per_map[0]
-            fi_right = g.per_map[1]
+        if hasattr(g, "periodic_face_map"):
+            fi_left = g.periodic_face_map[0]
+            fi_right = g.periodic_face_map[1]
         else:
             fi_left = np.array([], dtype=int)
             fi_right = np.array([], dtype=int)

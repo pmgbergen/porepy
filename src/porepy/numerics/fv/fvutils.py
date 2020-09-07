@@ -86,26 +86,31 @@ class SubcellTopology(object):
         # The left and right faces should be intrepreted as one face topologically.
         # The face_nodes and cell_faces maps in the grid geometry does not consider
         # this. We therefore have to merge the left subfaces with the right subfaces.
-        if hasattr(g, "per_map"):
-            sorted_left = np.sort(g.per_map[0])
-            sorted_right = np.sort(g.per_map[1])
+        if hasattr(g, "periodic_face_map"):
+            sorted_left = np.sort(g.periodic_face_map[0])
+            sorted_right = np.sort(g.periodic_face_map[1])
             # It should be straightforward to generalize to the case where the faces
-            # are not sorted. You have to first sort g.per_map[0] and g.per_map[1],
-            # then use the two sorted arrays to find the left and right subfaces, then
-            # map the subfaces back to the original g.per_map.
-            if not np.allclose(sorted_left, g.per_map[0]):
+            # are not sorted. You have to first sort g.periodic_face_map[0] and
+            # g.periodic_face_map[1], then use the two sorted arrays to find the left
+            # and right subfaces, then map the subfaces back to the original
+            # g.periodic_face_map.
+            if not np.allclose(sorted_left, g.periodic_face_map[0]):
                 raise NotImplementedError(
                     "Can not create subcell topology for periodic faces that are not sorted"
                 )
-            if not np.allclose(sorted_right, g.per_map[1]):
+            if not np.allclose(sorted_right, g.periodic_face_map[1]):
                 raise NotImplementedError(
                     "Can not create subcell topology for periodic faces that are not sorted"
                 )
-            left_subfaces = np.where(np.isin(faces_duplicated, g.per_map[0]))[0]
-            right_subfaces = np.where(np.isin(faces_duplicated, g.per_map[1]))[0]
+            left_subfaces = np.where(np.isin(faces_duplicated, g.periodic_face_map[0]))[
+                0
+            ]
+            right_subfaces = np.where(
+                np.isin(faces_duplicated, g.periodic_face_map[1])
+            )[0]
             # We loose the ordering of g.per map using np.isin. But since we have assumed
-            # g.per_map[0] and g.per_map[1] to be sorted, we can easily retrive the ordering
-            # by this trick:
+            # g.periodic_face_map[0] and g.periodic_face_map[1] to be sorted, we can easily
+            # retrive the ordering by this trick:
             left_subfaces = left_subfaces[np.argsort(faces_duplicated[left_subfaces])]
             right_subfaces = right_subfaces[
                 np.argsort(faces_duplicated[right_subfaces])

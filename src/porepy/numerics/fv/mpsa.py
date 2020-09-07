@@ -524,7 +524,7 @@ class Mpsa(Discretization):
         if bound.bc_type != "vectorial":
             raise AttributeError("MPSA must be given a vectorial boundary condition")
 
-        if hasattr(g, "per_map"):
+        if hasattr(g, "periodic_face_map"):
             raise NotImplementedError(
                 "Periodic boundary conditions are not implemented for Mpsa"
             )

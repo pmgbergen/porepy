@@ -17,7 +17,6 @@ def _assign_params(g, perm, bc):
     return data
 
 
-
 @pytest.mark.parametrize("method", ["tpfa", "mpfa"])
 def test_fv_cart_2d(method):
     """ Apply TPFA and MPFA on Cartesian grid, should obtain Laplacian stencil."""
@@ -37,12 +36,12 @@ def test_fv_cart_2d(method):
     d = pp.initialize_default_data(
         g, {}, key, {"second_order_tensor": perm, "bc": bound}
     )
-    if method =="tpfa":
+    if method == "tpfa":
         discr = pp.Tpfa(key)
-    elif method =="mpfa":
+    elif method == "mpfa":
         discr = pp.Mpfa(key)
     else:
-        assert(False)
+        assert False
 
     discr.discretize(g, d)
     matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][key]
@@ -53,38 +52,39 @@ def test_fv_cart_2d(method):
 
     # Checks on interior cell
     mid = 4
-    assert(a[mid, mid] == 4)
-    assert(a[mid - 1, mid] == -1)
-    assert(a[mid + 1, mid] == -1)
-    assert(a[mid - 3, mid] == -1)
-    assert(a[mid + 3, mid] == -1)
+    assert a[mid, mid] == 4
+    assert a[mid - 1, mid] == -1
+    assert a[mid + 1, mid] == -1
+    assert a[mid - 3, mid] == -1
+    assert a[mid + 3, mid] == -1
 
-    assert(np.all(b[mid, :] == 0))
+    assert np.all(b[mid, :] == 0)
 
     # The first cell should have two Dirichlet bnds
-    assert(a[0, 0] == 6)
-    assert(a[0, 1] == -1)
-    assert(a[0, 3] == -1)
+    assert a[0, 0] == 6
+    assert a[0, 1] == -1
+    assert a[0, 3] == -1
 
-    assert(b[0, 0] == 2)
-    assert(b[0, 12] == 2)
+    assert b[0, 0] == 2
+    assert b[0, 12] == 2
 
     # Cell 3 has one Dirichlet, one Neumann face
-    assert(a[2, 2] == 4)
-    assert(a[2, 1] == -1)
-    assert(a[2, 5] == -1)
+    assert a[2, 2] == 4
+    assert a[2, 1] == -1
+    assert a[2, 5] == -1
 
-    assert(b[2, 3] == 2)
-    assert(b[2, 14] == -1)
+    assert b[2, 3] == 2
+    assert b[2, 14] == -1
     # Cell 2 has one Neumann face
-    assert(a[1, 1] == 3)
-    assert(a[1, 0] == -1)
-    assert(a[1, 2] == -1)
-    assert(a[1, 4] == -1)
+    assert a[1, 1] == 3
+    assert a[1, 0] == -1
+    assert a[1, 2] == -1
+    assert a[1, 4] == -1
 
-    assert(b[1, 13] == -1)
+    assert b[1, 13] == -1
 
     return a
+
 
 @pytest.mark.parametrize("method", ["tpfa", "mpfa"])
 def test_fv_cart_2d_periodic(method):
@@ -98,11 +98,10 @@ def test_fv_cart_2d_periodic(method):
     kxx = np.ones(g.num_cells)
     perm = pp.SecondOrderTensor(kxx)
 
-
     left_faces = [0, 4, 8, 12, 13, 14]
     right_faces = [3, 7, 11, 21, 22, 23]
-    per_map = np.vstack((left_faces, right_faces))
-    g.set_periodic_map(per_map)
+    periodic_face_map = np.vstack((left_faces, right_faces))
+    g.set_periodic_map(periodic_face_map)
 
     bound = pp.BoundaryCondition(g)
 
@@ -111,12 +110,12 @@ def test_fv_cart_2d_periodic(method):
         g, {}, key, {"second_order_tensor": perm, "bc": bound}
     )
 
-    if method =="tpfa":
+    if method == "tpfa":
         discr = pp.Tpfa(key)
-    elif method =="mpfa":
+    elif method == "mpfa":
         discr = pp.Mpfa(key)
     else:
-        assert(False)
+        assert False
 
     discr.discretize(g, d)
     matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][key]
@@ -140,8 +139,8 @@ def test_fv_cart_2d_periodic(method):
         ]
     )
 
-    assert(np.allclose(a.A, A_lap))
-    assert(np.allclose(b, 0))
+    assert np.allclose(a.A, A_lap)
+    assert np.allclose(b, 0)
     return a
 
 

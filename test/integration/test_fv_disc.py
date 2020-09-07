@@ -30,8 +30,6 @@ def setup_periodic_pressure_field(g, kxx):
     return pr_bound, pr_cell, src
 
 
-
-
 @pytest.mark.parametrize("method", ["tpfa", "mpfa"])
 def test_periodic_pressure_field_2d(method):
     """
@@ -58,12 +56,12 @@ def test_periodic_pressure_field_2d(method):
     d = pp.initialize_default_data(
         g, {}, key, {"second_order_tensor": pp.SecondOrderTensor(kxx), "bc": bound}
     )
-    if method =="tpfa":
+    if method == "tpfa":
         discr = pp.Tpfa(key)
-    elif method =="mpfa":
+    elif method == "mpfa":
         discr = pp.Mpfa(key)
     else:
-        assert(False)
+        assert False
     discr.discretize(g, d)
     matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][key]
     flux, bound_flux = matrix_dictionary["flux"], matrix_dictionary["bound_flux"]
@@ -79,7 +77,8 @@ def test_periodic_pressure_field_2d(method):
 
     p_diff = pr - pr_cell
 
-    assert(np.max(np.abs(p_diff)) < 0.06)
+    assert np.max(np.abs(p_diff)) < 0.06
+
 
 @pytest.mark.parametrize("method", ["tpfa", "mpfa"])
 def test_symmetry_periodic_pressure_field_2d(method):
@@ -110,19 +109,17 @@ def test_symmetry_periodic_pressure_field_2d(method):
 
     bound = pp.BoundaryCondition(g, dir_faces, "dir")
 
-
-
     # Solve
     key = "flow"
     d = pp.initialize_default_data(
         g, {}, key, {"second_order_tensor": pp.SecondOrderTensor(kxx), "bc": bound}
     )
-    if method =="tpfa":
+    if method == "tpfa":
         discr = pp.Tpfa(key)
-    elif method =="mpfa":
+    elif method == "mpfa":
         discr = pp.Mpfa(key)
     else:
-        assert(False)
+        assert False
 
     discr.discretize(g, d)
     matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][key]
@@ -140,7 +137,7 @@ def test_symmetry_periodic_pressure_field_2d(method):
     pr = np.linalg.solve(a.todense(), rhs)
 
     p_diff = pr[5:15] - np.hstack((pr[-5:], pr[-10:-5]))
-    assert(np.max(np.abs(p_diff)) < 1e-10)
+    assert np.max(np.abs(p_diff)) < 1e-10
 
 
 if __name__ == "__main__":
