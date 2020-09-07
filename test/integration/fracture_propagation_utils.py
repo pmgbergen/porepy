@@ -198,77 +198,91 @@ def check_equivalent_buckets(buckets, decimals=12):
     coordinates and the connectivity matrices cell_faces and face_nodes. Also
     checks the face tags.
 
-    Note: Only checks first grid of each dimension!!
     """
     dim_h = buckets[0].dim_max()
-    n = len(buckets)
+    dim_l = dim_h - 1
+    num_buckets = len(buckets)
     cell_maps_h, face_maps_h = [], []
-    cell_maps_l, face_maps_l = [], []
+    cell_maps_l, face_maps_l = num_buckets * [{}], num_buckets * [{}]
 
-    for d in range(dim_h - 1, dim_h + 1):
-        n_cells, n_faces, n_nodes = np.empty(0), np.empty(0), np.empty(0)
-        nodes, face_centers, cell_centers = [], [], []
-        cell_faces, face_nodes = [], []
-        for bucket in buckets:
-            g = bucket.grids_of_dimension(d)[0]
-            n_cells = np.append(n_cells, g.num_cells)
-            n_faces = np.append(n_faces, g.num_faces)
-            n_nodes = np.append(n_nodes, g.num_nodes)
-            cell_faces.append(g.cell_faces)
-            face_nodes.append(g.face_nodes)
-            cell_centers.append(g.cell_centers)
-            face_centers.append(g.face_centers)
-            nodes.append(g.nodes)
-        # Check that all buckets have the same number of cells, faces and nodes
-        assert np.unique(n_cells).size == 1
-        assert np.unique(n_faces).size == 1
-        assert np.unique(n_nodes).size == 1
-        # Check that the coordinates agree
-        cell_centers = np.round(cell_centers, decimals)
-        nodes = np.round(nodes, decimals)
-        face_centers = np.round(face_centers, decimals)
-        for i in range(1, n):
-            assert np.all(sm.ismember_rows(cell_centers[0], cell_centers[i])[0])
-            assert np.all(sm.ismember_rows(face_centers[0], face_centers[i])[0])
-            assert np.all(sm.ismember_rows(nodes[0], nodes[i])[0])
-        # Now we know all nodes, faces and cells are in all grids, we map them
-        # to prepare cell_faces and face_nodes comparison
-        g_0 = buckets[0].grids_of_dimension(d)[0]
-        for i in range(1, n):
-            bucket = buckets[i]
-            g = bucket.grids_of_dimension(d)[0]
-            cell_map, face_map, node_map = make_maps(g_0, g, bucket.dim_max())
-            mapped_cf = g.cell_faces[face_map][:, cell_map]
-            mapped_fn = g.face_nodes[node_map][:, face_map]
+    # Check that all buckets have the same number of grids in the lower dimension
+    num_grids_l: int = len(buckets[0].grids_of_dimension(dim_h - 1))
+    for bucket in buckets:
+        assert len(bucket.grids_of_dimension(dim_h - 1)) == num_grids_l
 
-            assert np.sum(np.abs(g_0.cell_faces) != np.abs(mapped_cf)) == 0
-            assert np.sum(np.abs(g_0.face_nodes) != np.abs(mapped_fn)) == 0
-            if g.dim == dim_h:
-                face_maps_h.append(face_map)
-                cell_maps_h.append(cell_map)
-            else:
-                cell_maps_l.append(cell_map)
-                face_maps_l.append(face_map)
-            # Also loop on the standard face tags to check that they are
-            # identical between the buckets.
-            tag_keys = tags.standard_face_tags()
-            for key in tag_keys:
-                assert np.all(np.isclose(g_0.tags[key], g.tags[key][face_map]))
-        dim_l = dim_h - 1
-        g_l_0 = buckets[0].grids_of_dimension(dim_l)[0]
-        g_h_0 = buckets[0].grids_of_dimension(dim_h)[0]
+    for d in range(dim_l, dim_h + 1):
+        for target_grid in range(len(buckets[0].grids_of_dimension(d))):
 
-    # Face_cells on the edges:
-    for i in range(1, n):
-        g_l_i = buckets[i].grids_of_dimension(dim_l)[0]
-        g_h_i = buckets[i].grids_of_dimension(dim_h)[0]
+            n_cells, n_faces, n_nodes = np.empty(0), np.empty(0), np.empty(0)
+            nodes, face_centers, cell_centers = [], [], []
+            cell_faces, face_nodes = [], []
+            for bucket in buckets:
+                g = bucket.grids_of_dimension(d)[target_grid]
+                n_cells = np.append(n_cells, g.num_cells)
+                n_faces = np.append(n_faces, g.num_faces)
+                n_nodes = np.append(n_nodes, g.num_nodes)
+                cell_faces.append(g.cell_faces)
+                face_nodes.append(g.face_nodes)
+                cell_centers.append(g.cell_centers)
+                face_centers.append(g.face_centers)
+                nodes.append(g.nodes)
 
-        fc_0 = buckets[0].edge_props((g_l_0, g_h_0), "face_cells")
-        fc_1 = buckets[i].edge_props((g_l_i, g_h_i), "face_cells")
-        cm = cell_maps_l[i - 1]
-        fm = face_maps_h[i - 1]
-        mapped_fc = fc_1[cm, :][:, fm]
-        assert np.sum(np.absolute(fc_0) - np.absolute(mapped_fc)) == 0
+            # Check that all buckets have the same number of cells, faces and nodes
+            assert np.unique(n_cells).size == 1
+            assert np.unique(n_faces).size == 1
+            assert np.unique(n_nodes).size == 1
+
+            # Check that the coordinates agree
+            cell_centers = np.round(cell_centers, decimals)
+            nodes = np.round(nodes, decimals)
+            face_centers = np.round(face_centers, decimals)
+            for i in range(1, num_buckets):
+                assert np.all(sm.ismember_rows(cell_centers[0], cell_centers[i])[0])
+                assert np.all(sm.ismember_rows(face_centers[0], face_centers[i])[0])
+                assert np.all(sm.ismember_rows(nodes[0], nodes[i])[0])
+
+            # Now we know all nodes, faces and cells are in all grids, we map them
+            # to prepare cell_faces and face_nodes comparison
+            g_0 = buckets[0].grids_of_dimension(d)[target_grid]
+            for i in range(1, num_buckets):
+                bucket = buckets[i]
+                g = bucket.grids_of_dimension(d)[target_grid]
+                cell_map, face_map, node_map = make_maps(g_0, g, bucket.dim_max())
+                mapped_cf = g.cell_faces[face_map][:, cell_map]
+                mapped_fn = g.face_nodes[node_map][:, face_map]
+
+                assert np.sum(np.abs(g_0.cell_faces) != np.abs(mapped_cf)) == 0
+                assert np.sum(np.abs(g_0.face_nodes) != np.abs(mapped_fn)) == 0
+                if g.dim == dim_h:
+                    face_maps_h.append(face_map)
+                    cell_maps_h.append(cell_map)
+                else:
+                    cell_maps_l[i][g] = cell_map
+                    face_maps_l[i][g] = face_map
+
+                # Also loop on the standard face tags to check that they are
+                # identical between the buckets.
+                tag_keys = tags.standard_face_tags()
+                for key in tag_keys:
+                    assert np.all(np.isclose(g_0.tags[key], g.tags[key][face_map]))
+
+    # Mortar grids
+    g_h_0 = buckets[0].grids_of_dimension(dim_h)[0]
+    for target_grid in range(len(buckets[0].grids_of_dimension(dim_l))):
+        g_l_0 = buckets[0].grids_of_dimension(dim_l)[target_grid]
+
+        mg_0 = buckets[0].edge_props((g_h_0, g_l_0), "mortar_grid")
+        proj_0 = mg_0._master_to_mortar_int
+        for i in range(1, num_buckets):
+            g_l_i = buckets[i].grids_of_dimension(dim_l)[target_grid]
+            g_h_i = buckets[i].grids_of_dimension(dim_h)[0]
+            mg_i = buckets[i].edge_props((g_h_i, g_l_i), "mortar_grid")
+            proj_i = mg_i._master_to_mortar_int
+            cm = cell_maps_l[i][g_l_i]
+            cm_extended = np.append(cm, cm + cm.size)
+            fm = face_maps_h[i - 1]
+            mapped_fc = proj_i[cm_extended, :][:, fm]
+            assert np.sum(np.absolute(proj_0) - np.absolute(mapped_fc)) == 0
     return cell_maps_h, cell_maps_l, face_maps_h, face_maps_l
 
 
