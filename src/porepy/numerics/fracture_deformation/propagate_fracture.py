@@ -66,9 +66,12 @@ def propagate_fractures(gb, faces):
         d_l["new_cells"] = np.empty(0, dtype=int)
         d_l["new_faces"] = np.empty(0, dtype=int)
 
-        # If there is no propagation for this fracture, we continue
-        faces_h = np.array(faces[i])
+        # Uniquify the faces to be split. Amongs others, this avoids trouble when
+        # a faces is requested split twice, from two neighboring faces
+        faces_h = np.unique(np.atleast_1d(np.array(faces[i])))
+
         if faces_h.size == 0:
+            # If there is no propagation for this fracture, we continue
             # No need to update discretization of this grid
             d_l["partial_update"] = False
             d_l["face_index_map"] = sps.identity(g_l.num_faces)
@@ -418,6 +421,11 @@ def update_connectivity(
     # and for the face_nodes update
     fn_ind_f, fn_ind_n = np.empty(0), np.empty(0)
 
+    # Find the old tip nodes. If one of these are requested opened, we are in trouble
+    # (this would in effect create a Y-type intersection for these cells). If such
+    # a situation arises, we will raise an error
+    old_tips = g_l.tags["tip_faces"].copy()
+
     # Loop over all new cells to be created
     for i, c in enumerate(new_cells_l):
         # Find the nodes of the corresponding higher-dimensional face
@@ -497,8 +505,7 @@ def update_connectivity(
         g_l.tags["tip_faces"][new_face_indices_l] = ~domain_boundary_faces
         g_l.tags["domain_boundary_faces"][new_face_indices_l] = domain_boundary_faces
 
-        # Expand face geometry fields to make room for new faces
-        # This will set placeholder values for face areas, normal vector and center
+        # Expand array of face-nodes in g_l
         all_faces_l = np.append(all_faces_l, faces_l[:, ~exist], axis=1)
 
         # Find node indices faces to be updated.
@@ -519,7 +526,8 @@ def update_connectivity(
         all_local_faces = np.empty(faces_l.shape[-1])
         all_local_faces[exist] = existing_faces_l
         all_local_faces[~exist] = new_face_indices_l
-        # Add both existing and new faces to face-nodes?
+
+        # Add both existing and new faces to face-nodes.
         # Why include exist here, they should have been added already?
         # Answer: We could have dropped it, but this will simply add the same
         # information twice to the face-node relation. Since this has boolean
@@ -554,6 +562,15 @@ def update_connectivity(
         ind_in_original = existing_faces_l[are_in_original]
         # Index of these faces in cf_val_loc
         ind_local = np.in1d(all_local_faces, ind_in_original)
+
+        if np.any(old_tips[ind_in_original]):
+            # This situation can happen in 3d (perhaps also 2d).
+            # It will likely correspond to a strangly shaped fracture.
+            # Implementation of such geometries seems complex, if at all desirable.
+            # The suggested solution is to patch the face splitting algorithm so that
+            # this does not happen.
+            raise ValueError("Cannot split the same lower-dimensional face twice")
+
         # The sign of this cell should be the oposite of that used in the
         # original grid.
         # NOTE: The below assignment works because there is exactly one
