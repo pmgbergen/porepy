@@ -44,52 +44,50 @@ import porepy as pp
 from test.integration.setup_mixed_dimensional_grids import set_bc_mech_tension
 
 
-#-----------------------------------------------------------------------------#
+# -----------------------------------------------------------------------------#
 
 
 class BasicsTest(unittest.TestCase):
 
-    #-------------------------------------------------------------------------#
+    # -------------------------------------------------------------------------#
 
     def test_sif_convergence_cartesian_2d(self):
-        _, error = cartesian_2d([20, 20], .05, .001, rm_factor=.5)
-        assert max(error) < .08
+        _, error = cartesian_2d([20, 20], 0.05, 0.001, rm_factor=0.5)
+        assert max(error) < 0.08
 
     def test_sif_convergence_simplex_2d(self):
-        sifs, error = simplex_2d(20, .05, .001, np.pi / 2, rm_factor=.8)
+        sifs, error = simplex_2d(20, 0.05, 0.001, np.pi / 2, rm_factor=0.8)
         phi = pp.propagate_fracture.propgation_angle(sifs)
         print(phi)
-        assert np.max(np.absolute(phi)) < .05
-        assert max(error) < .04
-        _, error = simplex_2d(30, .05, .001, np.pi / 3, rm_factor=.8)
-        assert max(error) < .2
+        assert np.max(np.absolute(phi)) < 0.05
+        assert max(error) < 0.04
+        _, error = simplex_2d(30, 0.05, 0.001, np.pi / 3, rm_factor=0.8)
+        assert max(error) < 0.2
 
     def test_sif_convergence_cartesian_3d(self):
         nc = [33, 3, 33]
-        _, error = cartesian_3d(nc, .05, .001, 0.03, rm_factor=.5)
-        assert max(error) < .11
+        _, error = cartesian_3d(nc, 0.05, 0.001, 0.03, rm_factor=0.5)
+        assert max(error) < 0.11
 
     def test_sif_convergence_simplex_3d(self):
-        sifs, error = simplex_3d(20, .05, .001, np.pi / 2, 0.03, rm_factor=.8)
+        sifs, error = simplex_3d(20, 0.05, 0.001, np.pi / 2, 0.03, rm_factor=0.8)
         phi = pp.propagate_fracture.propgation_angle(sifs)
-        assert np.max(np.absolute(phi)) < .05
-        assert max(error) < .08
-        sifs, error = simplex_3d(20, .05, .001, np.pi / 3, 0.03, rm_factor=.8)
+        assert np.max(np.absolute(phi)) < 0.05
+        assert max(error) < 0.08
+        sifs, error = simplex_3d(20, 0.05, 0.001, np.pi / 3, 0.03, rm_factor=0.8)
         phi = pp.propagate_fracture.propgation_angle(sifs)
-        assert max(error) < .13
-        assert np.max(np.absolute(np.absolute(phi) - np.pi / 3)) < .05
+        assert max(error) < 0.13
+        assert np.max(np.absolute(np.absolute(phi) - np.pi / 3)) < 0.05
 
     def test_two_fractures_cartesian_2d(self):
-        a = .1
+        a = 0.1
         n_cells = [10, 4]
         sigma = 1e-5
-        rm_factor = .5
+        rm_factor = 0.5
         dim_h = 2
-        f_1 = np.array([[0, 2 * a],
-                        [0.5, 0.5]])
-        f_2 = np.array([[1 - a, 1],
-                        [0.5, 0.5]])
-        gb = pp.meshing.cart_grid([f_1, f_2], n_cells, **{'physdims': [1, 1]})
+        f_1 = np.array([[0, 2 * a], [0.5, 0.5]])
+        f_2 = np.array([[1 - a, 1], [0.5, 0.5]])
+        gb = pp.meshing.cart_grid([f_1, f_2], n_cells, **{"physdims": [1, 1]})
         assign_parameters(gb, sigma)
 
         # Discretize, solve and evaluate sifs. Dimension of array correspond to
@@ -106,12 +104,11 @@ def cartesian_2d(n_cells, a, sigma, rm_factor):
     # Make grid bucket and assign data
     dim_h = 2
     y_1 = 0.5
-    x_0 = .5 - a
-    x_1 = .5 + a
+    x_0 = 0.5 - a
+    x_1 = 0.5 + a
 
-    f = np.array([[x_0, x_1],
-                  [0.5, y_1]])
-    gb = pp.meshing.cart_grid([f], n_cells, **{'physdims': [1, 1]})
+    f = np.array([[x_0, x_1], [0.5, y_1]])
+    gb = pp.meshing.cart_grid([f], n_cells, **{"physdims": [1, 1]})
     assign_parameters(gb)
 
     # Discretize, solve and evaluate sifs.
@@ -129,14 +126,13 @@ def simplex_2d(mesh_size, a, sigma, beta, rm_factor):
     dim_h = 2
     y_0 = 0.5 - a * np.cos(beta)
     y_1 = 0.5 + a * np.cos(beta)
-    x_0 = .5 - a * np.sin(beta)
-    x_1 = .5 + a * np.sin(beta)
-    f = np.array([[x_0, x_1],
-                  [y_0, y_1]])
-    box = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
+    x_0 = 0.5 - a * np.sin(beta)
+    x_1 = 0.5 + a * np.sin(beta)
+    f = np.array([[x_0, x_1], [y_0, y_1]])
+    box = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
     mesh_kwargs = {}
     h = 1 / mesh_size
-    mesh_kwargs = {'mesh_size_frac': h, 'mesh_size_min': 1 / 2 * h}
+    mesh_kwargs = {"mesh_size_frac": h, "mesh_size_min": 1 / 2 * h}
 
     gb = pp.meshing.simplex_grid([f], box, **mesh_kwargs)
     assign_parameters(gb)
@@ -153,12 +149,10 @@ def simplex_2d(mesh_size, a, sigma, beta, rm_factor):
 def cartesian_3d(n_cells, a, sigma, t, rm_factor):
     # Make grid bucket and assign data
     dim_h = 3
-    x_0 = .5 - a
-    x_1 = .5 + a
-    f = np.array([[x_0, x_1, x_1, x_0],
-                  [0, 0, 2 * t, 2 * t],
-                  [0.5, 0.5, 0.5, 0.5]])
-    gb = pp.meshing.cart_grid([f], n_cells, **{'physdims': [1, 2 * t, 1]})
+    x_0 = 0.5 - a
+    x_1 = 0.5 + a
+    f = np.array([[x_0, x_1, x_1, x_0], [0, 0, 2 * t, 2 * t], [0.5, 0.5, 0.5, 0.5]])
+    gb = pp.meshing.cart_grid([f], n_cells, **{"physdims": [1, 2 * t, 1]})
     assign_parameters(gb)
 
     # Discretize, solve and evaluate sifs.
@@ -177,16 +171,13 @@ def simplex_3d(mesh_size, a, sigma, beta, t, rm_factor):
 
     z_0 = 0.5 - a * np.cos(beta)
     z_1 = 0.5 + a * np.cos(beta)
-    x_0 = .5 - a * np.sin(beta)
-    x_1 = .5 + a * np.sin(beta)
-    f = np.array([[x_0, x_1, x_1, x_0],
-                  [0, 0, 2 * t, 2 * t],
-                  [z_0, z_1, z_1, z_0]])
-    box = {'xmin': 0, 'ymin': 0, 'zmin': 0,
-           'xmax': 1, 'ymax': 2 * t, 'zmax': 1}
+    x_0 = 0.5 - a * np.sin(beta)
+    x_1 = 0.5 + a * np.sin(beta)
+    f = np.array([[x_0, x_1, x_1, x_0], [0, 0, 2 * t, 2 * t], [z_0, z_1, z_1, z_0]])
+    box = {"xmin": 0, "ymin": 0, "zmin": 0, "xmax": 1, "ymax": 2 * t, "zmax": 1}
     mesh_kwargs = {}
     h = 1 / mesh_size
-    mesh_kwargs = {'mesh_size_frac': h, 'mesh_size_min': 1 / 2 * h}
+    mesh_kwargs = {"mesh_size_frac": h, "mesh_size_min": 1 / 2 * h}
 
     gb = pp.meshing.simplex_grid([f], box, **mesh_kwargs)
     assign_parameters(gb)
@@ -207,17 +198,17 @@ def analytical_sifs(a, sigma, beta, dim):
     """
     K_I = sigma * np.sqrt(np.pi * a) * np.power(np.sin(beta), 2)
     K_II = sigma * np.sqrt(np.pi * a) * np.cos(beta) * np.sin(beta)
-    K = np.array([K_I,  K_II])
+    K = np.array([K_I, K_II])
     if dim == 3:
         K = np.append(K, 0)
     return K
 
 
 def assign_parameters(gb, sigma=0.001):
-    gb.add_node_props(['param'])
+    gb.add_node_props(["param"])
     for g, d in gb:
         param = pp.Parameters(g)
-        d['param'] = param
+        d["param"] = param
     set_bc_mech_tension(gb, top_tension=sigma, fix_faces=False)
 
 
@@ -234,14 +225,15 @@ def solve(gb, dim_h, rm_factor):
     u = sps.linalg.spsolve(lhs_2, rhs_2)
 
     # SIF evaluation by displacemnt correlation
-    critical_sifs = [.005, .1, .1]
-    _, sifs = pp.displacement_correlation.faces_to_open(gb, u, critical_sifs,
-                                                        rm_factor=rm_factor)
-    if len(gb.grids_of_dimension(dim_h-1)) < 2:
+    critical_sifs = [0.005, 0.1, 0.1]
+    _, sifs = pp.displacement_correlation.faces_to_open(
+        gb, u, critical_sifs, rm_factor=rm_factor
+    )
+    if len(gb.grids_of_dimension(dim_h - 1)) < 2:
         return sifs[0]
     else:
         return sifs
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
