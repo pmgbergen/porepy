@@ -644,8 +644,29 @@ class Mpfa(pp.FVElliptic):
             (
                 np.ones(subcell_topology.unique_subfno.size),
                 (subcell_topology.fno_unique, subcell_topology.subfno_unique),
-            )
+            ),
+            shape=(g.num_faces, subcell_topology.num_subfno_unique),
         )
+
+        # If the grid has a periodic boundary, the left faces are topologically
+        # connected to the right faces. This is included in the SubcellTopology
+        # class by merging the right faces with the left faces. This means that
+        # hf2f is a mapping from topological unique half faces to topological unique
+        # faces. However, we want the discretization to be
+        # applied to the topology of g (where the left and right faces are different).
+        # We therefore map the left faces of the SubcellTopology to the right
+        # faces of the grid:
+        if hasattr(g, "periodic_face_map"):
+            indices = np.arange(g.num_faces)
+            # The left faces should be mapped to the right faces
+            indices[g.periodic_face_map[1]] = g.periodic_face_map[0]
+            indptr = np.arange(g.num_faces + 1)
+            data = np.ones(g.num_faces, dtype=int)
+            periodic2face = sps.csr_matrix(
+                (data, indices, indptr), (g.num_faces, g.num_faces)
+            )
+            # Update hf2f so that it maps to the faces of g.
+            hf2f = periodic2face * hf2f
 
         # The boundary faces will have either a Dirichlet or Neumann condition, or
         # Robin condition
@@ -1129,12 +1150,6 @@ class Mpfa(pp.FVElliptic):
         is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
         is_neu = np.logical_or(bnd.is_neu, bnd.is_internal)
         is_rob = np.logical_and(bnd.is_rob, np.logical_not(bnd.is_internal))
-        is_per = bnd.is_per
-
-        if is_per.sum():
-            raise NotImplementedError(
-                "Periodic boundary conditions are not implemented for Mpfa"
-            )
 
         fno = subcell_topology.fno_unique
         num_neu = np.sum(is_neu)
@@ -1242,6 +1257,8 @@ class Mpfa(pp.FVElliptic):
             neu_rob_dir_ind = neu_rob_ind_all
         elif dir_ind.size > 0:
             neu_rob_dir_ind = dir_ind_all
+        elif num_bound == 0:  # all of them are empty
+            neu_rob_dir_ind = neu_rob_ind
         else:
             raise ValueError("Boundary values should be either Dirichlet or " "Neumann")
 
