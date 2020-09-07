@@ -15,18 +15,19 @@ Practical note: Faces in the fracture plane are given by
 import unittest
 import porepy as pp
 from test.integration import setup_mixed_dimensional_grids as setup_gb
-from test.integration.setup_mixed_dimensional_grids import set_bc_mech, \
-    update_apertures
-from test.integration.fracture_propagation_utils import propagate_and_update, \
-    compare_updates
+from test.integration.setup_mixed_dimensional_grids import set_bc_mech, update_apertures
+from test.integration.fracture_propagation_utils import (
+    propagate_and_update,
+    compare_updates,
+)
 
 
-#-----------------------------------------------------------------------------#
+# -----------------------------------------------------------------------------#
 
 
 class BasicsTest(unittest.TestCase):
 
-#-----------------------------------------------------------------------------#
+    # -----------------------------------------------------------------------------#
 
     def test_discretization_and_propagation_2d(self):
         """
@@ -37,10 +38,10 @@ class BasicsTest(unittest.TestCase):
         4 grown in two steps
         """
         n_cells = [4, 4]
-        gb_1 = setup_gb.setup_mech(n_cells, .75)
-        gb_2 = setup_gb.setup_mech(n_cells, .25)
-        gb_3 = setup_gb.setup_mech(n_cells, .50)
-        gb_4 = setup_gb.setup_mech(n_cells, .25)
+        gb_1 = setup_gb.setup_mech(n_cells, 0.75)
+        gb_2 = setup_gb.setup_mech(n_cells, 0.25)
+        gb_3 = setup_gb.setup_mech(n_cells, 0.50)
+        gb_4 = setup_gb.setup_mech(n_cells, 0.25)
 
         discr = pp.FracturedMpsa()
 
@@ -60,14 +61,18 @@ class BasicsTest(unittest.TestCase):
         lhs_4, rhs_4 = discr.matrix_rhs(g_4, d_4)
 
         # Propagate and update discretizations
-        lhs_2, rhs_2 = propagate_and_update(gb_2, [29, 30], discr, set_bc_mech,
-                                            update_apertures)
-        lhs_3, rhs_3 = propagate_and_update(gb_3, [30], discr, set_bc_mech,
-                                            update_apertures)
-        lhs_4, rhs_4 = propagate_and_update(gb_4, [29], discr, set_bc_mech,
-                                            update_apertures)
-        lhs_4, rhs_4 = propagate_and_update(gb_4, [30], discr, set_bc_mech,
-                                            update_apertures)
+        lhs_2, rhs_2 = propagate_and_update(
+            gb_2, [29, 30], discr, set_bc_mech, update_apertures
+        )
+        lhs_3, rhs_3 = propagate_and_update(
+            gb_3, [30], discr, set_bc_mech, update_apertures
+        )
+        lhs_4, rhs_4 = propagate_and_update(
+            gb_4, [29], discr, set_bc_mech, update_apertures
+        )
+        lhs_4, rhs_4 = propagate_and_update(
+            gb_4, [30], discr, set_bc_mech, update_apertures
+        )
 
         buckets = [gb_1, gb_2, gb_3, gb_4]
         lhs = [lhs_1, lhs_2, lhs_3, lhs_4]
@@ -84,7 +89,7 @@ class BasicsTest(unittest.TestCase):
         """
         n_cells = [2, 2]
         gb_1 = setup_gb.setup_mech(n_cells, 1)
-        gb_2 = setup_gb.setup_mech(n_cells, .5)
+        gb_2 = setup_gb.setup_mech(n_cells, 0.5)
 
         discr = pp.FracturedMpsa()
 
@@ -97,8 +102,9 @@ class BasicsTest(unittest.TestCase):
         lhs_2, rhs_2 = discr.matrix_rhs(g_2, d_2)
 
         # Propagate and update discretizations
-        lhs_2, rhs_2 = propagate_and_update(gb_2, [9], discr, set_bc_mech,
-                                            update_apertures)
+        lhs_2, rhs_2 = propagate_and_update(
+            gb_2, [9], discr, set_bc_mech, update_apertures
+        )
 
         buckets = [gb_1, gb_2]
         lhs = [lhs_1, lhs_2]
@@ -115,10 +121,10 @@ class BasicsTest(unittest.TestCase):
         """
         n_cells = [4, 4, 4]
         dim_max = 3
-        gb_1 = setup_gb.setup_mech(n_cells, .75)
-        gb_2 = setup_gb.setup_mech(n_cells, .25)
-        gb_3 = setup_gb.setup_mech(n_cells, .50)
-        gb_4 = setup_gb.setup_mech(n_cells, .25)
+        gb_1 = setup_gb.setup_mech(n_cells, 0.75)
+        gb_2 = setup_gb.setup_mech(n_cells, 0.25)
+        gb_3 = setup_gb.setup_mech(n_cells, 0.50)
+        gb_4 = setup_gb.setup_mech(n_cells, 0.25)
 
         discr = pp.FracturedMpsa()
 
@@ -138,15 +144,18 @@ class BasicsTest(unittest.TestCase):
         lhs_4, rhs_4 = discr.matrix_rhs(g_4, d_4)
 
         # Propagate and update discretizations
-        lhs_2, rhs_2 = propagate_and_update(gb_2, [193, 194, 197, 198],
-                                            discr, set_bc_mech,
-                                            update_apertures)
-        lhs_3, rhs_3 = propagate_and_update(gb_3, [194, 198], discr,
-                                            set_bc_mech, update_apertures)
-        lhs_4, rhs_4 = propagate_and_update(gb_4, [193], discr, set_bc_mech,
-                                            update_apertures)
-        lhs_4, rhs_4 = propagate_and_update(gb_4, [194, 197, 198], discr,
-                                            set_bc_mech, update_apertures)
+        lhs_2, rhs_2 = propagate_and_update(
+            gb_2, [193, 194, 197, 198], discr, set_bc_mech, update_apertures
+        )
+        lhs_3, rhs_3 = propagate_and_update(
+            gb_3, [194, 198], discr, set_bc_mech, update_apertures
+        )
+        lhs_4, rhs_4 = propagate_and_update(
+            gb_4, [193], discr, set_bc_mech, update_apertures
+        )
+        lhs_4, rhs_4 = propagate_and_update(
+            gb_4, [194, 197, 198], discr, set_bc_mech, update_apertures
+        )
 
         buckets = [gb_1, gb_2, gb_3, gb_4]
         lhs = [lhs_1, lhs_2, lhs_3, lhs_4]
@@ -154,5 +163,5 @@ class BasicsTest(unittest.TestCase):
         compare_updates(buckets, lhs, rhs, fractured_mpsa=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
