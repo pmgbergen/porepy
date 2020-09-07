@@ -336,14 +336,9 @@ class ConformingFracturePropagation(FracturePropagation):
         faces_h = np.empty(faces_l.shape, dtype=int)
         for i, f in enumerate(faces_l):
             e = edges_h[:, i]
-            if nd == 2:
-                candidate_faces_h = g_h.face_nodes[e].nonzero()[1]
-            else:
-                f_0 = g_h.face_nodes[e[0]].nonzero()[1]
-                f_1 = g_h.face_nodes[e[1]].nonzero()[1]
-                candidate_faces_h = np.intersect1d(f_0, f_1)
-            are_fracture = g_h.tags["fracture_faces"][candidate_faces_h]
-            candidate_faces_h = candidate_faces_h[np.logical_not(are_fracture)]
+            candidate_faces_h = self._candidate_faces(
+                g_h, e, g_l, f, faces_h, data_edge
+            )
             ## Pick the right candidate:
             # Direction of h-dim face centers from the tip
             tip_coords = np.reshape(g_l.face_centers[:nd, faces_l[i]], (nd, 1))
@@ -367,7 +362,10 @@ class ConformingFracturePropagation(FracturePropagation):
                 propagation_vector, face_center_vecs
             )
             ind = np.argsort(distances)
-            faces_h[i] = candidate_faces_h[ind[0]]
+            # There might be no candidate faces left after imposition of restriction
+            # of permissible candidates
+            if candidate_faces_h.size > 0:
+                faces_h[i] = candidate_faces_h[ind[0]]
 
         # inwards_normals = - g_h.face_normals[faces_h] * sign
         # Construct R_d vector along
@@ -420,3 +418,103 @@ class ConformingFracturePropagation(FracturePropagation):
             # e2 is parallel to the tip face
             basis[2, :, :] = np.cross(basis[0, :, :], basis[1, :, :], axis=0)
         return basis
+
+    def _candidate_faces(
+        self, g_h: pp.Grid, edge_h, g_l: pp.Grid, face_l, identified_faces, data_edge
+    ):
+        # TODO: Use identified_faces to avoid pathological cases arising through
+        # propagation of multiple fractures within the same propagation step.
+        def faces_of_edge(g: pp.Grid, e: np.ndarray) -> np.ndarray:
+            """
+            Obtain indices of all faces sharing an edge.
+            
+            
+            Parameters
+            ----------
+            g : pp.Grid
+            e : np.ndarray
+                The edge.
+
+            Returns
+            -------
+            faces : np.ndarray
+                Faces.
+            """
+            if g.dim == 1:
+                faces = e
+            elif g.dim == 2:
+                faces = g.face_nodes[e].nonzero()[1]
+            elif g.dim == 3:
+                f_0 = g.face_nodes[e[0]].nonzero()[1]
+                f_1 = g.face_nodes[e[1]].nonzero()[1]
+                faces = np.intersect1d(f_0, f_1)
+            else:
+                raise NotImplementedError
+            return faces
+
+        # Find all the edge's neighboring faces
+        candidate_faces = faces_of_edge(g_h, edge_h)
+        # Exclude faces that are on a fracture
+        are_fracture = g_h.tags["fracture_faces"][candidate_faces]
+        candidate_faces = candidate_faces[np.logical_not(are_fracture)]
+
+        # Make sure splitting of a candidate does not lead to self-intersection.
+        # This is done by checking that none of the face's edges is an "internal
+        # fracture edge", i.e. that if it lies on a fracture, it is on a tip.
+        for f in candidate_faces:
+            # Obtain all edges:
+            local_nodes = g_h.face_nodes[:, f].nonzero()[0]
+            pts = g_h.nodes[:, local_nodes]
+
+            # Faces are defined by one node in 1d and two in 2d. This requires
+            # dimension dependent treatment:
+            if g_h.dim == 3:
+                # Sort nodes clockwise (!)
+                # ASSUMPTION: This assumes that the new cell is star-shaped with respect to the
+                # local cell center. This should be okay.
+                map_to_sorted = pp.utils.sort_points.sort_point_plane(
+                    pts, g_h.face_centers[:, f]
+                )
+                sorted_nodes = local_nodes[map_to_sorted]
+                local_nodes = np.hstack((sorted_nodes, sorted_nodes[0]))
+
+            # Loop over the edges of the candidate face
+            for i in range(local_nodes.size - 1):
+                e = [local_nodes[i + j] for j in range(g_l.dim)]
+
+                if np.all(np.in1d(e, edge_h)):
+                    # The edge which we are splitting
+                    continue
+                # Identify whether the edge is on a fracture. If so, remove the 
+                # candidate face unless the edge is a fracture tip. This is done
+                # by going to g_l quantities by use of global_point_ind.
+                if np.all(g_h.tags["fracture_nodes"][e]):
+                    # To check 
+                    # Obtain the global index of all nodes
+                    global_nodes = g_h.global_point_ind[e]
+                    # Find g_h indices of unique global nodes
+                    _, nodes_l = np.intersect1d(
+                        g_l.global_point_ind,
+                        global_nodes,
+                        assume_unique=False,
+                    )
+
+                    if g_l.dim == 1:
+                        face_l = nodes_l
+                    if g_l.dim == 2:
+                        # Care has to be taken since we don't know whether nodes_l
+                        # actually correspond to a face in g_l. 
+                        f_0 = g_l.face_nodes[nodes_l[0]].nonzero()[1]
+                        f_1 = g_l.face_nodes[nodes_l[1]].nonzero()[1]
+                        face_l = np.intersect1d(f_0, f_1)
+
+                    if face_l.size == 1:
+                        if g_l.tags["tip_faces"][face_l]:
+                            continue
+                    else:
+                        # Not sure what has happened. Identify and deal with it!
+                        assert face_l.size == 0
+                        
+                    candidate_faces = np.setdiff1d(candidate_faces, f)
+
+        return candidate_faces
