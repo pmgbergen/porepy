@@ -243,7 +243,7 @@ class DualElliptic(
         is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
         is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
         is_rob = np.logical_and(bc.is_rob, np.logical_not(bc.is_internal))
-        if bc.is_per.sum():
+        if hasattr(g, "periodic_face_map"):
             raise NotImplementedError(
                 "Periodic boundary conditions are not implemented for DualElliptic"
             )

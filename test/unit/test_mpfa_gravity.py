@@ -199,12 +199,12 @@ def set_params_disrcetize(g, ambient_dim, method, periodic=False):
     if periodic:
         south = g.face_centers[1] < np.min(g.nodes[1]) + 1e-8
         north = g.face_centers[1] > np.max(g.nodes[1]) - 1e-8
-        bc = pp.BoundaryCondition(g, north + south, "per")
         south_idx = np.argwhere(south).ravel()
         north_idx = np.argwhere(north).ravel()
-        bc.set_periodic_map(np.vstack((south_idx, north_idx)))
-    else:
-        bc = pp.BoundaryCondition(g)
+        g.set_periodic_map(np.vstack((south_idx, north_idx)))
+
+    bc = pp.BoundaryCondition(g)
+
     k = pp.SecondOrderTensor(np.ones(g.num_cells))
 
     params = {
