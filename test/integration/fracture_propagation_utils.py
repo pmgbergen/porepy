@@ -13,7 +13,6 @@ dimensions only.
 
 import numpy as np
 import porepy as pp
-from porepy.fracs import propagate_fracture
 from porepy.utils import tags
 from porepy.utils import setmembership as sm
 from porepy.numerics.fv import fvutils
@@ -32,21 +31,22 @@ def propagate_and_update(gb, faces, discr, update_bc, update_apertures):
         pp.propagate_fracture.propagate_fractures(gb, [faces])
     else:
         pp.propagate_fracture.propagate_fractures(gb, faces)
-    propagate_fracture.tag_affected_cells_and_faces(gb)
+    pp.propagate_fracture.tag_affected_cells_and_faces(gb)
     gl = gb.grids_of_dimension(gb.dim_min())[0]
     update_apertures(gb, gl, faces)
     update_bc(gb)
-    if discr.physics == 'flow':
+    if discr.physics == "flow":
         lhs_out, rhs_out = discr.matrix_rhs(gb)
-    if discr.physics == 'mechanics':
+    if discr.physics == "mechanics":
         g = gb.grids_of_dimension(gb.dim_max())[0]
         d = gb.node_props(g)
         lhs_out, rhs_out = discr.matrix_rhs(g, d)
     return lhs_out, rhs_out
 
 
-def compare_updates(buckets, lh, rh, phys='mechanics', parameters = None,
-                    fractured_mpsa=False):
+def compare_updates(
+    buckets, lh, rh, phys="mechanics", parameters=None, fractured_mpsa=False
+):
     """
     Assert equivalence the BCs, parameters and discretizations on different
     buckets. All values are compared to those of the first bucket in buckets.
@@ -61,10 +61,10 @@ def compare_updates(buckets, lh, rh, phys='mechanics', parameters = None,
     """
 
     if parameters is None:
-        if phys == 'mechanics':
-            parameters = ['stiffness', 'aperture']
-        elif phys == 'flow':
-            parameters = ['permeability', 'aperture']
+        if phys == "mechanics":
+            parameters = ["stiffness", "aperture"]
+        elif phys == "flow":
+            parameters = ["permeability", "aperture"]
 
     cmh, cml, fmh, fml = check_equivalent_buckets(buckets)
     gb_0 = buckets[0]
@@ -72,7 +72,7 @@ def compare_updates(buckets, lh, rh, phys='mechanics', parameters = None,
     dh = gb_0.dim_max()
     dl = gb_0.dim_min()
 
-    for i in range(1,n):
+    for i in range(1, n):
         gb_i = buckets[i]
         for d in range(dl, dh + 1):
             g_0 = gb_0.grids_of_dimension(d)[0]
@@ -84,60 +84,82 @@ def compare_updates(buckets, lh, rh, phys='mechanics', parameters = None,
             if d == dh:
                 face_map, cell_map = fmh[i - 1], cmh[i - 1]
 
-            compare_parameters(data_0, data_i, face_map, cell_map,
-                               phys=phys,
-                               fields=parameters)
+            compare_parameters(
+                data_0, data_i, face_map, cell_map, phys=phys, fields=parameters
+            )
 
             compare_bc(g_i, data_0, data_i, face_map, phys=phys)
 
-        compare_discretizations(g_i, lh[0], lh[i], rh[0], rh[i],
-                                (cmh[i - 1], cml[i - 1]),
-                                (fmh[i - 1], fml[i - 1]),
-                                phys=phys, fractured_mpsa=fractured_mpsa)
+        compare_discretizations(
+            g_i,
+            lh[0],
+            lh[i],
+            rh[0],
+            rh[i],
+            (cmh[i - 1], cml[i - 1]),
+            (fmh[i - 1], fml[i - 1]),
+            phys=phys,
+            fractured_mpsa=fractured_mpsa,
+        )
 
 
-def compare_parameters(data_0, data_1, face_map=None, cell_map=None,
-                       phys='flow', fields=[]):
+def compare_parameters(
+    data_0, data_1, face_map=None, cell_map=None, phys="flow", fields=[]
+):
     """
     Compare following parameters:
         Permeability
         Aperture
     May be extended with more checks.
     """
-    p_0 = data_0['param']
-    p_1 = data_1['param']
-    if 'permeability' in fields:
-        assert np.all(np.isclose(p_0.get_tensor(phys).perm,
-                                 p_1.get_tensor(phys).perm[:, :, cell_map]))
-    if 'stiffness' in fields:
+    p_0 = data_0["param"]
+    p_1 = data_1["param"]
+    if "permeability" in fields:
+        assert np.all(
+            np.isclose(
+                p_0.get_tensor(phys).perm, p_1.get_tensor(phys).perm[:, :, cell_map]
+            )
+        )
+    if "stiffness" in fields:
         if p_0.dim > 1:
-            assert np.all(np.isclose(p_0.get_tensor(phys).c,
-                                     p_1.get_tensor(phys).c[:, :, cell_map]))
-    if 'aperture' in fields:
-        assert np.all(np.isclose(p_0.get_aperture(),
-                                 p_1.get_aperture()[cell_map]))
+            assert np.all(
+                np.isclose(
+                    p_0.get_tensor(phys).c, p_1.get_tensor(phys).c[:, :, cell_map]
+                )
+            )
+    if "aperture" in fields:
+        assert np.all(np.isclose(p_0.get_aperture(), p_1.get_aperture()[cell_map]))
 
 
-def compare_bc(g_1, data_0, data_1, face_map, phys = 'flow'):
+def compare_bc(g_1, data_0, data_1, face_map, phys="flow"):
     """
     Compare type and value of BCs.
     """
-    BC_0 = data_0['param'].get_bc(phys)
-    BC_1 = data_1['param'].get_bc(phys)
-    vals_0 = data_0['param'].get_bc_val(phys)
-    vals_1 = data_1['param'].get_bc_val(phys)
+    BC_0 = data_0["param"].get_bc(phys)
+    BC_1 = data_1["param"].get_bc(phys)
+    vals_0 = data_0["param"].get_bc_val(phys)
+    vals_1 = data_1["param"].get_bc_val(phys)
 
     assert np.all(BC_0.is_dir == BC_1.is_dir[face_map])
     assert np.all(BC_0.is_neu == BC_1.is_neu[face_map])
-    if phys == 'mechanics':
+    if phys == "mechanics":
         boundary_face_map = fvutils.expand_indices_nd(face_map, g_1.dim)
     else:
         boundary_face_map = face_map
     assert np.all(vals_0 == vals_1[boundary_face_map])
 
 
-def compare_discretizations(g_1, lhs_0, lhs_1, rhs_0, rhs_1, cell_maps,
-                            face_maps, phys='flow', fractured_mpsa=False):
+def compare_discretizations(
+    g_1,
+    lhs_0,
+    lhs_1,
+    rhs_0,
+    rhs_1,
+    cell_maps,
+    face_maps,
+    phys="flow",
+    fractured_mpsa=False,
+):
     """
     Assumes dofs sorted as cell_maps. Not neccessarily true for multiple
     fractures.
@@ -148,7 +170,9 @@ def compare_discretizations(g_1, lhs_0, lhs_1, rhs_0, rhs_1, cell_maps,
 
         # and faces on either side of the fracture. Find the order of the g_1
         # frac faces among the g_0 frac faces.
-        frac_faces_loc = sm.ismember_rows(face_maps[0], g_1.frac_pairs.ravel('C'), sort=False)[1]
+        frac_faces_loc = sm.ismember_rows(
+            face_maps[0], g_1.frac_pairs.ravel("C"), sort=False
+        )[1]
         # And expand to the dofs, one for each dimension for each face. For two
         # faces f0 and f1 in 3d, the order is
         # u(f0). v(f0), w(f0), u(f1). v(f1), w(f1)
@@ -156,12 +180,13 @@ def compare_discretizations(g_1, lhs_0, lhs_1, rhs_0, rhs_1, cell_maps,
         # Account for the cells
         frac_indices += g_1.num_cells * g_1.dim
         global_dof_map = np.concatenate((dof_map_cells, frac_indices))
-    elif phys == 'mechanics':
+    elif phys == "mechanics":
         global_dof_map = fvutils.expand_indices_nd(cell_maps[0], g_1.dim)
         global_dof_map = np.array(global_dof_map, dtype=int)
     else:
-        global_dof_map = np.concatenate((cell_maps[0],
-                                         cell_maps[1] + cell_maps[0].size))
+        global_dof_map = np.concatenate(
+            (cell_maps[0], cell_maps[1] + cell_maps[0].size)
+        )
     mapped_lhs = lhs_1[global_dof_map][:, global_dof_map]
     assert np.isclose(np.sum(np.absolute(lhs_0 - mapped_lhs)), 0)
     assert np.all(np.isclose(rhs_0, rhs_1[global_dof_map]))
@@ -180,7 +205,7 @@ def check_equivalent_buckets(buckets, decimals=12):
     cell_maps_h, face_maps_h = [], []
     cell_maps_l, face_maps_l = [], []
 
-    for d in range(dim_h-1, dim_h+1):
+    for d in range(dim_h - 1, dim_h + 1):
         n_cells, n_faces, n_nodes = np.empty(0), np.empty(0), np.empty(0)
         nodes, face_centers, cell_centers = [], [], []
         cell_faces, face_nodes = [], []
@@ -203,10 +228,8 @@ def check_equivalent_buckets(buckets, decimals=12):
         nodes = np.round(nodes, decimals)
         face_centers = np.round(face_centers, decimals)
         for i in range(1, n):
-            assert np.all(sm.ismember_rows(cell_centers[0],
-                                           cell_centers[i])[0])
-            assert np.all(sm.ismember_rows(face_centers[0],
-                                           face_centers[i])[0])
+            assert np.all(sm.ismember_rows(cell_centers[0], cell_centers[i])[0])
+            assert np.all(sm.ismember_rows(face_centers[0], face_centers[i])[0])
             assert np.all(sm.ismember_rows(nodes[0], nodes[i])[0])
         # Now we know all nodes, faces and cells are in all grids, we map them
         # to prepare cell_faces and face_nodes comparison
@@ -240,13 +263,14 @@ def check_equivalent_buckets(buckets, decimals=12):
         g_l_i = buckets[i].grids_of_dimension(dim_l)[0]
         g_h_i = buckets[i].grids_of_dimension(dim_h)[0]
 
-        fc_0 = buckets[0].edge_props((g_l_0, g_h_0), 'face_cells')
-        fc_1 = buckets[i].edge_props((g_l_i, g_h_i), 'face_cells')
-        cm = cell_maps_l[i-1]
-        fm = face_maps_h[i-1]
+        fc_0 = buckets[0].edge_props((g_l_0, g_h_0), "face_cells")
+        fc_1 = buckets[i].edge_props((g_l_i, g_h_i), "face_cells")
+        cm = cell_maps_l[i - 1]
+        fm = face_maps_h[i - 1]
         mapped_fc = fc_1[cm, :][:, fm]
-        assert np.sum(np.absolute(fc_0)-np.absolute(mapped_fc)) == 0
+        assert np.sum(np.absolute(fc_0) - np.absolute(mapped_fc)) == 0
     return cell_maps_h, cell_maps_l, face_maps_h, face_maps_l
+
 
 def make_maps(g0, g1, n_digits=8, offset=0.11):
     """
@@ -261,24 +285,26 @@ def make_maps(g0, g1, n_digits=8, offset=0.11):
     offset: Weight determining how far the fracture neighbour nodes and faces
     are shifted (normally away from fracture) to ensure unique coordinates.
     """
-    cell_map = sm.ismember_rows(np.around(g0.cell_centers, n_digits),
-                                np.around(g1.cell_centers, n_digits),
-                                sort=False)[1]
+    cell_map = sm.ismember_rows(
+        np.around(g0.cell_centers, n_digits),
+        np.around(g1.cell_centers, n_digits),
+        sort=False,
+    )[1]
     # Make face_centers unique by dragging them slightly away from the fracture
 
     fc0 = g0.face_centers.copy()
     fc1 = g1.face_centers.copy()
     n0 = g0.nodes.copy()
     n1 = g1.nodes.copy()
-    fi0 = g0.tags['fracture_faces']
+    fi0 = g0.tags["fracture_faces"]
     if np.any(fi0):
-        fi1 = g1.tags['fracture_faces']
+        fi1 = g1.tags["fracture_faces"]
         d0 = np.reshape(np.tile(g0.cell_faces[fi0, :].data, 3), (3, sum(fi0)))
         fn0 = g0.face_normals[:, fi0] * d0
         d1 = np.reshape(np.tile(g1.cell_faces[fi1, :].data, 3), (3, sum(fi1)))
         fn1 = g1.face_normals[:, fi1] * d1
-        fc0[:, fi0] += fn0*offset
-        fc1[:, fi1] += fn1*offset
+        fc0[:, fi0] += fn0 * offset
+        fc1[:, fi1] += fn1 * offset
         (ni0, fid0) = g0.face_nodes[:, fi0].nonzero()
         (ni1, fid1) = g1.face_nodes[:, fi1].nonzero()
         un, inv = np.unique(ni0, return_inverse=True)
@@ -288,11 +314,11 @@ def make_maps(g0, g1, n_digits=8, offset=0.11):
         for i, node in enumerate(un):
             n1[:, node] += offset * np.mean(fn1[:, fid1[inv == i]], axis=1)
 
-    face_map = sm.ismember_rows(np.around(fc0, n_digits),
-                                np.around(fc1, n_digits),
-                                sort=False)[1]
+    face_map = sm.ismember_rows(
+        np.around(fc0, n_digits), np.around(fc1, n_digits), sort=False
+    )[1]
 
-    node_map = sm.ismember_rows(np.around(n0, n_digits),
-                                np.around(n1, n_digits),
-                                sort=False)[1]
+    node_map = sm.ismember_rows(
+        np.around(n0, n_digits), np.around(n1, n_digits), sort=False
+    )[1]
     return cell_map, face_map, node_map
