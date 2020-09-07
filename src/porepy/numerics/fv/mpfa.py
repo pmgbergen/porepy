@@ -648,7 +648,7 @@ class Mpfa(pp.FVElliptic):
             shape=(g.num_faces, subcell_topology.num_subfno_unique),
         )
 
-        # If the grid has a periodic boundary, the left faces is topologically
+        # If the grid has a periodic boundary, the left faces are topologically
         # connected to the right faces. This is included in the SubcellTopology
         # class by merging the right faces with the left faces. This means that
         # hf2f is a mapping from topological unique half faces to topological unique
