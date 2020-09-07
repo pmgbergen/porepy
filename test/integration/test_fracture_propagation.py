@@ -6,12 +6,14 @@ grids and splitting of faces in the matrix grid. The post-propagation buckets
 are compared to equivalent buckets where the final fracture geometry is applied
 at construction.
 """
+import unittest
 
 import numpy as np
-import unittest
 import porepy as pp
+
 from test.integration.fracture_propagation_utils import check_equivalent_buckets
 from test.integration import setup_mixed_dimensional_grids as setup_gb
+from test.test_utils import compare_arrays
 
 
 class BasicsTest(unittest.TestCase):
@@ -96,8 +98,7 @@ class BasicsTest(unittest.TestCase):
     def test_two_fractures_2d(self):
         """
         Two fractures growing towards each other, but not meeting.
-        Note that the bucket equivalence test is only applied to the first
-        grid in each dimension!
+
         Tests simultanous growth of two fractures in multiple steps, and growth
         of one fracture in the presence of an inactive one.
         """
@@ -129,14 +130,147 @@ class BasicsTest(unittest.TestCase):
         check_equivalent_buckets([gb, gb_3])
 
 
-#    def test_two_fractures_3d(self):
-#        f_1 = np.aarray([[0.  , 1.  , 1.  , 0.  ],
-#                         [0.  , 0.  , 0.25, 0.25],
-#                         [0.5 , 0.5 , 0.5 , 0.5 ]])
-#        f_2 = np.aarray([[0.  , 1.  , 1.  , 0.  ],
-#                         [0.75, 0.75, 0.  , 0.  ],
-#                         [0.5 , 0.5 , 0.5 , 0.5 ]])
-#        gb = pp.meshing.cart_grid([f_1, f_2], [8, 4, 2], physdims=[2, 1, 1])
+class Propagation3dSingleCartGrid(unittest.TestCase):
+    def _make_grid(self):
+        frac_1 = np.array([[0, 1, 1, 0], [0, 0, 3, 3], [1, 1, 1, 1]])
+        gb = pp.meshing.cart_grid([frac_1], [2, 3, 2])
+
+        for g, _ in gb:
+            hit = g.nodes[0] > 1.5
+            g.nodes[2, hit] += 1
+
+        gb.compute_geometry()
+
+        pp.contact_conditions.set_projections(gb)
+
+        return gb
+
+    def test_simple_propagation_order(self):
+
+        gb = self._make_grid()
+
+        faces_to_split = [[43], [41, 45]]
+
+        g = gb.grids_of_dimension(2)[0]
+        cc = g.cell_centers
+        fc = g.face_centers
+        cv = g.cell_volumes
+        fa = g.face_areas
+
+        gh = gb.grids_of_dimension(3)[0]
+
+        new_fc = [
+            np.array([[1.5, 2, 1.5], [1, 1.5, 2], [1.5, 2, 1.5]]),
+            np.array([[1.5, 2, 2, 1.5], [0, 0.5, 2.5, 3], [1.5, 2, 2, 1.5]]),
+        ]
+
+        new_cell_volumes = [np.array([np.sqrt(2)]), np.sqrt(2) * np.ones(2)]
+
+        # The first splitting will create no new nodes (only more tip nodes)
+        # Second splitting generates 8 new nodes, since the domain is split in two
+        num_nodes = gh.num_nodes + np.array([0, 8])
+
+        for si, split in enumerate(faces_to_split):
+            pp.propagate_fracture.propagate_fractures(gb, [split])
+            cc, fc, cv = self._verify(
+                gb, split, cc, fc, cv, new_cell_volumes[si], new_fc[si], num_nodes[si]
+            )
+
+    def test_propagation_from_bottom(self):
+        # Three propagation steps. Should be equally simple as the simple_propagation_order
+        gb = self._make_grid()
+
+        faces_to_split = [[41], [43], [45]]
+
+        g = gb.grids_of_dimension(2)[0]
+        cc = g.cell_centers
+        fc = g.face_centers
+        cv = g.cell_volumes
+        fa = g.face_areas
+
+        gh = gb.grids_of_dimension(3)[0]
+
+        new_fc = [
+            np.array([[1.5, 2, 1.5], [0, 0.5, 1], [1.5, 2, 1.5]]),
+            np.array([[2, 1.5], [1.5, 2], [2, 1.5]]),
+            np.array([[2, 1.5], [2.5, 3], [2, 1.5]]),
+        ]
+
+        new_cell_volumes = [np.sqrt(2), np.sqrt(2), np.sqrt(2)]
+
+        num_nodes = gh.num_nodes + np.array([2, 4, 8])
+
+        for si, split in enumerate(faces_to_split):
+            pp.propagate_fracture.propagate_fractures(gb, [split])
+            cc, fc, cv = self._verify(
+                gb, split, cc, fc, cv, new_cell_volumes[si], new_fc[si], num_nodes[si]
+            )
+
+    def test_propagation_from_sides(self):
+        # Open the same face from two side simultanously.
+        gb = self._make_grid()
+
+        faces_to_split = [[41, 45], [43, 43]]
+
+        g = gb.grids_of_dimension(2)[0]
+        cc = g.cell_centers
+        fc = g.face_centers
+        cv = g.cell_volumes
+        fa = g.face_areas
+
+        gh = gb.grids_of_dimension(3)[0]
+
+        new_fc = [
+            np.array(
+                [
+                    [1.5, 2, 1.5, 1.5, 2, 1.5],
+                    [0, 0.5, 1, 2, 2.5, 3],
+                    [1.5, 2, 1.5, 1.5, 2, 1.5],
+                ]
+            ),
+            np.array([[2], [1.5], [2]]),
+        ]
+
+        new_cell_volumes = [np.sqrt(2) * np.ones(2), np.sqrt(2)]
+
+        num_nodes = gh.num_nodes + np.array([4, 8])
+
+        for si, split in enumerate(faces_to_split):
+            pp.propagate_fracture.propagate_fractures(gb, [split])
+            cc, fc, cv = self._verify(
+                gb, split, cc, fc, cv, new_cell_volumes[si], new_fc[si], num_nodes[si]
+            )
+
+    def _verify(self, gb, split, cc, fc, cv, new_cell_volumes, new_fc, num_nodes):
+        gh = gb.grids_of_dimension(gb.dim_max())[0]
+        g = gb.grids_of_dimension(gb.dim_max() - 1)[0]
+        new_cc = gh.face_centers[:, split]
+        if len(split) == 1:
+            new_cc = new_cc.reshape((-1, 1))
+        cc = np.append(cc, new_cc, axis=1)
+        compare_arrays(g.cell_centers, cc)
+
+        fc = np.append(fc, new_fc, axis=1)
+        compare_arrays(g.face_centers, fc)
+
+        cv = np.append(cv, new_cell_volumes)
+
+        self.assertTrue(np.allclose(g.cell_volumes, cv))
+
+        proj = gb.node_props(g)["tangential_normal_projection"]
+        self.assertTrue(proj.normals.shape[1] == g.num_cells)
+        self.assertTrue(
+            np.logical_or(np.all(proj.normals[2] < 0), np.all(proj.normals[2] > 0))
+        )
+
+        hit = np.logical_and(g.face_centers[0] > 1.1, g.face_centers[0] < 1.9)
+        self.assertTrue(np.allclose(g.face_areas[hit], np.sqrt(2)))
+        self.assertTrue(np.allclose(g.face_areas[np.logical_not(hit)], 1))
+
+        self.assertTrue(num_nodes == gh.num_nodes)
+
+        return cc, fc, cv
+
 
 if __name__ == "__main__":
     unittest.main()
