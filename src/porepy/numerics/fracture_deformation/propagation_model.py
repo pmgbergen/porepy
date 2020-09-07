@@ -100,7 +100,7 @@ class FracturePropagation(abc.ABC):
         
         Intended use: E.g. updates of parameters.
         """
-        
+
     @abc.abstractmethod
     def after_propagation_loop(self) -> None:
         """ Will be called at the very end of a time step.
