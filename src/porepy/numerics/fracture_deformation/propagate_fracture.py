@@ -163,11 +163,14 @@ def propagate_fractures(gb, faces):
 
         # For g_h we construct the map of faces for the splitting of this g_l
         # and append it to the list of face_maps
-        arr = np.arange(n_old_faces_h)
+
+        # The size of the next map should be compatible with the number of faces in
+        # the previous map.
+        nfh = face_map_h[-1].shape[0]
+        arr = np.arange(nfh)
         face_map_h.append(
             sps.coo_matrix(
-                (np.ones(n_old_faces_h, dtype=np.int), (arr, arr)),
-                shape=(g_h.num_faces, n_old_faces_h),
+                (np.ones(nfh, dtype=np.int), (arr, arr)), shape=(g_h.num_faces, nfh),
             ).tocsr()
         )
 
