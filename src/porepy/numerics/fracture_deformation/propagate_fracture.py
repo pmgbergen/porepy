@@ -421,11 +421,6 @@ def update_connectivity(
     # and for the face_nodes update
     fn_ind_f, fn_ind_n = np.empty(0), np.empty(0)
 
-    # Find the old tip nodes. If one of these are requested opened, we are in trouble
-    # (this would in effect create a Y-type intersection for these cells). If such
-    # a situation arises, we will raise an error
-    old_tips = g_l.tags["tip_faces"].copy()
-
     # Loop over all new cells to be created
     for i, c in enumerate(new_cells_l):
         # Find the nodes of the corresponding higher-dimensional face
@@ -563,7 +558,7 @@ def update_connectivity(
         # Index of these faces in cf_val_loc
         ind_local = np.in1d(all_local_faces, ind_in_original)
 
-        if np.any(old_tips[ind_in_original]):
+        if g_l.cell_faces[ind_in_original].data.size != ind_in_original.size:
             # This situation can happen in 3d (perhaps also 2d).
             # It will likely correspond to a strangly shaped fracture.
             # Implementation of such geometries seems complex, if at all desirable.
@@ -573,8 +568,6 @@ def update_connectivity(
 
         # The sign of this cell should be the oposite of that used in the
         # original grid.
-        # NOTE: The below assignment works because there is exactly one
-        # nonzero element in each row of g_l.cell_faces[ind_in_original]
         cf_val_loc[ind_local] = -g_l.cell_faces[ind_in_original, :].data
 
         # Faces that were not in the original grid, but were added before this iteration
