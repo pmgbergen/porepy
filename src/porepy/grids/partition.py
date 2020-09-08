@@ -467,6 +467,10 @@ def extract_subgrid(
         h.face_normals = g.face_normals[:, unique_faces]
     if hasattr(g, "face_areas"):
         h.face_areas = g.face_areas[unique_faces]
+    if hasattr(g, "periodic_face_map"):
+        if h.num_faces != g.num_faces:
+            raise NotImplementedError("Cannot extract grids with periodic boundaries")
+        h.periodic_face_map = g.periodic_face_map.copy()
 
     h.parent_cell_ind = c
 

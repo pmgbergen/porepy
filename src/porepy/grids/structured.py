@@ -297,8 +297,9 @@ class CartGrid(TensorGrid):
 
         Parameters
         ----------
-        nx (np.ndarray): Number of cells in each direction. Should be 2D or 3D
-        physdims (np.ndarray or dict): Physical dimensions in each direction.
+        nx (np.ndarray): Number of cells in each direction. Should be 1d, 2d or 3d.
+            1d grids can also be specified by a scalar.
+        physdims (np.ndarray): Physical dimensions in each direction.
             If it is a dict considers the fields xmin, xmax, ymin, ymax, zmin, zmax
             to define the grid.
             Defaults to same as nx, that is, cells of unit size.
@@ -328,6 +329,9 @@ class CartGrid(TensorGrid):
         # TensorGrid constructor
         if dims is ():  # dirty trick
             nodes_x = xmin + np.linspace(0, physdims[0], nx + 1)
+            super(self.__class__, self).__init__(nodes_x, name=name)
+        elif dims[0] == 1:
+            nodes_x = np.linspace(0, physdims, nx[0] + 1).ravel()
             super(self.__class__, self).__init__(nodes_x, name=name)
         elif dims[0] == 2:
             nodes_x = xmin + np.linspace(0, physdims[0], nx[0] + 1)

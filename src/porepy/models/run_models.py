@@ -21,13 +21,13 @@ def run_stationary_model(setup, params):
 def run_time_dependent_model(setup, params):
     """
     Time loop for the model classes.
-    
+
     Args:
-        setup: Model class containing all information on parameters, variables, discretization,
-           geometry. Various methods such as those relating to solving the system, see the appropriate
-           solver for documentation.
-        params: Parameters related to the solution proceedure. # Why not just set these as e.g. setup.solution_parameters, EK? And then specify (here, or at top level of the respective solvers) which parameters are required.
-        non_line
+        setup: Model class containing all information on parameters, variables,
+            discretization, geometry. Various methods such as those relating to solving
+            the system, see the appropriate solver for documentation.
+        params: Parameters related to the solution proceedure. # Why not just set these
+            as e.g. setup.solution_parameters.
     """
     # Assign parameters, variables and discretizations. Discretize time-indepedent terms
     if params.get("prepare_simulation", True):
