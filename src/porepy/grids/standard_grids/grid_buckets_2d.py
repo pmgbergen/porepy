@@ -29,7 +29,7 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
                         not provided, these are set by utils.set_mesh_sizes.
                     For cartesian grids: List containing number of cells in x and y
                         direction.
-        x_endpoints (list): Contains the x coordinates of the two endpoints. If not 
+        x_endpoints (list): Contains the x coordinates of the two endpoints. If not
             provided, the endpoints will be set to [0, 1]
 
     Returns:
@@ -64,7 +64,7 @@ def single_vertical(mesh_args=None, y_endpoints=None, simplex=True):
                         not provided, these are set by utils.set_mesh_sizes.
                     For cartesian grids: List containing number of cells in x and y
                         direction.
-        y_endpoints (list): Contains the y coordinates of the two endpoints. If not 
+        y_endpoints (list): Contains the y coordinates of the two endpoints. If not
             provided, the endpoints will be set to [0, 1]
 
     Returns:
@@ -93,7 +93,7 @@ def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex
     """
     Create a grid bucket for a domain containing fractures, one horizontal and one vertical
     at y=0.5 and x=0.5 respectively.
-    
+
     Args:
         mesh_args:  For triangular grids: Dictionary containing at least "mesh_size_frac". If
                         the optional values of "mesh_size_bound" and "mesh_size_min" are

@@ -193,7 +193,7 @@ class Parameters(dict):
         parameters: List[str],
         defaults: Optional[Dict] = None,
     ) -> List:
-        """ Expand parameters assigned as a single scalar to n_vals arrays. 
+        """ Expand parameters assigned as a single scalar to n_vals arrays.
         Used e.g. for parameters which may be heterogeneous in space (cellwise),
         but are often homogeneous and assigned as a scalar.
         Parameters:
@@ -325,11 +325,11 @@ def set_state(data: Dict, state: Optional[Dict] = None) -> Dict:
 
 def set_iterate(data: Dict, iterate: Optional[Dict] = None) -> Dict:
     """Initialize or update an iterate dictionary.
-    
-    Same as set_state for subfield pp.ITERATE    
+
+    Same as set_state for subfield pp.ITERATE
     Also checks whether pp.STATE field is set, and adds it if not, see set_state.
     """
-    if not pp.STATE in data:
+    if pp.STATE not in data:
         set_state(data)
     iterate = iterate or {}
     if pp.ITERATE in data[pp.STATE]:

@@ -102,8 +102,6 @@ class PrimalContactCoupling(
                 added.
 
         """
-        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-
         ambient_dimension = g_master.dim
 
         master_ind = 0
@@ -250,7 +248,7 @@ class PrimalContactCoupling(
 
         ## Second, the contact stress is mapped to the mortar grid.
         # We have for the positive (first) and negative (second) side of the mortar that
-        # T_slave = T_master_pos = -T_master_neg,
+        # T_slave = T_master_j = -T_master_k,
         # so we need to map the slave traction with the corresponding signs to match the
         # mortar tractions.
 
@@ -259,14 +257,15 @@ class PrimalContactCoupling(
         # (note the inverse rotation is given by a transpose).
         # Finally, the contact stresses will be felt in different directions by
         # the two sides of the mortar grids (Newton's third law), hence
-        # adjust the signs
+        # adjust the signs: sign_of_mortar_sides gives a minus for the j side and
+        # plus for the k side, yielding the two equations
+        # - T_slave + T_master_j = 0    and T_slave + T_master_k = 0
         contact_traction_to_mortar = (
             mg.sign_of_mortar_sides(nd=ambient_dimension)
             * projection.project_tangential_normal(mg.num_cells).T
             * mg.slave_to_mortar_int(nd=ambient_dimension)
         )
-        # Minus to obtain -T_slave + T_master = 0.
-        cc[mortar_ind, slave_ind] = -contact_traction_to_mortar
+        cc[mortar_ind, slave_ind] = contact_traction_to_mortar
 
         matrix += cc
 

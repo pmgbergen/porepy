@@ -80,7 +80,56 @@ class SubcellTopology(object):
             (face_nodes_data, face_nodes_indices, face_nodes_indptr)
         )
         sub_faces = sub_face_mat * M
-        sub_faces = sub_faces.data - 1
+        sub_faces = (sub_faces.data - 1).astype(int)
+
+        # If the grid has periodic faces the topology of the subcells are changed.
+        # The left and right faces should be intrepreted as one face topologically.
+        # The face_nodes and cell_faces maps in the grid geometry does not consider
+        # this. We therefore have to merge the left subfaces with the right subfaces.
+        if hasattr(g, "periodic_face_map"):
+            sorted_left = np.sort(g.periodic_face_map[0])
+            sorted_right = np.sort(g.periodic_face_map[1])
+            # It should be straightforward to generalize to the case where the faces
+            # are not sorted. You have to first sort g.periodic_face_map[0] and
+            # g.periodic_face_map[1], then use the two sorted arrays to find the left
+            # and right subfaces, then map the subfaces back to the original
+            # g.periodic_face_map.
+            if not np.allclose(sorted_left, g.periodic_face_map[0]):
+                raise NotImplementedError(
+                    "Can not create subcell topology for periodic faces that are not sorted"
+                )
+            if not np.allclose(sorted_right, g.periodic_face_map[1]):
+                raise NotImplementedError(
+                    "Can not create subcell topology for periodic faces that are not sorted"
+                )
+            left_subfaces = np.where(np.isin(faces_duplicated, g.periodic_face_map[0]))[
+                0
+            ]
+            right_subfaces = np.where(
+                np.isin(faces_duplicated, g.periodic_face_map[1])
+            )[0]
+            # We loose the ordering of g.per map using np.isin. But since we have assumed
+            # g.periodic_face_map[0] and g.periodic_face_map[1] to be sorted, we can easily
+            # retrive the ordering by this trick:
+            left_subfaces = left_subfaces[np.argsort(faces_duplicated[left_subfaces])]
+            right_subfaces = right_subfaces[
+                np.argsort(faces_duplicated[right_subfaces])
+            ]
+
+            # The right subface nodes should be equal to the left subface nodes. We
+            # also have to change the nodes of any other subface that has a node that
+            # is on the rigth boundary.
+            for i in range(right_subfaces.size):
+                # We loop over each righ subface and find all other nodes that has the
+                # same index as the right node. These node indices are swapped with the
+                # corresponding left node index.
+                nodes_duplicated = np.where(
+                    nodes_duplicated == nodes_duplicated[right_subfaces[i]],
+                    nodes_duplicated[left_subfaces[i]],
+                    nodes_duplicated,
+                )
+            # Set the right subfaces equal the left subfaces
+            sub_faces[right_subfaces] = sub_faces[left_subfaces]
 
         # Sort data
         idx = np.lexsort(
@@ -91,14 +140,21 @@ class SubcellTopology(object):
         self.fno = faces_duplicated[idx]
         self.subfno = sub_faces[idx].astype(int)
         self.subhfno = np.arange(idx.size, dtype=">i4")
-        self.num_subfno = self.subfno.max() + 1
         self.num_cno = self.cno.max() + 1
         self.num_nodes = self.nno.max() + 1
+        # If we have periodic faces, the subface indices might have gaps. E.g., if
+        # subface 4 is mapped to subface 1, the index 4 is not included into subfno.
+        # The following code will then subtract 1 from all subface indices larger than 4.
+        _, Ia, Ic = np.unique(self.subfno, return_index=True, return_inverse=True)
+        self.subfno = (
+            self.subfno - np.cumsum(np.diff(np.r_[-1, self.subfno[Ia]]) - 1)[Ic]
+        )
 
         # Make subface indices unique, that is, pair the indices from the two
         # adjacent cells
         _, unique_subfno = np.unique(self.subfno, return_index=True)
 
+        self.num_subfno = self.subfno.max() + 1
         # Reduce topology to one field per subface
         self.nno_unique = self.nno[unique_subfno]
         self.fno_unique = self.fno[unique_subfno]
@@ -210,6 +266,7 @@ def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
 
     ind_ptr = np.hstack((np.arange(0, cols.size, dims), cols.size))
     mat = sps.csr_matrix((dist.ravel("F"), cols.ravel("F"), ind_ptr))
+
     if return_paired:
         return subcell_topology.pair_over_subfaces(mat)
     else:
@@ -440,7 +497,7 @@ def invert_diagonal_blocks(mat, s, method=None):
         """
         try:
             import porepy.numerics.fv.cythoninvert as cythoninvert
-        except:
+        except ImportError:
             raise ImportError(
                 """Compiled Cython module not available. Is cython installed?"""
             )
@@ -472,7 +529,7 @@ def invert_diagonal_blocks(mat, s, method=None):
         """
         try:
             import numba
-        except:
+        except ImportError:
             raise ImportError("Numba not available on the system")
 
         # Sort matrix storage before pulling indices and data
@@ -552,6 +609,8 @@ def invert_diagonal_blocks(mat, s, method=None):
         v = inv_python(ptr, indices, dat, size)
         return v
 
+    # Remove blocks of size 0
+    s = s[s > 0]
     # Variable to check if we have tried and failed with numba
     try_cython = False
     if method == "numba" or method is None:
@@ -559,7 +618,7 @@ def invert_diagonal_blocks(mat, s, method=None):
             inv_vals = invert_diagonal_blocks_numba(mat, s)
         except np.linalg.LinAlgError:
             raise ValueError("Error in inversion of local linear systems")
-        except:
+        except Exception:
             # This went wrong, fall back on cython
             try_cython = True
     # Variable to check if we should fall back on python
@@ -1647,6 +1706,6 @@ def boundary_to_sub_boundary(bound, subcell_topology):
     else:
         bound.robin_weight = bound.robin_weight[subcell_topology.fno_unique]
         bound.basis = bound.basis[subcell_topology.fno_unique]
-    bound.num_faces = subcell_topology.num_subfno_unique
+    bound.num_faces = np.max(subcell_topology.subfno) + 1
     bound.bf = np.where(np.isin(subcell_topology.fno, bound.bf))[0]
     return bound

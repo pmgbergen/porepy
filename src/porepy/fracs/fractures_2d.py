@@ -830,10 +830,10 @@ class FractureNetwork2d(object):
 
         # compute the length for each segment
         norm = lambda e0, e1: np.linalg.norm(self.pts[:, e0] - self.pts[:, e1])
-        l = np.array([norm(e[0], e[1]) for e in self.edges.T])
+        length = np.array([norm(e[0], e[1]) for e in self.edges.T])
 
         # compute the total length based on the fracture id
-        tot_l = lambda f: np.sum(l[np.isin(fi, f)])
+        tot_l = lambda f: np.sum(length[np.isin(fi, f)])
         return np.array([tot_l(f) for f in np.unique(fi)])
 
     def orientation(self, fi=None):
@@ -924,7 +924,7 @@ class FractureNetwork2d(object):
             **kwargs: Keyword arguments to be passed on to matplotlib.
 
         """
-        pp.plot_fractures(self.domain, self.pts, self.edges, **kwargs)
+        pp.plot_fractures(self.pts, self.edges, domain=self.domain, **kwargs)
 
     def to_csv(self, file_name):
         """

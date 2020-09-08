@@ -748,7 +748,7 @@ class FractureNetwork3d(object):
     ) -> str:
         """ Process network intersections and write a gmsh .geo configuration file,
         ready to be processed by gmsh.
-        
+
         NOTE: Consider to use the mesh() function instead to get a ready GridBucket.
 
         Parameters:
@@ -1554,7 +1554,7 @@ class FractureNetwork3d(object):
             truncate_fractures (boolean, optional): If True, fractures outside
             the bounding box will be disregarded, while fractures crossing the
             boundary will be truncated.
-            
+
         Returns:
             np.array: Mapping from old to new fractures, referring to the fractures in
                 self._fractures before and after imposing the external boundary.
@@ -1810,7 +1810,7 @@ class FractureNetwork3d(object):
                     # a domain boundary edge
                     on_one_domain_edge = False
                     for pi in np.where(edge_of_domain_boundary)[0]:
-                        if not e in self.decomposition["line_in_frac"][e2f[pi]]:
+                        if e not in self.decomposition["line_in_frac"][e2f[pi]]:
                             on_one_domain_edge = True
                             break
 

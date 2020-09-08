@@ -59,9 +59,9 @@ class MortarGrid:
         See class documentation for further description of parameters.
 
         If faces the higher-dimensional grid is split along the mortar grid (e.g. room
-        is made for a fracture grid), it is assumed that the extra faces are added 
+        is made for a fracture grid), it is assumed that the extra faces are added
         to the end of the face list. That is, for face pairs {(a1, b1), (a2, b2), ...}
-        max(a_i) should be less than min(b_j). 
+        max(a_i) should be less than min(b_j).
         NOTE: This behaviour can be overridden by providing indices of the extra faces
         in the parameter face_duplicate_ind.
 
@@ -653,8 +653,8 @@ class MortarGrid:
             # the indexing [1] and [2] (and not [0])
             data = np.hstack(
                 (
-                    np.ones(self.side_grids[1].num_cells * nd),
-                    -np.ones(self.side_grids[2].num_cells * nd),
+                    -np.ones(self.side_grids[1].num_cells * nd),
+                    np.ones(self.side_grids[2].num_cells * nd),
                 )
             )
             return sps.dia_matrix((data, 0), shape=(nd * nc, nd * nc))
@@ -760,8 +760,8 @@ class BoundaryMortar(MortarGrid):
         if not self.num_cells == mortar_grid.num_cells:
             raise ValueError(
                 """In the construction of Boundary mortar it is assumed
-            to be a one to one mapping between the mortar grid and the contact faces of the slave
-            grid"""
+            to be a one to one mapping between the mortar grid and the contact faces of
+            the slave grid"""
             )
         self.cell_volumes = mortar_grid.cell_volumes
 
