@@ -57,7 +57,7 @@ class Discretization(abc.ABC):
 
             data['update_discretization']
 
-        this should be a dictionary with up to six keys:
+        this should be a dictionary with up to six keys. The following optional keys:
 
             modified_cells, modified_faces, modified_nodes
 
@@ -66,11 +66,13 @@ class Discretization(abc.ABC):
         discretization method to implement the change necessary by this modification.
         Note that depending on the computational stencil of the discretization method,
         a grid quantity may be rediscretized even if it is not marked as modified.
-        The dictionary should further have keys:
+        The dictionary could further have keys:
 
             cell_index_map, face_index_map, node_index_map
 
-        these should specify sparse matrices that maps old to new indices.
+        these should specify sparse matrices that maps old to new indices. If not provided,
+        unit mappings should be assumed, that is, no changes to the grid topology are
+        accounted for.
 
         It is up to the caller to specify which parts of the grid to recompute, and
         how to update the numbering of degrees of freedom. If the discretization
