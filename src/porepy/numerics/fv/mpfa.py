@@ -11,7 +11,7 @@ import porepy as pp
 
 class Mpfa(pp.FVElliptic):
     def __init__(self, keyword):
-        super(Mpfa, self).__init__(keyword)
+        super(pp.Mpfa, self).__init__(keyword)
 
     def ndof(self, g):
         """
@@ -381,45 +381,86 @@ class Mpfa(pp.FVElliptic):
             ] = bound_pressure_vector_source_glob
 
     def update_discretization(self, g, data):
+        """ Update discretization.
 
-        update_info = data["update_discretization"]
+        The updates can generally come as a combination of two forms:
+            1) The discretization on part of the grid should be recomputed.
+            2) The old discretization can be used (in parts of the grid), but the
+               numbering of unknowns has changed, and the discretization should be
+               reorder accordingly.
 
-        update_cells = update_info["modified_cells"]
-        update_faces = update_info["modified_faces"]
+        Information on the basis for the update should be stored in a field
 
-        cell_map = update_info["map_cells"]
-        face_map = update_info["map_faces"]
+            data['update_discretization']
 
-        param = data[pp.PARAMETERS][self.keyword]
-        param["active_cells"] = update_cells
-        param["active_faces"] = update_faces
+        This should be a dictionary which could contain keys:
 
-        mat_dict = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+            modified_cells, modified_faces
 
-        cell_right = [
+        define cells, faces and nodes that have been modified (either parameters,
+        geometry or topology), and should be rediscretized. It is up to the
+        discretization method to implement the change necessary by this modification.
+        Note that depending on the computational stencil of the discretization method,
+        a grid quantity may be rediscretized even if it is not marked as modified.
+
+        The dictionary data['update_discretization'] should further have keys:
+
+            cell_index_map, face_index_map
+
+        these should specify sparse matrices that maps old to new indices. If not
+        provided, the cell and face bookkeeping will be assumed constant.
+
+        It is up to the caller to specify which parts of the grid to recompute, and
+        how to update the numbering of degrees of freedom. If the discretization
+        method does not provide a tailored implementation for update, it is not
+        necessary to provide this information.
+
+        Parameters:
+            g (pp.Grid): Grid to be rediscretized.
+            data (dictionary): With discretization parameters.
+
+        """
+        # Discretizations to be interpreted as scalar right quantities
+        scalar_cell_right = [
             self.flux_matrix_key,
             self.bound_pressure_cell_matrix_key,
+        ]
+        # Keywords that should be interpreted as vector cell quantities
+        vector_cell_right = [
             self.vector_source_matrix_key,
+            self.bound_pressure_vector_source_matrix_key,
         ]
 
-        # NOTE: Do not use the update_discretization keyword, we will combine
-        # the information in a slightly different manner
-        mat_dict_copy = {}
-        for key, val in mat_dict.items():
-            mat = val
-            if key in cell_right:
-                mat = mat * cell_map.T
-            else:
-                mat = mat * face_map.T
+        scalar_face_right = [
+            self.bound_flux_matrix_key,
+            self.bound_pressure_face_matrix_key,
+        ]
 
-            mat_dict_copy[key] = face_map * mat
+        # To the left, this is all face quantities
+        scalar_face_left = [
+            self.flux_matrix_key,
+            self.bound_flux_matrix_key,
+            self.vector_source_matrix_key,
+            self.bound_pressure_vector_source_matrix_key,
+            self.bound_pressure_cell_matrix_key,
+            self.bound_pressure_face_matrix_key,
+        ]
 
-        self.discretize(g, data)
-
-        for key, val in data[pp.DISCRETIZATION_MATRICES][self.keyword].items():
-            mat_dict_copy[key] += val
-
-        data[pp.DISCRETIZATION_MATRICES][self.keyword] = mat_dict_copy
+        # Dimension of vector quantities.
+        vector_source_dim: int = data[pp.PARAMETERS][self.keyword].get(
+            "ambient_dimension", g.dim
+        )
+        pp.fvutils.partial_update_discretization(
+            g,
+            data,
+            self.keyword,
+            self.discretize,
+            dim=vector_source_dim,
+            scalar_cell_right=scalar_cell_right,
+            scalar_face_right=scalar_face_right,
+            scalar_face_left=scalar_face_left,
+            vector_cell_right=vector_cell_right,
+        )
 
     def _flux_discretization(
         self, g, k, bnd, inverter, ambient_dimension=None, eta=None
