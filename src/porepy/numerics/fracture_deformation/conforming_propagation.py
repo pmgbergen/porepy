@@ -273,6 +273,38 @@ class ConformingFracturePropagation(FracturePropagation):
         # picking of faces to propagate along.
         # parameters["propagation_angle_tangential"]
 
+    def _propagation_vector(self, g: pp.Grid, d: dict, face: int) -> np.ndarray:
+        """
+
+
+        Parameters
+        ----------
+        g : pp.Grid
+            Fracture grid.
+        d : dict
+            The grid's data dictionary.
+        face : int
+            Index of the tip face for which the propagation vector is computed.
+
+        Returns
+        -------
+        propagation_vector : np.ndarray
+            Nd-dimensional propagation vector.
+
+        """
+        tip_basis = self._tip_bases(g, d["tangential_normal_projection"], face)[:, :, 0]
+        angle = d[pp.PARAMETERS][self.mechanics_parameter_key][
+            "propagation_angle_normal"
+        ][face]
+        if self.Nd == 2:
+            sign = np.cross(tip_basis[0], tip_basis[1])
+            e2 = np.array([0, 0, sign])
+        else:
+            e2 = tip_basis[2]
+        R = pp.map_geometry.rotation_matrix(angle, e2)[: self.Nd, : self.Nd]
+        propagation_vector = np.dot(R, tip_basis[0])
+        return propagation_vector
+
     def _pick_propagation_faces(
         self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
     ) -> None:
