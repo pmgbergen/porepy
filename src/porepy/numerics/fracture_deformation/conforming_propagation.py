@@ -225,6 +225,7 @@ class ConformingFracturePropagation(FracturePropagation):
             shear_contribution += 4 * (a_2 * K[2]) ** 2
         K_equivalent = K[0] + np.sqrt(K[0] ** 2 + shear_contribution)
         parameters["propagate_faces"] = K_equivalent >= K_crit[0]
+        parameters["SIFs_equivalent"] = K_equivalent
 
     def _angle_criterion(self, d: Dict) -> None:
         """
@@ -408,7 +409,10 @@ class ConformingFracturePropagation(FracturePropagation):
         basis = np.empty((self.Nd, self.Nd, faces.size))
         # Outward normals of the tip faces (normal vector X dimension X n_tips)
         _, cells, signs = sps.find(g.cell_faces[faces])
-        basis[0, :, :] = g.face_normals[: self.Nd, faces] / g.face_areas[faces] * signs
+        basis[0, :, :] = np.reshape(
+            g.face_normals[: self.Nd, faces] / g.face_areas[faces] * signs,
+            ((self.Nd, faces.size)),
+        )
         # Normals of the fracture plane
         if projection.normals.shape[1] == 1:
             basis[1, :, :] = projection.normals
@@ -485,25 +489,23 @@ class ConformingFracturePropagation(FracturePropagation):
                 if np.all(np.in1d(e, edge_h)):
                     # The edge which we are splitting
                     continue
-                # Identify whether the edge is on a fracture. If so, remove the 
+                # Identify whether the edge is on a fracture. If so, remove the
                 # candidate face unless the edge is a fracture tip. This is done
                 # by going to g_l quantities by use of global_point_ind.
                 if np.all(g_h.tags["fracture_nodes"][e]):
-                    # To check 
+                    # To check
                     # Obtain the global index of all nodes
                     global_nodes = g_h.global_point_ind[e]
                     # Find g_h indices of unique global nodes
                     _, nodes_l = np.intersect1d(
-                        g_l.global_point_ind,
-                        global_nodes,
-                        assume_unique=False,
+                        g_l.global_point_ind, global_nodes, assume_unique=False,
                     )
 
                     if g_l.dim == 1:
                         face_l = nodes_l
                     if g_l.dim == 2:
                         # Care has to be taken since we don't know whether nodes_l
-                        # actually correspond to a face in g_l. 
+                        # actually correspond to a face in g_l.
                         f_0 = g_l.face_nodes[nodes_l[0]].nonzero()[1]
                         f_1 = g_l.face_nodes[nodes_l[1]].nonzero()[1]
                         face_l = np.intersect1d(f_0, f_1)
@@ -514,7 +516,7 @@ class ConformingFracturePropagation(FracturePropagation):
                     else:
                         # Not sure what has happened. Identify and deal with it!
                         assert face_l.size == 0
-                        
+
                     candidate_faces = np.setdiff1d(candidate_faces, f)
 
         return candidate_faces
