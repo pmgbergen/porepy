@@ -364,7 +364,7 @@ def _update_geometry(g_h, g_l, new_cells, n_old_cells_l, n_old_faces_l):
             # For the moment, use the mean of the two values.
             mean_normal = np.mean(normals, axis=1)
 
-            face_normals[:, fi] = mean_normal
+            face_normals[:, fi] = mean_normal / np.linalg.norm(mean_normal) * mean_area
 
         # Sanity check
         # assert np.allclose(np.linalg.norm(face_normals, axis=0), face_areas)
