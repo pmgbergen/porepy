@@ -37,7 +37,7 @@ def plot_fractures(pts, edges, domain=None, colortag=None, ax=None, **kwargs):
 
     if ax is None:
         fig = plt.figure(kwargs.get("fig_id", 1), dpi=kwargs.get("dpi", 100))
-        ax = fig.axis()
+        ax = plt.axes()
     else:
         # Not sure if this should throw an error or just ignore the arguments:
         if kwargs.get("fig_id", None) is not None:
