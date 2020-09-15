@@ -77,8 +77,6 @@ def plot_fractures(pts, edges, domain=None, colortag=None, ax=None, **kwargs):
         else:
             raise NotImplementedError("Have not thought of more than twelwe colors")
 
-
-
     if kwargs.get("domain", True):
         domain_color = "red"
     else:
