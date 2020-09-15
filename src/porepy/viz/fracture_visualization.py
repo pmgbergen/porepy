@@ -36,9 +36,9 @@ def plot_fractures(pts, edges, domain=None, colortag=None, ax=None, **kwargs):
         domain = pp.bounding_box.from_points(pts)
 
     if ax is None:
-        fig = plt.figure(kwargs.get("fig_id", 1), dpi=kwargs.get("dpi", 100))
+        plt.figure(kwargs.get("fig_id", 1), dpi=kwargs.get("dpi", 100))
         ax = plt.axes()
-        do_plot = kwargs.get("plot", True) # To obtain legacy behaviour
+        do_plot = kwargs.get("plot", True)  # To obtain legacy behaviour
     else:
         # Not sure if this should throw an error or just ignore the arguments:
         if kwargs.get("fig_id", None) is not None:
