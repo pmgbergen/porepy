@@ -38,12 +38,14 @@ def plot_fractures(pts, edges, domain=None, colortag=None, ax=None, **kwargs):
     if ax is None:
         fig = plt.figure(kwargs.get("fig_id", 1), dpi=kwargs.get("dpi", 100))
         ax = plt.axes()
+        do_plot = kwargs.get("plot", True) # To obtain legacy behaviour
     else:
         # Not sure if this should throw an error or just ignore the arguments:
         if kwargs.get("fig_id", None) is not None:
             raise ValueError("Cannot give both keyword argument 'fig_id' and 'ax'")
         elif kwargs.get("dpi", None) is not None:
             raise ValueError("Cannot give both keyword argument 'dpi' and 'ax'")
+        do_plot = kwargs.get("plot", False)
     # Assign a color to each tag. We define these by RBG-values (simplest
     # option in pyplot).
     # For the moment, some RBG values are hard coded, do something more
@@ -128,7 +130,7 @@ def plot_fractures(pts, edges, domain=None, colortag=None, ax=None, **kwargs):
         ax.axis("off")
 
     # Finally set axis
-    if kwargs.get("plot", True) and ax is None:
+    if do_plot:
         plt.show()
     if kwargs.get("save", None) is not None:
         plt.savefig(kwargs.get("save"), bbox_inches="tight", pad_inches=0.0)
