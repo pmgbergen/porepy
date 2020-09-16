@@ -71,6 +71,38 @@ class AbstractInterfaceLaw(abc.ABC):
         """
         pass
 
+    def update_discretization(
+        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
+    ) -> None:
+        """ Partial update of discretization.
+
+        Intended use is when the discretization should be updated, e.g. because of
+        changes in parameters, grid geometry or grid topology, and it is not
+        desirable to recompute the discretization on the entire grid. A typical case
+        will be when the discretization operation is costly, and only a minor update
+        is necessary.
+
+        The updates can generally come as a combination of two forms:
+            1) The discretization on part of the grid should be recomputed.
+            2) The old discretization can be used (in parts of the grid), but the
+               numbering of unknowns has changed, and the discretization should be
+               reorder accordingly.
+
+        By default, this method will simply forward the call to the standard
+        discretize method. Discretization methods that wants a tailored approach
+        should override the standard implementation.
+
+
+        Parameters:
+            g_h: Grid of the master domanin.
+            g_l: Grid of the slave domain.
+            data_h: Data dictionary for the master domain.
+            data_l: Data dictionary for the slave domain.
+            data_edge: Data dictionary for the edge between the domains.
+
+        """
+        self.discretize(g_h, g_l, data_h, data_l, data_edge)
+
     @abc.abstractmethod
     def assemble_matrix_rhs(
         self,
