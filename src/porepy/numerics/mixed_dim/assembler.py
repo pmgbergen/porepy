@@ -205,11 +205,52 @@ class Assembler:
     ) -> None:
         """ Update discretizations without a full rediscretization.
 
-        For the moment this is a placeholder method which will be expanded to
-        utilize corresponding update_discretization() methods in individual
-        discretization classes.
+        The method will invoke the update_discretization() method on discretizations
+        on all grids which have the parameter partial_update set to True in its data
+        dictionary. If a Filter is given to this function, the partial update will
+        be used as an additional filter.
+
+        Parameters:
+            filt (pp.assembler_filters.AssemblerFilter, optional): Filter.
+
         """
-        self.discretize(filt)
+        if filt is None or isinstance(filt, pp.assembler_filters.AllPassFilter):
+            grid_list = [g for g, _ in self.gb]
+            grid_list += [e for e, _ in self.gb.edges()]
+            grid_list += [(e[0], e[1], e) for e, _ in self.gb.edges()]
+            variable_list = []
+            term_list = []
+        elif isinstance(filt, pp.assembler_filters.ListFilter):
+            grid_list = filt._grid_list
+            variable_list = filt._variable_list
+            term_list = filt._term_list
+        else:
+            raise NotImplementedError(
+                "Discretization update cannot be combined with non-standard filter"
+            )
+
+        update_grid = {}
+
+        for g, d in self.gb:
+            if d.get("partial_update", False):
+                update_grid[g] = True
+            else:
+                grid_list.remove(g)
+                update_grid[g] = False
+
+        for e, d_e in self.gb.edges():
+            update_edge = d_e.get("partial_update", False)
+            if not update_edge:
+                grid_list.remove(e)
+
+            if not (update_grid[e[0]] or update_grid[e[1]] or update_edge):
+                grid_list.remove((e[0], e[1], e))
+
+        new_filt = pp.assembler_filters.ListFilter(
+            grid_list=grid_list, variable_list=variable_list, term_list=term_list
+        )
+
+        self._operate_on_gb(operation="update_discretization", filt=new_filt)
 
     def discretize(
         self, filt: Optional[pp.assembler_filters.AssemblerFilter] = None
@@ -265,7 +306,7 @@ class Assembler:
 
             # Make term and variable filters that let everything through
 
-        elif operation == "discretize":
+        elif operation == "discretize" or operation == "update_discretization":
             matrix = None
             rhs = None
             sps_matrix = None
@@ -325,12 +366,17 @@ class Assembler:
                 self._discretization_key(combination.row, combination.col)
             ][combination.term]
 
-            # Either discretize or assemble
+            # Either discretize (full or update) or assemble
             if operation == "discretize":
                 if is_node:
                     discr.discretize(grid, data)
                 else:
                     discr.discretize(data)
+            elif operation == "update_discretization":
+                if is_node:
+                    discr.update_discretization(grid, data)
+                else:
+                    discr.update_discretization(data)
             else:  # assemble
                 # Assemble the matrix and right hand side. This will also
                 # discretize if not done before.
@@ -499,6 +545,11 @@ class Assembler:
                         g_master, g_slave, data_master, data_slave, data_edge
                     )
 
+                elif operation == "update_discretization":
+                    edge_discr.discretize(
+                        g_master, g_slave, data_master, data_slave, data_edge
+                    )
+
                 elif operation == "assemble":
                     # Assign a local matrix, which will be populated with the
                     # current state of the local system.
@@ -552,7 +603,7 @@ class Assembler:
                 # TODO: Term filters are not applied to this case
                 # si is None
                 # The operation is a simplified version of the full option above.
-                if operation == "discretize":
+                if operation in ("discretize", "update_discretization"):
                     edge_discr.discretize(g_master, data_master, data_edge)
                 elif operation == "assemble":
 
@@ -576,7 +627,7 @@ class Assembler:
                 # TODO: Term filters are not applied to this case
                 # mi is None
                 # The operation is a simplified version of the full option above.
-                if operation == "discretize":
+                if operation in ("discretize", "update_discretization"):
                     edge_discr.discretize(g_slave, data_slave, data_edge)
                 elif operation == "assemble":
 
