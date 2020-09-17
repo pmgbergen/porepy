@@ -49,6 +49,8 @@ def propagate_fractures(gb, faces):
     d_h["new_cells"] = np.empty(0, dtype=int)
     d_h["new_faces"] = np.empty(0, dtype=int)
 
+    split_faces = np.empty(0, dtype=np.int)
+
     # By default, we will not update the higher-dimensional grid. This will be
     # changed in the below for loop if the grid gets faces split.
     d_h["partial_update"] = False
@@ -69,6 +71,7 @@ def propagate_fractures(gb, faces):
         # Uniquify the faces to be split. Amongs others, this avoids trouble when
         # a faces is requested split twice, from two neighboring faces
         faces_h = np.unique(np.atleast_1d(np.array(faces[i])))
+        split_faces = np.append(split_faces, faces_h)
 
         if faces_h.size == 0:
             # If there is no propagation for this fracture, we continue
@@ -197,6 +200,8 @@ def propagate_fractures(gb, faces):
     d_h["face_index_map"] = fm
     # Also make a cell-map, this is a 1-1 mapping in this case
     d_h["cell_index_map"] = sps.identity(g_h.num_cells)
+
+    d_h["split_faces"] = split_faces
 
     # When all faces have been split, we can update the mortar grids
     for e, d_e in gb.edges_of_node(g_h):
