@@ -421,7 +421,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             else:
                 d[pp.PRIMARY_VARIABLES] = {self.mortar_scalar_variable: {"cells": 1}}
 
-    def discretize_biot(self) -> None:
+    def discretize_biot(self, update_after_geometry_change=False) -> None:
         """
         To save computational time, the full Biot equation (without contact mechanics)
         is discretized once. This is to avoid computing the same terms multiple times.
@@ -434,7 +434,10 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             vector_variable=self.displacement_variable,
             scalar_variable=self.scalar_variable,
         )
-        biot.discretize(g, d)
+        if update_after_geometry_change:
+            biot.update_discretization(g, d)
+        else:
+            biot.discretize(g, d)
 
     def initial_condition(self) -> None:
         """
