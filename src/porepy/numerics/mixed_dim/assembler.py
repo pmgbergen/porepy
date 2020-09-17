@@ -214,40 +214,60 @@ class Assembler:
             filt (pp.assembler_filters.AssemblerFilter, optional): Filter.
 
         """
+        # Only those grids that are marked for update will be updated. This is
+        # implemented as an additional filtering step.
+
         if filt is None or isinstance(filt, pp.assembler_filters.AllPassFilter):
+            # If no filter is provided, make a ListFilter that effectively is AllPass.
+            # The grid list must be constructed explicitly, we may remove items below.
             grid_list = [g for g, _ in self.gb]
             grid_list += [e for e, _ in self.gb.edges()]
             grid_list += [(e[0], e[1], e) for e, _ in self.gb.edges()]
-            variable_list = []
-            term_list = []
+
+            # Variables and terms are empty - all pass
+            variable_list, term_list = [], []
+
         elif isinstance(filt, pp.assembler_filters.ListFilter):
+            # Pick from ListFilter
             grid_list = filt._grid_list
             variable_list = filt._variable_list
             term_list = filt._term_list
+
         else:
             raise NotImplementedError(
                 "Discretization update cannot be combined with non-standard filter"
             )
 
-        update_grid = {}
+        # Keep track of which grids are marked or update
+        update_grid: Dict[pp.Grid, bool] = {}
 
+        # Represent as set for easy removal of grids
+        grid_set = set(grid_list)
+
+        # Loop over all nodes, either register them as marked for update, or remove
+        # from the grid_set.
         for g, d in self.gb:
             if d.get("partial_update", False):
                 update_grid[g] = True
             else:
-                grid_list.remove(g)
+                if g in grid_set:
+                    grid_set.remove(g)
                 update_grid[g] = False
 
         for e, d_e in self.gb.edges():
+            # if edge not marked for partial update, remove
             update_edge = d_e.get("partial_update", False)
-            if not update_edge:
-                grid_list.remove(e)
+            if not update_edge and e in grid_set:
+                grid_set.remove(e)
 
+            # The coupling should be updated if the edge or any of the neigboring
+            # grids is marked for update
             if not (update_grid[e[0]] or update_grid[e[1]] or update_edge):
-                grid_list.remove((e[0], e[1], e))
+                grid_set.remove((e[0], e[1], e))
 
+        # Create a new filter with only grids marked for update.
         new_filt = pp.assembler_filters.ListFilter(
-            grid_list=grid_list, variable_list=variable_list, term_list=term_list
+            grid_list=list(grid_set), variable_list=variable_list, term_list=term_list
         )
 
         self._operate_on_gb(operation="update_discretization", filt=new_filt)
