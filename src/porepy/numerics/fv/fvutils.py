@@ -1339,6 +1339,8 @@ def partial_update_discretization(
     used to map rows and columns, respectively.
     Together these fields allows for mapping a discretization between grids.
 
+    If a term misses a right or left mapping, it will be ignored.
+
     """
     # Process input
     if scalar_cell_right is None:
@@ -1421,7 +1423,9 @@ def partial_update_discretization(
         elif key in vector_face_right:
             mat = mat * sps.kron(face_map.T, sps.eye(dim))
         else:
-            raise KeyError(f"Unknown right mapping for key {key} with matrix {mat}")
+            # If no mapping is provided, we assume the matrix is not part of the
+            # target discretization, and ignore it.
+            continue
 
         # Mapping of faces. Enforce csr format to enable elimination of rows below.
         if key in scalar_cell_left:
@@ -1440,7 +1444,9 @@ def partial_update_discretization(
             mat = (sps.kron(face_map, sps.eye(dim)) * mat).tocsr()
             pp.fvutils.remove_nonlocal_contribution(active_faces, dim, mat)
         else:
-            raise KeyError(f"Unknown left mapping for key {key} with matrix {mat}")
+            # If no mapping is provided, we assume the matrix is not part of the
+            # target discretization, and ignore it.
+            continue
 
         mat_dict_copy[key] = mat
 
@@ -1450,7 +1456,20 @@ def partial_update_discretization(
 
     # Define new discretization as a combination of mapped and rediscretized
     for key, val in data[pp.DISCRETIZATION_MATRICES][keyword].items():
-        if val.shape == mat_dict_copy[key].shape:
+        # If the key is present in the matrix dictionary of the second_keyword,
+        # we skip it, and handle below.
+        # See comment on Biot discretization below
+        if (
+            second_keyword is not None
+            and key in data[pp.DISCRETIZATION_MATRICES][second_keyword].keys()
+        ):
+            continue
+
+        if (
+            key in data[pp.DISCRETIZATION_MATRICES][keyword].keys()
+            and key in mat_dict_copy.keys()
+        ):
+            # By now, the two matrices should have compatible size
             data[pp.DISCRETIZATION_MATRICES][keyword][key] = mat_dict_copy[key] + val
 
     # The Biot discretization is special, in that it places part of matrices in
