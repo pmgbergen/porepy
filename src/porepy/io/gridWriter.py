@@ -359,12 +359,19 @@ def purge0dFacesAndNodes(gb):
 
 def addCellFaceTag(gb):
 
-    for g in gb.grids_of_dimension(3):
-        if "CartGrid" in g.name:
-            raise NotImplementedError('Have not implemented addCellFaceTag for dimension 3')
+    if isinstance(gb, pp.GridBucket):
+        for g in gb.grids_of_dimension(3):
+            if "CartGrid" in g.name:
+                raise NotImplementedError('Have not implemented addCellFaceTag for dimension 3')
+        grid_list = gb.grids_of_dimension(2)
+
+    else:
+        if gb.dim != 2:
+            raise NotImplementedError("Have only implemented callFaceTag for dimension 2")
+        grid_list = [gb]
 
     tol = 1e-10
-    for g in gb.grids_of_dimension(2):
+    for g in grid_list:
         if "CartGrid" in g.name:
             g.cell_facetag = np.zeros(g.cell_faces.indptr[-1], dtype=int)
             for k in range(g.num_cells):
