@@ -1,6 +1,13 @@
 """ Unit tests for the partial update features of mpfa and mpsa.
 
-Split into three classes, for flow, mechanics and poro-mechanics, respectively.
+Split into four classes:
+    TestPartialMPFA, MPSA and Biot 
+test the option of setting 'specified_{cells, faces, nodes}', for flow, mechanics and
+ poro-mechanics, respectively.
+
+The class UpdateDiscretizations tests the update_discretization() methods of 
+Mpfa, Mpsa and Biot. These are effectively a second set of test of the specified_*
+keyword, but in addition, updates of grid geometry etc. are also probed.
 
 """
 import unittest
@@ -14,8 +21,10 @@ class TestPartialMPFA(unittest.TestCase):
     """ Test various partial assembly for mpfa.
     """
 
-    def setup(self):
-        g = pp.CartGrid([5, 5])
+    def setup(self, sz=None):
+        if sz is None:
+            sz = [5, 5]
+        g = pp.CartGrid(sz)
         g.compute_geometry()
         perm = pp.SecondOrderTensor(np.ones(g.num_cells))
         bnd = pp.BoundaryCondition(g)
@@ -648,7 +657,7 @@ class PartialBiotMpsa(TestPartialMPSA):
         specified_data = {
             "fourth_order_tensor": stiffness,
             "bc": bnd,
-            "inverter": "python",
+            #            "inverter": "python",
             "biot_alpha": 1,
         }
         keyword_mech = "mechanics"
@@ -733,6 +742,293 @@ class PartialBiotMpsa(TestPartialMPSA):
             (bound_displacement_pressure - bound_pressure_full).min() > -1e-8
         )
 
+
+class UpdateDiscretizations(unittest.TestCase):
+    """ Tests specifically for the update_discretization methods in the
+     Mpfa, Mpsa and Biot classes.
+
+    The tests are structured as follows:
+        1. Generate a small (Cartesian 3x4) and a large (4x4) grid.
+        2. Discretize the small problem
+        3. Use the update_discretization() method to transfer the small discretization
+           to the larger grid, and discretize those cells / faces that were not updated.
+        4. Compare the result from 3. with a full discretization on the standard grid.
+
+    """
+
+    def setup(self):
+        self.g = pp.CartGrid([3, 4])
+        self.g.compute_geometry()
+        self.g_larger = pp.CartGrid([4, 4])
+        self.g_larger.compute_geometry()
+        cell_map_index = np.array(
+            [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14], dtype=np.int
+        )
+        self.cell_map = sps.coo_matrix(
+            (np.ones(self.g.num_cells), (cell_map_index, np.arange(self.g.num_cells))),
+            shape=(self.g_larger.num_cells, self.g.num_cells),
+        ).tocsr()
+
+        face_map_index = np.array(
+            [
+                0,
+                1,
+                2,
+                3,
+                5,
+                6,
+                7,
+                8,
+                10,
+                11,
+                12,
+                13,
+                15,
+                16,
+                17,
+                18,
+                20,
+                21,
+                22,
+                24,
+                25,
+                26,
+                28,
+                29,
+                30,
+                32,
+                33,
+                34,
+                36,
+                37,
+                38,
+            ]
+        )
+        self.face_map = sps.coo_matrix(
+            (np.ones(self.g.num_faces), (face_map_index, np.arange(self.g.num_faces))),
+            shape=(self.g_larger.num_faces, self.g.num_faces),
+        ).tocsr()
+        self.new_cells = np.array([3, 7, 11, 15])
+
+    def _update_and_compare(
+        self, data_small, data_partial, data_full, g_larger, keywords, discr
+    ):
+
+        for keyword in keywords:
+            # Transfer discretized matrices from the small problem
+            for key, val in data_small[pp.DISCRETIZATION_MATRICES][keyword].items():
+                data_partial[pp.DISCRETIZATION_MATRICES][keyword][key] = val
+
+        discr.update_discretization(g_larger, data_partial)
+        # Update discretizations
+
+        for keyword in keywords:
+            dict_partial = data_partial[pp.DISCRETIZATION_MATRICES][keyword]
+
+            # Compare
+            for key, mat_full in data_full[pp.DISCRETIZATION_MATRICES][keyword].items():
+                mat_partial = dict_partial[key]
+                self.assertTrue(np.allclose(mat_full.shape, mat_partial.shape))
+                self.assertTrue(np.max(mat_full - mat_partial) < 1e-8)
+                self.assertTrue(np.min(mat_full - mat_partial) < 1e-8)
+
+    def test_mpfa(self):
+        self.setup()
+
+        g, g_larger = self.g, self.g_larger
+
+        specified_data = {
+            "inverter": "python",
+        }
+
+        keyword = "flow"
+        data_small = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
+        )
+
+        discr = pp.Mpfa(keyword)
+        # Discretization on a small problem
+        discr.discretize(g, data_small)
+
+        # Perturb one node
+        g_larger.nodes[0, 2] += 0.2
+        # Faces that have their geometry changed
+        update_faces = np.array([2, 21, 22])
+
+        # Perturb the permeability in some cells on the larger grid
+        perm_larger = pp.SecondOrderTensor(np.ones(g_larger.num_cells))
+        high_perm_cells = np.array([7, 12])
+        perm_larger.values[:, :, high_perm_cells] *= 10
+        specified_data_larger = {"second_order_tensor": perm_larger}
+
+        # Do a full discretization on the larger grid
+        data_full = pp.initialize_default_data(
+            g_larger, {}, keyword, specified_parameters=specified_data_larger
+        )
+        discr.discretize(g_larger, data_full)
+
+        # Cells that will be marked as updated, either due to changed parameters or
+        # the newly defined topology
+        update_cells = np.union1d(self.new_cells, high_perm_cells)
+
+        updates = {
+            "modified_cells": update_cells,
+            #            "modified_faces": update_faces,
+            "map_cells": self.cell_map,
+            "map_faces": self.face_map,
+        }
+
+        # Data dictionary for the two-step discretization
+        data_partial = pp.initialize_default_data(
+            g_larger, {}, keyword, specified_parameters=specified_data_larger
+        )
+        data_partial["update_discretization"] = updates
+
+        self._update_and_compare(
+            data_small, data_partial, data_full, g_larger, [keyword], discr
+        )
+
+    def test_mpsa(self):
+        self.setup()
+
+        g, g_larger = self.g, self.g_larger
+
+        specified_data = {
+            "inverter": "python",
+        }
+
+        keyword = "mechanics"
+        data_small = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
+        )
+
+        discr = pp.Mpsa(keyword)
+        # Discretization on a small problem
+        discr.discretize(g, data_small)
+
+        # Perturb one node
+        g_larger.nodes[0, 2] += 0.2
+        # Faces that have their geometry changed
+        update_faces = np.array([2, 21, 22])
+
+        # Perturb the permeability in some cells on the larger grid
+        mu, lmbda = np.ones(g_larger.num_cells), np.ones(g_larger.num_cells)
+
+        high_coeff_cells = np.array([7, 12])
+        stiff_larger = pp.FourthOrderTensor(mu, lmbda)
+
+        specified_data_larger = {"fourth_order_tensor": stiff_larger}
+
+        # Do a full discretization on the larger grid
+        data_full = pp.initialize_default_data(
+            g_larger, {}, keyword, specified_parameters=specified_data_larger
+        )
+        discr.discretize(g_larger, data_full)
+
+        # Cells that will be marked as updated, either due to changed parameters or
+        # the newly defined topology
+        update_cells = np.union1d(self.new_cells, high_coeff_cells)
+
+        updates = {
+            "modified_cells": update_cells,
+            #            "modified_faces": update_faces,
+            "map_cells": self.cell_map,
+            "map_faces": self.face_map,
+        }
+
+        # Data dictionary for the two-step discretization
+        data_partial = pp.initialize_default_data(
+            g_larger, {}, keyword, specified_parameters=specified_data_larger
+        )
+        data_partial["update_discretization"] = updates
+
+        self._update_and_compare(
+            data_small, data_partial, data_full, g_larger, [keyword], discr
+        )
+
+    def test_biot(self):
+        self.setup()
+
+        g, g_larger = self.g, self.g_larger
+
+        specified_data = {"inverter": "python", "biot_alpha": 1}
+
+        mechanics_keyword = "mechanics"
+        flow_keyword = "flow"
+        data_small = pp.initialize_default_data(
+            g, {}, mechanics_keyword, specified_parameters=specified_data
+        )
+
+        def add_flow_data(g, d):
+            d[pp.DISCRETIZATION_MATRICES][flow_keyword] = {}
+            d[pp.PARAMETERS][flow_keyword] = {
+                "bc": pp.BoundaryCondition(g),
+                "second_order_tensor": pp.SecondOrderTensor(np.ones(g.num_cells)),
+                "bc_values": np.zeros(g.num_faces),
+                "inverter": "python",
+                "mass_weight": np.ones(g.num_cells),
+                "biot_alpha": 1,
+            }
+
+        discr = pp.Biot(mechanics_keyword=mechanics_keyword, flow_keyword=flow_keyword)
+
+        add_flow_data(g, data_small)
+
+        discr.discretize(g, data_small)
+        # Discretization on a small problem
+
+        # Perturb one node
+        g_larger.nodes[0, 2] += 0.2
+        # Faces that have their geometry changed
+        update_faces = np.array([2, 21, 22])
+
+        # Perturb the permeability in some cells on the larger grid
+        mu, lmbda = np.ones(g_larger.num_cells), np.ones(g_larger.num_cells)
+
+        high_coeff_cells = np.array([7, 12])
+        stiff_larger = pp.FourthOrderTensor(mu, lmbda)
+
+        specified_data_larger = {"fourth_order_tensor": stiff_larger, "biot_alpha": 1}
+
+        # Do a full discretization on the larger grid
+        data_full = pp.initialize_default_data(
+            g_larger, {}, mechanics_keyword, specified_parameters=specified_data_larger
+        )
+        add_flow_data(g_larger, data_full)
+
+        discr.discretize(g_larger, data_full)
+
+        # Cells that will be marked as updated, either due to changed parameters or
+        # the newly defined topology
+        update_cells = np.union1d(self.new_cells, high_coeff_cells)
+
+        updates = {
+            "modified_cells": update_cells,
+            #            "modified_faces": update_faces,
+            "map_cells": self.cell_map,
+            "map_faces": self.face_map,
+        }
+
+        # Data dictionary for the two-step discretization
+        data_partial = pp.initialize_default_data(
+            g_larger, {}, mechanics_keyword, specified_parameters=specified_data_larger
+        )
+        add_flow_data(g_larger, data_partial)
+        data_partial["update_discretization"] = updates
+
+        self._update_and_compare(
+            data_small,
+            data_partial,
+            data_full,
+            g_larger,
+            keywords=[flow_keyword, mechanics_keyword],
+            discr=discr,
+        )
+
+
+UpdateDiscretizations().test_mpfa()
+UpdateDiscretizations().test_mpsa()
+UpdateDiscretizations().test_biot()
 
 if __name__ == "__main__":
     unittest.main()
