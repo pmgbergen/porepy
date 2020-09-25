@@ -142,7 +142,7 @@ def create_2d_grids(
         # since there is not a cell-face relation from gmsh but only a cell-node
         # relation we need to recover the corresponding face-line map.
         # First find the nodes of each face
-        faces = np.reshape(g_2d.face_nodes.indices, (2, -1),order='F')
+        faces = np.reshape(g_2d.face_nodes.indices, (2, -1), order="F")
         faces = np.sort(faces, axis=0)
 
         # Then we do a bunch of sorting to make sure faces and lines has the same
@@ -170,7 +170,9 @@ def create_2d_grids(
         line2face = idxf[is_line][IC]
         # Sanity check
         if not np.allclose(faces[:, line2face], line):
-            raise RuntimeError("Could not find mapping from gmsh lines to pp.Grid faces")
+            raise RuntimeError(
+                "Could not find mapping from gmsh lines to pp.Grid faces"
+            )
 
         # Now we can assign the correct tags to the grid.
         # First we add them as False and after we change for the correct
