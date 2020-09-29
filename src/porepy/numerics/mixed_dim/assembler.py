@@ -262,7 +262,10 @@ class Assembler:
 
             # The coupling should be updated if the edge or any of the neigboring
             # grids is marked for update
-            if not (update_grid[e[0]] or update_grid[e[1]] or update_edge):
+            if (
+                not (update_grid[e[0]] or update_grid[e[1]] or update_edge)
+                and (e[0], e[1], e) in grid_set
+            ):
                 grid_set.remove((e[0], e[1], e))
 
         # Create a new filter with only grids marked for update.

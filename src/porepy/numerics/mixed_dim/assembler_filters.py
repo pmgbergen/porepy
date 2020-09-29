@@ -176,7 +176,7 @@ class ListFilter(AssemblerFilter):
         nodes = []
         edges = []
         couplings = []
-        if not grid_list:
+        if grid_list is None:
             grid_list = []
 
         self._grid_list = grid_list
