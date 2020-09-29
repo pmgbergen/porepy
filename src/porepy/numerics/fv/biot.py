@@ -381,20 +381,16 @@ class Biot(pp.Mpsa):
             data (dictionary): With discretization parameters.
 
         """
+
+        # If neither cells nor faces have been modified, we should not start the update
+        # procedure (it will result in a key error towards the end of this function - it
+        # is technical). If no updates, we short cut the method
         update_info = data["update_discretization"]
         # By default, neither cells nor faces have been updated
         update_cells = update_info.get("modified_cells", np.array([], dtype=np.int))
         update_faces = update_info.get("modified_faces", np.array([], dtype=np.int))
 
-        param = data[pp.PARAMETERS][keyword]
-        if update_cells.size > 0:
-            param["specified_cells"] = update_cells
-            do_discretize = True
-        if update_faces.size > 0:
-            param["specified_faces"] = update_faces
-            do_discretize = True
-
-        if not do_discretize:
+        if update_cells.size == 0 and update_faces.size == 0:
             return
 
         # The implementation is quite a bit more involved than the corresponding methods
