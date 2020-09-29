@@ -381,6 +381,22 @@ class Biot(pp.Mpsa):
             data (dictionary): With discretization parameters.
 
         """
+        update_info = data["update_discretization"]
+        # By default, neither cells nor faces have been updated
+        update_cells = update_info.get("modified_cells", np.array([], dtype=np.int))
+        update_faces = update_info.get("modified_faces", np.array([], dtype=np.int))
+
+        param = data[pp.PARAMETERS][keyword]
+        if update_cells.size > 0:
+            param["specified_cells"] = update_cells
+            do_discretize = True
+        if update_faces.size > 0:
+            param["specified_faces"] = update_faces
+            do_discretize = True
+
+        if not do_discretize:
+            return
+
         # The implementation is quite a bit more involved than the corresponding methods
         # for mpfa and mpsa, due to the multi-physics structure of the discretization.
 
