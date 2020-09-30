@@ -562,7 +562,12 @@ class THM(parent_model.ContactMechanicsBiot):
         weight_div_u = beta
         key_m_from_t = self.mechanics_temperature_parameter_key
         d[pp.DISCRETIZATION_MATRICES][key_m_from_t] = matrices_mt
-        d[pp.PARAMETERS][key_m_from_t] = {"biot_alpha": weight_div_u}
+        pp.initialize_data(
+                    g,
+                    d,
+                    key_m_from_t,
+                    {"biot_alpha": weight_div_u},
+                ) 
         bc_dict = {"bc_values": self.bc_values_mechanics(g)}
         state = {key_m_from_t: bc_dict}
         pp.set_state(d, state)
