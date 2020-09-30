@@ -230,7 +230,7 @@ def sort_triangle_edges(t):
                 t[hit_new_1, ti_new] = q[1]
         else:
             # q1 before q0 in the sorted column, reverse in the other
-            if hit_new_1 - hit_new_2 or (hit_new_0 == 2 and hit_new_1 == 0):
+            if hit_new_1 - hit_new_0 or (hit_new_0 == 2 and hit_new_1 == 0):
                 t[hit_new_0, ti_new] = q[0]
                 t[hit_new_1, ti_new] = q[1]
             else:

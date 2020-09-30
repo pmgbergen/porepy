@@ -2530,8 +2530,6 @@ def _gb_1_mortar_grid_vtu():
 """
 
 
-
-
 def _gb_2_grid_pvd():
     return """<?xml version="1.0"?>
 <VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">

@@ -342,6 +342,74 @@ class Mpsa(Discretization):
                 self.bound_displacment_face_matrix_key
             ] = bound_displacement_face_glob
 
+    def update_discretization(self, g, data):
+        """ Update discretization.
+
+        The updates can generally come as a combination of two forms:
+            1) The discretization on part of the grid should be recomputed.
+            2) The old discretization can be used (in parts of the grid), but the
+               numbering of unknowns has changed, and the discretization should be
+               reorder accordingly.
+
+        Information on the basis for the update should be stored in a field
+
+            data['update_discretization']
+
+        This should be a dictionary which could contain keys:
+
+            modified_cells, modified_faces
+
+        define cells, faces and nodes that have been modified (either parameters,
+        geometry or topology), and should be rediscretized. It is up to the
+        discretization method to implement the change necessary by this modification.
+        Note that depending on the computational stencil of the discretization method,
+        a grid quantity may be rediscretized even if it is not marked as modified.
+
+        The dictionary data['update_discretization'] should further have keys:
+
+            cell_index_map, face_index_map
+
+        these should specify sparse matrices that maps old to new indices. If not
+        provided, the cell and face bookkeeping will be assumed constant.
+
+        It is up to the caller to specify which parts of the grid to recompute, and
+        how to update the numbering of degrees of freedom. If the discretization
+        method does not provide a tailored implementation for update, it is not
+        necessary to provide this information.
+
+        Parameters:
+            g (pp.Grid): Grid to be rediscretized.
+            data (dictionary): With discretization parameters.
+
+        """
+        # Keywords that should be interpreted as vector cell quantities
+        vector_cell_right = [
+            self.stress_matrix_key,
+            self.bound_displacment_cell_matrix_key,
+        ]
+        vector_face_right = [
+            self.bound_stress_matrix_key,
+            self.bound_displacment_face_matrix_key,
+        ]
+
+        vector_face_left = [
+            self.stress_matrix_key,
+            self.bound_displacment_cell_matrix_key,
+            self.bound_displacment_face_matrix_key,
+            self.bound_stress_matrix_key,
+        ]
+
+        pp.fvutils.partial_update_discretization(
+            g,
+            data,
+            self.keyword,
+            self.discretize,
+            dim=g.dim,
+            vector_cell_right=vector_cell_right,
+            vector_face_right=vector_face_right,
+            vector_face_left=vector_face_left,
+        )
+
     def assemble_matrix_rhs(
         self, g: pp.Grid, data: Dict
     ) -> Tuple[sps.spmatrix, np.ndarray]:
@@ -524,7 +592,7 @@ class Mpsa(Discretization):
         if bound.bc_type != "vectorial":
             raise AttributeError("MPSA must be given a vectorial boundary condition")
 
-        if bound.is_per.sum():
+        if hasattr(g, "periodic_face_map"):
             raise NotImplementedError(
                 "Periodic boundary conditions are not implemented for Mpsa"
             )
@@ -787,9 +855,9 @@ class Mpsa(Discretization):
         # Here you have to be carefull if you ever change hook_cell to something else than
         # 0. Because we have pulled the Neumann conditions out of the stress condition
         # the following would give an index error. Instead you would have to make a
-        # hook_cell_neu equal the number neumann_sub_faces, and a hook_cell_int equal the number
-        # of internal sub_faces and use .keep_neu and .exclude_bnd. But since this is all zeros,
-        # thi indexing does not matter.
+        # hook_cell_neu equal the number neumann_sub_faces, and a hook_cell_int equal the
+        # number of internal sub_faces and use .keep_neu and .exclude_bnd. But since this
+        # is all zeros, this indexing does not matter.
         hook_cell = bound_exclusion.exclude_robin_dirichlet(hook_cell)
 
         # Matrices to enforce displacement continuity
@@ -857,7 +925,8 @@ class Mpsa(Discretization):
         # Define right hand side for Neumann boundary conditions
         # First row indices in rhs matrix
         # Pick out the subface indices
-        # The boundary conditions should be given in the given basis, therefore no transformation
+        # The boundary conditions should be given in the given basis, therefore no
+        # transformation
         subfno_neu = bound_exclusion.keep_neumann(
             subfno_nd.ravel("C"), transform=False
         ).ravel("F")

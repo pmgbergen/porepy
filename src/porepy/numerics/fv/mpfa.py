@@ -11,7 +11,7 @@ import porepy as pp
 
 class Mpfa(pp.FVElliptic):
     def __init__(self, keyword):
-        super(Mpfa, self).__init__(keyword)
+        super(pp.Mpfa, self).__init__(keyword)
 
     def ndof(self, g):
         """
@@ -380,6 +380,88 @@ class Mpfa(pp.FVElliptic):
                 self.bound_pressure_vector_source_matrix_key
             ] = bound_pressure_vector_source_glob
 
+    def update_discretization(self, g, data):
+        """ Update discretization.
+
+        The updates can generally come as a combination of two forms:
+            1) The discretization on part of the grid should be recomputed.
+            2) The old discretization can be used (in parts of the grid), but the
+               numbering of unknowns has changed, and the discretization should be
+               reorder accordingly.
+
+        Information on the basis for the update should be stored in a field
+
+            data['update_discretization']
+
+        This should be a dictionary which could contain keys:
+
+            modified_cells, modified_faces
+
+        define cells, faces and nodes that have been modified (either parameters,
+        geometry or topology), and should be rediscretized. It is up to the
+        discretization method to implement the change necessary by this modification.
+        Note that depending on the computational stencil of the discretization method,
+        a grid quantity may be rediscretized even if it is not marked as modified.
+
+        The dictionary data['update_discretization'] should further have keys:
+
+            cell_index_map, face_index_map
+
+        these should specify sparse matrices that maps old to new indices. If not
+        provided, the cell and face bookkeeping will be assumed constant.
+
+        It is up to the caller to specify which parts of the grid to recompute, and
+        how to update the numbering of degrees of freedom. If the discretization
+        method does not provide a tailored implementation for update, it is not
+        necessary to provide this information.
+
+        Parameters:
+            g (pp.Grid): Grid to be rediscretized.
+            data (dictionary): With discretization parameters.
+
+        """
+        # Discretizations to be interpreted as scalar right quantities
+        scalar_cell_right = [
+            self.flux_matrix_key,
+            self.bound_pressure_cell_matrix_key,
+        ]
+        # Keywords that should be interpreted as vector cell quantities
+        vector_cell_right = [
+            self.vector_source_matrix_key,
+            self.bound_pressure_vector_source_matrix_key,
+        ]
+
+        scalar_face_right = [
+            self.bound_flux_matrix_key,
+            self.bound_pressure_face_matrix_key,
+        ]
+
+        # To the left, this is all face quantities
+        scalar_face_left = [
+            self.flux_matrix_key,
+            self.bound_flux_matrix_key,
+            self.vector_source_matrix_key,
+            self.bound_pressure_vector_source_matrix_key,
+            self.bound_pressure_cell_matrix_key,
+            self.bound_pressure_face_matrix_key,
+        ]
+
+        # Dimension of vector quantities.
+        vector_source_dim: int = data[pp.PARAMETERS][self.keyword].get(
+            "ambient_dimension", g.dim
+        )
+        pp.fvutils.partial_update_discretization(
+            g,
+            data,
+            self.keyword,
+            self.discretize,
+            dim=vector_source_dim,
+            scalar_cell_right=scalar_cell_right,
+            scalar_face_right=scalar_face_right,
+            scalar_face_left=scalar_face_left,
+            vector_cell_right=vector_cell_right,
+        )
+
     def _flux_discretization(
         self, g, k, bnd, inverter, ambient_dimension=None, eta=None
     ):
@@ -644,8 +726,29 @@ class Mpfa(pp.FVElliptic):
             (
                 np.ones(subcell_topology.unique_subfno.size),
                 (subcell_topology.fno_unique, subcell_topology.subfno_unique),
-            )
+            ),
+            shape=(g.num_faces, subcell_topology.num_subfno_unique),
         )
+
+        # If the grid has a periodic boundary, the left faces are topologically
+        # connected to the right faces. This is included in the SubcellTopology
+        # class by merging the right faces with the left faces. This means that
+        # hf2f is a mapping from topological unique half faces to topological unique
+        # faces. However, we want the discretization to be
+        # applied to the topology of g (where the left and right faces are different).
+        # We therefore map the left faces of the SubcellTopology to the right
+        # faces of the grid:
+        if hasattr(g, "periodic_face_map"):
+            indices = np.arange(g.num_faces)
+            # The left faces should be mapped to the right faces
+            indices[g.periodic_face_map[1]] = g.periodic_face_map[0]
+            indptr = np.arange(g.num_faces + 1)
+            data = np.ones(g.num_faces, dtype=int)
+            periodic2face = sps.csr_matrix(
+                (data, indices, indptr), (g.num_faces, g.num_faces)
+            )
+            # Update hf2f so that it maps to the faces of g.
+            hf2f = periodic2face * hf2f
 
         # The boundary faces will have either a Dirichlet or Neumann condition, or
         # Robin condition
@@ -907,16 +1010,19 @@ class Mpfa(pp.FVElliptic):
         Thus we can compute the basis functions 'vector_source_jumps' on the sub-cells.
         To ensure flux continuity, as soon as a convention is chosen for what side
         the flux evaluation should be considered on, an additional term, called
-        'vector_source_faces', is added to the full flux. This latter term represents the flux
-        due to cell-center vector source acting on the face from the chosen side.
+        'vector_source_faces', is added to the full flux. This latter term represents the
+        flux due to cell-center vector source acting on the face from the chosen side.
         The pair subfno_unique-unique_subfno gives the side convention.
         The full flux on the face is therefore given by
-        q = flux * p + bound_flux * p_b + (vector_source_jumps + vector_source_faces) * vector_source
+
+        q = flux * p + bound_flux * p_b
+            + (vector_source_jumps + vector_source_faces) * vector_source
 
         Output: vector_source = vector_source_jumps + vector_source_faces
 
         The strategy is as follows.
-        1. assemble r.h.s. for the new linear system, needed for the term 'vector_source_jumps'
+        1. assemble r.h.s. for the new linear system, needed for the term
+            'vector_source_jumps'
         2. compute term 'vector_source_faces'
         """
 
@@ -1126,12 +1232,6 @@ class Mpfa(pp.FVElliptic):
         is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
         is_neu = np.logical_or(bnd.is_neu, bnd.is_internal)
         is_rob = np.logical_and(bnd.is_rob, np.logical_not(bnd.is_internal))
-        is_per = bnd.is_per
-
-        if is_per.sum():
-            raise NotImplementedError(
-                "Periodic boundary conditions are not implemented for Mpfa"
-            )
 
         fno = subcell_topology.fno_unique
         num_neu = np.sum(is_neu)
@@ -1239,6 +1339,8 @@ class Mpfa(pp.FVElliptic):
             neu_rob_dir_ind = neu_rob_ind_all
         elif dir_ind.size > 0:
             neu_rob_dir_ind = dir_ind_all
+        elif num_bound == 0:  # all of them are empty
+            neu_rob_dir_ind = neu_rob_ind
         else:
             raise ValueError("Boundary values should be either Dirichlet or " "Neumann")
 
