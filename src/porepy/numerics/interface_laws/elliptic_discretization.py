@@ -105,7 +105,8 @@ class EllipticDiscretization(Discretization):
     def extract_flux(self, g, solution_array, data):
         """ Abstract method. Extract the pressure part of a solution.
 
-        The implementation will depend what are the primary variables of the specific implementation.
+        The implementation will depend what are the primary variables of the specific
+        implementation.
 
         TODO: We should incrude the boundary condition as well?
 

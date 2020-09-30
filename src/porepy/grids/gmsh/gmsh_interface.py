@@ -113,7 +113,8 @@ class GmshWriter(object):
         # Both fractures and compartments are
         constants = gridding_constants.GmshConstants()
 
-        # We consider fractures, boundary tag, an auxiliary tag (fake fractures/mesh constraints)
+        # We consider fractures, boundary tag, an auxiliary tag (fake fractures/mesh
+        # constraints)
         ind = np.argwhere(
             np.logical_or.reduce(
                 (
@@ -348,12 +349,12 @@ class GmshWriter(object):
         return s
 
     def _write_lines(self, embed_in=None):
-        l = self.lines
-        num_lines = l.shape[1]
+        lines = self.lines
+        num_lines = lines.shape[1]
         ls = "\n"
         s = "// Define lines " + ls
         constants = gridding_constants.GmshConstants()
-        if l.shape[0] > 2:
+        if lines.shape[0] > 2:
             has_tags = True
         else:
             has_tags = False
@@ -365,21 +366,21 @@ class GmshWriter(object):
                 + " = newl; Line(frac_line_"
                 + si
                 + ") = {p"
-                + str(l[0, i])
+                + str(lines[0, i])
                 + ", p"
-                + str(l[1, i])
+                + str(lines[1, i])
                 + "};"
                 + ls
             )
             if has_tags:
                 s += 'Physical Line("'
-                if l[2, i] == constants.FRACTURE_TIP_TAG:
+                if lines[2, i] == constants.FRACTURE_TIP_TAG:
                     s += constants.PHYSICAL_NAME_FRACTURE_TIP
-                elif l[2, i] == constants.FRACTURE_INTERSECTION_LINE_TAG:
+                elif lines[2, i] == constants.FRACTURE_INTERSECTION_LINE_TAG:
                     s += constants.PHYSICAL_NAME_FRACTURE_LINE
-                elif l[2, i] == constants.DOMAIN_BOUNDARY_TAG:
+                elif lines[2, i] == constants.DOMAIN_BOUNDARY_TAG:
                     s += constants.PHYSICAL_NAME_DOMAIN_BOUNDARY
-                elif l[2, i] == constants.FRACTURE_LINE_ON_DOMAIN_BOUNDARY_TAG:
+                elif lines[2, i] == constants.FRACTURE_LINE_ON_DOMAIN_BOUNDARY_TAG:
                     s += constants.PHYSICAL_NAME_FRACTURE_BOUNDARY_LINE
                 else:
                     # This is a line that need not be physical (recognized by

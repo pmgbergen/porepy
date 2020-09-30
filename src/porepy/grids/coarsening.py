@@ -1,4 +1,5 @@
-""" Module with methods to coarsen a grid. The main method is coarsen(), see this for more information.
+""" Module with methods to coarsen a grid. The main method is coarsen(), see this for
+more information.
 
 """
 import numpy as np

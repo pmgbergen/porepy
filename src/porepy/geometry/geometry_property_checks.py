@@ -197,12 +197,12 @@ def point_in_polyhedron(polyhedron, test_points, tol=1e-8):
     # If you get an error message here, read documentation of the method.
     try:
         import robust_point_in_polyhedron
-    except:
+    except ImportError:
         raise ImportError(
             """Cannot import robust_points_inside_polyhedron.
                           Read documentation of
-                          pp.geometry.geometry_property_checks.point_in_polyhedron for install
-                          instructions.
+                          pp.geometry.geometry_property_checks.point_in_polyhedron for
+                          install instructions.
                           """
         )
 
