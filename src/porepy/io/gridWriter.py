@@ -126,7 +126,6 @@ def merge_grids(grids):
         grid.cell_centers = np.hstack((grid.cell_centers, sg.cell_centers))
 
         if hasattr(grid, "cell_facetag"):
-            import pdb; pdb.set_trace()
             grid.cell_facetag = np.hstack((grid.cell_facetag, sg.cell_facetag))
 
         for key in grid.tags.keys():
@@ -157,10 +156,6 @@ def dumpMortarProjectionsToFile(g, mg, proj, fn, mode="w"):
     # Open file and start writing
     with open(fn, mode) as outfile:
         # Write grid info
-        idx_g = g.idx
-        idx_mg = mg.idx
-        # outfile.write("{:d} {:d} \n".format(idx_g, idx_mg))
-
         outfile.write(" ".join(map(str, proj.indptr)) + "\n")
         outfile.write(" ".join(map(str, proj.indices)) + "\n")
     
