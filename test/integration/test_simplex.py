@@ -39,20 +39,20 @@ class TestFaceTags(unittest.TestCase):
                     f_cc0 = g.face_centers[:, g.tags["fracture_0_faces"]]
                     f_cc1 = g.face_centers[:, g.tags["fracture_1_faces"]]
 
-                    self.assertTrue(np.all(np.abs(f_cc0[1] - 0.5) < 1e-10))
-                    self.assertTrue(np.all(np.abs(f_cc1[0] - 0.5) < 1e-10))
+                    # Test position of the two fractures
+                    self.assertTrue(np.allclose(f_cc0[1], 0.5))
+                    self.assertTrue(np.allclose(f_cc1[0], 0.5))
 
-                db_cc = g.face_centers[:, g.tags["domain_boundary_faces"]]
-
-                self.assertTrue(np.all(g.tags["tip_faces"] == 0))
-                if g.num_faces == 0:
-                    continue
-
-                self.assertTrue(
-                    np.all(
-                        (np.abs(db_cc[0]) < 1e-10)
-                        | (np.abs(db_cc[1]) < 1e-10)
-                        | (np.abs(db_cc[0] - 1) < 1e-10)
-                        | (np.abs(db_cc[1] - 1) < 1e-10)
+                if g.dim > 0:
+                    db_cc = g.face_centers[:, g.tags["domain_boundary_faces"]]
+                    # Test that domain boundary faces are on the boundary
+                    self.assertTrue(
+                        np.all(
+                            (np.abs(db_cc[0]) < 1e-10)
+                            | (np.abs(db_cc[1]) < 1e-10)
+                            | (np.abs(db_cc[0] - 1) < 1e-10)
+                            | (np.abs(db_cc[1] - 1) < 1e-10)
+                        )
                     )
-                )
+                # No tip faces in this test case
+                self.assertTrue(np.all(g.tags["tip_faces"] == 0))
