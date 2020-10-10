@@ -479,7 +479,17 @@ class FluxPressureContinuity(RobinCoupling):
         # cc[0] -> flux_m = mortar_flux
         # cc[1] -> flux_s = -mortar_flux
         # cc[2] -> p_m - p_s = 0
-        matrix += cc_master + cc_slave
+
+        # Computational savings: Only add non-zero components.
+        # Exception: The case with equal dimension of the two neighboring grids.
+        if g_master.dim == g_slave.dim:
+            matrix += cc_master + cc_slave
+        else:
+            matrix[0, 2] += cc_master[0, 2]
+            matrix[1, 2] += cc_slave[1, 2]
+            for col in range(3):
+                matrix[2, col] += cc_master[2, col] + cc_slave[2, col]
+
         rhs = rhs_master + rhs_slave
 
         self.discr_master.enforce_neumann_int_bound(
