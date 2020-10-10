@@ -607,7 +607,11 @@ class MortarGrid:
         dimension is 1 (default for all the above methods), the projection matrix
         will in effect not be altered.
         """
-        return sps.kron(matrix, sps.eye(nd)).tocsc()
+        if nd == 1:
+            # No need to do expansion for 1d variables.
+            return matrix
+        else:
+            return sps.kron(matrix, sps.eye(nd)).tocsc()
 
     def sign_of_mortar_sides(self, nd: int = 1) -> sps.spmatrix:
         """ Assign positive or negative weight to the two sides of a mortar grid.
