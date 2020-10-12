@@ -99,10 +99,46 @@ class Discretization(abc.ABC):
 
         Returns:
             sps.csc_matrix: Discretization matrix.
-            np.array: Right hand side term.
+            np.ndarray: Right hand side term.
 
         """
         pass
+
+    def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.spmatrix:
+        """Assemble discretization matrix.
+
+        The default implementation will assemble both the discretization matrix and the
+        right hand side vector, and return only the former. This behavior is overridden
+        by some discretization methods.
+
+        Parameters:
+            g (pp.Grid): Grid to be discretized.
+            data (dictionary): With discretization parameters.
+
+        Returns:
+            sps.csc_matrix: Discretization matrix.
+
+        """
+        A, _ = self.assemble_matrix_rhs(g, data)
+        return A
+
+    def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
+        """Assemble right hand side term.
+
+        The default implementation will assemble both the discretization matrix and the
+        right hand side vector, and return only the latter. This behavior is overridden
+        by some discretization methods.
+
+        Parameters:
+            g (pp.Grid): Grid to be discretized.
+            data (dictionary): With discretization parameters.
+
+        Returns:
+            np.ndarray: Right hand side term.
+
+        """
+        _, b = self.assemble_matrix_rhs(g, data)
+        return b
 
 
 class VoidDiscretization(Discretization):
