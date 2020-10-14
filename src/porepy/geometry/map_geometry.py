@@ -167,7 +167,7 @@ def project_points_to_line(p, tol=1e-4):
 
     # Check that we are indeed in 1d
     assert np.sum(active_dimension) == 1
-    # Sort nodes, and create grid
+    # Sort nodes
     coord_1d = p_1d[active_dimension]
     sort_ind = np.argsort(coord_1d)[0]
     sorted_coord = coord_1d[0, sort_ind]
