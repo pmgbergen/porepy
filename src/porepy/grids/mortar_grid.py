@@ -417,7 +417,6 @@ class MortarGrid:
             yield proj, grid
 
     ## Methods to construct projection matrices
-
     def master_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
         """ Project values from faces of master to the mortar, by summing quantities
         from the master side.
@@ -480,10 +479,8 @@ class MortarGrid:
                 Size: g_master.num_faces x mortar_grid.num_cells.
 
         """
-        row_sum = self._master_to_mortar_int.sum(axis=1).A.ravel()
-        return self._convert_to_vector_variable(
-            sps.diags(1.0 / row_sum) * self._master_to_mortar_int, nd
-        )
+        scaled_mat = self._row_sum_scaling_matrix(self._master_to_mortar_int)
+        return self._convert_to_vector_variable(scaled_mat, nd)
 
     def slave_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
         """ Project values from cells at the slave to the mortar, by averaging
@@ -505,10 +502,24 @@ class MortarGrid:
                 Size: g_slave.num_cells x mortar_grid.num_cells.
 
         """
-        row_sum = self._slave_to_mortar_int.sum(axis=1).A.ravel()
-        return self._convert_to_vector_variable(
-            sps.diags(1.0 / row_sum) * self._slave_to_mortar_int, nd
-        )
+        scaled_mat = self._row_sum_scaling_matrix(self._slave_to_mortar_int)
+        return self._convert_to_vector_variable(scaled_mat, nd)
+
+    def _row_sum_scaling_matrix(self, mat):
+        # Helper method to construct projection matrices.
+        row_sum = mat.sum(axis=1).A.ravel()
+
+        if np.all(row_sum == 1):
+            # If only unit scalings, no need to do anything
+            return mat
+
+        # Profiling showed that scaling with a csc matrix is quicker than a diagonal
+        # matrix. Savings both in construction (!) and multiplication.
+        sz = row_sum.size
+        indptr = np.arange(sz + 1)
+        ind = np.arange(sz)
+        scaling = sps.csc_matrix((1.0 / row_sum, ind, indptr), shape=(sz, sz))
+        return scaling * mat
 
     # IMPLEMENTATION NOTE: The reverse projections, from mortar to master/slave are
     # found by taking transposes, and switching average and integration (since we are
@@ -607,7 +618,11 @@ class MortarGrid:
         dimension is 1 (default for all the above methods), the projection matrix
         will in effect not be altered.
         """
-        return sps.kron(matrix, sps.eye(nd)).tocsc()
+        if nd == 1:
+            # No need to do expansion for 1d variables.
+            return matrix
+        else:
+            return sps.kron(matrix, sps.eye(nd)).tocsc()
 
     def sign_of_mortar_sides(self, nd: int = 1) -> sps.spmatrix:
         """ Assign positive or negative weight to the two sides of a mortar grid.
