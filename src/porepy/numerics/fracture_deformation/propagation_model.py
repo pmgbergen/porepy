@@ -45,6 +45,12 @@ class FracturePropagation(abc.ABC):
         """ Should return True if fractures were propagated in the previous step.
         """
 
+    @abc.abstractmethod
+    def keep_propagating(self) -> bool:
+        """ Whether or not another propagation step should be performed. 
+        Typically depends on has_propagated and/or propagation_index.
+        """
+
     def _initialize_new_variable_values(
         self, g: pp.Grid, d: Dict, var: str, dofs: int
     ) -> np.ndarray:
@@ -123,7 +129,7 @@ class FracturePropagation(abc.ABC):
                 mapping = sps.kron(cell_map, sps.eye(cell_dof))
                 d[pp.STATE][var] = mapping * d[pp.STATE][var]
                 # Initialize new values
-                new_ind = self._new_dof_inds(d["cell_index_map"])
+                new_ind = self._new_dof_inds(mapping)
                 new_vals = self._initialize_new_variable_values(g, d, var, dofs)
                 d[pp.STATE][var][new_ind] = new_vals
 
@@ -152,7 +158,7 @@ class FracturePropagation(abc.ABC):
                 d[pp.STATE][var] = mapping * d[pp.STATE][var]
 
                 # Initialize new values
-                new_ind = self._new_dof_inds(d["cell_index_map"])
+                new_ind = self._new_dof_inds(mapping)
                 new_vals = self._initialize_new_variable_values(e, d, var, dofs)
                 d[pp.STATE][var][new_ind] = new_vals
 
@@ -180,7 +186,7 @@ class FracturePropagation(abc.ABC):
                 x_new[self.assembler.dof_ind(g, var)] = (
                     mapping * d[pp.STATE]["old_solution"][var]
                 )
-                new_ind = self._new_dof_inds(d["cell_index_map"])
+                new_ind = self._new_dof_inds(mapping)
                 new_vals = self._initialize_new_variable_values(g, d, var, dofs)
                 x_new[new_ind] = new_vals
 
@@ -196,7 +202,7 @@ class FracturePropagation(abc.ABC):
                 x_new[self.assembler.dof_ind(e, var)] = (
                     mapping * d[pp.STATE]["old_solution"][var]
                 )
-                new_ind = self._new_dof_inds(d["cell_index_map"])
+                new_ind = self._new_dof_inds(mapping)
                 new_vals = self._initialize_new_variable_values(e, d, var, dofs)
                 x_new[new_ind] = new_vals
 
@@ -234,4 +240,4 @@ class FracturePropagation(abc.ABC):
 
         """
         # IS: EK, please verify!
-        return np.sum(mapping, axis=1) == 0
+        return (np.sum(mapping, axis=1) == 0).nonzero()[0]
