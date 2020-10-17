@@ -237,12 +237,12 @@ def set_bc_mech_tension(
                 if g.dim == 3 and fix_faces:
                     le = left.nonzero()[0]
                     ri = right.nonzero()[0]
-                    dist = pp.cg.dist_point_pointset(
+                    dist = pp.distances.point_pointset(
                         np.array([0, t, 0.5]), bound_face_centers[:, le]
                     )
                     lock_index_0 = le[np.argmin(dist)]
                     labels[lock_index_0] = "dir_z"
-                    dist = pp.cg.dist_point_pointset(
+                    dist = pp.distances.point_pointset(
                         np.array([1, t, 0.5]), bound_face_centers[:, ri]
                     )
                     lock_index_1 = ri[np.argmin(dist)]
@@ -256,14 +256,14 @@ def set_bc_mech_tension(
                     to = top.nonzero()[0]
                     bo = bottom.nonzero()[0]
                     dist = np.absolute(bound_face_centers[0, to] - 0.5 + eps)
-                    dist = pp.cg.dist_point_pointset(
+                    dist = pp.distances.point_pointset(
                         np.array([0.5, t, 1]), bound_face_centers[:, to]
                     )
 
                     lock_index_0 = to[np.argmin(dist)]
                     labels[lock_index_0] = "dir_x"
                     dist = np.absolute(bound_face_centers[0, bo] - 0.5 + eps)
-                    dist = pp.cg.dist_point_pointset(
+                    dist = pp.distances.point_pointset(
                         np.array([0.5, t, 0]), bound_face_centers[:, bo]
                     )
 
@@ -305,14 +305,9 @@ def set_bc_mech_tension(
                     * (g.face_normals[last_ind, ind_b] * g.cell_faces[ind_b].data)
                 )
 
-                #                bc_val[last_ind, bound_faces[ind]] = 0
-
-                param.set_bc(
-                    physics, pp.BoundaryConditionVectorial(g, bound_faces, labels)
-                )
-                param.set_bc_val(physics, bc_val.ravel("F"))
-                param.set_slip_distance(np.zeros(g.num_faces * g.dim))
-
+               
+        bc = pp.BoundaryConditionVectorial(g, bound_faces, labels)
+        return bc, bc_val
 
 def set_bc_mech_tension_sneddon(
     gb,
@@ -425,7 +420,7 @@ def set_bc_mech_tension_sneddon(
                     for i in topbot_ind:
                         labels[i] = "dir_z"
                     c = np.array([0, 2 * t, 0])
-                    dist = pp.cg.dist_point_pointset(c, bound_face_centers[:, bottom])
+                    dist = pp.distances.point_pointset(c, bound_face_centers[:, bottom])
                     ind = np.argmin(dist)
                     labels[bottom_ind[ind]] = "dir_z"
                 labels = np.array(labels)
@@ -463,11 +458,11 @@ def assign_boundary_tension(g, sigma, faces, bc_val):
 def boundary_tension_sneddon(p0, fc, a, normal_ind, center):
     point_l = center - np.array([a, 0])
     point_r = center + np.array([a, 0])
-    r1 = pp.cg.dist_point_pointset(point_l, fc)
+    r1 = pp.distances.point_pointset(point_l, fc)
     v1 = fc - point_l[:, np.newaxis]
-    r2 = pp.cg.dist_point_pointset(point_r, fc)
+    r2 = pp.distances.point_pointset(point_r, fc)
     v2 = fc - point_r[:, np.newaxis]
-    r = pp.cg.dist_point_pointset(center, fc)
+    r = pp.distances.point_pointset(center, fc)
     v = fc - center[:, np.newaxis]
     normal = np.zeros(2)
     normal[1] = 1
@@ -525,10 +520,10 @@ def fix_sides(
         top_point = np.array([W, 1, 0])
         le = left.nonzero()[0]
         ri = right.nonzero()[0]
-        dist = pp.cg.dist_point_pointset(left_point, bound_face_centers[:, le])
+        dist = pp.distances.point_pointset(left_point, bound_face_centers[:, le])
         lock_index_l = le[np.argmin(dist)]
         labels[lock_index_l] = "dir_z"
-        dist = pp.cg.dist_point_pointset(right_point, bound_face_centers[:, ri])
+        dist = pp.distances.point_pointset(right_point, bound_face_centers[:, ri])
         lock_index_r = ri[np.argmin(dist)]
         labels[lock_index_r] = "dir_z"
         print(
@@ -539,11 +534,11 @@ def fix_sides(
         )
         to = top.nonzero()[0]
         bo = bottom.nonzero()[0]
-        dist = pp.cg.dist_point_pointset(top_point, bound_face_centers[:, to])
+        dist = pp.distances.point_pointset(top_point, bound_face_centers[:, to])
 
         lock_index_t = to[np.argmin(dist)]
         labels[lock_index_t] = "dir_x"
-        dist = pp.cg.dist_point_pointset(bottom_point, bound_face_centers[:, bo])
+        dist = pp.distances.point_pointset(bottom_point, bound_face_centers[:, bo])
 
         lock_index_b = bo[np.argmin(dist)]
         labels[lock_index_b] = "dir_x"
@@ -566,10 +561,10 @@ def fix_sides(
         top_point = np.array([W, 1, 0])
         le = left.nonzero()[0]
         ri = right.nonzero()[0]
-        dist = pp.cg.dist_point_pointset(left_point, bound_face_centers[:, le])
+        dist = pp.distances.point_pointset(left_point, bound_face_centers[:, le])
         lock_index_l = le[np.argmin(dist)]
         labels[lock_index_l] = "dir_y"
-        dist = pp.cg.dist_point_pointset(right_point, bound_face_centers[:, ri])
+        dist = pp.distances.point_pointset(right_point, bound_face_centers[:, ri])
         lock_index_r = ri[np.argmin(dist)]
         labels[lock_index_r] = "dir_y"
         print(
@@ -580,11 +575,11 @@ def fix_sides(
         )
         to = top.nonzero()[0]
         bo = bottom.nonzero()[0]
-        dist = pp.cg.dist_point_pointset(top_point, bound_face_centers[:, to])
+        dist = pp.distances.point_pointset(top_point, bound_face_centers[:, to])
 
         lock_index_t = to[np.argmin(dist)]
         labels[lock_index_t] = "dir_x"
-        dist = pp.cg.dist_point_pointset(bottom_point, bound_face_centers[:, bo])
+        dist = pp.distances.point_pointset(bottom_point, bound_face_centers[:, bo])
 
         lock_index_b = bo[np.argmin(dist)]
         labels[lock_index_b] = "dir_x"
