@@ -48,6 +48,7 @@ def propagate_fractures(gb, faces):
     d_h = gb.node_props(g_h)
     d_h["new_cells"] = np.empty(0, dtype=int)
     d_h["new_faces"] = np.empty(0, dtype=int)
+    d_h["split_faces"] = np.empty(0, dtype=int)
 
     split_faces = np.empty(0, dtype=np.int)
 
