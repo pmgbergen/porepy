@@ -7,6 +7,9 @@ WARNING: This should be considered experimental code and should be used with
     severe character. Moreover, simulation of fracture propagation may cause
     numerical stability issues that it will likely take case-specific adaptations
     to resolve.
+    
+WARNING 2: At the moment there are assumptions of purely tensional propagation.
+    Violation of this assumption is not recommended with the current implementation.
 
 Contains:
     ConformingFracturePropagation - class to be used together with a pp Model for
@@ -48,6 +51,11 @@ class ConformingFracturePropagation(FracturePropagation):
     Should be used in combination with a Model class, i.e. assumptions on methods
     and fields are made.
     """
+
+    def __init__(self, params):
+        super().__init__(params)
+        # Tag for tensile propagation. This enforces SIF_II=SIF_III=0
+        self._is_tensile = True
 
     def has_propagated(self) -> bool:
         if not hasattr(self, "propagated_fracture"):
@@ -184,15 +192,23 @@ class ConformingFracturePropagation(FracturePropagation):
         mu = parameters["shear_modulus"]
         poisson = parameters["poisson_ratio"]
         kappa = 3 - 4 * poisson
+        # kappa = 3 - poisson / (1 + poisson)
 
         (dim, n_points) = d_u.shape
         K = np.zeros(d_u.shape)
         rm = rm.T
         K[0] = np.sqrt(2 * np.pi / rm) * np.divide(mu, kappa + 1) * d_u[1, :]
+        if self._is_tensile:
+            return K
+        logger.warning("Computing non-tensile SIFs, proceed with caution.")
         K[1] = np.sqrt(2 * np.pi / rm) * np.divide(mu, kappa + 1) * d_u[0, :]
+        # Generalised displacement correlation:
+        # f = -2*(1-poisson)/np.sqrt(2*np.pi)/mu
+        # f =2/(1+poisson)/np.sqrt(2*np.pi)/mu
+        # for i in [1,0]:
+        #     print((3*d_u[i,0]-d_u[i,1])/((3*np.sqrt(2)-np.sqrt(6))*np.sqrt(2*rm[0])*f))
         if dim == 3:
             K[2] = np.sqrt(2 * np.pi / rm) * np.divide(mu, 4) * d_u[2, :]
-
         return K
 
     def _propagation_criterion(self, d: Dict) -> None:
@@ -439,8 +455,13 @@ class ConformingFracturePropagation(FracturePropagation):
             parallel to the fracture tip (face), respectively.
         """
         basis = np.empty((self.Nd, self.Nd, faces.size))
+        c_f = g.cell_face_as_dense()[:, faces]
         # Outward normals of the tip faces (normal vector X dimension X n_tips)
-        _, cells, signs = sps.find(g.cell_faces[faces])
+        sign_ind = c_f == -1
+        signs = np.ones(faces.size)
+        signs[sign_ind[0]] = -1
+        cells = c_f[~sign_ind]
+
         basis[0, :, :] = np.reshape(
             g.face_normals[: self.Nd, faces] / g.face_areas[faces] * signs,
             ((self.Nd, faces.size)),
