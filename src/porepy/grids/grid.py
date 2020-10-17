@@ -745,7 +745,7 @@ class Grid:
     def cell_face_as_dense(self) -> np.ndarray:
         """
         Obtain the cell-face relation in the from of two rows, rather than a
-        sparse matrix. This alterative format can be useful in some cases.
+        sparse matrix. This alternative format can be useful in some cases.
 
         Each column in the array corresponds to a face, and the elements in
         that column refers to cell indices. The value -1 signifies a boundary.

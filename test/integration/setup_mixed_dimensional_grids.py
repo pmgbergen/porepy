@@ -305,9 +305,9 @@ def set_bc_mech_tension(
                     * (g.face_normals[last_ind, ind_b] * g.cell_faces[ind_b].data)
                 )
 
-               
         bc = pp.BoundaryConditionVectorial(g, bound_faces, labels)
         return bc, bc_val
+
 
 def set_bc_mech_tension_sneddon(
     gb,
