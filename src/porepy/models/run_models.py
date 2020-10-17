@@ -82,7 +82,7 @@ def run_iterative_model(model, params):
                 model.time_index, model.time, t_end, model.time_step
             )
         )
-        while not model.has_converged():
+        while model.keep_propagating():
             model.propagation_index += 1
 
             solver.solve(model)
