@@ -2293,6 +2293,12 @@ class FractureNetwork3d(object):
         isect_p = edges[:2, intersection_edge].ravel()
         num_occ_pt = np.bincount(isect_p)
         intersection_points = np.where(num_occ_pt > 1)[0]
+        # Special tag for intersection between fracture and constraint.
+        # These are not needed in the gmsh postprocessing (will not produce 0d grids),
+        # but it can be useful to mark them for other purposes (EK: DFM upscaling)
+        point_tags[
+            intersection_points
+        ] = GmshConstants().FRACTURE_CONSTRAINT_INTERSECTION_POINT
 
         # We're done! Hurah!
 
