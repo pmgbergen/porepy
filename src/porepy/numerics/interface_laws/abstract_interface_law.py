@@ -145,7 +145,7 @@ class AbstractInterfaceLaw(abc.ABC):
         data_slave: Dict,
         data_edge: Dict,
         matrix: np.ndarray,
-    ) ->np.ndarray:
+    ) -> np.ndarray:
         """ Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
@@ -167,7 +167,9 @@ class AbstractInterfaceLaw(abc.ABC):
                 represent the master, slave and mortar variable, respectively.
 
         """
-        A, _ = self.assemble_matrix_rhs(g_master, g_slave, data_master, data_slave, data_edge, matrix)
+        A, _ = self.assemble_matrix_rhs(
+            g_master, g_slave, data_master, data_slave, data_edge, matrix
+        )
         return A
 
     def assemble_rhs(
@@ -178,7 +180,7 @@ class AbstractInterfaceLaw(abc.ABC):
         data_slave: Dict,
         data_edge: Dict,
         matrix: np.ndarray,
-    ) ->  np.ndarray:
+    ) -> np.ndarray:
         """ Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
@@ -200,7 +202,9 @@ class AbstractInterfaceLaw(abc.ABC):
                 represent the master, slave and mortar variable, respectively.
 
         """
-        _, b = self.assemble_matrix_rhs(g_master, g_slave, data_master, data_slave, data_edge, matrix)
+        _, b = self.assemble_matrix_rhs(
+            g_master, g_slave, data_master, data_slave, data_edge, matrix
+        )
         return b
 
     def _define_local_block_matrix(

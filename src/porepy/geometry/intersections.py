@@ -1758,7 +1758,7 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
 
             # Add to the global list of segments
             new_edge = np.hstack((new_edge, loc_edge))
-            argsort = np.hstack((argsort, [ei]*loc_edge.shape[1]))
+            argsort = np.hstack((argsort, [ei] * loc_edge.shape[1]))
 
         # Finally, uniquify edges. This operation is necessary for overlapping edges.
         # Operate on sorted point indices per edge

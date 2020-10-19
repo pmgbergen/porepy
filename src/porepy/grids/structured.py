@@ -309,21 +309,24 @@ class CartGrid(TensorGrid):
         #        nx = nx.astype(np.int)
 
         dims = np.asarray(nx).shape
-        xmin, ymin, zmin = 0., 0., 0.
+        xmin, ymin, zmin = 0.0, 0.0, 0.0
 
         if physdims is None:
             physdims = np.asarray(nx)
         elif isinstance(physdims, dict):
             xmin = physdims["xmin"]
-            ymin = physdims.get("ymin", 0.)
-            zmin = physdims.get("zmin", 0.)
+            ymin = physdims.get("ymin", 0.0)
+            zmin = physdims.get("zmin", 0.0)
 
-            physdims = np.asarray([physdims["xmax"] - xmin,
-                                   physdims.get("ymax", 0) - ymin,
-                                   physdims.get("zmax", 0) - zmin])
+            physdims = np.asarray(
+                [
+                    physdims["xmax"] - xmin,
+                    physdims.get("ymax", 0) - ymin,
+                    physdims.get("zmax", 0) - zmin,
+                ]
+            )
 
         name = "CartGrid"
-
 
         # Create point distribution, and then leave construction to
         # TensorGrid constructor

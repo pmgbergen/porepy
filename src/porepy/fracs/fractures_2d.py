@@ -167,12 +167,12 @@ class FractureNetwork2d(object):
         tags = {}
         # copy the tags of the first network
         for key, value in self.tags.items():
-            fs_tag = fs.tags.get(key, [None]*fs.edges.shape[1])
+            fs_tag = fs.tags.get(key, [None] * fs.edges.shape[1])
             tags[key] = np.hstack((value, fs_tag))
         # copy the tags of the second network
         for key, value in fs.tags.items():
             if key not in tags:
-                tags[key] = np.hstack(([None]*self.edges.shape[1], value))
+                tags[key] = np.hstack(([None] * self.edges.shape[1], value))
 
         # Deal with tags
         # Create separate tag arrays for self and fs, with 0 rows if no tags exist
@@ -272,7 +272,9 @@ class FractureNetwork2d(object):
             # preserve tags for the fractures from the network
             # we are assuming a coherent numeration between the network
             # and the created grids
-            frac = np.setdiff1d(np.arange(self.edges.shape[1]), constraints, assume_unique=True)
+            frac = np.setdiff1d(
+                np.arange(self.edges.shape[1]), constraints, assume_unique=True
+            )
             for idg, g in enumerate(grid_list[1 - int(dfn)]):
                 for key in np.atleast_1d(preserve_fracture_tags):
                     if key not in g.tags:
@@ -548,7 +550,9 @@ class FractureNetwork2d(object):
             self.pts = np.hstack((p, dom_p))
             # preserve the tags
             for key, value in self.tags.items():
-                self.tags[key] = np.hstack((value[edges_kept], [None]*dom_lines.shape[1]))
+                self.tags[key] = np.hstack(
+                    (value[edges_kept], [None] * dom_lines.shape[1])
+                )
 
             # Define the new boundary tags
             new_boundary_tags = boundary_tags + dom_lines.shape[1] * [True]
