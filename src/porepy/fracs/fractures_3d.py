@@ -2290,14 +2290,46 @@ class FractureNetwork3d(object):
             not_boundary_edge, np.logical_not(auxiliary_line)
         )
 
+        # All intersection points should occur at least twice
         isect_p = edges[:2, intersection_edge].ravel()
         num_occ_pt = np.bincount(isect_p)
-        intersection_points = np.where(num_occ_pt > 1)[0]
+        intersection_point_canditates = np.where(num_occ_pt > 1)[0]
+
+        # .. however, this is not enough: If a fracture and a constraint intersect at
+        # a domain boundary, the candidate is not a true intersection point.
+        # Loop over all candidates, find all polygons that have this as part of an edge,
+        # and ccount the number of those polygons that are fractures (e.g. not boundary
+        # or constraint). If there are more than two, this is indeed  a fracture intersection
+        # and an intersection point grid should be assigned
+        intersection_points = []
+        for pi in intersection_point_canditates:
+            _, edge_ind = np.where(edges == pi)
+            frac_arr = np.array([], dtype=np.int)
+            for e in edge_ind:
+                frac_arr = np.append(frac_arr, self.decomposition["edges_2_frac"][e])
+            unique_fracs = np.unique(frac_arr)
+            is_frac = np.logical_not(
+                np.logical_or(
+                    np.in1d(unique_fracs, constraints),
+                    np.array(self.tags["boundary"])[unique_fracs],
+                )
+            )
+            if is_frac.sum() > 1:
+                intersection_points.append(pi)
+
+        # Finall, we have the full set of intersection points (take a good laugh when finding
+        # this line in the next round of debugging).
+        intersection_points = np.array(intersection_points)
+
+        # Candidates that were not intersections
+        fracture_constraint_intersection = np.setdiff1d(
+            intersection_point_canditates, intersection_points
+        )
         # Special tag for intersection between fracture and constraint.
         # These are not needed in the gmsh postprocessing (will not produce 0d grids),
         # but it can be useful to mark them for other purposes (EK: DFM upscaling)
         point_tags[
-            intersection_points
+            fracture_constraint_intersection
         ] = GmshConstants().FRACTURE_CONSTRAINT_INTERSECTION_POINT
 
         # We're done! Hurah!
@@ -2364,6 +2396,7 @@ class FractureNetwork3d(object):
             fracture_tags=frac_tags,
             domain_boundary_points=boundary_points,
             fracture_and_boundary_points=fracture_boundary_points,
+            fracture_constraint_intersection_points=fracture_constraint_intersection,
         )
         writer.write_geo(file_name)
 
