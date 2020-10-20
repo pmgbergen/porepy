@@ -139,7 +139,6 @@ from porepy.numerics.linear_solvers import LinearSolver
 from porepy.models.run_models import (
     run_stationary_model,
     run_time_dependent_model,
-    run_iterative_model,
 )
 
 from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
