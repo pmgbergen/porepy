@@ -33,7 +33,6 @@ def lines_by_polygon(poly_pts, pts, edges):
         shapely_speedups.enable()
     except AttributeError:
         pass
-
     # it stores the points after the intersection
     int_pts = np.empty((2, 0))
     # define the polygon
@@ -53,14 +52,14 @@ def lines_by_polygon(poly_pts, pts, edges):
         if type(int_lines) is shapely_geometry.LineString:
             # consider the case of single intersection by avoiding to consider
             # lines on the boundary of the polygon
-            if not int_lines.touches(poly):
+            if not int_lines.touches(poly) and int_lines.length > 0:
                 int_pts = np.c_[int_pts, np.array(int_lines.xy)]
                 edges_kept.append(ei)
         elif type(int_lines) is shapely_geometry.MultiLineString:
             # consider the case of multiple intersections by avoiding to consider
             # lines on the boundary of the polygon
             for int_line in int_lines:
-                if not int_line.touches(poly):
+                if not int_line.touches(poly) and int_line.length > 0:
                     int_pts = np.c_[int_pts, np.array(int_line.xy)]
                     edges_kept.append(ei)
 
