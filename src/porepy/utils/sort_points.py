@@ -1,11 +1,17 @@
 """ Functions to sort points and edges belonging to geometric objects.
 """
+from typing import Optional, Tuple, Union
 import numpy as np
 
 import porepy as pp
 
 
-def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=True):
+def sort_point_pairs(
+    lines: np.ndarray,
+    check_circular: Optional[bool] = True,
+    ordering: Optional[bool] = False,
+    is_circular: Optional[bool] = True,
+) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """ Sort pairs of numbers to form a chain.
 
     The target application is to sort lines, defined by their
@@ -27,6 +33,9 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
         the extra are sorted accordingly.
     sort_ind: np.ndarray, n: Sorted column indices, so that
         sorted_lines = lines[:, sort_ind], modulu flipping of rows in individual columns
+    is_ordered: np.ndarray (optional): True if the ordering of a segment (first and second
+        row in input lines) is kept in the sorted lines. Refers to the original ordering
+        of the lines (so lines, not sorted_lines).
 
     """
 
@@ -102,7 +111,12 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
     return sorted_lines, sort_ind
 
 
-def sort_point_plane(pts, centre, normal=None, tol=1e-5):
+def sort_point_plane(
+    pts: np.ndarray,
+    centre: np.ndarray,
+    normal: Optional[np.ndarray] = None,
+    tol: Optional[float] = 1e-5,
+) -> np.ndarray:
     """ Sort the points which lie on a plane.
 
     The algorithm assumes a star-shaped disposition of the points with respect
@@ -132,7 +146,7 @@ def sort_point_plane(pts, centre, normal=None, tol=1e-5):
     return np.argsort(np.arctan2(*delta[active_dim]))
 
 
-def sort_triangle_edges(t):
+def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
     """ Sort a set of triangles so that no edges occur twice with the same ordering.
 
     For a planar triangulation, this will end up with all the triangles being
