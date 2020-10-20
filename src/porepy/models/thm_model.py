@@ -59,6 +59,8 @@ class THM(parent_model.ContactMechanicsBiot):
         self.temperature_parameter_key = "temperature"
 
         # Scaling coefficients for temperature
+        # NOTE: temperature_scale different from 1 has not been tested, and will likely
+        # introduce errors.
         self.temperature_scale = 1
         self.T_0_Kelvin = pp.CELSIUS_to_KELVIN(0)
 
