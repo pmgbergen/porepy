@@ -29,6 +29,7 @@ Literature:
     
 
 """
+import warnings
 import numpy as np
 import scipy.sparse as sps
 
@@ -82,6 +83,11 @@ class ConformingFracturePropagation(FracturePropagation):
         # be combined with.
         # It may not be the most pythonic approach, though.
         gb = self.gb
+
+        if len(gb.grids_of_dimension(gb.dim_max() - 2)) > 0:
+            warnings.warn(
+                "Fracture propogation with intersecting fractures has not been tested"
+            )
 
         face_list = []
 
