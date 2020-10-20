@@ -36,9 +36,7 @@ def run_time_dependent_model(model, params):
     # Prepare for the time loop
     t_end = model.end_time
     model.time_index = 0
-    if model._is_propagation_problem():
-        solver = pp.PropagationSolver(params)
-    elif model._is_nonlinear_problem():
+    if model._is_nonlinear_problem():
         solver = pp.NewtonSolver(params)
     else:
         solver = pp.LinearSolver(params)
@@ -55,7 +53,7 @@ def run_time_dependent_model(model, params):
     model.after_simulation()
 
 
-def run_iterative_model(model, params):
+def _run_iterative_model(model, params):
     """ Intended use is for multi-step models with iterative couplings.
 
     Only known instance so far is the combination of fracture deformation
