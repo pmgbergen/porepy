@@ -79,7 +79,7 @@ class FracturePropagation(abc.ABC):
         vals = np.zeros(n_new * cell_dof)
         return vals
 
-    def update_variables(self) -> None:
+    def _map_variables(self, x) -> None:
         """
         Map variables from old to new grids in d[pp.STATE] and d[pp.STATE][pp.ITERATE].
         Also call update of self.assembler.update_dof_count and update the current
@@ -101,7 +101,6 @@ class FracturePropagation(abc.ABC):
         """
         # Obtain old solution vector. The values are extracted in the first two loops
         # and mapped and updated in the last two, after update_dof_count has been called.
-        x, errors, iteration_counter = self._solution_info
         for g, d in self.gb:
             if not ("cell_index_map" in d and "face_index_map" in d):
                 continue
@@ -207,30 +206,16 @@ class FracturePropagation(abc.ABC):
                 x_new[new_ind] = new_vals
 
         # Store the mapped solution vector
-        self._solution_info = (x_new, errors, iteration_counter)
+        return x_new
 
-    @abc.abstractmethod
-    def before_propagation_loop(self) -> None:
-        """ Will be called at the very end of a time step.
-        
-        Intended use: E.g. updates of parameters.
-        """
-
-    @abc.abstractmethod
-    def after_propagation_loop(self) -> None:
-        """ Will be called at the very end of a time step.
-        
-        Intended use: E.g. export.
-        """
-
-    def _new_dof_inds(self, mapping):
+    def _new_dof_inds(self, mapping: sps.spmatrix) -> np.ndarray:
         """
         The new DOFs/geometric entities are those which do not correspond to an
         old entity, i.e. their row is empty in the mapping matrix.
 
         Parameters
         ----------
-        mapping : np.array
+        mapping : sps.spmatrix
             Mapping between old and new geometric entities.
 
         Returns
@@ -239,5 +224,6 @@ class FracturePropagation(abc.ABC):
             Boolean vector of length n_new_entities, true for newly created entities.
 
         """
-        # IS: EK, please verify!
+        # Find rows with only zeros. Can also get this information from the matrix
+        # sparsity information, but this approach should be sufficient.
         return (np.sum(mapping, axis=1) == 0).nonzero()[0]
