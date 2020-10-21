@@ -300,7 +300,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 state = {}
             pp.set_state(d, state)
 
-    def update_state(self, solution_vector):
+    def _update_iterate(self, solution_vector):
         """
         Extract parts of the solution for current iterate.
 

@@ -520,7 +520,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         self.assembler.discretize(filt=filt)
 
     def after_newton_iteration(self, solution: np.ndarray) -> None:
-        self.update_state(solution)
+        self._update_iterate(solution)
 
     def after_newton_convergence(
         self, solution: np.ndarray, errors: List, iteration_counter: int

@@ -586,7 +586,7 @@ class THM(parent_model.ContactMechanicsBiot):
         d[pp.STATE][key]["bc_values"] = d[pp.PARAMETERS][key]["bc_values"].copy()
         d[pp.STATE][key_t]["bc_values"] = d[pp.PARAMETERS][key_t]["bc_values"].copy()
 
-    def update_state(self, solution_vector: np.ndarray) -> None:
+    def _update_iterate(self, solution_vector: np.ndarray) -> None:
         """
         Extract parts of the solution for current iterate.
 
@@ -599,7 +599,7 @@ class THM(parent_model.ContactMechanicsBiot):
             solution_vector (np.array): solution vector for the current iterate.
 
         """
-        super().update_state(solution_vector)
+        super()._update_iterate(solution_vector)
         assembler = self.assembler
         variable_names = []
         for pair in assembler.block_dof.keys():
