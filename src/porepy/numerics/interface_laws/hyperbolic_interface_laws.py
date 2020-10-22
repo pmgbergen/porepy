@@ -58,23 +58,22 @@ class UpwindCoupling(
         lam_flux = data_edge[pp.PARAMETERS][self.keyword]["darcy_flux"]
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
-        g_m = data_edge["mortar_grid"]
+        mg = data_edge["mortar_grid"]
 
         # We know the number of dofs from the master and slave side from their
         # discretizations
-        dof = np.array([matrix[0, 0].shape[1], matrix[1, 1].shape[1], g_m.num_cells])
+        dof = np.array([matrix[0, 0].shape[1], matrix[1, 1].shape[1], mg.num_cells])
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((3, 3))
 
         # Projection from mortar to upper dimenional faces
-        hat_P_avg = g_m.master_to_mortar_avg()
-        # Projection from mortar to lower dimensional cells
-        check_P_avg = g_m.slave_to_mortar_avg()
 
         # mapping from upper dim cellls to faces
         # The mortars always points from upper to lower, so we don't flip any
         # signs
-        div = np.abs(pp.numerics.fv.fvutils.scalar_divergence(g_master))
+        face_to_cell_h = np.abs(pp.fvutils.scalar_divergence(g_master))
+        # We also need a trace-like projection from cells to faces
+        trace_h = face_to_cell_h.T
 
         # Find upwind weighting. if flag is True we use the upper weights
         # if flag is False we use the lower weighs
@@ -82,26 +81,33 @@ class UpwindCoupling(
         not_flag = 1 - flag
 
         # assemble matrices
-        # Transport out of upper equals lambda
-        cc[0, 2] = div * hat_P_avg.T
+        # Note the sign convention: The Darcy mortar flux is positive if it goes
+        # from g_h to g_l. Thus a positive transport flux (assuming positive
+        # concentration) will go out of g_h, into g_l.
+
+        # Transport out of upper equals lambda.
+        # Use integrated projcetion operator; the flux is an extensive quantity
+        cc[0, 2] = face_to_cell_h * mg.mortar_to_master_int()
 
         # transport out of lower is -lambda
-        cc[1, 2] = -check_P_avg.T  # * sps.diags((1 - flag))
+        cc[1, 2] = -mg.mortar_to_slave_int()
 
         # Discretisation of mortars
         # If fluid flux(lam_flux) is positive we use the upper value as weight,
         # i.e., T_masterat * fluid_flux = lambda.
         # We set cc[2, 0] = T_masterat * fluid_flux
-        cc[2, 0] = sps.diags(lam_flux * flag) * hat_P_avg * div.T
+        # Use averaged projection operator for an intensive quantity
+        cc[2, 0] = sps.diags(lam_flux * flag) * mg.master_to_mortar_avg() * trace_h
 
         # If fluid flux is negative we use the lower value as weight,
         # i.e., T_check * fluid_flux = lambda.
         # we set cc[2, 1] = T_check * fluid_flux
-        cc[2, 1] = sps.diags(lam_flux * not_flag) * check_P_avg
+        # Use averaged projection operator for an intensive quantity
+        cc[2, 1] = sps.diags(lam_flux * not_flag) * mg.slave_to_mortar_avg()
 
         # The rhs of T * fluid_flux = lambda
         # Recover the information for the grid-grid mapping
-        cc[2, 2] = -sps.eye(g_m.num_cells)
+        cc[2, 2] = -sps.eye(mg.num_cells)
 
         if data_master["node_number"] == data_slave["node_number"]:
             # All contributions to be returned to the same block of the
