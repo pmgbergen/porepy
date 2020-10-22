@@ -86,10 +86,10 @@ class TestMeshSize(unittest.TestCase):
         self.assertTrue(np.all(np.isclose(mesh_sizes, mesh_sizes_known)))
         self.assertTrue(np.all(np.isclose(pts_split, pts_split_known)))
 
-    def test_one_to_boundar_3d(self):
+    def test_one_to_boundary_3d(self):
         """
             One fracture in 3d going all the way to the boundary
-            """
+        """
 
         f_1 = np.array([[1, 5, 5, 1], [1, 1, 1, 1], [1, 1, 3, 3]])
         f_set = [pp.Fracture(f_1)]
@@ -110,12 +110,33 @@ class TestMeshSize(unittest.TestCase):
             mesh_size_bound=mesh_size_bound,
         )
         mesh_size = network._determine_mesh_size(boundary_point_tags=on_boundary)
-        # 0.1 corresponds to fracture corners, 2.0 to domain corners far
-        # away from the fracture and the other values to domain corners
-        # affected by the
-        mesh_size_known = np.array(
-            [0.1, 0.1, 0.1, 0.1, 2.0, 1.73205081, 2.0, 2.0, 2.0, 1.41421356, 2.0, 2.0]
+
+        decomp = network.decomposition
+
+        # Many of the points should have mesh size of 2, adjust the exceptions below
+        mesh_size_known = np.full(
+            decomp["points"].shape[1], mesh_size_bound, dtype=np.float
         )
+
+        # Find the points on the fracture
+        fracture_poly = np.where(np.logical_not(network.tags["boundary"]))[0]
+        self.assertTrue(fracture_poly.size == 1)
+        fracture_points = decomp["polygons"][fracture_poly[0]][0]
+        # These should have been assigned fracture mesh size
+        mesh_size_known[fracture_points] = mesh_size_frac
+
+        # Two of the domain corners are close enough to the fracture to have their
+        # mesh size modified from the default boundary value
+        origin = np.zeros((3, 1))
+        _, ind = pp.utils.setmembership.ismember_rows(origin, decomp["points"])
+        mesh_size_known[ind] = np.sqrt(3)
+
+        corner = np.array([5, 0, 0]).reshape((3, 1))
+        _, ind = pp.utils.setmembership.ismember_rows(
+            corner, decomp["points"], sort=False
+        )
+        mesh_size_known[ind] = np.sqrt(2)
+
         self.assertTrue(np.all(np.isclose(mesh_size, mesh_size_known)))
 
 
