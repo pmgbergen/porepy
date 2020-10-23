@@ -202,7 +202,7 @@ def propagate_fractures(gb, faces):
     # Also make a cell-map, this is a 1-1 mapping in this case
     d_h["cell_index_map"] = sps.identity(g_h.num_cells)
 
-    d_h["split_faces"] = split_faces
+    d_h["split_faces"] = np.array(split_faces, dtype=int)
 
     # When all faces have been split, we can update the mortar grids
     for e, d_e in gb.edges_of_node(g_h):
