@@ -364,6 +364,60 @@ class FVElliptic(pp.EllipticDiscretization):
         )
         rhs[2] -= proj * vector_source_discr * vector_source
 
+    def assemble_int_bound_pressure_trace_rhs(
+        self, g, data, data_edge, cc, rhs, self_ind, use_slave_proj=False
+    ):
+        """Assemble the rhs contribution from an internal
+        boundary, manifested as a condition on the boundary pressure.
+
+        For details, see self.assemble_int_bound_pressure_trace()
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+            data_edge (dictionary): Data dictionary for the edge in the
+                mixed-dimensional grid.
+            cc (block matrix, 3x3): Block matrix for the coupling condition.
+                The first and second rows and columns are identified with the
+                master and slave side; the third belongs to the edge variable.
+                The discretization of the relevant term is done in-place in cc.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
+            self_ind (int): Index in cc and matrix associated with this node.
+                Should be either 1 or 2.
+            use_slave_proj (boolean): If True, the slave side projection operator is
+                used. Needed for periodic boundary conditions.
+
+        """
+        mg = data_edge["mortar_grid"]
+
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+
+        if use_slave_proj:
+            proj = mg.slave_to_mortar_avg()
+        else:
+            proj = mg.master_to_mortar_avg()
+
+        # Add contribution from boundary conditions to the pressure at the fracture
+        # faces. For TPFA this will be zero, but for MPFA we will get a contribution
+        # on the fractures extending to the boundary due to the interaction region
+        # around a node.
+        bc_val = parameter_dictionary["bc_values"]
+        rhs[2] -= proj * matrix_dictionary[self.bound_pressure_face_matrix_key] * bc_val
+        # Add gravity contribution
+        vector_source_discr = matrix_dictionary[
+            self.bound_pressure_vector_source_matrix_key
+        ]
+        # The vector source, defaults to zero if not specified.
+        vector_source = parameter_dictionary.get(
+            "vector_source", np.zeros(vector_source_discr.shape[1])
+        )
+        rhs[2] -= proj * vector_source_discr * vector_source
+
     def assemble_int_bound_pressure_trace_between_interfaces(
         self, g, data_grid, proj_primary, proj_secondary, cc, matrix, rhs
     ):

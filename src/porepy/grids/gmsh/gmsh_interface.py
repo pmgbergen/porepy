@@ -42,6 +42,7 @@ class GmshWriter(object):
         fracture_tags=None,
         domain_boundary_points=None,
         fracture_and_boundary_points=None,
+        fracture_constraint_intersection_points=None,
     ):
         """
 
@@ -76,6 +77,9 @@ class GmshWriter(object):
 
         self.domain_boundary_points = domain_boundary_points
         self.fracture_and_boundary_points = fracture_and_boundary_points
+        self.fracture_constraint_intersection_points = (
+            fracture_constraint_intersection_points
+        )
 
     def write_geo(self, file_name):
 
@@ -533,6 +537,18 @@ class GmshWriter(object):
                     + ls
                 )
 
+        if self.fracture_constraint_intersection_points is not None:
+            for i, p in enumerate(self.fracture_constraint_intersection_points):
+                s += (
+                    'Physical Point("'
+                    + constants.PHYSICAL_NAME_FRACTURE_CONSTRAINT_INTERSECTION_POINT
+                    + str(i)
+                    + '") = {p'
+                    + str(p)
+                    + "};"
+                    + ls
+                )
+
         s += "// End of physical point specification" + ls + ls
         return s
 
@@ -668,7 +684,7 @@ class GmshGridBucketWriter(object):
         # Element types (as specified by the gmsh .msh format), index by
         # dimensions. This assumes all cells are simplices.
         elem_type = [15, 1, 2, 4]
-        for i, gr in enumerate(self.gb):
+        for gr in self.gb:
             g = gr[0]
             gn = str(gr[1]["node_number"])
 

@@ -137,6 +137,76 @@ class AbstractInterfaceLaw(abc.ABC):
         """
         pass
 
+    def assemble_matrix(
+        self,
+        g_master: pp.Grid,
+        g_slave: pp.Grid,
+        data_master: Dict,
+        data_slave: Dict,
+        data_edge: Dict,
+        matrix: np.ndarray,
+    ) -> np.ndarray:
+        """ Assemble the dicretization of the interface law, and its impact on
+        the neighboring domains.
+
+        The default implementation will assemble both the discretization matrix and the
+        right hand side vector, and return only the former. This behavior is overridden
+        by some discretization methods.
+
+        Parameters:
+            g_master: Grid on one neighboring subdomain.
+            g_slave: Grid on the other neighboring subdomain.
+            data_master: Data dictionary for the master suddomain
+            data_slave: Data dictionary for the slave subdomain.
+            data_edge: Data dictionary for the edge between the subdomains
+            matrix_master: original discretization for the master subdomain
+
+        Returns:
+            np.array: Block matrix of size 3 x 3, whwere each block represents
+                coupling between variables on this interface. Index 0, 1 and 2
+                represent the master, slave and mortar variable, respectively.
+
+        """
+        A, _ = self.assemble_matrix_rhs(
+            g_master, g_slave, data_master, data_slave, data_edge, matrix
+        )
+        return A
+
+    def assemble_rhs(
+        self,
+        g_master: pp.Grid,
+        g_slave: pp.Grid,
+        data_master: Dict,
+        data_slave: Dict,
+        data_edge: Dict,
+        matrix: np.ndarray,
+    ) -> np.ndarray:
+        """ Assemble the dicretization of the interface law, and its impact on
+        the neighboring domains.
+
+        The default implementation will assemble both the discretization matrix and the
+        right hand side vector, and return only the latter. This behavior is overridden
+        by some discretization methods.
+
+        Parameters:
+            g_master: Grid on one neighboring subdomain.
+            g_slave: Grid on the other neighboring subdomain.
+            data_master: Data dictionary for the master suddomain
+            data_slave: Data dictionary for the slave subdomain.
+            data_edge: Data dictionary for the edge between the subdomains
+            matrix_master: original discretization for the master subdomain
+
+        Returns:
+            np.array: Block matrix of size 3 x 3, whwere each block represents
+                coupling between variables on this interface. Index 0, 1 and 2
+                represent the master, slave and mortar variable, respectively.
+
+        """
+        _, b = self.assemble_matrix_rhs(
+            g_master, g_slave, data_master, data_slave, data_edge, matrix
+        )
+        return b
+
     def _define_local_block_matrix(
         self,
         g_master: pp.Grid,
