@@ -147,7 +147,8 @@ class ConformingFracturePropagation(FracturePropagation):
         u_j = data_edge[pp.STATE][pp.ITERATE][self.mortar_displacement_variable]
         # Only operate on tips
         tip_faces = g_l.tags["tip_faces"].nonzero()[0]
-        _, tip_cells, _ = sps.find(g_l.cell_faces[tip_faces])
+        _, tip_cells = g_l.signs_and_cells_of_boundary_faces(tip_faces)
+        
         # Project to fracture and apply jump operator
         u_l = (
             mg.mortar_to_slave_avg(nd=self.Nd)
@@ -156,7 +157,6 @@ class ConformingFracturePropagation(FracturePropagation):
         )
         u_l = u_l.reshape((self.Nd, g_l.num_cells), order="F")[:, tip_cells]
         # Pick out components in the tip basis
-
         tip_bases = self._tip_bases(
             g_l, data_l["tangential_normal_projection"], tip_faces
         )
@@ -461,12 +461,7 @@ class ConformingFracturePropagation(FracturePropagation):
             parallel to the fracture tip (face), respectively.
         """
         basis = np.empty((self.Nd, self.Nd, faces.size))
-        c_f = g.cell_face_as_dense()[:, faces]
-        # Outward normals of the tip faces (normal vector X dimension X n_tips)
-        sign_ind = c_f == -1
-        signs = np.ones(faces.size)
-        signs[sign_ind[0]] = -1
-        cells = c_f[~sign_ind]
+        signs, cells = g.signs_and_cells_of_boundary_faces(faces)
 
         basis[0, :, :] = np.reshape(
             g.face_normals[: self.Nd, faces] / g.face_areas[faces] * signs,

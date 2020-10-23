@@ -485,8 +485,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
     def discretize(self):
         """ Discretize all terms
         """
-
         self.assembler = pp.Assembler(self.gb)
+        if not hasattr(self, "assembler"):
+            self.assembler = pp.Assembler(self.gb)
 
         tic = time.time()
         logger.info("Discretize")
@@ -519,7 +520,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             (np.array): displacement solution vector for the Nd grid.
 
         """
-        self.update_state(solution_vector)
+        self._update_iterate(solution_vector)
 
         u = solution_vector[
             self.assembler.dof_ind(self._nd_grid(), self.displacement_variable)
