@@ -684,7 +684,7 @@ class GmshGridBucketWriter(object):
         # Element types (as specified by the gmsh .msh format), index by
         # dimensions. This assumes all cells are simplices.
         elem_type = [15, 1, 2, 4]
-        for i, gr in enumerate(self.gb):
+        for gr in self.gb:
             g = gr[0]
             gn = str(gr[1]["node_number"])
 
