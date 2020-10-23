@@ -45,12 +45,6 @@ class FracturePropagation(abc.ABC):
         """ Should return True if fractures were propagated in the previous step.
         """
 
-    @abc.abstractmethod
-    def keep_propagating(self) -> bool:
-        """ Whether or not another propagation step should be performed. 
-        Typically depends on has_propagated and/or propagation_index.
-        """
-
     def _initialize_new_variable_values(
         self, g: pp.Grid, d: Dict, var: str, dofs: int
     ) -> np.ndarray:

@@ -485,7 +485,6 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
     def discretize(self):
         """ Discretize all terms
         """
-        self.assembler = pp.Assembler(self.gb)
         if not hasattr(self, "assembler"):
             self.assembler = pp.Assembler(self.gb)
 

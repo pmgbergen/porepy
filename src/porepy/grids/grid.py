@@ -796,9 +796,10 @@ class Grid:
 
         return c2c
 
-    def sign_of_faces(self, faces: np.ndarray) -> np.ndarray:
+    
+    def signs_and_cells_of_boundary_faces(self, faces: np.ndarray) -> np.ndarray:
         """ Get the direction of the normal vector (inward or outwards from a cell)
-        of faces. Only boundary faces are permissible.
+        and the cell neighbour of _boundary_ faces. 
 
         Parameters:
             faces: (ndarray) indices of faces that you want to know the sign for. The
@@ -815,14 +816,15 @@ class Grid:
         IA = np.argsort(faces)
         IC = np.argsort(IA)
 
-        fi, _, sgn = sps.find(self.cell_faces[faces[IA], :])
+        fi, ci, sgn = sps.find(self.cell_faces[faces[IA], :])
         if fi.size != faces.size:
             raise ValueError("sign of internal faces does not make sense")
 
         fi_sorted = np.argsort(fi)
-        sgn = sgn[fi_sorted]
-        sgn = sgn[IC]
-        return sgn
+        sgn, ci = sgn[fi_sorted], ci[fi_sorted]
+        sgn, ci = sgn[IC], ci[IC]
+        return sgn, ci
+    
 
     def bounding_box(self) -> Union[np.ndarray, np.ndarray]:
         """
