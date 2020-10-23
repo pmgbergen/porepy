@@ -1155,7 +1155,7 @@ class FractureNetwork3d(object):
         )
 
         # We now need to find points that occur in multiple places
-        p_unique, unique_ind_p, all_2_unique_p = setmembership.unique_columns_tol(
+        p_unique, _, all_2_unique_p = setmembership.unique_columns_tol(
             all_p, tol=self.tol * np.sqrt(3)
         )
 
@@ -1252,7 +1252,7 @@ class FractureNetwork3d(object):
         # intersections there (direct search in 3D may also work, but this was
         # a simple option). When intersections are found, the global lists of
         # points and edges are updated.
-        for fi, frac in enumerate(self._fractures):
+        for fi in range(len(self._fractures)):
 
             logger.debug("Remove intersections from fracture %i", fi)
 
@@ -2164,7 +2164,8 @@ class FractureNetwork3d(object):
                 continue
 
             # Add local points
-            [pts_vtk.InsertNextPoint(*p) for p in f.p.T]
+            for p in f.p.T:
+                pts_vtk.InsertNextPoint(*p)
 
             # Indices of local points
             loc_pt_id = point_counter + np.arange(f.p.shape[1], dtype="int")
@@ -2173,7 +2174,8 @@ class FractureNetwork3d(object):
 
             # Add bounding polygon
             frac_vtk = vtk.vtkIdList()
-            [frac_vtk.InsertNextId(p) for p in loc_pt_id]
+            for p in loc_pt_id:
+                frac_vtk.InsertNextId(p)
             # Close polygon
             frac_vtk.InsertNextId(loc_pt_id[0])
 
@@ -2428,7 +2430,8 @@ class FractureNetwork3d(object):
                 csv_writer.writerow([domain[o] for o in order])
 
             # write all the fractures
-            [csv_writer.writerow(f.p.ravel(order="F")) for f in self._fractures]
+            for f in self._fractures:
+                csv_writer.writerow(f.p.ravel(order="F"))
 
     def to_fab(self, file_name):
         """
