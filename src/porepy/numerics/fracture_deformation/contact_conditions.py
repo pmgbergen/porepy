@@ -614,7 +614,7 @@ def set_projections(
 
         # Find out whether the boundary faces have outwards pointing normal vectors
         # Negative sign implies that the normal vector points inwards.
-        sgn = g_h.sign_of_faces(faces_on_surface)
+        sgn, _ = g_h.signs_and_cells_of_boundary_faces(faces_on_surface)
 
         # Unit normal vector
         unit_normal = g_h.face_normals[: g_h.dim] / g_h.face_areas

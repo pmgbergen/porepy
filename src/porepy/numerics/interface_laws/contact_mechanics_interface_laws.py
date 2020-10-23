@@ -262,8 +262,8 @@ class PrimalContactCoupling(
         # - T_slave + T_master_j = 0    and T_slave + T_master_k = 0
         contact_traction_to_mortar = (
             mg.sign_of_mortar_sides(nd=ambient_dimension)
-            * projection.project_tangential_normal(mg.num_cells).T
             * mg.slave_to_mortar_int(nd=ambient_dimension)
+            * projection.project_tangential_normal().T
         )
         cc[mortar_ind, slave_ind] = contact_traction_to_mortar
 
@@ -546,7 +546,7 @@ class FractureScalarToForceBalance(
         # matrix. Similar sign switching as above is needed (this one operating on
         # fracture faces only).
         faces_on_fracture_surface = mg.master_to_mortar_int().tocsr().indices
-        sgn = g_master.sign_of_faces(faces_on_fracture_surface)
+        sgn, _ = g_master.signs_and_cells_of_boundary_faces(faces_on_fracture_surface)
         fracture_normals = g_master.face_normals[
             :ambient_dimension, faces_on_fracture_surface
         ]
