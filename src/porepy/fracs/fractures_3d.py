@@ -1155,7 +1155,7 @@ class FractureNetwork3d(object):
         )
 
         # We now need to find points that occur in multiple places
-        p_unique, unique_ind_p, all_2_unique_p = setmembership.unique_columns_tol(
+        p_unique, _, all_2_unique_p = setmembership.unique_columns_tol(
             all_p, tol=self.tol * np.sqrt(3)
         )
 
@@ -1252,7 +1252,7 @@ class FractureNetwork3d(object):
         # intersections there (direct search in 3D may also work, but this was
         # a simple option). When intersections are found, the global lists of
         # points and edges are updated.
-        for fi, frac in enumerate(self._fractures):
+        for fi in range(len(self._fractures)):
 
             logger.debug("Remove intersections from fracture %i", fi)
 
@@ -2164,7 +2164,8 @@ class FractureNetwork3d(object):
                 continue
 
             # Add local points
-            [pts_vtk.InsertNextPoint(*p) for p in f.p.T]
+            for p in f.p.T:
+                pts_vtk.InsertNextPoint(*p)
 
             # Indices of local points
             loc_pt_id = point_counter + np.arange(f.p.shape[1], dtype="int")
@@ -2173,7 +2174,8 @@ class FractureNetwork3d(object):
 
             # Add bounding polygon
             frac_vtk = vtk.vtkIdList()
-            [frac_vtk.InsertNextId(p) for p in loc_pt_id]
+            for p in loc_pt_id:
+                frac_vtk.InsertNextId(p)
             # Close polygon
             frac_vtk.InsertNextId(loc_pt_id[0])
 
@@ -2290,9 +2292,47 @@ class FractureNetwork3d(object):
             not_boundary_edge, np.logical_not(auxiliary_line)
         )
 
+        # All intersection points should occur at least twice
         isect_p = edges[:2, intersection_edge].ravel()
         num_occ_pt = np.bincount(isect_p)
-        intersection_points = np.where(num_occ_pt > 1)[0]
+        intersection_point_canditates = np.where(num_occ_pt > 1)[0]
+
+        # .. however, this is not enough: If a fracture and a constraint intersect at
+        # a domain boundary, the candidate is not a true intersection point.
+        # Loop over all candidates, find all polygons that have this as part of an edge,
+        # and ccount the number of those polygons that are fractures (e.g. not boundary
+        # or constraint). If there are more than two, this is indeed  a fracture intersection
+        # and an intersection point grid should be assigned
+        intersection_points = []
+        for pi in intersection_point_canditates:
+            _, edge_ind = np.where(edges == pi)
+            frac_arr = np.array([], dtype=np.int)
+            for e in edge_ind:
+                frac_arr = np.append(frac_arr, self.decomposition["edges_2_frac"][e])
+            unique_fracs = np.unique(frac_arr)
+            is_frac = np.logical_not(
+                np.logical_or(
+                    np.in1d(unique_fracs, constraints),
+                    np.array(self.tags["boundary"])[unique_fracs],
+                )
+            )
+            if is_frac.sum() > 1:
+                intersection_points.append(pi)
+
+        # Finall, we have the full set of intersection points (take a good laugh when finding
+        # this line in the next round of debugging).
+        intersection_points = np.array(intersection_points)
+
+        # Candidates that were not intersections
+        fracture_constraint_intersection = np.setdiff1d(
+            intersection_point_canditates, intersection_points
+        )
+        # Special tag for intersection between fracture and constraint.
+        # These are not needed in the gmsh postprocessing (will not produce 0d grids),
+        # but it can be useful to mark them for other purposes (EK: DFM upscaling)
+        point_tags[
+            fracture_constraint_intersection
+        ] = GmshConstants().FRACTURE_CONSTRAINT_INTERSECTION_POINT
 
         # We're done! Hurah!
 
@@ -2358,6 +2398,7 @@ class FractureNetwork3d(object):
             fracture_tags=frac_tags,
             domain_boundary_points=boundary_points,
             fracture_and_boundary_points=fracture_boundary_points,
+            fracture_constraint_intersection_points=fracture_constraint_intersection,
         )
         writer.write_geo(file_name)
 
@@ -2389,7 +2430,8 @@ class FractureNetwork3d(object):
                 csv_writer.writerow([domain[o] for o in order])
 
             # write all the fractures
-            [csv_writer.writerow(f.p.ravel(order="F")) for f in self._fractures]
+            for f in self._fractures:
+                csv_writer.writerow(f.p.ravel(order="F"))
 
     def to_fab(self, file_name):
         """

@@ -1546,7 +1546,7 @@ def surface_tessalations(
     return isect_polys, mappings
 
 
-def split_intersecting_segments_2d(p, e, tol=1e-4):
+def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
     """ Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
 
@@ -1566,10 +1566,14 @@ def split_intersecting_segments_2d(p, e, tol=1e-4):
             0 and 1 are index of start and endpoints, additional rows are tags
         tol (double, optional, default=1e-8): Tolerance used for comparing
             equal points.
+        return_argsort (bool, optional, default=False): Return the mapping
+            between the input segments and the output segments.
 
     Returns:
         np.ndarray, (2 x n_pt), array of points, possibly expanded.
         np.ndarray, (n x n_edges), array of new edges. Non-intersecting.
+        np.array, (n_edges), array to map the new edges with the input edges.
+            Returned if return_argsort is True.
 
     """
     # Find the bounding box
@@ -1713,7 +1717,10 @@ def split_intersecting_segments_2d(p, e, tol=1e-4):
     # If we have found no intersection points, we can safely return the incoming
     # points and edges.
     if len(new_pts) == 0:
-        return p, e
+        if return_argsort:
+            return p, e, np.arange(e.shape[1])
+        else:
+            return p, e
     # If intersection points are found, the intersecting lines must be split into
     # shorter segments.
     else:
@@ -1724,7 +1731,8 @@ def split_intersecting_segments_2d(p, e, tol=1e-4):
         # may merge non-intersecting fractures.
         unique_all_pt, _, ib = pp.utils.setmembership.unique_columns_tol(all_pt, tol)
         # Data structure for storing the split edges.
-        new_edge = np.empty((e.shape[0], 0))
+        new_edge = np.empty((e.shape[0], 0), dtype=np.int)
+        argsort = np.empty(0, dtype=np.int)
 
         # Loop over all lines, split it into non-overlapping segments.
         for ei in range(num_lines):
@@ -1744,12 +1752,13 @@ def split_intersecting_segments_2d(p, e, tol=1e-4):
             order = np.argsort(dist)
             new_inds = inds[order]
             # All new segments share the tags of the old one.
-            loc_tags = e[2:, ei].reshape((-1, 1)) * np.ones(num_branches)
+            loc_tags = e[2:, ei].reshape((-1, 1)) * np.ones(num_branches, dtype=np.int)
             # Define the new segments, in terms of the unique points
             loc_edge = np.vstack((new_inds[:-1], new_inds[1:], loc_tags))
 
             # Add to the global list of segments
             new_edge = np.hstack((new_edge, loc_edge))
+            argsort = np.hstack((argsort, [ei] * loc_edge.shape[1]))
 
         # Finally, uniquify edges. This operation is necessary for overlapping edges.
         # Operate on sorted point indices per edge
@@ -1759,8 +1768,12 @@ def split_intersecting_segments_2d(p, e, tol=1e-4):
             new_edge[:2].astype(np.int), tol
         )
         new_edge = new_edge[:, edge_map]
+        argsort = argsort[edge_map]
 
-        return unique_all_pt, new_edge.astype(np.int)
+        if return_argsort:
+            return unique_all_pt, new_edge.astype(np.int), argsort
+        else:
+            return unique_all_pt, new_edge.astype(np.int)
 
 
 def _axis_aligned_bounding_box_2d(p, e):

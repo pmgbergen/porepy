@@ -109,6 +109,8 @@ class Assembler:
         filt: Optional[pp.assembler_filters.AssemblerFilter] = None,
         matrix_format: Optional[str] = "csr",
         add_matrices: Optional[bool] = True,
+        only_matrix: Optional[bool] = False,
+        only_rhs: Optional[bool] = False,
     ) -> Union[
         Tuple[Union[csc_or_csr_matrix, np.ndarray], np.ndarray],
         Tuple[Dict[str, sps.spmatrix], Dict[str, np.ndarray]],
@@ -147,6 +149,14 @@ class Assembler:
             add_matrices (boolean, optional): If True, a single system matrix is added,
                 else, separate matrices for each variable and term are returned in a
                 dictionary.
+            only_matrix (boolean, optional). If True, only the matrix will be assembled.
+                Note that some discretization methods will still invoke its full
+                assemble_matrix_rhs method. This method will still return a (zero)
+                rhs vector.
+            only_rhs (boolean, optional). If True, only the rhs will be assembled.
+                Note that some discretization methods will still invoke its full
+                assemble_matrix_rhs method. This method will still return a (zero)
+                discretization matrix.
 
         Returns:
             scipy sparse matrix, or dictionary of matrices: Discretization matrix,
@@ -161,6 +171,11 @@ class Assembler:
         else:
             sps_matrix = sps.csr_matrix
 
+        if only_matrix and only_rhs:
+            raise ValueError(
+                "At most one of 'only_matrix' and 'only_rhs' should be True"
+            )
+
         # If there are no variables, w can return now
         if self.full_dof.size == 0:
             if add_matrices:
@@ -173,7 +188,11 @@ class Assembler:
 
         # Assemble
         matrix, rhs = self._operate_on_gb(
-            filt=filt, operation="assemble", matrix_format=matrix_format
+            filt=filt,
+            operation="assemble",
+            matrix_format=matrix_format,
+            assemble_matrix_only=only_matrix,
+            assemble_rhs_only=only_rhs,
         )
 
         # At this stage, all assembly is done. The remaining step is optionally to
@@ -304,24 +323,29 @@ class Assembler:
 
             matrix, rhs = self._initialize_matrix_rhs(sps_matrix)
 
+            extra_args = {
+                key: kwargs[key]
+                for key in ["assemble_matrix_only", "assemble_rhs_only"]
+            }
+
             # Make term and variable filters that let everything through
 
         elif operation == "discretize" or operation == "update_discretization":
             matrix = None
             rhs = None
             sps_matrix = None
-
+            extra_args = {}
         else:
             # We will only reach this if someone has invoked this private method
             # from the outside.
             raise ValueError("Unknown gb operation " + str(operation))
 
         # First take care of operations internal to nodes and edges
-        self._operate_on_nodes_and_edges(filt, operation, matrix, rhs)
+        self._operate_on_nodes_and_edges(filt, operation, matrix, rhs, **extra_args)
 
         # Next, handle coupling over edges
         self._operate_on_edge_coupling(
-            filt, operation, matrix, rhs, sps_matrix,
+            filt, operation, matrix, rhs, sps_matrix, **extra_args
         )
 
         # Return type depends on operation
@@ -336,6 +360,8 @@ class Assembler:
         operation: str,
         matrix: Union[Dict[str, np.ndarray], None],
         rhs: Union[Dict[str, np.ndarray], None],
+        assemble_matrix_only: Optional[bool] = False,
+        assemble_rhs_only: Optional[bool] = False,
     ):
         for combination in self._grid_variable_term_combinations:
             # Coupling terms should not be considered here
@@ -381,10 +407,21 @@ class Assembler:
                 # Assemble the matrix and right hand side. This will also
                 # discretize if not done before.
                 # Call appropriate assembler for nodes and edges, respectively.
-                if is_node:
-                    loc_A, loc_b = discr.assemble_matrix_rhs(grid, data)
+                if assemble_matrix_only:
+                    if is_node:
+                        loc_A = discr.assemble_matrix(grid, data)
+                    else:
+                        loc_A = discr.assemble_matrix(data)
+                elif assemble_rhs_only:
+                    if is_node:
+                        loc_b = discr.assemble_rhs(grid, data)
+                    else:
+                        loc_b = discr.assemble_rhs(data)
                 else:
-                    loc_A, loc_b = discr.assemble_matrix_rhs(data)
+                    if is_node:
+                        loc_A, loc_b = discr.assemble_matrix_rhs(grid, data)
+                    else:
+                        loc_A, loc_b = discr.assemble_matrix_rhs(data)
 
                 # Assign values in global matrix: Create the same key used
                 # defined when initializing matrices (see that function)
@@ -397,12 +434,13 @@ class Assembler:
                 # Check if the current block is None or not, it could
                 # based on the problem setting. Better to stay
                 # the safe side.
-                if matrix[var_key_name][ri, ci] is None:
-                    matrix[var_key_name][ri, ci] = loc_A
-                else:
-                    matrix[var_key_name][ri, ci] += loc_A
-                # The right hand side vector is always initialized.
-                rhs[var_key_name][ri] += loc_b
+                if not assemble_rhs_only:
+                    if matrix[var_key_name][ri, ci] is None:
+                        matrix[var_key_name][ri, ci] = loc_A
+                    else:
+                        matrix[var_key_name][ri, ci] += loc_A
+                if not assemble_matrix_only:
+                    rhs[var_key_name][ri] += loc_b
 
     def _operate_on_edge_coupling(
         self,
@@ -411,6 +449,8 @@ class Assembler:
         matrix: Optional[Dict[str, np.ndarray]],
         rhs: Dict[str, np.ndarray],
         sps_matrix: Type[csc_or_csr_matrix],
+        assemble_matrix_only: Optional[bool] = False,
+        assemble_rhs_only: Optional[bool] = False,
     ) -> None:
         """ Perform operation on all edge-node couplings.
 
@@ -585,19 +625,45 @@ class Assembler:
 
                     # Run the discretization, and assign the resulting matrix
                     # to a temporary construct
-                    tmp_mat, loc_rhs = edge_discr.assemble_matrix_rhs(
-                        g_master, g_slave, data_master, data_slave, data_edge, loc_mat,
-                    )
-                    # The edge column and row should be assigned to mat_key
-                    matrix[mat_key][ei, (mi, si, ei)] = tmp_mat[2, (0, 1, 2)]
-                    matrix[mat_key][(mi, si), ei] = tmp_mat[(0, 1), 2]
-                    # Also update the discretization on the master and slave
-                    # nodes
-                    matrix[mat_key_master][mi, mi] = tmp_mat[0, 0]
-                    matrix[mat_key_slave][si, si] = tmp_mat[1, 1]
+                    if assemble_matrix_only:
+                        tmp_mat = edge_discr.assemble_matrix(
+                            g_master,
+                            g_slave,
+                            data_master,
+                            data_slave,
+                            data_edge,
+                            loc_mat,
+                        )
+                    elif assemble_rhs_only:
+                        loc_rhs = edge_discr.assemble_rhs(
+                            g_master,
+                            g_slave,
+                            data_master,
+                            data_slave,
+                            data_edge,
+                            loc_mat,
+                        )
+                    else:
+                        tmp_mat, loc_rhs = edge_discr.assemble_matrix_rhs(
+                            g_master,
+                            g_slave,
+                            data_master,
+                            data_slave,
+                            data_edge,
+                            loc_mat,
+                        )
+                    if not assemble_rhs_only:
+                        # The edge column and row should be assigned to mat_key
+                        matrix[mat_key][ei, (mi, si, ei)] = tmp_mat[2, (0, 1, 2)]
+                        matrix[mat_key][(mi, si), ei] = tmp_mat[(0, 1), 2]
+                        # Also update the discretization on the master and slave
+                        # nodes
+                        matrix[mat_key_master][mi, mi] = tmp_mat[0, 0]
+                        matrix[mat_key_slave][si, si] = tmp_mat[1, 1]
 
-                    # Finally take care of the right hand side
-                    rhs[mat_key][[mi, si, ei]] += loc_rhs
+                    if not assemble_matrix_only:
+                        # Finally take care of the right hand side
+                        rhs[mat_key][[mi, si, ei]] += loc_rhs
 
             elif mi is not None:
                 # TODO: Term filters are not applied to this case
@@ -611,17 +677,31 @@ class Assembler:
                         self.full_dof[[mi, ei]], sps_matrix
                     )
                     loc_mat[0, 0] = matrix[mat_key_master][mi, mi]
-                    tmp_mat, loc_rhs = edge_discr.assemble_matrix_rhs(
-                        g_master, data_master, data_edge, loc_mat
-                    )
-                    matrix[mat_key][ei, (mi, ei)] = tmp_mat[1, (0, 1)]
-                    matrix[mat_key][mi, ei] = tmp_mat[0, 1]
 
-                    # Also update the discretization on the master and slave
-                    # nodes
-                    matrix[mat_key_master][mi, mi] = tmp_mat[0, 0]
+                    if assemble_matrix_only:
+                        tmp_mat = edge_discr.assemble_matrix(
+                            g_master, data_master, data_edge, loc_mat
+                        )
 
-                    rhs[mat_key][[mi, ei]] += loc_rhs
+                    elif assemble_rhs_only:
+                        loc_rhs = edge_discr.assemble_rhs(
+                            g_master, data_master, data_edge, loc_mat
+                        )
+
+                    else:
+                        tmp_mat, loc_rhs = edge_discr.assemble_matrix_rhs(
+                            g_master, data_master, data_edge, loc_mat
+                        )
+                    if not assemble_rhs_only:
+                        matrix[mat_key][ei, (mi, ei)] = tmp_mat[1, (0, 1)]
+                        matrix[mat_key][mi, ei] = tmp_mat[0, 1]
+
+                        # Also update the discretization on the master and slave
+                        # nodes
+                        matrix[mat_key_master][mi, mi] = tmp_mat[0, 0]
+
+                    if not assemble_matrix_only:
+                        rhs[mat_key][[mi, ei]] += loc_rhs
 
             elif si is not None:
                 # TODO: Term filters are not applied to this case
@@ -635,17 +715,30 @@ class Assembler:
                         self.full_dof[[si, ei]], sps_matrix
                     )
                     loc_mat[0, 0] = matrix[mat_key_slave][si, si]
-                    tmp_mat, loc_rhs = edge_discr.assemble_matrix_rhs(
-                        g_slave, data_slave, data_edge, loc_mat
-                    )
-                    matrix[mat_key][ei, (si, ei)] = tmp_mat[1, (0, 1)]
-                    matrix[mat_key][si, ei] = tmp_mat[0, 1]
+                    if assemble_matrix_only:
+                        tmp_mat = edge_discr.assemble_matrix(
+                            g_slave, data_slave, data_edge, loc_mat
+                        )
 
-                    # Also update the discretization on the master and slave
-                    # nodes
-                    matrix[mat_key_slave][si, si] = tmp_mat[0, 0]
+                    elif assemble_rhs_only:
+                        loc_rhs = edge_discr.assemble_rhs(
+                            g_slave, data_slave, data_edge, loc_mat
+                        )
 
-                    rhs[mat_key][[si, ei]] += loc_rhs
+                    else:
+                        tmp_mat, loc_rhs = edge_discr.assemble_matrix_rhs(
+                            g_slave, data_slave, data_edge, loc_mat
+                        )
+
+                    if not assemble_rhs_only:
+                        matrix[mat_key][ei, (si, ei)] = tmp_mat[1, (0, 1)]
+                        matrix[mat_key][si, ei] = tmp_mat[0, 1]
+
+                        # Also update the discretization on the master and slave
+                        # nodes
+                        matrix[mat_key_slave][si, si] = tmp_mat[0, 0]
+                    if not assemble_matrix_only:
+                        rhs[mat_key][[si, ei]] += loc_rhs
 
             else:
                 raise ValueError(
