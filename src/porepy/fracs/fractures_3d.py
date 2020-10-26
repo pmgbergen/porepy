@@ -8,6 +8,7 @@ import copy
 import csv
 import logging
 import time
+
 # Import of 'standard' external packages
 import warnings
 
@@ -15,6 +16,7 @@ import numpy as np
 
 import porepy as pp
 from porepy.grids.constants import GmshConstants
+
 # Import of internally developed packages.
 from porepy.utils import setmembership, sort_points
 
@@ -28,7 +30,6 @@ except ImportError:
         "VTK module is not available. Export of fracture network to\
     vtk will not work."
     )
-
 
 
 # Module-wide logger

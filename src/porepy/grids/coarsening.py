@@ -9,8 +9,14 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.grids import grid, grid_bucket
-from porepy.utils import (accumarray, half_space, matrix_compression, mcolon,
-                          setmembership, tags)
+from porepy.utils import (
+    accumarray,
+    half_space,
+    matrix_compression,
+    mcolon,
+    setmembership,
+    tags,
+)
 
 # ------------------------------------------------------------------------------#
 

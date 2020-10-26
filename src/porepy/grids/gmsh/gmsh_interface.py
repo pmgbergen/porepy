@@ -19,7 +19,6 @@ except ModuleNotFoundError:
     )
 
 
-
 class GmshWriter(object):
     """
      Write a gmsh.geo file for a fractured 2D domains, possibly including
