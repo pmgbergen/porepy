@@ -51,6 +51,8 @@ jobs:
         pip install shapely
         pip install shapely[vectorized]
         pip freeze
+        wget https://raw.githubusercontent.com/keileg/polyhedron/master/polyhedron.py
+        mv polyhedron.py robust_point_in_polyhedron.py
 
     - name: black
       if: ${{ always() }}
@@ -70,4 +72,8 @@ jobs:
 
     - name: pytest
       if: ${{always()}}
-      run: pytest test
+      run: pytest --cov=./ --cov-report=xml
+    - name: codecov
+      uses: codecov/codecov-action@v1
+      if: $${matrix.python-version == "3.8"}}
+      verbose: true
