@@ -15,7 +15,7 @@ All other functions are helpers.
 import numpy as np
 import porepy as pp
 import scipy.sparse as sps
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 from collections import namedtuple
 from porepy.grids import mortar_grid
 
@@ -46,7 +46,7 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
     """
 
     # New GridBucket. to be filled in
-    gb_new = pp.GridBucket()
+    gb_new: pp.GridBucket = pp.GridBucket()
 
     # Data structure for mapping between old and new grids
     g_map = {}
@@ -122,9 +122,9 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
         ).tocsc()
 
         # Define the new edge
-        e = (gh_new, gl_new)
+        new_edge: List[pp.Grid] = [gh_new, gl_new]
         # Add to new gb, together with the new face-cell map
-        gb_new.add_edge(e, face_cells_new)
+        gb_new.add_edge(new_edge, face_cells_new)
 
         # Create a mortar grid, add to data of new edge
         side_g = {
@@ -137,7 +137,7 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
             gl_new.dim, side_g, face_cells_new, face_duplicate_ind=face_on_other_side
         )
 
-        d_new = gb_new.edge_props(e)
+        d_new = gb_new.edge_props((gh_new, gl_new))
 
         d_new["mortar_grid"] = mg
 
@@ -176,9 +176,9 @@ def extrude_grid(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.nda
         raise ValueError("Extrusion should be in either positive or negative direction")
 
     if g.dim == 0:
-        return _extrude_0d(g, z)
+        return _extrude_0d(g, z)  # type: ignore
     elif g.dim == 1:
-        return _extrude_1d(g, z)
+        return _extrude_1d(g, z)  # type: ignore
     elif g.dim == 2:
         return _extrude_2d(g, z)
     else:

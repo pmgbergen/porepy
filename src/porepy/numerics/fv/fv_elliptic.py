@@ -451,7 +451,6 @@ class FVElliptic(pp.EllipticDiscretization):
             * matrix_dictionary[self.bound_pressure_face_matrix_key]
             * proj_secondary
         )
-        return cc, rhs
 
     def assemble_int_bound_pressure_cell(
         self, g, data, data_edge, cc, matrix, rhs, self_ind

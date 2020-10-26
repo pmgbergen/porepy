@@ -60,7 +60,7 @@ def distort_grid_1d(
     return g
 
 
-def refine_grid_1d(g: pp.Grid, ratio: Optional[int] = 2) -> pp.Grid:
+def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
     """ Refine cells in a 1d grid.
 
     Parameters:
@@ -143,7 +143,7 @@ def refine_grid_1d(g: pp.Grid, ratio: Optional[int] = 2) -> pp.Grid:
     return g
 
 
-def refine_triangle_grid(g: pp.TriangleGrid) -> pp.TriangleGrid:
+def refine_triangle_grid(g: pp.TriangleGrid) -> Union[pp.TriangleGrid, np.ndarray]:
     """ Uniform refinement of triangle grid, all cells are split into four
     subcells by combining existing nodes and face centrers.
 

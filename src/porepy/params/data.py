@@ -191,7 +191,7 @@ class Parameters(dict):
         n_vals: int,
         keyword: str,
         parameters: List[str],
-        defaults: Optional[Dict] = None,
+        defaults: Optional[List] = None,
     ) -> List:
         """ Expand parameters assigned as a single scalar to n_vals arrays.
         Used e.g. for parameters which may be heterogeneous in space (cellwise),

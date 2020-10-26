@@ -509,7 +509,9 @@ class Exporter:
                 i = 0
                 for mg, edge in zip(mgs, edges):
                     for side, _ in mg.side_grids.items():
-                        values[i] = self.gb.edge_props(edge, field.name)[side]
+                        # Convert edge to tuple to be compatible with GridBucket
+                        # data structure
+                        values[i] = self.gb.edge_props(tuple(edge), field.name)[side]
                         i += 1
 
                 field.set_values(np.hstack(values))

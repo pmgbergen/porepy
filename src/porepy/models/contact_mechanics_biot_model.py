@@ -555,22 +555,6 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             """
             self.linear_solver = "direct"
 
-        elif solver == "pyamg":
-            self.linear_solver = solver
-            import pyamg
-
-            assembler = self.assembler
-
-            A, _ = assembler.assemble_matrix_rhs()
-
-            g = self.gb.grids_of_dimension(self.Nd)[0]
-            mechanics_dof = assembler.dof_ind(g, self.displacement_variable)
-
-            pyamg_solver = pyamg.smoothed_aggregation_solver(
-                A[mechanics_dof][:, mechanics_dof]
-            )
-            self.mechanics_precond = pyamg_solver.aspreconditioner(cycle="W")
-
         else:
             raise ValueError("unknown linear solver " + solver)
 

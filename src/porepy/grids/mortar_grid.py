@@ -3,7 +3,7 @@
 import warnings
 import numpy as np
 from scipy import sparse as sps
-from typing import Dict, Optional, Generator, Tuple
+from typing import Dict, Optional, Generator, Tuple, Union, List
 
 import porepy as pp
 
@@ -50,7 +50,7 @@ class MortarGrid:
         dim: int,
         side_grids: Dict[int, pp.Grid],
         face_cells: sps.spmatrix,
-        name: str = "",
+        name: Union[str, List[str]] = "",
         face_duplicate_ind: Optional[np.ndarray] = None,
         tol: float = 1e-6,
     ):
@@ -198,7 +198,8 @@ class MortarGrid:
         We assume that they are not aligned with x (1d) or x, y (2d).
         """
         # Update the actual side grids
-        [g.compute_geometry() for g in self.side_grids.values()]
+        for g in self.side_grids.values():
+            g.compute_geometry()
 
         # Update the attributes
         self.num_cells = np.sum(
@@ -853,7 +854,8 @@ class BoundaryMortar(MortarGrid):
         Compute the geometry of the mortar grids.
         We assume that they are not aligned with x (1d) or x, y (2d).
         """
-        [g.compute_geometry() for g in self.side_grids.values()]
+        for g in self.side_grids.values():
+            g.compute_geometry()
 
 
 # --- helper methods

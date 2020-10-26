@@ -555,7 +555,7 @@ class DualElliptic(
         cc: np.ndarray,
         matrix: np.ndarray,
         rhs: np.ndarray,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> None:
         """ Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
@@ -580,7 +580,7 @@ class DualElliptic(
                 the primary and secondary interface, respectively.
 
         """
-        return cc, rhs
+        pass
 
     def assemble_int_bound_pressure_cell(
         self,

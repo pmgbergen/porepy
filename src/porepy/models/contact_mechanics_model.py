@@ -73,6 +73,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         # Initialize grid bucket
         self.gb = None
 
+        self.linear_solver = "direct"
+
     def create_grid(self):
         """ Create a (fractured) domain in 2D or 3D, with projections to local
         coordinates set for all fractures.
@@ -626,30 +628,6 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
             """
             self.linear_solver = "direct"
-
-        elif solver == "pyamg":
-            self.linear_solver = solver
-            import pyamg
-
-            assembler = self.assembler
-
-            tic_assemble = time.time()
-            A, _ = assembler.assemble_matrix_rhs()
-            logger.info(
-                f"Done initial assembly. Elapsed time {time.time() - tic_assemble}:"
-            )
-
-            g = self.gb.grids_of_dimension(self.Nd)[0]
-            mechanics_dof = assembler.dof_ind(g, self.displacement_variable)
-
-            tic_pyamg = time.time()
-            pyamg_solver = pyamg.smoothed_aggregation_solver(
-                A[mechanics_dof][:, mechanics_dof]
-            )
-            self.mechanics_precond = pyamg_solver.aspreconditioner(cycle="W")
-            logger.debug(
-                f"AMG solver initialized. Elapsed time: {time.time() - tic_pyamg}"
-            )
 
         else:
             raise ValueError(f"Unknown linear solver {solver}")
