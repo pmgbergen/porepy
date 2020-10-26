@@ -358,15 +358,17 @@ def find_active_indices(
 
 def subproblems(
     g: pp.Grid, max_memory: int, peak_memory_estimate: int
-) -> Generator[Any, None, None]:
+) -> Generator[
+    Tuple[pp.Grid, np.ndarray, np.ndarray, np.ndarray, np.ndarray], None, None
+]:
 
     if g.dim == 0:
         # nothing realy to do here
         loc_faces = np.ones(g.num_faces, dtype=bool)
         loc_cells = np.ones(g.num_cells, dtype=bool)
-        loc2g_cells = sps.eye(g.num_cells, dtype=bool)
-        loc2g_face = sps.eye(g.num_faces, dtype=bool)
-        return g, loc_faces, loc_cells, loc2g_cells, loc2g_face
+        loc2g_cells = np.ones(g.num_cells, dtype=bool)
+        loc2g_face = np.ones(g.num_faces, dtype=bool)
+        yield g, loc_faces, loc_cells, loc2g_cells, loc2g_face
 
     num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(np.int)
 
@@ -1322,7 +1324,7 @@ def partial_update_discretization(
     scalar_face_left: Optional[List[str]] = None,
     vector_face_left: Optional[List[str]] = None,
     second_keyword: Optional[str] = None,  # Used for biot discertization
-) -> Dict[str, sps.spmatrix]:
+) -> None:
     """ Do partial update of discretization scheme.
 
     This is intended as a helper function for the update_discretization methods of

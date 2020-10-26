@@ -131,6 +131,7 @@ class EllipticDiscretization(Discretization):
         data_edge: Dict,
         cc: np.ndarray,
         matrix: np.ndarray,
+        rhs: np.ndarray,
         self_ind: int,
         use_slave_proj: bool,
     ) -> None:

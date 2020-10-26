@@ -30,7 +30,7 @@ class Grid:
     This will be introduced later.
 
     Attributes:
-        Comes in two classes. Topologogical information, defined at
+        Comes in tthree classes. Topologogical information, defined at
         construction time:
 
         dim (int): dimension. Should be 0 or 1 or 2 or 3
@@ -50,7 +50,8 @@ class Grid:
         num_cells (int): Number of cells in the grid
 
         ---
-        compute_geometry():
+
+        Geometric information, obtained by call to compute_geometry():
         Assumes the nodes of each face is ordered according to the right
         hand rule.
         face_nodes.indices[face_nodes.indptr[i]:face_nodes.indptr[i+1]]
@@ -71,6 +72,24 @@ class Grid:
         cell_centers (np.ndarray): Centers of all cells. Dimensions dim x
             num_cells
         cell_volumes (np.ndarray): Volumes of all cells
+
+        ----
+
+        Other fieds: These may only be assigned to certain grids, use with
+        caution:
+
+        frac_num (int): Index of the fracture the grid corresponds to. Take
+            value (0, 1, ...) if the grid corresponds to a fracture, -1 if not.
+        parent_cell_ind (np.ndarray): For grids that have refined or are subgrids
+            of larger grids, index of parent the cell in the parent grid.
+            Defaults to a mapping to its own index.
+        global_point_ind (np.ndarray): Index of each point, assigned during processing
+            of mixed-dimensional grids created by gmsh. Used to identify points that
+            are geometrically equal, though on different grids. Could potentially be
+            used to identify such geometrically equal points at a later stage, but
+            there is no guarantee that this will work.
+        _physical_name_index (int): Used to keep track of processing of grids generated
+            by gmsh.
 
     """
 
@@ -107,12 +126,19 @@ class Grid:
         if isinstance(name, list):
             self.name: List[str] = name
         else:
-            self.name: List[str] = [name]
+            self.name = [name]
 
         # Infer bookkeeping from size of parameters
         self.num_nodes: int = nodes.shape[1]
         self.num_faces: int = face_nodes.shape[1]
         self.num_cells: int = cell_faces.shape[1]
+
+        # NOTE: Variables that are only relevant for some grids.
+        # Use with caution.
+        self.frac_num: int = -1
+        self.parent_cell_ind: np.ndarray = np.arange(self.num_cells)
+        self.global_point_ind: np.ndarray = np.arange(self.num_nodes)
+        self._physical_name_index: int = -1
 
         # Add tag for the boundary faces
         if tags is None:
@@ -891,7 +917,7 @@ class Grid:
         for key in tags.standard_node_tags():
             if key not in self.tags.keys():
                 raise ValueError(f"The tag key {key} must be specified")
-            value = self.tags.get(key)
+            value: np.ndarray = self.tags.get(key)
             if not value.size == self.num_nodes:
                 raise ValueError(f"Wrong size of value for tag {key}")
 

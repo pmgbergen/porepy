@@ -75,14 +75,39 @@ class Mpfa(pp.FVElliptic):
         """
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
         # Extract parameters
-        k: pp.SecondOrderTensor = parameter_dictionary["second_order_tensor"]
-        bnd: pp.BoundaryCondition = parameter_dictionary["bc"]
 
         # Dimension for vector source term field. Defaults to the same as the grid.
         # For grids embedded in a higher dimension, this must be set to the ambient
         # dimension.
         vector_source_dim: int = parameter_dictionary.get("ambient_dimension", g.dim)
+
+        # Short cut: if g.dim == 0, construct empty matrices right away
+        if g.dim == 0:
+            matrix_dictionary[self.flux_matrix_key] = sps.csc_matrix(
+                (g.num_faces, g.num_cells)
+            )
+            matrix_dictionary[self.bound_flux_matrix_key] = sps.csc_matrix(
+                (g.num_faces, g.num_faces)
+            )
+            matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csc_matrix(
+                (g.num_faces, g.num_cells)
+            )
+            matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csc_matrix(
+                (g.num_faces, g.num_faces)
+            )
+            matrix_dictionary[self.vector_source_matrix_key] = sps.csc_matrix(
+                (g.num_faces, g.num_cells * vector_source_dim)
+            )
+            matrix_dictionary[
+                self.bound_pressure_vector_source_matrix_key
+            ] = sps.csc_matrix((g.num_faces, g.num_faces * vector_source_dim))
+            # Done
+            return
+
+        k: pp.SecondOrderTensor = parameter_dictionary["second_order_tensor"]
+        bnd: pp.BoundaryCondition = parameter_dictionary["bc"]
 
         eta: float = parameter_dictionary.get("mpfa_eta", None)
         inverter: str = parameter_dictionary.get("mpfa_inverter", "numba")

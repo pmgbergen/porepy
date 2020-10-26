@@ -49,7 +49,10 @@ def lines_by_polygon(poly_pts, pts, edges):
         # compute the intersections between the polygon and the current line
         int_lines = poly.intersection(line)
         # only line or multilines are considered, no points
-        if isinstance(int_lines, shapely_geometry.LineString) and len(int_lines.coords) > 0:
+        if (
+            isinstance(int_lines, shapely_geometry.LineString)
+            and len(int_lines.coords) > 0
+        ):
             # consider the case of single intersection by avoiding to consider
             # lines on the boundary of the polygon
             if not int_lines.touches(poly) and int_lines.length > 0:

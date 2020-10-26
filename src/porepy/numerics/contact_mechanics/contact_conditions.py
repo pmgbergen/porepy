@@ -64,7 +64,7 @@ class ColoumbContact:
         return self.keyword + "_"
 
     def _discretization_key(self) -> str:
-        return self._key() + pp.keywords.DISCRETIZATION
+        return self._key() + pp.DISCRETIZATION
 
     def ndof(self, g) -> int:
         return g.num_cells * self.dim

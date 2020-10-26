@@ -5,8 +5,10 @@ Current content:
     Robin-type couplings, as decsribed by Martin et al 2005.
     Full continuity conditions between subdomains
 """
+from typing import Tuple
 import numpy as np
 import scipy.sparse as sps
+
 
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
@@ -269,7 +271,7 @@ class RobinCoupling(
         edge_secondary,
         data_secondary_edge,
         matrix,
-    ):
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """ Represent the impact on a primary interface of the mortar (thus boundary)
         flux on a secondary interface.
 
@@ -312,10 +314,7 @@ class RobinCoupling(
         )
 
         # Assemble contribution between higher dimensions.
-        (
-            cc,
-            rhs,
-        ) = self.discr_master.assemble_int_bound_pressure_trace_between_interfaces(
+        self.discr_master.assemble_int_bound_pressure_trace_between_interfaces(
             g, data_grid, proj_pressure, proj_flux, cc, matrix, rhs
         )
         # Scale the equations (this will modify from K^-1 to K scaling if relevant)

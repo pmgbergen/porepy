@@ -5,7 +5,7 @@ import time
 import numpy as np
 import meshio
 import logging
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Any
 
 from porepy.grids import constants
 from porepy.grids.gmsh import mesh_2_grid
@@ -320,7 +320,8 @@ def _read_gmsh_file(
         # into a dictionary with the cell type as keys, and tags as values.
 
         # Initialize the dictionaries to be constructed
-        tmp_cells, tmp_info = {}, {}
+        tmp_cells: Dict[str, Any] = {}
+        tmp_info: Dict[str, Any] = {}
         keys = set([cb.type for cb in cells])
         for key in keys:
             tmp_cells[key] = []
