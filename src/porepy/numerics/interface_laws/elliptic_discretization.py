@@ -18,7 +18,7 @@ from porepy.numerics.discretization import Discretization
 
 
 class EllipticDiscretization(Discretization):
-    """ This is the parent class of all discretizations for second order elliptic
+    """This is the parent class of all discretizations for second order elliptic
     problems. The class cannot be used itself, but should rather be seen as a
     declaration of which methods are assumed implemented for all specific
     discretization schemes.
@@ -50,7 +50,7 @@ class EllipticDiscretization(Discretization):
     """
 
     def __init__(self, keyword: str) -> None:
-        """ Set the discretization, with the keyword used for storing various
+        """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
         Paramemeters:
@@ -60,7 +60,7 @@ class EllipticDiscretization(Discretization):
         self.keyword = keyword
 
     def _key(self) -> str:
-        """ Get the keyword of this object, on a format friendly to access relevant
+        """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
 
         Returns:
@@ -71,7 +71,7 @@ class EllipticDiscretization(Discretization):
 
     @abstractmethod
     def ndof(self, g: pp.Grid) -> int:
-        """ Abstract method. Return the number of degrees of freedom associated to the
+        """Abstract method. Return the number of degrees of freedom associated to the
         method.
 
         Parameters
@@ -84,7 +84,7 @@ class EllipticDiscretization(Discretization):
         pass
 
     def extract_pressure(self, g, solution_array, data):
-        """ Abstract method. Extract the pressure part of a solution.
+        """Abstract method. Extract the pressure part of a solution.
 
         The implementation will depend what the primary variables of the specific
         implementation are.
@@ -104,7 +104,7 @@ class EllipticDiscretization(Discretization):
         raise NotImplementedError("Method not implemented")
 
     def extract_flux(self, g, solution_array, data):
-        """ Abstract method. Extract the pressure part of a solution.
+        """Abstract method. Extract the pressure part of a solution.
 
         The implementation will depend what are the primary variables of the specific
         implementation.
@@ -136,7 +136,7 @@ class EllipticDiscretization(Discretization):
         self_ind: int,
         use_slave_proj: bool,
     ) -> None:
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
 
         The intended use is when the internal boundary is coupled to another
@@ -180,7 +180,7 @@ class EllipticDiscretization(Discretization):
         rhs: np.ndarray,
         self_ind: int,
     ) -> None:
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
         The intended use is when the internal boundary is coupled to another
@@ -223,7 +223,7 @@ class EllipticDiscretization(Discretization):
         self_ind: int,
         use_slave_proj: bool,
     ) -> None:
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
         The intended use is when the internal boundary is coupled to another
@@ -269,7 +269,7 @@ class EllipticDiscretization(Discretization):
         matrix: np.ndarray,
         rhs: np.ndarray,
     ) -> None:
-        """ Assemble the contribution from an internal
+        """Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
         Parameters:
@@ -304,7 +304,7 @@ class EllipticDiscretization(Discretization):
         rhs: np.ndarray,
         self_ind: int,
     ) -> None:
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
 
         The intended use is when the internal boundary is coupled to another
@@ -339,7 +339,7 @@ class EllipticDiscretization(Discretization):
     def enforce_neumann_int_bound(
         self, g: pp.Grid, data_edge: Dict, matrix: np.ndarray, self_ind: int
     ) -> None:
-        """ Enforce Neumann boundary conditions on a given system matrix.
+        """Enforce Neumann boundary conditions on a given system matrix.
 
         Methods based on a mixed variational form will need this function to
         implement essential boundary conditions.

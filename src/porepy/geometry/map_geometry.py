@@ -32,7 +32,7 @@ def force_point_collinearity(pts):
 
 
 def map_grid(g, tol=1e-5, R=None):
-    """ If a 2d or a 1d grid is passed, the function return the cell_centers,
+    """If a 2d or a 1d grid is passed, the function return the cell_centers,
     face_normals, and face_centers using local coordinates. If a 3d grid is
     passed nothing is applied. The return vectors have a reduced number of rows.
 
@@ -124,7 +124,7 @@ def sort_points_on_line(pts, tol=1e-5):
 
 
 def project_points_to_line(p, tol=1e-4):
-    """ Project a set of colinear points onto a line.
+    """Project a set of colinear points onto a line.
 
     The points should be co-linear such that a 1d description is meaningful.
 
@@ -176,7 +176,7 @@ def project_points_to_line(p, tol=1e-4):
 
 
 def project_plane_matrix(pts, normal=None, tol=1e-5, reference=None, check_planar=True):
-    """ Project the points on a plane using local coordinates.
+    """Project the points on a plane using local coordinates.
 
     The projected points are computed by a dot product.
     example: np.dot( R, pts )
@@ -213,7 +213,7 @@ def project_plane_matrix(pts, normal=None, tol=1e-5, reference=None, check_plana
 
 
 def project_line_matrix(pts, tangent=None, tol=1e-5, reference=None):
-    """ Project the points on a line using local coordinates.
+    """Project the points on a line using local coordinates.
 
     The projected points are computed by a dot product.
     example: np.dot( R, pts )
@@ -243,7 +243,7 @@ def project_line_matrix(pts, tangent=None, tol=1e-5, reference=None):
 
 
 def rotation_matrix(a, vect):
-    """ Compute the rotation matrix about a vector by an angle using the matrix
+    """Compute the rotation matrix about a vector by an angle using the matrix
     form of Rodrigues formula.
 
     Parameters:
@@ -274,7 +274,7 @@ def rotation_matrix(a, vect):
 
 
 def normal_matrix(pts=None, normal=None):
-    """ Compute the normal projection matrix of a plane.
+    """Compute the normal projection matrix of a plane.
 
     The algorithm assume that the points lie on a plane.
     Three non-aligned points are required.
@@ -300,7 +300,7 @@ def normal_matrix(pts=None, normal=None):
 
 
 def tangent_matrix(pts=None, normal=None):
-    """ Compute the tangential projection matrix of a plane.
+    """Compute the tangential projection matrix of a plane.
 
     The algorithm assume that the points lie on a plane.
     Three non-aligned points are required.
@@ -319,7 +319,7 @@ def tangent_matrix(pts=None, normal=None):
 
 
 def compute_normal(pts, check=True):
-    """ Compute the normal of a set of points.
+    """Compute the normal of a set of points.
 
     The algorithm assume that the points lie on a plane.
     Three non-aligned points are required.
@@ -348,7 +348,7 @@ def compute_normals_1d(pts):
 
 
 def compute_tangent(pts, check=True):
-    """ Compute a tangent vector of a set of points.
+    """Compute a tangent vector of a set of points.
 
     The algorithm assume that the points lie on a plane.
 

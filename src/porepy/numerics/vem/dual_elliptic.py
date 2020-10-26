@@ -60,7 +60,7 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
 class DualElliptic(
     pp.numerics.interface_laws.elliptic_discretization.EllipticDiscretization
 ):
-    """ Parent class for methods based on the mixed variational form of the
+    """Parent class for methods based on the mixed variational form of the
     elliptic equation. The class should not be used by itself, but provides a
     sheared implementation of central methods.
 
@@ -85,7 +85,7 @@ class DualElliptic(
         self.vector_source_key = "vector_source"
 
     def ndof(self, g: pp.Grid) -> int:
-        """ Return the number of degrees of freedom associated to the method.
+        """Return the number of degrees of freedom associated to the method.
 
         In this case number of faces (velocity dofs) plus the number of cells
         (pressure dof). If a mortar grid is given the number of dof are equal to
@@ -136,8 +136,7 @@ class DualElliptic(
         return M, self.assemble_rhs(g, data, bc_weight)
 
     def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.csr_matrix:
-        """ Assemble matrix from an existing discretization.
-        """
+        """Assemble matrix from an existing discretization."""
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         mass = matrix_dictionary[self.mass_matrix_key]
@@ -147,7 +146,7 @@ class DualElliptic(
     def assemble_neumann_robin(
         self, g: pp.Grid, data: Dict, M, bc_weight: np.ndarray = None
     ) -> Tuple[sps.csr_matrix, np.ndarray]:
-        """ Impose Neumann and Robin boundary discretization on an already assembled
+        """Impose Neumann and Robin boundary discretization on an already assembled
         system matrix.
         """
         # Obtain the mass matrix
@@ -267,7 +266,7 @@ class DualElliptic(
         return rhs
 
     def project_flux(self, g: pp.Grid, u: np.ndarray, data: Dict) -> np.ndarray:
-        """  Project the velocity computed with a dual solver to obtain a
+        """Project the velocity computed with a dual solver to obtain a
         piecewise constant vector field, one triplet for each cell.
 
         We assume the following two sub-dictionaries to be present in the data
@@ -310,7 +309,7 @@ class DualElliptic(
         mass: sps.csr_matrix,
         bc_weight: float = None,
     ) -> Tuple[sps.csr_matrix, np.ndarray]:
-        """ Impose Neumann boundary discretization on an already assembled
+        """Impose Neumann boundary discretization on an already assembled
         system matrix.
 
         Common implementation for VEM and RT0. The parameter mass should be
@@ -373,7 +372,7 @@ class DualElliptic(
         self_ind: int,
         use_slave_proj: bool = False,
     ) -> None:
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
 
         The intended use is when the internal boundary is coupled to another
@@ -425,7 +424,7 @@ class DualElliptic(
         rhs: np.ndarray,
         self_ind: int,
     ) -> None:
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
         The intended use is when the internal boundary is coupled to another
@@ -473,7 +472,7 @@ class DualElliptic(
         self_ind: int,
         use_slave_proj: bool = False,
     ) -> None:
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
         The intended use is when the internal boundary is coupled to another
@@ -519,7 +518,7 @@ class DualElliptic(
     def assemble_int_bound_pressure_trace_rhs(
         self, g, data, data_edge, cc, rhs, self_ind, use_slave_proj=False
     ):
-        """ Assemble the rhs contribution from an internal
+        """Assemble the rhs contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
         For details, see self.assemble_int_bound_pressure_trace()
@@ -557,7 +556,7 @@ class DualElliptic(
         matrix: np.ndarray,
         rhs: np.ndarray,
     ) -> None:
-        """ Assemble the contribution from an internal
+        """Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
         No contribution for this method.
@@ -593,7 +592,7 @@ class DualElliptic(
         rhs: np.ndarray,
         self_ind: int,
     ) -> None:
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
 
         The intended use is when the internal boundary is coupled to another
@@ -636,7 +635,7 @@ class DualElliptic(
     def enforce_neumann_int_bound(
         self, g: pp.Grid, data_edge: Dict, matrix: np.ndarray, self_ind: int
     ) -> None:
-        """ Enforce Neumann boundary conditions on a given system matrix.
+        """Enforce Neumann boundary conditions on a given system matrix.
 
         Methods based on a mixed variational form need this function to
         implement essential boundary conditions.
@@ -673,7 +672,7 @@ class DualElliptic(
     def extract_flux(
         self, g: pp.Grid, solution_array: np.ndarray, data: Dict
     ) -> np.ndarray:
-        """  Extract the velocity from a dual virtual element solution.
+        """Extract the velocity from a dual virtual element solution.
 
         Parameters
         ----------
@@ -695,7 +694,7 @@ class DualElliptic(
     def extract_pressure(
         self, g: pp.Grid, solution_array: np.ndarray, data: Dict
     ) -> np.ndarray:
-        """  Extract the pressure from a dual virtual element solution.
+        """Extract the pressure from a dual virtual element solution.
 
         Parameters
         ----------
@@ -716,7 +715,7 @@ class DualElliptic(
 
     @staticmethod
     def _inv_matrix_1d(K: np.ndarray) -> np.ndarray:
-        """ Explicit inversion of a matrix 1x1.
+        """Explicit inversion of a matrix 1x1.
 
         Parameters
         ----------
@@ -730,7 +729,7 @@ class DualElliptic(
 
     @staticmethod
     def _inv_matrix_2d(K: np.ndarray) -> np.ndarray:
-        """ Explicit inversion of a symmetric matrix 2x2.
+        """Explicit inversion of a symmetric matrix 2x2.
 
         Parameters
         ----------
@@ -745,7 +744,7 @@ class DualElliptic(
 
     @staticmethod
     def _inv_matrix_3d(K: np.ndarray) -> np.ndarray:
-        """ Explicit inversion of a symmetric matrix 3x3.
+        """Explicit inversion of a symmetric matrix 3x3.
 
         Parameters
         ----------

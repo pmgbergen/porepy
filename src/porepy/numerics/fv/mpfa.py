@@ -407,7 +407,7 @@ class Mpfa(pp.FVElliptic):
             ] = bound_pressure_vector_source_glob
 
     def update_discretization(self, g, data):
-        """ Update discretization.
+        """Update discretization.
 
         The updates can generally come as a combination of two forms:
             1) The discretization on part of the grid should be recomputed.
@@ -1177,7 +1177,7 @@ class Mpfa(pp.FVElliptic):
     def _block_diagonal_structure(
         self, sub_cell_index, cell_node_blocks, nno, bound_exclusion
     ):
-        """ Define matrices to turn linear system into block-diagonal form
+        """Define matrices to turn linear system into block-diagonal form
         Parameters
         ----------
         sub_cell_index
@@ -1388,7 +1388,7 @@ class Mpfa(pp.FVElliptic):
     def _bc_for_subgrid(
         self, bc: pp.BoundaryCondition, sub_g: pp.Grid, face_map: np.ndarray
     ) -> pp.BoundaryCondition:
-        """ Obtain a representation of a boundary condition for a subgrid of
+        """Obtain a representation of a boundary condition for a subgrid of
         the original grid.
 
         This is somehow better fit for the BoundaryCondition class, but it is not clear

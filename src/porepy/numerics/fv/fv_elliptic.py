@@ -8,7 +8,7 @@ import porepy as pp
 
 
 class FVElliptic(pp.EllipticDiscretization):
-    """ Superclass for finite volume discretizations of the elliptic equation.
+    """Superclass for finite volume discretizations of the elliptic equation.
 
     Should not be used by itself, instead use a subclass that implements an
     actual discretization method. Known subclasses are Tpfa and Mpfa.
@@ -51,7 +51,7 @@ class FVElliptic(pp.EllipticDiscretization):
         return g.num_cells
 
     def extract_pressure(self, g, solution_array, data):
-        """ Extract the pressure part of a solution.
+        """Extract the pressure part of a solution.
         The method is trivial for finite volume methods, with the pressure
         being the only primary variable.
 
@@ -68,7 +68,7 @@ class FVElliptic(pp.EllipticDiscretization):
         return solution_array
 
     def extract_flux(self, g, solution_array, data):
-        """ Extract the flux related to a solution.
+        """Extract the flux related to a solution.
 
         The flux is computed from the discretization and the given pressure solution.
 
@@ -94,7 +94,7 @@ class FVElliptic(pp.EllipticDiscretization):
         return flux * solution_array + bound_flux * bc_val
 
     def assemble_matrix_rhs(self, g, data):
-        """ Return the matrix and right-hand side for a discretization of a second
+        """Return the matrix and right-hand side for a discretization of a second
         order elliptic equation.
 
         Also discretize the necessary operators if the data dictionary does not
@@ -137,7 +137,7 @@ class FVElliptic(pp.EllipticDiscretization):
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
     def assemble_matrix(self, g, data):
-        """ Return the matrix for a discretization of a second order elliptic equation
+        """Return the matrix for a discretization of a second order elliptic equation
         using a FV method.
 
         Also discretize the necessary operators if the data dictionary does not contain
@@ -165,7 +165,7 @@ class FVElliptic(pp.EllipticDiscretization):
         return M
 
     def assemble_rhs(self, g, data):
-        """ Return the right-hand side for a discretization of a second order elliptic
+        """Return the right-hand side for a discretization of a second order elliptic
         equation using a finite volume method.
 
         Also discretize the necessary operators if the data dictionary does not contain
@@ -264,7 +264,7 @@ class FVElliptic(pp.EllipticDiscretization):
         cc[self_ind, 2] += div * bound_flux * proj
 
     def assemble_int_bound_source(self, g, data, data_edge, cc, matrix, rhs, self_ind):
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
         The intended use is when the internal boundary is coupled to another
@@ -302,7 +302,7 @@ class FVElliptic(pp.EllipticDiscretization):
     def assemble_int_bound_pressure_trace(
         self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
     ):
-        """ Assemble the contribution from an internal
+        """Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
         The intended use is when the internal boundary is coupled to another
@@ -422,7 +422,7 @@ class FVElliptic(pp.EllipticDiscretization):
     def assemble_int_bound_pressure_trace_between_interfaces(
         self, g, data_grid, proj_primary, proj_secondary, cc, matrix, rhs
     ):
-        """ Assemble the contribution from an internal
+        """Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
         Parameters:
@@ -456,7 +456,7 @@ class FVElliptic(pp.EllipticDiscretization):
     def assemble_int_bound_pressure_cell(
         self, g, data, data_edge, cc, matrix, rhs, self_ind
     ):
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
 
         The intended use is when the internal boundary is coupled to another
@@ -491,7 +491,7 @@ class FVElliptic(pp.EllipticDiscretization):
         cc[2, self_ind] -= proj
 
     def enforce_neumann_int_bound(self, g, data_edge, matrix, self_ind):
-        """ Enforce Neumann boundary conditions on a given system matrix.
+        """Enforce Neumann boundary conditions on a given system matrix.
 
         The method is void for finite volume approaches, but is implemented
         to be compatible with the general framework.
@@ -506,7 +506,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
 
 class EllipticDiscretizationZeroPermeability(FVElliptic):
-    """ Specialized discretization for domains with zero tangential permeability.
+    """Specialized discretization for domains with zero tangential permeability.
 
     Intended usage is to impose full continuity conditions between domains of higher
     dimensions separated by a lower-dimensional domain (think two intersecting
@@ -536,7 +536,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
         pass
 
     def assemble_matrix(self, g, data):
-        """ Assemble system matrix. Will be zero matrix of appropriate size.
+        """Assemble system matrix. Will be zero matrix of appropriate size.
 
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
@@ -549,7 +549,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
         return sps.csc_matrix((self.ndof(g), self.ndof(g)))
 
     def assemble_rhs(self, g, data):
-        """ Assemble right hand side vector. Will be zero vector of appropriate size.
+        """Assemble right hand side vector. Will be zero vector of appropriate size.
 
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
@@ -600,7 +600,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
     def assemble_int_bound_pressure_trace(
         self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
     ):
-        """ Assemble the contribution from an internal
+        """Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
         This method should not be used for the zero-permeability case; it would

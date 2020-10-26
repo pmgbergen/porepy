@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class PrimalContactCoupling(
     porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
 ):
-    """ Implement the coupling conditions for the pure mechanics problem.
+    """Implement the coupling conditions for the pure mechanics problem.
 
     The primary variables for this formulation are displacement in the ambient dimension,
     displacements at the boundary of the highest dimensional grid (represented as mortar
@@ -54,7 +54,7 @@ class PrimalContactCoupling(
         self.edge_coupling_via_high_dim = True
 
     def ndof(self, mg):
-        """ Get the number of dof for this coupling.
+        """Get the number of dof for this coupling.
 
         It is assumed that this method will only be called for mortar grids of
         co-dimension 1. If the assumption is broken, this will not work.
@@ -91,7 +91,7 @@ class PrimalContactCoupling(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
     ):
 
-        """ Assemble the dicretization of the interface law, and its impact on
+        """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
         Parameters:
             g_master: Grid on one neighboring subdomain.
@@ -282,7 +282,7 @@ class PrimalContactCoupling(
         data_edge_secondary,
         matrix,
     ):
-        """ Assemble the stress contribution from the mortar displacement on one edge
+        """Assemble the stress contribution from the mortar displacement on one edge
         on the stress balance on a neighboring edge, in the sense that the two edges
         share a node located at the corner.
 

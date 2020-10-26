@@ -30,7 +30,7 @@ CouplingVariableTerm = namedtuple(
 
 
 class Assembler:
-    """ A class that assembles multi-physics problems on mixed-dimensional
+    """A class that assembles multi-physics problems on mixed-dimensional
     domains.
 
     The class is designed to combine different variables on different grids,
@@ -42,7 +42,7 @@ class Assembler:
     """
 
     def __init__(self, gb: pp.GridBucket) -> None:
-        """ Construct an assembler for a given GridBucket on a given set of variables.
+        """Construct an assembler for a given GridBucket on a given set of variables.
 
         Parameters:
             self.gb (pp.GridBucket): Mixed-dimensional grid where the equations are
@@ -65,7 +65,7 @@ class Assembler:
 
     @staticmethod
     def _variable_term_key(term: str, key_1: str, key_2: str, key_3: str = None) -> str:
-        """ Get the key-variable combination used to identify a specific term in the equation.
+        """Get the key-variable combination used to identify a specific term in the equation.
 
         For nodes and internally to edges in the GridBucket (i.e. fixed-dimensional grids),
         the variable name is formed by combining the name of one or two primary variables,
@@ -116,7 +116,7 @@ class Assembler:
         Tuple[Union[csc_or_csr_matrix, np.ndarray], np.ndarray],
         Tuple[Dict[str, sps.spmatrix], Dict[str, np.ndarray]],
     ]:
-        """ Assemble the system matrix and right hand side for a general linear
+        """Assemble the system matrix and right hand side for a general linear
         multi-physics problem, and return a block matrix and right hand side.
 
         For examples on how to use the assembler, confer the tutorial
@@ -223,7 +223,7 @@ class Assembler:
     def update_discretization(
         self, filt: Optional[pp.assembler_filters.AssemblerFilter] = None
     ) -> None:
-        """ Update discretizations without a full rediscretization.
+        """Update discretizations without a full rediscretization.
 
         The method will invoke the update_discretization() method on discretizations
         on all grids which have the parameter partial_update set to True in its data
@@ -282,7 +282,7 @@ class Assembler:
     def discretize(
         self, filt: Optional[pp.assembler_filters.AssemblerFilter] = None
     ) -> None:
-        """ Run the discretization operation on discretizations specified in
+        """Run the discretization operation on discretizations specified in
         the mixed-dimensional grid.
 
         Discretization can be applied selectively to specific discretization objcets
@@ -307,7 +307,7 @@ class Assembler:
         Tuple[Dict[str, csc_or_csr_matrix], Dict[str, np.ndarray]],
         None,
     ]:
-        """ Helper method, loop over the GridBucket, identify nodes / edges
+        """Helper method, loop over the GridBucket, identify nodes / edges
         variables and discretizations, and perform an operation on these.
 
         Implemented actions are discretization and assembly.
@@ -463,7 +463,7 @@ class Assembler:
         assemble_matrix_only: Optional[bool] = False,
         assemble_rhs_only: Optional[bool] = False,
     ) -> None:
-        """ Perform operation on all edge-node couplings.
+        """Perform operation on all edge-node couplings.
 
         This method should not be invoked directly, but instead accessed via the public
         methods discretize() or assemble_matrix_rhs()
@@ -1084,7 +1084,8 @@ class Assembler:
         self._grid_variable_term_combinations = grid_variable_term_combinations
 
     def _initialize_matrix_rhs(
-        self, sps_matrix: Type[csc_or_csr_matrix],
+        self,
+        sps_matrix: Type[csc_or_csr_matrix],
     ) -> Tuple[Dict[str, csc_or_csr_matrix], Dict[str, np.ndarray]]:
         """
         Initialize a set of matrices (for left hand sides) and vectors (rhs)
@@ -1230,7 +1231,7 @@ class Assembler:
         return np.hstack(parameter)
 
     def _local_variables(self, d: Dict) -> Dict[str, Dict[str, int]]:
-        """ Find variables defined in a data dictionary, and do intersection
+        """Find variables defined in a data dictionary, and do intersection
         with defined active variables.
 
         If no active variables are specified, returned all declared variables.
@@ -1248,9 +1249,11 @@ class Assembler:
         return d.get(pp.PRIMARY_VARIABLES, None)
 
     def distribute_variable(
-        self, values: np.ndarray, variable_names: List[str] = None,
+        self,
+        values: np.ndarray,
+        variable_names: List[str] = None,
     ) -> None:
-        """ Distribute a vector to the nodes and edges in the GridBucket.
+        """Distribute a vector to the nodes and edges in the GridBucket.
 
         The intended use is to split a multi-physics solution vector into its
         component parts.
@@ -1291,7 +1294,7 @@ class Assembler:
     def dof_ind(
         self, g: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], name: str
     ) -> np.ndarray:
-        """ Get the indices in the global system of variables associated with a
+        """Get the indices in the global system of variables associated with a
         given node / edge (in the GridBucket sense) and a given variable.
 
         Parameters:
@@ -1308,7 +1311,7 @@ class Assembler:
         return np.arange(dof_start[block_ind], dof_start[block_ind + 1])
 
     def num_dof(self) -> int:
-        """ Get total number of unknowns of the identified variables.
+        """Get total number of unknowns of the identified variables.
 
         Returns:
             int: Number of unknowns. Size of solution vector.
@@ -1318,7 +1321,7 @@ class Assembler:
     def variables_of_grid(
         self, g: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
     ) -> List[str]:
-        """ Get all variables defined for a given grid or edge.
+        """Get all variables defined for a given grid or edge.
 
         Args:
             g (Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]): Target grid, or an edge

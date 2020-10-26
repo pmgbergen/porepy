@@ -352,7 +352,7 @@ def segments_3d(start_1, end_1, start_2, end_2, tol=1e-8):
 
 
 def polygons_3d(polys, target_poly=None, tol=1e-8):
-    """ Compute the intersection between polygons embedded in 3d.
+    """Compute the intersection between polygons embedded in 3d.
 
     In addition to intersection points, the function also decides:
         1) Whether intersection points lie in the interior, on a segment or a vertex.
@@ -1143,7 +1143,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
 
 
 def triangulations(p_1, p_2, t_1, t_2):
-    """ Compute intersection of two triangle tessalation of a surface.
+    """Compute intersection of two triangle tessalation of a surface.
 
     The function will identify partly overlapping triangles between t_1 and
     t_2, and compute their common area. If parts of domain 1 or 2 is covered by
@@ -1240,7 +1240,7 @@ def triangulations(p_1, p_2, t_1, t_2):
 
 
 def line_tesselation(p1, p2, l1, l2):
-    """ Compute intersection of two line segment tessalations of a line.
+    """Compute intersection of two line segment tessalations of a line.
 
     The function will identify partly overlapping line segments between l1 and
     l2, and compute their common length.
@@ -1287,7 +1287,7 @@ def line_tesselation(p1, p2, l1, l2):
 def surface_tessalations(
     poly_sets: List[List[np.ndarray]], return_simplexes: bool = False
 ) -> Tuple[List[np.ndarray], List[sps.csr_matrix]]:
-    """ Intersect a set of surface tessalations to find a finer subdivision that does
+    """Intersect a set of surface tessalations to find a finer subdivision that does
     not intersect with any of the input tessalations.
 
     It is assumed that the polygon sets are 2d.
@@ -1548,7 +1548,7 @@ def surface_tessalations(
 
 
 def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
-    """ Process a set of points and connections between them so that the result
+    """Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
 
     The function is written for gridding of fractured domains, but may be
@@ -1778,7 +1778,7 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
 
 
 def _axis_aligned_bounding_box_2d(p, e):
-    """ For a set of lines in 2d, obtain the bounding box for each line.
+    """For a set of lines in 2d, obtain the bounding box for each line.
 
     The lines are specified as a list of points, together with connections between
     the points.
@@ -1812,7 +1812,7 @@ def _axis_aligned_bounding_box_2d(p, e):
 
 
 def _axis_aligned_bounding_box_3d(polys):
-    """ For a set of polygons embedded in 3d, obtain the bounding box for each object.
+    """For a set of polygons embedded in 3d, obtain the bounding box for each object.
 
     The polygons are specified as a list of numpy arrays.
 
@@ -1853,7 +1853,7 @@ def _axis_aligned_bounding_box_3d(polys):
 
 
 def _identify_overlapping_intervals(left, right):
-    """ Based on a set of start and end coordinates for intervals, identify pairs of
+    """Based on a set of start and end coordinates for intervals, identify pairs of
     overlapping intervals.
 
     Parameters:
@@ -1927,7 +1927,7 @@ def _identify_overlapping_intervals(left, right):
 
 
 def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
-    """ Based on a set of start and end coordinates for bounding boxes, identify pairs of
+    """Based on a set of start and end coordinates for bounding boxes, identify pairs of
     overlapping rectangles.
 
     The algorithm was found in 'A fast method for fracture intersection detection
@@ -2013,7 +2013,7 @@ def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
 
 
 def _intersect_pairs(p1, p2):
-    """ For two lists containing pair of indices, find the intersection.
+    """For two lists containing pair of indices, find the intersection.
 
     Parameters:
         p1 (np.array, 2 x n): Each column contains a pair of indices.

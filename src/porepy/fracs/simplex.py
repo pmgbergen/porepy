@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def triangle_grid_embedded(file_name):
-    """ Create triangular (2D) grid of a domain embedded in 3D space, without
+    """Create triangular (2D) grid of a domain embedded in 3D space, without
     meshing the 3D volume.
 
     The resulting grid can be used in a DFN model. The grid will be fully
@@ -49,7 +49,11 @@ def triangle_grid_embedded(file_name):
     pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
     g_2d = mesh_2_grid.create_2d_grids(
-        pts, cells, is_embedded=True, phys_names=phys_names, cell_info=cell_info,
+        pts,
+        cells,
+        is_embedded=True,
+        phys_names=phys_names,
+        cell_info=cell_info,
     )
     g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
     g_0d = mesh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
@@ -77,7 +81,7 @@ def triangle_grid_embedded(file_name):
 
 
 def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
-    """ Generate a list of grids dimensions {2, 1, 0}, starting from a gmsh mesh.
+    """Generate a list of grids dimensions {2, 1, 0}, starting from a gmsh mesh.
 
     Parameters:
         file_name (str): Path to file of gmsh.msh specification.
@@ -145,7 +149,7 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
 
 
 def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
-    """ Generate a list of grids dimensions {1, 0}, starting from a gmsh mesh.
+    """Generate a list of grids dimensions {1, 0}, starting from a gmsh mesh.
 
     Parameters:
         file_name (str): Path to file of gmsh.msh specification.
@@ -210,7 +214,7 @@ def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
 
 
 def tetrahedral_grid_from_gmsh(file_name, constraints=None, **kwargs):
-    """ Generate a list of grids of dimensions {3, 2, 1, 0}, starting from a gmsh
+    """Generate a list of grids of dimensions {3, 2, 1, 0}, starting from a gmsh
     mesh.
 
     Parameters:

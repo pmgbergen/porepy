@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 def grid_list_to_grid_bucket(
     grids: List[List[pp.Grid]], time_tot: float = None, **kwargs
 ) -> pp.GridBucket:
-    """ Convert a list of grids to a full GridBucket.
+    """Convert a list of grids to a full GridBucket.
 
     The list can come from several mesh constructors, both simplex and
     structured approaches uses this in 2D and 3D.

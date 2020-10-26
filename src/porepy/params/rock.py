@@ -10,7 +10,7 @@ import porepy as pp
 
 
 def poisson_from_lame(mu, lmbda):
-    """ Compute Poisson's ratio from Lame parameters
+    """Compute Poisson's ratio from Lame parameters
 
     Parameters:
         mu (double): first Lame parameter
@@ -24,7 +24,7 @@ def poisson_from_lame(mu, lmbda):
 
 
 def lame_from_young_poisson(e, nu):
-    """ Compute Lame parameters from Young's modulus and Poisson's ratio.
+    """Compute Lame parameters from Young's modulus and Poisson's ratio.
 
     Parameters:
         e (double): Young's modulus
@@ -56,7 +56,7 @@ def bulk_from_lame(lmbda, mu):
 
 
 class UnitRock(object):
-    """ Mother of all rocks, all values are unity.
+    """Mother of all rocks, all values are unity.
 
     Attributes:
         PERMEABILITY:
@@ -91,7 +91,7 @@ class UnitRock(object):
 
 
 class SandStone(UnitRock):
-    """ Generic values for Sandstone.
+    """Generic values for Sandstone.
 
     Data partially from:
         http://civilblog.org/2015/02/13/what-are-the-values-of-modulus-of-elasticity-poissons-ratio-for-different-rocks/
@@ -128,7 +128,7 @@ class SandStone(UnitRock):
 
 
 class Shale(UnitRock):
-    """ Generic values for shale.
+    """Generic values for shale.
 
 
     Data partially from:
@@ -166,7 +166,7 @@ class Shale(UnitRock):
 
 
 class Granite(UnitRock):
-    """ Generic values for granite.
+    """Generic values for granite.
     Data partially from:
         http://civilblog.org/2015/02/13/what-are-the-values-of-modulus-of-elasticity-poissons-ratio-for-different-rocks/
     And:

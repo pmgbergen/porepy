@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def match_1d(new_1d: pp.Grid, old_1d: pp.Grid, tol: float):
-    """ Obtain mappings between the cells of non-matching 1d grids.
+    """Obtain mappings between the cells of non-matching 1d grids.
 
     The function constructs an refined 1d grid that consists of all nodes
     of at least one of the input grids.
@@ -81,7 +81,7 @@ def match_1d(new_1d: pp.Grid, old_1d: pp.Grid, tol: float):
 
 
 def match_2d(new_g: pp.Grid, old_g: pp.Grid, tol: float):
-    """ Match two simplex tessalations to identify overlapping cells.
+    """Match two simplex tessalations to identify overlapping cells.
 
     The overlaps are identified by the cell index of the two overlapping cells,
     and their weighted common area.
@@ -138,7 +138,7 @@ def match_2d(new_g: pp.Grid, old_g: pp.Grid, tol: float):
 def match_grids_along_1d_mortar(
     mg: pp.MortarGrid, g_new: pp.Grid, g_old: pp.Grid, tol: float
 ) -> sps.csr_matrix:
-    """ Match the faces of two 2d grids along a 1d mortar grid.
+    """Match the faces of two 2d grids along a 1d mortar grid.
 
     The function identifies faces on the 1d segment specified by the MortarGrid, and
     finds the area weights of the matched faces. Both sides of the mortar grid are taken
@@ -394,7 +394,7 @@ def match_grids_along_1d_mortar(
 def gb_refinement(
     gb: pp.GridBucket, gb_ref: pp.GridBucket, tol: float = 1e-8, mode: str = "nested"
 ):
-    """ Wrapper for coarse_fine_cell_mapping to construct mapping for grids in
+    """Wrapper for coarse_fine_cell_mapping to construct mapping for grids in
     GridBucket.
 
     Adds a node_prop to each grid in gb. The key is 'coarse_fine_cell_mapping',
@@ -459,7 +459,7 @@ def gb_refinement(
 def structured_refinement(
     g: pp.Grid, g_ref: pp.Grid, point_in_poly_tol=1e-8
 ) -> sps.csc_matrix:
-    """ Construct a mapping between cells of a grid and its refined version
+    """Construct a mapping between cells of a grid and its refined version
 
     Assuming a regular and a refined mesh, where the refinement is executed by
     splitting.

@@ -17,9 +17,9 @@ import porepy.numerics.interface_laws.abstract_interface_law
 class RobinCoupling(
     porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
 ):
-    """ A condition with resistance to flow between subdomains. Implementation
-        of the model studied (though not originally proposed) by Martin et
-        al 2005.
+    """A condition with resistance to flow between subdomains. Implementation
+    of the model studied (though not originally proposed) by Martin et
+    al 2005.
 
     """
 
@@ -60,7 +60,7 @@ class RobinCoupling(
         return mg.num_cells
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
-        """ Discretize the interface law and store the discretization in the
+        """Discretize the interface law and store the discretization in the
         edge data.
 
         Parameters:
@@ -177,7 +177,7 @@ class RobinCoupling(
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
     ):
-        """ Assemble the dicretization of the interface law, and its impact on
+        """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
         Parameters:
@@ -272,7 +272,7 @@ class RobinCoupling(
         data_secondary_edge,
         matrix,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """ Represent the impact on a primary interface of the mortar (thus boundary)
+        """Represent the impact on a primary interface of the mortar (thus boundary)
         flux on a secondary interface.
 
         Parameters:
@@ -334,7 +334,7 @@ class RobinCoupling(
 
 
 class FluxPressureContinuity(RobinCoupling):
-    """ A condition for flux and pressure continuity between two domains. A particular
+    """A condition for flux and pressure continuity between two domains. A particular
     attention is devoted in the case if these domanins are of equal
     dimension. This can be used to specify full continuity between fractures,
     two domains or a periodic boundary condition for a single domain. The faces
@@ -363,7 +363,7 @@ class FluxPressureContinuity(RobinCoupling):
         self.edge_coupling_via_low_dim = False
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
-        """ Nothing really to do here
+        """Nothing really to do here
 
         Parameters:
             g_h: Grid of the master domanin.
@@ -378,7 +378,7 @@ class FluxPressureContinuity(RobinCoupling):
     def assemble_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
     ):
-        """ Assemble the dicretization of the interface law, and its impact on
+        """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
         Parameters:
@@ -433,7 +433,7 @@ class FluxPressureContinuity(RobinCoupling):
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
     ):
-        """ Assemble the dicretization of the interface law, and its impact on
+        """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
         Parameters:

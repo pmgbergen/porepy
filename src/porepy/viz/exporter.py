@@ -938,7 +938,7 @@ class Exporter:
             normals,
             num_cell_nodes,
         ):
-            """ Implementation note: This turned out to be less than pretty, and quite
+            """Implementation note: This turned out to be less than pretty, and quite
             a bit more explicit than the corresponding pure python implementation.
             The process was basically to circumvent whatever statements numba did not
             like. Not sure about why this ended so, but there you go.

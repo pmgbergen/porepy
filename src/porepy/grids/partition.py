@@ -141,7 +141,7 @@ def partition_structured(
 def partition_coordinates(
     g: pp.Grid, num_coarse: int, check_connectivity: bool = True
 ) -> np.ndarray:
-    """"
+    """ "
     Brute force partitioning of a grid based on cell center coordinates.
 
     The intention at the time of implementation is to provide a partitioning
@@ -479,7 +479,7 @@ def extract_subgrid(
 
 
 def __extract_submatrix(mat, ind):
-    """ From a matrix, extract the column specified by ind. All zero columns
+    """From a matrix, extract the column specified by ind. All zero columns
     are stripped from the sub-matrix. Mappings from global to local row numbers
     are also returned.
     """

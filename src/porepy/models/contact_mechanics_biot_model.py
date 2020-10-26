@@ -20,8 +20,7 @@ import scipy.sparse.linalg as spla
 
 import porepy as pp
 import porepy.models.contact_mechanics_model as contact_model
-from porepy.utils.derived_discretizations import \
-    implicit_euler as IE_discretizations
+from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -466,8 +465,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         pass
 
     def discretize(self) -> None:
-        """ Discretize all terms
-        """
+        """Discretize all terms"""
         if not hasattr(self, "assembler"):
             self.assembler = pp.Assembler(self.gb)
 
@@ -506,7 +504,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
     def before_newton_loop(self) -> None:
-        """ Will be run before entering a Newton loop.
+        """Will be run before entering a Newton loop.
         E.g.
            Discretize time-dependent quantities etc.
            Update time-dependent parameters (captured by assembly).
@@ -546,7 +544,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         solver = self.params.get("linear_solver", "direct")
 
         if solver == "direct":
-            """ In theory, it should be possible to instruct SuperLU to reuse the
+            """In theory, it should be possible to instruct SuperLU to reuse the
             symbolic factorization from one iteration to the next. However, it seems
             the scipy wrapper around SuperLU has not implemented the necessary
             functionality, as discussed in

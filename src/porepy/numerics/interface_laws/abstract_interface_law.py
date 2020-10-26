@@ -12,7 +12,7 @@ from porepy.numerics.discretization import Discretization
 
 
 class AbstractInterfaceLaw(abc.ABC):
-    """ Partial implementation of an interface (between two grids) law. Any full
+    """Partial implementation of an interface (between two grids) law. Any full
     interface law must implement the missing functions.
 
     Attributes:
@@ -40,7 +40,7 @@ class AbstractInterfaceLaw(abc.ABC):
 
     @abc.abstractmethod
     def ndof(self, mg: pp.MortarGrid) -> int:
-        """ Get the number of degrees of freedom of this interface law for a
+        """Get the number of degrees of freedom of this interface law for a
         given mortar grid.
 
         Parameters:
@@ -56,7 +56,7 @@ class AbstractInterfaceLaw(abc.ABC):
     def discretize(
         self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
     ) -> None:
-        """ Discretize the interface law and store the discretization in the
+        """Discretize the interface law and store the discretization in the
         edge data.
 
         The discretization matrix will be stored in the data dictionary of this
@@ -75,7 +75,7 @@ class AbstractInterfaceLaw(abc.ABC):
     def update_discretization(
         self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
     ) -> None:
-        """ Partial update of discretization.
+        """Partial update of discretization.
 
         Intended use is when the discretization should be updated, e.g. because of
         changes in parameters, grid geometry or grid topology, and it is not
@@ -114,7 +114,7 @@ class AbstractInterfaceLaw(abc.ABC):
         data_edge: Dict,
         matrix: np.ndarray,
     ) -> Union[np.ndarray, np.ndarray]:
-        """ Assemble the dicretization of the interface law, and its impact on
+        """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
         The matrix will be
@@ -147,7 +147,7 @@ class AbstractInterfaceLaw(abc.ABC):
         data_edge: Dict,
         matrix: np.ndarray,
     ) -> np.ndarray:
-        """ Assemble the dicretization of the interface law, and its impact on
+        """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
         The default implementation will assemble both the discretization matrix and the
@@ -182,7 +182,7 @@ class AbstractInterfaceLaw(abc.ABC):
         data_edge: Dict,
         matrix: np.ndarray,
     ) -> np.ndarray:
-        """ Assemble the dicretization of the interface law, and its impact on
+        """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
         The default implementation will assemble both the discretization matrix and the
@@ -217,7 +217,7 @@ class AbstractInterfaceLaw(abc.ABC):
         mg: pp.MortarGrid,
         matrix: np.ndarray,
     ) -> Union[np.ndarray, np.ndarray]:
-        """ Initialize a block matrix and right hand side for the local linear
+        """Initialize a block matrix and right hand side for the local linear
         system of the master and slave grid and the interface.
 
         The generated block matrix is 3x3, where each block is initialized as
@@ -292,7 +292,7 @@ class AbstractInterfaceLaw(abc.ABC):
         mg_secondary: pp.MortarGrid,
         matrix: np.ndarray,
     ) -> Union[np.ndarray, np.ndarray]:
-        """ Initialize a block matrix and right hand side for the local linear
+        """Initialize a block matrix and right hand side for the local linear
         system of the master and slave grid and the interface.
 
         The generated block matrix is 3x3, where each block is initialized as
@@ -369,7 +369,7 @@ class AbstractInterfaceLaw(abc.ABC):
         data_edge_secondary: Dict,
         matrix: np.ndarray,
     ) -> Union[np.ndarray, np.ndarray]:
-        """ Method to assemble the contribution from one interface to another one.
+        """Method to assemble the contribution from one interface to another one.
 
         The method must be implemented for subclasses of AbstractInterfaceLaw which has
         the attribute edge_coupling_via_high_dim set to True. For classes where the
@@ -424,7 +424,7 @@ class AbstractInterfaceLaw(abc.ABC):
         data_edge_secondary: Dict,
         matrix: np.ndarray,
     ) -> Union[np.ndarray, np.ndarray]:
-        """ Method to assemble the contribution from one interface to another one.
+        """Method to assemble the contribution from one interface to another one.
 
         The method must be implemented for subclasses of AbstractInterfaceLaw which has
         the attribute edge_coupling_via_low_dim set to True. For classes where the

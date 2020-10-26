@@ -276,7 +276,7 @@ def slice_mat(A, ind):
 def csr_matrix_from_blocks(
     data: np.ndarray, block_size: int, num_blocks: int
 ) -> sps.spmatrix:
-    """ Create a csr representation of a block diagonal matrix of uniform block size.
+    """Create a csr representation of a block diagonal matrix of uniform block size.
 
     The function is equivalent to, but orders of magnitude faster than, the call
 
@@ -310,7 +310,7 @@ def csr_matrix_from_blocks(
 def csc_matrix_from_blocks(
     data: np.ndarray, block_size: int, num_blocks: int
 ) -> sps.spmatrix:
-    """ Create a csc representation of a block diagonal matrix of uniform block size.
+    """Create a csc representation of a block diagonal matrix of uniform block size.
 
     The function is equivalent to, but orders of magnitude faster than, the call
 
@@ -344,7 +344,7 @@ def csc_matrix_from_blocks(
 def _csx_matrix_from_blocks(
     data: np.ndarray, block_size: int, num_blocks: int, matrix_format
 ) -> sps.spmatrix:
-    """ Create a csr representation of a block diagonal matrix of uniform block size.
+    """Create a csr representation of a block diagonal matrix of uniform block size.
 
     The function is equivalent to, but orders of magnitude faster than, the call
 

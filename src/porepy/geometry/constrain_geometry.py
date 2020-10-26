@@ -83,7 +83,7 @@ def lines_by_polygon(poly_pts, pts, edges):
 
 
 def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
-    """ Constrain a seort of polygons in 3d to lie inside a, generally non-convex, polyhedron.
+    """Constrain a seort of polygons in 3d to lie inside a, generally non-convex, polyhedron.
 
     Polygons not inside the polyhedron will be removed from descriptions.
     For non-convex polyhedra, polygons can be split in several parts.

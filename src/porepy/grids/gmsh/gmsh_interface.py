@@ -21,8 +21,8 @@ except ModuleNotFoundError:
 
 class GmshWriter(object):
     """
-     Write a gmsh.geo file for a fractured 2D domains, possibly including
-     compartments
+    Write a gmsh.geo file for a fractured 2D domains, possibly including
+    compartments
     """
 
     def __init__(
@@ -711,7 +711,7 @@ class GmshGridBucketWriter(object):
 
 
 def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) -> None:
-    """ Convenience function to run gmsh.
+    """Convenience function to run gmsh.
 
     Parameters:
         in_file : str or pathlib.Path
@@ -728,7 +728,7 @@ def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) ->
     # Helper functions
 
     def _dump_gmsh_log(_log: List[str], in_file_name: Path) -> Path:
-        """ Write a gmsh log to file.
+        """Write a gmsh log to file.
 
         Takes in the entire log and path to the in_file (from outer scope)
         Return name of the log file

@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class ContactMechanics(porepy.models.abstract_model.AbstractModel):
-    """ This is a shell class for contact mechanics problems.
+    """This is a shell class for contact mechanics problems.
 
     The intended use is to inherit from this class, and do the necessary modifications
     and specifications for the problem to be fully defined. The minimal adjustment
@@ -77,7 +77,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         self.linear_solver = "direct"
 
     def create_grid(self):
-        """ Create a (fractured) domain in 2D or 3D, with projections to local
+        """Create a (fractured) domain in 2D or 3D, with projections to local
         coordinates set for all fractures.
 
         The method requires the following attribute, which is stored in self.params:
@@ -98,8 +98,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         pass
 
     def _nd_grid(self):
-        """ Get the grid of the highest dimension. Assumes self.gb is set.
-        """
+        """Get the grid of the highest dimension. Assumes self.gb is set."""
         return self.gb.grids_of_dimension(self.Nd)[0]
 
     def domain_boundary_sides(self, g):
@@ -123,7 +122,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         return all_bf, east, west, north, south, top, bottom
 
     def bc_type(self, g):
-        """ Define type of boundary conditions: Dirichlet on all global boundaries,
+        """Define type of boundary conditions: Dirichlet on all global boundaries,
         Dirichlet also on fracture faces.
         """
         all_bf = g.get_boundary_faces()
@@ -137,8 +136,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         return bc
 
     def bc_values(self, g):
-        """ Set homogeneous conditions on all boundary faces.
-        """
+        """Set homogeneous conditions on all boundary faces."""
         # Values for all Nd components, facewise
         values = np.zeros((self.Nd, g.num_faces))
         # Reshape according to PorePy convention
@@ -146,8 +144,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         return values
 
     def source(self, g):
-        """
-        """
+        """"""
         return np.zeros(self.Nd * g.num_cells)
 
     def set_parameters(self):
@@ -259,7 +256,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 }
 
     def initial_condition(self):
-        """ Set initial guess for the variables.
+        """Set initial guess for the variables.
 
         The displacement is set to zero in the Nd-domain, and at the fracture interfaces
         The displacement jump is thereby also zero.
@@ -348,7 +345,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                             ] = contact.copy()
 
     def get_state_vector(self):
-        """ Get a vector of the current state of the variables; with the same ordering
+        """Get a vector of the current state of the variables; with the same ordering
             as in the assembler.
 
         Returns:
@@ -448,12 +445,11 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         d[pp.STATE]["stress"] = stress
 
     def _set_friction_coefficient(self, g):
-        """ The friction coefficient is uniform, and equal to 1.
-        """
+        """The friction coefficient is uniform, and equal to 1."""
         return np.ones(g.num_cells)
 
     def prepare_simulation(self):
-        """ Is run prior to a time-stepping scheme. Use this to initialize
+        """Is run prior to a time-stepping scheme. Use this to initialize
         discretizations, linear solvers etc.
 
         TODO: Should the arguments be solver_options and **kwargs (for everything else?)
@@ -476,13 +472,11 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         )
 
     def after_simulation(self):
-        """ Called after a time-dependent problem
-        """
+        """Called after a time-dependent problem"""
         pass
 
     def discretize(self):
-        """ Discretize all terms
-        """
+        """Discretize all terms"""
 
         self.assembler = pp.Assembler(self.gb)
 
@@ -492,7 +486,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
     def before_newton_loop(self):
-        """ Will be run before entering a Newton loop. Discretize time-dependent quantities etc.
+        """ Will be run before entering a Newton loop. 
+            Discretize time-dependent quantities etc.
         """
         pass
 
@@ -618,7 +613,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         solver = self.params.get("linear_solver", "direct")
 
         if solver == "direct":
-            """ In theory, it should be possible to instruct SuperLU to reuse the
+            """In theory, it should be possible to instruct SuperLU to reuse the
             symbolic factorization from one iteration to the next. However, it seems
             the scipy wrapper around SuperLU has not implemented the necessary
             functionality, as discussed in

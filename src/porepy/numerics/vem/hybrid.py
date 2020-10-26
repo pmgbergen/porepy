@@ -12,7 +12,7 @@ from porepy.numerics.vem.dual_elliptic import DualElliptic
 
 
 class HybridDualVEM:
-    """ Implementation of mixed virtual element method, using hybridization to
+    """Implementation of mixed virtual element method, using hybridization to
     arrive at a SPD system.
 
     WARNING: The implementation does not follow the newest formulations used
