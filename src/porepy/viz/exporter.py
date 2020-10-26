@@ -8,12 +8,14 @@ time steps, a single pvd file takes care of the ordering of all printed vtu
 files.
 """
 
-import sys
+import logging
 import os
+import sys
+import warnings
+
 import numpy as np
 import scipy.sparse as sps
-import logging
-import warnings
+
 import porepy as pp
 
 try:
@@ -936,7 +938,7 @@ class Exporter:
             normals,
             num_cell_nodes,
         ):
-            """ Implementation note: This turned out to be less than pretty, and quite
+            """Implementation note: This turned out to be less than pretty, and quite
             a bit more explicit than the corresponding pure python implementation.
             The process was basically to circumvent whatever statements numba did not
             like. Not sure about why this ended so, but there you go.

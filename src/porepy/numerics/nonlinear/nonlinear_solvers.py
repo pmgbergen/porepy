@@ -5,9 +5,9 @@ Created on Fri Sep  6 11:21:54 2019
 
 @author: eke001
 """
-import numpy as np
 import logging
 
+import numpy as np
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ class NewtonSolver:
         return error_norm, is_converged, iteration_counter
 
     def iteration(self, setup, lin_tol):
-        """ A single Newton iteration.
+        """A single Newton iteration.
 
         Right now, this is a single line, however, we keep it as a separate function
         to prepare for possible future introduction of more advanced schemes.

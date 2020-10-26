@@ -10,10 +10,11 @@ Acknowledgements:
     of the corresponding functions in MRST.
 
 """
-import numpy as np
 import itertools
+from typing import Dict, List, Union
+
+import numpy as np
 from scipy import sparse as sps
-from typing import List, Union, Dict
 
 import porepy as pp
 from porepy.utils import matrix_compression, mcolon, tags
@@ -197,8 +198,7 @@ class Grid:
         return s
 
     def __str__(self) -> str:
-        """ Implementation of __str__
-        """
+        """Implementation of __str__"""
         s = str()
 
         # Special treatment of point grids.
@@ -519,7 +519,7 @@ class Grid:
         num_cell_edges = edge_2_cell.indptr[1:] - edge_2_cell.indptr[:-1]
 
         def bincount_nd(arr, weights):
-            """ Utility function to sum vector quantities by np.bincount. We
+            """Utility function to sum vector quantities by np.bincount. We
             could probably have used np.apply_along_axis, but I could not
             make it work.
 
@@ -609,7 +609,7 @@ class Grid:
         return mat
 
     def num_cell_nodes(self) -> np.ndarray:
-        """ Number of nodes per cell.
+        """Number of nodes per cell.
 
         Returns:
             np.ndarray, size num_cells: Number of nodes per cell.
@@ -673,9 +673,7 @@ class Grid:
         return self._indices(self.tags["domain_boundary_nodes"])
 
     def update_boundary_face_tag(self) -> None:
-        """ Tag faces on the boundary of the grid with boundary tag.
-
-        """
+        """Tag faces on the boundary of the grid with boundary tag."""
         zeros = np.zeros(self.num_faces, dtype=np.bool)
         self.tags["domain_boundary_faces"] = zeros
         if self.dim > 0:  # by default no 0d grid at the boundary of the domain
@@ -714,9 +712,7 @@ class Grid:
         self.tags["domain_boundary_faces"][self.periodic_face_map.ravel()] = False
 
     def update_boundary_node_tag(self) -> None:
-        """ Tag nodes on the boundary of the grid with boundary tag.
-
-        """
+        """Tag nodes on the boundary of the grid with boundary tag."""
 
         mask = {
             "domain_boundary_faces": "domain_boundary_nodes",
@@ -823,7 +819,7 @@ class Grid:
         return c2c
 
     def sign_of_faces(self, faces: np.ndarray) -> np.ndarray:
-        """ Get the direction of the normal vector (inward or outwards from a cell)
+        """Get the direction of the normal vector (inward or outwards from a cell)
         of faces. Only boundary faces are permissible.
 
         Parameters:
@@ -866,7 +862,7 @@ class Grid:
         return np.amin(coords, axis=1), np.amax(coords, axis=1)
 
     def closest_cell(self, p: np.ndarray, return_distance: bool = False) -> np.ndarray:
-        """ For a set of points, find closest cell by cell center.
+        """For a set of points, find closest cell by cell center.
 
         If several centers have the same distance, one of them will be
         returned.
@@ -930,6 +926,5 @@ class Grid:
 
     @staticmethod
     def _indices(true_false: np.ndarray) -> np.ndarray:
-        """ Shorthand for np.argwhere.
-        """
+        """Shorthand for np.argwhere."""
         return np.argwhere(true_false).ravel("F")

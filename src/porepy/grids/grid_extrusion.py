@@ -12,16 +12,18 @@ The main methods in the module are
 All other functions are helpers.
 
 """
-import numpy as np
-import porepy as pp
-import scipy.sparse as sps
-from typing import Dict, Tuple, List
 from collections import namedtuple
+from typing import Dict, List, Tuple
+
+import numpy as np
+import scipy.sparse as sps
+
+import porepy as pp
 from porepy.grids import mortar_grid
 
 
 def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket, Dict]:
-    """ Extrude a GridBucket by extending all fixed-dimensional grids in the z-direction.
+    """Extrude a GridBucket by extending all fixed-dimensional grids in the z-direction.
 
     In practice, the original grid bucket will be 2d, and the result is 3d.
 
@@ -145,7 +147,7 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
 
 
 def extrude_grid(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
-    """ Increase the dimension of a given grid by 1, by extruding the grid in the
+    """Increase the dimension of a given grid by 1, by extruding the grid in the
     z-direction.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
@@ -186,7 +188,7 @@ def extrude_grid(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.nda
 
 
 def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
-    """ Extrude a 2d grid into 3d by prismatic extension.
+    """Extrude a 2d grid into 3d by prismatic extension.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
     z-direction is ignored.
@@ -517,7 +519,7 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
 def _extrude_1d(
     g: pp.TensorGrid, z: np.ndarray
 ) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
-    """ Extrude a 1d grid into 2d by prismatic extension in the z-direction.
+    """Extrude a 1d grid into 2d by prismatic extension in the z-direction.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
     z-direction is ignored.
@@ -631,7 +633,7 @@ def _extrude_1d(
 def _extrude_0d(
     g: pp.PointGrid, z: np.ndarray
 ) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
-    """ Extrude a 0d grid into 1d by prismatic extension in the z-direction.
+    """Extrude a 0d grid into 1d by prismatic extension in the z-direction.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
     z-direction is ignored.
@@ -682,7 +684,7 @@ def _extrude_0d(
 
 
 def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
-    """ Define all standard tags (face and nodes) for the extruded grids
+    """Define all standard tags (face and nodes) for the extruded grids
 
     The extrusion functions do not explicitly account for split nodes and faces due to
     intersections with other grids (because of fractures). The standard tag construction

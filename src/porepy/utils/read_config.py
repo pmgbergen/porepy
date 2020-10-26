@@ -18,7 +18,7 @@ updated, this will raise a KeyError.
 
 
 def read():
-    """ Read configuration file, located somewhere in the PYTHONPATH.
+    """Read configuration file, located somewhere in the PYTHONPATH.
 
     Returns
     -------

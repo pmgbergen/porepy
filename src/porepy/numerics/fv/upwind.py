@@ -36,7 +36,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         return g.num_cells
 
     def assemble_matrix_rhs(self, g, data):
-        """ Return the matrix for an upwind discretization of a linear transport
+        """Return the matrix for an upwind discretization of a linear transport
         problem.
 
         Parameters:
@@ -53,7 +53,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
     def assemble_matrix(self, g, data):
-        """ Return the matrix for an upwind discretization of a linear transport
+        """Return the matrix for an upwind discretization of a linear transport
         problem.
 
         Parameters:
@@ -71,7 +71,7 @@ class Upwind(pp.numerics.discretization.Discretization):
     # ------------------------------------------------------------------------------#
 
     def assemble_rhs(self, g, data):
-        """ Return the right-hand side for an upwind discretization of a linear
+        """Return the right-hand side for an upwind discretization of a linear
         transport problem.
 
         Parameters:

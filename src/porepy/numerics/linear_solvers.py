@@ -12,7 +12,7 @@ from porepy.models.abstract_model import AbstractModel
 
 class LinearSolver:
     def __init__(self, params: Dict = None) -> None:
-        """ Define linear solver.
+        """Define linear solver.
 
         Parameters:
             params (dict): Parameters for the linear solver. Will be passed on to the
@@ -26,7 +26,7 @@ class LinearSolver:
         self.params = params  # default_options
 
     def solve(self, setup: AbstractModel) -> Tuple[float, bool]:
-        """ Solve a linear problem defined by the current state of the model.
+        """Solve a linear problem defined by the current state of the model.
 
         Parameters:
             setup (subclass of pp.AbstractModel): Model to be solved.
