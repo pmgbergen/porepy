@@ -63,3 +63,7 @@ jobs:
     - name: mypy
       if: ${{ always() }}
       run: mypy src
+
+    - name: pytest
+      if: ${{always()}}
+      run: pytest
