@@ -15,8 +15,6 @@ from typing import (
     Iterable,
     Callable,
     Union,
-    TypeVar,
-    Generic,
     Optional,
 )
 
