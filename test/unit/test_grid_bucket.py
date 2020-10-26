@@ -321,11 +321,11 @@ class TestBucket(unittest.TestCase):
         pboth = "c"
 
         # Add by single grid
-        gb.add_edge_props(p1, [[g1, g2]])
+        gb.add_edge_props(p1, [(g1, g2)])
         # Add by list
-        gb.add_edge_props(p2, [[g2, g3]])
+        gb.add_edge_props(p2, [(g2, g3)])
         # add by list with two items
-        gb.add_edge_props(pboth, [[g1, g2], [g2, g3]])
+        gb.add_edge_props(pboth, [(g1, g2), (g2, g3)])
 
         # Try to add test to non-existing edge. Should give error
         self.assertRaises(KeyError, gb.add_edge_props, pboth, [[g1, g3]])
@@ -399,7 +399,7 @@ class TestBucket(unittest.TestCase):
         keys = d.keys()
         vals = d.values()
 
-        pairs = [[g1, g2], [g2, g3]]
+        pairs = [(g1, g2), (g2, g3)]
 
         for k, v in zip(keys, vals):
             gb.set_edge_prop(pairs[0], k, v)

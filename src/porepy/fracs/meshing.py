@@ -6,19 +6,18 @@ will therefore wrap interface to different mesh generators, pass options to the
 generators etc.
 
 """
-import numpy as np
-import scipy.sparse as sps
-import time
 import logging
+import time
 from typing import List
 
+import numpy as np
+import scipy.sparse as sps
+
 import porepy as pp
-
-from porepy.fracs import structured, split_grid, tools
-from porepy.grids.grid_bucket import GridBucket
+from porepy.fracs import split_grid, structured, tools
 from porepy.grids import mortar_grid
+from porepy.grids.grid_bucket import GridBucket
 from porepy.utils import mcolon
-
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +25,7 @@ logger = logging.getLogger(__name__)
 def grid_list_to_grid_bucket(
     grids: List[List[pp.Grid]], time_tot: float = None, **kwargs
 ) -> pp.GridBucket:
-    """ Convert a list of grids to a full GridBucket.
+    """Convert a list of grids to a full GridBucket.
 
     The list can come from several mesh constructors, both simplex and
     structured approaches uses this in 2D and 3D.

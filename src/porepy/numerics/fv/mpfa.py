@@ -2,9 +2,10 @@
 Implementation of the multi-point flux approximation O-method.
 
 """
+from typing import Tuple
+
 import numpy as np
 import scipy.sparse as sps
-from typing import Tuple
 
 import porepy as pp
 
@@ -75,14 +76,39 @@ class Mpfa(pp.FVElliptic):
         """
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
         # Extract parameters
-        k: pp.SecondOrderTensor = parameter_dictionary["second_order_tensor"]
-        bnd: pp.BoundaryCondition = parameter_dictionary["bc"]
 
         # Dimension for vector source term field. Defaults to the same as the grid.
         # For grids embedded in a higher dimension, this must be set to the ambient
         # dimension.
         vector_source_dim: int = parameter_dictionary.get("ambient_dimension", g.dim)
+
+        # Short cut: if g.dim == 0, construct empty matrices right away
+        if g.dim == 0:
+            matrix_dictionary[self.flux_matrix_key] = sps.csc_matrix(
+                (g.num_faces, g.num_cells)
+            )
+            matrix_dictionary[self.bound_flux_matrix_key] = sps.csc_matrix(
+                (g.num_faces, g.num_faces)
+            )
+            matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csc_matrix(
+                (g.num_faces, g.num_cells)
+            )
+            matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csc_matrix(
+                (g.num_faces, g.num_faces)
+            )
+            matrix_dictionary[self.vector_source_matrix_key] = sps.csc_matrix(
+                (g.num_faces, g.num_cells * vector_source_dim)
+            )
+            matrix_dictionary[
+                self.bound_pressure_vector_source_matrix_key
+            ] = sps.csc_matrix((g.num_faces, g.num_faces * vector_source_dim))
+            # Done
+            return
+
+        k: pp.SecondOrderTensor = parameter_dictionary["second_order_tensor"]
+        bnd: pp.BoundaryCondition = parameter_dictionary["bc"]
 
         eta: float = parameter_dictionary.get("mpfa_eta", None)
         inverter: str = parameter_dictionary.get("mpfa_inverter", "numba")
@@ -381,7 +407,7 @@ class Mpfa(pp.FVElliptic):
             ] = bound_pressure_vector_source_glob
 
     def update_discretization(self, g, data):
-        """ Update discretization.
+        """Update discretization.
 
         The updates can generally come as a combination of two forms:
             1) The discretization on part of the grid should be recomputed.
@@ -1151,7 +1177,7 @@ class Mpfa(pp.FVElliptic):
     def _block_diagonal_structure(
         self, sub_cell_index, cell_node_blocks, nno, bound_exclusion
     ):
-        """ Define matrices to turn linear system into block-diagonal form
+        """Define matrices to turn linear system into block-diagonal form
         Parameters
         ----------
         sub_cell_index
@@ -1362,7 +1388,7 @@ class Mpfa(pp.FVElliptic):
     def _bc_for_subgrid(
         self, bc: pp.BoundaryCondition, sub_g: pp.Grid, face_map: np.ndarray
     ) -> pp.BoundaryCondition:
-        """ Obtain a representation of a boundary condition for a subgrid of
+        """Obtain a representation of a boundary condition for a subgrid of
         the original grid.
 
         This is somehow better fit for the BoundaryCondition class, but it is not clear

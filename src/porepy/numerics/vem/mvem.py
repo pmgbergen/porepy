@@ -3,10 +3,11 @@
 
 @author: fumagalli, alessio
 """
+import logging
+from typing import Dict, Tuple
+
 import numpy as np
 import scipy.sparse as sps
-import logging
-from typing import Tuple, Dict
 
 import porepy as pp
 
@@ -27,7 +28,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         super(MVEM, self).__init__(keyword, "MVEM")
 
     def discretize(self, g: pp.Grid, data: Dict) -> None:
-        """ Discretize a second order elliptic equation using a dual virtual element
+        """Discretize a second order elliptic equation using a dual virtual element
         method.
 
         We assume the following two sub-dictionaries to be present in the data
@@ -196,7 +197,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         diam: float,
         weight: float = 0.0,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """ Compute the local mass Hdiv matrix using the mixed vem approach.
+        """Compute the local mass Hdiv matrix using the mixed vem approach.
 
         Parameters
         ----------

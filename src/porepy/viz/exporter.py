@@ -8,12 +8,14 @@ time steps, a single pvd file takes care of the ordering of all printed vtu
 files.
 """
 
-import sys
+import logging
 import os
+import sys
+import warnings
+
 import numpy as np
 import scipy.sparse as sps
-import logging
-import warnings
+
 import porepy as pp
 
 try:
@@ -509,7 +511,9 @@ class Exporter:
                 i = 0
                 for mg, edge in zip(mgs, edges):
                     for side, _ in mg.side_grids.items():
-                        values[i] = self.gb.edge_props(edge, field.name)[side]
+                        # Convert edge to tuple to be compatible with GridBucket
+                        # data structure
+                        values[i] = self.gb.edge_props(tuple(edge), field.name)[side]
                         i += 1
 
                 field.set_values(np.hstack(values))
@@ -934,7 +938,7 @@ class Exporter:
             normals,
             num_cell_nodes,
         ):
-            """ Implementation note: This turned out to be less than pretty, and quite
+            """Implementation note: This turned out to be less than pretty, and quite
             a bit more explicit than the corresponding pure python implementation.
             The process was basically to circumvent whatever statements numba did not
             like. Not sure about why this ended so, but there you go.
