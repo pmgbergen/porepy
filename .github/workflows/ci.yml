@@ -40,7 +40,7 @@ jobs:
         python-version: ${{ matrix.python-version}}
         architecture: x64
     
-    - name: Install PorePy
+    - name: Install PorePy, pytest
       run: |
         sudo apt-get update
         sudo apt-get install libglu1-mesa
@@ -51,6 +51,7 @@ jobs:
         pip install shapely
         pip install shapely[vectorized]
         pip freeze
+        pytest
 
     - name: black
       if: ${{ always() }}
@@ -68,6 +69,3 @@ jobs:
       if: ${{always()}}
       run: isort --check --recursive src
 
-    - name: pytest
-      if: ${{always()}}
-      run: pytest
