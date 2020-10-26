@@ -1,5 +1,7 @@
 import numpy as np
+
 cimport numpy as np
+
 
 def inv_python(indptr, int[:] ind, double[:] data, long[:] sz):
     """

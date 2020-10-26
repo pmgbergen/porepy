@@ -20,18 +20,19 @@ self._key() + "bound_mass" or self._key() + "bound_inv_mass", respectively.
 """
 import numpy as np
 import scipy.sparse as sps
+
 import porepy as pp
 
 
 class MassMatrix(pp.numerics.discretization.Discretization):
-    """ Class that provides the discretization of a L2-mass bilinear form with constant
+    """Class that provides the discretization of a L2-mass bilinear form with constant
     test and trial functions.
     """
 
     # ------------------------------------------------------------------------------#
 
     def __init__(self, keyword="flow"):
-        """ Set the discretization, with the keyword used for storing various
+        """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
         Paramemeters:
@@ -43,7 +44,7 @@ class MassMatrix(pp.numerics.discretization.Discretization):
     # ------------------------------------------------------------------------------#
 
     def _key(self):
-        """ Get the keyword of this object, on a format friendly to access relevant
+        """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
 
         Returns:
@@ -55,7 +56,7 @@ class MassMatrix(pp.numerics.discretization.Discretization):
     # ------------------------------------------------------------------------------#
 
     def ndof(self, g):
-        """ Return the number of degrees of freedom associated to the method.
+        """Return the number of degrees of freedom associated to the method.
         In this case number of cells.
 
         Parameter:
@@ -70,7 +71,7 @@ class MassMatrix(pp.numerics.discretization.Discretization):
     # ------------------------------------------------------------------------------#
 
     def assemble_matrix_rhs(self, g, data):
-        """ Return the matrix and right-hand side (null) for a discretization of a
+        """Return the matrix and right-hand side (null) for a discretization of a
         L2-mass bilinear form with constant test and trial functions. Also
         discretize the necessary operators if the data dictionary does not contain
         a mass matrix.
@@ -90,7 +91,7 @@ class MassMatrix(pp.numerics.discretization.Discretization):
     # ------------------------------------------------------------------------------#
 
     def assemble_matrix(self, g, data):
-        """ Return the matrix for a discretization of a L2-mass bilinear form with
+        """Return the matrix for a discretization of a L2-mass bilinear form with
         constant test and trial functions.
 
         Parameters:
@@ -110,7 +111,7 @@ class MassMatrix(pp.numerics.discretization.Discretization):
     # ------------------------------------------------------------------------------#
 
     def assemble_rhs(self, g, data):
-        """ Return the (null) right-hand side for a discretization of a L2-mass bilinear
+        """Return the (null) right-hand side for a discretization of a L2-mass bilinear
         form with constant test and trial functions.
 
         Parameters:
@@ -130,7 +131,7 @@ class MassMatrix(pp.numerics.discretization.Discretization):
     # ------------------------------------------------------------------------------#
 
     def discretize(self, g, data, faces=None):
-        """ Discretize a L2-mass bilinear form with constant test and trial functions.
+        """Discretize a L2-mass bilinear form with constant test and trial functions.
 
         Note that the porosity is not included in the volumes, and should be included
         in the mass weight if appropriate.
@@ -174,7 +175,7 @@ class MassMatrix(pp.numerics.discretization.Discretization):
 
 
 class InvMassMatrix:
-    """ Class that provides the discretization of a L2-mass bilinear form with constant
+    """Class that provides the discretization of a L2-mass bilinear form with constant
     test and trial functions.
     """
 
@@ -192,7 +193,7 @@ class InvMassMatrix:
     # ------------------------------------------------------------------------------#
 
     def _key(self):
-        """ Get the keyword of this object, on a format friendly to access relevant
+        """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
 
         Returns:
@@ -204,7 +205,7 @@ class InvMassMatrix:
     # ------------------------------------------------------------------------------#
 
     def ndof(self, g):
-        """ Return the number of degrees of freedom associated to the method.
+        """Return the number of degrees of freedom associated to the method.
         In this case number of cells.
 
         Parameter
@@ -221,7 +222,7 @@ class InvMassMatrix:
     # ------------------------------------------------------------------------------#
 
     def assemble_matrix_rhs(self, g, data):
-        """ Return the inverse of the matrix and right-hand side (null) for a
+        """Return the inverse of the matrix and right-hand side (null) for a
         discretization of a L2-mass bilinear form with constant test and trial
         functions. Also discretize the necessary operators if the data dictionary does
         not contain a discrete inverse mass matrix.
@@ -242,7 +243,7 @@ class InvMassMatrix:
     # ------------------------------------------------------------------------------#
 
     def assemble_matrix(self, g, data):
-        """ Return the inverse of the matrix for a discretization of a L2-mass bilinear
+        """Return the inverse of the matrix for a discretization of a L2-mass bilinear
         form with constant test and trial functions. Also discretize the necessary
         operators if the data dictionary does not contain a discrete inverse mass
         matrix.
@@ -263,7 +264,7 @@ class InvMassMatrix:
     # ------------------------------------------------------------------------------#
 
     def assemble_rhs(self, g, data):
-        """ Return the (null) right-hand side for a discretization of the inverse of a
+        """Return the (null) right-hand side for a discretization of the inverse of a
         L2-mass bilinear form with constant test and trial functions. Also discretize
         the necessary operators if the data dictionary does not contain a discretization
         of the boundary term.
@@ -284,7 +285,7 @@ class InvMassMatrix:
     # ------------------------------------------------------------------------------#
 
     def discretize(self, g, data, faces=None):
-        """ Discretize the inverse of a L2-mass bilinear form with constant test and
+        """Discretize the inverse of a L2-mass bilinear form with constant test and
         trial functions. Calls the MassMatrix().discretize() method and takes the
         inverse for the lhs.
 

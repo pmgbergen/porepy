@@ -11,10 +11,9 @@ Credits: Design idea and main implementation by Haakon Ervik.
 
 """
 import abc
-from typing import List, Callable, Optional, Union, Tuple
+from typing import Callable, List, Optional, Tuple, Union
 
 from porepy import Grid
-
 
 # Discretizations can be defined either on a subdomain, on an
 # edge (Tuple of two grids), or it is a coupling between
@@ -25,8 +24,7 @@ grid_like_type = Union[
 
 
 class AssemblerFilter(abc.ABC):
-    """ Abstract base class of filters for use with the Assembler.
-    """
+    """Abstract base class of filters for use with the Assembler."""
 
     @abc.abstractmethod
     def filter(
@@ -35,7 +33,7 @@ class AssemblerFilter(abc.ABC):
         variables: Optional[List[str]] = None,
         terms: Optional[List[str]] = None,
     ) -> bool:
-        """ Filter grids (in a general sense), variables and discretization terms.
+        """Filter grids (in a general sense), variables and discretization terms.
 
         The filter should return true if the combination of grids, variables and
         terms are considered 'active' by the filter. Intended use is to allow the
@@ -56,8 +54,7 @@ class AssemblerFilter(abc.ABC):
 
 
 class AllPassFilter(AssemblerFilter):
-    """ All pass filter. The filter method always return True.
-    """
+    """All pass filter. The filter method always return True."""
 
     def filter(
         self,
@@ -65,7 +62,7 @@ class AllPassFilter(AssemblerFilter):
         variables: Optional[List[str]] = None,
         terms: Optional[List[str]] = None,
     ) -> bool:
-        """ Filter grids (in a general sense), variables and discretization terms.
+        """Filter grids (in a general sense), variables and discretization terms.
 
         The filter should return true if the combination of grids, variables and
         terms are considered 'active' by the filter. Intended use is to allow the
@@ -87,7 +84,7 @@ class AllPassFilter(AssemblerFilter):
 
 
 class ListFilter(AssemblerFilter):
-    """ Filter based on lists of (generalized) grids, variables and terms.
+    """Filter based on lists of (generalized) grids, variables and terms.
 
     The filter is initialized with lists of grids (specification below),
     variabels and terms that should pass the filter. The filter function will pass a
@@ -157,7 +154,7 @@ class ListFilter(AssemblerFilter):
         variables: Optional[List[str]] = None,
         terms: Optional[List[str]] = None,
     ):
-        """ Filter grids (in a general sense), variables and discretization terms.
+        """Filter grids (in a general sense), variables and discretization terms.
 
         See class documentation for how to use the filter.
 
@@ -232,7 +229,7 @@ class ListFilter(AssemblerFilter):
     def _make_string_filter(
         self, var_term_list: Optional[List[str]] = None
     ) -> Callable[[Optional[List[str]]], bool]:
-        """ Construct a filter used to operate on strings
+        """Construct a filter used to operate on strings
 
         The result is a callable which takes one argument (a string).
 

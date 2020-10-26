@@ -3,8 +3,8 @@ Visualization tools for fracture networks. Plots 1d fractures as lines in a
 2d domain using pyplot. Also plots wells as points.
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 import porepy as pp
 

@@ -1,6 +1,7 @@
 """ Functions to sort points and edges belonging to geometric objects.
 """
 from typing import Optional, Tuple, Union
+
 import numpy as np
 
 import porepy as pp
@@ -12,7 +13,7 @@ def sort_point_pairs(
     ordering: Optional[bool] = False,
     is_circular: Optional[bool] = True,
 ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
-    """ Sort pairs of numbers to form a chain.
+    """Sort pairs of numbers to form a chain.
 
     The target application is to sort lines, defined by their
     start end endpoints, so that they form a continuous polyline.
@@ -117,7 +118,7 @@ def sort_point_plane(
     normal: Optional[np.ndarray] = None,
     tol: Optional[float] = 1e-5,
 ) -> np.ndarray:
-    """ Sort the points which lie on a plane.
+    """Sort the points which lie on a plane.
 
     The algorithm assumes a star-shaped disposition of the points with respect
     the centre.
@@ -147,7 +148,7 @@ def sort_point_plane(
 
 
 def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
-    """ Sort a set of triangles so that no edges occur twice with the same ordering.
+    """Sort a set of triangles so that no edges occur twice with the same ordering.
 
     For a planar triangulation, this will end up with all the triangles being
     ordered CW or CCW. In cases where the triangulated surface(s) do not share

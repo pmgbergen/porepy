@@ -1,7 +1,9 @@
-import numpy as np
-import porepy as pp
 import logging
-from typing import List, Dict
+from typing import Dict, List
+
+import numpy as np
+
+import porepy as pp
 
 # ------------------------------------------------------------------------------#
 
@@ -14,7 +16,7 @@ def grid_error(
     variable: List[str],
     variable_dof: List[int],
 ) -> dict:
-    """ Compute grid errors a grid bucket and refined reference grid bucket
+    """Compute grid errors a grid bucket and refined reference grid bucket
 
     Assumes that the coarse grid bucket has a node property
     'coarse_fine_cell_mapping' assigned on each grid, which

@@ -14,6 +14,9 @@ utils: Utility functions, array manipulation, computational geometry etc.
 
 viz: Visualization; paraview, matplotlib.
 
+
+isort:skip_file
+
 """
 
 __version__ = "1.2.6"

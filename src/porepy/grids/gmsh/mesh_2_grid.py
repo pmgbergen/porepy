@@ -10,7 +10,7 @@ from porepy.grids import constants
 
 
 def create_3d_grids(pts: np.ndarray, cells: Dict[str, np.ndarray]) -> List[pp.Grid]:
-    """ Create a tetrahedral grid from a gmsh tessalation.
+    """Create a tetrahedral grid from a gmsh tessalation.
 
     Parameters:
         pts (np.ndarray, npt x 3): Global point set from gmsh
@@ -43,7 +43,7 @@ def create_2d_grids(
     surface_tag: str = None,
     constraints: np.ndarray = None,
 ) -> List[pp.Grid]:
-    """ Create 2d grids for lines of a specified type from a gmsh tessalation.
+    """Create 2d grids for lines of a specified type from a gmsh tessalation.
 
     Only surfaces that were defined as 'physical' in the gmsh sense may have a grid
     created, but then only if the physical name matches specified line_tag.
@@ -209,7 +209,7 @@ def create_1d_grids(
     constraints: np.ndarray = None,
     return_fracture_tips: bool = True,
 ) -> Union[List[pp.Grid], Tuple[List[pp.Grid], np.ndarray]]:
-    """ Create 1d grids for lines of a specified type from a gmsh tessalation.
+    """Create 1d grids for lines of a specified type from a gmsh tessalation.
 
     Only lines that were defined as 'physical' in the gmsh sense may have a grid
     created, but then only if the physical name matches specified line_tag.
@@ -326,7 +326,7 @@ def create_0d_grids(
     cell_info: Dict[str, np.ndarray],
     target_tag_stem: str = None,
 ) -> List[pp.PointGrid]:
-    """ Create 0d grids for points of a specified type from a gmsh tessalation.
+    """Create 0d grids for points of a specified type from a gmsh tessalation.
 
     Only points that were defined as 'physical' in the gmsh sense may have a grid
     created, but then only if the physical name matches specified target_tag_stem.

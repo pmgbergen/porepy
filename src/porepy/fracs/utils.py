@@ -1,18 +1,18 @@
 """ Frontend utility functions related to fractures and their meshing.
 
 """
-import numpy as np
 import logging
 
-import porepy as pp
+import numpy as np
 
+import porepy as pp
 
 # Module level logger
 logger = logging.getLogger(__name__)
 
 
 def fracture_length_2d(pts, edges):
-    """ Find the length of 2D fracture traces.
+    """Find the length of 2D fracture traces.
 
     Parameters:
         pts (np.ndarray, 2 x n_pts): Coordinates of start and endpoints of
@@ -32,7 +32,7 @@ def fracture_length_2d(pts, edges):
 
 
 def uniquify_points(pts, edges, tol):
-    """ Uniquify a set of points by merging almost coinciding coordinates.
+    """Uniquify a set of points by merging almost coinciding coordinates.
 
     Also update fractures, and remove edges that consist of a single point
     (either after the points were merged, or because the input was a point
@@ -68,7 +68,7 @@ def uniquify_points(pts, edges, tol):
 
 
 def snap_fracture_set_2d(pts, edges, snap_tol, termination_tol=1e-2, max_iter=100):
-    """ Snap vertexes of a set of fracture lines embedded in 2D, so that small
+    """Snap vertexes of a set of fracture lines embedded in 2D, so that small
     distances between lines and vertexes are removed.
 
     This is intended as a utility function to preprocess a fracture network
