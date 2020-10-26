@@ -4,17 +4,8 @@ intersections in the form of a GridBucket.
 
 """
 import warnings
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import (Any, Callable, Dict, Generator, Iterable, List, Optional,
+                    Tuple, Union)
 
 import numpy as np
 from scipy import sparse as sps
