@@ -17,4 +17,5 @@ vtk
 gmsh
 flake8
 mypy
-black == 19.10b0
+black == 20.08b1
+isort

@@ -165,7 +165,7 @@ def point_in_polygon(poly, p, tol=0, default=False):
 
 
 def point_in_polyhedron(polyhedron, test_points, tol=1e-8):
-    """ Test whether a set of point is inside a polyhedron.
+    """Test whether a set of point is inside a polyhedron.
 
     The actual algorithm and implementation used for the test can be found
     at
@@ -273,7 +273,7 @@ def point_in_polyhedron(polyhedron, test_points, tol=1e-8):
 
 
 def points_are_planar(pts, normal=None, tol=1e-5):
-    """ Check if the points lie on a plane.
+    """Check if the points lie on a plane.
 
     Parameters:
     pts (np.ndarray, 3xn): the points.
@@ -344,7 +344,7 @@ def point_in_cell(poly, p, if_make_planar=True):
 
 
 def points_are_collinear(pts, tol=1e-5):
-    """ Check if the points lie on a line.
+    """Check if the points lie on a line.
 
     Parameters:
         pts (np.ndarray, 3xn): the points.

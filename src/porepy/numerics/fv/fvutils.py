@@ -6,15 +6,14 @@ for MPxA discertizations, however, due to the somewhat intricate inheritance rel
 between these methods, the current structure with multiple auxiliary methods emerged.
 
 """
-from __future__ import division
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
 
 import numpy as np
 import scipy.sparse as sps
-from typing import Tuple, Any, Generator, Dict, Optional, List, Callable
 
 import porepy as pp
-from porepy.utils import matrix_compression, mcolon
 from porepy.grids.grid_bucket import GridBucket
+from porepy.utils import matrix_compression, mcolon
 
 
 class SubcellTopology(object):
@@ -281,7 +280,7 @@ def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
 
 
 def determine_eta(g):
-    """ Set default value for the location of continuity point eta in MPFA and
+    """Set default value for the location of continuity point eta in MPFA and
     MSPA.
 
     The function is intended to give a best estimate of eta in cases where the
@@ -311,7 +310,7 @@ def determine_eta(g):
 def find_active_indices(
     parameter_dictionary: Dict[str, Any], g: pp.Grid
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """ Process information in parameter dictionary on whether the discretization
+    """Process information in parameter dictionary on whether the discretization
     should consider a subgrid. Look for fields in the parameter dictionary called
     specified_cells, specified_faces or specified_nodes. These are then processed by
     the function pp.fvutils.cell-ind_for_partial_update.
@@ -360,15 +359,17 @@ def find_active_indices(
 
 def subproblems(
     g: pp.Grid, max_memory: int, peak_memory_estimate: int
-) -> Generator[Any, None, None]:
+) -> Generator[
+    Tuple[pp.Grid, np.ndarray, np.ndarray, np.ndarray, np.ndarray], None, None
+]:
 
     if g.dim == 0:
         # nothing realy to do here
         loc_faces = np.ones(g.num_faces, dtype=bool)
         loc_cells = np.ones(g.num_cells, dtype=bool)
-        loc2g_cells = sps.eye(g.num_cells, dtype=bool)
-        loc2g_face = sps.eye(g.num_faces, dtype=bool)
-        return g, loc_faces, loc_cells, loc2g_cells, loc2g_face
+        loc2g_cells = np.ones(g.num_cells, dtype=bool)
+        loc2g_face = np.ones(g.num_faces, dtype=bool)
+        yield g, loc_faces, loc_cells, loc2g_cells, loc2g_face
 
     num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(np.int)
 
@@ -500,8 +501,7 @@ def invert_diagonal_blocks(mat, s, method=None):
         return v
 
     def invert_diagonal_blocks_cython(a, size):
-        """ Invert block diagonal matrix using code wrapped with cython.
-        """
+        """Invert block diagonal matrix using code wrapped with cython."""
         try:
             import porepy.numerics.fv.cythoninvert as cythoninvert
         except ImportError:
@@ -988,7 +988,7 @@ def zero_out_sparse_rows(A, rows, diag=None):
 
 
 class ExcludeBoundaries(object):
-    """ Wrapper class to store mappings needed in the finite volume discretizations.
+    """Wrapper class to store mappings needed in the finite volume discretizations.
     The original use for this class was for exclusion of equations that are
     redundant due to the presence of boundary conditions, hence the name. The use of
     this class has increased to also include linear transformation that can be applied
@@ -1255,7 +1255,7 @@ class ExcludeBoundaries(object):
         return self.exclude_rob_dir * other
 
     def exclude_boundary(self, other, transform=False):
-        """ Mapping to exclude faces/component with any boundary condition from
+        """Mapping to exclude faces/component with any boundary condition from
         local systems.
 
         Parameters:
@@ -1324,8 +1324,8 @@ def partial_update_discretization(
     scalar_face_left: Optional[List[str]] = None,
     vector_face_left: Optional[List[str]] = None,
     second_keyword: Optional[str] = None,  # Used for biot discertization
-) -> Dict[str, sps.spmatrix]:
-    """ Do partial update of discretization scheme.
+) -> None:
+    """Do partial update of discretization scheme.
 
     This is intended as a helper function for the update_discretization methods of
     fv schemes. In particular, this method allows for a unified implementation of
@@ -1498,7 +1498,7 @@ def cell_ind_for_partial_update(
     faces: np.ndarray = None,
     nodes: np.ndarray = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """ Obtain indices of cells and faces needed for a partial update of the
+    """Obtain indices of cells and faces needed for a partial update of the
     discretization stencil.
 
     Implementation note: This function should really be split into three parts,
@@ -1686,7 +1686,7 @@ def map_subgrid_to_grid(
     is_vector: bool,
     nd: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """ Obtain mappings from the cells and faces of a subgrid back to a larger grid.
+    """Obtain mappings from the cells and faces of a subgrid back to a larger grid.
 
     Parameters:
         g (pp.Grid): The larger grid.
@@ -1898,19 +1898,19 @@ def boundary_to_sub_boundary(bound, subcell_topology):
 
 def append_dofs_of_discretization(g, d, kw1, kw2, k_dof):
     """
-        Appends rows to existing discretizations stored as 'stress' and
-        'bound_stress' in the data dictionary on the nodes. Only applies to the
-        highest dimension (for now, at least). The newly added faces are found
-        from 'new_faces' in the data dictionary.
-        Assumes all new rows and columns should be appended, not inserted to
-        the "interior" of the discretization matrices.
-        g -     grid object
-        d -     corresponding data dictionary
-        kw1 -   keyword for the stored discretization in the data dictionary,
-                e.g. 'flux'
-        kw2 -   keyword for the stored boundary discretization in the data
-                dictionary, e.g. 'bound_flux'
-        """
+    Appends rows to existing discretizations stored as 'stress' and
+    'bound_stress' in the data dictionary on the nodes. Only applies to the
+    highest dimension (for now, at least). The newly added faces are found
+    from 'new_faces' in the data dictionary.
+    Assumes all new rows and columns should be appended, not inserted to
+    the "interior" of the discretization matrices.
+    g -     grid object
+    d -     corresponding data dictionary
+    kw1 -   keyword for the stored discretization in the data dictionary,
+            e.g. 'flux'
+    kw2 -   keyword for the stored boundary discretization in the data
+            dictionary, e.g. 'bound_flux'
+    """
     cells = d["new_cells"]
     faces = d["new_faces"]
     n_new_cells = cells.size * k_dof

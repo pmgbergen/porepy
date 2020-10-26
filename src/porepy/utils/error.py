@@ -1,7 +1,9 @@
-import numpy as np
-import porepy as pp
 import logging
-from typing import List, Optional
+from typing import Dict, List
+
+import numpy as np
+
+import porepy as pp
 
 # ------------------------------------------------------------------------------#
 
@@ -13,9 +15,8 @@ def grid_error(
     gb_ref: "pp.GridBucket",
     variable: List[str],
     variable_dof: List[int],
-    normalizations: Optional[List] = None,
 ) -> dict:
-    """ Compute grid errors a grid bucket and refined reference grid bucket
+    """Compute grid errors a grid bucket and refined reference grid bucket
 
     Assumes that the coarse grid bucket has a node property
     'coarse_fine_cell_mapping' assigned on each grid, which
@@ -30,8 +31,6 @@ def grid_error(
         which variables to compute error over
     variable_dof : List[int]
         Degrees of freedom for each variable in the list 'variable'.
-    normalizations: List of lambda functions used to compute the normalization.
-        Defaults to the norm of the reference solution if not provided.
 
     Returns
     -------
@@ -40,21 +39,12 @@ def grid_error(
         within which for each variable, the error is
         reported.
     """
-
-    if not isinstance(variable, list):
-        variable = [variable]
-    if not isinstance(variable_dof, list):
-        variable_dof = [variable_dof]
-    if normalizations is None:
-        normalizations = [lambda sol: np.linalg.norm(sol_ref, axis=0)] * len(variable)
-    elif not isinstance(normalizations, list):
-        normalizations = [normalizations]
     assert len(variable) == len(variable_dof), (
         "Each variable must have associated " "with it a number of degrees of freedom."
     )
     n_variables = len(variable)
 
-    errors = {}
+    errors: Dict = {}
 
     grids = gb.get_grids()
     grids_ref = gb_ref.get_grids()
@@ -105,7 +95,7 @@ def grid_error(
             # axis=0 gives component-wise norm.
             absolute_error = np.linalg.norm(mapped_sol - sol_ref, axis=0)
 
-            norm_ref = normalizations[var_idx](sol_ref)
+            norm_ref = np.linalg.norm(sol_ref)
             if np.any(norm_ref < 1e-10):
                 logger.info(
                     f"Relative error not reportable. "

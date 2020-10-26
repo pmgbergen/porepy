@@ -4,9 +4,10 @@ implicit Euler time-stepping. Flux terms are multiplied by time step and the mas
 has a rhs contribution from the previous time step.
 See the parent discretizations for further documentation.
 """
-import porepy as pp
 import numpy as np
 import scipy.sparse as sps
+
+import porepy as pp
 
 
 class ImplicitMassMatrix(pp.MassMatrix):
@@ -16,7 +17,7 @@ class ImplicitMassMatrix(pp.MassMatrix):
     """
 
     def __init__(self, keyword="flow", variable="pressure"):
-        """ Set the discretization, with the keyword used for storing various
+        """Set the discretization, with the keyword used for storing various
         information associated with the discretization. The time discretisation also
         requires the previous solution, thus the variable needs to be specified.
 
@@ -28,7 +29,7 @@ class ImplicitMassMatrix(pp.MassMatrix):
         self.variable = variable
 
     def assemble_rhs(self, g, data):
-        """ Overwrite MassMatrix method to return the correct rhs for an IE time
+        """Overwrite MassMatrix method to return the correct rhs for an IE time
         discretization, e.g. of the Biot problem.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
@@ -43,8 +44,7 @@ class ImplicitMpfa(pp.Mpfa):
     """
 
     def assemble_matrix_rhs(self, g, data):
-        """ Overwrite MPFA method to be consistent with the Biot dt convention.
-        """
+        """Overwrite MPFA method to be consistent with the Biot dt convention."""
         a, b = super().assemble_matrix_rhs(g, data)
         dt = data[pp.PARAMETERS][self.keyword]["time_step"]
         a = a * dt
@@ -86,7 +86,7 @@ class ImplicitMpfa(pp.Mpfa):
         cc[self_ind, 2] += dt * div * bound_flux * proj
 
     def assemble_int_bound_source(self, g, data, data_edge, cc, matrix, rhs, self_ind):
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
         The intended use is when the internal boundary is coupled to another
@@ -132,8 +132,7 @@ class ImplicitTpfa(pp.Tpfa):
     """
 
     def assemble_matrix_rhs(self, g, data):
-        """ Overwrite MPFA method to be consistent with the Biot dt convention.
-        """
+        """Overwrite MPFA method to be consistent with the Biot dt convention."""
         a, b = super().assemble_matrix_rhs(g, data)
 
         dt = data[pp.PARAMETERS][self.keyword]["time_step"]
@@ -174,7 +173,7 @@ class ImplicitTpfa(pp.Tpfa):
         cc[self_ind, 2] += dt * div * bound_flux * proj
 
     def assemble_int_bound_source(self, g, data, data_edge, cc, matrix, rhs, self_ind):
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
         The intended use is when the internal boundary is coupled to another

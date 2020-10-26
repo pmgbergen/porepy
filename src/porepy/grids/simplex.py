@@ -12,11 +12,11 @@ import scipy.sparse as sps
 import scipy.spatial
 
 from porepy.grids.grid import Grid
-from porepy.utils import setmembership, accumarray
+from porepy.utils import accumarray, setmembership
 
 
 class TriangleGrid(Grid):
-    """ Class representation of a general triangular grid.
+    """Class representation of a general triangular grid.
 
     For information on attributes and methods, see the documentation of the
     parent Grid class.
@@ -103,7 +103,7 @@ class TriangleGrid(Grid):
         super(TriangleGrid, self).__init__(2, nodes, face_nodes, cell_faces, name)
 
     def cell_node_matrix(self):
-        """ Get cell-node relations in a Nc x 3 matrix
+        """Get cell-node relations in a Nc x 3 matrix
         Perhaps move this method to a superclass when tet-grids are implemented
         """
 
@@ -119,7 +119,7 @@ class TriangleGrid(Grid):
 
 
 class StructuredTriangleGrid(TriangleGrid):
-    """ Class for a structured triangular grids, composed of squares divided
+    """Class for a structured triangular grids, composed of squares divided
     into two.
 
     For information on attributes and methods, see the documentation of the
@@ -187,7 +187,7 @@ class StructuredTriangleGrid(TriangleGrid):
 
 
 class TetrahedralGrid(Grid):
-    """ Class for Tetrahedral grids.
+    """Class for Tetrahedral grids.
 
     For information on attributes and methods, see the documentation of the
     parent Grid class.
@@ -306,7 +306,7 @@ class TetrahedralGrid(Grid):
 
 
 class StructuredTetrahedralGrid(TetrahedralGrid):
-    """ Class for a structured triangular grids, composed of squares divided
+    """Class for a structured triangular grids, composed of squares divided
     into two.
 
     For information on attributes and methods, see the documentation of the

@@ -11,7 +11,7 @@ import numpy as np
 
 
 class SecondOrderTensor(object):
-    """ Cell-wise permeability represented by (3 ,3 ,Nc)-matrix.
+    """Cell-wise permeability represented by (3 ,3 ,Nc)-matrix.
 
     The permeability is always 3-dimensional (since the geometry is always 3D),
     however, 1D and 2D problems are accomodated by assigning unit values to kzz
@@ -19,7 +19,7 @@ class SecondOrderTensor(object):
     """
 
     def __init__(self, kxx, kyy=None, kzz=None, kxy=None, kxz=None, kyz=None):
-        """ Initialize permeability
+        """Initialize permeability
 
         Parameters:
             kxx (double): Nc array, with cell-wise values of kxx permeability.
@@ -34,7 +34,7 @@ class SecondOrderTensor(object):
 
         Raises:
             ValueError if the permeability is not positive definite.
-       """
+        """
         Nc = kxx.size
         perm = np.zeros((3, 3, Nc))
 
@@ -131,7 +131,7 @@ class SecondOrderTensor(object):
 
 
 class FourthOrderTensor(object):
-    """ Cell-wise representation of fourth order tensor.
+    """Cell-wise representation of fourth order tensor.
 
     For each cell, there are dim^4 degrees of freedom, stored in a
     3^2 * 3^2 matrix (exactly how to convert between 2D and 4D matrix
@@ -154,7 +154,7 @@ class FourthOrderTensor(object):
     """
 
     def __init__(self, mu, lmbda, phi=None):
-        """ Constructor for fourth order tensor on Lame-parameter form
+        """Constructor for fourth order tensor on Lame-parameter form
 
         Parameters
         ----------
