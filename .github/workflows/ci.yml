@@ -66,5 +66,5 @@ jobs:
 
     - name: isort
       if: ${{always()}}
-      run: isort --check --recursive src
+      run: isort --check src
 

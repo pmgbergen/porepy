@@ -486,8 +486,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
     def before_newton_loop(self):
-        """ Will be run before entering a Newton loop.
-            Discretize time-dependent quantities etc.
+        """Will be run before entering a Newton loop.
+        Discretize time-dependent quantities etc.
         """
         pass
 
