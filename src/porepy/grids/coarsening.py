@@ -47,7 +47,7 @@ def coarsen(
     else:
         raise ValueError("Undefined coarsening algorithm")
 
-    generate_coarse_grid(g, partition)
+    return generate_coarse_grid(g, partition)
 
 
 # ------------------------------------------------------------------------------#

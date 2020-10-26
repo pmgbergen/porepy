@@ -55,7 +55,7 @@ def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
 
 
 def partition_structured(
-    g: pp.TensorGrid, coarse_dims: np.ndarray = None, num_part: int = None
+    g: pp.TensorGrid, num_part: int = 1, coarse_dims: np.ndarray = None
 ) -> np.ndarray:
     """
     Define a partitioning of a grid based on logical Cartesian indexing.
@@ -72,8 +72,8 @@ def partition_structured(
     Parameters:
         g: core.grids.grid: To be partitioned. Only the cell_face attribute is
             used
-        coarse_dims (np.array): Cartesian dimensions of the coarse grids.
         num_part (int): Number of partitions.
+        coarse_dims (np.array): Cartesian dimensions of the coarse grids.
 
     Returns:
         np.array (size:g.num_cells): Partition vector, one number in
@@ -91,7 +91,7 @@ def partition_structured(
         )
 
     nd = g.dim
-    fine_dims = g.cart_dims
+    fine_dims: np.ndarray = g.cart_dims
 
     if coarse_dims is None:
         coarse_dims = determine_coarse_dimensions(num_part, fine_dims)

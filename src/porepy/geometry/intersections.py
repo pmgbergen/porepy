@@ -1471,15 +1471,15 @@ def surface_tessalations(
         from scipy.spatial import Delaunay
 
         # Data structure for the mapping from isect_polys to the triangulation
-        rows: int = []
-        cols: int = []
+        rows: List[int] = []
+        cols: List[int] = []
         tri_counter: int = 0
         # Data structure for the triangulation
         tri: List[np.ndarray] = []
 
         # Loop over all isect_polys, split those with more than three vertexes
         for pi, poly in enumerate(isect_polys):
-            if poly.shape[1] == 3:
+            if poly.shape[1] == 3:  # type: ignore
                 # Triangles can be used as they are
                 tri.append(poly)
                 cols.append(pi)
@@ -1499,9 +1499,9 @@ def surface_tessalations(
                 is_ccw = np.array(
                     [
                         pp.geometry_property_checks.is_ccw_polyline(
-                            start[:, i], middle[:, i], end[:, i]
+                            start[:, i], middle[:, i], end[:, i]  # type:ignore
                         )
-                        for i in range(poly.shape[1])
+                        for i in range(poly.shape[1])  # type:ignore
                     ]
                 )
 

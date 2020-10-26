@@ -17,8 +17,21 @@ class Discretization(abc.ABC):
 
     """
 
-    def __init__(self, keyword):
+    def __init__(self, keyword: str) -> None:
         self.keyword = keyword
+
+    @abc.abstractmethod
+    def ndof(self, g: pp.Grid) -> int:
+        """
+        Return the number of degrees of freedom associated to the method.
+
+        Parameters:
+            g: grid, or a subclass.
+
+        Return:
+            dof: the number of degrees of freedom.
+
+        """
 
     @abc.abstractmethod
     def discretize(self, g: pp.Grid, data: Dict) -> None:

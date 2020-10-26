@@ -358,7 +358,7 @@ class AbstractInterfaceLaw(abc.ABC):
 
         return cc, rhs
 
-    def assemble_edge_coupling_via_high_dim(
+    def assemble_edge_coupling_via_high_dim(  # type: ignore
         self,
         g_between: pp.Grid,
         data_between: Dict,
@@ -412,10 +412,8 @@ class AbstractInterfaceLaw(abc.ABC):
                 """Interface laws with edge couplings via the high
                                       dimensional grid must implement this model"""
             )
-        else:
-            pass
 
-    def assemble_edge_coupling_via_low_dim(
+    def assemble_edge_coupling_via_low_dim(  # type: ignore
         self,
         g_between: pp.Grid,
         data_between: Dict,

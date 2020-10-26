@@ -17,17 +17,14 @@ from typing import (
     Union,
     TypeVar,
     Generic,
+    Optional,
 )
 
 import porepy as pp
 from porepy.utils import setmembership
 
-# Needed to refer to pp.GridBucket in type hints. See documentation of typing, under
-# forward referencing.
-T = TypeVar("T")
 
-
-class GridBucket(Generic[T]):
+class GridBucket:
     """
     Container for the hierarchy of grids formed by fractures and their
     intersections.
@@ -368,7 +365,7 @@ class GridBucket(Generic[T]):
 
     # ------------ Getters for node and edge properties
 
-    def has_nodes_prop(self, grids: Iterable[pp.Grid], key: Any) -> Tuple[bool]:
+    def has_nodes_prop(self, grids: Iterable[pp.Grid], key: Any) -> List[bool]:
         """ Test if a key exists in the data dictionary related to each of a list of nodes.
 
         Note: the property may contain None but the outcome of the test is
@@ -382,7 +379,10 @@ class GridBucket(Generic[T]):
             object: The tested property.
 
         """
-        return tuple([key in self._nodes[grid] for grid in grids])
+        found = []
+        for grid in grids:
+            found.append(key in self._nodes[grid])
+        return found
 
     def node_props(self, grid: pp.Grid, key: Any = None) -> Any:
         """ Getter for a node property of the bucket.
@@ -402,7 +402,7 @@ class GridBucket(Generic[T]):
         else:
             return self._nodes[grid][key]
 
-    def edge_props(self, edge: Tuple[pp.Grid, pp.Grid], key: Any = None) -> Any:
+    def edge_props(self, edge: Tuple[pp.Grid, pp.Grid], key: Any = None) -> Dict:
         """ Getter for an edge properties of the bucket.
 
         Parameters:
@@ -420,9 +420,9 @@ class GridBucket(Generic[T]):
         """
         if tuple(edge) in list(self._edges.keys()):
             if key is None:
-                return self._edges[tuple(edge)]
+                return self._edges[edge]
             else:
-                return self._edges[tuple(edge)][key]
+                return self._edges[edge][key]
         elif tuple(edge[::-1]) in list(self._edges.keys()):
             if key is None:
                 return self._edges[(edge[1], edge[0])]
@@ -520,7 +520,11 @@ class GridBucket(Generic[T]):
                     del data[key]
 
     def remove_edge_props(
-        self, keys: Union[Any, List[Any]], edges: List[Tuple[pp.Grid, pp.Grid]] = None
+        self,
+        keys: Union[Any, List[Any]],
+        edges: Optional[
+            Union[Tuple[pp.Grid, pp.Grid], List[Tuple[pp.Grid, pp.Grid]]]
+        ] = None,
     ) -> None:
         """
         Remove property to existing edges in the graph.
@@ -540,25 +544,26 @@ class GridBucket(Generic[T]):
                 purposes. See self.assign_node_ordering() for details.
 
         """
-        keys = [keys] if isinstance(keys, str) else list(keys)
+        keys = list(keys)
 
         # Check that the key is not 'edge_number' - this is reserved
         if "edge_number" in keys:
             raise ValueError("Edge number is a reserved key, stay away")
 
         # Check if a single edge is passed. If so, turn it into a list.
-        if (
-            isinstance(edges, (Tuple, List))
+        if edges is None:
+            edges_processed: List[Tuple[pp.Grid, pp.Grid]] = list(self._edges)
+        elif (
+            isinstance(edges, tuple)
             and len(edges) == 2
             and all(isinstance(e, pp.Grid) for e in edges)
         ):
-            edges = [edges]
-
-        if edges is None:
-            edges = list(self._edges)
+            edges_processed = [edges]
+        else:
+            edges_processed = edges  # type: ignore
 
         for key in keys:
-            for edge in edges:
+            for edge in edges_processed:
                 data = self.edge_props(edge)
                 if key in data:
                     del data[key]
@@ -727,7 +732,9 @@ class GridBucket(Generic[T]):
 
         return neighbors
 
-    def duplicate_without_dimension(self, dim: int) -> Tuple[T, Dict[str, Dict]]:
+    def duplicate_without_dimension(
+        self, dim: int
+    ) -> Tuple["GridBucket", Dict[str, Dict]]:
         """
         Remove all the nodes of dimension dim and add new edges between their
         neighbors by calls to remove_node.
@@ -777,7 +784,7 @@ class GridBucket(Generic[T]):
             "eliminated_nodes": eliminated_nodes,
         }
 
-        return gb_copy, elimination_data
+        return gb_copy, elimination_data  # type: ignore
 
     # ---------- Functionality related to ordering of nodes
 
@@ -902,22 +909,22 @@ class GridBucket(Generic[T]):
             if "mortar_grid" in data.keys():
                 data["mortar_grid"].compute_geometry()
 
-    def copy(self) -> T:
+    def copy(self) -> "GridBucket":
         """Make a shallow copy of the grid bucket. The underlying grids are not copied.
 
         Return:
             pp.GridBucket: Copy of this GridBucket.
 
         """
-        gb_copy = GridBucket()
+        gb_copy: pp.GridBucket = GridBucket()
         gb_copy._nodes = self._nodes.copy()
         gb_copy._edges = self._edges.copy()
         return gb_copy
 
     def replace_grids(
         self,
-        g_map: Dict[pp.Grid, pp.Grid] = None,
-        mg_map: [pp.MortarGrid, pp.MortarGrid] = None,
+        g_map: Optional[Dict[pp.Grid, pp.Grid]] = None,
+        mg_map: Optional[Dict[pp.MortarGrid, Dict[int, pp.Grid]]] = None,
         tol: float = 1e-6,
     ) -> None:
         """ Replace grids and / or mortar grids in the mixed-dimensional grid.
@@ -1068,14 +1075,17 @@ class GridBucket(Generic[T]):
 
     # ---- Methods for getting information on the bucket, or its components ----
 
-    def diameter(self, cond: Callable[[pp.Grid], bool] = None) -> float:
+    def diameter(
+        self, cond: Callable[[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]], bool] = None
+    ) -> float:
         """
         Compute the grid bucket diameter (mesh size), considering a loop on all
         the grids.  It is possible to specify a condition based on the grid to
         select some of them.
 
         Parameter:
-            cond: optional, predicate with a grid as input.
+            cond: optional, predicate with a grid or a tuple of grids (an edge)
+                as input.
 
         Return:
             diameter: the diameter of the grid bucket.

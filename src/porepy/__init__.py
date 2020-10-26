@@ -23,8 +23,6 @@ __version__ = "1.2.6"
 # user can be exposed to should have a shortcut here. Borderline cases will be
 # decided as needed
 
-__all__ = []
-
 from porepy.utils.common_constants import *
 
 from porepy.utils import error, grid_utils
