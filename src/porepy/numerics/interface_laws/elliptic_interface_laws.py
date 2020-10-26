@@ -6,9 +6,9 @@ Current content:
     Full continuity conditions between subdomains
 """
 from typing import Tuple
+
 import numpy as np
 import scipy.sparse as sps
-
 
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law

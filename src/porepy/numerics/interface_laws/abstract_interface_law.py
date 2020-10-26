@@ -2,9 +2,10 @@
 Mother class for all interface laws.
 """
 import abc
+from typing import Dict, Tuple, Union
+
 import numpy as np
 import scipy.sparse as sps
-from typing import Dict, Union, Tuple
 
 import porepy as pp
 from porepy.numerics.discretization import Discretization

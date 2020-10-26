@@ -1,11 +1,19 @@
 """
 Module contains class for representing a fracture network in a 2d domain.
 """
-import numpy as np
-import logging
-import csv
-import time
 import copy
+import csv
+import logging
+import time
+
+import numpy as np
+
+import porepy as pp
+import porepy.fracs.simplex
+from porepy.fracs import tools
+from porepy.grids import constants
+from porepy.grids.gmsh import gmsh_interface
+from porepy.utils.setmembership import unique_columns_tol
 
 # Imports of external packages that may not be present at the system. The
 # module will work without any of these, but with limited functionalbility.
@@ -20,12 +28,6 @@ except ImportError:
     vtk will not work."
     )
 
-import porepy as pp
-import porepy.fracs.simplex
-from porepy.grids import constants
-from porepy.grids.gmsh import gmsh_interface
-from porepy.fracs import tools
-from porepy.utils.setmembership import unique_columns_tol
 
 
 logger = logging.getLogger(__name__)

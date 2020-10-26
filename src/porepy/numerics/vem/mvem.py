@@ -3,10 +3,11 @@
 
 @author: fumagalli, alessio
 """
+import logging
+from typing import Dict, Tuple
+
 import numpy as np
 import scipy.sparse as sps
-import logging
-from typing import Tuple, Dict
 
 import porepy as pp
 

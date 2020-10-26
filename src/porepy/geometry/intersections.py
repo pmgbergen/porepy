@@ -2,10 +2,11 @@
 Module with functions for computing intersections between geometric objects.
 
 """
+import logging
+from typing import List, Tuple
+
 import numpy as np
 import scipy.sparse as sps
-import logging
-from typing import Tuple, List
 
 import porepy as pp
 

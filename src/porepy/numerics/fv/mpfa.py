@@ -2,9 +2,10 @@
 Implementation of the multi-point flux approximation O-method.
 
 """
+from typing import Tuple
+
 import numpy as np
 import scipy.sparse as sps
-from typing import Tuple
 
 import porepy as pp
 

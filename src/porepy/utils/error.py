@@ -1,7 +1,9 @@
-import numpy as np
-import porepy as pp
 import logging
-from typing import List, Dict
+from typing import Dict, List
+
+import numpy as np
+
+import porepy as pp
 
 # ------------------------------------------------------------------------------#
 

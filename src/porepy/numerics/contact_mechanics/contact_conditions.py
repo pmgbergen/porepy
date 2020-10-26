@@ -33,12 +33,12 @@ with Dg = dg/du_t. For the above g, we have Dg = tan(dilation_angle) * u_t / || 
 For the case u_t = 0, we extend the Jacobian to 0, i.e.
     dg/du_t(|| u_t || = 0) = 0.
 """
-import numpy as np
-
-import porepy as pp
 import logging
 from typing import Dict, Tuple
 
+import numpy as np
+
+import porepy as pp
 
 logger = logging.getLogger(__name__)
 

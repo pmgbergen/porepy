@@ -1,6 +1,7 @@
 """ Functions to sort points and edges belonging to geometric objects.
 """
 from typing import Optional, Tuple, Union
+
 import numpy as np
 
 import porepy as pp

@@ -2,8 +2,9 @@
 Module contains superclass for mpfa and tpfa.
 """
 import numpy as np
-import porepy as pp
 import scipy.sparse as sps
+
+import porepy as pp
 
 
 class FVElliptic(pp.EllipticDiscretization):

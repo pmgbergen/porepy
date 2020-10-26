@@ -1,9 +1,10 @@
 """ Module containing the class for the mortar grid.
 """
 import warnings
+from typing import Dict, Generator, List, Optional, Tuple, Union
+
 import numpy as np
 from scipy import sparse as sps
-from typing import Dict, Optional, Generator, Tuple, Union, List
 
 import porepy as pp
 

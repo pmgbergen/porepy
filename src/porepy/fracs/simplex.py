@@ -1,15 +1,15 @@
 """
 Module for creating simplex grids with fractures.
 """
-import time
-import numpy as np
-import meshio
 import logging
-from typing import Dict, Tuple, Any
+import time
+from typing import Any, Dict, Tuple
+
+import meshio
+import numpy as np
 
 from porepy.grids import constants
 from porepy.grids.gmsh import mesh_2_grid
-
 
 logger = logging.getLogger(__name__)
 

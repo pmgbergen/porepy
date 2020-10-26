@@ -4,14 +4,19 @@ A module for representation and manipulations of fractures and fracture sets.
 The model relies heavily on functions in the computational geometry library.
 
 """
+import copy
+import csv
+import logging
+import time
 # Import of 'standard' external packages
 import warnings
-import time
-import logging
-import numpy as np
-import csv
-import copy
 
+import numpy as np
+
+import porepy as pp
+from porepy.grids.constants import GmshConstants
+# Import of internally developed packages.
+from porepy.utils import setmembership, sort_points
 
 # Imports of external packages that may not be present at the system. The
 # module will work without any of these, but with limited functionalbility.
@@ -24,11 +29,7 @@ except ImportError:
     vtk will not work."
     )
 
-import porepy as pp
 
-# Import of internally developed packages.
-from porepy.utils import setmembership, sort_points
-from porepy.grids.constants import GmshConstants
 
 # Module-wide logger
 logger = logging.getLogger(__name__)

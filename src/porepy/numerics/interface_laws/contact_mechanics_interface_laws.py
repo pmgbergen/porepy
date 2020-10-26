@@ -6,10 +6,11 @@ tractions on the fractures. Also, in the case of coupled physics (Biot and the l
 classes handling the arising coupling terms are provided.
 """
 
-import numpy as np
-import scipy.sparse as sps
 import logging
 import time
+
+import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law

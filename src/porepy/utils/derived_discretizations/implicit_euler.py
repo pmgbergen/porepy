@@ -4,9 +4,10 @@ implicit Euler time-stepping. Flux terms are multiplied by time step and the mas
 has a rhs contribution from the previous time step.
 See the parent discretizations for further documentation.
 """
-import porepy as pp
 import numpy as np
 import scipy.sparse as sps
+
+import porepy as pp
 
 
 class ImplicitMassMatrix(pp.MassMatrix):

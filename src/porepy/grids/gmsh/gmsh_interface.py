@@ -1,10 +1,12 @@
 # Methods to work directly with the gmsh format
 
+from pathlib import Path
+from typing import List, Union
+
 import numpy as np
 
-from typing import Union, List
-
-from pathlib import Path
+import porepy.grids.constants as gridding_constants
+from porepy.utils import sort_points
 
 try:
     import gmsh
@@ -16,8 +18,6 @@ except ModuleNotFoundError:
         "export PYTHONPATH=${PYTHONPATH}:path/to/gmsh*-sdk.*/lib"
     )
 
-from porepy.utils import sort_points
-import porepy.grids.constants as gridding_constants
 
 
 class GmshWriter(object):

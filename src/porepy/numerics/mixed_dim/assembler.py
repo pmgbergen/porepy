@@ -2,12 +2,13 @@
 The module contains the Assembler class, which is responsible for assembly of
 system matrix and right hand side for a general multi-domain, multi-physics problem.
 """
-from typing import Set, List, Tuple, Union, Dict, Any, Type, Optional
 from collections import namedtuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
+
 import numpy as np
 import scipy.sparse as sps
-import porepy as pp
 
+import porepy as pp
 
 csc_or_csr_matrix = Union[sps.csc_matrix, sps.csr_matrix]
 

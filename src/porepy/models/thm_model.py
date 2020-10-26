@@ -30,14 +30,16 @@ logging level to DEBUG.
 NOTE: This module should be considered an experimental feature, which will likely
 undergo major changes (or be deleted).
 """
-import numpy as np
-import porepy as pp
 import logging
 import time
 from typing import Dict
 
+import numpy as np
+
+import porepy as pp
 import porepy.models.contact_mechanics_biot_model as parent_model
-from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
+from porepy.utils.derived_discretizations import \
+    implicit_euler as IE_discretizations
 
 # Module-wide logger
 logger = logging.getLogger(__name__)

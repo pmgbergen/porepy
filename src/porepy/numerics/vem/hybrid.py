@@ -4,8 +4,8 @@
 @author: fumagalli, alessio
 """
 import numpy as np
-from numpy.linalg import solve
 import scipy.sparse as sps
+from numpy.linalg import solve
 
 import porepy as pp
 from porepy.numerics.vem.dual_elliptic import DualElliptic

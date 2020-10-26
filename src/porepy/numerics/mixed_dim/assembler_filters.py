@@ -11,10 +11,9 @@ Credits: Design idea and main implementation by Haakon Ervik.
 
 """
 import abc
-from typing import List, Callable, Optional, Union, Tuple
+from typing import Callable, List, Optional, Tuple, Union
 
 from porepy import Grid
-
 
 # Discretizations can be defined either on a subdomain, on an
 # edge (Tuple of two grids), or it is a coupling between

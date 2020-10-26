@@ -4,9 +4,10 @@
 
 """
 import abc
+from typing import Dict, Union
+
 import numpy as np
 import scipy.sparse as sps
-from typing import Dict, Union
 
 import porepy as pp
 

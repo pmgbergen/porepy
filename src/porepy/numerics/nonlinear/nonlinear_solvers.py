@@ -5,9 +5,9 @@ Created on Fri Sep  6 11:21:54 2019
 
 @author: eke001
 """
-import numpy as np
 import logging
 
+import numpy as np
 
 # Module-wide logger
 logger = logging.getLogger(__name__)

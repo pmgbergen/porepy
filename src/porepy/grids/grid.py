@@ -10,10 +10,11 @@ Acknowledgements:
     of the corresponding functions in MRST.
 
 """
-import numpy as np
 import itertools
+from typing import Dict, List, Union
+
+import numpy as np
 from scipy import sparse as sps
-from typing import List, Union, Dict
 
 import porepy as pp
 from porepy.utils import matrix_compression, mcolon, tags

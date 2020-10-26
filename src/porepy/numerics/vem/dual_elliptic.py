@@ -5,9 +5,10 @@ Module contains common functionalities for discretization based on the mixed
 variational formulation.
 """
 
+from typing import Dict, Tuple
+
 import numpy as np
 import scipy.sparse as sps
-from typing import Tuple, Dict
 
 import porepy as pp
 

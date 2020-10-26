@@ -12,7 +12,7 @@ import scipy.sparse as sps
 import scipy.spatial
 
 from porepy.grids.grid import Grid
-from porepy.utils import setmembership, accumarray
+from porepy.utils import accumarray, setmembership
 
 
 class TriangleGrid(Grid):

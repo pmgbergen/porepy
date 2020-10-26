@@ -6,13 +6,14 @@ for MPxA discertizations, however, due to the somewhat intricate inheritance rel
 between these methods, the current structure with multiple auxiliary methods emerged.
 
 """
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
+
 import numpy as np
 import scipy.sparse as sps
-from typing import Tuple, Any, Generator, Dict, Optional, List, Callable
 
 import porepy as pp
-from porepy.utils import matrix_compression, mcolon
 from porepy.grids.grid_bucket import GridBucket
+from porepy.utils import matrix_compression, mcolon
 
 
 class SubcellTopology(object):

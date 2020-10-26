@@ -62,12 +62,14 @@ whereas data such as BC values are stored similarly to in the Parameters class, 
 
 data[pp.STATE][keyword]["bc_values"].
 """
-import numpy as np
-import porepy as pp
 import numbers
 import warnings
+from typing import Dict, List, Optional
+
+import numpy as np
+
+import porepy as pp
 import porepy.params.parameter_dictionaries as dicts
-from typing import List, Dict, Optional
 
 
 class Parameters(dict):

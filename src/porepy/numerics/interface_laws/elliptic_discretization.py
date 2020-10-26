@@ -9,6 +9,7 @@ discretizations between dimensions by interface laws.
 """
 from abc import abstractmethod
 from typing import Dict
+
 import numpy as np
 import scipy.sparse as sps
 

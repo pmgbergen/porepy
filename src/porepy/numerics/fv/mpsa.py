@@ -7,13 +7,14 @@ The implementation is based on the weakly symmetric version of MPSA, described i
         IJNME, 2017.
 
 """
+import logging
+from time import time
+from typing import Any, Dict, Tuple
+
 import numpy as np
 import scipy.sparse as sps
-import logging
-import porepy as pp
-from time import time
-from typing import Dict, Tuple, Any
 
+import porepy as pp
 from porepy.numerics.discretization import Discretization
 
 # Module-wide logger

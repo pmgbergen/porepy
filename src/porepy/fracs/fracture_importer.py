@@ -1,5 +1,6 @@
-import numpy as np
 import csv
+
+import numpy as np
 
 import porepy as pp
 

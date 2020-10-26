@@ -1,13 +1,14 @@
 """
 Module contains various functions to find overlaps between grid cells.
 """
-import porepy as pp
-import numpy as np
-import scipy.sparse as sps
 import logging
 
-from porepy.utils.setmembership import ismember_rows, unique_columns_tol
+import numpy as np
+import scipy.sparse as sps
+
+import porepy as pp
 from porepy.grids.structured import TensorGrid
+from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 
 logger = logging.getLogger(__name__)
 

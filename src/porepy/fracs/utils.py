@@ -1,11 +1,11 @@
 """ Frontend utility functions related to fractures and their meshing.
 
 """
-import numpy as np
 import logging
 
-import porepy as pp
+import numpy as np
 
+import porepy as pp
 
 # Module level logger
 logger = logging.getLogger(__name__)

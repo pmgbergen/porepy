@@ -10,12 +10,10 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-
+from porepy.fracs import tools as fractools
 from porepy.utils import tags
 from porepy.utils.matrix_compression import rldecode
-from porepy.utils.setmembership import unique_columns_tol, ismember_rows
-
-from porepy.fracs import tools as fractools
+from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 
 
 def merge_grids(grids, intersections, tol=1e-4):

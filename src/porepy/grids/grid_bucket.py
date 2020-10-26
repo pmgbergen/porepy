@@ -4,19 +4,11 @@ intersections in the form of a GridBucket.
 
 """
 import warnings
-from scipy import sparse as sps
+from typing import (Any, Callable, Dict, Generator, Iterable, List, Optional,
+                    Tuple, Union)
+
 import numpy as np
-from typing import (
-    Any,
-    Tuple,
-    Dict,
-    Generator,
-    List,
-    Iterable,
-    Callable,
-    Union,
-    Optional,
-)
+from scipy import sparse as sps
 
 import porepy as pp
 from porepy.utils import setmembership

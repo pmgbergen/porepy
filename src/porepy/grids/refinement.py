@@ -6,18 +6,18 @@ Various methods to refine a grid.
 Created on Sat Nov 11 17:06:37 2017
 
 """
+import abc
+from pathlib import Path
+from typing import Dict, Optional, Union
+
 import gmsh
 import numpy as np
 import scipy.sparse as sps
-from pathlib import Path
-from typing import Union, Optional, Dict
-import abc
 
 import porepy as pp
-
 from porepy.grids.grid import Grid
-from porepy.grids.structured import TensorGrid
 from porepy.grids.simplex import TriangleGrid
+from porepy.grids.structured import TensorGrid
 
 
 def distort_grid_1d(

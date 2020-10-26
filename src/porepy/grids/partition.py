@@ -5,9 +5,10 @@ Intended support is by Cartesian indexing, and METIS-based.
 
 """
 import warnings
+from typing import List, Tuple
+
 import numpy as np
 import scipy.sparse as sps
-from typing import List, Tuple
 
 import porepy as pp
 

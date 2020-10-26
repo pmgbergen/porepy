@@ -2,17 +2,15 @@
 more information.
 
 """
+from typing import Any, Dict, Tuple, Union
+
 import numpy as np
 import scipy.sparse as sps
+
 import porepy as pp
-from typing import Union, Tuple, Any, Dict
-
 from porepy.grids import grid, grid_bucket
-
-
-from porepy.utils import matrix_compression, mcolon, accumarray, setmembership
-from porepy.utils import half_space, tags
-
+from porepy.utils import (accumarray, half_space, matrix_compression, mcolon,
+                          setmembership, tags)
 
 # ------------------------------------------------------------------------------#
 

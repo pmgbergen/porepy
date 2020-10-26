@@ -3,6 +3,7 @@
 Examples are to cut objects to lie within other objects, etc.
 """
 import numpy as np
+
 import porepy as pp
 
 

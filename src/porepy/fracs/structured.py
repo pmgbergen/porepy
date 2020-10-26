@@ -7,9 +7,8 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-
-from porepy.grids.gmsh import mesh_2_grid
 from porepy.grids import constants
+from porepy.grids.gmsh import mesh_2_grid
 
 
 def _cart_grid_3d(fracs, nx, physdims=None):

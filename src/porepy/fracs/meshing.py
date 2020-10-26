@@ -6,19 +6,18 @@ will therefore wrap interface to different mesh generators, pass options to the
 generators etc.
 
 """
-import numpy as np
-import scipy.sparse as sps
-import time
 import logging
+import time
 from typing import List
 
+import numpy as np
+import scipy.sparse as sps
+
 import porepy as pp
-
-from porepy.fracs import structured, split_grid, tools
-from porepy.grids.grid_bucket import GridBucket
+from porepy.fracs import split_grid, structured, tools
 from porepy.grids import mortar_grid
+from porepy.grids.grid_bucket import GridBucket
 from porepy.utils import mcolon
-
 
 logger = logging.getLogger(__name__)
 

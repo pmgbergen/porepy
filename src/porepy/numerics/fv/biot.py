@@ -21,15 +21,15 @@ pp.BiotContactMechanicsModel (designed for fractures and contact mechanics, but 
 turn into a standard poro-elasticity equation for non-fractured domains).
 
 """
-import scipy.sparse as sps
-import numpy as np
-from typing import Dict, Tuple, Any
-from time import time
 import logging
+from time import time
+from typing import Any, Dict, Tuple
+
+import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.discretization import Discretization
-
 
 # Module-wide logger
 logger = logging.getLogger(__name__)

@@ -9,10 +9,11 @@ NOTE: This module should be considered an experimental feature, which will likel
 undergo major changes (or be deleted).
 
 """
-import numpy as np
-import scipy.sparse.linalg as spla
 import logging
 import time
+
+import numpy as np
+import scipy.sparse.linalg as spla
 
 import porepy as pp
 import porepy.models.abstract_model

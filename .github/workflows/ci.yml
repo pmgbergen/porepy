@@ -64,6 +64,10 @@ jobs:
       if: ${{ always() }}
       run: mypy src
 
+    - name: isort
+      if: ${{always()}}
+      run: isort --check --recursive src
+
     - name: pytest
       if: ${{always()}}
       run: pytest

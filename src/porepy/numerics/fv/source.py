@@ -3,6 +3,7 @@ Discretization of the source term of an equation for FV methods.
 """
 import numpy as np
 import scipy.sparse as sps
+
 import porepy as pp
 
 

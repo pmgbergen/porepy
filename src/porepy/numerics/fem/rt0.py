@@ -4,10 +4,11 @@
 @author: fumagalli, alessio
 """
 
-import numpy as np
-import scipy.sparse as sps
 import logging
 from typing import Dict
+
+import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 

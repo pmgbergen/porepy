@@ -12,11 +12,13 @@ The main methods in the module are
 All other functions are helpers.
 
 """
-import numpy as np
-import porepy as pp
-import scipy.sparse as sps
-from typing import Dict, Tuple, List
 from collections import namedtuple
+from typing import Dict, List, Tuple
+
+import numpy as np
+import scipy.sparse as sps
+
+import porepy as pp
 from porepy.grids import mortar_grid
 
 

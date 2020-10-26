@@ -8,12 +8,14 @@ time steps, a single pvd file takes care of the ordering of all printed vtu
 files.
 """
 
-import sys
+import logging
 import os
+import sys
+import warnings
+
 import numpy as np
 import scipy.sparse as sps
-import logging
-import warnings
+
 import porepy as pp
 
 try:

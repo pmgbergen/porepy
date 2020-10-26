@@ -4,8 +4,9 @@ Created on Mon Feb 29 14:30:22 2016
 
 @author: eke001
 """
-import numpy as np
 import warnings
+
+import numpy as np
 
 
 class AbstractBoundaryCondition(object):
