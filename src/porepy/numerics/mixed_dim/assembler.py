@@ -1084,8 +1084,7 @@ class Assembler:
         self._grid_variable_term_combinations = grid_variable_term_combinations
 
     def _initialize_matrix_rhs(
-        self,
-        sps_matrix: Type[csc_or_csr_matrix],
+        self, sps_matrix: Type[csc_or_csr_matrix],
     ) -> Tuple[Dict[str, csc_or_csr_matrix], Dict[str, np.ndarray]]:
         """
         Initialize a set of matrices (for left hand sides) and vectors (rhs)
@@ -1249,9 +1248,7 @@ class Assembler:
         return d.get(pp.PRIMARY_VARIABLES, None)
 
     def distribute_variable(
-        self,
-        values: np.ndarray,
-        variable_names: List[str] = None,
+        self, values: np.ndarray, variable_names: List[str] = None,
     ) -> None:
         """Distribute a vector to the nodes and edges in the GridBucket.
 
