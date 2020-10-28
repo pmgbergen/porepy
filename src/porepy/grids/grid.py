@@ -246,10 +246,6 @@ class Grid:
         n = fn.size
         self.face_centers = self.nodes[:, fn]
 
-        self.face_normals = np.tile(
-            pp.map_geometry.compute_tangent(self.nodes), (n, 1)
-        ).T
-
         cf = self.cell_faces.indices
         xf1 = self.face_centers[:, cf[::2]]
         xf2 = self.face_centers[:, cf[1::2]]
@@ -257,12 +253,21 @@ class Grid:
         self.cell_volumes = np.linalg.norm(xf1 - xf2, axis=0)
         self.cell_centers = 0.5 * (xf1 + xf2)
 
+
         # Ensure that normal vector direction corresponds with sign convention
         # in self.cellFaces
         def nrm(u):
             return np.sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2])
 
         [fi, ci, val] = sps.find(self.cell_faces)
+
+        normals = val * (self.face_centers[:, fi] - self.cell_centers[:, ci])
+        normals = normals / nrm(normals)
+        # Take average of the two sides
+        self.face_normals = np.vstack(
+            [np.bincount(fi, weights=normals[i]) for i in range(3)]
+        ) / np.bincount(fi)
+
         _, idx = np.unique(fi, return_index=True)
         sgn = val[idx]
         fc = self.face_centers[:, fi[idx]]
