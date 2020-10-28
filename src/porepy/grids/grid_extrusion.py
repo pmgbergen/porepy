@@ -135,9 +135,7 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
         }
 
         # Construct mortar grid, with instructions on which faces belong to which side
-        mg = pp.MortarGrid(
-            gl_new.dim, side_g, face_cells_new
-        )
+        mg = pp.MortarGrid(gl_new.dim, side_g, face_cells_new)
 
         d_new = gb_new.edge_props((gh_new, gl_new))
 
