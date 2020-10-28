@@ -54,7 +54,7 @@ class MortarGrid:
         self,
         dim: int,
         side_grids: Dict[int, pp.Grid],
-        master_slave: sps.spmatrix,
+        master_slave: sps.spmatrix = None,
         name: str = "",
         tol: float = 1e-6,
     ):
@@ -66,7 +66,8 @@ class MortarGrid:
             dim (int): grid dimension
             side_grids (dictionary of Grid): grid on each side.
             master_slave (sps.csc_matrix): Cell-face relations between the higher
-                dimensional grid and the lower dimensional grid.
+                dimensional grid and the lower dimensional grid. It is possible to not
+                give the projection to create only the grid.
             name (str): Name of the grid. Can also be used to set various information on
                 the grid.
             tol (double, optional): Tolerance used in geometric computations. Defaults
@@ -103,48 +104,9 @@ class MortarGrid:
         self.cell_centers: np.ndarray = np.hstack(
             [g.cell_centers for g in self.side_grids.values()]
         )
-        # master_slave is a mapping from the cells (faces) of the slave grid to the
-        # faces of the master grid.
-        slave_f, master_f, data = sps.find(master_slave)
+        if not (master_slave is None):
+            self._init_projections(master_slave)
 
-        # It is assumed that the cells of the given mortar grid are ordered
-        # by the slave side index
-        ix = np.argsort(slave_f)
-        if self.num_sides()==2:
-            # If there are two sides we are in the case of a slave grid of equal
-            # dimension as the mortar grid. The mapping master_slave is then a mapping
-            # from faces-cells, and we assume the higher dimensional grid is split and
-            # there is exactly two master faces mapping to each slave cell. Check this:
-            if not np.allclose(np.bincount(slave_f), 2):
-                raise ValueError(
-                    """Each face in the higher dimensional grid must map to
-                exactly two lower dimensional cells"""
-                )
-            # The mortar grid cells are ordered as first all cells on side 1 then all
-            # cells on side 2. We there have to reorder ix to account for this:
-            ix = np.reshape(ix, (2, -1), order='F').ravel('C')
-
-        # Reorder mapping to fit with mortar cell ordering.
-        slave_f = slave_f[ix]
-        master_f = master_f[ix]
-        data = data[ix]
-
-        # Define mappings
-        cells = np.arange(slave_f.size)
-        if not self.num_cells == cells.size:
-            raise ValueError(
-                """In the construction of MortarGrid it is assumed
-            to be a one to one mapping between the mortar grid and the slave mapping"""
-            )
-
-        shape_master = (self.num_cells, master_slave.shape[1])
-        shape_slave = (self.num_cells, master_slave.shape[0])
-        self._master_to_mortar_int = sps.csc_matrix(
-            (data.astype(np.float), (cells, master_f)), shape=shape_master
-        )
-        self._slave_to_mortar_int = sps.csc_matrix(
-            (data.astype(np.float), (cells, slave_f)), shape=shape_slave
-        )
 
     def __repr__(self) -> str:
         """
@@ -670,6 +632,55 @@ class MortarGrid:
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the slave grid")
 
+
+    def _init_projections(self, master_slave: sps.spmatrix = None):
+        """Initialize projections from master and slave to mortar.
+        Parameters:
+        master_slave (sps.spmatrix): projection from the master to the slave.
+            It is assumed that the master slave and mortar grids are all matching.
+        """
+        # master_slave is a mapping from the cells (faces) of the slave grid to the
+        # faces of the master grid.
+        slave_f, master_f, data = sps.find(master_slave)
+
+        # It is assumed that the cells of the given mortar grid are ordered
+        # by the slave side index
+        ix = np.argsort(slave_f)
+        if self.num_sides()==2:
+            # If there are two sides we are in the case of a slave grid of equal
+            # dimension as the mortar grid. The mapping master_slave is then a mapping
+            # from faces-cells, and we assume the higher dimensional grid is split and
+            # there is exactly two master faces mapping to each slave cell. Check this:
+            if not np.allclose(np.bincount(slave_f), 2):
+                raise ValueError(
+                    """Each face in the higher dimensional grid must map to
+                exactly two lower dimensional cells"""
+                )
+            # The mortar grid cells are ordered as first all cells on side 1 then all
+            # cells on side 2. We there have to reorder ix to account for this:
+            ix = np.reshape(ix, (2, -1), order='F').ravel('C')
+
+        # Reorder mapping to fit with mortar cell ordering.
+        slave_f = slave_f[ix]
+        master_f = master_f[ix]
+        data = data[ix]
+
+        # Define mappings
+        cells = np.arange(slave_f.size)
+        if not self.num_cells == cells.size:
+            raise ValueError(
+                """In the construction of MortarGrid it is assumed
+            to be a one to one mapping between the mortar grid and the slave mapping"""
+            )
+
+        shape_master = (self.num_cells, master_slave.shape[1])
+        shape_slave = (self.num_cells, master_slave.shape[0])
+        self._master_to_mortar_int = sps.csc_matrix(
+            (data.astype(np.float), (cells, master_f)), shape=shape_master
+        )
+        self._slave_to_mortar_int = sps.csc_matrix(
+            (data.astype(np.float), (cells, slave_f)), shape=shape_slave
+        )
 
 # --- helper methods
 
