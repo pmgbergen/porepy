@@ -110,6 +110,21 @@ class MortarGrid:
         # It is assumed that the cells of the given mortar grid are ordered
         # by the slave side index
         ix = np.argsort(slave_f)
+        if self.num_sides()==2:
+            # If there are two sides we are in the case of a slave grid of equal
+            # dimension as the mortar grid. The mapping master_slave is then a mapping
+            # from faces-cells, and we assume the higher dimensional grid is split and
+            # there is exactly two master faces mapping to each slave cell. Check this:
+            if not np.allclose(np.bincount(slave_f), 2):
+                raise ValueError(
+                    """Each face in the higher dimensional grid must map to
+                exactly two lower dimensional cells"""
+                )
+            # The mortar grid cells are ordered as first all cells on side 1 then all
+            # cells on side 2. We there have to reorder ix to account for this:
+            ix = np.reshape(ix, (2, -1), order='F').ravel('C')
+
+        # Reorder mapping to fit with mortar cell ordering.
         slave_f = slave_f[ix]
         master_f = master_f[ix]
         data = data[ix]
@@ -118,9 +133,8 @@ class MortarGrid:
         cells = np.arange(slave_f.size)
         if not self.num_cells == cells.size:
             raise ValueError(
-                """In the construction of Boundary mortar it is assumed
-            to be a one to one mapping between the mortar grid and the contact faces of
-            the slave grid"""
+                """In the construction of MortarGrid it is assumed
+            to be a one to one mapping between the mortar grid and the slave mapping"""
             )
 
         shape_master = (self.num_cells, master_slave.shape[1])
