@@ -929,11 +929,11 @@ class GridBucket:
 
         Parameters:
             gb (GridBucket): To be updated.
-            g_map (dictionary): Mapping between the old and new grids. Keys are 
+            g_map (dictionary): Mapping between the old and new grids. Keys are
                 the old grids, and values are the new grids.
-            mg_map (dictionary): Mapping between the old mortar grid and new 
-                (side grids of the) mortar grid. Keys are the old mortar grids, 
-                and values are dictionaries with side grid number as keys, and 
+            mg_map (dictionary): Mapping between the old mortar grid and new
+                (side grids of the) mortar grid. Keys are the old mortar grids,
+                and values are dictionaries with side grid number as keys, and
                 side grids as values.
 
         """

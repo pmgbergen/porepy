@@ -320,7 +320,9 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs):
         out_file = file_name + ".msh"
 
         pp.grids.gmsh.gmsh_interface.run_gmsh(
-            in_file, out_file, dim=dim,
+            in_file,
+            out_file,
+            dim=dim,
         )
 
     if dim == 2:
