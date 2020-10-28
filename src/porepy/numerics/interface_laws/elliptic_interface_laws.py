@@ -304,9 +304,9 @@ class RobinCoupling(
         # If the primary and / or secondary mortar is a boundary mortar grid, things
         # become more complex. This probably assumes that a FluxPressureContinuity
         # discretization is applied on the relevant mortar grid.
-        if isinstance(mg_primary, pp.BoundaryMortar) and edge_primary[0] == g:
+        if edge_primary[0].dim == edge_primary[1].dim and edge_primary[0] == g:
             proj_pressure = mg_primary.slave_to_mortar_avg()
-        if isinstance(mg_secondary, pp.BoundaryMortar) and edge_secondary[0] == g:
+        if edge_secondary[0].dim == edge_secondary[1].dim and edge_secondary[0] == g:
             proj_flux = mg_secondary.mortar_to_slave_int()
 
         cc, rhs = self._define_local_block_matrix_edge_coupling(
