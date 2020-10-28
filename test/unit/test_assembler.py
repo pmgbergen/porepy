@@ -52,7 +52,7 @@ class TestAssembler(unittest.TestCase):
         gb.add_nodes([g1, g2])
         gb.add_edge([g1, g2], None)
 
-        mg = pp.MortarGrid(2, {"left": g1, "right": g2}, sps.coo_matrix(1))
+        mg = pp.MortarGrid(2, {"left": g1, "right": g2})
         mg.num_cells = 1
         gb.set_edge_prop([g1, g2], "mortar_grid", mg)
         return gb
@@ -77,11 +77,11 @@ class TestAssembler(unittest.TestCase):
         gb.add_edge([g1, g2], None)
         gb.add_edge([g1, g3], None)
 
-        mg = pp.MortarGrid(1, {"left": g2, "right": g2}, sps.coo_matrix(1))
+        mg = pp.MortarGrid(1, {"left": g2, "right": g2})
         mg.num_cells = 1
         gb.set_edge_prop([g1, g2], "mortar_grid", mg)
 
-        mg = pp.MortarGrid(1, {"left": g3, "right": g3}, sps.coo_matrix(1))
+        mg = pp.MortarGrid(1, {"left": g3, "right": g3})
         mg.num_cells = 1
         gb.set_edge_prop([g1, g3], "mortar_grid", mg)
 
