@@ -1,11 +1,19 @@
 """
 Module contains class for representing a fracture network in a 2d domain.
 """
-import numpy as np
-import logging
-import csv
-import time
 import copy
+import csv
+import logging
+import time
+
+import numpy as np
+
+import porepy as pp
+import porepy.fracs.simplex
+from porepy.fracs import tools
+from porepy.grids import constants
+from porepy.grids.gmsh import gmsh_interface
+from porepy.utils.setmembership import unique_columns_tol
 
 # Imports of external packages that may not be present at the system. The
 # module will work without any of these, but with limited functionalbility.
@@ -20,19 +28,12 @@ except ImportError:
     vtk will not work."
     )
 
-import porepy as pp
-import porepy.fracs.simplex
-from porepy.grids import constants
-from porepy.grids.gmsh import gmsh_interface
-from porepy.fracs import tools
-from porepy.utils.setmembership import unique_columns_tol
-
 
 logger = logging.getLogger(__name__)
 
 
 class FractureNetwork2d(object):
-    """ Class representation of a set of fractures in a 2D domain.
+    """Class representation of a set of fractures in a 2D domain.
 
     The fractures are represented by their endpoints. Poly-line fractures are
     currently not supported. There is no requirement or guarantee that the
@@ -67,7 +68,7 @@ class FractureNetwork2d(object):
     """
 
     def __init__(self, pts=None, edges=None, domain=None, tol=1e-8):
-        """ Define the frature set.
+        """Define the frature set.
 
         Parameters:
             pts (np.array, 2 x n): Start and endpoints of the fractures. Points
@@ -118,7 +119,7 @@ class FractureNetwork2d(object):
             logger.info("Domain specification :" + str(domain))
 
     def copy(self):
-        """ Create deep copy of the network.
+        """Create deep copy of the network.
 
         The method will create a deep copy of all fractures, as well as the domain, of
         the network. Note that if the fractures have had extra points imposed as part
@@ -135,10 +136,12 @@ class FractureNetwork2d(object):
             # Get a deep copy of domain, but no need to do that if domain is None
             domain = copy.deepcopy(domain)
 
-        return FractureNetwork2d(p_new, edges_new, domain, self.tol)
+        fn = FractureNetwork2d(p_new, edges_new, domain, self.tol)
+        fn.tags = self.tags.copy()
+        return fn
 
     def add_network(self, fs):
-        """ Add this fracture set to another one, and return a new set.
+        """Add this fracture set to another one, and return a new set.
 
         The new set may contain non-unique points and edges.
 
@@ -162,6 +165,15 @@ class FractureNetwork2d(object):
 
         p = np.hstack((self.pts, fs.pts))
         e = np.hstack((self.edges[:2], fs.edges[:2] + self.pts.shape[1]))
+        tags = {}
+        # copy the tags of the first network
+        for key, value in self.tags.items():
+            fs_tag = fs.tags.get(key, [None] * fs.edges.shape[1])
+            tags[key] = np.hstack((value, fs_tag))
+        # copy the tags of the second network
+        for key, value in fs.tags.items():
+            if key not in tags:
+                tags[key] = np.hstack(([None] * self.edges.shape[1], value))
 
         # Deal with tags
         # Create separate tag arrays for self and fs, with 0 rows if no tags exist
@@ -200,7 +212,9 @@ class FractureNetwork2d(object):
         else:
             domain = None
 
-        return FractureNetwork2d(p, e, domain, self.tol)
+        fn = FractureNetwork2d(p, e, domain, self.tol)
+        fn.tags = tags
+        return fn
 
     def mesh(
         self,
@@ -210,9 +224,10 @@ class FractureNetwork2d(object):
         constraints=None,
         file_name=None,
         dfn=False,
+        preserve_fracture_tags=None,
         **kwargs,
     ):
-        """ Create GridBucket (mixed-dimensional grid) for this fracture network.
+        """Create GridBucket (mixed-dimensional grid) for this fracture network.
 
         Parameters:
             mesh_args: Arguments passed on to mesh size control
@@ -225,12 +240,13 @@ class FractureNetwork2d(object):
                 the meshing algorithm.
             dfn (boolean, optional): If True, a DFN mesh (of the network, but not
                 the surrounding matrix) is created.
+            preserve_fracture_tags (list of key, optional default None): The tags of
+                the network are passed to the fracture grids.
 
         Returns:
             GridBucket: Mixed-dimensional mesh.
 
         """
-
         in_file = self.prepare_for_gmsh(
             mesh_args, tol, do_snap, constraints, file_name, dfn
         )
@@ -253,9 +269,20 @@ class FractureNetwork2d(object):
                 out_file, constraints=constraints
             )
 
+        if preserve_fracture_tags:
+            # preserve tags for the fractures from the network
+            # we are assuming a coherent numeration between the network
+            # and the created grids
+            frac = np.setdiff1d(
+                np.arange(self.edges.shape[1]), constraints, assume_unique=True
+            )
+            for idg, g in enumerate(grid_list[1 - int(dfn)]):
+                for key in np.atleast_1d(preserve_fracture_tags):
+                    if key not in g.tags:
+                        g.tags[key] = self.tags[key][frac][idg]
+
         # Assemble in grid bucket
-        gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
-        return gb
+        return pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
 
     def prepare_for_gmsh(
         self,
@@ -266,7 +293,7 @@ class FractureNetwork2d(object):
         file_name=None,
         dfn=False,
     ):
-        """ Process network intersections and write a gmsh .geo configuration file,
+        """Process network intersections and write a gmsh .geo configuration file,
         ready to be processed by gmsh.
 
         NOTE: Consider to use the mesh() function instead to get a ready GridBucket.
@@ -518,14 +545,19 @@ class FractureNetwork2d(object):
         boundary_tags = self.tags.get("boundary", [False] * e.shape[1])
 
         if add_domain_edges:
-            # Define the new boundary tags
-            new_boundary_tags = boundary_tags + dom_lines.shape[1] * [True]
-            self.tags["boundary"] = new_boundary_tags
-
             num_p = p.shape[1]
             # Add the domain boundary edges and points
             self.edges = np.hstack((e, dom_lines + num_p))
             self.pts = np.hstack((p, dom_p))
+            # preserve the tags
+            for key, value in self.tags.items():
+                self.tags[key] = np.hstack(
+                    (value[edges_kept], [None] * dom_lines.shape[1])
+                )
+
+            # Define the new boundary tags
+            new_boundary_tags = boundary_tags + dom_lines.shape[1] * [True]
+            self.tags["boundary"] = np.array(new_boundary_tags)
 
             self.decomposition["domain_boundary_points"] = num_p + np.arange(
                 dom_p.shape[1], dtype=np.int
@@ -581,7 +613,7 @@ class FractureNetwork2d(object):
             return x0, dx
 
     def snap(self, tol):
-        """ Modify point definition so that short branches are removed, and
+        """Modify point definition so that short branches are removed, and
         almost intersecting fractures become intersecting.
 
         Parameters:
@@ -602,7 +634,7 @@ class FractureNetwork2d(object):
         return FractureNetwork2d(p, e, self.domain, self.tol)
 
     def constrain_to_domain(self, domain=None):
-        """ Constrain the fracture network to lay within a specified domain.
+        """Constrain the fracture network to lay within a specified domain.
 
         Fractures that cross the boundary of the domain will be cut to lay
         within the boundary. Fractures that lay completely outside the domain
@@ -630,7 +662,7 @@ class FractureNetwork2d(object):
         return FractureNetwork2d(p, e, domain, self.tol)
 
     def _domain_to_points(self, domain):
-        """ Helper function to convert a domain specification in the form of
+        """Helper function to convert a domain specification in the form of
         a dictionary into a point set.
 
         If the domain is already a point set, nothing happens
@@ -652,7 +684,7 @@ class FractureNetwork2d(object):
     # --------- Methods for analysis of the fracture set
 
     def as_graph(self, split_intersections=True):
-        """ Represent the fracture set as a graph, using the networkx data structure.
+        """Represent the fracture set as a graph, using the networkx data structure.
 
         By default the fractures will first be split into non-intersecting branches.
 
@@ -691,7 +723,7 @@ class FractureNetwork2d(object):
             return G
 
     def split_intersections(self, tol=None):
-        """ Create a new FractureSet, with all fracture intersections removed
+        """Create a new FractureSet, with all fracture intersections removed
 
         Parameters:
             tol (optional): Tolerance used in geometry computations when
@@ -705,15 +737,23 @@ class FractureNetwork2d(object):
         if tol is None:
             tol = self.tol
 
-        p, e = pp.intersections.split_intersecting_segments_2d(
-            self.pts, self.edges, tol=self.tol
+        p, e, argsort = pp.intersections.split_intersecting_segments_2d(
+            self.pts, self.edges, tol=self.tol, return_argsort=True
         )
-        return FractureNetwork2d(p, e, self.domain, tol=self.tol)
+        # map the tags
+        tags = {}
+        for key, value in self.tags.items():
+            tags[key] = value[argsort]
+
+        fn = FractureNetwork2d(p, e, self.domain, tol=self.tol)
+        fn.tags = tags
+
+        return fn
 
     # --------- Utility functions below here
 
     def start_points(self, fi=None):
-        """ Get start points of all fractures, or a subset.
+        """Get start points of all fractures, or a subset.
 
         Parameters:
             fi (np.array or int, optional): Index of the fractures for which the
@@ -736,7 +776,7 @@ class FractureNetwork2d(object):
         return p
 
     def end_points(self, fi=None):
-        """ Get start points of all fractures, or a subset.
+        """Get start points of all fractures, or a subset.
 
         Parameters:
             fi (np.array or int, optional): Index of the fractures for which the
@@ -759,7 +799,7 @@ class FractureNetwork2d(object):
         return p
 
     def get_points(self, fi=None):
-        """ Return start and end points for a specified fracture.
+        """Return start and end points for a specified fracture.
 
         Parameters:
             fi (np.array or int, optional): Index of the fractures for which the
@@ -802,7 +842,7 @@ class FractureNetwork2d(object):
         return np.array([tot_l(f) for f in np.unique(fi)])
 
     def orientation(self, fi=None):
-        """ Compute the angle of the fractures to the x-axis.
+        """Compute the angle of the fractures to the x-axis.
 
         Parameters:
             fi (np.array, or int): Index of fracture(s) where length should be
@@ -835,7 +875,7 @@ class FractureNetwork2d(object):
         return mean_a
 
     def compute_center(self, p=None, edges=None):
-        """ Compute center points of a set of fractures.
+        """Compute center points of a set of fractures.
 
         Parameters:
             p (np.array, 2 x n , optional): Points used to describe the fractures.
@@ -858,7 +898,7 @@ class FractureNetwork2d(object):
         return pts_c
 
     def domain_measure(self, domain=None):
-        """ Get the measure (length, area) of a given box domain, specified by its
+        """Get the measure (length, area) of a given box domain, specified by its
         extensions stored in a dictionary.
 
         The dimension of the domain is inferred from the dictionary fields.
@@ -881,7 +921,7 @@ class FractureNetwork2d(object):
             return domain["xmax"] - domain["xmin"]
 
     def plot(self, **kwargs):
-        """ Plot the fracture set.
+        """Plot the fracture set.
 
         The function passes this fracture set to PorePy plot_fractures
 

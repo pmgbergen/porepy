@@ -32,7 +32,7 @@ class CellDofFaceDofMap(object):
     """
 
     def __init__(self, keyword):
-        """ Set the discretization, with the keyword used for storing various
+        """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
         Paramemeters:
@@ -42,7 +42,7 @@ class CellDofFaceDofMap(object):
         self.keyword = keyword
 
     def _key(self):
-        """ Get the keyword of this object, on a format friendly to access relevant
+        """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
 
         Returns:
@@ -52,7 +52,7 @@ class CellDofFaceDofMap(object):
         return self.keyword + "_"
 
     def ndof(self, g):
-        """ Return the number of degrees of freedom, in this case the number of cells
+        """Return the number of degrees of freedom, in this case the number of cells
 
         Parameters
             g (grid): Computational grid
@@ -64,7 +64,7 @@ class CellDofFaceDofMap(object):
         return g.num_cells
 
     def extract_pressure(self, g, solution_array, data=None):
-        """ Return exactly the solution_array itself.
+        """Return exactly the solution_array itself.
 
         Parameters:
             g (grid): To which the solution array belongs.
@@ -80,7 +80,7 @@ class CellDofFaceDofMap(object):
         return solution_array
 
     def extract_flux(self, g, solution_array, data=None):
-        """ We return an empty vector for consistency with the previous method.
+        """We return an empty vector for consistency with the previous method.
 
         Parameters:
             g (grid): To which the solution array belongs.
@@ -95,7 +95,7 @@ class CellDofFaceDofMap(object):
         return np.empty(0)
 
     def discretize(self, g, data):
-        """ Construct discretization matrices. Operation is void for this discretization.
+        """Construct discretization matrices. Operation is void for this discretization.
 
         Parameters:
             g (pp.Grid): Grid to be discretized.
@@ -105,7 +105,7 @@ class CellDofFaceDofMap(object):
         pass
 
     def assemble_matrix_rhs(self, g, data=None):
-        """ Return the matrix and right-hand side, no PDE are associate with
+        """Return the matrix and right-hand side, no PDE are associate with
         this discretization so empty matrix and zero rhs is returned.
 
         Parameters:
@@ -120,7 +120,7 @@ class CellDofFaceDofMap(object):
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
     def assemble_matrix(self, g, data=None):
-        """ An empty matrix with size num_cells x num_cells.
+        """An empty matrix with size num_cells x num_cells.
 
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
@@ -133,7 +133,7 @@ class CellDofFaceDofMap(object):
         return sps.csr_matrix((self.ndof(g), self.ndof(g)))
 
     def assemble_rhs(self, g, data=None):
-        """ Zero right-hand side vector.
+        """Zero right-hand side vector.
 
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
@@ -148,7 +148,7 @@ class CellDofFaceDofMap(object):
     def assemble_int_bound_flux(
         self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj
     ):
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
 
         The intended use is when the internal boundary is coupled to another
@@ -182,7 +182,7 @@ class CellDofFaceDofMap(object):
         raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_source(self, g, data, data_edge, cc, matrix, rhs, self_ind):
-        """ Assemble the contribution from an internal boundary,
+        """Assemble the contribution from an internal boundary,
         manifested as a source term.
 
         The intended use is when the internal boundary is coupled to another
@@ -220,7 +220,7 @@ class CellDofFaceDofMap(object):
     def assemble_int_bound_pressure_trace(
         self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj
     ):
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
         The intended use is when the internal boundary is coupled to another
@@ -256,7 +256,7 @@ class CellDofFaceDofMap(object):
     def assemble_int_bound_pressure_cell(
         self, g, data, data_edge, cc, matrix, rhs, self_ind
     ):
-        """ Assemble the contribution from an internal
+        """Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
 
         The intended use is when the internal boundary is coupled to another
@@ -292,7 +292,7 @@ class CellDofFaceDofMap(object):
         cc[2, self_ind] -= proj
 
     def enforce_neumann_int_bound(self, g_master, data_edge, matrix, self_ind):
-        """ Enforce Neumann boundary conditions on a given system matrix.
+        """Enforce Neumann boundary conditions on a given system matrix.
 
         Methods based on a mixed variational form will need this function to
         implement essential boundary conditions.

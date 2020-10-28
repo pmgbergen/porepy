@@ -4,8 +4,9 @@ Created on Mon Feb 29 14:30:22 2016
 
 @author: eke001
 """
-import numpy as np
 import warnings
+
+import numpy as np
 
 
 class AbstractBoundaryCondition(object):
@@ -40,7 +41,7 @@ class AbstractBoundaryCondition(object):
 
 class BoundaryCondition(AbstractBoundaryCondition):
 
-    """ Class to store information on boundary conditions.
+    """Class to store information on boundary conditions.
 
     The BCs are specified by face number, and can have type Dirichlet, Neumann
     or Robin. For details on default values etc. see constructor.
@@ -360,7 +361,7 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
 
 
 def face_on_side(g, side, tol=1e-8):
-    """ Find faces on specified sides of a grid.
+    """Find faces on specified sides of a grid.
 
     It is assumed that the grid forms a box in 2d or 3d.
 

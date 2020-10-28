@@ -4,25 +4,39 @@
 
 """
 import abc
+from typing import Dict, Union
+
 import numpy as np
 import scipy.sparse as sps
-from typing import Dict, Union
 
 import porepy as pp
 
 
 class Discretization(abc.ABC):
-    """ Interface for all discretizations. Specifies methods that must be implemented
+    """Interface for all discretizations. Specifies methods that must be implemented
     for a discretization class to be compatible with the assembler.
 
     """
 
-    def __init__(self, keyword):
+    def __init__(self, keyword: str) -> None:
         self.keyword = keyword
 
     @abc.abstractmethod
+    def ndof(self, g: pp.Grid) -> int:
+        """
+        Return the number of degrees of freedom associated to the method.
+
+        Parameters:
+            g: grid, or a subclass.
+
+        Return:
+            dof: the number of degrees of freedom.
+
+        """
+
+    @abc.abstractmethod
     def discretize(self, g: pp.Grid, data: Dict) -> None:
-        """ Construct discretization matrices.
+        """Construct discretization matrices.
 
         The discretization matrices should be added to
             data[pp.DISCRETIZATION_MATRICES][self.keyword]
@@ -35,7 +49,7 @@ class Discretization(abc.ABC):
         pass
 
     def update_discretization(self, g: pp.Grid, data: Dict) -> None:
-        """ Partial update of discretization.
+        """Partial update of discretization.
 
         Intended use is when the discretization should be updated, e.g. because of
         changes in parameters, grid geometry or grid topology, and it is not
@@ -91,7 +105,7 @@ class Discretization(abc.ABC):
     def assemble_matrix_rhs(
         self, g: pp.Grid, data: Dict
     ) -> Union[sps.spmatrix, np.ndarray]:
-        """ Assemble discretization matrix and rhs vector.
+        """Assemble discretization matrix and rhs vector.
 
         Parameters:
             g (pp.Grid): Grid to be discretized.
@@ -99,14 +113,50 @@ class Discretization(abc.ABC):
 
         Returns:
             sps.csc_matrix: Discretization matrix.
-            np.array: Right hand side term.
+            np.ndarray: Right hand side term.
 
         """
         pass
 
+    def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.spmatrix:
+        """Assemble discretization matrix.
+
+        The default implementation will assemble both the discretization matrix and the
+        right hand side vector, and return only the former. This behavior is overridden
+        by some discretization methods.
+
+        Parameters:
+            g (pp.Grid): Grid to be discretized.
+            data (dictionary): With discretization parameters.
+
+        Returns:
+            sps.csc_matrix: Discretization matrix.
+
+        """
+        A, _ = self.assemble_matrix_rhs(g, data)
+        return A
+
+    def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
+        """Assemble right hand side term.
+
+        The default implementation will assemble both the discretization matrix and the
+        right hand side vector, and return only the latter. This behavior is overridden
+        by some discretization methods.
+
+        Parameters:
+            g (pp.Grid): Grid to be discretized.
+            data (dictionary): With discretization parameters.
+
+        Returns:
+            np.ndarray: Right hand side term.
+
+        """
+        _, b = self.assemble_matrix_rhs(g, data)
+        return b
+
 
 class VoidDiscretization(Discretization):
-    """ Do-nothing discretization object. Used if a discretizaiton object
+    """Do-nothing discretization object. Used if a discretizaiton object
     is needed for technical reasons, but not really necessary.
 
     Attributes:
@@ -119,7 +169,7 @@ class VoidDiscretization(Discretization):
     """
 
     def __init__(self, keyword, ndof_cell=0, ndof_face=0, ndof_node=0):
-        """ Set the discretization, with the keyword used for storing various
+        """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
         Paramemeters:
@@ -139,7 +189,7 @@ class VoidDiscretization(Discretization):
         self.ndof_node = ndof_node
 
     def _key(self):
-        """ Get the keyword of this object, on a format friendly to access relevant
+        """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
 
         Returns:
@@ -149,7 +199,7 @@ class VoidDiscretization(Discretization):
         return self.keyword + "_"
 
     def ndof(self, g):
-        """ Abstract method. Return the number of degrees of freedom associated to the
+        """Abstract method. Return the number of degrees of freedom associated to the
         method.
 
         Parameters
@@ -166,7 +216,7 @@ class VoidDiscretization(Discretization):
         )
 
     def discretize(self, g, data):
-        """ Construct discretization matrices. Operation is void for this discretization.
+        """Construct discretization matrices. Operation is void for this discretization.
 
         Parameters:
             g (pp.Grid): Grid to be discretized.
@@ -176,7 +226,7 @@ class VoidDiscretization(Discretization):
         pass
 
     def assemble_matrix_rhs(self, g, data):
-        """ Assemble discretization matrix and rhs vector, both empty.
+        """Assemble discretization matrix and rhs vector, both empty.
 
         Parameters:
             g (pp.Grid): Grid to be discretized.

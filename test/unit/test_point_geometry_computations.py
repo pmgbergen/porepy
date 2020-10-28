@@ -11,6 +11,8 @@ class BasicsTest(unittest.TestCase):
     def test_compute_normal_2d(self):
         pts = np.array([[0.0, 2.0, -1.0], [0.0, 4.0, 2.0], [0.0, 0.0, 0.0]])
         normal = pp.map_geometry.compute_normal(pts)
+
+        # Known normal vector, up to direction
         normal_test = np.array([0.0, 0.0, 1.0])
         pt = pts[:, 0]
 
@@ -21,7 +23,12 @@ class BasicsTest(unittest.TestCase):
                 np.zeros(pts.shape[1] - 1),
             )
         )
-        self.assertTrue(np.allclose(normal, normal_test))
+        # Normal vector should be equal to the known one, up to a flip or direction
+        self.assertTrue(
+            np.logical_or(
+                np.allclose(normal, normal_test), np.allclose(-normal, normal_test)
+            )
+        )
 
     def test_compute_normal_3d(self):
         pts = np.array(
@@ -64,7 +71,14 @@ class BasicsTest(unittest.TestCase):
         R = pp.map_geometry.project_plane_matrix(pts)
         P_pts = np.dot(R, pts)
 
-        self.assertTrue(np.allclose(P_pts[2, :], -1.15470054 * np.ones(4)))
+        # Known z-coordinates (up to a sign change) of projected points
+        known_z = 1.15470054
+
+        self.assertTrue(
+            np.logical_or(
+                np.allclose(P_pts[2], known_z), np.allclose(P_pts[2], -known_z)
+            )
+        )
 
 
 if __name__ == "__main__":

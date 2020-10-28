@@ -4,10 +4,11 @@
 @author: fumagalli, alessio
 """
 
-import numpy as np
-import scipy.sparse as sps
 import logging
 from typing import Dict
+
+import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 
@@ -23,7 +24,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         self.cell_face_to_opposite_node = "rt0_class_cell_face_to_opposite_node"
 
     def discretize(self, g: pp.Grid, data: Dict) -> None:
-        """ Discretize a second order elliptic equation using using a RT0-P0 method.
+        """Discretize a second order elliptic equation using using a RT0-P0 method.
 
         We assume the following two sub-dictionaries to be present in the data
         dictionary:
@@ -190,7 +191,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         dim: int,
         HB: np.ndarray,
     ) -> np.ndarray:
-        """ Compute the local mass Hdiv matrix using the mixed vem approach.
+        """Compute the local mass Hdiv matrix using the mixed vem approach.
 
         Parameters
         ----------
@@ -231,7 +232,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         dim: np.ndarray,
         R: np.ndarray,
     ) -> np.ndarray:
-        """ Construct a local matrix that evaluate a RT0 solution in a give point (cell center).
+        """Construct a local matrix that evaluate a RT0 solution in a give point (cell center).
 
         Parameters
         ----------
@@ -254,7 +255,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
     def _compute_cell_face_to_opposite_node(
         self, g: pp.Grid, data: np.ndarray, recompute: bool = False
     ) -> None:
-        """ Compute a map that given a face return the node on the opposite side,
+        """Compute a map that given a face return the node on the opposite side,
         typical request of a Raviart-Thomas approximation.
         This function is mainly for internal use and, if the geometry is fixed during
         the simulation, it will be called once.

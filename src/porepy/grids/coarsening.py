@@ -2,17 +2,21 @@
 more information.
 
 """
+from typing import Any, Dict, Tuple, Union
+
 import numpy as np
 import scipy.sparse as sps
+
 import porepy as pp
-from typing import Union, Tuple, Any, Dict
-
 from porepy.grids import grid, grid_bucket
-
-
-from porepy.utils import matrix_compression, mcolon, accumarray, setmembership
-from porepy.utils import half_space, tags
-
+from porepy.utils import (
+    accumarray,
+    half_space,
+    matrix_compression,
+    mcolon,
+    setmembership,
+    tags,
+)
 
 # ------------------------------------------------------------------------------#
 
@@ -20,7 +24,7 @@ from porepy.utils import half_space, tags
 def coarsen(
     g: Union[pp.Grid, pp.GridBucket], method: str, **method_kwargs
 ) -> Union[None, sps.spmatrix]:
-    """ Create a coarse grid from a given grid. If a grid bucket is passed the
+    """Create a coarse grid from a given grid. If a grid bucket is passed the
     procedure is applied to the higher in dimension.
     Note: the grid is modified in place.
     Note: do not call compute_geometry afterward.
@@ -47,14 +51,14 @@ def coarsen(
     else:
         raise ValueError("Undefined coarsening algorithm")
 
-    generate_coarse_grid(g, partition)
+    return generate_coarse_grid(g, partition)
 
 
 # ------------------------------------------------------------------------------#
 
 
 def generate_coarse_grid(g, subdiv):
-    """ Generate a coarse grid clustering the cells according to the flags
+    """Generate a coarse grid clustering the cells according to the flags
     given by subdiv. Subdiv should be long as the number of cells in the
     original grid, it contains integers (possibly not continuous) which
     represent the cells in the final mesh. If a grid bucket is given the
@@ -367,7 +371,7 @@ def generate_seeds(gb):
 
 
 def create_aggregations(g, **kwargs):
-    """ Create a cell partition based on their volumes.
+    """Create a cell partition based on their volumes.
 
     Parameter:
         g: grid or grid bucket
@@ -472,8 +476,7 @@ def create_aggregations(g, **kwargs):
 
 
 def __get_neigh(cells_id, c2c, partition):
-    """ Support function for create_aggregations
-    """
+    """Support function for create_aggregations"""
     neighbors = np.empty(0, dtype=np.int)
 
     for cell_id in np.atleast_1d(cells_id):

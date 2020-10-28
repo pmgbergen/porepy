@@ -2,10 +2,11 @@
 Module with functions for computing intersections between geometric objects.
 
 """
+import logging
+from typing import List, Tuple
+
 import numpy as np
 import scipy.sparse as sps
-import logging
-from typing import Tuple, List
 
 import porepy as pp
 
@@ -351,7 +352,7 @@ def segments_3d(start_1, end_1, start_2, end_2, tol=1e-8):
 
 
 def polygons_3d(polys, target_poly=None, tol=1e-8):
-    """ Compute the intersection between polygons embedded in 3d.
+    """Compute the intersection between polygons embedded in 3d.
 
     In addition to intersection points, the function also decides:
         1) Whether intersection points lie in the interior, on a segment or a vertex.
@@ -1142,7 +1143,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
 
 
 def triangulations(p_1, p_2, t_1, t_2):
-    """ Compute intersection of two triangle tessalation of a surface.
+    """Compute intersection of two triangle tessalation of a surface.
 
     The function will identify partly overlapping triangles between t_1 and
     t_2, and compute their common area. If parts of domain 1 or 2 is covered by
@@ -1239,7 +1240,7 @@ def triangulations(p_1, p_2, t_1, t_2):
 
 
 def line_tesselation(p1, p2, l1, l2):
-    """ Compute intersection of two line segment tessalations of a line.
+    """Compute intersection of two line segment tessalations of a line.
 
     The function will identify partly overlapping line segments between l1 and
     l2, and compute their common length.
@@ -1286,7 +1287,7 @@ def line_tesselation(p1, p2, l1, l2):
 def surface_tessalations(
     poly_sets: List[List[np.ndarray]], return_simplexes: bool = False
 ) -> Tuple[List[np.ndarray], List[sps.csr_matrix]]:
-    """ Intersect a set of surface tessalations to find a finer subdivision that does
+    """Intersect a set of surface tessalations to find a finer subdivision that does
     not intersect with any of the input tessalations.
 
     It is assumed that the polygon sets are 2d.
@@ -1471,15 +1472,15 @@ def surface_tessalations(
         from scipy.spatial import Delaunay
 
         # Data structure for the mapping from isect_polys to the triangulation
-        rows: int = []
-        cols: int = []
+        rows: List[int] = []
+        cols: List[int] = []
         tri_counter: int = 0
         # Data structure for the triangulation
         tri: List[np.ndarray] = []
 
         # Loop over all isect_polys, split those with more than three vertexes
         for pi, poly in enumerate(isect_polys):
-            if poly.shape[1] == 3:
+            if poly.shape[1] == 3:  # type: ignore
                 # Triangles can be used as they are
                 tri.append(poly)
                 cols.append(pi)
@@ -1499,9 +1500,9 @@ def surface_tessalations(
                 is_ccw = np.array(
                     [
                         pp.geometry_property_checks.is_ccw_polyline(
-                            start[:, i], middle[:, i], end[:, i]
+                            start[:, i], middle[:, i], end[:, i]  # type:ignore
                         )
-                        for i in range(poly.shape[1])
+                        for i in range(poly.shape[1])  # type:ignore
                     ]
                 )
 
@@ -1546,8 +1547,8 @@ def surface_tessalations(
     return isect_polys, mappings
 
 
-def split_intersecting_segments_2d(p, e, tol=1e-4):
-    """ Process a set of points and connections between them so that the result
+def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
+    """Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
 
     The function is written for gridding of fractured domains, but may be
@@ -1566,10 +1567,14 @@ def split_intersecting_segments_2d(p, e, tol=1e-4):
             0 and 1 are index of start and endpoints, additional rows are tags
         tol (double, optional, default=1e-8): Tolerance used for comparing
             equal points.
+        return_argsort (bool, optional, default=False): Return the mapping
+            between the input segments and the output segments.
 
     Returns:
         np.ndarray, (2 x n_pt), array of points, possibly expanded.
         np.ndarray, (n x n_edges), array of new edges. Non-intersecting.
+        np.array, (n_edges), array to map the new edges with the input edges.
+            Returned if return_argsort is True.
 
     """
     # Find the bounding box
@@ -1713,7 +1718,10 @@ def split_intersecting_segments_2d(p, e, tol=1e-4):
     # If we have found no intersection points, we can safely return the incoming
     # points and edges.
     if len(new_pts) == 0:
-        return p, e
+        if return_argsort:
+            return p, e, np.arange(e.shape[1])
+        else:
+            return p, e
     # If intersection points are found, the intersecting lines must be split into
     # shorter segments.
     else:
@@ -1724,7 +1732,8 @@ def split_intersecting_segments_2d(p, e, tol=1e-4):
         # may merge non-intersecting fractures.
         unique_all_pt, _, ib = pp.utils.setmembership.unique_columns_tol(all_pt, tol)
         # Data structure for storing the split edges.
-        new_edge = np.empty((e.shape[0], 0))
+        new_edge = np.empty((e.shape[0], 0), dtype=np.int)
+        argsort = np.empty(0, dtype=np.int)
 
         # Loop over all lines, split it into non-overlapping segments.
         for ei in range(num_lines):
@@ -1744,12 +1753,13 @@ def split_intersecting_segments_2d(p, e, tol=1e-4):
             order = np.argsort(dist)
             new_inds = inds[order]
             # All new segments share the tags of the old one.
-            loc_tags = e[2:, ei].reshape((-1, 1)) * np.ones(num_branches)
+            loc_tags = e[2:, ei].reshape((-1, 1)) * np.ones(num_branches, dtype=np.int)
             # Define the new segments, in terms of the unique points
             loc_edge = np.vstack((new_inds[:-1], new_inds[1:], loc_tags))
 
             # Add to the global list of segments
             new_edge = np.hstack((new_edge, loc_edge))
+            argsort = np.hstack((argsort, [ei] * loc_edge.shape[1]))
 
         # Finally, uniquify edges. This operation is necessary for overlapping edges.
         # Operate on sorted point indices per edge
@@ -1759,12 +1769,16 @@ def split_intersecting_segments_2d(p, e, tol=1e-4):
             new_edge[:2].astype(np.int), tol
         )
         new_edge = new_edge[:, edge_map]
+        argsort = argsort[edge_map]
 
-        return unique_all_pt, new_edge.astype(np.int)
+        if return_argsort:
+            return unique_all_pt, new_edge.astype(np.int), argsort
+        else:
+            return unique_all_pt, new_edge.astype(np.int)
 
 
 def _axis_aligned_bounding_box_2d(p, e):
-    """ For a set of lines in 2d, obtain the bounding box for each line.
+    """For a set of lines in 2d, obtain the bounding box for each line.
 
     The lines are specified as a list of points, together with connections between
     the points.
@@ -1798,7 +1812,7 @@ def _axis_aligned_bounding_box_2d(p, e):
 
 
 def _axis_aligned_bounding_box_3d(polys):
-    """ For a set of polygons embedded in 3d, obtain the bounding box for each object.
+    """For a set of polygons embedded in 3d, obtain the bounding box for each object.
 
     The polygons are specified as a list of numpy arrays.
 
@@ -1839,7 +1853,7 @@ def _axis_aligned_bounding_box_3d(polys):
 
 
 def _identify_overlapping_intervals(left, right):
-    """ Based on a set of start and end coordinates for intervals, identify pairs of
+    """Based on a set of start and end coordinates for intervals, identify pairs of
     overlapping intervals.
 
     Parameters:
@@ -1913,7 +1927,7 @@ def _identify_overlapping_intervals(left, right):
 
 
 def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
-    """ Based on a set of start and end coordinates for bounding boxes, identify pairs of
+    """Based on a set of start and end coordinates for bounding boxes, identify pairs of
     overlapping rectangles.
 
     The algorithm was found in 'A fast method for fracture intersection detection
@@ -1999,7 +2013,7 @@ def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
 
 
 def _intersect_pairs(p1, p2):
-    """ For two lists containing pair of indices, find the intersection.
+    """For two lists containing pair of indices, find the intersection.
 
     Parameters:
         p1 (np.array, 2 x n): Each column contains a pair of indices.

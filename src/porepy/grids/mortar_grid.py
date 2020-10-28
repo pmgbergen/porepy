@@ -1,9 +1,10 @@
 """ Module containing the class for the mortar grid.
 """
 import warnings
+from typing import Dict, Generator, List, Optional, Tuple, Union
+
 import numpy as np
 from scipy import sparse as sps
-from typing import Dict, Optional, Generator, Tuple
 
 import porepy as pp
 
@@ -50,7 +51,7 @@ class MortarGrid:
         dim: int,
         side_grids: Dict[int, pp.Grid],
         face_cells: sps.spmatrix,
-        name: str = "",
+        name: Union[str, List[str]] = "",
         face_duplicate_ind: Optional[np.ndarray] = None,
         tol: float = 1e-6,
     ):
@@ -179,8 +180,7 @@ class MortarGrid:
         return s
 
     def __str__(self) -> str:
-        """ Implementation of __str__
-        """
+        """Implementation of __str__"""
         s = (
             "Mortar grid with history "
             + ", ".join(self.name)
@@ -198,7 +198,8 @@ class MortarGrid:
         We assume that they are not aligned with x (1d) or x, y (2d).
         """
         # Update the actual side grids
-        [g.compute_geometry() for g in self.side_grids.values()]
+        for g in self.side_grids.values():
+            g.compute_geometry()
 
         # Update the attributes
         self.num_cells = np.sum(
@@ -392,7 +393,7 @@ class MortarGrid:
     def project_to_side_grids(
         self,
     ) -> Generator[Tuple[sps.spmatrix, pp.Grid], None, None]:
-        """ Generator for the side grids (pp.Grid) representation of the mortar
+        """Generator for the side grids (pp.Grid) representation of the mortar
         cells, and projection operators from the mortar cells, combining cells on all
         the sides, to the specific side grids.
 
@@ -417,9 +418,8 @@ class MortarGrid:
             yield proj, grid
 
     ## Methods to construct projection matrices
-
     def master_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
-        """ Project values from faces of master to the mortar, by summing quantities
+        """Project values from faces of master to the mortar, by summing quantities
         from the master side.
 
         The projection matrix is scaled so that the column sum is unity, that is, values
@@ -440,7 +440,7 @@ class MortarGrid:
         return self._convert_to_vector_variable(self._master_to_mortar_int, nd)
 
     def slave_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
-        """ Project values from cells on the slave side to the mortar, by
+        """Project values from cells on the slave side to the mortar, by
         summing quantities from the slave side.
 
         The projection matrix is scaled so that the column sum is unity, that is, values
@@ -461,7 +461,7 @@ class MortarGrid:
         return self._convert_to_vector_variable(self._slave_to_mortar_int, nd)
 
     def master_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
-        """ Project values from faces of master to the mortar, by averaging quantities
+        """Project values from faces of master to the mortar, by averaging quantities
         from the master side.
 
         The projection matrix is scaled so that the row sum is unity, that is, values
@@ -480,13 +480,11 @@ class MortarGrid:
                 Size: g_master.num_faces x mortar_grid.num_cells.
 
         """
-        row_sum = self._master_to_mortar_int.sum(axis=1).A.ravel()
-        return self._convert_to_vector_variable(
-            sps.diags(1.0 / row_sum) * self._master_to_mortar_int, nd
-        )
+        scaled_mat = self._row_sum_scaling_matrix(self._master_to_mortar_int)
+        return self._convert_to_vector_variable(scaled_mat, nd)
 
     def slave_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
-        """ Project values from cells at the slave to the mortar, by averaging
+        """Project values from cells at the slave to the mortar, by averaging
         quantities from the slave side.
 
         The projection matrix is scaled so that the row sum is unity, that is, values
@@ -505,17 +503,31 @@ class MortarGrid:
                 Size: g_slave.num_cells x mortar_grid.num_cells.
 
         """
-        row_sum = self._slave_to_mortar_int.sum(axis=1).A.ravel()
-        return self._convert_to_vector_variable(
-            sps.diags(1.0 / row_sum) * self._slave_to_mortar_int, nd
-        )
+        scaled_mat = self._row_sum_scaling_matrix(self._slave_to_mortar_int)
+        return self._convert_to_vector_variable(scaled_mat, nd)
+
+    def _row_sum_scaling_matrix(self, mat):
+        # Helper method to construct projection matrices.
+        row_sum = mat.sum(axis=1).A.ravel()
+
+        if np.all(row_sum == 1):
+            # If only unit scalings, no need to do anything
+            return mat
+
+        # Profiling showed that scaling with a csc matrix is quicker than a diagonal
+        # matrix. Savings both in construction (!) and multiplication.
+        sz = row_sum.size
+        indptr = np.arange(sz + 1)
+        ind = np.arange(sz)
+        scaling = sps.csc_matrix((1.0 / row_sum, ind, indptr), shape=(sz, sz))
+        return scaling * mat
 
     # IMPLEMENTATION NOTE: The reverse projections, from mortar to master/slave are
     # found by taking transposes, and switching average and integration (since we are
     # changing which side we are taking the area relative to.
 
     def mortar_to_master_int(self, nd: int = 1) -> sps.spmatrix:
-        """ Project values from the mortar to faces of master, by summing quantities
+        """Project values from the mortar to faces of master, by summing quantities
         from the mortar side.
 
         The projection matrix is scaled so that the column sum is unity, that is, values
@@ -536,7 +548,7 @@ class MortarGrid:
         return self._convert_to_vector_variable(self.master_to_mortar_avg().T, nd)
 
     def mortar_to_slave_int(self, nd: int = 1) -> sps.spmatrix:
-        """ Project values from the mortar to cells at the slave, by summing quantities
+        """Project values from the mortar to cells at the slave, by summing quantities
         from the mortar side.
 
         The projection matrix is scaled so that the column sum is unity, that is, values
@@ -557,7 +569,7 @@ class MortarGrid:
         return self._convert_to_vector_variable(self.slave_to_mortar_avg().T, nd)
 
     def mortar_to_master_avg(self, nd: int = 1) -> sps.spmatrix:
-        """ Project values from the mortar to faces of master, by averaging
+        """Project values from the mortar to faces of master, by averaging
         quantities from the mortar side.
 
         The projection matrix is scaled so that the row sum is unity, that is, values
@@ -579,7 +591,7 @@ class MortarGrid:
         return self._convert_to_vector_variable(self.master_to_mortar_int().T, nd)
 
     def mortar_to_slave_avg(self, nd: int = 1) -> sps.spmatrix:
-        """ Project values from the mortar to slave, by averaging quantities from the
+        """Project values from the mortar to slave, by averaging quantities from the
         mortar side.
 
         The projection matrix is scaled so that the row sum is unity, that is, values
@@ -603,14 +615,18 @@ class MortarGrid:
     def _convert_to_vector_variable(
         self, matrix: sps.spmatrix, nd: int
     ) -> sps.spmatrix:
-        """ Convert the scalar projection to a vector quantity. If the prescribed
+        """Convert the scalar projection to a vector quantity. If the prescribed
         dimension is 1 (default for all the above methods), the projection matrix
         will in effect not be altered.
         """
-        return sps.kron(matrix, sps.eye(nd)).tocsc()
+        if nd == 1:
+            # No need to do expansion for 1d variables.
+            return matrix
+        else:
+            return sps.kron(matrix, sps.eye(nd)).tocsc()
 
     def sign_of_mortar_sides(self, nd: int = 1) -> sps.spmatrix:
-        """ Assign positive or negative weight to the two sides of a mortar grid.
+        """Assign positive or negative weight to the two sides of a mortar grid.
 
         This is needed e.g. to make projection operators into signed projections,
         for variables that have no particular defined sign conventions.
@@ -838,7 +854,8 @@ class BoundaryMortar(MortarGrid):
         Compute the geometry of the mortar grids.
         We assume that they are not aligned with x (1d) or x, y (2d).
         """
-        [g.compute_geometry() for g in self.side_grids.values()]
+        for g in self.side_grids.values():
+            g.compute_geometry()
 
 
 # --- helper methods
