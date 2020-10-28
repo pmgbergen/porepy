@@ -181,7 +181,7 @@ class FracturePropagation(abc.ABC):
                 )
                 new_ind = self._new_dof_inds(mapping)
                 new_vals = self._initialize_new_variable_values(g, d, var, dofs)
-                x_new[self.assembler.dof_ind(g, var)][new_ind] = new_vals
+                x_new[self.assembler.dof_ind(g, var)[new_ind]] = new_vals
 
         for e, d in self.gb.edges():
             if not "cell_index_map" in d:
@@ -197,7 +197,7 @@ class FracturePropagation(abc.ABC):
                 )
                 new_ind = self._new_dof_inds(mapping)
                 new_vals = self._initialize_new_variable_values(e, d, var, dofs)
-                x_new[self.assembler.dof_ind(e, var)][new_ind] = new_vals
+                x_new[self.assembler.dof_ind(e, var)[new_ind]] = new_vals
 
         # Store the mapped solution vector
         return x_new
