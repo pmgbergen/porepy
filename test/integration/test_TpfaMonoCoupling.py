@@ -101,7 +101,7 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         mg.nodes[1] = np.linspace(0, ymax, (n + 1) * ymax)
         mg.compute_geometry()
         d_e = gb.edge_props((g1, g2))
-        d_e["mortar_grid"] = pp.BoundaryMortar(g1.dim - 1, mg, face_faces)
+        d_e["mortar_grid"] = pp.MortarGrid(g1.dim - 1, {"0": mg}, face_faces)
         d_e["edge_number"] = 0
 
         return gb
@@ -335,7 +335,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         mg.compute_geometry()
 
         d_e = gb.edge_props((g1, g1))
-        d_e["mortar_grid"] = pp.BoundaryMortar(g1.dim - 1, mg, face_faces)
+        d_e["mortar_grid"] = pp.MortarGrid(g1.dim - 1, {"0": mg}, face_faces)
         gb.assign_node_ordering()
         return gb
 
@@ -390,7 +390,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                             gi, gi.left, faces=True
                         )
 
-                    d_e["mortar_grid"] = pp.BoundaryMortar(gi.dim - 1, g_m, face_faces)
+                    d_e["mortar_grid"] = pp.MortarGrid(gi.dim - 1, {"0": g_m}, face_faces)
 
         gb.compute_geometry()  # basically reset g.face_centers[,right]
         gb.assign_node_ordering()
