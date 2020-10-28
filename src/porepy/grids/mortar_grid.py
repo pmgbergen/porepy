@@ -644,8 +644,11 @@ class MortarGrid:
         slave_f, master_f, data = sps.find(master_slave)
 
         # It is assumed that the cells of the given mortar grid are ordered
-        # by the slave side index
-        ix = np.argsort(slave_f)
+        # by the slave side index. We use stable sort to not mix up the ordering.
+        # I do not think it matters, except that it broke some unittests that
+        # hardcoded a specific ordering (integration/test_coarsening.py). But it
+        # was quicker to change the sort than figuring out the indices again.
+        ix = np.argsort(slave_f, kind="stable")
         if self.num_sides()==2:
             # If there are two sides we are in the case of a slave grid of equal
             # dimension as the mortar grid. The mapping master_slave is then a mapping
