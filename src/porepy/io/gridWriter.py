@@ -378,21 +378,70 @@ def addCellFaceTag(gb):
                     diff = cc - fc
 
                     num_tags = 0
-                    if diff[0] < - tol:
+                    if diff[0] > tol:
                         g.cell_facetag[k * 4 + i] = 0
                         num_tags += 1
-                    if diff[0] > tol:
+                    if diff[0] < - tol:
                         g.cell_facetag[k * 4 + i] = 1
                         num_tags += 1
-                    if diff[1] < -tol:
+                    if diff[1] > tol:
                         g.cell_facetag[k * 4 + i] = 2
                         num_tags += 1
-                    if diff[1] > tol:
+                    if diff[1] < - tol:
                         g.cell_facetag[k * 4 + i] = 3
                         num_tags += 1
 
                     if num_tags!=1:
-                        raise AttributeError("Could not find EWNS face of cell {}".format(k))
+                        raise AttributeError(
+                            "Could not find W, E, S, or N face of cell {}".format(k)
+                        )
+
+def enforce_opm_face_ordering(gb):
+    if isinstance(gb, pp.GridBucket):
+        for g in gb.grids_of_dimension(3):
+            if "CartGrid" in g.name:
+                raise NotImplementedError('Have not implemented addCellFaceTag for dimension 3')
+        grid_list = gb.grids_of_dimension(2)
+
+    else:
+        if gb.dim != 2:
+            raise NotImplementedError("Have only implemented callFaceTag for dimension 2")
+        grid_list = [gb]
+
+    # OPM faces ordered counterclockwise starting at West face
+    opm_sort = [0,2,1,3]
+    for g in grid_list:
+        if not "CartGrid" in g.name:
+            raise ValueError("Can only enforce face ordering for CartGrid")
+        if not hasattr(g, "cell_facetag"):
+            raise ValueError("Can only order grids with cell_facetag")
+
+        # Get ordering of OPM faces in a cell
+        _, IC = np.unique(opm_sort, return_inverse=True)
+        cell_facetag = g.cell_facetag.reshape((-1, 4))
+
+        old2new = np.empty(g.num_faces, dtype=int)
+        for k in range(g.num_cells):
+            # Get pp ordering of faces
+            IA = np.argsort(cell_facetag[k,:])
+            # Get faces of cell
+            cell_face_pos = pp.utils.mcolon.mcolon(
+                g.cell_faces.indptr[k], g.cell_faces.indptr[k + 1]
+            )
+            faces = g.cell_faces.indices[cell_face_pos]
+            sgn = g.cell_faces.data[cell_face_pos]
+            # for face in faces[[2,3]]:
+            #     nodePos = g.face_nodes.indptr[face]
+            #     nodes = g.face_nodes.indices[nodePos:nodePos+2].copy()
+            #     g.face_nodes.indices[nodePos] = nodes[1]
+            #     g.face_nodes.indices[nodePos + 1] = nodes[0]
+            
+            # change the orderign to the OPM ordering
+            old2new[faces] = faces[IA][IC]
+            g.cell_faces.indices[cell_face_pos] = faces[IA][IC]
+            g.cell_faces.data[cell_face_pos] = sgn[IA][IC]
+            g.cell_facetag[cell_face_pos] = opm_sort
+
 
 def circumcenterCellCenters(gb):
     if len(gb.grids_of_dimension(3))>0:
