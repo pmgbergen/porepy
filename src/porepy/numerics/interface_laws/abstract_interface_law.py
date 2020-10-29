@@ -64,9 +64,9 @@ class AbstractInterfaceLaw(abc.ABC):
 
         Parameters:
             g_h: Grid of the master domanin.
-            g_l: Grid of the slave domain.
+            g_l: Grid of the low domain.
             data_h: Data dictionary for the master domain.
-            data_l: Data dictionary for the slave domain.
+            data_l: Data dictionary for the low domain.
             data_edge: Data dictionary for the edge between the domains.
 
         """
@@ -96,9 +96,9 @@ class AbstractInterfaceLaw(abc.ABC):
 
         Parameters:
             g_h: Grid of the master domanin.
-            g_l: Grid of the slave domain.
+            g_l: Grid of the low domain.
             data_h: Data dictionary for the master domain.
-            data_l: Data dictionary for the slave domain.
+            data_l: Data dictionary for the low domain.
             data_edge: Data dictionary for the edge between the domains.
 
         """
@@ -108,9 +108,9 @@ class AbstractInterfaceLaw(abc.ABC):
     def assemble_matrix_rhs(
         self,
         g_master: pp.Grid,
-        g_slave: pp.Grid,
+        g_low: pp.Grid,
         data_master: Dict,
-        data_slave: Dict,
+        data_low: Dict,
         data_edge: Dict,
         matrix: np.ndarray,
     ) -> Union[np.ndarray, np.ndarray]:
@@ -121,19 +121,19 @@ class AbstractInterfaceLaw(abc.ABC):
 
         Parameters:
             g_master: Grid on one neighboring subdomain.
-            g_slave: Grid on the other neighboring subdomain.
+            g_low: Grid on the other neighboring subdomain.
             data_master: Data dictionary for the master suddomain
-            data_slave: Data dictionary for the slave subdomain.
+            data_low: Data dictionary for the low subdomain.
             data_edge: Data dictionary for the edge between the subdomains
             matrix_master: original discretization for the master subdomain
 
         Returns:
             np.array: Block matrix of size 3 x 3, whwere each block represents
                 coupling between variables on this interface. Index 0, 1 and 2
-                represent the master, slave and mortar variable, respectively.
+                represent the master, low and mortar variable, respectively.
             np.array: Block matrix of size 3 x 1, representing the right hand
                 side of this coupling. Index 0, 1 and 2 represent the master,
-                slave and mortar variable, respectively.
+                low and mortar variable, respectively.
 
         """
         pass
@@ -141,9 +141,9 @@ class AbstractInterfaceLaw(abc.ABC):
     def assemble_matrix(
         self,
         g_master: pp.Grid,
-        g_slave: pp.Grid,
+        g_low: pp.Grid,
         data_master: Dict,
-        data_slave: Dict,
+        data_low: Dict,
         data_edge: Dict,
         matrix: np.ndarray,
     ) -> np.ndarray:
@@ -156,29 +156,29 @@ class AbstractInterfaceLaw(abc.ABC):
 
         Parameters:
             g_master: Grid on one neighboring subdomain.
-            g_slave: Grid on the other neighboring subdomain.
+            g_low: Grid on the other neighboring subdomain.
             data_master: Data dictionary for the master suddomain
-            data_slave: Data dictionary for the slave subdomain.
+            data_low: Data dictionary for the low subdomain.
             data_edge: Data dictionary for the edge between the subdomains
             matrix_master: original discretization for the master subdomain
 
         Returns:
             np.array: Block matrix of size 3 x 3, whwere each block represents
                 coupling between variables on this interface. Index 0, 1 and 2
-                represent the master, slave and mortar variable, respectively.
+                represent the master, low and mortar variable, respectively.
 
         """
         A, _ = self.assemble_matrix_rhs(
-            g_master, g_slave, data_master, data_slave, data_edge, matrix
+            g_master, g_low, data_master, data_low, data_edge, matrix
         )
         return A
 
     def assemble_rhs(
         self,
         g_master: pp.Grid,
-        g_slave: pp.Grid,
+        g_low: pp.Grid,
         data_master: Dict,
-        data_slave: Dict,
+        data_low: Dict,
         data_edge: Dict,
         matrix: np.ndarray,
     ) -> np.ndarray:
@@ -191,65 +191,65 @@ class AbstractInterfaceLaw(abc.ABC):
 
         Parameters:
             g_master: Grid on one neighboring subdomain.
-            g_slave: Grid on the other neighboring subdomain.
+            g_low: Grid on the other neighboring subdomain.
             data_master: Data dictionary for the master suddomain
-            data_slave: Data dictionary for the slave subdomain.
+            data_low: Data dictionary for the low subdomain.
             data_edge: Data dictionary for the edge between the subdomains
             matrix_master: original discretization for the master subdomain
 
         Returns:
             np.array: Block matrix of size 3 x 3, whwere each block represents
                 coupling between variables on this interface. Index 0, 1 and 2
-                represent the master, slave and mortar variable, respectively.
+                represent the master, low and mortar variable, respectively.
 
         """
         _, b = self.assemble_matrix_rhs(
-            g_master, g_slave, data_master, data_slave, data_edge, matrix
+            g_master, g_low, data_master, data_low, data_edge, matrix
         )
         return b
 
     def _define_local_block_matrix(
         self,
         g_master: pp.Grid,
-        g_slave: pp.Grid,
+        g_low: pp.Grid,
         discr_master: Discretization,
-        discr_slave: Discretization,
+        discr_low: Discretization,
         mg: pp.MortarGrid,
         matrix: np.ndarray,
     ) -> Union[np.ndarray, np.ndarray]:
         """Initialize a block matrix and right hand side for the local linear
-        system of the master and slave grid and the interface.
+        system of the master and low grid and the interface.
 
         The generated block matrix is 3x3, where each block is initialized as
         a sparse matrix with size corresponding to the number of dofs for
-        the master, slave and mortar variables for this interface law.
+        the master, low and mortar variables for this interface law.
 
         Parameters:
             g_master: Grid on one neighboring subdomain.
-            g_slave: Grid on the other neighboring subdomain.
+            g_low: Grid on the other neighboring subdomain.
             data_master: Data dictionary for the master suddomain
-            data_slave: Data dictionary for the slave subdomain.
+            data_low: Data dictionary for the low subdomain.
             data_edge: Data dictionary for the edge between the subdomains
             matrix_master: original discretization for the master subdomain
 
         Returns:
             np.array: Block matrix of size 3 x 3, whwere each block represents
                 coupling between variables on this interface. Index 0, 1 and 2
-                represent the master, slave and mortar variable, respectively.
+                represent the master, low and mortar variable, respectively.
                 Each of the blocks have an empty sparse matrix with size
                 corresponding to the number of dofs of the grid and variable.
             np.array: Block matrix of size 3 x 1, representing the right hand
                 side of this coupling. Index 0, 1 and 2 represent the master,
-                slave and mortar variable, respectively.
+                low and mortar variable, respectively.
 
         """
 
         master_ind = 0
-        slave_ind = 1
+        low_ind = 1
         mortar_ind = 2
 
         dof_master = discr_master.ndof(g_master)
-        dof_slave = discr_slave.ndof(g_slave)
+        dof_low = discr_low.ndof(g_low)
         dof_mortar = self.ndof(mg)
 
         if not dof_master == matrix[master_ind, master_ind].shape[1]:
@@ -258,9 +258,9 @@ class AbstractInterfaceLaw(abc.ABC):
             in the coupling discretization must match the number of dofs given by the matrix
             """
             )
-        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
+        elif not dof_low == matrix[master_ind, low_ind].shape[1]:
             raise ValueError(
-                """The number of dofs of the slave discretization given
+                """The number of dofs of the low discretization given
             in the coupling discretization must match the number of dofs given by the matrix
             """
             )
@@ -270,16 +270,16 @@ class AbstractInterfaceLaw(abc.ABC):
             in the coupling discretization must match the number of dofs given by the matrix
             """
             )
-        # We know the number of dofs from the master and slave side from their
+        # We know the number of dofs from the master and low side from their
         # discretizations
-        dof = np.array([dof_master, dof_slave, dof_mortar])
+        dof = np.array([dof_master, dof_low, dof_mortar])
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((3, 3))
 
         # The rhs is just zeros
         rhs = np.empty(3, dtype=np.object)
         rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
+        rhs[low_ind] = np.zeros(dof_low)
         rhs[mortar_ind] = np.zeros(dof_mortar)
 
         return cc, rhs
@@ -293,29 +293,29 @@ class AbstractInterfaceLaw(abc.ABC):
         matrix: np.ndarray,
     ) -> Union[np.ndarray, np.ndarray]:
         """Initialize a block matrix and right hand side for the local linear
-        system of the master and slave grid and the interface.
+        system of the master and low grid and the interface.
 
         The generated block matrix is 3x3, where each block is initialized as
         a sparse matrix with size corresponding to the number of dofs for
-        the master, slave and mortar variables for this interface law.
+        the master, low and mortar variables for this interface law.
 
         Parameters:
             g_master: Grid on one neighboring subdomain.
-            g_slave: Grid on the other neighboring subdomain.
+            g_low: Grid on the other neighboring subdomain.
             data_master: Data dictionary for the master suddomain
-            data_slave: Data dictionary for the slave subdomain.
+            data_low: Data dictionary for the low subdomain.
             data_edge: Data dictionary for the edge between the subdomains
             matrix_master: original discretization for the master subdomain
 
         Returns:
             np.array: Block matrix of size 3 x 3, whwere each block represents
                 coupling between variables on this interface. Index 0, 1 and 2
-                represent the master, slave and mortar variable, respectively.
+                represent the master, low and mortar variable, respectively.
                 Each of the blocks have an empty sparse matrix with size
                 corresponding to the number of dofs of the grid and variable.
             np.array: Block matrix of size 3 x 1, representing the right hand
                 side of this coupling. Index 0, 1 and 2 represent the master,
-                slave and mortar variable, respectively.
+                low and mortar variable, respectively.
 
         """
 
@@ -335,7 +335,7 @@ class AbstractInterfaceLaw(abc.ABC):
             )
         elif not dof_mortar_primary == matrix[grid_ind, primary_ind].shape[1]:
             raise ValueError(
-                """The number of dofs of the slave discretization given
+                """The number of dofs of the low discretization given
             in the coupling discretization must match the number of dofs given by the matrix
             """
             )
@@ -345,7 +345,7 @@ class AbstractInterfaceLaw(abc.ABC):
             in the coupling discretization must match the number of dofs given by the matrix
             """
             )
-        # We know the number of dofs from the master and slave side from their
+        # We know the number of dofs from the master and low side from their
         # discretizations
         dof = np.array([dof_grid, dof_mortar_primary, dof_mortar_secondary])
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
@@ -456,10 +456,10 @@ class AbstractInterfaceLaw(abc.ABC):
         Returns:
             np.array: Block matrix of size 3 x 3, whwere each block represents
                 coupling between variables on this interface. Index 0, 1 and 2
-                represent the master, slave and mortar variable, respectively.
+                represent the master, low and mortar variable, respectively.
             np.array: Block matrix of size 3 x 1, representing the right hand
                 side of this coupling. Index 0, 1 and 2 represent the master,
-                slave and mortar variable, respectively.
+                low and mortar variable, respectively.
 
         """
         if self.edge_coupling_via_low_dim:

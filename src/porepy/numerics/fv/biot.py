@@ -1542,10 +1542,10 @@ class DivU(Discretization):
             data_edge (dictionary): Data dictionary for the edge in the
                 mixed-dimensional grid.
             grid_swap (boolean): If True, the grid g is identified with the @
-                slave side of the mortar grid in data_adge.
+                low side of the mortar grid in data_adge.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                master and low side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -1602,10 +1602,10 @@ class DivU(Discretization):
             data_edge (dictionary): Data dictionary for the edge in the
                 mixed-dimensional grid.
             grid_swap (boolean): If True, the grid g is identified with the @
-                slave side of the mortar grid in data_adge.
+                low side of the mortar grid in data_adge.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                master and low side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -1618,13 +1618,13 @@ class DivU(Discretization):
 
         # From the mortar displacements, we want to
         # 1) Take the jump between the two mortar sides,
-        # 2) Project to the slave grid and
+        # 2) Project to the low grid and
         # 3) Extract the normal component.
 
         # Define projections and rotations
         nd = g.dim + 1
         proj = mg.mortar_to_low_avg(nd=nd)
-        jump_on_slave = proj * mg.sign_of_mortar_sides(nd=nd)
+        jump_on_low = proj * mg.sign_of_mortar_sides(nd=nd)
         rotation = data_edge["tangential_normal_projection"]
         normal_component = rotation.project_normal(g.num_cells)
 
@@ -1632,9 +1632,9 @@ class DivU(Discretization):
         biot_alpha = data[pp.PARAMETERS].expand_scalars(
             g.num_cells, self.flow_keyword, ["biot_alpha"]
         )[0]
-        # Project the previous solution to the slave grid
+        # Project the previous solution to the low grid
         previous_displacement_jump_global_coord = (
-            jump_on_slave * data_edge[pp.STATE][self.mortar_variable]
+            jump_on_low * data_edge[pp.STATE][self.mortar_variable]
         )
         # Rotated displacement jumps. These are in the local coordinates, on
         # the lower-dimensional grid
@@ -1646,7 +1646,7 @@ class DivU(Discretization):
         # Finally, we integrate over the cell volume.
         vol = sps.dia_matrix((g.cell_volumes, 0), shape=(g.num_cells, g.num_cells))
         cc[self_ind, 2] += (
-            sps.diags(biot_alpha) * vol * normal_component * jump_on_slave
+            sps.diags(biot_alpha) * vol * normal_component * jump_on_low
         )
 
         # We assume implicit Euler in Biot, thus the div_u term appears

@@ -1788,7 +1788,7 @@ class MockEdgeDiscretization(
         self.off_diag_val = off_diag_val
 
     def assemble_matrix_rhs(
-        self, g_master, g_slave, data_master, data_slave, data_edge, local_matrix
+        self, g_master, g_low, data_master, data_low, data_edge, local_matrix
     ):
 
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
@@ -1819,7 +1819,7 @@ class MockEdgeDiscretizationModifiesNode(
         self.off_diag_val = off_diag_val
 
     def assemble_matrix_rhs(
-        self, g_master, g_slave, data_master, data_slave, data_edge, local_matrix
+        self, g_master, g_low, data_master, data_low, data_edge, local_matrix
     ):
 
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
@@ -1920,7 +1920,7 @@ class MockEdgeDiscretizationEdgeCouplings(
         return mg.num_cells
 
     def assemble_matrix_rhs(
-        self, g_master, g_slave, data_master, data_slave, data_edge, local_matrix
+        self, g_master, g_low, data_master, data_low, data_edge, local_matrix
     ):
 
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]

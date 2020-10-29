@@ -24,11 +24,11 @@ class UpwindCoupling(
     def ndof(self, mg):
         return mg.num_cells
 
-    def discretize(self, g_master, g_slave, data_master, data_slave, data_edge):
+    def discretize(self, g_master, g_low, data_master, data_low, data_edge):
         pass
 
     def assemble_matrix_rhs(
-        self, g_master, g_slave, data_master, data_slave, data_edge, matrix
+        self, g_master, g_low, data_master, data_low, data_edge, matrix
     ):
         """
         Construct the matrix (and right-hand side) for the coupling conditions.
@@ -36,10 +36,10 @@ class UpwindCoupling(
 
         Parameters:
             g_master: grid of higher dimension
-            g_slave: grid of lower dimension
+            g_low: grid of lower dimension
             data_master: dictionary which stores the data for the higher dimensional
                 grid
-            data_slave: dictionary which stores the data for the lower dimensional
+            data_low: dictionary which stores the data for the lower dimensional
                 grid
             data_edge: dictionary which stores the data for the edges of the grid
                 bucket
@@ -60,7 +60,7 @@ class UpwindCoupling(
         # Create the block matrix for the contributions
         mg = data_edge["mortar_grid"]
 
-        # We know the number of dofs from the master and slave side from their
+        # We know the number of dofs from the master and low side from their
         # discretizations
         dof = np.array([matrix[0, 0].shape[1], matrix[1, 1].shape[1], mg.num_cells])
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
@@ -109,7 +109,7 @@ class UpwindCoupling(
         # Recover the information for the grid-grid mapping
         cc[2, 2] = -sps.eye(mg.num_cells)
 
-        if data_master["node_number"] == data_slave["node_number"]:
+        if data_master["node_number"] == data_low["node_number"]:
             # All contributions to be returned to the same block of the
             # global matrix in this case
             cc = np.array([np.sum(cc, axis=(0, 1))])
@@ -122,9 +122,9 @@ class UpwindCoupling(
     def cfl(
         self,
         g_master,
-        g_slave,
+        g_low,
         data_master,
-        data_slave,
+        data_low,
         data_edge,
         d_name="mortar_solution",
     ):
@@ -139,10 +139,10 @@ class UpwindCoupling(
 
         Parameters:
             g_master: grid of higher dimension
-            g_slave: grid of lower dimension
+            g_low: grid of lower dimension
             data_master: dictionary which stores the data for the higher dimensional
                 grid
-            data_slave: dictionary which stores the data for the lower dimensional
+            data_low: dictionary which stores the data for the lower dimensional
                 grid
             data: dictionary which stores the data for the edges of the grid
                 bucket
@@ -159,38 +159,38 @@ class UpwindCoupling(
         # Retrieve the darcy_flux, which is mandatory
 
         aperture_master = data_master["param"].get_aperture()
-        aperture_slave = data_slave["param"].get_aperture()
-        phi_slave = data_slave["param"].get_porosity()
+        aperture_low = data_low["param"].get_aperture()
+        phi_low = data_low["param"].get_porosity()
         mg = data_edge["mortar_grid"]
         darcy_flux = np.zeros(g_master.num_faces)
         darcy_flux[mg.high_to_mortar_int.nonzero()[1]] = data_edge[d_name]
-        if g_master.dim == g_slave.dim:
+        if g_master.dim == g_low.dim:
             # More or less same as below, except we have cell_cells in the place
             # of face_cells (see grid_bucket.duplicate_without_dimension).
             phi_master = data_master["param"].get_porosity()
-            cells_slave, cells_master = data_edge["face_cells"].nonzero()
+            cells_low, cells_master = data_edge["face_cells"].nonzero()
             not_zero = ~np.isclose(np.zeros(darcy_flux.shape), darcy_flux, atol=0)
             if not np.any(not_zero):
                 return np.Inf
 
             diff = (
                 g_master.cell_centers[:, cells_master]
-                - g_slave.cell_centers[:, cells_slave]
+                - g_low.cell_centers[:, cells_low]
             )
             dist = np.linalg.norm(diff, 2, axis=0)
 
             # Use minimum of cell values for convenience
-            phi_slave = phi_slave[cells_slave]
+            phi_low = phi_low[cells_low]
             phi_master = phi_master[cells_master]
             apt_master = aperture_master[cells_master]
-            apt_slave = aperture_slave[cells_slave]
-            coeff = np.minimum(phi_master, phi_slave) * np.minimum(
-                apt_master, apt_slave
+            apt_low = aperture_low[cells_low]
+            coeff = np.minimum(phi_master, phi_low) * np.minimum(
+                apt_master, apt_low
             )
             return np.amin(np.abs(np.divide(dist, darcy_flux)) * coeff)
 
         # Recover the information for the grid-grid mapping
-        cells_slave, faces_master, _ = sps.find(data_edge["face_cells"])
+        cells_low, faces_master, _ = sps.find(data_edge["face_cells"])
 
         # Detect and remove the faces which have zero in "darcy_flux"
         not_zero = ~np.isclose(
@@ -199,18 +199,18 @@ class UpwindCoupling(
         if not np.any(not_zero):
             return np.inf
 
-        cells_slave = cells_slave[not_zero]
+        cells_low = cells_low[not_zero]
         faces_master = faces_master[not_zero]
         # Mapping from faces_master to cell_master
         cell_faces_master = g_master.cell_faces.tocsr()[faces_master, :]
         cells_master = cell_faces_master.nonzero()[1][not_zero]
         # Retrieve and map additional data
         aperture_master = aperture_master[cells_master]
-        aperture_slave = aperture_slave[cells_slave]
-        phi_slave = phi_slave[cells_slave]
+        aperture_low = aperture_low[cells_low]
+        phi_low = phi_low[cells_low]
         # Compute discrete distance cell to face centers for the lower
         # dimensional grid
-        dist = 0.5 * np.divide(aperture_slave, aperture_master)
+        dist = 0.5 * np.divide(aperture_low, aperture_master)
         # Since darcy_flux is multiplied by the aperture wighted face areas, we
         # divide through that quantity to get velocities in [length/time]
         velocity = np.divide(
@@ -218,4 +218,4 @@ class UpwindCoupling(
             g_master.face_areas[faces_master] * aperture_master,
         )
         # deltaT is deltaX/velocity with coefficient
-        return np.amin(np.abs(np.divide(dist, velocity)) * phi_slave)
+        return np.amin(np.abs(np.divide(dist, velocity)) * phi_low)

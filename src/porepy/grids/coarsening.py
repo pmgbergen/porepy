@@ -352,7 +352,7 @@ def generate_seeds(gb):
         index = np.in1d(faces, tips).nonzero()[0]
         cells = np.unique(cells[index])
 
-        # recover the mapping between the slave and the master grid
+        # recover the mapping between the low and the master grid
         mg = gb._edges[(g_h, g)]["mortar_grid"]
         m2m = mg.high_to_mortar_int()
         l2m = mg.low_to_mortar_int()

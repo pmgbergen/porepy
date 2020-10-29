@@ -134,7 +134,7 @@ class EllipticDiscretization(Discretization):
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,
-        use_slave_proj: bool,
+        use_low_proj: bool,
     ) -> None:
         """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
@@ -154,16 +154,16 @@ class EllipticDiscretization(Discretization):
             data_edge (dictionary): Data dictionary for the edge in the
                 mixed-dimensional grid.
             grid_swap (boolean): If True, the grid g is identified with the @
-                slave side of the mortar grid in data_adge.
+                low side of the mortar grid in data_adge.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                master and low side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
-            use_slave_proj (boolean): If True, the slave side projection operator is
+            use_low_proj (boolean): If True, the low side projection operator is
                 used. Needed for periodic boundary conditions.
 
         """
@@ -198,10 +198,10 @@ class EllipticDiscretization(Discretization):
             data_edge (dictionary): Data dictionary for the edge in the
                 mixed-dimensional grid.
             grid_swap (boolean): If True, the grid g is identified with the @
-                slave side of the mortar grid in data_adge.
+                low side of the mortar grid in data_adge.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                master and low side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -221,7 +221,7 @@ class EllipticDiscretization(Discretization):
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,
-        use_slave_proj: bool,
+        use_low_proj: bool,
     ) -> None:
         """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -241,10 +241,10 @@ class EllipticDiscretization(Discretization):
             data_edge (dictionary): Data dictionary for the edge in the
                 mixed-dimensional grid.
             grid_swap (boolean): If True, the grid g is identified with the @
-                slave side of the mortar grid in data_adge.
+                low side of the mortar grid in data_adge.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                master and low side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -252,7 +252,7 @@ class EllipticDiscretization(Discretization):
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
-            use_slave_proj (boolean): If True, the slave side projection operator is
+            use_low_proj (boolean): If True, the low side projection operator is
                 used. Needed for periodic boundary conditions.
 
         """
@@ -323,7 +323,7 @@ class EllipticDiscretization(Discretization):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                master and low side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
