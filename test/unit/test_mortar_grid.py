@@ -38,8 +38,8 @@ class TestGridMappings1d(unittest.TestCase):
         self.assertTrue(mg.num_sides() == 1)
         self.assertTrue(np.all(mg.high_to_mortar_avg().A == [1, 0, 0]))
         self.assertTrue(np.all(mg.high_to_mortar_int().A == [1, 0, 0]))
-        self.assertTrue(np.all(mg.slave_to_mortar_avg().A == [0, 0, 1]))
-        self.assertTrue(np.all(mg.slave_to_mortar_int().A == [0, 0, 1]))
+        self.assertTrue(np.all(mg.low_to_mortar_avg().A == [0, 0, 1]))
+        self.assertTrue(np.all(mg.low_to_mortar_int().A == [0, 0, 1]))
 
     def test_merge_two_grids(self):
         """
@@ -64,8 +64,8 @@ class TestGridMappings1d(unittest.TestCase):
         self.assertTrue(mg.num_sides() == 1)
         self.assertTrue(np.all(mg.high_to_mortar_avg().A == [0, 1, 0]))
         self.assertTrue(np.all(mg.high_to_mortar_int().A == [0, 1, 0]))
-        self.assertTrue(np.all(mg.slave_to_mortar_avg().A == [0, 1]))
-        self.assertTrue(np.all(mg.slave_to_mortar_int().A == [0, 1]))
+        self.assertTrue(np.all(mg.low_to_mortar_avg().A == [0, 1]))
+        self.assertTrue(np.all(mg.low_to_mortar_int().A == [0, 1]))
 
 
 if __name__ == "__main__":

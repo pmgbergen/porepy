@@ -35,7 +35,7 @@ class MortarGrid:
             num_faces x num_cells. In the beginning we assume matching grids,
             but it can be modified by calling refine_mortar(). The matrix
             elements represent the ratio between the geometrical objects.
-        _slave_to_mortar_int (sps.csc-matrix): Cell-cell relationships between the
+        _low_to_mortar_int (sps.csc-matrix): Cell-cell relationships between the
             mortar grids and the low dimensional grid. Matrix size:
             num_cells x num_cells. Matrix elements represent the ratio between
             the geometrical objects.
@@ -155,7 +155,7 @@ class MortarGrid:
         # It is composed by two identity matrices since we are assuming matching
         # grids here.
         identity = [[sps.identity(num_cells)]] * self.num_sides()
-        self._slave_to_mortar_int: sps.spmatrix = sps.bmat(identity, format="csc")
+        self._low_to_mortar_int: sps.spmatrix = sps.bmat(identity, format="csc")
 
     def __repr__(self) -> str:
         """
@@ -266,7 +266,7 @@ class MortarGrid:
         # Once the global matrix is constructed the new low_to_mortar_int and
         # high_to_mortar_int maps are updated.
         matrix = sps.bmat(matrix)
-        self._slave_to_mortar_int = matrix * self._slave_to_mortar_int
+        self._low_to_mortar_int = matrix * self._low_to_mortar_int
         self._high_to_mortar_int = matrix * self._high_to_mortar_int
 
         # Update the side grids
@@ -280,7 +280,7 @@ class MortarGrid:
 
     def update_slave(self, new_g: pp.Grid, tol: float = None) -> None:
         """
-        Update the _slave_to_mortar_int map when the lower dimensional grid is changed.
+        Update the _low_to_mortar_int map when the lower dimensional grid is changed.
 
         Parameter:
             new_g (pp.Grid): The new slave grid.
@@ -320,12 +320,12 @@ class MortarGrid:
             matrix[pos, 0] = split_matrix[side]
 
         # Update the low_to_mortar_int map. No need to update the high_to_mortar_int.
-        self._slave_to_mortar_int = sps.bmat(matrix, format="csc")
+        self._low_to_mortar_int = sps.bmat(matrix, format="csc")
         self._check_mappings()
 
     def update_master(self, g_new: pp.Grid, g_old: pp.Grid, tol: float = None):
         """
-        Update the _slave_to_mortar_int map when the lower dimensional grid is changed.
+        Update the _low_to_mortar_int map when the lower dimensional grid is changed.
 
         Parameter:
             g_new (pp.Grid): The new master grid.
@@ -439,7 +439,7 @@ class MortarGrid:
         """
         return self._convert_to_vector_variable(self._high_to_mortar_int, nd)
 
-    def slave_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
+    def low_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from cells on the slave side to the mortar, by
         summing quantities from the slave side.
 
@@ -458,7 +458,7 @@ class MortarGrid:
                 Size: g_slave.num_cells x mortar_grid.num_cells.
 
         """
-        return self._convert_to_vector_variable(self._slave_to_mortar_int, nd)
+        return self._convert_to_vector_variable(self._low_to_mortar_int, nd)
 
     def high_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from faces of master to the mortar, by averaging quantities
@@ -483,7 +483,7 @@ class MortarGrid:
         scaled_mat = self._row_sum_scaling_matrix(self._high_to_mortar_int)
         return self._convert_to_vector_variable(scaled_mat, nd)
 
-    def slave_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
+    def low_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from cells at the slave to the mortar, by averaging
         quantities from the slave side.
 
@@ -503,7 +503,7 @@ class MortarGrid:
                 Size: g_slave.num_cells x mortar_grid.num_cells.
 
         """
-        scaled_mat = self._row_sum_scaling_matrix(self._slave_to_mortar_int)
+        scaled_mat = self._row_sum_scaling_matrix(self._low_to_mortar_int)
         return self._convert_to_vector_variable(scaled_mat, nd)
 
     def _row_sum_scaling_matrix(self, mat):
@@ -566,7 +566,7 @@ class MortarGrid:
                 Size: mortar_grid.num_cells x g_slave_num_faces.
 
         """
-        return self._convert_to_vector_variable(self.slave_to_mortar_avg().T, nd)
+        return self._convert_to_vector_variable(self.low_to_mortar_avg().T, nd)
 
     def mortar_to_high_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to faces of master, by averaging
@@ -610,7 +610,7 @@ class MortarGrid:
                 Size: mortar_grid.num_cells x g_slave.num_faces.
 
         """
-        return self._convert_to_vector_variable(self.slave_to_mortar_int().T, nd)
+        return self._convert_to_vector_variable(self.low_to_mortar_int().T, nd)
 
     def _convert_to_vector_variable(
         self, matrix: sps.spmatrix, nd: int
@@ -686,7 +686,7 @@ class MortarGrid:
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the master grid")
 
-        row_sum = self._slave_to_mortar_int.sum(axis=1)
+        row_sum = self._low_to_mortar_int.sum(axis=1)
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the slave grid")
 
@@ -706,7 +706,7 @@ class BoundaryMortar(MortarGrid):
         side_grids (dictionary of Grid): Contains the mortar grid under the key
             "mortar_grid". Is included for consistency with MortarGrid
         sides (array of integers with values in {0, 1, 2}): ordering of the sides.
-        slave_to_mortar_int (sps.csc-matrix): Face-cell relationships between the
+        low_to_mortar_int (sps.csc-matrix): Face-cell relationships between the
             slave grid and the mortar grid. Matrix size:
             num_faces x num_cells. In the beginning we assume matching grids,
             but it can be modified by calling refine_mortar(). The matrix
@@ -726,7 +726,7 @@ class BoundaryMortar(MortarGrid):
         """Initialize the mortar grid
 
         See class documentation for further description of parameters.
-        The slave_to_mortar_int and high_to_mortar_int are identity mapping.
+        The low_to_mortar_int and high_to_mortar_int are identity mapping.
 
         Parameters
         ----------
@@ -786,7 +786,7 @@ class BoundaryMortar(MortarGrid):
         self._high_to_mortar_int = sps.csc_matrix(
             (data.astype(np.float), (cells, master_f)), shape=shape_master
         )
-        self._slave_to_mortar_int = sps.csc_matrix(
+        self._low_to_mortar_int = sps.csc_matrix(
             (data.astype(np.float), (cells, slave_f)), shape=shape_slave
         )
 
@@ -806,7 +806,7 @@ class BoundaryMortar(MortarGrid):
             + str(self.high_to_mortar_int)
             + "\n"
             + "Face_cell mapping from the SLAVE_SIDE grid to the mortar grid\n"
-            + str(self.slave_to_mortar_int)
+            + str(self.low_to_mortar_int)
         )
 
         return s
@@ -835,7 +835,7 @@ class BoundaryMortar(MortarGrid):
             + "to the cells of the mortar grid. \nRows indicate the mortar"
             + " cell id, columns indicate the slave_grid face id"
             + "\n"
-            + str(self.slave_to_mortar_int)
+            + str(self.low_to_mortar_int)
         )
 
         return s

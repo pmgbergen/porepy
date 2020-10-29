@@ -616,10 +616,10 @@ class TestGridBucketExtrusion(unittest.TestCase):
             np.allclose(np.sort(known_bound_faces_new), np.sort(bound_faces_new))
         )
 
-        low_cells_old = mg.slave_to_mortar_int().tocoo().col
+        low_cells_old = mg.low_to_mortar_int().tocoo().col
         known_cells_new = np.hstack((low_cells_old, low_cells_old + g_1.num_cells))
 
-        cells_new = mg_new.slave_to_mortar_int().tocoo().col
+        cells_new = mg_new.low_to_mortar_int().tocoo().col
 
         self.assertTrue(np.allclose(np.sort(known_cells_new), np.sort(cells_new)))
 
@@ -634,7 +634,7 @@ class TestGridBucketExtrusion(unittest.TestCase):
 
         # All mortar cells should be in the range from slave
         mortar_cells_in_range_from_slave = np.unique(
-            mg_new.slave_to_mortar_int().tocoo().row
+            mg_new.low_to_mortar_int().tocoo().row
         )
         self.assertTrue(mortar_cells_in_range_from_slave.size == mg_new.num_cells)
         self.assertTrue(

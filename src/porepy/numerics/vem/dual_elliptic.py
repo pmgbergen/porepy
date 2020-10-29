@@ -455,7 +455,7 @@ class DualElliptic(
         """
         mg = data_edge["mortar_grid"]
 
-        proj = mg.slave_to_mortar_avg()
+        proj = mg.low_to_mortar_avg()
 
         A = proj.T
         shape = (g.num_faces, A.shape[1])
@@ -625,7 +625,7 @@ class DualElliptic(
         """
         mg = data_edge["mortar_grid"]
 
-        proj = mg.slave_to_mortar_avg()
+        proj = mg.low_to_mortar_avg()
 
         A = proj.T
         shape = (g.num_faces, A.shape[1])

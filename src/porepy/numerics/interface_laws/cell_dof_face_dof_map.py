@@ -213,7 +213,7 @@ class CellDofFaceDofMap(object):
         """
         mg = data_edge["mortar_grid"]
 
-        proj = mg.slave_to_mortar_avg()
+        proj = mg.low_to_mortar_avg()
 
         cc[self_ind, 2] -= proj.T
 
@@ -287,7 +287,7 @@ class CellDofFaceDofMap(object):
         """
         mg = data_edge["mortar_grid"]
 
-        proj = mg.slave_to_mortar_avg()
+        proj = mg.low_to_mortar_avg()
 
         cc[2, self_ind] -= proj
 

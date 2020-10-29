@@ -264,7 +264,7 @@ class PrimalContactCoupling(
         contact_traction_to_mortar = (
             mg.sign_of_mortar_sides(nd=ambient_dimension)
             * projection.project_tangential_normal(mg.num_cells).T
-            * mg.slave_to_mortar_int(nd=ambient_dimension)
+            * mg.low_to_mortar_int(nd=ambient_dimension)
         )
         cc[mortar_ind, slave_ind] = contact_traction_to_mortar
 
@@ -566,7 +566,7 @@ class FractureScalarToForceBalance(
         # forces by
         # T_contact - n dot I p,
         # hence the minus.
-        slave_pressure_to_contact_traction = -(n_dot_I * mg.slave_to_mortar_int(nd=1))
+        slave_pressure_to_contact_traction = -(n_dot_I * mg.low_to_mortar_int(nd=1))
         # Minus to obtain -T_slave + T_master = 0, i.e. from placing the two
         # terms on the same side of the equation, as also done in PrimalContactCoupling.
         cc[mortar_ind, slave_ind] = -slave_pressure_to_contact_traction
