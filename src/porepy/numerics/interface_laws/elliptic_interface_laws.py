@@ -256,9 +256,7 @@ class RobinCoupling(
 
         matrix += cc
 
-        self.discr_high.enforce_neumann_int_bound(
-            g_high, data_edge, matrix, high_ind
-        )
+        self.discr_high.enforce_neumann_int_bound(g_high, data_edge, matrix, high_ind)
 
         return matrix, rhs
 
@@ -375,9 +373,7 @@ class FluxPressureContinuity(RobinCoupling):
         """
         pass
 
-    def assemble_rhs(
-        self, g_high, g_low, data_high, data_low, data_edge, matrix
-    ):
+    def assemble_rhs(self, g_high, g_low, data_high, data_low, data_edge, matrix):
         """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
@@ -546,14 +542,10 @@ class FluxPressureContinuity(RobinCoupling):
 
         rhs = rhs_high + rhs_low
 
-        self.discr_high.enforce_neumann_int_bound(
-            g_high, data_edge, matrix, high_ind
-        )
+        self.discr_high.enforce_neumann_int_bound(g_high, data_edge, matrix, high_ind)
 
         # Consider this terms only if the grids are of the same dimension
         if g_high.dim == g_low.dim:
-            self.discr_low.enforce_neumann_int_bound(
-                g_low, data_edge, matrix, low_ind
-            )
+            self.discr_low.enforce_neumann_int_bound(g_low, data_edge, matrix, low_ind)
 
         return matrix, rhs

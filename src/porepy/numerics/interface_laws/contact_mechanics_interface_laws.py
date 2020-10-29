@@ -128,12 +128,10 @@ class PrimalContactCoupling(
         high_bound_stress = data_high[pp.DISCRETIZATION_MATRICES][
             self.discr_high.keyword
         ]["bound_stress"]
-        high_stress = data_high[pp.DISCRETIZATION_MATRICES][
-            self.discr_high.keyword
-        ]["stress"]
-        high_bc_values = data_high[pp.PARAMETERS][self.discr_high.keyword][
-            "bc_values"
+        high_stress = data_high[pp.DISCRETIZATION_MATRICES][self.discr_high.keyword][
+            "stress"
         ]
+        high_bc_values = data_high[pp.PARAMETERS][self.discr_high.keyword]["bc_values"]
         high_divergence = pp.fvutils.vector_divergence(g_high)
 
         # The mortar variable (boundary displacement) takes the form of a Dirichlet
@@ -222,9 +220,7 @@ class PrimalContactCoupling(
         # Switch the direction of the vectors to obtain the traction as defined
         # by the outwards pointing normal vector.
         traction_from_high = (
-            mg.high_to_mortar_int(nd=ambient_dimension)
-            * sign_switcher
-            * high_stress
+            mg.high_to_mortar_int(nd=ambient_dimension) * sign_switcher * high_stress
         )
         cc[mortar_ind, high_ind] = traction_from_high
         # Stress contribution from boundary conditions.

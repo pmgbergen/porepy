@@ -592,14 +592,10 @@ class Assembler:
             # considered valid, and raises an error message.
             if mi is not None and si is not None:
                 if operation == "discretize":
-                    edge_discr.discretize(
-                        g_high, g_low, data_high, data_low, data_edge
-                    )
+                    edge_discr.discretize(g_high, g_low, data_high, data_low, data_edge)
 
                 elif operation == "update_discretization":
-                    edge_discr.discretize(
-                        g_high, g_low, data_high, data_low, data_edge
-                    )
+                    edge_discr.discretize(g_high, g_low, data_high, data_low, data_edge)
 
                 elif operation == "assemble":
                     # Assign a local matrix, which will be populated with the

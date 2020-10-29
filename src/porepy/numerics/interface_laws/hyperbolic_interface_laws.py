@@ -173,10 +173,7 @@ class UpwindCoupling(
             if not np.any(not_zero):
                 return np.Inf
 
-            diff = (
-                g_high.cell_centers[:, cells_high]
-                - g_low.cell_centers[:, cells_low]
-            )
+            diff = g_high.cell_centers[:, cells_high] - g_low.cell_centers[:, cells_low]
             dist = np.linalg.norm(diff, 2, axis=0)
 
             # Use minimum of cell values for convenience
@@ -184,9 +181,7 @@ class UpwindCoupling(
             phi_high = phi_high[cells_high]
             apt_high = aperture_high[cells_high]
             apt_low = aperture_low[cells_low]
-            coeff = np.minimum(phi_high, phi_low) * np.minimum(
-                apt_high, apt_low
-            )
+            coeff = np.minimum(phi_high, phi_low) * np.minimum(apt_high, apt_low)
             return np.amin(np.abs(np.divide(dist, darcy_flux)) * coeff)
 
         # Recover the information for the grid-grid mapping

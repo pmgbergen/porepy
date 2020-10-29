@@ -1645,9 +1645,7 @@ class DivU(Discretization):
         # jump operator, projection and normal component extraction in the coupling matrix.
         # Finally, we integrate over the cell volume.
         vol = sps.dia_matrix((g.cell_volumes, 0), shape=(g.num_cells, g.num_cells))
-        cc[self_ind, 2] += (
-            sps.diags(biot_alpha) * vol * normal_component * jump_on_low
-        )
+        cc[self_ind, 2] += sps.diags(biot_alpha) * vol * normal_component * jump_on_low
 
         # We assume implicit Euler in Biot, thus the div_u term appears
         # on the rhs as div_u^{k-1}. This results in a contribution to the
