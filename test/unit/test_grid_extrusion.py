@@ -646,7 +646,7 @@ class TestGridBucketExtrusion(unittest.TestCase):
         g_1_new = gb_new.grids_of_dimension(2)[0]
 
         # All mortar cells should be associated with two cells in slave
-        slave_cells_in_range_from_mortar = mg_new.mortar_to_slave_int().tocoo().row
+        slave_cells_in_range_from_mortar = mg_new.mortar_to_low_int().tocoo().row
         self.assertTrue(np.all(np.bincount(slave_cells_in_range_from_mortar) == 2))
         self.assertTrue(
             np.unique(slave_cells_in_range_from_mortar).size == g_1_new.num_cells

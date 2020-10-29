@@ -387,7 +387,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         else:
             mortar_u = data_edge[pp.STATE][self.mortar_displacement_variable]
         displacement_jump_global_coord = (
-            mg.mortar_to_slave_avg(nd=self.Nd)
+            mg.mortar_to_low_avg(nd=self.Nd)
             * mg.sign_of_mortar_sides(nd=self.Nd)
             * mortar_u
         )

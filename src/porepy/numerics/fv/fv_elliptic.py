@@ -246,7 +246,7 @@ class FVElliptic(pp.EllipticDiscretization):
         mg = data_edge["mortar_grid"]
 
         if use_slave_proj:
-            proj = mg.mortar_to_slave_int()
+            proj = mg.mortar_to_low_int()
         else:
             proj = mg.mortar_to_master_int()
 
@@ -295,7 +295,7 @@ class FVElliptic(pp.EllipticDiscretization):
         """
         mg = data_edge["mortar_grid"]
 
-        proj = mg.mortar_to_slave_int()
+        proj = mg.mortar_to_low_int()
 
         cc[self_ind, 2] -= proj
 
@@ -340,7 +340,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
         if use_slave_proj:
             proj = mg.slave_to_mortar_avg()
-            proj_int = mg.mortar_to_slave_int()
+            proj_int = mg.mortar_to_low_int()
         else:
             proj = mg.master_to_mortar_avg()
             proj_int = mg.mortar_to_master_int()

@@ -407,7 +407,7 @@ class DualElliptic(
         # The matrix must be the VEM discretization matrix.
         mg = data_edge["mortar_grid"]
         if use_slave_proj:
-            proj = mg.mortar_to_slave_int()
+            proj = mg.mortar_to_low_int()
         else:
             proj = mg.mortar_to_master_int()
 
@@ -506,7 +506,7 @@ class DualElliptic(
         mg = data_edge["mortar_grid"]
 
         if use_slave_proj:
-            proj = mg.mortar_to_slave_int()
+            proj = mg.mortar_to_low_int()
         else:
             proj = mg.mortar_to_master_int()
 

@@ -1557,7 +1557,7 @@ class DivU(Discretization):
         mg = data_edge["mortar_grid"]
 
         if grid_swap:
-            proj = mg.mortar_to_slave_avg(nd=g.dim)
+            proj = mg.mortar_to_low_avg(nd=g.dim)
         else:
             proj = mg.mortar_to_master_avg(nd=g.dim)
 
@@ -1623,7 +1623,7 @@ class DivU(Discretization):
 
         # Define projections and rotations
         nd = g.dim + 1
-        proj = mg.mortar_to_slave_avg(nd=nd)
+        proj = mg.mortar_to_low_avg(nd=nd)
         jump_on_slave = proj * mg.sign_of_mortar_sides(nd=nd)
         rotation = data_edge["tangential_normal_projection"]
         normal_component = rotation.project_normal(g.num_cells)

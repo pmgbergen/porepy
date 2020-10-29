@@ -90,7 +90,7 @@ class UpwindCoupling(
         cc[0, 2] = face_to_cell_h * mg.mortar_to_master_int()
 
         # transport out of lower is -lambda
-        cc[1, 2] = -mg.mortar_to_slave_int()
+        cc[1, 2] = -mg.mortar_to_low_int()
 
         # Discretisation of mortars
         # If fluid flux(lam_flux) is positive we use the upper value as weight,
