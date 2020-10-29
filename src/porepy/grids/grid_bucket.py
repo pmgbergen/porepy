@@ -959,7 +959,7 @@ class GridBucket:
                     # update the mortar grid of the same dimension
                     mg.update_slave(g_new, tol)
                 else:  # g_new.dim == mg.dim + 1
-                    mg.update_master(g_new, g_old, tol)
+                    mg.update_high(g_new, g_old, tol)
 
     def _find_shared_face(self, g0: pp.Grid, g1: pp.Grid, g_l: pp.Grid) -> np.ndarray:
         """
