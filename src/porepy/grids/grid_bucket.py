@@ -957,7 +957,7 @@ class GridBucket:
                 mg = d["mortar_grid"]
                 if mg.dim == g_new.dim:
                     # update the mortar grid of the same dimension
-                    mg.update_slave(g_new, tol)
+                    mg.update_low(g_new, tol)
                 else:  # g_new.dim == mg.dim + 1
                     mg.update_high(g_new, g_old, tol)
 

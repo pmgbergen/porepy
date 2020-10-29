@@ -687,7 +687,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
             gb.update_nodes({old_g: new_g})
             mg = d["mortar_grid"]
-            mg.update_slave(new_g, 1e-4)
+            mg.update_low(new_g, 1e-4)
 
             high_to_mortar_known = np.matrix(
                 [
@@ -805,7 +805,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
             gb.update_nodes({old_g: new_g})
             mg = d["mortar_grid"]
-            mg.update_slave(new_g, 1e-4)
+            mg.update_low(new_g, 1e-4)
 
             high_to_mortar_known = np.matrix(
                 [
