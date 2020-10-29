@@ -56,6 +56,7 @@ class MortarGrid:
         side_grids: Dict[int, pp.Grid],
         master_slave: sps.spmatrix = None,
         name: str = "",
+        face_duplicate_ind: Optional[np.ndarray] = None,
         tol: float = 1e-6,
     ):
         """Initialize the mortar grid
@@ -70,6 +71,10 @@ class MortarGrid:
                 give the projection to create only the grid.
             name (str): Name of the grid. Can also be used to set various information on
                 the grid.
+            face_duplicate_ind (np.ndarray, optional): Which faces should be considered
+                duplicates, and mapped to the second of the side_grids. If not provided,
+                duplicate faces will be inferred from the indices of the faces. Will
+                only be used if len(side_Grids) == 2.
             tol (double, optional): Tolerance used in geometric computations. Defaults
                 to 1e-6.
 
@@ -105,7 +110,7 @@ class MortarGrid:
             [g.cell_centers for g in self.side_grids.values()]
         )
         if not (master_slave is None):
-            self._init_projections(master_slave)
+            self._init_projections(master_slave, face_duplicate_ind)
 
     def __repr__(self) -> str:
         """
@@ -630,7 +635,11 @@ class MortarGrid:
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the slave grid")
 
-    def _init_projections(self, master_slave: sps.spmatrix = None):
+    def _init_projections(
+        self,
+        master_slave: sps.spmatrix,
+        face_duplicate_ind: Optional[np.ndarray] = None,
+    ):
         """Initialize projections from master and slave to mortar.
         Parameters:
         master_slave (sps.spmatrix): projection from the master to the slave.
@@ -640,11 +649,24 @@ class MortarGrid:
         # faces of the master grid.
         slave_f, master_f, data = sps.find(master_slave)
 
-        # It is assumed that the cells of the given mortar grid are ordered
-        # by the slave side index. We use stable sort to not mix up the ordering.
-        # I do not think it matters, except that it broke some unittests that
-        # hardcoded a specific ordering (integration/test_coarsening.py). But it
-        # was quicker to change the sort than figuring out the indices again.
+        # If the face_duplicate_ind is given we have to reorder the master face indices
+        # such that the original faces comes first, then the duplicate faces.
+        # If the face_duplicate_ind is not given, we then assume that the master side faces
+        # already have this ordering. If the grid is created using the pp.split_grid.py
+        # module this shoulc be the case.
+        if self.num_sides() == 2 and not face_duplicate_ind is None:
+            is_second_side = np.in1d(master_f, face_duplicate_ind)
+            slave_f = np.r_[slave_f[~is_second_side], slave_f[is_second_side]]
+            master_f = np.r_[master_f[~is_second_side], master_f[is_second_side]]
+            data = np.r_[data[~is_second_side], data[is_second_side]]
+
+
+        # We assumed that the cells of the given side grid(s) is(are) ordered
+        # by the slave side index. In other words: cell "n" of the side grid(s) should
+        # correspond to the element with the n'th lowest index in slave_f. We therefore
+        # sort slave_f to obtaint the side grid ordering. The master faces should now be
+        # sorted such that the left side comes first, then the right side. We use stable
+        # sort to not mix up the ordering if there is two sides.
         ix = np.argsort(slave_f, kind="stable")
         if self.num_sides() == 2:
             # If there are two sides we are in the case of a slave grid of equal
