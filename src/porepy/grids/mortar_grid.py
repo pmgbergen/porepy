@@ -682,7 +682,7 @@ class MortarGrid:
         return np.concatenate(diams).ravel()
 
     def _check_mappings(self, tol=1e-4) -> None:
-        row_sum = self._master_to_mortar_int.sum(axis=1)
+        row_sum = self._high_to_mortar_int.sum(axis=1)
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the master grid")
 
@@ -711,7 +711,7 @@ class BoundaryMortar(MortarGrid):
             num_faces x num_cells. In the beginning we assume matching grids,
             but it can be modified by calling refine_mortar(). The matrix
             elements represent the ratio between the geometrical objects.
-        master_to_mortar_int (sps.csc-matrix): face-cell relationships between
+        high_to_mortar_int (sps.csc-matrix): face-cell relationships between
             master mortar grid and the mortar grid. Matrix size:
             num_faces x num_cells. Matrix elements represent the ratio between
             the geometrical objects.
@@ -726,7 +726,7 @@ class BoundaryMortar(MortarGrid):
         """Initialize the mortar grid
 
         See class documentation for further description of parameters.
-        The slave_to_mortar_int and master_to_mortar_int are identity mapping.
+        The slave_to_mortar_int and high_to_mortar_int are identity mapping.
 
         Parameters
         ----------
@@ -783,7 +783,7 @@ class BoundaryMortar(MortarGrid):
 
         shape_master = (self.num_cells, master_slave.shape[1])
         shape_slave = (self.num_cells, master_slave.shape[0])
-        self._master_to_mortar_int = sps.csc_matrix(
+        self._high_to_mortar_int = sps.csc_matrix(
             (data.astype(np.float), (cells, master_f)), shape=shape_master
         )
         self._slave_to_mortar_int = sps.csc_matrix(
@@ -803,7 +803,7 @@ class BoundaryMortar(MortarGrid):
             + str(self.dim)
             + "\n"
             + "Face_cell mapping from the LEFT_SIDE grid to the mortar grid\n"
-            + str(self.master_to_mortar_int)
+            + str(self.high_to_mortar_int)
             + "\n"
             + "Face_cell mapping from the SLAVE_SIDE grid to the mortar grid\n"
             + str(self.slave_to_mortar_int)
@@ -829,7 +829,7 @@ class BoundaryMortar(MortarGrid):
             + " the cells of the mortar grid. \nRows indicate the mortar"
             + " cell id, columns indicate the master_grid face id"
             + "\n"
-            + str(self.master_to_mortar_int)
+            + str(self.high_to_mortar_int)
             + "\n"
             + "Mapping from the cells of the face of the slave_side grid"
             + "to the cells of the mortar grid. \nRows indicate the mortar"
