@@ -174,7 +174,7 @@ class MortarGrid:
             + "Number of cells in lower-dimensional neighbor "
             + f"{self.mortar_to_low_int().shape[0]}\n"
             + "Number of faces in higher-dimensional neighbor "
-            + f"{self.mortar_to_master_int().shape[0]}\n"
+            + f"{self.mortar_to_high_int().shape[0]}\n"
         )
 
         return s
@@ -526,7 +526,7 @@ class MortarGrid:
     # found by taking transposes, and switching average and integration (since we are
     # changing which side we are taking the area relative to.
 
-    def mortar_to_master_int(self, nd: int = 1) -> sps.spmatrix:
+    def mortar_to_high_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to faces of master, by summing quantities
         from the mortar side.
 
@@ -568,7 +568,7 @@ class MortarGrid:
         """
         return self._convert_to_vector_variable(self.slave_to_mortar_avg().T, nd)
 
-    def mortar_to_master_avg(self, nd: int = 1) -> sps.spmatrix:
+    def mortar_to_high_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to faces of master, by averaging
         quantities from the mortar side.
 

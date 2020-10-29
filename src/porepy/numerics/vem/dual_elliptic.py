@@ -46,7 +46,7 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
                     continue
                 # project the mortar variable back to the higher dimensional
                 # problem
-                # edge_flux += sign * g_m.mortar_to_master_int() * d_e[pp.STATE][mortar_key]
+                # edge_flux += sign * g_m.mortar_to_high_int() * d_e[pp.STATE][mortar_key]
                 edge_flux += (
                     sign * g_m.master_to_mortar_avg().T * d_e[pp.STATE][mortar_key]
                 )
@@ -409,7 +409,7 @@ class DualElliptic(
         if use_slave_proj:
             proj = mg.mortar_to_low_int()
         else:
-            proj = mg.mortar_to_master_int()
+            proj = mg.mortar_to_high_int()
 
         hat_E_int = self._velocity_dof(g, mg, proj)
         cc[self_ind, 2] += matrix[self_ind, self_ind] * hat_E_int
@@ -508,7 +508,7 @@ class DualElliptic(
         if use_slave_proj:
             proj = mg.mortar_to_low_int()
         else:
-            proj = mg.mortar_to_master_int()
+            proj = mg.mortar_to_high_int()
 
         hat_E_int = self._velocity_dof(g, mg, proj)
 
@@ -651,7 +651,7 @@ class DualElliptic(
         """
         mg = data_edge["mortar_grid"]
 
-        hat_E_int = self._velocity_dof(g, mg, mg.mortar_to_master_int())
+        hat_E_int = self._velocity_dof(g, mg, mg.mortar_to_high_int())
 
         dof = np.where(hat_E_int.sum(axis=1).A.astype(np.bool))[0]
         norm = np.linalg.norm(matrix[self_ind, self_ind].diagonal(), np.inf)

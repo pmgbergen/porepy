@@ -87,7 +87,7 @@ class UpwindCoupling(
 
         # Transport out of upper equals lambda.
         # Use integrated projcetion operator; the flux is an extensive quantity
-        cc[0, 2] = face_to_cell_h * mg.mortar_to_master_int()
+        cc[0, 2] = face_to_cell_h * mg.mortar_to_high_int()
 
         # transport out of lower is -lambda
         cc[1, 2] = -mg.mortar_to_low_int()
