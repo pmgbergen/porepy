@@ -623,13 +623,13 @@ class TestGridBucketExtrusion(unittest.TestCase):
 
         self.assertTrue(np.allclose(np.sort(known_cells_new), np.sort(cells_new)))
 
-        # All mortar cells should be associated with a face in master
-        mortar_cells_in_range_from_master = np.unique(
+        # All mortar cells should be associated with a face in high
+        mortar_cells_in_range_from_high = np.unique(
             mg_new.high_to_mortar_int().tocoo().row
         )
-        self.assertTrue(mortar_cells_in_range_from_master.size == mg_new.num_cells)
+        self.assertTrue(mortar_cells_in_range_from_high.size == mg_new.num_cells)
         self.assertTrue(
-            np.allclose(mortar_cells_in_range_from_master, np.arange(mg_new.num_cells))
+            np.allclose(mortar_cells_in_range_from_high, np.arange(mg_new.num_cells))
         )
 
         # All mortar cells should be in the range from low

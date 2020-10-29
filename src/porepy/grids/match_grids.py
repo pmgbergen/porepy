@@ -150,7 +150,7 @@ def match_grids_along_1d_mortar(
         g_new (pp.Grid): New 2d grid. Should have faces split along the 1d line.
             Dimension 2.
         g_old (pp.Grid): Old 2d grid. Dimension 2. The mappings in mg from mortar to
-            master should be set for this grid.
+            high should be set for this grid.
         tol (double): Tolerance used in comparison of geometric quantities.
 
     Raises:

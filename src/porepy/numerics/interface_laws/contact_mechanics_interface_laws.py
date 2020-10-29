@@ -44,10 +44,10 @@ class PrimalContactCoupling(
     See also contact_conditions.py
     """
 
-    def __init__(self, keyword, discr_master, discr_low, use_surface_discr=False):
+    def __init__(self, keyword, discr_high, discr_low, use_surface_discr=False):
         super(PrimalContactCoupling, self).__init__(keyword)
         self.mortar_displacement_variable = "mortar_u"
-        self.discr_master = discr_master
+        self.discr_high = discr_high
         self.discr_low = discr_low
 
         # Account for interaction between different, but intersecting, mortar grids
@@ -88,24 +88,24 @@ class PrimalContactCoupling(
         logger.debug("Done. Elapsed time {}".format(time.time() - tic))
 
     def assemble_matrix_rhs(
-        self, g_master, g_low, data_master, data_low, data_edge, matrix
+        self, g_high, g_low, data_high, data_low, data_edge, matrix
     ):
 
         """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
         Parameters:
-            g_master: Grid on one neighboring subdomain.
+            g_high: Grid on one neighboring subdomain.
             g_low: Grid on the other neighboring subdomain.
-            data_master: Data dictionary for the master suddomain
+            data_high: Data dictionary for the high suddomain
             data_low: Data dictionary for the low subdomain.
             data_edge: Data dictionary for the edge between the subdomains
             matrix: original discretization matrix, to which the coupling terms will be
                 added.
 
         """
-        ambient_dimension = g_master.dim
+        ambient_dimension = g_high.dim
 
-        master_ind = 0
+        high_ind = 0
         low_ind = 1
         mortar_ind = 2
 
@@ -115,7 +115,7 @@ class PrimalContactCoupling(
         projection = data_edge["tangential_normal_projection"]
 
         cc, rhs = self._define_local_block_matrix(
-            g_master, g_low, self.discr_master, self.discr_low, mg, matrix
+            g_high, g_low, self.discr_high, self.discr_low, mg, matrix
         )
         # IMPLEMENTATION NOTE: The current implementation is geared towards
         # using mpsa for the mechanics problem. A more general approach would
@@ -123,28 +123,28 @@ class PrimalContactCoupling(
         # and EllipticDiscretization and its subclasses. However, at present such a general
         # framework currently seems over the top, hence this more mundane approach.
 
-        ### Equation for the master side
-        # The mortar variable acts as a Dirichlet boundary condition for the master.
-        master_bound_stress = data_master[pp.DISCRETIZATION_MATRICES][
-            self.discr_master.keyword
+        ### Equation for the high side
+        # The mortar variable acts as a Dirichlet boundary condition for the high.
+        high_bound_stress = data_high[pp.DISCRETIZATION_MATRICES][
+            self.discr_high.keyword
         ]["bound_stress"]
-        master_stress = data_master[pp.DISCRETIZATION_MATRICES][
-            self.discr_master.keyword
+        high_stress = data_high[pp.DISCRETIZATION_MATRICES][
+            self.discr_high.keyword
         ]["stress"]
-        master_bc_values = data_master[pp.PARAMETERS][self.discr_master.keyword][
+        high_bc_values = data_high[pp.PARAMETERS][self.discr_high.keyword][
             "bc_values"
         ]
-        master_divergence = pp.fvutils.vector_divergence(g_master)
+        high_divergence = pp.fvutils.vector_divergence(g_high)
 
         # The mortar variable (boundary displacement) takes the form of a Dirichlet
-        # condition for the master side. The MPSA convention is to have
+        # condition for the high side. The MPSA convention is to have
         # - div * bound_stress * bc_values
         # on the rhs. Accordingly, the contribution from the mortar variable (boundary
         # displacement) on the left hand side is positive:
         # div * bound_stress * u_mortar
-        cc[master_ind, mortar_ind] = (
-            master_divergence
-            * master_bound_stress
+        cc[high_ind, mortar_ind] = (
+            high_divergence
+            * high_bound_stress
             * mg.mortar_to_high_avg(nd=ambient_dimension)
         )
 
@@ -201,7 +201,7 @@ class PrimalContactCoupling(
         # This is first a stress balance: stress from the higher dimensional
         # domain (both interior and bound_stress) should match with the contact stress:
         #
-        #     traction_low + traction_master = 0
+        #     traction_low + traction_high = 0
         #
         # Optionally, a diffusion term can be added in the tangential direction
         # of the stresses, this is currently under implementation.
@@ -213,26 +213,26 @@ class PrimalContactCoupling(
         # dimensional stresses are defined according to the direction of the normal vector.
         faces_on_fracture_surface = mg.high_to_mortar_int().tocsr().indices
         sign_switcher = pp.grid_utils.switch_sign_if_inwards_normal(
-            g_master, ambient_dimension, faces_on_fracture_surface
+            g_high, ambient_dimension, faces_on_fracture_surface
         )
 
-        ## First, we obtain T_master = stress * u_master + bound_stress * u_mortar
+        ## First, we obtain T_high = stress * u_high + bound_stress * u_mortar
         # Stress contribution from the higher dimensional domain, projected onto
         # the mortar grid
         # Switch the direction of the vectors to obtain the traction as defined
         # by the outwards pointing normal vector.
-        traction_from_master = (
+        traction_from_high = (
             mg.high_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
-            * master_stress
+            * high_stress
         )
-        cc[mortar_ind, master_ind] = traction_from_master
+        cc[mortar_ind, high_ind] = traction_from_high
         # Stress contribution from boundary conditions.
         rhs[mortar_ind] = -(
             mg.high_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
-            * master_bound_stress
-            * master_bc_values
+            * high_bound_stress
+            * high_bc_values
         )
         # The stress contribution from the mortar variables, mapped to the higher
         # dimensional domain via a boundary condition, and back again by a
@@ -242,14 +242,14 @@ class PrimalContactCoupling(
         traction_from_mortar = (
             mg.high_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
-            * master_bound_stress
+            * high_bound_stress
             * mg.mortar_to_high_avg(nd=ambient_dimension)
         )
         cc[mortar_ind, mortar_ind] = traction_from_mortar
 
         ## Second, the contact stress is mapped to the mortar grid.
         # We have for the positive (first) and negative (second) side of the mortar that
-        # T_low = T_master_j = -T_master_k,
+        # T_low = T_high_j = -T_high_k,
         # so we need to map the low traction with the corresponding signs to match the
         # mortar tractions.
 
@@ -260,7 +260,7 @@ class PrimalContactCoupling(
         # the two sides of the mortar grids (Newton's third law), hence
         # adjust the signs: sign_of_mortar_sides gives a minus for the j side and
         # plus for the k side, yielding the two equations
-        # - T_low + T_master_j = 0    and T_low + T_master_k = 0
+        # - T_low + T_high_j = 0    and T_low + T_high_k = 0
         contact_traction_to_mortar = (
             mg.sign_of_mortar_sides(nd=ambient_dimension)
             * projection.project_tangential_normal(mg.num_cells).T
@@ -302,10 +302,10 @@ class PrimalContactCoupling(
         Returns:
             np.array: Block matrix of size 3 x 3, whwere each block represents
                 coupling between variables on this interface. Index 0, 1 and 2
-                represent the master grid, the primary and secondary interface,
+                represent the high grid, the primary and secondary interface,
                 respectively.
             np.array: Block matrix of size 3 x 1, representing the right hand
-                side of this coupling. Index 0, 1 and 2 represent the master grid,
+                side of this coupling. Index 0, 1 and 2 represent the high grid,
                 the primary and secondary interface, respectively.
 
         """
@@ -315,7 +315,7 @@ class PrimalContactCoupling(
 
         # Initialize matrices of the correct sizes
         cc, rhs = self._define_local_block_matrix_edge_coupling(
-            g_between, self.discr_master, mg_prim, mg_sec, matrix
+            g_between, self.discr_high, mg_prim, mg_sec, matrix
         )
 
         # Ambient dimension.
@@ -331,8 +331,8 @@ class PrimalContactCoupling(
 
         # Discretization of boundary conditions
         bound_stress = data_between[pp.DISCRETIZATION_MATRICES][
-            self.discr_master.keyword
-        ][self.discr_master.bound_stress_matrix_key]
+            self.discr_high.keyword
+        ][self.discr_high.bound_stress_matrix_key]
 
         # The term to be discretized is the mapping of the induced stress down to the
         # primary mortar grid. The term should be exactly equivalent to the expression
@@ -370,19 +370,19 @@ class MatrixScalarToForceBalance(
 
     """
 
-    def __init__(self, keyword, discr_master, discr_low):
+    def __init__(self, keyword, discr_high, discr_low):
         """
         Parameters:
             keyword used for storage of the gradP discretization. If the GradP class is
                 used, this is the keyword associated with the mechanical parameters.
-            discr_master and
-            discr_low are the discretization objects operating on the master and low
+            discr_high and
+            discr_low are the discretization objects operating on the high and low
                 pressure, respectively. Used for #DOFs. In FV, one cell variable is
                 expected.
         """
         super(MatrixScalarToForceBalance, self).__init__(keyword)
         # Set node discretizations
-        self.discr_master = discr_master
+        self.discr_high = discr_high
         self.discr_low = discr_low
         # Keyword used to retrieve gradP discretization.
 
@@ -399,34 +399,34 @@ class MatrixScalarToForceBalance(
         pass
 
     def assemble_matrix_rhs(
-        self, g_master, g_low, data_master, data_low, data_edge, matrix
+        self, g_high, g_low, data_high, data_low, data_edge, matrix
     ):
         """
         Assemble the pressure contributions of the interface force balance law.
 
         Parameters:
-            g_master: Grid on one neighboring subdomain.
+            g_high: Grid on one neighboring subdomain.
             g_low: Grid on the other neighboring subdomain.
-            data_master: Data dictionary for the master suddomain
+            data_high: Data dictionary for the high suddomain
             data_low: Data dictionary for the low subdomain.
             data_edge: Data dictionary for the edge between the subdomains
             matrix: original discretization matrix, to which the coupling terms will be
                 added.
         """
 
-        ambient_dimension = g_master.dim
+        ambient_dimension = g_high.dim
 
-        master_ind = 0
+        high_ind = 0
         mortar_ind = 2
 
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
         cc, rhs = self._define_local_block_matrix(
-            g_master, g_low, self.discr_master, self.discr_low, mg, matrix
+            g_high, g_low, self.discr_high, self.discr_low, mg, matrix
         )
 
-        master_scalar_gradient = data_master[pp.DISCRETIZATION_MATRICES][self.keyword][
+        high_scalar_gradient = data_high[pp.DISCRETIZATION_MATRICES][self.keyword][
             "grad_p"
         ]
 
@@ -434,10 +434,10 @@ class MatrixScalarToForceBalance(
         # scalar (usually pressure) contribution.
         # In the purely mechanical case, stress from the higher dimensional
         # domain (both interior and bound_stress) should match the contact stress:
-        # -T_low + T_master = 0,
+        # -T_low + T_high = 0,
         # see PrimalContactCoupling.
         # The following modification is needed:
-        # Add the scalar gradient contribution to the traction on the master
+        # Add the scalar gradient contribution to the traction on the high
         # boundary.
 
         # A diagonal operator is needed to switch the sign of vectors on
@@ -445,7 +445,7 @@ class MatrixScalarToForceBalance(
         # PrimalContactCoupling.
         faces_on_fracture_surface = mg.high_to_mortar_int().tocsr().indices
         sign_switcher = pp.grid_utils.switch_sign_if_inwards_normal(
-            g_master, ambient_dimension, faces_on_fracture_surface
+            g_high, ambient_dimension, faces_on_fracture_surface
         )
 
         # i) Obtain pressure stress contribution from the higher dimensional domain.
@@ -454,12 +454,12 @@ class MatrixScalarToForceBalance(
         # boundary).
         # iii) Map to the mortar grid.
         # iv) Minus according to - alpha grad p already in the discretization matrix
-        master_scalar_to_master_traction = (
+        high_scalar_to_high_traction = (
             mg.high_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
-            * master_scalar_gradient
+            * high_scalar_gradient
         )
-        cc[mortar_ind, master_ind] = master_scalar_to_master_traction
+        cc[mortar_ind, high_ind] = high_scalar_to_high_traction
 
         matrix += cc
 
@@ -484,19 +484,19 @@ class FractureScalarToForceBalance(
 
     """
 
-    def __init__(self, discr_master, discr_low, keyword=None):
+    def __init__(self, discr_high, discr_low, keyword=None):
         """
         Parameters:
             keyword used for storage of the gradP discretization. If the GradP class is
                 used, this is the keyword associated with the mechanical parameters.
-            discr_master and
-            discr_low are the discretization objects operating on the master and low
+            discr_high and
+            discr_low are the discretization objects operating on the high and low
                 pressure, respectively. Used for #DOFs. In FV, one cell variable is
                 expected.
         """
         super(FractureScalarToForceBalance, self).__init__(keyword)
         # Set node discretizations
-        self.discr_master = discr_master
+        self.discr_high = discr_high
         self.discr_low = discr_low
 
     def ndof(self, mg):
@@ -512,22 +512,22 @@ class FractureScalarToForceBalance(
         pass
 
     def assemble_matrix_rhs(
-        self, g_master, g_low, data_master, data_low, data_edge, matrix
+        self, g_high, g_low, data_high, data_low, data_edge, matrix
     ):
         """
         Assemble the pressure contributions of the interface force balance law.
 
         Parameters:
-            g_master: Grid on one neighboring subdomain.
+            g_high: Grid on one neighboring subdomain.
             g_low: Grid on the other neighboring subdomain.
-            data_master: Data dictionary for the master suddomain
+            data_high: Data dictionary for the high suddomain
             data_low: Data dictionary for the low subdomain.
             data_edge: Data dictionary for the edge between the subdomains
             matrix: original discretization matrix, to which the coupling terms will be
                 added.
         """
 
-        ambient_dimension = g_master.dim
+        ambient_dimension = g_high.dim
 
         low_ind = 1
         mortar_ind = 2
@@ -537,7 +537,7 @@ class FractureScalarToForceBalance(
         mg = data_edge["mortar_grid"]
 
         cc, rhs = self._define_local_block_matrix(
-            g_master, g_low, self.discr_master, self.discr_low, mg, matrix
+            g_high, g_low, self.discr_high, self.discr_low, mg, matrix
         )
 
         ## Ensure that the contact variable is only the force from the contact of the
@@ -547,27 +547,27 @@ class FractureScalarToForceBalance(
         # matrix. Similar sign switching as above is needed (this one operating on
         # fracture faces only).
         faces_on_fracture_surface = mg.high_to_mortar_int().tocsr().indices
-        sgn = g_master.sign_of_faces(faces_on_fracture_surface)
-        fracture_normals = g_master.face_normals[
+        sgn = g_high.sign_of_faces(faces_on_fracture_surface)
+        fracture_normals = g_high.face_normals[
             :ambient_dimension, faces_on_fracture_surface
         ]
         outwards_fracture_normals = sgn * fracture_normals
 
         data = outwards_fracture_normals.ravel("F")
-        row = np.arange(g_master.dim * mg.num_cells)
-        col = np.tile(np.arange(mg.num_cells), (g_master.dim, 1)).ravel("F")
+        row = np.arange(g_high.dim * mg.num_cells)
+        col = np.tile(np.arange(mg.num_cells), (g_high.dim, 1)).ravel("F")
         n_dot_I = sps.csc_matrix((data, (row, col)))
         # i) The scalar contribution to the contact stress is mapped to the mortar grid
         # and multiplied by n \dot I, with n being the outwards normals on the two sides.
         # Note that by using different normals for the two sides, we do not need to
         # adjust the low pressure with the corresponding signs by applying
         # sign_of_mortar_sides as done in PrimalContactCoupling.
-        # iii) The contribution should be subtracted so that we balance the master
+        # iii) The contribution should be subtracted so that we balance the high
         # forces by
         # T_contact - n dot I p,
         # hence the minus.
         low_pressure_to_contact_traction = -(n_dot_I * mg.low_to_mortar_int(nd=1))
-        # Minus to obtain -T_low + T_master = 0, i.e. from placing the two
+        # Minus to obtain -T_low + T_high = 0, i.e. from placing the two
         # terms on the same side of the equation, as also done in PrimalContactCoupling.
         cc[mortar_ind, low_ind] = -low_pressure_to_contact_traction
 
@@ -588,14 +588,14 @@ class DivUCoupling(
     to the div u term in fracture ("div aperture") and matrix.
     """
 
-    def __init__(self, variable, discr_master, discr_low, keyword=None):
+    def __init__(self, variable, discr_high, discr_low, keyword=None):
         super(DivUCoupling, self).__init__(keyword)
         # Set variable names for the vector variable on the nodes (displacement), used
         # to access solutions from previous time steps.
         self.variable = variable
         # The terms are added by calls to assemble methods of DivU discretizations,
-        # namely assemble_int_bound_displacement_trace for the master and
-        self.discr_master = discr_master
+        # namely assemble_int_bound_displacement_trace for the high and
+        self.discr_high = discr_high
         # assemble_int_bound_displacement_source for the low.
         self.discr_low = discr_low
 
@@ -611,22 +611,22 @@ class DivUCoupling(
         pass
 
     def assemble_matrix_rhs(
-        self, g_master, g_low, data_master, data_low, data_edge, matrix
+        self, g_high, g_low, data_high, data_low, data_edge, matrix
     ):
         """
         Assemble the mortar displacement's contribution as a internal Dirichlet
         contribution for the higher dimension, and source term for the lower dimension.
         Parameters:
-            g_master: Grid on one neighboring subdomain.
+            g_high: Grid on one neighboring subdomain.
             g_low: Grid on the other neighboring subdomain.
-            data_master: Data dictionary for the master suddomain
+            data_high: Data dictionary for the high suddomain
             data_low: Data dictionary for the low subdomain.
             data_edge: Data dictionary for the edge between the subdomains
             matrix: original discretization matrix, to which the coupling terms will be
                 added.
         """
 
-        master_ind = 0
+        high_ind = 0
         low_ind = 1
 
         # Generate matrix for the coupling. This can probably be generalized
@@ -634,13 +634,13 @@ class DivUCoupling(
         mg = data_edge["mortar_grid"]
 
         cc, rhs = self._define_local_block_matrix(
-            g_master, g_low, self.discr_master, self.discr_low, mg, matrix
+            g_high, g_low, self.discr_high, self.discr_low, mg, matrix
         )
 
         grid_swap = False
-        # Let the DivU class assemble the contribution from mortar to master
-        self.discr_master.assemble_int_bound_displacement_trace(
-            g_master, data_master, data_edge, grid_swap, cc, matrix, rhs, master_ind
+        # Let the DivU class assemble the contribution from mortar to high
+        self.discr_high.assemble_int_bound_displacement_trace(
+            g_high, data_high, data_edge, grid_swap, cc, matrix, rhs, high_ind
         )
         # and from mortar to low.
         self.discr_low.assemble_int_bound_displacement_source(

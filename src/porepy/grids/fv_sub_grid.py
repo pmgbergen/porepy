@@ -75,12 +75,12 @@ class FvSubGrid(pp.Grid):
         self.face_areas = g.face_areas / num_nodes_per_face
         self.face_areas = self.face_areas[subcell_topology.fno_unique]
         if hasattr(g, "frac_pairs"):
-            is_master = np.zeros(g.num_faces, dtype=np.bool)
+            is_high = np.zeros(g.num_faces, dtype=np.bool)
             is_low = np.zeros(g.num_faces, dtype=np.bool)
-            is_master[g.frac_pairs[0]] = True
+            is_high[g.frac_pairs[0]] = True
             is_low[g.frac_pairs[1]] = True
-            is_master_hf = is_master[subcell_topology.fno_unique]
+            is_high_hf = is_high[subcell_topology.fno_unique]
             is_low_hf = is_low[subcell_topology.fno_unique]
             self.frac_pairs = np.vstack(
-                (np.where(is_master_hf)[0], np.where(is_low_hf)[0])
+                (np.where(is_high_hf)[0], np.where(is_low_hf)[0])
             )

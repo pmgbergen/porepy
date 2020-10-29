@@ -42,7 +42,7 @@ class MortarGrid:
         name (list): Information on the formation of the grid, such as the
             constructor, computations of geometry etc.
         tol (double): Tolerance use when matching grids during update of mortar or
-            master / low grids.
+            high / low grids.
 
     """
 
@@ -328,8 +328,8 @@ class MortarGrid:
         Update the _low_to_mortar_int map when the lower dimensional grid is changed.
 
         Parameter:
-            g_new (pp.Grid): The new master grid.
-            g_old (pp.Grid): The old master grid.
+            g_new (pp.Grid): The new high grid.
+            g_old (pp.Grid): The old high grid.
             tol (double, optional): Tolerance used for matching the new and old grids.
                 Defaults to self.tol.
 
@@ -419,12 +419,12 @@ class MortarGrid:
 
     ## Methods to construct projection matrices
     def high_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
-        """Project values from faces of master to the mortar, by summing quantities
-        from the master side.
+        """Project values from faces of high to the mortar, by summing quantities
+        from the high side.
 
         The projection matrix is scaled so that the column sum is unity, that is, values
-        on the master side are distributed to the mortar according to the overlap
-        between a master face and generally several mortar cells.
+        on the high side are distributed to the mortar according to the overlap
+        between a high face and generally several mortar cells.
 
         This mapping is intended for extensive properties, e.g. fluxes.
 
@@ -434,7 +434,7 @@ class MortarGrid:
 
         Returns:
             sps.matrix: Projection matrix with column sum unity.
-                Size: g_master.num_faces x mortar_grid.num_cells.
+                Size: g_high.num_faces x mortar_grid.num_cells.
 
         """
         return self._convert_to_vector_variable(self._high_to_mortar_int, nd)
@@ -461,12 +461,12 @@ class MortarGrid:
         return self._convert_to_vector_variable(self._low_to_mortar_int, nd)
 
     def high_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
-        """Project values from faces of master to the mortar, by averaging quantities
-        from the master side.
+        """Project values from faces of high to the mortar, by averaging quantities
+        from the high side.
 
         The projection matrix is scaled so that the row sum is unity, that is, values
-        on the mortar side are computed as averages of values from the master side,
-        according to the overlap between, general several, master faces and a mortar
+        on the mortar side are computed as averages of values from the high side,
+        according to the overlap between, general several, high faces and a mortar
         cell.
 
         This mapping is intended for intensive properties, e.g. pressures.
@@ -477,7 +477,7 @@ class MortarGrid:
 
         Returns:
             sps.matrix: Projection matrix with row sum unity.
-                Size: g_master.num_faces x mortar_grid.num_cells.
+                Size: g_high.num_faces x mortar_grid.num_cells.
 
         """
         scaled_mat = self._row_sum_scaling_matrix(self._high_to_mortar_int)
@@ -489,7 +489,7 @@ class MortarGrid:
 
         The projection matrix is scaled so that the row sum is unity, that is, values
         on the mortar side are computed as averages of values from the low side,
-        according to the overlap between, generally several master cells and the mortar
+        according to the overlap between, generally several high cells and the mortar
         cells.
 
         This mapping is intended for intensive properties, e.g. pressures.
@@ -522,17 +522,17 @@ class MortarGrid:
         scaling = sps.csc_matrix((1.0 / row_sum, ind, indptr), shape=(sz, sz))
         return scaling * mat
 
-    # IMPLEMENTATION NOTE: The reverse projections, from mortar to master/low are
+    # IMPLEMENTATION NOTE: The reverse projections, from mortar to high/low are
     # found by taking transposes, and switching average and integration (since we are
     # changing which side we are taking the area relative to.
 
     def mortar_to_high_int(self, nd: int = 1) -> sps.spmatrix:
-        """Project values from the mortar to faces of master, by summing quantities
+        """Project values from the mortar to faces of high, by summing quantities
         from the mortar side.
 
         The projection matrix is scaled so that the column sum is unity, that is, values
-        on the mortar side are distributed to the master according to the overlap
-        between a mortar cell and, generally several master faces.
+        on the mortar side are distributed to the high according to the overlap
+        between a mortar cell and, generally several high faces.
 
         This mapping is intended for extensive properties, e.g. fluxes.
 
@@ -542,7 +542,7 @@ class MortarGrid:
 
         Returns:
             sps.matrix: Projection matrix with column sum unity.
-                Size: mortar_grid.num_cells x g_master.num_faces.
+                Size: mortar_grid.num_cells x g_high.num_faces.
 
         """
         return self._convert_to_vector_variable(self.high_to_mortar_avg().T, nd)
@@ -569,12 +569,12 @@ class MortarGrid:
         return self._convert_to_vector_variable(self.low_to_mortar_avg().T, nd)
 
     def mortar_to_high_avg(self, nd: int = 1) -> sps.spmatrix:
-        """Project values from the mortar to faces of master, by averaging
+        """Project values from the mortar to faces of high, by averaging
         quantities from the mortar side.
 
         The projection matrix is scaled so that the row sum is unity, that is, values
-        on the master side are computed as averages of values from the mortar side,
-        according to the overlap between, general several, mortar cell and a master
+        on the high side are computed as averages of values from the mortar side,
+        according to the overlap between, general several, mortar cell and a high
         face.
 
         This mapping is intended for intensive properties, e.g. pressures.
@@ -585,7 +585,7 @@ class MortarGrid:
 
         Returns:
             sps.matrix: Projection matrix with row sum unity.
-                Size: mortar_grid.num_cells x g_master.num_faces.
+                Size: mortar_grid.num_cells x g_high.num_faces.
 
         """
         return self._convert_to_vector_variable(self.high_to_mortar_int().T, nd)
@@ -640,7 +640,7 @@ class MortarGrid:
             mortar_to_low_avg() * sign_of_mortar_sides()
 
         NOTE: The flux variables in flow and transport equations are defined as
-        positive from master to low. Hence the two sides have different
+        positive from high to low. Hence the two sides have different
         conventions, and there is no need to adjust the signs further.
 
         IMPLEMENTATION NOTE: This method will probably not be meaningful if
@@ -684,7 +684,7 @@ class MortarGrid:
     def _check_mappings(self, tol=1e-4) -> None:
         row_sum = self._high_to_mortar_int.sum(axis=1)
         if not (row_sum.min() > tol):
-            raise ValueError("Check not satisfied for the master grid")
+            raise ValueError("Check not satisfied for the high grid")
 
         row_sum = self._low_to_mortar_int.sum(axis=1)
         if not (row_sum.min() > tol):
@@ -698,7 +698,7 @@ class BoundaryMortar(MortarGrid):
     functions defined in MortarGrid and not BoundaryMortar as not all have been
     thested thoroughly.BoundaryMortar contains a mortar grid and the weighted
     mapping from the low grid (as set of faces) to the mortar grid and from the
-    master grid (as set of faces) to the mortar grid.
+    high grid (as set of faces) to the mortar grid.
 
     Attributes:
 
@@ -712,7 +712,7 @@ class BoundaryMortar(MortarGrid):
             but it can be modified by calling refine_mortar(). The matrix
             elements represent the ratio between the geometrical objects.
         high_to_mortar_int (sps.csc-matrix): face-cell relationships between
-            master mortar grid and the mortar grid. Matrix size:
+            high mortar grid and the mortar grid. Matrix size:
             num_faces x num_cells. Matrix elements represent the ratio between
             the geometrical objects.
         name (list): Information on the formation of the grid, such as the
@@ -721,7 +721,7 @@ class BoundaryMortar(MortarGrid):
     """
 
     def __init__(
-        self, dim: int, mortar_grid, master_low: sps.spmatrix, name: str = ""
+        self, dim: int, mortar_grid, high_low: sps.spmatrix, name: str = ""
     ) -> None:
         """Initialize the mortar grid
 
@@ -733,9 +733,9 @@ class BoundaryMortar(MortarGrid):
         dim (int): grid dimension
         mortar_grid (pp.MortarGrid): mortar grid. It is assumed that there is a
             one to one mapping between the cells of the mortar grid and the
-            faces of the low grid given in master_low
-        master_low (sps.csc_matrix): face-face relations between the low
-            grid and the master dimensional grid.
+            faces of the low grid given in high_low
+        high_low (sps.csc_matrix): face-face relations between the low
+            grid and the high dimensional grid.
         name (str): Name of grid
         """
 
@@ -756,18 +756,18 @@ class BoundaryMortar(MortarGrid):
         else:
             self.name = [name]
         self.name.append("mortar_grid")
-        # master_low is a mapping from the faces of the low grid to the
-        # faces of the master grid.
+        # high_low is a mapping from the faces of the low grid to the
+        # faces of the high grid.
         # We assume that, in the beginning the mortar grids are equal
         # to the low grid. If this assumption is not satisfied we
         # need to change the following lines
-        low_f, master_f, data = sps.find(master_low)
+        low_f, high_f, data = sps.find(high_low)
 
         # It is assumed that the cells of the given mortar grid are ordered
         # by the face numbers of the low side
         ix = np.argsort(low_f)
         low_f = low_f[ix]
-        master_f = master_f[ix]
+        high_f = high_f[ix]
         data = data[ix]
 
         # Define mappings
@@ -781,10 +781,10 @@ class BoundaryMortar(MortarGrid):
             )
         self.cell_volumes = mortar_grid.cell_volumes
 
-        shape_master = (self.num_cells, master_low.shape[1])
-        shape_low = (self.num_cells, master_low.shape[0])
+        shape_high = (self.num_cells, high_low.shape[1])
+        shape_low = (self.num_cells, high_low.shape[0])
         self._high_to_mortar_int = sps.csc_matrix(
-            (data.astype(np.float), (cells, master_f)), shape=shape_master
+            (data.astype(np.float), (cells, high_f)), shape=shape_high
         )
         self._low_to_mortar_int = sps.csc_matrix(
             (data.astype(np.float), (cells, low_f)), shape=shape_low
@@ -825,9 +825,9 @@ class BoundaryMortar(MortarGrid):
         )
 
         s += (
-            "Mapping from the faces of the master_side grid to"
+            "Mapping from the faces of the high_side grid to"
             + " the cells of the mortar grid. \nRows indicate the mortar"
-            + " cell id, columns indicate the master_grid face id"
+            + " cell id, columns indicate the high_grid face id"
             + "\n"
             + str(self.high_to_mortar_int)
             + "\n"

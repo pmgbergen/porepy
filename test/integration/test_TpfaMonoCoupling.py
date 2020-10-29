@@ -55,13 +55,13 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         for e, d_e in gb.edges():
             mg = d_e["mortar_grid"]
             g2, g1 = gb.nodes_of_edge(e)
-            master_to_m = mg.high_to_mortar_avg()
+            high_to_m = mg.high_to_mortar_avg()
             low_to_m = mg.low_to_mortar_avg()
 
-            master_area = master_to_m * g1.face_areas
+            high_area = high_to_m * g1.face_areas
             low_area = low_to_m * g2.face_areas
 
-            self.assertTrue(np.allclose(d_e[pp.STATE]["mortar_flux"] / master_area, 1))
+            self.assertTrue(np.allclose(d_e[pp.STATE]["mortar_flux"] / high_area, 1))
             self.assertTrue(np.allclose(d_e[pp.STATE]["mortar_flux"] / low_area, 1))
 
     def generate_grids(self, n, xmax, ymax, split):

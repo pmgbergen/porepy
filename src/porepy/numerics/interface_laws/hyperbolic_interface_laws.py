@@ -24,20 +24,20 @@ class UpwindCoupling(
     def ndof(self, mg):
         return mg.num_cells
 
-    def discretize(self, g_master, g_low, data_master, data_low, data_edge):
+    def discretize(self, g_high, g_low, data_high, data_low, data_edge):
         pass
 
     def assemble_matrix_rhs(
-        self, g_master, g_low, data_master, data_low, data_edge, matrix
+        self, g_high, g_low, data_high, data_low, data_edge, matrix
     ):
         """
         Construct the matrix (and right-hand side) for the coupling conditions.
         Note: the right-hand side is not implemented now.
 
         Parameters:
-            g_master: grid of higher dimension
+            g_high: grid of higher dimension
             g_low: grid of lower dimension
-            data_master: dictionary which stores the data for the higher dimensional
+            data_high: dictionary which stores the data for the higher dimensional
                 grid
             data_low: dictionary which stores the data for the lower dimensional
                 grid
@@ -60,7 +60,7 @@ class UpwindCoupling(
         # Create the block matrix for the contributions
         mg = data_edge["mortar_grid"]
 
-        # We know the number of dofs from the master and low side from their
+        # We know the number of dofs from the high and low side from their
         # discretizations
         dof = np.array([matrix[0, 0].shape[1], matrix[1, 1].shape[1], mg.num_cells])
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
@@ -71,7 +71,7 @@ class UpwindCoupling(
         # mapping from upper dim cellls to faces
         # The mortars always points from upper to lower, so we don't flip any
         # signs
-        face_to_cell_h = np.abs(pp.fvutils.scalar_divergence(g_master))
+        face_to_cell_h = np.abs(pp.fvutils.scalar_divergence(g_high))
         # We also need a trace-like projection from cells to faces
         trace_h = face_to_cell_h.T
 
@@ -94,8 +94,8 @@ class UpwindCoupling(
 
         # Discretisation of mortars
         # If fluid flux(lam_flux) is positive we use the upper value as weight,
-        # i.e., T_masterat * fluid_flux = lambda.
-        # We set cc[2, 0] = T_masterat * fluid_flux
+        # i.e., T_highat * fluid_flux = lambda.
+        # We set cc[2, 0] = T_highat * fluid_flux
         # Use averaged projection operator for an intensive quantity
         cc[2, 0] = sps.diags(lam_flux * flag) * mg.high_to_mortar_avg() * trace_h
 
@@ -109,7 +109,7 @@ class UpwindCoupling(
         # Recover the information for the grid-grid mapping
         cc[2, 2] = -sps.eye(mg.num_cells)
 
-        if data_master["node_number"] == data_low["node_number"]:
+        if data_high["node_number"] == data_low["node_number"]:
             # All contributions to be returned to the same block of the
             # global matrix in this case
             cc = np.array([np.sum(cc, axis=(0, 1))])
@@ -121,9 +121,9 @@ class UpwindCoupling(
 
     def cfl(
         self,
-        g_master,
+        g_high,
         g_low,
-        data_master,
+        data_high,
         data_low,
         data_edge,
         d_name="mortar_solution",
@@ -138,9 +138,9 @@ class UpwindCoupling(
             Normal velocity at each face, weighted by the face area.
 
         Parameters:
-            g_master: grid of higher dimension
+            g_high: grid of higher dimension
             g_low: grid of lower dimension
-            data_master: dictionary which stores the data for the higher dimensional
+            data_high: dictionary which stores the data for the higher dimensional
                 grid
             data_low: dictionary which stores the data for the lower dimensional
                 grid
@@ -153,69 +153,69 @@ class UpwindCoupling(
         Note: the design of this function has not been updated according
         to the mortar structure. Instead, mg.high_to_mortar_int.nonzero()[1]
         is used to map the 'mortar_solution' (one flux for each mortar dof) to
-        the old darcy_flux (one flux for each g_master face).
+        the old darcy_flux (one flux for each g_high face).
 
         """
         # Retrieve the darcy_flux, which is mandatory
 
-        aperture_master = data_master["param"].get_aperture()
+        aperture_high = data_high["param"].get_aperture()
         aperture_low = data_low["param"].get_aperture()
         phi_low = data_low["param"].get_porosity()
         mg = data_edge["mortar_grid"]
-        darcy_flux = np.zeros(g_master.num_faces)
+        darcy_flux = np.zeros(g_high.num_faces)
         darcy_flux[mg.high_to_mortar_int.nonzero()[1]] = data_edge[d_name]
-        if g_master.dim == g_low.dim:
+        if g_high.dim == g_low.dim:
             # More or less same as below, except we have cell_cells in the place
             # of face_cells (see grid_bucket.duplicate_without_dimension).
-            phi_master = data_master["param"].get_porosity()
-            cells_low, cells_master = data_edge["face_cells"].nonzero()
+            phi_high = data_high["param"].get_porosity()
+            cells_low, cells_high = data_edge["face_cells"].nonzero()
             not_zero = ~np.isclose(np.zeros(darcy_flux.shape), darcy_flux, atol=0)
             if not np.any(not_zero):
                 return np.Inf
 
             diff = (
-                g_master.cell_centers[:, cells_master]
+                g_high.cell_centers[:, cells_high]
                 - g_low.cell_centers[:, cells_low]
             )
             dist = np.linalg.norm(diff, 2, axis=0)
 
             # Use minimum of cell values for convenience
             phi_low = phi_low[cells_low]
-            phi_master = phi_master[cells_master]
-            apt_master = aperture_master[cells_master]
+            phi_high = phi_high[cells_high]
+            apt_high = aperture_high[cells_high]
             apt_low = aperture_low[cells_low]
-            coeff = np.minimum(phi_master, phi_low) * np.minimum(
-                apt_master, apt_low
+            coeff = np.minimum(phi_high, phi_low) * np.minimum(
+                apt_high, apt_low
             )
             return np.amin(np.abs(np.divide(dist, darcy_flux)) * coeff)
 
         # Recover the information for the grid-grid mapping
-        cells_low, faces_master, _ = sps.find(data_edge["face_cells"])
+        cells_low, faces_high, _ = sps.find(data_edge["face_cells"])
 
         # Detect and remove the faces which have zero in "darcy_flux"
         not_zero = ~np.isclose(
-            np.zeros(faces_master.size), darcy_flux[faces_master], atol=0
+            np.zeros(faces_high.size), darcy_flux[faces_high], atol=0
         )
         if not np.any(not_zero):
             return np.inf
 
         cells_low = cells_low[not_zero]
-        faces_master = faces_master[not_zero]
-        # Mapping from faces_master to cell_master
-        cell_faces_master = g_master.cell_faces.tocsr()[faces_master, :]
-        cells_master = cell_faces_master.nonzero()[1][not_zero]
+        faces_high = faces_high[not_zero]
+        # Mapping from faces_high to cell_high
+        cell_faces_high = g_high.cell_faces.tocsr()[faces_high, :]
+        cells_high = cell_faces_high.nonzero()[1][not_zero]
         # Retrieve and map additional data
-        aperture_master = aperture_master[cells_master]
+        aperture_high = aperture_high[cells_high]
         aperture_low = aperture_low[cells_low]
         phi_low = phi_low[cells_low]
         # Compute discrete distance cell to face centers for the lower
         # dimensional grid
-        dist = 0.5 * np.divide(aperture_low, aperture_master)
+        dist = 0.5 * np.divide(aperture_low, aperture_high)
         # Since darcy_flux is multiplied by the aperture wighted face areas, we
         # divide through that quantity to get velocities in [length/time]
         velocity = np.divide(
-            darcy_flux[faces_master],
-            g_master.face_areas[faces_master] * aperture_master,
+            darcy_flux[faces_high],
+            g_high.face_areas[faces_high] * aperture_high,
         )
         # deltaT is deltaX/velocity with coefficient
         return np.amin(np.abs(np.divide(dist, velocity)) * phi_low)

@@ -225,7 +225,7 @@ class FVElliptic(pp.EllipticDiscretization):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and low side; the third belongs to the edge variable.
+                high and low side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -283,7 +283,7 @@ class FVElliptic(pp.EllipticDiscretization):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and low side; the third belongs to the edge variable.
+                high and low side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -321,7 +321,7 @@ class FVElliptic(pp.EllipticDiscretization):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and low side; the third belongs to the edge variable.
+                high and low side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -381,7 +381,7 @@ class FVElliptic(pp.EllipticDiscretization):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and low side; the third belongs to the edge variable.
+                high and low side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -435,12 +435,12 @@ class FVElliptic(pp.EllipticDiscretization):
                 grid to the main grid.
             cc (block matrix, 3x3): Block matrix of size 3 x 3, whwere each block represents
                 coupling between variables on this interface. Index 0, 1 and 2
-                represent the master grid, the primary and secondary interface,
+                represent the high grid, the primary and secondary interface,
                 respectively.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
             rhs (block_array 3x1): Block matrix of size 3 x 1, representing the right hand
-                side of this coupling. Index 0, 1 and 2 represent the master grid,
+                side of this coupling. Index 0, 1 and 2 represent the high grid,
                 the primary and secondary interface, respectively.
 
         """
@@ -475,7 +475,7 @@ class FVElliptic(pp.EllipticDiscretization):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and low side; the third belongs to the edge variable.
+                high and low side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -519,7 +519,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
 
     NOTICE: There seems  no point in assigning this method as the higher-dimensional
     discretization. Accordingly, the methods for assembly of interface contributions
-    from the master side of a mortar grid are delibierately designed to fail.
+    from the high side of a mortar grid are delibierately designed to fail.
 
     """
 
@@ -580,7 +580,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and low side; the third belongs to the edge variable.
+                high and low side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -615,7 +615,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and low side; the third belongs to the edge variable.
+                high and low side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.

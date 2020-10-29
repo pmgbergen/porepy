@@ -600,7 +600,7 @@ def set_projections(gb: pp.GridBucket) -> None:
         _, g_h = gb.nodes_of_edge(e)
 
         # Find faces of the higher dimensional grid that coincide with the mortar
-        # grid. Go via the master to mortar projection
+        # grid. Go via the high to mortar projection
         # Convert matrix to csr, then the relevant face indices are found from
         # the (column) indices
         faces_on_surface = mg.high_to_mortar_int().tocsr().indices
