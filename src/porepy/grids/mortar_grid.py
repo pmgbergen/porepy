@@ -1,11 +1,11 @@
 """ Module containing the class for the mortar grid.
 """
 import warnings
+from typing import Dict, Generator, List, Optional, Tuple
+
 import numpy as np
 from scipy import sparse as sps
-from typing import Dict, Optional, Generator, Tuple
 
-import porepy as pp
 
 # Module level constants, used to define sides of a mortar grid.
 # This is in essence an Enum, but that led to trouble in pickling a GridBucket.
