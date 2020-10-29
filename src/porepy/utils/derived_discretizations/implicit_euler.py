@@ -294,7 +294,7 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
         cc = cc.reshape((3, 3))
 
         # Projection from mortar to upper dimenional faces
-        hat_P_avg = g_m.master_to_mortar_avg()
+        hat_P_avg = g_m.high_to_mortar_avg()
         # Projection from mortar to lower dimensional cells
         check_P_avg = g_m.slave_to_mortar_avg()
 

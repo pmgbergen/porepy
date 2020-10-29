@@ -211,7 +211,7 @@ class PrimalContactCoupling(
         # switch direction of the stress on boundary for the higher dimensional domain: The
         # contact forces are defined as negative in contact, whereas the sign of the higher
         # dimensional stresses are defined according to the direction of the normal vector.
-        faces_on_fracture_surface = mg.master_to_mortar_int().tocsr().indices
+        faces_on_fracture_surface = mg.high_to_mortar_int().tocsr().indices
         sign_switcher = pp.grid_utils.switch_sign_if_inwards_normal(
             g_master, ambient_dimension, faces_on_fracture_surface
         )
@@ -222,14 +222,14 @@ class PrimalContactCoupling(
         # Switch the direction of the vectors to obtain the traction as defined
         # by the outwards pointing normal vector.
         traction_from_master = (
-            mg.master_to_mortar_int(nd=ambient_dimension)
+            mg.high_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
             * master_stress
         )
         cc[mortar_ind, master_ind] = traction_from_master
         # Stress contribution from boundary conditions.
         rhs[mortar_ind] = -(
-            mg.master_to_mortar_int(nd=ambient_dimension)
+            mg.high_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
             * master_bound_stress
             * master_bc_values
@@ -240,7 +240,7 @@ class PrimalContactCoupling(
         # Switch the direction of the vectors, so that for all faces, a positive
         # force points into the fracture surface.
         traction_from_mortar = (
-            mg.master_to_mortar_int(nd=ambient_dimension)
+            mg.high_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
             * master_bound_stress
             * mg.mortar_to_high_avg(nd=ambient_dimension)
@@ -321,13 +321,13 @@ class PrimalContactCoupling(
         # Ambient dimension.
         Nd = g_between.dim
 
-        faces_on_fracture_surface = mg_prim.master_to_mortar_int().tocsr().indices
+        faces_on_fracture_surface = mg_prim.high_to_mortar_int().tocsr().indices
         sign_switcher = pp.grid_utils.switch_sign_if_inwards_normal(
             g_between, Nd, faces_on_fracture_surface
         )
 
         proj_sec = mg_sec.mortar_to_high_avg(nd=Nd)
-        proj_prim = mg_prim.master_to_mortar_int(nd=Nd)
+        proj_prim = mg_prim.high_to_mortar_int(nd=Nd)
 
         # Discretization of boundary conditions
         bound_stress = data_between[pp.DISCRETIZATION_MATRICES][
@@ -443,7 +443,7 @@ class MatrixScalarToForceBalance(
         # A diagonal operator is needed to switch the sign of vectors on
         # higher-dimensional faces that point into the fracture surface, see
         # PrimalContactCoupling.
-        faces_on_fracture_surface = mg.master_to_mortar_int().tocsr().indices
+        faces_on_fracture_surface = mg.high_to_mortar_int().tocsr().indices
         sign_switcher = pp.grid_utils.switch_sign_if_inwards_normal(
             g_master, ambient_dimension, faces_on_fracture_surface
         )
@@ -455,7 +455,7 @@ class MatrixScalarToForceBalance(
         # iii) Map to the mortar grid.
         # iv) Minus according to - alpha grad p already in the discretization matrix
         master_scalar_to_master_traction = (
-            mg.master_to_mortar_int(nd=ambient_dimension)
+            mg.high_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
             * master_scalar_gradient
         )
@@ -546,7 +546,7 @@ class FractureScalarToForceBalance(
         # Construct the dot product between normals on fracture faces and the identity
         # matrix. Similar sign switching as above is needed (this one operating on
         # fracture faces only).
-        faces_on_fracture_surface = mg.master_to_mortar_int().tocsr().indices
+        faces_on_fracture_surface = mg.high_to_mortar_int().tocsr().indices
         sgn = g_master.sign_of_faces(faces_on_fracture_surface)
         fracture_normals = g_master.face_normals[
             :ambient_dimension, faces_on_fracture_surface

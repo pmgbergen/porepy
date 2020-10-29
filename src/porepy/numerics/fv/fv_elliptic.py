@@ -342,7 +342,7 @@ class FVElliptic(pp.EllipticDiscretization):
             proj = mg.slave_to_mortar_avg()
             proj_int = mg.mortar_to_low_int()
         else:
-            proj = mg.master_to_mortar_avg()
+            proj = mg.high_to_mortar_avg()
             proj_int = mg.mortar_to_high_int()
 
         cc[2, self_ind] += proj * matrix_dictionary[self.bound_pressure_cell_matrix_key]
@@ -401,7 +401,7 @@ class FVElliptic(pp.EllipticDiscretization):
         if use_slave_proj:
             proj = mg.slave_to_mortar_avg()
         else:
-            proj = mg.master_to_mortar_avg()
+            proj = mg.high_to_mortar_avg()
 
         # Add contribution from boundary conditions to the pressure at the fracture
         # faces. For TPFA this will be zero, but for MPFA we will get a contribution

@@ -192,7 +192,7 @@ class THM(parent_model.ContactMechanicsBiot):
 
             a_l = self.aperture(g_l)
             v_h = (
-                mg.master_to_mortar_avg()
+                mg.high_to_mortar_avg()
                 * np.abs(g_h.cell_faces)
                 * self.specific_volume(g_h)
             )  #

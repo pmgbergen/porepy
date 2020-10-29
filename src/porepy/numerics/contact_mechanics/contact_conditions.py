@@ -159,7 +159,7 @@ class ColoumbContact:
         constit_h = parameters_h["fourth_order_tensor"]
         mean_constit = (
             mg.mortar_to_low_avg()
-            * mg.master_to_mortar_avg()
+            * mg.high_to_mortar_avg()
             * 0.5
             * np.abs(g_h.cell_faces * (constit_h.mu + constit_h.lmbda))
         )
@@ -603,7 +603,7 @@ def set_projections(gb: pp.GridBucket) -> None:
         # grid. Go via the master to mortar projection
         # Convert matrix to csr, then the relevant face indices are found from
         # the (column) indices
-        faces_on_surface = mg.master_to_mortar_int().tocsr().indices
+        faces_on_surface = mg.high_to_mortar_int().tocsr().indices
 
         # Find out whether the boundary faces have outwards pointing normal vectors
         # Negative sign implies that the normal vector points inwards.
@@ -622,7 +622,7 @@ def set_projections(gb: pp.GridBucket) -> None:
         # (below).
         # NOTE: Use a single normal vector to span the tangential and normal space,
         # thus assuming the surface is planar.
-        outwards_unit_vector_mortar = mg.master_to_mortar_int().dot(unit_normal.T).T
+        outwards_unit_vector_mortar = mg.high_to_mortar_int().dot(unit_normal.T).T
 
         # NOTE: The normal vector is based on the first cell in the mortar grid,
         # and will be pointing from that cell towards the other side of the

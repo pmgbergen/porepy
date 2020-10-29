@@ -30,7 +30,7 @@ class MortarGrid:
         side_grids (dictionary of Grid): grid for each side. The key is an integer
             with value {0, 1, 2}, and the value is a Grid.
         sides (array of integers with values in {0, 1, 2}): ordering of the sides.
-        _master_to_mortar_int (sps.csc-matrix): Face-cell relationships between the
+        _high_to_mortar_int (sps.csc-matrix): Face-cell relationships between the
             high dimensional grid and the mortar grids. Matrix size:
             num_faces x num_cells. In the beginning we assume matching grids,
             but it can be modified by calling refine_mortar(). The matrix
@@ -147,7 +147,7 @@ class MortarGrid:
                 cells[cells_on_second_side] += num_cells
 
         shape = (num_cells * self.num_sides(), face_cells.shape[1])
-        self._master_to_mortar_int: sps.spmatrix = sps.csc_matrix(
+        self._high_to_mortar_int: sps.spmatrix = sps.csc_matrix(
             (data.astype(np.float), (cells, faces)), shape=shape
         )
 
@@ -267,7 +267,7 @@ class MortarGrid:
         # high_to_mortar_int maps are updated.
         matrix = sps.bmat(matrix)
         self._slave_to_mortar_int = matrix * self._slave_to_mortar_int
-        self._master_to_mortar_int = matrix * self._master_to_mortar_int
+        self._high_to_mortar_int = matrix * self._high_to_mortar_int
 
         # Update the side grids
         for side, g in new_side_grids.items():
@@ -341,7 +341,7 @@ class MortarGrid:
         if self.dim == 0:
 
             # retrieve the old faces and the corresponding coordinates
-            _, old_faces, _ = sps.find(self._master_to_mortar_int)
+            _, old_faces, _ = sps.find(self._high_to_mortar_int)
             old_nodes = g_old.face_centers[:, old_faces]
 
             # retrieve the boundary faces and the corresponding coordinates
@@ -377,7 +377,7 @@ class MortarGrid:
             raise NotImplementedError("Have not yet implemented this.")
 
         # Make a comment here
-        self._master_to_mortar_int = self._master_to_mortar_int * split_matrix
+        self._high_to_mortar_int = self._high_to_mortar_int * split_matrix
         self._check_mappings()
 
     def num_sides(self) -> int:
@@ -418,7 +418,7 @@ class MortarGrid:
             yield proj, grid
 
     ## Methods to construct projection matrices
-    def master_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
+    def high_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from faces of master to the mortar, by summing quantities
         from the master side.
 
@@ -437,7 +437,7 @@ class MortarGrid:
                 Size: g_master.num_faces x mortar_grid.num_cells.
 
         """
-        return self._convert_to_vector_variable(self._master_to_mortar_int, nd)
+        return self._convert_to_vector_variable(self._high_to_mortar_int, nd)
 
     def slave_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from cells on the slave side to the mortar, by
@@ -460,7 +460,7 @@ class MortarGrid:
         """
         return self._convert_to_vector_variable(self._slave_to_mortar_int, nd)
 
-    def master_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
+    def high_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from faces of master to the mortar, by averaging quantities
         from the master side.
 
@@ -480,7 +480,7 @@ class MortarGrid:
                 Size: g_master.num_faces x mortar_grid.num_cells.
 
         """
-        scaled_mat = self._row_sum_scaling_matrix(self._master_to_mortar_int)
+        scaled_mat = self._row_sum_scaling_matrix(self._high_to_mortar_int)
         return self._convert_to_vector_variable(scaled_mat, nd)
 
     def slave_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
@@ -545,7 +545,7 @@ class MortarGrid:
                 Size: mortar_grid.num_cells x g_master.num_faces.
 
         """
-        return self._convert_to_vector_variable(self.master_to_mortar_avg().T, nd)
+        return self._convert_to_vector_variable(self.high_to_mortar_avg().T, nd)
 
     def mortar_to_low_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to cells at the slave, by summing quantities
@@ -588,7 +588,7 @@ class MortarGrid:
                 Size: mortar_grid.num_cells x g_master.num_faces.
 
         """
-        return self._convert_to_vector_variable(self.master_to_mortar_int().T, nd)
+        return self._convert_to_vector_variable(self.high_to_mortar_int().T, nd)
 
     def mortar_to_low_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to slave, by averaging quantities from the

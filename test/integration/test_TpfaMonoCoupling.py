@@ -55,7 +55,7 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         for e, d_e in gb.edges():
             mg = d_e["mortar_grid"]
             g2, g1 = gb.nodes_of_edge(e)
-            master_to_m = mg.master_to_mortar_avg()
+            master_to_m = mg.high_to_mortar_avg()
             slave_to_m = mg.slave_to_mortar_avg()
 
             master_area = master_to_m * g1.face_areas
@@ -292,7 +292,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             mg = d_e["mortar_grid"]
             g1, g2 = gb.nodes_of_edge(e)
             if g1 == g2:
-                left_to_m = mg.master_to_mortar_avg()
+                left_to_m = mg.high_to_mortar_avg()
                 right_to_m = mg.slave_to_mortar_avg()
             else:
                 continue

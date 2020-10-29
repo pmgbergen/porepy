@@ -604,14 +604,14 @@ class TestGridBucketExtrusion(unittest.TestCase):
         mg_new = d["mortar_grid"]
 
         # Check that the old and new grid have
-        bound_faces_old = mg.master_to_mortar_int().tocoo().col
+        bound_faces_old = mg.high_to_mortar_int().tocoo().col
         # We know from the construction of the grid extruded to 3d that the faces
         # on the fracture boundary will be those in the 2d grid stacked on top of each
         # other
         known_bound_faces_new = np.hstack(
             (bound_faces_old, bound_faces_old + g_2.num_faces)
         )
-        bound_faces_new = mg_new.master_to_mortar_int().tocoo().col
+        bound_faces_new = mg_new.high_to_mortar_int().tocoo().col
         self.assertTrue(
             np.allclose(np.sort(known_bound_faces_new), np.sort(bound_faces_new))
         )
@@ -625,7 +625,7 @@ class TestGridBucketExtrusion(unittest.TestCase):
 
         # All mortar cells should be associated with a face in master
         mortar_cells_in_range_from_master = np.unique(
-            mg_new.master_to_mortar_int().tocoo().row
+            mg_new.high_to_mortar_int().tocoo().row
         )
         self.assertTrue(mortar_cells_in_range_from_master.size == mg_new.num_cells)
         self.assertTrue(
