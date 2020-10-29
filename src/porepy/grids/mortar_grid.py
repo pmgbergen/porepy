@@ -115,7 +115,6 @@ class MortarGrid:
     def __repr__(self) -> str:
         """
         Implementation of __repr__
-
         """
         s = (
             "Mortar grid with history "
@@ -153,7 +152,8 @@ class MortarGrid:
         We assume that they are not aligned with x (1d) or x, y (2d).
         """
         # Update the actual side grids
-        [g.compute_geometry() for g in self.side_grids.values()]
+        for g in self.side_grids.values():
+            g.compute_geometry()
 
         # Update the attributes
         self.num_cells = np.sum(
@@ -181,7 +181,6 @@ class MortarGrid:
                 new mapping between the old and new mortar grids.
             tol (double, optional): Tolerance used for matching the new and old grids.
                 Defaults to self.tol.
-
         """
         if tol is None:
             tol = self.tol
@@ -293,7 +292,6 @@ class MortarGrid:
             g_old (pp.Grid): The old master grid.
             tol (double, optional): Tolerance used for matching the new and old grids.
                 Defaults to self.tol.
-
         """
         # TODO: Why is the signature of this method different from update_slave?
         if tol is None:
@@ -347,7 +345,6 @@ class MortarGrid:
 
         Return:
             Number of sides.
-
         """
         return len(self.side_grids)
 
@@ -363,7 +360,6 @@ class MortarGrid:
                 mortar grid. Can be used for standard discretizations.
             proj (sps.csc_matrix): Projection from the mortar cells to this
                 side grid.
-
         """
         counter = 0
         for grid in self.side_grids.values():
@@ -379,7 +375,6 @@ class MortarGrid:
             yield proj, grid
 
     ## Methods to construct projection matrices
-
     def master_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from faces of master to the mortar, by summing quantities
         from the master side.
@@ -397,7 +392,6 @@ class MortarGrid:
         Returns:
             sps.matrix: Projection matrix with column sum unity.
                 Size: g_master.num_faces x mortar_grid.num_cells.
-
         """
         return self._convert_to_vector_variable(self._master_to_mortar_int, nd)
 
@@ -418,7 +412,6 @@ class MortarGrid:
         Returns:
             sps.matrix: Projection matrix with column sum unity.
                 Size: g_slave.num_cells x mortar_grid.num_cells.
-
         """
         return self._convert_to_vector_variable(self._slave_to_mortar_int, nd)
 
@@ -440,12 +433,9 @@ class MortarGrid:
         Returns:
             sps.matrix: Projection matrix with row sum unity.
                 Size: g_master.num_faces x mortar_grid.num_cells.
-
         """
-        row_sum = self._master_to_mortar_int.sum(axis=1).A.ravel()
-        return self._convert_to_vector_variable(
-            sps.diags(1.0 / row_sum) * self._master_to_mortar_int, nd
-        )
+        scaled_mat = self._row_sum_scaling_matrix(self._master_to_mortar_int)
+        return self._convert_to_vector_variable(scaled_mat, nd)
 
     def slave_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from cells at the slave to the mortar, by averaging
@@ -465,12 +455,25 @@ class MortarGrid:
         Returns:
             sps.matrix: Projection matrix with row sum unity.
                 Size: g_slave.num_cells x mortar_grid.num_cells.
-
         """
-        row_sum = self._slave_to_mortar_int.sum(axis=1).A.ravel()
-        return self._convert_to_vector_variable(
-            sps.diags(1.0 / row_sum) * self._slave_to_mortar_int, nd
-        )
+        scaled_mat = self._row_sum_scaling_matrix(self._slave_to_mortar_int)
+        return self._convert_to_vector_variable(scaled_mat, nd)
+
+    def _row_sum_scaling_matrix(self, mat):
+        # Helper method to construct projection matrices.
+        row_sum = mat.sum(axis=1).A.ravel()
+
+        if np.all(row_sum == 1):
+            # If only unit scalings, no need to do anything
+            return mat
+
+        # Profiling showed that scaling with a csc matrix is quicker than a diagonal
+        # matrix. Savings both in construction (!) and multiplication.
+        sz = row_sum.size
+        indptr = np.arange(sz + 1)
+        ind = np.arange(sz)
+        scaling = sps.csc_matrix((1.0 / row_sum, ind, indptr), shape=(sz, sz))
+        return scaling * mat
 
     # IMPLEMENTATION NOTE: The reverse projections, from mortar to master/slave are
     # found by taking transposes, and switching average and integration (since we are
@@ -493,7 +496,6 @@ class MortarGrid:
         Returns:
             sps.matrix: Projection matrix with column sum unity.
                 Size: mortar_grid.num_cells x g_master.num_faces.
-
         """
         return self._convert_to_vector_variable(self.master_to_mortar_avg().T, nd)
 
@@ -514,12 +516,12 @@ class MortarGrid:
         Returns:
             sps.matrix: Projection matrix with column sum unity.
                 Size: mortar_grid.num_cells x g_slave_num_faces.
-
         """
         return self._convert_to_vector_variable(self.slave_to_mortar_avg().T, nd)
 
     def mortar_to_master_avg(self, nd: int = 1) -> sps.spmatrix:
-        """Project values from the mortar to faces of master, by averaging
+        """
+        Project values from the mortar to faces of master, by averaging
         quantities from the mortar side.
 
         The projection matrix is scaled so that the row sum is unity, that is, values
@@ -536,7 +538,6 @@ class MortarGrid:
         Returns:
             sps.matrix: Projection matrix with row sum unity.
                 Size: mortar_grid.num_cells x g_master.num_faces.
-
         """
         return self._convert_to_vector_variable(self.master_to_mortar_int().T, nd)
 
@@ -558,7 +559,6 @@ class MortarGrid:
         Returns:
             sps.matrix: Projection matrix with row sum unity.
                 Size: mortar_grid.num_cells x g_slave.num_faces.
-
         """
         return self._convert_to_vector_variable(self.slave_to_mortar_int().T, nd)
 
@@ -569,7 +569,11 @@ class MortarGrid:
         dimension is 1 (default for all the above methods), the projection matrix
         will in effect not be altered.
         """
-        return sps.kron(matrix, sps.eye(nd)).tocsc()
+        if nd == 1:
+            # No need to do expansion for 1d variables.
+            return matrix
+        else:
+            return sps.kron(matrix, sps.eye(nd)).tocsc()
 
     def sign_of_mortar_sides(self, nd: int = 1) -> sps.spmatrix:
         """Assign positive or negative weight to the two sides of a mortar grid.
@@ -582,7 +586,6 @@ class MortarGrid:
 
         Example: Take the difference between right and left variables, and
         project to the slave grid by
-
             mortar_to_slave_avg() * sign_of_mortar_sides()
 
         NOTE: The flux variables in flow and transport equations are defined as
@@ -600,6 +603,7 @@ class MortarGrid:
             sps.diag_matrix: Diagonal matrix with positive signs on variables
                 belonging to the first of the side_grids.
                 Size: mortar_grid.num_cells x mortar_grid.num_cells
+
 
         """
         nc = self.num_cells
@@ -635,74 +639,6 @@ class MortarGrid:
         row_sum = self._slave_to_mortar_int.sum(axis=1)
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the slave grid")
-
-    def _init_projections(
-        self,
-        master_slave: sps.spmatrix,
-        face_duplicate_ind: Optional[np.ndarray] = None,
-    ):
-        """Initialize projections from master and slave to mortar.
-        Parameters:
-        master_slave (sps.spmatrix): projection from the master to the slave.
-            It is assumed that the master slave and mortar grids are all matching.
-        """
-        # master_slave is a mapping from the cells (faces) of the slave grid to the
-        # faces of the master grid.
-        slave_f, master_f, data = sps.find(master_slave)
-
-        # If the face_duplicate_ind is given we have to reorder the master face indices
-        # such that the original faces comes first, then the duplicate faces.
-        # If the face_duplicate_ind is not given, we then assume that the master side faces
-        # already have this ordering. If the grid is created using the pp.split_grid.py
-        # module this shoulc be the case.
-        if self.num_sides() == 2 and not (face_duplicate_ind is None):
-            is_second_side = np.in1d(master_f, face_duplicate_ind)
-            slave_f = np.r_[slave_f[~is_second_side], slave_f[is_second_side]]
-            master_f = np.r_[master_f[~is_second_side], master_f[is_second_side]]
-            data = np.r_[data[~is_second_side], data[is_second_side]]
-
-        # We assumed that the cells of the given side grid(s) is(are) ordered
-        # by the slave side index. In other words: cell "n" of the side grid(s) should
-        # correspond to the element with the n'th lowest index in slave_f. We therefore
-        # sort slave_f to obtaint the side grid ordering. The master faces should now be
-        # sorted such that the left side comes first, then the right side. We use stable
-        # sort to not mix up the ordering if there is two sides.
-        ix = np.argsort(slave_f, kind="stable")
-        if self.num_sides() == 2:
-            # If there are two sides we are in the case of a slave grid of equal
-            # dimension as the mortar grid. The mapping master_slave is then a mapping
-            # from faces-cells, and we assume the higher dimensional grid is split and
-            # there is exactly two master faces mapping to each slave cell. Check this:
-            if not np.allclose(np.bincount(slave_f), 2):
-                raise ValueError(
-                    """Each face in the higher dimensional grid must map to
-                exactly two lower dimensional cells"""
-                )
-            # The mortar grid cells are ordered as first all cells on side 1 then all
-            # cells on side 2. We there have to reorder ix to account for this:
-            ix = np.reshape(ix, (2, -1), order="F").ravel("C")
-
-        # Reorder mapping to fit with mortar cell ordering.
-        slave_f = slave_f[ix]
-        master_f = master_f[ix]
-        data = data[ix]
-
-        # Define mappings
-        cells = np.arange(slave_f.size)
-        if not self.num_cells == cells.size:
-            raise ValueError(
-                """In the construction of MortarGrid it is assumed
-            to be a one to one mapping between the mortar grid and the slave mapping"""
-            )
-
-        shape_master = (self.num_cells, master_slave.shape[1])
-        shape_slave = (self.num_cells, master_slave.shape[0])
-        self._master_to_mortar_int = sps.csc_matrix(
-            (data.astype(np.float), (cells, master_f)), shape=shape_master
-        )
-        self._slave_to_mortar_int = sps.csc_matrix(
-            (data.astype(np.float), (cells, slave_f)), shape=shape_slave
-        )
 
 
 # --- helper methods
