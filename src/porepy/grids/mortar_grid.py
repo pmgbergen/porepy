@@ -285,7 +285,8 @@ class MortarGrid:
 
     def update_master(self, g_new: pp.Grid, g_old: pp.Grid, tol: float = None):
         """
-        Update the _master_to_mortar_int map when the master (higher dimensional) grid is changed.
+        Update the _master_to_mortar_int map when the master (higher dimensional) grid
+        is changed.
 
         Parameter:
             g_new (pp.Grid): The new master grid.
@@ -654,12 +655,11 @@ class MortarGrid:
         # If the face_duplicate_ind is not given, we then assume that the master side faces
         # already have this ordering. If the grid is created using the pp.split_grid.py
         # module this shoulc be the case.
-        if self.num_sides() == 2 and not face_duplicate_ind is None:
+        if self.num_sides() == 2 and not (face_duplicate_ind is None):
             is_second_side = np.in1d(master_f, face_duplicate_ind)
             slave_f = np.r_[slave_f[~is_second_side], slave_f[is_second_side]]
             master_f = np.r_[master_f[~is_second_side], master_f[is_second_side]]
             data = np.r_[data[~is_second_side], data[is_second_side]]
-
 
         # We assumed that the cells of the given side grid(s) is(are) ordered
         # by the slave side index. In other words: cell "n" of the side grid(s) should
