@@ -14,6 +14,9 @@ utils: Utility functions, array manipulation, computational geometry etc.
 
 viz: Visualization; paraview, matplotlib.
 
+
+isort:skip_file
+
 """
 
 __version__ = "1.2.6"
@@ -22,8 +25,6 @@ __version__ = "1.2.6"
 # Simplified namespaces. The rue of thumb is that classes and modules that a
 # user can be exposed to should have a shortcut here. Borderline cases will be
 # decided as needed
-
-__all__ = []
 
 from porepy.utils.common_constants import *
 
@@ -148,3 +149,9 @@ from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer
 from porepy.grids import coarsening, partition, refinement
 import porepy.utils.derived_discretizations
+from porepy.utils.default_domains import (
+    CubeDomain,
+    SquareDomain,
+    UnitSquareDomain,
+    UnitCubeDomain,
+)

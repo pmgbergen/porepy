@@ -6,43 +6,43 @@ Various methods to refine a grid.
 Created on Sat Nov 11 17:06:37 2017
 
 """
+import abc
+from pathlib import Path
+from typing import Dict, Optional, Union
+
 import gmsh
 import numpy as np
 import scipy.sparse as sps
-from pathlib import Path
-from typing import Union, Optional, Dict
-import abc
 
 import porepy as pp
-
 from porepy.grids.grid import Grid
-from porepy.grids.structured import TensorGrid
 from porepy.grids.simplex import TriangleGrid
+from porepy.grids.structured import TensorGrid
 
 
 def distort_grid_1d(
     g: pp.Grid, ratio: Optional[float] = 0.1, fixed_nodes: Optional[np.ndarray] = None
 ) -> pp.Grid:
-    """ Randomly distort internal nodes in a 1d grid.
+    """Randomly distort internal nodes in a 1d grid.
 
-     The boundary nodes are left untouched.
+    The boundary nodes are left untouched.
 
-     The perturbations will not perturb the topology of the mesh.
+    The perturbations will not perturb the topology of the mesh.
 
-     Parameters:
-          g (pp.grid): To be perturbed. Modifications will happen in place.
-          ratio (int, optional, defaults to 0.1): Perturbation ratio. A node can be
-               moved at most half the distance in towards any of its
-               neighboring nodes. The ratio will multiply the chosen
-               distortion. Should be less than 1 to preserve grid topology.
-          fixed_nodes (np.array, optional): Index of nodes to keep fixed under
-              distortion. Boundary nodes will always be fixed, even if not
-              expli)itly included as fixed_node
+    Parameters:
+         g (pp.grid): To be perturbed. Modifications will happen in place.
+         ratio (int, optional, defaults to 0.1): Perturbation ratio. A node can be
+              moved at most half the distance in towards any of its
+              neighboring nodes. The ratio will multiply the chosen
+              distortion. Should be less than 1 to preserve grid topology.
+         fixed_nodes (np.array, optional): Index of nodes to keep fixed under
+             distortion. Boundary nodes will always be fixed, even if not
+             expli)itly included as fixed_node
 
-     Returns:
-          grid: With distorted nodes
+    Returns:
+         grid: With distorted nodes
 
-     """
+    """
     if fixed_nodes is None:
         fixed_nodes = np.array([0, g.num_nodes - 1], dtype=np.int)
     else:
@@ -60,8 +60,8 @@ def distort_grid_1d(
     return g
 
 
-def refine_grid_1d(g: pp.Grid, ratio: Optional[int] = 2) -> pp.Grid:
-    """ Refine cells in a 1d grid.
+def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
+    """Refine cells in a 1d grid.
 
     Parameters:
         g (pp.Grid): A 1d grid, to be refined.
@@ -143,8 +143,8 @@ def refine_grid_1d(g: pp.Grid, ratio: Optional[int] = 2) -> pp.Grid:
     return g
 
 
-def refine_triangle_grid(g: pp.TriangleGrid) -> pp.TriangleGrid:
-    """ Uniform refinement of triangle grid, all cells are split into four
+def refine_triangle_grid(g: pp.TriangleGrid) -> Union[pp.TriangleGrid, np.ndarray]:
+    """Uniform refinement of triangle grid, all cells are split into four
     subcells by combining existing nodes and face centrers.
 
     Implementation note: It should be fairly straighforward to extend the
@@ -215,7 +215,7 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> pp.TriangleGrid:
 
 
 def remesh_1d(g_old: pp.Grid, num_nodes: int, tol: Optional[float] = 1e-6) -> pp.Grid:
-    """ Create a new 1d mesh covering the same domain as an old one.
+    """Create a new 1d mesh covering the same domain as an old one.
 
     The new grid is equispaced, and there is no guarantee that the nodes in
     the old and new grids are coincinding. Use with care, in particular for
@@ -286,7 +286,7 @@ class GridSequenceIterator:
 
 
 class GridSequenceFactory(abc.ABC):
-    """ Factory class to generate a set of refined grids.
+    """Factory class to generate a set of refined grids.
 
     To define new refinement types, inherit from this class and override the _generate()
     method.

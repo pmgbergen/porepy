@@ -10,14 +10,15 @@ set in the model class, and the problem may be solved using run_biot.
 NOTE: This module should be considered an experimental feature, which will likely
 undergo major changes (or be deleted).
 """
-import numpy as np
-import porepy as pp
 import logging
 import time
+from typing import Dict, List
+
+import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spla
-from typing import List, Dict
 
+import porepy as pp
 import porepy.models.contact_mechanics_model as contact_model
 from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
 
@@ -464,8 +465,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         pass
 
     def discretize(self) -> None:
-        """ Discretize all terms
-        """
+        """Discretize all terms"""
         if not hasattr(self, "assembler"):
             self.assembler = pp.Assembler(self.gb)
 
@@ -504,7 +504,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
     def before_newton_loop(self) -> None:
-        """ Will be run before entering a Newton loop.
+        """Will be run before entering a Newton loop.
         E.g.
            Discretize time-dependent quantities etc.
            Update time-dependent parameters (captured by assembly).
@@ -544,7 +544,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         solver = self.params.get("linear_solver", "direct")
 
         if solver == "direct":
-            """ In theory, it should be possible to instruct SuperLU to reuse the
+            """In theory, it should be possible to instruct SuperLU to reuse the
             symbolic factorization from one iteration to the next. However, it seems
             the scipy wrapper around SuperLU has not implemented the necessary
             functionality, as discussed in
@@ -554,22 +554,6 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             We will therefore pass here, and pay the price of long computation times.
             """
             self.linear_solver = "direct"
-
-        elif solver == "pyamg":
-            self.linear_solver = solver
-            import pyamg
-
-            assembler = self.assembler
-
-            A, _ = assembler.assemble_matrix_rhs()
-
-            g = self.gb.grids_of_dimension(self.Nd)[0]
-            mechanics_dof = assembler.dof_ind(g, self.displacement_variable)
-
-            pyamg_solver = pyamg.smoothed_aggregation_solver(
-                A[mechanics_dof][:, mechanics_dof]
-            )
-            self.mechanics_precond = pyamg_solver.aspreconditioner(cycle="W")
 
         else:
             raise ValueError("unknown linear solver " + solver)

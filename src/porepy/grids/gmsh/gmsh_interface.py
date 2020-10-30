@@ -1,10 +1,12 @@
 # Methods to work directly with the gmsh format
 
+from pathlib import Path
+from typing import List, Union
+
 import numpy as np
 
-from typing import Union, List
-
-from pathlib import Path
+import porepy.grids.constants as gridding_constants
+from porepy.utils import sort_points
 
 try:
     import gmsh
@@ -16,14 +18,11 @@ except ModuleNotFoundError:
         "export PYTHONPATH=${PYTHONPATH}:path/to/gmsh*-sdk.*/lib"
     )
 
-from porepy.utils import sort_points
-import porepy.grids.constants as gridding_constants
-
 
 class GmshWriter(object):
     """
-     Write a gmsh.geo file for a fractured 2D domains, possibly including
-     compartments
+    Write a gmsh.geo file for a fractured 2D domains, possibly including
+    compartments
     """
 
     def __init__(
@@ -42,6 +41,7 @@ class GmshWriter(object):
         fracture_tags=None,
         domain_boundary_points=None,
         fracture_and_boundary_points=None,
+        fracture_constraint_intersection_points=None,
     ):
         """
 
@@ -76,6 +76,9 @@ class GmshWriter(object):
 
         self.domain_boundary_points = domain_boundary_points
         self.fracture_and_boundary_points = fracture_and_boundary_points
+        self.fracture_constraint_intersection_points = (
+            fracture_constraint_intersection_points
+        )
 
     def write_geo(self, file_name):
 
@@ -533,6 +536,18 @@ class GmshWriter(object):
                     + ls
                 )
 
+        if self.fracture_constraint_intersection_points is not None:
+            for i, p in enumerate(self.fracture_constraint_intersection_points):
+                s += (
+                    'Physical Point("'
+                    + constants.PHYSICAL_NAME_FRACTURE_CONSTRAINT_INTERSECTION_POINT
+                    + str(i)
+                    + '") = {p'
+                    + str(p)
+                    + "};"
+                    + ls
+                )
+
         s += "// End of physical point specification" + ls + ls
         return s
 
@@ -668,7 +683,7 @@ class GmshGridBucketWriter(object):
         # Element types (as specified by the gmsh .msh format), index by
         # dimensions. This assumes all cells are simplices.
         elem_type = [15, 1, 2, 4]
-        for i, gr in enumerate(self.gb):
+        for gr in self.gb:
             g = gr[0]
             gn = str(gr[1]["node_number"])
 
@@ -696,7 +711,7 @@ class GmshGridBucketWriter(object):
 
 
 def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) -> None:
-    """ Convenience function to run gmsh.
+    """Convenience function to run gmsh.
 
     Parameters:
         in_file : str or pathlib.Path
@@ -713,7 +728,7 @@ def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) ->
     # Helper functions
 
     def _dump_gmsh_log(_log: List[str], in_file_name: Path) -> Path:
-        """ Write a gmsh log to file.
+        """Write a gmsh log to file.
 
         Takes in the entire log and path to the in_file (from outer scope)
         Return name of the log file

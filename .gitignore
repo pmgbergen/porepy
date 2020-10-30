@@ -32,3 +32,7 @@ bin/*
 *.eps
 *.pdf
 .eggs/
+*.nbc
+*.nbi
+*.egg-info
+*.DS_Store

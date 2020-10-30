@@ -5,6 +5,8 @@ Current content:
     Robin-type couplings, as decsribed by Martin et al 2005.
     Full continuity conditions between subdomains
 """
+from typing import Tuple
+
 import numpy as np
 import scipy.sparse as sps
 
@@ -15,9 +17,9 @@ import porepy.numerics.interface_laws.abstract_interface_law
 class RobinCoupling(
     porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
 ):
-    """ A condition with resistance to flow between subdomains. Implementation
-        of the model studied (though not originally proposed) by Martin et
-        al 2005.
+    """A condition with resistance to flow between subdomains. Implementation
+    of the model studied (though not originally proposed) by Martin et
+    al 2005.
 
     """
 
@@ -58,7 +60,7 @@ class RobinCoupling(
         return mg.num_cells
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
-        """ Discretize the interface law and store the discretization in the
+        """Discretize the interface law and store the discretization in the
         edge data.
 
         Parameters:
@@ -175,7 +177,7 @@ class RobinCoupling(
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
     ):
-        """ Assemble the dicretization of the interface law, and its impact on
+        """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
         Parameters:
@@ -269,8 +271,8 @@ class RobinCoupling(
         edge_secondary,
         data_secondary_edge,
         matrix,
-    ):
-        """ Represent the impact on a primary interface of the mortar (thus boundary)
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Represent the impact on a primary interface of the mortar (thus boundary)
         flux on a secondary interface.
 
         Parameters:
@@ -312,10 +314,7 @@ class RobinCoupling(
         )
 
         # Assemble contribution between higher dimensions.
-        (
-            cc,
-            rhs,
-        ) = self.discr_master.assemble_int_bound_pressure_trace_between_interfaces(
+        self.discr_master.assemble_int_bound_pressure_trace_between_interfaces(
             g, data_grid, proj_pressure, proj_flux, cc, matrix, rhs
         )
         # Scale the equations (this will modify from K^-1 to K scaling if relevant)
@@ -335,7 +334,7 @@ class RobinCoupling(
 
 
 class FluxPressureContinuity(RobinCoupling):
-    """ A condition for flux and pressure continuity between two domains. A particular
+    """A condition for flux and pressure continuity between two domains. A particular
     attention is devoted in the case if these domanins are of equal
     dimension. This can be used to specify full continuity between fractures,
     two domains or a periodic boundary condition for a single domain. The faces
@@ -364,7 +363,7 @@ class FluxPressureContinuity(RobinCoupling):
         self.edge_coupling_via_low_dim = False
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
-        """ Nothing really to do here
+        """Nothing really to do here
 
         Parameters:
             g_h: Grid of the master domanin.
@@ -376,10 +375,65 @@ class FluxPressureContinuity(RobinCoupling):
         """
         pass
 
+    def assemble_rhs(
+        self, g_master, g_slave, data_master, data_slave, data_edge, matrix
+    ):
+        """Assemble the dicretization of the interface law, and its impact on
+        the neighboring domains.
+
+        Parameters:
+            g_master: Grid on one neighboring subdomain.
+            g_slave: Grid on the other neighboring subdomain.
+            data_master: Data dictionary for the master suddomain
+            data_slave: Data dictionary for the slave subdomain.
+            data_edge: Data dictionary for the edge between the subdomains
+            matrix_master: original discretization for the master subdomain
+            matrix_slave: original discretization for the slave subdomain
+
+        """
+        # IMPLEMENTATION NOTE: This function is aimed at computational savings in a case
+        # where the same linear system must be solved with multiple right hand sides.
+        # Compared to self.assemble_matrix_rhs(), the method short cuts parts of the
+        # assembly that only give contributions to the matrix.
+
+        master_ind = 0
+        slave_ind = 1
+
+        # Generate matrix for the coupling.
+        mg = data_edge["mortar_grid"]
+        cc_master, rhs_master = self._define_local_block_matrix(
+            g_master, g_slave, self.discr_master, self.discr_slave, mg, matrix
+        )
+        # I got some problems with pointers when doing rhs_master = rhs_slave.copy()
+        # so just reconstruct everything.
+        rhs_slave = np.empty(3, dtype=np.object)
+        rhs_slave[master_ind] = np.zeros_like(rhs_master[master_ind])
+        rhs_slave[slave_ind] = np.zeros_like(rhs_master[slave_ind])
+        rhs_slave[2] = np.zeros_like(rhs_master[2])
+
+        # If master and slave is the same grid, they should contribute to the same
+        # row and coloumn. When the assembler assigns matrix[idx] it will only add
+        # the slave information because of duplicate indices (master and slave is the same).
+        # We therefore write the both master and slave info to the slave index.
+        if g_master == g_slave:
+            master_ind = 1
+        else:
+            master_ind = 0
+
+        self.discr_master.assemble_int_bound_pressure_trace_rhs(
+            g_master, data_master, data_edge, cc_master, rhs_master, master_ind
+        )
+
+        if g_master.dim == g_slave.dim:
+            rhs_slave[2] = -rhs_slave[2]
+        rhs = rhs_master + rhs_slave
+
+        return rhs
+
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
     ):
-        """ Assemble the dicretization of the interface law, and its impact on
+        """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
         Parameters:
@@ -479,7 +533,17 @@ class FluxPressureContinuity(RobinCoupling):
         # cc[0] -> flux_m = mortar_flux
         # cc[1] -> flux_s = -mortar_flux
         # cc[2] -> p_m - p_s = 0
-        matrix += cc_master + cc_slave
+
+        # Computational savings: Only add non-zero components.
+        # Exception: The case with equal dimension of the two neighboring grids.
+        if g_master.dim == g_slave.dim:
+            matrix += cc_master + cc_slave
+        else:
+            matrix[0, 2] += cc_master[0, 2]
+            matrix[1, 2] += cc_slave[1, 2]
+            for col in range(3):
+                matrix[2, col] += cc_master[2, col] + cc_slave[2, col]
+
         rhs = rhs_master + rhs_slave
 
         self.discr_master.enforce_neumann_int_bound(

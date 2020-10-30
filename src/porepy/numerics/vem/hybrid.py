@@ -4,15 +4,15 @@
 @author: fumagalli, alessio
 """
 import numpy as np
-from numpy.linalg import solve
 import scipy.sparse as sps
+from numpy.linalg import solve
 
 import porepy as pp
 from porepy.numerics.vem.dual_elliptic import DualElliptic
 
 
 class HybridDualVEM:
-    """ Implementation of mixed virtual element method, using hybridization to
+    """Implementation of mixed virtual element method, using hybridization to
     arrive at a SPD system.
 
     WARNING: The implementation does not follow the newest formulations used

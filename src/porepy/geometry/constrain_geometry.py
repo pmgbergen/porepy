@@ -3,6 +3,7 @@
 Examples are to cut objects to lie within other objects, etc.
 """
 import numpy as np
+
 import porepy as pp
 
 
@@ -46,10 +47,13 @@ def lines_by_polygon(poly_pts, pts, edges):
     for ei, e in enumerate(edges.T):
         # define the line
         line = shapely_geometry.LineString([pts[:2, e[0]], pts[:2, e[1]]])
-        # compute the intersections between the poligon and the current line
+        # compute the intersections between the polygon and the current line
         int_lines = poly.intersection(line)
         # only line or multilines are considered, no points
-        if type(int_lines) is shapely_geometry.LineString:
+        if (
+            isinstance(int_lines, shapely_geometry.LineString)
+            and len(int_lines.coords) > 0
+        ):
             # consider the case of single intersection by avoiding to consider
             # lines on the boundary of the polygon
             if not int_lines.touches(poly) and int_lines.length > 0:
@@ -79,7 +83,7 @@ def lines_by_polygon(poly_pts, pts, edges):
 
 
 def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
-    """ Constrain a seort of polygons in 3d to lie inside a, generally non-convex, polyhedron.
+    """Constrain a seort of polygons in 3d to lie inside a, generally non-convex, polyhedron.
 
     Polygons not inside the polyhedron will be removed from descriptions.
     For non-convex polyhedra, polygons can be split in several parts.

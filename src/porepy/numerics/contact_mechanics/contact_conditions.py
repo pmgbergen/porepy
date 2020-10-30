@@ -33,12 +33,12 @@ with Dg = dg/du_t. For the above g, we have Dg = tan(dilation_angle) * u_t / || 
 For the case u_t = 0, we extend the Jacobian to 0, i.e.
     dg/du_t(|| u_t || = 0) = 0.
 """
-import numpy as np
-
-import porepy as pp
 import logging
 from typing import Dict, Tuple
 
+import numpy as np
+
+import porepy as pp
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ class ColoumbContact:
         return self.keyword + "_"
 
     def _discretization_key(self) -> str:
-        return self._key() + pp.keywords.DISCRETIZATION
+        return self._key() + pp.DISCRETIZATION
 
     def ndof(self, g) -> int:
         return g.num_cells * self.dim
@@ -72,7 +72,7 @@ class ColoumbContact:
     def discretize(
         self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
     ) -> None:
-        """ Discretize the contact conditions using a semi-smooth Newton
+        """Discretize the contact conditions using a semi-smooth Newton
         approach.
 
         The function relates the contact forces, represented on the
@@ -432,7 +432,7 @@ class ColoumbContact:
 
     # Active and inactive boundary faces
     def _sliding(self, Tt: np.ndarray, ut: np.ndarray, bf: np.ndarray, ct: np.ndarray):
-        """ Find faces where the frictional bound is exceeded, that is, the face is
+        """Find faces where the frictional bound is exceeded, that is, the face is
         sliding.
 
         Arguments:
@@ -454,7 +454,7 @@ class ColoumbContact:
     def _penetration(
         self, Tn: np.ndarray, un: np.ndarray, cn: np.ndarray, gap: np.ndarray
     ) -> np.ndarray:
-        """ Find faces that are in contact.
+        """Find faces that are in contact.
 
         Arguments:
             Tn (np.array, num_cells): Normal forces.
@@ -491,8 +491,7 @@ class ColoumbContact:
         return numerator / denominator
 
     def _M(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
-        """ Compute the coefficient M used in Eq. (32) in Berge et al.
-        """
+        """Compute the coefficient M used in Eq. (32) in Berge et al."""
         Id = np.eye(Tt.shape[0])
         # M = e * (I - Q)
         return self._e(Tt, cut, bf) * (Id - self._Q(Tt, cut, bf))
@@ -571,7 +570,7 @@ class ColoumbContact:
 
 
 def set_projections(gb: pp.GridBucket) -> None:
-    """ Define a local coordinate system, and projection matrices, for all
+    """Define a local coordinate system, and projection matrices, for all
     grids of co-dimension 1.
 
     The function adds one item to the data dictionary of all GridBucket edges

@@ -11,7 +11,7 @@ import porepy as pp
 
 
 class Tpfa(pp.FVElliptic):
-    """ Discretize elliptic equations by a two-point flux approximation.
+    """Discretize elliptic equations by a two-point flux approximation.
 
     Attributes:
 

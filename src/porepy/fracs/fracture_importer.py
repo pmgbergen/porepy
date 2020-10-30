@@ -1,5 +1,6 @@
-import numpy as np
 import csv
+
+import numpy as np
 
 import porepy as pp
 
@@ -161,7 +162,7 @@ def network_2d_from_csv(
     domain=None,
     **kwargs,
 ):
-    """ Read csv file with fractures to obtain fracture description.
+    """Read csv file with fractures to obtain fracture description.
 
     Create the grid bucket from a set of fractures stored in a csv file and a
     domain. In the csv file, we assume one of the two following structures:
@@ -293,7 +294,7 @@ def network_2d_from_csv(
 
 
 def dfm_from_gmsh(file_name: str, dim: int, **kwargs):
-    """ Generate a GridBucket from a gmsh file.
+    """Generate a GridBucket from a gmsh file.
 
     If the provided file is input for gmsh (.geo, not .msh), gmsh will be called
     to generate the mesh before the GridBucket is constructed.
@@ -319,7 +320,9 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs):
         out_file = file_name + ".msh"
 
         pp.grids.gmsh.gmsh_interface.run_gmsh(
-            in_file, out_file, dim=dim,
+            in_file,
+            out_file,
+            dim=dim,
         )
 
     if dim == 2:
@@ -372,7 +375,7 @@ def dfm_3d_from_fab(
 
 
 def network_3d_from_fab(f_name, return_all=False, tol=None):
-    """ Read fractures from a .fab file, as specified by FracMan.
+    """Read fractures from a .fab file, as specified by FracMan.
 
     The filter is based on the .fab-files available at the time of writing, and
     may not cover all options available.

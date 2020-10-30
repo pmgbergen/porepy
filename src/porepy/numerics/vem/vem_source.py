@@ -29,7 +29,7 @@ class DualScalarSource(pp.numerics.discretization.Discretization):
         return g.num_cells + g.num_faces
 
     def assemble_matrix_rhs(self, g, data):
-        """ Return the (null) matrix and right-hand side for a discretization of the
+        """Return the (null) matrix and right-hand side for a discretization of the
         integrated source term. Also discretize the necessary operators if the data
         dictionary does not contain a source term.
 
@@ -49,7 +49,7 @@ class DualScalarSource(pp.numerics.discretization.Discretization):
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
     def assemble_matrix(self, g, data):
-        """ Return the (null) matrix and for a discretization of the integrated source
+        """Return the (null) matrix and for a discretization of the integrated source
         term. Also discretize the necessary operators if the data dictionary does not
         contain a source term.
 
@@ -67,7 +67,7 @@ class DualScalarSource(pp.numerics.discretization.Discretization):
         return matrix_dictionary["source"]
 
     def assemble_rhs(self, g, data):
-        """ Return the rhs for a discretization of the integrated source term. Also
+        """Return the rhs for a discretization of the integrated source term. Also
         discretize the necessary operators if the data dictionary does not contain a
         source term.
 
@@ -97,7 +97,7 @@ class DualScalarSource(pp.numerics.discretization.Discretization):
         return rhs
 
     def discretize(self, g, data):
-        """ Discretize an integrated source term.
+        """Discretize an integrated source term.
 
         Parameters:
             g : grid, or a subclass, with geometry fields computed.

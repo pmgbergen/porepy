@@ -6,6 +6,7 @@ Note that thermal expansion coefficients are linear (m/mK) for rocks, but
 volumetric (m^3/m^3K) for fluids.
 """
 import numpy as np
+
 import porepy as pp
 
 

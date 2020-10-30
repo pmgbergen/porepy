@@ -4,14 +4,17 @@ A module for representation and manipulations of fractures and fracture sets.
 The model relies heavily on functions in the computational geometry library.
 
 """
-# Import of 'standard' external packages
-import warnings
-import time
-import logging
-import numpy as np
-import csv
 import copy
+import csv
+import logging
+import time
+import warnings
 
+import numpy as np
+
+import porepy as pp
+from porepy.grids.constants import GmshConstants
+from porepy.utils import setmembership, sort_points
 
 # Imports of external packages that may not be present at the system. The
 # module will work without any of these, but with limited functionalbility.
@@ -24,18 +27,13 @@ except ImportError:
     vtk will not work."
     )
 
-import porepy as pp
-
-# Import of internally developed packages.
-from porepy.utils import setmembership, sort_points
-from porepy.grids.constants import GmshConstants
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
 
 class Fracture(object):
-    """ Class representing a single fracture, as a convex, planar 2D object
+    """Class representing a single fracture, as a convex, planar 2D object
     embedded in 3D space.
 
     The fracture is defined by its vertexes. It contains various utility
@@ -54,7 +52,7 @@ class Fracture(object):
     """
 
     def __init__(self, points, index=None, check_convexity=False):
-        """ Initialize fractures.
+        """Initialize fractures.
 
         __init__ defines the vertexes of the fracture and sort them to be CCW.
         Also compute centroid and normal, and check for planarity and
@@ -84,7 +82,7 @@ class Fracture(object):
             assert self.check_convexity(), "Points form non-convex polygon"
 
     def set_index(self, i):
-        """ Set index of this fracture.
+        """Set index of this fracture.
 
         Parameters:
             i (int): Index.
@@ -93,7 +91,7 @@ class Fracture(object):
         self.index = i
 
     def __eq__(self, other):
-        """ Equality is defined as two fractures having the same index.
+        """Equality is defined as two fractures having the same index.
 
         There are issues with this, behavior may change in the future.
 
@@ -101,7 +99,7 @@ class Fracture(object):
         return self.index == other.index
 
     def copy(self):
-        """ Return a deep copy of the fracture.
+        """Return a deep copy of the fracture.
 
         Note that the original points (as given when the fracture was
         initialized) will *not* be preserved.
@@ -137,7 +135,7 @@ class Fracture(object):
             yield self.p[:, np.array([i, i + 1]) % sz]
 
     def is_vertex(self, p, tol=1e-4):
-        """ Check whether a given point is a vertex of the fracture.
+        """Check whether a given point is a vertex of the fracture.
 
         Parameters:
             p (np.array): Point to check
@@ -233,7 +231,7 @@ class Fracture(object):
             return self.is_planar()
 
     def remove_points(self, ind, keep_orig=False):
-        """ Remove points from the fracture definition
+        """Remove points from the fracture definition
 
         Parameters:
             ind (np array-like): Indices of points to remove.
@@ -279,7 +277,7 @@ class Fracture(object):
         return self.as_sp_polygon(p_2d).is_convex()
 
     def is_planar(self, tol=1e-4):
-        """ Check if the points forming this fracture lies in a plane.
+        """Check if the points forming this fracture lies in a plane.
 
         Parameters:
             tol (double): Tolerance for non-planarity. Treated as an absolute
@@ -323,12 +321,11 @@ class Fracture(object):
         self.center = rot.transpose().dot(np.append(center, z)).reshape((3, 1))
 
     def compute_normal(self):
-        """ Compute normal to the polygon.
-        """
+        """Compute normal to the polygon."""
         self.normal = pp.map_geometry.compute_normal(self.p)[:, None]
 
     def as_sp_polygon(self, p=None):
-        """ Represent polygon as a sympy object.
+        """Represent polygon as a sympy object.
 
         Parameters:
             p (np.array, nd x npt, optional): Points for the polygon. Defaults
@@ -453,7 +450,7 @@ class EllipticFracture(Fracture):
 
 
 class Intersection(object):
-    """ Class representing the intersection between two fractures.
+    """Class representing the intersection between two fractures.
 
     Fractures are identified by their indexes, which is not robust. Apply with
     care.
@@ -478,7 +475,7 @@ class Intersection(object):
     def __init__(
         self, ind, first, second, coord, bound_first=False, bound_second=False
     ):
-        """ Initialize Intersection object.
+        """Initialize Intersection object.
 
         Parameters:
             first (int): Index of first fracture in intersection.
@@ -526,7 +523,7 @@ class Intersection(object):
         return s
 
     def get_other_fracture(self, i):
-        """ Get the other based on index.
+        """Get the other based on index.
 
         Parameters:
             i (int): Index of a fracture of this intersection.
@@ -548,7 +545,7 @@ class Intersection(object):
             raise ValueError("Fracture " + str(i) + " is not in intersection")
 
     def on_boundary_of_fracture(self, i):
-        """ Check if the intersection is on the boundary of a fracture.
+        """Check if the intersection is on the boundary of a fracture.
 
         Parameters:
             i (int): Index of a fracture of this intersection.
@@ -606,7 +603,7 @@ class FractureNetwork3d(object):
     """
 
     def __init__(self, fractures=None, domain=None, tol=1e-8, run_checks=False):
-        """ Initialize fracture network.
+        """Initialize fracture network.
 
         Generate network from specified fractures. The fractures will have
         their index set (and existing values overridden), according to the
@@ -658,7 +655,7 @@ class FractureNetwork3d(object):
         self.bounding_box_imposed = False
 
     def add(self, f):
-        """ Add a fracture to the network.
+        """Add a fracture to the network.
 
         The fracture will be assigned a new index, higher than the maximum
         value currently found in the network.
@@ -676,7 +673,7 @@ class FractureNetwork3d(object):
         self._fractures.append(f)
 
     def copy(self):
-        """ Create deep copy of the network.
+        """Create deep copy of the network.
 
         The method will create a deep copy of all fractures, as well as the domain, of
         the network. Note that if the fractures have had extra points imposed as part
@@ -696,7 +693,7 @@ class FractureNetwork3d(object):
         return FractureNetwork3d(fracs, domain, self.tol)
 
     def mesh(self, mesh_args, dfn=False, file_name=None, constraints=None, **kwargs):
-        """ Mesh the fracture network, and generate a mixed-dimensional grid.
+        """Mesh the fracture network, and generate a mixed-dimensional grid.
 
         The mesh itself is generated by Gmsh.
 
@@ -746,7 +743,7 @@ class FractureNetwork3d(object):
     def prepare_for_gmsh(
         self, mesh_args, dfn=False, file_name=None, constraints=None
     ) -> str:
-        """ Process network intersections and write a gmsh .geo configuration file,
+        """Process network intersections and write a gmsh .geo configuration file,
         ready to be processed by gmsh.
 
         NOTE: Consider to use the mesh() function instead to get a ready GridBucket.
@@ -814,7 +811,7 @@ class FractureNetwork3d(object):
         return self._fractures[position]
 
     def intersections_of_fracture(self, frac):
-        """ Get all known intersections for a fracture.
+        """Get all known intersections for a fracture.
 
         If called before find_intersections(), the returned list will be empty.
 
@@ -929,7 +926,7 @@ class FractureNetwork3d(object):
         )
 
     def intersection_info(self, frac_num=None):
-        """ Obtain information on intersections of one or several fractures.
+        """Obtain information on intersections of one or several fractures.
 
         Specifically, the non-empty intersections are given for each fracture,
         together with aggregated numbers.
@@ -1049,7 +1046,7 @@ class FractureNetwork3d(object):
         )
 
     def _fracs_2_edges(self, edges_2_frac):
-        """ Invert the mapping between edges and fractures.
+        """Invert the mapping between edges and fractures.
 
         Returns:
             List of list: For each fracture, index of all edges that points to
@@ -1155,7 +1152,7 @@ class FractureNetwork3d(object):
         )
 
         # We now need to find points that occur in multiple places
-        p_unique, unique_ind_p, all_2_unique_p = setmembership.unique_columns_tol(
+        p_unique, _, all_2_unique_p = setmembership.unique_columns_tol(
             all_p, tol=self.tol * np.sqrt(3)
         )
 
@@ -1252,7 +1249,7 @@ class FractureNetwork3d(object):
         # intersections there (direct search in 3D may also work, but this was
         # a simple option). When intersections are found, the global lists of
         # points and edges are updated.
-        for fi, frac in enumerate(self._fractures):
+        for fi in range(len(self._fractures)):
 
             logger.debug("Remove intersections from fracture %i", fi)
 
@@ -1501,7 +1498,7 @@ class FractureNetwork3d(object):
             f.index = fi
 
     def bounding_box(self):
-        """ Obtain bounding box for fracture network.
+        """Obtain bounding box for fracture network.
 
         The box is defined by the external boundary, if imposed, or if not by
         the maximal extent of the fractures in each direction.
@@ -1919,7 +1916,7 @@ class FractureNetwork3d(object):
     def _insert_auxiliary_points(
         self, mesh_size_frac=None, mesh_size_min=None, mesh_size_bound=None
     ):
-        """ Insert auxiliary points on fracture edges. Used to guide gmsh mesh
+        """Insert auxiliary points on fracture edges. Used to guide gmsh mesh
         size parameters.
 
         The function should only be called once to avoid insertion of multiple
@@ -2077,7 +2074,7 @@ class FractureNetwork3d(object):
                             self._split_intersections_of_fracture(fi, cp_fm)
 
     def _split_intersections_of_fracture(self, fi, cp):
-        """ Check if a point lies on intersections of a given fracture, and if so,
+        """Check if a point lies on intersections of a given fracture, and if so,
         split the intersection into two.
 
         The intended usage is when auxiliary points are added to a fracture's vertexes
@@ -2164,7 +2161,8 @@ class FractureNetwork3d(object):
                 continue
 
             # Add local points
-            [pts_vtk.InsertNextPoint(*p) for p in f.p.T]
+            for p in f.p.T:
+                pts_vtk.InsertNextPoint(*p)
 
             # Indices of local points
             loc_pt_id = point_counter + np.arange(f.p.shape[1], dtype="int")
@@ -2173,7 +2171,8 @@ class FractureNetwork3d(object):
 
             # Add bounding polygon
             frac_vtk = vtk.vtkIdList()
-            [frac_vtk.InsertNextId(p) for p in loc_pt_id]
+            for p in loc_pt_id:
+                frac_vtk.InsertNextId(p)
             # Close polygon
             frac_vtk.InsertNextId(loc_pt_id[0])
 
@@ -2206,7 +2205,7 @@ class FractureNetwork3d(object):
         writer.Update()
 
     def _to_gmsh(self, file_name, constraints=None, in_3d=True, **kwargs):
-        """ Write the fracture network as input for mesh generation by gmsh.
+        """Write the fracture network as input for mesh generation by gmsh.
 
         It is assumed that intersections have been found and processed (e.g. by
         the methods find_intersection() and split_intersection()).
@@ -2290,9 +2289,47 @@ class FractureNetwork3d(object):
             not_boundary_edge, np.logical_not(auxiliary_line)
         )
 
+        # All intersection points should occur at least twice
         isect_p = edges[:2, intersection_edge].ravel()
         num_occ_pt = np.bincount(isect_p)
-        intersection_points = np.where(num_occ_pt > 1)[0]
+        intersection_point_canditates = np.where(num_occ_pt > 1)[0]
+
+        # .. however, this is not enough: If a fracture and a constraint intersect at
+        # a domain boundary, the candidate is not a true intersection point.
+        # Loop over all candidates, find all polygons that have this as part of an edge,
+        # and ccount the number of those polygons that are fractures (e.g. not boundary
+        # or constraint). If there are more than two, this is indeed  a fracture intersection
+        # and an intersection point grid should be assigned
+        intersection_points = []
+        for pi in intersection_point_canditates:
+            _, edge_ind = np.where(edges == pi)
+            frac_arr = np.array([], dtype=np.int)
+            for e in edge_ind:
+                frac_arr = np.append(frac_arr, self.decomposition["edges_2_frac"][e])
+            unique_fracs = np.unique(frac_arr)
+            is_frac = np.logical_not(
+                np.logical_or(
+                    np.in1d(unique_fracs, constraints),
+                    np.array(self.tags["boundary"])[unique_fracs],
+                )
+            )
+            if is_frac.sum() > 1:
+                intersection_points.append(pi)
+
+        # Finall, we have the full set of intersection points (take a good laugh when finding
+        # this line in the next round of debugging).
+        intersection_points = np.array(intersection_points)
+
+        # Candidates that were not intersections
+        fracture_constraint_intersection = np.setdiff1d(
+            intersection_point_canditates, intersection_points
+        )
+        # Special tag for intersection between fracture and constraint.
+        # These are not needed in the gmsh postprocessing (will not produce 0d grids),
+        # but it can be useful to mark them for other purposes (EK: DFM upscaling)
+        point_tags[
+            fracture_constraint_intersection
+        ] = GmshConstants().FRACTURE_CONSTRAINT_INTERSECTION_POINT
 
         # We're done! Hurah!
 
@@ -2358,6 +2395,7 @@ class FractureNetwork3d(object):
             fracture_tags=frac_tags,
             domain_boundary_points=boundary_points,
             fracture_and_boundary_points=fracture_boundary_points,
+            fracture_constraint_intersection_points=fracture_constraint_intersection,
         )
         writer.write_geo(file_name)
 
@@ -2389,7 +2427,8 @@ class FractureNetwork3d(object):
                 csv_writer.writerow([domain[o] for o in order])
 
             # write all the fractures
-            [csv_writer.writerow(f.p.ravel(order="F")) for f in self._fractures]
+            for f in self._fractures:
+                csv_writer.writerow(f.p.ravel(order="F"))
 
     def to_fab(self, file_name):
         """
@@ -2432,7 +2471,7 @@ class FractureNetwork3d(object):
             f.write("END FRACTURE")
 
     def fracture_to_plane(self, frac_num):
-        """ Project fracture vertexes and intersection points to the natural
+        """Project fracture vertexes and intersection points to the natural
         plane of the fracture.
 
         Parameters:

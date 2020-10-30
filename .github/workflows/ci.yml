@@ -51,6 +51,8 @@ jobs:
         pip install shapely
         pip install shapely[vectorized]
         pip freeze
+        wget https://raw.githubusercontent.com/keileg/polyhedron/master/polyhedron.py
+        mv polyhedron.py robust_point_in_polyhedron.py
 
     - name: black
       if: ${{ always() }}
@@ -63,3 +65,11 @@ jobs:
     - name: mypy
       if: ${{ always() }}
       run: mypy src
+
+    - name: isort
+      if: ${{always()}}
+      run: isort --check src
+
+    - name: pytest
+      if: ${{always()}}
+      run: pytest
