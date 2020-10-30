@@ -1,0 +1,70 @@
+# Code Quality workflow for black, flake8, mypy
+
+name: Code Quality
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events for the master and develop branches
+on:
+  push:
+    branches:
+      - develop
+      - master
+  pull_request:
+    branches: 
+      - develop
+      - master
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#specifying-a-python-version
+    strategy:
+      matrix:
+        python-version:  [3.6, 3.7, 3.8]
+      # Complete all versions in matrix even if one fails.
+      fail-fast: false
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    - uses: actions/checkout@v2
+    
+    - name: Setup Python ${{ matrix.python-version}}
+      uses: actions/setup-python@v1.2.0
+      with:
+        # Version range or exact version of a Python version to use, using SemVer's version range syntax.
+        python-version: ${{ matrix.python-version}}
+        architecture: x64
+    
+    - name: Install PorePy
+      run: |
+        sudo apt-get update
+        sudo apt-get install libglu1-mesa
+        export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
+        pip install -r requirements-dev.txt
+        pip install jupyter
+        pip install .
+        pip install shapely
+        pip install shapely[vectorized]
+        pip freeze
+
+    - name: black
+      if: ${{ always() }}
+      run: black --check src
+
+    - name: flake8
+      if: ${{ always() }}
+      run: flake8 src 
+
+    - name: mypy
+      if: ${{ always() }}
+      run: mypy src
+
+    - name: isort
+      if: ${{always()}}
+      run: isort --check src
+

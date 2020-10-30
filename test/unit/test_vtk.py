@@ -6,9 +6,10 @@ filter, or in the vtk python bindings has changed. If the change is external to
 PorePy, this does not necessarily mean that something is wrong.
 
 """
+import sys
 import shutil
 import numpy as np
-import unittest
+import pytest
 
 import porepy as pp
 
@@ -25,228 +26,232 @@ except ImportWarning:
     if_vtk = False
 
 
-class BasicsTest(unittest.TestCase):
-    @classmethod
-    def tearDownClass(cls):
-        shutil.rmtree("./test_vtk/")
+def test_single_grid_1d():
+    if not if_vtk:
+        return
 
-    def test_single_grid_1d(self):
-        if not if_vtk:
-            return
+    g = pp.CartGrid(3, 1)
+    g.compute_geometry()
 
-        g = pp.CartGrid(3, 1)
-        g.compute_geometry()
+    dummy_scalar = np.ones(g.num_cells) * g.dim
+    dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
-        dummy_scalar = np.ones(g.num_cells) * g.dim
-        dummy_vector = np.ones((3, g.num_cells)) * g.dim
+    folder = "./test_vtk/"
+    file_name = "grid"
+    save = pp.Exporter(g, file_name, folder, binary=False)
+    save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        folder = "./test_vtk/"
-        file_name = "grid"
-        save = pp.Exporter(g, file_name, folder, binary=False)
-        save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+    with open(folder + file_name + ".vtu", "r") as content_file:
+        content = content_file.read()
+    assert content == _single_grid_1d_grid_vtu()
 
-        with open(folder + file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._single_grid_1d_grid_vtu())
 
-    def test_single_grid_2d_simplex(self):
-        if not if_vtk:
-            return
+def test_single_grid_2d_simplex():
+    if not if_vtk:
+        return
 
-        g = pp.StructuredTriangleGrid([3] * 2, [1] * 2)
-        g.compute_geometry()
+    g = pp.StructuredTriangleGrid([3] * 2, [1] * 2)
+    g.compute_geometry()
 
-        dummy_scalar = np.ones(g.num_cells) * g.dim
-        dummy_vector = np.ones((3, g.num_cells)) * g.dim
+    dummy_scalar = np.ones(g.num_cells) * g.dim
+    dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
-        folder = "./test_vtk/"
-        file_name = "grid"
-        save = pp.Exporter(g, file_name, folder, binary=False)
-        save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+    folder = "./test_vtk/"
+    file_name = "grid"
+    save = pp.Exporter(g, file_name, folder, binary=False)
+    save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder + file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._single_grid_2d_simplex_grid_vtu())
+    with open(folder + file_name + ".vtu", "r") as content_file:
+        content = content_file.read()
+    assert content == _single_grid_2d_simplex_grid_vtu()
 
-    def test_single_grid_2d_cart(self):
-        if not if_vtk:
-            return
 
-        g = pp.CartGrid([4] * 2, [1] * 2)
-        g.compute_geometry()
+def test_single_grid_2d_cart():
+    if not if_vtk:
+        return
 
-        dummy_scalar = np.ones(g.num_cells) * g.dim
-        dummy_vector = np.ones((3, g.num_cells)) * g.dim
+    g = pp.CartGrid([4] * 2, [1] * 2)
+    g.compute_geometry()
 
-        folder = "./test_vtk/"
-        file_name = "grid"
-        save = pp.Exporter(g, file_name, folder, binary=False)
-        save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+    dummy_scalar = np.ones(g.num_cells) * g.dim
+    dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
-        with open(folder + file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._single_grid_2d_cart_grid_vtu())
+    folder = "./test_vtk/"
+    file_name = "grid"
+    save = pp.Exporter(g, file_name, folder, binary=False)
+    save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-    def test_single_grid_2d_polytop(self):
-        if not if_vtk:
-            return
+    with open(folder + file_name + ".vtu", "r") as content_file:
+        content = content_file.read()
+    assert content == _single_grid_2d_cart_grid_vtu()
 
-        g = pp.CartGrid([3, 2], [1] * 2)
-        g.compute_geometry()
-        pp.coarsening.generate_coarse_grid(g, [0, 0, 1, 0, 1, 1])
-        g.compute_geometry()
 
-        dummy_scalar = np.ones(g.num_cells) * g.dim
-        dummy_vector = np.ones((3, g.num_cells)) * g.dim
+def test_single_grid_2d_polytop():
+    if not if_vtk:
+        return
 
-        folder = "./test_vtk/"
-        file_name = "grid"
-        save = pp.Exporter(g, file_name, folder, binary=False)
-        save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+    g = pp.CartGrid([3, 2], [1] * 2)
+    g.compute_geometry()
+    pp.coarsening.generate_coarse_grid(g, [0, 0, 1, 0, 1, 1])
+    g.compute_geometry()
 
-        with open(folder + file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._single_grid_2d_polytop_grid_vtu())
+    dummy_scalar = np.ones(g.num_cells) * g.dim
+    dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
-    def test_single_grid_3d_simplex(self):
-        if not if_vtk:
-            return
+    folder = "./test_vtk/"
+    file_name = "grid"
+    save = pp.Exporter(g, file_name, folder, binary=False)
+    save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        g = pp.StructuredTetrahedralGrid([3] * 3, [1] * 3)
-        g.compute_geometry()
+    with open(folder + file_name + ".vtu", "r") as content_file:
+        content = content_file.read()
+    assert content == _single_grid_2d_polytop_grid_vtu()
 
-        dummy_scalar = np.ones(g.num_cells) * g.dim
-        dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
-        folder = "./test_vtk/"
-        file_name = "grid"
-        save = pp.Exporter(g, file_name, folder, binary=False)
-        save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+def test_single_grid_3d_simplex():
+    if not if_vtk:
+        return
 
-        with open(folder + file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._single_grid_3d_simplex_grid_vtu())
+    g = pp.StructuredTetrahedralGrid([3] * 3, [1] * 3)
+    g.compute_geometry()
 
-    def test_single_grid_3d_cart(self):
-        if not if_vtk:
-            return
+    dummy_scalar = np.ones(g.num_cells) * g.dim
+    dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
-        g = pp.CartGrid([4] * 3, [1] * 3)
-        g.compute_geometry()
+    folder = "./test_vtk/"
+    file_name = "grid"
+    save = pp.Exporter(g, file_name, folder, binary=False)
+    save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        dummy_scalar = np.ones(g.num_cells) * g.dim
-        dummy_vector = np.ones((3, g.num_cells)) * g.dim
+    with open(folder + file_name + ".vtu", "r") as content_file:
+        content = content_file.read()
+    assert content == _single_grid_3d_simplex_grid_vtu()
 
-        folder = "./test_vtk/"
-        file_name = "grid"
-        save = pp.Exporter(g, file_name, folder, binary=False)
-        save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder + file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._single_grid_3d_cart_grid_vtu())
+def test_single_grid_3d_cart():
+    if not if_vtk:
+        return
 
-    def test_single_grid_3d_polytop(self):
-        if not if_vtk:
-            return
+    g = pp.CartGrid([4] * 3, [1] * 3)
+    g.compute_geometry()
 
-        g = pp.CartGrid([3, 2, 3], [1] * 3)
-        g.compute_geometry()
-        pp.coarsening.generate_coarse_grid(
-            g, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, 4, 4, 4, 4]
+    dummy_scalar = np.ones(g.num_cells) * g.dim
+    dummy_vector = np.ones((3, g.num_cells)) * g.dim
+
+    folder = "./test_vtk/"
+    file_name = "grid"
+    save = pp.Exporter(g, file_name, folder, binary=False)
+    save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+
+    with open(folder + file_name + ".vtu", "r") as content_file:
+        content = content_file.read()
+    assert content == _single_grid_3d_cart_grid_vtu()
+
+
+def test_single_grid_3d_polytop():
+    if not if_vtk:
+        return
+
+    g = pp.CartGrid([3, 2, 3], [1] * 3)
+    g.compute_geometry()
+    pp.coarsening.generate_coarse_grid(
+        g, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, 4, 4, 4, 4]
+    )
+    g.compute_geometry()
+
+    dummy_scalar = np.ones(g.num_cells) * g.dim
+    dummy_vector = np.ones((3, g.num_cells)) * g.dim
+
+    folder = "./test_vtk/"
+    file_name = "grid"
+    save = pp.Exporter(g, file_name, folder, binary=False)
+    save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+
+    with open(folder + file_name + ".vtu", "r") as content_file:
+        content = content_file.read()
+    assert content == _single_grid_3d_polytop_grid_vtu()
+
+
+def test_gb_1():
+    if not if_vtk:
+        return
+
+    gb, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
+
+    gb.add_node_props(["scalar_dummy", "dummy_vector"])
+
+    for g, d in gb:
+        pp.set_state(
+            d,
+            {
+                "dummy_scalar": np.ones(g.num_cells) * g.dim,
+                "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
+            },
         )
-        g.compute_geometry()
 
-        dummy_scalar = np.ones(g.num_cells) * g.dim
-        dummy_vector = np.ones((3, g.num_cells)) * g.dim
+    folder = "./test_vtk/"
+    file_name = "grid"
+    save = pp.Exporter(gb, file_name, folder, binary=False)
+    save.write_vtk(["dummy_scalar", "dummy_vector"])
 
-        folder = "./test_vtk/"
-        file_name = "grid"
-        save = pp.Exporter(g, file_name, folder, binary=False)
-        save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+    with open(folder + file_name + ".pvd", "r") as content_file:
+        content = content_file.read()
+    assert content == _gb_1_grid_pvd()
 
-        with open(folder + file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._single_grid_3d_polytop_grid_vtu())
+    with open(folder + file_name + "_1.vtu", "r") as content_file:
+        content = content_file.read()
+    assert content == _gb_1_grid_1_vtu()
 
-    def test_gb_1(self):
-        if not if_vtk:
-            return
+    with open(folder + file_name + "_2.vtu", "r") as content_file:
+        content = content_file.read()
+    assert content == _gb_1_grid_2_vtu()
 
-        gb, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
+    with open(folder + "grid_mortar_1.vtu", "r") as content_file:
+        content = content_file.read()
+    assert content == _gb_1_mortar_grid_vtu()
 
-        gb.add_node_props(["scalar_dummy", "dummy_vector"])
 
-        for g, d in gb:
-            pp.set_state(
-                d,
-                {
-                    "dummy_scalar": np.ones(g.num_cells) * g.dim,
-                    "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
-                },
-            )
+def test_gb_2():
+    if not if_vtk:
+        return
+    gb, _ = pp.grid_buckets_2d.two_intersecting(
+        [4, 4], y_endpoints=[0.25, 0.75], simplex=False
+    )
+    gb.add_node_props(["dummy_scalar", "dummy_vector"])
 
-        folder = "./test_vtk/"
-        file_name = "grid"
-        save = pp.Exporter(gb, file_name, folder, binary=False)
-        save.write_vtk(["dummy_scalar", "dummy_vector"])
-
-        with open(folder + file_name + ".pvd", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._gb_1_grid_pvd())
-
-        with open(folder + file_name + "_1.vtu", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._gb_1_grid_1_vtu())
-
-        with open(folder + file_name + "_2.vtu", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._gb_1_grid_2_vtu())
-
-        with open(folder + "grid_mortar_1.vtu", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._gb_1_mortar_grid_vtu())
-
-    def test_gb_2(self):
-        if not if_vtk:
-            return
-        gb, _ = pp.grid_buckets_2d.two_intersecting(
-            [4, 4], y_endpoints=[0.25, 0.75], simplex=False
+    for g, d in gb:
+        pp.set_state(
+            d,
+            {
+                "dummy_scalar": np.ones(g.num_cells) * g.dim,
+                "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
+            },
         )
-        gb.add_node_props(["dummy_scalar", "dummy_vector"])
 
-        for g, d in gb:
-            pp.set_state(
-                d,
-                {
-                    "dummy_scalar": np.ones(g.num_cells) * g.dim,
-                    "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
-                },
-            )
+    folder = "./test_vtk/"
+    file_name = "grid"
+    save = pp.Exporter(gb, file_name, folder, binary=False)
+    save.write_vtk(["dummy_scalar", "dummy_vector"])
 
-        folder = "./test_vtk/"
-        file_name = "grid"
-        save = pp.Exporter(gb, file_name, folder, binary=False)
-        save.write_vtk(["dummy_scalar", "dummy_vector"])
+    with open(folder + file_name + ".pvd", "r") as content_file:
+        content = content_file.read()
+    assert content == _gb_2_grid_pvd()
 
-        with open(folder + file_name + ".pvd", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._gb_2_grid_pvd())
+    with open(folder + file_name + "_1.vtu", "r") as content_file:
+        content = content_file.read()
+    assert content == _gb_2_grid_1_vtu()
 
-        with open(folder + file_name + "_1.vtu", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._gb_2_grid_1_vtu())
+    with open(folder + file_name + "_2.vtu", "r") as content_file:
+        content = content_file.read()
+    assert content == _gb_2_grid_2_vtu()
 
-        with open(folder + file_name + "_2.vtu", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._gb_2_grid_2_vtu())
+    with open(folder + "grid_mortar_1.vtu", "r") as content_file:
+        content = content_file.read()
+    assert content == _gb_2_mortar_grid_1_vtu()
 
-        with open(folder + "grid_mortar_1.vtu", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._gb_2_mortar_grid_1_vtu())
 
-    def _single_grid_1d_grid_vtu(self):
-        return """<?xml version="1.0"?>
+def _single_grid_1d_grid_vtu():
+    return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
   <UnstructuredGrid>
     <Piece NumberOfPoints="4" NumberOfCells="3">
@@ -256,9 +261,17 @@ class BasicsTest(unittest.TestCase):
         <DataArray type="Float64" Name="dummy_scalar" format="ascii" RangeMin="1" RangeMax="1">
           1 1 1
         </DataArray>
-        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="1.7320508076" RangeMax="1.7320508076">
+        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="1.7320508075688772" RangeMax="1.7320508075688772">
           1 1 1 1 1 1
           1 1 1
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              1.7320508076
+            </Value>
+            <Value index="1">
+              1.7320508076
+            </Value>
+          </InformationKey>
         </DataArray>
         <DataArray type="Float64" Name="grid_dim" format="ascii" RangeMin="1" RangeMax="1">
           1 1 1
@@ -269,8 +282,16 @@ class BasicsTest(unittest.TestCase):
       </CellData>
       <Points>
         <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1">
-          0 0 0 0.33333334327 0 0
-          0.66666668653 0 0 1 0 0
+          0 0 0 0.3333333432674408 0 0
+          0.6666666865348816 0 0 1 0 0
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              0
+            </Value>
+            <Value index="1">
+              1
+            </Value>
+          </InformationKey>
         </DataArray>
       </Points>
       <Cells>
@@ -289,8 +310,9 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _single_grid_2d_simplex_grid_vtu(self):
-        return """<?xml version="1.0"?>
+
+def _single_grid_2d_simplex_grid_vtu():
+    return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
   <UnstructuredGrid>
     <Piece NumberOfPoints="16" NumberOfCells="18">
@@ -302,7 +324,7 @@ class BasicsTest(unittest.TestCase):
           2 2 2 2 2 2
           2 2 2 2 2 2
         </DataArray>
-        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="3.4641016151" RangeMax="3.4641016151">
+        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="3.4641016151377544" RangeMax="3.4641016151377544">
           2 2 2 2 2 2
           2 2 2 2 2 2
           2 2 2 2 2 2
@@ -312,6 +334,14 @@ class BasicsTest(unittest.TestCase):
           2 2 2 2 2 2
           2 2 2 2 2 2
           2 2 2 2 2 2
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              3.4641016151
+            </Value>
+            <Value index="1">
+              3.4641016151
+            </Value>
+          </InformationKey>
         </DataArray>
         <DataArray type="Float64" Name="grid_dim" format="ascii" RangeMin="2" RangeMax="2">
           2 2 2 2 2 2
@@ -325,15 +355,23 @@ class BasicsTest(unittest.TestCase):
         </DataArray>
       </CellData>
       <Points>
-        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.4142135624">
-          0 0 0 0.33333334327 0 0
-          0.66666668653 0 0 1 0 0
-          0 0.33333334327 0 0.33333334327 0.33333334327 0
-          0.66666668653 0.33333334327 0 1 0.33333334327 0
-          0 0.66666668653 0 0.33333334327 0.66666668653 0
-          0.66666668653 0.66666668653 0 1 0.66666668653 0
-          0 1 0 0.33333334327 1 0
-          0.66666668653 1 0 1 1 0
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.4142135623730951">
+          0 0 0 0.3333333432674408 0 0
+          0.6666666865348816 0 0 1 0 0
+          0 0.3333333432674408 0 0.3333333432674408 0.3333333432674408 0
+          0.6666666865348816 0.3333333432674408 0 1 0.3333333432674408 0
+          0 0.6666666865348816 0 0.3333333432674408 0.6666666865348816 0
+          0.6666666865348816 0.6666666865348816 0 1 0.6666666865348816 0
+          0 1 0 0.3333333432674408 1 0
+          0.6666666865348816 1 0 1 1 0
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              0
+            </Value>
+            <Value index="1">
+              1.4142135624
+            </Value>
+          </InformationKey>
         </DataArray>
       </Points>
       <Cells>
@@ -364,8 +402,9 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _single_grid_2d_cart_grid_vtu(self):
-        return """<?xml version="1.0"?>
+
+def _single_grid_2d_cart_grid_vtu():
+    return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
   <UnstructuredGrid>
     <Piece NumberOfPoints="25" NumberOfCells="16">
@@ -377,7 +416,7 @@ class BasicsTest(unittest.TestCase):
           2 2 2 2 2 2
           2 2 2 2
         </DataArray>
-        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="3.4641016151" RangeMax="3.4641016151">
+        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="3.4641016151377544" RangeMax="3.4641016151377544">
           2 2 2 2 2 2
           2 2 2 2 2 2
           2 2 2 2 2 2
@@ -386,6 +425,14 @@ class BasicsTest(unittest.TestCase):
           2 2 2 2 2 2
           2 2 2 2 2 2
           2 2 2 2 2 2
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              3.4641016151
+            </Value>
+            <Value index="1">
+              3.4641016151
+            </Value>
+          </InformationKey>
         </DataArray>
         <DataArray type="Float64" Name="grid_dim" format="ascii" RangeMin="2" RangeMax="2">
           2 2 2 2 2 2
@@ -399,7 +446,7 @@ class BasicsTest(unittest.TestCase):
         </DataArray>
       </CellData>
       <Points>
-        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.4142135624">
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.4142135623730951">
           0 0 0 0.25 0 0
           0.5 0 0 0.75 0 0
           1 0 0 0 0.25 0
@@ -413,6 +460,14 @@ class BasicsTest(unittest.TestCase):
           0 1 0 0.25 1 0
           0.5 1 0 0.75 1 0
           1 1 0
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              0
+            </Value>
+            <Value index="1">
+              1.4142135624
+            </Value>
+          </InformationKey>
         </DataArray>
       </Points>
       <Cells>
@@ -445,8 +500,9 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _single_grid_2d_polytop_grid_vtu(self):
-        return """<?xml version="1.0"?>
+
+def _single_grid_2d_polytop_grid_vtu():
+    return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
   <UnstructuredGrid>
     <Piece NumberOfPoints="12" NumberOfCells="2">
@@ -456,8 +512,16 @@ class BasicsTest(unittest.TestCase):
         <DataArray type="Float64" Name="dummy_scalar" format="ascii" RangeMin="2" RangeMax="2">
           2 2
         </DataArray>
-        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="3.4641016151" RangeMax="3.4641016151">
+        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="3.4641016151377544" RangeMax="3.4641016151377544">
           2 2 2 2 2 2
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              3.4641016151
+            </Value>
+            <Value index="1">
+              3.4641016151
+            </Value>
+          </InformationKey>
         </DataArray>
         <DataArray type="Float64" Name="grid_dim" format="ascii" RangeMin="2" RangeMax="2">
           2 2
@@ -467,13 +531,21 @@ class BasicsTest(unittest.TestCase):
         </DataArray>
       </CellData>
       <Points>
-        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.4142135624">
-          0 0 0 0.33333334327 0 0
-          0.66666668653 0 0 1 0 0
-          0 0.5 0 0.33333334327 0.5 0
-          0.66666668653 0.5 0 1 0.5 0
-          0 1 0 0.33333334327 1 0
-          0.66666668653 1 0 1 1 0
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.4142135623730951">
+          0 0 0 0.3333333432674408 0 0
+          0.6666666865348816 0 0 1 0 0
+          0 0.5 0 0.3333333432674408 0.5 0
+          0.6666666865348816 0.5 0 1 0.5 0
+          0 1 0 0.3333333432674408 1 0
+          0.6666666865348816 1 0 1 1 0
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              0
+            </Value>
+            <Value index="1">
+              1.4142135624
+            </Value>
+          </InformationKey>
         </DataArray>
       </Points>
       <Cells>
@@ -494,8 +566,9 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _single_grid_3d_simplex_grid_vtu(self):
-        return """<?xml version="1.0"?>
+
+def _single_grid_3d_simplex_grid_vtu():
+    return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
   <UnstructuredGrid>
     <Piece NumberOfPoints="64" NumberOfCells="162">
@@ -531,7 +604,7 @@ class BasicsTest(unittest.TestCase):
           3 3 3 3 3 3
           3 3 3 3 3 3
         </DataArray>
-        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="5.1961524227" RangeMax="5.1961524227">
+        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="5.196152422706632" RangeMax="5.196152422706632">
           3 3 3 3 3 3
           3 3 3 3 3 3
           3 3 3 3 3 3
@@ -613,6 +686,14 @@ class BasicsTest(unittest.TestCase):
           3 3 3 3 3 3
           3 3 3 3 3 3
           3 3 3 3 3 3
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              5.1961524227
+            </Value>
+            <Value index="1">
+              5.1961524227
+            </Value>
+          </InformationKey>
         </DataArray>
         <DataArray type="Float64" Name="grid_dim" format="ascii" RangeMin="3" RangeMax="3">
           3 3 3 3 3 3
@@ -674,39 +755,47 @@ class BasicsTest(unittest.TestCase):
         </DataArray>
       </CellData>
       <Points>
-        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.7320508076">
-          0 0 0 0.33333334327 0 0
-          0.66666668653 0 0 1 0 0
-          0 0.33333334327 0 0.33333334327 0.33333334327 0
-          0.66666668653 0.33333334327 0 1 0.33333334327 0
-          0 0.66666668653 0 0.33333334327 0.66666668653 0
-          0.66666668653 0.66666668653 0 1 0.66666668653 0
-          0 1 0 0.33333334327 1 0
-          0.66666668653 1 0 1 1 0
-          0 0 0.33333334327 0.33333334327 0 0.33333334327
-          0.66666668653 0 0.33333334327 1 0 0.33333334327
-          0 0.33333334327 0.33333334327 0.33333334327 0.33333334327 0.33333334327
-          0.66666668653 0.33333334327 0.33333334327 1 0.33333334327 0.33333334327
-          0 0.66666668653 0.33333334327 0.33333334327 0.66666668653 0.33333334327
-          0.66666668653 0.66666668653 0.33333334327 1 0.66666668653 0.33333334327
-          0 1 0.33333334327 0.33333334327 1 0.33333334327
-          0.66666668653 1 0.33333334327 1 1 0.33333334327
-          0 0 0.66666668653 0.33333334327 0 0.66666668653
-          0.66666668653 0 0.66666668653 1 0 0.66666668653
-          0 0.33333334327 0.66666668653 0.33333334327 0.33333334327 0.66666668653
-          0.66666668653 0.33333334327 0.66666668653 1 0.33333334327 0.66666668653
-          0 0.66666668653 0.66666668653 0.33333334327 0.66666668653 0.66666668653
-          0.66666668653 0.66666668653 0.66666668653 1 0.66666668653 0.66666668653
-          0 1 0.66666668653 0.33333334327 1 0.66666668653
-          0.66666668653 1 0.66666668653 1 1 0.66666668653
-          0 0 1 0.33333334327 0 1
-          0.66666668653 0 1 1 0 1
-          0 0.33333334327 1 0.33333334327 0.33333334327 1
-          0.66666668653 0.33333334327 1 1 0.33333334327 1
-          0 0.66666668653 1 0.33333334327 0.66666668653 1
-          0.66666668653 0.66666668653 1 1 0.66666668653 1
-          0 1 1 0.33333334327 1 1
-          0.66666668653 1 1 1 1 1
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.7320508075688772">
+          0 0 0 0.3333333432674408 0 0
+          0.6666666865348816 0 0 1 0 0
+          0 0.3333333432674408 0 0.3333333432674408 0.3333333432674408 0
+          0.6666666865348816 0.3333333432674408 0 1 0.3333333432674408 0
+          0 0.6666666865348816 0 0.3333333432674408 0.6666666865348816 0
+          0.6666666865348816 0.6666666865348816 0 1 0.6666666865348816 0
+          0 1 0 0.3333333432674408 1 0
+          0.6666666865348816 1 0 1 1 0
+          0 0 0.3333333432674408 0.3333333432674408 0 0.3333333432674408
+          0.6666666865348816 0 0.3333333432674408 1 0 0.3333333432674408
+          0 0.3333333432674408 0.3333333432674408 0.3333333432674408 0.3333333432674408 0.3333333432674408
+          0.6666666865348816 0.3333333432674408 0.3333333432674408 1 0.3333333432674408 0.3333333432674408
+          0 0.6666666865348816 0.3333333432674408 0.3333333432674408 0.6666666865348816 0.3333333432674408
+          0.6666666865348816 0.6666666865348816 0.3333333432674408 1 0.6666666865348816 0.3333333432674408
+          0 1 0.3333333432674408 0.3333333432674408 1 0.3333333432674408
+          0.6666666865348816 1 0.3333333432674408 1 1 0.3333333432674408
+          0 0 0.6666666865348816 0.3333333432674408 0 0.6666666865348816
+          0.6666666865348816 0 0.6666666865348816 1 0 0.6666666865348816
+          0 0.3333333432674408 0.6666666865348816 0.3333333432674408 0.3333333432674408 0.6666666865348816
+          0.6666666865348816 0.3333333432674408 0.6666666865348816 1 0.3333333432674408 0.6666666865348816
+          0 0.6666666865348816 0.6666666865348816 0.3333333432674408 0.6666666865348816 0.6666666865348816
+          0.6666666865348816 0.6666666865348816 0.6666666865348816 1 0.6666666865348816 0.6666666865348816
+          0 1 0.6666666865348816 0.3333333432674408 1 0.6666666865348816
+          0.6666666865348816 1 0.6666666865348816 1 1 0.6666666865348816
+          0 0 1 0.3333333432674408 0 1
+          0.6666666865348816 0 1 1 0 1
+          0 0.3333333432674408 1 0.3333333432674408 0.3333333432674408 1
+          0.6666666865348816 0.3333333432674408 1 1 0.3333333432674408 1
+          0 0.6666666865348816 1 0.3333333432674408 0.6666666865348816 1
+          0.6666666865348816 0.6666666865348816 1 1 0.6666666865348816 1
+          0 1 1 0.3333333432674408 1 1
+          0.6666666865348816 1 1 1 1 1
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              0
+            </Value>
+            <Value index="1">
+              1.7320508076
+            </Value>
+          </InformationKey>
         </DataArray>
       </Points>
       <Cells>
@@ -878,7 +967,7 @@ class BasicsTest(unittest.TestCase):
           42 42 42 42 42 42
           42 42 42 42 42 42
         </DataArray>
-        <DataArray type="Int64" Name="faces" format="ascii" RangeMin="0" RangeMax="63">
+        <DataArray type="Int64" IdType="1" Name="faces" format="ascii" RangeMin="0" RangeMax="63">
           4 3 0 4 1 3
           0 16 1 3 16 4
           0 3 16 4 1 4
@@ -1339,7 +1428,7 @@ class BasicsTest(unittest.TestCase):
           3 47 63 59 3 62
           47 63 3 62 63 59
         </DataArray>
-        <DataArray type="Int64" Name="faceoffsets" format="ascii" RangeMin="17" RangeMax="2754">
+        <DataArray type="Int64" IdType="1" Name="faceoffsets" format="ascii" RangeMin="17" RangeMax="2754">
           17 34 51 68 85 102
           119 136 153 170 187 204
           221 238 255 272 289 306
@@ -1374,8 +1463,9 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _single_grid_3d_cart_grid_vtu(self):
-        return """<?xml version="1.0"?>
+
+def _single_grid_3d_cart_grid_vtu():
+    return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
   <UnstructuredGrid>
     <Piece NumberOfPoints="125" NumberOfCells="64">
@@ -1395,7 +1485,7 @@ class BasicsTest(unittest.TestCase):
           3 3 3 3 3 3
           3 3 3 3
         </DataArray>
-        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="5.1961524227" RangeMax="5.1961524227">
+        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="5.196152422706632" RangeMax="5.196152422706632">
           3 3 3 3 3 3
           3 3 3 3 3 3
           3 3 3 3 3 3
@@ -1428,6 +1518,14 @@ class BasicsTest(unittest.TestCase):
           3 3 3 3 3 3
           3 3 3 3 3 3
           3 3 3 3 3 3
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              5.1961524227
+            </Value>
+            <Value index="1">
+              5.1961524227
+            </Value>
+          </InformationKey>
         </DataArray>
         <DataArray type="Float64" Name="grid_dim" format="ascii" RangeMin="3" RangeMax="3">
           3 3 3 3 3 3
@@ -1457,7 +1555,7 @@ class BasicsTest(unittest.TestCase):
         </DataArray>
       </CellData>
       <Points>
-        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.7320508076">
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.7320508075688772">
           0 0 0 0.25 0 0
           0.5 0 0 0.75 0 0
           1 0 0 0 0.25 0
@@ -1521,6 +1619,14 @@ class BasicsTest(unittest.TestCase):
           0 1 1 0.25 1 1
           0.5 1 1 0.75 1 1
           1 1 1
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              0
+            </Value>
+            <Value index="1">
+              1.7320508076
+            </Value>
+          </InformationKey>
         </DataArray>
       </Points>
       <Cells>
@@ -1638,7 +1744,7 @@ class BasicsTest(unittest.TestCase):
           42 42 42 42 42 42
           42 42 42 42
         </DataArray>
-        <DataArray type="Int64" Name="faces" format="ascii" RangeMin="0" RangeMax="124">
+        <DataArray type="Int64" IdType="1" Name="faces" format="ascii" RangeMin="0" RangeMax="124">
           6 4 25 30 5 0
           4 26 31 6 1 4
           25 0 1 26 4 30
@@ -1971,7 +2077,7 @@ class BasicsTest(unittest.TestCase):
           4 93 98 99 94 4
           118 123 124 119
         </DataArray>
-        <DataArray type="Int64" Name="faceoffsets" format="ascii" RangeMin="31" RangeMax="1984">
+        <DataArray type="Int64" IdType="1" Name="faceoffsets" format="ascii" RangeMin="31" RangeMax="1984">
           31 62 93 124 155 186
           217 248 279 310 341 372
           403 434 465 496 527 558
@@ -1990,8 +2096,9 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _single_grid_3d_polytop_grid_vtu(self):
-        return """<?xml version="1.0"?>
+
+def _single_grid_3d_polytop_grid_vtu():
+    return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
   <UnstructuredGrid>
     <Piece NumberOfPoints="48" NumberOfCells="5">
@@ -2001,10 +2108,18 @@ class BasicsTest(unittest.TestCase):
         <DataArray type="Float64" Name="dummy_scalar" format="ascii" RangeMin="3" RangeMax="3">
           3 3 3 3 3
         </DataArray>
-        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="5.1961524227" RangeMax="5.1961524227">
+        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="5.196152422706632" RangeMax="5.196152422706632">
           3 3 3 3 3 3
           3 3 3 3 3 3
           3 3 3
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              5.1961524227
+            </Value>
+            <Value index="1">
+              5.1961524227
+            </Value>
+          </InformationKey>
         </DataArray>
         <DataArray type="Float64" Name="grid_dim" format="ascii" RangeMin="3" RangeMax="3">
           3 3 3 3 3
@@ -2014,31 +2129,39 @@ class BasicsTest(unittest.TestCase):
         </DataArray>
       </CellData>
       <Points>
-        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.7320508076">
-          0 0 0 0.33333334327 0 0
-          0.66666668653 0 0 1 0 0
-          0 0.5 0 0.33333334327 0.5 0
-          0.66666668653 0.5 0 1 0.5 0
-          0 1 0 0.33333334327 1 0
-          0.66666668653 1 0 1 1 0
-          0 0 0.33333334327 0.33333334327 0 0.33333334327
-          0.66666668653 0 0.33333334327 1 0 0.33333334327
-          0 0.5 0.33333334327 0.33333334327 0.5 0.33333334327
-          0.66666668653 0.5 0.33333334327 1 0.5 0.33333334327
-          0 1 0.33333334327 0.33333334327 1 0.33333334327
-          0.66666668653 1 0.33333334327 1 1 0.33333334327
-          0 0 0.66666668653 0.33333334327 0 0.66666668653
-          0.66666668653 0 0.66666668653 1 0 0.66666668653
-          0 0.5 0.66666668653 0.33333334327 0.5 0.66666668653
-          0.66666668653 0.5 0.66666668653 1 0.5 0.66666668653
-          0 1 0.66666668653 0.33333334327 1 0.66666668653
-          0.66666668653 1 0.66666668653 1 1 0.66666668653
-          0 0 1 0.33333334327 0 1
-          0.66666668653 0 1 1 0 1
-          0 0.5 1 0.33333334327 0.5 1
-          0.66666668653 0.5 1 1 0.5 1
-          0 1 1 0.33333334327 1 1
-          0.66666668653 1 1 1 1 1
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.7320508075688772">
+          0 0 0 0.3333333432674408 0 0
+          0.6666666865348816 0 0 1 0 0
+          0 0.5 0 0.3333333432674408 0.5 0
+          0.6666666865348816 0.5 0 1 0.5 0
+          0 1 0 0.3333333432674408 1 0
+          0.6666666865348816 1 0 1 1 0
+          0 0 0.3333333432674408 0.3333333432674408 0 0.3333333432674408
+          0.6666666865348816 0 0.3333333432674408 1 0 0.3333333432674408
+          0 0.5 0.3333333432674408 0.3333333432674408 0.5 0.3333333432674408
+          0.6666666865348816 0.5 0.3333333432674408 1 0.5 0.3333333432674408
+          0 1 0.3333333432674408 0.3333333432674408 1 0.3333333432674408
+          0.6666666865348816 1 0.3333333432674408 1 1 0.3333333432674408
+          0 0 0.6666666865348816 0.3333333432674408 0 0.6666666865348816
+          0.6666666865348816 0 0.6666666865348816 1 0 0.6666666865348816
+          0 0.5 0.6666666865348816 0.3333333432674408 0.5 0.6666666865348816
+          0.6666666865348816 0.5 0.6666666865348816 1 0.5 0.6666666865348816
+          0 1 0.6666666865348816 0.3333333432674408 1 0.6666666865348816
+          0.6666666865348816 1 0.6666666865348816 1 1 0.6666666865348816
+          0 0 1 0.3333333432674408 0 1
+          0.6666666865348816 0 1 1 0 1
+          0 0.5 1 0.3333333432674408 0.5 1
+          0.6666666865348816 0.5 1 1 0.5 1
+          0 1 1 0.3333333432674408 1 1
+          0.6666666865348816 1 1 1 1 1
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              0
+            </Value>
+            <Value index="1">
+              1.7320508076
+            </Value>
+          </InformationKey>
         </DataArray>
       </Points>
       <Cells>
@@ -2065,7 +2188,7 @@ class BasicsTest(unittest.TestCase):
         <DataArray type="UInt8" Name="types" format="ascii" RangeMin="42" RangeMax="42">
           42 42 42 42 42
         </DataArray>
-        <DataArray type="Int64" Name="faces" format="ascii" RangeMin="0" RangeMax="47">
+        <DataArray type="Int64" IdType="1" Name="faces" format="ascii" RangeMin="0" RangeMax="47">
           18 4 12 16 4 0
           4 14 18 6 2 4
           16 20 8 4 4 17
@@ -2132,7 +2255,7 @@ class BasicsTest(unittest.TestCase):
           46 42 4 42 46 47
           43
         </DataArray>
-        <DataArray type="Int64" Name="faceoffsets" format="ascii" RangeMin="91" RangeMax="385">
+        <DataArray type="Int64" IdType="1" Name="faceoffsets" format="ascii" RangeMin="91" RangeMax="385">
           91 162 243 274 385
         </DataArray>
       </Cells>
@@ -2141,8 +2264,9 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_1_grid_pvd(self):
-        return """<?xml version="1.0"?>
+
+def _gb_1_grid_pvd():
+    return """<?xml version="1.0"?>
 <VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
 <Collection>
 \t<DataSet group="" part="" file="grid_1.vtu"/>
@@ -2151,8 +2275,9 @@ class BasicsTest(unittest.TestCase):
 </Collection>
 </VTKFile>"""
 
-    def _gb_1_grid_1_vtu(self):
-        return """<?xml version="1.0"?>
+
+def _gb_1_grid_1_vtu():
+    return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
   <UnstructuredGrid>
     <Piece NumberOfPoints="5" NumberOfCells="4">
@@ -2162,9 +2287,17 @@ class BasicsTest(unittest.TestCase):
         <DataArray type="Float64" Name="dummy_scalar" format="ascii" RangeMin="1" RangeMax="1">
           1 1 1 1
         </DataArray>
-        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="1.7320508076" RangeMax="1.7320508076">
+        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="1.7320508075688772" RangeMax="1.7320508075688772">
           1 1 1 1 1 1
           1 1 1 1 1 1
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              1.7320508076
+            </Value>
+            <Value index="1">
+              1.7320508076
+            </Value>
+          </InformationKey>
         </DataArray>
         <DataArray type="Int32" Name="grid_dim" format="ascii" RangeMin="1" RangeMax="1">
           1 1 1 1
@@ -2183,10 +2316,18 @@ class BasicsTest(unittest.TestCase):
         </DataArray>
       </CellData>
       <Points>
-        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0.5" RangeMax="1.1180339887">
-          1 0.5 -5.5511151231e-17 0.75 0.5 -2.7755575616e-17
-          0.5 0.5 0 0.25 0.5 2.7755575616e-17
-          0 0.5 5.5511151231e-17
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0.5" RangeMax="1.118033988749895">
+          1 0.5 -5.551115123125783e-17 0.75 0.5 -2.7755575615628914e-17
+          0.5 0.5 0 0.25 0.5 2.7755575615628914e-17
+          0 0.5 5.551115123125783e-17
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              0.5
+            </Value>
+            <Value index="1">
+              1.1180339887
+            </Value>
+          </InformationKey>
         </DataArray>
       </Points>
       <Cells>
@@ -2206,8 +2347,9 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_1_grid_2_vtu(self):
-        return """<?xml version="1.0"?>
+
+def _gb_1_grid_2_vtu():
+    return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
   <UnstructuredGrid>
     <Piece NumberOfPoints="30" NumberOfCells="16">
@@ -2219,7 +2361,7 @@ class BasicsTest(unittest.TestCase):
           2 2 2 2 2 2
           2 2 2 2
         </DataArray>
-        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="3.4641016151" RangeMax="3.4641016151">
+        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="3.4641016151377544" RangeMax="3.4641016151377544">
           2 2 2 2 2 2
           2 2 2 2 2 2
           2 2 2 2 2 2
@@ -2228,6 +2370,14 @@ class BasicsTest(unittest.TestCase):
           2 2 2 2 2 2
           2 2 2 2 2 2
           2 2 2 2 2 2
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              3.4641016151
+            </Value>
+            <Value index="1">
+              3.4641016151
+            </Value>
+          </InformationKey>
         </DataArray>
         <DataArray type="Int32" Name="grid_dim" format="ascii" RangeMin="2" RangeMax="2">
           2 2 2 2 2 2
@@ -2256,7 +2406,7 @@ class BasicsTest(unittest.TestCase):
         </DataArray>
       </CellData>
       <Points>
-        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.4142135624">
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.4142135623730951">
           0 0 0 0.25 0 0
           0.5 0 0 0.75 0 0
           1 0 0 0 0.25 0
@@ -2272,6 +2422,14 @@ class BasicsTest(unittest.TestCase):
           1 0.75 0 0 1 0
           0.25 1 0 0.5 1 0
           0.75 1 0 1 1 0
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              0
+            </Value>
+            <Value index="1">
+              1.4142135624
+            </Value>
+          </InformationKey>
         </DataArray>
       </Points>
       <Cells>
@@ -2304,66 +2462,9 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_1_mortar_grid_vtu(self):
-        return """<?xml version="1.0"?>
-<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
-  <UnstructuredGrid>
-    <Piece NumberOfPoints="10" NumberOfCells="8">
-      <PointData>
-      </PointData>
-      <CellData>
-        <DataArray type="Int32" Name="grid_dim" format="ascii" RangeMin="1" RangeMax="1">
-          1 1 1 1 1 1
-          1 1
-        </DataArray>
-        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="3">
-          0 1 2 3 0 1
-          2 3
-        </DataArray>
-        <DataArray type="Int32" Name="grid_edge_number" format="ascii" RangeMin="0" RangeMax="0">
-          0 0 0 0 0 0
-          0 0
-        </DataArray>
-        <DataArray type="Int8" Name="is_mortar" format="ascii" RangeMin="1" RangeMax="1">
-          1 1 1 1 1 1
-          1 1
-        </DataArray>
-        <DataArray type="Int32" Name="mortar_side" format="ascii" RangeMin="1" RangeMax="2">
-          1 1 1 1 2 2
-          2 2
-        </DataArray>
-      </CellData>
-      <Points>
-        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0.5" RangeMax="1.1180339887">
-          1 0.5 -5.5511151231e-17 0.75 0.5 -2.7755575616e-17
-          0.5 0.5 0 0.25 0.5 2.7755575616e-17
-          0 0.5 5.5511151231e-17 1 0.5 -5.5511151231e-17
-          0.75 0.5 -2.7755575616e-17 0.5 0.5 0
-          0.25 0.5 2.7755575616e-17 0 0.5 5.5511151231e-17
-        </DataArray>
-      </Points>
-      <Cells>
-        <DataArray type="Int64" Name="connectivity" format="ascii" RangeMin="0" RangeMax="9">
-          0 1 1 2 2 3
-          3 4 5 6 6 7
-          7 8 8 9
-        </DataArray>
-        <DataArray type="Int64" Name="offsets" format="ascii" RangeMin="2" RangeMax="16">
-          2 4 6 8 10 12
-          14 16
-        </DataArray>
-        <DataArray type="UInt8" Name="types" format="ascii" RangeMin="3" RangeMax="3">
-          3 3 3 3 3 3
-          3 3
-        </DataArray>
-      </Cells>
-    </Piece>
-  </UnstructuredGrid>
-</VTKFile>
-"""
 
-    def _gb_1_mortar_grid_vtu(self):
-        return """<?xml version="1.0"?>
+def _gb_1_mortar_grid_vtu():
+    return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
   <UnstructuredGrid>
     <Piece NumberOfPoints="10" NumberOfCells="8">
@@ -2392,12 +2493,20 @@ class BasicsTest(unittest.TestCase):
         </DataArray>
       </CellData>
       <Points>
-        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0.5" RangeMax="1.1180339887">
-          1 0.5 -5.5511151231e-17 0.75 0.5 -2.7755575616e-17
-          0.5 0.5 0 0.25 0.5 2.7755575616e-17
-          0 0.5 5.5511151231e-17 1 0.5 -5.5511151231e-17
-          0.75 0.5 -2.7755575616e-17 0.5 0.5 0
-          0.25 0.5 2.7755575616e-17 0 0.5 5.5511151231e-17
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0.5" RangeMax="1.118033988749895">
+          1 0.5 -5.551115123125783e-17 0.75 0.5 -2.7755575615628914e-17
+          0.5 0.5 0 0.25 0.5 2.7755575615628914e-17
+          0 0.5 5.551115123125783e-17 1 0.5 -5.551115123125783e-17
+          0.75 0.5 -2.7755575615628914e-17 0.5 0.5 0
+          0.25 0.5 2.7755575615628914e-17 0 0.5 5.551115123125783e-17
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              0.5
+            </Value>
+            <Value index="1">
+              1.1180339887
+            </Value>
+          </InformationKey>
         </DataArray>
       </Points>
       <Cells>
@@ -2420,8 +2529,9 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_2_grid_pvd(self):
-        return """<?xml version="1.0"?>
+
+def _gb_2_grid_pvd():
+    return """<?xml version="1.0"?>
 <VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
 <Collection>
 \t<DataSet group="" part="" file="grid_1.vtu"/>
@@ -2430,8 +2540,9 @@ class BasicsTest(unittest.TestCase):
 </Collection>
 </VTKFile>"""
 
-    def _gb_2_grid_1_vtu(self):
-        return """<?xml version="1.0"?>
+
+def _gb_2_grid_1_vtu():
+    return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
   <UnstructuredGrid>
     <Piece NumberOfPoints="10" NumberOfCells="6">
@@ -2441,10 +2552,18 @@ class BasicsTest(unittest.TestCase):
         <DataArray type="Float64" Name="dummy_scalar" format="ascii" RangeMin="1" RangeMax="1">
           1 1 1 1 1 1
         </DataArray>
-        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="1.7320508076" RangeMax="1.7320508076">
+        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="1.7320508075688772" RangeMax="1.7320508075688772">
           1 1 1 1 1 1
           1 1 1 1 1 1
           1 1 1 1 1 1
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              1.7320508076
+            </Value>
+            <Value index="1">
+              1.7320508076
+            </Value>
+          </InformationKey>
         </DataArray>
         <DataArray type="Int32" Name="grid_dim" format="ascii" RangeMin="1" RangeMax="1">
           1 1 1 1 1 1
@@ -2463,12 +2582,20 @@ class BasicsTest(unittest.TestCase):
         </DataArray>
       </CellData>
       <Points>
-        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0.5" RangeMax="1.1180339887">
-          1 0.5 -5.5511151231e-17 0.75 0.5 -2.7755575616e-17
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0.5" RangeMax="1.118033988749895">
+          1 0.5 -5.551115123125783e-17 0.75 0.5 -2.7755575615628914e-17
           0.5 0.5 0 0.5 0.5 0
-          0.25 0.5 2.7755575616e-17 0 0.5 5.5511151231e-17
-          0.5 0.75 -2.7755575616e-17 0.5 0.5 0
-          0.5 0.5 0 0.5 0.25 2.7755575616e-17
+          0.25 0.5 2.7755575615628914e-17 0 0.5 5.551115123125783e-17
+          0.5 0.75 -2.7755575615628914e-17 0.5 0.5 0
+          0.5 0.5 0 0.5 0.25 2.7755575615628914e-17
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              0.5
+            </Value>
+            <Value index="1">
+              1.1180339887
+            </Value>
+          </InformationKey>
         </DataArray>
       </Points>
       <Cells>
@@ -2488,8 +2615,9 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_2_grid_2_vtu(self):
-        return """<?xml version="1.0"?>
+
+def _gb_2_grid_2_vtu():
+    return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
   <UnstructuredGrid>
     <Piece NumberOfPoints="32" NumberOfCells="16">
@@ -2501,7 +2629,7 @@ class BasicsTest(unittest.TestCase):
           2 2 2 2 2 2
           2 2 2 2
         </DataArray>
-        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="3.4641016151" RangeMax="3.4641016151">
+        <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii" RangeMin="3.4641016151377544" RangeMax="3.4641016151377544">
           2 2 2 2 2 2
           2 2 2 2 2 2
           2 2 2 2 2 2
@@ -2510,6 +2638,14 @@ class BasicsTest(unittest.TestCase):
           2 2 2 2 2 2
           2 2 2 2 2 2
           2 2 2 2 2 2
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              3.4641016151
+            </Value>
+            <Value index="1">
+              3.4641016151
+            </Value>
+          </InformationKey>
         </DataArray>
         <DataArray type="Int32" Name="grid_dim" format="ascii" RangeMin="2" RangeMax="2">
           2 2 2 2 2 2
@@ -2538,7 +2674,7 @@ class BasicsTest(unittest.TestCase):
         </DataArray>
       </CellData>
       <Points>
-        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.4142135624">
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="1.4142135623730951">
           0 0 0 0.25 0 0
           0.5 0 0 0.75 0 0
           1 0 0 0 0.25 0
@@ -2555,6 +2691,14 @@ class BasicsTest(unittest.TestCase):
           1 0.75 0 0 1 0
           0.25 1 0 0.5 1 0
           0.75 1 0 1 1 0
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              0
+            </Value>
+            <Value index="1">
+              1.4142135624
+            </Value>
+          </InformationKey>
         </DataArray>
       </Points>
       <Cells>
@@ -2587,8 +2731,9 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_2_mortar_grid_1_vtu(self):
-        return """<?xml version="1.0"?>
+
+def _gb_2_mortar_grid_1_vtu():
+    return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
   <UnstructuredGrid>
     <Piece NumberOfPoints="20" NumberOfCells="12">
@@ -2617,17 +2762,25 @@ class BasicsTest(unittest.TestCase):
         </DataArray>
       </CellData>
       <Points>
-        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0.5" RangeMax="1.1180339887">
-          1 0.5 -5.5511151231e-17 0.75 0.5 -2.7755575616e-17
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0.5" RangeMax="1.118033988749895">
+          1 0.5 -5.551115123125783e-17 0.75 0.5 -2.7755575615628914e-17
           0.5 0.5 0 0.5 0.5 0
-          0.25 0.5 2.7755575616e-17 0 0.5 5.5511151231e-17
-          1 0.5 -5.5511151231e-17 0.75 0.5 -2.7755575616e-17
+          0.25 0.5 2.7755575615628914e-17 0 0.5 5.551115123125783e-17
+          1 0.5 -5.551115123125783e-17 0.75 0.5 -2.7755575615628914e-17
           0.5 0.5 0 0.5 0.5 0
-          0.25 0.5 2.7755575616e-17 0 0.5 5.5511151231e-17
-          0.5 0.75 -2.7755575616e-17 0.5 0.5 0
-          0.5 0.5 0 0.5 0.25 2.7755575616e-17
-          0.5 0.75 -2.7755575616e-17 0.5 0.5 0
-          0.5 0.5 0 0.5 0.25 2.7755575616e-17
+          0.25 0.5 2.7755575615628914e-17 0 0.5 5.551115123125783e-17
+          0.5 0.75 -2.7755575615628914e-17 0.5 0.5 0
+          0.5 0.5 0 0.5 0.25 2.7755575615628914e-17
+          0.5 0.75 -2.7755575615628914e-17 0.5 0.5 0
+          0.5 0.5 0 0.5 0.25 2.7755575615628914e-17
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              0.5
+            </Value>
+            <Value index="1">
+              1.1180339887
+            </Value>
+          </InformationKey>
         </DataArray>
       </Points>
       <Cells>
@@ -2650,7 +2803,3 @@ class BasicsTest(unittest.TestCase):
   </UnstructuredGrid>
 </VTKFile>
 """
-
-
-if __name__ == "__main__":
-    unittest.main()

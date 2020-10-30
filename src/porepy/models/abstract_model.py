@@ -3,18 +3,19 @@
 
 """
 import abc
+
 import numpy as np
 
 
 class AbstractModel(abc.ABC):
-    """ This is an abstract class that specifies methods that a model must implement to
+    """This is an abstract class that specifies methods that a model must implement to
     be compatible with the Newton and time stepping methods.
 
     """
 
     @abc.abstractmethod
     def get_state_vector(self):
-        """ Get a vector of the current state of the variables; with the same ordering
+        """Get a vector of the current state of the variables; with the same ordering
             as in the assembler.
 
         Returns:
@@ -25,7 +26,7 @@ class AbstractModel(abc.ABC):
 
     @abc.abstractmethod
     def prepare_simulation(self):
-        """ Method called prior to the start of time stepping, or prior to entering the
+        """Method called prior to the start of time stepping, or prior to entering the
         non-linear solver for stationary problems.
 
         The intended use is to define parameters, geometry and grid, discretize linear
@@ -36,7 +37,7 @@ class AbstractModel(abc.ABC):
 
     @abc.abstractmethod
     def before_newton_loop(self):
-        """ Method to be called before entering the non-linear solver, thus at the start
+        """Method to be called before entering the non-linear solver, thus at the start
         of a new time step.
 
         Possible usage is to update time-dependent parameters, discertizations etc.
@@ -46,7 +47,7 @@ class AbstractModel(abc.ABC):
 
     @abc.abstractmethod
     def before_newton_iteration(self):
-        """ Method to be called at the start of every non-linear iteration.
+        """Method to be called at the start of every non-linear iteration.
 
         Possible usage is to update non-linear parameters, discertizations etc.
 
@@ -55,7 +56,7 @@ class AbstractModel(abc.ABC):
 
     @abc.abstractmethod
     def after_newton_iteration(self, solution_vector):
-        """ Method to be called after every non-linear iteration.
+        """Method to be called after every non-linear iteration.
 
         Possible usage is to distribute information on the new trial state, visualize
         the current approximation etc.
@@ -68,7 +69,7 @@ class AbstractModel(abc.ABC):
 
     @abc.abstractmethod
     def after_newton_convergence(self, solution, errors, iteration_counter):
-        """ Method to be called after every non-linear iteration.
+        """Method to be called after every non-linear iteration.
 
         Possible usage is to distribute information on the solution, visualization, etc.
 
@@ -80,7 +81,7 @@ class AbstractModel(abc.ABC):
 
     @abc.abstractmethod
     def after_newton_failure(self, solution, errors, iteration_counter):
-        """ Method called after a non-linear solver has failed.
+        """Method called after a non-linear solver has failed.
 
         The failure can be due to divergence, or that the maximum number of iterations
         has been reached.
@@ -92,7 +93,7 @@ class AbstractModel(abc.ABC):
 
     @abc.abstractmethod
     def check_convergence(self, solution, prev_solution, init_solution, nl_params):
-        """ Implements a convergence check, to be called by a non-linear solver.
+        """Implements a convergence check, to be called by a non-linear solver.
 
         Parameters:
             solution (np.array): Newly obtained solution vector
@@ -115,7 +116,7 @@ class AbstractModel(abc.ABC):
 
     @abc.abstractmethod
     def assemble_and_solve_linear_system(self, tol):
-        """ Assemble the linearized system, described by the current state of the model,
+        """Assemble the linearized system, described by the current state of the model,
         solve and return the new solution vector.
 
         Parameters:

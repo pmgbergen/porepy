@@ -11,7 +11,7 @@ import porepy as pp
 
 
 class Tpfa(pp.FVElliptic):
-    """ Discretize elliptic equations by a two-point flux approximation.
+    """Discretize elliptic equations by a two-point flux approximation.
 
     Attributes:
 
@@ -77,13 +77,25 @@ class Tpfa(pp.FVElliptic):
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
+        # Ambient dimension of the grid
+        vector_source_dim: int = parameter_dictionary.get("ambient_dimension", g.dim)
+
         if g.dim == 0:
             # Short cut for 0d grids
             matrix_dictionary[self.flux_matrix_key] = sps.csr_matrix((0, g.num_cells))
             matrix_dictionary[self.bound_flux_matrix_key] = sps.csr_matrix((0, 0))
-            matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csr_matrix((0, g.num_cells))
-            matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csr_matrix((0, 0))
-            matrix_dictionary[self.vector_source_key] = sps.csr_matrix((0, g.num_cells))
+            matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csr_matrix(
+                (0, g.num_cells)
+            )
+            matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csr_matrix(
+                (0, 0)
+            )
+            matrix_dictionary[self.vector_source_matrix_key] = sps.csr_matrix(
+                (0, g.num_cells * max(vector_source_dim, 1))
+            )
+            matrix_dictionary[
+                self.bound_pressure_vector_source_matrix_key
+            ] = sps.csr_matrix((0, g.num_cells * max(vector_source_dim, 1)))
             return None
 
         # Extract parameters
@@ -98,9 +110,12 @@ class Tpfa(pp.FVElliptic):
         # cells and faces over the periodic boundary.
         # The periodic boundary is defined by a mapping from left faces to right
         # faces:
-        fi_left = bnd.per_map[0]
-        fi_right = bnd.per_map[1]
-
+        if hasattr(g, "periodic_face_map"):
+            fi_left = g.periodic_face_map[0]
+            fi_right = g.periodic_face_map[1]
+        else:
+            fi_left = np.array([], dtype=int)
+            fi_right = np.array([], dtype=int)
         # We find the left(right)_face -> left(right)_cell mapping
         left_sfi, ci_left, left_sgn = sps.find(g.cell_faces[fi_left])
         right_sfi, ci_right, right_sgn = sps.find(g.cell_faces[fi_right])
@@ -128,9 +143,9 @@ class Tpfa(pp.FVElliptic):
         # The term T_left * p_left is already included in fi_g and ci_g, but we need
         # to add the second term T_left * (-p_right). Equivalently for flux_right.
         # f_mat and c_mat defines the indices of these entries in the flux matrix.
-        fi_mat = np.hstack((fi_g, fi_left, fi_right))
-        ci_mat = np.hstack((ci_g, ci_right, ci_left))
-        sgn_mat = np.hstack((sgn_g, -left_sgn, -right_sgn))
+        fi_periodic = np.hstack((fi_g, fi_left, fi_right))
+        ci_periodic = np.hstack((ci_g, ci_right, ci_left))
+        sgn_periodic = np.hstack((sgn_g, -left_sgn, -right_sgn))
 
         # When calculating the subface transmissibilities, left cells should be mapped
         # to left faces, while right cells should be mapped to right faces.
@@ -165,7 +180,7 @@ class Tpfa(pp.FVElliptic):
         t_face = np.divide(t_face, dist_face_cell)
 
         # Return harmonic average. Note that we here use fi_mat to count indices.
-        t = 1 / np.bincount(fi_mat, weights=1 / t_face)
+        t = 1 / np.bincount(fi_periodic, weights=1 / t_face)
 
         # Save values for use in recovery of boundary face pressures
         t_full = t.copy()
@@ -184,7 +199,9 @@ class Tpfa(pp.FVElliptic):
         t[is_neu] = 0
 
         # Create flux matrix
-        flux = sps.coo_matrix((t[fi_mat] * sgn_mat, (fi_mat, ci_mat))).tocsr()
+        flux = sps.coo_matrix(
+            (t[fi_periodic] * sgn_periodic, (fi_periodic, ci_periodic))
+        ).tocsr()
 
         # Create boundary flux matrix
         bndr_sgn = (g.cell_faces[bndr_ind, :]).data
@@ -217,24 +234,33 @@ class Tpfa(pp.FVElliptic):
         matrix_dictionary[self.bound_pressure_cell_matrix_key] = bound_pressure_cell
         matrix_dictionary[self.bound_pressure_face_matrix_key] = bound_pressure_face
 
-        # discretization of vector source
+        # Discretization of vector source
         # e.g. gravity in Darcy's law
         # Use harmonic average of cell transmissibilities
-
-        # Ambient dimension of the grid
-        vector_source_dim: int = parameter_dictionary.get("ambient_dimension", g.dim)
 
         # The discretization involves the transmissibilities, multiplied with the
         # distance between cell and face centers, and with the sgn adjustment (or else)
         # the vector source will point in the wrong direction in certain cases.
         # See Starnoni et al 2020, WRR for details.
-        data = (t[fi_mat] * fc_cc * sgn_mat)[:vector_source_dim].ravel("f")
+        vals = (t[fi_periodic] * fc_cc * sgn_periodic)[:vector_source_dim].ravel("f")
 
         # Rows and cols are given by fi / ci, expanded to account for the vector source
-        # having multiple dimensions
-        rows = np.tile(fi_mat, (vector_source_dim, 1)).ravel("f")
-        cols = pp.fvutils.expand_indices_nd(ci_mat, vector_source_dim)
+        # having multiple dimensions.
+        rows = np.tile(fi_periodic, (vector_source_dim, 1)).ravel("f")
+        cols = pp.fvutils.expand_indices_nd(ci_periodic, vector_source_dim)
 
-        vector_source = sps.coo_matrix((data, (rows, cols))).tocsr()
+        vector_source = sps.coo_matrix((vals, (rows, cols))).tocsr()
 
-        matrix_dictionary[self.vector_source_key] = vector_source
+        matrix_dictionary[self.vector_source_matrix_key] = vector_source
+
+        # Gravity contribution to pressure reconstruction
+        # The pressure difference is computed as the dot product between the
+        # vector source and the distance vector from cell to face centers.
+        vals = np.zeros((vector_source_dim, fi.size))
+        vals[:, bnd.is_neu[fi]] = fc_cc[:vector_source_dim, bnd.is_neu[fi]]
+        bound_pressure_vector_source = sps.coo_matrix(
+            (vals.ravel("f"), (rows, cols))
+        ).tocsr()
+        matrix_dictionary[
+            self.bound_pressure_vector_source_matrix_key
+        ] = bound_pressure_vector_source

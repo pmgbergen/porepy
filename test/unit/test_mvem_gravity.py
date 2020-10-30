@@ -23,7 +23,7 @@ class TestMVEMGravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_mvem_1d(self):
-        g = pp.structured.CartGrid(3, 1)
+        g = pp.CartGrid(3, 1)
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -74,7 +74,7 @@ class TestMVEMGravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_mvem_2d_simplex(self):
-        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -131,7 +131,7 @@ class TestMVEMGravity(unittest.TestCase):
         u_ex = np.array([-1, 4, 0])
 
         for i in np.arange(5):
-            g = pp.simplex.StructuredTriangleGrid([3 + i] * 2, [1, 1])
+            g = pp.StructuredTriangleGrid([3 + i] * 2, [1, 1])
             g.compute_geometry()
 
             kxx = np.ones(g.num_cells)
@@ -162,7 +162,7 @@ class TestMVEMGravity(unittest.TestCase):
 
             self.assertTrue(np.isclose(err, 0))
 
-            P = data[pp.DISCRETIZATION_MATRICES]["flow"][solver.vector_proj_key]
+            _ = data[pp.DISCRETIZATION_MATRICES]["flow"][solver.vector_proj_key]
             u = solver.extract_flux(g, up, data)
             P0u = solver.project_flux(g, u, data)
             err = np.sum(
@@ -174,7 +174,7 @@ class TestMVEMGravity(unittest.TestCase):
 
     def test_mvem_3d(self):
 
-        g = pp.simplex.StructuredTetrahedralGrid([1, 1, 1], [1, 1, 1])
+        g = pp.StructuredTetrahedralGrid([1, 1, 1], [1, 1, 1])
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -221,7 +221,7 @@ class TestMVEMGravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_mvem_1d_line(self):
-        g = pp.structured.CartGrid(3, 1)
+        g = pp.CartGrid(3, 1)
         R = pp.map_geometry.rotation_matrix(np.pi / 6.0, [0, 0, 1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
@@ -246,7 +246,7 @@ class TestMVEMGravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_mvem_2d_simplex_surf(self):
-        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         R = pp.map_geometry.rotation_matrix(-np.pi / 4.0, [1, 1, -1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
@@ -318,7 +318,7 @@ class TestMVEMGravity(unittest.TestCase):
         for i, p_err_known, u_err_known in zip(
             np.arange(5), p_errs_known, u_errs_known
         ):
-            g = pp.simplex.StructuredTriangleGrid([3 + i] * 2, [1, 1])
+            g = pp.StructuredTriangleGrid([3 + i] * 2, [1, 1])
             g.compute_geometry()
 
             kxx = np.ones(g.num_cells)
@@ -360,7 +360,7 @@ class TestMVEMGravity(unittest.TestCase):
             )
             self.assertTrue(np.isclose(err, p_err_known))
 
-            P = data[pp.DISCRETIZATION_MATRICES]["flow"][solver.vector_proj_key]
+            _ = data[pp.DISCRETIZATION_MATRICES]["flow"][solver.vector_proj_key]
             u = solver.extract_flux(g, up, data)
             P0u = solver.project_flux(g, u, data)
             uu_ex_0 = u_ex_0(g.cell_centers)
@@ -411,7 +411,7 @@ class TestMVEMGravity(unittest.TestCase):
         for i, p_err_known, u_err_known in zip(
             np.arange(5), p_errs_known, u_errs_known
         ):
-            g = pp.simplex.StructuredTriangleGrid([3 + i] * 2, [1, 1])
+            g = pp.StructuredTriangleGrid([3 + i] * 2, [1, 1])
             g.compute_geometry()
 
             kxx = 2 * np.ones(g.num_cells)

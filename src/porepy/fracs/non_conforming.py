@@ -10,17 +10,14 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-
+from porepy.fracs import tools as fractools
 from porepy.utils import tags
 from porepy.utils.matrix_compression import rldecode
-from porepy.utils.setmembership import unique_columns_tol, ismember_rows
-
-from porepy.fracs import tools as fractools
+from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 
 
 def merge_grids(grids, intersections, tol=1e-4):
-    """ Main method of module, merge all grids
-    """
+    """Main method of module, merge all grids"""
     list_of_grids, global_ind_offset = init_global_ind(grids)
     grids_1d = process_intersections(
         grids, intersections, global_ind_offset, list_of_grids, tol
@@ -36,7 +33,7 @@ def merge_grids(grids, intersections, tol=1e-4):
 
 
 def init_global_ind(gl):
-    """ Initialize a global indexing of nodes to a set of local grids.
+    """Initialize a global indexing of nodes to a set of local grids.
 
     Parameters:
         gl (triple list): Outer: One per fracture, middle: dimension, inner:
@@ -72,8 +69,7 @@ def init_global_ind(gl):
 
 
 def process_intersections(grids, intersections, global_ind_offset, list_of_grids, tol):
-    """ Loop over all intersections, combined two and two grids.
-    """
+    """Loop over all intersections, combined two and two grids."""
 
     # All connections will be hit upon twice, one from each intersecting fracture.
     # Keep track of which connections have been treated, and can be skipped.
@@ -121,9 +117,14 @@ def process_intersections(grids, intersections, global_ind_offset, list_of_grids
 
 def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids, tol):
 
-    combined_1d, global_ind_offset, g_in_combined, h_in_combined, g_sort, h_sort = merge_1d_grids(
-        g_1d, h_1d, global_ind_offset, tol
-    )
+    (
+        combined_1d,
+        global_ind_offset,
+        g_in_combined,
+        h_in_combined,
+        g_sort,
+        h_sort,
+    ) = merge_1d_grids(g_1d, h_1d, global_ind_offset, tol)
 
     # First update fields for first grid
     fn_orig = np.reshape(g.face_nodes.indices, (2, g.num_faces), order="F")
@@ -158,7 +159,7 @@ def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids, tol):
 
 
 def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
-    """ Merge two 1d grids with non-matching nodes to a single grid.
+    """Merge two 1d grids with non-matching nodes to a single grid.
 
     The grids should have common start and endpoints. They can be into 3d space
     in a genreal way.
@@ -233,7 +234,7 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
 
     # Create a new 1d grid.
     # First use a 1d coordinate to initialize topology
-    new_grid = pp.structured.TensorGrid(np.arange(num_new_grid))
+    new_grid = pp.TensorGrid(np.arange(num_new_grid))
     # Then set the right, 3d coordinates
     new_grid.nodes = pp.map_geometry.force_point_collinearity(combined_sorted)
 
@@ -252,7 +253,7 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
 
 
 def update_global_point_ind(grid_list, old_ind, new_ind):
-    """ Update global point indices in a list of grids.
+    """Update global point indices in a list of grids.
 
     The method replaces indices in the attribute global_point_ind in the grid.
     The update is done in place.
@@ -271,7 +272,7 @@ def update_global_point_ind(grid_list, old_ind, new_ind):
 def update_nodes(
     g, g_1d, new_grid_1d, this_in_combined, sort_ind, global_ind_offset, list_of_grids
 ):
-    """ Update a 2d grid to conform to a new grid along a 1d line.
+    """Update a 2d grid to conform to a new grid along a 1d line.
 
     Intended use: A 1d mesh that is embedded in a 2d mesh (along a fracture)
     has been updated / refined. This function then updates the node information
@@ -315,7 +316,6 @@ def update_nodes(
     # Nodes to be added will have indicies towards the end
     num_nodes_orig = g.num_nodes
     num_delete_nodes = delete_nodes.size
-    num_nodes_not_on_fracture = num_nodes_orig - num_delete_nodes
 
     # Define indices of new nodes.
     new_nodes = num_nodes_orig - delete_nodes.size + np.arange(new_grid_1d.num_nodes)
@@ -355,7 +355,7 @@ def update_nodes(
     # nodes are found along intersections.
 
     # The new grid should also be added to the list, if it is not there before
-    if not new_grid_1d in list_of_grids:
+    if new_grid_1d not in list_of_grids:
         list_of_grids.append(new_grid_1d)
     update_global_point_ind(
         list_of_grids,
@@ -374,7 +374,7 @@ def update_nodes(
 def update_face_nodes(
     g, delete_faces, num_new_faces, new_node_offset, nodes_per_face=None
 ):
-    """ Update face-node map by deleting and inserting new faces.
+    """Update face-node map by deleting and inserting new faces.
 
     The method deletes specified faces, adds new ones towards the end. It does
     nothing to adjust the face-node relation for remaining faces.
@@ -431,7 +431,7 @@ def update_face_nodes(
 def update_cell_faces(
     g, delete_faces, new_faces, in_combined, fn_orig, node_coord_orig, tol=1e-4
 ):
-    """ Replace faces in a cell-face map.
+    """Replace faces in a cell-face map.
 
     If faces have been refined (or otherwise modified), it is necessary to
     update the cell-face relation as well. This function does so, while taking
@@ -629,7 +629,7 @@ def update_cell_faces(
 
 
 def update_face_tags(g, delete_faces, new_faces):
-    """ Update the face tags of a cell.
+    """Update the face tags of a cell.
 
     Delete tags for old faces, and add new tags for their replacements.
 

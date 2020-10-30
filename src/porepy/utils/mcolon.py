@@ -11,7 +11,7 @@ import numpy as np
 
 
 def mcolon(lo, hi):
-    """ Expansion of np.arange(a, b) for arrays a and b.
+    """Expansion of np.arange(a, b) for arrays a and b.
 
     The code is equivalent to the following (less efficient) loop:
     arr = np.empty(0)

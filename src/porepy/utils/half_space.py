@@ -122,15 +122,16 @@ def half_space_pt(n, x0, pts, recompute=True):
 def star_shape_cell_centers(g, as_nan=False):
     """
     For a given grid compute the star shape center for each cell.
-    The algorithm computes the half space intersections, by using the above method half_space_pt,
+    The algorithm computes the half space intersections, by using the above method
+    half_space_pt,
     of the spaces defined by the cell faces and the face normals.
     This is a wrapper method that operate on a grid.
 
     Parameters
     ----------
     g: the grid
-    as_nan: (default False) in the case some cells are not star-shaped return nan as new center.
-        Otherwise an exception is raised (default behaviour).
+    as_nan: (default False) in the case some cells are not star-shaped return nan as
+        new center. Otherwise an exception is raised (default behaviour).
     """
 
     # no need for 1d or 0d grids

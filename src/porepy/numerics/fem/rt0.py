@@ -4,10 +4,11 @@
 @author: fumagalli, alessio
 """
 
-import numpy as np
-import scipy.sparse as sps
 import logging
 from typing import Dict
+
+import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 
@@ -23,7 +24,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         self.cell_face_to_opposite_node = "rt0_class_cell_face_to_opposite_node"
 
     def discretize(self, g: pp.Grid, data: Dict) -> None:
-        """ Discretize a second order elliptic equation using using a RT0-P0 method.
+        """Discretize a second order elliptic equation using using a RT0-P0 method.
 
         We assume the following two sub-dictionaries to be present in the data
         dictionary:
@@ -58,9 +59,12 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
-            matrix_dictionary[self.mass_matrix_key] = sps.dia_matrix(([1], 0), (1, 1))
-            matrix_dictionary[self.div_matrix_key] = sps.csr_matrix((1, 1))
-            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, 1))
+            mass = sps.dia_matrix(([1], 0), (g.num_faces, g.num_faces))
+            matrix_dictionary[self.mass_matrix_key] = mass
+            matrix_dictionary[self.div_matrix_key] = sps.csr_matrix(
+                (g.num_faces, g.num_cells)
+            )
+            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, g.num_cells))
             return
 
         # Get dictionary for parameter storage
@@ -187,7 +191,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         dim: int,
         HB: np.ndarray,
     ) -> np.ndarray:
-        """ Compute the local mass Hdiv matrix using the mixed vem approach.
+        """Compute the local mass Hdiv matrix using the mixed vem approach.
 
         Parameters
         ----------
@@ -203,16 +207,14 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         out: ndarray (num_faces_of_cell, num_faces_of_cell)
             Local mass Hdiv matrix.
         """
-        # Allow short variable names in this function
-        # pylint: disable=invalid-name
-        I = np.eye(dim + 1)
+        ind = np.eye(dim + 1)
         # expand the inv_K tensor
         inv_K_exp = (
-            I[:, np.newaxis, :, np.newaxis]
+            ind[:, np.newaxis, :, np.newaxis]
             * inv_K[np.newaxis, :, np.newaxis, :]
             / c_volume
         )
-        inv_K_exp.shape = (I.shape[0] * inv_K.shape[0], I.shape[1] * inv_K.shape[1])
+        inv_K_exp.shape = (ind.shape[0] * inv_K.shape[0], ind.shape[1] * inv_K.shape[1])
 
         N = coord.flatten("F").reshape((-1, 1)) * np.ones(
             (1, dim + 1)
@@ -230,7 +232,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         dim: np.ndarray,
         R: np.ndarray,
     ) -> np.ndarray:
-        """ Construct a local matrix that evaluate a RT0 solution in a give point (cell center).
+        """Construct a local matrix that evaluate a RT0 solution in a give point (cell center).
 
         Parameters
         ----------
@@ -253,7 +255,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
     def _compute_cell_face_to_opposite_node(
         self, g: pp.Grid, data: np.ndarray, recompute: bool = False
     ) -> None:
-        """ Compute a map that given a face return the node on the opposite side,
+        """Compute a map that given a face return the node on the opposite side,
         typical request of a Raviart-Thomas approximation.
         This function is mainly for internal use and, if the geometry is fixed during
         the simulation, it will be called once.

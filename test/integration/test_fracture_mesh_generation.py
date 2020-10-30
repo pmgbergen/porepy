@@ -1142,7 +1142,9 @@ class TestStructuredGrids(unittest.TestCase):
             d = np.all(np.abs(g.nodes - np.array([[0.5], [0.5], [0.5]])) < 1e-6, axis=0)
             self.assertTrue(any(d))
         for g in g_0:
-            d = np.all(np.abs(g.cell_centers - np.array([[0.5], [0.5], [0.5]])) < 1e-6, axis=0)
+            d = np.all(
+                np.abs(g.cell_centers - np.array([[0.5], [0.5], [0.5]])) < 1e-6, axis=0
+            )
             self.assertTrue(any(d))
 
     def test_T_intersection_2d(self):

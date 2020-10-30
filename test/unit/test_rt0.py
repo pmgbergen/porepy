@@ -20,7 +20,7 @@ class BasicsTest(unittest.TestCase):
         return M, P
 
     def test_rt0_1d_iso(self):
-        g = pp.structured.CartGrid(3, 1)
+        g = pp.CartGrid(3, 1)
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -63,7 +63,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_rt0_1d_ani(self):
-        g = pp.structured.CartGrid(3, 1)
+        g = pp.CartGrid(3, 1)
         g.compute_geometry()
 
         kxx = 1.0 / (np.sin(g.cell_centers[0, :]) + 1)
@@ -152,7 +152,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_rt0_2d_iso_simplex(self):
-        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -194,7 +194,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_rt0_2d_iso_simplex_mixed_bc(self):
-        g = pp.simplex.StructuredTriangleGrid([2, 2], [1, 1])
+        g = pp.StructuredTriangleGrid([2, 2], [1, 1])
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -879,7 +879,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_rt0_2d_ani_simplex(self):
-        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
 
         al = np.square(g.cell_centers[1, :]) + np.square(g.cell_centers[0, :]) + 1
@@ -967,7 +967,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_rt0_3d(self):
 
-        g = pp.simplex.StructuredTetrahedralGrid([1, 1, 1], [1, 1, 1])
+        g = pp.StructuredTetrahedralGrid([1, 1, 1], [1, 1, 1])
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
@@ -985,7 +985,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_dual_rt0_1d_iso_line(self):
-        g = pp.structured.CartGrid(3, 1)
+        g = pp.CartGrid(3, 1)
         R = pp.map_geometry.rotation_matrix(np.pi / 6.0, [0, 0, 1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
@@ -1033,7 +1033,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_rt0_2d_iso_simplex_surf(self):
-        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         R = pp.map_geometry.rotation_matrix(-np.pi / 4.0, [1, 1, -1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
@@ -1078,7 +1078,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_rt0_2d_ani_simplex_surf(self):
-        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
 
         al = np.square(g.cell_centers[1, :]) + np.square(g.cell_centers[0, :]) + 1
@@ -1134,7 +1134,7 @@ class BasicsTest(unittest.TestCase):
         u_ex = np.array([-2, 3, 0])
 
         for i in np.arange(5):
-            g = pp.simplex.StructuredTriangleGrid([3 + i] * 2, [1, 1])
+            g = pp.StructuredTriangleGrid([3 + i] * 2, [1, 1])
             g.compute_geometry()
 
             kxx = np.ones(g.num_cells)
@@ -1219,7 +1219,7 @@ class BasicsTest(unittest.TestCase):
         for i, p_err_known, u_err_known in zip(
             np.arange(5), p_errs_known, u_errs_known
         ):
-            g = pp.simplex.StructuredTriangleGrid([3 + i] * 2, [1, 1])
+            g = pp.StructuredTriangleGrid([3 + i] * 2, [1, 1])
             g.compute_geometry()
 
             kxx = np.ones(g.num_cells)
@@ -1308,7 +1308,7 @@ class BasicsTest(unittest.TestCase):
         for i, p_err_known, u_err_known in zip(
             np.arange(5), p_errs_known, u_errs_known
         ):
-            g = pp.simplex.StructuredTriangleGrid([3 + i] * 2, [1, 1])
+            g = pp.StructuredTriangleGrid([3 + i] * 2, [1, 1])
             g.compute_geometry()
 
             kxx = 2 * np.ones(g.num_cells)

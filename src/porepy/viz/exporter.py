@@ -8,11 +8,14 @@ time steps, a single pvd file takes care of the ordering of all printed vtu
 files.
 """
 
-import sys, os
+import logging
+import os
+import sys
+import warnings
+
 import numpy as np
 import scipy.sparse as sps
-import logging
-import warnings
+
 import porepy as pp
 
 try:
@@ -161,7 +164,7 @@ class Exporter:
         Parameters:
         grid: the grid or grid bucket
         file_name: the root of file name without any extension.
-        folder_name: (optional) the name of the folder to save the file. 
+        folder_name: (optional) the name of the folder to save the file.
             If the folder does not exist it will be created.
 
         Optional arguments in kwargs:
@@ -211,7 +214,7 @@ class Exporter:
         if kwargs:
             msg = "Exporter() got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
-        
+
         self.is_GridBucket = isinstance(self.gb, pp.GridBucket)
         self.is_not_vtk = "vtk" not in sys.modules
 
@@ -232,12 +235,8 @@ class Exporter:
         else:
             self.gb_VTK = None
 
-        try:
-            import numba
-        except ImportError:
-            warnings.warn("Numba not available. Export may be slow for large grids")
-
-        self.has_numba = "numba" in sys.modules
+        # Assume numba is available
+        self.has_numba = True
 
         self._update_gb_VTK()
 
@@ -512,7 +511,9 @@ class Exporter:
                 i = 0
                 for mg, edge in zip(mgs, edges):
                     for side, _ in mg.side_grids.items():
-                        values[i] = self.gb.edge_props(edge, field.name)[side]
+                        # Convert edge to tuple to be compatible with GridBucket
+                        # data structure
+                        values[i] = self.gb.edge_props(tuple(edge), field.name)[side]
                         i += 1
 
                 field.set_values(np.hstack(values))
@@ -768,7 +769,6 @@ class Exporter:
         gVTK = vtk.vtkUnstructuredGrid()
         ptsVTK = vtk.vtkPoints()
 
-        ptsId_global = 0
         for g in gs:
             faces_cells, cells, _ = sps.find(g.cell_faces)
             nodes_faces, faces, _ = sps.find(g.face_nodes)
@@ -938,7 +938,7 @@ class Exporter:
             normals,
             num_cell_nodes,
         ):
-            """ Implementation note: This turned out to be less than pretty, and quite
+            """Implementation note: This turned out to be less than pretty, and quite
             a bit more explicit than the corresponding pure python implementation.
             The process was basically to circumvent whatever statements numba did not
             like. Not sure about why this ended so, but there you go.

@@ -1,10 +1,12 @@
 # Methods to work directly with the gmsh format
 
+from pathlib import Path
+from typing import List, Union
+
 import numpy as np
 
-from typing import Union, List
-
-from pathlib import Path
+import porepy.grids.constants as gridding_constants
+from porepy.utils import sort_points
 
 try:
     import gmsh
@@ -16,14 +18,11 @@ except ModuleNotFoundError:
         "export PYTHONPATH=${PYTHONPATH}:path/to/gmsh*-sdk.*/lib"
     )
 
-from porepy.utils import sort_points
-import porepy.grids.constants as gridding_constants
-
 
 class GmshWriter(object):
     """
-     Write a gmsh.geo file for a fractured 2D domains, possibly including
-     compartments
+    Write a gmsh.geo file for a fractured 2D domains, possibly including
+    compartments
     """
 
     def __init__(
@@ -42,6 +41,7 @@ class GmshWriter(object):
         fracture_tags=None,
         domain_boundary_points=None,
         fracture_and_boundary_points=None,
+        fracture_constraint_intersection_points=None,
     ):
         """
 
@@ -76,6 +76,9 @@ class GmshWriter(object):
 
         self.domain_boundary_points = domain_boundary_points
         self.fracture_and_boundary_points = fracture_and_boundary_points
+        self.fracture_constraint_intersection_points = (
+            fracture_constraint_intersection_points
+        )
 
     def write_geo(self, file_name):
 
@@ -113,7 +116,8 @@ class GmshWriter(object):
         # Both fractures and compartments are
         constants = gridding_constants.GmshConstants()
 
-        # We consider fractures, boundary tag, an auxiliary tag (fake fractures/mesh constraints)
+        # We consider fractures, boundary tag, an auxiliary tag (fake fractures/mesh
+        # constraints)
         ind = np.argwhere(
             np.logical_or.reduce(
                 (
@@ -348,12 +352,12 @@ class GmshWriter(object):
         return s
 
     def _write_lines(self, embed_in=None):
-        l = self.lines
-        num_lines = l.shape[1]
+        lines = self.lines
+        num_lines = lines.shape[1]
         ls = "\n"
         s = "// Define lines " + ls
         constants = gridding_constants.GmshConstants()
-        if l.shape[0] > 2:
+        if lines.shape[0] > 2:
             has_tags = True
         else:
             has_tags = False
@@ -365,21 +369,21 @@ class GmshWriter(object):
                 + " = newl; Line(frac_line_"
                 + si
                 + ") = {p"
-                + str(l[0, i])
+                + str(lines[0, i])
                 + ", p"
-                + str(l[1, i])
+                + str(lines[1, i])
                 + "};"
                 + ls
             )
             if has_tags:
                 s += 'Physical Line("'
-                if l[2, i] == constants.FRACTURE_TIP_TAG:
+                if lines[2, i] == constants.FRACTURE_TIP_TAG:
                     s += constants.PHYSICAL_NAME_FRACTURE_TIP
-                elif l[2, i] == constants.FRACTURE_INTERSECTION_LINE_TAG:
+                elif lines[2, i] == constants.FRACTURE_INTERSECTION_LINE_TAG:
                     s += constants.PHYSICAL_NAME_FRACTURE_LINE
-                elif l[2, i] == constants.DOMAIN_BOUNDARY_TAG:
+                elif lines[2, i] == constants.DOMAIN_BOUNDARY_TAG:
                     s += constants.PHYSICAL_NAME_DOMAIN_BOUNDARY
-                elif l[2, i] == constants.FRACTURE_LINE_ON_DOMAIN_BOUNDARY_TAG:
+                elif lines[2, i] == constants.FRACTURE_LINE_ON_DOMAIN_BOUNDARY_TAG:
                     s += constants.PHYSICAL_NAME_FRACTURE_BOUNDARY_LINE
                 else:
                     # This is a line that need not be physical (recognized by
@@ -532,6 +536,18 @@ class GmshWriter(object):
                     + ls
                 )
 
+        if self.fracture_constraint_intersection_points is not None:
+            for i, p in enumerate(self.fracture_constraint_intersection_points):
+                s += (
+                    'Physical Point("'
+                    + constants.PHYSICAL_NAME_FRACTURE_CONSTRAINT_INTERSECTION_POINT
+                    + str(i)
+                    + '") = {p'
+                    + str(p)
+                    + "};"
+                    + ls
+                )
+
         s += "// End of physical point specification" + ls + ls
         return s
 
@@ -667,7 +683,7 @@ class GmshGridBucketWriter(object):
         # Element types (as specified by the gmsh .msh format), index by
         # dimensions. This assumes all cells are simplices.
         elem_type = [15, 1, 2, 4]
-        for i, gr in enumerate(self.gb):
+        for gr in self.gb:
             g = gr[0]
             gn = str(gr[1]["node_number"])
 
@@ -695,46 +711,41 @@ class GmshGridBucketWriter(object):
 
 
 def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) -> None:
-    """
-    Convenience function to run gmsh.
+    """Convenience function to run gmsh.
 
-        Parameters:
-            in_file : str or pathlib.Path
-                Name of gmsh configuration file (.geo)
-            out_file : str or pathlib.Path
-                Name of output file for gmsh (.msh)
-            dim : int
-                Number of dimensions gmsh should grid. If dims is less than
-                the geometry dimensions, gmsh will grid all lower-dimensional
-                objcets described in in_file (e.g. all surfaces embeded in a 3D
-                geometry).
+    Parameters:
+        in_file : str or pathlib.Path
+            Name of (or path to) gmsh configuration file (.geo)
+        out_file : str or pathlib.Path
+            Name of (or path to) output file for gmsh (.msh)
+        dim : int
+            Number of dimensions gmsh should grid. If dims is less than
+            the geometry dimensions, gmsh will grid all lower-dimensional
+            objects described in in_file (e.g. all surfaces embedded in a 3D
+            geometry).
 
     """
     # Helper functions
 
-    def _file_stem(file: Union[str, Path]) -> str:
-        # Strip a file name down to its stem, return a string
-        file = Path(file)
-        file = file.parent / file.stem
-        return str(file)
+    def _dump_gmsh_log(_log: List[str], in_file_name: Path) -> Path:
+        """Write a gmsh log to file.
 
-    def _dump_gmsh_log(log: List[str], file_name: str) -> str:
-        # Write a gmsh log to file.
-        # Return name of the log file
-        fn = in_file.split(".")[0]
-        debug_file_name = "gmsh_log_" + fn + ".dbg"
-        with open(debug_file_name, "w") as f:
-            for line in log:
-                f.write(line + "\n")
+        Takes in the entire log and path to the in_file (from outer scope)
+        Return name of the log file
+        """
+        debug_file_name = in_file_name.with_name(f"gmsh_log_{in_file_name.stem}.dbg")
+        with debug_file_name.open(mode="w") as f:
+            for _line in _log:
+                f.write(_line + "\n")
 
         return debug_file_name
 
-    if not Path(in_file).is_file():
-        raise FileNotFoundError(f"file {in_file!r} not found.")
-
     # Ensure that in_file has extension .geo, out_file extension .msh
-    in_file = _file_stem(in_file) + ".geo"
-    out_file = _file_stem(out_file) + ".msh"
+    in_file = Path(in_file).with_suffix(".geo")
+    out_file = Path(out_file).with_suffix(".msh")
+
+    if not in_file.is_file():
+        raise FileNotFoundError(f"file {in_file!r} not found.")
 
     gmsh.initialize()
 
@@ -742,12 +753,12 @@ def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) ->
     # passed corrupted .geo files. To catch errors we therefore read the gmsh log, and
     # look for error messages.
     gmsh.logger.start()
-    gmsh.open(in_file)
+    gmsh.open(str(in_file))
 
     # Look for errors
     log = gmsh.logger.get()
     for line in log:
-        if "Error" in line:
+        if "Error:" in line:
             fn = _dump_gmsh_log(log, in_file)
             raise ValueError(
                 f"""Error when reading gmsh file {in_file}.
@@ -760,14 +771,14 @@ def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) ->
     # Look for errors
     log = gmsh.logger.get()
     for line in log:
-        if "Error" in line:
+        if "Error:" in line:
             fn = _dump_gmsh_log(log, in_file)
             raise ValueError(
-                f"""Error in gmsh when generating mesh for {in_file}.
-                             Gmsh log written to file {fn}"""
+                f"Error in gmsh when generating mesh for {in_file}\n"
+                f"Gmsh log written to file {fn}"
             )
 
     # The gmsh write should be safe for errors
-    gmsh.write(out_file)
+    gmsh.write(str(out_file))
     # Done
     gmsh.finalize()

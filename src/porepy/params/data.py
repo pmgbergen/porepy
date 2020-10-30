@@ -62,15 +62,18 @@ whereas data such as BC values are stored similarly to in the Parameters class, 
 
 data[pp.STATE][keyword]["bc_values"].
 """
-import numpy as np
-import porepy as pp
 import numbers
 import warnings
+from typing import Dict, List, Optional
+
+import numpy as np
+
+import porepy as pp
 import porepy.params.parameter_dictionaries as dicts
 
 
 class Parameters(dict):
-    """ Class to store all physical parameters used by solvers.
+    """Class to store all physical parameters used by solvers.
 
     The intention is to provide a unified way of passing around parameters, and
     also circumvent the issue of using a solver for multiple physical
@@ -84,7 +87,7 @@ class Parameters(dict):
     """
 
     def __init__(self, g=None, keywords=None, dictionaries=None):
-        """ Initialize Data object.
+        """Initialize Data object.
 
         Parameters:
 
@@ -112,7 +115,7 @@ class Parameters(dict):
         return s
 
     def update_dictionaries(self, keywords, dictionaries=None):
-        """ Update the dictionaries corresponding to some keywords.
+        """Update the dictionaries corresponding to some keywords.
 
         Use either the dictionaries OR the property_ids / values.
         Properties:
@@ -141,7 +144,7 @@ class Parameters(dict):
                 self[key] = dictionaries[i]
 
     def set_from_other(self, keyword_add, keyword_get, parameters):
-        """ Add parameters from existing values for a different keyword.
+        """Add parameters from existing values for a different keyword.
 
         Typical usage: Ensure parameters like aperture and porosity are consistent
         between keywords, by making reference the same object. Subsequent calls to
@@ -154,12 +157,12 @@ class Parameters(dict):
             keyword_get: The keyword from whose dictionary the parameters are to be
             obtained.
             parameters: List of parameters to be set.
-            """
+        """
         for p in parameters:
             self[keyword_add][p] = self[keyword_get][p]
 
     def overwrite_shared_parameters(self, parameters, values):
-        """ Updates the given parameter for all keywords.
+        """Updates the given parameter for all keywords.
 
         Brute force method to ensure a parameter is updated/overwritten for all
         keywords where they are defined.
@@ -172,7 +175,7 @@ class Parameters(dict):
                     self[kw][p] = v
 
     def modify_parameters(self, keyword, parameters, values):
-        """ Modify the values of some parameters of a given keyword.
+        """Modify the values of some parameters of a given keyword.
 
         Usage: Ensure consistent parameter updates, see set_from_other. Does not work
         on Numbers.
@@ -185,6 +188,39 @@ class Parameters(dict):
         for (p, v) in zip(parameters, values):
             modify_variable(self[keyword][p], v)
 
+    def expand_scalars(
+        self,
+        n_vals: int,
+        keyword: str,
+        parameters: List[str],
+        defaults: Optional[List] = None,
+    ) -> List:
+        """Expand parameters assigned as a single scalar to n_vals arrays.
+        Used e.g. for parameters which may be heterogeneous in space (cellwise),
+        but are often homogeneous and assigned as a scalar.
+        Parameters:
+            n_vals: Size of the expanded arrays. E.g. g.num_cells
+            keyword: The parameter keyword.
+            parameters: List of parameters.
+            defaults (optional): List of default values, one for each parameter.
+                If not set, no default values will be provided and an error
+                will ensue if one of the listed parameters is not present in
+                the dictionary. This avoids assigning None to unset mandatory
+                parameters.
+        """
+        values = []
+        if defaults is None:
+            defaults = [None] * len(parameters)
+        for p, d in zip(parameters, defaults):
+            if d is None:
+                val = self[keyword].get(p)
+            else:
+                val = self[keyword].get(p, d)
+            if np.asarray(val).size == 1:
+                val *= np.ones(n_vals)
+            values.append(val)
+        return values
+
 
 """
 Utility methods for handling of dictionaries.
@@ -196,7 +232,7 @@ new Parameters class.
 def initialize_default_data(
     g, data, parameter_type, specified_parameters=None, keyword=None
 ):
-    """ Initialize a data dictionary for a single keyword.
+    """Initialize a data dictionary for a single keyword.
 
     The initialization consists of adding a parameter dictionary and initializing a
     matrix dictionary in the proper fields of data. Default data are added for a certain
@@ -222,11 +258,11 @@ def initialize_default_data(
         specified_parameters = {}
     if not keyword:
         keyword = parameter_type
-    if parameter_type is "flow":
+    if parameter_type == "flow":
         d = dicts.flow_dictionary(g, specified_parameters)
-    elif parameter_type is "transport":
+    elif parameter_type == "transport":
         d = dicts.transport_dictionary(g, specified_parameters)
-    elif parameter_type is "mechanics":
+    elif parameter_type == "mechanics":
         d = dicts.mechanics_dictionary(g, specified_parameters)
     else:
         raise KeyError(
@@ -238,8 +274,10 @@ def initialize_default_data(
     return initialize_data(g, data, keyword, d)
 
 
-def initialize_data(g, data, keyword, specified_parameters=None):
-    """ Initialize a data dictionary for a single keyword.
+def initialize_data(
+    g, data: Dict, keyword: str, specified_parameters: Optional[Dict] = None
+) -> Dict:
+    """Initialize a data dictionary for a single keyword.
 
     The initialization consists of adding a parameter dictionary and initializing a
     matrix dictionary in the proper fields of data. If there is a Parameters object
@@ -265,8 +303,8 @@ def initialize_data(g, data, keyword, specified_parameters=None):
     return data
 
 
-def set_state(data, state=None):
-    """ Initialize or update a state dictionary.
+def set_state(data: Dict, state: Optional[Dict] = None) -> Dict:
+    """Initialize or update a state dictionary.
 
     The initialization consists of adding a state dictionary in the proper field of the
     data dictionary. If there is a state dictionary in data, the new state is added
@@ -279,8 +317,7 @@ def set_state(data, state=None):
     Returns:
         data: The filled dictionary.
     """
-    if not state:
-        state = {}
+    state = state or {}
     if pp.STATE in data:
         data[pp.STATE].update(state)
     else:
@@ -288,8 +325,24 @@ def set_state(data, state=None):
     return data
 
 
+def set_iterate(data: Dict, iterate: Optional[Dict] = None) -> Dict:
+    """Initialize or update an iterate dictionary.
+
+    Same as set_state for subfield pp.ITERATE
+    Also checks whether pp.STATE field is set, and adds it if not, see set_state.
+    """
+    if pp.STATE not in data:
+        set_state(data)
+    iterate = iterate or {}
+    if pp.ITERATE in data[pp.STATE]:
+        data[pp.STATE][pp.ITERATE].update(iterate)
+    else:
+        data[pp.STATE][pp.ITERATE] = iterate
+    return data
+
+
 def modify_variable(variable, new_value):
-    """ Changes the value (not id) of the stored parameter.
+    """Changes the value (not id) of the stored parameter.
 
     Mutes the value of a variable to new_value.
     Note that this method cannot be extended to cover Numbers, as these are
@@ -332,7 +385,7 @@ def add_nonpresent_dictionary(dictionary, key):
 
 
 def add_discretization_matrix_keyword(dictionary, keyword):
-    """ Ensure presence of sub-dictionaries.
+    """Ensure presence of sub-dictionaries.
 
     Specific method ensuring that there is a sub-dictionary for discretization matrices,
     and that this contains a sub-sub-dictionary for the given key. Called previous to

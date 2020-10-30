@@ -176,6 +176,15 @@ class TestFractureNetwork2d(unittest.TestCase):
         known_tags = np.array([tag1, tag1, tag2, tag2])
         self.assertTrue(np.all(together.edges[2] == known_tags))
 
+    def test_copy(self):
+        network_1 = pp.FractureNetwork2d(self.p, self.e)
+
+        copy = network_1.copy()
+        num_p = self.p.shape[1]
+
+        network_1.pts = np.random.rand(2, num_p)
+        self.assertTrue(np.allclose(copy.pts, self.p))
+
 
 class TestFractureNetwork3dBoundingBox(unittest.TestCase):
     def test_single_fracture(self):

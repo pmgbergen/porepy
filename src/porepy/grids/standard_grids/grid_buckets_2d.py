@@ -29,7 +29,7 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
                         not provided, these are set by utils.set_mesh_sizes.
                     For cartesian grids: List containing number of cells in x and y
                         direction.
-        x_endpoints (list): Contains the x coordinates of the two endpoints. If not 
+        x_endpoints (list): Contains the x coordinates of the two endpoints. If not
             provided, the endpoints will be set to [0, 1]
 
     Returns:
@@ -54,9 +54,45 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
     return gb, unit_domain
 
 
+def single_vertical(mesh_args=None, y_endpoints=None, simplex=True):
+    """
+    Create a grid bucket for a domain containing a single vertical fracture at x=0.5.
+
+    Args:
+        mesh_args:  For triangular grids: Dictionary containing at least "mesh_size_frac". If
+                        the optional values of "mesh_size_bound" and "mesh_size_min" are
+                        not provided, these are set by utils.set_mesh_sizes.
+                    For cartesian grids: List containing number of cells in x and y
+                        direction.
+        y_endpoints (list): Contains the y coordinates of the two endpoints. If not
+            provided, the endpoints will be set to [0, 1]
+
+    Returns:
+        Grid bucket for the domain.
+
+    """
+    if y_endpoints is None:
+        y_endpoints = [0, 1]
+
+    if simplex:
+        if mesh_args is None:
+            mesh_args = {"mesh_size_frac": 0.2}
+        points = np.array([[0.5, 0.5], y_endpoints])
+        edges = np.array([[0], [1]])
+        gb = utils.make_gb_2d_simplex(mesh_args, points, edges, unit_domain)
+
+    else:
+        fracture = np.array([[0.5, 0.5], y_endpoints])
+        gb = pp.meshing.cart_grid(
+            [fracture], mesh_args, physdims=[unit_domain["xmax"], unit_domain["ymax"]]
+        )
+    return gb
+
+
 def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex=True):
     """
-    Create a grid bucket for a domain containing a single horizontal fracture at y=0.5.
+    Create a grid bucket for a domain containing fractures, one horizontal and one vertical
+    at y=0.5 and x=0.5 respectively.
 
     Args:
         mesh_args:  For triangular grids: Dictionary containing at least "mesh_size_frac". If

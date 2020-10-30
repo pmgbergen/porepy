@@ -148,8 +148,8 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                 * np.sin(np.pi / xmax * x[0])
                 * np.sin(2 * np.pi / ymax * x[1])
             )
-            pxx = -(np.pi / xmax) ** 2 * p
-            pyy = -(2 * np.pi / ymax) ** 2 * p
+            pxx = -((np.pi / xmax) ** 2) * p
+            pyy = -((2 * np.pi / ymax) ** 2) * p
             return p, np.vstack([px, py]), pxx + pyy
 
         for g, d in gb:
@@ -212,8 +212,8 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                 * np.sin(np.pi / xmax * x[0])
                 * np.sin(2 * np.pi / ymax * x[1])
             )
-            pxx = -(np.pi / xmax) ** 2 * p
-            pyy = -(2 * np.pi / ymax) ** 2 * p
+            pxx = -((np.pi / xmax) ** 2) * p
+            pyy = -((2 * np.pi / ymax) ** 2) * p
             return p, np.vstack([px, py]), pxx + pyy
 
         for g, d in gb:

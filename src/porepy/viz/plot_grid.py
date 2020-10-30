@@ -9,19 +9,17 @@ exporter module found in this folder.
 """
 
 import string
-import numpy as np
-import scipy.sparse as sps
-import porepy as pp
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-
-from matplotlib.patches import FancyArrowPatch
+import numpy as np
+import scipy.sparse as sps
 from matplotlib.collections import PolyCollection
-
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from matplotlib.patches import FancyArrowPatch
 from mpl_toolkits.mplot3d import proj3d
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
+import porepy as pp
 
 # ------------------------------------------------------------------------------#
 
@@ -288,7 +286,7 @@ def plot_gb(gb, cell_value, vector_value, info, **kwargs):
             **kwargs
         )
 
-    val = np.array([lim(g.nodes) for g, _ in gb])
+    val = np.array([lim(g.nodes) for g, _ in gb if g.dim > 0])
 
     x = [np.amin(val[:, 0, :]), np.amax(val[:, 0, :])]
     y = [np.amin(val[:, 1, :]), np.amax(val[:, 1, :])]

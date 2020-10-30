@@ -35,6 +35,7 @@ import unittest
 import porepy as pp
 from test.test_utils import permute_matrix_vector
 import porepy.numerics.interface_laws.abstract_interface_law
+from porepy.numerics.mixed_dim.assembler_filters import ListFilter
 
 
 class TestAssembler(unittest.TestCase):
@@ -242,11 +243,13 @@ class TestAssembler(unittest.TestCase):
                 }
             }
 
+        filt = ListFilter(variable_list=["var_11"])
+
         # Give a false variable name
-        general_assembler = pp.Assembler(gb, active_variables="var_11")
-        A, b = general_assembler.assemble_matrix_rhs()
-        self.assertTrue(A.shape == (0, 0))
-        self.assertTrue(b.size == 0)
+        general_assembler = pp.Assembler(gb)
+        A, b = general_assembler.assemble_matrix_rhs(filt=filt)
+        self.assertTrue(A.data.size == 0)
+        self.assertTrue(np.sum(np.abs(b)) == 0)
 
     def test_explicitly_define_edge_variable_active(self):
         """ Explicitly define edge and node variables as active. The result should
@@ -281,9 +284,7 @@ class TestAssembler(unittest.TestCase):
                 }
             }
 
-        general_assembler = pp.Assembler(
-            gb, active_variables=[variable_name, variable_name_edge]
-        )
+        general_assembler = pp.Assembler(gb)
         A, b = general_assembler.assemble_matrix_rhs()
 
         A_known = np.array([[1, 0, 1], [0, 2, 1], [-1, -1, 1]])
@@ -324,58 +325,18 @@ class TestAssembler(unittest.TestCase):
                 }
             }
 
-        general_assembler = pp.Assembler(gb, active_variables=[variable_name])
-        A, b = general_assembler.assemble_matrix_rhs()
+        general_assembler = pp.Assembler(gb)
+        filt = ListFilter(variable_list=[variable_name])
+        A, b = general_assembler.assemble_matrix_rhs(filt=filt)
 
-        A_known = np.array([[1, 0], [0, 2]])
+        # System matrix, the coupling terms should not have been assembled
+        A_known = np.zeros((3, 3))
         g1_ind = general_assembler.block_dof[(g1, variable_name)]
+        g2_ind = general_assembler.block_dof[(g2, variable_name)]
         A_known[g1_ind, g1_ind] = 1
+        A_known[g2_ind, g2_ind] = 2
+
         self.assertTrue(np.allclose(A_known, A.todense()))
-
-    def test_define_edge_variable_active_node_variable_inactive(self):
-        """ Define edge-variable as inactive. The resulting system should have
-        no coupling term.
-
-        """
-
-        gb = self.define_gb()
-        variable_name = "variable_1"
-        node_variable_2 = "node_variable_2"
-        variable_name_edge = "variable_edge"
-        discretization_operator = "operator_discr"
-        for g, d in gb:
-
-            if g.grid_num == 1:
-                d[pp.PRIMARY_VARIABLES] = {variable_name: {"cells": 1}}
-                d[pp.DISCRETIZATION] = {
-                    variable_name: {discretization_operator: MockNodeDiscretization(1)}
-                }
-                g1 = g
-            else:
-                d[pp.PRIMARY_VARIABLES] = {node_variable_2: {"cells": 1}}
-                d[pp.DISCRETIZATION] = {
-                    variable_name: {discretization_operator: MockNodeDiscretization(2)}
-                }
-                g2 = g
-
-        for e, d in gb.edges():
-            d[pp.PRIMARY_VARIABLES] = {variable_name_edge: {"cells": 1}}
-            d[pp.COUPLING_DISCRETIZATION] = {
-                "coupling_discretization": {
-                    g1: (variable_name, discretization_operator),
-                    g2: (node_variable_2, discretization_operator),
-                    e: (variable_name_edge, MockEdgeDiscretization(1, 1)),
-                }
-            }
-        with self.assertRaises(ValueError) as context:
-            _ = pp.Assembler(gb, active_variables=[variable_name, variable_name_edge])
-            self.assertTrue(
-                "Edge variable "
-                + variable_name_edge
-                + " is coupled to an inactive node variable "
-                + node_variable_2
-                in context.exception
-            )
 
     def test_single_variable_multiple_node_discretizations(self):
         """ A single variable, with multiple discretizations for one of the nodes
@@ -561,10 +522,11 @@ class TestAssembler(unittest.TestCase):
                 variable_name_2: {operator: MockNodeDiscretization(6)},
             }
 
-        general_assembler = pp.Assembler(gb, active_variables=[variable_name_2])
-        A, _ = general_assembler.assemble_matrix_rhs()
+        general_assembler = pp.Assembler(gb)
+        filt = ListFilter(variable_list=[variable_name_2])
+        A, _ = general_assembler.assemble_matrix_rhs(filt=filt)
 
-        A_known = np.zeros((3, 3))
+        A_known = np.zeros((6, 6))
 
         g12_ind = general_assembler.block_dof[(g1, variable_name_2)]
         g22_ind = general_assembler.block_dof[(g2, variable_name_2)]
@@ -576,16 +538,115 @@ class TestAssembler(unittest.TestCase):
 
         assert np.allclose(A_known, A.todense())
 
-    def test_two_variables_one_active_one_false_active_variable(self):
-        """ Define two variables, the define as active one of the variables, and
-        another active variable that is not used in the grid. This should be
-        equivalent to defining a single active variable
+    def test_filter_grid(self):
+        # Use a list filter to only discretize on one node
+        variable_name = "variable_1"
+        variable_name_edge = "variable_edge"
+        operator_1 = "operator_1"
+        for g, d in gb:
+            d[pp.PRIMARY_VARIABLES] = {variable_name: {"cells": 1}}
+            if g.grid_num == 1:
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {operator_1: MockNodeDiscretization(1)}
+                }
+                g1 = g
+            else:
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {operator_1: MockNodeDiscretization(2)}
+                }
+                g2 = g
+
+        for e, d in gb.edges():
+            d[pp.PRIMARY_VARIABLES] = {variable_name_edge: {"cells": 1}}
+            d[pp.COUPLING_DISCRETIZATION] = {
+                "coupling_discretization_1": {
+                    g1: (variable_name, operator_1),
+                    g2: (variable_name, operator_1),
+                    e: (variable_name_edge, MockEdgeDiscretization(1, 1)),
+                },
+                "coupling_discretization_2": {
+                    g1: (variable_name, operator_1),
+                    g2: (variable_name, operator_1),
+                    e: (variable_name_edge, MockEdgeDiscretization(-3, 1)),
+                },
+            }
+
+        general_assembler = pp.Assembler(gb)
+        A, _ = general_assembler.assemble_matrix_rhs()
+
+        A_known = np.array([[0, 0, 2], [0, 0, 2], [-2, -2, -2]])
+        g1_ind = general_assembler.block_dof[(g1, variable_name)]
+        g2_ind = general_assembler.block_dof[(g2, variable_name)]
+        A_known[g1_ind, g1_ind] = 1
+        A_known[g2_ind, g2_ind] = 2
+        assert np.allclose(A_known, A.todense())
+
+    def test_two_variables_no_coupling(self):
+        """ Two variables, no coupling between the variables. Test that the
+        assembler can deal with more than one variable.
+        """
+        gb = self.define_gb()
+        variable_name_1 = "variable_1"
+        variable_name_2 = "variable_2"
+        variable_name_edge_1 = "variable_edge_1"
+        variable_name_edge_2 = "variable_edge_2"
+        operator_1 = "operator_1"
+        for g, d in gb:
+            d[pp.PRIMARY_VARIABLES] = {
+                variable_name_1: {"cells": 1},
+                variable_name_2: {"cells": 1},
+            }
+            if g.grid_num == 1:
+                d[pp.DISCRETIZATION] = {
+                    variable_name_1: {operator_1: MockNodeDiscretization(1)},
+                    variable_name_2: {operator_1: MockNodeDiscretization(2)},
+                }
+                g1 = g
+            else:
+                d[pp.DISCRETIZATION] = {
+                    variable_name_1: {operator_1: MockNodeDiscretization(3)},
+                    variable_name_2: {operator_1: MockNodeDiscretization(4)},
+                }
+                g2 = g
+
+        for e, d in gb.edges():
+            d[pp.PRIMARY_VARIABLES] = {
+                variable_name_edge_1: {"cells": 1},
+                variable_name_edge_2: {"cells": 1},
+            }
+            d[pp.DISCRETIZATION] = {
+                variable_name_edge_1: {operator_1: MockNodeDiscretization(5)},
+                variable_name_edge_2: {operator_1: MockNodeDiscretization(6)},
+            }
+
+        general_assembler = pp.Assembler(gb)
+        A, _ = general_assembler.assemble_matrix_rhs()
+
+        A_known = np.zeros((6, 6))
+
+        g11_ind = general_assembler.block_dof[(g1, variable_name_1)]
+        g12_ind = general_assembler.block_dof[(g1, variable_name_2)]
+        g21_ind = general_assembler.block_dof[(g2, variable_name_1)]
+        g22_ind = general_assembler.block_dof[(g2, variable_name_2)]
+        e1_ind = general_assembler.block_dof[(e, variable_name_edge_1)]
+        e2_ind = general_assembler.block_dof[(e, variable_name_edge_2)]
+        A_known[g11_ind, g11_ind] = 1
+        A_known[g12_ind, g12_ind] = 2
+        A_known[g21_ind, g21_ind] = 3
+        A_known[g22_ind, g22_ind] = 4
+        A_known[e1_ind, e1_ind] = 5
+        A_known[e2_ind, e2_ind] = 6
+        assert np.allclose(A_known, A.todense())
+
+    def test_two_variables_one_active(self):
+        """ Define two variables, but then only assemble with respect to one
+        of them. Should result in what is effectively a 1-variable system
 
         """
         gb = self.define_gb()
-        variable_name_1 = "var_1"
-        variable_name_2 = "var_2"
-        operator = "op"
+        variable_name_1 = "variable_1"
+        variable_name_2 = "variable_2"
+        operator = "operator"
         for g, d in gb:
             d[pp.PRIMARY_VARIABLES] = {
                 variable_name_1: {"cells": 1},
@@ -614,16 +675,11 @@ class TestAssembler(unittest.TestCase):
                 variable_name_2: {operator: MockNodeDiscretization(6)},
             }
 
-        general_assembler = pp.Assembler(
-            gb,
-            active_variables=[
-                variable_name_2,
-                "variable_name_not_among_defined_variables",
-            ],
-        )
-        A, _ = general_assembler.assemble_matrix_rhs()
+        general_assembler = pp.Assembler(gb)
+        filt = ListFilter(variable_list=[variable_name_2])
+        A, _ = general_assembler.assemble_matrix_rhs(filt=filt)
 
-        A_known = np.zeros((3, 3))
+        A_known = np.zeros((6, 6))
 
         g12_ind = general_assembler.block_dof[(g1, variable_name_2)]
         g22_ind = general_assembler.block_dof[(g2, variable_name_2)]
@@ -632,10 +688,68 @@ class TestAssembler(unittest.TestCase):
         A_known[g12_ind, g12_ind] = 2
         A_known[g22_ind, g22_ind] = 4
         A_known[e2_ind, e2_ind] = 6
+
         assert np.allclose(A_known, A.todense())
 
-    ### Tests with coupling internal to each node
+    def test_filter_grid(self):
+        # Use a list filter to only discretize on one node
+        gb = self.define_gb()
 
+        # Variable name assigned on nodes. Same for both grids
+        variable_name = "variable_1"
+        # Edge variable
+        variable_name_e = "edge_variable"
+
+        # Keyword for discretization operators.
+        term_g1 = "operator_1"
+        term_g2 = "operator_2"
+        term_e = "operator_coupling"
+
+        for g, d in gb:
+            d[pp.PRIMARY_VARIABLES] = {variable_name: {"cells": 1}}
+            if g.grid_num == 1:
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {term_g1: MockNodeDiscretization(1)}
+                }
+                g1 = g
+            else:
+                d[pp.DISCRETIZATION] = {
+                    variable_name: {term_g2: MockNodeDiscretization(2)}
+                }
+                g2 = g
+
+        for e, d in gb.edges():
+            d[pp.PRIMARY_VARIABLES] = {variable_name_e: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {
+                variable_name_e: {term_e: MockNodeDiscretization(7)}
+            }
+            d[pp.COUPLING_DISCRETIZATION] = {
+                term_e: {
+                    g1: (variable_name, term_g1),
+                    g2: (variable_name, term_g2),
+                    e: (variable_name_e, MockEdgeDiscretization(1, 1)),
+                }
+            }
+
+        general_assembler = pp.Assembler(gb)
+        g1_ind = general_assembler.block_dof[(g1, variable_name)]
+        g2_ind = general_assembler.block_dof[(g2, variable_name)]
+        e_ind = general_assembler.block_dof[(e, variable_name_e)]
+
+        # Only grid 1
+        filt = ListFilter(grid_list=[g1])
+        A, b = general_assembler.assemble_matrix_rhs(filt=filt)
+        A_known = np.zeros((3, 3))
+        A_known[g1_ind, g1_ind] = 1
+        self.assertTrue(np.allclose(A_known, A.todense()))
+
+        filt = ListFilter(grid_list=[e])
+        A, b = general_assembler.assemble_matrix_rhs(filt=filt)
+        A_known = np.zeros((3, 3))
+        A_known[e_ind, e_ind] = 7
+        self.assertTrue(np.allclose(A_known, A.todense()))
+
+    ### Tests with coupling internal to each node
     def test_two_variables_coupling_within_node_and_edge(self):
         """ Two variables, coupling between the variables internal to each node.
         No coupling in the edge variable
@@ -727,9 +841,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        permuted_assembler = pp.Assembler(
-            gb, active_variables=[variable_name_1, variable_name_2]
-        )
+        permuted_assembler = pp.Assembler(gb)
 
         A_2, b_2 = permuted_assembler.assemble_matrix_rhs()
         A_2_permuted, _ = permute_matrix_vector(
@@ -742,73 +854,7 @@ class TestAssembler(unittest.TestCase):
         )
         self.assertTrue(np.allclose(A_known, A_2_permuted.todense()))
 
-    def test_two_variables_coupling_within_node_and_edge_one_active(self):
-        """ Two variables, coupling between the variables internal to each node.
-        One active variable.
-        """
-        gb = self.define_gb()
-        variable_name_1 = "var_1"
-        variable_name_2 = "var_2"
-        operator = "operator"
-        operator_edge = "operator_edge"
-        for g, d in gb:
-            d[pp.PRIMARY_VARIABLES] = {
-                variable_name_1: {"cells": 1},
-                variable_name_2: {"cells": 1},
-            }
-            if g.grid_num == 1:
-                d[pp.DISCRETIZATION] = {
-                    variable_name_1: {operator: MockNodeDiscretization(1)},
-                    variable_name_2: {operator: MockNodeDiscretization(2)},
-                    variable_name_1
-                    + "_"
-                    + variable_name_2: {operator: MockNodeDiscretization(5)},
-                }
-                g1 = g
-            else:
-                d[pp.DISCRETIZATION] = {
-                    variable_name_1: {operator: MockNodeDiscretization(3)},
-                    variable_name_2: {operator: MockNodeDiscretization(4)},
-                    variable_name_2
-                    + "_"
-                    + variable_name_1: {operator: MockNodeDiscretization(6)},
-                }
-                g2 = g
-
-        for e, d in gb.edges():
-            d[pp.PRIMARY_VARIABLES] = {
-                variable_name_1: {"cells": 1},
-                variable_name_2: {"cells": 1},
-            }
-            d[pp.DISCRETIZATION] = {
-                variable_name_1: {operator_edge: MockNodeDiscretization(7)},
-                variable_name_2: {operator_edge: MockNodeDiscretization(8)},
-                variable_name_1
-                + "_"
-                + variable_name_2: {operator_edge: MockNodeDiscretization(6)},
-                variable_name_2
-                + "_"
-                + variable_name_1: {operator_edge: MockNodeDiscretization(1)},
-            }
-
-        general_assembler = pp.Assembler(gb, active_variables=variable_name_1)
-        A, _ = general_assembler.assemble_matrix_rhs()
-
-        A_known = np.zeros((3, 3))
-
-        g11_ind = general_assembler.block_dof[(g1, variable_name_1)]
-        g21_ind = general_assembler.block_dof[(g2, variable_name_1)]
-        e1_ind = general_assembler.block_dof[(e, variable_name_1)]
-        A_known[g11_ind, g11_ind] = 1
-
-        A_known[g21_ind, g21_ind] = 3
-
-        A_known[e1_ind, e1_ind] = 7
-
-        self.assertTrue(np.allclose(A_known, A.todense()))
-
     # Tests with node-edge couplings
-
     def test_two_variables_coupling_between_node_and_edge(self):
         """ Two variables, coupling between the variables internal to each node.
         No coupling in the edge variable
@@ -896,9 +942,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        permuted_assembler = pp.Assembler(
-            gb, active_variables=[variable_name_1, variable_name_2]
-        )
+        permuted_assembler = pp.Assembler(gb)
         A_2, b_2 = permuted_assembler.assemble_matrix_rhs()
         A_2_permuted, _ = permute_matrix_vector(
             A_2,
@@ -980,7 +1024,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        permuted_assembler = pp.Assembler(gb, active_variables=[key_1, key_2])
+        permuted_assembler = pp.Assembler(gb)
         A_2, b_2 = permuted_assembler.assemble_matrix_rhs()
         A_2_permuted, _ = permute_matrix_vector(
             A_2,
@@ -993,7 +1037,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A_2_permuted.todense()))
 
     def test_one_and_two_variables_coupling_between_node_and_edge_mixed_dependencies(
-        self
+        self,
     ):
         """ One of the nodes has a single variable. A mortar variable depends on a combination
         mixture of the two variables
@@ -1067,7 +1111,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        permuted_assembler = pp.Assembler(gb, active_variables=[key_1, key_2])
+        permuted_assembler = pp.Assembler(gb)
         A_2, b_2 = permuted_assembler.assemble_matrix_rhs()
         A_2_permuted, _ = permute_matrix_vector(
             A_2,
@@ -1080,7 +1124,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A_2_permuted.todense()))
 
     def test_one_and_two_variables_coupling_between_node_and_edge_mixed_dependencies_two_discretizations(
-        self
+        self,
     ):
         """ One of the nodes has a single variable. A mortar variable depends on a combination
         mixture of the two variables. The mortar variable has two discretizations.
@@ -1160,7 +1204,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        permuted_assembler = pp.Assembler(gb, active_variables=[key_1, key_2])
+        permuted_assembler = pp.Assembler(gb)
         A_2, b_2 = permuted_assembler.assemble_matrix_rhs()
         A_2_permuted, _ = permute_matrix_vector(
             A_2,
@@ -1173,7 +1217,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A_2_permuted.todense()))
 
     def test_one_and_two_variables_coupling_between_node_and_edge_mixed_dependencies_two_discretizations_2(
-        self
+        self,
     ):
         """ One of the nodes has a single variable. A mortar variable depends on a combination
         mixture of the two variables. The mortar variable has two discretizations.
@@ -1255,7 +1299,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        new_assembler = pp.Assembler(gb, active_variables=[key_1, key_2])
+        new_assembler = pp.Assembler(gb)
         A_2, b_2 = general_assembler.assemble_matrix_rhs()
         A_2_permuted, _ = permute_matrix_vector(
             A_2, b_2, new_assembler.block_dof, new_assembler.full_dof, grids, variables
@@ -1309,7 +1353,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A.todense()))
 
     def test_one_variable_one_sided_coupling_between_node_and_edge_different_operator_variable_names_modifies_node(
-        self
+        self,
     ):
         """ Coupling between edge and one of the subdomains, but not the other
         """
@@ -1495,7 +1539,7 @@ class TestAssembler(unittest.TestCase):
             else:
                 param = np.array([5, 6, 7])
                 d[pp.PARAMETERS] = {key_1: {term: param}}
-                g2_ind = i
+
             i += 1
         for e, d in gb.edges():
             d[pp.PARAMETERS] = {}
@@ -1913,6 +1957,84 @@ class MockEdgeDiscretizationEdgeCouplings(
         pass
 
 
+class TestAssemblerFilters(unittest.TestCase):
+    def test_all_pass(self):
+        # The AllPassFilter should pass anything. Test this with by
+        # sending in a variable
+        filt = pp.assembler_filters.AllPassFilter()
+        self.assertTrue(filt.filter(variables="var not in fliter"))
+
+    def test_list_filter_grid_keyword(self):
+        g1 = pp.CartGrid([1])
+        g2 = pp.CartGrid([1])
+        g3 = pp.CartGrid([1])
+
+        # Single grid
+        filt = pp.assembler_filters.ListFilter(grid_list=[g1])
+        self.assertTrue(filt.filter(g1))
+        self.assertFalse(filt.filter(g2))
+        # Pass a list with one grid
+        self.assertTrue(filt.filter([g1]))
+
+        # two grids
+        filt = pp.assembler_filters.ListFilter(grid_list=[g1, g2])
+        self.assertTrue(filt.filter(g1))
+        self.assertTrue(filt.filter(g2))
+        self.assertFalse(filt.filter(g3))
+
+        # interface
+        filt = pp.assembler_filters.ListFilter(grid_list=[(g1, g2)])
+        self.assertTrue(filt.filter((g1, g2)))
+        self.assertFalse(filt.filter((g3, g2)))
+        # Check that we can pass a list of interfaces
+        self.assertTrue(filt.filter([(g1, g2)]))
+
+        # couplings
+        filter = pp.assembler_filters.ListFilter(grid_list=[(g1, g2, (g1, g2))])
+        self.assertTrue(filter.filter((g1, g2, (g1, g2))))
+        self.assertFalse(filter.filter((g1, g3, (g1, g3))))
+
+    def test_list_filter_variable_keyword(self):
+        # Note: Since variable and term filters share the implementation, we test
+        # only the former
+        v1 = "var1"
+        v2 = "var2"
+        v3 = "var3"
+
+        filt = pp.assembler_filters.ListFilter(variable_list=["var1"])
+        self.assertTrue(filt.filter(variables=[v1]))
+        self.assertFalse(filt.filter(variables=[v2]))
+        self.assertFalse(filt.filter(variables=[v1, v2]))
+
+        filt = pp.assembler_filters.ListFilter(variable_list=["var1", "var2"])
+        self.assertTrue(filt.filter(variables=[v1]))
+        self.assertTrue(filt.filter(variables=[v2]))
+        self.assertTrue(filt.filter(variables=[v2, v1]))
+        self.assertFalse(filt.filter(variables=[v3]))
+        self.assertFalse(filt.filter(variables=[v1, v3]))
+
+        n1 = "!var1"
+        filt = pp.assembler_filters.ListFilter(variable_list=[n1])
+        self.assertTrue(filt.filter(variables=[v2]))
+        self.assertFalse(filt.filter(variables=[v1]))
+
+        # It should not be possible to create a filter with both a variable
+        # and its negation
+        self.assertRaises(ValueError, pp.assembler_filters.ListFilter, v1, n1)
+
+    def test_grid_and_variable_keywords(self):
+        var1 = "v1"
+        var2 = "v2"
+
+        g1 = pp.CartGrid(1)
+        g2 = pp.CartGrid(2)
+
+        filter = pp.assembler_filters.ListFilter(grid_list=[g1], variable_list=[var1])
+        self.assertTrue(filter.filter(grids=[g1], variables=[var1]))
+        self.assertFalse(filter.filter(grids=[g2], variables=[var1]))
+        self.assertFalse(filter.filter(grids=[g1], variables=[var2]))
+
+
+TestAssembler().test_filter_grid()
 if __name__ == "__main__":
-    TestAssembler().test_repr_three_nodes_three_edges_different_variables()
     unittest.main()

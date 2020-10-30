@@ -109,7 +109,7 @@ class TestMPFAgravity(unittest.TestCase):
         p_bound[dir_faces] = an_sol.p_f(xf[0, dir_faces])
 
         # GCMPFA discretization, and system matrix
-        flux, bound_flux, _, _, div_g = pp.Mpfa("flow")._flux_discretization(
+        flux, bound_flux, _, _, div_g, _ = pp.Mpfa("flow")._flux_discretization(
             g, k, bound_cond, inverter="python"
         )
         div = pp.fvutils.scalar_divergence(g)
@@ -177,7 +177,7 @@ class TestMPFAgravity(unittest.TestCase):
             p_bound[dir_faces] = an_sol.p_f(xf[0, dir_faces], xf[1, dir_faces])
 
             # GCMPFA discretization, and system matrix
-            flux, bound_flux, _, _, div_g = pp.Mpfa("flow")._flux_discretization(
+            flux, bound_flux, _, _, div_g, _ = pp.Mpfa("flow")._flux_discretization(
                 g, k, bound_cond, inverter="python"
             )
             div = pp.fvutils.scalar_divergence(g)
@@ -199,12 +199,12 @@ def set_params_disrcetize(g, ambient_dim, method, periodic=False):
     if periodic:
         south = g.face_centers[1] < np.min(g.nodes[1]) + 1e-8
         north = g.face_centers[1] > np.max(g.nodes[1]) - 1e-8
-        bc = pp.BoundaryCondition(g, north + south, "per")
         south_idx = np.argwhere(south).ravel()
         north_idx = np.argwhere(north).ravel()
-        bc.set_periodic_map(np.vstack((south_idx, north_idx)))
-    else:
-        bc = pp.BoundaryCondition(g)
+        g.set_periodic_map(np.vstack((south_idx, north_idx)))
+
+    bc = pp.BoundaryCondition(g)
+
     k = pp.SecondOrderTensor(np.ones(g.num_cells))
 
     params = {
@@ -222,7 +222,9 @@ def set_params_disrcetize(g, ambient_dim, method, periodic=False):
     discr.discretize(g, data)
 
     flux = data[pp.DISCRETIZATION_MATRICES][keyword][discr.flux_matrix_key]
-    vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][discr.vector_source_key]
+    vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
+        discr.vector_source_matrix_key
+    ]
     div = pp.fvutils.scalar_divergence(g)
     return flux, vector_source, div
 
@@ -520,21 +522,25 @@ def test_2d_horizontal_periodic_ambient_dim_2(method):
         ]
     )
     # why 0.5?
-    vct_src_known = 0.5 * dx * np.array(
-        [
-            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            [1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
-            [0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
-            [0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
-        ]
+    vct_src_known = (
+        0.5
+        * dx
+        * np.array(
+            [
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+                [0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+                [0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            ]
+        )
     )
 
     assert np.allclose(A.A, A_known)
@@ -565,7 +571,7 @@ class TiltedGrids(unittest.TestCase):
 
         flux = data[pp.DISCRETIZATION_MATRICES][self.keyword][discr.flux_matrix_key]
         vector_source = data[pp.DISCRETIZATION_MATRICES][self.keyword][
-            discr.vector_source_key
+            discr.vector_source_matrix_key
         ]
         div = pp.fvutils.scalar_divergence(g)
         return flux, vector_source, div
