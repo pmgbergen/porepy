@@ -1,7 +1,5 @@
 import numpy as np
-from scipy import sparse as sps
 
-from porepy.utils.mcolon import mcolon
 from porepy.utils import sparse_mat
 
 

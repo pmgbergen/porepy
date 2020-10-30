@@ -13,7 +13,6 @@ def empty_dict() -> Dict:
 
 
 class TestState:
-
     def test_add_empty_state(self, empty_dict):
         """ Add an empty state dictionary
         """

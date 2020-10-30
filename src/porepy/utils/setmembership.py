@@ -150,23 +150,23 @@ def unique_columns_tol(mat, tol=1e-8):
         )
         return un_ar, new_2_old, old_2_new
 
-    l = mat.shape[1]
+    num_cols = mat.shape[1]
 
     # By default, no columns are kept
-    keep = np.zeros(l, dtype=np.bool)
+    keep = np.zeros(num_cols, dtype=np.bool)
 
     # We will however keep the first point
     keep[0] = True
     keep_counter = 1
 
     # Map from old points to the unique subspace. Defaults to map to itself.
-    old_2_new = np.arange(l)
+    old_2_new = np.arange(num_cols)
 
     # Matrix of elements to keep. Comparison of new poitns will be run with this
     keep_mat = mat[:, 0].reshape((-1, 1))
 
     # Loop over all points, check if it is already represented in the kept list
-    for i in range(1, l):
+    for i in range(1, num_cols):
         a = mat[:, i].reshape((-1, 1))
 
         d = np.sum((a - keep_mat) ** 2, axis=0)

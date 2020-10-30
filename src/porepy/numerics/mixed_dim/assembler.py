@@ -2,17 +2,35 @@
 The module contains the Assembler class, which is responsible for assembly of
 system matrix and right hand side for a general multi-domain, multi-physics problem.
 """
+from collections import namedtuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
+
 import numpy as np
 import scipy.sparse as sps
-import porepy as pp
 
-from typing import Set, List, Tuple, Union, Dict, Any, Callable, Type, Optional
+import porepy as pp
 
 csc_or_csr_matrix = Union[sps.csc_matrix, sps.csr_matrix]
 
+GridVariableTerm = namedtuple("GridVariableTerm", ["grid", "row", "col", "term"])
+GridVariableTerm.__doc__ += (
+    "Combinations of grids variables and terms found in GridBucket"
+)
+GridVariableTerm.grid.__doc__ = "Item in GridBucket. Can be node or edge."
+GridVariableTerm.row.__doc__ = "Variable name of the row for this term."
+GridVariableTerm.col.__doc__ = (
+    "Variable name of the column for this term. "
+    + "Differs from row for variable couplings."
+)
+GridVariableTerm.term.__doc__ = "Term for this discretization"
+
+CouplingVariableTerm = namedtuple(
+    "CouplingVariableTerm", ["coupling", "edge", "master", "slave", "term"]
+)
+
 
 class Assembler:
-    """ A class that assembles multi-physics problems on mixed-dimensional
+    """A class that assembles multi-physics problems on mixed-dimensional
     domains.
 
     The class is designed to combine different variables on different grids,
@@ -23,23 +41,16 @@ class Assembler:
 
     """
 
-    def __init__(self, gb: pp.GridBucket, active_variables: List[str] = None) -> None:
-        """ Construct an assembler for a given GridBucket on a given set of variables.
+    def __init__(self, gb: pp.GridBucket) -> None:
+        """Construct an assembler for a given GridBucket on a given set of variables.
 
         Parameters:
             self.gb (pp.GridBucket): Mixed-dimensional grid where the equations are
                 discretized. The data dictionaries on nodes and edges should contain
                 variable and discretization information, see tutorial for details.
-            active_variables (list of str, optional): Names of variables to be assembled.
-                If provided, only declared primary variables with a name found in the
-                list will be assembled, and the size of the matrix will be reduced
-                accordingly.
-                NOTE: For edge coupling terms where the edge variable is defined
-                as active, all involved node variables must also be active.
 
         """
         self.gb = gb
-        self.active_variables = active_variables
 
         # Identify all variable couplings in the GridBucket, and assign degrees of
         # freedom for each block.
@@ -54,7 +65,7 @@ class Assembler:
 
     @staticmethod
     def _variable_term_key(term: str, key_1: str, key_2: str, key_3: str = None) -> str:
-        """ Get the key-variable combination used to identify a specific term in the equation.
+        """Get the key-variable combination used to identify a specific term in the equation.
 
         For nodes and internally to edges in the GridBucket (i.e. fixed-dimensional grids),
         the variable name is formed by combining the name of one or two primary variables,
@@ -95,12 +106,17 @@ class Assembler:
             return "_".join([term, key_1, key_2, key_3])
 
     def assemble_matrix_rhs(
-        self, matrix_format: str = "csr", add_matrices: bool = True
+        self,
+        filt: Optional[pp.assembler_filters.AssemblerFilter] = None,
+        matrix_format: str = "csr",
+        add_matrices: bool = True,
+        only_matrix: bool = False,
+        only_rhs: bool = False,
     ) -> Union[
         Tuple[Union[csc_or_csr_matrix, np.ndarray], np.ndarray],
         Tuple[Dict[str, sps.spmatrix], Dict[str, np.ndarray]],
     ]:
-        """ Assemble the system matrix and right hand side for a general linear
+        """Assemble the system matrix and right hand side for a general linear
         multi-physics problem, and return a block matrix and right hand side.
 
         For examples on how to use the assembler, confer the tutorial
@@ -118,16 +134,30 @@ class Assembler:
               terms, or one matrix per term per variable. The latter is useful e.g. in
               operator splitting or time stepping schemes.
 
+        The latter two effects can be achieved by applying a filter to the assembly
+        operation, see for instance pp.assembler_filters.ListFilter.
+
         In all cases, it is assumed that a discretization object for the relevant terms
         is available. It is up to the user to ensure that the resulting problem is
         well posed.
 
         Parameters:
+            filt (pp.assembler_filters.AssemblerFilter, optional): Filter to invoke
+                selected discretizations. Defaults to a PassAllFilter, which will
+                lead to discretization of all terms in the entire GridBucket.
             matrix_format (str, optional): Matrix format used for the system matrix.
                 Defaults to CSR.
             add_matrices (boolean, optional): If True, a single system matrix is added,
                 else, separate matrices for each variable and term are returned in a
                 dictionary.
+            only_matrix (boolean, optional). If True, only the matrix will be assembled.
+                Note that some discretization methods will still invoke its full
+                assemble_matrix_rhs method. This method will still return a (zero)
+                rhs vector.
+            only_rhs (boolean, optional). If True, only the rhs will be assembled.
+                Note that some discretization methods will still invoke its full
+                assemble_matrix_rhs method. This method will still return a (zero)
+                discretization matrix.
 
         Returns:
             scipy sparse matrix, or dictionary of matrices: Discretization matrix,
@@ -142,8 +172,12 @@ class Assembler:
         else:
             sps_matrix = sps.csr_matrix
 
-        # If there are no variables - most likely if the active_variables do not
-        # match any of the decleared variables, we can return now.
+        if only_matrix and only_rhs:
+            raise ValueError(
+                "At most one of 'only_matrix' and 'only_rhs' should be True"
+            )
+
+        # If there are no variables, w can return now
         if self.full_dof.size == 0:
             if add_matrices:
                 # If a single returned value is expected, (summed matrices) it is most easy
@@ -154,7 +188,13 @@ class Assembler:
                 return self._initialize_matrix_rhs(sps_matrix)
 
         # Assemble
-        matrix, rhs = self._operate_on_gb("assemble", matrix_format=matrix_format)
+        matrix, rhs = self._operate_on_gb(  # type:ignore
+            operation="assemble",
+            filt=filt,
+            matrix_format=matrix_format,
+            assemble_matrix_only=only_matrix,
+            assemble_rhs_only=only_rhs,
+        )
 
         # At this stage, all assembly is done. The remaining step is optionally to
         # add the matrices associated with different terms, and anyhow convert
@@ -180,148 +220,105 @@ class Assembler:
 
             return matrix, rhs
 
-    def discretize(
-        self,
-        variable_filter: List[str] = None,
-        term_filter: List[str] = None,
-        grid: pp.Grid = None,
-        edges: bool = True,
+    def update_discretization(
+        self, filt: Optional[pp.assembler_filters.AssemblerFilter] = None
     ) -> None:
-        """ Run the discretization operation on discretizations specified in
-        the mixed-dimensional grid.
+        """Update discretizations without a full rediscretization.
 
-        Only active variables will be considered. Moreover, the discretization
-        operation can be filtered to only consider specified variables, or terms.
-        If the variable filter is active, only discretizations where all variables
-        survive the filter will be discretized (for diagonal terms, the variable
-        must survive, for off-diagonal terms, both terms must survive).
+        The method will invoke the update_discretization() method on discretizations
+        on all grids which have the parameter partial_update set to True in its data
+        dictionary. If a Filter is given to this function, the partial update will
+        be used as an additional filter.
 
-        Filtering on terms works on the more detailed levels of indivdiual terms
-        in a multi-physics discretization (say, zoom-in on the advection term
-        in a advection-diffusion system).
-
-        The filters can be combined to select specified terms for specified equations.
-        See examples 1 and 2.
-
-        -- Experimental feature --
-        If you pass a filter where each item is prefixed by "!", this is interpreted as
-        exclusion. Then every variable/term will be discretized except those present in
-        the filter. See example 3 and 4.
-
-        Parameters
-        ----------
-        variable_filter : List[str] (optional)
-            List of variables to be discretized. If None (default), all active
-            variables are discretized.
-        term_filter : List[str] (optional)
-            List of terms to be discretized. If None (default), all terms for
-            all active variables are discretized.
-        grid : List[pp.Grid] (optional)
-            Grids in GridBucket. If specified, only these grids will be considered.
-        edges : bool (optional)
-            If True (default), terms on edges and coupling terms are discretized.
-            As these typically are cheaper than grid discretizations, the
-            operation cannot be filtered on specific edges.
-
-        Examples
-        --------
-
-        1) Example (discretization internal to a node or edge):
-            For a discretizaiton of the form
-
-            data[pp.DISCRETIZATION] = {'temp': {'advection': Foo(), 'diffusion': Bar()},
-                                       'pressure' : {'diffusion': FlowFoo()}}
-
-            a) variable_filter = ['temp'] will discretize all temp terms
-
-            b) term_filter = ['diffusion'] will discretize duffusion for both the temp and
-                pressure variable
-
-            c) variable_filter = ['temp'], term_filter = ['diffusion'] will only discretize
-                the diffusion term for variable temp
-
-            * Experimental: *
-            d) variable_filter = ['!temp'] will only discretize the pressure terms.
-
-            e) term_filter = ['!diffusion'] will only discretize the advection term of the
-                pressure variable.
-
-        2) Example (coupling terms):
-            Variable filter works as internal to nodes / edges.
-            The term filter acts on the identifier of a coupling, so
-
-            d[pp.COUPLING_DISCRETIZATION] = {
-                'coupling_id' : {
-                    g1: {'temp': 'diffusion'},
-                    g2:  {'pressure': 'diffusion'},
-                    (g1, g2): {'coupling_variable': FooBar()}
-                }
-            }
-
-            will survive term_filter = ['coupling_id']
+        Parameters:
+            filt (pp.assembler_filters.AssemblerFilter, optional): Filter.
 
         """
-        self._operate_on_gb(
-            "discretize",
-            variable_filter=variable_filter,
-            term_filter=term_filter,
-            grid=grid,
-            edges=edges,
+        if filt is None or isinstance(filt, pp.assembler_filters.AllPassFilter):
+
+            grid_list_type = Union[
+                Union[pp.Grid, List[pp.Grid]],
+                Tuple[pp.Grid, pp.Grid],
+                Tuple[pp.Grid, pp.Grid, Tuple[pp.Grid, pp.Grid]],
+            ]
+
+            grid_list: List[grid_list_type] = [g for g, _ in self.gb]
+            grid_list += [e for e, _ in self.gb.edges()]
+            grid_list += [(e[0], e[1], e) for e, _ in self.gb.edges()]
+            variable_list: List[str] = []
+            term_list: List[str] = []
+        elif isinstance(filt, pp.assembler_filters.ListFilter):
+            grid_list = filt._grid_list
+            variable_list = filt._variable_list
+            term_list = filt._term_list
+        else:
+            raise NotImplementedError(
+                "Discretization update cannot be combined with non-standard filter"
+            )
+
+        update_grid = {}
+
+        for g, d in self.gb:
+            if d.get("partial_update", False):
+                update_grid[g] = True
+            else:
+                grid_list.remove(g)
+                update_grid[g] = False
+
+        for e, d_e in self.gb.edges():
+            update_edge = d_e.get("partial_update", False)
+            if not update_edge:
+                grid_list.remove(e)
+
+            if not (update_grid[e[0]] or update_grid[e[1]] or update_edge):
+                grid_list.remove((e[0], e[1], e))
+
+        new_filt = pp.assembler_filters.ListFilter(
+            grid_list=grid_list, variable_list=variable_list, term_list=term_list
         )
 
+        self._operate_on_gb(operation="update_discretization", filt=new_filt)
+
+    def discretize(
+        self, filt: Optional[pp.assembler_filters.AssemblerFilter] = None
+    ) -> None:
+        """Run the discretization operation on discretizations specified in
+        the mixed-dimensional grid.
+
+        Discretization can be applied selectively to specific discretization objcets
+        in the GridBucket by passing an appropriate filter. See pp.assembler_filters
+        for details, in particular the class ListFilter.
+
+        Parameters:
+            filt (pp.assembler_filters.AssemblerFilter, optional): Filter to invoke
+                selected discretizations. Defaults to a PassAllFilter, which will
+                lead to discretization of all terms in the entire GridBucket.
+
+        """
+        self._operate_on_gb("discretize", filt=filt)
+
     def _operate_on_gb(
-        self, operation: str, **kwargs
+        self,
+        operation: str,
+        filt: Optional[pp.assembler_filters.AssemblerFilter] = None,
+        **kwargs,
     ) -> Union[
         Tuple[csc_or_csr_matrix, np.ndarray],
         Tuple[Dict[str, csc_or_csr_matrix], Dict[str, np.ndarray]],
         None,
     ]:
-        """ Helper method, loop over the GridBucket, identify nodes / edges
+        """Helper method, loop over the GridBucket, identify nodes / edges
         variables and discretizations, and perform an operation on these.
 
         Implemented actions are discretization and assembly.
 
         """
+        if filt is None:
+            # If the filter is not specified, do no filtering.
+            filt = pp.assembler_filters.AllPassFilter()
 
-        def make_filter(var_term_list: List[str] = None) -> Callable[[str], bool]:
-            """ Construct a filter for variables and terms
-
-            The input should be either
-            a) a list of variables (terms) that are to be discretized.
-                Then, only the variables (terms) in that list will be
-                discretized on any node.
-            b) a list of variables (terms), each prefixed by "!", that
-                are to be excluded from discretization.
-                Then, every term will be discretized, except those
-                associated with the given list of variables (terms).
-
-            The result is a callable which takes one argument (a string),
-            and returns a boolean.
-            """
-
-            def return_true(s):
-                return True
-
-            if not var_term_list:
-                # If not variable or term list is passed, return a Callable
-                # that always returns True.
-                return return_true
-
-            def _var_term_filter(x):
-                include = set(key for key in var_term_list if not key.startswith("!"))
-                exclude = set(key[1:] for key in var_term_list if key.startswith("!"))
-                if include:
-                    # Keep elements only in include.
-                    include.difference_update(exclude)
-                    return x in include
-                elif exclude:
-                    # Keep elements not in exclude
-                    return x not in exclude
-
-            return _var_term_filter
-
+        # Both assemble and discretize relies on t
         if operation == "assemble":
-
             # Initialize the global matrix.
             # This gives us a set of matrices (essentially one per term per variable)
             # and a similar set of rhs vectors. Furthermore, we get block indices
@@ -337,201 +334,136 @@ class Assembler:
 
             matrix, rhs = self._initialize_matrix_rhs(sps_matrix)
 
+            extra_args = {
+                key: kwargs[key]
+                for key in ["assemble_matrix_only", "assemble_rhs_only"]
+            }
+
             # Make term and variable filters that let everything through
-            term_filter: Callable[[str], bool] = make_filter()
-            variable_filter: Callable[[str], bool] = make_filter()
-            target_grid = kwargs.get("grid", None)
 
-        elif operation == "discretize":
-
-            variable_keys: List[str] = kwargs.get("variable_filter", None)
-            variable_filter = make_filter(variable_keys)
-
-            term_keys = kwargs.get("term_filter", None)
-            term_filter = make_filter(term_keys)
-
-            matrix = None
-            rhs = None
-            target_grid = kwargs.get("grid", None)
+        elif operation == "discretize" or operation == "update_discretization":
+            matrix = None  # type:ignore
+            rhs = None  # type:ignore
             sps_matrix = None
-
+            extra_args = {}
         else:
             # We will only reach this if someone has invoked this private method
             # from the outside.
             raise ValueError("Unknown gb operation " + str(operation))
 
-        self._operate_on_node(
-            operation, matrix, rhs, variable_filter, term_filter, target_grid
+        # First take care of operations internal to nodes and edges
+        self._operate_on_nodes_and_edges(filt, operation, matrix, rhs, **extra_args)
+
+        # Next, handle coupling over edges
+        self._operate_on_edge_coupling(
+            filt, operation, matrix, rhs, sps_matrix, **extra_args
         )
-        if kwargs.get("edges", True):
-            self._operate_on_edge(operation, matrix, rhs, variable_filter, term_filter)
 
-            self._operate_on_edge_coupling(
-                operation, matrix, rhs, variable_filter, term_filter, sps_matrix,
-            )
-
+        # Return type depends on operation
         if operation == "assemble":
             return matrix, rhs
         else:
             return None
 
-    def _operate_on_node(
+    def _operate_on_nodes_and_edges(
         self,
+        filt: pp.assembler_filters.AssemblerFilter,
         operation: str,
-        matrix: Union[Dict[str, np.ndarray], None],
-        rhs: Union[Dict[str, np.ndarray], None],
-        variable_filter: Callable[[str], bool],
-        term_filter: Callable[[str], bool],
-        target_grid: pp.Grid,
-    ) -> None:
-        """ Perform operation on all nodes in self.GridBucket.
-
-        This method should not be invoked directly, but instead accessed via the public
-        methods discretize() or assemble_matrix_rhs()
-
-        Parameters:
-            operation (str): Should be 'assemble' or 'discretize'.
-            matrix (dict): Dictionary that maps strings of variable combinations to the
-                block matrix. The keys are variable combinations, found in
-                self.variable_combinations. The values are block matrices, stored as
-                np.ndarrays, with each array item defined as a sps.spmatrix.
-                Only needed if operation == 'assemble'.
-            rhs (dict): Dictionary that maps strings of variable combinations to the
-                block rhsx. The keys are variable combinations, found in
-                self.variable_combinations. The values are block vectors, stored as
-                np.ndarrays, with each array item defined as an np.ndarray.
-                Only needed if operation == 'assemble'.
-
-            variable_filter, term_filter, target_grid: Parameters that can be used for
-                partial discretization or assembly. The usage of these terms is
-                currently unclear. Use with care.
-
-        """
-
-        # Loop over all grids, discretize (if necessary) and assemble. This
-        # will populate the main diagonal of the equation.
-        for g, data in self.gb:
-            if target_grid and g is not target_grid:
+        matrix: Optional[Dict[str, np.ndarray]] = None,
+        rhs: Optional[Dict[str, np.ndarray]] = None,
+        assemble_matrix_only: Optional[bool] = False,
+        assemble_rhs_only: Optional[bool] = False,
+    ):
+        for combination in self._grid_variable_term_combinations:
+            # Coupling terms should not be considered here
+            if isinstance(combination, CouplingVariableTerm):
                 continue
-            self.__operate_on_node_or_edge(
-                g, data, operation, matrix, rhs, variable_filter, term_filter
-            )
+            if not filt.filter(
+                grids=[combination.grid],
+                variables=[combination.row, combination.col],
+                terms=[combination.term],
+            ):
+                continue
 
-    def _operate_on_edge(
-        self,
-        operation: str,
-        matrix: Union[Dict[str, np.ndarray], None],
-        rhs: Union[Dict[str, np.ndarray], None],
-        variable_filter: Callable[[str], bool],
-        term_filter: Callable[[str], bool],
-    ):
-        """ Perform operation on all edges in self.GridBucket.
+            # The grid-like quantity is either a grid or an interface.
+            # The two require slightly different function calls etc.
 
-        This method should not be invoked directly, but instead accessed via the public
-        methods discretize() or assemble_matrix_rhs()
+            grid = combination.grid
+            is_node = isinstance(grid, pp.Grid)
+            # Get hold of data dictionary
+            if is_node:
+                data = self.gb.node_props(grid)
+            else:
+                data = self.gb.edge_props(grid)
 
-        Parameters:
-            operation (str): Should be 'assemble' or 'discretize'.
-            matrix (dict): Dictionary that maps strings of variable combinations to the
-                block matrix. The keys are variable combinations, found in
-                self.variable_combinations. The values are block matrices, stored as
-                np.ndarrays, with each array item defined as a sps.spmatrix.
-                Only needed if operation == 'assemble'.
-            rhs (dict): Dictionary that maps strings of variable combinations to the
-                block rhsx. The keys are variable combinations, found in
-                self.variable_combinations. The values are block vectors, stored as
-                np.ndarrays, with each array item defined as an np.ndarray.
-                Only needed if operation == 'assemble'.
+            # Discretization
+            # NOTE: For the edge, this is not the coupling discretization,
+            # for that see self._operate_on_nodes_and_edges().
+            discr = data[pp.DISCRETIZATION][
+                self._discretization_key(combination.row, combination.col)
+            ][combination.term]
 
-            variable_filter, term_filter: Parameters that can be used for
-                partial discretization or assembly. The usage of these terms is
-                currently unclear. Use with care.
-
-        """
-        for e, data_edge in self.gb.edges():
-            self.__operate_on_node_or_edge(
-                e, data_edge, operation, matrix, rhs, variable_filter, term_filter
-            )
-
-    def __operate_on_node_or_edge(
-        self,
-        node_or_edge: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]],
-        data: Dict,
-        operation: str,
-        matrix: Union[Dict[str, np.ndarray], None],
-        rhs: Union[Dict[str, np.ndarray], None],
-        variable_filter: Callable[[str], bool],
-        term_filter: Callable[[str], bool],
-    ):
-        # Extract the active local variables
-        loc_var = self._local_variables(data)
-        for row in loc_var:
-            for col in loc_var:
-                # Block indices, row and column
-                ri = self.block_dof[(node_or_edge, row)]
-                ci = self.block_dof[(node_or_edge, col)]
-
-                # Get the specified discretization, if any.
-                discr_data = data.get(pp.DISCRETIZATION, None)
-                if discr_data is None:
-                    continue
-                discr = discr_data.get(self._discretization_key(row, col), None)
-
-                if discr is None:
-                    continue
+            # Either discretize (full or update) or assemble
+            if operation == "discretize":
+                if is_node:
+                    discr.discretize(grid, data)
                 else:
-                    # Only if non-empty discretization operators are defined,
-                    # we should do something.
-                    # Loop over all discretizations
-                    for term_key, term_discr in discr.items():
+                    discr.discretize(data)
+            elif operation == "update_discretization":
+                if is_node:
+                    discr.update_discretization(grid, data)
+                else:
+                    discr.update_discretization(data)
+            else:  # assemble
+                # Assemble the matrix and right hand side. This will also
+                # discretize if not done before.
+                # Call appropriate assembler for nodes and edges, respectively.
+                if assemble_matrix_only:
+                    if is_node:
+                        loc_A = discr.assemble_matrix(grid, data)
+                    else:
+                        loc_A = discr.assemble_matrix(data)
+                elif assemble_rhs_only:
+                    if is_node:
+                        loc_b = discr.assemble_rhs(grid, data)
+                    else:
+                        loc_b = discr.assemble_rhs(data)
+                else:
+                    if is_node:
+                        loc_A, loc_b = discr.assemble_matrix_rhs(grid, data)
+                    else:
+                        loc_A, loc_b = discr.assemble_matrix_rhs(data)
 
-                        if operation == "discretize":
-                            if (
-                                variable_filter(row)
-                                and variable_filter(col)
-                                and term_filter(term_key)
-                            ):
-                                # Call appropriate discretization method for
-                                # nodes and edges, respectively.
-                                if isinstance(node_or_edge, pp.Grid):
-                                    term_discr.discretize(node_or_edge, data)
-                                else:
-                                    term_discr.discretize(data)
-                        elif operation == "assemble":
-                            # Assemble the matrix and right hand side. This will also
-                            # discretize if not done before.
-                            # Call appropriate assembler for nodes and edges, respectively.
-                            if isinstance(node_or_edge, pp.Grid):
-                                loc_A, loc_b = term_discr.assemble_matrix_rhs(
-                                    node_or_edge, data
-                                )
-                            else:
-                                loc_A, loc_b = term_discr.assemble_matrix_rhs(data)
+                # Assign values in global matrix: Create the same key used
+                # defined when initializing matrices (see that function)
+                ri = self.block_dof[(grid, combination.row)]
+                ci = self.block_dof[(grid, combination.col)]
+                var_key_name = self._variable_term_key(
+                    combination.term, combination.row, combination.col
+                )
 
-                            # Assign values in global matrix: Create the same key used
-                            # defined when initializing matrices (see that function)
-                            var_key_name = self._variable_term_key(term_key, row, col)
-
-                            # Check if the current block is None or not, it could
-                            # happen based on the problem setting. Better to stay
-                            # on the safe side.
-                            if matrix[var_key_name][ri, ci] is None:
-                                matrix[var_key_name][ri, ci] = loc_A
-                            else:
-                                matrix[var_key_name][ri, ci] += loc_A
-                            # The right hand side vector is always initialized.
-                            rhs[var_key_name][ri] += loc_b
+                # Check if the current block is None or not, it could
+                # based on the problem setting. Better to stay
+                # the safe side.
+                if not assemble_rhs_only:
+                    if matrix[var_key_name][ri, ci] is None:  # type:ignore
+                        matrix[var_key_name][ri, ci] = loc_A  # type:ignore
+                    else:
+                        matrix[var_key_name][ri, ci] += loc_A  # type:ignore
+                if not assemble_matrix_only:
+                    rhs[var_key_name][ri] += loc_b  # type:ignore
 
     def _operate_on_edge_coupling(
         self,
+        filt: pp.assembler_filters.AssemblerFilter,
         operation: str,
         matrix: Optional[Dict[str, np.ndarray]],
         rhs: Dict[str, np.ndarray],
-        variable_filter: Callable[[str], bool],
-        term_filter: Callable[[str], bool],
         sps_matrix: Type[csc_or_csr_matrix],
+        assemble_matrix_only: Optional[bool] = False,
+        assemble_rhs_only: Optional[bool] = False,
     ) -> None:
-        """ Perform operation on all edge-node couplings.
+        """Perform operation on all edge-node couplings.
 
         This method should not be invoked directly, but instead accessed via the public
         methods discretize() or assemble_matrix_rhs()
@@ -563,8 +495,10 @@ class Assembler:
 
             d[pp.COUPLING_DISCRETIZATION] = {
                 "scalar_coupling_term": {                           <-- coupling_key
-                    g_h: ("pressure", "diffusion"),                 <-- (master_var_key, master_term_key)
-                    g_l: ("pressure", "diffusion"),                 <-- (slave_var_key, slave_term_key)
+                    g_h: ("pressure", "diffusion"),                 <-- (master_var_key,
+                                                                         master_term_key)
+                    g_l: ("pressure", "diffusion"),                 <-- (slave_var_key,
+                                                                         slave_term_key)
                     e: (
                         "mortar_pressure",                          <-- edge_var_key
                         pp.RobinCoupling("flow", pp.Mpfa("flow"),   <-- edge_discr
@@ -573,150 +507,154 @@ class Assembler:
             }
 
         """
-        # Loop over all edges
-        for e, data_edge in self.gb.edges():
-
-            # Grids and data dictionaries for master and slave
-            g_slave, g_master = self.gb.nodes_of_edge(e)
-            data_slave = self.gb.node_props(g_slave)
-            data_master = self.gb.node_props(g_master)
-
-            # Then, discretize the interaction between the edge variables of
-            # this edge, and the adjacent node variables.
-            discr = data_edge.get(pp.COUPLING_DISCRETIZATION, None)
-            if discr is None:
+        for combination in self._grid_variable_term_combinations:
+            # Only CouplingVariableTerms are considered
+            if isinstance(combination, GridVariableTerm):
+                continue
+            # Check if this is filtered out
+            if not filt.filter(
+                grids=[combination.coupling],
+                variables=[combination.master, combination.slave, combination.edge],
+                terms=[combination.term],
+            ):
                 continue
 
-            for (
-                coupling_key,
-                coupling_term,
-            ) in discr.items():  # coupling_key: str, coupling_term: Dict
-                # Get edge coupling discretization
-                edge_vals: Tuple[str, Any] = coupling_term.get(e)
-                edge_var_key, edge_discr = edge_vals
+            g_master, g_slave, e = combination.coupling
+            data_slave = self.gb.node_props(g_slave)
+            data_master = self.gb.node_props(g_master)
+            data_edge = self.gb.edge_props(e)
 
-                # Only continue if this is an active variable
-                if not self._is_active_variable(edge_var_key):
-                    continue
+            term_key = combination.term
+            coupling = data_edge[pp.COUPLING_DISCRETIZATION][term_key]
 
-                # Global block index associated with this edge variable
-                ei: int = self.block_dof[(e, edge_var_key)]
+            # Get edge coupling discretization
+            edge_vals: Tuple[str, Any] = coupling.get(e)
+            edge_var_key, edge_discr = edge_vals
 
-                # Get variable name and block index of the master variable.
-                # NOTE: We do not test on whether the master variable is among
-                # the active ones here. If we ever deactivate the master variable
-                # but assign a coupling discretization that requires the master
-                # variable to be there, we will get an error message somewhere
-                # below.
-                master_vals: Tuple[str, str] = coupling_term.get(g_master, None)
-                if master_vals is None:
-                    # An empty identifying string will create no problems below.
-                    master_var_key = ""
-                    master_term_key = ""
-                    # If the master variable index is None, this signifies that
-                    # the master variable index is not active
-                    mi = None
+            # Global block index associated with this edge variable
+            ei: int = self.block_dof[(e, edge_var_key)]
 
-                    # If operation is 'assemble', set mat_key_master to None here
-                    # and throw and error when the 'matrix' dictionary is accessed.
-                    mat_key_master = None
-                else:
-                    # Name of the relevant variable on the master grid
-                    master_var_key, master_term_key = master_vals
+            # Get variable name and block index of the master variable.
+            master_vals: Tuple[str, str] = coupling.get(g_master, None)
+            if master_vals is None:
+                # An empty identifying string will create no problems below.
+                master_var_key = ""
+                master_term_key = ""
+                # If the master variable index is None, this signifies that
+                # the master variable index is not active
+                mi = None
 
-                    # Only continue if this is an active variable
-                    if not self._is_active_variable(master_var_key):
-                        continue
+                # If operation is 'assemble', set mat_key_master to None here
+                # and throw and error when the 'matrix' dictionary is accessed.
+                mat_key_master = None
+            else:
+                # Name of the relevant variable on the master grid
+                master_var_key, master_term_key = master_vals
 
-                    # Global index associated with the master variable
-                    mi = self.block_dof.get((g_master, master_var_key))
+                # Global index associated with the master variable
+                mi = self.block_dof.get((g_master, master_var_key))
 
-                    # Also define the key to access the matrix of the discretization of
-                    # the master variable on the master node.
-                    mat_key_master = self._variable_term_key(
-                        master_term_key, master_var_key, master_var_key
-                    )
-                # Do similar operations for the slave variable.
-                slave_vals: Tuple[str, str] = coupling_term.get(g_slave, None)
-                if slave_vals is None:
-                    slave_var_key = ""
-                    slave_term_key = ""
-                    si = None
+                # Also define the key to access the matrix of the discretization of
+                # the master variable on the master node.
+                mat_key_master = self._variable_term_key(
+                    master_term_key, master_var_key, master_var_key
+                )
+            # Do similar operations for the slave variable.
+            slave_vals: Tuple[str, str] = coupling.get(g_slave, None)
+            if slave_vals is None:
+                slave_var_key = ""
+                slave_term_key = ""
+                si = None
 
-                    # If operation is 'assemble', set mat_key_slave to None here
-                    # and throw and error when the 'matrix' dictionary is accessed.
-                    mat_key_slave = None
-                else:
-                    slave_var_key, slave_term_key = slave_vals
-                    # Only continue if this is an active variable
-                    if not self._is_active_variable(slave_var_key):
-                        continue
+                # If operation is 'assemble', set mat_key_slave to None here
+                # and throw and error when the 'matrix' dictionary is accessed.
+                mat_key_slave = None
+            else:
+                slave_var_key, slave_term_key = slave_vals
 
-                    si = self.block_dof.get((g_slave, slave_var_key))
-                    # Also define the key to access the matrix of the discretization of
-                    # the slave variable on the slave node.
-                    mat_key_slave = self._variable_term_key(
-                        slave_term_key, slave_var_key, slave_var_key
-                    )
-
-                # Key to the matrix dictionary used to access this coupling
-                # discretization.
-                mat_key = self._variable_term_key(
-                    coupling_key, edge_var_key, slave_var_key, master_var_key
+                si = self.block_dof.get((g_slave, slave_var_key))
+                # Also define the key to access the matrix of the discretization of
+                # the slave variable on the slave node.
+                mat_key_slave = self._variable_term_key(
+                    slave_term_key, slave_var_key, slave_var_key
                 )
 
-                # Now there are three options (and a fourth, invalid one):
-                # The standard case is that both slave and master variables
-                # are used in the coupling. Alternatively, only one of the master or slave is
-                # used. The fourth alternative, none of them are active, is not
-                # considered valid, and raises an error message.
-                if mi is not None and si is not None:
-                    if operation == "discretize":
-                        if (
-                            variable_filter(master_var_key)
-                            and variable_filter(slave_var_key)
-                            and variable_filter(edge_var_key)
-                        ):
-                            edge_discr.discretize(
-                                g_master, g_slave, data_master, data_slave, data_edge
-                            )
+            # Key to the matrix dictionary used to access this coupling
+            # discretization.
+            mat_key = self._variable_term_key(
+                term_key, edge_var_key, slave_var_key, master_var_key
+            )
 
-                    elif operation == "assemble":
+            # Now there are three options (and a fourth, invalid one):
+            # The standard case is that both slave and master variables
+            # are used in the coupling. Alternatively, only one of the master or slave is
+            # used. The fourth alternative, none of them are active, is not
+            # considered valid, and raises an error message.
+            if mi is not None and si is not None:
+                if operation == "discretize":
+                    edge_discr.discretize(
+                        g_master, g_slave, data_master, data_slave, data_edge
+                    )
 
-                        # Assign a local matrix, which will be populated with the
-                        # current state of the local system.
-                        # Local here refers to the variable and term on the two
-                        # nodes, together with the relavant mortar variable and term
-                        # Associate the first variable with master, the second with
-                        # slave, and the final with edge.
-                        loc_mat, _ = self._assign_matrix_vector(
-                            self.full_dof[[mi, si, ei]], sps_matrix
+                elif operation == "update_discretization":
+                    edge_discr.discretize(
+                        g_master, g_slave, data_master, data_slave, data_edge
+                    )
+
+                elif operation == "assemble":
+                    # Assign a local matrix, which will be populated with the
+                    # current state of the local system.
+                    # Local here refers to the variable and term on the two
+                    # nodes, together with the relavant mortar variable and term
+                    # Associate the first variable with master, the second with
+                    # slave, and the final with edge.
+                    loc_mat, _ = self._assign_matrix_vector(
+                        self.full_dof[[mi, si, ei]], sps_matrix
+                    )
+
+                    # Pick out the discretizations on the master and slave node
+                    # for the relevant variables.
+                    # There should be no contribution or modification of the
+                    # [0, 1] and [1, 0] terms, since the variables are only
+                    # allowed to communicate via the edges.
+                    if mat_key_master:
+                        loc_mat[0, 0] = matrix[mat_key_master][mi, mi]  # type:ignore
+                    else:
+                        raise ValueError(
+                            f"No discretization found on the master grid "
+                            f"of dimension {g_master.dim}, for the "
+                            f"coupling term {term_key}."
+                        )
+                    if mat_key_slave:
+                        loc_mat[1, 1] = matrix[mat_key_slave][si, si]  # type:ignore
+                    else:
+                        raise ValueError(
+                            f"No discretization found on the slave grid "
+                            f"of dimension {g_slave.dim}, for the "
+                            f"coupling term {term_key}."
                         )
 
-                        # Pick out the discretizations on the master and slave node
-                        # for the relevant variables.
-                        # There should be no contribution or modification of the
-                        # [0, 1] and [1, 0] terms, since the variables are only
-                        # allowed to communicate via the edges.
-                        if mat_key_master:
-                            loc_mat[0, 0] = matrix[mat_key_master][mi, mi]
-                        else:
-                            raise ValueError(
-                                f"No discretization found on the master grid "
-                                f"of dimension {g_master.dim}, for the "
-                                f"coupling term {coupling_term}."
-                            )
-                        if mat_key_slave:
-                            loc_mat[1, 1] = matrix[mat_key_slave][si, si]
-                        else:
-                            raise ValueError(
-                                f"No discretization found on the slave grid "
-                                f"of dimension {g_slave.dim}, for the "
-                                f"coupling term {coupling_term}."
-                            )
-
-                        # Run the discretization, and assign the resulting matrix
-                        # to a temporary construct
+                    # Run the discretization, and assign the resulting matrix
+                    # to a temporary construct
+                    if assemble_matrix_only:
+                        tmp_mat = edge_discr.assemble_matrix(
+                            g_master,
+                            g_slave,
+                            data_master,
+                            data_slave,
+                            data_edge,
+                            loc_mat,
+                        )
+                    elif assemble_rhs_only:
+                        loc_rhs = edge_discr.assemble_rhs(
+                            g_master,
+                            g_slave,
+                            data_master,
+                            data_slave,
+                            data_edge,
+                            loc_mat,
+                        )
+                    else:
                         tmp_mat, loc_rhs = edge_discr.assemble_matrix_rhs(
                             g_master,
                             g_slave,
@@ -725,182 +663,207 @@ class Assembler:
                             data_edge,
                             loc_mat,
                         )
+                    if not assemble_rhs_only:
                         # The edge column and row should be assigned to mat_key
-                        matrix[mat_key][ei, (mi, si, ei)] = tmp_mat[2, (0, 1, 2)]
-                        matrix[mat_key][(mi, si), ei] = tmp_mat[(0, 1), 2]
+                        matrix[mat_key][ei, (mi, si, ei)] = tmp_mat[  # type:ignore
+                            2, (0, 1, 2)
+                        ]
+                        matrix[mat_key][(mi, si), ei] = tmp_mat[  # type:ignore
+                            (0, 1), 2
+                        ]
                         # Also update the discretization on the master and slave
                         # nodes
-                        matrix[mat_key_master][mi, mi] = tmp_mat[0, 0]
-                        matrix[mat_key_slave][si, si] = tmp_mat[1, 1]
+                        matrix[mat_key_master][mi, mi] = tmp_mat[0, 0]  # type:ignore
+                        matrix[mat_key_slave][si, si] = tmp_mat[1, 1]  # type:ignore
 
+                    if not assemble_matrix_only:
                         # Finally take care of the right hand side
                         rhs[mat_key][[mi, si, ei]] += loc_rhs
 
-                elif mi is not None:
-                    # TODO: Term filters are not applied to this case
-                    # si is None
-                    # The operation is a simplified version of the full option above.
-                    if operation == "discretize":
-                        if variable_filter(master_var_key) and variable_filter(
-                            edge_var_key
-                        ):
-                            edge_discr.discretize(g_master, data_master, data_edge)
-                    elif operation == "assemble":
+            elif mi is not None:
+                # TODO: Term filters are not applied to this case
+                # si is None
+                # The operation is a simplified version of the full option above.
+                if operation in ("discretize", "update_discretization"):
+                    edge_discr.discretize(g_master, data_master, data_edge)
+                elif operation == "assemble":
 
-                        loc_mat, _ = self._assign_matrix_vector(
-                            self.full_dof[[mi, ei]], sps_matrix
+                    loc_mat, _ = self._assign_matrix_vector(
+                        self.full_dof[[mi, ei]], sps_matrix
+                    )
+                    loc_mat[0, 0] = matrix[mat_key_master][mi, mi]  # type:ignore
+
+                    if assemble_matrix_only:
+                        tmp_mat = edge_discr.assemble_matrix(
+                            g_master, data_master, data_edge, loc_mat
                         )
-                        loc_mat[0, 0] = matrix[mat_key_master][mi, mi]
+
+                    elif assemble_rhs_only:
+                        loc_rhs = edge_discr.assemble_rhs(
+                            g_master, data_master, data_edge, loc_mat
+                        )
+
+                    else:
                         tmp_mat, loc_rhs = edge_discr.assemble_matrix_rhs(
                             g_master, data_master, data_edge, loc_mat
                         )
-                        matrix[mat_key][ei, (mi, ei)] = tmp_mat[1, (0, 1)]
-                        matrix[mat_key][mi, ei] = tmp_mat[0, 1]
+                    if not assemble_rhs_only:
+                        matrix[mat_key][ei, (mi, ei)] = tmp_mat[  # type:ignore
+                            1, (0, 1)
+                        ]
+                        matrix[mat_key][mi, ei] = tmp_mat[0, 1]  # type:ignore
 
                         # Also update the discretization on the master and slave
                         # nodes
-                        matrix[mat_key_master][mi, mi] = tmp_mat[0, 0]
+                        matrix[mat_key_master][mi, mi] = tmp_mat[0, 0]  # type:ignore
 
+                    if not assemble_matrix_only:
                         rhs[mat_key][[mi, ei]] += loc_rhs
 
-                elif si is not None:
-                    # TODO: Term filters are not applied to this case
-                    # mi is None
-                    # The operation is a simplified version of the full option above.
-                    if operation == "discretize":
-                        if variable_filter(slave_var_key) and variable_filter(
-                            edge_var_key
-                        ):
-                            edge_discr.discretize(g_slave, data_slave, data_edge)
-                    elif operation == "assemble":
+            elif si is not None:
+                # TODO: Term filters are not applied to this case
+                # mi is None
+                # The operation is a simplified version of the full option above.
+                if operation in ("discretize", "update_discretization"):
+                    edge_discr.discretize(g_slave, data_slave, data_edge)
+                elif operation == "assemble":
 
-                        loc_mat, _ = self._assign_matrix_vector(
-                            self.full_dof[[si, ei]], sps_matrix
+                    loc_mat, _ = self._assign_matrix_vector(
+                        self.full_dof[[si, ei]], sps_matrix
+                    )
+                    loc_mat[0, 0] = matrix[mat_key_slave][si, si]  # type:ignore
+                    if assemble_matrix_only:
+                        tmp_mat = edge_discr.assemble_matrix(
+                            g_slave, data_slave, data_edge, loc_mat
                         )
-                        loc_mat[0, 0] = matrix[mat_key_slave][si, si]
+
+                    elif assemble_rhs_only:
+                        loc_rhs = edge_discr.assemble_rhs(
+                            g_slave, data_slave, data_edge, loc_mat
+                        )
+
+                    else:
                         tmp_mat, loc_rhs = edge_discr.assemble_matrix_rhs(
                             g_slave, data_slave, data_edge, loc_mat
                         )
-                        matrix[mat_key][ei, (si, ei)] = tmp_mat[1, (0, 1)]
-                        matrix[mat_key][si, ei] = tmp_mat[0, 1]
+
+                    if not assemble_rhs_only:
+                        matrix[mat_key][ei, (si, ei)] = tmp_mat[  # type:ignore
+                            1, (0, 1)
+                        ]
+                        matrix[mat_key][si, ei] = tmp_mat[0, 1]  # type:ignore
 
                         # Also update the discretization on the master and slave
                         # nodes
-                        matrix[mat_key_slave][si, si] = tmp_mat[0, 0]
-
+                        matrix[mat_key_slave][si, si] = tmp_mat[0, 0]  # type:ignore
+                    if not assemble_matrix_only:
                         rhs[mat_key][[si, ei]] += loc_rhs
 
-                else:
-                    raise ValueError(
-                        "Invalid combination of variables on node-edge relation"
+            else:
+                raise ValueError(
+                    "Invalid combination of variables on node-edge relation"
+                )
+
+            # Finally, discretize direct couplings between this edge and other
+            # edges.
+            # The below lines allow only for very specific coupling types:
+            #    i) The discretization type of the two edges should be the same
+            #   ii) The variable name should be the same for both edges
+            #  iii) Only the block edge_ind - other_edge_ind can be filled in.
+            # These restrictions may be loosened somewhat in the future, but a
+            # general coupling between different edges will not be implemented.
+            if operation == "assemble" and edge_discr.edge_coupling_via_high_dim:
+                for other_edge, data_other in self.gb.edges_of_node(g_master):
+
+                    # Skip the case where the primary and secondary edge is the same
+                    if other_edge == e:
+                        continue
+
+                    # Avoid coupling between mortar grids of different dimensions.
+                    if data_other["mortar_grid"].dim != data_edge["mortar_grid"].dim:
+                        continue
+
+                    # Only consider terms where the primary and secondary edge have
+                    # the same variable name. This is an intended restriction of the
+                    # flexibility of the code: Direct edge couplings are implemented
+                    # only to replace explicit variables for boundary conditions on
+                    # external boundaries, for which the current implementation
+                    # should suffice. While more advanced couplings could easily be
+                    # introduced, it will violate the modeling framework for mixed-
+                    # dimensional problems.
+                    # Although different variable names for the same physics is
+                    # permitted in the modeling framework, the current restriction
+                    # is considered reasonable for the time being.
+                    oi = self.block_dof.get((other_edge, edge_var_key), None)
+                    if oi is None:
+                        continue
+
+                    # Assign a local matrix, which will be populated with the
+                    # current state of the local system.
+                    # Local here refers to the variable and term on the two
+                    # nodes, together with the relavant mortar variable and term
+                    # Associate the first variable with master, the second with
+                    # slave, and the final with edge.
+                    loc_mat, _ = self._assign_matrix_vector(
+                        self.full_dof[[mi, ei, oi]], sps_matrix
                     )
+                    (
+                        tmp_mat,
+                        loc_rhs,
+                    ) = edge_discr.assemble_edge_coupling_via_high_dim(
+                        g_master,
+                        data_master,
+                        e,
+                        data_edge,
+                        other_edge,
+                        data_other,
+                        loc_mat,
+                    )
+                    matrix[mat_key][ei, oi] = tmp_mat[1, 2]  # type:ignore
+                    rhs[mat_key][ei] += loc_rhs[1]  # type:ignore
 
-                # Finally, discretize direct couplings between this edge and other
-                # edges.
-                # The below lines allow only for very specific coupling types:
-                #    i) The discretization type of the two edges should be the same
-                #   ii) The variable name should be the same for both edges
-                #  iii) Only the block edge_ind - other_edge_ind can be filled in.
-                # These restrictions may be loosened somewhat in the future, but a
-                # general coupling between different edges will not be implemented.
-                if operation == "assemble" and edge_discr.edge_coupling_via_high_dim:
-                    for other_edge, data_other in self.gb.edges_of_node(g_master):
+            if operation == "assemble" and edge_discr.edge_coupling_via_low_dim:
+                for other_edge, data_other in self.gb.edges_of_node(g_slave):
 
-                        # Skip the case where the primary and secondary edge is the same
-                        if other_edge == e:
-                            continue
+                    # Skip the case where the primary and secondary edge is the same
+                    if other_edge == e:
+                        continue
 
-                        # Avoid coupling between mortar grids of different dimensions.
-                        if (
-                            data_other["mortar_grid"].dim
-                            != data_edge["mortar_grid"].dim
-                        ):
-                            continue
+                    if data_other["mortar_grid"].dim != data_edge["mortar_grid"].dim:
+                        continue
 
-                        # Only consider terms where the primary and secondary edge have
-                        # the same variable name. This is an intended restriction of the
-                        # flexibility of the code: Direct edge couplings are implemented
-                        # only to replace explicit variables for boundary conditions on
-                        # external boundaries, for which the current implementation
-                        # should suffice. While more advanced couplings could easily be
-                        # introduced, it will violate the modeling framework for mixed-
-                        # dimensional problems.
-                        # Although different variable names for the same physics is
-                        # permitted in the modeling framework, the current restriction
-                        # is considered reasonable for the time being.
-                        oi = self.block_dof.get((other_edge, edge_var_key), None)
-                        if oi is None:
-                            continue
+                    # Only consider terms where the primary and secondary edge have
+                    # the same variable name. This is an intended restriction of the
+                    # flexibility of the code: Direct edge couplings are implemented
+                    # only to replace explicit variables for boundary conditions on
+                    # external boundaries, for which the current implementation
+                    # should suffice. While more advanced couplings could easily be
+                    # introduced, it will violate the modeling framework for mixed-
+                    # dimensional problems.
+                    # Although different variable names for the same physics is
+                    # permitted in the modeling framework, the current restriction
+                    # is considered reasonable for the time being.
+                    oi = self.block_dof.get((other_edge, edge_var_key), None)
+                    if oi is None:
+                        continue
 
-                        # Assign a local matrix, which will be populated with the
-                        # current state of the local system.
-                        # Local here refers to the variable and term on the two
-                        # nodes, together with the relavant mortar variable and term
-                        # Associate the first variable with master, the second with
-                        # slave, and the final with edge.
-                        loc_mat, _ = self._assign_matrix_vector(
-                            self.full_dof[[mi, ei, oi]], sps_matrix
-                        )
-                        (
-                            tmp_mat,
-                            loc_rhs,
-                        ) = edge_discr.assemble_edge_coupling_via_high_dim(
-                            g_master,
-                            data_master,
-                            e,
-                            data_edge,
-                            other_edge,
-                            data_other,
-                            loc_mat,
-                        )
-                        matrix[mat_key][ei, oi] = tmp_mat[1, 2]
-                        rhs[mat_key][ei] += loc_rhs[1]
-
-                if operation == "assemble" and edge_discr.edge_coupling_via_low_dim:
-                    for other_edge, data_other in self.gb.edges_of_node(g_slave):
-
-                        # Skip the case where the primary and secondary edge is the same
-                        if other_edge == e:
-                            continue
-
-                        if (
-                            data_other["mortar_grid"].dim
-                            != data_edge["mortar_grid"].dim
-                        ):
-                            continue
-
-                        # Only consider terms where the primary and secondary edge have
-                        # the same variable name. This is an intended restriction of the
-                        # flexibility of the code: Direct edge couplings are implemented
-                        # only to replace explicit variables for boundary conditions on
-                        # external boundaries, for which the current implementation
-                        # should suffice. While more advanced couplings could easily be
-                        # introduced, it will violate the modeling framework for mixed-
-                        # dimensional problems.
-                        # Although different variable names for the same physics is
-                        # permitted in the modeling framework, the current restriction
-                        # is considered reasonable for the time being.
-                        oi = self.block_dof.get((other_edge, edge_var_key), None)
-                        if oi is None:
-                            continue
-
-                        # Assign a local matrix, which will be populated with the
-                        # current state of the local system.
-                        # Local here refers to the variable and term on the two
-                        # nodes, together with the relavant mortar variable and term
-                        # Associate the first variable with master, the second with
-                        # slave, and the final with edge.
-                        loc_mat, _ = self._assign_matrix_vector(
-                            self.full_dof[[si, ei, oi]], sps_matrix
-                        )
-                        (
-                            tmp_mat,
-                            loc_rhs,
-                        ) = edge_discr.assemble_edge_coupling_via_high_dim(
-                            g_slave, data_slave, data_edge, data_other, loc_mat
-                        )
-                        matrix[mat_key][ei, oi] = tmp_mat[1, 2]
-                        rhs[mat_key][ei] += loc_rhs[1]
+                    # Assign a local matrix, which will be populated with the
+                    # current state of the local system.
+                    # Local here refers to the variable and term on the two
+                    # nodes, together with the relavant mortar variable and term
+                    # Associate the first variable with master, the second with
+                    # slave, and the final with edge.
+                    loc_mat, _ = self._assign_matrix_vector(
+                        self.full_dof[[si, ei, oi]], sps_matrix
+                    )
+                    (
+                        tmp_mat,
+                        loc_rhs,
+                    ) = edge_discr.assemble_edge_coupling_via_high_dim(
+                        g_slave, data_slave, data_edge, data_other, loc_mat
+                    )
+                    matrix[mat_key][ei, oi] = tmp_mat[1, 2]  # type:ignore
+                    rhs[mat_key][ei] += loc_rhs[1]
 
     def _identify_dofs(self) -> None:
         """
@@ -951,7 +914,20 @@ class Assembler:
         # the global system matrix), and identifiers of discretization operations
         # (e.g. advection or diffusion).
         # Note: This list is common for all nodes / edges.
+        # This list is used to access discretization matrices for different
+        # variables and terms
         variable_combinations: List[str] = []
+        # Combinations of grids-like features (grid, edge, edge-grid coupling),
+        # variables and terms. Used to track discretizations, and which grids and
+        # variables they act on. Also used to filter discretizations for partial
+        # discretizations etc.
+        # IMPLEMENTATION NOTE: variable_combinations and grid_variable_term_combinations
+        # are sort of overlapping in the information they contained (the former is
+        # a subset of the latter), but for implementation convenience it is useful
+        # to keep both.
+        grid_variable_term_combinations: List[
+            Union[CouplingVariableTerm, GridVariableTerm]
+        ] = []
 
         # Loop over all nodes in the grid bucket, identify its local and active
         # variables.
@@ -1011,6 +987,9 @@ class Assembler:
                         variable_combinations.append(
                             self._variable_term_key(term, local_var, other_local_var)
                         )
+                        grid_variable_term_combinations.append(
+                            GridVariableTerm(g, local_var, other_local_var, term)
+                        )
 
         # Next do the equivalent operation for edges in the grid.
         # Most steps are identical to the operations on the nodes, we comment
@@ -1045,7 +1024,9 @@ class Assembler:
                         variable_combinations.append(
                             self._variable_term_key(term, local_var, other_local_var)
                         )
-
+                        grid_variable_term_combinations.append(
+                            GridVariableTerm(e, local_var, other_local_var, term)
+                        )
             # Finally, identify variable combinations for coupling terms.
             # This involves both the neighboring grids
             g_slave, g_master = self.gb.nodes_of_edge(e)
@@ -1067,20 +1048,11 @@ class Assembler:
 
                 # Get the name of the edge variable (it is the first item in a tuple)
                 key_edge: str = val.get(e)[0]
-                if not self._is_active_variable(key_edge):
-                    continue
 
                 # Get name of the edge variable, if it exists
                 key_slave = val.get(g_slave)
                 if key_slave is not None:
                     key_slave = key_slave[0]
-                    if not self._is_active_variable(key_slave):
-                        raise ValueError(
-                            "Edge variable "
-                            + key_edge
-                            + " is coupled to an inactive node variable "
-                            + key_slave
-                        )
 
                 else:
                     # This can happen if the the coupling is one-sided, e.g.
@@ -1092,29 +1064,28 @@ class Assembler:
                 key_master = val.get(g_master)
                 if key_master is not None:
                     key_master = key_master[0]
-                    if not self._is_active_variable(key_master):
-                        raise ValueError(
-                            "Edge variable "
-                            + key_edge
-                            + " is coupled to an inactive node variable "
-                            + key_master
-                        )
                 else:
                     key_master = ""
 
                 variable_combinations.append(
                     self._variable_term_key(term, key_edge, key_slave, key_master)
                 )
-
+                grid_variable_term_combinations.append(
+                    CouplingVariableTerm(
+                        (g_master, g_slave, e), key_edge, key_master, key_slave, term
+                    )
+                )
         # Array version of the number of dofs per node/edge and variable
         self.full_dof: np.ndarray = np.array(full_dof)
         self.block_dof: Dict[
             Tuple[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], str], int
         ] = block_dof
         self.variable_combinations: List[str] = variable_combinations
+        self._grid_variable_term_combinations = grid_variable_term_combinations
 
     def _initialize_matrix_rhs(
-        self, sps_matrix: Type[csc_or_csr_matrix],
+        self,
+        sps_matrix: Type[csc_or_csr_matrix],
     ) -> Tuple[Dict[str, csc_or_csr_matrix], Dict[str, np.ndarray]]:
         """
         Initialize a set of matrices (for left hand sides) and vectors (rhs)
@@ -1260,7 +1231,7 @@ class Assembler:
         return np.hstack(parameter)
 
     def _local_variables(self, d: Dict) -> Dict[str, Dict[str, int]]:
-        """ Find variables defined in a data dictionary, and do intersection
+        """Find variables defined in a data dictionary, and do intersection
         with defined active variables.
 
         If no active variables are specified, returned all declared variables.
@@ -1275,38 +1246,14 @@ class Assembler:
         """
 
         # Active variables
-        loc_variables = d.get(pp.PRIMARY_VARIABLES, None)
-        if self.active_variables is None:
-            # No restriction necessary.
-            return loc_variables
-        else:
-            # Find intersection with declared active variables.
-            var: Dict[str, Dict[str, int]] = {}
-            for key, val in loc_variables.items():
-                if key in self.active_variables:
-                    var[key] = val
-            return var
-
-    def _is_active_variable(self, key: str) -> bool:
-        """ Check if a key denotes an active variable
-
-        Parameters:
-            key (str): Variable identifier.
-
-        Returns:
-            boolean: True if key is in active_variables, or active_variables
-                is None.
-
-        """
-        if self.active_variables is None:
-            return True
-        else:
-            return key in self.active_variables
+        return d.get(pp.PRIMARY_VARIABLES, None)
 
     def distribute_variable(
-        self, values: np.ndarray, variable_names: List[str] = None,
+        self,
+        values: np.ndarray,
+        variable_names: List[str] = None,
     ) -> None:
-        """ Distribute a vector to the nodes and edges in the GridBucket.
+        """Distribute a vector to the nodes and edges in the GridBucket.
 
         The intended use is to split a multi-physics solution vector into its
         component parts.
@@ -1347,7 +1294,7 @@ class Assembler:
     def dof_ind(
         self, g: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], name: str
     ) -> np.ndarray:
-        """ Get the indices in the global system of variables associated with a
+        """Get the indices in the global system of variables associated with a
         given node / edge (in the GridBucket sense) and a given variable.
 
         Parameters:
@@ -1364,7 +1311,7 @@ class Assembler:
         return np.arange(dof_start[block_ind], dof_start[block_ind + 1])
 
     def num_dof(self) -> int:
-        """ Get total number of unknowns of the identified variables.
+        """Get total number of unknowns of the identified variables.
 
         Returns:
             int: Number of unknowns. Size of solution vector.
@@ -1374,7 +1321,7 @@ class Assembler:
     def variables_of_grid(
         self, g: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
     ) -> List[str]:
-        """ Get all variables defined for a given grid or edge.
+        """Get all variables defined for a given grid or edge.
 
         Args:
             g (Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]): Target grid, or an edge
@@ -1458,7 +1405,7 @@ class Assembler:
             # variables defined on the totality of the subdomains
 
             # List of found special (subset) variable combinations
-            found_special_var_combination: List[Set[str]] = []
+            found_special_var_combination = []
             for g in self.gb.grids_of_dimension(dim):
                 for e, _ in self.gb.edges_of_node(g):
                     var = set(self.variables_of_grid(e))

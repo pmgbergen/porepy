@@ -3,10 +3,11 @@
 
 @author: fumagalli, alessio
 """
+import logging
+from typing import Dict, Tuple
+
 import numpy as np
 import scipy.sparse as sps
-import logging
-from typing import Tuple, Dict
 
 import porepy as pp
 
@@ -27,7 +28,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         super(MVEM, self).__init__(keyword, "MVEM")
 
     def discretize(self, g: pp.Grid, data: Dict) -> None:
-        """ Discretize a second order elliptic equation using a dual virtual element
+        """Discretize a second order elliptic equation using a dual virtual element
         method.
 
         We assume the following two sub-dictionaries to be present in the data
@@ -36,7 +37,8 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
                 Stored in data[pp.PARAMETERS][self.keyword].
             matrix_dictionary, for storage of discretization matrices.
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
-            deviation_from_plane_tol: The geometrical tolerance, used in the check to rotate 2d and 1d grids
+            deviation_from_plane_tol: The geometrical tolerance, used in the check to
+                rotate 2d and 1d grids
 
         parameter_dictionary contains the entries:
             second_order_tensor: (pp.SecondOrderTensor) Permeability defined
@@ -65,7 +67,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             matrix_dictionary[self.div_matrix_key] = sps.csr_matrix(
                 (g.num_faces, g.num_cells)
             )
-            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, 1))
+            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, g.num_cells))
             return
 
         # Get dictionary for parameter storage
@@ -195,7 +197,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         diam: float,
         weight: float = 0.0,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """ Compute the local mass Hdiv matrix using the mixed vem approach.
+        """Compute the local mass Hdiv matrix using the mixed vem approach.
 
         Parameters
         ----------

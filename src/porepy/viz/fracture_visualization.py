@@ -3,13 +3,13 @@ Visualization tools for fracture networks. Plots 1d fractures as lines in a
 2d domain using pyplot. Also plots wells as points.
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 import porepy as pp
 
 
-def plot_fractures(pts, edges, domain=None, colortag=None, **kwargs):
+def plot_fractures(pts, edges, domain=None, colortag=None, ax=None, **kwargs):
     """
     Plot 2d fractures as lines in a domain.
 
@@ -25,12 +25,27 @@ def plot_fractures(pts, edges, domain=None, colortag=None, **kwargs):
             (e.g. by fracture family). If provided, different colors will be
             asign to the different families. Defaults to all fractures being
             black.
+        ax (matplotlib.axes.Axes, optional): If not given an axis, an axis will be created.
         kwargs: Keyword arguments passed on to matplotlib.
+
+    Returns:
+        matplotlib.axes.Axes: The axis the fractures are plotted in
 
     """
     if domain is None:
         domain = pp.bounding_box.from_points(pts)
 
+    if ax is None:
+        plt.figure(kwargs.get("fig_id", 1), dpi=kwargs.get("dpi", 100))
+        ax = plt.axes()
+        do_plot = kwargs.get("plot", True)  # To obtain legacy behaviour
+    else:
+        # Not sure if this should throw an error or just ignore the arguments:
+        if kwargs.get("fig_id", None) is not None:
+            raise ValueError("Cannot give both keyword argument 'fig_id' and 'ax'")
+        elif kwargs.get("dpi", None) is not None:
+            raise ValueError("Cannot give both keyword argument 'dpi' and 'ax'")
+        do_plot = kwargs.get("plot", False)
     # Assign a color to each tag. We define these by RBG-values (simplest
     # option in pyplot).
     # For the moment, some RBG values are hard coded, do something more
@@ -64,14 +79,12 @@ def plot_fractures(pts, edges, domain=None, colortag=None, **kwargs):
         else:
             raise NotImplementedError("Have not thought of more than twelwe colors")
 
-    plt.figure(kwargs.get("fig_id", 1), dpi=kwargs.get("dpi", 100))
-
     if kwargs.get("domain", True):
         domain_color = "red"
     else:
         domain_color = "white"
 
-    plt.plot(
+    ax.plot(
         [
             domain["xmin"],
             domain["xmax"],
@@ -94,7 +107,7 @@ def plot_fractures(pts, edges, domain=None, colortag=None, **kwargs):
     # serves its purpose.
     line_style = kwargs.get("line_style", "o-")
     for i in range(edges.shape[1]):
-        plt.plot(
+        ax.plot(
             [pts[0, edges[0, i]], pts[0, edges[1, i]]],
             [pts[1, edges[0, i]], pts[1, edges[1, i]]],
             line_style,
@@ -103,25 +116,27 @@ def plot_fractures(pts, edges, domain=None, colortag=None, **kwargs):
 
     if kwargs.get("pts_coord", False):
         for i in range(pts.shape[1]):
-            plt.text(
+            ax.text(
                 pts[0, i], pts[1, i], "(" + str(pts[0, i]) + ", " + str(pts[1, i]) + ")"
             )
 
     if kwargs.get("axis_equal", True):
-        plt.axis("equal")
-        plt.gca().set_aspect("equal", adjustable="box")
+        ax.axis("equal")
+        ax.set_aspect("equal", adjustable="box")
 
     if kwargs.get("axis", "on") == "on":
-        plt.axis([domain["xmin"], domain["xmax"], domain["ymin"], domain["ymax"]])
+        ax.axis([domain["xmin"], domain["xmax"], domain["ymin"], domain["ymax"]])
     else:
-        plt.axis("off")
+        ax.axis("off")
 
     # Finally set axis
-    if kwargs.get("plot", True):
+    if do_plot:
         plt.show()
     if kwargs.get("save", None) is not None:
         plt.savefig(kwargs.get("save"), bbox_inches="tight", pad_inches=0.0)
         plt.close()
+
+    return ax
 
 
 def plot_wells(d, w, colortag=None, **kwargs):

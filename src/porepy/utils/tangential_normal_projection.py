@@ -10,7 +10,7 @@ import porepy as pp
 
 
 class TangentialNormalProjection:
-    """ Represent a set of projections into tangent and normal vectors.
+    """Represent a set of projections into tangent and normal vectors.
 
     The spaces are defined by the normal vector (see __init__ documentation).
     The basis for the tangential space is arbitrary (arbitrary direction in 2d,
@@ -51,7 +51,7 @@ class TangentialNormalProjection:
 
     ## Methods for genertation of projection matrices
     def project_tangential_normal(self, num=None):
-        """ Define a projection matrix to decompose a matrix into tangential
+        """Define a projection matrix to decompose a matrix into tangential
         and normal components.
 
         The intended usage is to decompose a grid-based vector variable into the
@@ -93,7 +93,7 @@ class TangentialNormalProjection:
         return mat
 
     def project_tangential(self, num=None):
-        """ Define a projection matrix of a specific size onto the tangent space.
+        """Define a projection matrix of a specific size onto the tangent space.
 
         The intended usage is to project a grid-based vector variable onto the
         tangent space of the grid, with the tacit understanding that there is
@@ -143,7 +143,7 @@ class TangentialNormalProjection:
         return remove_normal_components * full_projection
 
     def project_normal(self, num=None):
-        """ Define a projection matrix of a specific size onto the normal space.
+        """Define a projection matrix of a specific size onto the normal space.
 
         The intended usage is to project a grid-based vector variable onto the
         normal space of the grid, with the tacit understanding that there is
@@ -191,7 +191,7 @@ class TangentialNormalProjection:
         return remove_tangential_components * full_projection
 
     def local_projection(self, ind=None):
-        """ Get the local projection matrix (refe)
+        """Get the local projection matrix (refe)
 
         Paremeters:
             ind (int, optional): Index (referring to the order of the normal vectors

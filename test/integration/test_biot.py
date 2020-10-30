@@ -137,7 +137,8 @@ class BiotTest(unittest.TestCase):
         }
         # Assemble. Also discretizes the flow terms (fluid_mass and fluid_flux)
         general_assembler = pp.Assembler(gb)
-        general_assembler.discretize(term_filter=["fluid_mass", "fluid_flux"])
+        filt = pp.assembler_filters.ListFilter(term_list=["fluid_mass", "fluid_flux"])
+        general_assembler.discretize(filt=filt)
         A, b = general_assembler.assemble_matrix_rhs()
 
         # Re-discretize and assemble using the Biot class
@@ -215,14 +216,15 @@ class BiotTest(unittest.TestCase):
         }
         # Assemble. Also discretizes the flow terms (fluid_mass and fluid_flux)
         general_assembler = pp.Assembler(gb)
-        general_assembler.discretize(
-            term_filter=[
+        filt = pp.assembler_filters.ListFilter(
+            term_list=[
                 "!stress_divergence",
                 "!pressure_gradient",
                 "!displacement_divergence",
                 "!stabilization",
-            ]
+            ],
         )
+        general_assembler.discretize(filt=filt)
         A, b = general_assembler.assemble_matrix_rhs()
 
         # Re-discretize and assemble using the Biot class
@@ -320,8 +322,9 @@ class BiotTest(unittest.TestCase):
         biot_discretizer._discretize_mech(g, d)
 
         general_assembler = pp.Assembler(gb)
+        filt = pp.assembler_filters.ListFilter(term_list=["fluid_mass", "fluid_flux"])
         # Discretize terms that are not handled by the call to biot_discretizer
-        general_assembler.discretize(term_filter=["fluid_mass", "fluid_flux"])
+        general_assembler.discretize(filt=filt)
 
         times = np.arange(5)
         for _ in times:

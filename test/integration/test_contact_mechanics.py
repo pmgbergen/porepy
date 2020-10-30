@@ -48,7 +48,7 @@ class TestContactMechanics(unittest.TestCase):
         u_mortar, contact_force = self._solve(setup)
 
         # All components should be open in the normal direction
-        self.assertTrue(np.all(u_mortar[1] < 0))
+        self.assertTrue(np.all(u_mortar[1] > 0))
 
         # By symmetry (reasonable to expect from this grid), the jump in tangential
         # deformation should be zero.
@@ -67,7 +67,7 @@ class TestContactMechanics(unittest.TestCase):
         u_mortar, contact_force = self._solve(setup)
 
         # All components should be open in the normal direction
-        self.assertTrue(np.all(u_mortar[1] < 0))
+        self.assertTrue(np.all(u_mortar[1] > 0))
 
         # By symmetry (reasonable to expect from this grid), the jump in tangential
         # deformation should be zero.

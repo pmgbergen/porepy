@@ -4,8 +4,9 @@ Created on Mon Feb 29 14:30:22 2016
 
 @author: eke001
 """
-import numpy as np
 import warnings
+
+import numpy as np
 
 
 class AbstractBoundaryCondition(object):
@@ -35,14 +36,12 @@ class AbstractBoundaryCondition(object):
         bc.dim = self.dim
         bc.is_internal = self.is_internal
         bc.bf = self.bf
-        bc.is_per = self.is_per
-        bc.per_map = self.per_map
         return bc
 
 
 class BoundaryCondition(AbstractBoundaryCondition):
 
-    """ Class to store information on boundary conditions.
+    """Class to store information on boundary conditions.
 
     The BCs are specified by face number, and can have type Dirichlet, Neumann
     or Robin. For details on default values etc. see constructor.
@@ -59,13 +58,6 @@ class BoundaryCondition(AbstractBoundaryCondition):
             face i has been assigned a Neumann condition.
         is_rob (np.ndarray, boolean, size g.num_faces): Element i is true if
             face i has been assigned a Robin condition.
-        is_per (np.ndarray, boolean, size g.num_faces): Element i is true if
-            face i has been assigned a periodic boundary condition. Note that
-            periodic boundary conditions are non-standard and might not work
-            for all discretizations. See also attribute per_map
-        per_map (np.ndarray, int, 2 x # periodic faces): Defines the periodic
-            faces. Face index per_map[0, i] is periodic with face index
-            per_map[1, i].
     """
 
     def __init__(self, g, faces=None, cond=None):
@@ -105,10 +97,6 @@ class BoundaryCondition(AbstractBoundaryCondition):
         self.is_neu = np.zeros(self.num_faces, dtype=bool)
         self.is_dir = np.zeros(self.num_faces, dtype=bool)
         self.is_rob = np.zeros(self.num_faces, dtype=bool)
-        self.is_per = np.zeros(self.num_faces, dtype=bool)
-
-        # No periodic boundaries by default
-        self.per_map = np.zeros((2, 0), dtype=int)
 
         # By default, all faces are Neumann.
         self.is_neu[self.bf] = True
@@ -148,38 +136,23 @@ class BoundaryCondition(AbstractBoundaryCondition):
             if faces.size != len(cond):
                 raise ValueError("One BC per face")
 
-            for l in np.arange(faces.size):
-                s = cond[l]
+            for ind in np.arange(faces.size):
+                s = cond[ind]
                 if s.lower() == "neu":
                     pass  # Neumann is already default
                 elif s.lower() == "dir":
-                    self.is_dir[faces[l]] = True
-                    self.is_neu[faces[l]] = False
-                    self.is_rob[faces[l]] = False
-                    self.is_per[faces[l]] = False
+                    self.is_dir[faces[ind]] = True
+                    self.is_neu[faces[ind]] = False
+                    self.is_rob[faces[ind]] = False
                 elif s.lower() == "rob":
-                    self.is_dir[faces[l]] = False
-                    self.is_neu[faces[l]] = False
-                    self.is_rob[faces[l]] = True
-                    self.is_per[faces[l]] = False
-                elif s.lower() == "per":
-                    self.is_dir[faces[l]] = False
-                    self.is_neu[faces[l]] = False
-                    self.is_rob[faces[l]] = False
-                    self.is_per[faces[l]] = True
+                    self.is_dir[faces[ind]] = False
+                    self.is_neu[faces[ind]] = False
+                    self.is_rob[faces[ind]] = True
                 else:
                     raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
 
-            if not (self.is_per.sum() % 2) == 0:
-                raise ValueError("The number of periodic boundary faces must be even!")
-
     def __repr__(self) -> str:
-        num_cond = (
-            self.is_neu.sum()
-            + self.is_dir.sum()
-            + self.is_rob.sum()
-            + self.is_per.sum()
-        )
+        num_cond = self.is_neu.sum() + self.is_dir.sum() + self.is_rob.sum()
         s = (
             f"Boundary condition for scalar problem in {self.dim + 1} dimensions\n"
             f"Grid has {self.num_faces} faces.\n"
@@ -188,45 +161,24 @@ class BoundaryCondition(AbstractBoundaryCondition):
             f"Number of faces with Dirichlet conditions: {self.is_dir.sum()} \n"
             f"Number of faces with Neumann conditions: {self.is_neu.sum()} \n"
             f"Number of faces with Robin conditions: {self.is_rob.sum()} \n"
-            f"Number of faces with Periodic conditions: {self.is_per.sum()} \n"
         )
 
-        bc_sum = self.is_neu + self.is_dir + self.is_rob + self.is_per
+        bc_sum = self.is_neu + self.is_dir + self.is_rob
         if np.any(bc_sum) > 1:
             s += "Conflicting boundary conditions set on {np.sum(bc_sum > 1)} faces.\n"
 
         not_bound = np.setdiff1d(np.arange(self.num_faces), self.bf)
         if np.any(self.is_dir[not_bound]):
-            s += f"Dirichlet conditions set on {self.is_dir[not_bound].sum()} non-boundary faces.\n"
+            s += f"Dirichlet conditions set on {self.is_dir[not_bound].sum()}"
+            s += " non-boundary faces.\n"
         if np.any(self.is_neu[not_bound]):
-            s += f"Neumann conditions set on {self.is_neu[not_bound].sum()} non-boundary faces.\n"
+            s += f"Neumann conditions set on {self.is_neu[not_bound].sum()}"
+            s += " non-boundary faces.\n"
         if np.any(self.is_rob[not_bound]):
-            s += f"Robin conditions set on {self.is_rob[not_bound].sum()} non-boundary faces.\n"
-        if np.any(self.is_per[not_bound]):
-            s += f"Periodic conditions set on {self.is_per[not_bound].sum()} non-boundary faces.\n"
+            s += f"Robin conditions set on {self.is_rob[not_bound].sum()} "
+            s += "non-boundary faces.\n"
 
         return s
-
-    def set_periodic_map(self, per_map: np.ndarray):
-        """
-        Set the index map between periodic boundary faces. The mapping assumes
-        a one to one mapping between the periodic boundary faces (i.e., matching
-        faces).
-
-        Parameters
-        per_map (np.ndarray, int, 2 x # periodic faces): Defines the periodic
-            faces. Face index per_map[0, i] is periodic with face index
-            per_map[1, i]. The given map is stored to the attribute per_map
-        """
-        map_shape = (2, self.is_per.sum() // 2)
-        if not np.array_equal(per_map.shape, map_shape):
-            raise ValueError(
-                """Periodic map has wrong size. Given array size is: {},
-                              but should be: {}""".format(
-                    per_map.shape, map_shape
-                )
-            )
-        self.per_map = per_map
 
 
 class BoundaryConditionVectorial(AbstractBoundaryCondition):
@@ -316,13 +268,9 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
         self.is_neu = np.zeros((g.dim, self.num_faces), dtype=bool)
         self.is_dir = np.zeros((g.dim, self.num_faces), dtype=bool)
         self.is_rob = np.zeros((g.dim, self.num_faces), dtype=bool)
-        self.is_per = np.zeros((g.dim, self.num_faces), dtype=bool)
 
         self.is_neu[:, self.bf] = True
         self.set_bc(faces, cond)
-
-        # No periodic boundaries by default
-        self.per_map = np.zeros((2, 0), dtype=int)
 
         #  Default robin weights
         r_w = np.tile(np.eye(g.dim), (1, g.num_faces))
@@ -408,18 +356,12 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
                     self.is_rob[:, faces[j]] = True
                     self.is_neu[:, faces[j]] = False
                     self.is_dir[:, faces[j]] = False
-                elif s.lower() == "per":
-                    self.is_per[:, faces[j]] = True
-                    self.is_rob[:, faces[j]] = False
-                    self.is_neu[:, faces[j]] = False
-                    self.is_dir[:, faces[j]] = False
-
                 else:
                     raise ValueError(f"Unknown boundary condition {s}")
 
 
 def face_on_side(g, side, tol=1e-8):
-    """ Find faces on specified sides of a grid.
+    """Find faces on specified sides of a grid.
 
     It is assumed that the grid forms a box in 2d or 3d.
 

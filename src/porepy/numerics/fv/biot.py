@@ -21,23 +21,22 @@ pp.BiotContactMechanicsModel (designed for fractures and contact mechanics, but 
 turn into a standard poro-elasticity equation for non-fractured domains).
 
 """
-import scipy.sparse as sps
-import scipy.sparse.linalg as la
-import numpy as np
-from typing import Dict, Tuple, Any
-from time import time
 import logging
+from time import time
+from typing import Any, Dict, Tuple
+
+import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.discretization import Discretization
-
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
 
 class Biot(pp.Mpsa):
-    """ Discretization class for poro-elasticity, based on MPSA.
+    """Discretization class for poro-elasticity, based on MPSA.
 
     This is a subclass of pp.Mpsa()
 
@@ -73,12 +72,12 @@ class Biot(pp.Mpsa):
         vector_variable: str = "displacement",
         scalar_variable: str = "pressure",
     ) -> None:
-        """ Set the two keywords.
+        """Set the two keywords.
 
         The keywords are used to access and store parameters and discretization
         matrices.
         """
-        super(Biot, self).__init__("")
+        super(pp.Biot, self).__init__("")
         self.mechanics_keyword = mechanics_keyword
         self.flow_keyword = flow_keyword
         # Set variable names for the vector and scalar variable, used to access
@@ -98,8 +97,10 @@ class Biot(pp.Mpsa):
         self.stabilization_matrix_key = "biot_stabilization"
         self.bound_pressure_matrix_key = "bound_displacement_pressure"
 
+        self.mass_matrix_key = "mass"
+
     def ndof(self, g: pp.Grid) -> int:
-        """ Return the number of degrees of freedom associated wiht the method.
+        """Return the number of degrees of freedom associated wiht the method.
 
         In this case, each cell has nd displacement variables, as well as a
         pressure variable.
@@ -116,7 +117,7 @@ class Biot(pp.Mpsa):
     def assemble_matrix_rhs(
         self, g: pp.Grid, data: Dict
     ) -> Tuple[sps.spmatrix, np.ndarray]:
-        """ Return full discretization and right hand side of the poro-elasticity system.
+        """Return full discretization and right hand side of the poro-elasticity system.
 
         NOTE: Source terms (flow and mechanics) are not handled herein, must be assigned
         in other classes.
@@ -137,7 +138,7 @@ class Biot(pp.Mpsa):
         return A_biot, rhs
 
     def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
-        """ Return the right hand side for a poro-elastic system.
+        """Return the right hand side for a poro-elastic system.
 
         Parameters:
             g (pp.Grid): Grid to be discretized.
@@ -153,7 +154,7 @@ class Biot(pp.Mpsa):
         return bnd + tm
 
     def rhs_bound(self, g: pp.Grid, data: Dict) -> np.ndarray:
-        """ Boundary component of the right hand side.
+        """Boundary component of the right hand side.
 
         TODO: Boundary effects of coupling terms.
 
@@ -197,7 +198,7 @@ class Biot(pp.Mpsa):
         return np.hstack((s_bound, p_bound + div_u_rhs))
 
     def rhs_time(self, g: pp.Grid, data: Dict) -> np.ndarray:
-        """ Time component of the right hand side (dependency on previous time
+        """Time component of the right hand side (dependency on previous time
         step).
 
         TODO: 1) Generalize this to allow other methods than Euler backwards?
@@ -242,7 +243,7 @@ class Biot(pp.Mpsa):
         return np.hstack((mech_rhs, div_u_rhs + p_cmpr + stab_time))
 
     def discretize(self, g: pp.Grid, data: Dict) -> None:
-        """ Discretize flow and mechanics equations using FV methods.
+        """Discretize flow and mechanics equations using FV methods.
 
         The parameters needed for the discretization are stored in the
         dictionary data, which should contain the following mandatory keywords:
@@ -287,7 +288,7 @@ class Biot(pp.Mpsa):
         self._discretize_mech(g, data)
 
     def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.spmatrix:
-        """ Assemble the poro-elastic system matrix.
+        """Assemble the poro-elastic system matrix.
 
         The discretization is presumed stored in the data dictionary.
 
@@ -338,12 +339,131 @@ class Biot(pp.Mpsa):
                 [A_mech, grad_p],
                 [
                     matrices_f[self.div_u_matrix_key] * biot_alpha,
-                    matrices_f["mass"] + dt * A_flow + stabilization,
+                    matrices_f[self.mass_matrix_key] + dt * A_flow + stabilization,
                 ],
             ]
         ).tocsr()
 
         return A_biot
+
+    def update_discretization(self, g, data):
+        """Update discretization.
+
+        The updates can generally come as a combination of two forms:
+            1) The discretization on part of the grid should be recomputed.
+            2) The old discretization can be used (in parts of the grid), but the
+               numbering of unknowns has changed, and the discretization should be
+               reorder accordingly.
+
+        Information on the basis for the update should be stored in a field
+
+            data['update_discretization']
+
+        This should be a dictionary which could contain keys:
+
+            modified_cells, modified_faces
+
+        define cells, faces and nodes that have been modified (either parameters,
+        geometry or topology), and should be rediscretized. It is up to the
+        discretization method to implement the change necessary by this modification.
+        Note that depending on the computational stencil of the discretization method,
+        a grid quantity may be rediscretized even if it is not marked as modified.
+
+        The dictionary data['update_discretization'] should further have keys:
+
+            cell_index_map, face_index_map
+
+        these should specify sparse matrices that maps old to new indices. If not
+        provided, the cell and face bookkeeping will be assumed constant.
+
+        Parameters:
+            g (pp.Grid): Grid to be rediscretized.
+            data (dictionary): With discretization parameters.
+
+        """
+        # The implementation is quite a bit more involved than the corresponding methods
+        # for mpfa and mpsa, due to the multi-physics structure of the discretization.
+
+        # Matrices computed by self._discretized_mech, but associtated with self.flow_keyword.
+        # These are moved to the self.mechanics_keyword matrix dictionary, and will then be
+        # moved back again at the end of this function
+        mech_in_flow = [
+            self.div_u_matrix_key,
+            self.bound_div_u_matrix_key,
+            self.stabilization_matrix_key,
+        ]
+        for key in mech_in_flow:
+            mat = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword].pop(key)
+            data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword][key] = mat
+
+        # Dump discretization of mass term - this will be fully rediscretized below
+        data[pp.DISCRETIZATION_MATRICES][self.flow_keyword].pop(
+            self.mass_matrix_key, None
+        )
+
+        # Flow part, use mpfa update discretization
+        md = pp.Mpfa(self.flow_keyword)
+        md.update_discretization(g, data)
+
+        # Compressibility: This is so fast that we use the standard discretization
+        self._discretize_compr(g, data)
+
+        # Define which of the matrices should be conisdered cell and face quantities,
+        # vector and scalar.
+        scalar_cell_right = [
+            self.grad_p_matrix_key,
+            self.stabilization_matrix_key,
+            self.bound_pressure_matrix_key,
+        ]
+        vector_cell_right = [
+            self.stress_matrix_key,
+            self.bound_displacment_cell_matrix_key,
+            self.div_u_matrix_key,
+        ]
+        vector_face_right = [
+            self.bound_stress_matrix_key,
+            self.bound_displacment_face_matrix_key,
+            self.bound_div_u_matrix_key,
+        ]
+
+        scalar_cell_left = [
+            self.div_u_matrix_key,
+            self.stabilization_matrix_key,
+            self.bound_div_u_matrix_key,
+        ]
+        scalar_face_right = [
+            md.bound_flux_matrix_key,
+            md.bound_pressure_face_matrix_key,
+        ]
+
+        vector_face_left = [
+            self.stress_matrix_key,
+            self.grad_p_matrix_key,
+            self.bound_stress_matrix_key,
+            self.bound_displacment_cell_matrix_key,
+            self.bound_displacment_face_matrix_key,
+            self.bound_pressure_matrix_key,
+        ]
+
+        # Update discertization. As part of the process, the mech_in_flow matrices
+        # are moved back to the flow matrix dictionary.
+        pp.fvutils.partial_update_discretization(
+            g,
+            data,
+            self.mechanics_keyword,
+            self._discretize_mech,
+            dim=g.dim,
+            scalar_cell_right=scalar_cell_right,
+            vector_cell_right=vector_cell_right,
+            scalar_face_right=scalar_face_right,
+            vector_face_right=vector_face_right,
+            vector_face_left=vector_face_left,
+            scalar_cell_left=scalar_cell_left,
+            second_keyword=self.flow_keyword,
+        )
+        # Remove the mech_in_flow matrices from the mechanics dictionary
+        for key in mech_in_flow:
+            data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword].pop(key, None)
 
     def _discretize_flow(self, g: pp.Grid, data: Dict) -> None:
 
@@ -363,7 +483,7 @@ class Biot(pp.Mpsa):
         ]
         w = parameter_dictionary["mass_weight"]
         volumes = g.cell_volumes
-        matrix_dictionary["mass"] = sps.dia_matrix(
+        matrix_dictionary[self.mass_matrix_key] = sps.dia_matrix(
             (volumes * w, 0), shape=(g.num_cells, g.num_cells)
         )
 
@@ -377,7 +497,7 @@ class Biot(pp.Mpsa):
                 with discretization of the sub-parts of the system.
 
 
-       """
+        """
         parameter_dictionary: Dict[str, Any] = data[pp.PARAMETERS][
             self.mechanics_keyword
         ]
@@ -667,8 +787,7 @@ class Biot(pp.Mpsa):
         sps.spmatrix,
         sps.spmatrix,
     ]:
-        """ Discretization of poro-elastic system.
-        """
+        """Discretization of poro-elastic system."""
 
         # The grid coordinates are always three-dimensional, even if the grid
         # is really 2D. This means that there is not a 1-1 relation between the
@@ -994,7 +1113,7 @@ class Biot(pp.Mpsa):
         return rhs_jumps, grad_p_face
 
     def _face_vector_to_scalar(self, nf: int, nd: int) -> sps.coo_matrix:
-        """ Create a mapping from vector quantities on faces (stresses) to scalar
+        """Create a mapping from vector quantities on faces (stresses) to scalar
         quantities. The mapping is intended for the boundary discretization of the
         displacement divergence term  (coupling term in the flow equation).
 
@@ -1010,7 +1129,7 @@ class Biot(pp.Mpsa):
     def _subcell_gradient_to_cell_scalar(
         self, g: pp.Grid, cell_node_blocks: np.ndarray
     ) -> sps.spmatrix:
-        """ Create a mapping from sub-cell gradients to cell-wise traces of the gradient
+        """Create a mapping from sub-cell gradients to cell-wise traces of the gradient
         operator. The mapping is intended for the discretization of the term div(u)
         (coupling term in flow equation).
         """
@@ -1052,7 +1171,7 @@ class Biot(pp.Mpsa):
 
     # ----------------------- Methods for post processing -------------------------
     def extract_vector(self, g, u, dims=None, as_vector=False):
-        """ Extract displacement field from solution.
+        """Extract displacement field from solution.
 
         Parameters:
             g: grid, or a subclass.
@@ -1080,7 +1199,7 @@ class Biot(pp.Mpsa):
             return vals
 
     def extract_scalar(self, g, u):
-        """ Extract pressure field from solution.
+        """Extract pressure field from solution.
 
         Parameters:
             g: grid, or a subclass.
@@ -1094,7 +1213,7 @@ class Biot(pp.Mpsa):
         return u[g.dim * g.num_cells :]
 
     def compute_flux(self, g, u, data):
-        """ Compute flux field corresponding to a solution.
+        """Compute flux field corresponding to a solution.
 
         Parameters:
             g: grid, or a subclass.
@@ -1116,7 +1235,7 @@ class Biot(pp.Mpsa):
         return flux
 
     def compute_stress(self, g, u, data):
-        """ Compute stress field corresponding to a solution.
+        """Compute stress field corresponding to a solution.
 
         Parameters:
             g: grid, or a subclass.
@@ -1141,11 +1260,10 @@ class Biot(pp.Mpsa):
 
 
 class GradP(Discretization):
-    """ Class for the pressure gradient term of the Biot equation.
-    """
+    """Class for the pressure gradient term of the Biot equation."""
 
     def __init__(self, keyword):
-        """ Set the discretization, with the keyword used for storing various
+        """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
         Paramemeters:
@@ -1155,7 +1273,7 @@ class GradP(Discretization):
         self.keyword = keyword
 
     def ndof(self, g):
-        """ Return the number of degrees of freedom associated to the method.
+        """Return the number of degrees of freedom associated to the method.
 
         In this case number of cells times dimension (stress dof).
 
@@ -1171,7 +1289,7 @@ class GradP(Discretization):
         return g.dim * g.num_cells
 
     def discretize(self, g, data):
-        """ Discretize the pressure gradient term of the Biot equation.
+        """Discretize the pressure gradient term of the Biot equation.
 
         Parameters:
             g (pp.Grid): grid, or a subclass, with geometry fields computed.
@@ -1187,7 +1305,7 @@ class GradP(Discretization):
         )
 
     def assemble_matrix_rhs(self, g, data):
-        """ Return the matrix and right-hand side for a discretization of the pressure
+        """Return the matrix and right-hand side for a discretization of the pressure
         gradient term of the Biot equation.
 
         Parameters:
@@ -1203,7 +1321,7 @@ class GradP(Discretization):
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
     def assemble_matrix(self, g, data):
-        """ Return the matrix and right-hand side for a discretization of the pressure
+        """Return the matrix and right-hand side for a discretization of the pressure
         gradient term of the Biot equation.
 
         Parameters:
@@ -1222,7 +1340,7 @@ class GradP(Discretization):
         # Use the same key to acces the discretization matrix as the Biot class.
         mat_key = Biot().grad_p_matrix_key
 
-        if not mat_key in mat_dict:
+        if mat_key not in mat_dict.keys():
             raise ValueError(
                 """GradP class requires a pre-computed discretization to be
                              stored in the matrix dictionary."""
@@ -1237,7 +1355,7 @@ class GradP(Discretization):
         return div_mech * grad_p
 
     def assemble_rhs(self, g, data):
-        """ Return the zero right-hand side for a discretization of the pressure
+        """Return the zero right-hand side for a discretization of the pressure
         gradient term.
 
         @Runar: Is it correct that this is zero.
@@ -1254,8 +1372,7 @@ class GradP(Discretization):
 
 
 class DivU(Discretization):
-    """ Class for the displacement divergence term of the Biot equation.
-    """
+    """Class for the displacement divergence term of the Biot equation."""
 
     def __init__(
         self,
@@ -1264,7 +1381,7 @@ class DivU(Discretization):
         variable="displacement",
         mortar_variable="mortar_displacement",
     ):
-        """ Set the mechanics keyword and specify the variables.
+        """Set the mechanics keyword and specify the variables.
 
         The keywords are used to access and store parameters and discretization
         matrices.
@@ -1283,7 +1400,7 @@ class DivU(Discretization):
         self.mortar_variable = mortar_variable
 
     def ndof(self, g):
-        """ Return the number of degrees of freedom associated to the method.
+        """Return the number of degrees of freedom associated to the method.
 
         In this case number of cells times dimension (stress dof).
 
@@ -1299,7 +1416,7 @@ class DivU(Discretization):
         return g.num_cells
 
     def discretize(self, g, data):
-        """ Discretize the displacement divergence term of the Biot equation.
+        """Discretize the displacement divergence term of the Biot equation.
 
         Parameters:
             g (pp.Grid): grid, or a subclass, with geometry fields computed.
@@ -1315,7 +1432,7 @@ class DivU(Discretization):
         )
 
     def assemble_matrix_rhs(self, g, data):
-        """ Return the matrix and right-hand side for a discretization of the
+        """Return the matrix and right-hand side for a discretization of the
         displacement divergence term of the Biot equation.
 
         Parameters:
@@ -1331,7 +1448,7 @@ class DivU(Discretization):
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
     def assemble_matrix(self, g, data):
-        """ Return the matrix and right-hand side for a discretization of the
+        """Return the matrix and right-hand side for a discretization of the
         displacement divergence term of the Biot equation.
 
         Parameters:
@@ -1351,7 +1468,7 @@ class DivU(Discretization):
         # Use the same key to acces the discretization matrix as the Biot class.
         mat_key = Biot().div_u_matrix_key
 
-        if not mat_key in matrix_dictionary:
+        if mat_key not in matrix_dictionary.keys():
             raise ValueError(
                 """DivU class requires a pre-computed discretization to be
                              stored in the matrix dictionary."""
@@ -1360,7 +1477,7 @@ class DivU(Discretization):
         return matrix_dictionary[mat_key] * biot_alpha
 
     def assemble_rhs(self, g, data):
-        """ Return the right-hand side for a discretization of the displacement
+        """Return the right-hand side for a discretization of the displacement
         divergence term.
 
         For the time being, we assume an IE temporal discretization.
@@ -1527,27 +1644,24 @@ class DivU(Discretization):
         # The same procedure is applied to the unknown displacements, by assembling the
         # jump operator, projection and normal component extraction in the coupling matrix.
         # Finally, we integrate over the cell volume.
-        # The jump on the slave is defined to be negative for an open fracture (!),
-        # hence the negative sign.
         vol = sps.dia_matrix((g.cell_volumes, 0), shape=(g.num_cells, g.num_cells))
-        cc[self_ind, 2] -= (
+        cc[self_ind, 2] += (
             sps.diags(biot_alpha) * vol * normal_component * jump_on_slave
         )
 
         # We assume implicit Euler in Biot, thus the div_u term appears
         # on the rhs as div_u^{k-1}. This results in a contribution to the
         # rhs for the coupling variable also.
-        # See note above on sign. This term is negative (u^k - u^{k-1}), and moved to
+        # This term is negative (u^k - u^{k-1}) and moved to
         # the rhs, yielding the same sign as for the k term on the lhs.
-        rhs[self_ind] -= sps.diags(biot_alpha) * vol * previous_displacement_jump_normal
+        rhs[self_ind] += sps.diags(biot_alpha) * vol * previous_displacement_jump_normal
 
 
 class BiotStabilization(Discretization):
-    """ Class for the stabilization term of the Biot equation.
-    """
+    """Class for the stabilization term of the Biot equation."""
 
     def __init__(self, keyword="mechanics", variable="pressure"):
-        """ Set the two keywords.
+        """Set the two keywords.
 
         The keywords are used to access and store parameters and discretization
         matrices.
@@ -1557,7 +1671,7 @@ class BiotStabilization(Discretization):
         self.variable = variable
 
     def ndof(self, g):
-        """ Return the number of degrees of freedom associated to the method.
+        """Return the number of degrees of freedom associated to the method.
 
         In this case number of cells times dimension (stress dof).
 
@@ -1573,7 +1687,7 @@ class BiotStabilization(Discretization):
         return g.num_cells
 
     def discretize(self, g, data):
-        """ Discretize the stabilization term of the Biot equation.
+        """Discretize the stabilization term of the Biot equation.
 
         Parameters:
             g (pp.Grid): grid, or a subclass, with geometry fields computed.
@@ -1589,7 +1703,7 @@ class BiotStabilization(Discretization):
         )
 
     def assemble_matrix_rhs(self, g, data):
-        """ Return the matrix and right-hand side for a discretization of the
+        """Return the matrix and right-hand side for a discretization of the
         stabilization term of the Biot equation.
 
         Parameters:
@@ -1605,7 +1719,7 @@ class BiotStabilization(Discretization):
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
     def assemble_matrix(self, g, data):
-        """ Return the matrix and right-hand side for a discretization of the
+        """Return the matrix and right-hand side for a discretization of the
         stabilization term of the Biot equation.
 
         Parameters:
@@ -1624,7 +1738,7 @@ class BiotStabilization(Discretization):
         mat_key = Biot().stabilization_matrix_key
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if not mat_key in matrix_dictionary:
+        if mat_key not in matrix_dictionary.keys():
             raise ValueError(
                 """BiotStabilization class requires a pre-computed
                              discretization to be stored in the matrix dictionary."""
@@ -1632,7 +1746,7 @@ class BiotStabilization(Discretization):
         return matrix_dictionary[mat_key]
 
     def assemble_rhs(self, g, data):
-        """ Return the right-hand side for the stabilization part of the displacement
+        """Return the right-hand side for the stabilization part of the displacement
         divergence term.
 
         For the time being, we assume an IE temporal discretization.

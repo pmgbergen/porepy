@@ -6,8 +6,9 @@ This can be thought of as a module for backend utility functions, as opposed to
 the frontend functions found in utils.
 
 """
-import numpy as np
 import warnings
+
+import numpy as np
 
 import porepy as pp
 

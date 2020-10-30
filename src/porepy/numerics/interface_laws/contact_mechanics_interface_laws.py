@@ -6,10 +6,11 @@ tractions on the fractures. Also, in the case of coupled physics (Biot and the l
 classes handling the arising coupling terms are provided.
 """
 
-import numpy as np
-import scipy.sparse as sps
 import logging
 import time
+
+import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 class PrimalContactCoupling(
     porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
 ):
-    """ Implement the coupling conditions for the pure mechanics problem.
+    """Implement the coupling conditions for the pure mechanics problem.
 
     The primary variables for this formulation are displacement in the ambient dimension,
     displacements at the boundary of the highest dimensional grid (represented as mortar
@@ -53,7 +54,7 @@ class PrimalContactCoupling(
         self.edge_coupling_via_high_dim = True
 
     def ndof(self, mg):
-        """ Get the number of dof for this coupling.
+        """Get the number of dof for this coupling.
 
         It is assumed that this method will only be called for mortar grids of
         co-dimension 1. If the assumption is broken, this will not work.
@@ -90,7 +91,7 @@ class PrimalContactCoupling(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
     ):
 
-        """ Assemble the dicretization of the interface law, and its impact on
+        """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
         Parameters:
             g_master: Grid on one neighboring subdomain.
@@ -102,8 +103,6 @@ class PrimalContactCoupling(
                 added.
 
         """
-        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-
         ambient_dimension = g_master.dim
 
         master_ind = 0
@@ -250,7 +249,7 @@ class PrimalContactCoupling(
 
         ## Second, the contact stress is mapped to the mortar grid.
         # We have for the positive (first) and negative (second) side of the mortar that
-        # T_slave = T_master_pos = -T_master_neg,
+        # T_slave = T_master_j = -T_master_k,
         # so we need to map the slave traction with the corresponding signs to match the
         # mortar tractions.
 
@@ -259,14 +258,15 @@ class PrimalContactCoupling(
         # (note the inverse rotation is given by a transpose).
         # Finally, the contact stresses will be felt in different directions by
         # the two sides of the mortar grids (Newton's third law), hence
-        # adjust the signs
+        # adjust the signs: sign_of_mortar_sides gives a minus for the j side and
+        # plus for the k side, yielding the two equations
+        # - T_slave + T_master_j = 0    and T_slave + T_master_k = 0
         contact_traction_to_mortar = (
             mg.sign_of_mortar_sides(nd=ambient_dimension)
             * projection.project_tangential_normal(mg.num_cells).T
             * mg.slave_to_mortar_int(nd=ambient_dimension)
         )
-        # Minus to obtain -T_slave + T_master = 0.
-        cc[mortar_ind, slave_ind] = -contact_traction_to_mortar
+        cc[mortar_ind, slave_ind] = contact_traction_to_mortar
 
         matrix += cc
 
@@ -282,7 +282,7 @@ class PrimalContactCoupling(
         data_edge_secondary,
         matrix,
     ):
-        """ Assemble the stress contribution from the mortar displacement on one edge
+        """Assemble the stress contribution from the mortar displacement on one edge
         on the stress balance on a neighboring edge, in the sense that the two edges
         share a node located at the corner.
 
