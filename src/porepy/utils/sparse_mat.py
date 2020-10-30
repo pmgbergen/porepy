@@ -69,7 +69,7 @@ def merge_matrices(A, B, lines):
     ---------
     A (scipy.sparse.spmatrix): A sparce matrix
     B (scipy.sparse.spmatrix): A sparce matrix
-    lines (ndarray): Lines of A to be replaced by B. 
+    lines (ndarray): Lines of A to be replaced by B.
 
     Return
     ------
@@ -136,10 +136,10 @@ def merge_matrices(A, B, lines):
 def stack_mat(A, B):
     """
     Stack matrix B at the end of matrix A.
-    If A and B are csc matrices this function is equivalent to 
-    A = scipy.sparse.hstack((A, B))
-    If A and B are csr matrices this function is equivalent to 
-    A = scipy.sparse.vstack((A, B))
+    If A and B are csc matrices this function is equivalent to
+        A = scipy.sparse.hstack((A, B))
+    If A and B are csr matrices this function is equivalent to
+        A = scipy.sparse.vstack((A, B))
 
     Parameters:
     -----------
@@ -276,7 +276,7 @@ def slice_mat(A, ind):
 def csr_matrix_from_blocks(
     data: np.ndarray, block_size: int, num_blocks: int
 ) -> sps.spmatrix:
-    """ Create a csr representation of a block diagonal matrix of uniform block size.
+    """Create a csr representation of a block diagonal matrix of uniform block size.
 
     The function is equivalent to, but orders of magnitude faster than, the call
 
@@ -310,7 +310,7 @@ def csr_matrix_from_blocks(
 def csc_matrix_from_blocks(
     data: np.ndarray, block_size: int, num_blocks: int
 ) -> sps.spmatrix:
-    """ Create a csc representation of a block diagonal matrix of uniform block size.
+    """Create a csc representation of a block diagonal matrix of uniform block size.
 
     The function is equivalent to, but orders of magnitude faster than, the call
 
@@ -344,7 +344,7 @@ def csc_matrix_from_blocks(
 def _csx_matrix_from_blocks(
     data: np.ndarray, block_size: int, num_blocks: int, matrix_format
 ) -> sps.spmatrix:
-    """ Create a csr representation of a block diagonal matrix of uniform block size.
+    """Create a csr representation of a block diagonal matrix of uniform block size.
 
     The function is equivalent to, but orders of magnitude faster than, the call
 

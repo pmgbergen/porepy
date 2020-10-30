@@ -9,11 +9,11 @@ NOTE: This module should be considered an experimental feature, which will likel
 undergo major changes (or be deleted).
 
 """
-import numpy as np
-import scipy.sparse as sps
-import scipy.sparse.linalg as spla
 import logging
 import time
+
+import numpy as np
+import scipy.sparse.linalg as spla
 
 import porepy as pp
 import porepy.models.abstract_model
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class ContactMechanics(porepy.models.abstract_model.AbstractModel):
-    """ This is a shell class for contact mechanics problems.
+    """This is a shell class for contact mechanics problems.
 
     The intended use is to inherit from this class, and do the necessary modifications
     and specifications for the problem to be fully defined. The minimal adjustment
@@ -71,12 +71,16 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             self.params = params
             self.viz_folder_name = params.get("folder_name", "contact_mechanics_viz")
 
-    def create_grid(self):
-        """
-        Method that creates a GridBucket of a 2D domain with one fracture and sets
-        projections to local coordinates for all fractures.
+        # Initialize grid bucket
+        self.gb = None
 
-        The method requires the following attribute:
+        self.linear_solver = "direct"
+
+    def create_grid(self):
+        """Create a (fractured) domain in 2D or 3D, with projections to local
+        coordinates set for all fractures.
+
+        The method requires the following attribute, which is stored in self.params:
             mesh_args (dict): Containing the mesh sizes.
 
         The method assigns the following attributes to self:
@@ -94,8 +98,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         pass
 
     def _nd_grid(self):
-        """ Get the grid of the highest dimension. Assumes self.gb is set.
-        """
+        """Get the grid of the highest dimension. Assumes self.gb is set."""
         return self.gb.grids_of_dimension(self.Nd)[0]
 
     def domain_boundary_sides(self, g):
@@ -119,7 +122,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         return all_bf, east, west, north, south, top, bottom
 
     def bc_type(self, g):
-        """ Define type of boundary conditions: Dirichlet on all global boundaries,
+        """Define type of boundary conditions: Dirichlet on all global boundaries,
         Dirichlet also on fracture faces.
         """
         all_bf = g.get_boundary_faces()
@@ -133,8 +136,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         return bc
 
     def bc_values(self, g):
-        """ Set homogeneous conditions on all boundary faces.
-        """
+        """Set homogeneous conditions on all boundary faces."""
         # Values for all Nd components, facewise
         values = np.zeros((self.Nd, g.num_faces))
         # Reshape according to PorePy convention
@@ -142,8 +144,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         return values
 
     def source(self, g):
-        """
-        """
+        """"""
         return np.zeros(self.Nd * g.num_cells)
 
     def set_parameters(self):
@@ -255,7 +256,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 }
 
     def initial_condition(self):
-        """ Set initial guess for the variables.
+        """Set initial guess for the variables.
 
         The displacement is set to zero in the Nd-domain, and at the fracture interfaces
         The displacement jump is thereby also zero.
@@ -276,9 +277,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                     (np.zeros((g.dim, g.num_cells)), -1 * np.ones(g.num_cells))
                 ).ravel(order="F")
                 state = {
-                    "previous_iterate": {self.contact_traction_variable: traction},
                     self.contact_traction_variable: traction,
                 }
+                pp.set_iterate(d, {self.contact_traction_variable: traction})
             else:
                 state = {}
             pp.set_state(d, state)
@@ -288,12 +289,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
             if mg.dim == self.Nd - 1:
                 size = mg.num_cells * self.Nd
-                state = {
-                    self.mortar_displacement_variable: np.zeros(size),
-                    "previous_iterate": {
-                        self.mortar_displacement_variable: np.zeros(size)
-                    },
-                }
+                state = {self.mortar_displacement_variable: np.zeros(size)}
+                iterate = {self.mortar_displacement_variable: np.zeros(size)}
+                pp.set_iterate(d, iterate)
             else:
                 state = {}
             pp.set_state(d, state)
@@ -302,7 +300,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         """
         Extract parts of the solution for current iterate.
 
-        The iterate solutions in d[pp.STATE]["previous_iterate"] are updated for the
+        The iterate solutions in d[pp.STATE][pp.ITERATE] are updated for the
         mortar displacements and contact traction are updated.
         Method is a tailored copy from assembler.distribute_variable.
 
@@ -329,7 +327,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                     if name == self.mortar_displacement_variable:
                         mortar_u = solution_vector[dof[bi] : dof[bi + 1]]
                         data = self.gb.edge_props(g)
-                        data[pp.STATE]["previous_iterate"][
+                        data[pp.STATE][pp.ITERATE][
                             self.mortar_displacement_variable
                         ] = mortar_u.copy()
                 else:
@@ -342,12 +340,12 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                         if name == self.contact_traction_variable:
                             contact = solution_vector[dof[bi] : dof[bi + 1]]
                             data = self.gb.node_props(g)
-                            data[pp.STATE]["previous_iterate"][
+                            data[pp.STATE][pp.ITERATE][
                                 self.contact_traction_variable
                             ] = contact.copy()
 
     def get_state_vector(self):
-        """ Get a vector of the current state of the variables; with the same ordering
+        """Get a vector of the current state of the variables; with the same ordering
             as in the assembler.
 
         Returns:
@@ -383,7 +381,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         """
         mg = data_edge["mortar_grid"]
         if from_iterate:
-            mortar_u = data_edge[pp.STATE]["previous_iterate"][
+            mortar_u = data_edge[pp.STATE][pp.ITERATE][
                 self.mortar_displacement_variable
             ]
         else:
@@ -399,13 +397,59 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         u_mortar_local = project_to_local * displacement_jump_global_coord
         return u_mortar_local.reshape((self.Nd, -1), order="F")
 
-    def _set_friction_coefficient(self, g):
-        """ The friction coefficient is uniform, and equal to 1.
+    def reconstruct_stress(self, previous_iterate: bool = False) -> None:
         """
+        Compute the stress in the highest-dimensional grid based on the displacement
+        states in that grid, adjacent interfaces and global boundary conditions.
+
+        The stress is stored in the data dictionary of the highest-dimensional grid,
+        in [pp.STATE]['stress'].
+
+        Parameters:
+            previous_iterate (boolean, optional): If True, use values from previous
+                iteration to compute the stress. Defaults to False.
+
+        """
+        g = self._nd_grid()
+        d = self.gb.node_props(g)
+
+        mpsa = pp.Mpsa(self.mechanics_parameter_key)
+
+        if previous_iterate:
+            u = d[pp.STATE][pp.ITERATE][self.displacement_variable]
+        else:
+            u = d[pp.STATE][self.displacement_variable]
+
+        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.mechanics_parameter_key]
+
+        # Stress contribution from internal cell center displacements
+        stress = matrix_dictionary[mpsa.stress_matrix_key] * u
+
+        # Contributions from global boundary conditions
+        bound_stress_discr = matrix_dictionary[mpsa.bound_stress_matrix_key]
+        global_bc_val = d[pp.PARAMETERS][self.mechanics_parameter_key]["bc_values"]
+        stress += bound_stress_discr * global_bc_val
+
+        # Contributions from the mortar displacement variables
+        for e, d_e in self.gb.edges():
+            # Only contributions from interfaces to the highest dimensional grid
+            mg = d_e["mortar_grid"]
+            if mg.dim == self.Nd - 1:
+                if previous_iterate:
+                    u_e = d_e[pp.STATE][pp.ITERATE][self.mortar_displacement_variable]
+                else:
+                    u_e = d_e[pp.STATE][self.mortar_displacement_variable]
+
+                stress += bound_stress_discr * mg.mortar_to_master_avg(nd=self.Nd) * u_e
+
+        d[pp.STATE]["stress"] = stress
+
+    def _set_friction_coefficient(self, g):
+        """The friction coefficient is uniform, and equal to 1."""
         return np.ones(g.num_cells)
 
     def prepare_simulation(self):
-        """ Is run prior to a time-stepping scheme. Use this to initialize
+        """Is run prior to a time-stepping scheme. Use this to initialize
         discretizations, linear solvers etc.
 
         TODO: Should the arguments be solver_options and **kwargs (for everything else?)
@@ -428,13 +472,11 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         )
 
     def after_simulation(self):
-        """ Called after a time-dependent problem
-        """
+        """Called after a time-dependent problem"""
         pass
 
     def discretize(self):
-        """ Discretize all terms
-        """
+        """Discretize all terms"""
 
         self.assembler = pp.Assembler(self.gb)
 
@@ -444,19 +486,21 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
     def before_newton_loop(self):
-        """ Will be run before entering a Newton loop. Discretize time-dependent quantities etc.
+        """Will be run before entering a Newton loop.
+        Discretize time-dependent quantities etc.
         """
         pass
 
     def before_newton_iteration(self):
         # Re-discretize the nonlinear term
-        self.assembler.discretize(term_filter=self.friction_coupling_term)
+        filt = pp.assembler_filters.ListFilter(term_list=[self.friction_coupling_term])
+        self.assembler.discretize(filt=filt)
 
     def after_newton_iteration(self, solution_vector):
         """
         Extract parts of the solution for current iterate.
 
-        The iterate solutions in d[pp.STATE]["previous_iterate"] are updated for the
+        The iterate solutions in d[pp.STATE][pp.ITERATE] are updated for the
         mortar displacements and contact traction are updated.
         Method is a tailored copy from assembler.distribute_variable.
 
@@ -569,7 +613,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         solver = self.params.get("linear_solver", "direct")
 
         if solver == "direct":
-            """ In theory, it should be possible to instruct SuperLU to reuse the
+            """In theory, it should be possible to instruct SuperLU to reuse the
             symbolic factorization from one iteration to the next. However, it seems
             the scipy wrapper around SuperLU has not implemented the necessary
             functionality, as discussed in
@@ -580,30 +624,6 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
             """
             self.linear_solver = "direct"
-
-        elif solver == "pyamg":
-            self.linear_solver = solver
-            import pyamg
-
-            assembler = self.assembler
-
-            tic_assemble = time.time()
-            A, _ = assembler.assemble_matrix_rhs()
-            logger.info(
-                f"Done initial assembly. Elapsed time {time.time() - tic_assemble}:"
-            )
-
-            g = self.gb.grids_of_dimension(self.Nd)[0]
-            mechanics_dof = assembler.dof_ind(g, self.displacement_variable)
-
-            tic_pyamg = time.time()
-            pyamg_solver = pyamg.smoothed_aggregation_solver(
-                A[mechanics_dof][:, mechanics_dof]
-            )
-            self.mechanics_precond = pyamg_solver.aspreconditioner(cycle="W")
-            logger.debug(
-                f"AMG solver initialized. Elapsed time: {time.time() - tic_pyamg}"
-            )
 
         else:
             raise ValueError(f"Unknown linear solver {solver}")
@@ -616,53 +636,17 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         A, b = self.assembler.assemble_matrix_rhs()
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
         logger.debug(
-            f"Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."
+            f"Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min"
+            + f" {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."
         )
         if self.linear_solver == "direct":
             return spla.spsolve(A, b)
         elif self.linear_solver == "pyamg":
-            g = self.gb.grids_of_dimension(self.Nd)[0]
-            assembler = self.assembler
-            mechanics_dof = assembler.dof_ind(g, self.displacement_variable)
-            mortar_dof = np.setdiff1d(np.arange(b.size), mechanics_dof)
-
-            A_el_m = A[mechanics_dof, :][:, mortar_dof]
-            A_m_el = A[mortar_dof, :][:, mechanics_dof]
-            A_m_m = A[mortar_dof, :][:, mortar_dof]
-
-            # Also create a factorization of the mortar variable. This is relatively cheap, so why not
-            A_m_m_solve = sps.linalg.factorized(A_m_m)
-
-            def precond_schur(r):
-                # Mortar residual
-                rm = r[mortar_dof]
-                # Residual for the elasticity is the local one, plus the mapping of the mortar residual
-                r_el = r[mechanics_dof] - A_el_m * A_m_m_solve(rm)
-                # Solve, using specified solver
-                du = self.mechanics_precond(r_el)
-                # Map back to mortar residual
-                dm = A_m_m_solve(rm - A_m_el * du)
-                x = np.zeros_like(r)
-                x[mechanics_dof] = du
-                x[mortar_dof] = dm
-                return x
-
-            residuals = []
-
-            def callback(r):
-                logger.info(f"Linear solver iteration {len(residuals)}, residual {r}")
-                residuals.append(r)
-
-            M = sps.linalg.LinearOperator(A.shape, precond_schur)
-            sol, info = spla.gmres(
-                A, b, M=M, restart=100, maxiter=1000, tol=tol, callback=callback
-            )
-            logger.info(f"Completed a total of {len(residuals)} iterations.")
-            return sol
+            raise NotImplementedError("Not that far yet")
 
     def _is_nonlinear_problem(self):
         """
-        If there is no fracture, the problem is usually linear. 
+        If there is no fracture, the problem is usually linear.
         Overwrite this function if e.g. parameter nonlinearities are included.
         """
         return self.gb.dim_min() < self.Nd

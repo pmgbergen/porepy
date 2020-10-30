@@ -20,9 +20,11 @@ class PointGrid(Grid):
             raise ValueError("PointGrid: points must be given in 3 dimensions")
 
         pt = np.atleast_2d(pt)
-        if pt.shape[0] == 1: # point is given as 1d array
+        if pt.shape[0] == 1:  # point is given as 1d array
             if pt.shape[1] != 3:
-                raise ValueError("PointGrid: 1d point arrays only allowed for single points")
+                raise ValueError(
+                    "PointGrid: 1d point arrays only allowed for single points"
+                )
             pt = pt.T
 
         name = "PointGrid" if name is None else name

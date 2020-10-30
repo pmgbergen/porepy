@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "porepy"
+version = "1.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.6"
+meshio = "^4.0.15"
+networkx = "^2.3"
+sympy = "^1.4"
+matplotlib = "^3.0.3"
+cython = "^0.29.7"
+future = "^0.17.1"
+six = "^1.12.0"
+shapely = {extras = ["vectorized"], version = "^1.7.0"}
+numba = "^0.50.0"
+scipy = "^1.4.1"
+numpy = "^1.18.5"
+gmsh = "^4.5"
+vtk = "^9.0.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.4.3"
+pytest-cov = "^2.10.0"
+pytest-runner = "^5.2"
+black = "20.08b1"
+mypy = "^0.790"
+flake8 = "^3.8.3"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

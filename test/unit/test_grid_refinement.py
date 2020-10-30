@@ -12,7 +12,7 @@ import unittest
 
 from porepy.grids.structured import TensorGrid
 from porepy.grids import refinement
-from porepy.fracs import meshing, mortars
+from porepy.fracs import meshing
 from test import test_utils
 
 
@@ -364,8 +364,6 @@ class TestRefinementMortarGrid(unittest.TestCase):
                 np.allclose(low_to_mortar_known, mg.slave_to_mortar_int().todense())
             )
 
-    # ------------------------------------------------------------------------------#
-
     def test_mortar_grid_1d_equally_refine_mortar_grids(self):
 
         f1 = np.array([[0, 1], [0.5, 0.5]])
@@ -382,7 +380,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
                 for s, g in mg.side_grids.items()
             }
 
-            mortars.update_mortar_grid(mg, new_side_grids, 1e-4)
+            mg.update_mortar(new_side_grids, 1e-4)
 
             high_to_mortar_known = (
                 1.0
@@ -529,7 +527,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
                 for s, g in mg.side_grids.items()
             }
 
-            mortars.update_mortar_grid(mg, new_side_grids, 1e-4)
+            mg.update_mortar(new_side_grids, 1e-4)
 
             high_to_mortar_known = np.matrix(
                 [
@@ -689,7 +687,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
             gb.update_nodes({old_g: new_g})
             mg = d["mortar_grid"]
-            mortars.update_physical_low_grid(mg, new_g, 1e-4)
+            mg.update_slave(new_g, 1e-4)
 
             high_to_mortar_known = np.matrix(
                 [
@@ -807,7 +805,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
             gb.update_nodes({old_g: new_g})
             mg = d["mortar_grid"]
-            mortars.update_physical_low_grid(mg, new_g, 1e-4)
+            mg.update_slave(new_g, 1e-4)
 
             high_to_mortar_known = np.matrix(
                 [

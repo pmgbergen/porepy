@@ -3,30 +3,30 @@
 Acknowledgements:
     The functions are a python translation of the corresponding matlab
     functions found in the Matlab Reservoir Simulation Toolbox (MRST) developed
-    by SINTEF ICT, see www.sintef.no/projectweb/mrst/ . 
-    
+    by SINTEF ICT, see www.sintef.no/projectweb/mrst/ .
+
 """
 
 import numpy as np
 
 
 def rldecode(A, n):
-    """ Decode compressed information. 
-        
-        The code is heavily inspired by MRST's function with the same name, 
-        however, requirements on the shape of functions are probably somewhat
-        different.
-        
-        >>> rldecode(np.array([1, 2, 3]), np.array([2, 3, 1]))
-        [1, 1, 2, 2, 2, 3]
-        
-        >>> rldecode(np.array([1, 2]), np.array([1, 3]))
-        [1, 2, 2, 2]
-        
-        Args:
-            A (double, m x k), compressed matrix to be recovered. The 
-            compression should be along dimension 1
-            n (int): Number of occurences for each element
+    """Decode compressed information.
+
+    The code is heavily inspired by MRST's function with the same name,
+    however, requirements on the shape of functions are probably somewhat
+    different.
+
+    >>> rldecode(np.array([1, 2, 3]), np.array([2, 3, 1]))
+    [1, 1, 2, 2, 2, 3]
+
+    >>> rldecode(np.array([1, 2]), np.array([1, 3]))
+    [1, 2, 2, 2]
+
+    Args:
+        A (double, m x k), compressed matrix to be recovered. The
+        compression should be along dimension 1
+        n (int): Number of occurences for each element
     """
     r = n > 0
     i = np.cumsum(np.hstack((np.zeros(1, dtype=np.int), n[r])), dtype=np.int)

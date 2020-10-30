@@ -7,13 +7,14 @@ The implementation is based on the weakly symmetric version of MPSA, described i
         IJNME, 2017.
 
 """
+import logging
+from time import time
+from typing import Any, Dict, Tuple
+
 import numpy as np
 import scipy.sparse as sps
-import logging
-import porepy as pp
-from time import time
-from typing import Dict, Tuple, Any
 
+import porepy as pp
 from porepy.numerics.discretization import Discretization
 
 # Module-wide logger
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class Mpsa(Discretization):
-    """ Implementation of the Multi-point stress approximation.
+    """Implementation of the Multi-point stress approximation.
 
     Attributes:
         keyword (str): Keyword used to identify the parameter dictionary.
@@ -40,7 +41,7 @@ class Mpsa(Discretization):
     """
 
     def __init__(self, keyword: str) -> None:
-        """ Set the discretization, with the keyword used for storing various
+        """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
         Paramemeters:
@@ -55,7 +56,7 @@ class Mpsa(Discretization):
         self.bound_displacment_face_matrix_key = "bound_displacement_face"
 
     def _key(self) -> str:
-        """ Get the keyword of this object, on a format friendly to access relevant
+        """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
 
         Returns:
@@ -83,7 +84,7 @@ class Mpsa(Discretization):
     def extract_displacement(
         self, g: pp.Grid, solution_array: np.ndarray, d: Dict
     ) -> np.ndarray:
-        """ Extract the displacement part of a solution.
+        """Extract the displacement part of a solution.
 
         Parameters:
             g (grid): To which the solution array belongs.
@@ -101,7 +102,7 @@ class Mpsa(Discretization):
     def extract_stress(
         self, g: pp.Grid, solution_array: np.ndarray, d: Dict
     ) -> np.ndarray:
-        """ Extract the stress corresponding to a solution
+        """Extract the stress corresponding to a solution
 
         The stress is composed of contributions from the solution variable and the
         boundary conditions.
@@ -342,6 +343,74 @@ class Mpsa(Discretization):
                 self.bound_displacment_face_matrix_key
             ] = bound_displacement_face_glob
 
+    def update_discretization(self, g, data):
+        """Update discretization.
+
+        The updates can generally come as a combination of two forms:
+            1) The discretization on part of the grid should be recomputed.
+            2) The old discretization can be used (in parts of the grid), but the
+               numbering of unknowns has changed, and the discretization should be
+               reorder accordingly.
+
+        Information on the basis for the update should be stored in a field
+
+            data['update_discretization']
+
+        This should be a dictionary which could contain keys:
+
+            modified_cells, modified_faces
+
+        define cells, faces and nodes that have been modified (either parameters,
+        geometry or topology), and should be rediscretized. It is up to the
+        discretization method to implement the change necessary by this modification.
+        Note that depending on the computational stencil of the discretization method,
+        a grid quantity may be rediscretized even if it is not marked as modified.
+
+        The dictionary data['update_discretization'] should further have keys:
+
+            cell_index_map, face_index_map
+
+        these should specify sparse matrices that maps old to new indices. If not
+        provided, the cell and face bookkeeping will be assumed constant.
+
+        It is up to the caller to specify which parts of the grid to recompute, and
+        how to update the numbering of degrees of freedom. If the discretization
+        method does not provide a tailored implementation for update, it is not
+        necessary to provide this information.
+
+        Parameters:
+            g (pp.Grid): Grid to be rediscretized.
+            data (dictionary): With discretization parameters.
+
+        """
+        # Keywords that should be interpreted as vector cell quantities
+        vector_cell_right = [
+            self.stress_matrix_key,
+            self.bound_displacment_cell_matrix_key,
+        ]
+        vector_face_right = [
+            self.bound_stress_matrix_key,
+            self.bound_displacment_face_matrix_key,
+        ]
+
+        vector_face_left = [
+            self.stress_matrix_key,
+            self.bound_displacment_cell_matrix_key,
+            self.bound_displacment_face_matrix_key,
+            self.bound_stress_matrix_key,
+        ]
+
+        pp.fvutils.partial_update_discretization(
+            g,
+            data,
+            self.keyword,
+            self.discretize,
+            dim=g.dim,
+            vector_cell_right=vector_cell_right,
+            vector_face_right=vector_face_right,
+            vector_face_left=vector_face_left,
+        )
+
     def assemble_matrix_rhs(
         self, g: pp.Grid, data: Dict
     ) -> Tuple[sps.spmatrix, np.ndarray]:
@@ -399,7 +468,7 @@ class Mpsa(Discretization):
         return M
 
     def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
-        """ Return the right-hand side for a discretization of a second
+        """Return the right-hand side for a discretization of a second
         order elliptic equation using a finite volume method.
 
         Also discretize the necessary operators if the data dictionary does not
@@ -524,8 +593,10 @@ class Mpsa(Discretization):
         if bound.bc_type != "vectorial":
             raise AttributeError("MPSA must be given a vectorial boundary condition")
 
-        if bound.is_per.sum():
-            raise NotImplementedError("Periodic boundary conditions are not implemented for Mpsa")
+        if hasattr(g, "periodic_face_map"):
+            raise NotImplementedError(
+                "Periodic boundary conditions are not implemented for Mpsa"
+            )
 
         if g.dim == 1:
             tpfa_key = "tpfa_elasticity"
@@ -785,9 +856,9 @@ class Mpsa(Discretization):
         # Here you have to be carefull if you ever change hook_cell to something else than
         # 0. Because we have pulled the Neumann conditions out of the stress condition
         # the following would give an index error. Instead you would have to make a
-        # hook_cell_neu equal the number neumann_sub_faces, and a hook_cell_int equal the number
-        # of internal sub_faces and use .keep_neu and .exclude_bnd. But since this is all zeros,
-        # thi indexing does not matter.
+        # hook_cell_neu equal the number neumann_sub_faces, and a hook_cell_int equal the
+        # number of internal sub_faces and use .keep_neu and .exclude_bnd. But since this
+        # is all zeros, this indexing does not matter.
         hook_cell = bound_exclusion.exclude_robin_dirichlet(hook_cell)
 
         # Matrices to enforce displacement continuity
@@ -855,7 +926,8 @@ class Mpsa(Discretization):
         # Define right hand side for Neumann boundary conditions
         # First row indices in rhs matrix
         # Pick out the subface indices
-        # The boundary conditions should be given in the given basis, therefore no transformation
+        # The boundary conditions should be given in the given basis, therefore no
+        # transformation
         subfno_neu = bound_exclusion.keep_neumann(
             subfno_nd.ravel("C"), transform=False
         ).ravel("F")
@@ -1097,8 +1169,7 @@ class Mpsa(Discretization):
     # -----------------------------------------------------------------------------
 
     def _estimate_peak_memory_mpsa(self, g: pp.Grid) -> int:
-        """ Rough estimate of peak memory need for mpsa discretization.
-        """
+        """Rough estimate of peak memory need for mpsa discretization."""
         nd = g.dim
         num_cell_nodes = g.cell_nodes().sum(axis=1).A
 
@@ -1288,7 +1359,7 @@ class Mpsa(Discretization):
         constit: pp.FourthOrderTensor,
         subcell_topology: pp.fvutils.SubcellTopology,
     ) -> Tuple[sps.spmatrix, sps.spmatrix, np.ndarray, np.ndarray]:
-        """ Compute product between stiffness tensor and face normals.
+        """Compute product between stiffness tensor and face normals.
 
         The method splits the stiffness matrix into a symmetric and asymmetric
         part, and computes the products with normal vectors for each. The method
@@ -1608,7 +1679,7 @@ class Mpsa(Discretization):
         num_sub_cells: np.ndarray,
         nd: int,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """ Transform columns of displacement balance from increasing cell
+        """Transform columns of displacement balance from increasing cell
         ordering (first x-variables of all cells, then y) to increasing
         variables (first all variables of the first cells, then...)
 
@@ -1647,7 +1718,7 @@ class Mpsa(Discretization):
         return d_cont_grad, d_cont_cell
 
     def _row_major_to_col_major(self, shape: Tuple, nd: int, axis: int) -> sps.spmatrix:
-        """ Transform columns of displacement balance from increasing cell
+        """Transform columns of displacement balance from increasing cell
         ordering (first x-variables of all cells, then y) to increasing
         variables (first all variables of the first cells, then...)
 
@@ -1750,9 +1821,14 @@ class Mpsa(Discretization):
     ) -> Tuple[pp.Grid, pp.FourthOrderTensor]:
         g = g.copy()
 
-        cell_centers, face_normals, face_centers, _, _, nodes = pp.map_geometry.map_grid(
-            g
-        )
+        (
+            cell_centers,
+            face_normals,
+            face_centers,
+            _,
+            _,
+            nodes,
+        ) = pp.map_geometry.map_grid(g)
         g.cell_centers = cell_centers
         g.face_normals = face_normals
         g.face_centers = face_centers
@@ -1772,7 +1848,7 @@ class Mpsa(Discretization):
     def _bc_for_subgrid(
         self, bc: pp.BoundaryConditionVectorial, sub_g: pp.Grid, face_map: np.ndarray
     ) -> pp.BoundaryConditionVectorial:
-        """ Obtain a representation of a boundary condition for a subgrid of
+        """Obtain a representation of a boundary condition for a subgrid of
         the original grid.
 
         This is somehow better fit for the BoundaryCondition class, but it is not clear

@@ -1153,7 +1153,10 @@ class BasicsTest(unittest.TestCase):
 
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
-        U_known, rhs_known = (
+        (
+            U_known,
+            rhs_known,
+        ) = (
             _helper_test_upwind_coupling.matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d()
         )
 

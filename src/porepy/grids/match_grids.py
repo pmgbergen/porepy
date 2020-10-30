@@ -1,220 +1,20 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Intended workflow for mortars:
-    1) Create a full grid bucket of all objects to be included.
-    2) Somehow create new grids for (some of) the nodes in the bucket.
-    3) Find relation between new grid and neighboring grids.
-    4) Replace nodes in the bucket
-    5) Replace projection operators located on grid_bucket edges.
-
-Implementation needs:
-    1) Initialize identity (whatever that means) projections when a grid
-       bucket is created.
-    2) Create a framework for modifying grids. In the first stage this will
-       involve perturbing nodes (not on the boundary). Second stage shoud be
-       refinements of simplex grids. Partial remeshing with other parameters
-       should also be on the list.
-       -> Partly solved by grids.refinement.
-    3) Methods to match cells and faces from different grids.
-       -> First attempt in relate_1d_and_2d_grids()
-    4) Creation of general projection matrices. Closely related to
-    5) Numerical methods that can handle general projections.
-
-Created on Sat Nov 11 16:22:36 2017
-
-@author: Eirik Keilegavlen
+Module contains various functions to find overlaps between grid cells.
 """
+import logging
 
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.fracs import non_conforming
-from porepy.utils.matrix_compression import rldecode
-from porepy.utils.setmembership import ismember_rows, unique_columns_tol
-from porepy.grids.structured import TensorGrid
 import porepy as pp
+from porepy.grids.structured import TensorGrid
+from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 
-# ------------------------------------------------------------------------------#
-
-
-def update_mortar_grid(mg, new_side_grids, tol):
-    """
-    Update the maps in the mortar class when the mortar grids are changed.
-    The update of the mortar grid is in-place.
-
-    It is asumed that the grids are aligned, with common start and endpoints.
-
-    Parameters:
-        mg (MortarGrid): the mortar grid class to be updated
-        new_side_grids (dictionary): for each SideTag key a new grid to be
-            updated in the mortar grid class.
-    """
-
-    split_matrix = {}
-
-    # For each side we compute the mapping between the old and the new mortar
-    # grids, we store them in a dictionary with SideTag as key.
-    for side, new_g in new_side_grids.items():
-        g = mg.side_grids[side]
-        if g.dim != new_g.dim:
-            raise ValueError("Grid dimension has to be the same")
-
-        if g.dim == 0:
-            # Nothing to do
-            return
-        elif g.dim == 1:
-            split_matrix[side] = split_matrix_1d(g, new_g, tol)
-        elif g.dim == 2:
-            split_matrix[side] = split_matrix_2d(g, new_g, tol)
-        else:
-            # No 3d mortar grid
-            raise ValueError
-
-    # Update the mortar grid class
-    mg.update_mortar(split_matrix, new_side_grids)
+logger = logging.getLogger(__name__)
 
 
-# ------------------------------------------------------------------------------#
-
-
-def update_physical_low_grid(mg, new_g, tol):
-    """
-    Update the maps in the mortar class when the lower dimensional grid is
-    changed. The update of the lower dimensional grid in the grid bucket needs
-    to be done outside.
-
-    It is asumed that the grids are aligned (cover the same domain), with
-    common start and endpoints. However, 1D grids need not be oriented in the
-    same direction (e.g. from 'left' to 'right'), and no restrictions are
-    placed on nodes on the 2D grid.
-
-    Parameters:
-        mg (MortarGrid): the mortar grid class to be updated
-        new_g (Grid): the new lower dimensional grid.
-
-    """
-    split_matrix = {}
-
-    # For each side we compute the mapping between the new lower dimensional
-    # grid and the mortar grid, we store them in a dictionary with SideTag as key.
-    for side, g in mg.side_grids.items():
-        if g.dim != new_g.dim:
-            raise ValueError("Grid dimension has to be the same")
-
-        if mg.dim == 0:
-            # Nothing to do
-            return
-        elif mg.dim == 1:
-            split_matrix[side] = split_matrix_1d(g, new_g, tol).T
-        elif mg.dim == 2:
-            split_matrix[side] = split_matrix_2d(g, new_g, tol).T
-        else:
-            # No 3d mortar grid
-            raise ValueError
-
-    # Update the mortar grid class
-    mg.update_slave(split_matrix)
-
-
-# ------------------------------------------------------------------------------#
-
-
-def update_physical_high_grid(mg, g_new, g_old, tol):
-
-    split_matrix = {}
-
-    if mg.dim == 0:
-
-        # retrieve the old faces and the corresponding coordinates
-        _, old_faces, _ = sps.find(mg._master_to_mortar_int)
-        old_nodes = g_old.face_centers[:, old_faces]
-
-        # retrieve the boundary faces and the corresponding coordinates
-        new_faces = g_new.get_all_boundary_faces()
-        new_nodes = g_new.face_centers[:, new_faces]
-
-        # we assume only one old node
-        for i in range(1, old_nodes.shape[1]):
-            is_same = (
-                pp.distances.point_pointset(old_nodes[:, 0], old_nodes[:, i]) < tol
-            )
-            if not is_same:
-                raise ValueError("0d->1d mappings must map to the same physical point")
-        old_nodes = old_nodes[:, 0]
-        mask = pp.distances.point_pointset(old_nodes, new_nodes) < tol
-        new_faces = new_faces[mask]
-
-        shape = (g_old.num_faces, g_new.num_faces)
-        matrix_DIJ = (np.ones(old_faces.shape), (old_faces, new_faces))
-        split_matrix = sps.csc_matrix(matrix_DIJ, shape=shape)
-
-    elif mg.dim == 1:
-        # The case is conceptually similar to 0d, but quite a bit more
-        # technical. Implementation is moved to separate function
-        split_matrix = _match_grids_along_line_from_geometry(mg, g_new, g_old, tol)
-
-    else:  # should be mg.dim == 2
-        # It should be possible to use essentially the same approach as in 1d,
-        # but this is not yet covered.
-        raise NotImplementedError("Have not yet implemented this.")
-
-    mg.update_master(split_matrix)
-
-
-# ------------------------------------------------------------------------------#
-
-
-def split_matrix_1d(g_old, g_new, tol):
-    """
-    By calling matching grid the function compute the cell mapping between two
-    different grids.
-
-    It is asumed that the two grids are aligned, with common start and
-    endpoints. However, their nodes can be ordered in oposite directions.
-
-    Parameters:
-        g_old (Grid): the first (old) grid
-        g_new (Grid): the second (new) grid
-    Return:
-        csr matrix: representing the cell mapping. The entries are the relative
-            cell measure between the two grids.
-
-    """
-    weights, new_cells, old_cells = match_grids_1d(g_new, g_old, tol)
-    shape = (g_new.num_cells, g_old.num_cells)
-    return sps.csr_matrix((weights, (new_cells, old_cells)), shape=shape)
-
-
-# ------------------------------------------------------------------------------#
-
-
-def split_matrix_2d(g_old, g_new, tol):
-    """
-    By calling matching grid the function compute the cell mapping between two
-    different grids.
-
-    It is asumed that the two grids have common boundary.
-
-    Parameters:
-        g_old (Grid): the first (old) grid
-        g_new (Grid): the second (new) grid
-    Return:
-        csr matrix: representing the cell mapping. The entries are the relative
-            cell measure between the two grids.
-
-    """
-    weights, new_cells, old_cells = match_grids_2d(g_new, g_old, tol)
-    shape = (g_new.num_cells, g_old.num_cells)
-    # EK: Is it really safe to use csr_matrix here?
-    return sps.csr_matrix((weights, (new_cells, old_cells)), shape=shape)
-
-
-# ------------------------------------------------------------------------------#
-
-
-def match_grids_1d(new_1d, old_1d, tol):
-    """ Obtain mappings between the cells of non-matching 1d grids.
+def match_1d(new_1d: pp.Grid, old_1d: pp.Grid, tol: float):
+    """Obtain mappings between the cells of non-matching 1d grids.
 
     The function constructs an refined 1d grid that consists of all nodes
     of at least one of the input grids.
@@ -280,11 +80,8 @@ def match_grids_1d(new_1d, old_1d, tol):
     return weights, new_g_ind, old_g_ind
 
 
-# ------------------------------------------------------------------------------#
-
-
-def match_grids_2d(new_g, old_g, tol):
-    """ Match two simplex tessalations to identify overlapping cells.
+def match_2d(new_g: pp.Grid, old_g: pp.Grid, tol: float):
+    """Match two simplex tessalations to identify overlapping cells.
 
     The overlaps are identified by the cell index of the two overlapping cells,
     and their weighted common area.
@@ -338,66 +135,32 @@ def match_grids_2d(new_g, old_g, tol):
     return weights, new_g_ind, old_g_ind
 
 
-# ------------------------------------------------------------------------------#
+def match_grids_along_1d_mortar(
+    mg: pp.MortarGrid, g_new: pp.Grid, g_old: pp.Grid, tol: float
+) -> sps.csr_matrix:
+    """Match the faces of two 2d grids along a 1d mortar grid.
 
+    The function identifies faces on the 1d segment specified by the MortarGrid, and
+    finds the area weights of the matched faces. Both sides of the mortar grid are taken
+    care of.
 
-def replace_grids_in_bucket(gb, g_map=None, mg_map=None, tol=1e-6):
-    """ Replace grids and / or mortar grids in a grid_bucket. Recompute mortar
-    mappings as needed.
+    Args:
+        mg (pp.MortarGrid): MortarGrid that specifies the target 1d line. Must be of
+            dimension 1.
+        g_new (pp.Grid): New 2d grid. Should have faces split along the 1d line.
+            Dimension 2.
+        g_old (pp.Grid): Old 2d grid. Dimension 2. The mappings in mg from mortar to
+            master should be set for this grid.
+        tol (double): Tolerance used in comparison of geometric quantities.
 
-    NOTE: These are implementation notes for an unfinished implementation.
-
-    Parameters:
-        gb (GridBucket): To be updated.
-        g_map (dictionary): Grids to replace. Keys are grids in the old bucket,
-            values are their replacements.
-        mg_map (dictionary): Mortar grids to replace. Keys are EITHER related
-            to mortar grids, or to edges. Probably, mg is most relevant, the we
-            need to identify the right edge shielded from user.
+    Raises:
+        ValueError: If the matching procedure goes wrong.
 
     Returns:
-        GridBucket: New grid bucket, with all relevant replacements. Not sure
-            how deep the copy should be - clearly a new graph, nodes and edges
-            replaced, but can we keep untouched grids?
+        sps.csr_matrix: Matrix that can be used to update mg._master_to_mortar_int.
 
     """
-    if mg_map is None:
-        mg_map = {}
 
-    # refine the mortar grids when specified
-    for mg_old, mg_new in mg_map.items():
-        update_mortar_grid(mg_old, mg_new, tol)
-
-    # update the grid bucket considering the new grids instead of the old one
-    # valid only for physical grids and not for mortar grids
-    if g_map is not None:
-        gb.update_nodes(g_map)
-    else:
-        g_map = {}
-
-    # refine the grids when specified
-    for g_old, g_new in g_map.items():
-        for _, d in gb.edges_of_node(g_new):
-            mg = d["mortar_grid"]
-            if mg.dim == g_new.dim:
-                # update the mortar grid of the same dimension
-                update_physical_low_grid(mg, g_new, tol)
-            else:  # g_new.dim == mg.dim + 1
-                update_physical_high_grid(mg, g_new, g_old, tol)
-
-    return gb
-
-
-# ----------------- Helper function below
-
-
-def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
-
-    # The purpose of this function is to construct a mapping between faces in
-    # the old and new grid. Specifically, we need to match faces that lies on
-    # the 1d segment identified by the mortar grid, and get the right area
-    # weightings when the two grids do not conform.
-    #
     # The algorithm is technical, partly because we also need to differ between
     # the left and right side of the segment, as these will belong to different
     # mortar grids.
@@ -609,7 +372,7 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
         face_to_cell_old = sps.coo_matrix((np.ones(rows.size), (rows, cols)))
 
         # Mapping between cells in 1d grid
-        weights, new_cells, old_cells = match_grids_1d(g_aux_new, g_aux_old, tol)
+        weights, new_cells, old_cells = match_1d(g_aux_new, g_aux_old, tol)
         between_cells = sps.csr_matrix((weights, (old_cells, new_cells)))
 
         # From faces to cell in new grid
@@ -628,4 +391,226 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
     return matrix.tocsr()
 
 
-# ------------------------------------------------------------------------------#
+def gb_refinement(
+    gb: pp.GridBucket, gb_ref: pp.GridBucket, tol: float = 1e-8, mode: str = "nested"
+):
+    """Wrapper for coarse_fine_cell_mapping to construct mapping for grids in
+    GridBucket.
+
+    Adds a node_prop to each grid in gb. The key is 'coarse_fine_cell_mapping',
+    and is the mapping generated by 'coarse_fine_cell_mapping(...)'.
+
+    Currently, only nested refinement is supported; more general cases are also
+    possible.
+
+    Note: No node prop is added to the reference grids in gb_ref.
+
+    Parameters
+    ----------
+    gb : pp.GridBucket
+        Coarse grid bucket
+    gb_ref : pp.GridBucket
+        Refined grid bucket
+    tol : float, Optional
+        Tolerance for point_in_poly* -methods
+    mode : str, Optional
+        Refinement mode. Defaults to 'nested', corresponds to refinement by splitting.
+
+    Acknowledgement: The code was contributed by Haakon Ervik.
+
+    """
+
+    grids = gb.get_grids()
+    grids_ref = gb_ref.get_grids()
+
+    assert len(grids) == len(
+        grids_ref
+    ), "Weakly check that GridBuckets refer to same domains"
+    assert np.allclose(
+        np.append(*gb.bounding_box()), np.append(*gb_ref.bounding_box())
+    ), "Weakly check that GridBuckets refer to same domains"
+
+    # This method assumes a consistent node ordering between grids. At least assign one.
+    gb.assign_node_ordering(overwrite_existing=False)
+    gb_ref.assign_node_ordering(overwrite_existing=False)
+
+    # Add node prop on the coarse grid to map from coarse to fine cells.
+    gb.add_node_props(keys="coarse_fine_cell_mapping")
+
+    for i in np.arange(len(grids)):
+        g, g_ref = grids[i], grids_ref[i]
+
+        node_num, node_num_ref = (
+            gb._nodes[g]["node_number"],
+            gb_ref._nodes[g_ref]["node_number"],
+        )
+        assert node_num == node_num_ref, "Weakly check that grids refer to same domain."
+
+        # Compute the mapping for this grid-pair,
+        # and assign the result to the node of the coarse gb
+        if mode == "nested":
+            mapping = structured_refinement(g, g_ref, point_in_poly_tol=tol)
+        else:
+            raise NotImplementedError("Unknown refinement mode")
+
+        gb.set_node_prop(grid=g, key="coarse_fine_cell_mapping", val=mapping)
+
+
+def structured_refinement(
+    g: pp.Grid, g_ref: pp.Grid, point_in_poly_tol=1e-8
+) -> sps.csc_matrix:
+    """Construct a mapping between cells of a grid and its refined version
+
+    Assuming a regular and a refined mesh, where the refinement is executed by
+    splitting.
+    I.e. a cell in the refined grid is completely contained within a cell in the
+    coarse grid.
+
+    Parameters
+    ----------
+    g : pp.Grid
+        Coarse grid
+    g_ref : pp.Grid
+        Refined grid
+    point_in_poly_tol : float, Optional
+        Tolerance for pp.geometry_property_checks.point_in_polyhedron()
+
+    Returns
+    -------
+    coarse_fine : sps.csc_matrix
+        Column major sparse matrix mapping from coarse to fine cells.
+
+
+    This method creates a mapping from fine to coarse cells by creating a matrix 'M'
+    where the rows represent the fine cells while the columns represent the coarse
+    cells. In practice this means that for an array 'p', of known values on a coarse
+    grid, by applying the mapping
+        q = M * p
+    each value in a coarse cell will now be transferred to all the fine cells contained
+    within the coarse cell.
+
+    The procedure for creating this mapping relies on two main assumptions.
+        1. Each fine cell is fully contained inside exactly one coarse cell.
+        2. Each cell can be characterised as a simplex.
+            - i.e. Every node except one defines every face of the object.
+
+    The first assumption implies that the problem of assessing if a fine cell is
+    contained within a coarse cell is reduced to assessing if the center of a fine cell
+    is contained within the coarse cell.
+
+    The second assumption implies that a cell in any dimension (1D, 2D, 3D) will be a
+    convex object. This way, we can use existing algorithms in PorePy to find if a point
+    is inside a polygon (2D) or polyhedron (3D). (The 1D case is trivial)
+
+    The general algorithm is as follows (refer to start of for-loop in the code):
+    1. Make a list of (pointers to) untested cell centers called 'test_cells_ptr'.
+    2. Iterate through all coarse cells. Now, consider one of these:
+    3. For all untested cell centers (defined by 'test_cells_ptr'), check if they are
+        inside the coarse cell.
+    4. Those that pass (is inside the coarse cell) add to the mapping, then remove those
+        point from the list of untested cell centers.
+    5. Assemble the mapping.
+
+    Acknowledgement: The code was contributed by Haakon Ervik.
+
+    """
+    if g.dim == 0:
+        mapping = sps.csc_matrix((np.ones(1), ([0], [0])))
+        return mapping
+    assert g.num_cells < g_ref.num_cells, "Wrong order of input grids"
+    assert g.dim == g_ref.dim, "Grids must be of same dimension"
+
+    # 1. Step: Create a list of tuples pointing to the (start, end) index of the nodes
+    # of each cell on the coarse grid.
+    cell_nodes = g.cell_nodes()
+    # start/end row pointers for each column
+    nodes_of_cell_ptr = zip(cell_nodes.indptr[:-1], cell_nodes.indptr[1:])
+
+    # 2. Step: Initialize a sps.csc_matrix mapping fine cells to coarse cells.
+    indptr = np.array([0])
+    indices = np.empty(0)
+
+    cells_ref = g_ref.cell_centers.copy()  # Cell centers in fine grid
+    test_cells_ptr = np.arange(g_ref.num_cells)  # Pointer to cell centers
+    nodes = g.nodes.copy()
+
+    # 3. Step: If the grids are in 1D or 2D, we can simplify the calculation by rotating
+    # the coordinate system to local coordinates. For example, a 2D grid embedded in 3D
+    # would be "rotated" so that each coordinate
+    #           is of the form (x, y, 0).
+    if g.dim == 1:
+        # Rotate coarse nodes and fine cell centers to align with the x-axis
+        tangent = pp.map_geometry.compute_tangent(nodes)
+        reference = [1, 0, 0]
+        R = pp.map_geometry.project_line_matrix(nodes, tangent, reference=reference)
+        nodes = R.dot(nodes)[0, :]
+        cells_ref = R.dot(cells_ref)[0, :]
+
+    elif g.dim == 2:  # Pre-processing for efficiency
+        # Rotate coarse nodes and fine cell centers to the xy-plane.
+        R = pp.map_geometry.project_plane_matrix(nodes, check_planar=False)
+        nodes = np.dot(R, nodes)[:2, :]
+        cells_ref = np.dot(R, cells_ref)[:2, :]
+
+    # 4. Step: Loop through every coarse cell
+    for st, nd in nodes_of_cell_ptr:
+
+        nodes_idx = cell_nodes.indices[st:nd]
+        num_nodes = nodes_idx.size
+
+        # 5. Step: for the appropriate grid dimension, test all cell centers not already
+        # found to be inside some other coarse cell.
+        # 'in_poly' is a boolean array that is True for the points inside and False for
+        # the points not inside.
+        if g.dim == 1:
+            # In 1D, we use a numpy method to check which coarse cell the fine points
+            # are inside.
+            assert num_nodes == 2, "We assume a 'cell' in 1D is defined by two points."
+            line = np.sort(nodes[nodes_idx])
+            test_points = cells_ref[test_cells_ptr]
+            in_poly = np.searchsorted(line, test_points, side="left") == 1
+
+        elif g.dim == 2:
+            assert num_nodes == 3, "We assume simplexes in 2D (i.e. 3 nodes)"
+            polygon = nodes[:, nodes_idx]
+            test_points = cells_ref[:, test_cells_ptr]
+            in_poly = pp.geometry_property_checks.point_in_polygon(
+                poly=polygon, p=test_points, tol=point_in_poly_tol
+            )
+
+        elif g.dim == 3:
+            # Make polyhedron from node coordinates.
+            # Polyhedron defined as a list of nodes defining its (convex) faces.
+            # Assumes simplexes: Every node except one defines every face.
+            assert num_nodes == 4, "We assume simplexes in 3D (i.e. 4 nodes)"
+            node_coords = nodes[:, nodes_idx]
+
+            ids = np.arange(num_nodes)
+            polyhedron = [node_coords[:, ids != i] for i in np.arange(num_nodes)]
+            # Test only points not inside another polyhedron.
+            test_points = cells_ref[:, test_cells_ptr]
+            in_poly = pp.geometry_property_checks.point_in_polyhedron(
+                polyhedron=polyhedron, test_points=test_points, tol=point_in_poly_tol
+            )
+
+        else:
+            logger.warning(f"A grid of dimension {g.dim} encountered. Skip!")
+            continue
+
+        # 6. Step: Update pointer to which cell centers to use as test points
+        in_poly_ids = test_cells_ptr[in_poly]  # id of cells inside this polyhedron
+        # Keep only cells not inside this polyhedron
+        test_cells_ptr = test_cells_ptr[~in_poly]
+
+        # Update mapping
+        indices = np.append(indices, in_poly_ids)
+        indptr = np.append(indptr, indptr[-1] + in_poly_ids.size)
+
+    # 7. Step: assemble the sparse matrix with the mapping.
+    data = np.ones(indices.size)
+    coarse_fine = sps.csc_matrix((data, indices, indptr))
+
+    assert (
+        indices.size == g_ref.num_cells
+    ), "Every fine cell should be inside exactly one coarse cell"
+    return coarse_fine

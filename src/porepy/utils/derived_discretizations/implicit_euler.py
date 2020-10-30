@@ -4,9 +4,10 @@ implicit Euler time-stepping. Flux terms are multiplied by time step and the mas
 has a rhs contribution from the previous time step.
 See the parent discretizations for further documentation.
 """
-import porepy as pp
 import numpy as np
 import scipy.sparse as sps
+
+import porepy as pp
 
 
 class ImplicitMassMatrix(pp.MassMatrix):
@@ -16,7 +17,7 @@ class ImplicitMassMatrix(pp.MassMatrix):
     """
 
     def __init__(self, keyword="flow", variable="pressure"):
-        """ Set the discretization, with the keyword used for storing various
+        """Set the discretization, with the keyword used for storing various
         information associated with the discretization. The time discretisation also
         requires the previous solution, thus the variable needs to be specified.
 
@@ -28,7 +29,7 @@ class ImplicitMassMatrix(pp.MassMatrix):
         self.variable = variable
 
     def assemble_rhs(self, g, data):
-        """ Overwrite MassMatrix method to return the correct rhs for an IE time
+        """Overwrite MassMatrix method to return the correct rhs for an IE time
         discretization, e.g. of the Biot problem.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
@@ -43,8 +44,7 @@ class ImplicitMpfa(pp.Mpfa):
     """
 
     def assemble_matrix_rhs(self, g, data):
-        """ Overwrite MPFA method to be consistent with the Biot dt convention.
-        """
+        """Overwrite MPFA method to be consistent with the Biot dt convention."""
         a, b = super().assemble_matrix_rhs(g, data)
         dt = data[pp.PARAMETERS][self.keyword]["time_step"]
         a = a * dt
@@ -84,7 +84,7 @@ class ImplicitMpfa(pp.Mpfa):
         cc[self_ind, 2] += dt * div * bound_flux * proj
 
     def assemble_int_bound_source(self, g, data, data_edge, cc, matrix, rhs, self_ind):
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
         The intended use is when the internal boundary is coupled to another
@@ -130,9 +130,9 @@ class ImplicitTpfa(pp.Tpfa):
     """
 
     def assemble_matrix_rhs(self, g, data):
-        """ Overwrite MPFA method to be consistent with the Biot dt convention.
-        """
+        """Overwrite MPFA method to be consistent with the Biot dt convention."""
         a, b = super().assemble_matrix_rhs(g, data)
+
         dt = data[pp.PARAMETERS][self.keyword]["time_step"]
         a = a * dt
         b = b * dt
@@ -171,7 +171,7 @@ class ImplicitTpfa(pp.Tpfa):
         cc[self_ind, 2] += dt * div * bound_flux * proj
 
     def assemble_int_bound_source(self, g, data, data_edge, cc, matrix, rhs, self_ind):
-        """ Abstract method. Assemble the contribution from an internal
+        """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
         The intended use is when the internal boundary is coupled to another
@@ -210,6 +210,9 @@ class ImplicitTpfa(pp.Tpfa):
 class ImplicitUpwind(pp.Upwind):
     """
     Multiply all contributions by the time step and advection weight.
+    The latter may be a scalar or cellwise values, in which case the upwind
+    value is used. Note that the interior cell value is taken for BCs,
+    regardless of the direction of the flux on the boundary.
     """
 
     def assemble_matrix_rhs(self, g, data):
@@ -217,12 +220,18 @@ class ImplicitUpwind(pp.Upwind):
             data["flow_faces"] = sps.csr_matrix([0.0])
             return sps.csr_matrix([0.0]), np.array([0.0])
 
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        dt = parameter_dictionary["time_step"]
-        w = parameter_dictionary["advection_weight"] * dt
+        parameter_dictionary = data[pp.PARAMETERS]
+        dt = parameter_dictionary[self.keyword]["time_step"]
+        # Obtain the cellwise advection weights
+        w = (
+            parameter_dictionary.expand_scalars(
+                g.num_cells, self.keyword, ["advection_weight"]
+            )[0]
+            * dt
+        )
         a, b = super().assemble_matrix_rhs(g, data)
-        a = a * w
-        b = b * w
+        a = a * sps.diags(w)
+        b = b * sps.diags(w)
         return a, b
 
 
@@ -258,10 +267,22 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
         # Normal component of the velocity from the higher dimensional grid
 
         # @ALL: This should perhaps be defined by a globalized keyword
-        parameter_dictionary_master = data_master[pp.PARAMETERS][self.keyword]
+        parameter_dictionary_master = data_master[pp.PARAMETERS]
+        parameter_dictionary_slave = data_slave[pp.PARAMETERS]
         lam_flux = data_edge[pp.PARAMETERS][self.keyword]["darcy_flux"]
-        dt = parameter_dictionary_master["time_step"]
-        w = parameter_dictionary_master["advection_weight"] * dt
+        dt = parameter_dictionary_master[self.keyword]["time_step"]
+        w_master = (
+            parameter_dictionary_master.expand_scalars(
+                g_master.num_cells, self.keyword, ["advection_weight"]
+            )[0]
+            * dt
+        )
+        w_slave = (
+            parameter_dictionary_slave.expand_scalars(
+                g_slave.num_cells, self.keyword, ["advection_weight"]
+            )[0]
+            * dt
+        )
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
         g_m = data_edge["mortar_grid"]
@@ -301,12 +322,14 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
         # If fluid flux(lam_flux) is positive we use the upper value as weight,
         # i.e., T_masterat * fluid_flux = lambda.
         # We set cc[2, 0] = T_masterat * fluid_flux
-        cc[2, 0] = sps.diags(w * lam_flux * flag) * hat_P_avg * div.T
+        # import pdb
+        # pdb.set_trace()
+        cc[2, 0] = sps.diags(lam_flux * flag) * hat_P_avg * div.T * sps.diags(w_master)
 
         # If fluid flux is negative we use the lower value as weight,
         # i.e., T_check * fluid_flux = lambda.
         # we set cc[2, 1] = T_check * fluid_flux
-        cc[2, 1] = sps.diags(w * lam_flux * not_flag) * check_P_avg
+        cc[2, 1] = sps.diags(lam_flux * not_flag) * check_P_avg * sps.diags(w_slave)
 
         # The rhs of T * fluid_flux = lambda
         # Recover the information for the grid-grid mapping

@@ -12,6 +12,9 @@ matrix:
     - os: linux
       dist: xenial
       python: 3.7    
+    - os: linux
+      dist: bionic
+      python: 3.8
 
 before install:
   - chmod +x ./test/regression/run_cron_test.sh
@@ -33,6 +36,7 @@ before_script:
   - cd $TRAVIS_BUILD_DIR 
   - echo $TRAVIS_BUILD_DIR
   - export PYTHONPATH=${TRAVIS_BUILD_DIR}:${PYTHONPATH}
+  - export NUMBA_CACHE_DIR=${HOME}
   
   # Download file for point-in-polyhedron test
   - wget https://raw.githubusercontent.com/keileg/polyhedron/master/polyhedron.py

@@ -4,14 +4,14 @@ Installation of PorePy itself should be straightforward, following the instructi
 To get the code fully working requires a few more steps, as described below.
 
 ## Installation on Linux
-Instructions are found on the GitHub webpage. Others libraries that should be installed found in the file requirements.txt
+Instructions are found on the GitHub webpage. Others libraries that should be installed found in the file `pyproject.toml`.
 
 ## Intall on Windows
-The recommended solution for Windows is to use VirtualBox with a Linux image, or equivalent options.
+The recommended solution for Windows is to use VirtualBox with a Linux image, or equivalent options. 
 
 If you do not want to use VirtualBox, we recommended 
-to install the dependencies using `conda`, and then `pip install porepy`, preferrably installing from source.
-Most likely, parts of PorePy will not work on Windows due to missing libraries etc. This is not fully clear.
+to install the dependencies using either `conda` or the Intel python distribution and then `pip install porepy`, preferrably installing from source.
+Parts of PorePy may not work on Windows due to missing libraries etc. This is not fully clear.
 
 ## Installation on Mac
 Install on Mac is possible, but may be a bit complicated. We have little experience with this.
@@ -26,25 +26,6 @@ Some of these requirements aren't strictly necessary to run porepy, however, man
 ## Optional python packages for faster runtimes
 
 Several computationally expensive methods can be accelerated with Cython or Numba. Shapely is used for certain geometry-operations. To install these packages, an administrative level pip install should be sufficient, i.e. through `sudo pip install cython numba shapely`
-
-## Required packages and software for mesh generation and numerical analysis
-
-To generate meshes for numerical analysis, GMSH (for meshing) and pymetis (for mesh partitioning) are necessary. 
-
-### GMSH
-PorePy depends on `GMSH` for meshing of fractured domains. 
-Our experience is that version 4 of Gmsh is much improved compared to earlier versions, in particular for complex geometries.
-
-To make this work, you need gmsh installed on your system, and PorePy needs to know where to look for it.
-It should work (on any operating system) to install the following python package: [gmsh-sdk](https://pypi.org/project/gmsh-sdk/).
-
-##### Manual install:
-To run gmsh python api on your system, download the relevant gmsh*-sdk.* from http://gmsh.info/bin/.
-Then, Add the 'lib' directory from the SDK to PYTHONPATH.
-Linux users can execute the following command: `export PYTHONPATH=${PYTHONPATH}:path/to/gmsh*-sdk.*/lib`.
-
-If you manage packages with conda, it may be necessary to add the package to the conda environment as a development package. If so, you could execute `conda develop path/to/gmsh*-sdk.*/lib` in the terminal.
-
 
 ### Metis & pymetis
 The metis package is used to partition meshes. In order to use this package, you must install metis from George Karypis

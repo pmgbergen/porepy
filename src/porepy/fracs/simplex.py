@@ -1,21 +1,21 @@
 """
 Module for creating simplex grids with fractures.
 """
-import time
-import numpy as np
-import meshio
 import logging
-from typing import Dict, Tuple
+import time
+from typing import Any, Dict, Tuple
+
+import meshio
+import numpy as np
 
 from porepy.grids import constants
 from porepy.grids.gmsh import mesh_2_grid
-
 
 logger = logging.getLogger(__name__)
 
 
 def triangle_grid_embedded(file_name):
-    """ Create triangular (2D) grid of a domain embedded in 3D space, without
+    """Create triangular (2D) grid of a domain embedded in 3D space, without
     meshing the 3D volume.
 
     The resulting grid can be used in a DFN model. The grid will be fully
@@ -81,7 +81,7 @@ def triangle_grid_embedded(file_name):
 
 
 def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
-    """ Generate a list of grids dimensions {2, 1, 0}, starting from a gmsh mesh.
+    """Generate a list of grids dimensions {2, 1, 0}, starting from a gmsh mesh.
 
     Parameters:
         file_name (str): Path to file of gmsh.msh specification.
@@ -149,7 +149,7 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
 
 
 def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
-    """ Generate a list of grids dimensions {1, 0}, starting from a gmsh mesh.
+    """Generate a list of grids dimensions {1, 0}, starting from a gmsh mesh.
 
     Parameters:
         file_name (str): Path to file of gmsh.msh specification.
@@ -214,7 +214,7 @@ def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
 
 
 def tetrahedral_grid_from_gmsh(file_name, constraints=None, **kwargs):
-    """ Generate a list of grids of dimensions {3, 2, 1, 0}, starting from a gmsh
+    """Generate a list of grids of dimensions {3, 2, 1, 0}, starting from a gmsh
     mesh.
 
     Parameters:
@@ -286,7 +286,7 @@ def _read_gmsh_file(
     """
     Read a gmsh .msh file, and convert the result to a format that is compatible with
     the porepy functionality for mesh processing.
-    
+
     Args:
         file_name (str): Name of the file to be processed.
 
@@ -324,7 +324,8 @@ def _read_gmsh_file(
         # into a dictionary with the cell type as keys, and tags as values.
 
         # Initialize the dictionaries to be constructed
-        tmp_cells, tmp_info = {}, {}
+        tmp_cells: Dict[str, Any] = {}
+        tmp_info: Dict[str, Any] = {}
         keys = set([cb.type for cb in cells])
         for key in keys:
             tmp_cells[key] = []

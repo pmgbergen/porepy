@@ -10,14 +10,15 @@ set in the model class, and the problem may be solved using run_biot.
 NOTE: This module should be considered an experimental feature, which will likely
 undergo major changes (or be deleted).
 """
-import numpy as np
-import porepy as pp
 import logging
 import time
+from typing import Dict, List
+
+import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spla
-from typing import List, Dict
 
+import porepy as pp
 import porepy.models.contact_mechanics_model as contact_model
 from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
 
@@ -61,8 +62,8 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
     def bc_values_mechanics(self, g: pp.Grid) -> np.ndarray:
         """
-        Note that Dirichlet values should be divided by length_scale, and Neumann values by 
-        scalar_scale.
+        Note that Dirichlet values should be divided by length_scale, and Neumann values
+        by scalar_scale.
         """
         # Set the boundary values
         return super().bc_values(g)
@@ -85,7 +86,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
     def aperture(self, g: pp.Grid) -> np.ndarray:
         """
         Aperture is a characteristic thickness of a cell, with units [m].
-        1 in matrix, thickness of fractures and "side length" of cross-sectional 
+        1 in matrix, thickness of fractures and "side length" of cross-sectional
         area/volume (or "specific volume") for intersections of co-dimension 2 and 3.
         See also specific_volume.
         """
@@ -94,9 +95,41 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             aperture *= 0.1
         return aperture
 
+    def reconstruct_stress(self, previous_iterate: bool = False) -> None:
+        """
+        Compute the stress in the highest-dimensional grid based on the displacement
+        and pressure states in that grid, adjacent interfaces and global boundary
+        conditions.
+
+        The stress is stored in the data dictionary of the highest-dimensional grid,
+        in [pp.STATE]['stress'].
+
+        Parameters:
+            previous_iterate (boolean, optional): If True, use values from previous
+                iteration to compute the stress. Defaults to False.
+
+        """
+        # First the mechanical part of the stress
+        super().reconstruct_stress(previous_iterate)
+
+        g = self._nd_grid()
+        d = self.gb.node_props(g)
+
+        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.mechanics_parameter_key]
+
+        if previous_iterate:
+            p = d[pp.STATE][pp.ITERATE][self.scalar_variable]
+        else:
+            p = d[pp.STATE][self.scalar_variable]
+
+        # Stress contribution from the scalar variable
+        d[pp.STATE]["stress"] += matrix_dictionary["grad_p"] * p
+
+        # Is it correct there is no contribution from the global boundary conditions?
+
     def specific_volume(self, g: pp.Grid) -> np.ndarray:
         """
-        The specific volume of a cell accounts for the dimension reduction and has 
+        The specific volume of a cell accounts for the dimension reduction and has
         dimensions [m^(Nd - d)].
         Typically equals 1 in Nd, the aperture in codimension 1 and the square/cube
         of aperture in codimensions 2 and 3.
@@ -416,7 +449,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             initial_scalar_value = np.zeros(g.num_cells)
             d[pp.STATE].update({self.scalar_variable: initial_scalar_value})
             if g.dim == self.Nd:
-                bc_values = d[pp.PARAMETERS][self.mechanics_parameter_key]["bc_values"]
+                bc_values = self.bc_values_mechanics(g)
                 mech_dict = {"bc_values": bc_values}
                 d[pp.STATE].update({self.mechanics_parameter_key: mech_dict})
 
@@ -432,8 +465,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         pass
 
     def discretize(self) -> None:
-        """ Discretize all terms
-        """
+        """Discretize all terms"""
         if not hasattr(self, "assembler"):
             self.assembler = pp.Assembler(self.gb)
 
@@ -449,20 +481,30 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
         # Next, discretize term on the matrix grid not covered by the Biot discretization,
         # i.e. the source term
-        # Here, we also discretize the edge terms in the entire gb
-        self.assembler.discretize(grid=g_max, term_filter=["source"])
+        filt = pp.assembler_filters.ListFilter(grid_list=[g_max], term_list=["source"])
+        self.assembler.discretize(filt=filt)
+
+        # Build a list of all edges, and all couplings
+        edge_list = []
+        for e, _ in self.gb.edges():
+            edge_list.append(e)
+            edge_list.append((e[0], e[1], e))
+        if len(edge_list) > 0:
+            filt = pp.assembler_filters.ListFilter(grid_list=edge_list)
+            self.assembler.discretize(filt=filt)
 
         # Finally, discretize terms on the lower-dimensional grids. This can be done
         # in the traditional way, as there is no Biot discretization here.
-        for g, _ in self.gb:
-            if g.dim < self.Nd:
-                # No need to discretize edges here, this was done above.
-                self.assembler.discretize(grid=g, edges=False)
+        for dim in range(0, self.Nd):
+            grid_list = self.gb.grids_of_dimension(dim)
+            if len(grid_list) > 0:
+                filt = pp.assembler_filters.ListFilter(grid_list=grid_list)
+                self.assembler.discretize(filt=filt)
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
     def before_newton_loop(self) -> None:
-        """ Will be run before entering a Newton loop. 
+        """Will be run before entering a Newton loop.
         E.g.
            Discretize time-dependent quantities etc.
            Update time-dependent parameters (captured by assembly).
@@ -471,7 +513,8 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
     def before_newton_iteration(self) -> None:
         # Re-discretize the nonlinear term
-        self.assembler.discretize(term_filter=self.friction_coupling_term)
+        filt = pp.assembler_filters.ListFilter(term_list=[self.friction_coupling_term])
+        self.assembler.discretize(filt=filt)
 
     def after_newton_iteration(self, solution: np.ndarray) -> None:
         self.update_state(solution)
@@ -501,7 +544,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         solver = self.params.get("linear_solver", "direct")
 
         if solver == "direct":
-            """ In theory, it should be possible to instruct SuperLU to reuse the
+            """In theory, it should be possible to instruct SuperLU to reuse the
             symbolic factorization from one iteration to the next. However, it seems
             the scipy wrapper around SuperLU has not implemented the necessary
             functionality, as discussed in
@@ -511,22 +554,6 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             We will therefore pass here, and pay the price of long computation times.
             """
             self.linear_solver = "direct"
-
-        elif solver == "pyamg":
-            self.linear_solver = solver
-            import pyamg
-
-            assembler = self.assembler
-
-            A, _ = assembler.assemble_matrix_rhs()
-
-            g = self.gb.grids_of_dimension(self.Nd)[0]
-            mechanics_dof = assembler.dof_ind(g, self.displacement_variable)
-
-            pyamg_solver = pyamg.smoothed_aggregation_solver(
-                A[mechanics_dof][:, mechanics_dof]
-            )
-            self.mechanics_precond = pyamg_solver.aspreconditioner(cycle="W")
 
         else:
             raise ValueError("unknown linear solver " + solver)
@@ -560,7 +587,8 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             def precond_schur(r):
                 # Mortar residual
                 rm = r[mortar_dof]
-                # Residual for the elasticity is the local one, plus the mapping of the mortar residual
+                # Residual for the elasticity is the local one, plus the mapping of the
+                # mortar residual
                 r_el = r[mechanics_dof] - A_el_m * A_m_m_solve(rm)
                 # Solve, using specified solver
                 du = self.mechanics_precond(r_el)

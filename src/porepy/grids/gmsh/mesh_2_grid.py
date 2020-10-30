@@ -1,7 +1,7 @@
 """
 Module for converting gmsh output file to our grid structure.
 """
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 
@@ -10,7 +10,7 @@ from porepy.grids import constants
 
 
 def create_3d_grids(pts: np.ndarray, cells: Dict[str, np.ndarray]) -> List[pp.Grid]:
-    """ Create a tetrahedral grid from a gmsh tessalation.
+    """Create a tetrahedral grid from a gmsh tessalation.
 
     Parameters:
         pts (np.ndarray, npt x 3): Global point set from gmsh
@@ -31,8 +31,7 @@ def create_3d_grids(pts: np.ndarray, cells: Dict[str, np.ndarray]) -> List[pp.Gr
     # Convert to list to be consistent with lower dimensions
     # This may also become useful in the future if we ever implement domain
     # decomposition approaches based on gmsh.
-    g_3d = [g_3d]
-    return g_3d
+    return [g_3d]
 
 
 def create_2d_grids(
@@ -44,7 +43,7 @@ def create_2d_grids(
     surface_tag: str = None,
     constraints: np.ndarray = None,
 ) -> List[pp.Grid]:
-    """ Create 2d grids for lines of a specified type from a gmsh tessalation.
+    """Create 2d grids for lines of a specified type from a gmsh tessalation.
 
     Only surfaces that were defined as 'physical' in the gmsh sense may have a grid
     created, but then only if the physical name matches specified line_tag.
@@ -77,9 +76,6 @@ def create_2d_grids(
 
     """
 
-    # List of 2D grids, one for each surface
-    g_2d = []
-
     gmsh_constants = constants.GmshConstants()
     if surface_tag is None:
         surface_tag = gmsh_constants.PHYSICAL_NAME_FRACTURES
@@ -88,10 +84,12 @@ def create_2d_grids(
         constraints = np.array([], dtype=np.int)
 
     if is_embedded:
+        # List of 2D grids, one for each surface
+        g_list: List[pp.Grid] = []
 
         # Special treatment of the case with no fractures
         if "triangle" not in cells:
-            return g_2d
+            return g_list
         # Recover cells on fracture surfaces, and create grids
         tri_cells = cells["triangle"]
 
@@ -130,62 +128,64 @@ def create_2d_grids(
             g.frac_num = frac_num
 
             # Append to list of 2d grids
-            g_2d.append(g)
+            g_list.append(g)
+
+        # Done with all surfaces, return
+        return g_list
 
     else:
+        # Single grid
 
         triangles = cells["triangle"].transpose()
         # Construct grid
-        g_2d = pp.TriangleGrid(pts.transpose(), triangles)
+        g_2d: pp.Grid = pp.TriangleGrid(pts.transpose(), triangles)
 
-        # we need to add the face tags from gmsh to the current mesh,
-        # first we add them as False and after we change for the correct
+        # we need to add the face tags from gmsh to the current mesh, however,
+        # since there is not a cell-face relation from gmsh but only a cell-node
+        # relation we need to recover the corresponding face-line map.
+        # First find the nodes of each face
+        faces = np.reshape(g_2d.face_nodes.indices, (2, -1), order="F")
+        faces = np.sort(faces, axis=0)
+
+        # Then we do a bunch of sorting to make sure faces and lines has the same
+        # node ordering:
+        idxf = np.lexsort(faces)
+
+        line = np.sort(cells["line"].T, axis=0)
+        idxl = np.lexsort(line)
+        IC = np.empty(line.shape[1], dtype=int)
+        IC[idxl] = np.arange(line.shape[1])
+
+        # Next change the faces and line to string format ("node_idx0,node_idx1").
+        # The reason to do so is because we want to compare faces and line columnwise,
+        # i.e., is_line[i] should be true iff faces[:, i] == line[:, j] for ONE j. If
+        # you can make numpy do this, you can remove the string formating.
+        tmp = np.core.defchararray.add(faces[0, idxf].astype(str), ",")
+        facestr = np.core.defchararray.add(tmp, faces[1, idxf].astype(str))
+        tmp = np.core.defchararray.add(line[0, idxl].astype(str), ",")
+        linestr = np.core.defchararray.add(tmp, line[1, idxl].astype(str))
+
+        is_line = np.isin(facestr, linestr, assume_unique=True)
+
+        # Now find the face index that correspond to each line. line2face is of length
+        # line.shape[1] and we have: face[:, line2face] == line.
+        line2face = idxf[is_line][IC]
+        # Sanity check
+        if not np.allclose(faces[:, line2face], line):
+            raise RuntimeError(
+                "Could not find mapping from gmsh lines to pp.Grid faces"
+            )
+
+        # Now we can assign the correct tags to the grid.
+        # First we add them as False and after we change for the correct
         # faces. The new tag name become the lower version of what gmsh gives
         # in the cell_info["line"]. The map phys_names recover the literal name.
-
-        # create all the extra tags for the grids, by default they're false
         for tag in np.unique(cell_info["line"]):
             tag_name = phys_names[tag].lower() + "_faces"
             g_2d.tags[tag_name] = np.zeros(g_2d.num_faces, dtype=np.bool)
-
-        # since there is not a cell-face relation from gmsh but only a cell-node
-        # relation we need to recover the corresponding face.
-        for tag_id, tag in enumerate(cell_info["line"]):
-            tag_name = phys_names[tag].lower() + "_faces"
-            # check where is the first node indipendent on the position
-            # in the triangle, being first, second or third node
-            first = (triangles == cells["line"][tag_id, 0]).any(axis=0)
-            # check where is the second node, same approach as before
-            second = (triangles == cells["line"][tag_id, 1]).any(axis=0)
-            # select which are the cells that have this edge
-            tria = np.logical_and(first, second).astype(np.int)
-            # with the cell_faces map we get the faces associated to
-            # the selected triangles
-            face = np.abs(g_2d.cell_faces).dot(tria)
-            # we have two case, the face is internal or is at the boundary
-            # we consider them separately
-            if np.any(face > 1):
-                # select the face if it is internal
-                g_2d.tags[tag_name][face > 1] = True
-            else:
-                # the face is on a boundary
-                face = np.logical_and(face, g_2d.tags["domain_boundary_faces"])
-                if np.sum(face) == 2:
-                    # the triangle has two faces at the boundary, check if it
-                    # is the first otherwise it is the other.
-                    face_id = np.where(face)[0]
-
-                    first_face = np.zeros(face.size, dtype=np.bool)
-                    first_face[face_id[0]] = True
-
-                    nodes = g_2d.face_nodes.dot(first_face)
-                    # check if the nodes of the first face are the same
-                    if np.all(nodes[cells["line"][tag_id, :]]):
-                        face[face_id[1]] = False
-                    else:
-                        face[face_id[0]] = False
-
-                g_2d.tags[tag_name][face] = True
+            # Add correct tag
+            faces = line2face[cell_info["line"] == tag]
+            g_2d.tags[tag_name][faces] = True
 
         # Create mapping to global numbering (will be a unit mapping, but is
         # crucial for consistency with lower dimensions)
@@ -194,8 +194,7 @@ def create_2d_grids(
         # Convert to list to be consistent with lower dimensions
         # This may also become useful in the future if we ever implement domain
         # decomposition approaches based on gmsh.
-        g_2d = [g_2d]
-    return g_2d
+        return [g_2d]
 
 
 def create_1d_grids(
@@ -207,8 +206,8 @@ def create_1d_grids(
     tol: float = 1e-4,
     constraints: np.ndarray = None,
     return_fracture_tips: bool = True,
-) -> Tuple[List[pp.Grid], np.ndarray]:
-    """ Create 1d grids for lines of a specified type from a gmsh tessalation.
+) -> Union[List[pp.Grid], Tuple[List[pp.Grid], np.ndarray]]:
+    """Create 1d grids for lines of a specified type from a gmsh tessalation.
 
     Only lines that were defined as 'physical' in the gmsh sense may have a grid
     created, but then only if the physical name matches specified line_tag.
@@ -255,7 +254,7 @@ def create_1d_grids(
     # fractures), fracture tips, and auxiliary lines (to be disregarded)
 
     # Data structure for the point grids
-    g_1d = []
+    g_1d: List[pp.Grid] = []
 
     # If there are no fracture intersections, we return empty lists
     if "line" not in cells:
@@ -283,11 +282,13 @@ def create_1d_grids(
         # This will only work if everything after the '_' can be interpreted
         # as a number. Specifically, it should work for all meshes generated by
         # the standard PorePy procedure, but it may fail for externally generated
-        # geo-files. If it fails, we simply set the frac_num to None in this case.
+        # geo-files. If it fails, we simply set the frac_num to -1 in this case,
+        # that is, assign the default value as defined in pp.Grid.__init__
         try:
             frac_num = int(pn[offset_index + 1 :])
         except ValueError:
-            frac_num = None
+            #
+            frac_num = -1
 
         # If this is a meshing constraint, but not a fracture, we don't need to do anything
         if frac_num in constraints:
@@ -322,8 +323,8 @@ def create_0d_grids(
     phys_names: Dict[int, str],
     cell_info: Dict[str, np.ndarray],
     target_tag_stem: str = None,
-) -> List[pp.Grid]:
-    """ Create 0d grids for points of a specified type from a gmsh tessalation.
+) -> List[pp.PointGrid]:
+    """Create 0d grids for points of a specified type from a gmsh tessalation.
 
     Only points that were defined as 'physical' in the gmsh sense may have a grid
     created, but then only if the physical name matches specified target_tag_stem.
@@ -380,7 +381,7 @@ def create_0d_grids(
                 g.global_point_ind = np.atleast_1d(np.asarray(point_cells[pi]))
 
                 # Store the index of this physical name tag.
-                g.physical_name_index = int(pn[offset_index + 1 :])
+                g._physical_name_index = int(pn[offset_index + 1 :])
 
                 g_0d.append(g)
             else:

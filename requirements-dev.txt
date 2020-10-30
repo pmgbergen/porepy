@@ -1,17 +1,21 @@
 meshio
-networkx == 2.3
-numpy == 1.16.3
-scipy == 1.2.1
-sympy == 1.4
-matplotlib == 3.0.3
-cython == 0.29.7;platform_system=="Linux"
-future == 0.17.1
-six == 1.12.0
-shapely == 1.6.4.post2
-shapely[vectorized] == 1.6.4.post2
-pytest == 4.5.0
-pytest-cov == 2.6.1
-pytest-runner == 4.4
-numba == 0.47
-vtk == 8.1.2
-gmsh-sdk
+networkx
+numpy
+scipy
+sympy
+matplotlib
+cython;platform_system=="Linux"
+future
+six
+shapely
+shapely[vectorized]
+pytest >= 4.6
+pytest-cov
+pytest-runner
+numba >= 0.50
+vtk
+gmsh
+flake8
+mypy
+black == 20.08b1
+isort

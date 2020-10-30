@@ -7,12 +7,8 @@ To create the config file, create a file porepy_config.py, and place it
 somewhere in your $PYTHONPATH (to see that it works, open a python interpreted
 and write 'import porepy_config' , this should work without errors).
 
-The file porepy_config.py should contain a dictionary called 'config', that
-should contain
-
-config = {'gmsh_path': path/to/gmsh/executable,
-          'num_processors': 4 
-}
+The file porepy_config.py should contain a dictionary called 'config'. For the moment
+this is not in use, however, the function is kept for legacy reasons.
 
 The variables needed to change the config file may change as PorePy is further
 developed. If a new key is introduced, without the local config file being
@@ -22,16 +18,16 @@ updated, this will raise a KeyError.
 
 
 def read():
-    """ Read configuration file, located somewhere in the PYTHONPATH.
+    """Read configuration file, located somewhere in the PYTHONPATH.
 
-    Returns 
+    Returns
     -------
     dictionary
         See module level comments for details.
 
     Raises
     ------
-    ImportError 
+    ImportError
         If the file porepy_config is not found in PYTHONPATH
 
 

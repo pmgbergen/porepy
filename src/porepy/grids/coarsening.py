@@ -1,22 +1,30 @@
-# -*- coding: utf-8 -*-
+""" Module with methods to coarsen a grid. The main method is coarsen(), see this for
+more information.
+
+"""
+from typing import Any, Dict, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
-import scipy.stats as stats
+
 import porepy as pp
-
 from porepy.grids import grid, grid_bucket
-
-
-from porepy.utils import matrix_compression, mcolon, accumarray, setmembership
-from porepy.utils import half_space, tags
-
+from porepy.utils import (
+    accumarray,
+    half_space,
+    matrix_compression,
+    mcolon,
+    setmembership,
+    tags,
+)
 
 # ------------------------------------------------------------------------------#
 
 
-def coarsen(g, method, **method_kwargs):
-    """ Create a coarse grid from a given grid. If a grid bucket is passed the
+def coarsen(
+    g: Union[pp.Grid, pp.GridBucket], method: str, **method_kwargs
+) -> Union[None, sps.spmatrix]:
+    """Create a coarse grid from a given grid. If a grid bucket is passed the
     procedure is applied to the higher in dimension.
     Note: the grid is modified in place.
     Note: do not call compute_geometry afterward.
@@ -37,20 +45,20 @@ def coarsen(g, method, **method_kwargs):
         seeds = np.empty(0, dtype=np.int)
         if method_kwargs.get("if_seeds", False):
             seeds = generate_seeds(g)
-        matrix = tpfa_matrix(g)
+        matrix = _tpfa_matrix(g)
         partition = create_partition(matrix, g, seeds=seeds, **method_kwargs)
 
     else:
         raise ValueError("Undefined coarsening algorithm")
 
-    generate_coarse_grid(g, partition)
+    return generate_coarse_grid(g, partition)
 
 
 # ------------------------------------------------------------------------------#
 
 
 def generate_coarse_grid(g, subdiv):
-    """ Generate a coarse grid clustering the cells according to the flags
+    """Generate a coarse grid clustering the cells according to the flags
     given by subdiv. Subdiv should be long as the number of cells in the
     original grid, it contains integers (possibly not continuous) which
     represent the cells in the final mesh. If a grid bucket is given the
@@ -79,20 +87,28 @@ def generate_coarse_grid(g, subdiv):
 
     """
     if isinstance(g, grid.Grid):
-        generate_coarse_grid_single(g, subdiv, False)
+        if isinstance(subdiv, dict):
+            # If the subdiv is a dictionary with g as a key (this can happen if we are
+            # forwarded here from coarsen), the input must be simplified.
+            subdiv = subdiv[g][1]
+        _generate_coarse_grid_single(g, subdiv, False)
 
     if isinstance(g, grid_bucket.GridBucket):
-        generate_coarse_grid_gb(g, subdiv)
+        _generate_coarse_grid_gb(g, subdiv)
 
 
 # ------------------------------------------------------------------------------#
 
 
-def reorder_partition(subdiv):
+def reorder_partition(
+    subdiv: Union[Dict[Any, Tuple[Any, np.ndarray]], np.ndarray]
+) -> Union[Dict[Any, Tuple[Any, np.ndarray]], np.ndarray]:
     """
     Re-order the partition id in case to obtain contiguous numbers.
+
     Parameters:
         subdiv: array where for each cell one id
+
     Return:
         the subdivision written in a contiguous way
     """
@@ -112,7 +128,7 @@ def reorder_partition(subdiv):
 # ------------------------------------------------------------------------------#
 
 
-def generate_coarse_grid_single(g, subdiv, face_map):
+def _generate_coarse_grid_single(g, subdiv, face_map):
     """
     Specific function for a single grid. Use the common interface instead.
     """
@@ -230,7 +246,7 @@ def generate_coarse_grid_single(g, subdiv, face_map):
 # ------------------------------------------------------------------------------#
 
 
-def generate_coarse_grid_gb(gb, subdiv):
+def _generate_coarse_grid_gb(gb, subdiv):
     """
     Specific function for a grid bucket. Use the common interface instead.
     """
@@ -242,7 +258,7 @@ def generate_coarse_grid_gb(gb, subdiv):
     for g, (_, partition) in subdiv.items():
 
         # Construct the coarse grids
-        face_map = generate_coarse_grid_single(g, partition, True)
+        face_map = _generate_coarse_grid_single(g, partition, True)
 
         # Update all the master_to_mortar_int for all the 'edges' connected to the grid
         # We update also all the face_cells
@@ -278,7 +294,7 @@ def generate_coarse_grid_gb(gb, subdiv):
 # ------------------------------------------------------------------------------#
 
 
-def tpfa_matrix(g, perm=None):
+def _tpfa_matrix(g, perm=None):
     """
     Compute a two-point flux approximation matrix useful related to a call of
     create_partition.
@@ -355,7 +371,7 @@ def generate_seeds(gb):
 
 
 def create_aggregations(g, **kwargs):
-    """ Create a cell partition based on their volumes.
+    """Create a cell partition based on their volumes.
 
     Parameter:
         g: grid or grid bucket
@@ -460,8 +476,7 @@ def create_aggregations(g, **kwargs):
 
 
 def __get_neigh(cells_id, c2c, partition):
-    """ Support function for create_aggregations
-    """
+    """Support function for create_aggregations"""
     neighbors = np.empty(0, dtype=np.int)
 
     for cell_id in np.atleast_1d(cells_id):

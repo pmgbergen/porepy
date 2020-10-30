@@ -10,10 +10,11 @@ Acknowledgements:
     of the corresponding functions in MRST.
 
 """
-import numpy as np
 import itertools
+from typing import Dict, List, Union
+
+import numpy as np
 from scipy import sparse as sps
-from typing import List, Union, Dict
 
 import porepy as pp
 from porepy.utils import matrix_compression, mcolon, tags
@@ -30,7 +31,7 @@ class Grid:
     This will be introduced later.
 
     Attributes:
-        Comes in two classes. Topologogical information, defined at
+        Comes in tthree classes. Topologogical information, defined at
         construction time:
 
         dim (int): dimension. Should be 0 or 1 or 2 or 3
@@ -50,7 +51,8 @@ class Grid:
         num_cells (int): Number of cells in the grid
 
         ---
-        compute_geometry():
+
+        Geometric information, obtained by call to compute_geometry():
         Assumes the nodes of each face is ordered according to the right
         hand rule.
         face_nodes.indices[face_nodes.indptr[i]:face_nodes.indptr[i+1]]
@@ -71,6 +73,24 @@ class Grid:
         cell_centers (np.ndarray): Centers of all cells. Dimensions dim x
             num_cells
         cell_volumes (np.ndarray): Volumes of all cells
+
+        ----
+
+        Other fieds: These may only be assigned to certain grids, use with
+        caution:
+
+        frac_num (int): Index of the fracture the grid corresponds to. Take
+            value (0, 1, ...) if the grid corresponds to a fracture, -1 if not.
+        parent_cell_ind (np.ndarray): For grids that have refined or are subgrids
+            of larger grids, index of parent the cell in the parent grid.
+            Defaults to a mapping to its own index.
+        global_point_ind (np.ndarray): Index of each point, assigned during processing
+            of mixed-dimensional grids created by gmsh. Used to identify points that
+            are geometrically equal, though on different grids. Could potentially be
+            used to identify such geometrically equal points at a later stage, but
+            there is no guarantee that this will work.
+        _physical_name_index (int): Used to keep track of processing of grids generated
+            by gmsh.
 
     """
 
@@ -107,12 +127,19 @@ class Grid:
         if isinstance(name, list):
             self.name: List[str] = name
         else:
-            self.name: List[str] = [name]
+            self.name = [name]
 
         # Infer bookkeeping from size of parameters
         self.num_nodes: int = nodes.shape[1]
         self.num_faces: int = face_nodes.shape[1]
         self.num_cells: int = cell_faces.shape[1]
+
+        # NOTE: Variables that are only relevant for some grids.
+        # Use with caution.
+        self.frac_num: int = -1
+        self.parent_cell_ind: np.ndarray = np.arange(self.num_cells)
+        self.global_point_ind: np.ndarray = np.arange(self.num_nodes)
+        self._physical_name_index: int = -1
 
         # Add tag for the boundary faces
         if tags is None:
@@ -154,6 +181,8 @@ class Grid:
             h.face_areas = self.face_areas.copy()
         if hasattr(self, "tags"):
             h.tags = self.tags.copy()
+        if hasattr(self, "periodic_face_map"):
+            h.periodic_face_map = self.periodic_face_map.copy()
         return h
 
     def __repr__(self) -> str:
@@ -169,8 +198,7 @@ class Grid:
         return s
 
     def __str__(self) -> str:
-        """ Implementation of __str__
-        """
+        """Implementation of __str__"""
         s = str()
 
         # Special treatment of point grids.
@@ -496,7 +524,7 @@ class Grid:
         num_cell_edges = edge_2_cell.indptr[1:] - edge_2_cell.indptr[:-1]
 
         def bincount_nd(arr, weights):
-            """ Utility function to sum vector quantities by np.bincount. We
+            """Utility function to sum vector quantities by np.bincount. We
             could probably have used np.apply_along_axis, but I could not
             make it work.
 
@@ -586,7 +614,7 @@ class Grid:
         return mat
 
     def num_cell_nodes(self) -> np.ndarray:
-        """ Number of nodes per cell.
+        """Number of nodes per cell.
 
         Returns:
             np.ndarray, size num_cells: Number of nodes per cell.
@@ -650,9 +678,7 @@ class Grid:
         return self._indices(self.tags["domain_boundary_nodes"])
 
     def update_boundary_face_tag(self) -> None:
-        """ Tag faces on the boundary of the grid with boundary tag.
-
-        """
+        """Tag faces on the boundary of the grid with boundary tag."""
         zeros = np.zeros(self.num_faces, dtype=np.bool)
         self.tags["domain_boundary_faces"] = zeros
         if self.dim > 0:  # by default no 0d grid at the boundary of the domain
@@ -661,10 +687,37 @@ class Grid:
             ).ravel("F")
             self.tags["domain_boundary_faces"][bd_faces] = True
 
-    def update_boundary_node_tag(self) -> None:
-        """ Tag nodes on the boundary of the grid with boundary tag.
-
+    def set_periodic_map(self, periodic_face_map: np.ndarray) -> None:
         """
+        Set the index map between periodic boundary faces. The mapping assumes
+        a one to one mapping between the periodic boundary faces (i.e., matching
+        faces).
+
+        Parameters:
+        periodic_face_map (np.ndarray, int, 2 x # periodic faces): Defines the periodic
+            faces. Face index periodic_face_map[0, i] is periodic with face index
+            periodic_face_map[1, i]. The given map is stored to the attribute periodic_face_map
+
+        New attributes:
+        periodic_face_map (np.ndarray, int, 2 x # periodic faces): See periodic_face_map
+            in Parameters.
+
+        Changes attributes:
+        tags["domain_boundary_faces"]: The domain boundary tags are set to False
+            for all faces in periodic_face_map.
+        """
+        if periodic_face_map.shape[0] != 2:
+            raise ValueError("dimension 0 of periodic_face_map must be of size 2")
+        if np.max(periodic_face_map) > self.num_faces:
+            raise ValueError("periodic face number larger than number of faces")
+        if np.min(periodic_face_map) < 0:
+            raise ValueError("periodic face number cannot be negative")
+
+        self.periodic_face_map = periodic_face_map
+        self.tags["domain_boundary_faces"][self.periodic_face_map.ravel()] = False
+
+    def update_boundary_node_tag(self) -> None:
+        """Tag nodes on the boundary of the grid with boundary tag."""
 
         mask = {
             "domain_boundary_faces": "domain_boundary_nodes",
@@ -753,7 +806,7 @@ class Grid:
             scipy.sparse.csr_matrix, size num_cells * num_cells: Boolean
                 matrix, element (i,j) is true if cells i and j share a face.
                 The matrix is thus symmetric.
-                
+
         """
 
         # Create a copy of the cell-face relation, so that we can modify it at
@@ -771,7 +824,7 @@ class Grid:
         return c2c
 
     def sign_of_faces(self, faces: np.ndarray) -> np.ndarray:
-        """ Get the direction of the normal vector (inward or outwards from a cell)
+        """Get the direction of the normal vector (inward or outwards from a cell)
         of faces. Only boundary faces are permissible.
 
         Parameters:
@@ -793,8 +846,8 @@ class Grid:
         if fi.size != faces.size:
             raise ValueError("sign of internal faces does not make sense")
 
-        I = np.argsort(fi)
-        sgn = sgn[I]
+        fi_sorted = np.argsort(fi)
+        sgn = sgn[fi_sorted]
         sgn = sgn[IC]
         return sgn
 
@@ -807,14 +860,14 @@ class Grid:
             np.array (size 3): Maximum node coordinates in each direction.
 
         """
-        if self.dim==0:
+        if self.dim == 0:
             coords = self.cell_centers
         else:
             coords = self.nodes
         return np.amin(coords, axis=1), np.amax(coords, axis=1)
 
     def closest_cell(self, p: np.ndarray, return_distance: bool = False) -> np.ndarray:
-        """ For a set of points, find closest cell by cell center.
+        """For a set of points, find closest cell by cell center.
 
         If several centers have the same distance, one of them will be
         returned.
@@ -865,7 +918,7 @@ class Grid:
         for key in tags.standard_node_tags():
             if key not in self.tags.keys():
                 raise ValueError(f"The tag key {key} must be specified")
-            value = self.tags.get(key)
+            value: np.ndarray = self.tags.get(key)
             if not value.size == self.num_nodes:
                 raise ValueError(f"Wrong size of value for tag {key}")
 
@@ -878,6 +931,5 @@ class Grid:
 
     @staticmethod
     def _indices(true_false: np.ndarray) -> np.ndarray:
-        """ Shorthand for np.argwhere.
-        """
+        """Shorthand for np.argwhere."""
         return np.argwhere(true_false).ravel("F")

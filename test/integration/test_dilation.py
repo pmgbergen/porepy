@@ -49,7 +49,7 @@ class TestDilation(unittest.TestCase):
         setup = SetupContactMechanics(
             ux_south=0.0, uy_south=0.0, ux_north=0, uy_north=0
         )
-        setup.initial_gap = -1e-4
+        setup.initial_gap = 1e-4
         u_mortar, contact_force = self._solve(setup)
 
         # All cells should be displaced in the normal direction
@@ -66,7 +66,7 @@ class TestDilation(unittest.TestCase):
         setup = SetupContactMechanics(
             ux_south=0.0, uy_south=0.001, ux_north=0, uy_north=0
         )
-        setup.initial_gap = -1e-4 * np.random.rand(2)
+        setup.initial_gap = 1e-4 * np.random.rand(2)
         u_mortar, contact_force = self._solve(setup)
 
         # Normal displacement should equal initial gap
@@ -80,7 +80,7 @@ class TestDilation(unittest.TestCase):
         setup = SetupContactMechanics(
             ux_south=0.01, uy_south=0.001, ux_north=0, uy_north=0
         )
-        setup.initial_gap = -1e-4 * np.random.rand(2)
+        setup.initial_gap = 1e-4 * np.random.rand(2)
         u_mortar, contact_force = self._solve(setup)
 
         # Normal displacement should equal initial gap
@@ -98,7 +98,7 @@ class TestDilation(unittest.TestCase):
         u_mortar, contact_force = self._solve(setup)
 
         # We expect dilation
-        self.assertTrue(np.all(u_mortar[1] < setup.zero_tol))
+        self.assertTrue(np.all(u_mortar[1] > setup.zero_tol))
         # Check that the ratio between displacement jumps equals the dilation angle
         abs_u = np.absolute(u_mortar)
         self.assertTrue(
@@ -118,7 +118,7 @@ class TestDilation(unittest.TestCase):
         u_mortar, contact_force = self._solve(setup)
 
         # We expect dilation
-        self.assertTrue(np.all(u_mortar[1] < 1e-7))
+        self.assertTrue(np.all(u_mortar[1] > 1e-7))
         # Check that the ratio between displacement jumps equals the dilation angle
         abs_u = np.absolute(u_mortar)
         self.assertTrue(
@@ -173,7 +173,7 @@ class TestDilation(unittest.TestCase):
         u_mortar_0, contact_force_0 = self._solve(setup)
         # Should be open
         self.assertTrue(np.all(np.isclose(contact_force_0[1], 0)))
-        self.assertTrue(np.all(u_mortar_0[1] < setup.zero_tol))
+        self.assertTrue(np.all(u_mortar_0[1] > setup.zero_tol))
         # but no tangential displacement
         self.assertTrue(np.all(np.isclose(u_mortar_0[0], 0)))
         # Second step
@@ -184,7 +184,7 @@ class TestDilation(unittest.TestCase):
         # We have displaced more in the second step:
         sign = np.sign(u_mortar_1[0, 0])
         self.assertTrue(np.all(sign * (u_mortar_0[0] - u_mortar_1[0]) < setup.zero_tol))
-        self.assertTrue(np.all(u_mortar_0[1] - u_mortar_1[1] > setup.zero_tol))
+        self.assertTrue(np.all(u_mortar_1[1] - u_mortar_0[1] > setup.zero_tol))
 
 
 class SetupContactMechanics(

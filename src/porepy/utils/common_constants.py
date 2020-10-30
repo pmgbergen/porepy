@@ -31,6 +31,7 @@ DISCRETIZATION_MATRICES = "discretization_matrices"
 
 # Used in data dictionary to store the system state, e.g. primary variables.
 STATE = "state"
+ITERATE = "iterate"
 
 """ Units """
 # SI Prefixes
