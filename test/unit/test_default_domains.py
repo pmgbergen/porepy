@@ -50,6 +50,5 @@ class TestDomain(unittest.TestCase):
 
     def test_negative_domain(self):
         physdims = [1, -1]
-        try:
         with self.assertRaises(ValueError):
             pp.SquareDomain(physdims)
