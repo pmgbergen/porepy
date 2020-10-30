@@ -1,9 +1,10 @@
 """
 Module for creating standard domain dictionaries.
 """
+from typing import List, Dict
 
 
-def CubeDomain(physdims):
+def CubeDomain(physdims: List[float]) -> Dict:
     """
     Create a domain dictionary of a Cube domain with lower left corner
     centered at Origin, and upper right corner centered at physdims
@@ -35,7 +36,7 @@ def CubeDomain(physdims):
     return domain
 
 
-def SquareDomain(physdims):
+def SquareDomain(physdims: List[float]) -> Dict:
     """
     Create a domain dictionary of a Square domain with lower left corner
     centered at Origin, and upper right corner centered at physdims
@@ -49,7 +50,7 @@ def SquareDomain(physdims):
     return CubeDomain(physdims)
 
 
-def UnitCubeDomain():
+def UnitCubeDomain() -> Dict:
     """
     Create a domain dictionary of a Unit cube
 
@@ -60,7 +61,7 @@ def UnitCubeDomain():
     return CubeDomain([1, 1, 1])
 
 
-def UnitSquareDomain():
+def UnitSquareDomain() -> Dict:
     """
     Create a domain dictionary of a Unit square
 
