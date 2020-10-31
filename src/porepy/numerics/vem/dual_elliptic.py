@@ -391,7 +391,7 @@ class DualElliptic(
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and secondary side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -443,7 +443,7 @@ class DualElliptic(
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and secondary side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -491,7 +491,7 @@ class DualElliptic(
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and secondary side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -531,7 +531,7 @@ class DualElliptic(
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and secondary side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -571,12 +571,12 @@ class DualElliptic(
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix of size 3 x 3, whwere each block represents
                 coupling between variables on this interface. Index 0, 1 and 2
-                represent the master grid, the primary and secondary interface,
+                represent the primary grid, the primary and secondary interface,
                 respectively.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
             rhs (block_array 3x1): Block matrix of size 3 x 1, representing the right hand
-                side of this coupling. Index 0, 1 and 2 represent the master grid,
+                side of this coupling. Index 0, 1 and 2 represent the primary grid,
                 the primary and secondary interface, respectively.
 
         """
@@ -613,7 +613,7 @@ class DualElliptic(
                 secondary side of the mortar grid in data_adge.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and secondary side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.

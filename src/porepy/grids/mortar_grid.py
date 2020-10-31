@@ -42,7 +42,7 @@ class MortarGrid:
         name (list): Information on the formation of the grid, such as the
             constructor, computations of geometry etc.
         tol (double): Tolerance use when matching grids during update of mortar or
-            master / secondary grids.
+            primary / secondary grids.
 
     """
 
@@ -328,8 +328,8 @@ class MortarGrid:
         Update the _secondary_to_mortar_int map when the lower dimensional grid is changed.
 
         Parameter:
-            g_new (pp.Grid): The new master grid.
-            g_old (pp.Grid): The old master grid.
+            g_new (pp.Grid): The new primary grid.
+            g_old (pp.Grid): The old primary grid.
             tol (double, optional): Tolerance used for matching the new and old grids.
                 Defaults to self.tol.
 
@@ -419,12 +419,12 @@ class MortarGrid:
 
     ## Methods to construct projection matrices
     def primary_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
-        """Project values from faces of master to the mortar, by summing quantities
-        from the master side.
+        """Project values from faces of primary to the mortar, by summing quantities
+        from the primary side.
 
         The projection matrix is scaled so that the column sum is unity, that is, values
-        on the master side are distributed to the mortar according to the overlap
-        between a master face and generally several mortar cells.
+        on the primary side are distributed to the mortar according to the overlap
+        between a primary face and generally several mortar cells.
 
         This mapping is intended for extensive properties, e.g. fluxes.
 
@@ -434,7 +434,7 @@ class MortarGrid:
 
         Returns:
             sps.matrix: Projection matrix with column sum unity.
-                Size: g_master.num_faces x mortar_grid.num_cells.
+                Size: g_primary.num_faces x mortar_grid.num_cells.
 
         """
         return self._convert_to_vector_variable(self._primary_to_mortar_int, nd)
@@ -461,12 +461,12 @@ class MortarGrid:
         return self._convert_to_vector_variable(self._secondary_to_mortar_int, nd)
 
     def primary_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
-        """Project values from faces of master to the mortar, by averaging quantities
-        from the master side.
+        """Project values from faces of primary to the mortar, by averaging quantities
+        from the primary side.
 
         The projection matrix is scaled so that the row sum is unity, that is, values
-        on the mortar side are computed as averages of values from the master side,
-        according to the overlap between, general several, master faces and a mortar
+        on the mortar side are computed as averages of values from the primary side,
+        according to the overlap between, general several, primary faces and a mortar
         cell.
 
         This mapping is intended for intensive properties, e.g. pressures.
@@ -477,7 +477,7 @@ class MortarGrid:
 
         Returns:
             sps.matrix: Projection matrix with row sum unity.
-                Size: g_master.num_faces x mortar_grid.num_cells.
+                Size: g_primary.num_faces x mortar_grid.num_cells.
 
         """
         scaled_mat = self._row_sum_scaling_matrix(self._primary_to_mortar_int)
@@ -489,7 +489,7 @@ class MortarGrid:
 
         The projection matrix is scaled so that the row sum is unity, that is, values
         on the mortar side are computed as averages of values from the secondary side,
-        according to the overlap between, generally several master cells and the mortar
+        according to the overlap between, generally several primary cells and the mortar
         cells.
 
         This mapping is intended for intensive properties, e.g. pressures.
@@ -522,17 +522,17 @@ class MortarGrid:
         scaling = sps.csc_matrix((1.0 / row_sum, ind, indptr), shape=(sz, sz))
         return scaling * mat
 
-    # IMPLEMENTATION NOTE: The reverse projections, from mortar to master/secondary are
+    # IMPLEMENTATION NOTE: The reverse projections, from mortar to primary/secondary are
     # found by taking transposes, and switching average and integration (since we are
     # changing which side we are taking the area relative to.
 
     def mortar_to_primary_int(self, nd: int = 1) -> sps.spmatrix:
-        """Project values from the mortar to faces of master, by summing quantities
+        """Project values from the mortar to faces of primary, by summing quantities
         from the mortar side.
 
         The projection matrix is scaled so that the column sum is unity, that is, values
-        on the mortar side are distributed to the master according to the overlap
-        between a mortar cell and, generally several master faces.
+        on the mortar side are distributed to the primary according to the overlap
+        between a mortar cell and, generally several primary faces.
 
         This mapping is intended for extensive properties, e.g. fluxes.
 
@@ -542,7 +542,7 @@ class MortarGrid:
 
         Returns:
             sps.matrix: Projection matrix with column sum unity.
-                Size: mortar_grid.num_cells x g_master.num_faces.
+                Size: mortar_grid.num_cells x g_primary.num_faces.
 
         """
         return self._convert_to_vector_variable(self.primary_to_mortar_avg().T, nd)
@@ -569,12 +569,12 @@ class MortarGrid:
         return self._convert_to_vector_variable(self.secondary_to_mortar_avg().T, nd)
 
     def mortar_to_primary_avg(self, nd: int = 1) -> sps.spmatrix:
-        """Project values from the mortar to faces of master, by averaging
+        """Project values from the mortar to faces of primary, by averaging
         quantities from the mortar side.
 
         The projection matrix is scaled so that the row sum is unity, that is, values
-        on the master side are computed as averages of values from the mortar side,
-        according to the overlap between, general several, mortar cell and a master
+        on the primary side are computed as averages of values from the mortar side,
+        according to the overlap between, general several, mortar cell and a primary
         face.
 
         This mapping is intended for intensive properties, e.g. pressures.
@@ -585,7 +585,7 @@ class MortarGrid:
 
         Returns:
             sps.matrix: Projection matrix with row sum unity.
-                Size: mortar_grid.num_cells x g_master.num_faces.
+                Size: mortar_grid.num_cells x g_primary.num_faces.
 
         """
         return self._convert_to_vector_variable(self.primary_to_mortar_int().T, nd)
@@ -640,7 +640,7 @@ class MortarGrid:
             mortar_to_secondary_avg() * sign_of_mortar_sides()
 
         NOTE: The flux variables in flow and transport equations are defined as
-        positive from master to secondary. Hence the two sides have different
+        positive from primary to secondary. Hence the two sides have different
         conventions, and there is no need to adjust the signs further.
 
         IMPLEMENTATION NOTE: This method will probably not be meaningful if
@@ -684,7 +684,7 @@ class MortarGrid:
     def _check_mappings(self, tol=1e-4) -> None:
         row_sum = self._primary_to_mortar_int.sum(axis=1)
         if not (row_sum.min() > tol):
-            raise ValueError("Check not satisfied for the master grid")
+            raise ValueError("Check not satisfied for the primary grid")
 
         row_sum = self._secondary_to_mortar_int.sum(axis=1)
         if not (row_sum.min() > tol):
@@ -698,7 +698,7 @@ class BoundaryMortar(MortarGrid):
     functions defined in MortarGrid and not BoundaryMortar as not all have been
     thested thoroughly.BoundaryMortar contains a mortar grid and the weighted
     mapping from the secondary grid (as set of faces) to the mortar grid and from the
-    master grid (as set of faces) to the mortar grid.
+    primary grid (as set of faces) to the mortar grid.
 
     Attributes:
 
@@ -712,7 +712,7 @@ class BoundaryMortar(MortarGrid):
             but it can be modified by calling refine_mortar(). The matrix
             elements represent the ratio between the geometrical objects.
         primary_to_mortar_int (sps.csc-matrix): face-cell relationships between
-            master mortar grid and the mortar grid. Matrix size:
+            primary mortar grid and the mortar grid. Matrix size:
             num_faces x num_cells. Matrix elements represent the ratio between
             the geometrical objects.
         name (list): Information on the formation of the grid, such as the
@@ -721,7 +721,7 @@ class BoundaryMortar(MortarGrid):
     """
 
     def __init__(
-        self, dim: int, mortar_grid, master_secondary: sps.spmatrix, name: str = ""
+        self, dim: int, mortar_grid, primary_secondary: sps.spmatrix, name: str = ""
     ) -> None:
         """Initialize the mortar grid
 
@@ -733,9 +733,9 @@ class BoundaryMortar(MortarGrid):
         dim (int): grid dimension
         mortar_grid (pp.MortarGrid): mortar grid. It is assumed that there is a
             one to one mapping between the cells of the mortar grid and the
-            faces of the secondary grid given in master_secondary
-        master_secondary (sps.csc_matrix): face-face relations between the secondary
-            grid and the master dimensional grid.
+            faces of the secondary grid given in primary_secondary
+        primary_secondary (sps.csc_matrix): face-face relations between the secondary
+            grid and the primary dimensional grid.
         name (str): Name of grid
         """
 
@@ -756,18 +756,18 @@ class BoundaryMortar(MortarGrid):
         else:
             self.name = [name]
         self.name.append("mortar_grid")
-        # master_secondary is a mapping from the faces of the secondary grid to the
-        # faces of the master grid.
+        # primary_secondary is a mapping from the faces of the secondary grid to the
+        # faces of the primary grid.
         # We assume that, in the beginning the mortar grids are equal
         # to the secondary grid. If this assumption is not satisfied we
         # need to change the following lines
-        secondary_f, master_f, data = sps.find(master_secondary)
+        secondary_f, primary_f, data = sps.find(primary_secondary)
 
         # It is assumed that the cells of the given mortar grid are ordered
         # by the face numbers of the secondary side
         ix = np.argsort(secondary_f)
         secondary_f = secondary_f[ix]
-        master_f = master_f[ix]
+        primary_f = primary_f[ix]
         data = data[ix]
 
         # Define mappings
@@ -781,10 +781,10 @@ class BoundaryMortar(MortarGrid):
             )
         self.cell_volumes = mortar_grid.cell_volumes
 
-        shape_master = (self.num_cells, master_secondary.shape[1])
-        shape_secondary = (self.num_cells, master_secondary.shape[0])
+        shape_primary = (self.num_cells, primary_secondary.shape[1])
+        shape_secondary = (self.num_cells, primary_secondary.shape[0])
         self._primary_to_mortar_int = sps.csc_matrix(
-            (data.astype(np.float), (cells, master_f)), shape=shape_master
+            (data.astype(np.float), (cells, primary_f)), shape=shape_primary
         )
         self._secondary_to_mortar_int = sps.csc_matrix(
             (data.astype(np.float), (cells, secondary_f)), shape=shape_secondary
@@ -825,9 +825,9 @@ class BoundaryMortar(MortarGrid):
         )
 
         s += (
-            "Mapping from the faces of the master_side grid to"
+            "Mapping from the faces of the primary_side grid to"
             + " the cells of the mortar grid. \nRows indicate the mortar"
-            + " cell id, columns indicate the master_grid face id"
+            + " cell id, columns indicate the primary_grid face id"
             + "\n"
             + str(self.primary_to_mortar_int)
             + "\n"
