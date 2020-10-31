@@ -260,11 +260,11 @@ def _generate_coarse_grid_gb(gb, subdiv):
         # Construct the coarse grids
         face_map = _generate_coarse_grid_single(g, partition, True)
 
-        # Update all the master_to_mortar_int for all the 'edges' connected to the grid
+        # Update all the primary_to_mortar_int for all the 'edges' connected to the grid
         # We update also all the face_cells
         for e, d in gb.edges_of_node(g):
             # The indices that need to be mapped to the new grid
-            m2m = d["mortar_grid"].master_to_mortar_int().tocsr()
+            m2m = d["mortar_grid"].primary_to_mortar_int().tocsr()
             indices = m2m.indices
 
             # Map indices
@@ -276,7 +276,7 @@ def _generate_coarse_grid_gb(gb, subdiv):
             # Create the new matrix
             shape = (m2m.shape[0], g.num_faces)
             new_m2m = sps.csr_matrix((m2m.data, indices, m2m.indptr), shape=shape)
-            d["mortar_grid"]._master_to_mortar_int = new_m2m.tocsc()
+            d["mortar_grid"]._primary_to_mortar_int = new_m2m.tocsc()
 
             # update also the face_cells map
             face_cells = d["face_cells"].tocsr()
@@ -354,7 +354,7 @@ def generate_seeds(gb):
 
         # recover the mapping between the slave and the master grid
         mg = gb._edges[(g_h, g)]["mortar_grid"]
-        m2m = mg.master_to_mortar_int()
+        m2m = mg.primary_to_mortar_int()
         l2m = mg.slave_to_mortar_int()
         # this is the old face_cells mapping
         face_cells = l2m.T * m2m

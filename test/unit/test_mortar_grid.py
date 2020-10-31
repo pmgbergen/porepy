@@ -36,8 +36,8 @@ class TestGridMappings1d(unittest.TestCase):
 
         self.assertTrue(mg.num_cells == 1)
         self.assertTrue(mg.num_sides() == 1)
-        self.assertTrue(np.all(mg.master_to_mortar_avg().A == [1, 0, 0]))
-        self.assertTrue(np.all(mg.master_to_mortar_int().A == [1, 0, 0]))
+        self.assertTrue(np.all(mg.primary_to_mortar_avg().A == [1, 0, 0]))
+        self.assertTrue(np.all(mg.primary_to_mortar_int().A == [1, 0, 0]))
         self.assertTrue(np.all(mg.slave_to_mortar_avg().A == [0, 0, 1]))
         self.assertTrue(np.all(mg.slave_to_mortar_int().A == [0, 0, 1]))
 
@@ -62,8 +62,8 @@ class TestGridMappings1d(unittest.TestCase):
 
         self.assertTrue(mg.num_cells == 1)
         self.assertTrue(mg.num_sides() == 1)
-        self.assertTrue(np.all(mg.master_to_mortar_avg().A == [0, 1, 0]))
-        self.assertTrue(np.all(mg.master_to_mortar_int().A == [0, 1, 0]))
+        self.assertTrue(np.all(mg.primary_to_mortar_avg().A == [0, 1, 0]))
+        self.assertTrue(np.all(mg.primary_to_mortar_int().A == [0, 1, 0]))
         self.assertTrue(np.all(mg.slave_to_mortar_avg().A == [0, 1]))
         self.assertTrue(np.all(mg.slave_to_mortar_int().A == [0, 1]))
 

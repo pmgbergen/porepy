@@ -226,7 +226,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             a_l = self.aperture(g_l)
             # Take trace of and then project specific volumes from g_h
             v_h = (
-                mg.master_to_mortar_avg()
+                mg.primary_to_mortar_avg()
                 * np.abs(g_h.cell_faces)
                 * self.specific_volume(g_h)
             )

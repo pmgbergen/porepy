@@ -157,7 +157,7 @@ def match_grids_along_1d_mortar(
         ValueError: If the matching procedure goes wrong.
 
     Returns:
-        sps.csr_matrix: Matrix that can be used to update mg._master_to_mortar_int.
+        sps.csr_matrix: Matrix that can be used to update mg._primary_to_mortar_int.
 
     """
 
@@ -249,7 +249,7 @@ def match_grids_along_1d_mortar(
 
     # First create a virtual 1d grid along the line, using nodes from the old grid
     # Identify faces in the old grid that is on the boundary
-    _, faces_on_boundary_old, _ = sps.find(mg._master_to_mortar_int)
+    _, faces_on_boundary_old, _ = sps.find(mg._primary_to_mortar_int)
     # Find the nodes of those faces
     nodes_on_boundary_old = nodes_of_faces(g_old, faces_on_boundary_old)
     nodes_1d_old = g_old.nodes[:, nodes_on_boundary_old]
