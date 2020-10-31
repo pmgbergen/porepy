@@ -278,7 +278,7 @@ class MortarGrid:
 
         self._check_mappings()
 
-    def update_slave(self, new_g: pp.Grid, tol: float = None) -> None:
+    def update_secondary(self, new_g: pp.Grid, tol: float = None) -> None:
         """
         Update the _secondary_to_mortar_int map when the lower dimensional grid is changed.
 
@@ -334,7 +334,7 @@ class MortarGrid:
                 Defaults to self.tol.
 
         """
-        # TODO: Why is the signature of this method different from update_slave?
+        # TODO: Why is the signature of this method different from update_secondary?
         if tol is None:
             tol = self.tol
 
