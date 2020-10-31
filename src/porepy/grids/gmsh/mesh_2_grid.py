@@ -140,54 +140,52 @@ def create_2d_grids(
         # Construct grid
         g_2d: pp.Grid = pp.TriangleGrid(pts.transpose(), triangles)
 
-        # we need to add the face tags from gmsh to the current mesh,
-        # first we add them as False and after we change for the correct
+        # we need to add the face tags from gmsh to the current mesh, however,
+        # since there is not a cell-face relation from gmsh but only a cell-node
+        # relation we need to recover the corresponding face-line map.
+        # First find the nodes of each face
+        faces = np.reshape(g_2d.face_nodes.indices, (2, -1), order="F")
+        faces = np.sort(faces, axis=0)
+
+        # Then we do a bunch of sorting to make sure faces and lines has the same
+        # node ordering:
+        idxf = np.lexsort(faces)
+
+        line = np.sort(cells["line"].T, axis=0)
+        idxl = np.lexsort(line)
+        IC = np.empty(line.shape[1], dtype=int)
+        IC[idxl] = np.arange(line.shape[1])
+
+        # Next change the faces and line to string format ("node_idx0,node_idx1").
+        # The reason to do so is because we want to compare faces and line columnwise,
+        # i.e., is_line[i] should be true iff faces[:, i] == line[:, j] for ONE j. If
+        # you can make numpy do this, you can remove the string formating.
+        tmp = np.core.defchararray.add(faces[0, idxf].astype(str), ",")
+        facestr = np.core.defchararray.add(tmp, faces[1, idxf].astype(str))
+        tmp = np.core.defchararray.add(line[0, idxl].astype(str), ",")
+        linestr = np.core.defchararray.add(tmp, line[1, idxl].astype(str))
+
+        is_line = np.isin(facestr, linestr, assume_unique=True)
+
+        # Now find the face index that correspond to each line. line2face is of length
+        # line.shape[1] and we have: face[:, line2face] == line.
+        line2face = idxf[is_line][IC]
+        # Sanity check
+        if not np.allclose(faces[:, line2face], line):
+            raise RuntimeError(
+                "Could not find mapping from gmsh lines to pp.Grid faces"
+            )
+
+        # Now we can assign the correct tags to the grid.
+        # First we add them as False and after we change for the correct
         # faces. The new tag name become the lower version of what gmsh gives
         # in the cell_info["line"]. The map phys_names recover the literal name.
-
-        # create all the extra tags for the grids, by default they're false
         for tag in np.unique(cell_info["line"]):
             tag_name = phys_names[tag].lower() + "_faces"
             g_2d.tags[tag_name] = np.zeros(g_2d.num_faces, dtype=np.bool)
-
-        # since there is not a cell-face relation from gmsh but only a cell-node
-        # relation we need to recover the corresponding face.
-        for tag_id, tag in enumerate(cell_info["line"]):
-            tag_name = phys_names[tag].lower() + "_faces"
-            # check where is the first node indipendent on the position
-            # in the triangle, being first, second or third node
-            first = (triangles == cells["line"][tag_id, 0]).any(axis=0)
-            # check where is the second node, same approach as before
-            second = (triangles == cells["line"][tag_id, 1]).any(axis=0)
-            # select which are the cells that have this edge
-            tria = np.logical_and(first, second).astype(np.int)
-            # with the cell_faces map we get the faces associated to
-            # the selected triangles
-            face = np.abs(g_2d.cell_faces).dot(tria)
-            # we have two case, the face is internal or is at the boundary
-            # we consider them separately
-            if np.any(face > 1):
-                # select the face if it is internal
-                g_2d.tags[tag_name][face > 1] = True
-            else:
-                # the face is on a boundary
-                face = np.logical_and(face, g_2d.tags["domain_boundary_faces"])
-                if np.sum(face) == 2:
-                    # the triangle has two faces at the boundary, check if it
-                    # is the first otherwise it is the other.
-                    face_id = np.where(face)[0]
-
-                    first_face = np.zeros(face.size, dtype=np.bool)
-                    first_face[face_id[0]] = True
-
-                    nodes = g_2d.face_nodes.dot(first_face)
-                    # check if the nodes of the first face are the same
-                    if np.all(nodes[cells["line"][tag_id, :]]):
-                        face[face_id[1]] = False
-                    else:
-                        face[face_id[0]] = False
-
-                g_2d.tags[tag_name][face] = True
+            # Add correct tag
+            faces = line2face[cell_info["line"] == tag]
+            g_2d.tags[tag_name][faces] = True
 
         # Create mapping to global numbering (will be a unit mapping, but is
         # crucial for consistency with lower dimensions)
