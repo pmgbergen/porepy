@@ -370,7 +370,7 @@ class DualElliptic(
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,
-        use_slave_proj: bool = False,
+        use_secondary_proj: bool = False,
     ) -> None:
         """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
@@ -391,7 +391,7 @@ class DualElliptic(
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                master and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -399,14 +399,14 @@ class DualElliptic(
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
-            use_slave_proj (boolean): If True, the slave side projection operator is
+            use_secondary_proj (boolean): If True, the secondary side projection operator is
                 used. Needed for periodic boundary conditions.
 
         """
 
         # The matrix must be the VEM discretization matrix.
         mg = data_edge["mortar_grid"]
-        if use_slave_proj:
+        if use_secondary_proj:
             proj = mg.mortar_to_secondary_int()
         else:
             proj = mg.mortar_to_primary_int()
@@ -443,7 +443,7 @@ class DualElliptic(
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                master and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -470,7 +470,7 @@ class DualElliptic(
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,
-        use_slave_proj: bool = False,
+        use_secondary_proj: bool = False,
     ) -> None:
         """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -491,7 +491,7 @@ class DualElliptic(
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                master and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -499,13 +499,13 @@ class DualElliptic(
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
-            use_slave_proj (boolean): If True, the slave side projection operator is
+            use_secondary_proj (boolean): If True, the secondary side projection operator is
                 used. Needed for periodic boundary conditions.
 
         """
         mg = data_edge["mortar_grid"]
 
-        if use_slave_proj:
+        if use_secondary_proj:
             proj = mg.mortar_to_secondary_int()
         else:
             proj = mg.mortar_to_primary_int()
@@ -516,7 +516,7 @@ class DualElliptic(
         cc[2, 2] -= hat_E_int.T * matrix[self_ind, self_ind] * hat_E_int
 
     def assemble_int_bound_pressure_trace_rhs(
-        self, g, data, data_edge, cc, rhs, self_ind, use_slave_proj=False
+        self, g, data, data_edge, cc, rhs, self_ind, use_secondary_proj=False
     ):
         """Assemble the rhs contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -531,7 +531,7 @@ class DualElliptic(
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                master and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -539,7 +539,7 @@ class DualElliptic(
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
-            use_slave_proj (boolean): If True, the slave side projection operator is
+            use_secondary_proj (boolean): If True, the secondary side projection operator is
                 used. Needed for periodic boundary conditions.
 
         """
@@ -610,10 +610,10 @@ class DualElliptic(
             data_edge (dictionary): Data dictionary for the edge in the
                 mixed-dimensional grid.
             grid_swap (boolean): If True, the grid g is identified with the @
-                slave side of the mortar grid in data_adge.
+                secondary side of the mortar grid in data_adge.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                master and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.

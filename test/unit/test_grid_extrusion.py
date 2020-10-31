@@ -632,28 +632,28 @@ class TestGridBucketExtrusion(unittest.TestCase):
             np.allclose(mortar_cells_in_range_from_master, np.arange(mg_new.num_cells))
         )
 
-        # All mortar cells should be in the range from slave
-        mortar_cells_in_range_from_slave = np.unique(
+        # All mortar cells should be in the range from secondary
+        mortar_cells_in_range_from_secondary = np.unique(
             mg_new.secondary_to_mortar_int().tocoo().row
         )
-        self.assertTrue(mortar_cells_in_range_from_slave.size == mg_new.num_cells)
+        self.assertTrue(mortar_cells_in_range_from_secondary.size == mg_new.num_cells)
         self.assertTrue(
             np.allclose(
-                np.sort(mortar_cells_in_range_from_slave), np.arange(mg_new.num_cells)
+                np.sort(mortar_cells_in_range_from_secondary), np.arange(mg_new.num_cells)
             )
         )
 
         g_1_new = gb_new.grids_of_dimension(2)[0]
 
-        # All mortar cells should be associated with two cells in slave
-        slave_cells_in_range_from_mortar = mg_new.mortar_to_secondary_int().tocoo().row
-        self.assertTrue(np.all(np.bincount(slave_cells_in_range_from_mortar) == 2))
+        # All mortar cells should be associated with two cells in secondary
+        secondary_cells_in_range_from_mortar = mg_new.mortar_to_secondary_int().tocoo().row
+        self.assertTrue(np.all(np.bincount(secondary_cells_in_range_from_mortar) == 2))
         self.assertTrue(
-            np.unique(slave_cells_in_range_from_mortar).size == g_1_new.num_cells
+            np.unique(secondary_cells_in_range_from_mortar).size == g_1_new.num_cells
         )
         self.assertTrue(
             np.allclose(
-                np.sort(np.unique(slave_cells_in_range_from_mortar)),
+                np.sort(np.unique(secondary_cells_in_range_from_mortar)),
                 np.arange(g_1_new.num_cells),
             )
         )
