@@ -158,7 +158,7 @@ class ColoumbContact:
         parameters_h = data_h[pp.PARAMETERS][self.discr_h.keyword]
         constit_h = parameters_h["fourth_order_tensor"]
         mean_constit = (
-            mg.mortar_to_slave_avg()
+            mg.mortar_to_secondary_avg()
             * mg.master_to_mortar_avg()
             * 0.5
             * np.abs(g_h.cell_faces * (constit_h.mu + constit_h.lmbda))
@@ -207,12 +207,12 @@ class ColoumbContact:
             self.mortar_displacement_variable
         ]
         displacement_jump_global_coord_iterate = (
-            mg.mortar_to_slave_avg(nd=self.dim)
+            mg.mortar_to_secondary_avg(nd=self.dim)
             * mg.sign_of_mortar_sides(nd=self.dim)
             * previous_displacement_iterate
         )
         displacement_jump_global_coord_time = (
-            mg.mortar_to_slave_avg(nd=self.dim)
+            mg.mortar_to_secondary_avg(nd=self.dim)
             * mg.sign_of_mortar_sides(nd=self.dim)
             * previous_displacement_time
         )

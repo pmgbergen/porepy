@@ -63,7 +63,7 @@ class TestContactMechanicsBiot(unittest.TestCase):
         fracture_pressure = d_1[pp.STATE][setup.scalar_variable]
 
         displacement_jump_global_coord = (
-            mg.mortar_to_slave_avg(nd=nd) * mg.sign_of_mortar_sides(nd=nd) * u_mortar
+            mg.mortar_to_secondary_avg(nd=nd) * mg.sign_of_mortar_sides(nd=nd) * u_mortar
         )
         projection = d_m["tangential_normal_projection"]
 

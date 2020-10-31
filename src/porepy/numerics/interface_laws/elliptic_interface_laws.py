@@ -307,7 +307,7 @@ class RobinCoupling(
         if isinstance(mg_primary, pp.BoundaryMortar) and edge_primary[0] == g:
             proj_pressure = mg_primary.slave_to_mortar_avg()
         if isinstance(mg_secondary, pp.BoundaryMortar) and edge_secondary[0] == g:
-            proj_flux = mg_secondary.mortar_to_slave_int()
+            proj_flux = mg_secondary.mortar_to_secondary_int()
 
         cc, rhs = self._define_local_block_matrix_edge_coupling(
             g, self.discr_master, mg_primary, mg_secondary, matrix
