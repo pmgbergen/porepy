@@ -97,7 +97,7 @@ class UpwindCoupling(
         # i.e., T_masterat * fluid_flux = lambda.
         # We set cc[2, 0] = T_masterat * fluid_flux
         # Use averaged projection operator for an intensive quantity
-        cc[2, 0] = sps.diags(lam_flux * flag) * mg.master_to_mortar_avg() * trace_h
+        cc[2, 0] = sps.diags(lam_flux * flag) * mg.primary_to_mortar_avg() * trace_h
 
         # If fluid flux is negative we use the lower value as weight,
         # i.e., T_check * fluid_flux = lambda.

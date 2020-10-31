@@ -48,7 +48,7 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
                 # problem
                 # edge_flux += sign * g_m.mortar_to_primary_int() * d_e[pp.STATE][mortar_key]
                 edge_flux += (
-                    sign * g_m.master_to_mortar_avg().T * d_e[pp.STATE][mortar_key]
+                    sign * g_m.primary_to_mortar_avg().T * d_e[pp.STATE][mortar_key]
                 )
 
         d[pp.STATE][P0_flux] = discr.project_flux(g, edge_flux + d[pp.STATE][flux], d)

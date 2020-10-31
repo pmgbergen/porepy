@@ -122,7 +122,7 @@ class RobinCoupling(
         normals_h = g_h.face_normals.copy()
 
         # projection matrix
-        proj = mg.master_to_mortar_avg()
+        proj = mg.primary_to_mortar_avg()
 
         # Ensure that the normal vectors point out of g_h
         # Indices of faces neighboring this mortar grid
@@ -298,7 +298,7 @@ class RobinCoupling(
 
         # Normally, the projections will be pressure from the master (high-dim node)
         # to the primary mortar, and flux from secondary mortar to master
-        proj_pressure = mg_primary.master_to_mortar_avg()
+        proj_pressure = mg_primary.primary_to_mortar_avg()
         proj_flux = mg_secondary.mortar_to_primary_int()
 
         # If the primary and / or secondary mortar is a boundary mortar grid, things
