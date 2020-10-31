@@ -323,7 +323,7 @@ class MortarGrid:
         self._secondary_to_mortar_int = sps.bmat(matrix, format="csc")
         self._check_mappings()
 
-    def update_master(self, g_new: pp.Grid, g_old: pp.Grid, tol: float = None):
+    def update_primary(self, g_new: pp.Grid, g_old: pp.Grid, tol: float = None):
         """
         Update the _secondary_to_mortar_int map when the lower dimensional grid is changed.
 
