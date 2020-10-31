@@ -66,7 +66,7 @@ class ImplicitMpfa(pp.Mpfa):
         mg = data_edge["mortar_grid"]
 
         if use_slave_proj:
-            proj = mg.mortar_to_slave_int()
+            proj = mg.mortar_to_secondary_int()
         else:
             proj = mg.mortar_to_master_int()
 
@@ -115,7 +115,7 @@ class ImplicitMpfa(pp.Mpfa):
         """
         mg = data_edge["mortar_grid"]
 
-        proj = mg.mortar_to_slave_int()
+        proj = mg.mortar_to_secondary_int()
         dt = data[pp.PARAMETERS][self.keyword]["time_step"]
         cc[self_ind, 2] -= proj * dt
 
@@ -153,7 +153,7 @@ class ImplicitTpfa(pp.Tpfa):
         mg = data_edge["mortar_grid"]
 
         if use_slave_proj:
-            proj = mg.mortar_to_slave_int()
+            proj = mg.mortar_to_secondary_int()
         else:
             proj = mg.mortar_to_master_int()
 
@@ -202,7 +202,7 @@ class ImplicitTpfa(pp.Tpfa):
         """
         mg = data_edge["mortar_grid"]
 
-        proj = mg.mortar_to_slave_int()
+        proj = mg.mortar_to_secondary_int()
         dt = data[pp.PARAMETERS][self.keyword]["time_step"]
         cc[self_ind, 2] -= proj * dt
 

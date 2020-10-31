@@ -172,7 +172,7 @@ class MortarGrid:
             + f"Number of cells {self.num_cells}\n"
             + f"Number of sides {len(self.side_grids)}\n"
             + "Number of cells in lower-dimensional neighbor "
-            + f"{self.mortar_to_slave_int().shape[0]}\n"
+            + f"{self.mortar_to_secondary_int().shape[0]}\n"
             + "Number of faces in higher-dimensional neighbor "
             + f"{self.mortar_to_master_int().shape[0]}\n"
         )
@@ -547,7 +547,7 @@ class MortarGrid:
         """
         return self._convert_to_vector_variable(self.master_to_mortar_avg().T, nd)
 
-    def mortar_to_slave_int(self, nd: int = 1) -> sps.spmatrix:
+    def mortar_to_secondary_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to cells at the slave, by summing quantities
         from the mortar side.
 
@@ -590,7 +590,7 @@ class MortarGrid:
         """
         return self._convert_to_vector_variable(self.master_to_mortar_int().T, nd)
 
-    def mortar_to_slave_avg(self, nd: int = 1) -> sps.spmatrix:
+    def mortar_to_secondary_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to slave, by averaging quantities from the
         mortar side.
 
@@ -637,7 +637,7 @@ class MortarGrid:
         Example: Take the difference between right and left variables, and
         project to the slave grid by
 
-            mortar_to_slave_avg() * sign_of_mortar_sides()
+            mortar_to_secondary_avg() * sign_of_mortar_sides()
 
         NOTE: The flux variables in flow and transport equations are defined as
         positive from master to slave. Hence the two sides have different

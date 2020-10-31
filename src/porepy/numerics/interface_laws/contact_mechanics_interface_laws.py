@@ -174,7 +174,7 @@ class PrimalContactCoupling(
         cc[slave_ind, mortar_ind] = (
             displacement_jump_discr
             * projection.project_tangential_normal(g_slave.num_cells)
-            * mg.mortar_to_slave_avg(nd=ambient_dimension)
+            * mg.mortar_to_secondary_avg(nd=ambient_dimension)
             * mg.sign_of_mortar_sides(nd=ambient_dimension)
         )
 
@@ -186,7 +186,7 @@ class PrimalContactCoupling(
         ].copy()
         rotated_jumps = (
             projection.project_tangential_normal(g_slave.num_cells)
-            * mg.mortar_to_slave_avg(nd=ambient_dimension)
+            * mg.mortar_to_secondary_avg(nd=ambient_dimension)
             * mg.sign_of_mortar_sides(nd=ambient_dimension)
             * previous_time_step_displacements
         )
