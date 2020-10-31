@@ -167,7 +167,7 @@ class CellDofFaceDofMap(object):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and secondary side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -201,7 +201,7 @@ class CellDofFaceDofMap(object):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and secondary side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -239,7 +239,7 @@ class CellDofFaceDofMap(object):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and secondary side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -275,7 +275,7 @@ class CellDofFaceDofMap(object):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and secondary side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -291,7 +291,7 @@ class CellDofFaceDofMap(object):
 
         cc[2, self_ind] -= proj
 
-    def enforce_neumann_int_bound(self, g_master, data_edge, matrix, self_ind):
+    def enforce_neumann_int_bound(self, g_primary, data_edge, matrix, self_ind):
         """Enforce Neumann boundary conditions on a given system matrix.
 
         Methods based on a mixed variational form will need this function to
