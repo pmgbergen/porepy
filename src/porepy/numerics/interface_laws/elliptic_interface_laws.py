@@ -305,7 +305,7 @@ class RobinCoupling(
         # become more complex. This probably assumes that a FluxPressureContinuity
         # discretization is applied on the relevant mortar grid.
         if isinstance(mg_primary, pp.BoundaryMortar) and edge_primary[0] == g:
-            proj_pressure = mg_primary.slave_to_mortar_avg()
+            proj_pressure = mg_primary.secondary_to_mortar_avg()
         if isinstance(mg_secondary, pp.BoundaryMortar) and edge_secondary[0] == g:
             proj_flux = mg_secondary.mortar_to_secondary_int()
 

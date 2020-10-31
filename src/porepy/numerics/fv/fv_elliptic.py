@@ -339,7 +339,7 @@ class FVElliptic(pp.EllipticDiscretization):
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
         if use_slave_proj:
-            proj = mg.slave_to_mortar_avg()
+            proj = mg.secondary_to_mortar_avg()
             proj_int = mg.mortar_to_secondary_int()
         else:
             proj = mg.primary_to_mortar_avg()
@@ -399,7 +399,7 @@ class FVElliptic(pp.EllipticDiscretization):
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
         if use_slave_proj:
-            proj = mg.slave_to_mortar_avg()
+            proj = mg.secondary_to_mortar_avg()
         else:
             proj = mg.primary_to_mortar_avg()
 
@@ -486,7 +486,7 @@ class FVElliptic(pp.EllipticDiscretization):
         """
         mg = data_edge["mortar_grid"]
 
-        proj = mg.slave_to_mortar_avg()
+        proj = mg.secondary_to_mortar_avg()
 
         cc[2, self_ind] -= proj
 

@@ -198,7 +198,7 @@ class THM(parent_model.ContactMechanicsBiot):
             )  #
             # Division by a/2 may be thought of as taking the gradient in the normal
             # direction of the fracture.
-            normal_diffusivity = kappa * 2 / (mg.slave_to_mortar_avg() * a_l)
+            normal_diffusivity = kappa * 2 / (mg.secondary_to_mortar_avg() * a_l)
             # The interface flux is to match fluxes across faces of g_h,
             # and therefore need to be weighted by the corresponding
             # specific volumes

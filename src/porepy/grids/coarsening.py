@@ -355,7 +355,7 @@ def generate_seeds(gb):
         # recover the mapping between the slave and the master grid
         mg = gb._edges[(g_h, g)]["mortar_grid"]
         m2m = mg.primary_to_mortar_int()
-        l2m = mg.slave_to_mortar_int()
+        l2m = mg.secondary_to_mortar_int()
         # this is the old face_cells mapping
         face_cells = l2m.T * m2m
 

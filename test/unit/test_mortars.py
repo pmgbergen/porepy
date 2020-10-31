@@ -889,7 +889,7 @@ class TestMeshReplacement3d(unittest.TestCase):
         mg1, mg2 = self._mortar_grids(gb)
 
         proj_1_h = mg1.primary_to_mortar_int().copy()
-        proj_1_l = mg1.slave_to_mortar_int().copy()
+        proj_1_l = mg1.secondary_to_mortar_int().copy()
 
         gn = self.grid_1d(2)
         go = gb.grids_of_dimension(1)[0]
@@ -897,7 +897,7 @@ class TestMeshReplacement3d(unittest.TestCase):
 
         mg1, mg2 = self._mortar_grids(gb)
         p1h = mg1.primary_to_mortar_int().copy()
-        p1l = mg1.slave_to_mortar_int().copy()
+        p1l = mg1.secondary_to_mortar_int().copy()
 
         self.assertTrue((proj_1_h != p1h).nnz == 0)
         self.assertTrue((proj_1_l != p1l).nnz == 0)
@@ -907,7 +907,7 @@ class TestMeshReplacement3d(unittest.TestCase):
         mg1, mg2 = self._mortar_grids(gb)
 
         proj_2_h = mg2.primary_to_mortar_int().copy()
-        proj_2_l = mg2.slave_to_mortar_int().copy()
+        proj_2_l = mg2.secondary_to_mortar_int().copy()
 
         gn = self.grid_2d_two_cells()
         go = gb.grids_of_dimension(2)[0]
@@ -915,7 +915,7 @@ class TestMeshReplacement3d(unittest.TestCase):
 
         mg1, mg2 = self._mortar_grids(gb)
         p2h = mg2.primary_to_mortar_int().copy()
-        p2l = mg2.slave_to_mortar_int().copy()
+        p2l = mg2.secondary_to_mortar_int().copy()
 
         self.assertTrue((proj_2_h != p2h).nnz == 0)
         self.assertTrue((proj_2_l != p2l).nnz == 0)
@@ -931,7 +931,7 @@ class TestMeshReplacement3d(unittest.TestCase):
 
         mg1, mg2 = self._mortar_grids(gb)
         p2h = mg2.primary_to_mortar_int().copy()
-        p2l = mg2.slave_to_mortar_int().copy()
+        p2l = mg2.secondary_to_mortar_int().copy()
 
         self.assertTrue((proj_2_h != p2h).nnz == 0)
         self.assertTrue(np.abs(p2l[0, 0] - 0.5) < 1e-6)
@@ -950,7 +950,7 @@ class TestMeshReplacement3d(unittest.TestCase):
 
         mg1, mg2 = self._mortar_grids(gb)
         p2h = mg2.primary_to_mortar_int().copy()
-        p2l = mg2.slave_to_mortar_int().copy()
+        p2l = mg2.secondary_to_mortar_int().copy()
 
         self.assertTrue((proj_2_h != p2h).nnz == 0)
         self.assertTrue(np.abs(p2l[0, 0] - 0.5) < 1e-6)
@@ -967,9 +967,9 @@ class TestMeshReplacement3d(unittest.TestCase):
         mg1, mg2 = self._mortar_grids(gb)
 
         proj_1_h = mg1.primary_to_mortar_int().copy()
-        proj_1_l = mg1.slave_to_mortar_int().copy()
+        proj_1_l = mg1.secondary_to_mortar_int().copy()
         proj_2_h = mg2.primary_to_mortar_int().copy()
-        proj_2_l = mg2.slave_to_mortar_int().copy()
+        proj_2_l = mg2.secondary_to_mortar_int().copy()
 
         gn = self.grid_2d_two_cells()
         go = gb.grids_of_dimension(2)[0]
@@ -977,9 +977,9 @@ class TestMeshReplacement3d(unittest.TestCase):
 
         mg1, mg2 = self._mortar_grids(gb)
         p1h = mg1.primary_to_mortar_int().copy()
-        p1l = mg1.slave_to_mortar_int().copy()
+        p1l = mg1.secondary_to_mortar_int().copy()
         p2h = mg2.primary_to_mortar_int().copy()
-        p2l = mg2.slave_to_mortar_int().copy()
+        p2l = mg2.secondary_to_mortar_int().copy()
 
         self.assertTrue((proj_1_h != p1h).nnz == 0)
         self.assertTrue((proj_1_l != p1l).nnz == 0)
@@ -990,7 +990,7 @@ class TestMeshReplacement3d(unittest.TestCase):
         gb = self.setup_bucket(pert=True, include_1d=True)
         mg1, mg2 = self._mortar_grids(gb)
         proj_2_h = mg2.primary_to_mortar_int().copy()
-        proj_1_l = mg1.slave_to_mortar_int().copy()
+        proj_1_l = mg1.secondary_to_mortar_int().copy()
 
         gn = self.grid_2d_four_cells(pert=True)
         go = gb.grids_of_dimension(2)[0]
@@ -998,9 +998,9 @@ class TestMeshReplacement3d(unittest.TestCase):
 
         mg1, mg2 = self._mortar_grids(gb)
         p1h = mg1.primary_to_mortar_int().copy()
-        p1l = mg1.slave_to_mortar_int().copy()
+        p1l = mg1.secondary_to_mortar_int().copy()
         p2h = mg2.primary_to_mortar_int().copy()
-        p2l = mg2.slave_to_mortar_int().copy()
+        p2l = mg2.secondary_to_mortar_int().copy()
 
         self.assertTrue((proj_1_l != p1l).nnz == 0)
         self.assertTrue((proj_2_h != p2h).nnz == 0)

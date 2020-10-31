@@ -296,7 +296,7 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
         # Projection from mortar to upper dimenional faces
         hat_P_avg = g_m.primary_to_mortar_avg()
         # Projection from mortar to lower dimensional cells
-        check_P_avg = g_m.slave_to_mortar_avg()
+        check_P_avg = g_m.secondary_to_mortar_avg()
 
         # mapping from upper dim cellls to faces
         # The mortars always points from upper to lower, so we don't flip any
