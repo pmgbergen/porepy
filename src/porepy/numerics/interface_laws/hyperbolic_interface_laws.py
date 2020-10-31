@@ -103,7 +103,7 @@ class UpwindCoupling(
         # i.e., T_check * fluid_flux = lambda.
         # we set cc[2, 1] = T_check * fluid_flux
         # Use averaged projection operator for an intensive quantity
-        cc[2, 1] = sps.diags(lam_flux * not_flag) * mg.slave_to_mortar_avg()
+        cc[2, 1] = sps.diags(lam_flux * not_flag) * mg.secondary_to_mortar_avg()
 
         # The rhs of T * fluid_flux = lambda
         # Recover the information for the grid-grid mapping
