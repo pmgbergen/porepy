@@ -413,8 +413,9 @@ class FluxPressureContinuity(RobinCoupling):
 
         # If primary and secondary is the same grid, they should contribute to the same
         # row and coloumn. When the assembler assigns matrix[idx] it will only add
-        # the secondary information because of duplicate indices (primary and secondary is the same).
-        # We therefore write the both primary and secondary info to the secondary index.
+        # the secondary information because of duplicate indices (primary and secondary
+        # is the same). We therefore write the both primary and secondary info to the
+        # secondary index.
         if g_primary == g_secondary:
             primary_ind = 1
         else:
@@ -468,19 +469,32 @@ class FluxPressureContinuity(RobinCoupling):
         # in the first column and row in matrix, secondary grid in the second
         # and mortar variables in the third
         # If primary and secondary is the same grid, they should contribute to the same
-        # row and coloumn. When the assembler assigns matrix[idx] it will only add
-        # the secondary information because of duplicate indices (primary and secondary is the same).
-        # We therefore write the both primary and secondary info to the secondary index.
+        # row and column. When the assembler assigns matrix[idx] it will only add
+        # the secondary information because of duplicate indices (primary and secondary
+        # is the same). We therefore write the both primary and secondary info to the
+        # secondary index.
         if g_primary == g_secondary:
             primary_ind = 1
         else:
             primary_ind = 0
 
         self.discr_primary.assemble_int_bound_pressure_trace(
-            g_primary, data_primary, data_edge, cc_primary, matrix, rhs_primary, primary_ind
+            g_primary,
+            data_primary,
+            data_edge,
+            cc_primary,
+            matrix,
+            rhs_primary,
+            primary_ind,
         )
         self.discr_primary.assemble_int_bound_flux(
-            g_primary, data_primary, data_edge, cc_primary, matrix, rhs_primary, primary_ind
+            g_primary,
+            data_primary,
+            data_edge,
+            cc_primary,
+            matrix,
+            rhs_primary,
+            primary_ind,
         )
 
         if g_primary.dim == g_secondary.dim:
@@ -521,11 +535,23 @@ class FluxPressureContinuity(RobinCoupling):
             # imposing pressure trace continuity and conservation of the normal flux
             # through the lower dimensional object.
             self.discr_secondary.assemble_int_bound_pressure_cell(
-                g_secondary, data_secondary, data_edge, cc_secondary, matrix, rhs_secondary, secondary_ind
+                g_secondary,
+                data_secondary,
+                data_edge,
+                cc_secondary,
+                matrix,
+                rhs_secondary,
+                secondary_ind,
             )
 
             self.discr_secondary.assemble_int_bound_source(
-                g_secondary, data_secondary, data_edge, cc_secondary, matrix, rhs_secondary, secondary_ind
+                g_secondary,
+                data_secondary,
+                data_edge,
+                cc_secondary,
+                matrix,
+                rhs_secondary,
+                secondary_ind,
             )
 
         # Now, the matrix cc = cc_secondary + cc_primary expresses the flux and pressure

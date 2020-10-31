@@ -44,7 +44,9 @@ class PrimalContactCoupling(
     See also contact_conditions.py
     """
 
-    def __init__(self, keyword, discr_primary, discr_secondary, use_surface_discr=False):
+    def __init__(
+        self, keyword, discr_primary, discr_secondary, use_surface_discr=False
+    ):
         super(PrimalContactCoupling, self).__init__(keyword)
         self.mortar_displacement_variable = "mortar_u"
         self.discr_primary = discr_primary
@@ -376,9 +378,9 @@ class MatrixScalarToForceBalance(
             keyword used for storage of the gradP discretization. If the GradP class is
                 used, this is the keyword associated with the mechanical parameters.
             discr_primary and
-            discr_secondary are the discretization objects operating on the primary and secondary
-                pressure, respectively. Used for #DOFs. In FV, one cell variable is
-                expected.
+            discr_secondary are the discretization objects operating on the primary and
+                secondary pressure, respectively. Used for #DOFs. In FV, one cell
+                variable is expected.
         """
         super(MatrixScalarToForceBalance, self).__init__(keyword)
         # Set node discretizations
@@ -426,9 +428,9 @@ class MatrixScalarToForceBalance(
             g_primary, g_secondary, self.discr_primary, self.discr_secondary, mg, matrix
         )
 
-        primary_scalar_gradient = data_primary[pp.DISCRETIZATION_MATRICES][self.keyword][
-            "grad_p"
-        ]
+        primary_scalar_gradient = data_primary[pp.DISCRETIZATION_MATRICES][
+            self.keyword
+        ]["grad_p"]
 
         # We want to modify the stress balance posed on the edge to account for the
         # scalar (usually pressure) contribution.
@@ -490,9 +492,9 @@ class FractureScalarToForceBalance(
             keyword used for storage of the gradP discretization. If the GradP class is
                 used, this is the keyword associated with the mechanical parameters.
             discr_primary and
-            discr_secondary are the discretization objects operating on the primary and secondary
-                pressure, respectively. Used for #DOFs. In FV, one cell variable is
-                expected.
+            discr_secondary are the discretization objects operating on the primary and
+                secondary pressure, respectively. Used for #DOFs. In FV, one cell
+                variable is expected.
         """
         super(FractureScalarToForceBalance, self).__init__(keyword)
         # Set node discretizations
@@ -566,7 +568,9 @@ class FractureScalarToForceBalance(
         # forces by
         # T_contact - n dot I p,
         # hence the minus.
-        secondary_pressure_to_contact_traction = -(n_dot_I * mg.secondary_to_mortar_int(nd=1))
+        secondary_pressure_to_contact_traction = -(
+            n_dot_I * mg.secondary_to_mortar_int(nd=1)
+        )
         # Minus to obtain -T_secondary + T_primary = 0, i.e. from placing the two
         # terms on the same side of the equation, as also done in PrimalContactCoupling.
         cc[mortar_ind, secondary_ind] = -secondary_pressure_to_contact_traction

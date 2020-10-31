@@ -514,7 +514,11 @@ class Assembler:
             # Check if this is filtered out
             if not filt.filter(
                 grids=[combination.coupling],
-                variables=[combination.primary, combination.secondary, combination.edge],
+                variables=[
+                    combination.primary,
+                    combination.secondary,
+                    combination.edge,
+                ],
                 terms=[combination.term],
             ):
                 continue
@@ -1072,7 +1076,11 @@ class Assembler:
                 )
                 grid_variable_term_combinations.append(
                     CouplingVariableTerm(
-                        (g_primary, g_secondary, e), key_edge, key_primary, key_secondary, term
+                        (g_primary, g_secondary, e),
+                        key_edge,
+                        key_primary,
+                        key_secondary,
+                        term,
                     )
                 )
         # Array version of the number of dofs per node/edge and variable
