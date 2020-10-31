@@ -68,7 +68,7 @@ class ImplicitMpfa(pp.Mpfa):
         if use_slave_proj:
             proj = mg.mortar_to_secondary_int()
         else:
-            proj = mg.mortar_to_master_int()
+            proj = mg.mortar_to_primary_int()
 
         if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
             # If bound flux is gven as sub-faces we have to map it from sub-faces
@@ -155,7 +155,7 @@ class ImplicitTpfa(pp.Tpfa):
         if use_slave_proj:
             proj = mg.mortar_to_secondary_int()
         else:
-            proj = mg.mortar_to_master_int()
+            proj = mg.mortar_to_primary_int()
 
         if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
             # If bound flux is gven as sub-faces we have to map it from sub-faces

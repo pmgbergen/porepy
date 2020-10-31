@@ -299,7 +299,7 @@ class RobinCoupling(
         # Normally, the projections will be pressure from the master (high-dim node)
         # to the primary mortar, and flux from secondary mortar to master
         proj_pressure = mg_primary.master_to_mortar_avg()
-        proj_flux = mg_secondary.mortar_to_master_int()
+        proj_flux = mg_secondary.mortar_to_primary_int()
 
         # If the primary and / or secondary mortar is a boundary mortar grid, things
         # become more complex. This probably assumes that a FluxPressureContinuity

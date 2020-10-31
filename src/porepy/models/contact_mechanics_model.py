@@ -440,7 +440,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 else:
                     u_e = d_e[pp.STATE][self.mortar_displacement_variable]
 
-                stress += bound_stress_discr * mg.mortar_to_master_avg(nd=self.Nd) * u_e
+                stress += bound_stress_discr * mg.mortar_to_primary_avg(nd=self.Nd) * u_e
 
         d[pp.STATE]["stress"] = stress
 
