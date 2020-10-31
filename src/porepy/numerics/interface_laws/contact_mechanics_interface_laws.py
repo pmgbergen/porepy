@@ -145,7 +145,7 @@ class PrimalContactCoupling(
         cc[master_ind, mortar_ind] = (
             master_divergence
             * master_bound_stress
-            * mg.mortar_to_master_avg(nd=ambient_dimension)
+            * mg.mortar_to_primary_avg(nd=ambient_dimension)
         )
 
         ### Equation for the slave side
@@ -243,7 +243,7 @@ class PrimalContactCoupling(
             mg.master_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
             * master_bound_stress
-            * mg.mortar_to_master_avg(nd=ambient_dimension)
+            * mg.mortar_to_primary_avg(nd=ambient_dimension)
         )
         cc[mortar_ind, mortar_ind] = traction_from_mortar
 
@@ -326,7 +326,7 @@ class PrimalContactCoupling(
             g_between, Nd, faces_on_fracture_surface
         )
 
-        proj_sec = mg_sec.mortar_to_master_avg(nd=Nd)
+        proj_sec = mg_sec.mortar_to_primary_avg(nd=Nd)
         proj_prim = mg_prim.master_to_mortar_int(nd=Nd)
 
         # Discretization of boundary conditions

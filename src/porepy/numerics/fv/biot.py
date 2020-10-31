@@ -1559,7 +1559,7 @@ class DivU(Discretization):
         if grid_swap:
             proj = mg.mortar_to_secondary_avg(nd=g.dim)
         else:
-            proj = mg.mortar_to_master_avg(nd=g.dim)
+            proj = mg.mortar_to_primary_avg(nd=g.dim)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
         biot_alpha = data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]

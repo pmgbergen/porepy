@@ -248,7 +248,7 @@ class FVElliptic(pp.EllipticDiscretization):
         if use_slave_proj:
             proj = mg.mortar_to_secondary_int()
         else:
-            proj = mg.mortar_to_master_int()
+            proj = mg.mortar_to_primary_int()
 
         if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
             # If bound flux is gven as sub-faces we have to map it from sub-faces
@@ -343,7 +343,7 @@ class FVElliptic(pp.EllipticDiscretization):
             proj_int = mg.mortar_to_secondary_int()
         else:
             proj = mg.master_to_mortar_avg()
-            proj_int = mg.mortar_to_master_int()
+            proj_int = mg.mortar_to_primary_int()
 
         cc[2, self_ind] += proj * matrix_dictionary[self.bound_pressure_cell_matrix_key]
         cc[2, 2] += (
