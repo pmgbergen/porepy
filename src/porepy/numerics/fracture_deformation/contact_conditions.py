@@ -246,9 +246,9 @@ class ColoumbContact:
         )
         gap = initial_gap + np.tan(dilation_angle) * norm_displacement_jump_tangential
 
-        # Compute dg/du_t = - tan(dilation_angle) u_t / || u_t ||
+        # Compute dg/du_t = tan(dilation_angle) u_t / || u_t ||
         # Avoid dividing by zero if u_t = 0. In this case, we extend to the limit value
-        # from the positive, see module level explanation.
+        # to zero, see module level explanation.
         ind = np.logical_not(
             np.isclose(cumulative_tangential_jump, 0, rtol=self.tol, atol=self.tol)
         )[0]

@@ -34,3 +34,5 @@ bin/*
 .eggs/
 *.nbc
 *.nbi
+*.egg-info
+*.DS_Store
