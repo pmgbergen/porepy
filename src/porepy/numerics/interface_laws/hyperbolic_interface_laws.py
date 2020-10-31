@@ -24,7 +24,9 @@ class UpwindCoupling(
     def ndof(self, mg):
         return mg.num_cells
 
-    def discretize(self, g_primary, g_secondary, data_primary, data_secondary, data_edge):
+    def discretize(
+        self, g_primary, g_secondary, data_primary, data_secondary, data_edge
+    ):
         pass
 
     def assemble_matrix_rhs(
