@@ -309,7 +309,7 @@ class TestMixedDimGravity(unittest.TestCase):
 
             gb.update_nodes({old_g: new_g})
             mg = d["mortar_grid"]
-            mg.update_slave(new_g, tol=1e-4)
+            mg.update_secondary(new_g, tol=1e-4)
         self.gb = gb
 
     def solve(self, method):
