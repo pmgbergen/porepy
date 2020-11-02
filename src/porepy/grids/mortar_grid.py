@@ -805,7 +805,7 @@ class BoundaryMortar(MortarGrid):
             + "Face_cell mapping from the LEFT_SIDE grid to the mortar grid\n"
             + str(self.primary_to_mortar_int)
             + "\n"
-            + "Face_cell mapping from the SLAVE_SIDE grid to the mortar grid\n"
+            + "Face_cell mapping from the RIGHT_SIDE grid to the mortar grid\n"
             + str(self.secondary_to_mortar_int)
         )
 
