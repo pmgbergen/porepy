@@ -91,7 +91,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-        old_projection = mg.master_to_mortar_int().copy()
+        old_projection = mg.primary_to_mortar_int().copy()
 
         g_old = gb.grids_of_dimension(2)[0]
         g_new = g_old.copy()
@@ -102,7 +102,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-        new_projection = mg.master_to_mortar_int()
+        new_projection = mg.primary_to_mortar_int()
 
         # The projections should be identical
         self.assertTrue((old_projection != new_projection).nnz == 0)
@@ -116,7 +116,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-        old_projection = mg.master_to_mortar_int().copy()
+        old_projection = mg.primary_to_mortar_int().copy()
         g_old = gb.grids_of_dimension(2)[0]
 
         # Create a new, finer 2d grid. This is the simplest
@@ -133,7 +133,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-        new_projection = mg.master_to_mortar_int()
+        new_projection = mg.primary_to_mortar_int()
 
         # Check shape
         self.assertTrue(new_projection.shape[0] == old_projection.shape[0])
@@ -159,7 +159,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-        old_projection = mg.master_to_mortar_int().copy()
+        old_projection = mg.primary_to_mortar_int().copy()
         g_old = gb.grids_of_dimension(2)[0]
 
         # Create a new, coarser 2d grid. This is the simplest
@@ -175,7 +175,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-        new_projection = mg.master_to_mortar_int()
+        new_projection = mg.primary_to_mortar_int()
 
         # Check shape
         self.assertTrue(new_projection.shape[0] == old_projection.shape[0])
@@ -204,7 +204,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-        old_projection = mg.master_to_mortar_int().copy()
+        old_projection = mg.primary_to_mortar_int().copy()
         g_old = gb.grids_of_dimension(2)[0]
 
         # Create a new, finer 2d grid. This is the simplest
@@ -228,7 +228,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-        new_projection = mg.master_to_mortar_int()
+        new_projection = mg.primary_to_mortar_int()
 
         # Check shape
         self.assertTrue(new_projection.shape[0] == old_projection.shape[0])
@@ -257,7 +257,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-        old_projection = mg.master_to_mortar_int().copy()
+        old_projection = mg.primary_to_mortar_int().copy()
         g_old = gb.grids_of_dimension(2)[0]
 
         # Create a new, finer 2d grid. This is the simplest
@@ -281,7 +281,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-        new_projection = mg.master_to_mortar_int()
+        new_projection = mg.primary_to_mortar_int()
 
         # Check shape
         self.assertTrue(new_projection.shape[0] == old_projection.shape[0])
@@ -317,7 +317,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-        old_projection = mg.master_to_mortar_int().copy()
+        old_projection = mg.primary_to_mortar_int().copy()
         g_old = gb.grids_of_dimension(2)[0]
 
         # Create a new, finer 2d grid. This is the simplest
@@ -355,7 +355,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-        new_projection = mg.master_to_mortar_int()
+        new_projection = mg.primary_to_mortar_int()
 
         # Check shape
         self.assertTrue(new_projection.shape[0] == old_projection.shape[0])
@@ -386,7 +386,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-        old_projection = mg.master_to_mortar_int().copy()
+        old_projection = mg.primary_to_mortar_int().copy()
         g_old = gb.grids_of_dimension(2)[0]
 
         # Create a new, finer 2d grid. This is the simplest
@@ -419,7 +419,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-        new_projection = mg.master_to_mortar_int()
+        new_projection = mg.primary_to_mortar_int()
 
         # Check shape
         self.assertTrue(new_projection.shape[0] == old_projection.shape[0])
@@ -888,16 +888,16 @@ class TestMeshReplacement3d(unittest.TestCase):
         gb = self.setup_bucket(pert=False)
         mg1, mg2 = self._mortar_grids(gb)
 
-        proj_1_h = mg1.master_to_mortar_int().copy()
-        proj_1_l = mg1.slave_to_mortar_int().copy()
+        proj_1_h = mg1.primary_to_mortar_int().copy()
+        proj_1_l = mg1.secondary_to_mortar_int().copy()
 
         gn = self.grid_1d(2)
         go = gb.grids_of_dimension(1)[0]
         gb.replace_grids({go: gn})
 
         mg1, mg2 = self._mortar_grids(gb)
-        p1h = mg1.master_to_mortar_int().copy()
-        p1l = mg1.slave_to_mortar_int().copy()
+        p1h = mg1.primary_to_mortar_int().copy()
+        p1l = mg1.secondary_to_mortar_int().copy()
 
         self.assertTrue((proj_1_h != p1h).nnz == 0)
         self.assertTrue((proj_1_l != p1l).nnz == 0)
@@ -906,16 +906,16 @@ class TestMeshReplacement3d(unittest.TestCase):
         gb = self.setup_bucket(pert=False, include_1d=False)
         mg1, mg2 = self._mortar_grids(gb)
 
-        proj_2_h = mg2.master_to_mortar_int().copy()
-        proj_2_l = mg2.slave_to_mortar_int().copy()
+        proj_2_h = mg2.primary_to_mortar_int().copy()
+        proj_2_l = mg2.secondary_to_mortar_int().copy()
 
         gn = self.grid_2d_two_cells()
         go = gb.grids_of_dimension(2)[0]
         gb.replace_grids(g_map={go: gn})
 
         mg1, mg2 = self._mortar_grids(gb)
-        p2h = mg2.master_to_mortar_int().copy()
-        p2l = mg2.slave_to_mortar_int().copy()
+        p2h = mg2.primary_to_mortar_int().copy()
+        p2l = mg2.secondary_to_mortar_int().copy()
 
         self.assertTrue((proj_2_h != p2h).nnz == 0)
         self.assertTrue((proj_2_l != p2l).nnz == 0)
@@ -923,15 +923,15 @@ class TestMeshReplacement3d(unittest.TestCase):
     def test_replace_2d_with_finer_no_1d(self):
         gb = self.setup_bucket(pert=False, include_1d=False)
         mg1, mg2 = self._mortar_grids(gb)
-        proj_2_h = mg2.master_to_mortar_int().copy()
+        proj_2_h = mg2.primary_to_mortar_int().copy()
 
         gn = self.grid_2d_four_cells_no_1d()
         go = gb.grids_of_dimension(2)[0]
         gb.replace_grids({go: gn})
 
         mg1, mg2 = self._mortar_grids(gb)
-        p2h = mg2.master_to_mortar_int().copy()
-        p2l = mg2.slave_to_mortar_int().copy()
+        p2h = mg2.primary_to_mortar_int().copy()
+        p2l = mg2.secondary_to_mortar_int().copy()
 
         self.assertTrue((proj_2_h != p2h).nnz == 0)
         self.assertTrue(np.abs(p2l[0, 0] - 0.5) < 1e-6)
@@ -942,15 +942,15 @@ class TestMeshReplacement3d(unittest.TestCase):
     def test_replace_2d_with_finer_no_1d_pert(self):
         gb = self.setup_bucket(pert=True, include_1d=False)
         mg1, mg2 = self._mortar_grids(gb)
-        proj_2_h = mg2.master_to_mortar_int().copy()
+        proj_2_h = mg2.primary_to_mortar_int().copy()
 
         gn = self.grid_2d_four_cells_no_1d(pert=True)
         go = gb.grids_of_dimension(2)[0]
         gb.replace_grids({go: gn})
 
         mg1, mg2 = self._mortar_grids(gb)
-        p2h = mg2.master_to_mortar_int().copy()
-        p2l = mg2.slave_to_mortar_int().copy()
+        p2h = mg2.primary_to_mortar_int().copy()
+        p2l = mg2.secondary_to_mortar_int().copy()
 
         self.assertTrue((proj_2_h != p2h).nnz == 0)
         self.assertTrue(np.abs(p2l[0, 0] - 0.5) < 1e-6)
@@ -966,20 +966,20 @@ class TestMeshReplacement3d(unittest.TestCase):
         gb = self.setup_bucket(pert=False, include_1d=True)
         mg1, mg2 = self._mortar_grids(gb)
 
-        proj_1_h = mg1.master_to_mortar_int().copy()
-        proj_1_l = mg1.slave_to_mortar_int().copy()
-        proj_2_h = mg2.master_to_mortar_int().copy()
-        proj_2_l = mg2.slave_to_mortar_int().copy()
+        proj_1_h = mg1.primary_to_mortar_int().copy()
+        proj_1_l = mg1.secondary_to_mortar_int().copy()
+        proj_2_h = mg2.primary_to_mortar_int().copy()
+        proj_2_l = mg2.secondary_to_mortar_int().copy()
 
         gn = self.grid_2d_two_cells()
         go = gb.grids_of_dimension(2)[0]
         gb.replace_grids({go: gn})
 
         mg1, mg2 = self._mortar_grids(gb)
-        p1h = mg1.master_to_mortar_int().copy()
-        p1l = mg1.slave_to_mortar_int().copy()
-        p2h = mg2.master_to_mortar_int().copy()
-        p2l = mg2.slave_to_mortar_int().copy()
+        p1h = mg1.primary_to_mortar_int().copy()
+        p1l = mg1.secondary_to_mortar_int().copy()
+        p2h = mg2.primary_to_mortar_int().copy()
+        p2l = mg2.secondary_to_mortar_int().copy()
 
         self.assertTrue((proj_1_h != p1h).nnz == 0)
         self.assertTrue((proj_1_l != p1l).nnz == 0)
@@ -989,18 +989,18 @@ class TestMeshReplacement3d(unittest.TestCase):
     def test_replace_2d_with_finer_pert(self):
         gb = self.setup_bucket(pert=True, include_1d=True)
         mg1, mg2 = self._mortar_grids(gb)
-        proj_2_h = mg2.master_to_mortar_int().copy()
-        proj_1_l = mg1.slave_to_mortar_int().copy()
+        proj_2_h = mg2.primary_to_mortar_int().copy()
+        proj_1_l = mg1.secondary_to_mortar_int().copy()
 
         gn = self.grid_2d_four_cells(pert=True)
         go = gb.grids_of_dimension(2)[0]
         gb.replace_grids({go: gn})
 
         mg1, mg2 = self._mortar_grids(gb)
-        p1h = mg1.master_to_mortar_int().copy()
-        p1l = mg1.slave_to_mortar_int().copy()
-        p2h = mg2.master_to_mortar_int().copy()
-        p2l = mg2.slave_to_mortar_int().copy()
+        p1h = mg1.primary_to_mortar_int().copy()
+        p1l = mg1.secondary_to_mortar_int().copy()
+        p2h = mg2.primary_to_mortar_int().copy()
+        p2l = mg2.secondary_to_mortar_int().copy()
 
         self.assertTrue((proj_1_l != p1l).nnz == 0)
         self.assertTrue((proj_2_h != p2h).nnz == 0)
