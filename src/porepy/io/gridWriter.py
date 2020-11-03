@@ -149,6 +149,9 @@ def dumpMortarProjectionsToFile(g, mg, proj, fn, mode="w"):
     if not np.allclose(proj.data, 1):
         raise NotImplemented("Can not store non-matching grids, yet.")
 
+    if not(proj.getformat() == "csc"):
+        proj = proj.tocsc()
+
     # Test if directory in file name exists and create if not
     dirpath = os.path.dirname(fn)
     os.makedirs(dirpath, exist_ok=True)
