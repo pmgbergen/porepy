@@ -38,9 +38,9 @@ class RobinCoupling(
         self.edge_coupling_via_low_dim = False
 
         # Keys used to identify the discretization matrices of this discretization
-        self.mortar_discr_key = "robin_mortar_discr"
-        self.mortar_vector_source_key = "robin_vector_source_discr"
-        self.mortar_scaling_key = "mortar_scaling"
+        self.mortar_discr_matrix_key = "robin_mortar_discr"
+        self.mortar_vector_source_matrix_key = "robin_vector_source_discr"
+        self.mortar_scaling_matrix_key = "mortar_scaling"
 
         # Decide on whether to scale the mortar flux with K^-1 or not.
         # This is the scaling of Darcy's law in mixed methods, and should be used in the
@@ -85,7 +85,7 @@ class RobinCoupling(
         inv_M = sps.diags(1.0 / mg.cell_volumes)
         inv_k = 1.0 / kn
         Eta = sps.diags(inv_k)
-        matrix_dictionary_edge[self.mortar_discr_key] = -inv_M * Eta
+        matrix_dictionary_edge[self.mortar_discr_matrix_key] = -inv_M * Eta
 
         ## Vector source.
         # This contribution is last term of
@@ -157,20 +157,20 @@ class RobinCoupling(
 
         # On assembly, the outwards normals on the mortars will be multiplied by the
         # interface vector source.
-        matrix_dictionary_edge[self.mortar_vector_source_key] = mortar_normals
+        matrix_dictionary_edge[self.mortar_vector_source_matrix_key] = mortar_normals
         if self.kinv_scaling:
             # Use a discretization fit for mixed methods, with a K^-1 scaling of the
             # mortar flux
             # In this case, the scaling of the pressure blocks on the mortar rows is
             # simple.
-            matrix_dictionary_edge[self.mortar_scaling_key] = sps.diags(
+            matrix_dictionary_edge[self.mortar_scaling_matrix_key] = sps.diags(
                 np.ones(mg.num_cells)
             )
 
         else:
             # Scale the the mortar equations with K, so that the this becomes a
             # Darcy-type equation on standard form.
-            matrix_dictionary_edge[self.mortar_scaling_key] = sps.diags(
+            matrix_dictionary_edge[self.mortar_scaling_matrix_key] = sps.diags(
                 mg.cell_volumes * kn
             )
 
@@ -211,7 +211,7 @@ class RobinCoupling(
         # The convention, for now, is to put the higher dimensional information
         # in the first column and row in matrix, lower-dimensional in the second
         # and mortar variables in the third
-        cc[2, 2] = matrix_dictionary_edge[self.mortar_discr_key]
+        cc[2, 2] = matrix_dictionary_edge[self.mortar_discr_matrix_key]
 
         self.discr_primary.assemble_int_bound_pressure_trace(
             g_primary, data_primary, data_edge, cc, matrix, rhs, primary_ind
@@ -229,7 +229,7 @@ class RobinCoupling(
         # Also assemble vector sources.
         # Discretization of the vector source term
         vector_source_discr: sps.spmatrix = matrix_dictionary_edge[
-            self.mortar_vector_source_key
+            self.mortar_vector_source_matrix_key
         ]
         # The vector source, defaults to zero if not specified.
         vector_source: np.ndarray = parameter_dictionary_edge.get(
@@ -250,9 +250,9 @@ class RobinCoupling(
         for block in range(cc.shape[1]):
             # Scale the pressure blocks in the mortar problem
             cc[2, block] = (
-                matrix_dictionary_edge[self.mortar_scaling_key] * cc[2, block]
+                matrix_dictionary_edge[self.mortar_scaling_matrix_key] * cc[2, block]
             )
-        rhs[2] = matrix_dictionary_edge[self.mortar_scaling_key] * rhs[2]
+        rhs[2] = matrix_dictionary_edge[self.mortar_scaling_matrix_key] * rhs[2]
 
         matrix += cc
 
@@ -326,11 +326,14 @@ class RobinCoupling(
             # The secondary mortar will be treated somewhere else (handled by the
             # assembler).
             cc[1, block] = (
-                matrix_dictionary_edge[self.mortar_scaling_key] * cc[1, block]
+                matrix_dictionary_edge[self.mortar_scaling_matrix_key] * cc[1, block]
             )
-        rhs[1] = matrix_dictionary_edge[self.mortar_scaling_key] * rhs[1]
+        rhs[1] = matrix_dictionary_edge[self.mortar_scaling_matrix_key] * rhs[1]
 
         return cc, rhs
+
+    def __repr__(self) -> str:
+        return f"Interface coupling of Robin type, with keyword {self.keyword}"
 
 
 class FluxPressureContinuity(RobinCoupling):
@@ -583,3 +586,6 @@ class FluxPressureContinuity(RobinCoupling):
             )
 
         return matrix, rhs
+
+    def __repr__(self) -> str:
+        return f"Interface coupling with full pressure flux continuity. Keyword {self.keyword}"
