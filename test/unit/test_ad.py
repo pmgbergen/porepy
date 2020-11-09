@@ -4,7 +4,7 @@ import warnings
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.ad.forward_mode import Ad_array
+from porepy.numerics.ad.forward_mode import Ad_array
 
 
 class AdTest(unittest.TestCase):
