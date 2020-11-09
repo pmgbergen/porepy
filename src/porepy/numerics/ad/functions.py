@@ -1,6 +1,6 @@
 import numpy as np
 
-from porepy.ad.forward_mode import Ad_array
+from porepy.numerics.ad.forward_mode import Ad_array
 
 
 def exp(var):
