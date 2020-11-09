@@ -656,6 +656,7 @@ class BasicsTest(unittest.TestCase):
                         ]
                     else:
                         raise ValueError("Grid not found")
+
                 self.assertTrue(np.array_equal(indices, np.array(known_indices)))
                 self.assertTrue(np.array_equal(faces, np.array(known)))
 

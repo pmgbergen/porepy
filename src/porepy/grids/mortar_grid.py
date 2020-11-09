@@ -19,10 +19,15 @@ WHOLE_SIDE = np.iinfo(type(NONE_SIDE)).max
 class MortarGrid:
     """
     Parent class for mortar grids it contains two grids representing the left
-    and right part of the mortar grid and the weighted mapping from the higher
-    dimensional grid (as set of faces) to the mortar grids and from the lower
-    dimensional grid (as set of cells) to the mortar grids. The two mortar grids
-    can be different.
+    and right part of the mortar grid and the weighted mapping from the primary
+    grid to the mortar grids and from the secondary grid to the mortar grids.
+    The two mortar grids can be different. The primary grid is assumed to be one
+    dimension higher than the mortar grids, while the secondary grid can either one
+    dimension higher or the same dimension as the mortar grids.
+
+    NOTE: The mortar class is mostly tested for the case when the secondary grid has
+    the same dimension as the mortar grid. Especially, the updating of any grid
+    should not be expected to work and will most likely throw an error.
 
     Attributes:
 
@@ -31,14 +36,14 @@ class MortarGrid:
             with value {0, 1, 2}, and the value is a Grid.
         sides (array of integers with values in {0, 1, 2}): ordering of the sides.
         _primary_to_mortar_int (sps.csc-matrix): Face-cell relationships between the
-            high dimensional grid and the mortar grids. Matrix size:
+            primary (often higher-dimensional) grid and the mortar grids. Matrix size:
             num_faces x num_cells. In the beginning we assume matching grids,
             but it can be modified by calling refine_mortar(). The matrix
             elements represent the ratio between the geometrical objects.
         _secondary_to_mortar_int (sps.csc-matrix): Cell-cell relationships between the
-            mortar grids and the low dimensional grid. Matrix size:
-            num_cells x num_cells. Matrix elements represent the ratio between
-            the geometrical objects.
+            mortar grids and the secondary (often lower-dimensional) grid. Matrix size:
+            num_cells_secondary x num_cells_mortar. Matrix elements represent the ratio
+            between the geometrical objects.
         name (list): Information on the formation of the grid, such as the
             constructor, computations of geometry etc.
         tol (double): Tolerance use when matching grids during update of mortar or
@@ -50,7 +55,7 @@ class MortarGrid:
         self,
         dim: int,
         side_grids: Dict[int, pp.Grid],
-        face_cells: sps.spmatrix,
+        primary_secondary: sps.spmatrix = None,
         name: Union[str, List[str]] = "",
         face_duplicate_ind: Optional[np.ndarray] = None,
         tol: float = 1e-6,
@@ -59,18 +64,12 @@ class MortarGrid:
 
         See class documentation for further description of parameters.
 
-        If faces the higher-dimensional grid is split along the mortar grid (e.g. room
-        is made for a fracture grid), it is assumed that the extra faces are added
-        to the end of the face list. That is, for face pairs {(a1, b1), (a2, b2), ...}
-        max(a_i) should be less than min(b_j).
-        NOTE: This behaviour can be overridden by providing indices of the extra faces
-        in the parameter face_duplicate_ind.
-
         Parameters:
             dim (int): grid dimension
             side_grids (dictionary of Grid): grid on each side.
-            face_cells (sps.csc_matrix): Cell-face relations between the higher
-                dimensional grid and the lower dimensional grid.
+            primary_secondary (sps.csc_matrix): Cell-face relations between the higher
+                dimensional grid and the lower dimensional grid. It is possible to not
+                give the projection to create only the grid.
             name (str): Name of the grid. Can also be used to set various information on
                 the grid.
             face_duplicate_ind (np.ndarray, optional): Which faces should be considered
@@ -111,56 +110,12 @@ class MortarGrid:
         self.cell_centers: np.ndarray = np.hstack(
             [g.cell_centers for g in self.side_grids.values()]
         )
-
-        # face_cells mapping from the higher dimensional grid to the mortar grid
-        # also here we assume that, in the beginning the mortar grids are equal
-        # to the co-dimensional grid. If this assumption is not satisfied we
-        # need to change the following lines
-
-        # Creation of the high_to_mortar_int, basically we start from the face_cells
-        # map and we split the relation
-        # low_dimensional_cell -> 2 high_dimensional_face
-        # as
-        # low_dimensional_cell -> high_dimensional_face
-        # The mapping consider the cell ids of the second mortar grid shifted by
-        # the g.num_cells of the first grid. We keep this convention through the
-        # implementation. The ordering is given by sides or the keys of
-        # side_grids.
-
-        # Number of cells in the first mortar grid
-        num_cells = list(self.side_grids.values())[0].num_cells
-        cells, faces, data = sps.find(face_cells)
-        if self.num_sides() == 2:
-
-            # Depending on the numbering of the faces, some work may be needed to place
-            # oposing mortar cells on each side of the lower-dimensional grid.
-            # At the end of this if-else, the first num_cells are on one side, the
-            # rest is on the other side.
-            if face_duplicate_ind is None:
-                # This is a tacit assumption on the numbering scheme for split faces,
-                # all faces on one side of the mortar grid should be indexed first,
-                # the their duplicate on the other side of the fracture.
-                cells_on_second_side = faces > np.median(faces)
-                cells[cells_on_second_side] += num_cells
-            else:
-                cells_on_second_side = np.in1d(faces, face_duplicate_ind)
-                cells[cells_on_second_side] += num_cells
-
-        shape = (num_cells * self.num_sides(), face_cells.shape[1])
-        self._primary_to_mortar_int: sps.spmatrix = sps.csc_matrix(
-            (data.astype(np.float), (cells, faces)), shape=shape
-        )
-
-        # cell_cells mapping from the mortar grid to the lower dimensional grid.
-        # It is composed by two identity matrices since we are assuming matching
-        # grids here.
-        identity = [[sps.identity(num_cells)]] * self.num_sides()
-        self._secondary_to_mortar_int: sps.spmatrix = sps.bmat(identity, format="csc")
+        if not (primary_secondary is None):
+            self._init_projections(primary_secondary, face_duplicate_ind)
 
     def __repr__(self) -> str:
         """
         Implementation of __repr__
-
         """
         s = (
             "Mortar grid with history "
@@ -227,7 +182,6 @@ class MortarGrid:
                 new mapping between the old and new mortar grids.
             tol (double, optional): Tolerance used for matching the new and old grids.
                 Defaults to self.tol.
-
         """
         if tol is None:
             tol = self.tol
@@ -256,18 +210,22 @@ class MortarGrid:
         # stored we need to remap it. The resulting matrix will be a block
         # diagonal matrix, where in each block we have the mapping between the
         # (relative to side) old grid and the new one.
-        matrix = np.empty((self.num_sides(), self.num_sides()), dtype=np.object)
+        matrix_blocks: np.ndarray = np.empty(
+            (self.num_sides(), self.num_sides()), dtype=np.object
+        )
 
         # Loop on all the side grids, if not given an identity matrix is
         # considered
         for pos, (side, g) in enumerate(self.side_grids.items()):
-            matrix[pos, pos] = split_matrix.get(side, sps.identity(g.num_cells))
+            matrix_blocks[pos, pos] = split_matrix.get(side, sps.identity(g.num_cells))
 
         # Once the global matrix is constructed the new low_to_mortar_int and
         # high_to_mortar_int maps are updated.
-        matrix = sps.bmat(matrix)
-        self._secondary_to_mortar_int = matrix * self._secondary_to_mortar_int
-        self._primary_to_mortar_int = matrix * self._primary_to_mortar_int
+        matrix: sps.spmatrix = sps.bmat(matrix_blocks)
+        self._secondary_to_mortar_int: sps.spmatrix = (
+            matrix * self._secondary_to_mortar_int
+        )
+        self._primary_to_mortar_int: sps.spmatrix = matrix * self._primary_to_mortar_int
 
         # Update the side grids
         for side, g in new_side_grids.items():
@@ -290,6 +248,12 @@ class MortarGrid:
         """
         if tol is None:
             tol = self.tol
+
+        if self.dim != new_g.dim:
+            raise NotImplementedError(
+                """update_ssecondary() is only implemented when the secondary
+                grid has the same dimension as the mortar grid"""
+            )
 
         split_matrix = {}
 
@@ -325,16 +289,19 @@ class MortarGrid:
 
     def update_primary(self, g_new: pp.Grid, g_old: pp.Grid, tol: float = None):
         """
-        Update the _secondary_to_mortar_int map when the lower dimensional grid is changed.
+
+        Update the _primary_to_mortar_int map when the primary (higher-dimensional) grid is
+        changed.
 
         Parameter:
             g_new (pp.Grid): The new primary grid.
             g_old (pp.Grid): The old primary grid.
             tol (double, optional): Tolerance used for matching the new and old grids.
                 Defaults to self.tol.
-
         """
-        # TODO: Why is the signature of this method different from update_secondary?
+        # IMPLEMENTATION NOTE: The signature of this method is different from
+        # update_secondary(), since the latter must also take care of for the side grids.
+
         if tol is None:
             tol = self.tol
 
@@ -386,7 +353,6 @@ class MortarGrid:
 
         Return:
             Number of sides.
-
         """
         return len(self.side_grids)
 
@@ -402,7 +368,6 @@ class MortarGrid:
                 mortar grid. Can be used for standard discretizations.
             proj (sps.csc_matrix): Projection from the mortar cells to this
                 side grid.
-
         """
         counter = 0
         for grid in self.side_grids.values():
@@ -501,7 +466,6 @@ class MortarGrid:
         Returns:
             sps.matrix: Projection matrix with row sum unity.
                 Size: g_secondary.num_cells x mortar_grid.num_cells.
-
         """
         scaled_mat = self._row_sum_scaling_matrix(self._secondary_to_mortar_int)
         return self._convert_to_vector_variable(scaled_mat, nd)
@@ -563,7 +527,8 @@ class MortarGrid:
 
         Returns:
             sps.matrix: Projection matrix with column sum unity.
-                Size: mortar_grid.num_cells x g_secondary_num_faces.
+                Size: mortar_grid.num_cells x g_secondary.num_faces.
+
 
         """
         return self._convert_to_vector_variable(self.secondary_to_mortar_avg().T, nd)
@@ -690,96 +655,72 @@ class MortarGrid:
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the secondary grid")
 
+    def _init_projections(
+        self,
+        primary_secondary: sps.spmatrix,
+        face_duplicate_ind: Optional[np.ndarray] = None,
+    ):
+        """Initialize projections from primary and secondary to mortar.
 
-class BoundaryMortar(MortarGrid):
-    """
-    Class for a mortar grid between two grids of the same dimension. This class
-    inherits from the MortarGrid class, however, one should be carefull when using
-    functions defined in MortarGrid and not BoundaryMortar as not all have been
-    thested thoroughly.BoundaryMortar contains a mortar grid and the weighted
-    mapping from the secondary grid (as set of faces) to the mortar grid and from the
-    primary grid (as set of faces) to the mortar grid.
+        Parameters:
+        primary_secondary (sps.spmatrix): projection from the primary to the secondary.
+            It is assumed that the primary, secondary and mortar grids are all matching.
+        face_duplicate_ind (np.ndarray, optional): Which faces should be considered
+                duplicates, and mapped to the second of the side_grids. If not provided,
+                duplicate faces will be inferred from the indices of the faces. Will
+                only be used if len(side_Grids) == 2.
 
-    Attributes:
-
-        dim (int): dimension. Should be 0 or 1 or 2.
-        side_grids (dictionary of Grid): Contains the mortar grid under the key
-            "mortar_grid". Is included for consistency with MortarGrid
-        sides (array of integers with values in {0, 1, 2}): ordering of the sides.
-        secondary_to_mortar_int (sps.csc-matrix): Face-cell relationships between the
-            secondary grid and the mortar grid. Matrix size:
-            num_faces x num_cells. In the beginning we assume matching grids,
-            but it can be modified by calling refine_mortar(). The matrix
-            elements represent the ratio between the geometrical objects.
-        primary_to_mortar_int (sps.csc-matrix): face-cell relationships between
-            primary mortar grid and the mortar grid. Matrix size:
-            num_faces x num_cells. Matrix elements represent the ratio between
-            the geometrical objects.
-        name (list): Information on the formation of the grid, such as the
-            constructor, computations of geometry etc.
-
-    """
-
-    def __init__(
-        self, dim: int, mortar_grid, primary_secondary: sps.spmatrix, name: str = ""
-    ) -> None:
-        """Initialize the mortar grid
-
-        See class documentation for further description of parameters.
-        The secondary_to_mortar_int and primary_to_mortar_int are identity mapping.
-
-        Parameters
-        ----------
-        dim (int): grid dimension
-        mortar_grid (pp.MortarGrid): mortar grid. It is assumed that there is a
-            one to one mapping between the cells of the mortar grid and the
-            faces of the secondary grid given in primary_secondary
-        primary_secondary (sps.csc_matrix): face-face relations between the secondary
-            grid and the primary dimensional grid.
-        name (str): Name of grid
         """
-
-        if not dim >= 0 and dim < 3:
-            raise ValueError("Mortar grid dimension must be 0, 1 or 2")
-        if not mortar_grid.dim == dim:
-            raise ValueError("Dimension of mortar grid does not match given dimension")
-
-        self.dim = dim
-        self.side_grids = {0: mortar_grid}
-        self.sides = np.array(list(self.side_grids.keys()))
-
-        if not (self.num_sides() == 1 or self.num_sides() == 2):
-            raise ValueError("The number of sides have to be 1 or 2")
-
-        if isinstance(name, list):
-            self.name = name
-        else:
-            self.name = [name]
-        self.name.append("mortar_grid")
-        # primary_secondary is a mapping from the faces of the secondary grid to the
-        # faces of the primary grid.
-        # We assume that, in the beginning the mortar grids are equal
-        # to the secondary grid. If this assumption is not satisfied we
-        # need to change the following lines
+        # primary_secondary is a mapping from the cells (faces if secondary.dim == primary.dim)
+        # of the secondary grid to the of the primary grid.
         secondary_f, primary_f, data = sps.find(primary_secondary)
 
-        # It is assumed that the cells of the given mortar grid are ordered
-        # by the face numbers of the secondary side
-        ix = np.argsort(secondary_f)
+        # If the face_duplicate_ind is given we have to reorder the primary face indices
+        # such that the original faces comes first, then the duplicate faces.
+        # If the face_duplicate_ind is not given, we then assume that the primary side faces
+        # already have this ordering. If the grid is created using the pp.split_grid.py
+        # module this should be the case.
+        if self.num_sides() == 2 and not (face_duplicate_ind is None):
+            is_second_side = np.in1d(primary_f, face_duplicate_ind)
+            secondary_f = np.r_[
+                secondary_f[~is_second_side], secondary_f[is_second_side]
+            ]
+            primary_f = np.r_[primary_f[~is_second_side], primary_f[is_second_side]]
+            data = np.r_[data[~is_second_side], data[is_second_side]]
+
+        # We assumed that the cells of the given side grid(s) is(are) ordered
+        # by the secondary side index. In other words: cell "n" of the side grid(s) should
+        # correspond to the element with the n'th lowest index in secondary_f. We therefore
+        # sort secondary_f to obtaint the side grid ordering. The primary faces should now be
+        # sorted such that the left side comes first, then the right side. We use stable
+        # sort to not mix up the ordering if there is two sides.
+        ix = np.argsort(secondary_f, kind="stable")
+        if self.num_sides() == 2:
+            # If there are two sides we are in the case of a secondary grid of equal
+            # dimension as the mortar grid. The mapping primary_secondary is then a mapping
+            # from faces-cells, and we assume the higher dimensional grid is split and
+            # there is exactly two primary faces mapping to each secondary cell. Check this:
+            if not np.allclose(np.bincount(secondary_f), 2):
+                raise ValueError(
+                    """Each face in the higher dimensional grid must map to
+                exactly two lower dimensional cells"""
+                )
+            # The mortar grid cells are ordered as first all cells on side 1 then all
+            # cells on side 2. We there have to reorder ix to account for this:
+            ix = np.reshape(ix, (2, -1), order="F").ravel("C")
+
+        # Reorder mapping to fit with mortar cell ordering.
         secondary_f = secondary_f[ix]
         primary_f = primary_f[ix]
         data = data[ix]
 
         # Define mappings
         cells = np.arange(secondary_f.size)
-        self.num_cells = cells.size
-        if not self.num_cells == mortar_grid.num_cells:
+        if not self.num_cells == cells.size:
             raise ValueError(
-                """In the construction of Boundary mortar it is assumed
-            to be a one to one mapping between the mortar grid and the contact faces of
-            the secondary grid"""
+                """In the construction of MortarGrid it is assumed
+            to be a one to one mapping between the mortar grid and the secondary mapping"""
             )
-        self.cell_volumes = mortar_grid.cell_volumes
 
         shape_primary = (self.num_cells, primary_secondary.shape[1])
         shape_secondary = (self.num_cells, primary_secondary.shape[0])
@@ -789,76 +730,6 @@ class BoundaryMortar(MortarGrid):
         self._secondary_to_mortar_int = sps.csc_matrix(
             (data.astype(np.float), (cells, secondary_f)), shape=shape_secondary
         )
-
-    def __repr__(self) -> str:
-        """
-        Implementation of __repr__
-
-        """
-        s = (
-            "Mortar grid with history "
-            + ", ".join(self.name)
-            + "\n"
-            + "Dimension "
-            + str(self.dim)
-            + "\n"
-            + "Face_cell mapping from the LEFT_SIDE grid to the mortar grid\n"
-            + str(self.primary_to_mortar_int)
-            + "\n"
-            + "Face_cell mapping from the RIGHT_SIDE grid to the mortar grid\n"
-            + str(self.secondary_to_mortar_int)
-        )
-
-        return s
-
-    def __str__(self) -> str:
-        """
-        Implementation of __str__
-        """
-        s = str()
-
-        s += "".join(
-            [
-                "Side " + str(s) + " with grid:\n" + str(g)
-                for s, g in self.side_grids.items()
-            ]
-        )
-
-        s += (
-            "Mapping from the faces of the primary_side grid to"
-            + " the cells of the mortar grid. \nRows indicate the mortar"
-            + " cell id, columns indicate the primary_grid face id"
-            + "\n"
-            + str(self.primary_to_mortar_int)
-            + "\n"
-            + "Mapping from the cells of the face of the secondary_side grid"
-            + "to the cells of the mortar grid. \nRows indicate the mortar"
-            + " cell id, columns indicate the secondary_grid face id"
-            + "\n"
-            + str(self.secondary_to_mortar_int)
-        )
-
-        return s
-
-    def num_sides(self) -> int:
-        """
-        Shortcut to compute the number of sides, it has to be 2 or 1.
-
-        Return:
-            Number of sides.
-        """
-        return len(self.side_grids)
-
-    def compute_geometry(self) -> None:
-        """
-        Compute the geometry of the mortar grids.
-        We assume that they are not aligned with x (1d) or x, y (2d).
-        """
-        for g in self.side_grids.values():
-            g.compute_geometry()
-
-
-# --- helper methods
 
 
 def _split_matrix_1d(g_old: pp.Grid, g_new: pp.Grid, tol: float) -> sps.spmatrix:
