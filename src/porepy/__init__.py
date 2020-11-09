@@ -138,6 +138,9 @@ from porepy.models.run_models import run_stationary_model, run_time_dependent_mo
 from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 from porepy.models.contact_mechanics_model import ContactMechanics
 
+from porepy.numerics.ad.equation_manager import Equation, EquationManager
+from porepy.numerics import ad
+
 # Visualization
 from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
