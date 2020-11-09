@@ -210,18 +210,22 @@ class MortarGrid:
         # stored we need to remap it. The resulting matrix will be a block
         # diagonal matrix, where in each block we have the mapping between the
         # (relative to side) old grid and the new one.
-        matrix = np.empty((self.num_sides(), self.num_sides()), dtype=np.object)
+        matrix_blocks: np.ndarray = np.empty(
+            (self.num_sides(), self.num_sides()), dtype=np.object
+        )
 
         # Loop on all the side grids, if not given an identity matrix is
         # considered
         for pos, (side, g) in enumerate(self.side_grids.items()):
-            matrix[pos, pos] = split_matrix.get(side, sps.identity(g.num_cells))
+            matrix_blocks[pos, pos] = split_matrix.get(side, sps.identity(g.num_cells))
 
         # Once the global matrix is constructed the new low_to_mortar_int and
         # high_to_mortar_int maps are updated.
-        matrix = sps.bmat(matrix)
-        self._secondary_to_mortar_int = matrix * self._secondary_to_mortar_int
-        self._primary_to_mortar_int = matrix * self._primary_to_mortar_int
+        matrix: sps.spmatrix = sps.bmat(matrix_blocks)
+        self._secondary_to_mortar_int: sps.spmatrix = (
+            matrix * self._secondary_to_mortar_int
+        )
+        self._primary_to_mortar_int: sps.spmatrix = matrix * self._primary_to_mortar_int
 
         # Update the side grids
         for side, g in new_side_grids.items():
