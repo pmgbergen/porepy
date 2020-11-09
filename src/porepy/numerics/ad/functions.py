@@ -2,6 +2,8 @@ import numpy as np
 
 from porepy.numerics.ad.forward_mode import Ad_array
 
+__all__ = ["exp", "log", "sign", "abs"]
+
 
 def exp(var):
     if isinstance(var, Ad_array):

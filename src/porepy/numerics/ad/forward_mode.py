@@ -1,6 +1,8 @@
 import numpy as np
 import scipy.sparse as sps
 
+__all__ = ["initAdArrays", "Ad_array"]
+
 
 def initAdArrays(variables):
     if not isinstance(variables, list):
