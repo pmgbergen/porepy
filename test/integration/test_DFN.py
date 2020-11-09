@@ -424,12 +424,12 @@ def setup_discr_mvem(gb, key="flow"):
             d[pp.DISCRETIZATION] = {key: {"flux": p_trace}}
 
     for e, d in gb.edges():
-        g_slave, g_master = gb.nodes_of_edge(e)
+        g_secondary, g_primary = gb.nodes_of_edge(e)
         d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
         d[pp.COUPLING_DISCRETIZATION] = {
             "flux": {
-                g_slave: (key, "flux"),
-                g_master: (key, "flux"),
+                g_secondary: (key, "flux"),
+                g_primary: (key, "flux"),
                 e: (key, interface),
             }
         }
@@ -452,12 +452,12 @@ def setup_discr_tpfa(gb, key="flow"):
             d[pp.DISCRETIZATION] = {key: {"flux": p_trace}}
 
     for e, d in gb.edges():
-        g_slave, g_master = gb.nodes_of_edge(e)
+        g_secondary, g_primary = gb.nodes_of_edge(e)
         d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
         d[pp.COUPLING_DISCRETIZATION] = {
             "flux": {
-                g_slave: (key, "flux"),
-                g_master: (key, "flux"),
+                g_secondary: (key, "flux"),
+                g_primary: (key, "flux"),
                 e: (key, interface),
             }
         }
