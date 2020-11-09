@@ -204,7 +204,7 @@ class FVElliptic(pp.EllipticDiscretization):
         return -div * bound_flux * bc_val - div * vector_source_discr * vector_source
 
     def assemble_int_bound_flux(
-        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
+        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj=False
     ):
         """Assemble the contribution from an internal boundary, manifested as a
         flux boundary condition.
@@ -225,7 +225,7 @@ class FVElliptic(pp.EllipticDiscretization):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -233,7 +233,7 @@ class FVElliptic(pp.EllipticDiscretization):
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
-            use_slave_proj (boolean): If True, the slave side projection operator is
+            use_secondary_proj (boolean): If True, the secondary side projection operator is
                 used. Needed for periodic boundary conditions.
 
         """
@@ -245,10 +245,10 @@ class FVElliptic(pp.EllipticDiscretization):
         # Projection operators to grid
         mg = data_edge["mortar_grid"]
 
-        if use_slave_proj:
-            proj = mg.mortar_to_slave_int()
+        if use_secondary_proj:
+            proj = mg.mortar_to_secondary_int()
         else:
-            proj = mg.mortar_to_master_int()
+            proj = mg.mortar_to_primary_int()
 
         if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
             # If bound flux is gven as sub-faces we have to map it from sub-faces
@@ -283,7 +283,7 @@ class FVElliptic(pp.EllipticDiscretization):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -295,12 +295,12 @@ class FVElliptic(pp.EllipticDiscretization):
         """
         mg = data_edge["mortar_grid"]
 
-        proj = mg.mortar_to_slave_int()
+        proj = mg.mortar_to_secondary_int()
 
         cc[self_ind, 2] -= proj
 
     def assemble_int_bound_pressure_trace(
-        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
+        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj=False
     ):
         """Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -321,7 +321,7 @@ class FVElliptic(pp.EllipticDiscretization):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -329,7 +329,7 @@ class FVElliptic(pp.EllipticDiscretization):
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
-            use_slave_proj (boolean): If True, the slave side projection operator is
+            use_secondary_proj (boolean): If True, the secondary side projection operator is
                 used. Needed for periodic boundary conditions.
 
         """
@@ -338,12 +338,12 @@ class FVElliptic(pp.EllipticDiscretization):
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
-        if use_slave_proj:
-            proj = mg.slave_to_mortar_avg()
-            proj_int = mg.mortar_to_slave_int()
+        if use_secondary_proj:
+            proj = mg.secondary_to_mortar_avg()
+            proj_int = mg.mortar_to_secondary_int()
         else:
-            proj = mg.master_to_mortar_avg()
-            proj_int = mg.mortar_to_master_int()
+            proj = mg.primary_to_mortar_avg()
+            proj_int = mg.mortar_to_primary_int()
 
         cc[2, self_ind] += proj * matrix_dictionary[self.bound_pressure_cell_matrix_key]
         cc[2, 2] += (
@@ -366,7 +366,7 @@ class FVElliptic(pp.EllipticDiscretization):
         rhs[2] -= proj * vector_source_discr * vector_source
 
     def assemble_int_bound_pressure_trace_rhs(
-        self, g, data, data_edge, cc, rhs, self_ind, use_slave_proj=False
+        self, g, data, data_edge, cc, rhs, self_ind, use_secondary_proj=False
     ):
         """Assemble the rhs contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -381,7 +381,7 @@ class FVElliptic(pp.EllipticDiscretization):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -389,7 +389,7 @@ class FVElliptic(pp.EllipticDiscretization):
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
-            use_slave_proj (boolean): If True, the slave side projection operator is
+            use_secondary_proj (boolean): If True, the secondary side projection operator is
                 used. Needed for periodic boundary conditions.
 
         """
@@ -398,10 +398,10 @@ class FVElliptic(pp.EllipticDiscretization):
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
-        if use_slave_proj:
-            proj = mg.slave_to_mortar_avg()
+        if use_secondary_proj:
+            proj = mg.secondary_to_mortar_avg()
         else:
-            proj = mg.master_to_mortar_avg()
+            proj = mg.primary_to_mortar_avg()
 
         # Add contribution from boundary conditions to the pressure at the fracture
         # faces. For TPFA this will be zero, but for MPFA we will get a contribution
@@ -435,12 +435,12 @@ class FVElliptic(pp.EllipticDiscretization):
                 grid to the main grid.
             cc (block matrix, 3x3): Block matrix of size 3 x 3, whwere each block represents
                 coupling between variables on this interface. Index 0, 1 and 2
-                represent the master grid, the primary and secondary interface,
+                represent the primary grid, the primary and secondary interface,
                 respectively.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
             rhs (block_array 3x1): Block matrix of size 3 x 1, representing the right hand
-                side of this coupling. Index 0, 1 and 2 represent the master grid,
+                side of this coupling. Index 0, 1 and 2 represent the primary grid,
                 the primary and secondary interface, respectively.
 
         """
@@ -475,7 +475,7 @@ class FVElliptic(pp.EllipticDiscretization):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -486,7 +486,7 @@ class FVElliptic(pp.EllipticDiscretization):
         """
         mg = data_edge["mortar_grid"]
 
-        proj = mg.slave_to_mortar_avg()
+        proj = mg.secondary_to_mortar_avg()
 
         cc[2, self_ind] -= proj
 
@@ -519,7 +519,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
 
     NOTICE: There seems  no point in assigning this method as the higher-dimensional
     discretization. Accordingly, the methods for assembly of interface contributions
-    from the master side of a mortar grid are delibierately designed to fail.
+    from the primary side of a mortar grid are delibierately designed to fail.
 
     """
 
@@ -563,7 +563,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
         return np.zeros(self.ndof(g))
 
     def assemble_int_bound_flux(
-        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
+        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj=False
     ):
         """Assemble the contribution from an internal boundary, manifested as a
         flux boundary condition.
@@ -580,7 +580,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -588,7 +588,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
-            use_slave_proj (boolean): If True, the slave side projection operator is
+            use_secondary_proj (boolean): If True, the secondary side projection operator is
                 used. Needed for periodic boundary conditions.
 
         """
@@ -598,7 +598,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
         )
 
     def assemble_int_bound_pressure_trace(
-        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
+        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj=False
     ):
         """Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -615,7 +615,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -623,7 +623,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
                 the two adjacent nodes.
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
-            use_slave_proj (boolean): If True, the slave side projection operator is
+            use_secondary_proj (boolean): If True, the secondary side projection operator is
                 used. Needed for periodic boundary conditions.
 
         """

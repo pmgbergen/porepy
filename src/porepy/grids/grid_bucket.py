@@ -929,11 +929,12 @@ class GridBucket:
 
         Parameters:
             gb (GridBucket): To be updated.
-            g_map (dictionary): Grids to replace. Keys are grids in the old bucket,
-                values are their replacements.
-            mg_map (dictionary): Mortar grids to replace. Keys are EITHER related
-                to mortar grids, or to edges. Probably, mg is most relevant, the we
-                need to identify the right edge shielded from user.
+            g_map (dictionary): Mapping between the old and new grids. Keys are
+                the old grids, and values are the new grids.
+            mg_map (dictionary): Mapping between the old mortar grid and new
+                (side grids of the) mortar grid. Keys are the old mortar grids,
+                and values are dictionaries with side grid number as keys, and
+                side grids as values.
 
         """
         if mg_map is None:
@@ -956,9 +957,9 @@ class GridBucket:
                 mg = d["mortar_grid"]
                 if mg.dim == g_new.dim:
                     # update the mortar grid of the same dimension
-                    mg.update_slave(g_new, tol)
+                    mg.update_secondary(g_new, tol)
                 else:  # g_new.dim == mg.dim + 1
-                    mg.update_master(g_new, g_old, tol)
+                    mg.update_primary(g_new, g_old, tol)
 
     def _find_shared_face(self, g0: pp.Grid, g1: pp.Grid, g_l: pp.Grid) -> np.ndarray:
         """

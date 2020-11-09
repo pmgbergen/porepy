@@ -1627,9 +1627,9 @@ def add_constant_darcy_flux(gb, upwind, flux, a):
             g_h.get_all_boundary_faces()
         )
         mg = d["mortar_grid"]
-        sign = mg.master_to_mortar_avg() * sign
+        sign = mg.primary_to_mortar_avg() * sign
         #        d["param"] = pp.Parameters(g_h)
-        darcy_flux_e = sign * (d["mortar_grid"].master_to_mortar_avg() * darcy_flux)
+        darcy_flux_e = sign * (d["mortar_grid"].primary_to_mortar_avg() * darcy_flux)
         if pp.PARAMETERS not in d:
             d[pp.PARAMETERS] = pp.Parameters(
                 mg, ["transport"], [{"darcy_flux": darcy_flux_e}]

@@ -158,8 +158,8 @@ class ColoumbContact:
         parameters_h = data_h[pp.PARAMETERS][self.discr_h.keyword]
         constit_h = parameters_h["fourth_order_tensor"]
         mean_constit = (
-            mg.mortar_to_slave_avg()
-            * mg.master_to_mortar_avg()
+            mg.mortar_to_secondary_avg()
+            * mg.primary_to_mortar_avg()
             * 0.5
             * np.abs(g_h.cell_faces * (constit_h.mu + constit_h.lmbda))
         )
@@ -207,12 +207,12 @@ class ColoumbContact:
             self.mortar_displacement_variable
         ]
         displacement_jump_global_coord_iterate = (
-            mg.mortar_to_slave_avg(nd=self.dim)
+            mg.mortar_to_secondary_avg(nd=self.dim)
             * mg.sign_of_mortar_sides(nd=self.dim)
             * previous_displacement_iterate
         )
         displacement_jump_global_coord_time = (
-            mg.mortar_to_slave_avg(nd=self.dim)
+            mg.mortar_to_secondary_avg(nd=self.dim)
             * mg.sign_of_mortar_sides(nd=self.dim)
             * previous_displacement_time
         )
@@ -246,9 +246,9 @@ class ColoumbContact:
         )
         gap = initial_gap + np.tan(dilation_angle) * norm_displacement_jump_tangential
 
-        # Compute dg/du_t = - tan(dilation_angle) u_t / || u_t ||
+        # Compute dg/du_t = tan(dilation_angle) u_t / || u_t ||
         # Avoid dividing by zero if u_t = 0. In this case, we extend to the limit value
-        # from the positive, see module level explanation.
+        # to zero, see module level explanation.
         ind = np.logical_not(
             np.isclose(cumulative_tangential_jump, 0, rtol=self.tol, atol=self.tol)
         )[0]
@@ -600,10 +600,10 @@ def set_projections(gb: pp.GridBucket) -> None:
         _, g_h = gb.nodes_of_edge(e)
 
         # Find faces of the higher dimensional grid that coincide with the mortar
-        # grid. Go via the master to mortar projection
+        # grid. Go via the primary to mortar projection
         # Convert matrix to csr, then the relevant face indices are found from
         # the (column) indices
-        faces_on_surface = mg.master_to_mortar_int().tocsr().indices
+        faces_on_surface = mg.primary_to_mortar_int().tocsr().indices
 
         # Find out whether the boundary faces have outwards pointing normal vectors
         # Negative sign implies that the normal vector points inwards.
@@ -622,7 +622,7 @@ def set_projections(gb: pp.GridBucket) -> None:
         # (below).
         # NOTE: Use a single normal vector to span the tangential and normal space,
         # thus assuming the surface is planar.
-        outwards_unit_vector_mortar = mg.master_to_mortar_int().dot(unit_normal.T).T
+        outwards_unit_vector_mortar = mg.primary_to_mortar_int().dot(unit_normal.T).T
 
         # NOTE: The normal vector is based on the first cell in the mortar grid,
         # and will be pointing from that cell towards the other side of the
