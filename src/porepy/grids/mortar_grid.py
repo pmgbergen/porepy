@@ -675,7 +675,7 @@ class MortarGrid:
         # such that the original faces comes first, then the duplicate faces.
         # If the face_duplicate_ind is not given, we then assume that the primary side faces
         # already have this ordering. If the grid is created using the pp.split_grid.py
-        # module this shoulc be the case.
+        # module this should be the case.
         if self.num_sides() == 2 and not (face_duplicate_ind is None):
             is_second_side = np.in1d(primary_f, face_duplicate_ind)
             secondary_f = np.r_[
