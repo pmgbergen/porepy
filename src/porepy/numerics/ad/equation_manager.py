@@ -21,39 +21,12 @@ __all__ = ["Equation", "EquationManager"]
 
 
 class Equation:
-    def __init__(self):
-        pass
-
-
-class EquationManager:
-    def __init__(self, gb):
+    def __init__(self, operator):
         # need a way to print an equation. Separate class?
-        self._equations = []
-        self._gb = gb
-
-        self._set_variables()
-
-        # Separate a dof-manager from assembler?
-        self._assembler = pp.Assembler(gb)
+        self._operator = operator
 
         # This goes to equation
         self._stored_matrices = {}
-
-    def _set_variables(self):
-        # Define variables
-        variables = {}
-        for g, d in self._gb:
-            variables[g] = {}
-            for var, info in d[pp.PRIMARY_VARIABLES].items():
-                variables[g][var] = operators.Variable(var, info, g)
-
-        for e, d in self._gb.edges():
-            variables[e] = {}
-            for var, info in d[pp.PRIMARY_VARIABLES].items():
-                variables[e][var] = operators.Variable(var, info, e)
-
-        self._variables = variables
-        # Define discretizations
 
     def _operators_from_gb(self):
         # Define operators from information in the GridBucket.
@@ -90,10 +63,6 @@ class EquationManager:
         self._discretizations = discr_dict
         self._bc = bc_dict
 
-    def equate_to_zero(self, op: operators.Operator) -> None:
-        # Define a full residual equation
-        self._equations.append(op)
-
     def _get_matrix(self, data, op):
         # Move this into a class
 
@@ -103,10 +72,7 @@ class EquationManager:
         mat_key = getattr(discr, key + "_matrix_key")
         return mat_dict[mat_key]
 
-    def set_state(self, state):
-        self._state = state
-
-    def _variables_of_equation(self, op: operators.Operator):
+    def _identify_variables(self, op: operators.Operator):
 
         if isinstance(op, operators.Variable):
             # We are at the bottom of the a branch of the tree
@@ -114,7 +80,7 @@ class EquationManager:
         else:
             # Look for variables among the children
             sub_variables = [
-                self._variables_of_equation(child) for child in op._tree._children
+                self._identify_variables(child) for child in op._tree._children
             ]
             # Some work is needed to parse the information
             var_list = []
@@ -129,11 +95,17 @@ class EquationManager:
                             var_list.append(sub_var)
             return var_list
 
-    def parse_equation(self, op: operators.Operator):
+    def to_ad(self, assembler, gb, state):
+        # NOTES TO SELF:
+        # assembler -> dof_manager
+        # gb: needed
+        # state: state vector for all unknowns. Should be possible to pick this
+        # from pp.STATE or pp.ITERATE
+
         # 1. Get all variables present in this equation
         # Uniquify by making this a set, and then sort on variable id
         variables = sorted(
-            list(set(self._variables_of_equation(op))), key=lambda var: var.id
+            list(set(self._identify_variables(self._operator))), key=lambda var: var.id
         )
 
         # 2. Get state of the variables, init ad
@@ -145,21 +117,21 @@ class EquationManager:
         for variable in variables:
             ind_var = []
             for sub_var in variable.sub_vars:
-                ind_var.append(self._assembler.dof_ind(sub_var.g, sub_var._name))
+                ind_var.append(assembler.dof_ind(sub_var.g, sub_var._name))
 
             inds.append(np.hstack((i for i in ind_var)))
 
         # Initialize variables
-        ad_vars = initAdArrays([self._state[ind] for ind in inds])
+        ad_vars = initAdArrays([state[ind] for ind in inds])
         self._ad = {var.id: ad for (var, ad) in zip(variables, ad_vars)}
 
         # 3. Parse operators. Matrices can be picked either from discretization matrices,
         # or from some central storage,
-        eq = self._parse_operator(op)
+        eq = self._parse_operator(self._operator, assembler.gb)
 
         return eq
 
-    def _parse_operator(self, op: operators.Operator):
+    def _parse_operator(self, op: operators.Operator, gb):
         # Q: The parsing could also be moved to the operator classes
         tree = op._tree
         if isinstance(op, pp.ad.Variable):
@@ -175,7 +147,7 @@ class EquationManager:
         if isinstance(op, grid_operators.BoundaryCondition):
             val = []
             for g in op.g:
-                data = self._gb.node_props(g)
+                data = gb.node_props(g)
                 val.append(data[pp.PARAMETERS][op.keyword]["bc_values"])
 
             return np.hstack((v for v in val))
@@ -197,9 +169,9 @@ class EquationManager:
                         mat = []
                         for g, discr in op.grid_discr.items():
                             if isinstance(g, pp.Grid):
-                                data = self._gb.node_props(g)
+                                data = gb.node_props(g)
                             else:
-                                data = self._gb.edge_props(g)
+                                data = gb.edge_props(g)
                             key = op.key
                             mat_dict = data[pp.DISCRETIZATION_MATRICES][discr.keyword]
                             mat_key = getattr(discr, key + "_matrix_key")
@@ -213,7 +185,7 @@ class EquationManager:
                 assert False
                 return self._get_matrix(op.g, op)
 
-        results = [self._parse_operator(child) for child in tree._children]
+        results = [self._parse_operator(child, gb) for child in tree._children]
 
         if tree._op == operators.Operation.add:
             assert len(results) == 2
@@ -228,3 +200,44 @@ class EquationManager:
             raise NotImplementedError("")
         else:
             raise ValueError("Should not happen")
+
+
+class EquationManager:
+    def __init__(self, gb, equations: Optional[List[Equation]] = None) -> None:
+        self._set_variables(gb)
+
+        if equations is None:
+            self._equations = []
+        else:
+            self._equations = equations
+            # Separate a dof-manager from assembler?
+        self._assembler = pp.Assembler(gb)
+
+    def _set_variables(self, gb):
+        # Define variables as specified in the GridBucket
+        variables = {}
+        for g, d in gb:
+            variables[g] = {}
+            for var, info in d[pp.PRIMARY_VARIABLES].items():
+                variables[g][var] = operators.Variable(var, info, g)
+
+        for e, d in gb.edges():
+            variables[e] = {}
+            for var, info in d[pp.PRIMARY_VARIABLES].items():
+                variables[e][var] = operators.Variable(var, info, e)
+
+        self._variables = variables
+        # Define discretizations
+
+    def assemble_matrix_rhs(self, assembler, gb, state):
+
+        mat: List[sps.spmatrix] = []
+        b: List[np.ndarray] = []
+        for eq in self._equations:
+            ad = eq.to_ad(assembler, gb, state)
+            mat.append(ad.jac)
+            b.append(ad.val)
+
+        A = sps.bmat([[m] for m in mat])
+        rhs = np.hstack((vec for vec in b))
+        return A, rhs
