@@ -1,0 +1,179 @@
+from enum import Enum
+from typing import Optional, List
+from itertools import count
+
+import numpy as np
+
+__all__ = [
+    "Operator",
+    "MergedOperator",
+    "Matrix",
+    "Variable",
+    "MergedVariable",
+    "Discretization",
+]
+
+
+Operation = Enum("Operation", ["void", "add", "sub", "mul", "eval"])
+
+
+class Tree:
+    # https://stackoverflow.com/questions/2358045/how-can-i-implement-a-tree-in-python
+    def __init__(self, operation: Operation, children: Optional[List["Tree"]] = None):
+
+        self._op = operation
+
+        self._children = []
+        if children is not None:
+            for child in children:
+                self.add_child(child)
+
+    def add_child(self, node):
+        assert isinstance(node, Operator)
+        self._children.append(node)
+
+
+class Operator:
+    def __init__(self, disc=None, name=None, grid=None, tree=None):
+        if disc is not None:
+            self._discr = disc
+        if name is not None:
+            self._name = name
+            assert disc is not None
+        if grid is not None:
+            self.g = grid
+        self._set_tree(tree)
+
+    def _set_tree(self, tree=None):
+        if tree is None:
+            self._tree = Tree(Operation.void)
+        else:
+            self._tree = tree
+
+    def __mul__(self, other):
+        children = [self, other]
+        tree = Tree(Operation.mul, children)
+        return Operator(tree=tree)
+
+    def __add__(self, other):
+        children = [self, other]
+        return Operator(tree=Tree(Operation.add, children))
+
+    def __sub__(self, other):
+        children = [self, other]
+        return Operator(tree=Tree(Operation.sub, children))
+
+
+class MergedOperator(Operator):
+    # This will likely be converted to operator, that is, non-merged operators are removed
+    def __init__(self, grid_discr, key):
+        self.grid_discr = grid_discr
+        self.key = key
+        self._set_tree(None)
+
+
+class Matrix(Operator):
+    def __init__(self, mat):
+        self.mat = mat
+        self._set_tree()
+
+
+class Variable(Operator):
+
+    _ids = count(0)
+
+    def __init__(self, name, ndof, grid_like):
+        self._name = name
+
+        self._cells = ndof.get("cells", 0)
+        self._faces = ndof.get("faces", 0)
+        self._nodes = ndof.get("nodes", 0)
+        self.g = grid_like
+        self.id = next(self._ids)
+
+        self._set_tree()
+
+    def size(self) -> int:
+        if isinstance(self.g, tuple):
+            return 0
+        else:
+            return (
+                self.g.num_cells * self._cells
+                + self.g.num_faces * self._faces
+                + self.g.num_nodes * self._nodes
+            )
+
+    def __repr__(self) -> str:
+        s = (
+            f"Variable {self._name}, id: {self.id}\n"
+            f"Degrees of freedom in cells: {self._cells}, faces: {self._faces}, "
+            f"nodes: {self._nodes}"
+        )
+        return s
+
+
+class MergedVariable(Variable):
+
+    _ids = count(0)
+
+    def __init__(self, variables):
+        self.sub_vars = variables
+        self.id = next(self._ids)
+        self._name = variables[0]._name
+        self._set_tree()
+
+        self.is_interface = isinstance(self.sub_vars[0].g, tuple)
+
+        all_names = set(var._name for var in variables)
+        assert len(all_names) == 1
+
+    def __repr__(self) -> str:
+        s = (
+            f"Merged variable with name {self._name}, id {self.id}\n"
+            f"Composed of {len(self.sub_vars)} variables\n"
+            f"Degrees of freedom in cells: {self.sub_vars[0]._cells}"
+            f", faces: {self.sub_vars[0]._faces}, nodes: {self.sub_vars[0]._nodes}\n"
+        )
+        if not self.is_interface:
+            sz = np.sum([var.size() for var in self.sub_vars])
+            s += f"Total size: {sz}"
+
+        return s
+
+
+class Discretization:
+    def __init__(self, grid_discr, name=None, tree=None):
+
+        self.grid_discr = grid_discr
+        key_set = []
+
+        for i, discr in enumerate(grid_discr.values()):
+            for s in dir(discr):
+                if s.endswith("_matrix_key"):
+                    if i == 0:
+                        key = s[:-11]
+                        key_set.append(key)
+                    else:
+                        if key not in key_set:
+                            raise ValueError(
+                                "Merged disrcetization should have uniform set of operations"
+                            )
+
+        for key in key_set:
+            op = MergedOperator(grid_discr, key)
+            setattr(self, key, op)
+
+    def __repr__(self) -> str:
+
+        discr_counter = {}
+
+        for discr in self.grid_discr.values():
+            if discr not in discr_counter:
+                discr_counter[discr] = 0
+            discr_counter[discr] += 1
+
+        s = "Merged discretization. Sub discretizations:\n"
+        for key, val in discr_counter.items():
+            s += f"{val} occurences of discretization {key}"
+
+        return s
