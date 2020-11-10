@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 
 import numpy as np
 import porepy as pp
@@ -13,11 +13,15 @@ __all__ = ["MortarProjections", "Divergence", "BoundaryCondition"]
 class MortarProjections(Operator):
     def __init__(
         self,
-        edges: List[Tuple[pp.Grid, pp.Grid]],
-        grids: List[pp.Grid],
         gb: pp.GridBucket,
+        grids: Optional[List[pp.Grid]] = None,
+        edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None,
         nd=1,
     ):
+        if grids is None:
+            grids = [g for g, _ in gb.nodes()]
+        if edges is None:
+            edges = [e for e, _ in gb.edges()]
 
         face_projection: Dict[pp.Grid, np.ndarray] = {}
         cell_projection: Dict[pp.Grid, np.ndarray] = {}
@@ -45,8 +49,10 @@ class MortarProjections(Operator):
                 shape=(tot_num_cells, cell_sz),
             ).tocsr()
 
-            face_offset = face_ind[-1]
-            cell_offset = cell_ind[-1]
+            # Correct start of the numbering for the next grid
+            if g.dim > 0:
+                face_offset = face_ind[-1] + 1
+            cell_offset = cell_ind[-1] + 1
 
         # sparse blocks are slow; it should be possible to do a right multiplication
         # of local-to-global mortar indices instead of the block.
@@ -60,7 +66,6 @@ class MortarProjections(Operator):
         for e in edges:
             g_primary, g_secondary = e
             mg: pp.MortarGrid = gb.edge_props(e, "mortar_grid")
-
             if (g_primary.dim != mg.dim + 1) or g_secondary.dim != mg.dim:
                 # This will correspond to DD of sorts; we could handle this
                 # by using cell_projections for g_primary and/or
@@ -99,28 +104,28 @@ class MortarProjections(Operator):
             )
 
         self.mortar_to_primary_int = Matrix(
-            sps.block_diag([m for m in mortar_to_primary_int])
+            sps.bmat([[m for m in mortar_to_primary_int]]).tocsr()
         )
         self.mortar_to_primary_avg = Matrix(
-            sps.block_diag([m for m in mortar_to_primary_avg])
+            sps.bmat([[m for m in mortar_to_primary_avg]]).tocsr()
         )
         self.mortar_to_secondary_int = Matrix(
-            sps.block_diag([m for m in mortar_to_secondary_int])
+            sps.bmat([[m for m in mortar_to_secondary_int]]).tocsr()
         )
         self.mortar_to_secondary_avg = Matrix(
-            sps.block_diag([m for m in mortar_to_secondary_avg])
+            sps.bmat([[m for m in mortar_to_secondary_avg]]).tocsr()
         )
         self.primary_to_mortar_int = Matrix(
-            sps.block_diag([m for m in primary_to_mortar_int])
+            sps.bmat([[m] for m in primary_to_mortar_int]).tocsr()
         )
         self.primary_to_mortar_avg = Matrix(
-            sps.block_diag([m for m in primary_to_mortar_avg])
+            sps.bmat([[m] for m in primary_to_mortar_avg]).tocsr()
         )
         self.secondary_to_mortar_int = Matrix(
-            sps.block_diag([m for m in secondary_to_mortar_int])
+            sps.bmat([[m] for m in secondary_to_mortar_int]).tocsr()
         )
         self.secondary_to_mortar_avg = Matrix(
-            sps.block_diag([m for m in secondary_to_mortar_avg])
+            sps.bmat([[m] for m in secondary_to_mortar_avg]).tocsr()
         )
 
 
