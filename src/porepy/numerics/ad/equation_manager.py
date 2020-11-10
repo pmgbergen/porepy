@@ -119,7 +119,7 @@ class Equation:
             for sub_var in variable.sub_vars:
                 ind_var.append(assembler.dof_ind(sub_var.g, sub_var._name))
 
-            inds.append(np.hstack((i for i in ind_var)))
+            inds.append(np.hstack([i for i in ind_var]))
 
         # Initialize variables
         ad_vars = initAdArrays([state[ind] for ind in inds])
@@ -150,7 +150,7 @@ class Equation:
                 data = gb.node_props(g)
                 val.append(data[pp.PARAMETERS][op.keyword]["bc_values"])
 
-            return np.hstack((v for v in val))
+            return np.hstack([v for v in val])
 
         if isinstance(op, pp.ad.Matrix):
             return op.mat
@@ -160,7 +160,9 @@ class Equation:
                 if op in self._stored_matrices:
                     return self._stored_matrices[op]
                 else:
-                    if isinstance(op, grid_operators.Divergence):
+                    if isinstance(op, grid_operators.Divergence) or isinstance(
+                        op, pp.ad.Divergence
+                    ):
                         if op.scalar:
                             mat = [pp.fvutils.scalar_divergence(g) for g in op.g]
                         else:
@@ -239,7 +241,7 @@ class EquationManager:
             b.append(ad.val)
 
         A = sps.bmat([[m] for m in mat]).tocsr()
-        rhs = np.hstack((vec for vec in b))
+        rhs = np.hstack([vec for vec in b])
         return A, rhs
 
     def discretize(self):
