@@ -238,6 +238,12 @@ class EquationManager:
             mat.append(ad.jac)
             b.append(ad.val)
 
-        A = sps.bmat([[m] for m in mat])
+        A = sps.bmat([[m] for m in mat]).tocsr()
         rhs = np.hstack((vec for vec in b))
         return A, rhs
+
+    def discretize(self):
+        # Somehow loop over all equations, discretize identified objects
+        # (but should also be able to do rediscretization based on
+        # dependency graph etc).
+        pass
