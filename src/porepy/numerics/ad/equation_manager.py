@@ -144,7 +144,9 @@ class Equation:
             # it here (perhaps as by indexing a list of variables) for use to propagete through
             # the chain of operations
             return self._ad[op.id]
-        if isinstance(op, grid_operators.BoundaryCondition):
+        if isinstance(op, grid_operators.BoundaryCondition) or isinstance(
+            op, pp.ad.BoundaryCondition
+        ):
             val = []
             for g in op.g:
                 data = gb.node_props(g)
@@ -206,6 +208,7 @@ class Equation:
 
 class EquationManager:
     def __init__(self, gb, equations: Optional[List[Equation]] = None) -> None:
+        self.gb = gb
         self._set_variables(gb)
 
         if equations is None:
