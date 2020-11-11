@@ -15,6 +15,7 @@ import warnings
 
 import numpy as np
 import scipy.sparse as sps
+import meshio
 
 import porepy as pp
 
@@ -35,14 +36,11 @@ class Field(object):
     Internal class to store information for the data to export.
     """
 
-    def __init__(self, name, cell_data=False, point_data=False, values=None):
-        assert np.logical_xor(cell_data, point_data)
+    def __init__(self, name, data=False, values=None):
         # name of the field
         self.name = name
         # if the field is vtk cell data
-        self.cell_data = cell_data
-        # if the field is vtk point data
-        self.point_data = point_data
+        self.data = data
         # number of components of the field
         self.num_components = None
         # values of the field, use set_values to set it
@@ -55,11 +53,7 @@ class Field(object):
         """
         Repr function
         """
-        s = self.name + " - data type: "
-        if self.cell_data:
-            s += "cell"
-        else:
-            s += "point"
+        s = self.name + " - data type: cell"
         return s + " - values: " + str(self.values)
 
     def dtype(self):
@@ -87,7 +81,7 @@ class Field(object):
             raise ValueError(
                 "Field " + str(self.name) + " must be filled. It can not be None"
             )
-        num_elem = g.num_cells if self.cell_data else g.num_nodes
+        num_elem = g.num_cells if self.data else g.num_nodes
         if np.atleast_2d(values).shape[1] != num_elem:
             raise ValueError("Field " + str(self.name) + " has wrong dimension.")
 
@@ -171,27 +165,26 @@ class Exporter:
         fixed_grid: (optional) in a time dependent simulation specify if the
             grid changes in time or not. The default is True.
         binary: export in binary format, default is True.
-        simplicial: consider only simplicial elements (triangles and tetra)
 
         How to use:
         If you need to export a single grid:
         save = Exporter(g, "solution", folder_name="results")
-        save.write_vtk({"cells_id": cells_id, "pressure": pressure})
+        save.write({"cells_id": cells_id, "pressure": pressure})
 
         In a time loop:
         save = Exporter(gb, "solution", folder_name="results")
         while time:
-            save.write_vtk({"conc": conc}, time_step=i)
+            save.write({"conc": conc}, time_step=i)
         save.write_pvd(steps*deltaT)
 
         if you need to export the state of variables as stored in the GridBucket:
         save = Exporter(gb, "solution", folder_name="results")
         # export the field stored in data[pp.STATE]["pressure"]
-        save.write_vtk(gb, ["pressure"])
+        save.write(gb, ["pressure"])
 
         In a time loop:
         while time:
-            save.write_vtk(["conc"], time_step=i)
+            save.write(["conc"], time_step=i)
         save.write_pvd(steps*deltaT)
 
         In the case of different keywords, change the file name with
@@ -200,9 +193,6 @@ class Exporter:
         NOTE: the following names are reserved for data exporting: grid_dim,
         is_mortar, mortar_side, cell_id
 
-        Raises:
-        ImportError if the module vtk is not available
-
         """
 
         self.gb = grid
@@ -210,38 +200,30 @@ class Exporter:
         self.folder_name = folder_name
         self.fixed_grid = kwargs.pop("fixed_grid", True)
         self.binary = kwargs.pop("binary", True)
-        self.simplicial = kwargs.pop("simplicial", False)
         if kwargs:
             msg = "Exporter() got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
 
         self.is_GridBucket = isinstance(self.gb, pp.GridBucket)
-        self.is_not_vtk = "vtk" not in sys.modules
-
-        if self.is_not_vtk:
-            raise ImportError("Could not load vtk module")
 
         if self.is_GridBucket:
             # Fixed-dimensional grids to be included in the export. We include
             # all but the 0-d grids
             self.dims = np.setdiff1d(self.gb.all_dims(), [0])
             num_dims = self.dims.size
-            self.gb_VTK = dict(zip(self.dims, [None] * num_dims))
+            self.meshio_geom = dict(zip(self.dims, [tuple()] * num_dims))
 
             # mortar grid variables
             self.m_dims = np.unique([d["mortar_grid"].dim for _, d in self.gb.edges()])
             num_m_dims = self.m_dims.size
-            self.m_gb_VTK = dict(zip(self.m_dims, [None] * num_m_dims))
+            self.m_meshio_geom = dict(zip(self.m_dims, [tuple()] * num_m_dims))
         else:
-            self.gb_VTK = None
+            self.meshio_geom = tuple()
 
-        # Assume numba is available
-        self.has_numba = True
-
-        self._update_gb_VTK()
+        self._update_meshio_geom()
 
         # Counter for time step. Will be used to identify files of individual time step,
-        # unless this is overridden by optional parameters in write_vtk
+        # unless this is overridden by optional parameters in write
         self._time_step_counter = 0
         # Storage for file name extensions for time steps
         self._exported_time_step_file_names = []
@@ -260,23 +242,19 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def write_vtk(
+    def write(
         self,
         data=None,
         time_dependent=False,
         time_step=None,
-        grid=None,
-        point_data=False,
+        grid=None
     ):
         """
-        Interface function to export the grid and additional data in VTK.
+        Interface function to export the grid and additional data with meshio.
 
-        In 2d the cells are represented as polygon, while in 3d as polyhedra.
-        The VTK module needs to be installed.
-        In 3d the geometry of the mesh needs to be computed.
-
-        To work with python3, the package vtk should be installed in version 7
-        or higher.
+        In 1d the cells are represented as lines, 2d the cells as polygon or triangle/quad,
+        while in 3d as polyhedra/tetrahedra/hexahedra.
+        In all the dimensions the geometry of the mesh needs to be computed.
 
         Parameters:
         data: if g is a single grid then data is a dictionary (see example)
@@ -289,18 +267,14 @@ class Exporter:
                    name associated with this time step. If not provided, subsequent
                    time steps will have file names ending with 0, 1, etc.
         grid: (optional) in case of changing grid set a new one.
-        point_data: ***
 
         """
-        if self.is_not_vtk:
-            return
-
         if self.fixed_grid and grid is not None:
             raise ValueError("Inconsistency in exporter setting")
         elif not self.fixed_grid and grid is not None:
             self.gb = grid
             self.is_GridBucket = isinstance(self.gb, pp.GridBucket)
-            self._update_gb_VTK()
+            self._update_meshio_geom()
 
         # If the problem is time dependent, but no time step is set, we set one
         if time_dependent and time_step is None:
@@ -313,9 +287,9 @@ class Exporter:
             self._exported_time_step_file_names.append(time_step)
 
         if self.is_GridBucket:
-            self._export_vtk_gb(data, time_step, point_data)
+            self._export_gb(data, time_step)
         else:
-            self._export_vtk_single(data, time_step, point_data)
+            self._export_g(data, time_step)
 
     # ------------------------------------------------------------------------------#
 
@@ -333,14 +307,11 @@ class Exporter:
             associated with the order in which the time steps were exported. This can
             be overridden by the file_extension argument.
         file_extension (np.array-like, optional): End of file names used in the export
-            of individual time steps, see self.write_vtk(). If provided, it should have
+            of individual time steps, see self.write(). If provided, it should have
             the same length as time. If not provided, the file names will be picked
             from those used when writing individual time steps.
 
         """
-        if self.is_not_vtk:
-            return
-
         if file_extension is None:
             file_extension = self._exported_time_step_file_names
 
@@ -371,7 +342,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _export_vtk_single(self, data, time_step, point_data):
+    def _export_g(self, data, time_step):
         """
         Export a single grid (not grid bucket) to a vtu file.
         """
@@ -385,31 +356,26 @@ class Exporter:
 
         fields = Fields()
         if len(data) > 0:
-            if point_data:
-                fields.extend(
-                    [Field(n, point_data=True, values=v) for n, v in data.items()]
-                )
-            else:
-                fields.extend(
-                    [Field(n, cell_data=True, values=v) for n, v in data.items()]
-                )
+            fields.extend(
+                [Field(n, data=True, values=v) for n, v in data.items()]
+            )
 
         fields.extend(
             [
                 Field(
                     "grid_dim",
-                    cell_data=True,
+                    data=True,
                     values=self.gb.dim * np.ones(self.gb.num_cells),
                 ),
-                Field("cell_id", cell_data=True, values=np.arange(self.gb.num_cells)),
+                Field("cell_id", data=True, values=np.arange(self.gb.num_cells)),
             ]
         )
 
-        self._write_vtk(fields, name, self.gb_VTK)
+        self._write(fields, name, self.meshio_geom)
 
     # ------------------------------------------------------------------------------#
 
-    def _export_vtk_gb(self, data, time_step, point_data):
+    def _export_gb(self, data, time_step):
         # Convert data to list, or provide an empty list
         if data is not None:
             data = np.atleast_1d(data).tolist()
@@ -418,20 +384,17 @@ class Exporter:
 
         fields = Fields()
         if len(data) > 0:
-            if point_data:
-                fields.extend([Field(d, point_data=True) for d in data])
-            else:
-                fields.extend([Field(d, cell_data=True) for d in data])
+            fields.extend([Field(d, data=True) for d in data])
 
         # consider the grid_bucket node data
         extra_fields = Fields()
         extra_fields.extend(
             [
-                Field("grid_dim", cell_data=True),
-                Field("cell_id", cell_data=True),
-                Field("grid_node_number", cell_data=True),
-                Field("is_mortar", cell_data=True),
-                Field("mortar_side", cell_data=True),
+                Field("grid_dim", data=True),
+                Field("cell_id", data=True),
+                Field("grid_node_number", data=True),
+                Field("is_mortar", data=True),
+                Field("mortar_side", data=True),
             ]
         )
         fields.extend(extra_fields)
@@ -462,8 +425,8 @@ class Exporter:
                     field.check(values[i], g)
                 field.set_values(np.hstack(values))
 
-            if self.gb_VTK[dim] is not None:
-                self._write_vtk(fields, file_name, self.gb_VTK[dim])
+            if self.meshio_geom[dim] is not None:
+                self._write(fields, file_name, self.meshio_geom[dim])
 
         self.gb.remove_node_props(extra_fields.names())
 
@@ -471,11 +434,11 @@ class Exporter:
         extra_fields = Fields()
         extra_fields.extend(
             [
-                Field("grid_dim", cell_data=True),
-                Field("cell_id", cell_data=True),
-                Field("grid_edge_number", cell_data=True),
-                Field("is_mortar", cell_data=True),
-                Field("mortar_side", cell_data=True),
+                Field("grid_dim", data=True),
+                Field("cell_id", data=True),
+                Field("grid_edge_number", data=True),
+                Field("is_mortar", data=True),
+                Field("mortar_side", data=True),
             ]
         )
         self.gb.add_edge_props(extra_fields.names())
@@ -518,8 +481,8 @@ class Exporter:
 
                 field.set_values(np.hstack(values))
 
-            if self.m_gb_VTK[dim] is not None:
-                self._write_vtk(extra_fields, file_name, self.m_gb_VTK[dim])
+            if self.m_meshio_geom[dim] is not None:
+                self._write(extra_fields, file_name, self.m_meshio_geom[dim])
 
         file_name = self._make_file_name(self.file_name, time_step, extension=".pvd")
         file_name = self._make_folder(self.folder_name, file_name)
@@ -545,12 +508,12 @@ class Exporter:
         # Include the grids and mortar grids of all dimensions, but only if the
         # grids (or mortar grids) of this dimension are included in the vtk export
         for dim in self.dims:
-            if self.gb_VTK[dim] is not None:
+            if self.meshio_geom[dim] is not None:
                 o_file.write(
                     fm % self._make_file_name(self.file_name, time_step, dim=dim)
                 )
         for dim in self.m_dims:
-            if self.m_gb_VTK[dim] is not None:
+            if self.m_meshio_geom[dim] is not None:
                 o_file.write(
                     fm % self._make_file_name_mortar(self.file_name, time_step, dim=dim)
                 )
@@ -560,7 +523,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _export_vtk_grid(self, gs, dim):
+    def _export_grid(self, gs, dim):
         """
         Wrapper function to export grids of dimension dim. Calls the
         appropriate dimension specific export function.
@@ -568,155 +531,255 @@ class Exporter:
         if dim == 0:
             return
         elif dim == 1:
-            return self._export_vtk_1d(gs)
+            return self._export_1d(gs)
         elif dim == 2:
-            return self._export_vtk_2d(gs)
+            return self._export_2d(gs)
         elif dim == 3:
-            return self._export_vtk_3d(gs)
+            return self._export_3d(gs)
 
     # ------------------------------------------------------------------------------#
 
-    def _export_vtk_1d(self, gs):
+    def _export_1d(self, gs):
         """
         Export the geometrical data (point coordinates) and connectivity
-        information from the 1d PorePy grids to vtk.
+        information from the 1d PorePy grids to meshio.
         """
-        gVTK = vtk.vtkUnstructuredGrid()
-        ptsVTK = vtk.vtkPoints()
+        gs = np.atleast_1d(gs)
 
-        ptsId_global = 0
+        # in 1d we have only one cell type
+        cell_type = "line"
+
+        # cell connectivity information
+        num_cells = np.sum([g.num_cells for g in gs])
+        cells = {cell_type: np.empty((num_cells, 2))}
+        cell_pos = 0
+
+        # points
+        num_pts = np.sum([g.num_nodes for g in gs])
+        meshio_pts = np.empty((num_pts, 3))
+        pts_pos = 0
+
+        # loop on all the 1d grids
         for g in gs:
-            cell_nodes = g.cell_nodes()
-            nodes, cells, _ = sps.find(cell_nodes)
+            # save the points information
+            sl = slice(pts_pos, pts_pos+g.num_nodes)
+            meshio_pts[sl, :] = g.nodes.T
+            pts_pos += g.num_nodes
 
+            # Cell-node relations
+            g_cell_nodes = g.cell_nodes()
+            g_nodes_cells, g_cells, _ = sps.find(g_cell_nodes)
+            # Ensure ordering of the cells
+            g_nodes_cells = g_nodes_cells[np.argsort(g_cells)]
+
+            # loop on all the grid cells
             for c in np.arange(g.num_cells):
-                loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c + 1])
-                ptsId = nodes[loc] + ptsId_global
-                fsVTK = vtk.vtkIdList()
-                [fsVTK.InsertNextId(p) for p in ptsId]
-                gVTK.InsertNextCell(vtk.VTK_LINE, fsVTK)
+                loc = slice(g_cell_nodes.indptr[c], g_cell_nodes.indptr[c + 1])
+                # get the local nodes and save them
+                cells[cell_type][cell_pos, :] = g_nodes_cells[loc]
+                cell_pos += 1
 
-            ptsId_global += g.num_nodes
-            [ptsVTK.InsertNextPoint(*node) for node in g.nodes.T]
+        # construct the meshio data structure
+        num_block = len(cells)
+        meshio_cells = np.empty(num_block, dtype=np.object)
 
-        gVTK.SetPoints(ptsVTK)
+        for block, (cell_type, cell_block) in enumerate(cells.items()):
+            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
 
-        return gVTK
+        return meshio_pts, meshio_cells
 
     # ------------------------------------------------------------------------------#
 
-    def _export_vtk_2d(self, gs):
+    def _export_2d(self, gs):
         """
         Export the geometrical data (point coordinates) and connectivity
-        information from the 2d PorePy grids to vtk.
+        information from the 2d PorePy grids to meshio.
         """
-        gVTK = vtk.vtkUnstructuredGrid()
-        ptsVTK = vtk.vtkPoints()
+        gs = np.atleast_1d(gs)
 
-        # Offset for the assignment of point indices. Needed to unify the counting of
-        # points for all grids in gs
-        ptsId_global = 0
+        # use standard name for simple object type
+        polygon_map  = {"polygon3": "triangle", "polygon4": "quad"}
+
+        # cell connectivity information
+        cells = {}
+
+        # points
+        num_pts = np.sum([g.num_nodes for g in gs])
+        meshio_pts = np.empty((num_pts, 3))
+        pts_pos = 0
+
+        # loop on all the 2d grids
         for g in gs:
+            # save the points information
+            sl = slice(pts_pos, pts_pos+g.num_nodes)
+            meshio_pts[sl, :] = g.nodes.T
+            pts_pos += g.num_nodes
+
             # Cell-face and face-node relations
-            faces_cells, _, _ = sps.find(g.cell_faces)
-            nodes_faces, _, _ = sps.find(g.face_nodes)
+            g_faces_cells, g_cells, _ = sps.find(g.cell_faces)
+            # Ensure ordering of the cells
+            g_faces_cells = g_faces_cells[np.argsort(g_cells)]
+            g_nodes_faces, _, _ = sps.find(g.face_nodes)
 
-            # For each cell, find its boundary edges, as a list of start and endpoints,
-            # sorted so that the edges form a closed loop around the cell
+            # loop on all the grid cells
             for c in np.arange(g.num_cells):
-                # Faces of this cell
-                loc_faces = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
-                # Points of the faces
-                ptsId = np.array(
-                    [
-                        nodes_faces[g.face_nodes.indptr[f] : g.face_nodes.indptr[f + 1]]
-                        for f in faces_cells[loc_faces]
-                    ]
-                ).T
-                # Sort the points.
-                # Note that the indices assigned here also adjusts to the global point
-                # numbering
-                # Split computation in two to catch extra return argument
-                ptsId_paired, _ = pp.utils.sort_points.sort_point_pairs(ptsId)
-                ptsId_paired = ptsId_paired[0, :] + ptsId_global
+                loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+                # get the nodes for the current cell
+                nodes = np.array(
+                        [
+                            g_nodes_faces[g.face_nodes.indptr[f] : g.face_nodes.indptr[f + 1]]
+                            for f in g_faces_cells[loc]
+                        ]
+                    ).T
+                # sort the nodes
+                nodes_loc, _ = pp.utils.sort_points.sort_point_pairs(nodes)
 
-                # Create a list of Ids, add all point pairs.
-                fsVTK = vtk.vtkIdList()
-                for p in ptsId_paired:
-                    fsVTK.InsertNextId(p)
-                # Add a new polygon
-                gVTK.InsertNextCell(vtk.VTK_POLYGON, fsVTK)
+                # define the type of cell we are currently saving
+                cell_type = "polygon" + str(nodes_loc.shape[1])
+                cell_type = polygon_map.get(cell_type, cell_type)
 
-            # Adjust the offset with the number of nodes in this grid
-            ptsId_global += g.num_nodes
-            # Add the new nodes to the point list
-            for node in g.nodes.T:
-                ptsVTK.InsertNextPoint(*node)
+                # if the cell type is not present, then add it
+                if cell_type not in cells:
+                    cells[cell_type] = np.atleast_2d(nodes_loc[0])
+                else:
+                    cells[cell_type] = np.vstack((cells[cell_type], nodes_loc[0]))
 
-        gVTK.SetPoints(ptsVTK)
+        # construct the meshio data structure
+        num_block = len(cells)
+        meshio_cells = np.empty(num_block, dtype=np.object)
 
-        return gVTK
+        for block, (cell_type, cell_block) in enumerate(cells.items()):
+            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
+
+        return meshio_pts, meshio_cells
 
     # ------------------------------------------------------------------------------#
 
-    def _export_vtk_3d(self, gs):
+    def _export_3d(self, gs):
         """
         Export the geometrical data (point coordinates) and connectivity
-        information from the 3d PorePy grids to vtk.
+        information from the 3d PorePy grids to meshio.
         """
-        # This functionality became rather complex, with possible use of numba.
-        # Decided to dump this to a separate file.
-        return self._define_gvtk_3d(gs)
+        gs = np.atleast_1d(gs)
+
+        # use standard name for simple object type
+        polygon_map  = {"polyhedron4": "tetra", "polyhedron8": "hexahedron"}
+        face_label = "polyhedron:faces_of_cells"
+
+        # cell connectivity information
+        cells = {}
+        # cell-faces connectivity information
+        cell_faces = {}
+
+        # points
+        num_pts = np.sum([g.num_nodes for g in gs])
+        meshio_pts = np.empty((num_pts, 3))
+        pts_pos = 0
+
+        # loop on all the 3d grids
+        for g in gs:
+            # save the points information
+            sl = slice(pts_pos, pts_pos+g.num_nodes)
+            meshio_pts[sl, :] = g.nodes.T
+            pts_pos += g.num_nodes
+
+            # Cell-face and face-node relations
+            g_faces_cells, g_cells, _ = sps.find(g.cell_faces)
+            # Ensure ordering of the cells
+            g_faces_cells = g_faces_cells[np.argsort(g_cells)]
+
+            g_nodes_faces, g_faces, _ = sps.find(g.face_nodes)
+
+            cptr = g.cell_faces.indptr
+            fptr = g.face_nodes.indptr
+            face_per_cell = np.diff(cptr)
+            nodes_per_face = np.diff(fptr)
+
+            # Total number of nodes to be written in the face-node relation
+            num_cell_nodes = np.array([nodes_per_face[i] for i in g.cell_faces.indices])
+
+            n = g.nodes
+            fc = g.face_centers
+            normal_vec = g.face_normals / g.face_areas
+
+            cell_nodes = self._point_ind(
+                        cptr,
+                        fptr,
+                        g_faces_cells,
+                        g_nodes_faces,
+                        n,
+                        fc,
+                        normal_vec,
+                        num_cell_nodes,
+            )
+            # implementation note: I did not even try feeding this to numba, my
+            # guess is that it will not like the vtk specific stuff.
+            nc = 0
+            fc = 0
+
+            # loop on all the grid cells
+            for c in np.arange(g.num_cells):
+                faces_loc = []
+                # loop on all the cell faces
+                for f in np.arange(face_per_cell[c]):
+                    fi = g.cell_faces.indices[fc]
+                    faces_loc += [cell_nodes[nc:(nc+nodes_per_face[fi])]]
+                    nc += nodes_per_face[fi]
+                    fc += 1
+
+                # collect all the nodes for the cell
+                nodes_loc = np.unique(faces_loc)
+
+                # define the type of cell we are currently saving
+                cell_type = "polyhedron" + str(nodes_loc.size)
+                #cell_type = polygon_map.get(cell_type, cell_type)
+
+                # if the cell type is not present, then add it
+                if cell_type not in cells:
+                    cells[cell_type] = np.atleast_2d(nodes_loc)
+                    cell_faces[cell_type] = [faces_loc]
+                else:
+                    cells[cell_type] = np.vstack((cells[cell_type], nodes_loc))
+                    cell_faces[cell_type] += [faces_loc]
+
+        # construct the meshio data structure
+        num_block = len(cells)
+        meshio_cells = np.empty(num_block, dtype=np.object)
+
+        for block, (cell_type, cell_block) in enumerate(cells.items()):
+            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
+
+        return meshio_pts, meshio_cells, {face_label: cell_faces}
 
     # ------------------------------------------------------------------------------#
 
-    def _write_vtk(self, fields, file_name, g_VTK):
-        writer = vtk.vtkXMLUnstructuredGridWriter()
-        writer.SetInputData(g_VTK)
-        writer.SetFileName(file_name)
+    def _write(self, fields, file_name, meshio_geom):
 
-        if fields is not None:
-            for field in fields:
-                if field.values is None:
-                    continue
-                dataVTK = ns.numpy_to_vtk(
-                    field.values, deep=True, array_type=field.dtype()
-                )
-                dataVTK.SetName(field.name)
-                dataVTK.SetNumberOfComponents(field.num_components)
+        #meshio.Mesh(g.nodes.T, meshio_cells, cell_data=meshio_data)
+        cell_data = {}
+        if len(meshio_geom) == 3:
+            cell_data.update(meshio_geom[2])
 
-                if field.cell_data:
-                    g_VTK.GetCellData().AddArray(dataVTK)
-                elif field.point_data:
-                    g_VTK.GetPointData().AddArray(dataVTK)
-
-        if not self.binary:
-            writer.SetDataModeToAscii()
-        writer.Update()
-
-        if fields is not None:
-            for field in fields:
-                if field.cell_data:
-                    g_VTK.GetCellData().RemoveArray(field.name)
-                elif field.point_data:
-                    g_VTK.GetPointData().RemoveArray(field.name)
+        import pdb; pdb.set_trace()
+        meshio_grid_to_export = meshio.Mesh(meshio_geom[0], meshio_geom[1], cell_data=cell_data)
+        meshio.write(file_name, meshio_grid_to_export, binary=self.binary)
 
     # ------------------------------------------------------------------------------#
 
-    def _update_gb_VTK(self):
+    def _update_meshio_geom(self):
         if self.is_GridBucket:
             for dim in self.dims:
                 g = self.gb.get_grids(lambda g: g.dim == dim)
-                self.gb_VTK[dim] = self._export_vtk_grid(g, dim)
+                self.meshio_geom[dim] = self._export_grid(g, dim)
 
             for dim in self.m_dims:
                 # extract the mortar grids for dimension dim
                 mgs = self.gb.get_mortar_grids(lambda g: g.dim == dim)
                 # it contains the mortar grids "unrolled" by sides
                 mg = np.array([g for m in mgs for _, g in m.side_grids.items()])
-                self.m_gb_VTK[dim] = self._export_vtk_grid(mg, dim)
+                self.m_meshio_geom[dim] = self._export_grid(mg, dim)
         else:
-            self.gb_VTK = self._export_vtk_grid([self.gb], self.gb.dim)
+            self.meshio_geom = self._export_grid(np.atleast_1d(self.gb), self.gb.dim)
 
     # ------------------------------------------------------------------------------#
 
@@ -818,36 +881,20 @@ class Exporter:
             node_counter = 0
             face_counter = 0
             for c in np.arange(g.num_cells):
-                if self.simplicial:
-                    loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
-                    ptsId = np.array(
-                        [
-                            nodes_faces[
-                                g.face_nodes.indptr[f] : g.face_nodes.indptr[f + 1]
-                            ]
-                            for f in faces_cells[loc]
-                        ]
-                    ).T
-                    ptsId = np.unique(ptsId)
-                    fsVTK = vtk.vtkIdList()
-                    [fsVTK.InsertNextId(p) for p in ptsId]
+                fsVTK = vtk.vtkIdList()
+                # Number faces that make up the cell
+                fsVTK.InsertNextId(face_per_cell[c])
+                for f in range(face_per_cell[c]):
+                    fi = g.cell_faces.indices[face_counter]
+                    fsVTK.InsertNextId(
+                        nodes_per_face[fi]
+                    )  # Number of points in face
+                    for ni in range(nodes_per_face[fi]):
+                        fsVTK.InsertNextId(cell_nodes[node_counter])
+                        node_counter += 1
+                    face_counter += 1
 
-                    gVTK.InsertNextCell(vtk.VTK_TETRA, fsVTK)
-                else:
-                    fsVTK = vtk.vtkIdList()
-                    # Number faces that make up the cell
-                    fsVTK.InsertNextId(face_per_cell[c])
-                    for f in range(face_per_cell[c]):
-                        fi = g.cell_faces.indices[face_counter]
-                        fsVTK.InsertNextId(
-                            nodes_per_face[fi]
-                        )  # Number of points in face
-                        for ni in range(nodes_per_face[fi]):
-                            fsVTK.InsertNextId(cell_nodes[node_counter])
-                            node_counter += 1
-                        face_counter += 1
-
-                    gVTK.InsertNextCell(vtk.VTK_POLYHEDRON, fsVTK)
+                gVTK.InsertNextCell(vtk.VTK_POLYHEDRON, fsVTK)
 
             [ptsVTK.InsertNextPoint(*node) for node in g.nodes.T]
 
