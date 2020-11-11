@@ -1,6 +1,6 @@
 # Papers
 
-List of papers that have used PorePy to generate (parts of) the numerical results. The indicated year is the first submission on [arXiv](https://arxiv.org/).
+List of papers that have used PorePy to generate (parts of) the numerical results. The indicated year is the first submission on [arXiv](https://arxiv.org/). Where applicable, open-source runscripts for the paper are accesible as the first link in each item.
 
 ###### 2020 ######
 * [arXiv:2011.04227 [math.NA]](https://github.com/alessiofumagalli/arXiv_2011_04227) paper "*A multi-layer reactive transport model for fractured porous media*" by Luca Formaggia, Alessio Fumagalli, Anna Scotti. See [arXiv pre-print](https://arxiv.org/abs/2011.04227).
