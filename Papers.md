@@ -3,6 +3,7 @@
 List of papers that have used PorePy to generate (parts of) the numerical results. The indicated year is the first submission on [arXiv](https://arxiv.org/).
 
 ###### 2020 ######
+* [arXiv:2011.04227 [math.NA]](https://github.com/alessiofumagalli/arXiv_2011_04227) paper "*A multi-layer reactive transport model for fractured porous media*" by Luca Formaggia, Alessio Fumagalli, Anna Scotti. See [arXiv pre-print](https://arxiv.org/abs/2011.04227).
 * [arXiv:2005.09437 [math.NA]](https://github.com/alessiofumagalli/arXiv_2005_0943) paper "*A mathematical model for thermal single-phase flow and reactive transport in fractured porous media*" by Alessio Fumagalli, Anna Scotti. See [arXiv pre-print](https://arxiv.org/abs/2005.09437).
 * arXiv:2003.14279 [physics.comp-ph] paper "*Numerical Methods for Flow in Fractured Porous Media*" by Luca Formaggia, Anna Scotti, Alessio Fumagalli. See [arXiv pre-print](https://arxiv.org/abs/2003.14279).
 * [arXiv:2002.11974 [math.NA]](https://github.com/alessiofumagalli/arXiv_2002_11974) paper "*Performances of the mixed virtual element method on complex grids for underground flow*" by Alessio Fumagalli, Anna Scotti, Luca Formaggia. See [arXiv pre-print](https://arxiv.org/abs/2002.11974).
