@@ -17,11 +17,15 @@ from .forward_mode import *
 from . import grid_operators
 from .grid_operators import *
 from . import equation_manager
+from .equation_manager import *
+from . import equation_factory
+from .equation_factory import *
 
 __all__.extend(operators.__all__)
 __all__.extend(functions.__all__)
 __all__.extend(forward_mode.__all__)
 __all__.extend(grid_operators.__all__)
 __all__.extend(equation_manager.__all__)
+__all__.extend(equation_factory.__all__)
 
 from porepy.numerics.ad.utils import concatenate
