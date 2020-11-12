@@ -762,7 +762,12 @@ class Exporter:
             cell_data[field.name] = np.empty(num_block, dtype=np.object)
             # fill up the data
             for block, ids in enumerate(cell_id):
-                cell_data[field.name][block] = field.values[ids]
+                if field.values.ndim == 1:
+                    cell_data[field.name][block] = field.values[ids]
+                elif field.values.ndim == 2:
+                    cell_data[field.name][block] = field.values[:, ids].T
+                else:
+                    raise ValueError
 
         # add also the cells ids
         cell_data.update({self.cell_id_key: cell_id})
