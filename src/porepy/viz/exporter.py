@@ -32,13 +32,7 @@ class Field(object):
     def __init__(self, name, values=None):
         # name of the field
         self.name = name
-        # number of components of the field
-        self.num_components = None
-        # values of the field, use set_values to set it
-        if values is not None:
-            self.set_values(values)
-        else:
-            self.values = None
+        self.values = values
 
     def __repr__(self):
         """
@@ -57,13 +51,6 @@ class Field(object):
             )
         if np.atleast_2d(values).shape[1] != g.num_cells:
             raise ValueError("Field " + str(self.name) + " has wrong dimension.")
-
-    def set_values(self, values):
-        """
-        Function useful to set the values
-        """
-        self.num_components = 1 if values.ndim == 1 else 3
-        self.values = values.ravel(order="F")
 
     def _check_values(self):
         if self.values is None:
@@ -385,7 +372,7 @@ class Exporter:
                     else:
                         values[i] = self.gb._nodes[g][field.name]
                     field.check(values[i], g)
-                field.set_values(np.hstack(values))
+                field.values = np.hstack(values)
 
             if self.meshio_geom[dim] is not None:
                 self._write(fields, file_name, self.meshio_geom[dim])
@@ -440,7 +427,7 @@ class Exporter:
                         values[i] = self.gb.edge_props(tuple(edge), field.name)[side]
                         i += 1
 
-                field.set_values(np.hstack(values))
+                field.values = np.hstack(values)
 
             if self.m_meshio_geom[dim] is not None:
                 self._write(extra_fields, file_name, self.m_meshio_geom[dim])
