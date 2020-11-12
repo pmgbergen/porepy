@@ -15,7 +15,7 @@ PorePy is developed by the [Porous Media Group](http://pmg.b.uib.no/) at the Uni
 # Citing
 If you use PorePy in your research, we ask you to cite the following publication
 
-E. Keilegavlen, R. Berge, A. Fumagalli, M. Starnoni, I. Stefansson, J. Varela, I. Berre: PorePy:  An Open-Source Software for Simulation of Multiphysics Processes in Fractured Porous Media. [arXiv:1908.09869](http://arxiv.org/abs/1908.09869)
+Keilegavlen, E., Berge, R., Fumagalli, A., Starnoni, M., Stefansson, I., Varela, J., & Berre, I. (2020). PorePy: an open-source software for simulation of multiphysics processes in fractured porous media. Computational Geosciences, 1-23, [doi:10.1007/s10596-020-10002-5](https://doi.org/10.1007/s10596-020-10002-5)
 
 Runscripts for most, if not all, papers that uses porepy is available at [here](./Papers.md).
 Note that you may have to revert to an older version of PorePy to run the examples (we try to keep the runscripts updated, but sometime fail to do so, for various reasons).
