@@ -6,6 +6,7 @@ import csv
 import logging
 import time
 
+import meshio
 import numpy as np
 
 import porepy as pp
@@ -15,22 +16,7 @@ from porepy.grids import constants
 from porepy.grids.gmsh import gmsh_interface
 from porepy.utils.setmembership import unique_columns_tol
 
-# Imports of external packages that may not be present at the system. The
-# module will work without any of these, but with limited functionalbility.
-try:
-    import vtk
-    import vtk.util.numpy_support as vtk_np
-except ImportError:
-    import warnings
-
-    warnings.warn(
-        "VTK module is not available. Export of fracture network to\
-    vtk will not work."
-    )
-
-
 logger = logging.getLogger(__name__)
-
 
 class FractureNetwork2d(object):
     """Class representation of a set of fractures in a 2D domain.
@@ -952,7 +938,7 @@ class FractureNetwork2d(object):
                 data.extend(self.pts[:, edge[1]])
                 csv_writer.writerow(data)
 
-    def to_vtk(self, file_name, data=None, binary=True):
+    def write(self, file_name, data={}, binary=True, fracture_offset=1):
         """
         Export the fracture network to vtk.
 
@@ -970,62 +956,39 @@ class FractureNetwork2d(object):
                 data is supported. Fracture numbers are always exported.
             binary (boolean, optional): Use binary export format. Defaults to
                 True.
+            fracture_offset (int, optional): Use to define the offset for a
+                fracture id. Defaults to 1.
 
         """
-        network_vtk = vtk.vtkUnstructuredGrid()
 
-        point_counter = 0
-        pts_vtk = vtk.vtkPoints()
+        # in 1d we have only one cell type
+        cell_type = "line"
 
-        pts = self.pts
+        # cell connectivity information
+        meshio_cells = np.empty(1, dtype=np.object)
+        meshio_cells[0] = meshio.CellBlock(cell_type, self.edges.T)
+
+        # prepare the points
+        meshio_pts = self.pts.T
         # make points 3d
-        if pts.shape[0] == 2:
-            pts = np.vstack((pts, np.zeros(pts.shape[1])))
-
-        for edge in self.edges.T:
-
-            # Add local points
-            pts_vtk.InsertNextPoint(*pts[:, edge[0]])
-            pts_vtk.InsertNextPoint(*pts[:, edge[1]])
-
-            # Indices of local points
-            loc_pt_id = point_counter + np.arange(2)
-            # Update offset
-            point_counter += 2
-
-            # Add bounding polygon
-            frac_vtk = vtk.vtkIdList()
-            [frac_vtk.InsertNextId(p) for p in loc_pt_id]
-            # Close polygon
-            frac_vtk.InsertNextId(loc_pt_id[0])
-
-            network_vtk.InsertNextCell(vtk.VTK_POLYGON, frac_vtk)
-
-        # Add the points
-        network_vtk.SetPoints(pts_vtk)
-
-        writer = vtk.vtkXMLUnstructuredGridWriter()
-        writer.SetInputData(network_vtk)
-        writer.SetFileName(file_name)
-
-        if not binary:
-            writer.SetDataModeToAscii()
+        if meshio_pts.shape[1] == 2:
+            meshio_pts = np.hstack((meshio_pts, np.zeros((meshio_pts.shape[0], 1))))
 
         # Cell-data to be exported is at least the fracture numbers
-        if data is None:
-            data = {}
-        # Use offset 1 for fracture numbers (should we rather do 0?)
-        data["Fracture_Number"] = 1 + np.arange(self.edges.shape[1])
+        meshio_cell_data = {}
+        meshio_cell_data["fracture_number"] = [fracture_offset + np.arange(self.edges.shape[1])]
 
-        for name, data in data.items():
-            data_vtk = vtk_np.numpy_to_vtk(
-                data.ravel(order="F"), deep=True, array_type=vtk.VTK_DOUBLE
-            )
-            data_vtk.SetName(name)
-            data_vtk.SetNumberOfComponents(1 if data.ndim == 1 else 3)
-            network_vtk.GetCellData().AddArray(data_vtk)
+        # process the
+        for key, val in data.items():
+            if val.ndim == 1:
+                meshio_cell_data[key] = [val]
+            elif val.ndim == 2:
+                meshio_cell_data[key] = [val.T]
 
-        writer.Update()
+        meshio_grid_to_export = meshio.Mesh(
+            meshio_pts, meshio_cells, cell_data=meshio_cell_data
+        )
+        meshio.write(file_name, meshio_grid_to_export, binary=binary)
 
     def __str__(self):
         s = "Fracture set consisting of " + str(self.num_frac) + " fractures"
