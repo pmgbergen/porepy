@@ -1271,6 +1271,8 @@ class GradP(Discretization):
                 discretization.
         """
         self.keyword = keyword
+        # Use the same key to acces the discretization matrix as the Biot class.
+        self.grad_p_matrix_key = Biot().grad_p_matrix_key
 
     def ndof(self, g):
         """Return the number of degrees of freedom associated to the method.
@@ -1337,9 +1339,7 @@ class GradP(Discretization):
         """
         mat_dict = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
-        # Use the same key to acces the discretization matrix as the Biot class.
-        mat_key = Biot().grad_p_matrix_key
-
+        mat_key = self.grad_p_matrix_key
         if mat_key not in mat_dict.keys():
             raise ValueError(
                 """GradP class requires a pre-computed discretization to be
@@ -1357,8 +1357,6 @@ class GradP(Discretization):
     def assemble_rhs(self, g, data):
         """Return the zero right-hand side for a discretization of the pressure
         gradient term.
-
-        @Runar: Is it correct that this is zero.
 
         Parameters:
             g (Grid): Computational grid.
@@ -1391,6 +1389,10 @@ class DivU(Discretization):
         """
         self.flow_keyword = flow_keyword
         self.mechanics_keyword = mechanics_keyword
+
+        # Use the same key to acces the discretization matrix as the Biot class.
+        self.div_u_matrix_key = Biot().div_u_matrix_key
+        self.bound_div_u_matrix_key = Biot().bound_div_u_matrix_key
         # We also need to specify the names of the displacement variables on the node
         # and adjacent edges.
         # Set variable name for the vector variable (displacement).
@@ -1465,9 +1467,7 @@ class DivU(Discretization):
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
 
-        # Use the same key to acces the discretization matrix as the Biot class.
-        mat_key = Biot().div_u_matrix_key
-
+        mat_key = self.div_u_matrix_key
         if mat_key not in matrix_dictionary.keys():
             raise ValueError(
                 """DivU class requires a pre-computed discretization to be
@@ -1491,10 +1491,6 @@ class DivU(Discretization):
             np.ndarray: Zero right hand side vector with representation of boundary
                 conditions.
         """
-        # Use the same key to acces the discretization matrix as the Biot class.
-        div_u_key = Biot().div_u_matrix_key
-        bound_div_u_key = Biot().bound_div_u_matrix_key
-
         parameter_dictionary_mech = data[pp.PARAMETERS][self.mechanics_keyword]
         parameter_dictionary_flow = data[pp.PARAMETERS][self.flow_keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
@@ -1509,13 +1505,15 @@ class DivU(Discretization):
         # and coupling parameter from flow
         biot_alpha = parameter_dictionary_flow["biot_alpha"]
         rhs_bound = (
-            -matrix_dictionary[bound_div_u_key] * (d_bound_1 - d_bound_0) * biot_alpha
+            -matrix_dictionary[self.bound_div_u_matrix_key]
+            * (d_bound_1 - d_bound_0)
+            * biot_alpha
         )
 
         # Time part
         d_cell = data[pp.STATE][self.variable]
 
-        div_u = matrix_dictionary[div_u_key]
+        div_u = matrix_dictionary[self.div_u_matrix_key]
         rhs_time = np.squeeze(biot_alpha * div_u * d_cell)
 
         return rhs_bound + rhs_time
@@ -1563,7 +1561,7 @@ class DivU(Discretization):
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
         biot_alpha = data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
-        bound_div_u = matrix_dictionary["bound_div_u"]
+        bound_div_u = matrix_dictionary[self.bound_div_u_matrix_key]
 
         u_bound_previous = data_edge[pp.STATE][self.mortar_variable]
 
@@ -1670,6 +1668,9 @@ class BiotStabilization(Discretization):
         # Set variable name for the scalar variable (pressure)
         self.variable = variable
 
+        # Use same keyword as in Biot class
+        self.stabilization_matrix_key = Biot().stabilization_matrix_key
+
     def ndof(self, g):
         """Return the number of degrees of freedom associated to the method.
 
@@ -1734,9 +1735,8 @@ class BiotStabilization(Discretization):
             ValueError if the stabilization term has not already been
             discretized.
         """
-        # Use the same key to acces the discretization matrix as the Biot class.
-        mat_key = Biot().stabilization_matrix_key
 
+        mat_key = self.stabilization_matrix_key
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         if mat_key not in matrix_dictionary.keys():
             raise ValueError(
@@ -1760,16 +1760,13 @@ class BiotStabilization(Discretization):
             np.ndarray: Zero right hand side vector with representation of boundary
                 conditions.
         """
-        # Use the same key to acces the discretization matrix as the Biot class.
-        mat_key = Biot().stabilization_matrix_key
-
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         # The stabilization is the pressure contribution to the div u part of the
         # fluid mass conservation, thus needs a right hand side in the implicit Euler
         # discretization.
         pressure_0 = data[pp.STATE][self.variable]
-        A_stability = matrix_dictionary[mat_key]
+        A_stability = matrix_dictionary[self.stabilization_matrix_key]
         rhs_time = A_stability * pressure_0
 
         # The stabilization has no rhs.
