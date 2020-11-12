@@ -189,6 +189,21 @@ class MeshioExporterTest(unittest.TestCase):
             content = content_file.read()
         self.assertTrue(content == self._gb_2_mortar_grid_1_vtu())
 
+    def test_fractures_2d(self):
+        p = np.array([[0, 2, 1, 2, 1], [0, 0, 0, 1, 2]])
+        e = np.array([[0, 2, 3], [1, 3, 4]])
+        domain = {'xmin': -2, 'xmax': 3, 'ymin': -2, 'ymax': 3}
+        network_2d = pp.FractureNetwork2d(p, e, domain)
+
+        dummy_scalar = np.ones(network_2d.num_frac)
+        dummy_vector = np.ones((3, network_2d.num_frac))
+        data = {"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector}
+
+        network_2d.write(self.folder + self.file_name + ".vtu", data=data, binary=False)
+
+        with open(self.folder + self.file_name + ".vtu", "r") as content_file:
+            content = content_file.read()
+        self.assertTrue(content == self._test_fractures_2d_vtu())
 
     def _single_grid_1d_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -11690,6 +11705,86 @@ class MeshioExporterTest(unittest.TestCase):
 9
 10
 11
+
+</DataArray>
+</CellData>
+</Piece>
+</UnstructuredGrid>
+</VTKFile>
+"""
+
+    def _test_fractures_2d_vtu(self):
+        return """<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
+<!--This file was created by meshio v4.3.3-->
+<UnstructuredGrid>
+<Piece NumberOfPoints="5" NumberOfCells="3">
+<Points>
+<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="ascii">
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+2.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+1.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+2.00000000000e+00
+1.00000000000e+00
+0.00000000000e+00
+1.00000000000e+00
+2.00000000000e+00
+0.00000000000e+00
+
+</DataArray>
+</Points>
+<Cells>
+<DataArray type="Int64" Name="connectivity" format="ascii">
+0
+1
+2
+3
+3
+4
+
+</DataArray>
+<DataArray type="Int64" Name="offsets" format="ascii">
+2
+4
+6
+
+</DataArray>
+<DataArray type="Int64" Name="types" format="ascii">
+3
+3
+3
+
+</DataArray>
+</Cells>
+<CellData>
+<DataArray type="Int64" Name="fracture_number" format="ascii">
+1
+2
+3
+
+</DataArray>
+<DataArray type="Float64" Name="dummy_scalar" format="ascii">
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii">
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
 
 </DataArray>
 </CellData>
