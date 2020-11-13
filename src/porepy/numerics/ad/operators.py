@@ -3,11 +3,14 @@ from typing import Optional, List
 from itertools import count
 
 import numpy as np
+import porepy as pp
 
 __all__ = [
     "Operator",
     "MergedOperator",
     "Matrix",
+    "Array",
+    "Scalar",
     "Variable",
     "MergedVariable",
     "Discretization",
@@ -75,6 +78,18 @@ class MergedOperator(Operator):
 class Matrix(Operator):
     def __init__(self, mat):
         self.mat = mat
+        self._set_tree()
+
+
+class Array(Operator):
+    def __init__(self, values):
+        self.values = values
+        self._set_tree()
+
+
+class Scalar(Operator):
+    def __init__(self, value):
+        self.value = value
         self._set_tree()
 
 
