@@ -32,7 +32,7 @@ class Tree:
                 self.add_child(child)
 
     def add_child(self, node):
-        assert isinstance(node, Operator)
+        assert isinstance(node, Operator) or isinstance(node, pp.ad.Operator)
         self._children.append(node)
 
 
@@ -128,7 +128,8 @@ class Variable(Operator):
 
 
 class MergedVariable(Variable):
-
+    # TODO: Is it okay to generate the same variable (grid, name) many times?
+    # The whole concept needs a massive cleanup
     _ids = count(0)
 
     def __init__(self, variables):
@@ -162,6 +163,15 @@ class Discretization:
         self.grid_discr = grid_discr
         key_set = []
 
+        if name is None:
+            names = []
+            for discr in grid_discr.values():
+                names.append(discr.__class__.__name__)
+
+            self.name = "_".join(list(set(names)))
+        else:
+            self.name = name
+
         for i, discr in enumerate(grid_discr.values()):
             for s in dir(discr):
                 if s.endswith("_matrix_key"):
@@ -187,7 +197,7 @@ class Discretization:
                 discr_counter[discr] = 0
             discr_counter[discr] += 1
 
-        s = "Merged discretization. Sub discretizations:\n"
+        s = f"Merged discretization with name {self.name}. Sub discretizations:\n"
         for key, val in discr_counter.items():
             s += f"{val} occurences of discretization {key}"
 
