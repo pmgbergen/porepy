@@ -139,10 +139,6 @@ class MeshioExporterTest(unittest.TestCase):
         save = pp.Exporter(gb, self.file_name, self.folder, binary=False)
         save.write(["dummy_scalar", "dummy_vector"])
 
-        with open(self.folder + self.file_name + ".pvd", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._gb_1_grid_pvd())
-
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._gb_1_grid_1_vtu())
@@ -173,10 +169,6 @@ class MeshioExporterTest(unittest.TestCase):
         save = pp.Exporter(gb, self.file_name, self.folder, binary=False)
         save.write(["dummy_scalar", "dummy_vector"])
 
-        with open(self.folder + self.file_name + ".pvd", "r") as content_file:
-            content = content_file.read()
-        self.assertTrue(content == self._gb_2_grid_pvd())
-
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._gb_2_grid_1_vtu())
@@ -204,6 +196,23 @@ class MeshioExporterTest(unittest.TestCase):
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
             content = content_file.read()
         self.assertTrue(content == self._test_fractures_2d_vtu())
+
+    def test_fractures_3d(self):
+        f_1 = pp.Fracture(np.array([[0, 1, 2, 0], [0, 0, 1, 1], [0, 0, 1, 1]]))
+        f_2 = pp.Fracture(np.array([[0.5, 0.5, 0.5, 0.5], [-1, 2, 2, -1], [-1, -1, 2, 2]]))
+        domain = {'xmin': -2, 'xmax': 3, 'ymin': -2, 'ymax': 3, 'zmin': -3, 'zmax': 3}
+        network_3d = pp.FractureNetwork3d([f_1, f_2], domain=domain)
+
+        num_frac = len(network_3d._fractures)
+        dummy_scalar = np.ones(num_frac)
+        dummy_vector = np.ones((3, num_frac))
+        data = {"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector}
+
+        network_3d.write(self.folder + self.file_name + ".vtu", data=data, binary=False)
+
+        with open(self.folder + self.file_name + ".vtu", "r") as content_file:
+            content = content_file.read()
+        self.assertTrue(content == self._test_fractures_3d_vtu())
 
     def _single_grid_1d_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -10294,16 +10303,6 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_1_grid_pvd(self):
-        return """<?xml version="1.0"?>
-<VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
-<Collection>
-	<DataSet group="" part="" file="grid_1.vtu"/>
-	<DataSet group="" part="" file="grid_2.vtu"/>
-	<DataSet group="" part="" file="grid_mortar_1.vtu"/>
-</Collection>
-</VTKFile>"""
-
     def _gb_1_grid_1_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
@@ -10946,16 +10945,6 @@ class MeshioExporterTest(unittest.TestCase):
 </UnstructuredGrid>
 </VTKFile>
 """
-
-    def _gb_2_grid_pvd(self):
-        return """<?xml version="1.0"?>
-<VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
-<Collection>
-	<DataSet group="" part="" file="grid_1.vtu"/>
-	<DataSet group="" part="" file="grid_2.vtu"/>
-	<DataSet group="" part="" file="grid_mortar_1.vtu"/>
-</Collection>
-</VTKFile>"""
 
     def _gb_2_grid_1_vtu(self):
         return """<?xml version="1.0"?>
@@ -11785,6 +11774,90 @@ class MeshioExporterTest(unittest.TestCase):
 1.00000000000e+00
 1.00000000000e+00
 1.00000000000e+00
+
+</DataArray>
+</CellData>
+</Piece>
+</UnstructuredGrid>
+</VTKFile>
+"""
+
+    def _test_fractures_3d_vtu(self):
+        return """<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
+<!--This file was created by meshio v4.3.3-->
+<UnstructuredGrid>
+<Piece NumberOfPoints="8" NumberOfCells="2">
+<Points>
+<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="ascii">
+0.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+2.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+5.00000000000e-01
+-1.00000000000e+00
+-1.00000000000e+00
+5.00000000000e-01
+-1.00000000000e+00
+2.00000000000e+00
+5.00000000000e-01
+2.00000000000e+00
+2.00000000000e+00
+5.00000000000e-01
+2.00000000000e+00
+-1.00000000000e+00
+
+</DataArray>
+</Points>
+<Cells>
+<DataArray type="Int64" Name="connectivity" format="ascii">
+0
+1
+2
+3
+4
+5
+6
+7
+
+</DataArray>
+<DataArray type="Int64" Name="offsets" format="ascii">
+4
+8
+
+</DataArray>
+<DataArray type="Int64" Name="types" format="ascii">
+7
+7
+
+</DataArray>
+</Cells>
+<CellData>
+<DataArray type="Float64" Name="dummy_scalar" format="ascii">
+1.00000000000e+00
+1.00000000000e+00
+
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii">
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+
+</DataArray>
+<DataArray type="Int64" Name="fracture_number" format="ascii">
+1
+2
 
 </DataArray>
 </CellData>
