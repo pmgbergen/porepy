@@ -940,7 +940,7 @@ class FractureNetwork2d(object):
 
     def write(self, file_name, data={}, binary=True, fracture_offset=1):
         """
-        Export the fracture network to vtk.
+        Export the fracture network with meshio.
 
         The fractures are treated as lines, with no special treatment
         of intersections.
