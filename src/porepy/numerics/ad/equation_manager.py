@@ -21,12 +21,17 @@ __all__ = ["Equation", "EquationManager"]
 
 
 class Equation:
-    def __init__(self, operator):
+    def __init__(self, operator, name: str = None):
         # need a way to print an equation. Separate class?
         self._operator = operator
 
+        self.name = name
+
         # This goes to equation
         self._stored_matrices = {}
+
+    def __repr__(self) -> str:
+        return f"Equation named {self.name}"
 
     def _operators_from_gb(self):
         # Define operators from information in the GridBucket.
@@ -107,7 +112,7 @@ class Equation:
         variables = sorted(
             list(set(self._identify_variables(self._operator))), key=lambda var: var.id
         )
-
+        breakpoint()
         # 2. Get state of the variables, init ad
         # Make the AD variables active of sorts; so that when parsing the individual
         # operators, we can access the right variables
@@ -132,6 +137,12 @@ class Equation:
         return eq
 
     def _parse_operator(self, op: operators.Operator, gb):
+        """TODO: Currently, there is no prioritization between the operations; for
+        some reason, things just work. We may need to make an ordering in which the
+        operations should be carried out. It seems that the strategy of putting on
+        hold until all children are processed works, but there likely are cases where
+        this is not the case.
+        """
         # Q: The parsing could also be moved to the operator classes
         tree = op._tree
         if isinstance(op, pp.ad.Variable):
@@ -148,6 +159,7 @@ class Equation:
             op, pp.ad.BoundaryCondition
         ):
             val = []
+            breakpoint()
             for g in op.g:
                 data = gb.node_props(g)
                 val.append(data[pp.PARAMETERS][op.keyword]["bc_values"])
@@ -157,29 +169,37 @@ class Equation:
         if isinstance(op, pp.ad.Matrix):
             return op.mat
 
+        if isinstance(op, pp.ad.Array):
+            return op.values
+
+        if isinstance(op, pp.ad.Scalar):
+            return op.value
+        if isinstance(op, grid_operators.Divergence) or isinstance(
+            op, pp.ad.Divergence
+        ):
+            if op.scalar:
+                mat = [pp.fvutils.scalar_divergence(g) for g in op.g]
+            else:
+                mat = [pp.fvutils.vector_divergence(g) for g in op.g]
+            matrix = sps.block_diag(mat)
+            return matrix
+
         if len(tree._children) == 0:
             if isinstance(op, operators.MergedOperator):
                 if op in self._stored_matrices:
                     return self._stored_matrices[op]
                 else:
-                    if isinstance(op, grid_operators.Divergence) or isinstance(
-                        op, pp.ad.Divergence
-                    ):
-                        if op.scalar:
-                            mat = [pp.fvutils.scalar_divergence(g) for g in op.g]
+
+                    mat = []
+                    for g, discr in op.grid_discr.items():
+                        if isinstance(g, pp.Grid):
+                            data = gb.node_props(g)
                         else:
-                            mat = [pp.fvutils.vector_divergence(g) for g in op.g]
-                    else:
-                        mat = []
-                        for g, discr in op.grid_discr.items():
-                            if isinstance(g, pp.Grid):
-                                data = gb.node_props(g)
-                            else:
-                                data = gb.edge_props(g)
-                            key = op.key
-                            mat_dict = data[pp.DISCRETIZATION_MATRICES][discr.keyword]
-                            mat_key = getattr(discr, key + "_matrix_key")
-                            mat.append(mat_dict[mat_key])
+                            data = gb.edge_props(g)
+                        key = op.key
+                        mat_dict = data[pp.DISCRETIZATION_MATRICES][discr.keyword]
+                        mat_key = getattr(discr, key + "_matrix_key")
+                        mat.append(mat_dict[mat_key])
 
                     matrix = sps.block_diag(mat)
                     self._stored_matrices[op] = matrix
@@ -234,12 +254,23 @@ class EquationManager:
         self._variables = variables
         # Define discretizations
 
-    def assemble_matrix_rhs(self, assembler, gb, state):
+    def variable_state(
+        self, grid_var: List[Tuple[pp.Grid, str]], state: np.ndarray
+    ) -> List[np.ndarray]:
+        # This should likely be placed somewhere else
+        values: List[np.ndarray] = []
+        for item in grid_var:
+            ind: np.ndarray = self._assembler.dof_ind(*item)
+            values.append(state[ind])
+
+        return values
+
+    def assemble_matrix_rhs(self, state):
 
         mat: List[sps.spmatrix] = []
         b: List[np.ndarray] = []
         for eq in self._equations:
-            ad = eq.to_ad(assembler, gb, state)
+            ad = eq.to_ad(self._assembler, self.gb, state)
             mat.append(ad.jac)
             b.append(ad.val)
 
