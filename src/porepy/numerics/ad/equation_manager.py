@@ -79,7 +79,7 @@ class Equation:
 
     def _identify_variables(self, op: operators.Operator):
 
-        if isinstance(op, operators.Variable):
+        if isinstance(op, operators.Variable) or isinstance(op, pp.ad.Variable):
             # We are at the bottom of the a branch of the tree
             return op
         else:
@@ -90,13 +90,17 @@ class Equation:
             # Some work is needed to parse the information
             var_list = []
             for var in sub_variables:
-                if isinstance(var, operators.Variable):
+                if isinstance(var, operators.Variable) or isinstance(
+                    var, pp.ad.Variable
+                ):
                     # Effectively, this node is one step from the leaf
                     var_list.append(var)
                 elif isinstance(var, list):
                     # We are further up in the tree.
                     for sub_var in var:
-                        if isinstance(sub_var, operators.Variable):
+                        if isinstance(sub_var, operators.Variable) or isinstance(
+                            var, pp.ad.Variable
+                        ):
                             var_list.append(sub_var)
             return var_list
 
@@ -112,7 +116,7 @@ class Equation:
         variables = sorted(
             list(set(self._identify_variables(self._operator))), key=lambda var: var.id
         )
-        breakpoint()
+
         # 2. Get state of the variables, init ad
         # Make the AD variables active of sorts; so that when parsing the individual
         # operators, we can access the right variables
@@ -159,7 +163,6 @@ class Equation:
             op, pp.ad.BoundaryCondition
         ):
             val = []
-            breakpoint()
             for g in op.g:
                 data = gb.node_props(g)
                 val.append(data[pp.PARAMETERS][op.keyword]["bc_values"])
@@ -196,8 +199,14 @@ class Equation:
                             data = gb.node_props(g)
                         else:
                             data = gb.edge_props(g)
+                        if hasattr(op, "mat_dict_key") and op.mat_dict_key is not None:
+                            mat_dict_key = op.mat_dict_key
+                        else:
+                            mat_dict_key = discr.keyword
+                        mat_dict = data[pp.DISCRETIZATION_MATRICES][mat_dict_key]
+
+                        # Get the submatrix for the right discretization
                         key = op.key
-                        mat_dict = data[pp.DISCRETIZATION_MATRICES][discr.keyword]
                         mat_key = getattr(discr, key + "_matrix_key")
                         mat.append(mat_dict[mat_key])
 
