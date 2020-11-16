@@ -69,9 +69,13 @@ class Operator:
 
 class MergedOperator(Operator):
     # This will likely be converted to operator, that is, non-merged operators are removed
-    def __init__(self, grid_discr, key):
+    def __init__(self, grid_discr, key, mat_dict_key: str = None):
         self.grid_discr = grid_discr
         self.key = key
+
+        # Special field to access matrix dictionary for Biot
+        self.mat_dict_key = mat_dict_key
+
         self._set_tree(None)
 
 
@@ -158,11 +162,11 @@ class MergedVariable(Variable):
 
 
 class Discretization:
-    def __init__(self, grid_discr, name=None, tree=None):
+    def __init__(self, grid_discr, name=None, tree=None, mat_dict_key: str = None):
 
         self.grid_discr = grid_discr
         key_set = []
-
+        self.mat_dict_key = mat_dict_key
         if name is None:
             names = []
             for discr in grid_discr.values():
@@ -185,7 +189,7 @@ class Discretization:
                             )
 
         for key in key_set:
-            op = MergedOperator(grid_discr, key)
+            op = MergedOperator(grid_discr, key, self.mat_dict_key)
             setattr(self, key, op)
 
     def __repr__(self) -> str:

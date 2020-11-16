@@ -1,4 +1,4 @@
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict
 
 from .equation_manager import EquationManager
 from .operators import MergedVariable
@@ -21,8 +21,8 @@ def _grid_edge_list(
 
 def _variables(
     manager: EquationManager,
-    grid_variables: Optional[List[str]],
-    edge_variables: Optional[List[str]],
+    grid_variables: Optional[List[str]] = None,
+    edge_variables: Optional[List[str]] = None,
     grid_list: Optional[List[pp.Grid]] = None,
     edge_list=None,
 ) -> Tuple[MergedVariable, MergedVariable]:
@@ -32,17 +32,21 @@ def _variables(
     if edge_list is None:
         edge_list = [e for e, _ in manager.gb.edges()]
 
-    grid_vars = [
-        pp.ad.MergedVariable(
-            [manager._variables[g][var] for var in grid_variables for g in grid_list]
-        )
-    ]
+    if grid_variables is not None:
+        grid_vars = [
+            pp.ad.MergedVariable([manager._variables[g][var] for g in grid_list])
+            for var in grid_variables
+        ]
+    else:
+        grid_vars = []
 
-    edge_vars = [
-        pp.ad.MergedVariable(
-            [manager._variables[e][var] for var in edge_variables for e in edge_list]
-        )
-    ]
+    if edge_variables is not None:
+        edge_vars = [
+            pp.ad.MergedVariable([manager._variables[e][var] for e in edge_list])
+            for var in edge_variables
+        ]
+    else:
+        edge_vars = []
 
     return grid_vars, edge_vars
 
@@ -97,3 +101,68 @@ def flow(
     )
 
     return flow_eq, interface_flux, flux, projections
+
+
+def poro_mechanics(
+    manager,
+    g: pp.Grid,
+    data: Dict,
+    mechanics_keyword="mechanics",
+    flow_keyword: str = "flow",
+    displacement_variable: str = "displacement",
+    pressure_variable: str = "pressure",
+):
+
+    # MISSING PARTS:
+    # 1) biot_alpha in div_u
+    #
+    # Terms having to do with pressure (both accumulation and diffusion)
+    # must be added by other equations
+    #
+
+    # This is the one who will do the discretization
+    # Should be added to data dictionary somehow
+    mech_discr = pp.Biot(
+        mechanics_keyword,
+        flow_keyword,
+        vector_variable=displacement_variable,
+        scalar_variable=pressure_variable,
+    )
+
+    discr = pp.ad.Discretization({g: mech_discr})
+
+    div_scalar = pp.ad.Divergence([g])
+    div_vector = pp.ad.Divergence([g], is_scalar=False)
+
+    mpsa = pp.ad.Discretization({g: pp.Mpsa(mechanics_keyword)})
+    gradp = pp.ad.Discretization({g: pp.GradP(mechanics_keyword)})
+    div_u = pp.ad.Discretization({g: pp.DivU(flow_keyword)}, mat_dict_key="flow")
+    stabilization = pp.ad.Discretization({g: pp.BiotStabilization(flow_keyword)})
+
+    mpfa = pp.Mpfa(flow_keyword)
+    mass = pp.MassMatrix(flow_keyword)
+
+    mpfa_discr = pp.ad.Discretization({g: mpfa})
+    mass_discr = pp.ad.Discretization({g: mass})
+
+    u = pp.ad.MergedVariable([manager._variables[g][displacement_variable]])
+    p = pp.ad.MergedVariable([manager._variables[g][pressure_variable]])
+
+    bc_flow = pp.ad.BoundaryCondition(flow_keyword, [g])
+    bc_mech = pp.ad.BoundaryCondition(mechanics_keyword, [g])
+
+    stress = mpsa.stress * u + gradp.grad_p * p + mpsa.bound_stress * bc_mech
+
+    momentuum = div_vector * stress
+
+    # TODO: Need biot-alpha here
+    volume_term = div_u.div_u * u + stabilization.stabilization * p
+
+    compr = mass_discr.mass
+    diffusion = div_scalar * (mpfa_discr.flux * p + mpfa_discr.bound_flux * bc_flow)
+
+    # rhs terms, must be scaled with time step
+    div_u_rhs = div_u.div_u
+    stab_rhs = stabilization.stabilization
+
+    return momentuum, volume_term, compr, diffusion, stress, div_u_rhs, stab_rhs, p
