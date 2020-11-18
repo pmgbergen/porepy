@@ -135,9 +135,32 @@ class Divergence(MergedOperator):
         self.scalar = is_scalar
         self._set_tree(None)
 
+    def __repr__(self) -> str:
+        if self.scalar:
+            s = "Scalar "
+        else:
+            s = "Vector "
+
+        s += f"divergence defined on {len(self.g)} grids\n"
+
+        return s
+
 
 class BoundaryCondition(MergedOperator):
     def __init__(self, keyword, grids):
         self.keyword = keyword
         self.g = grids
         self._set_tree()
+
+    def __repr__(self) -> str:
+        s = f"Boundary Condition operator with keyword {self.keyword}\n"
+
+        dims = np.zeros(4, dtype=np.int)
+        for g in self.g:
+            dims[g.dim] += 1
+
+        for d in range(3, -1, -1):
+            if dims[d] > 0:
+                s += f"{dims[d]} grids of dimension {d}\n"
+
+        return s
