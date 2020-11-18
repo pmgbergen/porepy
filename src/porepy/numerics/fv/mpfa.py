@@ -1146,7 +1146,7 @@ class Mpfa(pp.FVElliptic):
         if nd == 0:
             return 0
 
-        num_cell_nodes = g.cell_nodes().toarray().sum(axis=1)
+        num_cell_nodes = g.cell_nodes().sum(axis=1)
 
         # Number of unknowns around a vertex: nd per cell that share the vertex for
         # pressure gradients, and one per cell (cell center pressure)
@@ -1158,7 +1158,7 @@ class Mpfa(pp.FVElliptic):
 
         # The discretization of Darcy's law will require nd (that is, a gradient)
         # per sub-face.
-        num_sub_face = g.face_nodes.toarray().sum()
+        num_sub_face = g.face_nodes.sum()
         darcy_size = nd * num_sub_face
 
         # Balancing of fluxes will require 2*nd (gradient on both sides) fields per
