@@ -8,6 +8,67 @@ import numpy as np
 import scipy.sparse.linalg as spla
 
 
+def test_md_flow():
+
+    # Three fractures, will create intersection lines and point
+    frac_1 = np.array([[2, 4, 4, 2], [3, 3, 3, 3], [0, 0, 6, 6]])
+    frac_2 = np.array([[3, 3, 3, 3], [2, 4, 4, 2], [0, 0, 6, 6]])
+    frac_3 = np.array([[0, 6, 6, 0], [2, 2, 4, 4], [3, 3, 3, 3]])
+
+    gb = pp.meshing.cart_grid(fracs=[frac_1, frac_2, frac_3], nx=np.array([6, 6, 6]))
+    gb.compute_geometry()
+
+    keyword = "flow"
+    discr = pp.Tpfa(keyword)
+    coupling_discr = pp.RobinCoupling(keyword, discr, discr)
+
+    for g, d in gb:
+
+        if g.dim == gb.dim_max():
+            bc = pp.BoundaryCondition(g, np.array([0, g.num_faces - 1]), ["dir", "dir"])
+            bc_values = np.zeros(g.num_faces)
+            bc_values[0] = 1
+            specified_parameters = {"bc": bc, "bc_values": bc_values}
+        else:
+            specified_parameters = {}
+        pp.initialize_default_data(g, d, "flow", specified_parameters)
+
+        d[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1}}
+        d[pp.DISCRETIZATION] = {"pressure": {"diff": discr}}
+    for e, d in gb.edges():
+        pp.initialize_data(d["mortar_grid"], d, "flow", {"normal_diffusivity": 1})
+
+        d[pp.PRIMARY_VARIABLES] = {"mortar_flux": {"cells": 1}}
+        d[pp.COUPLING_DISCRETIZATION] = {}
+        d[pp.COUPLING_DISCRETIZATION]["coupling"] = {
+            e[0]: ("pressure", "diff"),
+            e[1]: ("pressure", "diff"),
+            e: ("mortar_flux", coupling_discr),
+        }
+
+    assembler = pp.Assembler(gb)
+    assembler.discretize()
+
+    # Reference discretization
+    A_ref, b_ref = assembler.assemble_matrix_rhs()
+
+    manager = pp.EquationManager(gb)
+
+    flow_eq, interface_flux, *rest = pp.ad.equation_factory.flow(
+        manager,
+    )
+
+    manager._equations = [pp.Equation(flow_eq), pp.Equation(interface_flux)]
+
+    state = np.zeros(gb.num_cells() + gb.num_mortar_cells())
+    A, b = manager.assemble_matrix_rhs(state)
+    diff = A - A_ref
+    if diff.data.size > 0:
+        assert np.max(np.abs(diff.data)) < 1e-10
+    # Need a + sign here since the AD residual is computed as a LHS term
+    assert np.max(np.abs(b + b_ref)) < 1e-10
+
+
 def test_biot():
     """Define a Biot discretization on a 3d Cartesian grid.
 
