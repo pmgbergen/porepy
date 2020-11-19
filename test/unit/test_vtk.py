@@ -18,6 +18,11 @@ class MeshioExporterTest(unittest.TestCase):
         self.folder = "./test_vtk/"
         self.file_name = "grid"
 
+    def sliceout(self, data):
+        first = data.find("meshio")
+        second = data.find("-->")
+        return data[:first] + data[second:]
+
     def test_single_grid_1d(self):
         g = pp.CartGrid(3, 1)
         g.compute_geometry()
@@ -29,7 +34,7 @@ class MeshioExporterTest(unittest.TestCase):
         save.write({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
+            content = self.sliceout(content_file.read())
         self.assertTrue(content == self._single_grid_1d_grid_vtu())
 
     def test_single_grid_2d_simplex(self):
@@ -43,7 +48,7 @@ class MeshioExporterTest(unittest.TestCase):
         save.write({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
+            content = self.sliceout(content_file.read())
         self.assertTrue(content == self._single_grid_2d_simplex_grid_vtu())
 
     def test_single_grid_2d_cart(self):
@@ -57,7 +62,7 @@ class MeshioExporterTest(unittest.TestCase):
         save.write({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
+            content = self.sliceout(content_file.read())
         self.assertTrue(content == self._single_grid_2d_cart_grid_vtu())
 
     def test_single_grid_2d_polytop(self):
@@ -73,7 +78,7 @@ class MeshioExporterTest(unittest.TestCase):
         save.write({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
+            content = self.sliceout(content_file.read())
         self.assertTrue(content == self._single_grid_2d_polytop_grid_vtu())
 
     def test_single_grid_3d_simplex(self):
@@ -87,7 +92,7 @@ class MeshioExporterTest(unittest.TestCase):
         save.write({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
+            content = self.sliceout(content_file.read())
         self.assertTrue(content == self._single_grid_3d_simplex_grid_vtu())
 
     def test_single_grid_3d_cart(self):
@@ -101,7 +106,7 @@ class MeshioExporterTest(unittest.TestCase):
         save.write({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
+            content = self.sliceout(content_file.read())
         self.assertTrue(content == self._single_grid_3d_cart_grid_vtu())
 
     def test_single_grid_3d_polytop(self):
@@ -119,7 +124,7 @@ class MeshioExporterTest(unittest.TestCase):
         save.write({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
+            content = self.sliceout(content_file.read())
         self.assertTrue(content == self._single_grid_3d_polytop_grid_vtu())
 
     def test_gb_1(self):
@@ -140,15 +145,15 @@ class MeshioExporterTest(unittest.TestCase):
         save.write(["dummy_scalar", "dummy_vector"])
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
-            content = content_file.read()
+            content = self.sliceout(content_file.read())
         self.assertTrue(content == self._gb_1_grid_1_vtu())
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
-            content = content_file.read()
+            content = self.sliceout(content_file.read())
         self.assertTrue(content == self._gb_1_grid_2_vtu())
 
         with open(self.folder + self.file_name + "_mortar_1.vtu", "r") as content_file:
-            content = content_file.read()
+            content = self.sliceout(content_file.read())
         self.assertTrue(content == self._gb_1_mortar_grid_vtu())
 
     def test_gb_2(self):
@@ -170,15 +175,15 @@ class MeshioExporterTest(unittest.TestCase):
         save.write(["dummy_scalar", "dummy_vector"])
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
-            content = content_file.read()
+            content = self.sliceout(content_file.read())
         self.assertTrue(content == self._gb_2_grid_1_vtu())
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
-            content = content_file.read()
+            content = self.sliceout(content_file.read())
         self.assertTrue(content == self._gb_2_grid_2_vtu())
 
         with open(self.folder + self.file_name + "_mortar_1.vtu", "r") as content_file:
-            content = content_file.read()
+            content = self.sliceout(content_file.read())
         self.assertTrue(content == self._gb_2_mortar_grid_1_vtu())
 
     def test_fractures_2d(self):
@@ -194,7 +199,7 @@ class MeshioExporterTest(unittest.TestCase):
         network_2d.write(self.folder + self.file_name + ".vtu", data=data, binary=False)
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
+            content = self.sliceout(content_file.read())
         self.assertTrue(content == self._test_fractures_2d_vtu())
 
     def test_fractures_3d(self):
@@ -213,13 +218,13 @@ class MeshioExporterTest(unittest.TestCase):
         network_3d.write(self.folder + self.file_name + ".vtu", data=data, binary=False)
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
-            content = content_file.read()
+            content = self.sliceout(content_file.read())
         self.assertTrue(content == self._test_fractures_3d_vtu())
 
     def _single_grid_1d_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by meshio v4.3.3-->
+<!--This file was created by -->
 <UnstructuredGrid>
 <Piece NumberOfPoints="4" NumberOfCells="3">
 <Points>
@@ -302,7 +307,7 @@ class MeshioExporterTest(unittest.TestCase):
     def _single_grid_2d_simplex_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by meshio v4.3.3-->
+<!--This file was created by -->
 <UnstructuredGrid>
 <Piece NumberOfPoints="16" NumberOfCells="18">
 <Points>
@@ -589,7 +594,7 @@ class MeshioExporterTest(unittest.TestCase):
     def _single_grid_2d_cart_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by meshio v4.3.3-->
+<!--This file was created by -->
 <UnstructuredGrid>
 <Piece NumberOfPoints="25" NumberOfCells="16">
 <Points>
@@ -897,7 +902,7 @@ class MeshioExporterTest(unittest.TestCase):
     def _single_grid_2d_polytop_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by meshio v4.3.3-->
+<!--This file was created by -->
 <UnstructuredGrid>
 <Piece NumberOfPoints="12" NumberOfCells="2">
 <Points>
@@ -1006,7 +1011,7 @@ class MeshioExporterTest(unittest.TestCase):
     def _single_grid_3d_simplex_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by meshio v4.3.3-->
+<!--This file was created by -->
 <UnstructuredGrid>
 <Piece NumberOfPoints="64" NumberOfCells="162">
 <Points>
@@ -6105,7 +6110,7 @@ class MeshioExporterTest(unittest.TestCase):
     def _single_grid_3d_cart_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by meshio v4.3.3-->
+<!--This file was created by -->
 <UnstructuredGrid>
 <Piece NumberOfPoints="125" NumberOfCells="64">
 <Points>
@@ -9599,7 +9604,7 @@ class MeshioExporterTest(unittest.TestCase):
     def _single_grid_3d_polytop_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by meshio v4.3.3-->
+<!--This file was created by -->
 <UnstructuredGrid>
 <Piece NumberOfPoints="48" NumberOfCells="5">
 <Points>
@@ -10306,7 +10311,7 @@ class MeshioExporterTest(unittest.TestCase):
     def _gb_1_grid_1_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by meshio v4.3.3-->
+<!--This file was created by -->
 <UnstructuredGrid>
 <Piece NumberOfPoints="5" NumberOfCells="4">
 <Points>
@@ -10423,7 +10428,7 @@ class MeshioExporterTest(unittest.TestCase):
     def _gb_1_grid_2_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by meshio v4.3.3-->
+<!--This file was created by -->
 <UnstructuredGrid>
 <Piece NumberOfPoints="30" NumberOfCells="16">
 <Points>
@@ -10803,7 +10808,7 @@ class MeshioExporterTest(unittest.TestCase):
     def _gb_1_mortar_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by meshio v4.3.3-->
+<!--This file was created by -->
 <UnstructuredGrid>
 <Piece NumberOfPoints="10" NumberOfCells="8">
 <Points>
@@ -10949,7 +10954,7 @@ class MeshioExporterTest(unittest.TestCase):
     def _gb_2_grid_1_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by meshio v4.3.3-->
+<!--This file was created by -->
 <UnstructuredGrid>
 <Piece NumberOfPoints="10" NumberOfCells="6">
 <Points>
@@ -11107,7 +11112,7 @@ class MeshioExporterTest(unittest.TestCase):
     def _gb_2_grid_2_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by meshio v4.3.3-->
+<!--This file was created by -->
 <UnstructuredGrid>
 <Piece NumberOfPoints="32" NumberOfCells="16">
 <Points>
@@ -11493,7 +11498,7 @@ class MeshioExporterTest(unittest.TestCase):
     def _gb_2_mortar_grid_1_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by meshio v4.3.3-->
+<!--This file was created by -->
 <UnstructuredGrid>
 <Piece NumberOfPoints="20" NumberOfCells="12">
 <Points>
@@ -11705,7 +11710,7 @@ class MeshioExporterTest(unittest.TestCase):
     def _test_fractures_2d_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by meshio v4.3.3-->
+<!--This file was created by -->
 <UnstructuredGrid>
 <Piece NumberOfPoints="5" NumberOfCells="3">
 <Points>
@@ -11785,7 +11790,7 @@ class MeshioExporterTest(unittest.TestCase):
     def _test_fractures_3d_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by meshio v4.3.3-->
+<!--This file was created by -->
 <UnstructuredGrid>
 <Piece NumberOfPoints="8" NumberOfCells="2">
 <Points>
