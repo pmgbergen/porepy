@@ -512,7 +512,6 @@ class Exporter:
             # save the points information
             sl = slice(pts_pos, pts_pos + g.num_nodes)
             meshio_pts[sl, :] = g.nodes.T
-            pts_pos += g.num_nodes
 
             # Cell-node relations
             g_cell_nodes = g.cell_nodes()
@@ -524,9 +523,11 @@ class Exporter:
             for c in np.arange(g.num_cells):
                 loc = slice(g_cell_nodes.indptr[c], g_cell_nodes.indptr[c + 1])
                 # get the local nodes and save them
-                cell_to_nodes[cell_type][cell_pos, :] = g_nodes_cells[loc]
+                cell_to_nodes[cell_type][cell_pos, :] = g_nodes_cells[loc] + pts_pos
                 cell_id[cell_type][cell_pos] = cell_pos
                 cell_pos += 1
+
+            pts_pos += g.num_nodes
 
         # construct the meshio data structure
         num_block = len(cell_to_nodes)
@@ -567,7 +568,6 @@ class Exporter:
             # save the points information
             sl = slice(pts_pos, pts_pos + g.num_nodes)
             meshio_pts[sl, :] = g.nodes.T
-            pts_pos += g.num_nodes
 
             # Cell-face and face-node relations
             g_faces_cells, g_cells, _ = sps.find(g.cell_faces)
@@ -596,14 +596,16 @@ class Exporter:
 
                 # if the cell type is not present, then add it
                 if cell_type not in cell_to_nodes:
-                    cell_to_nodes[cell_type] = np.atleast_2d(nodes_loc[0])
+                    cell_to_nodes[cell_type] = np.atleast_2d(nodes_loc[0] + pts_pos)
                     cell_id[cell_type] = [cell_pos]
                 else:
                     cell_to_nodes[cell_type] = np.vstack(
-                        (cell_to_nodes[cell_type], nodes_loc[0])
+                        (cell_to_nodes[cell_type], nodes_loc[0] + pts_pos)
                     )
                     cell_id[cell_type] += [cell_pos]
                 cell_pos += 1
+
+            pts_pos += g.num_nodes
 
         # construct the meshio data structure
         num_block = len(cell_to_nodes)
@@ -646,7 +648,6 @@ class Exporter:
             # save the points information
             sl = slice(pts_pos, pts_pos + g.num_nodes)
             meshio_pts[sl, :] = g.nodes.T
-            pts_pos += g.num_nodes
 
             # Cell-face and face-node relations
             g_faces_cells, g_cells, _ = sps.find(g.cell_faces)
@@ -720,16 +721,18 @@ class Exporter:
 
                 # if the cell type is not present, then add it
                 if cell_type not in cell_to_nodes:
-                    cell_to_nodes[cell_type] = np.atleast_2d(nodes_loc)
+                    cell_to_nodes[cell_type] = np.atleast_2d(nodes_loc + pts_pos)
                     cell_to_faces[cell_type] = [faces_loc]
                     cell_id[cell_type] = [cell_pos]
                 else:
                     cell_to_nodes[cell_type] = np.vstack(
-                        (cell_to_nodes[cell_type], nodes_loc)
+                        (cell_to_nodes[cell_type], nodes_loc + pts_pos)
                     )
                     cell_to_faces[cell_type] += [faces_loc]
                     cell_id[cell_type] += [cell_pos]
                 cell_pos += 1
+
+            pts_pos += g.num_nodes
 
         # NOTE: only cell->faces relation will be kept, so far we export only polyhedron
         # otherwise in the next lines we should consider also the cell->nodes map
