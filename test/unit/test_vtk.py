@@ -6,6 +6,7 @@ filter, or in the vtk python bindings has changed. If the change is external to
 PorePy, this does not necessarily mean that something is wrong.
 
 """
+import os
 import numpy as np
 import unittest
 
