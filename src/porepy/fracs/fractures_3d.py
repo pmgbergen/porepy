@@ -2181,9 +2181,7 @@ class FractureNetwork3d(object):
                 cell_to_nodes[cell_type] = nodes
                 cell_id[cell_type] = [fid]
             else:
-                cell_to_nodes[cell_type] = np.vstack(
-                        (cell_to_nodes[cell_type], nodes)
-                    )
+                cell_to_nodes[cell_type] = np.vstack((cell_to_nodes[cell_type], nodes))
                 cell_id[cell_type] += [fid]
 
         # construct the meshio data structure
@@ -2196,7 +2194,9 @@ class FractureNetwork3d(object):
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
         # add also the fracture number to the data to export
-        data.update({"fracture_number": fracture_offset + np.arange(len(self._fractures))})
+        data.update(
+            {"fracture_number": fracture_offset + np.arange(len(self._fractures))}
+        )
 
         meshio_data = {}
         # store also the data
@@ -2215,7 +2215,7 @@ class FractureNetwork3d(object):
         meshio_grid_to_export = meshio.Mesh(
             meshio_pts, meshio_cells, cell_data=meshio_data
         )
-        meshio.write(folder_name+file_name, meshio_grid_to_export, binary=binary)
+        meshio.write(folder_name + file_name, meshio_grid_to_export, binary=binary)
 
     def _to_gmsh(self, file_name, constraints=None, in_3d=True, **kwargs):
         """Write the fracture network as input for mesh generation by gmsh.
