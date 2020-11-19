@@ -18,6 +18,7 @@ from porepy.utils.setmembership import unique_columns_tol
 
 logger = logging.getLogger(__name__)
 
+
 class FractureNetwork2d(object):
     """Class representation of a set of fractures in a 2D domain.
 
@@ -991,7 +992,9 @@ class FractureNetwork2d(object):
 
         # Cell-data to be exported is at least the fracture numbers
         meshio_cell_data = {}
-        meshio_cell_data["fracture_number"] = [fracture_offset + np.arange(self.edges.shape[1])]
+        meshio_cell_data["fracture_number"] = [
+            fracture_offset + np.arange(self.edges.shape[1])
+        ]
 
         # process the
         for key, val in data.items():
@@ -1003,7 +1006,7 @@ class FractureNetwork2d(object):
         meshio_grid_to_export = meshio.Mesh(
             meshio_pts, meshio_cells, cell_data=meshio_cell_data
         )
-        meshio.write(folder_name+file_name, meshio_grid_to_export, binary=binary)
+        meshio.write(folder_name + file_name, meshio_grid_to_export, binary=binary)
 
     def __str__(self):
         s = "Fracture set consisting of " + str(self.num_frac) + " fractures"

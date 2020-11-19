@@ -11,8 +11,8 @@ import unittest
 
 import porepy as pp
 
-class MeshioExporterTest(unittest.TestCase):
 
+class MeshioExporterTest(unittest.TestCase):
     def __init__(self, methodName="runTest"):
         unittest.TestCase.__init__(self, methodName)
         self.folder = "./test_vtk/"
@@ -184,7 +184,7 @@ class MeshioExporterTest(unittest.TestCase):
     def test_fractures_2d(self):
         p = np.array([[0, 2, 1, 2, 1], [0, 0, 0, 1, 2]])
         e = np.array([[0, 2, 3], [1, 3, 4]])
-        domain = {'xmin': -2, 'xmax': 3, 'ymin': -2, 'ymax': 3}
+        domain = {"xmin": -2, "xmax": 3, "ymin": -2, "ymax": 3}
         network_2d = pp.FractureNetwork2d(p, e, domain)
 
         dummy_scalar = np.ones(network_2d.num_frac)
@@ -199,8 +199,10 @@ class MeshioExporterTest(unittest.TestCase):
 
     def test_fractures_3d(self):
         f_1 = pp.Fracture(np.array([[0, 1, 2, 0], [0, 0, 1, 1], [0, 0, 1, 1]]))
-        f_2 = pp.Fracture(np.array([[0.5, 0.5, 0.5, 0.5], [-1, 2, 2, -1], [-1, -1, 2, 2]]))
-        domain = {'xmin': -2, 'xmax': 3, 'ymin': -2, 'ymax': 3, 'zmin': -3, 'zmax': 3}
+        f_2 = pp.Fracture(
+            np.array([[0.5, 0.5, 0.5, 0.5], [-1, 2, 2, -1], [-1, -1, 2, 2]])
+        )
+        domain = {"xmin": -2, "xmax": 3, "ymin": -2, "ymax": 3, "zmin": -3, "zmax": 3}
         network_3d = pp.FractureNetwork3d([f_1, f_2], domain=domain)
 
         num_frac = len(network_3d._fractures)
@@ -296,7 +298,6 @@ class MeshioExporterTest(unittest.TestCase):
 </UnstructuredGrid>
 </VTKFile>
 """
-
 
     def _single_grid_2d_simplex_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -584,7 +585,6 @@ class MeshioExporterTest(unittest.TestCase):
 </UnstructuredGrid>
 </VTKFile>
 """
-
 
     def _single_grid_2d_cart_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -11865,6 +11865,7 @@ class MeshioExporterTest(unittest.TestCase):
 </UnstructuredGrid>
 </VTKFile>
 """
+
 
 if __name__ == "__main__":
     unittest.main()
