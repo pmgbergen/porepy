@@ -2147,7 +2147,7 @@ class FractureNetwork3d(object):
         binary = kwargs.pop("binary", True)
         fracture_offset = kwargs.pop("fracture_offset", 1)
         extension = kwargs.pop("extension", ".vtu")
-        folder_name = kwargs.pop("folder_name", "./")
+        folder_name = kwargs.pop("folder_name", "")
 
         if kwargs:
             msg = "Got unexpected keyword argument '{}'"
