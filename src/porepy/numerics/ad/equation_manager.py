@@ -80,7 +80,6 @@ class Equation:
         return mat_dict[mat_key]
 
     def _identify_variables(self, op: operators.Operator):
-
         if isinstance(op, operators.Variable) or isinstance(op, pp.ad.Variable):
             # We are at the bottom of the a branch of the tree
             return op
@@ -101,7 +100,7 @@ class Equation:
                     # We are further up in the tree.
                     for sub_var in var:
                         if isinstance(sub_var, operators.Variable) or isinstance(
-                            var, pp.ad.Variable
+                            sub_var, pp.ad.Variable
                         ):
                             var_list.append(sub_var)
             return var_list
@@ -125,20 +124,24 @@ class Equation:
 
         # For each variable, get the global index
         inds = []
+        variable_ids = []
         for variable in variables:
             ind_var = []
             if isinstance(variable, pp.ad.MergedVariable):
-                for sub_var in variable.sub_vars:
+                for i, sub_var in enumerate(variable.sub_vars):
                     ind_var.append(assembler.dof_ind(sub_var.g, sub_var._name))
+                    if i == 0:
+                        variable_ids.append(sub_var.id)
             else:
                 # This is a variable that lives on a single grid
                 ind_var.append(assembler.dof_ind(variable.g, variable._name))
+                variable_ids.append(variable.id)
 
             inds.append(np.hstack([i for i in ind_var]))
 
         # Initialize variables
         ad_vars = initAdArrays([state[ind] for ind in inds])
-        self._ad = {var.id: ad for (var, ad) in zip(variables, ad_vars)}
+        self._ad = {var_id: ad for (var_id, ad) in zip(variable_ids, ad_vars)}
 
         # 3. Parse operators. Matrices can be picked either from discretization matrices,
         # or from some central storage,
@@ -155,7 +158,7 @@ class Equation:
         """
         # Q: The parsing could also be moved to the operator classes
         tree = op._tree
-        if isinstance(op, pp.ad.Variable):
+        if isinstance(op, pp.ad.Variable) or isinstance(op, operators.Variable):
             assert len(tree._children) == 0
             # Need access to state, grids, assembler, local_dof etc.
 
@@ -164,7 +167,12 @@ class Equation:
             # should use all variables in this equation. Need to pick out the right part of
             # it here (perhaps as by indexing a list of variables) for use to propagete through
             # the chain of operations
-            return self._ad[op.id]
+            if isinstance(op, pp.ad.MergedVariable) or isinstance(
+                op, operators.MergedVariable
+            ):
+                return self._ad[op.sub_vars[0].id]
+            else:
+                return self._ad[op.id]
         if isinstance(op, grid_operators.BoundaryCondition) or isinstance(
             op, pp.ad.BoundaryCondition
         ):
