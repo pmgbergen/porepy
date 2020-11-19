@@ -343,7 +343,7 @@ def compute_normal(pts, check=True):
         pts = pts[:, 1:]
         if not check:
             break
-    if count > max_count:
+    if count > max_count and np.allclose(normal, np.zeros(3)):
         raise RuntimeError(
             "Unable to calculate normal from point set. Are all points collinear?"
         )
