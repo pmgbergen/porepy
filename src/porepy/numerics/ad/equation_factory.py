@@ -34,7 +34,7 @@ def _variables(
 
     if grid_variables is not None:
         grid_vars = [
-            pp.ad.MergedVariable([manager.variables[g][var] for g in grid_list])
+            manager.merge_variables([(g, var) for g in grid_list])
             for var in grid_variables
         ]
     else:
@@ -42,7 +42,7 @@ def _variables(
 
     if edge_variables is not None:
         edge_vars = [
-            pp.ad.MergedVariable([manager.variables[e][var] for e in edge_list])
+            manager.merge_variables([[e][var] for e in edge_list])
             for var in edge_variables
         ]
     else:
@@ -79,9 +79,8 @@ def flow(
 
     div = pp.ad.Divergence(grids=grid_list)
 
-    grid_vars, edge_vars = _variables(manager, [pressure_variable], [mortar_variable])
-    p = grid_vars[0]
-    lmbda = edge_vars[0]
+    p = manager.merge_variables([(g, pressure_variable) for g in grid_list])
+    lmbda = manager.merge_variables([(e, mortar_variable) for e in edge_list])
 
     flux = (
         node_discr.flux * p
@@ -145,8 +144,8 @@ def poro_mechanics(
     mpfa_discr = pp.ad.Discretization({g: mpfa})
     mass_discr = pp.ad.Discretization({g: mass})
 
-    u = pp.ad.MergedVariable([manager.variables[g][displacement_variable]])
-    p = pp.ad.MergedVariable([manager.variables[g][pressure_variable]])
+    u = manager.variables[g][displacement_variable]
+    p = manager.variables[g][pressure_variable]
 
     bc_flow = pp.ad.BoundaryCondition(flow_keyword, [g])
     bc_mech = pp.ad.BoundaryCondition(mechanics_keyword, [g])

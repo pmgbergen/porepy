@@ -19,6 +19,8 @@ import porepy as pp
 
 __all__ = ["Equation", "EquationManager"]
 
+grid_like_type = Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
+
 
 class Equation:
     def __init__(self, operator, name: str = None):
@@ -125,8 +127,12 @@ class Equation:
         inds = []
         for variable in variables:
             ind_var = []
-            for sub_var in variable.sub_vars:
-                ind_var.append(assembler.dof_ind(sub_var.g, sub_var._name))
+            if isinstance(variable, pp.ad.MergedVariable):
+                for sub_var in variable.sub_vars:
+                    ind_var.append(assembler.dof_ind(sub_var.g, sub_var._name))
+            else:
+                # This is a variable that lives on a single grid
+                ind_var.append(assembler.dof_ind(variable.g, variable._name))
 
             inds.append(np.hstack([i for i in ind_var]))
 
@@ -262,6 +268,9 @@ class EquationManager:
 
         self.variables = variables
         # Define discretizations
+
+    def merge_variables(self, grid_var: List[Tuple[grid_like_type, str]]):
+        return pp.ad.MergedVariable([self.variables[g][v] for g, v in grid_var])
 
     def variable_state(
         self, grid_var: List[Tuple[pp.Grid, str]], state: np.ndarray

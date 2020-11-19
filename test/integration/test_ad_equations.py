@@ -144,6 +144,7 @@ def test_biot():
     A, b = manager.assemble_matrix_rhs(state)
 
     dm = A_biot - A
-    assert np.max(np.abs(dm.data)) < 1e-10
+    if dm.data.size > 0:
+        assert np.max(np.abs(dm.data)) < 1e-10
     # Need a + sign here since the AD residual is computed as a LHS term
     assert np.max(np.abs(b + b_biot)) < 1e-10
