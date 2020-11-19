@@ -332,13 +332,17 @@ def compute_normal(pts, check=True):
     normal: np.array, 1x3, the normal.
 
     """
-
     assert pts.shape[1] > 2
-    normal = np.cross(pts[:, 0] - pts[:, 1], pts[:, 2] - pts[:, 1])
-    if check and np.allclose(normal, np.zeros(3)):
-        return compute_normal(pts[:, 1:])
-    else:
-        return normal / np.linalg.norm(normal)
+    normal = np.zeros(3)
+    count = 0
+    max_count = pts.shape[1]
+    while np.allclose(normal, np.zeros(3)) and count <= max_count:
+        count += 1
+        normal = np.cross(pts[:, 0] - pts[:, 1], pts[:, 2] - np.mean(pts, axis=1))
+        pts = pts[:, 1:]
+        if not check:
+            break
+    return normal / np.linalg.norm(normal)
 
 
 def compute_normals_1d(pts):
