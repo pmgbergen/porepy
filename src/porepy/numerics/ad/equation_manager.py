@@ -189,6 +189,9 @@ class Equation:
         if isinstance(op, pp.ad.Array):
             return op.values
 
+        if isinstance(op, pp.ad.Function):
+            return op
+
         if isinstance(op, pp.ad.Scalar):
             return op.value
         if isinstance(op, grid_operators.Divergence) or isinstance(
@@ -242,9 +245,11 @@ class Equation:
             return results[0] - results[1]
         elif tree._op == operators.Operation.mul:
             return results[0] * results[1]
+        elif tree._op == operators.Operation.evaluate:
+            return results[0].func(results[1:])
+        elif tree._op == operators.Operation.div:
+            return results[0] / results[1]
 
-        elif tree._op == operators.Operation.eval:
-            raise NotImplementedError("")
         else:
             raise ValueError("Should not happen")
 
