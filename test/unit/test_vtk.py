@@ -196,6 +196,9 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, network_2d.num_frac))
         data = {"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector}
 
+        if not os.path.exists(self.folder):
+            os.makedirs(self.folder)
+
         network_2d.write(self.folder + self.file_name + ".vtu", data=data, binary=False)
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
@@ -214,6 +217,9 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_scalar = np.ones(num_frac)
         dummy_vector = np.ones((3, num_frac))
         data = {"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector}
+
+        if not os.path.exists(self.folder):
+            os.makedirs(self.folder)
 
         network_3d.write(self.folder + self.file_name + ".vtu", data=data, binary=False)
 
