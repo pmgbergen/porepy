@@ -13,11 +13,12 @@ __all__ = [
     "Scalar",
     "Variable",
     "MergedVariable",
+    "Function",
     "Discretization",
 ]
 
 
-Operation = Enum("Operation", ["void", "add", "sub", "mul", "eval"])
+Operation = Enum("Operation", ["void", "add", "sub", "mul", "evaluate", "div"])
 
 
 class Tree:
@@ -57,6 +58,10 @@ class Operator:
         children = [self, other]
         tree = Tree(Operation.mul, children)
         return Operator(tree=tree)
+
+    def __truediv__(self, other):
+        children = [self, other]
+        return Operator(tree=Tree(Operation.div, children))
 
     def __add__(self, other):
         children = [self, other]
@@ -103,7 +108,6 @@ class Variable(Operator):
 
     def __init__(self, name, ndof, grid_like):
         self._name = name
-
         self._cells = ndof.get("cells", 0)
         self._faces = ndof.get("faces", 0)
         self._nodes = ndof.get("nodes", 0)
@@ -155,6 +159,27 @@ class MergedVariable(Variable):
         if not self.is_interface:
             sz = np.sum([var.size() for var in self.sub_vars])
             s += f"Total size: {sz}"
+
+        return s
+
+
+class Function(Operator):
+    def __init__(self, func, name):
+        self.func = func
+        self.name = name
+        self._set_tree()
+
+    def __mul__(self, other):
+        raise RuntimeError("Functions should only be evaluated")
+
+    def __call__(self, *args):
+        children = [self, *args]
+        op = Operator(tree=Tree(Operation.evaluate, children=children))
+        breakpoint()
+        return op
+
+    def __repr__(self) -> str:
+        s = f"AD function with name {self.name}"
 
         return s
 
