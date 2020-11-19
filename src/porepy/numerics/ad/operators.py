@@ -5,7 +5,9 @@ from itertools import count
 
 import numpy as np
 import porepy as pp
+import networkx as nx
 import scipy.sparse as sps
+import matplotlib.pyplot as plt
 
 __all__ = [
     "Operator",
@@ -55,6 +57,29 @@ class Operator:
             self._tree = Tree(Operation.void)
         else:
             self._tree = tree
+
+    def __repr__(self) -> str:
+        return f"Operator formed by {self._tree._op} with {len(self._tree._children)} children"
+
+    def viz(self):
+        G = nx.Graph()
+
+        def parse_subgraph(node):
+            G.add_node(node)
+            if len(node._tree._children) == 0:
+                return
+            operation = node._tree._op
+            G.add_node(operation)
+            G.add_edge(node, operation)
+            for child in node._tree._children:
+                parse_subgraph(child)
+                G.add_edge(child, operation)
+
+        parse_subgraph(self)
+        nx.draw(G, with_labels=True)
+        plt.show()
+
+    ### Below here are method for overloading aritmethic operators
 
     def __mul__(self, other):
         children = self._parse_other(other)
@@ -106,11 +131,17 @@ class MergedOperator(Operator):
 
         self._set_tree(None)
 
+    def __repr__(self) -> str:
+        return f"Operator with key {self.key} defined on {len(self.grid_discr)} grids"
+
 
 class Matrix(Operator):
     def __init__(self, mat):
         self.mat = mat
         self._set_tree()
+
+    def __repr__(self) -> str:
+        return f"Matrix with shape {self.mat.shape} and {self.mat.data.size} elements"
 
 
 class Array(Operator):
@@ -118,11 +149,17 @@ class Array(Operator):
         self.values = values
         self._set_tree()
 
+    def __repr__(self) -> str:
+        return f"Wrapped numpy array of size {self.values.size}"
+
 
 class Scalar(Operator):
     def __init__(self, value):
         self.value = value
         self._set_tree()
+
+    def __repr__(self) -> str:
+        return f"Wrapped scalar with value {self.value}"
 
 
 class Variable(Operator):
@@ -204,7 +241,6 @@ class Function(Operator):
     def __call__(self, *args):
         children = [self, *args]
         op = Operator(tree=Tree(Operation.evaluate, children=children))
-        breakpoint()
         return op
 
     def __repr__(self) -> str:
