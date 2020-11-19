@@ -134,8 +134,6 @@ class Variable(Operator):
 class MergedVariable(Variable):
     # TODO: Is it okay to generate the same variable (grid, name) many times?
     # The whole concept needs a massive cleanup
-    _ids = count(0)
-
     def __init__(self, variables):
         self.sub_vars = variables
         self.id = next(self._ids)
