@@ -318,7 +318,14 @@ class Exporter:
 
         grid_dim = self.gb.dim * np.ones(self.gb.num_cells, dtype=np.int)
 
-        fields.extend([Field("grid_dim", grid_dim,)])
+        fields.extend(
+            [
+                Field(
+                    "grid_dim",
+                    grid_dim,
+                )
+            ]
+        )
 
         self._write(fields, name, self.meshio_geom)
 
