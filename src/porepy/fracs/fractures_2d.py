@@ -938,7 +938,7 @@ class FractureNetwork2d(object):
                 data.extend(self.pts[:, edge[1]])
                 csv_writer.writerow(data)
 
-    def write(self, file_name, data={}, binary=True, fracture_offset=1):
+    def write(self, file_name, data={}, **kwargs):
         """
         Export the fracture network with meshio.
 
@@ -954,12 +954,27 @@ class FractureNetwork2d(object):
             data (dictionary, optional): Data associated with the fractures.
                 The values in the dictionary should be numpy arrays. 1d and 3d
                 data is supported. Fracture numbers are always exported.
-            binary (boolean, optional): Use binary export format. Defaults to
+
+        Optional arguments in kwargs:
+            binary (boolean): Use binary export format. Default to
                 True.
-            fracture_offset (int, optional): Use to define the offset for a
-                fracture id. Defaults to 1.
+            fracture_offset (int): Use to define the offset for a
+                fracture id. Default to 1.
+            folder_name (string): Path to save the file. Default to "./".
+            extension (string): File extension. Default to ".vtu".
 
         """
+        binary = kwargs.pop("binary", True)
+        fracture_offset = kwargs.pop("fracture_offset", 1)
+        extension = kwargs.pop("extension", ".vtu")
+        folder_name = kwargs.pop("folder_name", "./")
+
+        if kwargs:
+            msg = "Got unexpected keyword argument '{}'"
+            raise TypeError(msg.format(kwargs.popitem()[0]))
+
+        if not file_name.endswith(extension):
+            file_name += extension
 
         # in 1d we have only one cell type
         cell_type = "line"
@@ -988,7 +1003,7 @@ class FractureNetwork2d(object):
         meshio_grid_to_export = meshio.Mesh(
             meshio_pts, meshio_cells, cell_data=meshio_cell_data
         )
-        meshio.write(file_name, meshio_grid_to_export, binary=binary)
+        meshio.write(folder_name+file_name, meshio_grid_to_export, binary=binary)
 
     def __str__(self):
         s = "Fracture set consisting of " + str(self.num_frac) + " fractures"
