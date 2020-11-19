@@ -12,9 +12,9 @@ import logging
 import os
 import sys
 
+import meshio
 import numpy as np
 import scipy.sparse as sps
-import meshio
 
 import porepy as pp
 

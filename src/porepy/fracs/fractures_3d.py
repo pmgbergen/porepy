@@ -16,7 +16,6 @@ import porepy as pp
 from porepy.grids.constants import GmshConstants
 from porepy.utils import setmembership, sort_points
 
-
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
