@@ -50,6 +50,10 @@ class BasicsTest(unittest.TestCase):
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
             pp.initialize_default_data(g, d, "transport", specified_parameters)
+
+        for e, d in gb.edges():
+            pp.initialize_data(d["mortar_grid"], d, "transport", {})
+            
         add_constant_darcy_flux(gb, upwind, [0, 1, 0], a)
 
         assembler = pp.Assembler(gb)
@@ -132,6 +136,10 @@ class BasicsTest(unittest.TestCase):
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
             pp.initialize_default_data(g, d, "transport", specified_parameters)
+
+        for e, d in gb.edges():
+            pp.initialize_data(d["mortar_grid"], d, "transport", {})
+    
 
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
@@ -264,6 +272,9 @@ class BasicsTest(unittest.TestCase):
                 specified_parameters.update({"bc": bound})
             pp.initialize_default_data(g, d, "transport", specified_parameters)
 
+        for e, d in gb.edges():
+            pp.initialize_data(d["mortar_grid"], d, "transport", {})
+            
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
         assembler = pp.Assembler(gb)
@@ -874,6 +885,9 @@ class BasicsTest(unittest.TestCase):
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
             pp.initialize_default_data(g, d, "transport", specified_parameters)
 
+        for e, d in gb.edges():
+            pp.initialize_data(d["mortar_grid"], d, "transport", {})
+            
         add_constant_darcy_flux(gb, upwind, [0, 0, 1], a)
 
         assembler = pp.Assembler(gb)
@@ -958,6 +972,9 @@ class BasicsTest(unittest.TestCase):
 
             pp.initialize_default_data(g, d, "transport", specified_parameters)
 
+        for e, d in gb.edges():
+            pp.initialize_data(d["mortar_grid"], d, "transport", {})
+            
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
         assembler = pp.Assembler(gb)
@@ -1135,6 +1152,9 @@ class BasicsTest(unittest.TestCase):
 
             pp.initialize_default_data(g, d, "transport", specified_parameters)
 
+        for e, d in gb.edges():
+            pp.initialize_data(d["mortar_grid"], d, "transport", {})
+            
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
         assembler = pp.Assembler(gb)
 
@@ -1281,6 +1301,9 @@ class BasicsTest(unittest.TestCase):
             specified_parameters = {"aperture": aperture, "bc": bc}
             pp.initialize_default_data(g, d, "transport", specified_parameters)
 
+        for e, d in gb.edges():
+            pp.initialize_data(d["mortar_grid"], d, "transport", {})
+            
         add_constant_darcy_flux(gb, upwind, [2, 0, 0], a)
         assembler = pp.Assembler(gb)
         assembler.discretize()
@@ -1440,6 +1463,9 @@ class BasicsTest(unittest.TestCase):
             specified_parameters.update({"bc": bound, "bc_values": bc_val})
             pp.initialize_default_data(g, d, "transport", specified_parameters)
 
+        for e, d in gb.edges():
+            pp.initialize_data(d["mortar_grid"], d, "transport", {})
+            
         add_constant_darcy_flux(gb, upwind, [1, 1, 0], a)
 
         assembler = pp.Assembler(gb)
