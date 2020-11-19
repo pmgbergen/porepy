@@ -1,9 +1,11 @@
+import abc
 from enum import Enum
 from typing import Optional, List
 from itertools import count
 
 import numpy as np
 import porepy as pp
+import scipy.sparse as sps
 
 __all__ = [
     "Operator",
@@ -55,21 +57,42 @@ class Operator:
             self._tree = tree
 
     def __mul__(self, other):
-        children = [self, other]
+        children = self._parse_other(other)
         tree = Tree(Operation.mul, children)
         return Operator(tree=tree)
 
     def __truediv__(self, other):
-        children = [self, other]
+        children = self._parse_other(other)
         return Operator(tree=Tree(Operation.div, children))
 
     def __add__(self, other):
-        children = [self, other]
+        children = self._parse_other(other)
         return Operator(tree=Tree(Operation.add, children))
 
     def __sub__(self, other):
         children = [self, other]
         return Operator(tree=Tree(Operation.sub, children))
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __rsub__(self, other):
+        return self.__sub__(other)
+
+    def _parse_other(self, other):
+        if isinstance(other, float) or isinstance(other, int):
+            return [self, pp.ad.Scalar(other)]
+        elif isinstance(other, np.ndarray):
+            return [self, pp.ad.Array(other)]
+        elif isinstance(other, sps.spmatrix):
+            return [self, pp.ad.Matrix(other)]
+        elif isinstance(other, pp.ad.Operator) or isinstance(other, Operator):
+            return [self, other]
+        else:
+            raise ValueError(f"Cannot parse {other} as an AD operator")
 
 
 class MergedOperator(Operator):
@@ -130,7 +153,7 @@ class Variable(Operator):
         s = (
             f"Variable {self._name}, id: {self.id}\n"
             f"Degrees of freedom in cells: {self._cells}, faces: {self._faces}, "
-            f"nodes: {self._nodes}"
+            f"nodes: {self._nodes}\n"
         )
         return s
 
@@ -158,7 +181,7 @@ class MergedVariable(Variable):
         )
         if not self.is_interface:
             sz = np.sum([var.size() for var in self.sub_vars])
-            s += f"Total size: {sz}"
+            s += f"Total size: {sz}\n"
 
         return s
 
@@ -170,6 +193,12 @@ class Function(Operator):
         self._set_tree()
 
     def __mul__(self, other):
+        raise RuntimeError("Functions should only be evaluated")
+
+    def __add__(self, other):
+        raise RuntimeError("Functions should only be evaluated")
+
+    def __sub__(self, other):
         raise RuntimeError("Functions should only be evaluated")
 
     def __call__(self, *args):

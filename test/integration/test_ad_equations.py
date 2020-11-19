@@ -130,7 +130,7 @@ def test_biot():
 
     manager._equations.append(pp.Equation(momentuum, name="Momentuum conservation"))
 
-    flow_momentuum_eq = accumulation + compr * p + pp.ad.Scalar(dt) * diffusion
+    flow_momentuum_eq = accumulation + compr * p + dt * diffusion
 
     u_state, p_state = manager.variable_state(
         [(g, "displacement"), (g, "pressure")], state
