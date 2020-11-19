@@ -332,16 +332,21 @@ def compute_normal(pts, check=True):
     normal: np.array, 1x3, the normal.
 
     """
-    assert pts.shape[1] > 2
+    if pts.shape[1] <= 2:
+        raise ValueError("in compute_normal: pts.shape[1] must be larger than 2")
     normal = np.zeros(3)
     count = 0
-    max_count = pts.shape[1]
+    max_count = pts.shape[1] - 3
     while np.allclose(normal, np.zeros(3)) and count <= max_count:
         count += 1
         normal = np.cross(pts[:, 0] - pts[:, 1], pts[:, 2] - np.mean(pts, axis=1))
         pts = pts[:, 1:]
         if not check:
             break
+    if count > max_count:
+        raise RuntimeError(
+            "Unable to calculate normal from point set. Are all points collinear?"
+        )
     return normal / np.linalg.norm(normal)
 
 
