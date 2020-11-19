@@ -260,7 +260,7 @@ class EquationManager:
             for var, info in d[pp.PRIMARY_VARIABLES].items():
                 variables[e][var] = operators.Variable(var, info, e)
 
-        self._variables = variables
+        self.variables = variables
         # Define discretizations
 
     def variable_state(
