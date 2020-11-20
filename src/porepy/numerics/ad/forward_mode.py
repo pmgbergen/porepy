@@ -32,6 +32,11 @@ class Ad_array:
         self.val = val
         self.jac = jac
 
+    def __repr__(self) -> str:
+        s = f"Ad array of size {self.val.size}\n"
+        s += f"Jacobian is of size {self.jac.shape} and has {self.jac.data.size} elements"
+        return s
+
     def __add__(self, other):
         b = _cast(other)
         c = Ad_array()
