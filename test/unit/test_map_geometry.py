@@ -5,7 +5,7 @@ import porepy as pp
 
 
 class TestNormalVector(unittest.TestCase):
-    """ Test computation of fracture centroids.
+    """ Test computation of compute_normal().
     """
 
     def test_axis_normal(self):
@@ -39,7 +39,7 @@ class TestNormalVector(unittest.TestCase):
 
     def test_colinear_points(self):
         """
-        Test that we get the correct normal in x, y and z direction
+        Test that giving colinear points throws an assertion
         """
         # pts in xy-plane
         pts = np.array([[0, 0, 0], [1, 0, 0], [2, 0, 0]]).T
