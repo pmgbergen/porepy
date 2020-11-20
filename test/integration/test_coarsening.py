@@ -219,13 +219,15 @@ class BasicsTest(unittest.TestCase):
         part = np.zeros(g.num_cells)
         part[g.cell_centers[0, :] < 2.0] = 1
         co.generate_coarse_grid(gb, (None, part))
-
         # Test
+        # Be carefull! If the indexing of any grids (including mg) change the hard-coded
+        # indexes may be wrong
         known_indices = np.array([0, 2, 1, 3, 4, 6, 5, 7])
         known = np.array([1, 4, 7, 10, 44, 45, 46, 47])
 
         for _, d in gb.edges():
             indices, faces, _ = sps.find(d["mortar_grid"].primary_to_mortar_int())
+
             self.assertTrue(np.array_equal(indices, known_indices))
             self.assertTrue(np.array_equal(faces, known))
 
