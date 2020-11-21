@@ -1,6 +1,7 @@
 """
 Module contains class for representing a fracture network in a 2d domain.
 """
+from typing import Dict
 import copy
 import csv
 import logging
@@ -939,9 +940,14 @@ class FractureNetwork2d(object):
                 data.extend(self.pts[:, edge[1]])
                 csv_writer.writerow(data)
 
-    def write(self, file_name, data={}, **kwargs):
+    def to_file(
+        self, file_name: str, data: Dict[str, np.ndarray] = None, **kwargs
+    ) -> None:
         """
-        Export the fracture network with meshio.
+        Export the fracture network to file.
+
+        The file format is given as an kwarg, by default vtu will be used. The writing is
+        outsourced to meshio, thus the file format should be supported by that package.
 
         The fractures are treated as lines, with no special treatment
         of intersections.
@@ -965,10 +971,13 @@ class FractureNetwork2d(object):
             extension (string): File extension. Default to ".vtu".
 
         """
-        binary = kwargs.pop("binary", True)
-        fracture_offset = kwargs.pop("fracture_offset", 1)
-        extension = kwargs.pop("extension", ".vtu")
-        folder_name = kwargs.pop("folder_name", "")
+        if data is None:
+            data = {}
+
+        binary: bool = kwargs.pop("binary", True)
+        fracture_offset: int = kwargs.pop("fracture_offset", 1)
+        extension: str = kwargs.pop("extension", ".vtu")
+        folder_name: str = kwargs.pop("folder_name", "")
 
         if kwargs:
             msg = "Got unexpected keyword argument '{}'"

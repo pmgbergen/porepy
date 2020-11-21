@@ -32,7 +32,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+        save.write_vtu({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -46,7 +46,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+        save.write_vtu({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -60,7 +60,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+        save.write_vtu({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -76,7 +76,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+        save.write_vtu({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -90,7 +90,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+        save.write_vtu({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -104,7 +104,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+        save.write_vtu({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -122,7 +122,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+        save.write_vtu({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -143,7 +143,7 @@ class MeshioExporterTest(unittest.TestCase):
             )
 
         save = pp.Exporter(gb, self.file_name, self.folder, binary=False)
-        save.write(["dummy_scalar", "dummy_vector"])
+        save.write_vtu(["dummy_scalar", "dummy_vector"])
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -173,7 +173,7 @@ class MeshioExporterTest(unittest.TestCase):
             )
 
         save = pp.Exporter(gb, self.file_name, self.folder, binary=False)
-        save.write(["dummy_scalar", "dummy_vector"])
+        save.write_vtu(["dummy_scalar", "dummy_vector"])
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -200,7 +200,9 @@ class MeshioExporterTest(unittest.TestCase):
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
 
-        network_2d.write(self.folder + self.file_name + ".vtu", data=data, binary=False)
+        network_2d.to_file(
+            self.folder + self.file_name + ".vtu", data=data, binary=False
+        )
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -222,11 +224,16 @@ class MeshioExporterTest(unittest.TestCase):
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
 
-        network_3d.write(self.folder + self.file_name + ".vtu", data=data, binary=False)
+        network_3d.to_file(
+            self.folder + self.file_name + ".vtu", data=data, binary=False
+        )
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._test_fractures_3d_vtu())
+
+    ## Below follows functions that return strings that reproduce the exact output of
+    # the test functions at a time when the code was considered trustworthy.
 
     def _single_grid_1d_grid_vtu(self):
         return """<?xml version="1.0"?>

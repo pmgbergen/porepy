@@ -206,7 +206,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def write(self, data=None, time_dependent=False, time_step=None, grid=None):
+    def write_vtu(self, data=None, time_dependent=False, time_step=None, grid=None):
         """
         Interface function to export the grid and additional data with meshio.
 
