@@ -4,11 +4,11 @@ A module for representation and manipulations of fractures and fracture sets.
 The model relies heavily on functions in the computational geometry library.
 
 """
-from typing import Dict
 import copy
 import csv
 import logging
 import time
+from typing import Dict
 
 import meshio
 import numpy as np
@@ -2119,7 +2119,9 @@ class FractureNetwork3d(object):
                 )[0][0]
                 del self.intersections[isect_place]
 
-    def to_file(self, file_name: str, data: Dict[str, np.ndarray]=None, **kwargs) -> None:
+    def to_file(
+        self, file_name: str, data: Dict[str, np.ndarray] = None, **kwargs
+    ) -> None:
         """
         Export the fracture network to file.
 
@@ -2152,7 +2154,7 @@ class FractureNetwork3d(object):
         """
         if data is None:
             data = {}
-        
+
         binary: bool = kwargs.pop("binary", True)
         fracture_offset: int = kwargs.pop("fracture_offset", 1)
         extension: str = kwargs.pop("extension", ".vtu")

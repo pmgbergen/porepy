@@ -1,11 +1,11 @@
 """
 Module contains class for representing a fracture network in a 2d domain.
 """
-from typing import Dict
 import copy
 import csv
 import logging
 import time
+from typing import Dict
 
 import meshio
 import numpy as np
