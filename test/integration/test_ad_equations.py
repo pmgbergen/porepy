@@ -68,8 +68,7 @@ def test_md_flow():
     diff = A - A_ref
     if diff.data.size > 0:
         assert np.max(np.abs(diff.data)) < 1e-10
-    # Need a + sign here since the AD residual is computed as a LHS term
-    assert np.max(np.abs(b + b_ref)) < 1e-10
+    assert np.max(np.abs(b - b_ref)) < 1e-10
 
 
 def test_biot():
@@ -154,5 +153,4 @@ def test_biot():
     dm = A_biot - A
     if dm.data.size > 0:
         assert np.max(np.abs(dm.data)) < 1e-10
-    # Need a + sign here since the AD residual is computed as a LHS term
-    assert np.max(np.abs(b + b_biot)) < 1e-10
+    assert np.max(np.abs(b - b_biot)) < 1e-10
