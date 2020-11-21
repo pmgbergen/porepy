@@ -38,6 +38,7 @@ def propagate_fractures(gb, faces):
         updated.
 
     """
+
     dim_h = gb.dim_max()
     g_h = gb.grids_of_dimension(dim_h)[0]
 
@@ -71,7 +72,7 @@ def propagate_fractures(gb, faces):
 
         # Uniquify the faces to be split. Amongs others, this avoids trouble when
         # a faces is requested split twice, from two neighboring faces
-        faces_h = np.unique(np.atleast_1d(np.array(faces[i])))
+        faces_h = np.unique(np.atleast_1d(np.array(faces[g_l])))
         split_faces = np.append(split_faces, faces_h)
 
         if faces_h.size == 0:
@@ -574,7 +575,7 @@ def update_connectivity(
 
         # The sign of this cell should be the oposite of that used in the
         # original grid.
-        cf_val_loc[ind_local] = -g_l.cell_faces[ind_in_original, :].data
+        cf_val_loc[ind_local] = -g_l.cell_faces.tocsr()[ind_in_original, :].data
 
         # Faces that were not in the original grid, but were added before this iteration
         # of the cell loop
