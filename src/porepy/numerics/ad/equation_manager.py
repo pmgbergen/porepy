@@ -36,6 +36,10 @@ class Equation:
 
         self._stored_matrices = {}
 
+    def local_dofs(self) -> np.ndarray:
+        dofs = np.hstack([d for d in self._variable_dofs])
+        return dofs
+
     def __repr__(self) -> str:
         return f"Equation named {self.name}"
 
@@ -307,10 +311,26 @@ class EquationManager:
     def assemble_matrix_rhs(self, state):
         mat: List[sps.spmatrix] = []
         b: List[np.ndarray] = []
+
+        num_global_dofs = self._assembler.full_dof.sum()
+
         for eq in self._equations:
             ad = eq.to_ad(self._assembler, self.gb, state)
-            mat.append(ad.jac)
-            b.append(ad.val)
+
+            # The columns of the Jacobian has the size of the local variables.
+            # Map these to the global ones
+            local_dofs = eq.local_dofs()
+            num_local_dofs = local_dofs.size
+            projection = sps.coo_matrix(
+                (np.ones(num_local_dofs), (np.arange(num_local_dofs), local_dofs)),
+                shape=(num_local_dofs, num_global_dofs),
+            )
+
+            mat.append(ad.jac * projection)
+
+            # Concatenate the residuals
+            # Multiply by -1 to move to the rhs
+            b.append(-ad.val)
 
         A = sps.bmat([[m] for m in mat]).tocsr()
         rhs = np.hstack([vec for vec in b])
