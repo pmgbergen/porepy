@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 class ConformingFracturePropagation(FracturePropagation):
     """
     Class for fracture propagation along existing faces in the higher-dimensional
-    grid. 
+    grid.
 
     The propagation criteria is based on stress intensity factors, computed from
     a displacement correlation approach.
@@ -66,12 +66,12 @@ class ConformingFracturePropagation(FracturePropagation):
     def evaluate_propagation(self) -> None:
         """
         Evaluate propagation for all fractures based on the current solution.
-        
-        Computes SIFs using the Displacement Correlation method described in 
+
+        Computes SIFs using the Displacement Correlation method described in
         Nejati et al. based on the displacement jumps of the previous iterate.
         Then, propagation onset and angles are evaluated as described in Thomas
         et al.
-        
+
 
         Returns
         -------
@@ -89,7 +89,7 @@ class ConformingFracturePropagation(FracturePropagation):
                 "Fracture propogation with intersecting fractures has not been tested"
             )
 
-        face_list = []
+        face_list = {}
 
         self.propagated_fracture = False
 
@@ -104,10 +104,10 @@ class ConformingFracturePropagation(FracturePropagation):
 
             if d["propagation_face_map"].data.size > 0:
                 row, col, _ = sps.find(d["propagation_face_map"])
-                face_list.append(col)
+                face_list.update({g_l: col})
                 self.propagated_fracture = True
             else:
-                face_list.append([])
+                face_list.update({g_l: []})
         pp.propagate_fracture.propagate_fractures(gb, face_list)
 
     def _displacement_correlation(
@@ -116,7 +116,7 @@ class ConformingFracturePropagation(FracturePropagation):
         """
         Compute stress intensity factors by displacement correlation based on
         the solution of the previous iterate.
-    
+
         Parameters
         ----------
         g_h : pp.Grid
@@ -130,14 +130,14 @@ class ConformingFracturePropagation(FracturePropagation):
             Fracture data. Will be updated with SIFs
         data_edge : Dict
             Interface data.
-            
+
         Returns
         -------
         None.
-        
+
         Stores the stress intensity factors in data_l under the name "SIFs". The value
         is an self.Nd times self.num_faces np.ndarray.
-    
+
         """
 
         parameters_l = data_l[pp.PARAMETERS][self.mechanics_parameter_key]
@@ -148,7 +148,7 @@ class ConformingFracturePropagation(FracturePropagation):
         # Only operate on tips
         tip_faces = g_l.tags["tip_faces"].nonzero()[0]
         _, tip_cells = g_l.signs_and_cells_of_boundary_faces(tip_faces)
-        
+
         # Project to fracture and apply jump operator
         u_l = (
             mg.mortar_to_slave_avg(nd=self.Nd)
@@ -179,18 +179,18 @@ class ConformingFracturePropagation(FracturePropagation):
     def _sifs_from_delta_u(self, d_u, rm, parameters):
         """
         Compute the stress intensity factors from the relative displacements.
-        
+
         See Eq. 19 in Nejati et al. Note that the pp [tangential, normal] convention
         for local coordinate systems is different from the [u, v, w] notation with
         v being the component normal to the fracture.
-        
+
         Parameters:
             d_u (array): relative displacements, g_h.dim x n.
             rm (array): distance from correlation point to fracture tip.
             parameters (pp.Parameters): assumed to contain constant
                 mu (array): Shear modulus.
                 poisson_ratio (array): No, I'm not spelling it out!
-                
+
         Returns:
             K (array): the displacement correlation stress intensity factor
             estimates.
@@ -252,7 +252,7 @@ class ConformingFracturePropagation(FracturePropagation):
     def _angle_criterion(self, d: Dict) -> None:
         """
         Compute propagation angle based on SIFs.
-        
+
         No checks on whether the faces are tips or whether they are tagged as
         propagating (see propagation_criterion).
         See Eq. (5) in Thomas et al/(8) and (23) in Richard et al.
@@ -267,7 +267,7 @@ class ConformingFracturePropagation(FracturePropagation):
         -------
         None
             DESCRIPTION.
-        
+
         Stores an array of the faces to be propagated.
         """
         parameters = d[pp.PARAMETERS][self.mechanics_parameter_key]
@@ -333,7 +333,7 @@ class ConformingFracturePropagation(FracturePropagation):
         """
         Pick out which matrix faces to split based on which fracture faces are
         tagged as propagating and their propagation angles.
-        
+
         Work flow:
             Pick out faces_l
             Identify the corresponding edges_h (= nodes if self.Nd==2)
@@ -440,13 +440,13 @@ class ConformingFracturePropagation(FracturePropagation):
         """
         Construct local bases for tip faces of a fracture.
 
-        Note: The orientation of a 2d basis may be found by 
+        Note: The orientation of a 2d basis may be found by
             np.cross(basis[0], basis[1])
         Parameters
         ----------
         g : grid.
         data_edge : dictionary
-            
+
         faces : array
             The tip faces for which local bases are constructed.
 
@@ -455,7 +455,7 @@ class ConformingFracturePropagation(FracturePropagation):
         basis : np.ndarray
             Basis vectors. nd x nd x nd. The first axis is for the basis vectors,
             the second is the dimension and the last for the tip faces. I.e.,
-            basis vector i of tip face j is basis[i,:,j]. The ordering of the 
+            basis vector i of tip face j is basis[i,:,j]. The ordering of the
             basis vectors is [e_{\perp}, e_n, e_{\parallel}], with the subscripts
             of the tangential vectors indicating that they are perpendicular and
             parallel to the fracture tip (face), respectively.
@@ -485,8 +485,8 @@ class ConformingFracturePropagation(FracturePropagation):
         def faces_of_edge(g: pp.Grid, e: np.ndarray) -> np.ndarray:
             """
             Obtain indices of all faces sharing an edge.
-            
-            
+
+
             Parameters
             ----------
             g : pp.Grid
