@@ -58,7 +58,10 @@ def test_md_flow():
         manager,
     )
 
-    manager._equations = [pp.Equation(flow_eq), pp.Equation(interface_flux)]
+    manager._equations = [
+        pp.Equation(flow_eq, assembler),
+        pp.Equation(interface_flux, assembler),
+    ]
 
     state = np.zeros(gb.num_cells() + gb.num_mortar_cells())
     A, b = manager.assemble_matrix_rhs(state)
@@ -100,6 +103,7 @@ def test_biot():
         "displacement": {"cells": g.dim},
         "pressure": {"cells": 1},
     }
+    assembler = pp.Assembler(gb)
 
     biot = pp.Biot()
 
@@ -128,7 +132,9 @@ def test_biot():
         p,
     ) = pp.ad.equation_factory.poro_mechanics(manager, g, d)
 
-    manager._equations.append(pp.Equation(momentuum, name="Momentuum conservation"))
+    manager._equations.append(
+        pp.Equation(momentuum, dof_manager=assembler, name="Momentuum conservation")
+    )
 
     flow_momentuum_eq = accumulation + compr * p + dt * diffusion
 
@@ -138,7 +144,9 @@ def test_biot():
 
     flow_rhs = div_u_rhs * pp.ad.Array(u_state) + stab_rhs * pp.ad.Array(p_state)
 
-    flow_eq = pp.Equation(flow_momentuum_eq + flow_rhs, name="flow eqution")
+    flow_eq = pp.Equation(
+        flow_momentuum_eq + flow_rhs, dof_manager=assembler, name="flow eqution"
+    )
     manager._equations.append(flow_eq)
 
     A, b = manager.assemble_matrix_rhs(state)

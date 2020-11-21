@@ -23,13 +23,17 @@ grid_like_type = Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
 
 
 class Equation:
-    def __init__(self, operator, name: str = None):
+    def __init__(self, operator, dof_manager: pp.Assembler, name: str = None):
         # need a way to print an equation. Separate class?
         self._operator = operator
 
         self.name = name
 
-        # This goes to equation
+        variable_dofs, variable_ids = self._identify_variables(dof_manager)
+
+        self._variable_dofs = variable_dofs
+        self._variable_ids = variable_ids
+
         self._stored_matrices = {}
 
     def __repr__(self) -> str:
@@ -79,14 +83,14 @@ class Equation:
         mat_key = getattr(discr, key + "_matrix_key")
         return mat_dict[mat_key]
 
-    def _identify_variables(self, op: operators.Operator):
+    def _find_subtree_variables(self, op: operators.Operator):
         if isinstance(op, operators.Variable) or isinstance(op, pp.ad.Variable):
             # We are at the bottom of the a branch of the tree
             return op
         else:
             # Look for variables among the children
             sub_variables = [
-                self._identify_variables(child) for child in op._tree._children
+                self._find_subtree_variables(child) for child in op._tree._children
             ]
             # Some work is needed to parse the information
             var_list = []
@@ -105,7 +109,7 @@ class Equation:
                             var_list.append(sub_var)
             return var_list
 
-    def to_ad(self, assembler, gb, state):
+    def _identify_variables(self, dof_manager):
         # NOTES TO SELF:
         # assembler -> dof_manager
         # gb: needed
@@ -115,7 +119,8 @@ class Equation:
         # 1. Get all variables present in this equation
         # Uniquify by making this a set, and then sort on variable id
         variables = sorted(
-            list(set(self._identify_variables(self._operator))), key=lambda var: var.id
+            list(set(self._find_subtree_variables(self._operator))),
+            key=lambda var: var.id,
         )
 
         # 2. Get state of the variables, init ad
@@ -129,19 +134,22 @@ class Equation:
             ind_var = []
             if isinstance(variable, pp.ad.MergedVariable):
                 for i, sub_var in enumerate(variable.sub_vars):
-                    ind_var.append(assembler.dof_ind(sub_var.g, sub_var._name))
+                    ind_var.append(dof_manager.dof_ind(sub_var.g, sub_var._name))
                     if i == 0:
                         variable_ids.append(sub_var.id)
             else:
                 # This is a variable that lives on a single grid
-                ind_var.append(assembler.dof_ind(variable.g, variable._name))
+                ind_var.append(dof_manager.dof_ind(variable.g, variable._name))
                 variable_ids.append(variable.id)
 
             inds.append(np.hstack([i for i in ind_var]))
 
+        return inds, variable_ids
+
+    def to_ad(self, assembler, gb, state):
         # Initialize variables
-        ad_vars = initAdArrays([state[ind] for ind in inds])
-        self._ad = {var_id: ad for (var_id, ad) in zip(variable_ids, ad_vars)}
+        ad_vars = initAdArrays([state[ind] for ind in self._variable_dofs])
+        self._ad = {var_id: ad for (var_id, ad) in zip(self._variable_ids, ad_vars)}
 
         # 3. Parse operators. Matrices can be picked either from discretization matrices,
         # or from some central storage,
@@ -297,7 +305,6 @@ class EquationManager:
         return values
 
     def assemble_matrix_rhs(self, state):
-
         mat: List[sps.spmatrix] = []
         b: List[np.ndarray] = []
         for eq in self._equations:
