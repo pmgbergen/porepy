@@ -7,10 +7,10 @@ vtu file is printed for each grid. For transient simulations with multiple
 time steps, a single pvd file takes care of the ordering of all printed vtu
 files.
 """
-
 import logging
 import os
 import sys
+from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
 
 import meshio
 import numpy as np
@@ -24,23 +24,23 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------------------#
 
 
-class Field(object):
+class Field:
     """
     Internal class to store information for the data to export.
     """
 
-    def __init__(self, name, values=None):
+    def __init__(self, name: str, values: Optional[np.ndarray] = None) -> None:
         # name of the field
         self.name = name
         self.values = values
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Repr function
         """
         return self.name + " - values: " + str(self.values)
 
-    def check(self, values, g):
+    def check(self, values: Optional[np.ndarray], g: pp.Grid) -> None:
         """
         Consistency checks making sure the field self.name is filled and has
         the right dimension.
@@ -52,7 +52,7 @@ class Field(object):
         if np.atleast_2d(values).shape[1] != g.num_cells:
             raise ValueError("Field " + str(self.name) + " has wrong dimension.")
 
-    def _check_values(self):
+    def _check_values(self) -> None:
         if self.values is None:
             raise ValueError("Field " + str(self.name) + " values not valid")
 
@@ -60,47 +60,37 @@ class Field(object):
 # ------------------------------------------------------------------------------#
 
 
-class Fields(object):
+class Fields:
     """
     Internal class to store a list of field.
     """
 
-    def __init__(self):
-        self.fields = None
+    def __init__(self) -> None:
+        self._fields: List[Field] = []
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[Field, None, None]:
         """
         Iterator on all the fields.
         """
-        for f in self.fields:
+        for f in self._fields:
             yield f
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Repr function
         """
         return "\n".join([repr(f) for f in self])
 
-    def extend(self, fields):
+    def extend(self, new_fields: List[Field]) -> None:
         """
         Extend the list of fields with additional fields.
         """
-        if self.fields is None:
-            if isinstance(fields, list):
-                self.fields = fields
-            elif isinstance(fields, Fields):
-                self.fields = fields.fields
-            else:
-                raise ValueError
+        if isinstance(new_fields, list):
+            self._fields.extend(new_fields)
         else:
-            if isinstance(fields, list):
-                self.fields.extend(fields)
-            elif isinstance(fields, Fields):
-                self.fields.extend(fields.fields)
-            else:
-                raise ValueError
+            raise ValueError
 
-    def names(self):
+    def names(self) -> List[str]:
         """
         Return the list of name of the fields.
         """
@@ -111,7 +101,13 @@ class Fields(object):
 
 
 class Exporter:
-    def __init__(self, grid, file_name, folder_name=None, **kwargs):
+    def __init__(
+        self,
+        grid: Union[pp.Grid, pp.GridBucket],
+        file_name: str,
+        folder_name: Optional[str] = None,
+        **kwargs,
+    ) -> None:
         """
         Class for exporting data to vtu files.
 
@@ -155,16 +151,22 @@ class Exporter:
 
         """
 
-        self.gb = grid
+        if isinstance(grid, pp.GridBucket):
+            self.is_GridBucket = True
+            self.gb: pp.GridBucket = grid
+
+        else:
+            self.is_GridBucket = False
+            self.grid: pp.Grid = grid
+
         self.file_name = file_name
         self.folder_name = folder_name
-        self.fixed_grid = kwargs.pop("fixed_grid", True)
-        self.binary = kwargs.pop("binary", True)
+        self.fixed_grid: bool = kwargs.pop("fixed_grid", True)
+        self.binary: bool = kwargs.pop("binary", True)
         if kwargs:
             msg = "Exporter() got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
 
-        self.is_GridBucket = isinstance(self.gb, pp.GridBucket)
         self.cell_id_key = "cell_id"
 
         if self.is_GridBucket:
@@ -172,29 +174,29 @@ class Exporter:
             # all but the 0-d grids
             self.dims = np.setdiff1d(self.gb.all_dims(), [0])
             num_dims = self.dims.size
-            self.meshio_geom = dict(zip(self.dims, [tuple()] * num_dims))
+            self.meshio_geom = dict(zip(self.dims, [tuple()] * num_dims))  # type: ignore
 
             # mortar grid variables
             self.m_dims = np.unique([d["mortar_grid"].dim for _, d in self.gb.edges()])
             num_m_dims = self.m_dims.size
-            self.m_meshio_geom = dict(zip(self.m_dims, [tuple()] * num_m_dims))
+            self.m_meshio_geom = dict(zip(self.m_dims, [tuple()] * num_m_dims))  # type: ignore
         else:
-            self.meshio_geom = tuple()
+            self.meshio_geom = tuple()  # type: ignore
 
         # Assume numba is available
-        self.has_numba = True
+        self.has_numba: bool = True
 
         self._update_meshio_geom()
 
         # Counter for time step. Will be used to identify files of individual time step,
         # unless this is overridden by optional parameters in write
-        self._time_step_counter = 0
+        self._time_step_counter: int = 0
         # Storage for file name extensions for time steps
-        self._exported_time_step_file_names = []
+        self._exported_time_step_file_names: List[int] = []
 
     # ------------------------------------------------------------------------------#
 
-    def change_name(self, file_name):
+    def change_name(self, file_name: str) -> None:
         """
         Change the root name of the files, useful when different keywords are
         considered but on the same grid.
@@ -206,7 +208,13 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def write_vtu(self, data=None, time_dependent=False, time_step=None, grid=None):
+    def write_vtu(
+        self,
+        data: Optional[Union[Dict, List[str]]] = None,
+        time_dependent: bool = False,
+        time_step: int = None,
+        grid: Optional[Union[pp.Grid, pp.GridBucket]] = None,
+    ) -> None:
         """
         Interface function to export the grid and additional data with meshio.
 
@@ -230,8 +238,11 @@ class Exporter:
         if self.fixed_grid and grid is not None:
             raise ValueError("Inconsistency in exporter setting")
         elif not self.fixed_grid and grid is not None:
-            self.gb = grid
-            self.is_GridBucket = isinstance(self.gb, pp.GridBucket)
+            if self.is_GridBucket:
+                self.gb = grid  # type: ignore
+            else:
+                self.grid = grid  # type: ignore
+
             self._update_meshio_geom()
 
         # If the problem is time dependent, but no time step is set, we set one
@@ -245,13 +256,15 @@ class Exporter:
             self._exported_time_step_file_names.append(time_step)
 
         if self.is_GridBucket:
-            self._export_gb(data, time_step)
+            self._export_gb(data, time_step)  # type: ignore
         else:
-            self._export_g(data, time_step)
+            self._export_g(data, time_step)  # type: ignore
 
     # ------------------------------------------------------------------------------#
 
-    def write_pvd(self, timestep, file_extension=None):
+    def write_pvd(
+        self, timestep: np.ndarray, file_extension: Optional[np.ndarray] = None
+    ) -> None:
         """
         Interface function to export in PVD file the time loop information.
         The user should open only this file in paraview.
@@ -260,12 +273,12 @@ class Exporter:
         We assume that the VTU associated files are in the same folder.
 
         Parameters:
-        timestep: vector of times to be exported. These will be the time associated with
+        timestep: numpy of times to be exported. These will be the time associated with
             indivdiual time steps in, say, Paraview. By default, the times will be
             associated with the order in which the time steps were exported. This can
             be overridden by the file_extension argument.
         file_extension (np.array-like, optional): End of file names used in the export
-            of individual time steps, see self.write(). If provided, it should have
+            of individual time steps, see self.write_vtu(). If provided, it should have
             the same length as time. If not provided, the file names will be picked
             from those used when writing individual time steps.
 
@@ -300,7 +313,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _export_g(self, data, time_step):
+    def _export_g(self, data: Dict[str, np.ndarray], time_step):
         """
         Export a single grid (not grid bucket) to a vtu file.
         """
@@ -316,7 +329,7 @@ class Exporter:
         if len(data) > 0:
             fields.extend([Field(n, v) for n, v in data.items()])
 
-        grid_dim = self.gb.dim * np.ones(self.gb.num_cells, dtype=np.int)
+        grid_dim = self.grid.dim * np.ones(self.grid.num_cells, dtype=np.int)
 
         fields.extend(
             [
@@ -331,7 +344,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _export_gb(self, data, time_step):
+    def _export_gb(self, data: List[str], time_step: float):
         # Convert data to list, or provide an empty list
         if data is not None:
             data = np.atleast_1d(data).tolist()
@@ -343,19 +356,12 @@ class Exporter:
             fields.extend([Field(d) for d in data])
 
         # consider the grid_bucket node data
-        extra_fields = Fields()
-        extra_fields.extend(
-            [
-                Field("grid_dim"),
-                Field("grid_node_number"),
-                Field("is_mortar"),
-                Field("mortar_side"),
-            ]
-        )
-        fields.extend(extra_fields)
+        extra_node_names = ["grid_dim", "grid_node_number", "is_mortar", "mortar_side"]
+        extra_node_fields = [Field(name) for name in extra_node_names]
+        fields.extend(extra_node_fields)
 
         self.gb.assign_node_ordering(overwrite_existing=False)
-        self.gb.add_node_props(extra_fields.names())
+        self.gb.add_node_props(extra_node_names)
         # fill the extra data
         for g, d in self.gb:
             ones = np.ones(g.num_cells, dtype=np.int)
@@ -382,19 +388,13 @@ class Exporter:
             if self.meshio_geom[dim] is not None:
                 self._write(fields, file_name, self.meshio_geom[dim])
 
-        self.gb.remove_node_props(extra_fields.names())
+        self.gb.remove_node_props(extra_node_names)
 
         # consider the grid_bucket edge data
-        extra_fields = Fields()
-        extra_fields.extend(
-            [
-                Field("grid_dim"),
-                Field("grid_edge_number"),
-                Field("is_mortar"),
-                Field("mortar_side"),
-            ]
-        )
-        self.gb.add_edge_props(extra_fields.names())
+        extra_edge_fields = Fields()
+        extra_edge_names = ["grid_dim", "grid_edge_number", "is_mortar", "mortar_side"]
+        extra_edge_fields.extend([Field(name) for name in extra_edge_names])
+        self.gb.add_edge_props(extra_edge_names)
         for _, d in self.gb.edges():
             d["grid_dim"] = {}
             d["cell_id"] = {}
@@ -414,38 +414,42 @@ class Exporter:
 
         # collect the data and extra data in a single stack for each dimension
         for dim in self.m_dims:
-            file_name = self._make_file_name_mortar(self.file_name, time_step, dim)
+            file_name = self._make_file_name_mortar(
+                self.file_name, time_step=time_step, dim=dim
+            )
             file_name = self._make_folder(self.folder_name, file_name)
 
             mgs = self.gb.get_mortar_grids(lambda g: g.dim == dim)
             cond = lambda d: d["mortar_grid"].dim == dim
-            edges = np.array([e for e, d in self.gb.edges() if cond(d)])
+            edges: List[Tuple[pp.Grid, pp.Grid]] = [
+                e for e, d in self.gb.edges() if cond(d)
+            ]
             num_grids = np.sum([m.num_sides() for m in mgs])
 
-            for field in extra_fields:
+            for field in extra_edge_fields:
                 values = np.empty(num_grids, dtype=np.object)
                 i = 0
                 for mg, edge in zip(mgs, edges):
                     for side, _ in mg.side_grids.items():
                         # Convert edge to tuple to be compatible with GridBucket
                         # data structure
-                        values[i] = self.gb.edge_props(tuple(edge), field.name)[side]
+                        values[i] = self.gb.edge_props(edge, field.name)[side]
                         i += 1
 
                 field.values = np.hstack(values)
 
             if self.m_meshio_geom[dim] is not None:
-                self._write(extra_fields, file_name, self.m_meshio_geom[dim])
+                self._write(extra_edge_fields, file_name, self.m_meshio_geom[dim])
 
         file_name = self._make_file_name(self.file_name, time_step, extension=".pvd")
         file_name = self._make_folder(self.folder_name, file_name)
         self._export_pvd_gb(file_name, time_step)
 
-        self.gb.remove_edge_props(extra_fields.names())
+        self.gb.remove_edge_props(extra_edge_names)
 
     # ------------------------------------------------------------------------------#
 
-    def _export_pvd_gb(self, file_name, time_step):
+    def _export_pvd_gb(self, file_name: str, time_step: float) -> None:
         o_file = open(file_name, "w")
         b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
         c = ' compressor="vtkZLibDataCompressor"'
@@ -468,7 +472,7 @@ class Exporter:
         for dim in self.m_dims:
             if self.m_meshio_geom[dim] is not None:
                 o_file.write(
-                    fm % self._make_file_name_mortar(self.file_name, time_step, dim=dim)
+                    fm % self._make_file_name_mortar(self.file_name, dim, time_step)
                 )
 
         o_file.write("</Collection>\n" + "</VTKFile>")
@@ -476,23 +480,29 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _export_grid(self, gs, dim):
+    def _export_grid(
+        self, gs: Iterable[pp.Grid], dim: int
+    ) -> Union[None, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
         """
         Wrapper function to export grids of dimension dim. Calls the
         appropriate dimension specific export function.
         """
         if dim == 0:
-            return
+            return None
         elif dim == 1:
             return self._export_1d(gs)
         elif dim == 2:
             return self._export_2d(gs)
         elif dim == 3:
             return self._export_3d(gs)
+        else:
+            raise ValueError(f"Unknown dimension {dim}")
 
     # ------------------------------------------------------------------------------#
 
-    def _export_1d(self, gs):
+    def _export_1d(
+        self, gs: Iterable[pp.Grid]
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Export the geometrical data (point coordinates) and connectivity
         information from the 1d PorePy grids to meshio.
@@ -549,7 +559,9 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _export_2d(self, gs):
+    def _export_2d(
+        self, gs: Iterable[pp.Grid]
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Export the geometrical data (point coordinates) and connectivity
         information from the 2d PorePy grids to meshio.
@@ -595,7 +607,7 @@ class Exporter:
                     ]
                 ).T
                 # sort the nodes
-                nodes_loc, _ = pp.utils.sort_points.sort_point_pairs(nodes)
+                nodes_loc, *_ = pp.utils.sort_points.sort_point_pairs(nodes)
 
                 # define the type of cell we are currently saving
                 cell_type = "polygon" + str(nodes_loc.shape[1])
@@ -627,7 +639,9 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _export_3d(self, gs):
+    def _export_3d(
+        self, gs: Iterable[pp.Grid]
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Export the geometrical data (point coordinates) and connectivity
         information from the 3d PorePy grids to meshio.
@@ -757,7 +771,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _write(self, fields, file_name, meshio_geom):
+    def _write(self, fields: Iterable[Field], file_name: str, meshio_geom) -> None:
 
         cell_data = {}
 
@@ -766,6 +780,9 @@ class Exporter:
         num_block = cell_id.size
 
         for field in fields:
+            if field.values is None:
+                continue
+
             # for each field create a sub-vector for each geometrically uniform group of cells
             cell_data[field.name] = np.empty(num_block, dtype=np.object)
             # fill up the data
@@ -801,11 +818,13 @@ class Exporter:
                 mg = np.array([g for m in mgs for _, g in m.side_grids.items()])
                 self.m_meshio_geom[dim] = self._export_grid(mg, dim)
         else:
-            self.meshio_geom = self._export_grid(np.atleast_1d(self.gb), self.gb.dim)
+            self.meshio_geom = self._export_grid(
+                np.atleast_1d(self.grid), self.grid.dim
+            )
 
     # ------------------------------------------------------------------------------#
 
-    def _make_folder(self, folder_name, name=None):
+    def _make_folder(self, folder_name: Optional[str] = None, name: str = "") -> str:
         if folder_name is None:
             return name
 
@@ -815,7 +834,13 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _make_file_name(self, file_name, time_step=None, dim=None, extension=".vtu"):
+    def _make_file_name(
+        self,
+        file_name: str,
+        time_step: Optional[float] = None,
+        dim: Optional[int] = None,
+        extension: str = ".vtu",
+    ) -> str:
 
         padding = 6
         if dim is None:  # normal grid
@@ -833,7 +858,9 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _make_file_name_mortar(self, file_name, time_step=None, dim=None):
+    def _make_file_name_mortar(
+        self, file_name: str, dim: int, time_step: Optional[float] = None
+    ) -> str:
 
         # we keep the order as in _make_file_name
         assert dim is not None
@@ -848,6 +875,8 @@ class Exporter:
             return file_name + str(dim) + "_" + time + extension
 
     # ------------------------------------------------------------------------------#
+
+    ### Below follows utility functions for sorting points in 3d
 
     def _point_ind(
         self,
