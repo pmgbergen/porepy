@@ -125,22 +125,22 @@ class Exporter:
         How to use:
         If you need to export a single grid:
         save = Exporter(g, "solution", folder_name="results")
-        save.write({"cells_id": cells_id, "pressure": pressure})
+        save.write_vtu({"cells_id": cells_id, "pressure": pressure})
 
         In a time loop:
         save = Exporter(gb, "solution", folder_name="results")
         while time:
-            save.write({"conc": conc}, time_step=i)
+            save.write_vtu({"conc": conc}, time_step=i)
         save.write_pvd(steps*deltaT)
 
         if you need to export the state of variables as stored in the GridBucket:
         save = Exporter(gb, "solution", folder_name="results")
         # export the field stored in data[pp.STATE]["pressure"]
-        save.write(gb, ["pressure"])
+        save.write_vtu(gb, ["pressure"])
 
         In a time loop:
         while time:
-            save.write(["conc"], time_step=i)
+            save.write_vtu(["conc"], time_step=i)
         save.write_pvd(steps*deltaT)
 
         In the case of different keywords, change the file name with
