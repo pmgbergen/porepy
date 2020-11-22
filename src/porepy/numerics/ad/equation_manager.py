@@ -215,6 +215,20 @@ class Equation:
                 mat = [pp.fvutils.vector_divergence(g) for g in op.g]
             matrix = sps.block_diag(mat)
             return matrix
+        if isinstance(op, grid_operators.Trace) or isinstance(op, pp.ad.Trace):
+            if op.scalar:
+                mat = [np.abs(pp.fvutils.scalar_divergence(g)).T for g in op.g]
+            else:
+                mat = [np.abs(pp.fvutils.vector_divergence(g)).T for g in op.g]
+            matrix = sps.block_diag(mat)
+            return matrix
+        if isinstance(op, grid_operators.InvTrace) or isinstance(op, pp.ad.InvTrace):
+            if op.scalar:
+                mat = [np.abs(pp.fvutils.scalar_divergence(g)) for g in op.g]
+            else:
+                mat = [np.abs(pp.fvutils.vector_divergence(g)) for g in op.g]
+            matrix = sps.block_diag(mat)
+            return matrix
 
         if len(tree._children) == 0:
             if isinstance(op, operators.MergedOperator):

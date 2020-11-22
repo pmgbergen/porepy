@@ -7,7 +7,7 @@ import scipy.sparse as sps
 from .operators import Operator, MergedOperator, Matrix
 
 
-__all__ = ["MortarProjections", "Divergence", "BoundaryCondition"]
+__all__ = ["MortarProjections", "Divergence", "BoundaryCondition", "Trace", "InvTrace"]
 
 
 class MortarProjections(Operator):
@@ -156,6 +156,62 @@ class Divergence(MergedOperator):
             s = "Vector "
 
         s += f"divergence defined on {len(self.g)} grids\n"
+
+        return s
+
+
+class Trace(MergedOperator):
+    """Mapping from grid faces to cell centers.
+
+    The mapping will hit both boundary and interior faces, so the values
+    to be mapped should be carefully filtered (e.g. by combining it with a
+    mortar mapping).
+
+    The mapping does not alter signs of variables, that is, the direction
+    of face normal vectors is not accounted for.
+
+    """
+
+    def __init__(self, grids: List[pp.Grid], is_scalar: bool = True):
+        self.g: List[pp.Grid] = grids
+        self.scalar: bool = is_scalar
+        self._set_tree(None)
+
+    def __repr__(self) -> str:
+        if self.scalar:
+            s = "Scalar "
+        else:
+            s = "Vector "
+
+        s += f"Trace operator defined on {len(self.g)} grids\n"
+
+        return s
+
+
+class InvTrace(MergedOperator):
+    """Mapping from grid faces to cell centers.
+
+    The mapping will hit both boundary and interior faces, so the values
+    to be mapped should be carefully filtered (e.g. by combining it with a
+    mortar mapping).
+
+    The mapping does not alter signs of variables, that is, the direction
+    of face normal vectors is not accounted for.
+
+    """
+
+    def __init__(self, grids: List[pp.Grid], is_scalar: bool = True):
+        self.g: List[pp.Grid] = grids
+        self.scalar: bool = is_scalar
+        self._set_tree(None)
+
+    def __repr__(self) -> str:
+        if self.scalar:
+            s = "Scalar "
+        else:
+            s = "Vector "
+
+        s += f"Inverse trace operator defined on {len(self.g)} grids\n"
 
         return s
 
