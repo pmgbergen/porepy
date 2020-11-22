@@ -16,12 +16,17 @@ class MortarProjections(Operator):
         gb: pp.GridBucket,
         grids: Optional[List[pp.Grid]] = None,
         edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None,
-        nd=1,
+        nd: int = 1,
     ):
         if grids is None:
             grids = [g for g, _ in gb.nodes()]
         if edges is None:
             edges = [e for e, _ in gb.edges()]
+
+        self._num_edges: int = len(edges)
+        self._nd: int = nd
+
+        # Initialize projections
 
         face_projection: Dict[pp.Grid, np.ndarray] = {}
         cell_projection: Dict[pp.Grid, np.ndarray] = {}
@@ -127,6 +132,15 @@ class MortarProjections(Operator):
         self.secondary_to_mortar_avg = Matrix(
             sps.bmat([[m] for m in secondary_to_mortar_avg]).tocsr()
         )
+
+    def __repr__(self) -> str:
+        s = (
+            f"Mortar projection for {self._num_edges} interfaces\n"
+            f"Aimed at variables with dimension {self._nd}\n"
+            f"Projections to primary have dimensions {self.mortar_to_primary_avg.shape}\n"
+            f"Projections to secondary have dimensions {self.mortar_to_secondary_avg.shape}\n"
+        )
+        return s
 
 
 class Divergence(MergedOperator):

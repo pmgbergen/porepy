@@ -139,6 +139,7 @@ class Matrix(Operator):
     def __init__(self, mat):
         self.mat = mat
         self._set_tree()
+        self.shape = self.mat.shape
 
     def __repr__(self) -> str:
         return f"Matrix with shape {self.mat.shape} and {self.mat.data.size} elements"
@@ -166,19 +167,25 @@ class Variable(Operator):
 
     _ids = count(0)
 
-    def __init__(self, name, ndof, grid_like):
+    def __init__(self, name, ndof, grid_like, num_cells: int = 0):
         self._name = name
         self._cells = ndof.get("cells", 0)
         self._faces = ndof.get("faces", 0)
         self._nodes = ndof.get("nodes", 0)
         self.g = grid_like
+
+        # The number of cells in the grid. Will only be used if grid_like is a tuple
+        # that is, if this is a mortar variable
+        self._num_cells = num_cells
+
         self.id = next(self._ids)
 
         self._set_tree()
 
     def size(self) -> int:
         if isinstance(self.g, tuple):
-            return 0
+            # This is a mortar grid. Assume that there are only cell unknowns
+            return self._num_cells * self._cells
         else:
             return (
                 self.g.num_cells * self._cells
@@ -210,15 +217,19 @@ class MergedVariable(Variable):
         assert len(all_names) == 1
 
     def __repr__(self) -> str:
-        s = (
-            f"Merged variable with name {self._name}, id {self.id}\n"
+        sz = np.sum([var.size() for var in self.sub_vars])
+        if self.is_interface:
+            s = "Merged interface"
+        else:
+            s = "Merged"
+
+        s += (
+            f" variable with name {self._name}, id {self.id}\n"
             f"Composed of {len(self.sub_vars)} variables\n"
             f"Degrees of freedom in cells: {self.sub_vars[0]._cells}"
             f", faces: {self.sub_vars[0]._faces}, nodes: {self.sub_vars[0]._nodes}\n"
+            f"Total size: {sz}\n"
         )
-        if not self.is_interface:
-            sz = np.sum([var.size() for var in self.sub_vars])
-            s += f"Total size: {sz}\n"
 
         return s
 

@@ -288,8 +288,9 @@ class EquationManager:
 
         for e, d in gb.edges():
             variables[e] = {}
+            num_cells = d["mortar_grid"].num_cells
             for var, info in d[pp.PRIMARY_VARIABLES].items():
-                variables[e][var] = operators.Variable(var, info, e)
+                variables[e][var] = operators.Variable(var, info, e, num_cells)
 
         self.variables = variables
         # Define discretizations
