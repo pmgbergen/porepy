@@ -121,7 +121,7 @@ def split_faces(gh, face_cells):
         # however, the new faces are not yet added to the cell_faces map
         # (to save computation).
         face_id = duplicate_faces(gh, face_cells[i])
-        face_cells = update_face_cells(face_cells, face_id, i)
+        face_cells = _update_face_cells(face_cells, face_id, i)
         if face_id.size == 0:
             continue
 
@@ -147,7 +147,7 @@ def split_faces(gh, face_cells):
 
 def split_specific_faces(
     gh: pp.Grid,
-    face_cell_list: List,
+    face_cell_list: List[sps.spmatrix],
     faces: np.ndarray,
     cells: np.ndarray,
     gl_ind: np.ndarray,
@@ -173,7 +173,7 @@ def split_specific_faces(
 
         # Update the mapping between higher-dimensional faces and lower-dimensional
         # cells.
-        face_cell_list = update_face_cells(face_cell_list, face_id, gl_ind, cells)
+        face_cell_list = _update_face_cells(face_cell_list, face_id, gl_ind, cells)
         if face_id.size == 0:
             return face_cell_list
 
@@ -333,7 +333,7 @@ def _duplicate_specific_faces(gh: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
     gh.tags["fracture_faces"][frac_id] = True
     gh.tags["tip_faces"][frac_id] = False
     update_fields = gh.tags.keys()
-    update_values = [[]] * len(update_fields)
+    update_values: List[List[np.ndarray]] = [[]] * len(update_fields)
     for i, key in enumerate(update_fields):
         # faces related tags are doubled and the value is inherit from the original
         if key.endswith("_faces"):
@@ -343,7 +343,7 @@ def _duplicate_specific_faces(gh: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
     return frac_id
 
 
-def update_face_cells(
+def _update_face_cells(
     face_cells: List[sps.spmatrix],
     face_id: np.ndarray,
     i: int,
