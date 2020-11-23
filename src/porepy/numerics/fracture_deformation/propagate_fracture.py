@@ -13,12 +13,14 @@ to be bug free.
 import warnings
 import numpy as np
 import scipy.sparse as sps
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Any
 
 import porepy as pp
 
 
-def propagate_fractures(gb, faces):
+def propagate_fractures(
+    gb: pp.GridBucket, faces: List[Dict[pp.Grid, np.ndarray]]
+) -> None:
     """
     gb - grid bucket with matrix and fracture grids.
     faces_h - list of list of faces to be split in the highest-dimensional
@@ -39,22 +41,25 @@ def propagate_fractures(gb, faces):
 
     """
 
-    dim_h = gb.dim_max()
-    g_h = gb.grids_of_dimension(dim_h)[0]
+    dim_h: int = gb.dim_max()
+    g_h: pp.Grid = gb.grids_of_dimension(dim_h)[0]
 
-    n_old_faces_h = g_h.num_faces
+    n_old_faces_h: int = g_h.num_faces
 
     # First initialise certain tags to get rid of any existing tags from
     # previous calls
-    d_h = gb.node_props(g_h)
+    d_h: Dict = gb.node_props(g_h)
     d_h["new_cells"] = np.empty(0, dtype=int)
     d_h["new_faces"] = np.empty(0, dtype=int)
     d_h["split_faces"] = np.empty(0, dtype=int)
 
+    # Data structure for keeping track of faces in g_h to be split
     split_faces = np.empty(0, dtype=np.int)
 
     # By default, we will not update the higher-dimensional grid. This will be
     # changed in the below for loop if the grid gets faces split.
+    # This variable can be used e.g. to check if a rediscretization is necessary on
+    # the higher-dimensional grid
     d_h["partial_update"] = False
 
     # Initialize mapping between old and new faces for g_h. We will store the updates
@@ -64,12 +69,33 @@ def propagate_fractures(gb, faces):
         sps.dia_matrix((np.ones(g_h.num_faces), 0), (g_h.num_faces, g_h.num_faces))
     ]
 
-    for i, g_l in enumerate(gb.grids_of_dimension(dim_h - 1)):
+    # The propagation is divided into two main steps:
+    # First, update the geomtry of the fracture grids, and, simultaneously, the higher
+    # dimensional grid (the former will be updated once, the latter may undergo several
+    # update steps, depending on how many fractures propagate).
+    # Second, update the mortar grids. This is done after all fractures have been
+    # propagated.
+
+    for g_l in gb.grids_of_dimension(dim_h - 1):
+
+        # The propagation of a fracture consists of the following major steps:
+        #   1. Find which faces in g_h should be split for this g_l.
+        #   2. Add nodes to g_l where the fracture will propagate.
+        #   3. Update face-node and cell-face relation in g_l.
+        #   4. Update face geometry of g_l.
+        #   5. Update cell geometry of g_l.
+        #   6. Split the faces in g_h to make room for the new fracture.
+        #   7. Update geometry in g_l and g_h.
+        #
+        # IMPLEMENTATION NOTE: While point 7 replaces information from 4 and 5, the
+        # provisional fields may still be needed in point 6.
+
         # Initialize data on new faces and cells
         d_l = gb.node_props(g_l)
         d_l["new_cells"] = np.empty(0, dtype=int)
         d_l["new_faces"] = np.empty(0, dtype=int)
 
+        # Step 1:
         # Uniquify the faces to be split. Amongs others, this avoids trouble when
         # a faces is requested split twice, from two neighboring faces
         faces_h = np.unique(np.atleast_1d(np.array(faces[g_l])))
@@ -79,10 +105,15 @@ def propagate_fractures(gb, faces):
             # If there is no propagation for this fracture, we continue
             # No need to update discretization of this grid
             d_l["partial_update"] = False
+
+            # Variable mappings are unit mappings
             d_l["face_index_map"] = sps.identity(g_l.num_faces)
             d_l["cell_index_map"] = sps.identity(g_l.num_cells)
+
             # Identity mapping of faces in this step
             face_map_h.append(sps.identity(g_h.num_faces))
+
+            # Move on to the next fracture
             continue
 
         # Keep track of original information:
@@ -95,15 +126,20 @@ def propagate_fractures(gb, faces):
         # helps updating the face tags later:
         pp.utils.tags.add_node_tags_from_face_tags(gb, "domain_boundary")
 
+        # Step 2:
         # Get the "involved nodes", i.e., the union between the new nodes in
         # the lower dimension and the boundary nodes where the fracture
-        # propagates. The former are added to the global_point_ind of g_l.
-        unique_node_ind_l, unique_node_ind_h = update_nodes(g_h, g_l, faces_h)
+        # propagates. The former are added to the nodes in g_l - specifically,
+        # both node coordinates and global_point_ind of g_l are amended.
+        unique_node_ind_l, unique_node_ind_h = _update_nodes_fracture_grid(
+            g_h, g_l, faces_h
+        )
 
+        # Step 3:
         # Update the connectivity matrices (cell_faces and face_nodes) and tag
         # the lower-dimensional faces, including re-classification of (former)
         # tips to internal faces, where appropriate.
-        n_new_faces, new_face_centers = update_connectivity(
+        n_new_faces, new_face_centers = _update_connectivity_fracture_grid(
             g_l,
             g_h,
             unique_node_ind_l,
@@ -113,16 +149,19 @@ def propagate_fractures(gb, faces):
             n_old_cells_l,
             faces_h,
         )
-        # Add new faces to g_l
+
+        # Step 4: Update fracture grid face geometry
         # Note: This simply expands arrays with face geometry, but it does not
         # compute reasonable values for the geometry
-        append_face_geometry(g_l, n_new_faces, new_face_centers)
+        _append_face_geometry_fracture_grid(g_l, n_new_faces, new_face_centers)
+
+        # Step 5: Update fracture grid cell geometry
         # Same for cells. Here the geometry quantities are copied from the
         # face values of g_h, thus values should be reasonable.
-        new_cells = update_cells(g_h, g_l, faces_h)
+        new_cells: np.ndarray = _update_cells_fracture_grid(g_h, g_l, faces_h)
 
-        # Split g_h along faces_h
-        split_fracture_extension(
+        # Step 6: Split g_h along faces_h
+        _split_fracture_extension(
             gb, g_h, g_l, faces_h, unique_node_ind_h, new_cells, non_planar=True
         )
 
@@ -133,7 +172,7 @@ def propagate_fractures(gb, faces):
         new_faces_h = g_h.frac_pairs[1, np.isin(g_h.frac_pairs[0], faces_h)]
 
         # Sanity check on the grid; most likely something will have gone wrong
-        # long before
+        # long before if there is a problem.
         assert np.all(new_faces_h >= n_old_faces_h)
         if not np.min(new_cells) >= n_old_cells_l:
             raise ValueError("New cells are assumed to be appended to cell array")
@@ -179,13 +218,14 @@ def propagate_fractures(gb, faces):
         arr = np.arange(nfh)
         face_map_h.append(
             sps.coo_matrix(
-                (np.ones(nfh, dtype=np.int), (arr, arr)), shape=(g_h.num_faces, nfh),
+                (np.ones(nfh, dtype=np.int), (arr, arr)),
+                shape=(g_h.num_faces, nfh),
             ).tocsr()
         )
 
-        # Append default tags for the new nodes
-        append_node_tags(g_l, g_l.num_nodes - n_old_nodes_l)
-        append_node_tags(g_h, g_h.num_nodes - n_old_nodes_h)
+        # Append default tags for the new nodes. Both high and low-dimensional grid
+        _append_node_tags(g_l, g_l.num_nodes - n_old_nodes_l)
+        _append_node_tags(g_h, g_h.num_nodes - n_old_nodes_h)
 
     # The standard node tags are updated from the face tags, which are updated on the
     # fly in the above loop.
@@ -205,6 +245,9 @@ def propagate_fractures(gb, faces):
 
     d_h["split_faces"] = np.array(split_faces, dtype=int)
 
+    ##
+    # Second main step of propagation: Update mortar grid.
+
     # When all faces have been split, we can update the mortar grids
     for e, d_e in gb.edges_of_node(g_h):
         g_h, g_l = e
@@ -220,7 +263,9 @@ def propagate_fractures(gb, faces):
         pp.contact_conditions.set_projections(gb, [e])
 
 
-def _update_mortar_grid(g_h, g_l, d_e, new_cells, new_faces_h):
+def _update_mortar_grid(
+    g_h: pp.Grid, g_l: pp.Grid, d_e: Dict[str, Any], new_cells, new_faces_h
+):
 
     mg_old = d_e["mortar_grid"]
 
@@ -289,7 +334,13 @@ def _update_mortar_grid(g_h, g_l, d_e, new_cells, new_faces_h):
     d_e["mortar_grid"] = mg_new
 
 
-def _update_geometry(g_h, g_l, new_cells, n_old_cells_l, n_old_faces_l):
+def _update_geometry(
+    g_h: pp.Grid,
+    g_l: pp.Grid,
+    new_cells: np.ndarray,
+    n_old_cells_l: int,
+    n_old_faces_l: int,
+) -> None:
     # Update geometry on each iteration to ensure correct tags.
 
     # The geometry of the higher-dimensional grid can be computed straightforwardly.
@@ -382,7 +433,7 @@ def _update_geometry(g_h, g_l, new_cells, n_old_cells_l, n_old_faces_l):
         g_l.face_normals = face_normals
 
 
-def update_connectivity(
+def _update_connectivity_fracture_grid(
     g_l: pp.Grid,  # higher dimensional grid
     g_h: pp.Grid,  # lower dimensional grid
     nodes_l: np.ndarray,  # nodes in g_h involved in the propagation
@@ -397,20 +448,23 @@ def update_connectivity(
     higher-dimensional faces_h. Also tags the faces as domain_boundary or tip
     Should be called after initialization of tags
     and geometry of g_l by append_face_geometry and append_face_tags.
+
     """
     # Extract immediate information
 
     # Each split face gives a new cell in g_l
     n_new_cells_l = faces_h.size
-    # index of the new cells in g_l
+    # index of the new cells in g_l. These are appended to the existing cells
     new_cells_l = np.arange(n_old_cells_l, n_old_cells_l + n_new_cells_l)
 
     # Initialize fields for new faces in g_l
-    new_faces_l = np.empty((g_l.dim, 0))
+    new_faces_l = np.empty((g_l.dim, 0), dtype=np.int)
     new_face_centers_l = np.empty((3, 0))
+
+    # Counter of total number of faces in g_l
     face_counter_l = n_old_faces_l
 
-    # Copy what is to be updated
+    # Copy what is to be updated: Cell-face and face-node relation in g_l
     old_cell_faces = g_l.cell_faces.copy()
     old_face_nodes = g_l.face_nodes.copy()
 
@@ -424,19 +478,27 @@ def update_connectivity(
     )
 
     # Initialize indices and values for the cell_faces update
-    ind_f, ind_c, cf_val = np.empty(0), np.empty(0), np.empty(0)
+    ind_f, ind_c, cf_val = (
+        np.empty(0, dtype=np.int),
+        np.empty(0, dtype=np.int),
+        np.empty(0, dtype=np.int),
+    )
     # and for the face_nodes update
-    fn_ind_f, fn_ind_n = np.empty(0), np.empty(0)
+    fn_ind_f, fn_ind_n = np.empty(0, dtype=np.int), np.empty(0, dtype=np.int)
 
     # Loop over all new cells to be created
     for i, c in enumerate(new_cells_l):
+
         # Find the nodes of the corresponding higher-dimensional face
         face_h = faces_h[i]
         local_nodes_h = g_h.face_nodes[:, face_h].nonzero()[0]
-        # Find the nodes' place among the active higher-dimensional nodes
+
+        # Find the nodes' place among the active higher-dimensional nodes, that is,
+        # nodes that will be split
         in_unique_nodes = pp.utils.setmembership.ismember_rows(
             local_nodes_h, nodes_h, sort=False
         )[1]
+
         # Find the corresponding lower-dimensional nodes
         local_nodes_l = np.array(nodes_l[in_unique_nodes], dtype=int)
 
@@ -449,7 +511,7 @@ def update_connectivity(
         # Store face center for the update of g_l.face_centers
 
         # Faces are defined by one node in 1d and two in 2d. This requires
-        # dimension dependent treatment:
+        # dimension-dependent treatment:
         if g_l.dim == 2:
             # Sort nodes clockwise (!)
             # ASSUMPTION: This assumes that the new cell is star-shaped with respect to the
@@ -459,6 +521,7 @@ def update_connectivity(
             )
             sorted_nodes_l = local_nodes_l[map_to_sorted]
             sorted_nodes_h = local_nodes_h[map_to_sorted]
+
             # Define the faces of the new cell c (size: 2 x faces_per_cell_l). "Duplicate"
             # of the higher dimension used for tag identification.
             faces_l = np.vstack(
@@ -467,8 +530,9 @@ def update_connectivity(
             local_faces_h = np.vstack(
                 (sorted_nodes_h, np.append(sorted_nodes_h[1:], sorted_nodes_h[0]))
             )
+
         else:
-            # Faces and nodes are 1:1, but ismember_rows requires 2d array
+            # Faces and nodes are 1:1, but ismember_rows (below) requires 2d array
             faces_l = np.atleast_2d(local_nodes_l)
             local_faces_h = np.atleast_2d(local_nodes_h)
 
@@ -496,7 +560,7 @@ def update_connectivity(
 
         ## Assign tags to the new faces
         # First expand tag arrays to make space for new faces
-        append_face_tags(g_l, n_new_local_faces_l)
+        _append_face_tags(g_l, n_new_local_faces_l)
 
         # The existing faces are tagged according to the information from the
         # node tags of g_h.
@@ -607,7 +671,9 @@ def update_connectivity(
     return n_new_faces, new_face_centers_l
 
 
-def update_cells(g_h, g_l, faces_h):
+def _update_cells_fracture_grid(
+    g_h: pp.Grid, g_l: pp.Grid, faces_h: np.ndarray
+) -> np.ndarray:
     """
     Cell information for g_l is inherited directly from the higher-dimensional
     faces we are splitting. The function updates num_cells, cell_centers and
@@ -621,7 +687,7 @@ def update_cells(g_h, g_l, faces_h):
     return new_cells
 
 
-def update_nodes(
+def _update_nodes_fracture_grid(
     g_h: pp.Grid, g_l: pp.Grid, faces_h: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
@@ -630,17 +696,23 @@ def update_nodes(
         global_point_ind
         nodes
         num_nodes
+
     Returns:
         unique_nodes_l - numpy array (number of involved nodes x 1) Indices of
             the nodes (as arranged in g_l.nodes).
         unique_nodes_h - same, but corresponding to g_h.nodes.
+
     """
+    # Nodes of g_h to be split
     nodes_h = g_h.face_nodes[:, faces_h].nonzero()[0]
     unique_nodes_h = np.unique(nodes_h)
+
+    # Global index of nodes to split
     unique_global_nodes = g_h.global_point_ind[unique_nodes_h]
 
     # Some of the nodes of the face to be split will be in g_l already (as tip nodes)
     # Find which are present, and which should be added
+    # NOTE: This comparison must be done in terms of global_point_ind
     are_old_global_nodes_in_l = np.in1d(unique_global_nodes, g_l.global_point_ind)
     are_new_global_nodes_in_l = np.logical_not(are_old_global_nodes_in_l)
 
@@ -667,7 +739,9 @@ def update_nodes(
     return unique_nodes_l, unique_nodes_h
 
 
-def append_face_geometry(g, n_new_faces, new_centers):
+def _append_face_geometry_fracture_grid(
+    g: pp.Grid, n_new_faces: int, new_centers: np.ndarray
+) -> None:
     """
     Appends and updates faces geometry information for new faces. Also updates
     num_faces.
@@ -678,7 +752,7 @@ def append_face_geometry(g, n_new_faces, new_centers):
     g.num_faces += n_new_faces
 
 
-def append_face_tags(g, n_new_faces):
+def _append_face_tags(g, n_new_faces):
     """
     Initiates default face tags (False) for new faces.
     """
@@ -687,7 +761,7 @@ def append_face_tags(g, n_new_faces):
     pp.utils.tags.append_tags(g.tags, keys, new_tags)
 
 
-def append_node_tags(g, n_new_nodes):
+def _append_node_tags(g, n_new_nodes):
     """
     Initiates default face tags (False) for new faces.
     """
@@ -696,7 +770,7 @@ def append_node_tags(g, n_new_nodes):
     pp.utils.tags.append_tags(g.tags, keys, new_tags)
 
 
-def split_fracture_extension(
+def _split_fracture_extension(
     bucket: pp.GridBucket,
     g_h: pp.Grid,
     g_l: pp.Grid,
@@ -718,8 +792,12 @@ def split_fracture_extension(
     cells_l     - The corresponding lower-dimensional cells.
     nodes_h     - The corresponding (hig_her-dimensional) nodes.
 
-    Same level as split_faces
     """
+    # IMPLEMENTATION NOTE: Part of the following code is likely more general than
+    # necessary considering assumptions made before we reach this point - e.g.
+    # assumptions in propagate_fractures() and other subfunctions. Specifically,
+    # it is unlikely the code will be called with g_h.dim != bucket.dim_max().
+
     # We are splitting faces in g_h. This affects all the immersed fractures,
     # as face_cells has to be extended for the new faces_h.
     neigh = np.array(bucket.node_neighbors(g_h))
@@ -734,7 +812,9 @@ def split_fracture_extension(
         warnings.warn("Unexpected neighbourless g_h in fracture propagation")
         return
 
-    face_cell_list = [bucket.edge_props(e, "face_cells") for e in edges]
+    face_cell_list: List[sps.spmatrix] = [
+        bucket.edge_props(e, "face_cells") for e in edges
+    ]
 
     # We split all the faces that are connected to faces_h
     # The new faces will share the same nodes and properties (normals,
@@ -754,11 +834,11 @@ def split_fracture_extension(
     pp.fracs.split_grid.split_nodes(g_h, [g_l], [nodes_h])
 
     # Remove zeros from cell_faces
-    [g.cell_faces.eliminate_zeros() for g, _ in bucket]
-    return bucket
+    for g, _ in bucket:
+        g.cell_faces.eliminate_zeros()
 
 
-def tag_affected_cells_and_faces(gb):
+def _tag_affected_cells_and_faces(gb):
     """
     Tag the lower-dimensional cells and higher-dimensional faces which have
     been affected by the update. Should be the new cells, and both the original

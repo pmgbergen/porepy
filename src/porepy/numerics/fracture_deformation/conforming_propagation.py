@@ -35,7 +35,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 import logging
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Any
 from .propagation_model import FracturePropagation
 
 logger = logging.getLogger(__name__)
@@ -51,12 +51,29 @@ class ConformingFracturePropagation(FracturePropagation):
 
     Should be used in combination with a Model class, i.e. assumptions on methods
     and fields are made.
+
+    WARNING: This should be considered experimental code and should be used with
+        extreme caution. In particular, the code likely contains bugs, possibly of a
+        severe character. Moreover, simulation of fracture propagation may cause
+        numerical stability issues that it will likely take case-specific adaptations
+        to resolve.
+
+        The code structure for fracture propagation cannot be considered fixed, and it
+        may be fundamentally restructured at unknown points in the future. If you use
+        this functionality, please notify the maintainers (Eirik.Keilegavlen@uib.no),
+        so that we may keep your usecases in mind if a major overhaul of the code is
+        undertaken.
+
     """
 
     def __init__(self, params):
-        super().__init__(params)
+        self.params = params
         # Tag for tensile propagation. This enforces SIF_II=SIF_III=0
         self._is_tensile = True
+
+        # Declear variable for keeping track of whether a propagating fracture has_
+        # been found. In practice, this is modified by self.evaluate_propagation()
+        self.propagated_fracture: bool = False
 
     def has_propagated(self) -> bool:
         if not hasattr(self, "propagated_fracture"):
@@ -89,29 +106,51 @@ class ConformingFracturePropagation(FracturePropagation):
                 "Fracture propogation with intersecting fractures has not been tested"
             )
 
-        face_list = {}
+        face_list: Dict[pp.Grid, np.ndarray] = {}
 
         self.propagated_fracture = False
 
+        # The propagation is implemented as a loop over interfaces, this gives access to
+        # both higher and lower-dimensional grids (both of which may be modified).
         for e, d in gb.edges():
             g_l, g_h = gb.nodes_of_edge(e)
+
+            # Only consider grids of co-dimension 1 for splitting.
             if g_h.dim == self.Nd:
-                d_l, d_h = gb.node_props(g_l), gb.node_props(g_h)
-                self._displacement_correlation(g_h, g_l, d_h, d_l, d)
+                d_l: Dict = gb.node_props(g_l)
+                d_h: Dict = gb.node_props(g_h)
+
+                # Compute stress intensity factors for this fracture.
+                self._displacement_correlation(g_l, d_h, d_l, d)
+
+                # Determine whether the fracture should propagate based on computed SIFs,
+                # tag faces in the lower-dimensional grid that should be split (that is,
+                # find the parts of the fracture tips that should move).
                 self._propagation_criterion(d_l)
+
+                # Determine the propagation angle based on SIFs
                 self._angle_criterion(d_l)
+
+                # Determine faces to split in the higher-dimensional grid, that is, where
+                # the fracture should grow.
                 self._pick_propagation_faces(g_h, g_l, d_h, d_l, d)
 
             if d["propagation_face_map"].data.size > 0:
-                row, col, _ = sps.find(d["propagation_face_map"])
+                # Find the faces in the lower-dimensional grid to split.
+                _, col, _ = sps.find(d["propagation_face_map"])
                 face_list.update({g_l: col})
+
+                # We have propagated (at least) one fracture in this step
                 self.propagated_fracture = True
+
             else:
-                face_list.update({g_l: []})
+                # No updates to the geometry.
+                face_list.update({g_l: np.array([], dtype=np.int)})
+
         pp.propagate_fracture.propagate_fractures(gb, face_list)
 
     def _displacement_correlation(
-        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
+        self, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
     ) -> None:
         """
         Compute stress intensity factors by displacement correlation based on
@@ -119,8 +158,6 @@ class ConformingFracturePropagation(FracturePropagation):
 
         Parameters
         ----------
-        g_h : pp.Grid
-            Matrix grid.
         g_l : pp.Grid
             Fracture grid.
         data_h : Dict
@@ -140,13 +177,21 @@ class ConformingFracturePropagation(FracturePropagation):
 
         """
 
-        parameters_l = data_l[pp.PARAMETERS][self.mechanics_parameter_key]
-        parameters_h = data_h[pp.PARAMETERS][self.mechanics_parameter_key]
-        mg = data_edge["mortar_grid"]
+        parameters_l: Dict[str, Any] = data_l[pp.PARAMETERS][
+            self.mechanics_parameter_key
+        ]
+        parameters_h: Dict[str, Any] = data_h[pp.PARAMETERS][
+            self.mechanics_parameter_key
+        ]
+        mg: pp.MortarGrid = data_edge["mortar_grid"]
 
-        u_j = data_edge[pp.STATE][pp.ITERATE][self.mortar_displacement_variable]
+        u_j: np.ndarray = data_edge[pp.STATE][pp.ITERATE][
+            self.mortar_displacement_variable
+        ]
+
         # Only operate on tips
         tip_faces = g_l.tags["tip_faces"].nonzero()[0]
+        # Cells in g_l on the fracture tips
         _, tip_cells = g_l.signs_and_cells_of_boundary_faces(tip_faces)
 
         # Project to fracture and apply jump operator
@@ -155,8 +200,10 @@ class ConformingFracturePropagation(FracturePropagation):
             * mg.sign_of_mortar_sides(nd=self.Nd)
             * u_j
         )
+        # Jumps at the fracture tips
         u_l = u_l.reshape((self.Nd, g_l.num_cells), order="F")[:, tip_cells]
-        # Pick out components in the tip basis
+
+        # Pick out components of the tip displacement jump in the tip basis
         tip_bases = self._tip_bases(
             g_l, data_l["tangential_normal_projection"], tip_faces
         )
@@ -170,13 +217,18 @@ class ConformingFracturePropagation(FracturePropagation):
         # Rather distance from cc to the face??
         fc_cc = g_l.face_centers[::, tip_faces] - g_l.cell_centers[::, tip_cells]
         dist_face_cell = np.linalg.norm(fc_cc, 2, axis=0)
+
+        # The SIF vector has size equal to the number of faces in g_l, however,
+        # only the tip values are non-zero.
         sifs = np.zeros((self.Nd, g_l.num_faces))
         sifs[:, tip_faces] = self._sifs_from_delta_u(
             d_u_tips, dist_face_cell, parameters_h
         )
         parameters_l["SIFs"] = sifs
 
-    def _sifs_from_delta_u(self, d_u, rm, parameters):
+    def _sifs_from_delta_u(
+        self, d_u: np.ndarray, rm: np.ndarray, parameters: Dict[str, Any]
+    ) -> np.ndarray:
         """
         Compute the stress intensity factors from the relative displacements.
 
@@ -195,19 +247,35 @@ class ConformingFracturePropagation(FracturePropagation):
             K (array): the displacement correlation stress intensity factor
             estimates.
         """
-        mu = parameters["shear_modulus"]
-        poisson = parameters["poisson_ratio"]
+        mu: np.ndarray = parameters["shear_modulus"]
+        poisson: np.ndarray = parameters["poisson_ratio"]
         kappa = 3 - 4 * poisson
         # kappa = 3 - poisson / (1 + poisson)
 
         (dim, n_points) = d_u.shape
+
+        # Data structure for the SIFs
         K = np.zeros(d_u.shape)
         rm = rm.T
+
+        # Compute SIF_I
         K[0] = np.sqrt(2 * np.pi / rm) * np.divide(mu, kappa + 1) * d_u[1, :]
+
+        # Shortcut for tensile problems
         if self._is_tensile:
             return K
+
+        # The computation of SIF_II can be numerically less stable than is SIF_I
+        # The reason seems to be related to the MPSA solution not representing the
+        # stress singularity at the fracture tips.
+        # The SIFs can still be computed and used, however, they should not be
+        # trusted blindly.
         logger.warning("Computing non-tensile SIFs, proceed with caution.")
         K[1] = np.sqrt(2 * np.pi / rm) * np.divide(mu, kappa + 1) * d_u[0, :]
+
+        # For better values, it may be of interest to consider generalized approaches
+        # to SIF calculation by
+        # This is left in the code as a (potentially) useful code.
         # Generalised displacement correlation:
         # f = -2*(1-poisson)/np.sqrt(2*np.pi)/mu
         # f =2/(1+poisson)/np.sqrt(2*np.pi)/mu
@@ -237,9 +305,14 @@ class ConformingFracturePropagation(FracturePropagation):
 
         Stores a boolean array identifying the faces to be propagated.
         """
-        parameters = d[pp.PARAMETERS][self.mechanics_parameter_key]
-        K = parameters["SIFs"]
-        K_crit = parameters["SIFs_critical"]
+        parameters: Dict[str, Any] = d[pp.PARAMETERS][self.mechanics_parameter_key]
+
+        # Computed sifs
+        K: np.ndarray = parameters["SIFs"]
+        # Critical values
+        K_crit: np.ndarray = parameters["SIFs_critical"]
+
+        # Comparison
         a_1 = K_crit[0] / K_crit[1]
         shear_contribution = 4 * (a_1 * K[1]) ** 2
         if self.Nd == 3:
@@ -270,13 +343,16 @@ class ConformingFracturePropagation(FracturePropagation):
 
         Stores an array of the faces to be propagated.
         """
-        parameters = d[pp.PARAMETERS][self.mechanics_parameter_key]
-        K = parameters["SIFs"]
+        parameters: Dict[str, Any] = d[pp.PARAMETERS][self.mechanics_parameter_key]
+
+        # Computed sifs
+        K: np.ndarray = parameters["SIFs"]
         phi = np.zeros(K.shape[1])
-        # Avoid division by zero:
+
+        # Avoid division by zero: Find columns with non-zero values
         ind = np.any(K, axis=0)
         K = K[:, ind]
-        K_crit = parameters["SIFs_critical"]
+
         A, B = np.radians(140), np.radians(-70)
         abs_K_1 = np.abs(K[1])
         denominator = K[0] + abs_K_1
@@ -361,46 +437,60 @@ class ConformingFracturePropagation(FracturePropagation):
         lower- and higherdimensional faces. During grid updates, the former will receive
         a new neighbour cell and the latter will be split.
         """
-        nd = self.Nd
-        parameters_l = data_l[pp.PARAMETERS][self.mechanics_parameter_key]
-        faces_l = parameters_l["propagate_faces"].nonzero()[0]
+        nd: int = self.Nd
+        parameters_l: Dict[str, Any] = data_l[pp.PARAMETERS][
+            self.mechanics_parameter_key
+        ]
+
+        # Faces in lower-dimensional grid to be split
+        faces_l: np.ndarray = parameters_l["propagate_faces"].nonzero()[0]
 
         tip_bases = self._tip_bases(
             g_l, data_l["tangential_normal_projection"], faces_l
         )
-        angles = parameters_l["propagation_angle_normal"][faces_l]
+        angles: np.ndarray = parameters_l["propagation_angle_normal"][faces_l]
 
-        # Find the edges
-        nodes_l, _, _ = sps.find(g_l.face_nodes[:, faces_l])
-        # Obtain the global index of all nodes
+        # Find the edges in lower-dimensional grid to be split. For 2d problems (1d
+        # fractures) this will be a node, in 3d, this is two nodes.
+        nodes_l, *_ = sps.find(g_l.face_nodes[:, faces_l])
+
+        # Obtain the global index of all nodes.
+        # NOTE: For algorithms that introduce new geometric points (not including points that
+        # are split to represent a new fracture, but algorithms that do mesh adaptation will
+        # be impacted), the global_point_ind must be kept updated so that it gives a unique
+        # mapping between points that coincide in the geometry (e.g. the two sides of a
+        # fracture, and the corresponding point on the fracture).
         global_nodes = g_l.global_point_ind[nodes_l]
 
         # Prepare for checking intersection. ind_l is used to reconstruct non-unique
         # nodes later.
         global_nodes, ind_l = np.unique(global_nodes, return_inverse=True)
         # Find g_h indices of unique global nodes
-        _, nodes_h, inds = np.intersect1d(
-            g_h.global_point_ind, global_nodes, assume_unique=False, return_indices=True
+        _, nodes_h, *_ = np.intersect1d(
+            g_h.global_point_ind, global_nodes, return_indices=True
         )
+
         # Reconstruct non-unique and reshape to edges (first dim is 2 if nd=3)
         edges_h = np.reshape(nodes_h[ind_l], (nd - 1, faces_l.size), order="f")
 
-        # No attempt at vectorization: Too many pitfalls for IS. In particular,
+        # IMPLEMENTATION NOTE: No attempt at vectorization: Too many pitfalls. In particular,
         # the number of candidate faces is unknown and may differ between the nodes.
 
+        # Data structure for storing which faces in g_h should be split
         faces_h = np.empty(faces_l.shape, dtype=int)
         for i, f in enumerate(faces_l):
             e = edges_h[:, i]
-            candidate_faces_h = self._candidate_faces(
-                g_h, e, g_l, f, faces_h, data_edge
-            )
+            candidate_faces_h = self._candidate_faces(g_h, e, g_l, f)
+
             ## Pick the right candidate:
             # Direction of h-dim face centers from the tip
             tip_coords = np.reshape(g_l.face_centers[:nd, faces_l[i]], (nd, 1))
             face_center_vecs = g_h.face_centers[:nd, candidate_faces_h] - tip_coords
+            # normalization
             face_center_vecs = face_center_vecs / np.linalg.norm(
                 face_center_vecs, axis=0
             )
+
             # Propagation vector, with sign assuring a positive orientation
             # of the basis
             if nd == 2:
@@ -435,8 +525,11 @@ class ConformingFracturePropagation(FracturePropagation):
         data_h[pp.STATE]["neighbor_cells"] = vals
 
     def _tip_bases(
-        self, g, projection: pp.TangentialNormalProjection, faces: np.ndarray,
-    ):
+        self,
+        g: pp.Grid,
+        projection: pp.TangentialNormalProjection,
+        faces: np.ndarray,
+    ) -> np.ndarray:
         """
         Construct local bases for tip faces of a fracture.
 
@@ -477,11 +570,10 @@ class ConformingFracturePropagation(FracturePropagation):
             basis[2, :, :] = np.cross(basis[0, :, :], basis[1, :, :], axis=0)
         return basis
 
-    def _candidate_faces(
-        self, g_h: pp.Grid, edge_h, g_l: pp.Grid, face_l, identified_faces, data_edge
-    ):
+    def _candidate_faces(self, g_h: pp.Grid, edge_h, g_l: pp.Grid, face_l: np.ndarray):
         # TODO: Use identified_faces to avoid pathological cases arising through
         # propagation of multiple fractures within the same propagation step.
+
         def faces_of_edge(g: pp.Grid, e: np.ndarray) -> np.ndarray:
             """
             Obtain indices of all faces sharing an edge.
@@ -507,11 +599,13 @@ class ConformingFracturePropagation(FracturePropagation):
                 f_1 = g.face_nodes[e[1]].nonzero()[1]
                 faces = np.intersect1d(f_0, f_1)
             else:
-                raise NotImplementedError
+                raise ValueError("Grid dimension should be 1, 2 or 3")
             return faces
 
-        # Find all the edge's neighboring faces
+        # For an edge (corresponding to a fracture tip in g_l), find its neighboring
+        # faces in g_h
         candidate_faces = faces_of_edge(g_h, edge_h)
+
         # Exclude faces that are on a fracture
         are_fracture = g_h.tags["fracture_faces"][candidate_faces]
         candidate_faces = candidate_faces[np.logical_not(are_fracture)]
@@ -534,6 +628,7 @@ class ConformingFracturePropagation(FracturePropagation):
                     pts, g_h.face_centers[:, f]
                 )
                 sorted_nodes = local_nodes[map_to_sorted]
+                # Close the circle by appending the first node
                 local_nodes = np.hstack((sorted_nodes, sorted_nodes[0]))
 
             # Loop over the edges of the candidate face
@@ -552,7 +647,9 @@ class ConformingFracturePropagation(FracturePropagation):
                     global_nodes = g_h.global_point_ind[e]
                     # Find g_h indices of unique global nodes
                     _, nodes_l = np.intersect1d(
-                        g_l.global_point_ind, global_nodes, assume_unique=False,
+                        g_l.global_point_ind,
+                        global_nodes,
+                        assume_unique=False,
                     )
 
                     if g_l.dim == 1:
