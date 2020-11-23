@@ -79,6 +79,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         self.convergence_status = False
         self.linear_solver = "direct"
 
+        self._iteration: int = 0
+
     def create_grid(self):
         """Create a (fractured) domain in 2D or 3D, with projections to local
         coordinates set for all fractures.
@@ -494,6 +496,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         Discretize time-dependent quantities etc.
         """
         self.convergence_status = False
+        self._iteration = 0
 
     def before_newton_iteration(self):
         # Re-discretize the nonlinear term
@@ -516,6 +519,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             (np.array): displacement solution vector for the Nd grid.
 
         """
+        self._iteration += 1
         self._update_iterate(solution_vector)
 
         u = solution_vector[

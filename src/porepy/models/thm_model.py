@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 class THM(parent_model.ContactMechanicsBiot):
     def __init__(self, params: Dict = None) -> None:
-        super().__init__(params)
+        super(THM, self).__init__(params)
 
         # temperature
         self.temperature_variable = "T"
@@ -564,7 +564,10 @@ class THM(parent_model.ContactMechanicsBiot):
         key_m_from_t = self.mechanics_temperature_parameter_key
         d[pp.DISCRETIZATION_MATRICES][key_m_from_t] = matrices_mt
         pp.initialize_data(
-            g, d, key_m_from_t, {"biot_alpha": weight_div_u},
+            g,
+            d,
+            key_m_from_t,
+            {"biot_alpha": weight_div_u},
         )
         bc_dict = {"bc_values": self.bc_values_mechanics(g)}
         state = {key_m_from_t: bc_dict}
