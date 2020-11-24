@@ -11,16 +11,15 @@ to be bug free.
 
 """
 import warnings
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
 import scipy.sparse as sps
-from typing import Tuple, List, Dict, Any
 
 import porepy as pp
 
 
-def propagate_fractures(
-    gb: pp.GridBucket, faces: List[Dict[pp.Grid, np.ndarray]]
-) -> None:
+def propagate_fractures(gb: pp.GridBucket, faces: Dict[pp.Grid, np.ndarray]) -> None:
     """
     gb - grid bucket with matrix and fracture grids.
     faces_h - list of list of faces to be split in the highest-dimensional
@@ -390,10 +389,6 @@ def _update_geometry(
         face_areas[:n_old_faces_l] = g_l.face_areas[:n_old_faces_l]
         face_centers[:, :n_old_faces_l] = g_l.face_centers[:, :n_old_faces_l]
         face_normals[:, :n_old_faces_l] = g_l.face_normals[:, :n_old_faces_l]
-
-        # Get a dense version of the cell-face map (really cell neighbors of faces).
-        # We will use this in the computation of normal vectors.
-        face_neighs = g_l.cell_face_as_dense()
 
         for fi in range(n_old_faces_l, g_l.num_faces):
             # Geometric quantities for this face

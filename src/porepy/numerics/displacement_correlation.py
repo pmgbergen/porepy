@@ -13,8 +13,8 @@ is (at least partly) for purposes of investigation of the method.
 """
 
 import numpy as np
-import porepy as pp
 
+import porepy as pp
 
 # ---------------------propagation criteria----------------------------------#
 

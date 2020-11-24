@@ -19,10 +19,12 @@ WARNING: This should be considered experimental code and should be used with
 
 """
 import abc
+from typing import Dict
+
 import numpy as np
 import scipy.sparse as sps
+
 import porepy as pp
-from typing import Dict
 
 
 class FracturePropagation(abc.ABC):
@@ -140,7 +142,7 @@ class FracturePropagation(abc.ABC):
                 continue
 
             cell_map: sps.spmatrix = d["cell_index_map"]
-            face_map: sps.spmatrix = d["face_index_map"]
+
             d[pp.STATE]["old_solution"] = {}
             for var, dofs in d[pp.PRIMARY_VARIABLES].items():
                 # Copy old solution vector values
@@ -240,7 +242,7 @@ class FracturePropagation(abc.ABC):
 
         for e, d in self.gb.edges():
             # Same procedure as for nodes, see above for comments
-            if not "cell_index_map" in d:
+            if "cell_index_map" not in d:
                 continue
 
             cell_map = d["cell_index_map"]

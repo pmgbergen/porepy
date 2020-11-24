@@ -91,6 +91,8 @@ class Grid:
             there is no guarantee that this will work.
         _physical_name_index (int): Used to keep track of processing of grids generated
             by gmsh.
+        frac_pairs (np.ndarray): indices of faces that are geometrically coinciding, but
+            lay on different side of a lower-dimensional grid.
 
     """
 
@@ -101,7 +103,7 @@ class Grid:
         face_nodes: sps.csc_matrix,
         cell_faces: sps.csc_matrix,
         name: Union[List[str], str],
-        tags: Dict[str, np.ndarray] = None,
+        external_tags: Dict[str, np.ndarray] = None,
     ) -> None:
         """Initialize the grid
 
@@ -141,8 +143,10 @@ class Grid:
         self.global_point_ind: np.ndarray = np.arange(self.num_nodes)
         self._physical_name_index: int = -1
 
+        self.frac_pairs: np.ndarray = np.array([[]], dtype=np.int)
+
         # Add tag for the boundary faces
-        if tags is None:
+        if external_tags is None:
             self.tags: Dict[str, np.ndarray] = {}
             self.initiate_face_tags()
             self.update_boundary_face_tag()
@@ -151,7 +155,7 @@ class Grid:
             self.initiate_node_tags()
             self.update_boundary_node_tag()
         else:
-            self.tags = tags
+            self.tags = external_tags
             self._check_tags()
 
     def copy(self):
