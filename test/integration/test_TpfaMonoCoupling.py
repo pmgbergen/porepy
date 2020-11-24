@@ -55,14 +55,14 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         for e, d_e in gb.edges():
             mg = d_e["mortar_grid"]
             g2, g1 = gb.nodes_of_edge(e)
-            master_to_m = mg.master_to_mortar_avg()
-            slave_to_m = mg.slave_to_mortar_avg()
+            primary_to_m = mg.primary_to_mortar_avg()
+            secondary_to_m = mg.secondary_to_mortar_avg()
 
-            master_area = master_to_m * g1.face_areas
-            slave_area = slave_to_m * g2.face_areas
+            primary_area = primary_to_m * g1.face_areas
+            secondary_area = secondary_to_m * g2.face_areas
 
-            self.assertTrue(np.allclose(d_e[pp.STATE]["mortar_flux"] / master_area, 1))
-            self.assertTrue(np.allclose(d_e[pp.STATE]["mortar_flux"] / slave_area, 1))
+            self.assertTrue(np.allclose(d_e[pp.STATE]["mortar_flux"] / primary_area, 1))
+            self.assertTrue(np.allclose(d_e[pp.STATE]["mortar_flux"] / secondary_area, 1))
 
     def generate_grids(self, n, xmax, ymax, split):
         g1 = pp.CartGrid([split * n, ymax * n], physdims=[split, ymax])
@@ -101,7 +101,7 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         mg.nodes[1] = np.linspace(0, ymax, (n + 1) * ymax)
         mg.compute_geometry()
         d_e = gb.edge_props((g1, g2))
-        d_e["mortar_grid"] = pp.BoundaryMortar(g1.dim - 1, mg, face_faces)
+        d_e["mortar_grid"] = pp.MortarGrid(g1.dim - 1, {"0": mg}, face_faces)
         d_e["edge_number"] = 0
 
         return gb
@@ -292,8 +292,8 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             mg = d_e["mortar_grid"]
             g1, g2 = gb.nodes_of_edge(e)
             if g1 == g2:
-                left_to_m = mg.master_to_mortar_avg()
-                right_to_m = mg.slave_to_mortar_avg()
+                left_to_m = mg.primary_to_mortar_avg()
+                right_to_m = mg.secondary_to_mortar_avg()
             else:
                 continue
             d1 = gb.node_props(g1)
@@ -335,7 +335,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         mg.compute_geometry()
 
         d_e = gb.edge_props((g1, g1))
-        d_e["mortar_grid"] = pp.BoundaryMortar(g1.dim - 1, mg, face_faces)
+        d_e["mortar_grid"] = pp.MortarGrid(g1.dim - 1, {"0": mg}, face_faces)
         gb.assign_node_ordering()
         return gb
 
@@ -390,7 +390,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                             gi, gi.left, faces=True
                         )
 
-                    d_e["mortar_grid"] = pp.BoundaryMortar(gi.dim - 1, g_m, face_faces)
+                    d_e["mortar_grid"] = pp.MortarGrid(gi.dim - 1, {"0": g_m}, face_faces)
 
         gb.compute_geometry()  # basically reset g.face_centers[,right]
         gb.assign_node_ordering()

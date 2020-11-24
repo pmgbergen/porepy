@@ -96,6 +96,11 @@ class ListFilter(AssemblerFilter):
     Thus, if neither grids, variables nor terms are specified, the filter effectively
     becomes an AllPassFilter.
 
+    NOTE: If a list (say of grids) is given as an empty list, the filter will become
+    no-pass fliterThis is to cover cases where dimension-filtering on grids in a GridBucket
+    returns a empty list, which should result in no-pass, not all-pass behavior.
+    The behavior for variable and term lists is similar.
+
     Acceptable variables and terms can be specified as a negation with the
     syntax !variable_name. It is not possible to use both negated and standard
     specification of, say, variables, but negated variables combined with standard
@@ -123,30 +128,47 @@ class ListFilter(AssemblerFilter):
             term_list: List of terms to pass the filter.
 
         """
+        # Helper functions, needed for no-pass and all-pass behavior
+        def return_false(s):
+            return False
 
-        nodes, edges, couplings = self._parse_grid_list(grid_list)
-        self._nodes: List[Grid] = nodes
-        self._edges: List[Tuple[Grid, Grid]] = edges
-        self._couplings: List[Tuple[Grid, Grid, Tuple[Grid, Grid]]] = couplings
-        self._grid_filter = self._make_grid_filter()
+        def return_true(s):
+            return True
 
-        if variable_list:
-            self._variable_list: List[str] = variable_list
+        if grid_list is None:
+            # There should be no filtering based on grids
+
+            self._grid_filter = return_true
+
         else:
-            self._variable_list = []
+            if len(grid_list) == 0:
+                # This is considered a no-pass filter.
+                # This will for instance be the case if a GridBucket is filtered
+                # on a dimension that is not present (will return an empty list)
 
-        if term_list:
-            self._term_list: List[str] = term_list
+                self._grid_filter = return_false
+
+            else:
+                # Non-trivial filter
+                self._grid_filter = self._make_grid_filter(grid_list)
+
+        if variable_list is None:
+            self._var_filter: Callable[[Optional[List[str]]], bool] = return_true
         else:
-            self._term_list = []
+            if len(variable_list) == 0:
+                self._var_filter = return_false
+            else:
+                self._variable_list: List[str] = variable_list
+                self._var_filter = self._make_string_filter(self._variable_list)
 
-        self._var_filter: Callable[
-            [Optional[List[str]]], bool
-        ] = self._make_string_filter(self._variable_list)
-
-        self._term_filter: Callable[
-            [Optional[List[str]]], bool
-        ] = self._make_string_filter(self._term_list)
+        if term_list is None:
+            self._term_filter: Callable[[Optional[List[str]]], bool] = return_true
+        else:
+            if len(term_list) == 0:
+                self._term_filter = return_false
+            else:
+                self._term_list: List[str] = term_list
+                self._term_filter = self._make_string_filter(self._term_list)
 
     def filter(
         self,
@@ -177,13 +199,14 @@ class ListFilter(AssemblerFilter):
             and self._term_filter(terms)
         )
 
-    def _parse_grid_list(self, grid_list):
+    def _parse_grid_list(
+        self, grid_list: List[grid_like_type]
+    ) -> Tuple[List, List, List]:
+        assert grid_list is not None
+
         nodes = []
         edges = []
         couplings = []
-        if grid_list is None:
-            grid_list = []
-
         self._grid_list = grid_list
 
         for g in grid_list:
@@ -201,16 +224,12 @@ class ListFilter(AssemblerFilter):
                 couplings.append(g)
         return nodes, edges, couplings
 
-    def _make_grid_filter(self):
-        def return_true(s):
-            return True
+    def _make_grid_filter(self, grid_list):
 
-        if (
-            len(self._nodes) == 0
-            and len(self._edges) == 0
-            and len(self._couplings) == 0
-        ):
-            return return_true
+        nodes, edges, couplings = self._parse_grid_list(grid_list)
+        self._nodes: List[Grid] = nodes
+        self._edges: List[Tuple[Grid, Grid]] = edges
+        self._couplings: List[Tuple[Grid, Grid, Tuple[Grid, Grid]]] = couplings
 
         def _grid_filter(gl):
             if not isinstance(gl, list):
