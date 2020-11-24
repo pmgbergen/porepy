@@ -1153,9 +1153,9 @@ class Assembler:
                 # Also fetch mortar grid
                 grid = d["mortar_grid"]
 
-            dof: Dict[str, int] = d[pp.PRIMARY_VARIABLES][variable]
             # Dofs related to cell
-            num_dofs: int = grid.num_cells * dof.get("cells", 0)
+            dof: Dict[str, int] = d[pp.PRIMARY_VARIABLES][variable]
+            num_dofs: int = grid.num_cells * dof.get("cells", 0)  # type: ignore
 
             if isinstance(grid, pp.Grid):
                 # Add dofs on faces and nodes, but not on interfaces

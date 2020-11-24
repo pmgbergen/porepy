@@ -7,7 +7,7 @@ WARNING: This should be considered experimental code and should be used with
     severe character. Moreover, simulation of fracture propagation may cause
     numerical stability issues that it will likely take case-specific adaptations
     to resolve.
-    
+
 WARNING 2: At the moment there are assumptions of purely tensional propagation.
     Violation of this assumption is not recommended with the current implementation.
 
@@ -19,23 +19,24 @@ Contains:
         poisson_ratio (d_h)
         shear_modulus (d_h)
         SIFs_critical (d_l)
-    
+
 Literature:
-    Thomas et al. 2020: Growth of three-dimensional fractures, arrays, and networks 
+    Thomas et al. 2020: Growth of three-dimensional fractures, arrays, and networks
     in brittle rocks under tension and compression
-    Nejati et al, 2015: On the use of quarter-point tetrahedral finite elements in 
+    Nejati et al, 2015: On the use of quarter-point tetrahedral finite elements in
     linear elastic fracture mechanics
     Richard et al. 2005: Theoretical crack path prediction
-    
 
 """
+import logging
 import warnings
+from typing import Any, Dict
+
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-import logging
-from typing import Dict, Tuple, Any
+
 from .propagation_model import FracturePropagation
 
 logger = logging.getLogger(__name__)
@@ -177,16 +178,18 @@ class ConformingFracturePropagation(FracturePropagation):
 
         """
 
+        # NOTE: self.mechanics_parameter_key is expected to come from the model with which
+        # this class is assumed to be combined.
         parameters_l: Dict[str, Any] = data_l[pp.PARAMETERS][
-            self.mechanics_parameter_key
+            self.mechanics_parameter_key  # type: ignore
         ]
         parameters_h: Dict[str, Any] = data_h[pp.PARAMETERS][
-            self.mechanics_parameter_key
+            self.mechanics_parameter_key  # type: ignore
         ]
         mg: pp.MortarGrid = data_edge["mortar_grid"]
 
         u_j: np.ndarray = data_edge[pp.STATE][pp.ITERATE][
-            self.mortar_displacement_variable
+            self.mortar_displacement_variable  # type: ignore
         ]
 
         # Only operate on tips
@@ -196,7 +199,7 @@ class ConformingFracturePropagation(FracturePropagation):
 
         # Project to fracture and apply jump operator
         u_l = (
-            mg.mortar_to_slave_avg(nd=self.Nd)
+            mg.mortar_to_secondary_avg(nd=self.Nd)
             * mg.sign_of_mortar_sides(nd=self.Nd)
             * u_j
         )
@@ -305,7 +308,10 @@ class ConformingFracturePropagation(FracturePropagation):
 
         Stores a boolean array identifying the faces to be propagated.
         """
-        parameters: Dict[str, Any] = d[pp.PARAMETERS][self.mechanics_parameter_key]
+
+        parameters: Dict[str, Any] = d[pp.PARAMETERS][
+            self.mechanics_parameter_key  # type: ignore
+        ]
 
         # Computed sifs
         K: np.ndarray = parameters["SIFs"]
@@ -343,7 +349,9 @@ class ConformingFracturePropagation(FracturePropagation):
 
         Stores an array of the faces to be propagated.
         """
-        parameters: Dict[str, Any] = d[pp.PARAMETERS][self.mechanics_parameter_key]
+        parameters: Dict[str, Any] = d[pp.PARAMETERS][
+            self.mechanics_parameter_key  # type: ignore
+        ]
 
         # Computed sifs
         K: np.ndarray = parameters["SIFs"]
@@ -391,7 +399,7 @@ class ConformingFracturePropagation(FracturePropagation):
 
         """
         tip_basis = self._tip_bases(g, d["tangential_normal_projection"], face)[:, :, 0]
-        angle = d[pp.PARAMETERS][self.mechanics_parameter_key][
+        angle = d[pp.PARAMETERS][self.mechanics_parameter_key][  # type: ignore
             "propagation_angle_normal"
         ][face]
         if self.Nd == 2:
@@ -439,7 +447,7 @@ class ConformingFracturePropagation(FracturePropagation):
         """
         nd: int = self.Nd
         parameters_l: Dict[str, Any] = data_l[pp.PARAMETERS][
-            self.mechanics_parameter_key
+            self.mechanics_parameter_key  # type: ignore
         ]
 
         # Faces in lower-dimensional grid to be split

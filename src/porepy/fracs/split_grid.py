@@ -2,11 +2,11 @@
 Module for splitting a grid at the fractures.
 """
 from typing import List, Optional
+
 import numpy as np
 from scipy import sparse as sps
 
 import porepy as pp
-from porepy.utils.half_space import half_space_int
 from porepy.utils import setmembership, sparse_mat, tags
 from porepy.utils.graph import Graph
 from porepy.utils.half_space import half_space_int

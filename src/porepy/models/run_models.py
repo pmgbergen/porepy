@@ -54,7 +54,7 @@ def run_time_dependent_model(model, params):
 
 
 def _run_iterative_model(model, params):
-    """ Intended use is for multi-step models with iterative couplings.
+    """Intended use is for multi-step models with iterative couplings.
 
     Only known instance so far is the combination of fracture deformation
     and propagation.

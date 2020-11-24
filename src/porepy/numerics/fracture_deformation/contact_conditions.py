@@ -34,7 +34,7 @@ For the case u_t = 0, we extend the Jacobian to 0, i.e.
     dg/du_t(|| u_t || = 0) = 0.
 """
 import logging
-from typing import Dict, Tuple, Optional, List
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
