@@ -7,7 +7,56 @@ import scipy.sparse as sps
 from .operators import Operator, MergedOperator, Matrix
 
 
-__all__ = ["MortarProjections", "Divergence", "BoundaryCondition", "Trace", "InvTrace"]
+__all__ = ["MortarProjections", "Divergence", "BoundaryCondition", "Trace"]
+
+
+def _subgrid_projections(
+    grids: List[pp.Grid], nd: int
+) -> Tuple[Dict[pp.Grid, sps.spmatrix], Dict[pp.Grid, sps.spmatrix]]:
+    """Construct prolongation matrices from individual grids to a set of grids.
+
+    Matrices for both cells and faces are constructed.
+
+    The global cell and face numbering is set according to the order of the
+    input grids.
+
+    """
+    face_projection: Dict[pp.Grid, np.ndarray] = {}
+    cell_projection: Dict[pp.Grid, np.ndarray] = {}
+
+    tot_num_faces = np.sum([g.num_faces for g in grids])
+    tot_num_cells = np.sum([g.num_cells for g in grids])
+
+    face_offset = 0
+    cell_offset = 0
+
+    if nd != 1:
+        raise NotImplementedError("Need vector version of projections. Kronecker")
+
+    for g in grids:
+        face_ind = face_offset + pp.fvutils.expand_indices_nd(
+            np.arange(g.num_faces), nd
+        )
+        cell_ind = cell_offset + pp.fvutils.expand_indices_nd(
+            np.arange(g.num_cells), nd
+        )
+
+        face_sz, cell_sz = g.num_faces * nd, g.num_cells * nd
+        face_projection[g] = sps.coo_matrix(
+            (np.ones(face_sz), (face_ind, np.arange(face_sz))),
+            shape=(tot_num_faces, face_sz),
+        ).tocsr()
+        cell_projection[g] = sps.coo_matrix(
+            (np.ones(cell_sz), (cell_ind, np.arange(cell_sz))),
+            shape=(tot_num_cells, cell_sz),
+        ).tocsr()
+
+        # Correct start of the numbering for the next grid
+        if g.dim > 0:
+            face_offset = face_ind[-1] + 1
+        cell_offset = cell_ind[-1] + 1
+
+    return cell_projection, face_projection
 
 
 class MortarProjections(Operator):
@@ -26,38 +75,9 @@ class MortarProjections(Operator):
         self._num_edges: int = len(edges)
         self._nd: int = nd
 
-        # Initialize projections
+        ## Initialize projections
 
-        face_projection: Dict[pp.Grid, np.ndarray] = {}
-        cell_projection: Dict[pp.Grid, np.ndarray] = {}
-
-        tot_num_faces = np.sum([g.num_faces for g in grids])
-        tot_num_cells = np.sum([g.num_cells for g in grids])
-
-        face_offset = 0
-        cell_offset = 0
-        for g in grids:
-            face_ind = face_offset + pp.fvutils.expand_indices_nd(
-                np.arange(g.num_faces), nd
-            )
-            cell_ind = cell_offset + pp.fvutils.expand_indices_nd(
-                np.arange(g.num_cells), nd
-            )
-
-            face_sz, cell_sz = g.num_faces * nd, g.num_cells * nd
-            face_projection[g] = sps.coo_matrix(
-                (np.ones(face_sz), (face_ind, np.arange(face_sz))),
-                shape=(tot_num_faces, face_sz),
-            ).tocsr()
-            cell_projection[g] = sps.coo_matrix(
-                (np.ones(cell_sz), (cell_ind, np.arange(cell_sz))),
-                shape=(tot_num_cells, cell_sz),
-            ).tocsr()
-
-            # Correct start of the numbering for the next grid
-            if g.dim > 0:
-                face_offset = face_ind[-1] + 1
-            cell_offset = cell_ind[-1] + 1
+        cell_projection, face_projection = _subgrid_projections(grids, self._nd)
 
         # sparse blocks are slow; it should be possible to do a right multiplication
         # of local-to-global mortar indices instead of the block.
@@ -67,6 +87,15 @@ class MortarProjections(Operator):
 
         mortar_to_secondary_int, mortar_to_secondary_avg = [], []
         secondary_to_mortar_int, secondary_to_mortar_avg = [], []
+
+        # The goal is to construct global projections between grids and mortar grids.
+        # The construction takes two stages, and is different for projections to and
+        # from the mortar grid:
+        # For projections from the mortar grid, a mapping is first made from local
+        # mortar numbering global grid ordering. In the second stage, the mappings from
+        # mortar are stacked to make a global mapping.
+        # Projections to the mortar grid are made by first defining projections from
+        # global grid numbering to local mortar grids, and then stack the latter.
 
         for e in edges:
             g_primary, g_secondary = e
@@ -108,18 +137,19 @@ class MortarProjections(Operator):
                 mg.secondary_to_mortar_avg(nd) * cell_projection[g_secondary].T
             )
 
-        self.mortar_to_primary_int = Matrix(
-            sps.bmat([[m for m in mortar_to_primary_int]]).tocsr()
-        )
-        self.mortar_to_primary_avg = Matrix(
-            sps.bmat([[m for m in mortar_to_primary_avg]]).tocsr()
-        )
+        # Stack mappings from the mortar horizontally.
+        # The projections are wrapped by a pp.ad.Matrix to be compatible with the
+        # requirements for processing of Ad operators.
+        self.mortar_to_primary_int = Matrix(sps.bmat([mortar_to_primary_int]).tocsr())
+        self.mortar_to_primary_avg = Matrix(sps.bmat([mortar_to_primary_avg]).tocsr())
         self.mortar_to_secondary_int = Matrix(
-            sps.bmat([[m for m in mortar_to_secondary_int]]).tocsr()
+            sps.bmat([mortar_to_secondary_int]).tocsr()
         )
         self.mortar_to_secondary_avg = Matrix(
-            sps.bmat([[m for m in mortar_to_secondary_avg]]).tocsr()
+            sps.bmat([mortar_to_secondary_avg]).tocsr()
         )
+
+        # Vertical stacking of the projections
         self.primary_to_mortar_int = Matrix(
             sps.bmat([[m] for m in primary_to_mortar_int]).tocsr()
         )
@@ -143,6 +173,76 @@ class MortarProjections(Operator):
         return s
 
 
+class Trace(MergedOperator):
+    """Mapping from grid faces to cell centers.
+
+    The mapping will hit both boundary and interior faces, so the values
+    to be mapped should be carefully filtered (e.g. by combining it with a
+    mortar mapping).
+
+    The mapping does not alter signs of variables, that is, the direction
+    of face normal vectors is not accounted for.
+
+    """
+
+    def __init__(
+        self,
+        gb: Optional[List[pp.Grid]] = None,
+        grids: Optional[List[pp.Grid]] = None,
+        is_scalar: bool = True,
+    ):
+
+        if grids is None:
+            if gb is None:
+                raise ValueError(
+                    "Trace needs either either a list of grids or a GridBucket"
+                )
+            grids = [g for g, _ in gb]
+
+        self._is_scalar: bool = is_scalar
+        if self._is_scalar:
+            self._nd: int = 1
+        else:
+            self._nd = gb.dim_max()
+        self._num_grids: int = len(grids)
+
+        cell_projections, face_projections = _subgrid_projections(grids, self._nd)
+
+        trace: sps.spmatrix = []
+        inv_trace: sps.spmatrix = []
+
+        for g in grids:
+            if self._is_scalar:
+
+                # TEMPORARY CONSTRUCT: Use the divergence operator as a trace.
+                # It would be better to define a dedicated function for this,
+                # perhaps in the grid itself.
+                div = np.abs(pp.fvutils.scalar_divergence(g))
+
+                # Restrict global cell values to the local grid, use transpose of div
+                # to map cell values to faces.
+                trace.append(div.T * cell_projections[g].T)
+                # Similarly restrict a global face quantity to the local grid, then
+                # map back to cells.
+                inv_trace.append(div * face_projections[g].T)
+            else:
+                raise NotImplementedError("kronecker")
+
+        # Stack both trace and inv_trace vertically to make them into mappings to
+        # global quantities.
+        # Wrap the stacked matrices into an Ad object
+        self.trace = Matrix(sps.bmat([[m] for m in trace]).tocsr())
+        self.inv_trace = Matrix(sps.bmat([[m] for m in inv_trace]).tocsr())
+
+    def __repr__(self) -> str:
+        s = (
+            f"Trace operator for {self._num_grids} grids\n"
+            f"Aimed at variables with dimension {self._nd}\n"
+            f"Projection from grid to mortar has dimensions {self.trace}\n"
+        )
+        return s
+
+
 class Divergence(MergedOperator):
     def __init__(self, grids, is_scalar=True):
         self.g = grids
@@ -156,62 +256,6 @@ class Divergence(MergedOperator):
             s = "Vector "
 
         s += f"divergence defined on {len(self.g)} grids\n"
-
-        return s
-
-
-class Trace(MergedOperator):
-    """Mapping from grid faces to cell centers.
-
-    The mapping will hit both boundary and interior faces, so the values
-    to be mapped should be carefully filtered (e.g. by combining it with a
-    mortar mapping).
-
-    The mapping does not alter signs of variables, that is, the direction
-    of face normal vectors is not accounted for.
-
-    """
-
-    def __init__(self, grids: List[pp.Grid], is_scalar: bool = True):
-        self.g: List[pp.Grid] = grids
-        self.scalar: bool = is_scalar
-        self._set_tree(None)
-
-    def __repr__(self) -> str:
-        if self.scalar:
-            s = "Scalar "
-        else:
-            s = "Vector "
-
-        s += f"Trace operator defined on {len(self.g)} grids\n"
-
-        return s
-
-
-class InvTrace(MergedOperator):
-    """Mapping from grid faces to cell centers.
-
-    The mapping will hit both boundary and interior faces, so the values
-    to be mapped should be carefully filtered (e.g. by combining it with a
-    mortar mapping).
-
-    The mapping does not alter signs of variables, that is, the direction
-    of face normal vectors is not accounted for.
-
-    """
-
-    def __init__(self, grids: List[pp.Grid], is_scalar: bool = True):
-        self.g: List[pp.Grid] = grids
-        self.scalar: bool = is_scalar
-        self._set_tree(None)
-
-    def __repr__(self) -> str:
-        if self.scalar:
-            s = "Scalar "
-        else:
-            s = "Vector "
-
-        s += f"Inverse trace operator defined on {len(self.g)} grids\n"
 
         return s
 
