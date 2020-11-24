@@ -24,7 +24,16 @@ grid_like_type = Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
 
 class Equation:
     def __init__(self, operator, dof_manager: pp.Assembler, name: str = None):
-        # need a way to print an equation. Separate class?
+
+        # Black sometimes formats long equations with parantheses in a way that is
+        # interpreted as a tuple by Python. Sigh.
+        if (
+            isinstance(operator, tuple)
+            and len(operator) == 1
+            and isinstance(operator[0], operators.Operator)
+        ):
+            operator = operator[0]
+
         self._operator = operator
 
         self.name = name
