@@ -355,67 +355,71 @@ def purge0dFacesAndNodes(gb):
         for sg in mg.side_grids.values():
             _purgefaceAndNodesFromGrid(sg)
 
+
 def addCellFaceTag(gb):
 
-    if isinstance(gb, pp.GridBucket):
-        for g in gb.grids_of_dimension(3):
-            if "CartGrid" in g.name:
-                raise NotImplementedError('Have not implemented addCellFaceTag for dimension 3')
-        grid_list = gb.grids_of_dimension(2)
-
-    else:
-        if gb.dim != 2:
-            raise NotImplementedError("Have only implemented callFaceTag for dimension 2")
-        grid_list = [gb]
-
     tol = 1e-10
-    for g in grid_list:
-        if "CartGrid" in g.name:
-            g.cell_facetag = np.zeros(g.cell_faces.indptr[-1], dtype=int)
-            for k in range(g.num_cells):
-                cc = g.cell_centers[:, k]
-                for i in range(4):
-                    face = g.cell_faces.indices[k * 4 + i]
-                    fc = g.face_centers[:, face]
+    for g, _ in gb:
+        if g.dim < 2:
+            continue
+        addCellFaceTagGrid(g, tol)
 
-                    diff = cc - fc
 
-                    num_tags = 0
-                    if diff[0] > tol:
-                        g.cell_facetag[k * 4 + i] = 0
-                        num_tags += 1
-                    if diff[0] < - tol:
-                        g.cell_facetag[k * 4 + i] = 1
-                        num_tags += 1
-                    if diff[1] > tol:
-                        g.cell_facetag[k * 4 + i] = 2
-                        num_tags += 1
-                    if diff[1] < - tol:
-                        g.cell_facetag[k * 4 + i] = 3
-                        num_tags += 1
+def addCellFaceTagGrid(g, tol=1e-10):
 
-                    if num_tags!=1:
-                        raise AttributeError(
-                            "Could not find W, E, S, or N face of cell {}".format(k)
-                        )
+    g.cell_facetag = np.zeros(g.cell_faces.indptr[-1], dtype=int)
+    if g.dim == 3:
+        faces_per_cell = 6
+    elif g.dim == 2:
+        faces_per_cell = 4
+
+    cell_centers, _, face_centers, _, _, _ = pp.map_geometry.map_grid(g)
+    if not ("CartGrid" in g.name or "TensorGrid" in g.name):
+        raise ValueError("Can only enforce face ordering for CartGrid or TensorGrid")
+
+    for k in range(g.num_cells):
+        cc = cell_centers[:, k]
+        for i in range(faces_per_cell):
+            face = g.cell_faces.indices[k * faces_per_cell + i]
+            fc = face_centers[:, face]
+
+            diff = cc - fc
+            num_tags = 0
+            if diff[0] > tol:
+                g.cell_facetag[k * faces_per_cell + i] = 0
+                num_tags += 1
+            if diff[0] < - tol:
+                g.cell_facetag[k * faces_per_cell + i] = 1
+                num_tags += 1
+            if diff[1] > tol:
+                g.cell_facetag[k * faces_per_cell + i] = 2
+                num_tags += 1
+            if diff[1] < - tol:
+                g.cell_facetag[k * faces_per_cell + i] = 3
+                num_tags += 1
+            if g.dim == 3 and diff[2] > tol:
+                g.cell_facetag[k * faces_per_cell + i] = 4
+                num_tags += 1
+            if g.dim == 3 and diff[2] < - tol:
+                g.cell_facetag[k * faces_per_cell + i] = 5
+                num_tags += 1
+
+            if num_tags != 1:
+                raise AttributeError(
+                    "Could not find W, E, S, or N face of cell {}".format(k)
+                )
+
 
 def enforce_opm_face_ordering(gb):
-    if isinstance(gb, pp.GridBucket):
-        for g in gb.grids_of_dimension(3):
-            if "CartGrid" in g.name:
-                raise NotImplementedError('Have not implemented addCellFaceTag for dimension 3')
-        grid_list = gb.grids_of_dimension(2)
+    for g, _ in gb:
+        # OPM faces ordered counterclockwise starting at West face
+        if g.dim==2:
+            opm_sort = [0,2,1,3]
+        else:
+            continue
 
-    else:
-        if gb.dim != 2:
-            raise NotImplementedError("Have only implemented callFaceTag for dimension 2")
-        grid_list = [gb]
-
-    # OPM faces ordered counterclockwise starting at West face
-    opm_sort = [0,2,1,3]
-    for g in grid_list:
-        if not "CartGrid" in g.name:
-            raise ValueError("Can only enforce face ordering for CartGrid")
+        if not ("CartGrid" in g.name or "TensorGrid" in g.name):
+            raise ValueError("Can only enforce face ordering for CartGrid or TensorGrid")
         if not hasattr(g, "cell_facetag"):
             raise ValueError("Can only order grids with cell_facetag")
 
