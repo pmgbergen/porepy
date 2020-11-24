@@ -144,6 +144,7 @@ from porepy.models.run_models import (
 
 from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 from porepy.models.contact_mechanics_model import ContactMechanics
+from porepy.models.thm_model import THM
 
 # Visualization
 from porepy.viz.exporter import Exporter
