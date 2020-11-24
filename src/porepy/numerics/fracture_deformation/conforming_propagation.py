@@ -613,6 +613,16 @@ class ConformingFracturePropagation(FracturePropagation):
         # Make sure splitting of a candidate does not lead to self-intersection.
         # This is done by checking that none of the face's edges is an "internal
         # fracture edge", i.e. that if it lies on a fracture, it is on a tip.
+        #
+        # IMPLEMENTATION NOTE: The below tests form an attempt to keep a reasonable fracture
+        # geometry for general fractures. For general fracture geometries, this is difficult,
+        # and the below code can not be trusted to give good results (and neither did other
+        # attempts on implementing such quality checks). For such problems, the best option
+        # may be remeshing.
+        #
+        # IMPLEMENTATION NOTE: For the special case of tensile fracturing along lines or
+        # planes that are represented in the grid geometry, the below codes can be dropped
+        # (but they should not do any harm either).
         for f in candidate_faces:
             # Obtain all edges:
             local_nodes = g_h.face_nodes[:, f].nonzero()[0]
