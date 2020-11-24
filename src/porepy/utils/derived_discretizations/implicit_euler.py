@@ -52,7 +52,7 @@ class ImplicitMpfa(pp.Mpfa):
         return a, b
 
     def assemble_int_bound_flux(
-        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
+        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj=False
     ):
         """
         Overwrite the MPFA method to be consistent with the Biot dt convention
@@ -67,10 +67,10 @@ class ImplicitMpfa(pp.Mpfa):
         # Projection operators to grid
         mg = data_edge["mortar_grid"]
 
-        if use_slave_proj:
-            proj = mg.mortar_to_slave_int()
+        if use_secondary_proj:
+            proj = mg.mortar_to_secondary_int()
         else:
-            proj = mg.mortar_to_master_int()
+            proj = mg.mortar_to_primary_int()
 
         if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
             # If bound flux is gven as sub-faces we have to map it from sub-faces
@@ -105,7 +105,7 @@ class ImplicitMpfa(pp.Mpfa):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -117,7 +117,7 @@ class ImplicitMpfa(pp.Mpfa):
         """
         mg = data_edge["mortar_grid"]
 
-        proj = mg.mortar_to_slave_int()
+        proj = mg.mortar_to_secondary_int()
         dt = data[pp.PARAMETERS][self.keyword]["time_step"]
         cc[self_ind, 2] -= proj * dt
 
@@ -141,7 +141,7 @@ class ImplicitTpfa(pp.Tpfa):
         return a, b
 
     def assemble_int_bound_flux(
-        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_slave_proj=False
+        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj=False
     ):
         """
         Overwrite the MPFA method to be consistent with the Biot dt convention
@@ -154,10 +154,10 @@ class ImplicitTpfa(pp.Tpfa):
         # Projection operators to grid
         mg = data_edge["mortar_grid"]
 
-        if use_slave_proj:
-            proj = mg.mortar_to_slave_int()
+        if use_secondary_proj:
+            proj = mg.mortar_to_secondary_int()
         else:
-            proj = mg.mortar_to_master_int()
+            proj = mg.mortar_to_primary_int()
 
         if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
             # If bound flux is gven as sub-faces we have to map it from sub-faces
@@ -192,7 +192,7 @@ class ImplicitTpfa(pp.Tpfa):
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
-                master and slave side; the third belongs to the edge variable.
+                primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
@@ -204,7 +204,7 @@ class ImplicitTpfa(pp.Tpfa):
         """
         mg = data_edge["mortar_grid"]
 
-        proj = mg.mortar_to_slave_int()
+        proj = mg.mortar_to_secondary_int()
         dt = data[pp.PARAMETERS][self.keyword]["time_step"]
         cc[self_ind, 2] -= proj * dt
 
@@ -243,7 +243,7 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
     """
 
     def assemble_matrix_rhs(
-        self, g_master, g_slave, data_master, data_slave, data_edge, matrix
+        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
     ):
         """
         Construct the matrix (and right-hand side) for the coupling conditions.
@@ -251,11 +251,11 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
 
         Parameters:
             matrix: Uncoupled discretization matrix.
-            g_master: grid of higher dimension
-            g_slave: grid of lower dimension
-            data_master: dictionary which stores the data for the higher dimensional
+            g_primary: grid of higher dimension
+            g_secondary: grid of lower dimension
+            data_primary: dictionary which stores the data for the higher dimensional
                 grid
-            data_slave: dictionary which stores the data for the lower dimensional
+            data_secondary: dictionary which stores the data for the lower dimensional
                 grid
             data: dictionary which stores the data for the edges of the grid
                 bucket
@@ -269,19 +269,19 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
         # Normal component of the velocity from the higher dimensional grid
 
         # @ALL: This should perhaps be defined by a globalized keyword
-        parameter_dictionary_master = data_master[pp.PARAMETERS]
-        parameter_dictionary_slave = data_slave[pp.PARAMETERS]
+        parameter_dictionary_primary = data_primary[pp.PARAMETERS]
+        parameter_dictionary_secondary = data_secondary[pp.PARAMETERS]
         lam_flux = data_edge[pp.PARAMETERS][self.keyword]["darcy_flux"]
-        dt = parameter_dictionary_master[self.keyword]["time_step"]
-        w_master = (
-            parameter_dictionary_master.expand_scalars(
-                g_master.num_cells, self.keyword, ["advection_weight"]
+        dt = parameter_dictionary_primary[self.keyword]["time_step"]
+        w_primary = (
+            parameter_dictionary_primary.expand_scalars(
+                g_primary.num_cells, self.keyword, ["advection_weight"]
             )[0]
             * dt
         )
-        w_slave = (
-            parameter_dictionary_slave.expand_scalars(
-                g_slave.num_cells, self.keyword, ["advection_weight"]
+        w_secondary = (
+            parameter_dictionary_secondary.expand_scalars(
+                g_secondary.num_cells, self.keyword, ["advection_weight"]
             )[0]
             * dt
         )
@@ -289,21 +289,21 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
         # Create the block matrix for the contributions
         g_m = data_edge["mortar_grid"]
 
-        # We know the number of dofs from the master and slave side from their
+        # We know the number of dofs from the primary and secondary side from their
         # discretizations
         dof = np.array([matrix[0, 0].shape[1], matrix[1, 1].shape[1], g_m.num_cells])
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((3, 3))
 
         # Projection from mortar to upper dimenional faces
-        hat_P_avg = g_m.master_to_mortar_avg()
+        hat_P_avg = g_m.primary_to_mortar_avg()
         # Projection from mortar to lower dimensional cells
-        check_P_avg = g_m.slave_to_mortar_avg()
+        check_P_avg = g_m.secondary_to_mortar_avg()
 
         # mapping from upper dim cellls to faces
         # The mortars always points from upper to lower, so we don't flip any
         # signs
-        div = np.abs(pp.numerics.fv.fvutils.scalar_divergence(g_master))
+        div = np.abs(pp.numerics.fv.fvutils.scalar_divergence(g_primary))
 
         # Find upwind weighting. if flag is True we use the upper weights
         # if flag is False we use the lower weighs
@@ -322,22 +322,22 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
         # mortar fluxes by dt and advection weight (e.g. heat capacity)
 
         # If fluid flux(lam_flux) is positive we use the upper value as weight,
-        # i.e., T_masterat * fluid_flux = lambda.
-        # We set cc[2, 0] = T_masterat * fluid_flux
+        # i.e., T_primaryat * fluid_flux = lambda.
+        # We set cc[2, 0] = T_primaryat * fluid_flux
         # import pdb
         # pdb.set_trace()
-        cc[2, 0] = sps.diags(lam_flux * flag) * hat_P_avg * div.T * sps.diags(w_master)
+        cc[2, 0] = sps.diags(lam_flux * flag) * hat_P_avg * div.T * sps.diags(w_primary)
 
         # If fluid flux is negative we use the lower value as weight,
         # i.e., T_check * fluid_flux = lambda.
         # we set cc[2, 1] = T_check * fluid_flux
-        cc[2, 1] = sps.diags(lam_flux * not_flag) * check_P_avg * sps.diags(w_slave)
+        cc[2, 1] = sps.diags(lam_flux * not_flag) * check_P_avg * sps.diags(w_secondary)
 
         # The rhs of T * fluid_flux = lambda
         # Recover the information for the grid-grid mapping
         cc[2, 2] = -sps.eye(g_m.num_cells)
 
-        if data_master["node_number"] == data_slave["node_number"]:
+        if data_primary["node_number"] == data_secondary["node_number"]:
             # All contributions to be returned to the same block of the
             # global matrix in this case
             cc = np.array([np.sum(cc, axis=(0, 1))])

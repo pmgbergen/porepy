@@ -32,14 +32,14 @@ class TestGridMappings1d(unittest.TestCase):
         left_side = pp.PointGrid(np.array([0, 0, 0]).T)
         left_side.compute_geometry()
 
-        mg = pp.grids.mortar_grid.BoundaryMortar(0, left_side, face_faces)
+        mg = pp.grids.mortar_grid.MortarGrid(0, {'0': left_side}, face_faces)
 
         self.assertTrue(mg.num_cells == 1)
         self.assertTrue(mg.num_sides() == 1)
-        self.assertTrue(np.all(mg.master_to_mortar_avg().A == [1, 0, 0]))
-        self.assertTrue(np.all(mg.master_to_mortar_int().A == [1, 0, 0]))
-        self.assertTrue(np.all(mg.slave_to_mortar_avg().A == [0, 0, 1]))
-        self.assertTrue(np.all(mg.slave_to_mortar_int().A == [0, 0, 1]))
+        self.assertTrue(np.all(mg.primary_to_mortar_avg().A == [1, 0, 0]))
+        self.assertTrue(np.all(mg.primary_to_mortar_int().A == [1, 0, 0]))
+        self.assertTrue(np.all(mg.secondary_to_mortar_avg().A == [0, 0, 1]))
+        self.assertTrue(np.all(mg.secondary_to_mortar_int().A == [0, 0, 1]))
 
     def test_merge_two_grids(self):
         """
@@ -58,14 +58,14 @@ class TestGridMappings1d(unittest.TestCase):
         left_side = pp.PointGrid(np.array([2, 0, 0]).T)
         left_side.compute_geometry()
 
-        mg = pp.grids.mortar_grid.BoundaryMortar(0, left_side, face_faces)
+        mg = pp.grids.mortar_grid.MortarGrid(0, {'0': left_side}, face_faces)
 
         self.assertTrue(mg.num_cells == 1)
         self.assertTrue(mg.num_sides() == 1)
-        self.assertTrue(np.all(mg.master_to_mortar_avg().A == [0, 1, 0]))
-        self.assertTrue(np.all(mg.master_to_mortar_int().A == [0, 1, 0]))
-        self.assertTrue(np.all(mg.slave_to_mortar_avg().A == [0, 1]))
-        self.assertTrue(np.all(mg.slave_to_mortar_int().A == [0, 1]))
+        self.assertTrue(np.all(mg.primary_to_mortar_avg().A == [0, 1, 0]))
+        self.assertTrue(np.all(mg.primary_to_mortar_int().A == [0, 1, 0]))
+        self.assertTrue(np.all(mg.secondary_to_mortar_avg().A == [0, 1]))
+        self.assertTrue(np.all(mg.secondary_to_mortar_int().A == [0, 1]))
 
 
 if __name__ == "__main__":

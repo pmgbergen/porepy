@@ -150,14 +150,14 @@ def match_grids_along_1d_mortar(
         g_new (pp.Grid): New 2d grid. Should have faces split along the 1d line.
             Dimension 2.
         g_old (pp.Grid): Old 2d grid. Dimension 2. The mappings in mg from mortar to
-            master should be set for this grid.
+            primary should be set for this grid.
         tol (double): Tolerance used in comparison of geometric quantities.
 
     Raises:
         ValueError: If the matching procedure goes wrong.
 
     Returns:
-        sps.csr_matrix: Matrix that can be used to update mg._master_to_mortar_int.
+        sps.csr_matrix: Matrix that can be used to update mg._primary_to_mortar_int.
 
     """
 
@@ -249,7 +249,7 @@ def match_grids_along_1d_mortar(
 
     # First create a virtual 1d grid along the line, using nodes from the old grid
     # Identify faces in the old grid that is on the boundary
-    _, faces_on_boundary_old, _ = sps.find(mg._master_to_mortar_int)
+    _, faces_on_boundary_old, _ = sps.find(mg._primary_to_mortar_int)
     # Find the nodes of those faces
     nodes_on_boundary_old = nodes_of_faces(g_old, faces_on_boundary_old)
     nodes_1d_old = g_old.nodes[:, nodes_on_boundary_old]

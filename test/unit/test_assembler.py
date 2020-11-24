@@ -52,7 +52,7 @@ class TestAssembler(unittest.TestCase):
         gb.add_nodes([g1, g2])
         gb.add_edge([g1, g2], None)
 
-        mg = pp.MortarGrid(2, {"left": g1, "right": g2}, sps.coo_matrix(1))
+        mg = pp.MortarGrid(2, {"left": g1, "right": g2})
         mg.num_cells = 1
         gb.set_edge_prop([g1, g2], "mortar_grid", mg)
         return gb
@@ -77,11 +77,11 @@ class TestAssembler(unittest.TestCase):
         gb.add_edge([g1, g2], None)
         gb.add_edge([g1, g3], None)
 
-        mg = pp.MortarGrid(1, {"left": g2, "right": g2}, sps.coo_matrix(1))
+        mg = pp.MortarGrid(1, {"left": g2, "right": g2})
         mg.num_cells = 1
         gb.set_edge_prop([g1, g2], "mortar_grid", mg)
 
-        mg = pp.MortarGrid(1, {"left": g3, "right": g3}, sps.coo_matrix(1))
+        mg = pp.MortarGrid(1, {"left": g3, "right": g3})
         mg.num_cells = 1
         gb.set_edge_prop([g1, g3], "mortar_grid", mg)
 
@@ -1788,7 +1788,7 @@ class MockEdgeDiscretization(
         self.off_diag_val = off_diag_val
 
     def assemble_matrix_rhs(
-        self, g_master, g_slave, data_master, data_slave, data_edge, local_matrix
+        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, local_matrix
     ):
 
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
@@ -1819,7 +1819,7 @@ class MockEdgeDiscretizationModifiesNode(
         self.off_diag_val = off_diag_val
 
     def assemble_matrix_rhs(
-        self, g_master, g_slave, data_master, data_slave, data_edge, local_matrix
+        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, local_matrix
     ):
 
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
@@ -1832,7 +1832,7 @@ class MockEdgeDiscretizationModifiesNode(
         cc[0, 2] = sps.coo_matrix(self.off_diag_val)
         cc[1, 2] = sps.coo_matrix(self.off_diag_val)
 
-        if g_master.grid_num == 1:
+        if g_primary.grid_num == 1:
             local_matrix[0, 0] += sps.coo_matrix(self.off_diag_val)
             local_matrix[1, 1] += sps.coo_matrix(2 * self.off_diag_val)
         else:
@@ -1857,7 +1857,7 @@ class MockEdgeDiscretizationOneSided(
         self.diag_val = diag_val
         self.off_diag_val = off_diag_val
 
-    def assemble_matrix_rhs(self, g_master, data_master, data_edge, local_matrix):
+    def assemble_matrix_rhs(self, g_primary, data_primary, data_edge, local_matrix):
 
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
@@ -1884,7 +1884,7 @@ class MockEdgeDiscretizationOneSidedModifiesNode(
         self.diag_val = diag_val
         self.off_diag_val = off_diag_val
 
-    def assemble_matrix_rhs(self, g_master, data_master, data_edge, local_matrix):
+    def assemble_matrix_rhs(self, g_primary, data_primary, data_edge, local_matrix):
 
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
@@ -1920,7 +1920,7 @@ class MockEdgeDiscretizationEdgeCouplings(
         return mg.num_cells
 
     def assemble_matrix_rhs(
-        self, g_master, g_slave, data_master, data_slave, data_edge, local_matrix
+        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, local_matrix
     ):
 
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]

@@ -604,56 +604,85 @@ class TestGridBucketExtrusion(unittest.TestCase):
         mg_new = d["mortar_grid"]
 
         # Check that the old and new grid have
-        bound_faces_old = mg.master_to_mortar_int().tocoo().col
+        bound_faces_old = mg.primary_to_mortar_int().tocoo().col
         # We know from the construction of the grid extruded to 3d that the faces
         # on the fracture boundary will be those in the 2d grid stacked on top of each
         # other
         known_bound_faces_new = np.hstack(
             (bound_faces_old, bound_faces_old + g_2.num_faces)
         )
-        bound_faces_new = mg_new.master_to_mortar_int().tocoo().col
+        bound_faces_new = mg_new.primary_to_mortar_int().tocoo().col
         self.assertTrue(
             np.allclose(np.sort(known_bound_faces_new), np.sort(bound_faces_new))
         )
 
-        low_cells_old = mg.slave_to_mortar_int().tocoo().col
+        low_cells_old = mg.secondary_to_mortar_int().tocoo().col
         known_cells_new = np.hstack((low_cells_old, low_cells_old + g_1.num_cells))
 
-        cells_new = mg_new.slave_to_mortar_int().tocoo().col
+        cells_new = mg_new.secondary_to_mortar_int().tocoo().col
 
         self.assertTrue(np.allclose(np.sort(known_cells_new), np.sort(cells_new)))
 
-        # All mortar cells should be associated with a face in master
-        mortar_cells_in_range_from_master = np.unique(
-            mg_new.master_to_mortar_int().tocoo().row
+        # All mortar cells should be associated with a face in primary
+        mortar_cells_in_range_from_primary = np.unique(
+            mg_new.primary_to_mortar_int().tocoo().row
         )
-        self.assertTrue(mortar_cells_in_range_from_master.size == mg_new.num_cells)
+        self.assertTrue(mortar_cells_in_range_from_primary.size == mg_new.num_cells)
         self.assertTrue(
-            np.allclose(mortar_cells_in_range_from_master, np.arange(mg_new.num_cells))
+            np.allclose(mortar_cells_in_range_from_primary, np.arange(mg_new.num_cells))
         )
 
-        # All mortar cells should be in the range from slave
-        mortar_cells_in_range_from_slave = np.unique(
-            mg_new.slave_to_mortar_int().tocoo().row
+        # All mortar cells should be in the range from secondary
+        mortar_cells_in_range_from_secondary = np.unique(
+            mg_new.secondary_to_mortar_int().tocoo().row
         )
-        self.assertTrue(mortar_cells_in_range_from_slave.size == mg_new.num_cells)
+        self.assertTrue(mortar_cells_in_range_from_secondary.size == mg_new.num_cells)
         self.assertTrue(
             np.allclose(
-                np.sort(mortar_cells_in_range_from_slave), np.arange(mg_new.num_cells)
+                np.sort(mortar_cells_in_range_from_secondary),
+                np.arange(mg_new.num_cells),
             )
+        )
+        ## Check that the + and - sides of the extruded mortar grid are correct
+        extruded_faces, _, sgn = sps.find(
+            mg_new.mortar_to_primary_int() * mg_new.sign_of_mortar_sides()
+        )
+        # Get the extruded cells next to the mortar grid. Same ordering as extruded_faces
+        g3 = gb_new.grids_of_dimension(3)[0]
+        extruded_cells = g3.cell_faces[extruded_faces].tocsr().indices
+
+        # coordinates
+        cc = g3.cell_centers[:, extruded_cells]
+        fc = g3.face_centers[:, extruded_faces]
+        # Sign the distances to get a number. Importantly, this will either be positive
+        # or negative, depending on which side cc is of the fracture (we know this because
+        # of the fracture geometry).
+        dist = np.sum(cc - fc)
+
+        # All faces on the same side (identified by the sign of dist) should have the
+        # same sign
+        pos_dist = dist > 0
+        self.assertTrue(
+            np.logical_or(np.all(sgn[pos_dist] > 0), np.all(sgn[pos_dist] < 0))
+        )
+        neg_dist = dist < 0
+        self.assertTrue(
+            np.logical_or(np.all(sgn[neg_dist] > 0), np.all(sgn[neg_dist] < 0))
         )
 
         g_1_new = gb_new.grids_of_dimension(2)[0]
 
-        # All mortar cells should be associated with two cells in slave
-        slave_cells_in_range_from_mortar = mg_new.mortar_to_slave_int().tocoo().row
-        self.assertTrue(np.all(np.bincount(slave_cells_in_range_from_mortar) == 2))
+        # All mortar cells should be associated with two cells in secondary
+        secondary_cells_in_range_from_mortar = (
+            mg_new.mortar_to_secondary_int().tocoo().row
+        )
+        self.assertTrue(np.all(np.bincount(secondary_cells_in_range_from_mortar) == 2))
         self.assertTrue(
-            np.unique(slave_cells_in_range_from_mortar).size == g_1_new.num_cells
+            np.unique(secondary_cells_in_range_from_mortar).size == g_1_new.num_cells
         )
         self.assertTrue(
             np.allclose(
-                np.sort(np.unique(slave_cells_in_range_from_mortar)),
+                np.sort(np.unique(secondary_cells_in_range_from_mortar)),
                 np.arange(g_1_new.num_cells),
             )
         )
