@@ -46,21 +46,22 @@ def test_md_flow():
             e: ("mortar_flux", coupling_discr),
         }
 
-    assembler = pp.Assembler(gb)
+    dof_manager = pp.DofManager(gb)
+    assembler = pp.Assembler(gb, dof_manager)
     assembler.discretize()
 
     # Reference discretization
     A_ref, b_ref = assembler.assemble_matrix_rhs()
 
-    manager = pp.EquationManager(gb)
+    manager = pp.EquationManager(gb, dof_manager)
 
     flow_eq, interface_flux, *rest = pp.ad.equation_factory.flow(
         manager,
     )
 
     manager._equations = [
-        pp.Equation(flow_eq, assembler),
-        pp.Equation(interface_flux, assembler),
+        pp.Equation(flow_eq, dof_manager),
+        pp.Equation(interface_flux, dof_manager),
     ]
 
     state = np.zeros(gb.num_cells() + gb.num_mortar_cells())
@@ -102,7 +103,9 @@ def test_biot():
         "displacement": {"cells": g.dim},
         "pressure": {"cells": 1},
     }
-    assembler = pp.Assembler(gb)
+
+    dof_manager = pp.DofManager(gb)
+    assembler = pp.Assembler(gb, dof_manager)
 
     biot = pp.Biot()
 
@@ -118,7 +121,7 @@ def test_biot():
     biot.discretize(g, d)
     A_biot, b_biot = biot.assemble_matrix_rhs(g, d)
 
-    manager = pp.EquationManager(gb)
+    manager = pp.EquationManager(gb, dof_manager)
 
     (
         momentuum,
@@ -132,7 +135,7 @@ def test_biot():
     ) = pp.ad.equation_factory.poro_mechanics(manager, g, d)
 
     manager._equations.append(
-        pp.Equation(momentuum, dof_manager=assembler, name="Momentuum conservation")
+        pp.Equation(momentuum, dof_manager=dof_manager, name="Momentuum conservation")
     )
 
     flow_momentuum_eq = accumulation + compr * p + dt * diffusion
@@ -144,7 +147,7 @@ def test_biot():
     flow_rhs = div_u_rhs * pp.ad.Array(u_state) + stab_rhs * pp.ad.Array(p_state)
 
     flow_eq = pp.Equation(
-        flow_momentuum_eq + flow_rhs, dof_manager=assembler, name="flow eqution"
+        flow_momentuum_eq + flow_rhs, dof_manager=dof_manager, name="flow eqution"
     )
     manager._equations.append(flow_eq)
 
