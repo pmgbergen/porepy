@@ -204,7 +204,7 @@ class Equation:
 
             return np.hstack([v for v in val])
 
-        if isinstance(op, pp.ad.Matrix):
+        if isinstance(op, (pp.ad.Matrix, operators.Matrix)):
             return op.mat
 
         if isinstance(op, pp.ad.Array):
