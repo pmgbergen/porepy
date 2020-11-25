@@ -176,6 +176,48 @@ def stack_mat(A, B):
         A._shape = (A._shape[0] + B._shape[0], A._shape[1])
 
 
+def stack_diag(A, B):
+    """
+    Create a new matrix C that contains matrix A and B at the diagonal:
+    C = [[A, 0], [0, B]]
+    This function is equivalent to
+    sps.block_diag((A, B), format=A.format), but does not change the ordering
+    of the A.indices or B.indices
+
+    Parameters:
+    -----------
+    A (scipy.sparse.spmatrix): A sparce matrix
+    B (scipy.sparse.spmatrix): A sparce matrix
+
+    Return
+    ------
+    None
+
+
+    """
+    if A.getformat() != "csc" and A.getformat() != "csr":
+        raise ValueError("Need a csc or csr matrix")
+    elif A.getformat() != B.getformat():
+        raise ValueError("A and B must be of same matrix type")
+
+    if B.indptr.size == 1:
+        return A
+
+    C = A.copy()
+
+    if A.getformat() =="csc":
+        indices_offset = A.shape[0]
+    else:
+        indices_offset = A.shape[1]
+
+    C.indptr = np.append(A.indptr, B.indptr[1:] + A.indptr[-1])
+    C.indices = np.append(A.indices, B.indices + indices_offset)
+    C.data = np.append(A.data, B.data)
+
+    C._shape = (A._shape[0] + B._shape[0], A._shape[1] + B._shape[1])
+    return C
+
+
 def slice_indices(A, slice_ind):
     """
     Function for slicing sparse matrix along rows or columns.
