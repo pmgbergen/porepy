@@ -68,10 +68,12 @@ def dumpGridToFile(g, fn):
             outfile.write("{:d} \n".format(g.idx))
 
 
-def dumpMortarGridToFile(gb, e, d, fn):
-
-    grid_name = append_id(fn , "mortar_" + str(d["edge_number"]))
-
+def dumpMortarGridToFile(gb, e, d, fn, max_1_grid_per_dim=False):
+    if max_1_grid_per_dim:
+        grid_id = str(d['mortar_grid'].dim)
+    else:
+        grid_id = str(d["edge_number"])
+    grid_name = append_id(fn , "mortar_" + grid_id)
     mg = d['mortar_grid']
     mg.idx = d['edge_number']
     mortar_grids = []
@@ -81,6 +83,11 @@ def dumpMortarGridToFile(gb, e, d, fn):
     mortar_grid = merge_grids(mortar_grids)
     mortar_grid.idx = mg.idx
     dim = mortar_grid.dim
+
+    # addCellFaceTag(mortar_grid)
+    # enforce_opm_face_ordering(mortar_grid)
+
+
     mortar_grid.dim = gb.dim_max()
     dumpGridToFile(mortar_grid, grid_name)
     mortar_grid.dim = dim
@@ -92,7 +99,7 @@ def dumpMortarGridToFile(gb, e, d, fn):
     dl = gb.node_props(gl)
 
     name = append_id(
-        fn , "mapping_" + str(d["edge_number"])
+        fn , "mapping_" + grid_id
     )
 
     gh_to_mg = mg.mortar_to_master_int()
@@ -103,7 +110,7 @@ def dumpMortarGridToFile(gb, e, d, fn):
 
 
 def merge_grids(grids):
-    grid = grids[0].copy()
+    grid = grids[0]#.copy()
     if hasattr(grids[0], "cell_facetag"):
         grid.cell_facetag = grids[0].cell_facetag
 
@@ -112,11 +119,12 @@ def merge_grids(grids):
         grid.num_faces += sg.num_faces
         grid.num_nodes += sg.num_nodes
         grid.nodes = np.hstack((grid.nodes, sg.nodes))
-        grid.face_nodes = sps.block_diag(
-            (grid.face_nodes, sg.face_nodes), dtype=np.bool, format='csc'
+
+        grid.face_nodes = pp.utils.sparse_mat.stack_diag(
+            grid.face_nodes, sg.face_nodes
         )
-        grid.cell_faces = sps.block_diag(
-            (grid.cell_faces, sg.cell_faces), dtype=np.int, format='csc'
+        grid.cell_faces = pp.utils.sparse_mat.stack_diag(
+            grid.cell_faces, sg.cell_faces
         )
 
         grid.face_areas = np.hstack((grid.face_areas, sg.face_areas))
@@ -176,8 +184,17 @@ def dumpGridBucketToFile(gb, fn):
     Returns:
     None
     """
+    max_1_grid_per_dim = True
+    for dim in range(gb.dim_max()):
+        if len(gb.grids_of_dimension(dim)) > 1:
+            max_1_grid_per_dim = False
+            break
+
     for g, d in gb:
-        grid_name = append_id(fn, d["node_number"])
+        if max_1_grid_per_dim:
+            grid_name = append_id(fn, str(g.dim))
+        else:
+            grid_name = append_id(fn, d["node_number"])
         g.idx = d["node_number"]
         dim = g.dim
         g.dim = gb.dim_max()
@@ -185,7 +202,7 @@ def dumpGridBucketToFile(gb, fn):
         g.dim = dim
 
     for e, d in gb.edges():
-        dumpMortarGridToFile(gb, e, d, fn)        
+        dumpMortarGridToFile(gb, e, d, fn, max_1_grid_per_dim)  
 
 
 def append_id(filename, idx):
@@ -359,11 +376,13 @@ def purge0dFacesAndNodes(gb):
 def addCellFaceTag(gb):
 
     tol = 1e-10
-    for g, _ in gb:
-        if g.dim < 2:
-            continue
-        addCellFaceTagGrid(g, tol)
-
+    if isinstance(gb, pp.GridBucket):
+        for g, _ in gb:
+            if g.dim < 2:
+                continue
+            addCellFaceTagGrid(g, tol)
+    else:
+        addCellFaceTagGrid(gb, tol)
 
 def addCellFaceTagGrid(g, tol=1e-10):
 
@@ -372,6 +391,10 @@ def addCellFaceTagGrid(g, tol=1e-10):
         faces_per_cell = 6
     elif g.dim == 2:
         faces_per_cell = 4
+    elif g.dim < 2:
+        return
+    else:
+        raise ValueError("Invalid grid dimension (must be 0,1,2, or 3): {}".format(g.dim))
 
     cell_centers, _, face_centers, _, _, _ = pp.map_geometry.map_grid(g)
     if not ("CartGrid" in g.name or "TensorGrid" in g.name):
@@ -411,43 +434,50 @@ def addCellFaceTagGrid(g, tol=1e-10):
 
 
 def enforce_opm_face_ordering(gb):
-    for g, _ in gb:
-        # OPM faces ordered counterclockwise starting at West face
-        if g.dim==2:
-            opm_sort = [0,2,1,3]
-        else:
-            continue
+    if isinstance(gb, pp.GridBucket):
+        for g, _ in gb:
+            enforce_opm_face_ordering_grid(g)
+    else:
+        enforce_opm_face_ordering_grid(gb)
 
-        if not ("CartGrid" in g.name or "TensorGrid" in g.name):
-            raise ValueError("Can only enforce face ordering for CartGrid or TensorGrid")
-        if not hasattr(g, "cell_facetag"):
-            raise ValueError("Can only order grids with cell_facetag")
 
-        # Get ordering of OPM faces in a cell
-        _, IC = np.unique(opm_sort, return_inverse=True)
-        cell_facetag = g.cell_facetag.reshape((-1, 4))
+def enforce_opm_face_ordering_grid(g):
+    # OPM faces ordered counterclockwise starting at West face
+    if g.dim==2:
+        opm_sort = [0,2,1,3]
+    else:
+        return
 
-        old2new = np.empty(g.num_faces, dtype=int)
-        for k in range(g.num_cells):
-            # Get pp ordering of faces
-            IA = np.argsort(cell_facetag[k,:])
-            # Get faces of cell
-            cell_face_pos = pp.utils.mcolon.mcolon(
-                g.cell_faces.indptr[k], g.cell_faces.indptr[k + 1]
-            )
-            faces = g.cell_faces.indices[cell_face_pos]
-            sgn = g.cell_faces.data[cell_face_pos]
-            # for face in faces[[2,3]]:
-            #     nodePos = g.face_nodes.indptr[face]
-            #     nodes = g.face_nodes.indices[nodePos:nodePos+2].copy()
-            #     g.face_nodes.indices[nodePos] = nodes[1]
-            #     g.face_nodes.indices[nodePos + 1] = nodes[0]
-            
-            # change the orderign to the OPM ordering
-            old2new[faces] = faces[IA][IC]
-            g.cell_faces.indices[cell_face_pos] = faces[IA][IC]
-            g.cell_faces.data[cell_face_pos] = sgn[IA][IC]
-            g.cell_facetag[cell_face_pos] = opm_sort
+    if not ("CartGrid" in g.name or "TensorGrid" in g.name):
+        raise ValueError("Can only enforce face ordering for CartGrid or TensorGrid")
+    if not hasattr(g, "cell_facetag"):
+        raise ValueError("Can only order grids with cell_facetag")
+
+    # Get ordering of OPM faces in a cell
+    _, IC = np.unique(opm_sort, return_inverse=True)
+    cell_facetag = g.cell_facetag.reshape((-1, 4))
+
+    old2new = np.empty(g.num_faces, dtype=int)
+    for k in range(g.num_cells):
+        # Get pp ordering of faces
+        IA = np.argsort(cell_facetag[k,:])
+        # Get faces of cell
+        cell_face_pos = pp.utils.mcolon.mcolon(
+            g.cell_faces.indptr[k], g.cell_faces.indptr[k + 1]
+        )
+        faces = g.cell_faces.indices[cell_face_pos]
+        sgn = g.cell_faces.data[cell_face_pos]
+        # for face in faces[[2,3]]:
+        #     nodePos = g.face_nodes.indptr[face]
+        #     nodes = g.face_nodes.indices[nodePos:nodePos+2].copy()
+        #     g.face_nodes.indices[nodePos] = nodes[1]
+        #     g.face_nodes.indices[nodePos + 1] = nodes[0]
+
+        # change the orderign to the OPM ordering
+        old2new[faces] = faces[IA][IC]
+        g.cell_faces.indices[cell_face_pos] = faces[IA][IC]
+        g.cell_faces.data[cell_face_pos] = sgn[IA][IC]
+        g.cell_facetag[cell_face_pos] = opm_sort
 
 
 def circumcenterCellCenters(gb):
