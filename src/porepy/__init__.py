@@ -110,6 +110,7 @@ from porepy.numerics.interface_laws.elliptic_interface_laws import (
 
 from porepy.numerics.interface_laws.cell_dof_face_dof_map import CellDofFaceDofMap
 from porepy.numerics.mixed_dim import assembler_filters
+from porepy.numerics.mixed_dim.dof_manager import DofManager
 from porepy.numerics.mixed_dim.assembler import Assembler
 
 import porepy.numerics

@@ -466,8 +466,11 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
     def discretize(self) -> None:
         """Discretize all terms"""
+        if not hasattr(self, "dof_manager"):
+            self.dof_manager = pp.DofManager(self.gb)
+
         if not hasattr(self, "assembler"):
-            self.assembler = pp.Assembler(self.gb)
+            self.assembler = pp.Assembler(self.gb, self.dof_manager)
 
         g_max = self.gb.grids_of_dimension(self.Nd)[0]
 
