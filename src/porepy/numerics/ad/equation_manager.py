@@ -23,7 +23,7 @@ grid_like_type = Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
 
 
 class Equation:
-    def __init__(self, operator, dof_manager: pp.Assembler, name: str = None):
+    def __init__(self, operator, dof_manager: pp.DofManager, name: str = None):
 
         # Black sometimes formats long equations with parantheses in a way that is
         # interpreted as a tuple by Python. Sigh.
@@ -124,8 +124,6 @@ class Equation:
 
     def _identify_variables(self, dof_manager):
         # NOTES TO SELF:
-        # assembler -> dof_manager
-        # gb: needed
         # state: state vector for all unknowns. Should be possible to pick this
         # from pp.STATE or pp.ITERATE
 
@@ -159,14 +157,14 @@ class Equation:
 
         return inds, variable_ids
 
-    def to_ad(self, assembler, gb, state):
+    def to_ad(self, gb, state):
         # Initialize variables
         ad_vars = initAdArrays([state[ind] for ind in self._variable_dofs])
         self._ad = {var_id: ad for (var_id, ad) in zip(self._variable_ids, ad_vars)}
 
         # 3. Parse operators. Matrices can be picked either from discretization matrices,
         # or from some central storage,
-        eq = self._parse_operator(self._operator, assembler.gb)
+        eq = self._parse_operator(self._operator, gb)
 
         return eq
 
@@ -276,7 +274,12 @@ class Equation:
 
 
 class EquationManager:
-    def __init__(self, gb, equations: Optional[List[Equation]] = None) -> None:
+    def __init__(
+        self,
+        gb: pp.GridBucket,
+        dof_manager: pp.DofManager,
+        equations: Optional[List[Equation]] = None,
+    ) -> None:
         self.gb = gb
         self._set_variables(gb)
 
@@ -285,7 +288,7 @@ class EquationManager:
         else:
             self._equations = equations
             # Separate a dof-manager from assembler?
-        self._assembler = pp.Assembler(gb)
+        self.dof_manager = dof_manager
 
     def _set_variables(self, gb):
         # Define variables as specified in the GridBucket
@@ -313,7 +316,7 @@ class EquationManager:
         # This should likely be placed somewhere else
         values: List[np.ndarray] = []
         for item in grid_var:
-            ind: np.ndarray = self._assembler.dof_ind(*item)
+            ind: np.ndarray = self.dof_manager.dof_ind(*item)
             values.append(state[ind])
 
         return values
@@ -322,10 +325,10 @@ class EquationManager:
         mat: List[sps.spmatrix] = []
         b: List[np.ndarray] = []
 
-        num_global_dofs = self._assembler.full_dof.sum()
+        num_global_dofs = self.dof_manager.full_dof.sum()
 
         for eq in self._equations:
-            ad = eq.to_ad(self._assembler, self.gb, state)
+            ad = eq.to_ad(self.gb, state)
 
             # The columns of the Jacobian has the size of the local variables.
             # Map these to the global ones
