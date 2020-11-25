@@ -41,7 +41,9 @@ class Assembler:
 
     """
 
-    def __init__(self, gb: pp.GridBucket) -> None:
+    def __init__(
+        self, gb: pp.GridBucket, dof_manager: Optional[pp.DofManager] = None
+    ) -> None:
         """Construct an assembler for a given GridBucket on a given set of variables.
 
         Parameters:
@@ -52,9 +54,14 @@ class Assembler:
         """
         self.gb = gb
 
+        if dof_manager is None:
+            dof_manager = pp.DofManager(gb)
+
+        self._dof_manager = dof_manager
+
         # Identify all variable couplings in the GridBucket, and assign degrees of
         # freedom for each block.
-        self._identify_dofs()
+        self._identify_variable_combinations()
 
     @staticmethod
     def _discretization_key(row: str, col: str = None) -> str:
@@ -178,11 +185,13 @@ class Assembler:
             )
 
         # If there are no variables, w can return now
-        if self.full_dof.size == 0:
+        if self._dof_manager.full_dof.size == 0:
             if add_matrices:
                 # If a single returned value is expected, (summed matrices) it is most easy
                 # to generate a new, empty matrix, of the right size.
-                mat, vec = self._assign_matrix_vector(self.full_dof, sps_matrix)
+                mat, vec = self._assign_matrix_vector(
+                    self._dof_manager.full_dof, sps_matrix
+                )
                 return mat, vec
             else:
                 return self._initialize_matrix_rhs(sps_matrix)
@@ -200,7 +209,7 @@ class Assembler:
         # add the matrices associated with different terms, and anyhow convert
         # the matrix to a sps. block matrix.
         if add_matrices:
-            size = np.sum(self.full_dof)
+            size = np.sum(self._dof_manager.full_dof)
             full_matrix = sps_matrix((size, size))
             full_rhs = np.zeros(size)
 
@@ -436,8 +445,8 @@ class Assembler:
 
                 # Assign values in global matrix: Create the same key used
                 # defined when initializing matrices (see that function)
-                ri = self.block_dof[(grid, combination.row)]
-                ci = self.block_dof[(grid, combination.col)]
+                ri = self._dof_manager.block_dof[(grid, combination.row)]
+                ci = self._dof_manager.block_dof[(grid, combination.col)]
                 var_key_name = self._variable_term_key(
                     combination.term, combination.row, combination.col
                 )
@@ -536,7 +545,7 @@ class Assembler:
             edge_var_key, edge_discr = edge_vals
 
             # Global block index associated with this edge variable
-            edge_idx: int = self.block_dof[(e, edge_var_key)]
+            edge_idx: int = self._dof_manager.block_dof[(e, edge_var_key)]
 
             # Get variable name and block index of the primary grid variable.
             primary_vals: Tuple[str, str] = coupling.get(g_primary, None)
@@ -556,7 +565,9 @@ class Assembler:
                 primary_var_key, primary_term_key = primary_vals
 
                 # Global index associated with the primary variable
-                primary_idx = self.block_dof.get((g_primary, primary_var_key))
+                primary_idx = self._dof_manager.block_dof.get(
+                    (g_primary, primary_var_key)
+                )
 
                 # Also define the key to access the matrix of the discretization of
                 # the primary variable on the primary node.
@@ -576,7 +587,9 @@ class Assembler:
             else:
                 secondary_var_key, secondary_term_key = secondary_vals
 
-                secondary_idx = self.block_dof.get((g_secondary, secondary_var_key))
+                secondary_idx = self._dof_manager.block_dof.get(
+                    (g_secondary, secondary_var_key)
+                )
                 # Also define the key to access the matrix of the discretization of
                 # the secondary variable on the secondary node.
                 mat_key_secondary = self._variable_term_key(
@@ -613,7 +626,9 @@ class Assembler:
                     # Associate the first variable with primary, the second with
                     # secondary, and the final with edge.
                     loc_mat, _ = self._assign_matrix_vector(
-                        self.full_dof[[primary_idx, secondary_idx, edge_idx]],
+                        self._dof_manager.full_dof[
+                            [primary_idx, secondary_idx, edge_idx]
+                        ],
                         sps_matrix,
                     )
 
@@ -702,7 +717,7 @@ class Assembler:
                 elif operation == "assemble":
 
                     loc_mat, _ = self._assign_matrix_vector(
-                        self.full_dof[[primary_idx, edge_idx]], sps_matrix
+                        self._dof_manager.full_dof[[primary_idx, edge_idx]], sps_matrix
                     )
                     loc_mat[0, 0] = matrix[mat_key_primary][  # type:ignore
                         primary_idx, primary_idx
@@ -748,7 +763,8 @@ class Assembler:
                 elif operation == "assemble":
 
                     loc_mat, _ = self._assign_matrix_vector(
-                        self.full_dof[[secondary_idx, edge_idx]], sps_matrix
+                        self._dof_manager.full_dof[[secondary_idx, edge_idx]],
+                        sps_matrix,
                     )
                     loc_mat[0, 0] = matrix[mat_key_secondary][  # type:ignore
                         secondary_idx, secondary_idx
@@ -819,7 +835,9 @@ class Assembler:
                     # Although different variable names for the same physics is
                     # permitted in the modeling framework, the current restriction
                     # is considered reasonable for the time being.
-                    oi = self.block_dof.get((other_edge, edge_var_key), None)
+                    oi = self._dof_manager.block_dof.get(
+                        (other_edge, edge_var_key), None
+                    )
                     if oi is None:
                         continue
 
@@ -830,7 +848,8 @@ class Assembler:
                     # Associate the first variable with primary, the second with
                     # secondary, and the final with edge.
                     loc_mat, _ = self._assign_matrix_vector(
-                        self.full_dof[[primary_idx, edge_idx, oi]], sps_matrix
+                        self._dof_manager.full_dof[[primary_idx, edge_idx, oi]],
+                        sps_matrix,
                     )
                     (tmp_mat, loc_rhs) = edge_discr.assemble_edge_coupling_via_high_dim(
                         g_primary,
@@ -865,7 +884,9 @@ class Assembler:
                     # Although different variable names for the same physics is
                     # permitted in the modeling framework, the current restriction
                     # is considered reasonable for the time being.
-                    oi = self.block_dof.get((other_edge, edge_var_key), None)
+                    oi = self._dof_manager.block_dof.get(
+                        (other_edge, edge_var_key), None
+                    )
                     if oi is None:
                         continue
 
@@ -876,7 +897,8 @@ class Assembler:
                     # Associate the first variable with primary, the second with
                     # secondary, and the final with edge.
                     loc_mat, _ = self._assign_matrix_vector(
-                        self.full_dof[[secondary_idx, edge_idx, oi]], sps_matrix
+                        self._dof_manager.full_dof[[secondary_idx, edge_idx, oi]],
+                        sps_matrix,
                     )
                     (tmp_mat, loc_rhs) = edge_discr.assemble_edge_coupling_via_high_dim(
                         g_secondary, data_secondary, data_edge, data_other, loc_mat
@@ -884,33 +906,18 @@ class Assembler:
                     matrix[mat_key][edge_idx, oi] = tmp_mat[1, 2]  # type:ignore
                     rhs[mat_key][edge_idx] += loc_rhs[1]
 
-    def _identify_dofs(self) -> None:
+    def _identify_variable_combinations(self) -> None:
         """
         Initialize local matrices for all combinations of variables and operators.
 
         The function serves two purposes:
             1. Identify all variables and their discretizations defined on individual nodes
                and edges in the GridBucket
-            2. To each combination of a node / edge, and a variable, assign an
-               index. This will define the ordering of the blocks in the system matrix.
 
-        At the end of this function, self has been assigned three attributes:
-            block_dof: Is a dictionary with keys that are either
-                Tuple[pp.Grid, variable_name: str] for nodes in the GridBucket, or
-                Tuple[Tuple[pp.Grid, pp.Grid], str] for edges in the GridBucket.
-
-                The values in block_dof are integers 0, 1, ..., that identify the block
-                index of this specific grid (or edge) - variable combination.
-
-            full_dof: Is a np.ndarray of int that store the number of degrees of
-                freedom per key-item pair in block_dof. Thus
-                  len(full_dof) == len(block_dof).
-                The total size of the global system is full_dof.sum()
-
-            variable_combinations: Is a list of strings that define all couplings of
-                variables found in the problem specification. This includes both
-                diagonal terms in the system block matrix, coupling terms within nodes
-                and edges, and couplings between edges and nodes.
+        At the end of this function, self has been assigned variable_combinations.
+        This is a list of strings that define all couplings ofvariables  found in the problem
+        specification. This includes both diagonal terms in the system block matrix,
+        coupling terms within nodesand edges, and couplings between edges and nodes.
 
         """
         # Implementation note: To fully understand the structure of this function
@@ -919,16 +926,6 @@ class Assembler:
         # The function needs to dig deep into the dictionaries used in these
         # declarations, thus the code is rather involved.
 
-        # Counter for block index
-        block_dof_counter = 0
-
-        # Dictionary that maps node/edge + variable combination to an index.
-        block_dof: Dict[Tuple[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], str], int] = {}
-
-        # Storage for number of dofs per variable per node/edge, with respect
-        # to the ordering specified in block_dof
-        full_dof: List[int] = []
-
         # Store all combinations of variable pairs (e.g. row-column indices in
         # the global system matrix), and identifiers of discretization operations
         # (e.g. advection or diffusion).
@@ -936,6 +933,7 @@ class Assembler:
         # This list is used to access discretization matrices for different
         # variables and terms
         variable_combinations: List[str] = []
+
         # Combinations of grids-like features (grid, edge, edge-grid coupling),
         # variables and terms. Used to track discretizations, and which grids and
         # variables they act on. Also used to filter discretizations for partial
@@ -952,32 +950,20 @@ class Assembler:
         # variables.
         for g, d in self.gb:
 
+            # If for some reason there are no primary variables defined for this grid,
+            # skip it.
+            if pp.PRIMARY_VARIABLES not in d:
+                continue
+
             # Loop over variables, count dofs and identify variable-term
             # combinations internal to the node
-            if self._local_variables(d) is None:
-                continue
-            for local_var, local_dofs in self._local_variables(d).items():
+            for local_var in d[pp.PRIMARY_VARIABLES]:
 
-                # First assign a block index.
-                # Note that the keys in the dictionary is a tuple, with a grid
-                # and a variable name (str)
-                block_dof[(g, local_var)] = block_dof_counter
-                block_dof_counter += 1
-
-                # Count number of dofs for this variable on this grid and store it.
-                # The number of dofs for each grid entitiy type defaults to zero.
-                total_local_dofs = (
-                    g.num_cells * local_dofs.get("cells", 0)
-                    + g.num_faces * local_dofs.get("faces", 0)
-                    + g.num_nodes * local_dofs.get("nodes", 0)
-                )
-                full_dof.append(total_local_dofs)
-
-                # Next, identify all defined discretization terms for this variable.
+                # Identify all defined discretization terms for this variable.
                 # Do a second loop over the variables of the grid, the combination
                 # of the two variables gives us all coupling terms (e.g. an off-diagonal
                 # block in the global matrix)
-                for other_local_var in self._local_variables(d):
+                for other_local_var in d[pp.PRIMARY_VARIABLES]:
                     # We need to identify identify individual discretization terms
                     # defined for this equation. These are identified either by
                     # the variable k (for variable dependence on itself), or the
@@ -1014,24 +1000,16 @@ class Assembler:
         # Most steps are identical to the operations on the nodes, we comment
         # only on edge-specific aspects; see above loop for more information
         for e, d in self.gb.edges():
-            mg: pp.MortarGrid = d["mortar_grid"]
 
-            if self._local_variables(d) is None:
+            # If for some reason there are no primary variables defined for this edge,
+            # skip it.
+            if pp.PRIMARY_VARIABLES not in d:
                 continue
-            for local_var, local_dofs in self._local_variables(d).items():
 
-                # First count the number of dofs per variable. Note that the
-                # identifier here is a tuple of the edge and a variable str.
-                block_dof[(e, local_var)] = block_dof_counter
-                block_dof_counter += 1
+            for local_var in d[pp.PRIMARY_VARIABLES]:
 
-                # We only allow for cell variables on the mortar grid.
-                # This will not change in the foreseeable future
-                total_local_dofs = mg.num_cells * local_dofs.get("cells", 0)
-                full_dof.append(total_local_dofs)
-
-                # Then identify all discretization terms for this variable
-                for other_local_var in self._local_variables(d).keys():
+                # Identify all discretization terms for this variable
+                for other_local_var in d[pp.PRIMARY_VARIABLES]:
                     merged_vars = self._discretization_key(local_var, other_local_var)
                     discr = d.get(pp.DISCRETIZATION, None)
                     if discr is None:
@@ -1098,11 +1076,8 @@ class Assembler:
                         term,
                     )
                 )
-        # Array version of the number of dofs per node/edge and variable
-        self.full_dof: np.ndarray = np.array(full_dof)
-        self.block_dof: Dict[
-            Tuple[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], str], int
-        ] = block_dof
+
+        # Store values in self
         self.variable_combinations: List[str] = variable_combinations
         self._grid_variable_term_combinations = grid_variable_term_combinations
 
@@ -1144,7 +1119,7 @@ class Assembler:
         matrix_dict: Dict[str, Union[csc_or_csr_matrix, np.ndarray]] = {}
         rhs_dict: Dict[str, np.ndarray] = {}
 
-        num_blocks = len(self.full_dof)
+        num_blocks = len(self._dof_manager.full_dof)
 
         # Uniquify list of variable combinations. Then iterate over all variable
         # combinations and initialize matrices of the right size
@@ -1162,9 +1137,9 @@ class Assembler:
                 # at the end of assemble_matrix_rhs to know the correct shape of the
                 # full matrix
                 matrix_dict[var][di, di] = sps_matrix(
-                    (self.full_dof[di], self.full_dof[di])
+                    (self._dof_manager.full_dof[di], self._dof_manager.full_dof[di])
                 )
-                rhs_dict[var][di] = np.zeros(self.full_dof[di])
+                rhs_dict[var][di] = np.zeros(self._dof_manager.full_dof[di])
 
         return matrix_dict, rhs_dict
 
@@ -1252,24 +1227,6 @@ class Assembler:
             parameter.append(d[pp.PARAMETERS][keyword][parameter_name])
         return np.hstack(parameter)
 
-    def _local_variables(self, d: Dict) -> Dict[str, Dict[str, int]]:
-        """Find variables defined in a data dictionary, and do intersection
-        with defined active variables.
-
-        If no active variables are specified, returned all declared variables.
-
-        Parameters:
-            d (dict): Data dictionary defined on a GridBucket node or edge
-
-        Returns:
-            dict: With variable names and information (#dofs of various kinds), as
-                specified by user, but possibly restricted to the active variables
-
-        """
-
-        # Active variables
-        return d.get(pp.PRIMARY_VARIABLES, None)
-
     def distribute_variable(
         self, values: np.ndarray, variable_names: List[str] = None
     ) -> None:
@@ -1289,13 +1246,13 @@ class Assembler:
         """
         if variable_names is None:
             variable_names = []
-            for pair in self.block_dof.keys():
+            for pair in self._dof_manager.block_dof.keys():
                 variable_names.append(pair[1])
 
-        dof = np.cumsum(np.append(0, np.asarray(self.full_dof)))
+        dof = np.cumsum(np.append(0, np.asarray(self._dof_manager.full_dof)))
 
         for var_name in set(variable_names):
-            for pair, bi in self.block_dof.items():
+            for pair, bi in self._dof_manager.block_dof.items():
                 g = pair[0]
                 name = pair[1]
                 if name != var_name:
@@ -1311,32 +1268,13 @@ class Assembler:
                 else:
                     data[pp.STATE] = {var_name: values[dof[bi] : dof[bi + 1]]}
 
-    def dof_ind(
-        self, g: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], name: str
-    ) -> np.ndarray:
-        """Get the indices in the global system of variables associated with a
-        given node / edge (in the GridBucket sense) and a given variable.
-
-        Parameters:
-            g (pp.Grid or pp.GridBucket edge): Either a grid, or an edge in the
-                GridBucket.
-            name (str): Name of a variable. Should be an active variable.
-
-        Returns:
-            np.array (int): Index of degrees of freedom for this variable.
-
-        """
-        block_ind = self.block_dof[(g, name)]
-        dof_start = np.hstack((0, np.cumsum(self.full_dof)))
-        return np.arange(dof_start[block_ind], dof_start[block_ind + 1])
-
     def num_dof(self) -> int:
         """Get total number of unknowns of the identified variables.
 
         Returns:
             int: Number of unknowns. Size of solution vector.
         """
-        return self.full_dof.sum()
+        return self._dof_manager.full_dof.sum()
 
     def variables_of_grid(
         self, g: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
@@ -1350,16 +1288,17 @@ class Assembler:
             List[str]: List of all variables known for this entity.
 
         """
-        return [key[1] for key in self.block_dof.keys() if key[0] == g]
+        return [key[1] for key in self._dof_manager.block_dof.keys() if key[0] == g]
 
     def __str__(self) -> str:
-        names = [key[1] for key in self.block_dof.keys()]
+        names = [key[1] for key in self._dof_manager.block_dof.keys()]
         unique_vars = list(set(names))
         s = (
             f"Assembler object on a GridBucket with {self.gb.num_graph_nodes()} "
             f"subdomains and {self.gb.num_graph_edges()} interfaces.\n"
             f"Total number of degrees of freedom: {self.num_dof()}\n"
-            f"Total number of subdomain and interface variables: {len(self.block_dof)}\n"
+            "Total number of subdomain and interface variables:"
+            f"{len(self._dof_manager.block_dof)}\n"
             f"Variable names: {unique_vars}"
         )
 
@@ -1368,7 +1307,7 @@ class Assembler:
     def __repr__(self) -> str:
         s = (
             f"Assembler objcet with in total {self.num_dof()} dofs"
-            f" on {len(self.block_dof)} subdomain and interface variables.\n"
+            f" on {len(self._dof_manager.block_dof)} subdomain and interface variables.\n"
             f"Maximum grid dimension: {self.gb.dim_max()}.\n"
             f"Minimum grid dimension: {self.gb.dim_min()}.\n"
         )
@@ -1376,7 +1315,7 @@ class Assembler:
             s += f"In dimension {dim}: {len(self.gb.grids_of_dimension(dim))} grids.\n"
             unique_vars = {
                 key[1]
-                for key in self.block_dof.keys()
+                for key in self._dof_manager.block_dof.keys()
                 if not isinstance(key[0], tuple) and key[0].dim == dim
             }
             s += f"All variables present in dimension {dim}: {unique_vars}\n"

@@ -309,15 +309,15 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             solution_vector (np.array): solution vector for the current iterate.
 
         """
-        assembler = self.assembler
+        dof_manager = self.dof_manager
         variable_names = []
-        for pair in assembler.block_dof.keys():
+        for pair in dof_manager.block_dof.keys():
             variable_names.append(pair[1])
 
-        dof = np.cumsum(np.append(0, np.asarray(assembler.full_dof)))
+        dof = np.cumsum(np.append(0, np.asarray(dof_manager.full_dof)))
 
         for var_name in set(variable_names):
-            for pair, bi in assembler.block_dof.items():
+            for pair, bi in dof_manager.block_dof.items():
                 g = pair[0]
                 name = pair[1]
                 if name != var_name:
@@ -354,9 +354,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         """
         size = self.assembler.num_dof()
         state = np.zeros(size)
-        for g, var in self.assembler.block_dof.keys():
+        for g, var in self.dof_manager.block_dof.keys():
             # Index of
-            ind = self.assembler.dof_ind(g, var)
+            ind = self.dof_manager.dof_ind(g, var)
 
             if isinstance(g, tuple):
                 values = self.gb.edge_props(g)[pp.STATE][var]
@@ -480,7 +480,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
     def discretize(self):
         """Discretize all terms"""
 
-        self.assembler = pp.Assembler(self.gb)
+        self.dof_manager = pp.DofManager(self.gb)
+        self.assembler = pp.Assembler(self.gb, self.dof_manager)
 
         tic = time.time()
         logger.info("Discretize")
