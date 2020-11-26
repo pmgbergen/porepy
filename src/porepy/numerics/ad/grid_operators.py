@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Union
 
 import numpy as np
 import porepy as pp
@@ -7,7 +7,13 @@ import scipy.sparse as sps
 from .operators import Operator, MergedOperator, Matrix
 
 
-__all__ = ["MortarProjections", "Divergence", "BoundaryCondition", "Trace"]
+__all__ = [
+    "MortarProjections",
+    "Divergence",
+    "BoundaryCondition",
+    "Trace",
+    "SubdomainProjections",
+]
 
 
 def _subgrid_projections(
@@ -57,6 +63,83 @@ def _subgrid_projections(
         cell_offset = cell_ind[-1] + 1
 
     return cell_projection, face_projection
+
+
+class SubdomainProjections(Operator):
+    def __init__(
+        self,
+        gb: Optional[List[pp.Grid]] = None,
+        grids: Optional[List[pp.Grid]] = None,
+        is_scalar: bool = True,
+    ) -> None:
+        if grids is None:
+            if gb is None:
+                raise ValueError(
+                    "Trace needs either either a list of grids or a GridBucket"
+                )
+            grids = [g for g, _ in gb]
+
+        self._is_scalar: bool = is_scalar
+        if self._is_scalar:
+            self._nd: int = 1
+        else:
+            self._nd = gb.dim_max()
+        self._num_grids: int = len(grids)
+
+        self._cell_projection, self._face_projection = _subgrid_projections(
+            grids, self._nd
+        )
+
+    def cell_restriction(self, grids: Union[pp.Grid, List[pp.Grid]]) -> Matrix:
+        if isinstance(grids, pp.Grid):
+            return pp.ad.Matrix(self._cell_projection[grids].T)
+        elif isinstance(grids, list):
+            # A key error will be raised if a grid in g is not known to self._cell_projection
+            return pp.ad.Matrix(
+                sps.bmat([[self._cell_projection[g].T] for g in grids]).tocsr()
+            )
+        else:
+            raise ValueError("Argument should be a grid or a list of grids")
+
+    def cell_prolongation(self, grids: Union[pp.Grid, List[pp.Grid]]) -> Matrix:
+        if isinstance(grids, pp.Grid):
+            return pp.ad.Matrix(self._cell_projection[grids])
+        elif isinstance(grids, list):
+            # A key error will be raised if a grid in g is not known to self._cell_projection
+            return pp.ad.Matrix(
+                sps.bmat([self._cell_projection[g] for g in grids]).tocsr()
+            )
+        else:
+            raise ValueError("Argument should be a grid or a list of grids")
+
+    def face_restriction(self, grids: Union[pp.Grid, List[pp.Grid]]) -> Matrix:
+        if isinstance(grids, pp.Grid):
+            return pp.ad.Matrix(self._face_projection[grids].T)
+        elif isinstance(grids, list):
+            # A key error will be raised if a grid in g is not known to self._cell_projection
+            return pp.ad.Matrix(
+                sps.bmat([[self._face_projection[g].T] for g in grids]).tocsr()
+            )
+        else:
+            raise ValueError("Argument should be a grid or a list of grids")
+
+    def face_prolongation(self, grids: Union[pp.Grid, List[pp.Grid]]) -> Matrix:
+        if isinstance(grids, pp.Grid):
+            return pp.ad.Matrix(self._face_projection[grids])
+        elif isinstance(grids, list):
+            # A key error will be raised if a grid in g is not known to self._cell_projection
+            return pp.ad.Matrix(
+                sps.bmat([self._face_projection[g] for g in grids]).tocsr()
+            )
+        else:
+            raise ValueError("Argument should be a grid or a list of grids")
+
+    def __repr__(self) -> str:
+        s = (
+            f"Restriction and prolongation operators for {self._num_grids} grids\n"
+            f"Aimed at variables with dimension {self._nd}\n"
+        )
+        return s
 
 
 class MortarProjections(Operator):
@@ -256,6 +339,20 @@ class Divergence(MergedOperator):
             s = "Vector "
 
         s += f"divergence defined on {len(self.g)} grids\n"
+
+        nf = 0
+        nc = 0
+        for g in self.g:
+            if self.scalar:
+                nf += g.num_faces
+                nc += g.num_cells
+            else:
+                # EK: the notion of vector divergence for grids of co-dimension >= 1
+                # is not clear, but we ignore this here.
+                nf += g.num_faces * g.dim
+                nc += g.num_cells * g.dim
+
+        s += f"The total size of the matrix is ({nc}, {nf})\n"
 
         return s
 
