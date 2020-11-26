@@ -169,6 +169,10 @@ class Grid:
             self.cell_faces.copy(),
             self.name,
         )
+        h.cell_faces.indices = self.cell_faces.indices.copy()
+        h.cell_faces.data = self.cell_faces.data.copy()
+        h.face_nodes.indices = self.face_nodes.indices.copy()
+        h.face_nodes.data = self.face_nodes.data.copy()
         if hasattr(self, "cell_volumes"):
             h.cell_volumes = self.cell_volumes.copy()
         if hasattr(self, "cell_centers"):

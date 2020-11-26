@@ -110,7 +110,7 @@ def dumpMortarGridToFile(gb, e, d, fn, max_1_grid_per_dim=False):
 
 
 def merge_grids(grids):
-    grid = grids[0]#.copy()
+    grid = grids[0].copy()
     if hasattr(grids[0], "cell_facetag"):
         grid.cell_facetag = grids[0].cell_facetag
 
@@ -396,7 +396,8 @@ def addCellFaceTagGrid(g, tol=1e-10):
     else:
         raise ValueError("Invalid grid dimension (must be 0,1,2, or 3): {}".format(g.dim))
 
-    cell_centers, _, face_centers, _, _, _ = pp.map_geometry.map_grid(g)
+    R = pp.map_geometry.project_plane_matrix(g.nodes, reference=np.array([0, 1, 0]))
+    cell_centers, _, face_centers, _, _, _ = pp.map_geometry.map_grid(g, R=R)
     if not ("CartGrid" in g.name or "TensorGrid" in g.name):
         raise ValueError("Can only enforce face ordering for CartGrid or TensorGrid")
 

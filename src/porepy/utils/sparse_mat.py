@@ -176,6 +176,15 @@ def stack_mat(A, B):
         A._shape = (A._shape[0] + B._shape[0], A._shape[1])
 
 
+def copy(A):
+    if A.getformat() == "csc":
+        return sps.csc_matrix((A.data, A.indices, A.indptr), shape=A.shape)
+    elif A.getformat() == "csr":
+        return sps.csr_matrix((A.data, A.indices, A.indptr), shape=A.shape)
+    else:
+        return A.copy()
+
+
 def stack_diag(A, B):
     """
     Create a new matrix C that contains matrix A and B at the diagonal:
