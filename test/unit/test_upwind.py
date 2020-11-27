@@ -1,4 +1,6 @@
 """ Various tests of the upwind discretization for tranpsort problems on a single grid.
+
+Both within a grid, and upwind coupling on mortar grids.
 """
 import numpy as np
 import unittest
@@ -7,6 +9,8 @@ import scipy.sparse as sps
 
 
 class TestUpwindDiscretization(unittest.TestCase):
+    """Upwind discretization on individual grids."""
+
     def test_upwind_1d_darcy_flux_positive(self):
         g = pp.CartGrid(3, 1)
         g.compute_geometry()
@@ -783,6 +787,119 @@ class TestUpwindDiscretization(unittest.TestCase):
         )
 
         assert np.allclose(conc, known)
+
+
+class TestUpwindCoupling(unittest.TestCase):
+    """Tests of hyperbolic_interface_laws.UpwindCoupling."""
+
+    def generate_grid(self):
+        # Generate cartesian grid with one fracture:
+        # ---------
+        # |   |   |
+        # --------- horizontal fracture
+        # |   |   |
+        # --------
+        gb, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
+        return gb
+
+    def block_matrix(self, gs):
+        def ndof(g):
+            return g.num_cells
+
+        dof = np.array([ndof(g) for g in gs])
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+        return cc.reshape((3, 3))
+
+    def test_upwind_2d_1d_positive_flux(self):
+        # test coupling between 2D grid and 1D grid with a fluid flux going from
+        # 2D grid to 1D grid. The upwind weighting should in this case choose the
+        # 2D cell variables as weights
+
+        gb = self.generate_grid()
+        g2 = gb.grids_of_dimension(2)[0]
+        g1 = gb.grids_of_dimension(1)[0]
+
+        d2 = gb.node_props(g2)
+        d1 = gb.node_props(g1)
+        de = gb.edge_props((g1, g2))
+
+        zero_mat = self.block_matrix([g2, g1, de["mortar_grid"]])
+
+        lam = np.arange(de["mortar_grid"].num_cells)
+        de[pp.PARAMETERS] = {"transport": {"darcy_flux": lam}}
+
+        upwind_coupler = pp.UpwindCoupling("transport")
+
+        matrix, _ = upwind_coupler.assemble_matrix_rhs(g2, g1, d2, d1, de, zero_mat)
+
+        matrix_2 = np.array(
+            [
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+            ]
+        )
+        matrix_1 = np.array(
+            [[0, 0, 0, 0, 0, 0, -1, 0, -1, 0], [0, 0, 0, 0, 0, 0, 0, -1, 0, -1]]
+        )
+        matrix_l = np.array(
+            [
+                [0, 0, 0, 0, 0, 0, -1, 0, 0, 0],
+                [0, 0, 1, 0, 0, 0, 0, -1, 0, 0],
+                [0, 2, 0, 0, 0, 0, 0, 0, -1, 0],
+                [3, 0, 0, 0, 0, 0, 0, 0, 0, -1],
+            ]
+        )
+        self.assertTrue(np.allclose(sps.hstack(matrix[0, :]).A, matrix_2))
+        self.assertTrue(np.allclose(sps.hstack(matrix[1, :]).A, matrix_1))
+        self.assertTrue(np.allclose(sps.hstack(matrix[2, :]).A, matrix_l))
+
+    def test_upwind_2d_1d_negative_flux(self):
+        # test coupling between 2D grid and 1D grid with a fluid flux going from
+        # 1D grid to 2D grid. The upwind weighting should in this case choose the
+        # 1D cell variables as weights
+
+        gb = self.generate_grid()
+        g2 = gb.grids_of_dimension(2)[0]
+        g1 = gb.grids_of_dimension(1)[0]
+
+        d2 = gb.node_props(g2)
+        d1 = gb.node_props(g1)
+        de = gb.edge_props((g1, g2))
+
+        zero_mat = self.block_matrix([g2, g1, de["mortar_grid"]])
+
+        lam = np.arange(de["mortar_grid"].num_cells)
+        de[pp.PARAMETERS] = {"transport": {"darcy_flux": -lam}}
+
+        upwind_coupler = pp.UpwindCoupling("transport")
+
+        matrix, _ = upwind_coupler.assemble_matrix_rhs(g2, g1, d2, d1, de, zero_mat)
+
+        matrix_2 = np.array(
+            [
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+            ]
+        )
+        matrix_1 = np.array(
+            [[0, 0, 0, 0, 0, 0, -1, 0, -1, 0], [0, 0, 0, 0, 0, 0, 0, -1, 0, -1]]
+        )
+        matrix_l = np.array(
+            [
+                [0, 0, 0, 0, 0, 0, -1, 0, 0, 0],
+                [0, 0, 0, 0, 0, -1, 0, -1, 0, 0],
+                [0, 0, 0, 0, -2, 0, 0, 0, -1, 0],
+                [0, 0, 0, 0, 0, -3, 0, 0, 0, -1],
+            ]
+        )
+
+        self.assertTrue(np.allclose(sps.hstack(matrix[0, :]).A, matrix_2))
+        self.assertTrue(np.allclose(sps.hstack(matrix[1, :]).A, matrix_1))
+        self.assertTrue(np.allclose(sps.hstack(matrix[2, :]).A, matrix_l))
 
 
 if __name__ == "__main__":
