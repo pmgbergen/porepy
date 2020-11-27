@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/pmgbergen/porepy.svg?branch=develop)](https://travis-ci.org/pmgbergen/porepy) [![Coverage Status](https://coveralls.io/repos/github/pmgbergen/porepy/badge.svg?branch=develop)](https://coveralls.io/github/pmgbergen/porepy?branch=develop)
+![build](https://github.com/pmgbergen/porepy/workflows/Build%20Test/badge.svg)
 [![DOI](https://zenodo.org/badge/89228838.svg)](https://zenodo.org/badge/latestdoi/89228838)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
@@ -21,9 +21,8 @@ Runscripts for most, if not all, papers that uses porepy is available at [here](
 Note that you may have to revert to an older version of PorePy to run the examples (we try to keep the runscripts updated, but sometime fail to do so, for various reasons).
 
 # Installation from source
-
-For more detailed install instructions, including how to access GMSH (for meshing), see
-[Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
+Install instructions can be found here [Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
+Note that there are a few simple but non-obvious steps in the installation, so please read the entire document before sending questions.
 
 PorePy is developed under Python >=3.6.
 
