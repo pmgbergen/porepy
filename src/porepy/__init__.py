@@ -61,7 +61,6 @@ from porepy.params.fluid import Water, UnitFluid
 
 # Grids
 from porepy.grids.grid import Grid
-from porepy.grids.fv_sub_grid import FvSubGrid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.grids.grid_bucket import GridBucket
 from porepy.grids.structured import CartGrid, TensorGrid
