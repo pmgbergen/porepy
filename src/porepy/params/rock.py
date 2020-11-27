@@ -187,7 +187,8 @@ class Granite(UnitRock):
         self.LAMBDA, self.MU = lame_from_young_poisson(
             self.YOUNG_MODULUS, self.POISSON_RATIO
         )
-        # Units of thermal expansion: m^3 / m^3 K, i.e. volumetric. From engineeringtoolbox.com
+        # Units of thermal expansion: m / m K, i.e. linear. 
+        # From https://www.engineeringtoolbox.com/linear-expansion-coefficients-d_95.html
         self.THERMAL_EXPANSION = 8e-6 * pp.METER / (pp.METER * pp.CELSIUS)
         if theta_ref is None:
             self.theta_ref = 20.0 * pp.CELSIUS
