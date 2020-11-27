@@ -1,8 +1,9 @@
 import unittest
+from test import test_utils
+
 import numpy as np
 
 from porepy.utils import sort_points
-from test import test_utils
 
 
 class SortLinePairTest(unittest.TestCase):

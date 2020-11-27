@@ -1,7 +1,7 @@
 import unittest
-import scipy.sparse as sps
-import numpy as np
 
+import numpy as np
+import scipy.sparse as sps
 
 from porepy.utils import sparse_mat
 

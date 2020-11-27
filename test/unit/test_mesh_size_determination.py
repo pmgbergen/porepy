@@ -2,7 +2,9 @@
 Tests of mesh size determination for simplex grids.
 """
 import unittest
+
 import numpy as np
+
 import porepy as pp
 
 
@@ -88,7 +90,7 @@ class TestMeshSize(unittest.TestCase):
 
     def test_one_to_boundary_3d(self):
         """
-            One fracture in 3d going all the way to the boundary
+        One fracture in 3d going all the way to the boundary
         """
 
         f_1 = np.array([[1, 5, 5, 1], [1, 1, 1, 1], [1, 1, 3, 3]])
@@ -142,9 +144,9 @@ class TestMeshSize(unittest.TestCase):
 
 def make_bucket_2d():
     """
-        Helper function to obtain known quantities and the inputs for
-        determine_mesh_size in 2d.
-        """
+    Helper function to obtain known quantities and the inputs for
+    determine_mesh_size in 2d.
+    """
 
     f_1 = np.array([[0.5, 5], [1.5, 1.5]])
     f_set = [f_1]

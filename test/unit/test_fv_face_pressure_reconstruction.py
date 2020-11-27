@@ -1,5 +1,6 @@
-import numpy as np
 import unittest
+
+import numpy as np
 import scipy.sparse.linalg as spl
 
 import porepy as pp

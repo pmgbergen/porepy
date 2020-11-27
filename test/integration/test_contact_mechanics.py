@@ -1,11 +1,12 @@
 """
 Various integration tests for contact mechanics.
 """
-import numpy as np
+import test.common.contact_mechanics_examples
 import unittest
 
+import numpy as np
+
 import porepy as pp
-import test.common.contact_mechanics_examples
 
 
 class TestContactMechanics(unittest.TestCase):
@@ -27,7 +28,9 @@ class TestContactMechanics(unittest.TestCase):
         contact_force = d_1[pp.STATE][setup.contact_traction_variable]
 
         displacement_jump_global_coord = (
-            mg.mortar_to_secondary_avg(nd=nd) * mg.sign_of_mortar_sides(nd=nd) * u_mortar
+            mg.mortar_to_secondary_avg(nd=nd)
+            * mg.sign_of_mortar_sides(nd=nd)
+            * u_mortar
         )
         projection = d_1["tangential_normal_projection"]
 

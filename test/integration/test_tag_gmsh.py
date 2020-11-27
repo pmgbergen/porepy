@@ -1,5 +1,6 @@
-import numpy as np
 import unittest
+
+import numpy as np
 
 import porepy as pp
 
@@ -12,18 +13,17 @@ We consider the case with only boundary, fractures, auxiliary segments, and a mi
 
 class BasicsTest(unittest.TestCase):
     def test_face_tags_from_gmsh_before_grid_split(self):
-        """ Check that the faces of the grids returned from gmsh has correct tags
+        """Check that the faces of the grids returned from gmsh has correct tags
         before the grid is split. The domain is the unit square with two fractures
         that intersect.
         """
-        p = np.array([[0, 1, 0.5, 0.5],
-                      [0.5, 0.5, 0, 1]])
+        p = np.array([[0, 1, 0.5, 0.5], [0.5, 0.5, 0, 1]])
         e = np.array([[0, 2], [1, 3]])
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
         network = pp.FractureNetwork2d(p, e, domain=domain)
         mesh_args = {
-            'mesh_size_frac': 0.1,
-            'mesh_size_bound': 0.1,
+            "mesh_size_frac": 0.1,
+            "mesh_size_bound": 0.1,
         }
 
         file_name = "mesh_simplex"

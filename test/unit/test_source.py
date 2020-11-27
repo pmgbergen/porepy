@@ -1,8 +1,10 @@
 """ Unit tests for source discretizations.
 """
 import unittest
-import scipy.sparse as sps
+
 import numpy as np
+import scipy.sparse as sps
+
 import porepy as pp
 
 
