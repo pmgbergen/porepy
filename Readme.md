@@ -1,4 +1,4 @@
-![build](https://github.com/pmgbergen/porepy/workflows/Build%20and%20test/badge.svg)
+![build](https://github.com/pmgbergen/porepy/workflows/Build%20Test/badge.svg)
 [![DOI](https://zenodo.org/badge/89228838.svg)](https://zenodo.org/badge/latestdoi/89228838)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
