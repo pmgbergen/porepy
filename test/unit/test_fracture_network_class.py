@@ -1,16 +1,15 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Various checks of the FractureNetwork2d and 3d class
 
-@author: eke001
+Also test unitily function for generation of defalut domains.
 """
 
 import unittest
+from test import test_utils
+
 import numpy as np
 
 import porepy as pp
-from test import test_utils
 
 
 class TestFractureNetwork2d(unittest.TestCase):
@@ -269,6 +268,57 @@ class TestFractureNetwork3dBoundingBox(unittest.TestCase):
         self.assertTrue(d["ymax"] == external_boundary["ymax"])
         self.assertTrue(d["zmin"] == external_boundary["zmin"])
         self.assertTrue(d["zmax"] == external_boundary["zmax"])
+
+
+class TestDomain(unittest.TestCase):
+    def check_key_value(self, domain, keys, values):
+        tol = 1e-12
+        for dim, key in enumerate(keys):
+            if key in domain:
+                self.assertTrue(abs(domain.pop(key) - values[dim]) < tol)
+            else:
+                self.assertTrue(False)  # Did not find correct key
+
+    def test_unit_cube(self):
+        domain = pp.UnitCubeDomain()
+        keys = ["xmin", "ymin", "zmin", "xmax", "ymax", "zmax"]
+        values = [0, 0, 0, 1, 1, 1]
+        self.check_key_value(domain, keys, values)
+        if len(domain) != 0:
+            self.assertTrue(False)  # Domain should be empty now
+
+    def test_unit_square(self):
+        domain = pp.UnitSquareDomain()
+        keys = ["xmin", "ymin", "xmax", "ymax"]
+        values = [0, 0, 1, 1]
+        self.check_key_value(domain, keys, values)
+        if len(domain) != 0:
+            self.assertTrue(False)  # Domain should be empty now
+
+    def test_cube(self):
+        physdims = [3.14, 1, 5]
+        domain = pp.CubeDomain(physdims)
+        keys = ["xmin", "ymin", "zmin", "xmax", "ymax", "zmax"]
+        values = [0, 0, 0] + physdims
+
+        self.check_key_value(domain, keys, values)
+        if len(domain) != 0:
+            self.assertTrue(False)  # Domain should be empty now
+
+    def test_squre(self):
+        physdims = [2.71, 1e5]
+        domain = pp.SquareDomain(physdims)
+        keys = ["xmin", "ymin", "xmax", "ymax"]
+        values = [0, 0] + physdims
+
+        self.check_key_value(domain, keys, values)
+        if len(domain) != 0:
+            self.assertTrue(False)  # Domain should be empty now
+
+    def test_negative_domain(self):
+        physdims = [1, -1]
+        with self.assertRaises(ValueError):
+            pp.SquareDomain(physdims)
 
 
 if __name__ == "__main__":

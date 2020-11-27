@@ -10,12 +10,13 @@
     TestAsymmetricNeumann: Neumann conditions.
 
 """
+import unittest
+from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
+
 import numpy as np
 import scipy.sparse as sps
-import unittest
-import porepy as pp
 
-from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
+import porepy as pp
 
 
 def setup_stiffness(g, mu=1, l=1):

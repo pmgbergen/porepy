@@ -6,14 +6,16 @@ Created on Sat Nov 11 17:25:01 2017
 @author: Eirik Keilegavlens
 """
 from __future__ import division
+
+import unittest
+from test import test_utils
+
 import numpy as np
 import scipy.sparse as sps
-import unittest
 
-from porepy.grids.structured import TensorGrid
-from porepy.grids import refinement
 from porepy.fracs import meshing
-from test import test_utils
+from porepy.grids import refinement
+from porepy.grids.structured import TensorGrid
 
 
 class TestGridPerturbation(unittest.TestCase):
@@ -667,7 +669,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_mortar_grid_1d_refine_1d_grid(self):
-        """ Refine the lower-dimensional grid so that it is matching with the
+        """Refine the lower-dimensional grid so that it is matching with the
         higher dimensional grid.
         """
 
@@ -778,7 +780,8 @@ class TestRefinementMortarGrid(unittest.TestCase):
                         low_to_mortar_known, mg.secondary_to_mortar_int().todense()
                     ),
                     np.allclose(
-                        low_to_mortar_known, mg.secondary_to_mortar_int().todense()[::-1]
+                        low_to_mortar_known,
+                        mg.secondary_to_mortar_int().todense()[::-1],
                     ),
                 )
             )
@@ -786,8 +789,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_mortar_grid_1d_refine_1d_grid_2(self):
-        """ Refine the 1D grid so that it is no longer matching the 2D grid.
-        """
+        """Refine the 1D grid so that it is no longer matching the 2D grid."""
 
         f1 = np.array([[0, 1], [0.5, 0.5]])
 
@@ -894,7 +896,8 @@ class TestRefinementMortarGrid(unittest.TestCase):
                         low_to_mortar_known, mg.secondary_to_mortar_int().todense()
                     ),
                     np.allclose(
-                        low_to_mortar_known, mg.secondary_to_mortar_int().todense()[::-1]
+                        low_to_mortar_known,
+                        mg.secondary_to_mortar_int().todense()[::-1],
                     ),
                 )
             )
@@ -981,7 +984,9 @@ class TestRefinementMortarGrid(unittest.TestCase):
             )
 
             data_known = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
-            self.assertTrue(np.array_equal(mg.secondary_to_mortar_int().data, data_known))
+            self.assertTrue(
+                np.array_equal(mg.secondary_to_mortar_int().data, data_known)
+            )
 
 
 if __name__ == "__main__":

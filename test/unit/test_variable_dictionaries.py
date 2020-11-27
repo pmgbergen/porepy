@@ -14,23 +14,21 @@ def empty_dict() -> Dict:
 
 class TestState:
     def test_add_empty_state(self, empty_dict):
-        """ Add an empty state dictionary
-        """
+        """Add an empty state dictionary"""
         d = empty_dict
         pp.set_state(d)
         assert pp.STATE in d
 
     def test_add_empty_iterate(self, empty_dict):
-        """ Add an empty iterate dictionary
-        """
+        """Add an empty iterate dictionary"""
         d = empty_dict
         pp.set_iterate(d)
         assert pp.STATE in d
         assert pp.ITERATE in d[pp.STATE]
 
     def test_add_state_twice(self, empty_dict):
-        """ Add two state dictionaries.
-        
+        """Add two state dictionaries.
+
         The existing foo value should be overwritten, while bar should be kept.
         """
         d = empty_dict
@@ -44,8 +42,8 @@ class TestState:
             assert d[pp.STATE][key] == val
 
     def test_add_iterate_twice_and_state(self, empty_dict):
-        """ Add two state dictionaries.
-        
+        """Add two state dictionaries.
+
         The existing foo value should be overwritten, while bar should be kept.
         Setting values in pp.STATE should not affect the iterate values.
         """
