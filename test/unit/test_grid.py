@@ -4,12 +4,13 @@
 * Tests for the mortar grid.
 """
 
-import numpy as np
 import unittest
 import scipy.sparse as sps
 
+import numpy as np
+
 import porepy as pp
-from porepy.grids import structured, simplex
+from porepy.grids import simplex, structured
 from porepy.utils import setmembership
 
 

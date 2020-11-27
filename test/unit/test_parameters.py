@@ -3,13 +3,14 @@
 
 
 """
-import numpy as np
 import unittest
 
+import numpy as np
+
 import porepy as pp
+import porepy.params.parameter_dictionaries as dicts
 from porepy.grids.structured import CartGrid
 from porepy.params.data import Parameters
-import porepy.params.parameter_dictionaries as dicts
 
 
 class TestParameters(unittest.TestCase):

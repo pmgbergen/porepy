@@ -4,8 +4,9 @@ Created on Thu Feb 25 20:43:38 2016
 
 @author: keile
 """
-import numpy as np
 import unittest
+
+import numpy as np
 
 from porepy.utils import setmembership
 

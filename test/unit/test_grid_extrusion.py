@@ -2,10 +2,12 @@
 Unit tests for grid extrusion functionality.
 """
 
-import numpy as np
 import unittest
-import porepy as pp
+
+import numpy as np
 import scipy.sparse as sps
+
+import porepy as pp
 
 
 def check_cell_map(cell_map, g, nz):

@@ -1,12 +1,12 @@
 import unittest
+
 import numpy as np
 
 import porepy as pp
 
 
 class TestNormalVector(unittest.TestCase):
-    """ Test computation of compute_normal().
-    """
+    """Test computation of compute_normal()."""
 
     def test_axis_normal(self):
         """

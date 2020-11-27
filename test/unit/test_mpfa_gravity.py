@@ -1,10 +1,12 @@
-import numpy as np
-import scipy
-from scipy.sparse.linalg import spsolve
-import sympy
 import unittest
-import porepy as pp
+
+import numpy as np
 import pytest
+import scipy
+import sympy
+from scipy.sparse.linalg import spsolve
+
+import porepy as pp
 
 
 class _SolutionHomogeneousDomainFlowWithGravity(object):

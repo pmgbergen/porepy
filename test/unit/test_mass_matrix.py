@@ -1,9 +1,9 @@
 """ Tests for mass matrix discretization. Both mono- and mixed-dimensional
 """
 
-import numpy as np
 import unittest
 
+import numpy as np
 
 import porepy as pp
 

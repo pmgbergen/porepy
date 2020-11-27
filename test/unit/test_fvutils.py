@@ -1,9 +1,11 @@
 from __future__ import division
-import numpy as np
+
 import unittest
 
+import numpy as np
+
+from porepy.grids import simplex, structured
 from porepy.numerics.fv import fvutils
-from porepy.grids import structured, simplex
 
 
 class TestFvutils(unittest.TestCase):

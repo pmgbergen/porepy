@@ -2,10 +2,12 @@
 
 Both within a grid, and upwind coupling on mortar grids.
 """
-import numpy as np
 import unittest
-import porepy as pp
+
+import numpy as np
 import scipy.sparse as sps
+
+import porepy as pp
 
 
 class TestUpwindDiscretization(unittest.TestCase):
