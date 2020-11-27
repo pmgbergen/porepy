@@ -4,10 +4,11 @@ fractures and boundaries.
 """
 
 import unittest
+from test import test_utils
+
 import numpy as np
 
 import porepy as pp
-from test import test_utils
 
 
 class TestSweepAndPrune(unittest.TestCase):

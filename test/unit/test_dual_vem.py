@@ -1,8 +1,9 @@
 """ Module contains two sets of tests: One on MVEM itself, one on MVEM with gravity.
 """
+import unittest
+
 import numpy as np
 import scipy.sparse as sps
-import unittest
 
 import porepy as pp
 
@@ -716,7 +717,6 @@ class BasicsTest(unittest.TestCase):
                 atol,
             )
         )
-
 
 
 class TestMVEMGravity(unittest.TestCase):

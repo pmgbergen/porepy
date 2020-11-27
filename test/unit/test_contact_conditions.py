@@ -12,28 +12,30 @@ up a similar problem with a 3d medium consisting of two cells (might be Cartesia
 
 """
 
-import numpy as np
 import unittest
-import porepy as pp
+
+import numpy as np
 import scipy.sparse as sps
+
+import porepy as pp
 from porepy.grids import mortar_grid
 from porepy.models.contact_mechanics_model import ContactMechanics
 
 
 class ContactConditionColoumb2d(unittest.TestCase):
-    """ Workflow for the tests:
-            Each of the test_* methods first set up a rotation angle for the fracture
-            and a previous state for the normal and tangential jumps and the contact 
-            force. Also the direction of the tangential and normal vectors for the
-            local (to the fracture) coordinate system are set. The coefficients in
-            the discretization of contact condition and the map from contact forces to
-            forces on the mortar grid are then computed in two ways:
-                i) Via the ContactCondition discretization class
-                ii) With hard coding of the coefficients in the paper describing the
-                    contact discretization, using the current state and the problem
-                    geometry
-            Errors are raised if the values are not the same.
-            
+    """Workflow for the tests:
+    Each of the test_* methods first set up a rotation angle for the fracture
+    and a previous state for the normal and tangential jumps and the contact
+    force. Also the direction of the tangential and normal vectors for the
+    local (to the fracture) coordinate system are set. The coefficients in
+    the discretization of contact condition and the map from contact forces to
+    forces on the mortar grid are then computed in two ways:
+        i) Via the ContactCondition discretization class
+        ii) With hard coding of the coefficients in the paper describing the
+            contact discretization, using the current state and the problem
+            geometry
+    Errors are raised if the values are not the same.
+
     """
 
     def setUp(self):
@@ -772,7 +774,7 @@ class ContactModel2d(ContactMechanics):
 
     def create_grid(self):
         """
-        Domain is unit square. One fracture, centered on (0.5, 0.5), tilted 
+        Domain is unit square. One fracture, centered on (0.5, 0.5), tilted
         according to self.angle.
 
         """

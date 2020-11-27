@@ -5,6 +5,7 @@ Created on Thu Apr 14 13:51:05 2016
 @author: eke001
 """
 import unittest
+
 import numpy as np
 
 from porepy.utils import mcolon

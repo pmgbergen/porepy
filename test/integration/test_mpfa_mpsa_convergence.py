@@ -14,19 +14,20 @@ If the tests fail, it is most likely caused by changes in the grid,
 or in the discretization method.
 """
 from __future__ import division
-import numpy as np
-import sympy
-import scipy.sparse.linalg
+
 import unittest
 from math import pi
+from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
+
+import numpy as np
+import scipy.sparse.linalg
+import sympy
 
 import porepy as pp
-
-from porepy.grids import structured, simplex
-from porepy.params import tensor, bc
-from porepy.numerics.fv import mpfa, fvutils, mpsa
+from porepy.grids import simplex, structured
+from porepy.numerics.fv import fvutils, mpfa, mpsa
+from porepy.params import bc, tensor
 from porepy.utils.mcolon import mcolon
-from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 
 class TestMpfaConvergenceVaryingPerm(unittest.TestCase):

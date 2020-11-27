@@ -1,9 +1,10 @@
 """ Module contains unit tests for RT0, and a separate set of tests for RT0 with
 gravitational forces.
 """
+import unittest
+
 import numpy as np
 import scipy.sparse as sps
-import unittest
 
 import porepy as pp
 
@@ -1365,7 +1366,7 @@ class BasicsTest(unittest.TestCase):
             )
             self.assertTrue(np.isclose(err, u_err_known))
 
-            
+
 class TestRT0Gravity(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
@@ -1830,7 +1831,6 @@ class TestRT0Gravity(unittest.TestCase):
                 )
             )
             self.assertTrue(np.isclose(err, u_err_known))
-
 
 
 def matrix_for_test_rt0_3d():

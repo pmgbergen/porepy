@@ -14,10 +14,11 @@ Created on Sun Nov  5 11:19:02 2017
 @author: eke001
 """
 import unittest
+
 import numpy as np
 import scipy.sparse as sps
-import porepy as pp
 
+import porepy as pp
 from porepy.fracs import non_conforming
 from porepy.utils import tags
 from porepy.utils.setmembership import ismember_rows
@@ -1047,7 +1048,7 @@ class TestMeshMerging(unittest.TestCase):
 
 
 class MockGrid:
-    """ Class with attributes similar to (some of) those in a real grid. Used
+    """Class with attributes similar to (some of) those in a real grid. Used
     for testing purposes
     """
 

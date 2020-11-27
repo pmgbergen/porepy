@@ -1,10 +1,12 @@
 from __future__ import division
-import numpy as np
-import unittest
 
-import porepy as pp
+import unittest
 from test.integration import _helper_test_upwind_coupling
 from test.test_utils import permute_matrix_vector
+
+import numpy as np
+
+import porepy as pp
 
 # ------------------------------------------------------------------------------#
 

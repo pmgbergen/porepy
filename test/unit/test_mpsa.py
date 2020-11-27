@@ -4,9 +4,10 @@
 
 
 """
+import unittest
+
 import numpy as np
 import scipy.sparse as sps
-import unittest
 
 import porepy as pp
 
@@ -57,7 +58,6 @@ def true_2d(g, constit=None):
     constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=0)
     constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=1)
     return g, constit
-
 
 
 class MpsaBoundTest(unittest.TestCase):
@@ -737,6 +737,7 @@ class MpsaBoundTest(unittest.TestCase):
         )
         rhs_known = sps.csr_matrix((rhs_data, rhs_indices, rhs_indptr), shape=(72, 18))
         self.assertTrue(np.all(np.abs((rhs_known - rhs).data) < 1e-12))
+
 
 class MpsaReconstructDisplacement(unittest.TestCase):
     def test_cart_2d(self):
@@ -1960,6 +1961,7 @@ def make_true_2d(g):
         g.nodes = np.delete(g.nodes, (2), axis=0)
 
     return g
+
 
 if __name__ == "__main__":
     unittest.main()

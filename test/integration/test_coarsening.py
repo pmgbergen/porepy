@@ -1,12 +1,11 @@
-import unittest
 import sys
+import unittest
 
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.grids import coarsening as co
 import porepy as pp
-
+from porepy.grids import coarsening as co
 
 # ------------------------------------------------------------------------------#
 
