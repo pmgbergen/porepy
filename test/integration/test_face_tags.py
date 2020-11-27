@@ -1,4 +1,5 @@
 import unittest
+
 import numpy as np
 
 from porepy.fracs import meshing
@@ -6,8 +7,7 @@ from porepy.fracs import meshing
 
 class TestFaceTags(unittest.TestCase):
     def test_x_intersection_2d(self):
-        """ Check that the faces has correct tags for a 2D grid.
-        """
+        """Check that the faces has correct tags for a 2D grid."""
 
         f_1 = np.array([[0, 2], [1, 1]])
         f_2 = np.array([[1, 1], [0, 2]])

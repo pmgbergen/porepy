@@ -3,14 +3,15 @@ Tests for the standard grids of the grid_bucket_2d module.
 
 Some of these tests are sensitive to meshing or node ordering. If this turns out to cause problems, we deactivate the corresponding asserts.
 """
-import numpy as np
 import unittest
+
+import numpy as np
 
 import porepy as pp
 
 
 class TestGridBuckets(unittest.TestCase):
-    """ Various tests for the utility methods to generate standard geometries.
+    """Various tests for the utility methods to generate standard geometries.
 
     Note that the tests in part are based on hard-coded 'known' information on the
     generated grids, such as the number of cells along a fracture. This type of

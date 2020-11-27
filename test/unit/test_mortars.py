@@ -6,8 +6,9 @@ Created on Sat Nov 11 18:23:11 2017
 @author: Eirik Keilegavlen
 """
 
-import numpy as np
 import unittest
+
+import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp

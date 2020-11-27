@@ -1,6 +1,8 @@
+import unittest
+
 import numpy as np
 import scipy.sparse as sps
-import unittest
+
 import porepy as pp
 from porepy.numerics.fv import fvutils
 

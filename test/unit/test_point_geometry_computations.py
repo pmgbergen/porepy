@@ -1,8 +1,9 @@
 """ Test of geometry operations on point clouds: normal computations, planarity.
 """
 
-import numpy as np
 import unittest
+
+import numpy as np
 
 import porepy as pp
 

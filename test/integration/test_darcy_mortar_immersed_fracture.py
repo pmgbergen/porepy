@@ -5,12 +5,13 @@ The non-immersed case is kind of tested in the module
     test/unit/test_darcy_mortar.
 
 """
-import numpy as np
 import unittest
+from test import test_grids, test_utils
+
+import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from test import test_utils, test_grids
 
 
 class TestImmersedFracture(unittest.TestCase):

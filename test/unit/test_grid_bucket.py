@@ -1,10 +1,11 @@
-import numpy as np
-import scipy.sparse as sps
 import unittest
 
-from porepy.grids.grid_bucket import GridBucket
-from porepy.fracs import meshing
+import numpy as np
+import scipy.sparse as sps
+
 import porepy as pp
+from porepy.fracs import meshing
+from porepy.grids.grid_bucket import GridBucket
 
 
 class MockGrid(pp.Grid):
