@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Tests of the propagation of fractures. This involves extension of the fracture
 grids and splitting of faces in the matrix grid. The post-propagation buckets
 are compared to equivalent buckets where the final fracture geometry is applied
 at construction.
+
+
 """
 import unittest
 
@@ -16,41 +16,14 @@ from test.integration import setup_mixed_dimensional_grids as setup_gb
 from test.test_utils import compare_arrays
 
 
-class BasicsTest(unittest.TestCase):
-    def test_propagation_visulization_2d(self):
-        """
-        Setup intended for visual inspection before and after fracture
-        propagation of a single 1d fracture in 2d. No actual testing performed.
-        """
-        f = np.array([[0, 1], [0.5, 0.5]])
-        gb = pp.meshing.cart_grid([f], [4, 2], physdims=[2, 1])
-        #        for g, d in gb:
-        #            d['cell_tags'] = np.ones(g.num_cells) * g.dim
-        #        pp.plot_grid(gb, 'cell_tags', info='f')
+class TestPropagateFractures(unittest.TestCase):
+    """Tests of splitting of grids.
 
-        face_2d = [np.array([16])]
-        pp.propagate_fracture.propagate_fractures(gb, face_2d)
+    The different tests have been written at different points in time, and could have
+    benefited from a consolidation. On the other hand, the tests also cover different
+    components of the propagation.
 
-    #        for g, d in gb:
-    #            d['cell_tags'] = np.ones(g.num_cells) * g.dim
-    #        pp.plot_grid(gb, 'cell_tags', info='f')
-
-    def test_propagation_visualization_3d(self):
-        """
-        Setup intended for visual inspection before and after fracture
-        propagation of a single 2d fracture in 3d. No actual testing performed.
-        """
-        f = np.array([[0.0, 1, 1, 0], [0.25, 0.25, 0.75, 0.75], [0.5, 0.5, 0.5, 0.5]])
-        gb = pp.meshing.cart_grid([f], [4, 4, 2], physdims=[2, 1, 1])
-
-        #        e = pp.Exporter(gb, 'grid_before', 'test_propagation_3d')
-        #        e.write_vtk()
-        faces_3d = [np.array([102, 106, 110])]
-        #        pp.propagate_fracture.propagate_fracture(gb, gh, gl, faces_h=face_3d)
-        pp.propagate_fracture.propagate_fractures(gb, faces_3d)
-
-    #        e_after = pp.Exporter(gb, 'grid_after', 'test_propagation_3d')
-    #        e_after.write_vtk()
+    """
 
     def test_equivalence_2d(self):
         """
@@ -61,15 +34,25 @@ class BasicsTest(unittest.TestCase):
         4 grown in two steps
         """
 
+        # Generate grid buckets
         gb_1 = setup_gb.grid_2d_1d([4, 2], 0, 0.75)
         gb_2 = setup_gb.grid_2d_1d([4, 2], 0, 0.25)
         gb_3 = setup_gb.grid_2d_1d([4, 2], 0, 0.50)
         gb_4 = setup_gb.grid_2d_1d([4, 2], 0, 0.25)
-        # Split
-        pp.propagate_fracture.propagate_fractures(gb_2, [[15, 16]])
-        pp.propagate_fracture.propagate_fractures(gb_3, [[16]])
-        pp.propagate_fracture.propagate_fractures(gb_4, [[15]])
-        pp.propagate_fracture.propagate_fractures(gb_4, [[16]])
+
+        # Pick out the 1d grids in each bucket. These will be used to set which faces
+        # in the 2d grid to split
+        g2 = gb_2.grids_of_dimension(1)[0]
+        g3 = gb_3.grids_of_dimension(1)[0]
+        g4 = gb_4.grids_of_dimension(1)[0]
+
+        # Do the splitting
+        pp.propagate_fracture.propagate_fractures(gb_2, {g2: np.array([15, 16])})
+        pp.propagate_fracture.propagate_fractures(gb_3, {g3: np.array([16])})
+        # The fourth bucket is split twice
+        pp.propagate_fracture.propagate_fractures(gb_4, {g4: np.array([15])})
+        pp.propagate_fracture.propagate_fractures(gb_4, {g4: np.array([16])})
+
         # Check that the four grid buckets are equivalent
         check_equivalent_buckets([gb_1, gb_2, gb_3, gb_4])
 
@@ -87,11 +70,20 @@ class BasicsTest(unittest.TestCase):
         gb_2 = setup_gb.grid_3d_2d([4, 2, 2], 0, 0.25)
         gb_3 = setup_gb.grid_3d_2d([4, 2, 2], 0, 0.50)
         gb_4 = setup_gb.grid_3d_2d([4, 2, 2], 0, 0.25)
-        # Split
-        pp.propagate_fracture.propagate_fractures(gb_2, [[53, 54]])
-        pp.propagate_fracture.propagate_fractures(gb_3, [[54]])
-        pp.propagate_fracture.propagate_fractures(gb_4, [[53]])
-        pp.propagate_fracture.propagate_fractures(gb_4, [[54]])
+
+        # Pick out the 2d grids in each bucket. These will be used to set which faces
+        # in the 3d grid to split
+        g2 = gb_2.grids_of_dimension(2)[0]
+        g3 = gb_3.grids_of_dimension(2)[0]
+        g4 = gb_4.grids_of_dimension(2)[0]
+
+        # Do the splitting
+        pp.propagate_fracture.propagate_fractures(gb_2, {g2: np.array([53, 54])})
+        pp.propagate_fracture.propagate_fractures(gb_3, {g3: np.array([54])})
+        # The fourth bucket is split twice
+        pp.propagate_fracture.propagate_fractures(gb_4, {g4: np.array([53])})
+        pp.propagate_fracture.propagate_fractures(gb_4, {g4: np.array([54])})
+
         # Check that the four grid buckets are equivalent
         check_equivalent_buckets([gb_1, gb_2, gb_3, gb_4])
 
@@ -117,37 +109,36 @@ class BasicsTest(unittest.TestCase):
         f_1 = np.array([[0, 1.0], [0.5, 0.5]])
         gb_3 = pp.meshing.cart_grid([f_1, f_2], [8, 2], physdims=[2, 1])
 
-        faces = [np.array([27]), np.array([32])]
+        # Get the fracture grids
+        g1 = gb.grids_of_dimension(1)[0]
+        g2 = gb.grids_of_dimension(1)[1]
+
+        # First propagation step
+        faces = {g1: np.array([27]), g2: np.array([32])}
         pp.propagate_fracture.propagate_fractures(gb, faces)
         check_equivalent_buckets([gb, gb_1])
 
-        faces = [np.array([28]), np.array([31])]
+        # Second step
+        faces = {g1: np.array([28]), g2: np.array([31])}
         pp.propagate_fracture.propagate_fractures(gb, faces)
         check_equivalent_buckets([gb, gb_2])
 
-        faces = [np.array([29]), np.empty(0, dtype=int)]
+        # Final step - only one of the fractures grow
+        faces = {g1: np.array([29]), g2: np.array([], dtype=int)}
         pp.propagate_fracture.propagate_fractures(gb, faces)
         check_equivalent_buckets([gb, gb_3])
 
 
-class Propagation3dSingleCartGrid(unittest.TestCase):
-    def _make_grid(self):
-        frac_1 = np.array([[0, 1, 1, 0], [0, 0, 3, 3], [1, 1, 1, 1]])
-        gb = pp.meshing.cart_grid([frac_1], [2, 3, 2])
 
-        for g, _ in gb:
-            hit = g.nodes[0] > 1.5
-            g.nodes[2, hit] += 1
-
-        gb.compute_geometry()
-
-        pp.contact_conditions.set_projections(gb)
-
-        return gb
-
-    def test_simple_propagation_order(self):
-
+    def test_two_propagation_steps_3d(self):
+        # Starting from a fracture one cell wide, three cells long, the first step
+        # opens faces on the middle of the fracutre, so that it looks roughly like
+        #  O O O   <- Initial fracture
+        #    0     <- face opened in the first step
+        #
+        # The second step requests opening of the two flanking faces
         gb = self._make_grid()
+        g_frac = gb.grids_of_dimension(2)[0]
 
         faces_to_split = [[43], [41, 45]]
 
@@ -155,7 +146,6 @@ class Propagation3dSingleCartGrid(unittest.TestCase):
         cc = g.cell_centers
         fc = g.face_centers
         cv = g.cell_volumes
-        fa = g.face_areas
 
         gh = gb.grids_of_dimension(3)[0]
 
@@ -171,14 +161,21 @@ class Propagation3dSingleCartGrid(unittest.TestCase):
         num_nodes = gh.num_nodes + np.array([0, 8])
 
         for si, split in enumerate(faces_to_split):
-            pp.propagate_fracture.propagate_fractures(gb, [split])
+            pp.propagate_fracture.propagate_fractures(gb, {g_frac: np.array(split)})
             cc, fc, cv = self._verify(
                 gb, split, cc, fc, cv, new_cell_volumes[si], new_fc[si], num_nodes[si]
             )
 
-    def test_propagation_from_bottom(self):
-        # Three propagation steps. Should be equally simple as the simple_propagation_order
+    def test_three__from_bottom(self):
+        # Starting from a fracture one cell wide, three cells long, the first step
+        # opens one flanking face of the fracutre, so that it looks roughly like
+        #  O O O   <- Initial fracture
+        #  0       <- face opened in the first step
+        #
+        # The second step requests the opening of the middle face, the final step the
+        # the second flaking face.
         gb = self._make_grid()
+        g_frac = gb.grids_of_dimension(2)[0]
 
         faces_to_split = [[41], [43], [45]]
 
@@ -186,7 +183,6 @@ class Propagation3dSingleCartGrid(unittest.TestCase):
         cc = g.cell_centers
         fc = g.face_centers
         cv = g.cell_volumes
-        fa = g.face_areas
 
         gh = gb.grids_of_dimension(3)[0]
 
@@ -201,14 +197,20 @@ class Propagation3dSingleCartGrid(unittest.TestCase):
         num_nodes = gh.num_nodes + np.array([2, 4, 8])
 
         for si, split in enumerate(faces_to_split):
-            pp.propagate_fracture.propagate_fractures(gb, [split])
+            pp.propagate_fracture.propagate_fractures(gb, {g_frac: np.array(split)})
             cc, fc, cv = self._verify(
                 gb, split, cc, fc, cv, new_cell_volumes[si], new_fc[si], num_nodes[si]
             )
 
-    def test_propagation_from_sides(self):
-        # Open the same face from two side simultanously.
+    def test_open_face_from_two_sides_simultaneously(self):
+        # Starting from a fracture one cell wide, three cells long, the first step
+        # opens faces on the flanks of the fracture, so that it looks roughly like
+        #  O O O   <- Initial fracture
+        #  O   O   <- faces opened in the first step
+        #
+        # The second step requests opening of the middle face from both sides.
         gb = self._make_grid()
+        g_frac = gb.grids_of_dimension(2)[0]
 
         faces_to_split = [[41, 45], [43, 43]]
 
@@ -216,7 +218,6 @@ class Propagation3dSingleCartGrid(unittest.TestCase):
         cc = g.cell_centers
         fc = g.face_centers
         cv = g.cell_volumes
-        fa = g.face_areas
 
         gh = gb.grids_of_dimension(3)[0]
 
@@ -236,12 +237,17 @@ class Propagation3dSingleCartGrid(unittest.TestCase):
         num_nodes = gh.num_nodes + np.array([4, 8])
 
         for si, split in enumerate(faces_to_split):
-            pp.propagate_fracture.propagate_fractures(gb, [split])
+            pp.propagate_fracture.propagate_fractures(gb, {g_frac: np.array(split)})
             cc, fc, cv = self._verify(
                 gb, split, cc, fc, cv, new_cell_volumes[si], new_fc[si], num_nodes[si]
             )
 
+    #### Helpers below
+
     def _verify(self, gb, split, cc, fc, cv, new_cell_volumes, new_fc, num_nodes):
+        # Check that the geometry of a (propagated) GridBucket corresponds to a given
+        # known geometry.
+
         gh = gb.grids_of_dimension(gb.dim_max())[0]
         g = gb.grids_of_dimension(gb.dim_max() - 1)[0]
         new_cc = gh.face_centers[:, split]
@@ -269,7 +275,38 @@ class Propagation3dSingleCartGrid(unittest.TestCase):
 
         self.assertTrue(num_nodes == gh.num_nodes)
 
+        # Return the new geometric fields; these will be needed to validate the next
+        # propagation step.
         return cc, fc, cv
+
+    def _make_grid(self):
+        # Make a 2 x 3 x 2 Cartesian grid with a single fracture embedded.
+        # The geometry of all grids is perturbed so that the grid, projected to the
+        # xz-plane looks like this
+        #
+        #           x
+        #        /  |
+        # x - x  -  x
+        # |   |  /  |
+        # x - x  -  x
+        # |   |  /
+        # x - x
+        # Not sure why the grid ended up like that, but there you go.
+
+
+        frac_1 = np.array([[0, 1, 1, 0], [0, 0, 3, 3], [1, 1, 1, 1]])
+        gb = pp.meshing.cart_grid([frac_1], [2, 3, 2])
+
+        for g, _ in gb:
+            hit = g.nodes[0] > 1.5
+            g.nodes[2, hit] += 1
+
+        gb.compute_geometry()
+
+        pp.contact_conditions.set_projections(gb)
+
+        return gb
+
 
 
 if __name__ == "__main__":
