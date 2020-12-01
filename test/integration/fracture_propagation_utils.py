@@ -272,12 +272,12 @@ def check_equivalent_buckets(buckets, decimals=12):
         g_l_0 = buckets[0].grids_of_dimension(dim_l)[target_grid]
 
         mg_0 = buckets[0].edge_props((g_h_0, g_l_0), "mortar_grid")
-        proj_0 = mg_0._master_to_mortar_int
+        proj_0 = mg_0.primary_to_mortar_int()
         for i in range(1, num_buckets):
             g_l_i = buckets[i].grids_of_dimension(dim_l)[target_grid]
             g_h_i = buckets[i].grids_of_dimension(dim_h)[0]
             mg_i = buckets[i].edge_props((g_h_i, g_l_i), "mortar_grid")
-            proj_i = mg_i._master_to_mortar_int
+            proj_i = mg_i.primary_to_mortar_int()
             cm = cell_maps_l[i][g_l_i]
             cm_extended = np.append(cm, cm + cm.size)
             fm = face_maps_h[i - 1]
