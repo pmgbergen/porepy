@@ -552,7 +552,7 @@ class Exporter:
         meshio_cell_id = np.empty(num_block, dtype=np.object)
 
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
-            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
+            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(np.int))
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
         return meshio_pts, meshio_cells, meshio_cell_id
@@ -632,7 +632,7 @@ class Exporter:
         meshio_cell_id = np.empty(num_block, dtype=np.object)
 
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
-            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
+            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(np.int))
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
         return meshio_pts, meshio_cells, meshio_cell_id
@@ -764,7 +764,7 @@ class Exporter:
         meshio_cell_id = np.empty(num_block, dtype=np.object)
 
         for block, (cell_type, cell_block) in enumerate(cell_to_faces.items()):
-            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
+            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(np.int))
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
         return meshio_pts, meshio_cells, meshio_cell_id
