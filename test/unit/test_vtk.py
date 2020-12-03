@@ -259,19 +259,19 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Float64" Name="connectivity" format="ascii">
-0.00000000000e+00
-1.00000000000e+00
-1.00000000000e+00
-2.00000000000e+00
-2.00000000000e+00
-3.00000000000e+00
+<DataArray type="Int64" Name="connectivity" format="ascii">
+0
+1
+1
+2
+2
+3
 
 </DataArray>
-<DataArray type="Float64" Name="offsets" format="ascii">
-2.00000000000e+00
-4.00000000000e+00
-6.00000000000e+00
+<DataArray type="Int64" Name="offsets" format="ascii">
+2
+4
+6
 
 </DataArray>
 <DataArray type="Int64" Name="types" format="ascii">
@@ -378,7 +378,7 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Int32" Name="connectivity" format="ascii">
+<DataArray type="Int64" Name="connectivity" format="ascii">
 0
 1
 5
@@ -435,7 +435,7 @@ class MeshioExporterTest(unittest.TestCase):
 14
 
 </DataArray>
-<DataArray type="Int32" Name="offsets" format="ascii">
+<DataArray type="Int64" Name="offsets" format="ascii">
 3
 6
 9
@@ -692,7 +692,7 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Int32" Name="connectivity" format="ascii">
+<DataArray type="Int64" Name="connectivity" format="ascii">
 0
 5
 6
@@ -759,7 +759,7 @@ class MeshioExporterTest(unittest.TestCase):
 23
 
 </DataArray>
-<DataArray type="Int32" Name="offsets" format="ascii">
+<DataArray type="Int64" Name="offsets" format="ascii">
 4
 8
 12
@@ -961,7 +961,7 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Int32" Name="connectivity" format="ascii">
+<DataArray type="Int64" Name="connectivity" format="ascii">
 0
 4
 8
@@ -980,7 +980,7 @@ class MeshioExporterTest(unittest.TestCase):
 3
 
 </DataArray>
-<DataArray type="Int32" Name="offsets" format="ascii">
+<DataArray type="Int64" Name="offsets" format="ascii">
 8
 16
 
@@ -10349,22 +10349,22 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Float64" Name="connectivity" format="ascii">
-0.00000000000e+00
-1.00000000000e+00
-1.00000000000e+00
-2.00000000000e+00
-2.00000000000e+00
-3.00000000000e+00
-3.00000000000e+00
-4.00000000000e+00
+<DataArray type="Int64" Name="connectivity" format="ascii">
+0
+1
+1
+2
+2
+3
+3
+4
 
 </DataArray>
-<DataArray type="Float64" Name="offsets" format="ascii">
-2.00000000000e+00
-4.00000000000e+00
-6.00000000000e+00
-8.00000000000e+00
+<DataArray type="Int64" Name="offsets" format="ascii">
+2
+4
+6
+8
 
 </DataArray>
 <DataArray type="Int64" Name="types" format="ascii">
@@ -10541,7 +10541,7 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Int32" Name="connectivity" format="ascii">
+<DataArray type="Int64" Name="connectivity" format="ascii">
 0
 5
 6
@@ -10608,7 +10608,7 @@ class MeshioExporterTest(unittest.TestCase):
 28
 
 </DataArray>
-<DataArray type="Int32" Name="offsets" format="ascii">
+<DataArray type="Int64" Name="offsets" format="ascii">
 4
 8
 12
@@ -10861,34 +10861,34 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Float64" Name="connectivity" format="ascii">
-0.00000000000e+00
-1.00000000000e+00
-1.00000000000e+00
-2.00000000000e+00
-2.00000000000e+00
-3.00000000000e+00
-3.00000000000e+00
-4.00000000000e+00
-5.00000000000e+00
-6.00000000000e+00
-6.00000000000e+00
-7.00000000000e+00
-7.00000000000e+00
-8.00000000000e+00
-8.00000000000e+00
-9.00000000000e+00
+<DataArray type="Int64" Name="connectivity" format="ascii">
+0
+1
+1
+2
+2
+3
+3
+4
+5
+6
+6
+7
+7
+8
+8
+9
 
 </DataArray>
-<DataArray type="Float64" Name="offsets" format="ascii">
-2.00000000000e+00
-4.00000000000e+00
-6.00000000000e+00
-8.00000000000e+00
-1.00000000000e+01
-1.20000000000e+01
-1.40000000000e+01
-1.60000000000e+01
+<DataArray type="Int64" Name="offsets" format="ascii">
+2
+4
+6
+8
+10
+12
+14
+16
 
 </DataArray>
 <DataArray type="Int64" Name="types" format="ascii">
@@ -11007,28 +11007,28 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Float64" Name="connectivity" format="ascii">
-0.00000000000e+00
-1.00000000000e+00
-1.00000000000e+00
-2.00000000000e+00
-3.00000000000e+00
-4.00000000000e+00
-4.00000000000e+00
-5.00000000000e+00
-6.00000000000e+00
-7.00000000000e+00
-8.00000000000e+00
-9.00000000000e+00
+<DataArray type="Int64" Name="connectivity" format="ascii">
+0
+1
+1
+2
+3
+4
+4
+5
+6
+7
+8
+9
 
 </DataArray>
-<DataArray type="Float64" Name="offsets" format="ascii">
-2.00000000000e+00
-4.00000000000e+00
-6.00000000000e+00
-8.00000000000e+00
-1.00000000000e+01
-1.20000000000e+01
+<DataArray type="Int64" Name="offsets" format="ascii">
+2
+4
+6
+8
+10
+12
 
 </DataArray>
 <DataArray type="Int64" Name="types" format="ascii">
@@ -11231,7 +11231,7 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Int32" Name="connectivity" format="ascii">
+<DataArray type="Int64" Name="connectivity" format="ascii">
 0
 5
 6
@@ -11298,7 +11298,7 @@ class MeshioExporterTest(unittest.TestCase):
 30
 
 </DataArray>
-<DataArray type="Int32" Name="offsets" format="ascii">
+<DataArray type="Int64" Name="offsets" format="ascii">
 4
 8
 12
@@ -11581,46 +11581,46 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Float64" Name="connectivity" format="ascii">
-0.00000000000e+00
-1.00000000000e+00
-1.00000000000e+00
-2.00000000000e+00
-3.00000000000e+00
-4.00000000000e+00
-4.00000000000e+00
-5.00000000000e+00
-6.00000000000e+00
-7.00000000000e+00
-7.00000000000e+00
-8.00000000000e+00
-9.00000000000e+00
-1.00000000000e+01
-1.00000000000e+01
-1.10000000000e+01
-1.20000000000e+01
-1.30000000000e+01
-1.40000000000e+01
-1.50000000000e+01
-1.60000000000e+01
-1.70000000000e+01
-1.80000000000e+01
-1.90000000000e+01
+<DataArray type="Int64" Name="connectivity" format="ascii">
+0
+1
+1
+2
+3
+4
+4
+5
+6
+7
+7
+8
+9
+10
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
 
 </DataArray>
-<DataArray type="Float64" Name="offsets" format="ascii">
-2.00000000000e+00
-4.00000000000e+00
-6.00000000000e+00
-8.00000000000e+00
-1.00000000000e+01
-1.20000000000e+01
-1.40000000000e+01
-1.60000000000e+01
-1.80000000000e+01
-2.00000000000e+01
-2.20000000000e+01
-2.40000000000e+01
+<DataArray type="Int64" Name="offsets" format="ascii">
+2
+4
+6
+8
+10
+12
+14
+16
+18
+20
+22
+24
 
 </DataArray>
 <DataArray type="Int64" Name="types" format="ascii">
