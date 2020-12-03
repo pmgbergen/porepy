@@ -1,8 +1,10 @@
 """
 """
-import numpy as np
-import porepy as pp
 import unittest
+
+import numpy as np
+
+import porepy as pp
 
 
 class TestSimpleMeshing(unittest.TestCase):

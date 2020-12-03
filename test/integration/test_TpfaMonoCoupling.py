@@ -1,10 +1,11 @@
 import unittest
+from test import test_utils
+
 import numpy as np
 import scipy.sparse as sps
 from scipy.spatial.distance import cdist
 
 import porepy as pp
-from test import test_utils
 
 
 class TestTpfaCouplingDiffGrids(unittest.TestCase):
@@ -62,7 +63,9 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
             secondary_area = secondary_to_m * g2.face_areas
 
             self.assertTrue(np.allclose(d_e[pp.STATE]["mortar_flux"] / primary_area, 1))
-            self.assertTrue(np.allclose(d_e[pp.STATE]["mortar_flux"] / secondary_area, 1))
+            self.assertTrue(
+                np.allclose(d_e[pp.STATE]["mortar_flux"] / secondary_area, 1)
+            )
 
     def generate_grids(self, n, xmax, ymax, split):
         g1 = pp.CartGrid([split * n, ymax * n], physdims=[split, ymax])
@@ -390,7 +393,9 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                             gi, gi.left, faces=True
                         )
 
-                    d_e["mortar_grid"] = pp.MortarGrid(gi.dim - 1, {"0": g_m}, face_faces)
+                    d_e["mortar_grid"] = pp.MortarGrid(
+                        gi.dim - 1, {"0": g_m}, face_faces
+                    )
 
         gb.compute_geometry()  # basically reset g.face_centers[,right]
         gb.assign_node_ordering()

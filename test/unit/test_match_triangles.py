@@ -5,8 +5,9 @@ Created on Mon Nov 27 13:01:04 2017
 
 @author: eke001
 """
-import numpy as np
 import unittest
+
+import numpy as np
 
 import porepy as pp
 

@@ -1,8 +1,8 @@
-import numpy as np
 import unittest
 
-import porepy as pp
+import numpy as np
 
+import porepy as pp
 from porepy.numerics.vem import hybrid
 
 

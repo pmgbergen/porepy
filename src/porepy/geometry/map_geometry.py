@@ -319,7 +319,7 @@ def tangent_matrix(pts=None, normal=None):
 
 
 def compute_normal(pts, check=True):
-    """Compute the normal of a set of points.
+    """Compute the normal of a set of points. The sign of the normal is arbitary
 
     The algorithm assume that the points lie on a plane.
     Three non-aligned points are required.
@@ -332,13 +332,20 @@ def compute_normal(pts, check=True):
     normal: np.array, 1x3, the normal.
 
     """
-
-    assert pts.shape[1] > 2
+    if pts.shape[1] <= 2:
+        raise ValueError("in compute_normal: pts.shape[1] must be larger than 2")
     normal = np.cross(pts[:, 0] - pts[:, 1], pts[:, 2] - pts[:, 1])
+    count = 0
+    max_count = pts.shape[1] - 3
+    while np.allclose(normal, np.zeros(3)) and count <= max_count and check:
+        count += 1
+        normal = np.cross(pts[:, 0] - pts[:, 1], np.mean(pts, axis=1) - pts[:, 2])
+        pts = pts[:, 1:]
     if check and np.allclose(normal, np.zeros(3)):
-        return compute_normal(pts[:, 1:])
-    else:
-        return normal / np.linalg.norm(normal)
+        raise RuntimeError(
+            "Unable to calculate normal from point set. Are all points collinear?"
+        )
+    return normal / np.linalg.norm(normal)
 
 
 def compute_normals_1d(pts):
