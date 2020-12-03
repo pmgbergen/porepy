@@ -1611,18 +1611,23 @@ def cell_ind_for_partial_update(
         # sub-faces. This further requires the inclusion of all cells that
         # share a node with a secondary face.
         #
-        #    o o o o o
-        #    o o x o o
-        #    o o x o o
-        #    o o o o o
+        #      S S S
+        #    V o o o V
+        #  S o o x o o S
+        #  S o o x o o S
+        #    V o o o V
+        #      S S S
         #
         # To illustrate for the Cartesian configuration above: The face
         # between the two x-cells are specified, and this requires the
-        # inclusion of all o-cells.
+        # inclusion of all o and V-cells. The S-cells are superfluous from a
+        # computational standpoint, but they are added in the same operation as the Vs.
+        # It may be possible to exclude them, but does not seem worth the mental effort.
         #
-        # NOTE: The four o-cells in the corners are only needed for Biot-discretizations,
+        # NOTE: The four V-cells are only needed for Biot-discretizations,
         # specifically to correctly deal with the div-u terms. To be precise, an update
-        # of a face requires a recomputation of all cells that
+        # of a face requires a recomputation of all cells that.
+        # NOTE: The actual stencil retured is even bigger than above ()
 
 
         cf = g.cell_faces
@@ -1658,6 +1663,8 @@ def cell_ind_for_partial_update(
         secondary_nodes = np.where(cn * active_cells)[0]
         active_nodes[secondary_nodes] = 1
 
+        # Get the secondary cells. Refering to the above drawing, this will add
+        # V and S-cells.
         secondary_cells = np.where(cn.transpose() * active_nodes > 0)[0]
 
         cell_ind = np.hstack((cell_ind, secondary_cells))
