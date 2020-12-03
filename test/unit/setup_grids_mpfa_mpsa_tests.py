@@ -1,6 +1,6 @@
 import numpy as np
 
-from porepy.grids import structured, simplex
+from porepy.grids import simplex, structured
 from porepy.utils import mcolon
 
 

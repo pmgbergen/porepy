@@ -4,7 +4,9 @@ Created on Wed Apr 13 15:36:14 2016
 
 """
 from __future__ import division
+
 import random
+
 import numpy as np
 import pytest
 

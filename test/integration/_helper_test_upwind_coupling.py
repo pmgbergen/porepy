@@ -5,8 +5,8 @@ The values are moved into a separate file to avoid poluting the file
 containing tests.
 
 """
-import scipy.sparse as sps
 import numpy as np
+import scipy.sparse as sps
 
 
 def matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d():

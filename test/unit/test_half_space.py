@@ -1,4 +1,5 @@
 import unittest
+
 import numpy as np
 
 from porepy.utils import half_space

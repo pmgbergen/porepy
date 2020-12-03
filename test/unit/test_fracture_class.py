@@ -1,12 +1,12 @@
 import unittest
+
 import numpy as np
 
 import porepy as pp
 
 
 class TestFractureCenters(unittest.TestCase):
-    """ Test computation of fracture centroids.
-    """
+    """Test computation of fracture centroids."""
 
     def test_frac_1(self):
         # Simple plane, known center.
@@ -54,7 +54,7 @@ class TestFractureCenters(unittest.TestCase):
 
 
 class TestFractureIndex(unittest.TestCase):
-    """ Test index attribute of Fracture.
+    """Test index attribute of Fracture.
 
     The attribute may need to change later, these tests should ensure that we
     don't rush it.
@@ -81,8 +81,7 @@ class TestFractureIndex(unittest.TestCase):
 
 
 class TestFractureIsVertex(unittest.TestCase):
-    """ Test of is_vertex function in Fractures.
-    """
+    """Test of is_vertex function in Fractures."""
 
     def frac(self):
         return pp.Fracture(
