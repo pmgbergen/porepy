@@ -734,7 +734,7 @@ class Exporter:
                     fc += 1
 
                 # collect all the nodes for the cell
-                nodes_loc = np.unique(faces_loc)
+                nodes_loc = np.unique(faces_loc).astype(np.int)
 
                 # define the type of cell we are currently saving
                 cell_type = "polyhedron" + str(nodes_loc.size)
@@ -764,7 +764,7 @@ class Exporter:
         meshio_cell_id = np.empty(num_block, dtype=np.object)
 
         for block, (cell_type, cell_block) in enumerate(cell_to_faces.items()):
-            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(np.int))
+            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
         return meshio_pts, meshio_cells, meshio_cell_id
