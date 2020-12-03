@@ -725,13 +725,13 @@ class Biot(pp.Mpsa):
         )
 
         # Cells to be updated is a bit more involved. Best guess now is to update
-        # all cells that has had all its faces updated. This may not be correct for
+        # all cells that has had one of its faces updated. This may not be correct for
         # general combinations of specified cells, nodes and faces.
         tmp = g.cell_faces.transpose()
         tmp.data = np.abs(tmp.data)
         af_vec = np.zeros(g.num_faces, dtype=np.bool)
         af_vec[active_faces] = 1
-        update_cell_ind = np.where(((tmp * af_vec) == tmp.sum(axis=1).A.T)[0])[0]
+        update_cell_ind = np.where(tmp * af_vec)[0]
         eliminate_cells = np.setdiff1d(np.arange(g.num_cells), update_cell_ind)
         pp.fvutils.remove_nonlocal_contribution(
             eliminate_cells, 1, div_u, bound_div_u, stabilization
