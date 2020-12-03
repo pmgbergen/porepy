@@ -1395,6 +1395,12 @@ def partial_update_discretization(
     )
     active_faces = np.unique(active_faces)
 
+    # Find the faces next to the active faces. All these may be updated (depending on
+    # the type of discretizations present).
+    _, cells, _ = sps.find(g.cell_faces[active_faces])
+    active_cells = np.unique(cells)
+    passive_cells = np.setdiff1d(np.arange(g.num_cells), active_cells)
+
     param = data[pp.PARAMETERS][keyword]
     if update_cells.size > 0:
         param["specified_cells"] = update_cells
@@ -1432,11 +1438,11 @@ def partial_update_discretization(
             mat = cell_map * mat
             # Zero out existing contributions from the active faces. This is necessary
             # due to the expansive computational stencils for MPxA methods.
-            pp.fvutils.remove_nonlocal_contribution(update_cells, 1, mat)
+            pp.fvutils.remove_nonlocal_contribution(active_cells, 1, mat)
         elif key in vector_cell_left:
             # Need a tocsr() here to work with row-based elimination
             mat = (sps.kron(cell_map, sps.eye(dim)) * mat).tocsr()
-            pp.fvutils.remove_nonlocal_contribution(update_cells, dim, mat)
+            pp.fvutils.remove_nonlocal_contribution(active_cells, dim, mat)
         elif key in scalar_face_left:
             mat = face_map * mat
             pp.fvutils.remove_nonlocal_contribution(active_faces, 1, mat)
@@ -1605,15 +1611,19 @@ def cell_ind_for_partial_update(
         # sub-faces. This further requires the inclusion of all cells that
         # share a node with a secondary face.
         #
-        #      o o o
+        #    o o o o o
         #    o o x o o
         #    o o x o o
-        #      o o o
+        #    o o o o o
         #
         # To illustrate for the Cartesian configuration above: The face
         # between the two x-cells are specified, and this requires the
         # inclusion of all o-cells.
         #
+        # NOTE: The four o-cells in the corners are only needed for Biot-discretizations,
+        # specifically to correctly deal with the div-u terms. To be precise, an update
+        # of a face requires a recomputation of all cells that
+
 
         cf = g.cell_faces
         # This avoids overwriting data in cell_faces.
@@ -1635,12 +1645,22 @@ def cell_ind_for_partial_update(
         active_nodes = np.zeros(g.num_nodes, dtype=np.bool)
         active_nodes[np.squeeze(np.where((g.face_nodes * active_faces) > 0))] = 1
 
-        active_cells = np.zeros(g.num_cells, dtype=np.bool)
-        # Primary cells, those that have the faces as a boundary
-        cells_overlap = np.squeeze(
-            np.where((g.cell_nodes().transpose() * active_nodes) > 0)
+        cn = g.cell_nodes()
+
+        # Primary cells, those that share a vertex with the faces
+        primary_cells = np.squeeze(
+            np.where((cn.transpose() * active_nodes) > 0)
         )
-        cell_ind = np.hstack((cell_ind, cells_overlap))
+
+        # Get all nodes of the primary cells. These are the secondary_nodes
+        active_cells = np.zeros(g.num_cells, dtype=np.bool)
+        active_cells[primary_cells] = 1
+        secondary_nodes = np.where(cn * active_cells)[0]
+        active_nodes[secondary_nodes] = 1
+
+        secondary_cells = np.where(cn.transpose() * active_nodes > 0)[0]
+
+        cell_ind = np.hstack((cell_ind, secondary_cells))
 
     if nodes is not None:
         # Pick out all cells that have the specified nodes as a vertex.
