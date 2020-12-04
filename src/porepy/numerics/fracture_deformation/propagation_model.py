@@ -99,7 +99,7 @@ class FracturePropagation(abc.ABC):
 
         """
         # Number of cell dofs for this variable
-        cell_dof: int = dofs.get("cells")
+        cell_dof = dofs.get("cells")
 
         # Number of new variables is given by the size of the cell map.
         cell_map: sps.spmatrix = d["cell_index_map"]

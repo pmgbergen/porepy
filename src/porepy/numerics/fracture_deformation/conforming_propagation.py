@@ -533,7 +533,10 @@ class ConformingFracturePropagation(FracturePropagation):
         data_h[pp.STATE]["neighbor_cells"] = vals
 
     def _tip_bases(
-        self, g: pp.Grid, projection: pp.TangentialNormalProjection, faces: np.ndarray,
+        self,
+        g: pp.Grid,
+        projection: pp.TangentialNormalProjection,
+        faces: np.ndarray,
     ) -> np.ndarray:
         """
         Construct local bases for tip faces of a fracture.

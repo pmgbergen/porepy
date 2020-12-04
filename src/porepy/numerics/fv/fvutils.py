@@ -1629,7 +1629,6 @@ def cell_ind_for_partial_update(
         # of a face requires a recomputation of all cells that.
         # NOTE: The actual stencil retured is even bigger than above ()
 
-
         cf = g.cell_faces
         # This avoids overwriting data in cell_faces.
         data = np.ones_like(cf.data)
@@ -1653,9 +1652,7 @@ def cell_ind_for_partial_update(
         cn = g.cell_nodes()
 
         # Primary cells, those that share a vertex with the faces
-        primary_cells = np.squeeze(
-            np.where((cn.transpose() * active_nodes) > 0)
-        )
+        primary_cells = np.squeeze(np.where((cn.transpose() * active_nodes) > 0))
 
         # Get all nodes of the primary cells. These are the secondary_nodes
         active_cells = np.zeros(g.num_cells, dtype=np.bool)
