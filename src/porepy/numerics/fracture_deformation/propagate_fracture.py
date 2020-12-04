@@ -249,7 +249,7 @@ def propagate_fractures(gb: pp.GridBucket, faces: Dict[pp.Grid, np.ndarray]) -> 
 
     # When all faces have been split, we can update the mortar grids
     for e, d_e in gb.edges_of_node(g_h):
-        g_h, g_l = e
+        _, g_l = e
         d_l = gb.node_props(g_l)
         _update_mortar_grid(g_h, g_l, d_e, d_l["new_cells"], d_h["new_faces"])
 
