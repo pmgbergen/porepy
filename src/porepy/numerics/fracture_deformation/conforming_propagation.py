@@ -664,10 +664,8 @@ class ConformingFracturePropagation(FracturePropagation):
                     # Obtain the global index of all nodes
                     global_nodes = g_h.global_point_ind[e]
                     # Find g_h indices of unique global nodes
-                    _, nodes_l = np.intersect1d(
-                        g_l.global_point_ind,
-                        global_nodes,
-                        assume_unique=False,
+                    _, nodes_l, _ = np.intersect1d(
+                        g_l.global_point_ind, global_nodes, return_indices=True
                     )
 
                     if g_l.dim == 1:
