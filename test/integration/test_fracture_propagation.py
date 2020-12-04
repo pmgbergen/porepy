@@ -1,12 +1,20 @@
 """
-Tests of the propagation of fractures. This involves extension of the fracture
-grids and splitting of faces in the matrix grid. The post-propagation buckets
-are compared to equivalent buckets where the final fracture geometry is applied
-at construction.
+Tests of the propagation of fractures.
 
+Content:
+  * test_pick_propagation_face_conforming_propagation: Given a critically stressed
+    fracture tip in the lower-dimensional grid, find which face in the higher-dimensinoal
+    grid should be split.
+  * FaceSplittingHostGrid: Various consistency tests for splitting faces in the higher
+    dimensional grid, resembling propagation.
+  * VariableMappingInitializationUpdate: Checks that mapping of variable, and
+    assignment of new variable values in the FracturePropagation classes are correct.
+
+The tests follows in part the unittest framework, in part pytest.
 
 """
 import unittest
+import pytest
 
 import numpy as np
 import porepy as pp
@@ -17,8 +25,176 @@ from test.integration import setup_mixed_dimensional_grids as setup_gb
 from test.test_utils import compare_arrays
 
 
-class TestPropagateFractures(unittest.TestCase):
-    """Tests of splitting of grids.
+## Below follows tests of the picking of high-dimensional faces to split, when using
+#  the ConformingPropagation strategy.
+#
+# The first functions are helpers to set up geometries and propagation scenarios
+# The test function (implemented in the pytest framework) is further down.
+
+
+def _single_fracture_two_steps_2d():
+    # Define a 2d medium with a single fracture.
+    # Propagate first in both ends, and then only in one end.
+    # This is (almost) the simplest possible case, so if the test fails, something is
+    # either fundamentally wrong with the propagation, or a basic assumption is broken.
+    fracs = [np.array([[1, 2], [1, 1]])]
+    gb = pp.meshing.cart_grid(fracs, [4, 3])
+    g1 = gb.grids_of_dimension(gb.dim_max() - 1)[0]
+
+    # Target cells
+    targets = [{g1: np.array([21, 19])}, {g1: np.array([22])}]
+    # Always propagate in a straight line
+    angles = [{g1: np.array([0, 0])}, {g1: np.array([0])}]
+
+    return gb, targets, angles
+
+
+def _single_fracture_multiple_steps_3d():
+    # Simple 3d case with one fracture.
+    # First step propagates in two directions.
+    # Second step propagates in three directions, including both newly formed faces,
+    # and the original fracture.
+    fracs = [np.array([[1, 1, 1, 1], [1, 2, 2, 1], [1, 1, 2, 2]])]
+    gb = pp.meshing.cart_grid(fracs, [2, 3, 3])
+
+    g1 = gb.grids_of_dimension(gb.dim_max() - 1)[0]
+    targets = [{g1: np.array([10, 4])}, {g1: np.array([1, 7, 16])}]
+    angles = [{g1: np.array([0, 0])}, {g1: np.array([0, 0, 0])}]
+
+    return gb, targets, angles
+
+
+def _two_fractures_multiple_steps_3d():
+    # Simple 3d case with one fracture.
+    # First step propagates in two directions.
+    # Second step propagates in three directions, including both newly formed faces,
+    # and the original fracture.
+
+    # Note that the second fracture needs to be two faces away from the first one,
+    # or else various assumptions in the code will be broken.
+    fracs = [
+        np.array([[1, 1, 1, 1], [1, 2, 2, 1], [1, 1, 2, 2]]),
+        np.array([[3, 3, 3, 3], [1, 2, 2, 1], [1, 1, 2, 2]]),
+    ]
+    gb = pp.meshing.cart_grid(fracs, [4, 3, 3])
+
+    g1 = gb.grids_of_dimension(gb.dim_max() - 1)[0]
+    g2 = gb.grids_of_dimension(gb.dim_max() - 1)[1]
+
+    targets = [
+        {g1: np.array([16, 6]), g2: np.array([], dtype=np.int)},
+        {g1: np.array([1, 11, 26]), g2: np.array([8])},
+    ]
+
+    angles = [
+        {g1: np.array([0, 0]), g2: np.array([], dtype=np.int)},
+        {g1: np.array([0, 0, 0]), g2: np.array([0])},
+    ]
+
+    return gb, targets, angles
+
+
+@pytest.mark.parametrize(
+    "generate",
+    [
+        _single_fracture_two_steps_2d,
+        _single_fracture_multiple_steps_3d,
+        _two_fractures_multiple_steps_3d,
+    ],
+)
+def test_pick_propagation_face_conforming_propagation(generate):
+    """ Verify that the right high-dimensional face is picked, based on tagged faces
+    on the tips of the lower-dimensional grid. Thus, the test probes the function
+    _pick_propagation_faces() in ConformingFracturePropagation.
+
+    The overall idea of the test is to give a GridBucket, and a sequence of target
+    faces in g_h to be split, based on face indices. For each target face, the
+    closest (by distance) of the tip faces in g_l is found, and tagged for propagation.
+    We then call the function to be tested to identify the face in g_h which should be
+    propagated, and verify that the identified face is indeed the target.
+
+    A key assumption in the above reasoning is that the propagation angle is known, and
+    fixed to zero; non-zero values can also be accomodated, but that case is outside
+    the standard coverage of the current functionality for fracture propagation.
+
+    """
+
+    mech_key = "mechanics"
+
+    # Get problem geometry and description
+    gb, targets, angles = generate()
+    pp.contact_conditions.set_projections(gb)
+
+    # Bookkeeping
+    g_h = gb.grids_of_dimension(gb.dim_max())[0]
+    d_h = gb.node_props(g_h)
+    d_h[pp.STATE] = {}
+
+    # Propagation model; assign this some necessary fields.
+    model = pp.ConformingFracturePropagation({})
+    model.mechanics_parameter_key = mech_key
+    model.Nd = gb.dim_max()
+
+    # Loop over all propagation steps
+    for step_target, step_angle in zip(targets, angles):
+
+        # Map for faces to be split for all fracture grids
+        propagation_map = {}
+
+        # Loop over all fracture grids
+        for g_l in gb.grids_of_dimension(gb.dim_max() - 1):
+
+            # Data dictionaries
+            d_l = gb.node_props(g_l)
+            d_e = gb.edge_props((g_h, g_l))
+
+            # Faces on the tip o the fracture
+            tip_faces = np.where(g_l.tags["tip_faces"])[0]
+
+            # Data structure to tag tip faces to propagate from, and angles
+            prop_face = np.zeros(g_l.num_faces, dtype=np.bool)
+            prop_angle = np.zeros(g_l.num_faces)
+
+            # Loop over all targets for this grid, tag faces to propagate
+            for ti, ang in zip(step_target[g_l], step_angle[g_l]):
+
+                # Coordinate of the face center of the target face
+                fch = g_h.face_centers[:, ti].reshape((-1, 1))
+                # Find the face in g_l (among tip faces) that is closest to this face
+                hit = np.argmin(
+                    np.sum((g_l.face_centers[:, tip_faces] - fch) ** 2, axis=0)
+                )
+                # Tag this face for propagation.
+                prop_face[tip_faces[hit]] = 1
+                prop_angle[tip_faces[hit]] = ang
+
+            # Store information on what to propagate for this fracture
+            d_l[pp.PARAMETERS] = {
+                mech_key: {
+                    "propagation_angle_normal": prop_angle,
+                    "propagate_faces": prop_face,
+                }
+            }
+
+            # Use the functionality to find faces to split
+            model._pick_propagation_faces(g_h, g_l, d_h, d_l, d_e)
+            _, face, _ = sps.find(d_e["propagation_face_map"])
+
+            # This is the test, the targets and the identified faces should be the same
+            assert np.all(np.sort(face) == np.sort(step_target[g_l]))
+
+            # Store propagation map for this face - this is necessary to split the faces
+            # and do the test for multiple propagation steps
+            propagation_map[g_l] = face
+
+        # We have updated the propagation map for all fractures, and can split faces in
+        # g_h
+        pp.propagate_fracture.propagate_fractures(gb, propagation_map)
+        # .. on to the next propagation step.
+
+
+class FaceSplittingHostGrid(unittest.TestCase):
+    """Tests of splitting of faces in the higher-dimensional grid.
 
     The different tests have been written at different points in time, and could have
     benefited from a consolidation. On the other hand, the tests also cover different
@@ -165,7 +341,7 @@ class TestPropagateFractures(unittest.TestCase):
                 gb, split, cc, fc, cv, new_cell_volumes[si], new_fc[si], num_nodes[si]
             )
 
-    def test_three__from_bottom(self):
+    def test_three_from_bottom(self):
         # Starting from a fracture one cell wide, three cells long, the first step
         # opens one flanking face of the fracutre, so that it looks roughly like
         #  O O O   <- Initial fracture
