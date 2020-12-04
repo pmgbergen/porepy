@@ -533,10 +533,7 @@ class ConformingFracturePropagation(FracturePropagation):
         data_h[pp.STATE]["neighbor_cells"] = vals
 
     def _tip_bases(
-        self,
-        g: pp.Grid,
-        projection: pp.TangentialNormalProjection,
-        faces: np.ndarray,
+        self, g: pp.Grid, projection: pp.TangentialNormalProjection, faces: np.ndarray,
     ) -> np.ndarray:
         """
         Construct local bases for tip faces of a fracture.
@@ -629,7 +626,7 @@ class ConformingFracturePropagation(FracturePropagation):
         # may be remeshing.
         #
         # IMPLEMENTATION NOTE: For the special case of tensile fracturing along lines or
-        # planes that are represented in the grid geometry, the below codes can be dropped
+        # planes that are represented in the grid geometry, the below lines can be dropped
         # (but they should not do any harm either).
         for f in candidate_faces:
             # Obtain all edges:
