@@ -73,63 +73,63 @@ class THM(parent_model.ContactMechanicsBiot):
         # Temperature mechanics coupling
         self.mechanics_temperature_parameter_key = "mech_temperature"
 
-    def set_parameters(self) -> None:
+    def _set_parameters(self) -> None:
         """
         Set the parameters for the simulation.
         """
-        self.set_scalar_parameters()
-        self.set_temperature_parameters()
-        self.set_mechanics_parameters()
+        self._set_scalar_parameters()
+        self._set_temperature_parameters()
+        self._set_mechanics_parameters()
 
-    def bc_type_temperature(self, g: pp.Grid) -> pp.BoundaryCondition:
+    def _bc_type_temperature(self, g: pp.Grid) -> pp.BoundaryCondition:
         # Define boundary regions
-        all_bf, *_ = self.domain_boundary_sides(g)
+        all_bf, *_ = self._domain_boundary_sides(g)
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, all_bf, "dir")
 
-    def bc_values_temperature(self, g: pp.Grid) -> np.ndarray:
+    def _bc_values_temperature(self, g: pp.Grid) -> np.ndarray:
         return np.zeros(g.num_faces)
 
-    def source_temperature(self, g: pp.Grid) -> np.ndarray:
+    def _source_temperature(self, g: pp.Grid) -> np.ndarray:
         return np.zeros(g.num_cells)
 
-    def biot_beta(self, g: pp.Grid) -> float:
+    def _biot_beta(self, g: pp.Grid) -> float:
         """
         TM coupling coefficient
         """
         return 1.0
 
-    def scalar_temperature_coupling_coefficient(self, g: pp.Grid) -> float:
+    def _scalar_temperature_coupling_coefficient(self, g: pp.Grid) -> float:
         """
         TH coupling coefficient
         """
         return -1.0
 
-    def set_mechanics_parameters(self) -> None:
+    def _set_mechanics_parameters(self) -> None:
         """
         Set the parameters for the simulation.
         """
-        super().set_mechanics_parameters()
+        super()._set_mechanics_parameters()
         for g, d in self.gb:
-            if g.dim == self.Nd:
+            if g.dim == self._Nd:
                 pp.initialize_data(
                     g,
                     d,
                     self.mechanics_temperature_parameter_key,
                     {
-                        "biot_alpha": self.biot_beta(g),
-                        "bc_values": self.bc_values_mechanics(g),
+                        "biot_alpha": self._biot_beta(g),
+                        "bc_values": self._bc_values_mechanics(g),
                     },
                 )
 
-    def set_scalar_parameters(self) -> None:
+    def _set_scalar_parameters(self) -> None:
         """Set parameters for the pressure / mass conservation equation."""
         # Most values are handled as if this was a poro-elastic problem
-        super().set_scalar_parameters()
+        super()._set_scalar_parameters()
         for g, d in self.gb:
             t2s_coupling = (
-                self.scalar_temperature_coupling_coefficient(g)
-                * self.specific_volume(g)
+                self._scalar_temperature_coupling_coefficient(g)
+                * self._specific_volume(g)
                 * self.temperature_scale
             )
             pp.initialize_data(
@@ -139,7 +139,7 @@ class THM(parent_model.ContactMechanicsBiot):
                 {"mass_weight": t2s_coupling, "time_step": self.time_step},
             )
 
-    def set_temperature_parameters(self) -> None:
+    def _set_temperature_parameters(self) -> None:
         """Parameters for the temperature equation."""
         tensor_scale: float = (
             self.temperature_scale / self.length_scale ** 2 / self.T_0_Kelvin
@@ -150,17 +150,17 @@ class THM(parent_model.ContactMechanicsBiot):
         for g, d in self.gb:
             # By default, we set the same type of boundary conditions as for the
             # pressure problem, that is, zero Dirichlet everywhere
-            bc = self.bc_type_temperature(g)
-            bc_values = self.bc_values_temperature(g)
-            source_values = self.source_temperature(g)
+            bc = self._bc_type_temperature(g)
+            bc_values = self._bc_values_temperature(g)
+            source_values = self._source_temperature(g)
 
-            specific_volume = self.specific_volume(g)
+            specific_volume = self._specific_volume(g)
             thermal_conductivity = pp.SecondOrderTensor(
                 kappa * specific_volume * np.ones(g.num_cells)
             )
             advection_weight = heat_capacity * self.temperature_scale / self.T_0_Kelvin
             s2t_coupling = (
-                self.scalar_temperature_coupling_coefficient(g)
+                self._scalar_temperature_coupling_coefficient(g)
                 * specific_volume
                 * self.scalar_scale
             )
@@ -172,7 +172,7 @@ class THM(parent_model.ContactMechanicsBiot):
                     "bc": bc,
                     "bc_values": bc_values,
                     "mass_weight": mass_weight * specific_volume,
-                    "biot_alpha": self.biot_beta(g),
+                    "biot_alpha": self._biot_beta(g),
                     "source": source_values,
                     "second_order_tensor": thermal_conductivity,
                     "advection_weight": advection_weight,
@@ -186,17 +186,18 @@ class THM(parent_model.ContactMechanicsBiot):
                 self.s2t_parameter_key,
                 {"mass_weight": s2t_coupling, "time_step": self.time_step},
             )
+
         # Assign diffusivity in the normal direction of the fractures.
         # Also initialize fluxes.
         for e, data_edge in self.gb.edges():
             g_l, g_h = self.gb.nodes_of_edge(e)
             mg = data_edge["mortar_grid"]
 
-            a_l = self.aperture(g_l)
+            a_l = self._aperture(g_l)
             v_h = (
                 mg.primary_to_mortar_avg()
                 * np.abs(g_h.cell_faces)
-                * self.specific_volume(g_h)
+                * self._specific_volume(g_h)
             )  #
             # Division by a/2 may be thought of as taking the gradient in the normal
             # direction of the fracture.
@@ -216,11 +217,11 @@ class THM(parent_model.ContactMechanicsBiot):
                 },
             )
 
-    def assign_variables(self) -> None:
+    def _assign_variables(self) -> None:
         """
         Assign primary variables to the nodes and edges of the grid bucket.
         """
-        super().assign_variables()
+        super()._assign_variables()
 
         # The remaining variables to define is the temperature on the nodes
         for _, d in self.gb:
@@ -235,7 +236,7 @@ class THM(parent_model.ContactMechanicsBiot):
                 }
             )
 
-    def assign_discretizations(self) -> None:
+    def _assign_discretizations(self) -> None:
         """
         Assign discretizations to the nodes and edges of the grid bucket.
 
@@ -244,7 +245,7 @@ class THM(parent_model.ContactMechanicsBiot):
         should not be done if the scalar variable is temperature.
         """
         # Call parent class for disrcetizations for the poro-elastic system.
-        super().assign_discretizations()
+        super()._assign_discretizations()
 
         # What remains is terms related to temperature
 
@@ -290,7 +291,7 @@ class THM(parent_model.ContactMechanicsBiot):
 
         # Assign node discretizations
         for g, d in self.gb:
-            if g.dim == self.Nd:
+            if g.dim == self._Nd:
                 d[pp.DISCRETIZATION].update(
                     {  # advection-diffusion equation for temperature
                         var_t: {
@@ -361,7 +362,7 @@ class THM(parent_model.ContactMechanicsBiot):
                     },
                 }
             )
-            if g_h.dim == self.Nd:
+            if g_h.dim == self._Nd:
                 d[pp.COUPLING_DISCRETIZATION].update(
                     {
                         "div_u_coupling_t": {
@@ -383,14 +384,14 @@ class THM(parent_model.ContactMechanicsBiot):
                     }
                 )
 
-    def initial_condition(self) -> None:
+    def _initial_condition(self) -> None:
         """
         In addition to the values set by the parent class, we set initial value for the
         temperature variable, and a previous iterate value for the scalar value. The
         latter is used for computation of Darcy fluxes, needed for the advective term of
         the energy equation.
         """
-        super().initial_condition()
+        super()._initial_condition()
 
         for g, d in self.gb:
             # Initial value for the scalar variable.
@@ -457,7 +458,7 @@ class THM(parent_model.ContactMechanicsBiot):
         # Stress contribution from the scalar variable
         d[pp.STATE]["stress"] += matrix_dictionary["grad_p"] * T
 
-    def discretize(self) -> None:
+    def _discretize(self) -> None:
         """Discretize all terms"""
         if not hasattr(self, "assembler"):
             self.assembler = pp.Assembler(self.gb)
@@ -468,8 +469,8 @@ class THM(parent_model.ContactMechanicsBiot):
         # Discretization is a bit cumbersome, as the Biot discetization removes the
         # one-to-one correspondence between discretization objects and blocks in the matrix.
         # First, Discretize with the biot class
-        self.discretize_biot()
-        self.copy_biot_discretizations()
+        self._discretize_biot()
+        self._copy_biot_discretizations()
 
         # Next, discretize term on the matrix grid not covered by the Biot discretization,
         # i.e. the source term
@@ -509,7 +510,7 @@ class THM(parent_model.ContactMechanicsBiot):
 
         # Finally, discretize terms on the lower-dimensional grids. This can be done
         # in the traditional way, as there is no Biot discretization here.
-        for dim in range(0, self.Nd):
+        for dim in range(0, self._Nd):
             grid_list = self.gb.grids_of_dimension(dim)
             if len(grid_list) > 0:
                 filt = pp.assembler_filters.ListFilter(grid_list=grid_list)
@@ -528,11 +529,11 @@ class THM(parent_model.ContactMechanicsBiot):
         filt = pp.assembler_filters.ListFilter(term_list=terms)
         self.assembler.discretize(filt=filt)
 
-    def copy_biot_discretizations(self) -> None:
-        g: pp.Grid = self.gb.grids_of_dimension(self.Nd)[0]
+    def _copy_biot_discretizations(self) -> None:
+        g: pp.Grid = self.gb.grids_of_dimension(self._Nd)[0]
         d: Dict = self.gb.node_props(g)
-        beta = self.biot_beta(g)
-        alpha = self.biot_alpha(g)
+        beta = self._biot_beta(g)
+        alpha = self._biot_alpha(g)
         # For grad p term of u equation
         weight_grad_t = beta / alpha
         # Account for scaling
@@ -569,11 +570,11 @@ class THM(parent_model.ContactMechanicsBiot):
             key_m_from_t,
             {"biot_alpha": weight_div_u},
         )
-        bc_dict = {"bc_values": self.bc_values_mechanics(g)}
+        bc_dict = {"bc_values": self._bc_values_mechanics(g)}
         state = {key_m_from_t: bc_dict}
         pp.set_state(d, state)
 
-    def save_mechanical_bc_values(self) -> None:
+    def _save_mechanical_bc_values(self) -> None:
         """
         The div_u term uses the mechanical bc values for both current and previous time
         step. In the case of time dependent bc values, these must be updated. As this

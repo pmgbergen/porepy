@@ -100,13 +100,13 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             pp.contact_conditions.set_projections(self.gb)
 
         """
-        pass
+        raise NotImplementedError("Method for grid creation should be implemented in a subclass")
 
     def _nd_grid(self):
         """Get the grid of the highest dimension. Assumes self.gb is set."""
-        return self.gb.grids_of_dimension(self.Nd)[0]
+        return self.gb.grids_of_dimension(self._Nd)[0]
 
-    def domain_boundary_sides(self, g):
+    def _domain_boundary_sides(self, g):
         """
         Obtain indices of the faces of a grid that lie on each side of the domain
         boundaries.
@@ -117,7 +117,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         west = g.face_centers[0] < box["xmin"] + tol
         north = g.face_centers[1] > box["ymax"] - tol
         south = g.face_centers[1] < box["ymin"] + tol
-        if self.Nd == 2:
+        if self._Nd == 2:
             top = np.zeros(g.num_faces, dtype=bool)
             bottom = top.copy()
         else:
@@ -126,7 +126,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         all_bf = g.get_boundary_faces()
         return all_bf, east, west, north, south, top, bottom
 
-    def bc_type(self, g):
+    def _bc_type(self, g):
         """Define type of boundary conditions: Dirichlet on all global boundaries,
         Dirichlet also on fracture faces.
         """
@@ -140,37 +140,37 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         bc.is_dir[:, frac_face] = True
         return bc
 
-    def bc_values(self, g):
+    def _bc_values(self, g):
         """Set homogeneous conditions on all boundary faces."""
         # Values for all Nd components, facewise
-        values = np.zeros((self.Nd, g.num_faces))
+        values = np.zeros((self._Nd, g.num_faces))
         # Reshape according to PorePy convention
         values = values.ravel("F")
         return values
 
-    def source(self, g):
+    def _source(self, g):
         """"""
-        return np.zeros(self.Nd * g.num_cells)
+        return np.zeros(self._Nd * g.num_cells)
 
-    def set_parameters(self):
+    def _set_parameters(self):
         """
         Set the parameters for the simulation.
         """
         gb = self.gb
 
         for g, d in gb:
-            if g.dim == self.Nd:
+            if g.dim == self._Nd:
                 # Rock parameters
                 lam = np.ones(g.num_cells)
                 mu = np.ones(g.num_cells)
                 C = pp.FourthOrderTensor(mu, lam)
 
                 # Define boundary condition
-                bc = self.bc_type(g)
+                bc = self._bc_type(g)
 
                 # BC and source values
-                bc_val = self.bc_values(g)
-                source_val = self.source(g)
+                bc_val = self._bc_values(g)
+                source_val = self._source(g)
 
                 pp.initialize_data(
                     g,
@@ -185,7 +185,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                     },
                 )
 
-            elif g.dim == self.Nd - 1:
+            elif g.dim == self._Nd - 1:
                 friction = self._set_friction_coefficient(g)
                 pp.initialize_data(
                     g,
@@ -197,40 +197,40 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             mg = d["mortar_grid"]
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
-    def assign_variables(self):
+    def _assign_variables(self):
         """
         Assign variables to the nodes and edges of the grid bucket.
         """
         gb = self.gb
         for g, d in gb:
-            if g.dim == self.Nd:
+            if g.dim == self._Nd:
                 d[pp.PRIMARY_VARIABLES] = {
-                    self.displacement_variable: {"cells": self.Nd}
+                    self.displacement_variable: {"cells": self._Nd}
                 }
-            elif g.dim == self.Nd - 1:
+            elif g.dim == self._Nd - 1:
                 d[pp.PRIMARY_VARIABLES] = {
-                    self.contact_traction_variable: {"cells": self.Nd}
+                    self.contact_traction_variable: {"cells": self._Nd}
                 }
             else:
                 d[pp.PRIMARY_VARIABLES] = {}
 
         for e, d in gb.edges():
 
-            if e[0].dim == self.Nd:
+            if e[0].dim == self._Nd:
                 d[pp.PRIMARY_VARIABLES] = {
-                    self.mortar_displacement_variable: {"cells": self.Nd}
+                    self.mortar_displacement_variable: {"cells": self._Nd}
                 }
 
             else:
                 d[pp.PRIMARY_VARIABLES] = {}
 
-    def assign_discretizations(self):
+    def _assign_discretizations(self):
         """
         Assign discretizations to the nodes and edges of the grid bucket.
 
         """
         # For the Nd domain we solve linear elasticity with mpsa.
-        Nd = self.Nd
+        Nd = self._Nd
         gb = self.gb
         mpsa = pp.Mpsa(self.mechanics_parameter_key)
         # We need a void discretization for the contact traction variable defined on
@@ -260,7 +260,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                     }
                 }
 
-    def initial_condition(self):
+    def _initial_condition(self):
         """Set initial guess for the variables.
 
         The displacement is set to zero in the Nd-domain, and at the fracture interfaces
@@ -272,11 +272,11 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         """
 
         for g, d in self.gb:
-            if g.dim == self.Nd:
+            if g.dim == self._Nd:
                 # Initialize displacement variable
-                state = {self.displacement_variable: np.zeros(g.num_cells * self.Nd)}
+                state = {self.displacement_variable: np.zeros(g.num_cells * self._Nd)}
 
-            elif g.dim == self.Nd - 1:
+            elif g.dim == self._Nd - 1:
                 # Initialize contact variable
                 traction = np.vstack(
                     (np.zeros((g.dim, g.num_cells)), -1 * np.ones(g.num_cells))
@@ -292,8 +292,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         for _, d in self.gb.edges():
             mg = d["mortar_grid"]
 
-            if mg.dim == self.Nd - 1:
-                size = mg.num_cells * self.Nd
+            if mg.dim == self._Nd - 1:
+                size = mg.num_cells * self._Nd
                 state = {self.mortar_displacement_variable: np.zeros(size)}
                 iterate = {self.mortar_displacement_variable: np.zeros(size)}
                 pp.set_iterate(d, iterate)
@@ -341,7 +341,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                     # g is a node (not edge)
 
                     # For the fractures, update the contact force
-                    if g.dim < self.Nd:
+                    if g.dim < self._Nd:
                         if name == self.contact_traction_variable:
                             contact = solution_vector[dof[bi] : dof[bi + 1]]
                             data = self.gb.node_props(g)
@@ -394,14 +394,14 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         else:
             mortar_u = data_edge[pp.STATE][self.mortar_displacement_variable]
         displacement_jump_global_coord = (
-            mg.mortar_to_secondary_avg(nd=self.Nd)
-            * mg.sign_of_mortar_sides(nd=self.Nd)
+            mg.mortar_to_secondary_avg(nd=self._Nd)
+            * mg.sign_of_mortar_sides(nd=self._Nd)
             * mortar_u
         )
         # Rotated displacement jumps. these are in the local coordinates, on
         project_to_local = projection.project_tangential_normal(int(mg.num_cells / 2))
         u_mortar_local = project_to_local * displacement_jump_global_coord
-        return u_mortar_local.reshape((self.Nd, -1), order="F")
+        return u_mortar_local.reshape((self._Nd, -1), order="F")
 
     def reconstruct_stress(self, previous_iterate: bool = False) -> None:
         """
@@ -440,14 +440,14 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         for e, d_e in self.gb.edges():
             # Only contributions from interfaces to the highest dimensional grid
             mg = d_e["mortar_grid"]
-            if mg.dim == self.Nd - 1:
+            if mg.dim == self._Nd - 1:
                 if previous_iterate:
                     u_e = d_e[pp.STATE][pp.ITERATE][self.mortar_displacement_variable]
                 else:
                     u_e = d_e[pp.STATE][self.mortar_displacement_variable]
 
                 stress += (
-                    bound_stress_discr * mg.mortar_to_primary_avg(nd=self.Nd) * u_e
+                    bound_stress_discr * mg.mortar_to_primary_avg(nd=self._Nd) * u_e
                 )
 
         d[pp.STATE]["stress"] = stress
@@ -466,13 +466,13 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
         """
         self.create_grid()
-        self.Nd = self.gb.dim_max()
-        self.set_parameters()
-        self.assign_variables()
-        self.assign_discretizations()
-        self.initial_condition()
-        self.discretize()
-        self.initialize_linear_solver()
+        self._Nd = self.gb.dim_max()
+        self._set_parameters()
+        self._assign_variables()
+        self._assign_discretizations()
+        self._initial_condition()
+        self._discretize()
+        self._initialize_linear_solver()
 
         g_max = self._nd_grid()
         self.viz = pp.Exporter(
@@ -483,7 +483,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         """Called after a time-dependent problem"""
         pass
 
-    def discretize(self):
+    def _discretize(self):
         """Discretize all terms"""
         if not hasattr(self, "assembler"):
             self.assembler = pp.Assembler(self.gb)
@@ -550,7 +550,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         # Also find indices for the contact variables
         contact_dof = np.array([], dtype=np.int)
         for e, _ in self.gb.edges():
-            if e[0].dim == self.Nd:
+            if e[0].dim == self._Nd:
                 contact_dof = np.hstack(
                     (
                         contact_dof,
@@ -617,7 +617,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         else:
             raise ValueError("Tried solving singular matrix for the linear problem.")
 
-    def initialize_linear_solver(self):
+    def _initialize_linear_solver(self):
         tic = time.time()
         logger.info("Initialize linear solver")
 
@@ -660,4 +660,4 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         If there is no fracture, the problem is usually linear.
         Overwrite this function if e.g. parameter nonlinearities are included.
         """
-        return self.gb.dim_min() < self.Nd
+        return self.gb.dim_min() < self._Nd
