@@ -1,10 +1,12 @@
-"""
-
+""" Contains the mothed class for all models, that is, standardized setups for complex
+problems.
 
 """
 import abc
+from typing import Dict, Tuple, Any, List
 
 import numpy as np
+import porepy as pp
 
 
 class AbstractModel(abc.ABC):
@@ -14,7 +16,7 @@ class AbstractModel(abc.ABC):
     """
 
     @abc.abstractmethod
-    def get_state_vector(self):
+    def get_state_vector(self) -> np.ndarray:
         """Get a vector of the current state of the variables; with the same ordering
             as in the assembler.
 
@@ -25,7 +27,7 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def prepare_simulation(self):
+    def prepare_simulation(self) -> None:
         """Method called prior to the start of time stepping, or prior to entering the
         non-linear solver for stationary problems.
 
@@ -36,7 +38,7 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def before_newton_loop(self):
+    def before_newton_loop(self) -> None:
         """Method to be called before entering the non-linear solver, thus at the start
         of a new time step.
 
@@ -46,7 +48,7 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def before_newton_iteration(self):
+    def before_newton_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
 
         Possible usage is to update non-linear parameters, discertizations etc.
@@ -55,7 +57,7 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def after_newton_iteration(self, solution_vector):
+    def after_newton_iteration(self, solution_vector: np.ndarray):
         """Method to be called after every non-linear iteration.
 
         Possible usage is to distribute information on the new trial state, visualize
@@ -68,7 +70,9 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def after_newton_convergence(self, solution, errors, iteration_counter):
+    def after_newton_convergence(
+        self, solution: np.ndarray, errors: float, iteration_counter: int
+    ) -> None:
         """Method to be called after every non-linear iteration.
 
         Possible usage is to distribute information on the solution, visualization, etc.
@@ -80,7 +84,9 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def after_newton_failure(self, solution, errors, iteration_counter):
+    def after_newton_failure(
+        self, solution: np.ndarray, errors: float, iteration_counter: int
+    ) -> None:
         """Method called after a non-linear solver has failed.
 
         The failure can be due to divergence, or that the maximum number of iterations
@@ -92,7 +98,13 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def check_convergence(self, solution, prev_solution, init_solution, nl_params):
+    def check_convergence(
+        self,
+        solution: np.ndarray,
+        prev_solution: np.ndarray,
+        init_solution: np.ndarray,
+        nl_params: Dict[str, Any],
+    ) -> Tuple[float, bool, bool]:
         """Implements a convergence check, to be called by a non-linear solver.
 
         Parameters:
@@ -115,7 +127,7 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def assemble_and_solve_linear_system(self, tol):
+    def assemble_and_solve_linear_system(self, tol: float):
         """Assemble the linearized system, described by the current state of the model,
         solve and return the new solution vector.
 
@@ -129,7 +141,7 @@ class AbstractModel(abc.ABC):
         """
         pass
 
-    def l2_norm_cell(self, g, u):
+    def l2_norm_cell(self, g: pp.Grid, u: np.ndarray) -> float:
         """
         Compute the cell volume weighted norm of a vector-valued cellwise quantity for
         a given grid.

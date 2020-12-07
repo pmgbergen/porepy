@@ -32,7 +32,7 @@ undergo major changes (or be deleted).
 """
 import logging
 import time
-from typing import Dict
+from typing import Dict, Optional, List, Union, Tuple
 
 import numpy as np
 
@@ -45,33 +45,98 @@ logger = logging.getLogger(__name__)
 
 
 class THM(parent_model.ContactMechanicsBiot):
-    def __init__(self, params: Dict = None) -> None:
-        super(THM, self).__init__(params)
+    """This is a shell class for poro-elastic contact mechanics problems.
+
+    Setting up such problems requires a lot of boilerplate definitions of variables,
+    parameters and discretizations. This class is intended to provide a standardized
+    setup, with all discretizations in place and reasonable parameter and boundary
+    values. The intended use is to inherit from this class, and do the necessary
+    modifications and specifications for the problem to be fully defined. The minimal
+    adjustment needed is to specify the method create_grid().
+
+    Attributes:
+        time (float): Current time.
+        time_step (float): Size of an individual time step
+        end_time (float): Time at which the simulation should stop.
+
+        displacement_variable (str): Name assigned to the displacement variable in the
+            highest-dimensional subdomain. Will be used throughout the simulations,
+            including in Paraview export.
+        mortar_displacement_variable (str): Name assigned to the displacement variable
+            on the fracture walls. Will be used throughout the simulations, including in
+            Paraview export.
+        contact_traction_variable (str): Name assigned to the variable for contact
+            forces in the fracture. Will be used throughout the simulations, including
+            in Paraview export.
+        scalar_variable (str): Name assigned to the pressure variable. Will be used
+            throughout the simulations, including in Paraview export.
+        temperature_variable (str): Name assigned to the temperature variable. Will be used
+            throughout the simulations, including in Paraview export.
+        mortar scalar_variable (str): Name assigned to the interface scalar variable
+            representing flux between grids. Will be used throughout the simulations,
+            including in Paraview export.
+
+        mechanics_parameter_key (str): Keyword used to define parameters and
+            discretizations for the mechanics problem.
+        scalar_parameter_key (str): Keyword used to define parameters and
+            discretizations for the flow problem.
+        temperature_parameter_key (str): Keyword used to define parameters and
+            discretizations for the temperature problem.
+        mechanics_temperature_parameter_key (str): Keyword used to define parameters and
+            discretizations for the coupling between temperature and mechanics.
+
+        params (dict): Dictionary of parameters used to control the solution procedure.
+        viz_folder_name (str): Folder for visualization export.
+        gb (pp.GridBucket): Mixed-dimensional grid. Should be set by a method
+            create_grid which should be provided by the user.
+        convergence_status (bool): Whether the non-linear iterations has converged.
+        linear_solver (str): Specification of linear solver. Only known permissible
+            value is 'direct'
+        scalar_scale (float): Scaling coefficient for the pressure variable. Can be used
+            to get comparable size of the mechanical and flow problem.
+        scalar_scale (float): Scaling coefficient for the vector variable. Can be used
+            to get comparable size of the mechanical and flow problem.
+        temperature_scale (float): Scaling coefficient for the temperature variable.
+            Can be used to get comparable size of the mechanical and flow problem.
+            NOTE: This has not been properly tested, assign unit value to stay safe.
+
+    Except from the grid, all attributes are given natural values at initialization of
+    the class.
+
+    """
+
+    def __init__(self, params: Optional[Dict] = None) -> None:
+        super().__init__(params)
 
         # temperature
-        self.temperature_variable = "T"
-        self.mortar_temperature_advection_variable = (
+        self.temperature_variable: str = "T"
+        self.mortar_temperature_advection_variable: str = (
             "mortar_advection_" + self.temperature_variable
         )
-        self.advection_term = "advection_" + self.temperature_variable
-        self.advection_coupling_term = "advection_coupling_" + self.temperature_variable
-        self.mortar_temperature_variable = "mortar_" + self.temperature_variable
-        self.temperature_coupling_term = "robin_" + self.temperature_variable
-        self.temperature_parameter_key = "temperature"
+        self.advection_term: str = "advection_" + self.temperature_variable
+        self.advection_coupling_term: str = (
+            "advection_coupling_" + self.temperature_variable
+        )
+        self.mortar_temperature_variable: str = "mortar_" + self.temperature_variable
+        self.temperature_coupling_term: str = "robin_" + self.temperature_variable
+
+        self.temperature_parameter_key: str = "temperature"
 
         # Scaling coefficients for temperature
         # NOTE: temperature_scale different from 1 has not been tested, and will likely
         # introduce errors.
-        self.temperature_scale = 1
-        self.T_0_Kelvin = pp.CELSIUS_to_KELVIN(0)
+        self.temperature_scale: float = 1
+        self.T_0_Kelvin: float = pp.CELSIUS_to_KELVIN(0)
 
         # Temperature pressure coupling
-        self.t2s_parameter_key = "t2s_parameters"
-        self.s2t_parameter_key = "s2t_parameters"
-        self.s2t_coupling_term = "s_effect_on_t"
-        self.t2s_coupling_term = "t_effect_on_s"
-        # Temperature mechanics coupling
-        self.mechanics_temperature_parameter_key = "mech_temperature"
+        self.t2s_parameter_key: str = "t2s_parameters"
+        self.s2t_parameter_key: str = "s2t_parameters"
+        self.s2t_coupling_term: str = "s_effect_on_t"
+        self.t2s_coupling_term: str = "t_effect_on_s"
+
+        # Keyword needed to specify parameters and discretizations for the
+        # temperature mechanics coupling
+        self.mechanics_temperature_parameter_key: str = "mech_temperature"
 
     def _set_parameters(self) -> None:
         """
@@ -500,12 +565,17 @@ class THM(parent_model.ContactMechanicsBiot):
         self.assembler.discretize(filt=filt)
 
         # Build a list of all edges, and all couplings
-        edge_list = []
+        edge_list: List[
+            Union[
+                Tuple[pp.Grid, pp.Grid],
+                Tuple[pp.Grid, pp.Grid, Tuple[pp.Grid, pp.Grid]],
+            ]
+        ] = []
         for e, _ in self.gb.edges():
             edge_list.append(e)
             edge_list.append((e[0], e[1], e))
         if len(edge_list) > 0:
-            filt = pp.assembler_filters.ListFilter(grid_list=edge_list)
+            filt = pp.assembler_filters.ListFilter(grid_list=edge_list)  # type: ignore
             self.assembler.discretize(filt=filt)
 
         # Finally, discretize terms on the lower-dimensional grids. This can be done
@@ -530,17 +600,27 @@ class THM(parent_model.ContactMechanicsBiot):
         self.assembler.discretize(filt=filt)
 
     def _copy_biot_discretizations(self) -> None:
+        """The Biot discretization is designed to discretize a single term of the
+        grad_p type. It should not be difficult to generalize this, but pending such
+        an update, the below code copies the discretization matrices from the flow
+        related keywords to those of the temperature.
+
+        """
         g: pp.Grid = self.gb.grids_of_dimension(self._Nd)[0]
         d: Dict = self.gb.node_props(g)
         beta = self._biot_beta(g)
         alpha = self._biot_alpha(g)
+
         # For grad p term of u equation
         weight_grad_t = beta / alpha
+
         # Account for scaling
         weight_grad_t *= self.temperature_scale / self.scalar_scale
+
         # Stabilization is derived from the grad p discretization
         weight_stabilization = beta / alpha
         weight_stabilization *= self.temperature_scale / self.scalar_scale
+
         # The stabilization terms appear in the T/p equations, whereof only the first
         # is divided by T_0_Kelvin.
         weight_stabilization *= 1 / self.T_0_Kelvin

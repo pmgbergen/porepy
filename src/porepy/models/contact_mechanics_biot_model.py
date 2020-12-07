@@ -7,12 +7,13 @@ expand to a model where the displacement solution is coupled to a scalar variabl
 pressure (Biot equations) or temperature. Parameters, variables and discretizations are
 set in the model class, and the problem may be solved using run_biot.
 
-NOTE: This module should be considered an experimental feature, which will likely
-undergo major changes (or be deleted).
+NOTE: This module should be considered an experimental feature, which may
+undergo major changes on little notice.
+
 """
 import logging
 import time
-from typing import Dict, List
+from typing import Dict, List, Optional, Union, Tuple
 
 import numpy as np
 import scipy.sparse as sps
@@ -27,36 +28,91 @@ logger = logging.getLogger(__name__)
 
 
 class ContactMechanicsBiot(contact_model.ContactMechanics):
-    def __init__(self, params: Dict = None) -> None:
+    """This is a shell class for poro-elastic contact mechanics problems.
+
+    Setting up such problems requires a lot of boilerplate definitions of variables,
+    parameters and discretizations. This class is intended to provide a standardized
+    setup, with all discretizations in place and reasonable parameter and boundary
+    values. The intended use is to inherit from this class, and do the necessary
+    modifications and specifications for the problem to be fully defined. The minimal
+    adjustment needed is to specify the method create_grid().
+
+    Attributes:
+        time (float): Current time.
+        time_step (float): Size of an individual time step
+        end_time (float): Time at which the simulation should stop.
+
+        displacement_variable (str): Name assigned to the displacement variable in the
+            highest-dimensional subdomain. Will be used throughout the simulations,
+            including in Paraview export.
+        mortar_displacement_variable (str): Name assigned to the displacement variable
+            on the fracture walls. Will be used throughout the simulations, including in
+            Paraview export.
+        contact_traction_variable (str): Name assigned to the variable for contact
+            forces in the fracture. Will be used throughout the simulations, including
+            in Paraview export.
+        scalar_variable (str): Name assigned to the scalar variable (say, temperature
+            or pressure). Will be used throughout the simulations, including
+            in Paraview export.
+        mortar scalar_variable (str): Name assigned to the interface scalar variable
+            representing flux between grids. Will be used throughout the simulations,
+            including in Paraview export.
+
+        mechanics_parameter_key (str): Keyword used to define parameters and
+            discretizations for the mechanics problem.
+        scalar_parameter_key (str): Keyword used to define parameters and
+            discretizations for the flow problem.
+
+        params (dict): Dictionary of parameters used to control the solution procedure.
+        viz_folder_name (str): Folder for visualization export.
+        gb (pp.GridBucket): Mixed-dimensional grid. Should be set by a method
+            create_grid which should be provided by the user.
+        convergence_status (bool): Whether the non-linear iterations has converged.
+        linear_solver (str): Specification of linear solver. Only known permissible
+            value is 'direct'
+        scalar_scale (float): Scaling coefficient for the scalar variable. Can be used
+            to get comparable size of the mechanical and flow problem.
+        scalar_scale (float): Scaling coefficient for the vector variable. Can be used
+            to get comparable size of the mechanical and flow problem.
+        subtract_fracture_pressure (bool): If True (default) the scalar variable will be
+            interpreted as a pressure, and contribute a force to the fracture walls from
+            the lower-dimensional grid.
+
+    Except from the grid, all attributes are given natural values at initialization of
+    the class.
+
+    """
+
+    def __init__(self, params: Optional[Dict] = None) -> None:
         super().__init__(params)
 
         # Time
-        self.time = 0
-        self.time_step = 1
-        self.end_time = 1
+        self.time: float = 0
+        self.time_step: float = 1
+        self.end_time: float = 1
 
         # Temperature
-        self.scalar_variable = "p"
-        self.mortar_scalar_variable = "mortar_" + self.scalar_variable
-        self.scalar_coupling_term = "robin_" + self.scalar_variable
-        self.scalar_parameter_key = "flow"
+        self.scalar_variable: str = "p"
+        self.mortar_scalar_variable: str = "mortar_" + self.scalar_variable
+        self.scalar_coupling_term: str = "robin_" + self.scalar_variable
+        self.scalar_parameter_key: str = "flow"
 
         # Scaling coefficients
-        self.scalar_scale = 1
-        self.length_scale = 1
+        self.scalar_scale: float = 1
+        self.length_scale: float = 1
 
         # Whether or not to subtract the fracture pressure contribution for the contact
         # traction. This should be done if the scalar variable is pressure, but not for
         # temperature. See assign_discretizations
-        self.subtract_fracture_pressure = True
+        self.subtract_fracture_pressure: bool = True
 
-    def _bc_type_mechanics(self, g):
+    def _bc_type_mechanics(self, g: pp.Grid) -> pp.BoundaryConditionVectorial:
         # Use parent class method for mechanics
-        return super().bc_type(g)
+        return super()._bc_type(g)
 
     def _bc_type_scalar(self, g: pp.Grid) -> pp.BoundaryCondition:
         # Define boundary regions
-        all_bf, *_ = self.domain_boundary_sides(g)
+        all_bf, *_ = self._domain_boundary_sides(g)
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, all_bf, "dir")
 
@@ -66,7 +122,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         by scalar_scale.
         """
         # Set the boundary values
-        return super().bc_values(g)
+        return super()._bc_values(g)
 
     def _bc_values_scalar(self, g: pp.Grid) -> np.ndarray:
         """
@@ -115,15 +171,17 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         g = self._nd_grid()
         d = self.gb.node_props(g)
 
-        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.mechanics_parameter_key]
-
+        matrix_dictionary: Dict[str, sps.spmatrix] = d[pp.DISCRETIZATION_MATRICES][
+            self.mechanics_parameter_key
+        ]
+        mpsa = pp.Biot(self.mechanics_parameter_key)
         if previous_iterate:
             p = d[pp.STATE][pp.ITERATE][self.scalar_variable]
         else:
             p = d[pp.STATE][self.scalar_variable]
 
         # Stress contribution from the scalar variable
-        d[pp.STATE]["stress"] += matrix_dictionary["grad_p"] * p
+        d[pp.STATE]["stress"] += matrix_dictionary[mpsa.grad_p_matrix_key] * p
 
         # Is it correct there is no contribution from the global boundary conditions?
 
@@ -186,7 +244,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 )
 
         for _, d in gb.edges():
-            mg = d["mortar_grid"]
+            mg: pp.MortarGrid = d["mortar_grid"]
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
     def _set_scalar_parameters(self) -> None:
@@ -423,7 +481,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             else:
                 d[pp.PRIMARY_VARIABLES] = {self.mortar_scalar_variable: {"cells": 1}}
 
-    def _discretize_biot(self, update_after_geometry_change=False) -> None:
+    def _discretize_biot(self, update_after_geometry_change: bool = False) -> None:
         """
         To save computational time, the full Biot equation (without contact mechanics)
         is discretized once. This is to avoid computing the same terms multiple times.
@@ -437,6 +495,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             scalar_variable=self.scalar_variable,
         )
         if update_after_geometry_change:
+            # This is primary indented for rediscretization after fracture propagation.
             biot.update_discretization(g, d)
         else:
             biot.discretize(g, d)
@@ -489,12 +548,17 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         self.assembler.discretize(filt=filt)
 
         # Build a list of all edges, and all couplings
-        edge_list = []
+        edge_list: List[
+            Union[
+                Tuple[pp.Grid, pp.Grid],
+                Tuple[pp.Grid, pp.Grid, Tuple[pp.Grid, pp.Grid]],
+            ]
+        ] = []
         for e, _ in self.gb.edges():
             edge_list.append(e)
             edge_list.append((e[0], e[1], e))
         if len(edge_list) > 0:
-            filt = pp.assembler_filters.ListFilter(grid_list=edge_list)
+            filt = pp.assembler_filters.ListFilter(grid_list=edge_list)  # type: ignore
             self.assembler.discretize(filt=filt)
 
         # Finally, discretize terms on the lower-dimensional grids. This can be done
@@ -524,7 +588,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         self._update_iterate(solution)
 
     def after_newton_convergence(
-        self, solution: np.ndarray, errors: List, iteration_counter: int
+        self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
         super().after_newton_convergence(solution, errors, iteration_counter)
         self._save_mechanical_bc_values()
@@ -540,7 +604,9 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         d = self.gb.node_props(g)
         d[pp.STATE][key]["bc_values"] = d[pp.PARAMETERS][key]["bc_values"].copy()
 
-    def after_newton_divergence(self) -> None:
+    def after_newton_failure(
+        self, solution: np.ndarray, errors: float, iteration_counter: int
+    ) -> None:
         raise ValueError("Newton iterations did not converge")
 
     def _initialize_linear_solver(self) -> None:
@@ -562,7 +628,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         else:
             raise ValueError("unknown linear solver " + solver)
 
-    def _assemble_and_solve_linear_system(self, tol):
+    def _assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
 
         A, b = self.assembler.assemble_matrix_rhs()
         logger.debug("Max element in A {0:.2e}".format(np.max(np.abs(A))))
@@ -573,3 +639,5 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         )
         if self.linear_solver == "direct":
             return spla.spsolve(A, b)
+        else:
+            raise ValueError(f"Unknown linear solver {self.linear_solver}")
