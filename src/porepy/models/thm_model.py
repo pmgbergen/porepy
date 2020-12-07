@@ -138,6 +138,62 @@ class THM(parent_model.ContactMechanicsBiot):
         # temperature mechanics coupling
         self.mechanics_temperature_parameter_key: str = "mech_temperature"
 
+    def before_newton_iteration(self) -> None:
+        """Re-discretize the nonlinear terms"""
+        self.compute_fluxes()
+        terms = [
+            self.friction_coupling_term,
+            self.advection_term,
+            self.advection_coupling_term,
+        ]
+        filt = pp.assembler_filters.ListFilter(term_list=terms)
+        self.assembler.discretize(filt=filt)
+
+    def reconstruct_stress(self, previous_iterate: bool = False) -> None:
+        """
+        Compute the stress in the highest-dimensional grid based on the displacement
+        pressure and temperature states in that grid, adjacent interfaces and global
+        boundary conditions.
+
+        The stress is stored in the data dictionary of the highest dimensional grid,
+        in [pp.STATE]['stress'].
+
+        Parameters:
+            previous_iterate (boolean, optional): If True, use values from previous
+                iteration to compute the stress. Defaults to False.
+
+        """
+        # First the hydro-mechanical part of the stress
+        super().reconstruct_stress(previous_iterate)
+        g = self._nd_grid()
+        d = self.gb.node_props(g)
+
+        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][
+            self.mechanics_temperature_parameter_key
+        ]
+        if previous_iterate:
+            T = d[pp.STATE][pp.ITERATE][self.temperature_variable]
+        else:
+            T = d[pp.STATE][self.temperature_variable]
+
+        # Stress contribution from the scalar variable
+        d[pp.STATE]["stress"] += matrix_dictionary["grad_p"] * T
+
+    def compute_fluxes(self) -> None:
+        """Compute the fluxes in the mixed-dimensional grid from the current state of
+        the pressure variables.
+
+        """
+        pp.fvutils.compute_darcy_flux(
+            self.gb,
+            keyword=self.scalar_parameter_key,
+            keyword_store=self.temperature_parameter_key,
+            d_name="darcy_flux",
+            p_name=self.scalar_variable,
+            lam_name=self.mortar_scalar_variable,
+            from_iterate=True,
+        )
+
     def _set_parameters(self) -> None:
         """
         Set the parameters for the simulation.
@@ -145,30 +201,6 @@ class THM(parent_model.ContactMechanicsBiot):
         self._set_scalar_parameters()
         self._set_temperature_parameters()
         self._set_mechanics_parameters()
-
-    def _bc_type_temperature(self, g: pp.Grid) -> pp.BoundaryCondition:
-        # Define boundary regions
-        all_bf, *_ = self._domain_boundary_sides(g)
-        # Define boundary condition on faces
-        return pp.BoundaryCondition(g, all_bf, "dir")
-
-    def _bc_values_temperature(self, g: pp.Grid) -> np.ndarray:
-        return np.zeros(g.num_faces)
-
-    def _source_temperature(self, g: pp.Grid) -> np.ndarray:
-        return np.zeros(g.num_cells)
-
-    def _biot_beta(self, g: pp.Grid) -> float:
-        """
-        TM coupling coefficient
-        """
-        return 1.0
-
-    def _scalar_temperature_coupling_coefficient(self, g: pp.Grid) -> float:
-        """
-        TH coupling coefficient
-        """
-        return -1.0
 
     def _set_mechanics_parameters(self) -> None:
         """
@@ -281,6 +313,30 @@ class THM(parent_model.ContactMechanicsBiot):
                     "darcy_flux": np.zeros(mg.num_cells),
                 },
             )
+
+    def _bc_type_temperature(self, g: pp.Grid) -> pp.BoundaryCondition:
+        # Define boundary regions
+        all_bf, *_ = self._domain_boundary_sides(g)
+        # Define boundary condition on faces
+        return pp.BoundaryCondition(g, all_bf, "dir")
+
+    def _bc_values_temperature(self, g: pp.Grid) -> np.ndarray:
+        return np.zeros(g.num_faces)
+
+    def _source_temperature(self, g: pp.Grid) -> np.ndarray:
+        return np.zeros(g.num_cells)
+
+    def _biot_beta(self, g: pp.Grid) -> float:
+        """
+        TM coupling coefficient
+        """
+        return 1.0
+
+    def _scalar_temperature_coupling_coefficient(self, g: pp.Grid) -> float:
+        """
+        TH coupling coefficient
+        """
+        return -1.0
 
     def _assign_variables(self) -> None:
         """
@@ -478,50 +534,20 @@ class THM(parent_model.ContactMechanicsBiot):
 
             pp.set_iterate(d, iterate)
 
-    def compute_fluxes(self) -> None:
-        """Compute the fluxes in the mixed-dimensional grid from the current state of
-        the pressure variables.
-
+    def _save_mechanical_bc_values(self) -> None:
         """
-        pp.fvutils.compute_darcy_flux(
-            self.gb,
-            keyword=self.scalar_parameter_key,
-            keyword_store=self.temperature_parameter_key,
-            d_name="darcy_flux",
-            p_name=self.scalar_variable,
-            lam_name=self.mortar_scalar_variable,
-            from_iterate=True,
+        The div_u term uses the mechanical bc values for both current and previous time
+        step. In the case of time dependent bc values, these must be updated. As this
+        is very easy to overlook, we do it by default.
+        """
+        key, key_t = (
+            self.mechanics_parameter_key,
+            self.mechanics_temperature_parameter_key,
         )
-
-    def reconstruct_stress(self, previous_iterate: bool = False) -> None:
-        """
-        Compute the stress in the highest-dimensional grid based on the displacement
-        pressure and temperature states in that grid, adjacent interfaces and global
-        boundary conditions.
-
-        The stress is stored in the data dictionary of the highest dimensional grid,
-        in [pp.STATE]['stress'].
-
-        Parameters:
-            previous_iterate (boolean, optional): If True, use values from previous
-                iteration to compute the stress. Defaults to False.
-
-        """
-        # First the hydro-mechanical part of the stress
-        super().reconstruct_stress(previous_iterate)
         g = self._nd_grid()
         d = self.gb.node_props(g)
-
-        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][
-            self.mechanics_temperature_parameter_key
-        ]
-        if previous_iterate:
-            T = d[pp.STATE][pp.ITERATE][self.temperature_variable]
-        else:
-            T = d[pp.STATE][self.temperature_variable]
-
-        # Stress contribution from the scalar variable
-        d[pp.STATE]["stress"] += matrix_dictionary["grad_p"] * T
+        d[pp.STATE][key]["bc_values"] = d[pp.PARAMETERS][key]["bc_values"].copy()
+        d[pp.STATE][key_t]["bc_values"] = d[pp.PARAMETERS][key_t]["bc_values"].copy()
 
     def _discretize(self) -> None:
         """Discretize all terms"""
@@ -588,17 +614,6 @@ class THM(parent_model.ContactMechanicsBiot):
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
-    def before_newton_iteration(self) -> None:
-        """Re-discretize the nonlinear terms"""
-        self.compute_fluxes()
-        terms = [
-            self.friction_coupling_term,
-            self.advection_term,
-            self.advection_coupling_term,
-        ]
-        filt = pp.assembler_filters.ListFilter(term_list=terms)
-        self.assembler.discretize(filt=filt)
-
     def _copy_biot_discretizations(self) -> None:
         """The Biot discretization is designed to discretize a single term of the
         grad_p type. It should not be difficult to generalize this, but pending such
@@ -653,21 +668,6 @@ class THM(parent_model.ContactMechanicsBiot):
         bc_dict = {"bc_values": self._bc_values_mechanics(g)}
         state = {key_m_from_t: bc_dict}
         pp.set_state(d, state)
-
-    def _save_mechanical_bc_values(self) -> None:
-        """
-        The div_u term uses the mechanical bc values for both current and previous time
-        step. In the case of time dependent bc values, these must be updated. As this
-        is very easy to overlook, we do it by default.
-        """
-        key, key_t = (
-            self.mechanics_parameter_key,
-            self.mechanics_temperature_parameter_key,
-        )
-        g = self._nd_grid()
-        d = self.gb.node_props(g)
-        d[pp.STATE][key]["bc_values"] = d[pp.PARAMETERS][key]["bc_values"].copy()
-        d[pp.STATE][key_t]["bc_values"] = d[pp.PARAMETERS][key_t]["bc_values"].copy()
 
     def _update_iterate(self, solution_vector: np.ndarray) -> None:
         """
