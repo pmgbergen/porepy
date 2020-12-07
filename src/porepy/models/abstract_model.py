@@ -127,7 +127,7 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def assemble_and_solve_linear_system(self, tol: float):
+    def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
         """Assemble the linearized system, described by the current state of the model,
         solve and return the new solution vector.
 
@@ -141,7 +141,11 @@ class AbstractModel(abc.ABC):
         """
         pass
 
-    def l2_norm_cell(self, g: pp.Grid, u: np.ndarray) -> float:
+    @abc.abstractmethod
+    def after_simulation(self) -> None:
+        """Run at the end of simulation. Can be used for cleaup etc."""
+
+    def _l2_norm_cell(self, g: pp.Grid, u: np.ndarray) -> float:
         """
         Compute the cell volume weighted norm of a vector-valued cellwise quantity for
         a given grid.
