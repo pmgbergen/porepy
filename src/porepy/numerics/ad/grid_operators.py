@@ -356,6 +356,14 @@ class Divergence(MergedOperator):
 
         return s
 
+    def parse(self, gb):
+        if self.scalar:
+            mat = [pp.fvutils.scalar_divergence(g) for g in self.g]
+        else:
+            mat = [pp.fvutils.vector_divergence(g) for g in self.g]
+        matrix = sps.block_diag(mat)
+        return matrix
+
 
 class BoundaryCondition(MergedOperator):
     def __init__(self, keyword, grids):
@@ -375,3 +383,13 @@ class BoundaryCondition(MergedOperator):
                 s += f"{dims[d]} grids of dimension {d}\n"
 
         return s
+
+    def parse(self, gb: pp.GridBucket):
+        val = []
+        for g in self.g:
+            data = gb.node_props(g)
+            val.append(data[pp.PARAMETERS][self.keyword]["bc_values"])
+
+        return np.hstack([v for v in val])
+
+

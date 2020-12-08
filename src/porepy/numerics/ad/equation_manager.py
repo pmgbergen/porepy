@@ -5,7 +5,7 @@
   - divergence operators on different grids considered the same
 * Concatenated variables will share ad derivatives. However, it should be possible to combine
   subsets of variables with other variables (outside the set) to assemble different terms
-* 
+*
 """
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -52,50 +52,6 @@ class Equation:
     def __repr__(self) -> str:
         return f"Equation named {self.name}"
 
-    def _operators_from_gb(self):
-        # Define operators from information in the GridBucket.
-        # Legacy style definition
-        discr_dict = {}
-
-        bc_dict = {}
-
-        for g, d in self._gb:
-            loc_bc_dict = {}
-            for variable, term in d[pp.DISCRETIZATION].items():  # terms per variable
-                for key, discr in term.items():
-                    if (discr, key) not in discr_dict:
-                        # This discretization has not been encountered before.
-                        # Make operators of all its discretization matrices
-
-                        # Temporarily make an inner dictionary to store the individual
-                        # discretizations. It would be neat if we could rather write
-                        # something like op.flux, instead of op['flux']
-                        op_dict = {}
-
-                        for s in dir(discr):
-                            if s.endswith("_matrix_key"):
-                                matrix_key = s[:-11]
-                                op = operators.Operator(discr, matrix_key, g)
-                                op_dict[matrix_key] = op
-                        discr_dict[(variable, key)] = op_dict
-
-                    loc_bc_dict[discr.keyword] = grid_operators.BoundaryCondition(
-                        discr.keyword
-                    )
-            bc_dict[g] = loc_bc_dict
-
-        self._discretizations = discr_dict
-        self._bc = bc_dict
-
-    def _get_matrix(self, data, op):
-        # Move this into a class
-
-        discr = op._discr
-        key = op._name
-        mat_dict = data[pp.DISCRETIZATION_MATRICES][discr.keyword]
-        mat_key = getattr(discr, key + "_matrix_key")
-        return mat_dict[mat_key]
-
     def _find_subtree_variables(self, op: operators.Operator):
         if isinstance(op, operators.Variable) or isinstance(op, pp.ad.Variable):
             # We are at the bottom of the a branch of the tree
@@ -103,7 +59,7 @@ class Equation:
         else:
             # Look for variables among the children
             sub_variables = [
-                self._find_subtree_variables(child) for child in op._tree._children
+                self._find_subtree_variables(child) for child in op.tree.children
             ]
             # Some work is needed to parse the information
             var_list = []
@@ -157,13 +113,30 @@ class Equation:
 
         return inds, variable_ids
 
-    def to_ad(self, gb, state):
+    def to_ad(self, gb: pp.GridBucket, state: np.ndarray):
+        """ Evaluate the residual and Jacobian matrix for a given state.
+
+        Parameters:
+            gb (pp.GridBucket): GridBucket used to represent the problem. Will be used
+                to parse the operators that combine to form this Equation..
+            state (np.ndarray): State vector for which the residual and its derivative
+                should be formed.
+
+        Returns:
+            An Ad-array representation of the residual and Jacbobian.
+
+        """
+        # Parsing in two stages: First make an Ad-representation of the variable state
+        # (this must be done jointly for all variables of the Equation to get all
+        # derivatives represented). Then parse the equation by traversing its
+        # tree-representation, and parse and combine individual operators.
+
         # Initialize variables
         ad_vars = initAdArrays([state[ind] for ind in self._variable_dofs])
         self._ad = {var_id: ad for (var_id, ad) in zip(self._variable_ids, ad_vars)}
 
-        # 3. Parse operators. Matrices can be picked either from discretization matrices,
-        # or from some central storage,
+        # Parse operators. This is left to a separate function to facilitate the
+        # necessary recursion for complex operators.
         eq = self._parse_operator(self._operator, gb)
 
         return eq
@@ -175,98 +148,59 @@ class Equation:
         hold until all children are processed works, but there likely are cases where
         this is not the case.
         """
-        # Q: The parsing could also be moved to the operator classes
-        tree = op._tree
-        if isinstance(op, pp.ad.Variable) or isinstance(op, operators.Variable):
-            assert len(tree._children) == 0
-            # Need access to state, grids, assembler, local_dof etc.
 
-            # Really need a method to get state in all variables to which this
-            # should have a coupling.
-            # should use all variables in this equation. Need to pick out the right part of
-            # it here (perhaps as by indexing a list of variables) for use to propagete through
-            # the chain of operations
+        # The parsing strategy depends on the operator at hand:
+        # 1) If the operator is a Variable, it will be represented according to its
+        #    state.
+        # 2) If the operator is a leaf in the tree-representation of the equation,
+        #    parsing is left to the operator itself.
+        # 3) If the operator is formed by combining other operators lower in the tree,
+        #    parsing is handled by first evaluating the children (leads to recursion)
+        #    and then perform the operation on the result.
+
+        # Check for case 1 or 2
+        if isinstance(op, pp.ad.Variable) or isinstance(op, operators.Variable):
+            # Case 1: Variable
+            # How to access the array of (Ad representation of) states depends on wether
+            # this is a single or combined variable; see self.__init__, definition of
+            # self._variable_ids.
             if isinstance(op, pp.ad.MergedVariable) or isinstance(
                 op, operators.MergedVariable
             ):
                 return self._ad[op.sub_vars[0].id]
             else:
                 return self._ad[op.id]
-        if isinstance(op, grid_operators.BoundaryCondition) or isinstance(
-            op, pp.ad.BoundaryCondition
-        ):
-            val = []
-            for g in op.g:
-                data = gb.node_props(g)
-                val.append(data[pp.PARAMETERS][op.keyword]["bc_values"])
+        elif op.is_leaf():
+            # Case 2
+            return op.parse(gb)
 
-            return np.hstack([v for v in val])
+        # This is not an atomic operator. First parse its children, then combine them
+        tree = op.tree
+        results = [self._parse_operator(child, gb) for child in tree.children]
 
-        if isinstance(op, (pp.ad.Matrix, operators.Matrix)):
-            return op.mat
-
-        if isinstance(op, pp.ad.Array):
-            return op.values
-
-        if isinstance(op, pp.ad.Function):
-            return op
-
-        if isinstance(op, pp.ad.Scalar):
-            return op.value
-        if isinstance(op, grid_operators.Divergence) or isinstance(
-            op, pp.ad.Divergence
-        ):
-            if op.scalar:
-                mat = [pp.fvutils.scalar_divergence(g) for g in op.g]
-            else:
-                mat = [pp.fvutils.vector_divergence(g) for g in op.g]
-            matrix = sps.block_diag(mat)
-            return matrix
-
-        if len(tree._children) == 0:
-            if isinstance(op, operators.MergedOperator):
-                if op in self._stored_matrices:
-                    return self._stored_matrices[op]
-                else:
-
-                    mat = []
-                    for g, discr in op.grid_discr.items():
-                        if isinstance(g, pp.Grid):
-                            data = gb.node_props(g)
-                        else:
-                            data = gb.edge_props(g)
-                        if hasattr(op, "mat_dict_key") and op.mat_dict_key is not None:
-                            mat_dict_key = op.mat_dict_key
-                        else:
-                            mat_dict_key = discr.keyword
-                        mat_dict = data[pp.DISCRETIZATION_MATRICES][mat_dict_key]
-
-                        # Get the submatrix for the right discretization
-                        key = op.key
-                        mat_key = getattr(discr, key + "_matrix_key")
-                        mat.append(mat_dict[mat_key])
-
-                    matrix = sps.block_diag(mat)
-                    self._stored_matrices[op] = matrix
-                    return matrix
-            else:
-                # Single grid
-                assert False
-                return self._get_matrix(op.g, op)
-
-        results = [self._parse_operator(child, gb) for child in tree._children]
-
-        if tree._op == operators.Operation.add:
+        # Combine the results
+        if tree.op == operators.Operation.add:
+            # To add we need two objects
             assert len(results) == 2
             return results[0] + results[1]
-        elif tree._op == operators.Operation.sub:
+
+        elif tree.op == operators.Operation.sub:
+            # To subtract we need two objects
             assert len(results) == 2
             return results[0] - results[1]
-        elif tree._op == operators.Operation.mul:
+
+        elif tree.op == operators.Operation.mul:
+            # To multiply we need two objects
+            assert len(results) == 2
             return results[0] * results[1]
-        elif tree._op == operators.Operation.evaluate:
+
+        elif tree.op == operators.Operation.evaluate:
+            # This is a function, which should have at least one argument
+            assert len(results) > 1
             return results[0].func(results[1:])
-        elif tree._op == operators.Operation.div:
+
+
+        elif tree.op == operators.Operation.div:
             return results[0] / results[1]
 
         else:
