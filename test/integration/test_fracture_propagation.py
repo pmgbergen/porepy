@@ -7,10 +7,12 @@ Content:
     grid should be split.
   * FaceSplittingHostGrid: Various consistency tests for splitting faces in the higher
     dimensional grid, resembling propagation.
-  * VariableMappingInitializationUpdate: Checks that mapping of variable, and
+  * VariableMappingInitializationUpdate: Checks that mapping of variables and
     assignment of new variable values in the FracturePropagation classes are correct.
+  * PropagationCriteria: Tests i) SIF computation by displacement correlation, ii)
+    tags for which tips to propagate iii) propagion angles (only asserts all angles are zero).
 
-The tests follows in part the unittest framework, in part pytest.
+The tests follow in part the unittest framework, in part pytest.
 
 """
 import unittest
@@ -498,6 +500,204 @@ class MockPropagationModel(pp.ConformingFracturePropagation):
         # Fill the new values with 42, because of course
         vals = np.full(n_new * cell_dof, 42)
         return vals
+
+
+class PropagationCriteria(unittest.TestCase):
+    """ Test of functionality to compute sifs and evaluate propagation onset and angle.
+
+    Test logic: 
+        1. Set up 2d or 3d gb with single fracture.
+        2. Assign displacement and minimal parameters. To help assigning to the right
+        side of the interface, the former are specified according to cells in g_h 
+        and mapped using trace and projection.
+        3. Compute the expected i) SIFs (purely tensile - i.e. K_II = K_III = 0),
+        ii) propagation tips and iii) angles (all zero in tension).
+        4. Call the ConformingFracturePropagation methods.
+        5. Compare i-iii.
+        
+        
+    We test 
+        * 2d + 3d
+        * open+du_\tau=0, open+du_\tau!=0, closed, gliding
+        * That propagation is predicted correctly for du_n = 0, du_n small 
+        (no propagation), du_n large (propagation)
+        
+    We don't really test
+        * angles - ConformingFracturePropagation returns 0.
+        * rotated fractures
+        * parameter robustness. This is sort of helped by choosing varying, non-integer
+        values for u and parameters.
+        
+    """
+
+    def setUp(self):
+        self.model = pp.ConformingFracturePropagation({})
+        self.model.mortar_displacement_variable = "mortar_variable"
+        self.model.mechanics_parameter_key = "dummy_key"
+        self.mu = 1.1
+        self.poisson = 0.29
+
+    def _assign_data(self, u_bot, u_top):
+        """
+        u_bot and u_top are the u_h in the neighbouring cells on the two sides of the fracture.
+        Ordering is hard-coded according to the grids defined in _make_grid
+        """
+        u_h = np.zeros(self.nd * self.g_h.num_cells)
+        if self.nd == 3:
+            u_h[0:6] = u_bot.ravel(order="f")
+            u_h[12:18] = u_top.ravel(order="f")
+        else:
+            u_h[2:6] = u_bot.ravel(order="f")
+            u_h[10:14] = u_top.ravel(order="f")
+
+        # Project to interface
+        e = (self.g_h, self.g_l)
+        d_j = self.gb.edge_props(e)
+        mg = d_j["mortar_grid"]
+        trace = np.abs(pp.fvutils.vector_divergence(self.g_h)).T
+        u_j = mg.primary_to_mortar_avg(nd=self.nd) * trace * u_h
+        pp.set_iterate(d_j, {self.mortar_displacement_variable: u_j})
+
+        # Parameters used by the propagation class
+        for g, d in self.gb:
+            if g.dim == self.nd:
+                param = {"shear_modulus": self.mu, "poisson_ratio": self.poisson}
+            else:
+                param = {"SIFs_critical": np.ones((self.nd, g.num_faces))}
+            pp.initialize_data(g, d, self.model.mechanics_parameter_key, param)
+
+    def test_tension_2d(self):
+        """ One cell purely tensile and one closed.
+        Normal magnitude implies propagation.
+        """
+        self._make_grid(dim=2)
+        # Define u and which of the two tips are expected to propagate
+        u_bot = np.array([[0, 1], [3, 1]])
+        u_top = np.array([[0, 1], [3, 4]])
+        propagate = np.array([False, True])
+
+        self._assign_data(u_bot, u_top)
+
+        sifs, propagate_faces = self._compute_sifs(u_top, u_bot, propagate)
+        angles = np.zeros(self.g_l.num_faces)
+        self._verify(sifs, propagate_faces, angles)
+
+    def test_shear_2d(self):
+        """ Both tip cells have tangential jump, only the right one has normal
+        Normal magnitude implies propagation.
+        """
+        # Make grid
+        self._make_grid(dim=2)
+        u_bot = np.array([[0, 0], [2, 1]])
+        u_top = np.array([[1, 1], [2, 3]])
+        propagate = np.array([False, True])
+        self._assign_data(u_bot, u_top)
+
+        # Face-wise for g_l
+        sifs, propagate_faces = self._compute_sifs(u_top, u_bot, propagate)
+        angles = np.zeros(self.g_l.num_faces)
+        self._verify(sifs, propagate_faces, angles)
+
+    def test_tension_3d(self):
+        """ One cell purely tensile and one closed.
+        Normal magnitude implies propagation.
+        """
+        self._make_grid(dim=3)
+        # One cell purely tensile and one closed
+        u_bot = np.array([[2, 1], [2, 3.3], [2, 4]])
+        u_top = np.array([[2, 1], [2, 3.3], [3, 4]])
+        propagate = np.array([True, False])
+        self._assign_data(u_bot, u_top)
+
+        sifs, propagate_faces = self._compute_sifs(u_top, u_bot, propagate)
+        angles = np.zeros(self.g_l.num_faces)
+        self._verify(sifs, propagate_faces, angles)
+
+    def test_shear_3d(self):
+        """ Both tip cells have tangential jump, only the right one has normal
+        Normal magnitude implies NO propagation.
+        """
+        # Make grid
+        self._make_grid(dim=3)
+        # Both tip cells have tangential jump, only the first one has normal
+        u_bot = np.array([[2, 1], [2.1, 3.3], [2, 4]])
+        u_top = np.array([[2, 1.1], [2, 3.3], [2.1, 4]])
+        # The small normal opening does not suffice to overcome the critical SIF.
+        propagate = np.array([False, False])
+        self._assign_data(u_bot, u_top)
+
+        sifs, propagate_faces = self._compute_sifs(u_top, u_bot, propagate)
+        angles = np.zeros(self.g_l.num_faces)
+        self._verify(sifs, propagate_faces, angles)
+
+    def _compute_sifs(self, u_top, u_bot, propagate):
+        """ Compute face-wise SIFs and propagation tags
+        Critical that this is correct
+        """
+        du = u_top[-1] - u_bot[-1]
+        g_l = self.g_l
+        sifs = np.zeros((self.nd, g_l.num_faces))
+        if self.nd == 2:
+            R_d = 1 / 8
+            face_ind = np.argsort(self.g_l.face_centers[0])
+            ind_0 = face_ind[0]
+            ind_1 = face_ind[-1]
+        else:
+            R_d = 1 / 4
+            ind_0 = np.argsort(
+                pp.distances.point_pointset(
+                    g_l.face_centers, np.array([0.25, 0.5, 0.5])
+                )
+            )[0]
+            ind_1 = np.argsort(
+                pp.distances.point_pointset(
+                    g_l.face_centers, np.array([0.75, 0.5, 0.5])
+                )
+            )[0]
+
+        K = np.sqrt(2 * np.pi / R_d) * self.mu / (3 - 4 * self.poisson + 1) * du
+        sifs[0, ind_0] = K[0]
+        sifs[0, ind_1] = K[1]
+
+        # Tags for propagation
+        propagate_faces = np.zeros(g_l.num_faces, dtype=bool)
+        propagate_faces[ind_0] = propagate[0]
+        propagate_faces[ind_1] = propagate[1]
+        return sifs, propagate_faces
+
+    def _make_grid(self, dim):
+        if dim == 3:
+            gb = setup_gb.grid_3d_2d()
+        else:
+            gb = setup_gb.grid_2d_1d([4, 2], 0.25, 0.75)
+        gb.compute_geometry()
+
+        pp.contact_conditions.set_projections(gb)
+
+        # Model needs to know dimension
+        self.model.Nd = dim
+        # Set for convenient access without passing around:
+        self.nd = dim
+        self.gb = gb
+        self.g_h = gb.grids_of_dimension(dim)[0]
+        self.g_l = gb.grids_of_dimension(dim - 1)[0]
+
+    def _verify(self, sifs, propagate, angles):
+        data_h = self.gb.node_props(self.g_h)
+        data_l = self.gb.node_props(self.g_l)
+        p_l = data_l[pp.PARAMETERS][self.model.mechanics_parameter_key]
+        data_edge = self.gb.edge_props((self.g_h, self.g_l))
+        self.model._displacement_correlation(self.g_l, data_h, data_l, data_edge)
+
+        self.model._propagation_criterion(data_l)
+
+        self.model._angle_criterion(data_l)
+
+        self.assertTrue(np.all(np.isclose(sifs, p_l["SIFs"])))
+        self.assertTrue(np.all(np.isclose(propagate, p_l["propagate_faces"])))
+        self.assertTrue(np.all(np.isclose(angles, p_l["propagation_angle_normal"])))
+        # For pure mode I, we also have
+        self.assertTrue(np.all(np.isclose(sifs[0], p_l["SIFs_equivalent"])))
 
 
 class VariableMappingInitializationUnderPropagation(unittest.TestCase):

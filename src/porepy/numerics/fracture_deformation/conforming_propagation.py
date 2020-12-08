@@ -324,7 +324,7 @@ class ConformingFracturePropagation(FracturePropagation):
         if self.Nd == 3:
             a_2 = K_crit[0] / K_crit[2]
             shear_contribution += 4 * (a_2 * K[2]) ** 2
-        K_equivalent = K[0] + np.sqrt(K[0] ** 2 + shear_contribution)
+        K_equivalent = (K[0] + np.sqrt(K[0] ** 2 + shear_contribution)) / 2
         parameters["propagate_faces"] = K_equivalent >= K_crit[0]
         parameters["SIFs_equivalent"] = K_equivalent
 
