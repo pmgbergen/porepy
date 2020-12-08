@@ -1,6 +1,5 @@
-import abc
 from enum import Enum
-from typing import Optional, List
+from typing import Optional, List, Any
 from itertools import count
 
 import numpy as np
@@ -29,16 +28,16 @@ class Tree:
     # https://stackoverflow.com/questions/2358045/how-can-i-implement-a-tree-in-python
     def __init__(self, operation: Operation, children: Optional[List["Tree"]] = None):
 
-        self._op = operation
+        self.op = operation
 
-        self._children = []
+        self.children = []
         if children is not None:
             for child in children:
                 self.add_child(child)
 
     def add_child(self, node):
         assert isinstance(node, Operator) or isinstance(node, pp.ad.Operator)
-        self._children.append(node)
+        self.children.append(node)
 
 
 class Operator:
@@ -54,9 +53,26 @@ class Operator:
 
     def _set_tree(self, tree=None):
         if tree is None:
-            self._tree = Tree(Operation.void)
+            self.tree = Tree(Operation.void)
         else:
-            self._tree = tree
+            self.tree = tree
+
+    def is_leaf(self) -> bool:
+        return len(self.tree.children) == 0
+
+    def parse(self, gb) -> Any:
+        """ Translate the operator into a numerical expression.
+
+        Subclasses that represent atomic operators (leaves in a tree-representation of
+        an operator) should override this method to retutrn e.g. a number, an array or a
+        matrix.
+
+        This method should not be called on operators that are formed as combinations
+        of atomic operators; such operators should be evaluated by an Equation object.
+
+        """
+        raise NotImplementedError("This type of operator cannot be parsed right away")
+
 
     def __repr__(self) -> str:
         return f"Operator formed by {self._tree._op} with {len(self._tree._children)} children"
@@ -66,9 +82,9 @@ class Operator:
 
         def parse_subgraph(node):
             G.add_node(node)
-            if len(node._tree._children) == 0:
+            if len(node.tree.children) == 0:
                 return
-            operation = node._tree._op
+            operation = node.tree.op
             G.add_node(operation)
             G.add_edge(node, operation)
             for child in node._tree._children:
@@ -134,6 +150,26 @@ class MergedOperator(Operator):
     def __repr__(self) -> str:
         return f"Operator with key {self.key} defined on {len(self.grid_discr)} grids"
 
+    def parse(self, gb):
+        mat = []
+        for g, discr in self.grid_discr.items():
+            if isinstance(g, pp.Grid):
+                data = gb.node_props(g)
+            else:
+                data = gb.edge_props(g)
+            if self.mat_dict_key is not None:
+                mat_dict_key = self.mat_dict_key
+            else:
+                mat_dict_key = discr.keyword
+
+            mat_dict = data[pp.DISCRETIZATION_MATRICES][mat_dict_key]
+
+            # Get the submatrix for the right discretization
+            key = self.key
+            mat_key = getattr(discr, key + "_matrix_key")
+            mat.append(mat_dict[mat_key])
+
+        return sps.block_diag(mat)
 
 class Matrix(Operator):
     def __init__(self, mat):
@@ -144,6 +180,8 @@ class Matrix(Operator):
     def __repr__(self) -> str:
         return f"Matrix with shape {self.mat.shape} and {self.mat.data.size} elements"
 
+    def parse(self, gb):
+        return self.mat
 
 class Array(Operator):
     def __init__(self, values):
@@ -154,6 +192,9 @@ class Array(Operator):
         return f"Wrapped numpy array of size {self.values.size}"
 
 
+    def parse(self, gb):
+        return self.values
+
 class Scalar(Operator):
     def __init__(self, value):
         self.value = value
@@ -162,6 +203,8 @@ class Scalar(Operator):
     def __repr__(self) -> str:
         return f"Wrapped scalar with value {self.value}"
 
+    def parse(self):
+        return self.value
 
 class Variable(Operator):
 
@@ -259,6 +302,8 @@ class Function(Operator):
 
         return s
 
+    def parse(self, gb):
+        return self
 
 class Discretization:
     def __init__(self, grid_discr, name=None, tree=None, mat_dict_key: str = None):
