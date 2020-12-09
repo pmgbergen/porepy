@@ -7,10 +7,10 @@ Content:
     grid should be split.
   * FaceSplittingHostGrid: Various consistency tests for splitting faces in the higher
     dimensional grid, resembling propagation.
-  * VariableMappingInitializationUpdate: Checks that mapping of variables and
-    assignment of new variable values in the FracturePropagation classes are correct.
   * PropagationCriteria: Tests i) SIF computation by displacement correlation, ii)
     tags for which tips to propagate iii) propagion angles (only asserts all angles are zero).
+  * VariableMappingInitializationUpdate: Checks that mapping of variables and
+    assignment of new variable values in the FracturePropagation classes are correct.
 
 The tests follow in part the unittest framework, in part pytest.
 
@@ -505,29 +505,29 @@ class MockPropagationModel(pp.ConformingFracturePropagation):
 class PropagationCriteria(unittest.TestCase):
     """ Test of functionality to compute sifs and evaluate propagation onset and angle.
 
-    Test logic: 
+    Test logic:
         1. Set up 2d or 3d gb with single fracture.
         2. Assign displacement and minimal parameters. To help assigning to the right
-        side of the interface, the former are specified according to cells in g_h 
+        side of the interface, the former are specified according to cells in g_h
         and mapped using trace and projection.
         3. Compute the expected i) SIFs (purely tensile - i.e. K_II = K_III = 0),
         ii) propagation tips and iii) angles (all zero in tension).
         4. Call the ConformingFracturePropagation methods.
         5. Compare i-iii.
-        
-        
-    We test 
+
+
+    We test
         * 2d + 3d
         * open+du_\tau=0, open+du_\tau!=0, closed, gliding
-        * That propagation is predicted correctly for du_n = 0, du_n small 
+        * That propagation is predicted correctly for du_n = 0, du_n small
         (no propagation), du_n large (propagation)
-        
+
     We don't really test
         * angles - ConformingFracturePropagation returns 0.
         * rotated fractures
         * parameter robustness. This is sort of helped by choosing varying, non-integer
         values for u and parameters.
-        
+
     """
 
     def setUp(self):
@@ -556,7 +556,7 @@ class PropagationCriteria(unittest.TestCase):
         mg = d_j["mortar_grid"]
         trace = np.abs(pp.fvutils.vector_divergence(self.g_h)).T
         u_j = mg.primary_to_mortar_avg(nd=self.nd) * trace * u_h
-        pp.set_iterate(d_j, {self.mortar_displacement_variable: u_j})
+        pp.set_iterate(d_j, {self.model.mortar_displacement_variable: u_j})
 
         # Parameters used by the propagation class
         for g, d in self.gb:
