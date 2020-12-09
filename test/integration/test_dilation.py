@@ -212,21 +212,22 @@ class SetupContactMechanics(
         fractures. The two sides of the fractures are coupled together with a
         mortar grid.
         """
-        rotate_fracture = getattr(self, "rotate_fracture", False)
-        endpoints = getattr(self, "fracture_endpoints", np.array([0.3, 0.7]))
-        if rotate_fracture:
-            self.gb, self.box = pp.grid_buckets_2d.single_vertical(
-                self.mesh_args, endpoints
-            )
-        else:
-            self.gb, self.box = pp.grid_buckets_2d.single_horizontal(
-                self.mesh_args, endpoints
-            )
+        if self.gb is None:
+            rotate_fracture = getattr(self, "rotate_fracture", False)
+            endpoints = getattr(self, "fracture_endpoints", np.array([0.3, 0.7]))
+            if rotate_fracture:
+                self.gb, self.box = pp.grid_buckets_2d.single_vertical(
+                    self.mesh_args, endpoints
+                )
+            else:
+                self.gb, self.box = pp.grid_buckets_2d.single_horizontal(
+                    self.mesh_args, endpoints
+                )
 
-        # Set projections to local coordinates for all fractures
-        pp.contact_conditions.set_projections(self.gb)
+            # Set projections to local coordinates for all fractures
+            pp.contact_conditions.set_projections(self.gb)
 
-        self.Nd = self.gb.dim_max()
+            self.Nd = self.gb.dim_max()
 
     def bc_values(self, g):
         _, _, _, north, south, _, _ = self.domain_boundary_sides(g)
