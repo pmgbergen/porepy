@@ -12,8 +12,8 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import scipy.sparse as sps
 
-from . import operators, grid_operators
 from .forward_mode import initAdArrays
+from . import operators
 
 import porepy as pp
 
@@ -23,7 +23,36 @@ grid_like_type = Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
 
 
 class Equation:
-    def __init__(self, operator, dof_manager: pp.DofManager, name: str = None):
+    """ Ad representation of an equation.
+
+    Conceptually, an Equation is an Operator tree that has been equated to zero.
+
+    The equation has a fixed set of variables, identified from the operator tree.
+
+    The residual and Jacobian matrix of an Equation can be evaluated via the function
+    to_ad().
+
+    Attributes:
+        operator (Operator): Top operator in the operator tree.
+        dof_manager (pp.DofManager): Degree of freedom manager associated with the
+            mixed-dimensional GridBucket with which this equation is associated. Used
+            to map between local (to the equation) and global variables.
+        name (str): Name identifier of this variable.
+
+    """
+    def __init__(self, operator: pp.ad.Operator, dof_manager: pp.DofManager, name: str = None):
+        """ Define an Equation.
+
+        Parameters:
+            operator (pp.ad.Operator): Top-level operator of the Operator tree that will
+                be equated to zero.
+            dof_manager (pp.DofManager): Degree of freedom manager associated with the
+                mixed-dimensional GridBucket with which this equation is associated.
+            name (str): Name of the Eqution.
+
+        """
+        # The only non-trival operation in __init__ is the identification of variables.
+        # Besides, some bookkeeping is necessary.
 
         # Black sometimes formats long equations with parantheses in a way that is
         # interpreted as a tuple by Python. Sigh.
@@ -43,6 +72,8 @@ class Equation:
         self._variable_dofs = variable_dofs
         self._variable_ids = variable_ids
 
+        # Storage for matrices; will likely be removed (moved to the individual
+        # operators).
         self._stored_matrices = {}
 
     def local_dofs(self) -> np.ndarray:
@@ -53,10 +84,17 @@ class Equation:
         return f"Equation named {self.name}"
 
     def _find_subtree_variables(self, op: operators.Operator):
+        """ Method to recursively look for Variables (or MergedVariables) in an
+        operator tree.
+        """
+        # The variables should be located at leaves in the tree. Traverse the tree
+        # recursively, look for varibales, and then gather the results.
+
         if isinstance(op, operators.Variable) or isinstance(op, pp.ad.Variable):
-            # We are at the bottom of the a branch of the tree
+            # We are at the bottom of the a branch of the tree, return the operator
             return op
         else:
+            # We need to look deeper in the tree.
             # Look for variables among the children
             sub_variables = [
                 self._find_subtree_variables(child) for child in op.tree.children
@@ -83,38 +121,49 @@ class Equation:
         # state: state vector for all unknowns. Should be possible to pick this
         # from pp.STATE or pp.ITERATE
 
-        # 1. Get all variables present in this equation
+        # 1. Get all variables present in this equation.
+        # The variable finder is implemented in a special function, aimed at recursion
+        # through the operator tree.
         # Uniquify by making this a set, and then sort on variable id
         variables = sorted(
             list(set(self._find_subtree_variables(self._operator))),
             key=lambda var: var.id,
         )
 
-        # 2. Get state of the variables, init ad
-        # Make the AD variables active of sorts; so that when parsing the individual
-        # operators, we can access the right variables
+        # 2. Get a mapping between variables (*not* only MergedVariables) and their
+        # indices according to the DofManager. This is needed to access the state of
+        # a variable when parsing the equation to Ad format.
 
         # For each variable, get the global index
         inds = []
         variable_ids = []
         for variable in variables:
+            # Indices (in DofManager sense) of this variable. Will be built gradually
+            # for MergedVariables, in one go for plain Variables.
             ind_var = []
+
             if isinstance(variable, pp.ad.MergedVariable):
+                # Loop over all subvariables for the merged variable
                 for i, sub_var in enumerate(variable.sub_vars):
+                    # Store dofs
                     ind_var.append(dof_manager.dof_ind(sub_var.g, sub_var._name))
                     if i == 0:
+                        # Store id of variable, but only for the first one; we will
+                        # concatenate the arrays in ind_var into one array
+                        # Q: Why not use the id of variable here?
                         variable_ids.append(sub_var.id)
             else:
                 # This is a variable that lives on a single grid
                 ind_var.append(dof_manager.dof_ind(variable.g, variable._name))
                 variable_ids.append(variable.id)
 
+            # Gather all indices for this variable
             inds.append(np.hstack([i for i in ind_var]))
 
         return inds, variable_ids
 
     def to_ad(self, gb: pp.GridBucket, state: np.ndarray):
-        """ Evaluate the residual and Jacobian matrix for a given state.
+        """Evaluate the residual and Jacobian matrix for a given state.
 
         Parameters:
             gb (pp.GridBucket): GridBucket used to represent the problem. Will be used
@@ -199,7 +248,6 @@ class Equation:
             assert len(results) > 1
             return results[0].func(results[1:])
 
-
         elif tree.op == operators.Operation.div:
             return results[0] / results[1]
 
@@ -208,6 +256,8 @@ class Equation:
 
 
 class EquationManager:
+    # The usage of this class is not yet clear, and will likely undergo substantial
+    # enhancements and changes.
     def __init__(
         self,
         gb: pp.GridBucket,

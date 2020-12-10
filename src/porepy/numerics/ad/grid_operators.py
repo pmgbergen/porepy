@@ -25,7 +25,7 @@ class SubdomainProjections(Operator):
 
     One use case in when variables are defined on only some of subdomains.
 
-    The class should be used through the methods {cell, face}_{projection,restriction}
+    The class should be used through the methods (cell, face)_(projection,restriction)
 
     """
 
@@ -53,12 +53,7 @@ class SubdomainProjections(Operator):
                 quantities.
 
         """
-        if grids is None:
-            if gb is None:
-                raise ValueError(
-                    "Trace needs either either a list of grids or a GridBucket"
-                )
-            grids = [g for g, _ in gb]
+        grids = _grid_list(grids, gb)
 
         self._is_scalar: bool = is_scalar
         if not self._is_scalar:
@@ -204,8 +199,8 @@ class MortarProjections(Operator):
 
     def __init__(
         self,
-        gb: pp.GridBucket,
         grids: Optional[List[pp.Grid]] = None,
+        gb: pp.GridBucket,
         edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None,
         nd: int = 1,
     ) -> None:
@@ -216,10 +211,10 @@ class MortarProjections(Operator):
         is used by other operators.
 
         Parameters:
-            gb (pp.GridBucket): Mixed-dimensional grid.
             grids (List of pp.Grid, optional): List of grids for which the projections
                 should apply. If not provided, all grids in gb will be used. The order
                  of the grids in the list sets the ordering of the subdomain projections.
+            gb (pp.GridBucket): Mixed-dimensional grid.
             edges (List of edges, optional): List of edges for which the projections
                 should apply. If not provided, all grids in gb will be used. The order
                  of the grids in the list sets the ordering of the subdomain projections.
@@ -227,8 +222,7 @@ class MortarProjections(Operator):
                 nd should be 1.
 
         """
-        if grids is None:
-            grids = [g for g, _ in gb.nodes()]
+        grids = _grid_list(grids, gb)
         if edges is None:
             edges = [e for e, _ in gb.edges()]
 
@@ -357,31 +351,26 @@ class Trace(MergedOperator):
         gb: Optional[List[pp.Grid]] = None,
         is_scalar: bool = True,
     ):
-        """Construct sudomain restrictions and prolongations for a set of subdomains.
+        """Construct trace operators and their inverse for a given set of subdomains.
 
-        The projections will be ordered according to the ordering in grids, or the order
+        The operators will be ordered according to the ordering in grids, or the order
         of the GridBucket iteration over grids. Iit is critical that the same ordering
         is used by other operators.
 
-        IMPLEMENTATION NOTE: Only scalar quantities so far; vector projections will be
+        IMPLEMENTATION NOTE: Only scalar quantities so far; vector operators will be
         added in due course.
 
         Parameters:
             grids (List of pp.Grid): List of grids. The order of the grids in the list
-                sets the ordering of the subdomain projections.
+                sets the ordering of the trace operators.
             gb (pp.GridBucket): Used if grid list is not provided. The order of the
                 grids is set according to iteration over the GridBucket nodes.
-            is_scalar (bool, optional): If true, projections are constructed for scalar
-                quantities.
+            is_scalar (bool, optional): If true, trace operators are constructed for
+                scalar quantities.
 
         """
 
-        if grids is None:
-            if gb is None:
-                raise ValueError(
-                    "Trace needs either either a list of grids or a GridBucket"
-                )
-            grids = [g for g, _ in gb]
+        grids = _grid_list(grids, gb)
 
         self._is_scalar: bool = is_scalar
         if self._is_scalar:
@@ -428,8 +417,33 @@ class Trace(MergedOperator):
 
 
 class Divergence(MergedOperator):
-    def __init__(self, grids, is_scalar=True):
-        self.g = grids
+    """Wrapper class for Ad representations of divergence operators.
+
+    """
+
+    def __init__(self, grids: Optional[List[pp.Grid]], gb: Optional[pp.GridBucket],
+                 is_scalar: bool=True):
+        """Construct divergence operators for a set of subdomains.
+
+        The operators will be ordered according to the ordering in grids, or the order
+        of the GridBucket iteration over grids. Iit is critical that the same ordering
+        is used by other operators.
+
+        IMPLEMENTATION NOTE: Only scalar quantities so far; vector operators will be
+        added in due course.
+
+        Parameters:
+            grids (List of pp.Grid): List of grids. The order of the grids in the list
+                sets the ordering of the divergence operators.
+            gb (pp.GridBucket): Used if grid list is not provided. The order of the
+                grids is set according to iteration over the GridBucket nodes.
+            is_scalar (bool, optional): If true, divergence operators are constructed
+                for scalar quantities.
+
+        """
+
+        self._g: List[pp.Grid] = _grid_list(grids, gb)
+
         self.scalar = is_scalar
         self._set_tree(None)
 
@@ -443,7 +457,7 @@ class Divergence(MergedOperator):
 
         nf = 0
         nc = 0
-        for g in self.g:
+        for g in self._g:
             if self.scalar:
                 nf += g.num_faces
                 nc += g.num_cells
@@ -457,19 +471,54 @@ class Divergence(MergedOperator):
 
         return s
 
-    def parse(self, gb):
+    def parse(self, gb: pp.GridBucket) -> sps.spmatrix:
+        """ Convert the Ad expression into a divergence operators on all relevant grids,
+        represented as a sparse block matrix.
+
+        Pameteres:
+            gb (pp.GridBucket): Not used, but needed for compatibility with the general
+                parsing method for Operators.
+
+        Returns:
+            sps.spmatrix: Block matrix representation of a divergence operator on
+                multiple grids.
+
+        """
         if self.scalar:
-            mat = [pp.fvutils.scalar_divergence(g) for g in self.g]
+            mat = [pp.fvutils.scalar_divergence(g) for g in self._g]
         else:
-            mat = [pp.fvutils.vector_divergence(g) for g in self.g]
+            mat = [pp.fvutils.vector_divergence(g) for g in self._g]
         matrix = sps.block_diag(mat)
         return matrix
 
 
 class BoundaryCondition(MergedOperator):
-    def __init__(self, keyword, grids):
-        self.keyword = keyword
-        self.g = grids
+    """Wrapper class for Ad representations of boundary conditions for a given keyword.
+
+    """
+    def __init__(self, keyword: str, grids: Optional[List[pp.Grid]], gb: Optional[pp.GridBucket],
+                 ):
+        """Construct a wrapper for boundary conditions for a set of subdomains.
+
+        The boundary values will be ordered according to the ordering in grids, or theorder
+        ordre of the GridBucket iteration over grids. Iit is critical that the same
+        ordering is used by other operators.
+
+        IMPLEMENTATION NOTE: Only scalar quantities so far; vector operators will be
+        added in due course.
+
+        Parameters:
+            keyword (str): Keyword that should be used to access the data dictionary
+                to get the relevant boundary conditions.
+            grids (List of pp.Grid): List of grids. The order of the grids in the list
+                sets the ordering of the boundary values.
+            gb (pp.GridBucket): Used if grid list is not provided. The order of the
+                grids is set according to iteration over the GridBucket nodes.
+
+        """
+
+        self._keyword = keyword
+        self._g: List[pp.Grid] = _grid_list(grids, gb)
         self._set_tree()
 
     def __repr__(self) -> str:
@@ -485,14 +534,37 @@ class BoundaryCondition(MergedOperator):
 
         return s
 
-    def parse(self, gb: pp.GridBucket):
+    def parse(self, gb: pp.GridBucket) -> np.ndarray:
+        """ Convert the Ad expression into numerical values for the boundary conditions,
+        in the form of an np.ndarray concatenated for all grids.
+
+        Pameteres:
+            gb (pp.GridBucket): Mixed-dimensional grid. The boundary condition will be
+                taken from the data dictionaries with the relevant keyword.
+
+        Returns:
+            np.ndarray: Value of boundary conditions.
+
+        """
         val = []
-        for g in self.g:
+        for g in self._g:
             data = gb.node_props(g)
-            val.append(data[pp.PARAMETERS][self.keyword]["bc_values"])
+            val.append(data[pp.PARAMETERS][self._keyword]["bc_values"])
 
         return np.hstack([v for v in val])
 
+
+#### Helper methods below
+
+def _grid_list(grids: List[pp.Grid], gb: pp.GridBucket) -> List[pp.Grid]:
+    # Helper method to parse input data
+    if grids is None:
+        if gb is None:
+            raise ValueError(
+                "Trace needs either either a list of grids or a GridBucket"
+            )
+        grids = [g for g, _ in gb]
+    return grids
 
 def _subgrid_projections(
     grids: List[pp.Grid], nd: int
