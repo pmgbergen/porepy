@@ -203,7 +203,7 @@ def plot_single(g, cell_value, vector_value, info, **kwargs):
     else:
         ax = fig.add_subplot(111, projection="3d")
 
-    ax.set_title(" ".join(g.name))
+    ax.set_title(kwargs.get("title", " ".join(g.name)))
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     if not kwargs.get("plot_2d", False):

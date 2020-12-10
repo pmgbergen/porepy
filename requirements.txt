@@ -10,5 +10,4 @@ six
 shapely
 shapely[vectorized]
 numba>=0.50
-vtk
 gmsh

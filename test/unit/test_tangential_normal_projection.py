@@ -281,6 +281,26 @@ class TestTangentialNormalProjection(unittest.TestCase):
             for j in range(num_reps):
                 self.assertTrue(proj_vector[i + j * dim], proj_vector[i])
 
+    def test_several_normal_vectors(self):
+        dim = 2
+
+        s2 = np.sqrt(2)
+        s3 = np.sqrt(3)
+        n1 = np.array([[0.5], [s3 / 2]])
+        n2 = np.array([[s2 / 2], [s2 / 2]])
+
+        proj = pp.TangentialNormalProjection(np.hstack((n1, n2)))
+
+        # Two 2d vectors stacked. Both have x-component 1, y 0
+        v = np.array([1, 0, 1, 0]).reshape((-1, 1))
+
+        t_proj = proj.project_tangential() * v
+        n_proj = proj.project_normal() * v
+
+        self.assertTrue(np.allclose(np.abs(t_proj), np.array([[s3 / 2], [s2 / 2]])))
+
+        self.assertTrue(np.allclose(n_proj, np.array([[0.5], [s2 / 2]])))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -381,6 +381,18 @@ class Biot(pp.Mpsa):
             data (dictionary): With discretization parameters.
 
         """
+
+        # If neither cells nor faces have been modified, we should not start the update
+        # procedure (it will result in a key error towards the end of this function - it
+        # is technical). If no updates, we short cut the method
+        update_info = data["update_discretization"]
+        # By default, neither cells nor faces have been updated
+        update_cells = update_info.get("modified_cells", np.array([], dtype=np.int))
+        update_faces = update_info.get("modified_faces", np.array([], dtype=np.int))
+
+        if update_cells.size == 0 and update_faces.size == 0:
+            return
+
         # The implementation is quite a bit more involved than the corresponding methods
         # for mpfa and mpsa, due to the multi-physics structure of the discretization.
 
@@ -713,13 +725,13 @@ class Biot(pp.Mpsa):
         )
 
         # Cells to be updated is a bit more involved. Best guess now is to update
-        # all cells that has had all its faces updated. This may not be correct for
+        # all cells that has had one of its faces updated. This may not be correct for
         # general combinations of specified cells, nodes and faces.
         tmp = g.cell_faces.transpose()
         tmp.data = np.abs(tmp.data)
         af_vec = np.zeros(g.num_faces, dtype=np.bool)
         af_vec[active_faces] = 1
-        update_cell_ind = np.where(((tmp * af_vec) == tmp.sum(axis=1).A.T)[0])[0]
+        update_cell_ind = np.where(tmp * af_vec)[0]
         eliminate_cells = np.setdiff1d(np.arange(g.num_cells), update_cell_ind)
         pp.fvutils.remove_nonlocal_contribution(
             eliminate_cells, 1, div_u, bound_div_u, stabilization
@@ -1623,7 +1635,8 @@ class DivU(Discretization):
         nd = g.dim + 1
         proj = mg.mortar_to_secondary_avg(nd=nd)
         jump_on_secondary = proj * mg.sign_of_mortar_sides(nd=nd)
-        rotation = data_edge["tangential_normal_projection"]
+        rotation = data["tangential_normal_projection"]
+
         normal_component = rotation.project_normal(g.num_cells)
 
         # Obtain possibly heterogeneous biot alpha values

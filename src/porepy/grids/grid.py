@@ -91,6 +91,8 @@ class Grid:
             there is no guarantee that this will work.
         _physical_name_index (int): Used to keep track of processing of grids generated
             by gmsh.
+        frac_pairs (np.ndarray): indices of faces that are geometrically coinciding, but
+            lay on different side of a lower-dimensional grid.
 
     """
 
@@ -101,7 +103,7 @@ class Grid:
         face_nodes: sps.csc_matrix,
         cell_faces: sps.csc_matrix,
         name: Union[List[str], str],
-        tags: Dict[str, np.ndarray] = None,
+        external_tags: Dict[str, np.ndarray] = None,
     ) -> None:
         """Initialize the grid
 
@@ -141,8 +143,10 @@ class Grid:
         self.global_point_ind: np.ndarray = np.arange(self.num_nodes)
         self._physical_name_index: int = -1
 
+        self.frac_pairs: np.ndarray = np.array([[]], dtype=np.int)
+
         # Add tag for the boundary faces
-        if tags is None:
+        if external_tags is None:
             self.tags: Dict[str, np.ndarray] = {}
             self.initiate_face_tags()
             self.update_boundary_face_tag()
@@ -151,7 +155,7 @@ class Grid:
             self.initiate_node_tags()
             self.update_boundary_node_tag()
         else:
-            self.tags = tags
+            self.tags = external_tags
             self._check_tags()
 
     def copy(self):
@@ -767,7 +771,7 @@ class Grid:
     def cell_face_as_dense(self) -> np.ndarray:
         """
         Obtain the cell-face relation in the from of two rows, rather than a
-        sparse matrix. This alterative format can be useful in some cases.
+        sparse matrix. This alternative format can be useful in some cases.
 
         Each column in the array corresponds to a face, and the elements in
         that column refers to cell indices. The value -1 signifies a boundary.
@@ -818,9 +822,9 @@ class Grid:
 
         return c2c
 
-    def sign_of_faces(self, faces: np.ndarray) -> np.ndarray:
+    def signs_and_cells_of_boundary_faces(self, faces: np.ndarray) -> np.ndarray:
         """Get the direction of the normal vector (inward or outwards from a cell)
-        of faces. Only boundary faces are permissible.
+        and the cell neighbour of _boundary_ faces.
 
         Parameters:
             faces: (ndarray) indices of faces that you want to know the sign for. The
@@ -837,14 +841,14 @@ class Grid:
         IA = np.argsort(faces)
         IC = np.argsort(IA)
 
-        fi, _, sgn = sps.find(self.cell_faces[faces[IA], :])
+        fi, ci, sgn = sps.find(self.cell_faces[faces[IA], :])
         if fi.size != faces.size:
             raise ValueError("sign of internal faces does not make sense")
 
         fi_sorted = np.argsort(fi)
-        sgn = sgn[fi_sorted]
-        sgn = sgn[IC]
-        return sgn
+        sgn, ci = sgn[fi_sorted], ci[fi_sorted]
+        sgn, ci = sgn[IC], ci[IC]
+        return sgn, ci
 
     def bounding_box(self) -> Union[np.ndarray, np.ndarray]:
         """

@@ -128,7 +128,8 @@ class RobinCoupling(
         # Indices of faces neighboring this mortar grid
         _, fi_h, _ = sps.find(proj)
         # Switch direction of vectors if relevant
-        normals_h[:, fi_h] *= g_h.sign_of_faces(fi_h)
+        sgn, _ = g_h.signs_and_cells_of_boundary_faces(fi_h)
+        normals_h[:, fi_h] *= sgn
 
         # Project the normal vectors, we need to do some transposes to get this right
         normals_mortar = (proj * normals_h.T).T
