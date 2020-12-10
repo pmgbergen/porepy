@@ -3,9 +3,10 @@ problems.
 
 """
 import abc
-from typing import Dict, Tuple, Any, List
+from typing import Any, Dict, Tuple
 
 import numpy as np
+
 import porepy as pp
 
 
