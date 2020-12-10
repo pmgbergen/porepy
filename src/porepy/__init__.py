@@ -19,7 +19,7 @@ isort:skip_file
 
 """
 
-__version__ = "1.2.7"
+__version__ = "1.3.1"
 
 # ------------------------------------
 # Simplified namespaces. The rue of thumb is that classes and modules that a
@@ -128,16 +128,23 @@ from porepy.numerics.interface_laws.contact_mechanics_interface_laws import (
     MatrixScalarToForceBalance,
     FractureScalarToForceBalance,
 )
-from porepy.numerics.contact_mechanics.contact_conditions import ColoumbContact
-from porepy.numerics.contact_mechanics import contact_conditions
+from porepy.numerics.fracture_deformation.contact_conditions import ColoumbContact
+from porepy.numerics.fracture_deformation import contact_conditions, propagate_fracture
+from porepy.numerics.fracture_deformation.conforming_propagation import (
+    ConformingFracturePropagation,
+)
 
 # Related to models and solvers
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
 from porepy.numerics.linear_solvers import LinearSolver
-from porepy.models.run_models import run_stationary_model, run_time_dependent_model
+from porepy.models.run_models import (
+    run_stationary_model,
+    run_time_dependent_model,
+)
 
 from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 from porepy.models.contact_mechanics_model import ContactMechanics
+from porepy.models.thm_model import THM
 
 from porepy.numerics.ad.equation_manager import Equation, EquationManager
 from porepy.numerics import ad
@@ -152,6 +159,7 @@ from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer
 from porepy.grids import coarsening, partition, refinement
 import porepy.utils.derived_discretizations
+from porepy.numerics import displacement_correlation
 from porepy.utils.default_domains import (
     CubeDomain,
     SquareDomain,

@@ -243,8 +243,13 @@ class Assembler:
             filt (pp.assembler_filters.AssemblerFilter, optional): Filter.
 
         """
+        # Only those grids that are marked for update will be updated. This is
+        # implemented as an additional filtering step.
+
         if filt is None or isinstance(filt, pp.assembler_filters.AllPassFilter):
 
+            # If no filter is provided, make a ListFilter that effectively is AllPass.
+            # The grid list must be constructed explicitly, we may remove items below.
             grid_list_type = Union[
                 Union[pp.Grid, List[pp.Grid]],
                 Tuple[pp.Grid, pp.Grid],
@@ -256,34 +261,51 @@ class Assembler:
             grid_list += [(e[0], e[1], e) for e, _ in self.gb.edges()]
             variable_list: List[str] = []
             term_list: List[str] = []
+
         elif isinstance(filt, pp.assembler_filters.ListFilter):
+            # Pick from ListFilter
             grid_list = filt._grid_list
             variable_list = filt._variable_list
             term_list = filt._term_list
+
         else:
             raise NotImplementedError(
                 "Discretization update cannot be combined with non-standard filter"
             )
 
-        update_grid = {}
+        # Keep track of which grids are marked or update
+        update_grid: Dict[pp.Grid, bool] = {}
 
+        # Represent as set for easy removal of grids
+        grid_set = set(grid_list)
+
+        # Loop over all nodes, either register them as marked for update, or remove
+        # from the grid_set.
         for g, d in self.gb:
             if d.get("partial_update", False):
                 update_grid[g] = True
             else:
-                grid_list.remove(g)
+                if g in grid_set:
+                    grid_set.remove(g)
                 update_grid[g] = False
 
         for e, d_e in self.gb.edges():
+            # if edge not marked for partial update, remove
             update_edge = d_e.get("partial_update", False)
-            if not update_edge:
-                grid_list.remove(e)
+            if not update_edge and e in grid_set:
+                grid_set.remove(e)
 
-            if not (update_grid[e[0]] or update_grid[e[1]] or update_edge):
-                grid_list.remove((e[0], e[1], e))
+            # The coupling should be updated if the edge or any of the neigboring
+            # grids is marked for update
+            if (
+                not (update_grid[e[0]] or update_grid[e[1]] or update_edge)
+                and (e[0], e[1], e) in grid_set
+            ):
+                grid_set.remove((e[0], e[1], e))
 
+        # Create a new filter with only grids marked for update.
         new_filt = pp.assembler_filters.ListFilter(
-            grid_list=grid_list, variable_list=variable_list, term_list=term_list
+            grid_list=list(grid_set), variable_list=variable_list, term_list=term_list
         )
 
         self._operate_on_gb(operation="update_discretization", filt=new_filt)
@@ -1080,6 +1102,44 @@ class Assembler:
         # Store values in self
         self.variable_combinations: List[str] = variable_combinations
         self._grid_variable_term_combinations = grid_variable_term_combinations
+
+    def update_dof_count(self) -> None:
+        """Update the count of degrees of freedom related to a GridBucket.
+
+        The method loops thruogh the defined combinations of grids (standard or mortar)
+        and variables, and updates the number of fine-scale degree of freedom for this
+        combination. The system size will be updated if the grid has changed or
+        (perhaps less realistically) a variable has had its number of dofs per grid
+        quantity changed.
+
+        The method will not identify any new variables, for this, the preferred approach
+        is to define a new assembler object.
+
+        """
+        # Loop over identified grid-varibale combinations
+        for key, index in self.block_dof.items():
+            # Grid quantity (grid or interface), and variable
+            grid, variable = key
+            # Get data dictionary - this is slightly different for grid and interface
+            if isinstance(grid, pp.Grid):
+                d = self.gb.node_props(grid)
+            else:  # This is an edge
+                d = self.gb.edge_props(grid)
+                # Also fetch mortar grid
+                grid = d["mortar_grid"]
+
+            # Dofs related to cell
+            dof: Dict[str, int] = d[pp.PRIMARY_VARIABLES][variable]
+            num_dofs: int = grid.num_cells * dof.get("cells", 0)  # type: ignore
+
+            if isinstance(grid, pp.Grid):
+                # Add dofs on faces and nodes, but not on interfaces
+                num_dofs += grid.num_faces * dof.get(
+                    "faces", 0
+                ) + grid.num_nodes * dof.get("nodes", 0)
+
+            # Update local counting
+            self.full_dof[index] = num_dofs
 
     def _initialize_matrix_rhs(
         self, sps_matrix: Type[csc_or_csr_matrix]

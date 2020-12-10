@@ -71,7 +71,7 @@ class PrimalContactCoupling(
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         # Tangential_normal projection
-        tangential_normal_projection = data_edge["tangential_normal_projection"]
+        tangential_normal_projection = data_l["tangential_normal_projection"]
 
         normal_projection = tangential_normal_projection.project_normal()
 
@@ -114,7 +114,7 @@ class PrimalContactCoupling(
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
-        projection = data_edge["tangential_normal_projection"]
+        projection = data_secondary["tangential_normal_projection"]
 
         cc, rhs = self._define_local_block_matrix(
             g_primary, g_secondary, self.discr_primary, self.discr_secondary, mg, matrix
@@ -265,8 +265,8 @@ class PrimalContactCoupling(
         # - T_secondary + T_primary_j = 0    and T_secondary + T_primary_k = 0
         contact_traction_to_mortar = (
             mg.sign_of_mortar_sides(nd=ambient_dimension)
-            * projection.project_tangential_normal(mg.num_cells).T
             * mg.secondary_to_mortar_int(nd=ambient_dimension)
+            * projection.project_tangential_normal().T
         )
         cc[mortar_ind, secondary_ind] = contact_traction_to_mortar
 
@@ -548,8 +548,9 @@ class FractureScalarToForceBalance(
         # Construct the dot product between normals on fracture faces and the identity
         # matrix. Similar sign switching as above is needed (this one operating on
         # fracture faces only).
+
         faces_on_fracture_surface = mg.primary_to_mortar_int().tocsr().indices
-        sgn = g_primary.sign_of_faces(faces_on_fracture_surface)
+        sgn, _ = g_primary.signs_and_cells_of_boundary_faces(faces_on_fracture_surface)
         fracture_normals = g_primary.face_normals[
             :ambient_dimension, faces_on_fracture_surface
         ]
