@@ -9,9 +9,9 @@ NOTE: This module should be considered an experimental feature, which may
 undergo major changes on little notice.
 
 """
-from typing import Dict, Tuple, Optional, Any, List
 import logging
 import time
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import scipy.sparse as sps

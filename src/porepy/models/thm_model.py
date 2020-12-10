@@ -32,7 +32,7 @@ undergo major changes (or be deleted).
 """
 import logging
 import time
-from typing import Dict, Optional, List, Union, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 

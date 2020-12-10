@@ -13,11 +13,10 @@ undergo major changes on little notice.
 """
 import logging
 import time
-from typing import Dict, List, Optional, Union, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
-import scipy.sparse.linalg as spla
 
 import porepy as pp
 import porepy.models.contact_mechanics_model as contact_model
