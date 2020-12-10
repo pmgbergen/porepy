@@ -1,4 +1,5 @@
 import unittest
+
 import numpy as np
 
 from porepy.grids.structured import CartGrid

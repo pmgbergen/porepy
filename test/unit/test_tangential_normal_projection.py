@@ -4,8 +4,9 @@
 Unit tests for class pp.TangentialNormalProjection
 """
 
-import numpy as np
 import unittest
+
+import numpy as np
 
 import porepy as pp
 

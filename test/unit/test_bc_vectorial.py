@@ -1,7 +1,7 @@
-import unittest
-import numpy as np
-
 import math
+import unittest
+
+import numpy as np
 
 import porepy as pp
 

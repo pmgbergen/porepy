@@ -11,13 +11,14 @@ Logic in all tests:
 Rudimentary testing in 3d. The tests are direct analogoues of the 2d ones.
 Could be expanded.
 """
-import numpy as np
-import scipy.sparse as sps
 import unittest
-
-import porepy as pp
 from test import test_utils
 from typing import List
+
+import numpy as np
+import scipy.sparse as sps
+
+import porepy as pp
 
 
 class TestMixedDimGravity(unittest.TestCase):
@@ -226,7 +227,7 @@ class TestMixedDimGravity(unittest.TestCase):
         pert_node=False,
         flip_normal=False,
     ) -> None:
-        """ Compute a unit square gb with one throughgoing horizontal fracture and
+        """Compute a unit square gb with one throughgoing horizontal fracture and
         a simplex grid consisting of six cells in 2d.
         __________
         |\      /|
@@ -239,8 +240,8 @@ class TestMixedDimGravity(unittest.TestCase):
         | /    \ |
         |/      \|
         ----------
-        
-        Options include modifying the number of 1d and mortar cells, perturbing nodes 
+
+        Options include modifying the number of 1d and mortar cells, perturbing nodes
         and flip face normals.
         """
         g2 = self.grid_2d()
@@ -309,7 +310,7 @@ class TestMixedDimGravity(unittest.TestCase):
 
             gb.update_nodes({old_g: new_g})
             mg = d["mortar_grid"]
-            mg.update_slave(new_g, tol=1e-4)
+            mg.update_secondary(new_g, tol=1e-4)
         self.gb = gb
 
     def solve(self, method):
@@ -329,24 +330,22 @@ class TestMixedDimGravity(unittest.TestCase):
         return p
 
     def verify_pressure(self, p_known: float = 0):
-        """ Verify that the pressure of all subdomains equals p_known.
-        """
+        """Verify that the pressure of all subdomains equals p_known."""
         for g, d in self.gb.nodes():
             p = d[pp.STATE]["pressure"]
             self.assertTrue(np.allclose(p, p_known, rtol=1e-3, atol=1e-3))
 
     def verify_mortar_flux(self, u_known: float):
-        """ Verify that the mortar flux of all interfaces equals u_known.
-        """
+        """Verify that the mortar flux of all interfaces equals u_known."""
         for e, d in self.gb.edges():
             u = np.abs(d[pp.STATE]["mortar_flux"])
             self.assertTrue(np.allclose(u, u_known, rtol=1e-3, atol=1e-3))
 
     def verify_hydrostatic(self, angle=0, a=1e-1):
-        """ Check that the pressure profile is hydrostatic, with the adjustment
+        """Check that the pressure profile is hydrostatic, with the adjustment
         for the fracture.
         Without the fracture, the profile is expected to be linear within each
-        subdomain, with a small additional jump of aperture at the fracture. 
+        subdomain, with a small additional jump of aperture at the fracture.
         The full range is
         0 (bottom) to -1- aperture (top).
         """
@@ -370,8 +369,8 @@ class TestMixedDimGravity(unittest.TestCase):
             self.assertTrue(np.allclose(lmbda, 0, rtol=1e-3, atol=1e-3))
 
     def test_no_flow_neumann(self):
-        """ Use homogeneoous Neumann boundary conditions on top Dirichlet
-        on bottom. 
+        """Use homogeneoous Neumann boundary conditions on top Dirichlet
+        on bottom.
 
         The pressure distribution should be hydrostatic.
 
@@ -502,7 +501,7 @@ class TestMixedDimGravity(unittest.TestCase):
     def test_uniform_pressure(self):
         """
         Prescribed pressure at the top. Strength of the flow counteracts gravity, so
-        that the pressure is uniform. 
+        that the pressure is uniform.
 
         The total flow should equal the gravity force (=1).
         """
@@ -531,8 +530,7 @@ class TestMixedDimGravity(unittest.TestCase):
                         self.verify_mortar_flux(1 / (num_nodes_mortar - 1))
 
     def set_grids(self, dim, **kwargs):
-        """ Wrapper to facilitate running same tests in 2d and 3d.
-        """
+        """Wrapper to facilitate running same tests in 2d and 3d."""
         if dim == 2:
             self.set_grids_2d(**kwargs)
         elif dim == 3:

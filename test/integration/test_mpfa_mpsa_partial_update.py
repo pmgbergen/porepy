@@ -11,6 +11,7 @@ keyword, but in addition, updates of grid geometry etc. are also probed.
 
 """
 import unittest
+
 import numpy as np
 import scipy.sparse as sps
 
@@ -18,8 +19,7 @@ import porepy as pp
 
 
 class TestPartialMPFA(unittest.TestCase):
-    """ Test various partial assembly for mpfa.
-    """
+    """Test various partial assembly for mpfa."""
 
     def setup(self, sz=None):
         if sz is None:
@@ -217,8 +217,7 @@ class TestPartialMPFA(unittest.TestCase):
 
 
 class TestPartialMPSA(unittest.TestCase):
-    """ Test various partial assembly features for mpsa.
-    """
+    """Test various partial assembly features for mpsa."""
 
     def setup(self):
         g = pp.CartGrid([5, 5])
@@ -423,8 +422,7 @@ class TestPartialMPSA(unittest.TestCase):
 
 
 class PartialBiotMpsa(TestPartialMPSA):
-    """ Test various partial assembly for mpsa for poro-elasticity.
-    """
+    """Test various partial assembly for mpsa for poro-elasticity."""
 
     def setup_biot(self):
         g = pp.CartGrid([5, 5])
@@ -744,7 +742,7 @@ class PartialBiotMpsa(TestPartialMPSA):
 
 
 class UpdateDiscretizations(unittest.TestCase):
-    """ Tests specifically for the update_discretization methods in the
+    """Tests specifically for the update_discretization methods in the
      Mpfa, Mpsa and Biot classes.
 
     The tests are structured as follows:

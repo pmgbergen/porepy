@@ -3,6 +3,7 @@ Module for testing the discrete fracture network (DFN) with continuous pressure 
 """
 
 import unittest
+
 import numpy as np
 import scipy.sparse as sps
 
@@ -385,8 +386,7 @@ class TestDFN(unittest.TestCase):
 
 
 def setup_data(gb, key="flow"):
-    """ Setup the data
-    """
+    """Setup the data"""
     for g, d in gb:
         param = {}
         kxx = np.ones(g.num_cells)
@@ -424,12 +424,12 @@ def setup_discr_mvem(gb, key="flow"):
             d[pp.DISCRETIZATION] = {key: {"flux": p_trace}}
 
     for e, d in gb.edges():
-        g_slave, g_master = gb.nodes_of_edge(e)
+        g_secondary, g_primary = gb.nodes_of_edge(e)
         d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
         d[pp.COUPLING_DISCRETIZATION] = {
             "flux": {
-                g_slave: (key, "flux"),
-                g_master: (key, "flux"),
+                g_secondary: (key, "flux"),
+                g_primary: (key, "flux"),
                 e: (key, interface),
             }
         }
@@ -452,12 +452,12 @@ def setup_discr_tpfa(gb, key="flow"):
             d[pp.DISCRETIZATION] = {key: {"flux": p_trace}}
 
     for e, d in gb.edges():
-        g_slave, g_master = gb.nodes_of_edge(e)
+        g_secondary, g_primary = gb.nodes_of_edge(e)
         d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
         d[pp.COUPLING_DISCRETIZATION] = {
             "flux": {
-                g_slave: (key, "flux"),
-                g_master: (key, "flux"),
+                g_secondary: (key, "flux"),
+                g_primary: (key, "flux"),
                 e: (key, interface),
             }
         }
@@ -466,8 +466,8 @@ def setup_discr_tpfa(gb, key="flow"):
 
 
 def create_dfn(gb, dim):
-    """ given a GridBucket remove the higher dimensional node and
-    fix the internal mapping. """
+    """given a GridBucket remove the higher dimensional node and
+    fix the internal mapping."""
     # remove the +1 and -2 dimensional grids with respect to the
     # considered dfn, and re-write the node number
     gd = np.hstack((gb.grids_of_dimension(dim + 1), gb.grids_of_dimension(dim - 2)))

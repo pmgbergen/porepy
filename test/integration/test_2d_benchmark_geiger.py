@@ -1,8 +1,9 @@
-import scipy.sparse as sps
-import porepy as pp
+import test.common.flow_benchmark_2d_geiger_setup as setup
 import unittest
 
-import test.common.flow_benchmark_2d_geiger_setup as setup
+import scipy.sparse as sps
+
+import porepy as pp
 
 
 class TestVEMOnBenchmark(unittest.TestCase):

@@ -1,10 +1,11 @@
-import numpy as np
-import scipy.sparse as sps
 import unittest
 import warnings
 
-from porepy.ad.forward_mode import initAdArrays
+import numpy as np
+import scipy.sparse as sps
+
 from porepy.ad import functions as af
+from porepy.ad.forward_mode import initAdArrays
 
 warnings.simplefilter("ignore", sps.SparseEfficiencyWarning)
 

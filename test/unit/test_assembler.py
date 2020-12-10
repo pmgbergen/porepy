@@ -28,12 +28,13 @@ grid bucket data dictionaries. If this under some system changes, everything
 breaks.
 
 """
+import unittest
+from test.test_utils import permute_matrix_vector
+
 import numpy as np
 import scipy.sparse as sps
-import unittest
 
 import porepy as pp
-from test.test_utils import permute_matrix_vector
 import porepy.numerics.interface_laws.abstract_interface_law
 from porepy.numerics.mixed_dim.assembler_filters import ListFilter
 
@@ -52,7 +53,7 @@ class TestAssembler(unittest.TestCase):
         gb.add_nodes([g1, g2])
         gb.add_edge([g1, g2], None)
 
-        mg = pp.MortarGrid(2, {"left": g1, "right": g2}, sps.coo_matrix(1))
+        mg = pp.MortarGrid(2, {"left": g1, "right": g2})
         mg.num_cells = 1
         gb.set_edge_prop([g1, g2], "mortar_grid", mg)
         return gb
@@ -77,11 +78,11 @@ class TestAssembler(unittest.TestCase):
         gb.add_edge([g1, g2], None)
         gb.add_edge([g1, g3], None)
 
-        mg = pp.MortarGrid(1, {"left": g2, "right": g2}, sps.coo_matrix(1))
+        mg = pp.MortarGrid(1, {"left": g2, "right": g2})
         mg.num_cells = 1
         gb.set_edge_prop([g1, g2], "mortar_grid", mg)
 
-        mg = pp.MortarGrid(1, {"left": g3, "right": g3}, sps.coo_matrix(1))
+        mg = pp.MortarGrid(1, {"left": g3, "right": g3})
         mg.num_cells = 1
         gb.set_edge_prop([g1, g3], "mortar_grid", mg)
 
@@ -90,8 +91,7 @@ class TestAssembler(unittest.TestCase):
     ### Test with no coupling between the subdomains
 
     def test_single_variable(self):
-        """ A single variable, test that the basic mechanics of the assembler functions.
-        """
+        """A single variable, test that the basic mechanics of the assembler functions."""
         gb = self.define_gb()
 
         # Variable name assigned on nodes. Same for both grids
@@ -176,7 +176,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A.todense()))
 
     def test_single_variable_no_node_disretization(self):
-        """ A single variable, where one of the nodes have no discretization
+        """A single variable, where one of the nodes have no discretization
         object assigned.
         """
         gb = self.define_gb()
@@ -213,8 +213,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A.todense()))
 
     def test_single_variable_not_active(self):
-        """ A single variable, but make this inactive. This should return an empty matrix
-        """
+        """A single variable, but make this inactive. This should return an empty matrix"""
 
         gb = self.define_gb()
         variable_name = "variable_1"
@@ -252,7 +251,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.sum(np.abs(b)) == 0)
 
     def test_explicitly_define_edge_variable_active(self):
-        """ Explicitly define edge and node variables as active. The result should
+        """Explicitly define edge and node variables as active. The result should
         be the same as if no active variable was defined.
 
         """
@@ -293,7 +292,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A.todense()))
 
     def test_define_edge_variable_inactive(self):
-        """ Define edge-variable as inactive. The resulting system should have
+        """Define edge-variable as inactive. The resulting system should have
         no coupling term.
 
         """
@@ -339,8 +338,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A.todense()))
 
     def test_single_variable_multiple_node_discretizations(self):
-        """ A single variable, with multiple discretizations for one of the nodes
-        """
+        """A single variable, with multiple discretizations for one of the nodes"""
         gb = self.define_gb()
         variable_name = "variable_1"
         variable_name_edge = "variable_edge"
@@ -383,8 +381,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A.todense()))
 
     def test_single_variable_multiple_edge_discretizations(self):
-        """ A single variable, with multiple discretizations for one of the e
-        """
+        """A single variable, with multiple discretizations for one of the e"""
         gb = self.define_gb()
 
         variable_name = "variable_1"
@@ -429,7 +426,7 @@ class TestAssembler(unittest.TestCase):
         assert np.allclose(A_known, A.todense())
 
     def test_two_variables_no_coupling(self):
-        """ Two variables, no coupling between the variables. Test that the
+        """Two variables, no coupling between the variables. Test that the
         assembler can deal with more than one variable.
         """
         gb = self.define_gb()
@@ -486,7 +483,7 @@ class TestAssembler(unittest.TestCase):
         assert np.allclose(A_known, A.todense())
 
     def test_two_variables_one_active(self):
-        """ Define two variables, but then only assemble with respect to one
+        """Define two variables, but then only assemble with respect to one
         of them. Should result in what is effectively a 1-variable system
 
         """
@@ -582,7 +579,7 @@ class TestAssembler(unittest.TestCase):
         assert np.allclose(A_known, A.todense())
 
     def test_two_variables_no_coupling(self):
-        """ Two variables, no coupling between the variables. Test that the
+        """Two variables, no coupling between the variables. Test that the
         assembler can deal with more than one variable.
         """
         gb = self.define_gb()
@@ -639,7 +636,7 @@ class TestAssembler(unittest.TestCase):
         assert np.allclose(A_known, A.todense())
 
     def test_two_variables_one_active(self):
-        """ Define two variables, but then only assemble with respect to one
+        """Define two variables, but then only assemble with respect to one
         of them. Should result in what is effectively a 1-variable system
 
         """
@@ -751,7 +748,7 @@ class TestAssembler(unittest.TestCase):
 
     ### Tests with coupling internal to each node
     def test_two_variables_coupling_within_node_and_edge(self):
-        """ Two variables, coupling between the variables internal to each node.
+        """Two variables, coupling between the variables internal to each node.
         No coupling in the edge variable
         """
         gb = self.define_gb()
@@ -856,7 +853,7 @@ class TestAssembler(unittest.TestCase):
 
     # Tests with node-edge couplings
     def test_two_variables_coupling_between_node_and_edge(self):
-        """ Two variables, coupling between the variables internal to each node.
+        """Two variables, coupling between the variables internal to each node.
         No coupling in the edge variable
         """
         gb = self.define_gb()
@@ -955,7 +952,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A_2_permuted.todense()))
 
     def test_two_variables_coupling_between_node_and_edge_mixed_dependencies(self):
-        """ Two variables, coupling between the variables internal to each node.
+        """Two variables, coupling between the variables internal to each node.
         No coupling in the edge variable
         """
         gb = self.define_gb()
@@ -1039,7 +1036,7 @@ class TestAssembler(unittest.TestCase):
     def test_one_and_two_variables_coupling_between_node_and_edge_mixed_dependencies(
         self,
     ):
-        """ One of the nodes has a single variable. A mortar variable depends on a combination
+        """One of the nodes has a single variable. A mortar variable depends on a combination
         mixture of the two variables
         """
         gb = self.define_gb()
@@ -1126,7 +1123,7 @@ class TestAssembler(unittest.TestCase):
     def test_one_and_two_variables_coupling_between_node_and_edge_mixed_dependencies_two_discretizations(
         self,
     ):
-        """ One of the nodes has a single variable. A mortar variable depends on a combination
+        """One of the nodes has a single variable. A mortar variable depends on a combination
         mixture of the two variables. The mortar variable has two discretizations.
         """
         gb = self.define_gb()
@@ -1219,7 +1216,7 @@ class TestAssembler(unittest.TestCase):
     def test_one_and_two_variables_coupling_between_node_and_edge_mixed_dependencies_two_discretizations_2(
         self,
     ):
-        """ One of the nodes has a single variable. A mortar variable depends on a combination
+        """One of the nodes has a single variable. A mortar variable depends on a combination
         mixture of the two variables. The mortar variable has two discretizations.
         """
         gb = self.define_gb()
@@ -1307,8 +1304,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A_2_permuted.todense()))
 
     def test_one_variable_one_sided_coupling_between_node_and_edge(self):
-        """ Coupling between edge and one of the subdomains, but not the other
-        """
+        """Coupling between edge and one of the subdomains, but not the other"""
         gb = self.define_gb()
         key = "var_1"
         term = "op"
@@ -1355,8 +1351,7 @@ class TestAssembler(unittest.TestCase):
     def test_one_variable_one_sided_coupling_between_node_and_edge_different_operator_variable_names_modifies_node(
         self,
     ):
-        """ Coupling between edge and one of the subdomains, but not the other
-        """
+        """Coupling between edge and one of the subdomains, but not the other"""
         gb = self.define_gb()
         term = "op"
         for g, d in gb:
@@ -1400,7 +1395,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A.todense()))
 
     def test_partial_matrices_two_variables_single_discretization(self):
-        """ A single variable, with multiple discretizations for one of the nodes.
+        """A single variable, with multiple discretizations for one of the nodes.
         Do not add discretization matrices for individual terms
         """
         gb = self.define_gb()
@@ -1475,8 +1470,7 @@ class TestAssembler(unittest.TestCase):
         )
 
     def test_assemble_operator_nodes(self):
-        """ Test assembly of operator on nodes
-        """
+        """Test assembly of operator on nodes"""
         gb = self.define_gb()
         key_1 = "var_1"
         term = "op"
@@ -1505,8 +1499,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, Op.todense()))
 
     def test_assemble_operator_edges(self):
-        """ Test assembly of operator on edges
-        """
+        """Test assembly of operator on edges"""
         gb = self.define_gb()
         key_1 = "var_1"
         term = "op"
@@ -1524,8 +1517,7 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, Op.todense()))
 
     def test_assemble_parameters_node(self):
-        """ Test assembly of operator on nodes
-        """
+        """Test assembly of operator on nodes"""
         gb = self.define_gb()
         key_1 = "var_1"
         term = "op"
@@ -1788,7 +1780,13 @@ class MockEdgeDiscretization(
         self.off_diag_val = off_diag_val
 
     def assemble_matrix_rhs(
-        self, g_master, g_slave, data_master, data_slave, data_edge, local_matrix
+        self,
+        g_primary,
+        g_secondary,
+        data_primary,
+        data_secondary,
+        data_edge,
+        local_matrix,
     ):
 
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
@@ -1819,7 +1817,13 @@ class MockEdgeDiscretizationModifiesNode(
         self.off_diag_val = off_diag_val
 
     def assemble_matrix_rhs(
-        self, g_master, g_slave, data_master, data_slave, data_edge, local_matrix
+        self,
+        g_primary,
+        g_secondary,
+        data_primary,
+        data_secondary,
+        data_edge,
+        local_matrix,
     ):
 
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
@@ -1832,7 +1836,7 @@ class MockEdgeDiscretizationModifiesNode(
         cc[0, 2] = sps.coo_matrix(self.off_diag_val)
         cc[1, 2] = sps.coo_matrix(self.off_diag_val)
 
-        if g_master.grid_num == 1:
+        if g_primary.grid_num == 1:
             local_matrix[0, 0] += sps.coo_matrix(self.off_diag_val)
             local_matrix[1, 1] += sps.coo_matrix(2 * self.off_diag_val)
         else:
@@ -1857,7 +1861,7 @@ class MockEdgeDiscretizationOneSided(
         self.diag_val = diag_val
         self.off_diag_val = off_diag_val
 
-    def assemble_matrix_rhs(self, g_master, data_master, data_edge, local_matrix):
+    def assemble_matrix_rhs(self, g_primary, data_primary, data_edge, local_matrix):
 
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
@@ -1884,7 +1888,7 @@ class MockEdgeDiscretizationOneSidedModifiesNode(
         self.diag_val = diag_val
         self.off_diag_val = off_diag_val
 
-    def assemble_matrix_rhs(self, g_master, data_master, data_edge, local_matrix):
+    def assemble_matrix_rhs(self, g_primary, data_primary, data_edge, local_matrix):
 
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
@@ -1920,7 +1924,13 @@ class MockEdgeDiscretizationEdgeCouplings(
         return mg.num_cells
 
     def assemble_matrix_rhs(
-        self, g_master, g_slave, data_master, data_slave, data_edge, local_matrix
+        self,
+        g_primary,
+        g_secondary,
+        data_primary,
+        data_secondary,
+        data_edge,
+        local_matrix,
     ):
 
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]

@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/pmgbergen/porepy.svg?branch=develop)](https://travis-ci.org/pmgbergen/porepy) [![Coverage Status](https://coveralls.io/repos/github/pmgbergen/porepy/badge.svg?branch=develop)](https://coveralls.io/github/pmgbergen/porepy?branch=develop)
+![build](https://github.com/pmgbergen/porepy/workflows/Build%20Test/badge.svg)
 [![DOI](https://zenodo.org/badge/89228838.svg)](https://zenodo.org/badge/latestdoi/89228838)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
@@ -15,15 +15,14 @@ PorePy is developed by the [Porous Media Group](http://pmg.b.uib.no/) at the Uni
 # Citing
 If you use PorePy in your research, we ask you to cite the following publication
 
-E. Keilegavlen, R. Berge, A. Fumagalli, M. Starnoni, I. Stefansson, J. Varela, I. Berre: PorePy:  An Open-Source Software for Simulation of Multiphysics Processes in Fractured Porous Media. [arXiv:1908.09869](http://arxiv.org/abs/1908.09869)
+Keilegavlen, E., Berge, R., Fumagalli, A., Starnoni, M., Stefansson, I., Varela, J., & Berre, I. (2020). PorePy: an open-source software for simulation of multiphysics processes in fractured porous media. Computational Geosciences, 1-23, [doi:10.1007/s10596-020-10002-5](https://doi.org/10.1007/s10596-020-10002-5)
 
 Runscripts for most, if not all, papers that uses porepy is available at [here](./Papers.md).
 Note that you may have to revert to an older version of PorePy to run the examples (we try to keep the runscripts updated, but sometime fail to do so, for various reasons).
 
 # Installation from source
-
-For more detailed install instructions, including how to access GMSH (for meshing), see
-[Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
+Install instructions can be found here [Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
+Note that there are a few simple but non-obvious steps in the installation, so please read the entire document before sending questions.
 
 PorePy is developed under Python >=3.6.
 

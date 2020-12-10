@@ -5,12 +5,13 @@ Created on Sat Nov 11 17:25:01 2017
 
 @author: Eirik Keilegavlens
 """
+import unittest
+from test import test_utils
+
 import numpy as np
 import scipy.sparse as sps
-import unittest
 
 import porepy as pp
-from test import test_utils
 
 
 class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
@@ -95,7 +96,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb.update_nodes({old_g: new_g})
         mg = d["mortar_grid"]
 
-        mg.update_slave(new_g, tol=1e-4)
+        mg.update_secondary(new_g, tol=1e-4)
 
         return gb
 
@@ -828,7 +829,7 @@ class TestMortar3D(unittest.TestCase):
 
 
 class TestMortar2DSimplexGrid(unittest.TestCase):
-    """ Simplex grid with a hardcoded geometry. The domain is a unit cell, cut
+    """Simplex grid with a hardcoded geometry. The domain is a unit cell, cut
     in two by a fracture at y=0.5. There are three cells in the lower half
     of the domain, with two of them having a face towards the fracture.
     The grid in the upper half is mirrored from the lower half, however,
