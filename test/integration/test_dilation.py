@@ -172,12 +172,15 @@ class TestDilation(unittest.TestCase):
         setup.ux_south_initial = 0
         setup.dilation_angle = np.pi / 4
         setup.fracture_endpoints = np.array([0.0, 1.0])
+
+        # First step
         u_mortar_0, contact_force_0 = self._solve(setup)
         # Should be open
         self.assertTrue(np.all(np.isclose(contact_force_0[1], 0)))
         self.assertTrue(np.all(u_mortar_0[1] > setup.zero_tol))
         # but no tangential displacement
         self.assertTrue(np.all(np.isclose(u_mortar_0[0], 0)))
+
         # Second step
         setup.end_time = 1
         u_mortar_1, contact_force_1 = self._solve(setup)
@@ -212,6 +215,8 @@ class SetupContactMechanics(
         fractures. The two sides of the fractures are coupled together with a
         mortar grid.
         """
+        # Only make grid if not already available. This is necessary to avoid issuse
+        # with TestDilation().test_two_steps()
         if self.gb is None:
             rotate_fracture = getattr(self, "rotate_fracture", False)
             endpoints = getattr(self, "fracture_endpoints", np.array([0.3, 0.7]))
@@ -227,10 +232,10 @@ class SetupContactMechanics(
             # Set projections to local coordinates for all fractures
             pp.contact_conditions.set_projections(self.gb)
 
-            self.Nd = self.gb.dim_max()
+            self._Nd = self.gb.dim_max()
 
-    def bc_values(self, g):
-        _, _, _, north, south, _, _ = self.domain_boundary_sides(g)
+    def _bc_values(self, g):
+        _, _, _, north, south, _, _ = self._domain_boundary_sides(g)
         values = np.zeros((g.dim, g.num_faces))
         # Dirty hack for the two-stage test. All other tests have time > 0
         if hasattr(self, "ux_south_initial") and self.time < (1 - self.zero_tol):
@@ -242,8 +247,8 @@ class SetupContactMechanics(
         values[1, north] = self.uy_north
         return values.ravel("F")
 
-    def bc_type(self, g):
-        _, _, _, north, south, _, _ = self.domain_boundary_sides(g)
+    def _bc_type(self, g):
+        _, _, _, north, south, _, _ = self._domain_boundary_sides(g)
         bc = pp.BoundaryConditionVectorial(g, north + south, "dir")
         # Default internal BC is Neumann. We change to Dirichlet for the contact
         # problem. I.e., the mortar variable represents the displacement on the
@@ -253,11 +258,11 @@ class SetupContactMechanics(
         bc.is_dir[:, frac_face] = True
         return bc
 
-    def set_parameters(self):
-        super().set_parameters()
+    def _set_parameters(self):
+        super()._set_parameters()
         dilation_angle = getattr(self, "dilation_angle", 0)
         for g, d in self.gb:
-            if g.dim < self.Nd:
+            if g.dim < self._Nd:
 
                 initial_gap = getattr(self, "initial_gap", np.zeros(g.num_cells))
 
@@ -271,7 +276,7 @@ class SetupContactMechanics(
            Discretize time-dependent quantities etc.
            Update time-dependent parameters (captured by assembly).
         """
-        self.set_parameters()
+        self._set_parameters()
 
 
 if __name__ == "__main__":

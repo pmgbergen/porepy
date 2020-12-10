@@ -149,8 +149,8 @@ class SetupContactMechanics(
         self.gb = gb
         self.Nd = gb.dim_max()
 
-    def bc_values(self, g):
-        _, _, _, north, south, _, _ = self.domain_boundary_sides(g)
+    def _bc_values(self, g):
+        _, _, _, north, south, _, _ = self._domain_boundary_sides(g)
         values = np.zeros((g.dim, g.num_faces))
         values[0, south] = self.ux_south
         values[1, south] = self.uy_south
@@ -158,8 +158,8 @@ class SetupContactMechanics(
         values[1, north] = self.uy_north
         return values.ravel("F")
 
-    def bc_type(self, g):
-        _, _, _, north, south, _, _ = self.domain_boundary_sides(g)
+    def _bc_type(self, g):
+        _, _, _, north, south, _, _ = self._domain_boundary_sides(g)
         bc = pp.BoundaryConditionVectorial(g, north + south, "dir")
         # Default internal BC is Neumann. We change to Dirichlet for the contact
         # problem. I.e., the mortar variable represents the displacement on the
@@ -169,8 +169,8 @@ class SetupContactMechanics(
         bc.is_dir[:, frac_face] = True
         return bc
 
-    def set_parameters(self):
-        super().set_parameters()
+    def _set_parameters(self):
+        super()._set_parameters()
         dilation_angle = getattr(self, "dilation_angle", 0)
         for g, d in self.gb:
             if g.dim < self.Nd:
