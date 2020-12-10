@@ -5,12 +5,13 @@ We have the full Biot equations in the matrix, and mass conservation and contact
 conditions in the fracture. For the contact mechanical part of this
 test, please refer to test_contact_mechanics.
 """
-import numpy as np
+import test.common.contact_mechanics_examples
 import unittest
+
+import numpy as np
 
 import porepy as pp
 import porepy.models.contact_mechanics_biot_model as model
-import test.common.contact_mechanics_examples
 
 
 class TestBiot(unittest.TestCase):
@@ -63,7 +64,9 @@ class TestContactMechanicsBiot(unittest.TestCase):
         fracture_pressure = d_1[pp.STATE][setup.scalar_variable]
 
         displacement_jump_global_coord = (
-            mg.mortar_to_slave_avg(nd=nd) * mg.sign_of_mortar_sides(nd=nd) * u_mortar
+            mg.mortar_to_secondary_avg(nd=nd)
+            * mg.sign_of_mortar_sides(nd=nd)
+            * u_mortar
         )
         projection = d_m["tangential_normal_projection"]
 
@@ -180,7 +183,7 @@ class TestContactMechanicsBiot(unittest.TestCase):
         self.assertTrue(np.all(fracture_pressure > 1e-7))
 
     def test_time_dependent_pull_north_negative_scalar(self):
-        """ To obtain the value used in the corresponding TM test, 
+        """To obtain the value used in the corresponding TM test,
         test_pull_north_reduce_to_tm, uncomment the line
         setup.subtract_fracture_pressure = False
         """

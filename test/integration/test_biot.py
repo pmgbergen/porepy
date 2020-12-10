@@ -1,13 +1,14 @@
 """ Various unit tests for Biot discretizations
 """
 
-import scipy.sparse as sps
-import numpy as np
 import unittest
-import porepy as pp
-
 from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 from test.test_utils import permute_matrix_vector
+
+import numpy as np
+import scipy.sparse as sps
+
+import porepy as pp
 from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
 
 
@@ -23,8 +24,7 @@ class BiotTest(unittest.TestCase):
         return bound_mech, bound_flow
 
     def make_initial_conditions(self, g, x0, y0, p0):
-        """ Make uniform initial condition vectors.
-        """
+        """Make uniform initial condition vectors."""
         initial_displacement = x0 * np.ones((g.dim, g.num_cells))
         initial_displacement[1] = y0
         initial_displacement = initial_displacement.ravel("F")
@@ -83,7 +83,7 @@ class BiotTest(unittest.TestCase):
         self.assertTrue(np.allclose(known_matrix, a))
 
     def test_assemble_biot(self):
-        """ Test the assembly of the Biot problem using the assembler.
+        """Test the assembly of the Biot problem using the assembler.
 
         The test checks whether the discretization matches that of the Biot class.
         """
@@ -162,7 +162,7 @@ class BiotTest(unittest.TestCase):
         self.assertTrue(np.all(np.isclose(b, b_class)))
 
     def test_assemble_biot_exclude_filter(self):
-        """ Test the assembly of the Biot problem using the assembler.
+        """Test the assembly of the Biot problem using the assembler.
 
         The test checks whether the discretization matches that of the Biot class.
         """
@@ -248,7 +248,7 @@ class BiotTest(unittest.TestCase):
         self.assertTrue(np.all(np.isclose(b, b_class)))
 
     def test_assemble_biot_rhs_transient(self):
-        """ Test the assembly of a Biot problem with a non-zero rhs using the assembler.
+        """Test the assembly of a Biot problem with a non-zero rhs using the assembler.
 
         The test checks whether the discretization matches that of the Biot class and
         that the solution reaches the expected steady state.

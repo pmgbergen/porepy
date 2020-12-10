@@ -5,13 +5,14 @@ The module doubles as a test framework (though not unittest), and will report
 on any problems if ran as a main method.
 
 """
-import numpy as np
 import unittest
-from porepy.fracs import structured
 from collections import namedtuple
+from test import test_utils
+
+import numpy as np
 
 import porepy as pp
-from test import test_utils
+from porepy.fracs import structured
 
 # Named tuple used to identify intersections of fractures by their parent fractures
 # and their coordinates
@@ -663,7 +664,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
 
 
 class TestDFMMeshGenerationWithConstraints(TestDFMMeshGeneration):
-    """ Tests similar to some those of the mother class, but with some fractures as
+    """Tests similar to some those of the mother class, but with some fractures as
     constraints.
     """
 
@@ -1081,7 +1082,7 @@ class Test2dDomain(unittest.TestCase):
 
 class TestStructuredGrids(unittest.TestCase):
     def test_x_intersection_2d(self):
-        """ Check that no error messages are created in the process of creating a
+        """Check that no error messages are created in the process of creating a
         split_fracture.
         """
 

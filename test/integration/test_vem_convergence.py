@@ -3,16 +3,16 @@
 """
 Tests for convergence of the mixed vem. Compare against known rates.
 """
+import unittest
+
 import numpy as np
 import scipy.sparse as sps
-import unittest
 
 import porepy as pp
 
 
 class TestVEMVaryingPerm(unittest.TestCase):
-    """ Test known convergence rate for 2d domain with varying permeability
-    """
+    """Test known convergence rate for 2d domain with varying permeability"""
 
     def rhs(self, x, y, z):
         return (

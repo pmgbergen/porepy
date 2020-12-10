@@ -2,6 +2,7 @@
 Tests of module porepy.utils.permutations.
 """
 import unittest
+
 import numpy as np
 
 from porepy.utils import permutations

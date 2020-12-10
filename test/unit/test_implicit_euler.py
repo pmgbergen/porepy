@@ -2,15 +2,16 @@
 
 TODO: Expand!
 """
-import numpy as np
 import unittest
+
+import numpy as np
+
 import porepy as pp
 
 
 class TestImplicitUpwind(unittest.TestCase):
     def test_1d_heterogeneous_weights(self):
-        """ Check that the weights are upwinded.
-        """
+        """Check that the weights are upwinded."""
         g = pp.CartGrid(3, 1)
         g.compute_geometry()
 

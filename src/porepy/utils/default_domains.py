@@ -1,10 +1,10 @@
 """
 Module for creating standard domain dictionaries.
 """
-from typing import List, Dict
+from typing import Dict, Sequence, Union
 
 
-def CubeDomain(physdims: List[float]) -> Dict:
+def CubeDomain(physdims: Sequence[Union[int, float]]) -> Dict["str", Union[int, float]]:
     """
     Create a domain dictionary of a Cube domain with lower left corner
     centered at Origin, and upper right corner centered at physdims
@@ -13,14 +13,14 @@ def CubeDomain(physdims: List[float]) -> Dict:
     physdims (List) : Upper right corner of domain
 
     Returns:
-    domain (Dict): domain dictionary.
+    domain (Dict['str', Union[int, float]]): domain dictionary.
     """
     for value in physdims:
         if value <= 0:
             msg = "physical dimension {} is not positive".format(value)
             raise ValueError(msg)
 
-    domain = {"xmin": 0}
+    domain: Dict["str", Union[int, float]] = {"xmin": 0}
     domain["xmax"] = physdims[0]
     if len(physdims) > 3 or len(physdims) == 0:
         msg = "Invalid size of number of cells: {}".format(len(physdims))
@@ -36,7 +36,9 @@ def CubeDomain(physdims: List[float]) -> Dict:
     return domain
 
 
-def SquareDomain(physdims: List[float]) -> Dict:
+def SquareDomain(
+    physdims: Sequence[Union[int, float]]
+) -> Dict["str", Union[int, float]]:
     """
     Create a domain dictionary of a Square domain with lower left corner
     centered at Origin, and upper right corner centered at physdims
@@ -45,12 +47,12 @@ def SquareDomain(physdims: List[float]) -> Dict:
     physdims (List) : Upper right corner of domain
 
     Returns:
-    domain (Dict): domain dictionary.
+    domain (Dict['str', Union[int, float]]): domain dictionary.
     """
     return CubeDomain(physdims)
 
 
-def UnitCubeDomain() -> Dict:
+def UnitCubeDomain() -> Dict["str", Union[int, float]]:
     """
     Create a domain dictionary of a Unit cube
 
@@ -61,7 +63,7 @@ def UnitCubeDomain() -> Dict:
     return CubeDomain([1, 1, 1])
 
 
-def UnitSquareDomain() -> Dict:
+def UnitSquareDomain() -> Dict["str", Union[int, float]]:
     """
     Create a domain dictionary of a Unit square
 

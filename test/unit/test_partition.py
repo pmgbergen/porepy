@@ -2,6 +2,7 @@
 """
 
 import unittest
+
 import numpy as np
 
 import porepy as pp
@@ -340,7 +341,7 @@ class TestExtractSubGrid(unittest.TestCase):
               |    |    |
               |    |    |
               -----------
-        Extract: 
+        Extract:
                    -----|
                         |
                         -

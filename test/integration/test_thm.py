@@ -5,12 +5,13 @@ We have the full Biot equations in the matrix, and mass conservation and contact
 conditions in the non-intersecting fracture. For the contact mechanical part of this
 test, please refer to test_contact_mechanics.
 """
-import numpy as np
 import unittest
+from test.common.contact_mechanics_examples import ProblemDataTime
+
+import numpy as np
 
 import porepy as pp
 import porepy.models.thm_model as model
-from test.common.contact_mechanics_examples import ProblemDataTime
 
 
 class TestTHM(unittest.TestCase):
@@ -114,7 +115,9 @@ class TestContactMechanicsTHM(unittest.TestCase):
         fracture_temperature = d_1[pp.STATE][setup.temperature_variable]
 
         displacement_jump_global_coord = (
-            mg.mortar_to_slave_avg(nd=nd) * mg.sign_of_mortar_sides(nd=nd) * u_mortar
+            mg.mortar_to_secondary_avg(nd=nd)
+            * mg.sign_of_mortar_sides(nd=nd)
+            * u_mortar
         )
         projection = d_m["tangential_normal_projection"]
 

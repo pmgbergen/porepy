@@ -1,11 +1,12 @@
 """
 Various integration tests for contact mechanics.
 """
-import numpy as np
+import test.common.contact_mechanics_examples
 import unittest
 
+import numpy as np
+
 import porepy as pp
-import test.common.contact_mechanics_examples
 
 
 class TestDilation(unittest.TestCase):
@@ -30,7 +31,9 @@ class TestDilation(unittest.TestCase):
         contact_force = d_1[pp.STATE][setup.contact_traction_variable]
 
         displacement_jump_global_coord = (
-            mg.mortar_to_slave_avg(nd=nd) * mg.sign_of_mortar_sides(nd=nd) * u_mortar
+            mg.mortar_to_secondary_avg(nd=nd)
+            * mg.sign_of_mortar_sides(nd=nd)
+            * u_mortar
         )
         projection = d_m["tangential_normal_projection"]
 
@@ -108,7 +111,7 @@ class TestDilation(unittest.TestCase):
         self.assertTrue(np.all(contact_force[1] < setup.zero_tol))
 
     def test_pull_south_closed(self):
-        """ Pull downwards and displace in x direction. Due to large dilation angle,
+        """Pull downwards and displace in x direction. Due to large dilation angle,
         the fracture remains closed."""
         setup = SetupContactMechanics(
             ux_south=0.1, uy_south=-0.1, ux_north=0, uy_north=0
@@ -128,7 +131,7 @@ class TestDilation(unittest.TestCase):
         self.assertTrue(np.all(contact_force[1] < setup.zero_tol))
 
     def test_pull_south_open(self):
-        """ Pull downwards and displace in x direction. Due to smaller dilation angle
+        """Pull downwards and displace in x direction. Due to smaller dilation angle
         than above, fracture is open closed."""
         setup = SetupContactMechanics(
             ux_south=0.1, uy_south=-0.1, ux_north=0, uy_north=0
@@ -161,8 +164,7 @@ class TestDilation(unittest.TestCase):
         self.assertTrue(np.all(contact_force[1] < setup.zero_tol))
 
     def test_two_steps(self):
-        """ First pull apart, then displace horizontally.
-        """
+        """First pull apart, then displace horizontally."""
         setup = SetupContactMechanics(
             ux_south=0.1, uy_south=-0.09, ux_north=0, uy_north=0
         )
@@ -263,7 +265,7 @@ class SetupContactMechanics(
                 )
 
     def before_newton_loop(self):
-        """ Will be run before entering a Newton loop. 
+        """Will be run before entering a Newton loop.
         E.g.
            Discretize time-dependent quantities etc.
            Update time-dependent parameters (captured by assembly).

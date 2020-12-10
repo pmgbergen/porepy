@@ -1,8 +1,9 @@
-import numpy as np
 import unittest
+from test import test_utils
+
+import numpy as np
 
 import porepy as pp
-from test import test_utils
 
 
 def setup_cart_2d(nx):
