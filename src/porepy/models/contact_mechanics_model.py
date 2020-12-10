@@ -169,11 +169,6 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         self._iteration += 1
         self._update_iterate(solution_vector)
 
-        u = solution_vector[
-            self.assembler.dof_ind(self._nd_grid(), self.displacement_variable)
-        ]
-        self.viz.write_vtk({"ux": u[::2], "uy": u[1::2]})
-
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
@@ -681,7 +676,6 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
     def _initialize_linear_solver(self) -> None:
         solver: str = self.params.get("linear_solver", "direct")
-
         if solver == "direct":
             """In theory, it should be possible to instruct SuperLU to reuse the
             symbolic factorization from one iteration to the next. However, it seems

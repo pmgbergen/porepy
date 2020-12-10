@@ -8,25 +8,14 @@ import copy
 import csv
 import logging
 import time
-import warnings
+from typing import Dict
 
+import meshio
 import numpy as np
 
 import porepy as pp
 from porepy.grids.constants import GmshConstants
 from porepy.utils import setmembership, sort_points
-
-# Imports of external packages that may not be present at the system. The
-# module will work without any of these, but with limited functionalbility.
-try:
-    import vtk
-    import vtk.util.numpy_support as vtk_np
-except ImportError:
-    warnings.warn(
-        "VTK module is not available. Export of fracture network to\
-    vtk will not work."
-    )
-
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -2130,9 +2119,14 @@ class FractureNetwork3d(object):
                 )[0][0]
                 del self.intersections[isect_place]
 
-    def to_vtk(self, file_name, data=None, binary=True, export_domain_boundary=True):
+    def to_file(
+        self, file_name: str, data: Dict[str, np.ndarray] = None, **kwargs
+    ) -> None:
         """
-        Export the fracture network to vtk.
+        Export the fracture network to file.
+
+        The file format is given as an kwarg, by default vtu will be used. The writing is
+        outsourced to meshio, thus the file format should be supported by that package.
 
         The fractures are treated as polygonal cells, with no special treatment
         of intersections.
@@ -2146,63 +2140,92 @@ class FractureNetwork3d(object):
             data (dictionary, optional): Data associated with the fractures.
                 The values in the dictionary should be numpy arrays. 1d and 3d
                 data is supported. Fracture numbers are always exported.
-            binary (boolean, optional): Use binary export format. Defaults to
+
+        Optional arguments in kwargs:
+            binary (boolean): Use binary export format. Default to
                 True.
-            export_domain_boundary (boolean, optional): If True (defalut) bounding
-                planes of the domain are included in the export.
+            fracture_offset (int): Use to define the offset for a
+                fracture id. Default to 1.
+            folder_name (string): Path to save the file. Default to "./".
+            extension (string): File extension. Default to ".vtu".
+
+        See also the functions self.to_fab() and self.to_csv().
 
         """
-        network_vtk = vtk.vtkUnstructuredGrid()
-
-        point_counter = 0
-        pts_vtk = vtk.vtkPoints()
-        for fi, f in enumerate(self._fractures):
-            if not export_domain_boundary and self.tags["boundary"][fi]:
-                continue
-
-            # Add local points
-            for p in f.p.T:
-                pts_vtk.InsertNextPoint(*p)
-
-            # Indices of local points
-            loc_pt_id = point_counter + np.arange(f.p.shape[1], dtype="int")
-            # Update offset
-            point_counter += f.p.shape[1]
-
-            # Add bounding polygon
-            frac_vtk = vtk.vtkIdList()
-            for p in loc_pt_id:
-                frac_vtk.InsertNextId(p)
-            # Close polygon
-            frac_vtk.InsertNextId(loc_pt_id[0])
-
-            network_vtk.InsertNextCell(vtk.VTK_POLYGON, frac_vtk)
-
-        # Add the points
-        network_vtk.SetPoints(pts_vtk)
-
-        writer = vtk.vtkXMLUnstructuredGridWriter()
-        writer.SetInputData(network_vtk)
-        writer.SetFileName(file_name)
-
-        if not binary:
-            writer.SetDataModeToAscii()
-
-        # Cell-data to be exported is at least the fracture numbers
         if data is None:
             data = {}
-        # Use offset 1 for fracture numbers (should we rather do 0?)
-        data["Fracture_Number"] = 1 + np.arange(len(self._fractures))
 
-        for name, data in data.items():
-            data_vtk = vtk_np.numpy_to_vtk(
-                data.ravel(order="F"), deep=True, array_type=vtk.VTK_DOUBLE
-            )
-            data_vtk.SetName(name)
-            data_vtk.SetNumberOfComponents(1 if data.ndim == 1 else 3)
-            network_vtk.GetCellData().AddArray(data_vtk)
+        binary: bool = kwargs.pop("binary", True)
+        fracture_offset: int = kwargs.pop("fracture_offset", 1)
+        extension: str = kwargs.pop("extension", ".vtu")
+        folder_name: str = kwargs.pop("folder_name", "")
 
-        writer.Update()
+        if kwargs:
+            msg = "Got unexpected keyword argument '{}'"
+            raise TypeError(msg.format(kwargs.popitem()[0]))
+
+        if not file_name.endswith(extension):
+            file_name += extension
+
+        # fracture points
+        meshio_pts = np.empty((0, 3))
+        # map cell->nodes
+        cell_to_nodes = {}
+        # cell id map
+        cell_id = {}
+        # counter for the points
+        pts_pos = 0
+
+        # we operate fracture by fracture
+        for fid, frac in enumerate(self._fractures):
+            # save the points of the fracture
+            meshio_pts = np.vstack((meshio_pts, frac.p.T))
+            num_pts = frac.p.shape[1]
+            # determine the fracture type
+            cell_type = "polygon" + str(num_pts)
+            # just stack all the nodes after the others
+            nodes = pts_pos + np.arange(num_pts)
+            pts_pos += num_pts
+            # polygon should be stored uniformly
+            if cell_type not in cell_to_nodes:
+                cell_to_nodes[cell_type] = nodes
+                cell_id[cell_type] = [fid]
+            else:
+                cell_to_nodes[cell_type] = np.vstack((cell_to_nodes[cell_type], nodes))
+                cell_id[cell_type] += [fid]
+
+        # construct the meshio data structure
+        num_block = len(cell_to_nodes)
+        meshio_cells = np.empty(num_block, dtype=np.object)
+        meshio_cell_id = np.empty(num_block, dtype=np.object)
+
+        for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
+            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
+            meshio_cell_id[block] = np.array(cell_id[cell_type])
+
+        # add also the fracture number to the data to export
+        data.update(
+            {"fracture_number": fracture_offset + np.arange(len(self._fractures))}
+        )
+
+        meshio_data = {}
+        # store also the data
+        for key, val in data.items():
+            # for each field create a sub-vector for each geometrically uniform group of cells
+            meshio_data[key] = np.empty(num_block, dtype=np.object)
+            # fill up the data
+            for block, ids in enumerate(meshio_cell_id):
+                if val.ndim == 1:
+                    meshio_data[key][block] = val[ids]
+                elif val.ndim == 2:
+                    meshio_data[key][block] = val[:, ids].T
+                else:
+                    raise ValueError
+
+        meshio_grid_to_export = meshio.Mesh(
+            meshio_pts, meshio_cells, cell_data=meshio_data
+        )
+        meshio.write(folder_name + file_name, meshio_grid_to_export, binary=binary)
 
     def _to_gmsh(self, file_name, constraints=None, in_3d=True, **kwargs):
         """Write the fracture network as input for mesh generation by gmsh.
