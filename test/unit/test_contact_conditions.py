@@ -3,7 +3,7 @@ Unit tests for discretization of contact conditions. Specifically, the tests ver
 the coefficients in front of mortar displacement and contact forces are correctly
 calculated for a set of different fracture states (open, contact and sticking, contact
 and sliding). Moreover, the projection of contact forces onto the mortar grids are also
-verified. Tests are set up for different angles of the fracture compared to the 
+verified. Tests are set up for different angles of the fracture compared to the
 xy axis, and for different directions of the normal and tangential vectors of the
 local coordinate systems in the fracture.
 
@@ -251,7 +251,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         self._set_coefficients_no_penetration()
         self.verify(model)
 
-    """ Tests for contact, but sticking. 
+    """ Tests for contact, but sticking.
     """
 
     def _set_coefficients_contact_sticking(self, angle, u_mortar, contact_force):
@@ -741,15 +741,15 @@ class ContactModel2d(ContactMechanics):
         elif not pos_normal and proj[1, 1, 0] > 0:
             proj[1] *= -1
 
-        self.set_parameters()
+        self._set_parameters()
 
         data = self.gb.node_props(self.g2)
         data[pp.PARAMETERS][self.mechanics_parameter_key]["inverter"] = "python"
 
-        self.assign_variables()
-        self.assign_discretizations()
+        self._assign_variables()
+        self._assign_discretizations()
         self.set_state(u_mortar, contact_force)
-        self.discretize()
+        self._discretize()
 
     def get_matrices(self):
 
@@ -855,7 +855,7 @@ class ContactModel2d(ContactMechanics):
         d["mortar_grid"] = mg
 
         self.gb = gb
-        self.Nd = 2
+        self._Nd = 2
 
         self.g1 = g_1d
         self.g2 = g_2d
@@ -867,11 +867,11 @@ class ContactModel2d(ContactMechanics):
         # conflict with different parameters.
 
         for g, d in self.gb:
-            if g.dim == self.Nd:
+            if g.dim == self._Nd:
                 # Initialize displacement variable
-                state = {self.displacement_variable: np.zeros(g.num_cells * self.Nd)}
+                state = {self.displacement_variable: np.zeros(g.num_cells * self._Nd)}
 
-            elif g.dim == self.Nd - 1:
+            elif g.dim == self._Nd - 1:
                 # Initialize contact variable
                 traction = contact_force
                 state = {
@@ -888,7 +888,7 @@ class ContactModel2d(ContactMechanics):
         for _, d in self.gb.edges():
             mg = d["mortar_grid"]
 
-            if mg.dim == self.Nd - 1:
+            if mg.dim == self._Nd - 1:
                 state = {
                     # Set a zero state in previous time step
                     self.mortar_displacement_variable: 0 * u_mortar,
