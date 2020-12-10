@@ -19,7 +19,7 @@ isort:skip_file
 
 """
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 
 # ------------------------------------
 # Simplified namespaces. The rue of thumb is that classes and modules that a
