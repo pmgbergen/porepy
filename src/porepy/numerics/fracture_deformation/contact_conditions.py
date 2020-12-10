@@ -34,7 +34,7 @@ For the case u_t = 0, we extend the Jacobian to 0, i.e.
     dg/du_t(|| u_t || = 0) = 0.
 """
 import logging
-from typing import Dict, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -177,7 +177,7 @@ class ColoumbContact:
         # IMPLEMENATION NOTE: It is paramount that this projection is used for all
         # operations relating to this surface, or else directions of normal vectors
         # will get confused.
-        projection = data_edge["tangential_normal_projection"]
+        projection = data_l["tangential_normal_projection"]
 
         # The contact force is already computed in local coordinates
         contact_force = data_l[pp.STATE][pp.ITERATE][self.contact_variable]
@@ -569,7 +569,9 @@ class ColoumbContact:
         return np.sqrt(np.sum(x ** 2, axis=0))
 
 
-def set_projections(gb: pp.GridBucket) -> None:
+def set_projections(
+    gb: pp.GridBucket, edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None
+) -> None:
     """Define a local coordinate system, and projection matrices, for all
     grids of co-dimension 1.
 
@@ -584,12 +586,16 @@ def set_projections(gb: pp.GridBucket) -> None:
     It is assumed that the surface is planar.
 
     """
+    if edges is None:
+        edges = [e for e, _ in gb.edges()]
+
     # Information on the vector normal to the surface is not available directly
     # from the surface grid (it could be constructed from the surface geometry,
     # which spans the tangential plane). We instead get the normal vector from
     # the adjacent higher dimensional grid.
     # We therefore access the grids via the edges of the mixed-dimensional grid.
-    for e, d_m in gb.edges():
+    for e in edges:
+        d_m = gb.edge_props(e)
 
         mg = d_m["mortar_grid"]
         # Only consider edges where the lower-dimensional neighbor is of co-dimension 1
@@ -597,7 +603,7 @@ def set_projections(gb: pp.GridBucket) -> None:
             continue
 
         # Neigboring grids
-        _, g_h = gb.nodes_of_edge(e)
+        g_l, g_h = gb.nodes_of_edge(e)
 
         # Find faces of the higher dimensional grid that coincide with the mortar
         # grid. Go via the primary to mortar projection
@@ -607,7 +613,7 @@ def set_projections(gb: pp.GridBucket) -> None:
 
         # Find out whether the boundary faces have outwards pointing normal vectors
         # Negative sign implies that the normal vector points inwards.
-        sgn = g_h.sign_of_faces(faces_on_surface)
+        sgn, _ = g_h.signs_and_cells_of_boundary_faces(faces_on_surface)
 
         # Unit normal vector
         unit_normal = g_h.face_normals[: g_h.dim] / g_h.face_areas
@@ -615,14 +621,14 @@ def set_projections(gb: pp.GridBucket) -> None:
         unit_normal[:, faces_on_surface] *= sgn
 
         # Now we need to pick out *one*  normal vector of the higher dimensional grid
-        # which coincides with this mortar grid. This could probably have been
-        # done with face tags, but we instead project the normal vectors onto the
-        # mortar grid to kill off all irrelevant faces. Restriction to a single
-        # normal vector is done in the construction of the projection object
-        # (below).
-        # NOTE: Use a single normal vector to span the tangential and normal space,
-        # thus assuming the surface is planar.
+
+        # which coincides with this mortar grid, so we kill off all entries for the
+        # "other" side:
+        unit_normal[:, mg._ind_face_on_other_side] = 0
+
+        # Project to the mortar and then to the fracture
         outwards_unit_vector_mortar = mg.primary_to_mortar_int().dot(unit_normal.T).T
+        normal_lower = mg.mortar_to_secondary_int().dot(outwards_unit_vector_mortar.T).T
 
         # NOTE: The normal vector is based on the first cell in the mortar grid,
         # and will be pointing from that cell towards the other side of the
@@ -634,9 +640,8 @@ def set_projections(gb: pp.GridBucket) -> None:
         #
         # NOTE: The basis for the tangential direction is determined by the
         # construction internally in TangentialNormalProjection.
-        projection = pp.TangentialNormalProjection(
-            outwards_unit_vector_mortar[:, 0].reshape((-1, 1))
-        )
+        projection = pp.TangentialNormalProjection(normal_lower)
 
-        # Store the projection operator in the mortar data
-        d_m["tangential_normal_projection"] = projection
+        d_l = gb.node_props(g_l)
+        # Store the projection operator in the lower-dimensional data
+        d_l["tangential_normal_projection"] = projection
