@@ -527,7 +527,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         u = solution_vector[
             self.assembler.dof_ind(self._nd_grid(), self.displacement_variable)
         ]
-        self.viz.write_vtk({"ux": u[::2], "uy": u[1::2]})
+        self.viz.write_vtu({"ux": u[::2], "uy": u[1::2]})
 
     def after_newton_convergence(self, solution, errors, iteration_counter):
         self.assembler.distribute_variable(solution)
