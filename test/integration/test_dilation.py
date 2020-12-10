@@ -35,7 +35,7 @@ class TestDilation(unittest.TestCase):
             * mg.sign_of_mortar_sides(nd=nd)
             * u_mortar
         )
-        projection = d_m["tangential_normal_projection"]
+        projection = d_1["tangential_normal_projection"]
 
         project_to_local = projection.project_tangential_normal(int(mg.num_cells / 2))
         u_mortar_local = project_to_local * displacement_jump_global_coord
@@ -212,21 +212,22 @@ class SetupContactMechanics(
         fractures. The two sides of the fractures are coupled together with a
         mortar grid.
         """
-        rotate_fracture = getattr(self, "rotate_fracture", False)
-        endpoints = getattr(self, "fracture_endpoints", np.array([0.3, 0.7]))
-        if rotate_fracture:
-            self.gb, self.box = pp.grid_buckets_2d.single_vertical(
-                self.mesh_args, endpoints
-            )
-        else:
-            self.gb, self.box = pp.grid_buckets_2d.single_horizontal(
-                self.mesh_args, endpoints
-            )
+        if self.gb is None:
+            rotate_fracture = getattr(self, "rotate_fracture", False)
+            endpoints = getattr(self, "fracture_endpoints", np.array([0.3, 0.7]))
+            if rotate_fracture:
+                self.gb, self.box = pp.grid_buckets_2d.single_vertical(
+                    self.mesh_args, endpoints
+                )
+            else:
+                self.gb, self.box = pp.grid_buckets_2d.single_horizontal(
+                    self.mesh_args, endpoints
+                )
 
-        # Set projections to local coordinates for all fractures
-        pp.contact_conditions.set_projections(self.gb)
+            # Set projections to local coordinates for all fractures
+            pp.contact_conditions.set_projections(self.gb)
 
-        self.Nd = self.gb.dim_max()
+            self.Nd = self.gb.dim_max()
 
     def bc_values(self, g):
         _, _, _, north, south, _, _ = self.domain_boundary_sides(g)

@@ -74,7 +74,12 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         # Initialize grid bucket
         self.gb = None
 
+        # Set a convergence study. Not sure if a boolean is sufficient, or whether
+        # we should have an enum here.
+        self.convergence_status = False
         self.linear_solver = "direct"
+
+        self._iteration: int = 0
 
     def create_grid(self):
         """Create a (fractured) domain in 2D or 3D, with projections to local
@@ -296,7 +301,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 state = {}
             pp.set_state(d, state)
 
-    def update_state(self, solution_vector):
+    def _update_iterate(self, solution_vector):
         """
         Extract parts of the solution for current iterate.
 
@@ -366,7 +371,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
         return state
 
-    def reconstruct_local_displacement_jump(self, data_edge, from_iterate=True):
+    def reconstruct_local_displacement_jump(
+        self, data_edge, projection, from_iterate=True
+    ):
         """
         Reconstruct the displacement jump in local coordinates.
 
@@ -391,7 +398,6 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             * mg.sign_of_mortar_sides(nd=self.Nd)
             * mortar_u
         )
-        projection = data_edge["tangential_normal_projection"]
         # Rotated displacement jumps. these are in the local coordinates, on
         project_to_local = projection.project_tangential_normal(int(mg.num_cells / 2))
         u_mortar_local = project_to_local * displacement_jump_global_coord
@@ -479,8 +485,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
     def discretize(self):
         """Discretize all terms"""
-
-        self.assembler = pp.Assembler(self.gb)
+        if not hasattr(self, "assembler"):
+            self.assembler = pp.Assembler(self.gb)
 
         tic = time.time()
         logger.info("Discretize")
@@ -491,7 +497,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         """Will be run before entering a Newton loop.
         Discretize time-dependent quantities etc.
         """
-        pass
+        self.convergence_status = False
+        self._iteration = 0
 
     def before_newton_iteration(self):
         # Re-discretize the nonlinear term
@@ -514,7 +521,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             (np.array): displacement solution vector for the Nd grid.
 
         """
-        self.update_state(solution_vector)
+        self._iteration += 1
+        self._update_iterate(solution_vector)
 
         u = solution_vector[
             self.assembler.dof_ind(self._nd_grid(), self.displacement_variable)
@@ -523,6 +531,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
     def after_newton_convergence(self, solution, errors, iteration_counter):
         self.assembler.distribute_variable(solution)
+        self.convergence_status = True
 
     def check_convergence(self, solution, prev_solution, init_solution, nl_params=None):
         g_max = self._nd_grid()

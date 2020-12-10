@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 class THM(parent_model.ContactMechanicsBiot):
     def __init__(self, params: Dict = None) -> None:
-        super().__init__(params)
+        super(THM, self).__init__(params)
 
         # temperature
         self.temperature_variable = "T"
@@ -60,6 +60,8 @@ class THM(parent_model.ContactMechanicsBiot):
         self.temperature_parameter_key = "temperature"
 
         # Scaling coefficients for temperature
+        # NOTE: temperature_scale different from 1 has not been tested, and will likely
+        # introduce errors.
         self.temperature_scale = 1
         self.T_0_Kelvin = pp.CELSIUS_to_KELVIN(0)
 
@@ -561,7 +563,12 @@ class THM(parent_model.ContactMechanicsBiot):
         weight_div_u = beta
         key_m_from_t = self.mechanics_temperature_parameter_key
         d[pp.DISCRETIZATION_MATRICES][key_m_from_t] = matrices_mt
-        d[pp.PARAMETERS][key_m_from_t] = {"biot_alpha": weight_div_u}
+        pp.initialize_data(
+            g,
+            d,
+            key_m_from_t,
+            {"biot_alpha": weight_div_u},
+        )
         bc_dict = {"bc_values": self.bc_values_mechanics(g)}
         state = {key_m_from_t: bc_dict}
         pp.set_state(d, state)
@@ -581,7 +588,7 @@ class THM(parent_model.ContactMechanicsBiot):
         d[pp.STATE][key]["bc_values"] = d[pp.PARAMETERS][key]["bc_values"].copy()
         d[pp.STATE][key_t]["bc_values"] = d[pp.PARAMETERS][key_t]["bc_values"].copy()
 
-    def update_state(self, solution_vector: np.ndarray) -> None:
+    def _update_iterate(self, solution_vector: np.ndarray) -> None:
         """
         Extract parts of the solution for current iterate.
 
@@ -594,7 +601,7 @@ class THM(parent_model.ContactMechanicsBiot):
             solution_vector (np.array): solution vector for the current iterate.
 
         """
-        super().update_state(solution_vector)
+        super()._update_iterate(solution_vector)
         assembler = self.assembler
         variable_names = []
         for pair in assembler.block_dof.keys():

@@ -32,7 +32,7 @@ class TestContactMechanics(unittest.TestCase):
             * mg.sign_of_mortar_sides(nd=nd)
             * u_mortar
         )
-        projection = d_m["tangential_normal_projection"]
+        projection = d_1["tangential_normal_projection"]
 
         project_to_local = projection.project_tangential_normal(int(mg.num_cells / 2))
         u_mortar_local = project_to_local * displacement_jump_global_coord

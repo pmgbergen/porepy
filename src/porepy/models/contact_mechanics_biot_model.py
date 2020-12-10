@@ -422,7 +422,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             else:
                 d[pp.PRIMARY_VARIABLES] = {self.mortar_scalar_variable: {"cells": 1}}
 
-    def discretize_biot(self) -> None:
+    def discretize_biot(self, update_after_geometry_change=False) -> None:
         """
         To save computational time, the full Biot equation (without contact mechanics)
         is discretized once. This is to avoid computing the same terms multiple times.
@@ -435,7 +435,10 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             vector_variable=self.displacement_variable,
             scalar_variable=self.scalar_variable,
         )
-        biot.discretize(g, d)
+        if update_after_geometry_change:
+            biot.update_discretization(g, d)
+        else:
+            biot.discretize(g, d)
 
     def initial_condition(self) -> None:
         """
@@ -517,12 +520,12 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         self.assembler.discretize(filt=filt)
 
     def after_newton_iteration(self, solution: np.ndarray) -> None:
-        self.update_state(solution)
+        self._update_iterate(solution)
 
     def after_newton_convergence(
         self, solution: np.ndarray, errors: List, iteration_counter: int
     ) -> None:
-        self.assembler.distribute_variable(solution)
+        super().after_newton_convergence(solution, errors, iteration_counter)
         self.save_mechanical_bc_values()
 
     def save_mechanical_bc_values(self) -> None:

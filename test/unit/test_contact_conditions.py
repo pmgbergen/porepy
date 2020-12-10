@@ -71,9 +71,9 @@ class ContactConditionColoumb2d(unittest.TestCase):
         # Recover the projection matrix used in the mapping between local and global
         # coordinates.
         # The tangent vector is in the first row, normal in the second
-        proj = model.gb.edge_props(model.edge)[
-            "tangential_normal_projection"
-        ].projection[:, :, 0]
+        proj = model.gb.node_props(model.g1)["tangential_normal_projection"].projection[
+            :, :, 0
+        ]
 
         # The normal vector is considered positive if it points in the y-direction.
         self.pos_normal = proj[1, 1] > 0
@@ -731,7 +731,7 @@ class ContactModel2d(ContactMechanics):
 
         pp.contact_conditions.set_projections(self.gb)
 
-        proj = self.gb.edge_props(self.edge)["tangential_normal_projection"].projection
+        proj = self.gb.node_props(self.g1)["tangential_normal_projection"].projection
         if pos_tangent and proj[0, 0, 0] < 0:
             proj[0] *= -1
         elif not pos_tangent and proj[0, 0, 0] > 0:
@@ -956,7 +956,7 @@ class ContactModel3d(ContactModel2d):
         elif not pos_normal and proj[2, 2] > 0:
             proj[2] *= -1
 
-        self.gb.edge_props(self.edge)["tangential_normal_projection"].projection[
+        self.gb.node_props(self.g1)["tangential_normal_projection"].projection[
             :, :, 0
         ] = proj
 
