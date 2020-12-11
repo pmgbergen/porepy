@@ -455,7 +455,7 @@ class Discretization:
 
     def __init__(
         self,
-        grid_discr: Dict[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], pp.Discretization],
+        grid_discr: Dict[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], "pp.AbstractDiscretization"],
         name: Optional[str] = None,
         mat_dict_key: Optional[str] = None,
     ):
@@ -508,7 +508,7 @@ class Discretization:
         # Make a merged discretization for each of the identified terms.
         # If some keys are not shared by all values in grid_discr, errors will result.
         for key in key_set:
-            op = _MergedDiscretization(grid_discr, key, self.mat_dict_key)
+            op = MergedOperator(grid_discr, key, self.mat_dict_key)
             setattr(self, key, op)
 
     def __repr__(self) -> str:
@@ -527,7 +527,7 @@ class Discretization:
         return s
 
 
-class _MergedDiscretization(Operator):
+class MergedOperator(Operator):
     """Representation of specific discretization fields for an Ad discretization.
 
     This is the bridge between the representation of discretization classes, implemented
@@ -540,7 +540,7 @@ class _MergedDiscretization(Operator):
 
     def __init__(
         self,
-        grid_discr: Dict[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], pp.Discretization],
+        grid_discr: Dict[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], "pp.AbstractDiscretization"],
         key: str,
         mat_dict_key: Optional[str] = None,
     ) -> None:
