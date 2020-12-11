@@ -40,7 +40,7 @@ class Equation:
         name (str): Name identifier of this variable.
 
     """
-    def __init__(self, operator: pp.ad.Operator, dof_manager: pp.DofManager, name: str = None):
+    def __init__(self, operator: operators.Operator, dof_manager: pp.DofManager, name: str = None):
         """ Define an Equation.
 
         Parameters:

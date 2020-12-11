@@ -200,7 +200,7 @@ class MortarProjections(Operator):
     def __init__(
         self,
         grids: Optional[List[pp.Grid]] = None,
-        gb: pp.GridBucket,
+        gb: pp.GridBucket = None,
         edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None,
         nd: int = 1,
     ) -> None:
