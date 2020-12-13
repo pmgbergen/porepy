@@ -231,6 +231,58 @@ def test_boundary_condition(scalar):
     assert np.allclose(val, known_values)
 
 
+class MockDiscretization:
+    def __init__(self, key):
+        self.foobar_matrix_key = "foobar"
+        self.not_matrix_keys = "failed"
+
+        self.keyword = key
+
+
+def test_discretization_class():
+
+    fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
+    gb = pp.meshing.cart_grid(fracs, [2, 2])
+
+    grid_list = np.array([g for g, _ in gb])
+
+    # Make two Mock discretizaitons, with different keywords
+    key = 'foo'
+    sub_key = 'bar'
+    discr = MockDiscretization(key)
+    sub_discr = MockDiscretization(sub_key)
+
+    # First discretization applies to all grids, the second just to a subset
+    discr_map = {g: discr for g in grid_list}
+    sub_discr_map = {g: sub_discr for g in grid_list[:2]}
+
+    # Ad wrappers
+    discr_ad = pp.ad.Discretization(discr_map)
+    sub_discr_ad = pp.ad.Discretization(sub_discr_map)
+
+    # Check that the Ad wrapper has made a field of foobar, but not of the attribute
+    # with a slightly misspelled name
+    assert hasattr(discr_ad, 'foobar')
+    assert not hasattr(discr_ad, 'not')
+
+    # values
+    known_val= np.random.rand(len(discr_map))
+    known_sub_val= np.random.rand(len(sub_discr_map))
+
+    # Assign a value to the discretization matrix, with the right key
+    for vi, g in enumerate(discr_map):
+        d = gb.node_props(g)
+        d[pp.DISCRETIZATION_MATRICES] = {key: {'foobar': known_val[vi]}}
+
+    # Same with submatrix
+    for vi, g in enumerate(sub_discr_map):
+        d = gb.node_props(g)
+        d[pp.DISCRETIZATION_MATRICES].update({sub_key: {'foobar': known_sub_val[vi]}})
+
+    # Compare values under parsing. Note we need to pick out the diagonal, due to the
+    # way parsing make block matrices.
+    assert np.allclose(known_val, discr_ad.foobar.parse(gb).diagonal())
+    assert np.allclose(known_sub_val, sub_discr_ad.foobar.parse(gb).diagonal())
 
 
 # Helper method to get indices for sparse matrices
