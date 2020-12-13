@@ -109,7 +109,7 @@ class SubdomainProjections(Operator):
         elif isinstance(grids, list):
             # A key error will be raised if a grid in g is not known to self._cell_projection
             return pp.ad.Matrix(
-                sps.bmat([self._cell_projection[g] for g in grids]).tocsr()
+                sps.bmat([[self._cell_projection[g] for g in grids]]).tocsr()
             )
         else:
             raise ValueError("Argument should be a grid or a list of grids")
@@ -153,7 +153,7 @@ class SubdomainProjections(Operator):
         elif isinstance(grids, list):
             # A key error will be raised if a grid in g is not known to self._cell_projection
             return pp.ad.Matrix(
-                sps.bmat([self._face_projection[g] for g in grids]).tocsr()
+                sps.bmat([[self._face_projection[g] for g in grids]]).tocsr()
             )
         else:
             raise ValueError("Argument should be a grid or a list of grids")
@@ -417,12 +417,14 @@ class Trace(MergedOperator):
 
 
 class Divergence(MergedOperator):
-    """Wrapper class for Ad representations of divergence operators.
+    """Wrapper class for Ad representations of divergence operators."""
 
-    """
-
-    def __init__(self, grids: Optional[List[pp.Grid]], gb: Optional[pp.GridBucket],
-                 is_scalar: bool=True):
+    def __init__(
+        self,
+        grids: Optional[List[pp.Grid]] = None,
+        gb: Optional[pp.GridBucket] = None,
+        is_scalar: bool = True,
+    ):
         """Construct divergence operators for a set of subdomains.
 
         The operators will be ordered according to the ordering in grids, or the order
@@ -472,7 +474,7 @@ class Divergence(MergedOperator):
         return s
 
     def parse(self, gb: pp.GridBucket) -> sps.spmatrix:
-        """ Convert the Ad expression into a divergence operators on all relevant grids,
+        """Convert the Ad expression into a divergence operators on all relevant grids,
         represented as a sparse block matrix.
 
         Pameteres:
@@ -493,11 +495,14 @@ class Divergence(MergedOperator):
 
 
 class BoundaryCondition(MergedOperator):
-    """Wrapper class for Ad representations of boundary conditions for a given keyword.
+    """Wrapper class for Ad representations of boundary conditions for a given keyword."""
 
-    """
-    def __init__(self, keyword: str, grids: Optional[List[pp.Grid]], gb: Optional[pp.GridBucket],
-                 ):
+    def __init__(
+        self,
+        keyword: str,
+        grids: Optional[List[pp.Grid]] = None,
+        gb: Optional[pp.GridBucket] = None,
+    ):
         """Construct a wrapper for boundary conditions for a set of subdomains.
 
         The boundary values will be ordered according to the ordering in grids, or theorder
@@ -535,7 +540,7 @@ class BoundaryCondition(MergedOperator):
         return s
 
     def parse(self, gb: pp.GridBucket) -> np.ndarray:
-        """ Convert the Ad expression into numerical values for the boundary conditions,
+        """Convert the Ad expression into numerical values for the boundary conditions,
         in the form of an np.ndarray concatenated for all grids.
 
         Pameteres:
@@ -556,6 +561,7 @@ class BoundaryCondition(MergedOperator):
 
 #### Helper methods below
 
+
 def _grid_list(grids: List[pp.Grid], gb: pp.GridBucket) -> List[pp.Grid]:
     # Helper method to parse input data
     if grids is None:
@@ -565,6 +571,7 @@ def _grid_list(grids: List[pp.Grid], gb: pp.GridBucket) -> List[pp.Grid]:
             )
         grids = [g for g, _ in gb]
     return grids
+
 
 def _subgrid_projections(
     grids: List[pp.Grid], nd: int
