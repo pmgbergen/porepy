@@ -18,6 +18,9 @@ def test_md_flow():
     gb = pp.meshing.cart_grid(fracs=[frac_1, frac_2, frac_3], nx=np.array([6, 6, 6]))
     gb.compute_geometry()
 
+    pressure_variable = 'pressure'
+    flux_variable = 'mortar_flux'
+
     keyword = "flow"
     discr = pp.Tpfa(keyword)
     coupling_discr = pp.RobinCoupling(keyword, discr, discr)
@@ -33,17 +36,17 @@ def test_md_flow():
             specified_parameters = {}
         pp.initialize_default_data(g, d, "flow", specified_parameters)
 
-        d[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1}}
-        d[pp.DISCRETIZATION] = {"pressure": {"diff": discr}}
+        d[pp.PRIMARY_VARIABLES] = {pressure_variable: {"cells": 1}}
+        d[pp.DISCRETIZATION] = {pressure_variable: {"diff": discr}}
     for e, d in gb.edges():
         pp.initialize_data(d["mortar_grid"], d, "flow", {"normal_diffusivity": 1})
 
-        d[pp.PRIMARY_VARIABLES] = {"mortar_flux": {"cells": 1}}
+        d[pp.PRIMARY_VARIABLES] = {flux_variable: {"cells": 1}}
         d[pp.COUPLING_DISCRETIZATION] = {}
         d[pp.COUPLING_DISCRETIZATION]["coupling"] = {
-            e[0]: ("pressure", "diff"),
-            e[1]: ("pressure", "diff"),
-            e: ("mortar_flux", coupling_discr),
+            e[0]: (pressure_variable, "diff"),
+            e[1]: (pressure_variable, "diff"),
+            e: (flux_variable, coupling_discr),
         }
 
     dof_manager = pp.DofManager(gb)
@@ -55,14 +58,45 @@ def test_md_flow():
 
     manager = pp.EquationManager(gb, dof_manager)
 
-    flow_eq, interface_flux, *rest = pp.ad.equation_factory.flow(
-        manager,
+    grid_list = [g for g, _ in gb]
+    edge_list = [e for e, _ in gb.edges()]
+
+    discr_map = {g: discr for g in grid_list}
+    node_discr = pp.ad.Discretization(discr_map, keyword)
+
+    coupling = pp.RobinCoupling(keyword, discr, discr)
+    edge_map = {e: coupling for e in edge_list}
+    edge_discr = pp.ad.Discretization(edge_map, keyword)
+
+    bc_val = pp.ad.BoundaryCondition(keyword, grid_list)
+
+    projections = pp.ad.MortarProjections(gb=gb)
+    div = pp.ad.Divergence(grids=grid_list)
+
+    p = manager.merge_variables([(g, pressure_variable) for g in grid_list])
+    lmbda = manager.merge_variables([(e, flux_variable) for e in edge_list])
+
+    flux = (
+        node_discr.flux * p
+        + node_discr.bound_flux * bc_val
+        + node_discr.bound_flux * projections.mortar_to_primary_int * lmbda
+    )
+    flow_eq = div * flux - projections.mortar_to_secondary_int * lmbda
+
+    interface_flux = edge_discr.mortar_scaling * (
+        projections.primary_to_mortar_avg * node_discr.bound_pressure_cell * p
+        + projections.primary_to_mortar_avg
+        * node_discr.bound_pressure_face
+        * projections.mortar_to_primary_int
+        * lmbda
+        - projections.secondary_to_mortar_avg * p
+        + edge_discr.mortar_discr * lmbda
     )
 
-    manager._equations = [
-        pp.Equation(flow_eq, dof_manager),
-        pp.Equation(interface_flux, dof_manager),
-    ]
+    flow_eq_ad = pp.Equation(flow_eq, dof_manager)
+    interface_eq_ad = pp.Equation(interface_flux, dof_manager)
+
+    manager.equations += [flow_eq_ad, interface_eq_ad]
 
     state = np.zeros(gb.num_cells() + gb.num_mortar_cells())
     A, b = manager.assemble_matrix_rhs(state)
@@ -86,6 +120,12 @@ def test_biot():
     gb.compute_geometry()
     gb.add_nodes(g)
 
+    displacement_variable = "displacement"
+    pressure_variable = "pressure"
+
+    mechanics_keyword = "mechanics"
+    flow_keyword ="flow"
+
     d = gb.node_props(g)
 
     bc_flow = pp.BoundaryCondition(g, faces=np.array([0]), cond=["dir"])
@@ -94,54 +134,82 @@ def test_biot():
     bc_mech = pp.BoundaryConditionVectorial(g, faces=np.array([0]), cond=["dir"])
     bc_val_mech = np.ones(g.num_faces * g.dim)
 
-    mech_param = {"biot_alpha": 1, "bc": bc_mech, "bc_values": bc_val_mech}
-    flow_param = {"biot_alpha": 1, "bc": bc_flow, "bc_values": bc_val_flow}
-    pp.initialize_default_data(g, d, "mechanics", mech_param)
-    pp.initialize_default_data(g, d, "flow", flow_param)
+    mech_param = {"biot_alpha": 1, "bc": bc_mech, "bc_values": bc_val_mech, 'inverter': 'python'}
+    flow_param = {"biot_alpha": 1, "bc": bc_flow, "bc_values": bc_val_flow, 'inverter': 'python'}
+    pp.initialize_default_data(g, d, mechanics_keyword, mech_param)
+    pp.initialize_default_data(g, d, flow_keyword, flow_param)
 
     d[pp.PRIMARY_VARIABLES] = {
-        "displacement": {"cells": g.dim},
-        "pressure": {"cells": 1},
+        displacement_variable: {"cells": g.dim},
+        pressure_variable : {"cells": 1},
     }
 
     dof_manager = pp.DofManager(gb)
-    assembler = pp.Assembler(gb, dof_manager)
 
     biot = pp.Biot()
 
     state = np.zeros(g.num_cells * (g.dim + 1))
     dt = np.random.rand()
 
-    d[pp.PARAMETERS]["flow"]["time_step"] = dt
+    d[pp.PARAMETERS][flow_keyword]["time_step"] = dt
 
     d[pp.STATE] = {}
-    d[pp.STATE]["displacement"] = state[: g.num_cells * g.dim]
-    d[pp.STATE]["pressure"] = state[g.num_cells * g.dim :]
+    d[pp.STATE][displacement_variable] = state[: g.num_cells * g.dim]
+    d[pp.STATE][pressure_variable] = state[g.num_cells * g.dim :]
     # Presumed truth which we will compare with
     biot.discretize(g, d)
     A_biot, b_biot = biot.assemble_matrix_rhs(g, d)
 
     manager = pp.EquationManager(gb, dof_manager)
 
-    (
-        momentuum,
-        accumulation,
-        compr,
-        diffusion,
-        _,
-        div_u_rhs,
-        stab_rhs,
-        p,
-    ) = pp.ad.equation_factory.poro_mechanics(manager, g, d)
+    mech_discr = pp.Biot(
+        mechanics_keyword,
+        flow_keyword,
+        vector_variable=displacement_variable,
+        scalar_variable=pressure_variable,
+    )
 
-    manager._equations.append(
+    div_scalar = pp.ad.Divergence([g])
+    div_vector = pp.ad.Divergence([g], is_scalar=False)
+
+    mpsa = pp.ad.Discretization({g: pp.Mpsa(mechanics_keyword)})
+    gradp = pp.ad.Discretization({g: pp.GradP(mechanics_keyword)})
+    div_u = pp.ad.Discretization({g: pp.DivU(flow_keyword)}, mat_dict_key="flow")
+    stabilization = pp.ad.Discretization({g: pp.BiotStabilization(flow_keyword)})
+
+    mpfa = pp.Mpfa(flow_keyword)
+    mass = pp.MassMatrix(flow_keyword)
+
+    mpfa_discr = pp.ad.Discretization({g: mpfa})
+    mass_discr = pp.ad.Discretization({g: mass})
+
+    u = manager.variables[g][displacement_variable]
+    p = manager.variables[g][pressure_variable]
+
+    bc_flow = pp.ad.BoundaryCondition(flow_keyword, [g])
+    bc_mech = pp.ad.BoundaryCondition(mechanics_keyword, [g])
+
+    stress = mpsa.stress * u + gradp.grad_p * p + mpsa.bound_stress * bc_mech
+
+    momentuum = div_vector * stress
+
+    # TODO: Need biot-alpha here
+    accumulation = div_u.div_u * u + stabilization.stabilization * p
+
+    compr = mass_discr.mass
+    diffusion = div_scalar * (mpfa_discr.flux * p + mpfa_discr.bound_flux * bc_flow)
+
+    # rhs terms, must be scaled with time step
+    div_u_rhs = div_u.div_u
+    stab_rhs = stabilization.stabilization
+    manager.equations.append(
         pp.Equation(momentuum, dof_manager=dof_manager, name="Momentuum conservation")
     )
 
     flow_momentuum_eq = accumulation + compr * p + dt * diffusion
 
     u_state, p_state = manager.variable_state(
-        [(g, "displacement"), (g, "pressure")], state
+        [(g, displacement_variable), (g, pressure_variable)], state
     )
 
     flow_rhs = div_u_rhs * pp.ad.Array(u_state) + stab_rhs * pp.ad.Array(p_state)
@@ -149,7 +217,7 @@ def test_biot():
     flow_eq = pp.Equation(
         flow_momentuum_eq + flow_rhs, dof_manager=dof_manager, name="flow eqution"
     )
-    manager._equations.append(flow_eq)
+    manager.equations.append(flow_eq)
 
     A, b = manager.assemble_matrix_rhs(state)
 
@@ -157,3 +225,5 @@ def test_biot():
     if dm.data.size > 0:
         assert np.max(np.abs(dm.data)) < 1e-10
     assert np.max(np.abs(b - b_biot)) < 1e-10
+
+test_biot()
