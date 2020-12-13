@@ -271,9 +271,9 @@ class EquationManager:
         self._set_variables(gb)
 
         if equations is None:
-            self._equations = []
+            self.equations = []
         else:
-            self._equations = equations
+            self.equations = equations
             # Separate a dof-manager from assembler?
         self.dof_manager = dof_manager
 
@@ -314,7 +314,7 @@ class EquationManager:
 
         num_global_dofs = self.dof_manager.full_dof.sum()
 
-        for eq in self._equations:
+        for eq in self.equations:
             ad = eq.to_ad(self.gb, state)
 
             # The columns of the Jacobian has the size of the local variables.

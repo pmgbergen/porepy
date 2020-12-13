@@ -237,7 +237,7 @@ class Scalar(Operator):
     def __repr__(self) -> str:
         return f"Wrapped scalar with value {self.value}"
 
-    def parse(self):
+    def parse(self, gb: pp.GridBucket) -> float:
         """Convert the Ad Scalar into an actual number.
 
         Pameteres:
