@@ -23,7 +23,7 @@ grid_like_type = Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
 
 
 class Equation:
-    """ Ad representation of an equation.
+    """Ad representation of an equation.
 
     Conceptually, an Equation is an Operator tree that has been equated to zero.
 
@@ -40,8 +40,11 @@ class Equation:
         name (str): Name identifier of this variable.
 
     """
-    def __init__(self, operator: operators.Operator, dof_manager: pp.DofManager, name: str = None):
-        """ Define an Equation.
+
+    def __init__(
+        self, operator: operators.Operator, dof_manager: pp.DofManager, name: str = None
+    ):
+        """Define an Equation.
 
         Parameters:
             operator (pp.ad.Operator): Top-level operator of the Operator tree that will
@@ -84,7 +87,7 @@ class Equation:
         return f"Equation named {self.name}"
 
     def _find_subtree_variables(self, op: operators.Operator):
-        """ Method to recursively look for Variables (or MergedVariables) in an
+        """Method to recursively look for Variables (or MergedVariables) in an
         operator tree.
         """
         # The variables should be located at leaves in the tree. Traverse the tree

@@ -160,6 +160,7 @@ class Matrix(Operator):
         """
         self._mat = mat
         self._set_tree()
+        self.shape = mat.shape
 
     def __repr__(self) -> str:
         return f"Matrix with shape {self._mat.shape} and {self._mat.data.size} elements"
@@ -455,7 +456,9 @@ class Discretization:
 
     def __init__(
         self,
-        grid_discr: Dict[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], "pp.AbstractDiscretization"],
+        grid_discr: Dict[
+            Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], "pp.AbstractDiscretization"
+        ],
         name: Optional[str] = None,
         mat_dict_key: Optional[str] = None,
     ):
@@ -540,7 +543,9 @@ class MergedOperator(Operator):
 
     def __init__(
         self,
-        grid_discr: Dict[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], "pp.AbstractDiscretization"],
+        grid_discr: Dict[
+            Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], "pp.AbstractDiscretization"
+        ],
         key: str,
         mat_dict_key: Optional[str] = None,
     ) -> None:
