@@ -33,16 +33,13 @@ class SubdomainProjections(Operator):
         self,
         grids: Optional[List[pp.Grid]] = None,
         gb: Optional[List[pp.Grid]] = None,
-        is_scalar: bool = True,
+        nd: int = 1,
     ) -> None:
         """Construct sudomain restrictions and prolongations for a set of subdomains.
 
         The projections will be ordered according to the ordering in grids, or the order
         of the GridBucket iteration over grids. Iit is critical that the same ordering
         is used by other operators.
-
-        IMPLEMENTATION NOTE: Only scalar quantities so far; vector projections will be
-        added in due course.
 
         Parameters:
             grids (List of pp.Grid): List of grids. The order of the grids in the list
@@ -55,14 +52,9 @@ class SubdomainProjections(Operator):
         """
         grids = _grid_list(grids, gb)
 
-        self._is_scalar: bool = is_scalar
-        if not self._is_scalar:
-            raise NotImplementedError("Have only implemented scalar projections")
+        self._nd = nd
+        self._is_scalar: bool = nd == 1
 
-        if self._is_scalar:
-            self._nd: int = 1
-        else:
-            self._nd = gb.dim_max()
         self._num_grids: int = len(grids)
 
         self._cell_projection, self._face_projection = _subgrid_projections(
@@ -218,8 +210,7 @@ class MortarProjections(Operator):
             edges (List of edges, optional): List of edges for which the projections
                 should apply. If not provided, all grids in gb will be used. The order
                  of the grids in the list sets the ordering of the subdomain projections.
-            nd (int, optional): Dimension of the quantities to be projected. For now,
-                nd should be 1.
+            nd (int, optional): Dimension of the quantities to be projected.
 
         """
         grids = _grid_list(grids, gb)
@@ -349,16 +340,13 @@ class Trace(MergedOperator):
         self,
         grids: Optional[List[pp.Grid]] = None,
         gb: Optional[List[pp.Grid]] = None,
-        is_scalar: bool = True,
+        nd: int = 1,
     ):
         """Construct trace operators and their inverse for a given set of subdomains.
 
         The operators will be ordered according to the ordering in grids, or the order
         of the GridBucket iteration over grids. Iit is critical that the same ordering
         is used by other operators.
-
-        IMPLEMENTATION NOTE: Only scalar quantities so far; vector operators will be
-        added in due course.
 
         Parameters:
             grids (List of pp.Grid): List of grids. The order of the grids in the list
@@ -372,11 +360,8 @@ class Trace(MergedOperator):
 
         grids = _grid_list(grids, gb)
 
-        self._is_scalar: bool = is_scalar
-        if self._is_scalar:
-            self._nd: int = 1
-        else:
-            self._nd = gb.dim_max()
+        self._nd: int = nd
+        self._is_scalar: bool = nd == 1
         self._num_grids: int = len(grids)
 
         cell_projections, face_projections = _subgrid_projections(grids, self._nd)
@@ -587,14 +572,11 @@ def _subgrid_projections(
     face_projection: Dict[pp.Grid, np.ndarray] = {}
     cell_projection: Dict[pp.Grid, np.ndarray] = {}
 
-    tot_num_faces = np.sum([g.num_faces for g in grids])
-    tot_num_cells = np.sum([g.num_cells for g in grids])
+    tot_num_faces = np.sum([g.num_faces for g in grids]) * nd
+    tot_num_cells = np.sum([g.num_cells for g in grids]) * nd
 
     face_offset = 0
     cell_offset = 0
-
-    if nd != 1:
-        raise NotImplementedError("Need vector version of projections. Kronecker")
 
     for g in grids:
         face_ind = face_offset + pp.fvutils.expand_indices_nd(
@@ -603,7 +585,6 @@ def _subgrid_projections(
         cell_ind = cell_offset + pp.fvutils.expand_indices_nd(
             np.arange(g.num_cells), nd
         )
-
         face_sz, cell_sz = g.num_faces * nd, g.num_cells * nd
         face_projection[g] = sps.coo_matrix(
             (np.ones(face_sz), (face_ind, np.arange(face_sz))),
@@ -616,7 +597,9 @@ def _subgrid_projections(
 
         # Correct start of the numbering for the next grid
         if g.dim > 0:
+            # Point grids have no faces
             face_offset = face_ind[-1] + 1
+
         cell_offset = cell_ind[-1] + 1
 
     return cell_projection, face_projection
