@@ -3,6 +3,7 @@
 from enum import Enum
 from typing import Optional, List, Any, Tuple, Dict, Union, Callable
 from itertools import count
+import copy
 
 import numpy as np
 import porepy as pp
@@ -271,6 +272,7 @@ class Variable(Operator):
         ndof: Dict[str, int],
         grid_like: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]],
         num_cells: int = 0,
+        previous_timestep: bool = False,
     ):
         """Initiate an Ad representation of the variable.
 
@@ -283,11 +285,13 @@ class Variable(Operator):
                 is on an interface.
 
         """
-        self._name = name
-        self._cells = ndof.get("cells", 0)
-        self._faces = ndof.get("faces", 0)
-        self._nodes = ndof.get("nodes", 0)
+        self._name: str = name
+        self._cells: int = ndof.get("cells", 0)
+        self._faces: int = ndof.get("faces", 0)
+        self._nodes: int = ndof.get("nodes", 0)
         self.g = grid_like
+
+        self.prev_time: bool = previous_timestep
 
         # The number of cells in the grid. Will only be used if grid_like is a tuple
         # that is, if this is a mortar variable
@@ -313,6 +317,10 @@ class Variable(Operator):
                 + self.g.num_faces * self._faces
                 + self.g.num_nodes * self._nodes
             )
+
+    def previous_timestep(self) -> "Variable":
+        ndof = {'cells': self._cells, 'faces': self._faces, 'nodes': self._nodes}
+        return Variable(self._name, ndof, self.g, previous_timestep=True)
 
     def __repr__(self) -> str:
         s = (
@@ -358,6 +366,19 @@ class MergedVariable(Variable):
         self._set_tree()
 
         self.is_interface = isinstance(self.sub_vars[0].g, tuple)
+
+        self.prev_time: bool = False
+
+    def previous_timestep(self) -> "MergedVariable":
+        new_subs = [var.previous_timestep() for var in self.sub_vars]
+        new_var = MergedVariable(new_subs)
+        new_var.prev_time = True
+        return new_var
+
+    def copy(self) -> "MergedVariable":
+        # A shallow copy should be sufficient here; the attributes are not expected to
+        # change.
+        return copy.deepcopy(self)
 
     def __repr__(self) -> str:
         sz = np.sum([var.size() for var in self.sub_vars])
