@@ -186,6 +186,9 @@ class MortarProjections(Operator):
         secondary_to_mortar_avg (pp.ad.Matrix): Matrix of projections from the secondary
             grid to the mortar grid. Intended for intensive quantities (so pressures).
             Represented as an Ad Matrix operator.
+        sign_of_mortar_sides (pp.Ad.Matrix): Matrix represenation that assigns signs
+            to two mortar sides. Needed to implement a jump operator in contact
+            mechanics.
 
     """
 
@@ -308,6 +311,13 @@ class MortarProjections(Operator):
         self.secondary_to_mortar_avg = Matrix(
             sps.bmat([[m] for m in secondary_to_mortar_avg]).tocsr()
         )
+
+        # Also generate a merged version of MortarGrid.sign_of_mortar_sides:
+        mats = []
+        for e in edges:
+            mg = gb.edge_props(e, 'mortar_grid')
+            mats.append(mg.sign_of_mortar_sides(nd))
+        self.sign_of_mortar_sides = Matrix(sps.block_diag(mats))
 
     def __repr__(self) -> str:
         s = (
