@@ -1,6 +1,6 @@
-""" Implementation of a degree of freedom manager. 
+""" Implementation of a degree of freedom manager.
 """
-from typing import Dict, Tuple, Union, List
+from typing import Dict, Tuple, Union, List, Optional
 
 import numpy as np
 import porepy as pp
@@ -96,6 +96,47 @@ class DofManager:
         block_ind = self.block_dof[(g, name)]
         dof_start = np.hstack((0, np.cumsum(self.full_dof)))
         return np.arange(dof_start[block_ind], dof_start[block_ind + 1])
+
+    def num_dofs(self, g: Optional[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]] =None,
+                                   var: str = None) -> int:
+        """ Get the number of degrees of freedom for a specific grid and/or variable.
+
+        Four scenarios are possible:
+          * If a grid (or interface) is specified, the total size for all variables of
+            this grid is specified.
+          * If a variable is specified, the total size for instances of this variable
+            over all grids is returned.
+          * If both grid and variable are specified, the variable size for the unique
+            combination is returned.
+          * If neither variable nor variable are specified, the total system size is
+            returned.
+
+        Parameters:
+            g (pp.Grid or tuple of grids): Grid used in inquiery.
+            var (str): Variable name.
+
+        Returns:
+            int: Size of subsystem.
+
+        """
+        if g is None and var is None:
+            return np.sum(self.full_dof)
+        elif var is None:
+            num = 0
+            for grid, variable in self.block_dof:
+                if grid == g:
+                    bi = self.block_dof[(grid, variable)]
+                    num += self.full_dof[bi].size
+            return num
+        elif g is None:
+            num = 0
+            for grid, variable in self.block_dof:
+                if var == variable:
+                    bi = self.block_dof[(grid, variable)]
+                    num += self.full_dof[bi].size
+            return num
+        else:
+            return self.full_dof[(g, var)]
 
     def __str__(self) -> str:
         grid_likes = [key[0] for key in self.block_dof]
