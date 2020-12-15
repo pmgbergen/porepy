@@ -238,4 +238,6 @@ class FourthOrderTensor(object):
         self.values = c
 
     def copy(self):
-        return FourthOrderTensor(mu=self.mu, lmbda=self.lmbda)
+        C = FourthOrderTensor(mu=self.mu, lmbda=self.lmbda)
+        C.values = self.values.copy()
+        return C

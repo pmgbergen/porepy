@@ -82,9 +82,9 @@ class TangentialNormalProjection:
         """
         if num is None:
             num = self.projection.shape[-1]
-            data = np.array([self.projection[:, :, i] for i in range(num)]).ravel(
-                order="F"
-            )
+            data = np.array(
+                [self.projection[:, :, i].ravel("f") for i in range(num)]
+            ).ravel()
         else:
             data = np.tile(self.projection[:, :, 0].ravel(order="F"), num)
 
@@ -120,14 +120,13 @@ class TangentialNormalProjection:
                 size: ((self.dim - 1) * num_vecs) x (self.dim * num_vecs)
 
         """
+        # Construct the full projection matrix - tangential and normal
+        full_projection = self.project_tangential_normal(num)
+
         # Find type and size of projection.
         if num is None:
             num = self.num_vecs
-
         size_proj = self.dim * num
-
-        # Construct the full projection matrix - tangential and normal
-        full_projection = self.project_tangential_normal(num)
 
         # Generate restriction matrix to the tangential space only
         rows = np.arange(num * (self.dim - 1))
@@ -170,14 +169,14 @@ class TangentialNormalProjection:
                 size: num_vecs x (self.dim * num_vecs) els.
 
         """
+        # Generate full projection matrix
+        full_projection = self.project_tangential_normal(num)
+
         # Find mode and size of projection
         if num is None:
             num = self.num_vecs
 
         size_proj = self.dim * num
-
-        # Generate full projection matrix
-        full_projection = self.project_tangential_normal(num)
 
         # Construct restriction matrix to normal space.
         rows = np.arange(num)

@@ -129,10 +129,15 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
         gb_new.add_edge(new_edge, face_cells_new)
 
         # Create a mortar grid, add to data of new edge
-        side_g = {
-            mortar_grid.LEFT_SIDE: gl_new.copy(),
-            mortar_grid.RIGHT_SIDE: gl_new.copy(),
-        }
+        if len(face_on_other_side) == 0: # Only one side
+            side_g = {
+                mortar_grid.LEFT_SIDE: gl_new.copy(),
+            }
+        else:
+            side_g = {
+                mortar_grid.LEFT_SIDE: gl_new.copy(),
+                mortar_grid.RIGHT_SIDE: gl_new.copy(),
+            }
 
         # Construct mortar grid, with instructions on which faces belong to which side
         mg = pp.MortarGrid(
@@ -507,7 +512,7 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
     g_info = g.name.copy()
     g_info.append("Extrude 1d->2d")
 
-    g_new = pp.Grid(3, nodes, face_nodes, cell_faces, g_info, tags=tags)
+    g_new = pp.Grid(3, nodes, face_nodes, cell_faces, g_info, external_tags=tags)
     g_new.compute_geometry()
 
     # Mappings between old and new cells and faces
@@ -618,7 +623,7 @@ def _extrude_1d(
     g_info = g.name.copy()
     g_info.append("Extrude 1d->2d")
 
-    g_new = pp.Grid(2, nodes, fn, cf, g_info, tags=tags)
+    g_new = pp.Grid(2, nodes, fn, cf, g_info, external_tags=tags)
     g_new.compute_geometry()
 
     if hasattr(g, "frac_num"):
