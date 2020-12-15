@@ -214,6 +214,18 @@ def test_mortar_projections(scalar):
     ).tocsr()
     assert _compare_matrices(proj_known_lower, proj.mortar_to_secondary_int)
 
+    # Also test block matrices for the sign of mortar projections.
+    # This is a diagonal matrix with first -1, then 1.
+    # If this test fails, something is fundentally wrong.
+    vals = np.array([])
+    for e in edge_list:
+        mg = gb.edge_props(e, 'mortar_grid')
+        sz = int(np.round(mg.num_cells/2))
+        vals = np.hstack((vals, -np.ones(sz), np.ones(sz)))
+
+    known_sgn_mat = sps.dia_matrix((vals, 0), shape=(NMC, NMC))
+    assert _compare_matrices(known_sgn_mat, proj.sign_of_mortar_sides)
+
 
 @pytest.mark.parametrize("scalar", [True, False])
 def test_divergence_operators(scalar):
