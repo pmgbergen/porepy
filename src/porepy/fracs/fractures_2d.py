@@ -565,6 +565,8 @@ class FractureNetwork2d(object):
         else:
             self.tags["boundary"] = boundary_tags
             self.decomposition["domain_boundary_points"] = np.empty(0, dtype=np.int)
+            self.edges = e
+            self.pts = p
 
         self.bounding_box_imposed = True
         return edges_deleted
