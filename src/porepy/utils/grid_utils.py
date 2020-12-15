@@ -25,7 +25,7 @@ def switch_sign_if_inwards_normal(g, nd, faces):
 
     # Find out whether the boundary faces have outwards pointing normal vectors
     # Negative sign implies that the normal vector points inwards.
-    sgn = g.sign_of_faces(faces)
+    sgn, _ = g.signs_and_cells_of_boundary_faces(faces)
 
     # Create vector with the sign in the places of faces under consideration,
     # zeros otherwise

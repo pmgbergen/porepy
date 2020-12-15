@@ -66,7 +66,6 @@ class GmshWriter(object):
             self.polygon_tags = fracture_tags
 
         self.mesh_size = mesh_size
-        self.mesh_size_bound = mesh_size_bound
 
         # Points that should be decleared physical (intersections between 3
         # fractures)

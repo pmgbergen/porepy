@@ -110,6 +110,7 @@ class MortarGrid:
         self.cell_centers: np.ndarray = np.hstack(
             [g.cell_centers for g in self.side_grids.values()]
         )
+        # Set projections
         if not (primary_secondary is None):
             self._init_projections(primary_secondary, face_duplicate_ind)
 
@@ -614,7 +615,6 @@ class MortarGrid:
         Parameters:
             nd (int, optional): Spatial dimension of the projected quantity.
                 Defaults to 1 (mapping for scalar quantities).
-
         Returns:
             sps.diag_matrix: Diagonal matrix with positive signs on variables
                 belonging to the first of the side_grids.
@@ -680,13 +680,23 @@ class MortarGrid:
         # If the face_duplicate_ind is not given, we then assume that the primary side faces
         # already have this ordering. If the grid is created using the pp.split_grid.py
         # module this should be the case.
-        if self.num_sides() == 2 and not (face_duplicate_ind is None):
+        if self.num_sides() == 2 and (face_duplicate_ind is not None):
             is_second_side = np.in1d(primary_f, face_duplicate_ind)
             secondary_f = np.r_[
                 secondary_f[~is_second_side], secondary_f[is_second_side]
             ]
             primary_f = np.r_[primary_f[~is_second_side], primary_f[is_second_side]]
             data = np.r_[data[~is_second_side], data[is_second_side]]
+
+        # Store index of the faces on the 'other' side of the mortar grid.
+        if self.num_sides() == 2:
+            # After the above sorting, we know that the faces on the other side is in the
+            # second half of primary_f, also if face_duplicate_ind is given.
+            # ASSUMPTION: The mortar grids on the two sides should match each other, or
+            # else, the below indexing is wrong. This also means that the size of primary_f
+            # is an even number.
+            sz = int(primary_f.size / 2)
+            self._ind_face_on_other_side = primary_f[sz:]
 
         # We assumed that the cells of the given side grid(s) is(are) ordered
         # by the secondary side index. In other words: cell "n" of the side grid(s) should

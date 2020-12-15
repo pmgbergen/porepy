@@ -1339,6 +1339,8 @@ def partial_update_discretization(
     used to map rows and columns, respectively.
     Together these fields allows for mapping a discretization between grids.
 
+    If a term misses a right or left mapping, it will be ignored.
+
     """
     # Process input
     if scalar_cell_right is None:
@@ -1393,6 +1395,12 @@ def partial_update_discretization(
     )
     active_faces = np.unique(active_faces)
 
+    # Find the faces next to the active faces. All these may be updated (depending on
+    # the type of discretizations present).
+    _, cells, _ = sps.find(g.cell_faces[active_faces])
+    active_cells = np.unique(cells)
+    passive_cells = np.setdiff1d(np.arange(g.num_cells), active_cells)
+
     param = data[pp.PARAMETERS][keyword]
     if update_cells.size > 0:
         param["specified_cells"] = update_cells
@@ -1421,18 +1429,20 @@ def partial_update_discretization(
         elif key in vector_face_right:
             mat = mat * sps.kron(face_map.T, sps.eye(dim))
         else:
-            raise KeyError(f"Unknown right mapping for key {key} with matrix {mat}")
+            # If no mapping is provided, we assume the matrix is not part of the
+            # target discretization, and ignore it.
+            continue
 
         # Mapping of faces. Enforce csr format to enable elimination of rows below.
         if key in scalar_cell_left:
             mat = cell_map * mat
             # Zero out existing contributions from the active faces. This is necessary
             # due to the expansive computational stencils for MPxA methods.
-            pp.fvutils.remove_nonlocal_contribution(update_cells, 1, mat)
+            pp.fvutils.remove_nonlocal_contribution(active_cells, 1, mat)
         elif key in vector_cell_left:
             # Need a tocsr() here to work with row-based elimination
             mat = (sps.kron(cell_map, sps.eye(dim)) * mat).tocsr()
-            pp.fvutils.remove_nonlocal_contribution(update_cells, dim, mat)
+            pp.fvutils.remove_nonlocal_contribution(active_cells, dim, mat)
         elif key in scalar_face_left:
             mat = face_map * mat
             pp.fvutils.remove_nonlocal_contribution(active_faces, 1, mat)
@@ -1440,7 +1450,9 @@ def partial_update_discretization(
             mat = (sps.kron(face_map, sps.eye(dim)) * mat).tocsr()
             pp.fvutils.remove_nonlocal_contribution(active_faces, dim, mat)
         else:
-            raise KeyError(f"Unknown left mapping for key {key} with matrix {mat}")
+            # If no mapping is provided, we assume the matrix is not part of the
+            # target discretization, and ignore it.
+            continue
 
         mat_dict_copy[key] = mat
 
@@ -1450,7 +1462,20 @@ def partial_update_discretization(
 
     # Define new discretization as a combination of mapped and rediscretized
     for key, val in data[pp.DISCRETIZATION_MATRICES][keyword].items():
-        if val.shape == mat_dict_copy[key].shape:
+        # If the key is present in the matrix dictionary of the second_keyword,
+        # we skip it, and handle below.
+        # See comment on Biot discretization below
+        if (
+            second_keyword is not None
+            and key in data[pp.DISCRETIZATION_MATRICES][second_keyword].keys()
+        ):
+            continue
+
+        if (
+            key in data[pp.DISCRETIZATION_MATRICES][keyword].keys()
+            and key in mat_dict_copy.keys()
+        ):
+            # By now, the two matrices should have compatible size
             data[pp.DISCRETIZATION_MATRICES][keyword][key] = mat_dict_copy[key] + val
 
     # The Biot discretization is special, in that it places part of matrices in
@@ -1535,7 +1560,7 @@ def cell_ind_for_partial_update(
         # The central cell (x) is to be updated. The support of MPFA basis
         # functions dictates that the stencil between the central cell and its
         # primary neighbors (o) must be updated, as must the stencil for the
-        # sub-faces between o-cells that shares a vertex with x. Since the
+        # sub-faces between o-cells that share a vertex with x. Since the
         # flux information is stored face-wise (not sub-face), the whole o-o
         # faces must be recomputed, and this involves the secondary neighbors
         # of x (denoted s). This is most easily realized by defining an overlap
@@ -1586,15 +1611,23 @@ def cell_ind_for_partial_update(
         # sub-faces. This further requires the inclusion of all cells that
         # share a node with a secondary face.
         #
-        #      o o o
-        #    o o x o o
-        #    o o x o o
-        #      o o o
+        #      S S S
+        #    V o o o V
+        #  S o o x o o S
+        #  S o o x o o S
+        #    V o o o V
+        #      S S S
         #
         # To illustrate for the Cartesian configuration above: The face
         # between the two x-cells are specified, and this requires the
-        # inclusion of all o-cells.
+        # inclusion of all o and V-cells. The S-cells are superfluous from a
+        # computational standpoint, but they are added in the same operation as the Vs.
+        # It may be possible to exclude them, but does not seem worth the mental effort.
         #
+        # NOTE: The four V-cells are only needed for Biot-discretizations,
+        # specifically to correctly deal with the div-u terms. To be precise, an update
+        # of a face requires a recomputation of all cells that.
+        # NOTE: The actual stencil retured is even bigger than above ()
 
         cf = g.cell_faces
         # This avoids overwriting data in cell_faces.
@@ -1616,12 +1649,22 @@ def cell_ind_for_partial_update(
         active_nodes = np.zeros(g.num_nodes, dtype=np.bool)
         active_nodes[np.squeeze(np.where((g.face_nodes * active_faces) > 0))] = 1
 
+        cn = g.cell_nodes()
+
+        # Primary cells, those that share a vertex with the faces
+        primary_cells = np.squeeze(np.where((cn.transpose() * active_nodes) > 0))
+
+        # Get all nodes of the primary cells. These are the secondary_nodes
         active_cells = np.zeros(g.num_cells, dtype=np.bool)
-        # Primary cells, those that have the faces as a boundary
-        cells_overlap = np.squeeze(
-            np.where((g.cell_nodes().transpose() * active_nodes) > 0)
-        )
-        cell_ind = np.hstack((cell_ind, cells_overlap))
+        active_cells[primary_cells] = 1
+        secondary_nodes = np.where(cn * active_cells)[0]
+        active_nodes[secondary_nodes] = 1
+
+        # Get the secondary cells. Refering to the above drawing, this will add
+        # V and S-cells.
+        secondary_cells = np.where(cn.transpose() * active_nodes > 0)[0]
+
+        cell_ind = np.hstack((cell_ind, secondary_cells))
 
     if nodes is not None:
         # Pick out all cells that have the specified nodes as a vertex.
@@ -1875,3 +1918,81 @@ def boundary_to_sub_boundary(bound, subcell_topology):
     bound.num_faces = np.max(subcell_topology.subfno) + 1
     bound.bf = np.where(np.isin(subcell_topology.fno, bound.bf))[0]
     return bound
+
+
+def append_dofs_of_discretization(g, d, kw1, kw2, k_dof):
+    """
+    Appends rows to existing discretizations stored as 'stress' and
+    'bound_stress' in the data dictionary on the nodes. Only applies to the
+    highest dimension (for now, at least). The newly added faces are found
+    from 'new_faces' in the data dictionary.
+    Assumes all new rows and columns should be appended, not inserted to
+    the "interior" of the discretization matrices.
+    g -     grid object
+    d -     corresponding data dictionary
+    kw1 -   keyword for the stored discretization in the data dictionary,
+            e.g. 'flux'
+    kw2 -   keyword for the stored boundary discretization in the data
+            dictionary, e.g. 'bound_flux'
+    """
+    cells = d["new_cells"]
+    faces = d["new_faces"]
+    n_new_cells = cells.size * k_dof
+    n_new_faces = faces.size * k_dof
+
+    # kw1
+    new_rows = sps.csr_matrix((n_new_faces, g.num_cells * k_dof - n_new_cells))
+    new_columns = sps.csr_matrix((g.num_faces * k_dof, n_new_cells))
+    d[kw1] = sps.hstack([sps.vstack([d[kw1], new_rows]), new_columns], format="csr")
+    # kw2
+    new_rows = sps.csr_matrix((n_new_faces, g.num_faces * k_dof - n_new_faces))
+    new_columns = sps.csr_matrix((g.num_faces * k_dof, n_new_faces))
+    d[kw2] = sps.hstack([sps.vstack([d[kw2], new_rows]), new_columns], format="csr")
+
+
+def partial_discretization(
+    g, data, tensor, bnd, apertures, partial_discr, physics="flow"
+):
+    """
+    Perform a partial (local) multi-point discretization on a grid with
+    provided data, tensor and boundary conditions by
+        1)  Appending the existing discretization matrices to the right size
+        according to the added cells and faces.
+        2)  Discretizing on the relevant subgrids by calls to the provided
+        partial discretization function (mpfa_partial or mpsa_partial).
+        3)  Zeroing out the rows corresponding to the updated faces.
+        4)  Inserting the newly computed values to the just deleted rows.
+    """
+    # Get keywords and affected geometry
+    known_physics = ["flow", "mechanics"]
+    assert physics in known_physics
+    if physics == "flow":
+        kw1, kw2 = "flux", "bound_flux"
+        dof_multiplier = 1
+    elif physics == "mechanics":
+        kw1, kw2 = "stress", "bound_stress"
+        dof_multiplier = g.dim
+    cells = g.tags.get("discretize_cells")
+    faces = g.tags.get("discretize_faces")
+    nodes = g.tags.get("discretize_nodes")
+
+    # Update the existing discretization to the right size
+    append_dofs_of_discretization(g, data, kw1, kw2, dof_multiplier)
+    trm, bound_flux, affected_faces = partial_discr(
+        g,
+        tensor,
+        bnd,
+        cells=cells,
+        faces=faces,
+        nodes=nodes,
+        apertures=apertures,
+        inverter=None,
+    )
+
+    # Account for dof offset for mechanical problem
+    affected_faces = expand_indices_nd(affected_faces, dof_multiplier)
+
+    zero_out_sparse_rows(data[kw1], affected_faces)
+    zero_out_sparse_rows(data[kw2], affected_faces)
+    data[kw1] += trm
+    data[kw2] += bound_flux
