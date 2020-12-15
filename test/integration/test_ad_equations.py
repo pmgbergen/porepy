@@ -56,7 +56,7 @@ def test_md_flow():
     # Reference discretization
     A_ref, b_ref = assembler.assemble_matrix_rhs()
 
-    manager = pp.EquationManager(gb, dof_manager)
+    manager = pp.ad.EquationManager(gb, dof_manager)
 
     grid_list = [g for g, _ in gb]
     edge_list = [e for e, _ in gb.edges()]
@@ -93,8 +93,8 @@ def test_md_flow():
         + edge_discr.mortar_discr * lmbda
     )
 
-    flow_eq_ad = pp.Equation(flow_eq, dof_manager)
-    interface_eq_ad = pp.Equation(interface_flux, dof_manager)
+    flow_eq_ad = pp.ad.Equation(flow_eq, dof_manager)
+    interface_eq_ad = pp.ad.Equation(interface_flux, dof_manager)
 
     manager.equations += [flow_eq_ad, interface_eq_ad]
 
@@ -160,14 +160,7 @@ def test_biot():
     biot.discretize(g, d)
     A_biot, b_biot = biot.assemble_matrix_rhs(g, d)
 
-    manager = pp.EquationManager(gb, dof_manager)
-
-    mech_discr = pp.Biot(
-        mechanics_keyword,
-        flow_keyword,
-        vector_variable=displacement_variable,
-        scalar_variable=pressure_variable,
-    )
+    manager = pp.ad.EquationManager(gb, dof_manager)
 
     div_scalar = pp.ad.Divergence([g])
     div_vector = pp.ad.Divergence([g], is_scalar=False)
@@ -203,7 +196,7 @@ def test_biot():
     div_u_rhs = div_u.div_u
     stab_rhs = stabilization.stabilization
     manager.equations.append(
-        pp.Equation(momentuum, dof_manager=dof_manager, name="Momentuum conservation")
+        pp.ad.Equation(momentuum, dof_manager=dof_manager, name="Momentuum conservation")
     )
 
     flow_momentuum_eq = accumulation + compr * p + dt * diffusion
@@ -214,7 +207,7 @@ def test_biot():
 
     flow_rhs = div_u_rhs * pp.ad.Array(u_state) + stab_rhs * pp.ad.Array(p_state)
 
-    flow_eq = pp.Equation(
+    flow_eq = pp.ad.Equation(
         flow_momentuum_eq + flow_rhs, dof_manager=dof_manager, name="flow eqution"
     )
     manager.equations.append(flow_eq)
@@ -226,4 +219,3 @@ def test_biot():
         assert np.max(np.abs(dm.data)) < 1e-10
     assert np.max(np.abs(b - b_biot)) < 1e-10
 
-test_biot()
