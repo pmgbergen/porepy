@@ -102,8 +102,8 @@ def dumpMortarGridToFile(gb, e, d, fn, max_1_grid_per_dim=False):
         fn , "mapping_" + grid_id
     )
 
-    gh_to_mg = mg.mortar_to_master_int()
-    gl_to_mg = mg.mortar_to_slave_int()
+    gh_to_mg = mg.mortar_to_primary_int()
+    gl_to_mg = mg.mortar_to_secondary_int()
 
     dumpMortarProjectionsToFile(gh, mg, gh_to_mg, name)
     dumpMortarProjectionsToFile(gl, mg, gl_to_mg, name, "a")
@@ -272,15 +272,15 @@ def mergeGridsOfEqualDim(gb):
             mortar_grids.append(sg)
         mortarsOfDim[mg.dim].append(merge_grids(mortar_grids))
 
-    master2mortar = np.empty(dimMax + 1, dtype=np.ndarray)
-    slave2mortar = np.empty(dimMax + 1, dtype=np.ndarray)
+    primary2mortar = np.empty(dimMax + 1, dtype=np.ndarray)
+    secondary2mortar = np.empty(dimMax + 1, dtype=np.ndarray)
 
     for i in range(dimMax):
-        master2mortar[i] = np.empty((len(mortarsOfDim[i]), len(gridsOfDim[i+1])),dtype=np.object)
-        slave2mortar[i] = np.empty((len(mortarsOfDim[i]), len(gridsOfDim[i])), dtype=np.object)
+        primary2mortar[i] = np.empty((len(mortarsOfDim[i]), len(gridsOfDim[i+1])),dtype=np.object)
+        secondary2mortar[i] = np.empty((len(mortarsOfDim[i]), len(gridsOfDim[i])), dtype=np.object)
         
         # Add an empty grid for mortar row. This is to let the block matrices
-        # mergedSlave2Mortar and mergedMaster2Mortar know the correct dimension
+        # mergedSecondary2Mortar and mergedPrimary2Mortar know the correct dimension
         # if there is an empty mapping. It should be sufficient to add zeros to
         # one of the mortar grids.
         for j in range(len(gridsOfDim[i+1])):
@@ -288,14 +288,14 @@ def mergeGridsOfEqualDim(gb):
                 continue
             numMortarCells = mortarsOfDim[i][0].num_cells
             numGridFaces = gridsOfDim[i+1][j].num_faces
-            master2mortar[i][0][j] = sps.csc_matrix((numMortarCells, numGridFaces))
+            primary2mortar[i][0][j] = sps.csc_matrix((numMortarCells, numGridFaces))
 
         for j in range(len(gridsOfDim[i])):
             if len(mortarsOfDim[i])==0:
                 continue
             numMortarCells = mortarsOfDim[i][0].num_cells
             numGridCells = gridsOfDim[i][j].num_cells
-            slave2mortar[i][0][j] = sps.csc_matrix((numMortarCells, numGridCells))
+            secondary2mortar[i][0][j] = sps.csc_matrix((numMortarCells, numGridCells))
                        
 
     mortarPos = np.zeros(dimMax + 1, dtype=np.int)
@@ -306,28 +306,28 @@ def mergeGridsOfEqualDim(gb):
         dm = gb.node_props(gm)
         assert gs.dim==mg.dim and gm.dim==mg.dim + 1
 
-        slavePos = np.argwhere(np.array(gridIdx[mg.dim]) == ds['node_number']).ravel()
-        masterPos = np.argwhere(np.array(gridIdx[mg.dim + 1]) == dm['node_number']).ravel()
+        secondaryPos = np.argwhere(np.array(gridIdx[mg.dim]) == ds['node_number']).ravel()
+        primaryPos = np.argwhere(np.array(gridIdx[mg.dim + 1]) == dm['node_number']).ravel()
 
-        assert (slavePos.size==1 and masterPos.size==1)
+        assert (secondaryPos.size==1 and primaryPos.size==1)
 
         
-        slave2mortar[mg.dim][mortarPos[mg.dim], slavePos] = mg.slave_to_mortar_int()
-        master2mortar[mg.dim][mortarPos[mg.dim], masterPos] = mg.master_to_mortar_int()
+        secondary2mortar[mg.dim][mortarPos[mg.dim], secondaryPos] = mg.secondary_to_mortar_int()
+        primary2mortar[mg.dim][mortarPos[mg.dim], primaryPos] = mg.primary_to_mortar_int()
         mortarPos[mg.dim] += 1
 
     mergedMortars = []
-    mergedSlave2Mortar = []
-    mergedMaster2Mortar = []
+    mergedSecondary2Mortar = []
+    mergedPrimary2Mortar = []
     for dim in range(dimMax + 1):
         if len(mortarsOfDim[dim])==0:
             mergedMortars.append([])
-            mergedSlave2Mortar.append([])
-            mergedMaster2Mortar.append([])
+            mergedSecondary2Mortar.append([])
+            mergedPrimary2Mortar.append([])
         else:
             mergedMortars.append(merge_grids(mortarsOfDim[dim]))
-            mergedSlave2Mortar.append(sps.bmat(slave2mortar[dim], format="csc"))
-            mergedMaster2Mortar.append(sps.bmat(master2mortar[dim], format="csc"))
+            mergedSecondary2Mortar.append(sps.bmat(secondary2mortar[dim], format="csc"))
+            mergedPrimary2Mortar.append(sps.bmat(primary2mortar[dim], format="csc"))
 
     mergedGb = pp.GridBucket()
     mergedGb.add_nodes([g for g in mergedGrids if g != []])
@@ -341,8 +341,8 @@ def mergeGridsOfEqualDim(gb):
         
         mergedGb.add_edge((gm, gs), np.empty(0))
         mg = pp.MortarGrid(gs.dim, {'0': mg}, sps.csc_matrix(0))
-        mg._master_to_mortar_int = mergedMaster2Mortar[dim]
-        mg._slave_to_mortar_int = mergedSlave2Mortar[dim]
+        mg._primary_to_mortar_int = mergedPrimary2Mortar[dim]
+        mg._secondary_to_mortar_int = mergedSecondary2Mortar[dim]
 
         d = mergedGb.edge_props((gm, gs))
         d['mortar_grid'] = mg
