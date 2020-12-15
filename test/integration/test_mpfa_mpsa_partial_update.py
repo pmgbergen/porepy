@@ -1,11 +1,11 @@
 """ Unit tests for the partial update features of mpfa and mpsa.
 
 Split into four classes:
-    TestPartialMPFA, MPSA and Biot 
+    TestPartialMPFA, MPSA and Biot
 test the option of setting 'specified_{cells, faces, nodes}', for flow, mechanics and
  poro-mechanics, respectively.
 
-The class UpdateDiscretizations tests the update_discretization() methods of 
+The class UpdateDiscretizations tests the update_discretization() methods of
 Mpfa, Mpsa and Biot. These are effectively a second set of test of the specified_*
 keyword, but in addition, updates of grid geometry etc. are also probed.
 
@@ -511,6 +511,7 @@ class PartialBiotMpsa(TestPartialMPSA):
         ]
 
         active_faces = data[pp.PARAMETERS][keyword_mech]["active_faces"]
+        active_cells = data[pp.PARAMETERS][keyword_mech]["active_cells"]
 
         self.assertTrue(faces_of_cell.size == active_faces.size)
         self.assertTrue(np.all(np.sort(faces_of_cell) == np.sort(active_faces)))
@@ -530,7 +531,7 @@ class PartialBiotMpsa(TestPartialMPSA):
 
         # Only the faces of the central cell should be zero
         pp.fvutils.remove_nonlocal_contribution(
-            inner_cell, 1, partial_div_u, partial_bound_div_u, partial_stab
+            active_cells, 1, partial_div_u, partial_bound_div_u, partial_stab
         )
         pp.fvutils.remove_nonlocal_contribution(
             faces_of_cell, g.dim, partial_grad_p, partial_bound_pressure
@@ -594,6 +595,7 @@ class PartialBiotMpsa(TestPartialMPSA):
         ]
 
         active_faces = data[pp.PARAMETERS][keyword_mech]["active_faces"]
+        active_cells = data[pp.PARAMETERS][keyword_mech]["active_cells"]
 
         self.assertTrue(faces_of_cell.size == active_faces.size)
         self.assertTrue(np.all(np.sort(faces_of_cell) == np.sort(active_faces)))
@@ -613,19 +615,22 @@ class PartialBiotMpsa(TestPartialMPSA):
 
         # Only the faces of the central cell should be zero
         pp.fvutils.remove_nonlocal_contribution(
-            inner_cell, 1, partial_div_u, partial_bound_div_u, partial_stab
+            active_cells, 1, partial_div_u, partial_bound_div_u, partial_stab
         )
         pp.fvutils.remove_nonlocal_contribution(
             faces_of_cell, g.dim, partial_grad_p, partial_bound_pressure
         )
-
         self.assertTrue(np.max(np.abs(partial_div_u.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound_div_u.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_grad_p.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_stab.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound_pressure.data)) == 0)
 
-    def test_one_cell_a_time_node_keyword(self):
+    def _test_one_cell_a_time_node_keyword(self):
+        # EK: this test makes less sense after the notion of partial updates were
+        # changed (git commit 41f754940). Decactive the test for now, pending an update
+        # of the notion of discretization updates for FV methods.
+
         # Update one and one cell, and verify that the result is the same as
         # with a single computation. The test is similar to what will happen
         # with a memory-constrained splitting.
@@ -731,6 +736,7 @@ class PartialBiotMpsa(TestPartialMPSA):
             grad_p += partial_grad_p
             stab += partial_stab
             bound_displacement_pressure += partial_bound_pressure
+
 
         self.assertTrue((div_u_full - div_u).max() < 1e-8)
         self.assertTrue((bound_div_u_full - bound_div_u).min() > -1e-8)
@@ -1023,10 +1029,6 @@ class UpdateDiscretizations(unittest.TestCase):
             discr=discr,
         )
 
-
-UpdateDiscretizations().test_mpfa()
-UpdateDiscretizations().test_mpsa()
-UpdateDiscretizations().test_biot()
 
 if __name__ == "__main__":
     unittest.main()

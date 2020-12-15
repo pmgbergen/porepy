@@ -20,7 +20,7 @@ class TestTHM(unittest.TestCase):
 
         gb = setup.gb
 
-        g = gb.grids_of_dimension(setup.Nd)[0]
+        g = gb.grids_of_dimension(setup._Nd)[0]
         d = gb.node_props(g)
 
         u = d[pp.STATE][setup.displacement_variable]
@@ -99,7 +99,7 @@ class TestContactMechanicsTHM(unittest.TestCase):
 
         gb = setup.gb
 
-        nd = setup.Nd
+        nd = setup._Nd
 
         g2 = gb.grids_of_dimension(nd)[0]
         g1 = gb.grids_of_dimension(nd - 1)[0]
@@ -119,7 +119,7 @@ class TestContactMechanicsTHM(unittest.TestCase):
             * mg.sign_of_mortar_sides(nd=nd)
             * u_mortar
         )
-        projection = d_m["tangential_normal_projection"]
+        projection = d_1["tangential_normal_projection"]
 
         project_to_local = projection.project_tangential_normal(int(mg.num_cells / 2))
         u_mortar_local = project_to_local * displacement_jump_global_coord
@@ -296,26 +296,26 @@ class SetupTHM(ProblemDataTime, model.THM):
         self.uy_north = uy_north
         self.scalar_source_value = 0
 
-    def biot_alpha(self, g):
+    def _biot_alpha(self, g):
         if hasattr(self, "alpha"):
             return self.alpha
         else:
-            return super().biot_alpha(g)
+            return super()._biot_alpha(g)
 
-    def biot_beta(self, g):
+    def _biot_beta(self, g):
         if hasattr(self, "beta"):
             return self.beta
         else:
-            return super().biot_beta(g)
+            return super()._biot_beta(g)
 
-    def scalar_temperature_coupling_coefficient(self, g):
+    def _scalar_temperature_coupling_coefficient(self, g):
         if hasattr(self, "gamma"):
             return self.gamma
         else:
-            return super().scalar_temperature_coupling_coefficient(g)
+            return super()._scalar_temperature_coupling_coefficient(g)
 
-    def set_temperature_parameters(self):
-        super().set_temperature_parameters()
+    def _set_temperature_parameters(self):
+        super()._set_temperature_parameters()
         if hasattr(self, "advection_weight"):
             w = self.advection_weight
             for g, d in self.gb:

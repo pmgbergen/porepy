@@ -1,3 +1,9 @@
+""" Tests computational stencils for partial updates of FV schemes.
+
+The stencils can be defined by a combination of modifications to cells, faces and nodes.
+All three functionalities are tested.
+"""
+
 import unittest
 
 import numpy as np
@@ -115,9 +121,7 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
         # Use face between cells 11 and 12
         f = np.array([14])
 
-        known_cells = np.array(
-            [1, 2, 5, 6, 7, 8, 10, 11, 12, 13, 15, 16, 17, 18, 21, 22]
-        )
+        known_cells = np.arange(self.g_2d.num_cells)
         known_faces = np.array([8, 14, 20, 41, 42, 46, 47])
         cell_ind, face_ind = fvutils.cell_ind_for_partial_update(self.g_2d, faces=f)
 
@@ -125,13 +129,16 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
         self.assertTrue(np.alltrue(known_faces == face_ind))
 
     def test_face_based_ind_2d_bound(self):
+        # Face between cell 1 and 2
         f = np.array([2])
-        known_cells = np.array([0, 1, 2, 3, 5, 6, 7, 8, 11, 12])
+        known_cells = np.array(
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+        )
         known_faces = np.array([2, 8, 31, 32, 36, 37])
         cell_ind, face_ind = fvutils.cell_ind_for_partial_update(self.g_2d, faces=f)
-
         self.assertTrue(np.alltrue(known_cells == cell_ind))
         self.assertTrue(np.alltrue(known_faces == face_ind))
 
-    if __name__ == "__main__":
-        unittest.main()
+
+if __name__ == "__main__":
+    unittest.main()
