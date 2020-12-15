@@ -8,6 +8,8 @@ from porepy.numerics.ad.forward_mode import Ad_array
 import porepy as pp
 
 
+## Tests of the Ad grid operators.
+
 @pytest.mark.parametrize("scalar", [True, False])
 def test_subdomain_projections(scalar):
     """Test of subdomain projections. Both face and cell restriction and prolongation.
@@ -306,16 +308,155 @@ def test_boundary_condition(scalar):
 
     assert np.allclose(val, known_values)
 
+## Tests of Ad operators
 
-class MockDiscretization:
-    def __init__(self, key):
-        self.foobar_matrix_key = "foobar"
-        self.not_matrix_keys = "failed"
+def test_ad_variable_vrappers():
+    fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
+    gb = pp.meshing.cart_grid(fracs, [2, 2])
 
-        self.keyword = key
+    state_map = {}
+    iterate_map = {}
 
+    state_map_2, iterate_map_2 = {}, {}
 
-def test_discretization_class():
+    var = 'foo'
+    var2 = 'bar'
+
+    mortar_var = 'mv'
+
+    def _compare_ad_objects(a, b):
+        va, ja = a.val, a.jac
+        vb, jb = b.val, b.jac
+
+        assert np.allclose(va, vb)
+        assert ja.shape == jb.shape
+        d = ja - jb
+        if d.data.size > 0:
+            assert np.max(np.abs(d.data)) < 1e-10
+
+    for g, d in gb:
+        if g.dim == 1:
+            num_dofs = 2
+        else:
+            num_dofs = 1
+
+        d[pp.PRIMARY_VARIABLES] = {var: {'cells': num_dofs}}
+
+        val_state = np.random.rand(g.num_cells * num_dofs)
+        val_iterate = np.random.rand(g.num_cells * num_dofs)
+
+        d[pp.STATE] = {var: val_state, pp.ITERATE: {var: val_iterate}}
+        state_map[g] = val_state
+        iterate_map[g] = val_iterate
+
+        # Add a second variable to the 2d grid, just for the fun of it
+        if g.dim == 2:
+            d[pp.PRIMARY_VARIABLES][var2] = {'cells': 1}
+            val_state = np.random.rand(g.num_cells)
+            val_iterate = np.random.rand(g.num_cells)
+            d[pp.STATE][var2] = val_state
+            d[pp.STATE][pp.ITERATE][var2] = val_iterate
+            state_map_2[g] = val_state
+            iterate_map_2[g] = val_iterate
+
+    for e, d in gb.edges():
+        mg = d['mortar_grid']
+        if mg.dim == 1:
+            num_dofs = 2
+        else:
+            num_dofs = 1
+
+        d[pp.PRIMARY_VARIABLES] = {mortar_var: {'cells': num_dofs}}
+
+        val_state = np.random.rand(mg.num_cells * num_dofs)
+        val_iterate = np.random.rand(mg.num_cells * num_dofs)
+
+        d[pp.STATE] = {mortar_var: val_state, pp.ITERATE: {mortar_var: val_iterate}}
+        state_map[e] = val_state
+        iterate_map[e] = val_iterate
+
+    dof_manager = pp.DofManager(gb)
+    eq_manager = pp.ad.EquationManager(gb, dof_manager)
+
+    # Manually assemble state and iterate
+    true_state = np.zeros(dof_manager.num_dofs())
+    true_iterate = np.zeros(dof_manager.num_dofs())
+
+    # Also a state array that differs from the stored iterates
+    double_iterate = np.zeros(dof_manager.num_dofs())
+
+    for (g, v) in dof_manager.block_dof:
+        inds = dof_manager.dof_ind(g, v)
+        if v == var2:
+            true_state[inds] = state_map_2[g]
+            true_iterate[inds] = iterate_map_2[g]
+            double_iterate[inds] = 2 * iterate_map_2[g]
+        else:
+            true_state[inds] = state_map[g]
+            true_iterate[inds] = iterate_map[g]
+            double_iterate[inds] = 2 * iterate_map[g]
+
+    grid_list = [gb.grids_of_dimension(2)[0],
+                 *gb.grids_of_dimension(1),
+                 gb.grids_of_dimension(0)[0]]
+
+    # Generate merged variables via the EquationManager.
+    var_ad = eq_manager.merge_variables([(g, var) for g in grid_list])
+
+    # Check equivalence between the two approaches to generation.
+    eq_1 = pp.ad.Equation(var_ad, dof_manager)
+
+    # Check that the state is correctly evaluated.
+    inds_var = np.hstack([dof_manager.dof_ind(g, var) for g in grid_list])
+    assert np.allclose(true_iterate[inds_var], eq_1.to_ad(gb, true_iterate).val)
+
+    # Check evaluation when no state is passed to the parser, and information must
+    # instead be glued together from the GridBucket
+    assert np.allclose(true_iterate[inds_var], eq_1.to_ad(gb).val)
+
+    # Evaluate the equation using the double iterate
+    assert np.allclose(2 * true_iterate[inds_var], eq_1.to_ad(gb, double_iterate).val)
+
+    # Represent the variable on the previous time step. This should be a numpy array
+    prev_var_ad = var_ad.previous_timestep()
+    eq_prev = pp.ad.Equation(prev_var_ad, dof_manager)
+    prev_evaluated = eq_prev.to_ad(gb)
+    assert isinstance(prev_evaluated, np.ndarray)
+    assert np.allclose(true_state[inds_var], prev_evaluated)
+
+    # Also check that state values given to the ad parser are ignored for previous
+    # values
+    assert np.allclose(prev_evaluated, eq_prev.to_ad(gb, double_iterate))
+
+    ## Next, test edge variables. This should be much the same as the grid variables,
+    # so the testing is less thorough.
+    # Form an edge variable, evaluate this
+    edge_list = [e for e, _ in gb.edges()]
+    var_edge = eq_manager.merge_variables([(e, mortar_var) for e in edge_list])
+
+    eq_2 = pp.ad.Equation(var_edge, dof_manager)
+    edge_inds = np.hstack([dof_manager.dof_ind(e, mortar_var) for e in edge_list])
+    assert np.allclose(true_iterate[edge_inds], eq_2.to_ad(gb, true_iterate).val)
+
+    # Finally, test a single variable; everything should work then as well
+    g = gb.grids_of_dimension(2)[0]
+    v1 = eq_manager.variable(g, var)
+    v2 = eq_manager.variable(g, var2)
+
+    eq_3 = pp.ad.Equation(v1, dof_manager)
+    eq_4 = pp.ad.Equation(v2, dof_manager)
+
+    ind1 = dof_manager.dof_ind(g, var)
+    ind2 = dof_manager.dof_ind(g, var2)
+
+    assert np.allclose(true_iterate[ind1], eq_3.to_ad(gb, true_iterate).val)
+    assert np.allclose(true_iterate[ind2], eq_4.to_ad(gb, true_iterate).val)
+
+    v1_prev = v1.previous_timestep()
+    eq_5 = pp.ad.Equation(v1_prev, dof_manager)
+    assert np.allclose(true_state[ind1], eq_5.to_ad(gb, true_iterate))
+
+def test_ad_discretization_class():
 
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
     gb = pp.meshing.cart_grid(fracs, [2, 2])
@@ -325,8 +466,8 @@ def test_discretization_class():
     # Make two Mock discretizaitons, with different keywords
     key = "foo"
     sub_key = "bar"
-    discr = MockDiscretization(key)
-    sub_discr = MockDiscretization(sub_key)
+    discr = _MockDiscretization(key)
+    sub_discr = _MockDiscretization(sub_key)
 
     # First discretization applies to all grids, the second just to a subset
     discr_map = {g: discr for g in grid_list}
@@ -361,6 +502,8 @@ def test_discretization_class():
     assert np.allclose(known_sub_val, sub_discr_ad.foobar.parse(gb).diagonal())
 
 
+## Below are helpers for tests of the Ad wrappers.
+
 def _compare_matrices(m1, m2):
     if isinstance(m1, pp.ad.Matrix):
         m1 = m1._mat
@@ -382,8 +525,18 @@ def _list_ind_of_grid(grid_list, g):
 
     raise ValueError("grid is not in list")
 
+class _MockDiscretization:
+    def __init__(self, key):
+        self.foobar_matrix_key = "foobar"
+        self.not_matrix_keys = "failed"
+
+        self.keyword = key
+
+
 
 class AdArrays(unittest.TestCase):
+    """ Tests for the implementation of the main Ad array class.
+    """
     def test_add_two_scalars(self):
         a = Ad_array(1, 0)
         b = Ad_array(-10, 0)
@@ -642,4 +795,5 @@ class AdArrays(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    test_ad_variable_vrappers()
     unittest.main()

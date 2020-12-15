@@ -67,6 +67,7 @@ class Equation:
             operator = operator[0]
 
         self._operator = operator
+        self._dof_manager = dof_manager
 
         self.name = name
 
@@ -86,7 +87,7 @@ class Equation:
     def __repr__(self) -> str:
         return f"Equation named {self.name}"
 
-    def _find_subtree_variables(self, op: operators.Operator):
+    def _find_subtree_variables(self, op: operators.Operator) -> List["Variable"]:
         """Method to recursively look for Variables (or MergedVariables) in an
         operator tree.
         """
@@ -95,7 +96,7 @@ class Equation:
 
         if isinstance(op, operators.Variable) or isinstance(op, pp.ad.Variable):
             # We are at the bottom of the a branch of the tree, return the operator
-            return op
+            return [op]
         else:
             # We need to look deeper in the tree.
             # Look for variables among the children
@@ -145,7 +146,7 @@ class Equation:
             # for MergedVariables, in one go for plain Variables.
             ind_var = []
 
-            if isinstance(variable, pp.ad.MergedVariable):
+            if isinstance(variable, (pp.ad.MergedVariable, operators.MergedVariable)):
                 # Loop over all subvariables for the merged variable
                 for i, sub_var in enumerate(variable.sub_vars):
                     # Store dofs
@@ -165,7 +166,7 @@ class Equation:
 
         return inds, variable_ids
 
-    def to_ad(self, gb: pp.GridBucket, state: np.ndarray):
+    def to_ad(self, gb: pp.GridBucket, state: Optional[np.ndarray] = None):
         """Evaluate the residual and Jacobian matrix for a given state.
 
         Parameters:
@@ -184,8 +185,32 @@ class Equation:
         # tree-representation, and parse and combine individual operators.
 
         # Initialize variables
+        prev_vals = np.zeros(self._dof_manager.num_dofs())
+
+        populate_state = state is None
+        if populate_state:
+            state = np.zeros(self._dof_manager.num_dofs())
+
+        for (g, var) in self._dof_manager.block_dof:
+            ind = self._dof_manager.dof_ind(g, var)
+            if isinstance(g, tuple):
+                prev_vals[ind] = gb.edge_props(g, pp.STATE)[var]
+            else:
+                prev_vals[ind] = gb.node_props(g, pp.STATE)[var]
+
+            if populate_state:
+                if isinstance(g, tuple):
+                    state[ind] = gb.edge_props(g, pp.STATE)[pp.ITERATE][var]
+                else:
+                    state[ind] = gb.node_props(g, pp.STATE)[pp.ITERATE][var]
+
         ad_vars = initAdArrays([state[ind] for ind in self._variable_dofs])
         self._ad = {var_id: ad for (var_id, ad) in zip(self._variable_ids, ad_vars)}
+
+        # Cannot access this directly from pp.STATE in the data dictionary, since
+        # merged variables requires some more work
+        prev_vals_list = [prev_vals[ind] for ind in self._variable_dofs]
+        self._prev_vals = {var_id: val for (var_id, val) in zip(self._variable_ids, prev_vals_list)}
 
         # Parse operators. This is left to a separate function to facilitate the
         # necessary recursion for complex operators.
@@ -213,15 +238,22 @@ class Equation:
         # Check for case 1 or 2
         if isinstance(op, pp.ad.Variable) or isinstance(op, operators.Variable):
             # Case 1: Variable
+
             # How to access the array of (Ad representation of) states depends on wether
             # this is a single or combined variable; see self.__init__, definition of
             # self._variable_ids.
             if isinstance(op, pp.ad.MergedVariable) or isinstance(
                 op, operators.MergedVariable
             ):
-                return self._ad[op.sub_vars[0].id]
+                if op.prev_time:
+                    return self._prev_vals[op.sub_vars[0].id]
+                else:
+                    return self._ad[op.sub_vars[0].id]
             else:
-                return self._ad[op.id]
+                if op.prev_time:
+                    return self._prev_vals[op.id]
+                else:
+                    return self._ad[op.id]
         elif op.is_leaf():
             # Case 2
             return op.parse(gb)
@@ -297,6 +329,10 @@ class EquationManager:
     def merge_variables(self, grid_var: List[Tuple[grid_like_type, str]]):
         return pp.ad.MergedVariable([self.variables[g][v] for g, v in grid_var])
 
+    def variable(self, grid_like: grid_like_type, variable: str):
+        # Method to access the variabe list; to syntax similar to merge_variables
+        return self.variables[grid_like][variable]
+
     def variable_state(
         self, grid_var: List[Tuple[pp.Grid, str]], state: np.ndarray
     ) -> List[np.ndarray]:
@@ -308,11 +344,11 @@ class EquationManager:
 
         return values
 
-    def assemble_matrix_rhs(self, state):
+    def assemble_matrix_rhs(self, state: Optional[np.ndarray] = None):
         mat: List[sps.spmatrix] = []
         b: List[np.ndarray] = []
 
-        num_global_dofs = self.dof_manager.full_dof.sum()
+        num_global_dofs = self.dof_manager.num_dofs()
 
         for eq in self.equations:
             ad = eq.to_ad(self.gb, state)
