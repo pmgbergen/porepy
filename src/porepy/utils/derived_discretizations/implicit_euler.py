@@ -61,7 +61,9 @@ class ImplicitMpfa(pp.Mpfa):
 
         div = g.cell_faces.T
 
-        bound_flux = data[pp.DISCRETIZATION_MATRICES][self.keyword]["bound_flux"]
+        bound_flux = data[pp.DISCRETIZATION_MATRICES][self.keyword][
+            self.bound_flux_matrix_key
+        ]
         # Projection operators to grid
         mg = data_edge["mortar_grid"]
 

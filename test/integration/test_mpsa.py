@@ -1074,8 +1074,8 @@ class RobinBoundTest(unittest.TestCase):
 
         u_bound = np.zeros((2, g.num_faces))
 
-        sgn_n = g.sign_of_faces(neu_ind)
-        sgn_r = g.sign_of_faces(rob_ind)
+        sgn_n, _ = g.signs_and_cells_of_boundary_faces(neu_ind)
+        sgn_r, _ = g.signs_and_cells_of_boundary_faces(rob_ind)
 
         u_bound[:, dir_ind] = u_ex(g.face_centers[:, dir_ind])
         u_bound[:, neu_ind] = T_ex(neu_ind) * sgn_n
@@ -1121,8 +1121,8 @@ class RobinBoundTest(unittest.TestCase):
 
         u_bound = np.zeros((2, g.num_faces))
 
-        sgn_n = g.sign_of_faces(neu_ind)
-        sgn_r = g.sign_of_faces(rob_ind)
+        sgn_n, _ = g.signs_and_cells_of_boundary_faces(neu_ind)
+        sgn_r, _ = g.signs_and_cells_of_boundary_faces(rob_ind)
 
         u_bound[:, dir_ind] = u_ex(g.face_centers[:, dir_ind])
         u_bound[:, neu_ind] = T_ex(neu_ind) * sgn_n
@@ -1168,8 +1168,8 @@ class RobinBoundTest(unittest.TestCase):
 
         u_bound = np.zeros((2, g.num_faces))
 
-        sgn_n = g.sign_of_faces(neu_ind)
-        sgn_r = g.sign_of_faces(rob_ind)
+        sgn_n, _ = g.signs_and_cells_of_boundary_faces(neu_ind)
+        sgn_r, _ = g.signs_and_cells_of_boundary_faces(rob_ind)
 
         u_bound[:, dir_ind] = u_ex(g.face_centers[:, dir_ind])
         u_bound[:, neu_ind] = T_ex(neu_ind) * sgn_n
@@ -1216,8 +1216,8 @@ class RobinBoundTest(unittest.TestCase):
 
         u_bound = np.zeros((2, g.num_faces))
 
-        sgn_n = g.sign_of_faces(neu_ind)
-        sgn_r = g.sign_of_faces(rob_ind)
+        sgn_n, _ = g.signs_and_cells_of_boundary_faces(neu_ind)
+        sgn_r, _ = g.signs_and_cells_of_boundary_faces(rob_ind)
 
         u_bound[:, dir_ind] = u_ex(g.face_centers[:, dir_ind])
         u_bound[:, neu_ind] = T_ex(neu_ind) * sgn_n
@@ -1266,8 +1266,8 @@ class RobinBoundTest(unittest.TestCase):
 
         u_bound = np.zeros((3, g.num_faces))
 
-        sgn_n = g.sign_of_faces(neu_ind)
-        sgn_r = g.sign_of_faces(rob_ind)
+        sgn_n, _ = g.signs_and_cells_of_boundary_faces(neu_ind)
+        sgn_r, _ = g.signs_and_cells_of_boundary_faces(rob_ind)
 
         u_bound[:, dir_ind] = u_ex(g.face_centers[:, dir_ind])
         u_bound[:, neu_ind] = T_ex(neu_ind) * sgn_n

@@ -312,12 +312,12 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
                 f"Dirichlet conditions set on "
                 f"{self.is_dir[:, not_bound].any(axis=0).sum()} non-boundary faces.\n"
             )
-        if np.any(self.is_neu[not_bound]):
+        if np.any(self.is_neu[:, not_bound]):
             s += (
                 f"Neumann conditions set on "
                 f"{self.is_neu[:, not_bound].any(axis=0).sum()} non-boundary faces.\n"
             )
-        if np.any(self.is_rob[not_bound]):
+        if np.any(self.is_rob[:, not_bound]):
             s += (
                 f"Robin conditions set on "
                 f"{self.is_rob[:, not_bound].any(axis=0).sum()} non-boundary faces.\n"
