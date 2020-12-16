@@ -3,8 +3,9 @@
 * Specific tests for Simplex and Structured Grids
 * Tests for the mortar grid.
 """
-
+import pickle
 import unittest
+import pytest
 import scipy.sparse as sps
 
 import numpy as np
@@ -12,6 +13,7 @@ import numpy as np
 import porepy as pp
 from porepy.grids import simplex, structured
 from porepy.utils import setmembership
+from test import test_utils
 
 
 def set_tol():
@@ -639,5 +641,53 @@ class TestGridMappings1d(unittest.TestCase):
         self.assertTrue(np.all(mg.secondary_to_mortar_int().A == [0, 1]))
 
 
+@pytest.mark.parametrize(
+    "g",
+    [
+        pp.PointGrid([0, 0, 0]),
+        pp.CartGrid([2]),
+        pp.CartGrid([2, 2]),
+        pp.CartGrid([2, 2, 2]),
+        pp.StructuredTriangleGrid([2, 2]),
+        pp.StructuredTetrahedralGrid([1, 1, 1]),
+    ],
+)
+def test_pickle_grid(g):
+    """Test that grids can be pickled. Write, read and compare."""
+    fn = "tmp.grid"
+    pickle.dump(g, open(fn, "wb"))
+
+    g_read = pickle.load(open(fn, "rb"))
+
+    test_utils.compare_grids(g, g_read)
+
+    test_utils.delete_file(fn)
+
+@pytest.mark.parametrize("g",[         pp.PointGrid([0, 0, 0]),
+        pp.CartGrid([2]),
+        pp.CartGrid([2, 2]),
+        pp.StructuredTriangleGrid([2, 2]),]
+)
+def test_pickle_mortar_grid(g):
+    fn = 'tmp.grid'
+    g.compute_geometry()
+    mg = pp.MortarGrid(g.dim, {0: g, 1: g})
+
+    pickle.dump(mg, open(fn, 'wb'))
+    mg_read = pickle.load(open(fn, 'rb'))
+
+    test_utils.compare_mortar_grids(mg, mg_read)
+
+    mg_one_sided = pp.MortarGrid(g.dim, {0: g})
+
+    pickle.dump(mg, open(fn, 'wb'))
+    mg_read = pickle.load(open(fn, 'rb'))
+
+    test_utils.compare_mortar_grids(mg_one_sided, mg_read)
+
+    test_utils.delete_file(fn)
+
+
 if __name__ == "__main__":
+
     unittest.main()
