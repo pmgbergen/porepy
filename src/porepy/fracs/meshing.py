@@ -20,6 +20,7 @@ from porepy.grids.grid_bucket import GridBucket
 from porepy.utils import mcolon
 
 logger = logging.getLogger(__name__)
+mortar_sides = mortar_grid.MortarSides
 
 
 def grid_list_to_grid_bucket(
@@ -288,10 +289,10 @@ def create_mortar_grids(gb, ensure_matching_face_cell=True, **kwargs):
         if np.all(num_sides > 1):
             # we are in a two sides situation
             side_g = {
-                mortar_grid.LEFT_SIDE: lg.copy(),
-                mortar_grid.RIGHT_SIDE: lg.copy(),
+                mortar_sides.LEFT_SIDE: lg.copy(),
+                mortar_sides.RIGHT_SIDE: lg.copy(),
             }
         else:
             # the tag name is just a place-holder we assume left side
-            side_g = {mortar_grid.LEFT_SIDE: lg.copy()}
+            side_g = {mortar_sides.LEFT_SIDE: lg.copy()}
         d["mortar_grid"] = mortar_grid.MortarGrid(lg.dim, side_g, d["face_cells"])
