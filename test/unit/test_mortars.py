@@ -5,12 +5,14 @@ Created on Sat Nov 11 18:23:11 2017
 
 @author: Eirik Keilegavlen
 """
-
+import pickle
+import pytest
 import unittest
 
 import numpy as np
 import scipy.sparse as sps
 
+from test import test_utils
 import porepy as pp
 
 
@@ -1019,6 +1021,31 @@ class TestMeshReplacement3d(unittest.TestCase):
         self.assertTrue(np.abs(p1h[0, 4] - 0.5) < 1e-6)
         self.assertTrue(np.abs(p1h[1, 7] - 0.5) < 1e-6)
         self.assertTrue(np.abs(p1h[1, 8] - 0.5) < 1e-6)
+
+
+@pytest.mark.parametrize("g",[         pp.PointGrid([0, 0, 0]),
+        pp.CartGrid([2]),
+        pp.CartGrid([2, 2]),
+        pp.StructuredTriangleGrid([2, 2]),]
+)
+def test_pickle_mortar_grid(g):
+    fn = 'tmp.grid'
+    g.compute_geometry()
+    mg = pp.MortarGrid(g.dim, {0: g, 1: g})
+
+    pickle.dump(mg, open(fn, 'wb'))
+    mg_read = pickle.load(open(fn, 'rb'))
+
+    test_utils.compare_mortar_grids(mg, mg_read)
+
+    mg_one_sided = pp.MortarGrid(g.dim, {0: g})
+
+    pickle.dump(mg, open(fn, 'wb'))
+    mg_read = pickle.load(open(fn, 'rb'))
+
+    test_utils.compare_mortar_grids(mg_one_sided, mg_read)
+
+    test_utils.delete_file(fn)
 
 
 if __name__ == "__main__":
