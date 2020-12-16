@@ -20,6 +20,7 @@ import numpy as np
 from scipy import sparse as sps
 
 import porepy as pp
+from porepy.grids import mortar_grid
 from porepy.utils import setmembership
 
 
@@ -922,7 +923,9 @@ class GridBucket:
     def replace_grids(
         self,
         g_map: Optional[Dict[pp.Grid, pp.Grid]] = None,
-        mg_map: Optional[Dict[pp.MortarGrid, Dict[int, pp.Grid]]] = None,
+        mg_map: Optional[
+            Dict[pp.MortarGrid, Dict[mortar_grid.MortarSides, pp.Grid]]
+        ] = None,
         tol: float = 1e-6,
     ) -> None:
         """Replace grids and / or mortar grids in the mixed-dimensional grid.

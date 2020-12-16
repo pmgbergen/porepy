@@ -17,6 +17,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.grids import mortar_grid
 
 
 def propagate_fractures(gb: pp.GridBucket, faces: Dict[pp.Grid, np.ndarray]) -> None:
@@ -325,7 +326,10 @@ def _update_mortar_grid(
 
     # The new mortar grid is constructed to be matching with g_l.
     # If splitting is undertaken for a non-matching grid, all bets are off.
-    side_grids = {1: g_l, 2: g_l}
+    side_grids = {
+        mortar_grid.MortarSides.LEFT_SIDE: g_l,
+        mortar_grid.MortarSides.RIGHT_SIDE: g_l,
+    }
     mg_new = pp.MortarGrid(
         g_l.dim, side_grids, d_e["face_cells"], face_duplicate_ind=other_side_new
     )
