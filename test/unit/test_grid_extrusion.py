@@ -689,6 +689,20 @@ class TestGridBucketExtrusion(unittest.TestCase):
             )
         )
 
+    def test_T_intersection(self):
+        """ 2d gb with T-intersection. Mainly ensure that the code runs (it did not
+        before #495)
+        """
+        f = [np.array([[1, 3], [2, 2]]), np.array([[2, 2], [1, 2]])]
+        gb = pp.meshing.cart_grid(f, [4, 3])
+
+        z = np.array([0, 1])
+        gb_new, g_map = pp.grid_extrusion.extrude_grid_bucket(gb, z)
+
+        # Do a simple test on grid geometry; if this fails, there is a more fundamental
+        # problem that should be picked up by simpler tests.
+        g = gb_new.grids_of_dimension(2)[1]
+        self.assertTrue(np.allclose(g.cell_centers, np.array([[2], [1.5], [0.5]])))
 
 if __name__ == "__main__":
     unittest.main()
