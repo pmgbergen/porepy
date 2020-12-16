@@ -340,7 +340,7 @@ def mergeGridsOfEqualDim(gb):
         gs = mergedGrids[dim]
         
         mergedGb.add_edge((gm, gs), np.empty(0))
-        mg = pp.MortarGrid(gs.dim, {'0': mg}, sps.csc_matrix(0))
+        mg = pp.MortarGrid(gs.dim, {'0': mg})
         mg._primary_to_mortar_int = mergedPrimary2Mortar[dim]
         mg._secondary_to_mortar_int = mergedSecondary2Mortar[dim]
 
