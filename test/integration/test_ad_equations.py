@@ -219,3 +219,26 @@ def test_biot():
         assert np.max(np.abs(dm.data)) < 1e-10
     assert np.max(np.abs(b - b_biot)) < 1e-10
 
+
+def _single_fracture_2d():
+    frac = np.array([[1, 2], [1, 1]])
+    gb = pp.meshing.cart_grid(frac, [3, 2])
+    pp.contact_conditions.set_projections(gb)
+    return gb
+
+
+class ContactModel(pp.ContactMechanics):
+
+    def __init__(self, param):
+        super().__init__(param)
+
+    def _bc_values(self, g):
+        return g.face_centers[:g.dim].ravel('f')
+
+
+def test_contact_mechanics(grid_method):
+
+    model = ContactModel({})
+    setattr(model, 'create_grid', grid_method)
+
+
