@@ -28,7 +28,7 @@ __version__ = "1.3.1"
 
 from porepy.utils.common_constants import *
 
-from porepy.utils import error, grid_utils
+from porepy.utils import error
 from porepy.utils.tangential_normal_projection import TangentialNormalProjection
 
 from porepy.utils import permutations
@@ -70,6 +70,7 @@ from porepy.grids.point_grid import PointGrid
 from porepy.grids import match_grids
 from porepy.grids.standard_grids import grid_buckets_2d
 from porepy.grids import grid_extrusion
+from porepy.utils import grid_utils
 
 # Fractures
 from porepy.fracs.fractures_3d import Fracture, EllipticFracture, FractureNetwork3d
