@@ -10,7 +10,7 @@ PorePy currently has the following distinguishing features:
 - Discretization of flow and transport, using finite volume methods and virtual finite elements.
 - Discretization of elasticity and poro-elasticity, using finite volume methods.
 
-For more information, see the [Wiki](https://github.com/pmgbergen/porepy/wiki/PorePy-wiki).
+For more information, see the [Wiki](https://github.com/pmgbergen/porepy/wiki).
 
 PorePy is developed by the [Porous Media Group](http://pmg.b.uib.no/) at the University of Bergen, Norway. The software is developed under projects funded by the Research Council of Norway and Statoil.
 
