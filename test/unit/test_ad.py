@@ -223,6 +223,8 @@ def test_mortar_projections(scalar):
     for e in edge_list:
         mg = gb.edge_props(e, 'mortar_grid')
         sz = int(np.round(mg.num_cells/2))
+        if not scalar:
+            sz *= Nd
         vals = np.hstack((vals, -np.ones(sz), np.ones(sz)))
 
     known_sgn_mat = sps.dia_matrix((vals, 0), shape=(NMC, NMC))
