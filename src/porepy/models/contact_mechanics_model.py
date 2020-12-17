@@ -213,7 +213,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             error = np.nan if diverged else 0
             return error, converged, diverged
 
-        mech_dof = self.assembler.dof_ind(g_max, self.displacement_variable)
+        mech_dof = self.dof_manager.dof_ind(g_max, self.displacement_variable)
 
         # Also find indices for the contact variables
         contact_dof = np.array([], dtype=np.int)
@@ -222,7 +222,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 contact_dof = np.hstack(
                     (
                         contact_dof,
-                        self.assembler.dof_ind(e[1], self.contact_traction_variable),
+                        self.dof_manager.dof_ind(e[1], self.contact_traction_variable),
                     )
                 )
 
@@ -556,34 +556,61 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         Nd = self._Nd
         gb = self.gb
         mpsa = pp.Mpsa(self.mechanics_parameter_key)
+        # We need a void discretization for the contact traction variable defined on
+        # the fractures.
+        empty_discr = pp.VoidDiscretization(self.mechanics_parameter_key, ndof_cell=Nd)
 
+        for g, d in gb:
+            if g.dim == Nd:
+                d[pp.DISCRETIZATION] = {self.displacement_variable: {"mpsa": mpsa}}
+            elif g.dim == Nd - 1:
+                d[pp.DISCRETIZATION] = {
+                    self.contact_traction_variable: {"empty": empty_discr}
+                }
+
+        # Define the contact condition on the mortar grid
+        coloumb = pp.ColoumbContact(self.mechanics_parameter_key, Nd, mpsa)
+        contact = pp.PrimalContactCoupling(self.mechanics_parameter_key, mpsa, coloumb)
+
+        for e, d in gb.edges():
+            g_l, g_h = gb.nodes_of_edge(e)
+            if g_h.dim == Nd:
+                d[pp.COUPLING_DISCRETIZATION] = {
+                    self.friction_coupling_term: {
+                        g_h: (self.displacement_variable, "mpsa"),
+                        g_l: (self.contact_traction_variable, "empty"),
+                        (g_h, g_l): (self.mortar_displacement_variable, contact),
+                    }
+                }
         if self._use_ad:
 
             dof_manager = pp.DofManager(gb)
             eq_manager = pp.ad.EquationManager(gb, dof_manager)
 
             g_primary = gb.grids_of_dimension(Nd)[0]
-            g_frac = gb.grids_of_dimension(Nd - 1)
+            g_frac = gb.grids_of_dimension(Nd - 1).tolist()
             num_frac_cells = np.sum([g.num_cells for g in g_frac])
 
-            edge_list = [
-                e for gf in g_frac for e, _ in gb.edges_of_node(gf, only_higher=True)
-            ]
+            if len(gb.grids_of_dimension(Nd)) != 1:
+                raise NotImplementedError("This will require further work")
 
-            mortar_proj = pp.ad.MortarProjection(gb, nd=self._Nd)
-            subdomain_proj = pp.ad.SubdomainProjection(gb, nd=self._Nd)
+            edge_list = [(g_primary, g) for g in g_frac]
+
+            mortar_proj = pp.ad.MortarProjections(edges=edge_list, gb=gb, nd=self._Nd)
+            subdomain_proj = pp.ad.SubdomainProjections(gb=gb, nd=self._Nd)
             tangential_proj_lists = [
-                mat
+                gb.node_props(
+                    gf, "tangential_normal_projection"
+                ).project_tangential_normal(gf.num_cells)
                 for gf in g_frac
-                for mat in gb.node_props(gf, "tangential_normal_projection")
             ]
-            tangential_proj = pp.ad.Matrix(sps.block_diag([tangential_proj_lists]))
+            tangential_proj = pp.ad.Matrix(sps.block_diag(tangential_proj_lists))
 
             mpsa_ad = pp.ad.Discretization({g_primary: mpsa}, "momentuum_discr")
             bc_ad = pp.ad.BoundaryCondition(
                 self.mechanics_parameter_key, grids=[g_primary]
             )
-            div = pp.ad.Divergence(g_primary, scalar=False)
+            div = pp.ad.Divergence(grids=[g_primary], is_scalar=False)
 
             # Primary variables on Ad form
             u = eq_manager.variable(g_primary, self.displacement_variable)
@@ -600,62 +627,76 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             stress = (
                 mpsa_ad.stress * u
                 + mpsa_ad.bound_stress * bc_ad
-                + subdomain_proj.face_restriction(g_primary)
-                * mpsa_ad.bound_stress
+                + mpsa_ad.bound_stress
+                * subdomain_proj.face_restriction(g_primary)
                 * mortar_proj.mortar_to_primary_avg
                 * u_mortar
             )
+            self._initial_condition()
+            self._discretize()
 
             # momentum balance equation in g_h
             momentum_eq = pp.ad.Equation(div * stress, dof_manager, "momentuum")
+         #   breakpoint()
+            #eq1 = pp.ad.Equation(, dof_manager).to_ad(gb)
 
-            coloumb = pp.ColoumbContact(self.mechanics_parameter_key, Nd, mpsa)
-            contact_ad = pp.ad.Discretization(
+            coloumb_ad = pp.ad.Discretization(
                 {g: coloumb for g in g_frac}, "contact_ad"
             )
             jump_rotate = (
                 tangential_proj
+                * subdomain_proj.cell_restriction(g_frac)
                 * mortar_proj.mortar_to_secondary_avg
                 * mortar_proj.sign_of_mortar_sides
             )
 
             # Contact conditions
-            jump_discr = contact_ad.displacement * jump_rotate * u_mortar
-
+            jump_discr = coloumb_ad.displacement * jump_rotate * u_mortar
             tmp = np.ones(num_frac_cells * self._Nd)
             tmp[self._Nd - 1 :: self._Nd] = 0
             exclude_normal = pp.ad.Matrix(
-                sps.dia_matrix((tmp, 0)), shape=(tmp.size, tmp.size)
+                sps.dia_matrix((tmp, 0), shape=(tmp.size, tmp.size))
             )
-
             # Rhs of contact conditions
             rhs = (
-                contact_ad.rhs
-                + exclude_normal * contact_ad.displacement * jump_rotate * u_mortar_prev
+                coloumb_ad.rhs
+                + exclude_normal * coloumb_ad.displacement * jump_rotate * u_mortar_prev
             )
-
-            contact_conditions = contact_ad.traction * contact_force + jump_discr - rhs
+            contact_conditions = coloumb_ad.traction * contact_force + jump_discr - rhs
             contact_eq = pp.ad.Equation(contact_conditions, dof_manager, "contact")
 
             # Force balance
 
-            mats = []
-            for _, d in self.edges():
+            mat = None
+            for _, d in gb.edges():
                 mg: pp.MortarGrid = d["mortar_grid"]
+                if mg.dim < self._Nd - 1:
+                    continue
+
                 faces_on_fracture_surface = mg.primary_to_mortar_int().tocsr().indices
-                mats.append(
+                m = (
                     pp.grid_utils.switch_sign_if_inwards_normal(
                         g_primary, self._Nd, faces_on_fracture_surface
                     )
                 )
-            sign_switcher = pp.ad.Matrix(mats)
+                if mat is None:
+                    mat = m
+                else:
+                    mat += m
+
+            sign_switcher = pp.ad.Matrix(mat)
 
             # Contact from primary grid and mortar displacements (via primary grid)
             contact_from_primary_mortar = (
-                mortar_proj.primary_to_mortar_int * sign_switcher * stress
+                mortar_proj.primary_to_mortar_int
+                * subdomain_proj.face_prolongation(g_primary)
+                * sign_switcher
+                * stress
             )
             contact_from_secondary = (
-                mortar_proj.secondary_to_mortar_int
+                mortar_proj.sign_of_mortar_sides
+                * mortar_proj.secondary_to_mortar_int
+                * subdomain_proj.cell_prolongation(g_frac)
                 * tangential_proj.transpose()
                 * contact_force
             )
@@ -664,43 +705,11 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 dof_manager,
                 "force_balance",
             )
+#            eq2 = pp.ad.Equation(contact_from_secondary, dof_manager).to_ad(gb)
 
-            eq_manager.equation += [momentum_eq, contact_eq, force_balance_eq]
+            eq_manager.equations += [momentum_eq, contact_eq, force_balance_eq]
 
             self._eq_manager = eq_manager
-
-        else:
-
-            # We need a void discretization for the contact traction variable defined on
-            # the fractures.
-            empty_discr = pp.VoidDiscretization(
-                self.mechanics_parameter_key, ndof_cell=Nd
-            )
-
-            for g, d in gb:
-                if g.dim == Nd:
-                    d[pp.DISCRETIZATION] = {self.displacement_variable: {"mpsa": mpsa}}
-                elif g.dim == Nd - 1:
-                    d[pp.DISCRETIZATION] = {
-                        self.contact_traction_variable: {"empty": empty_discr}
-                    }
-
-            # Define the contact condition on the mortar grid
-            coloumb = pp.ColoumbContact(self.mechanics_parameter_key, Nd, mpsa)
-            contact = pp.PrimalContactCoupling(
-                self.mechanics_parameter_key, mpsa, coloumb
-            )
-
-            for e, d in gb.edges():
-                g_l, g_h = gb.nodes_of_edge(e)
-                if g_h.dim == Nd:
-                    d[pp.COUPLING_DISCRETIZATION] = {
-                        self.friction_coupling_term: {
-                            g_h: (self.displacement_variable, "mpsa"),
-                            g_l: (self.contact_traction_variable, "empty"),
-                            (g_h, g_l): (self.mortar_displacement_variable, contact),
-                        }
-                    }
 
     # Methods for discretization, numerical issues etc.
 
@@ -718,8 +727,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         for g, d in self.gb:
             if g.dim == self._Nd:
                 # Initialize displacement variable
-                state = {self.displacement_variable: np.zeros(g.num_cells * self._Nd)}
-
+                displacement = np.zeros(g.num_cells * self._Nd)
+                state = {self.displacement_variable: displacement}
+                pp.set_iterate(d, {self.displacement_variable: displacement})
             elif g.dim == self._Nd - 1:
                 # Initialize contact variable
                 traction = np.vstack(
