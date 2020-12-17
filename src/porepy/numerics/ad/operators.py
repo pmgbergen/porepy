@@ -638,7 +638,27 @@ class MergedOperator(Operator):
             mat_key = getattr(discr, key + "_matrix_key")
             mat.append(mat_dict[mat_key])
 
-        return sps.block_diag(mat)
+        if all([isinstance(m, np.ndarray) for m in mat]):
+            if all([m.ndim == 1 for m in mat]):
+                # This is a vector (may happen e.g. for right hand side terms that are
+                # stored as discretization matrices, as may happen for non-linear terms)
+                return np.hstack(mat)
+            elif all([m.ndim == 2 for m in mat]):
+                # Variant of the first case
+                if all([m.shape[0] == 1 for m in mat]):
+                    return np.hstack(mat).ravel()
+
+                elif all([m.shape[1] == 1 for m in mat]):
+                    return np.vstack(mat).ravel()
+            else:
+                # This should correspond to a 2d array. In prinicple it should be
+                # possible to concatenate arrays in the right direction, provided they
+                # have coinciding shapes. However, the use case is not clear, so we
+                # raise an error, and rethink if we ever get here.
+                raise NotImplementedError("")
+        else:
+            # This is a standard term; wrap it in a diagonal sparse matrix
+            return sps.block_diag(mat)
 
 
 class _Tree:
