@@ -122,7 +122,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             "Method for grid creation should be implemented in a subclass"
         )
 
-    def get_state_vector(self) -> np.ndarray:
+    def get_state_vector(self, use_iterate: bool = False) -> np.ndarray:
         """Get a vector of the current state of the variables; with the same ordering
             as in the assembler.
 
@@ -132,14 +132,21 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         """
         size = self.assembler.num_dof()
         state = np.zeros(size)
-        for g, var in self.assembler.block_dof.keys():
+        for g, var in self.dof_manager.block_dof.keys():
             # Index of
-            ind = self.assembler.dof_ind(g, var)
+            ind = self.dof_manager.dof_ind(g, var)
 
             if isinstance(g, tuple):
-                values = self.gb.edge_props(g)[pp.STATE][var]
+                if use_iterate:
+                    values = self.gb.edge_props(g)[pp.STATE][pp.ITERATE][var]
+                else:
+                    values = self.gb.edge_props(g)[pp.STATE][var]
             else:
-                values = self.gb.node_props(g)[pp.STATE][var]
+                if use_iterate:
+                    values = self.gb.node_props(g)[pp.STATE][pp.ITERATE][var]
+                else:
+                    values = self.gb.node_props(g)[pp.STATE][var]
+
             state[ind] = values
 
         return state
@@ -174,6 +181,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
+        if self._use_ad:
+            solution = self.get_state_vector(use_iterate=True)
+
         self.assembler.distribute_variable(solution)
         self.convergence_status = True
 
@@ -755,6 +765,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
         dof = np.cumsum(np.append(0, np.asarray(dof_manager.full_dof)))
 
+        # Treat the updates cumulatively if automatic differentiation is used
+        cumulative = self._use_ad
+
         for var_name in set(variable_names):
             for pair, bi in dof_manager.block_dof.items():
                 g = pair[0]
@@ -766,22 +779,42 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                     if name == self.mortar_displacement_variable:
                         mortar_u = solution_vector[dof[bi] : dof[bi + 1]]
                         data = self.gb.edge_props(g)
-                        data[pp.STATE][pp.ITERATE][
-                            self.mortar_displacement_variable
-                        ] = mortar_u.copy()
+                        if cumulative:
+                            data[pp.STATE][pp.ITERATE][
+                                self.mortar_displacement_variable
+                            ] += mortar_u.copy()
+                        else:
+                            data[pp.STATE][pp.ITERATE][
+                                self.mortar_displacement_variable
+                            ] = mortar_u.copy()
+
                 else:
                     data = self.gb.node_props(g)
 
                     # g is a node (not edge)
 
                     # For the fractures, update the contact force
-                    if g.dim < self._Nd:
-                        if name == self.contact_traction_variable:
-                            contact = solution_vector[dof[bi] : dof[bi + 1]]
-                            data = self.gb.node_props(g)
+                    if g.dim == self._Nd and name == self.displacement_variable:
+                        displacement = solution_vector[dof[bi] : dof[bi+1]]
+                        if cumulative:
+                            data[pp.STATE][pp.ITERATE][
+                                self.displacement_variable
+                            ] += displacement.copy()
+                        else:
+                            data[pp.STATE][pp.ITERATE][
+                                self.displacement_variable
+                            ] = displacement.copy()
+                    elif g.dim < self._Nd and name == self.contact_traction_variable:
+                        contact = solution_vector[dof[bi] : dof[bi + 1]]
+                        if cumulative:
+                            data[pp.STATE][pp.ITERATE][
+                                self.contact_traction_variable
+                            ] += contact.copy()
+                        else:
                             data[pp.STATE][pp.ITERATE][
                                 self.contact_traction_variable
                             ] = contact.copy()
+
 
     def _set_friction_coefficient(self, g: pp.Grid) -> np.ndarray:
         """The friction coefficient is uniform, and equal to 1."""
