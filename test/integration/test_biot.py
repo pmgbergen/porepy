@@ -136,7 +136,8 @@ class BiotTest(unittest.TestCase):
             v_1 + "_" + v_0: {term_10: pp.DivU(kw_m)},
         }
         # Assemble. Also discretizes the flow terms (fluid_mass and fluid_flux)
-        general_assembler = pp.Assembler(gb)
+        dof_manager = pp.DofManager(gb)
+        general_assembler = pp.Assembler(gb, dof_manager)
         filt = pp.assembler_filters.ListFilter(term_list=["fluid_mass", "fluid_flux"])
         general_assembler.discretize(filt=filt)
         A, b = general_assembler.assemble_matrix_rhs()
@@ -151,8 +152,8 @@ class BiotTest(unittest.TestCase):
         A, b = permute_matrix_vector(
             A,
             b,
-            general_assembler.block_dof,
-            general_assembler.full_dof,
+            dof_manager.block_dof,
+            dof_manager.full_dof,
             grids,
             variables,
         )
@@ -214,8 +215,10 @@ class BiotTest(unittest.TestCase):
             v_0 + "_" + v_1: {term_01: pp.GradP(kw_m)},
             v_1 + "_" + v_0: {term_10: pp.DivU(kw_m)},
         }
+
         # Assemble. Also discretizes the flow terms (fluid_mass and fluid_flux)
-        general_assembler = pp.Assembler(gb)
+        dof_manager = pp.DofManager(gb)
+        general_assembler = pp.Assembler(gb, dof_manager)
         filt = pp.assembler_filters.ListFilter(
             term_list=[
                 "!stress_divergence",
@@ -237,8 +240,8 @@ class BiotTest(unittest.TestCase):
         A, b = permute_matrix_vector(
             A,
             b,
-            general_assembler.block_dof,
-            general_assembler.full_dof,
+            dof_manager.block_dof,
+            dof_manager.full_dof,
             grids,
             variables,
         )
@@ -321,7 +324,8 @@ class BiotTest(unittest.TestCase):
         biot_discretizer = pp.Biot()
         biot_discretizer._discretize_mech(g, d)
 
-        general_assembler = pp.Assembler(gb)
+        dof_manager = pp.DofManager(gb)
+        general_assembler = pp.Assembler(gb, dof_manager)
         filt = pp.assembler_filters.ListFilter(term_list=["fluid_mass", "fluid_flux"])
         # Discretize terms that are not handled by the call to biot_discretizer
         general_assembler.discretize(filt=filt)
@@ -341,8 +345,8 @@ class BiotTest(unittest.TestCase):
             A, b = permute_matrix_vector(
                 A,
                 b,
-                general_assembler.block_dof,
-                general_assembler.full_dof,
+                dof_manager.block_dof,
+                dof_manager.full_dof,
                 grids,
                 variables,
             )
