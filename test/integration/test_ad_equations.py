@@ -3,9 +3,11 @@
 The tests are based on equivalence between the equations defined by the AD framework
 and the classical way of defining equations.
 """
+import pytest
 import porepy as pp
 import numpy as np
 import scipy.sparse.linalg as spla
+import scipy.sparse as sps
 
 
 def test_md_flow():
@@ -38,8 +40,12 @@ def test_md_flow():
 
         d[pp.PRIMARY_VARIABLES] = {pressure_variable: {"cells": 1}}
         d[pp.DISCRETIZATION] = {pressure_variable: {"diff": discr}}
+        d[pp.STATE] = {pressure_variable: np.zeros(g.num_cells),
+             pp.ITERATE: {pressure_variable: np.zeros(g.num_cells)}
+         }
     for e, d in gb.edges():
-        pp.initialize_data(d["mortar_grid"], d, "flow", {"normal_diffusivity": 1})
+        mg = d["mortar_grid"]
+        pp.initialize_data(mg, d, "flow", {"normal_diffusivity": 1})
 
         d[pp.PRIMARY_VARIABLES] = {flux_variable: {"cells": 1}}
         d[pp.COUPLING_DISCRETIZATION] = {}
@@ -48,6 +54,9 @@ def test_md_flow():
             e[1]: (pressure_variable, "diff"),
             e: (flux_variable, coupling_discr),
         }
+        d[pp.STATE] = {flux_variable: np.zeros(mg.num_cells),
+             pp.ITERATE: {flux_variable: np.zeros(mg.num_cells)}}
+
 
     dof_manager = pp.DofManager(gb)
     assembler = pp.Assembler(gb, dof_manager)
@@ -93,8 +102,8 @@ def test_md_flow():
         + edge_discr.mortar_discr * lmbda
     )
 
-    flow_eq_ad = pp.ad.Equation(flow_eq, dof_manager)
-    interface_eq_ad = pp.ad.Equation(interface_flux, dof_manager)
+    flow_eq_ad = pp.ad.Equation(flow_eq, dof_manager, 'flow on nodes')
+    interface_eq_ad = pp.ad.Equation(interface_flux, dof_manager, 'flow on interface')
 
     manager.equations += [flow_eq_ad, interface_eq_ad]
 
@@ -220,25 +229,127 @@ def test_biot():
     assert np.max(np.abs(b - b_biot)) < 1e-10
 
 
+# Below are grid buckte generators to be used for tests of contact-mechanics models
+
 def _single_fracture_2d():
-    frac = np.array([[1, 2], [1, 1]])
+    frac = [np.array([[2, 3], [2, 2]])]
+    gb = pp.meshing.cart_grid(frac, [5, 4])
+    pp.contact_conditions.set_projections(gb)
+    return gb
+
+
+def _single_fracture_near_global_boundary_2d():
+    frac = [np.array([[1, 2], [1, 1]])]
     gb = pp.meshing.cart_grid(frac, [3, 2])
+    pp.contact_conditions.set_projections(gb)
+    return gb
+
+def _two_fractures_2d():
+    frac = [np.array([[2, 3], [1, 1]]), np.array([[2, 3], [3, 3]])]
+    gb = pp.meshing.cart_grid(frac, [5, 4])
+    pp.contact_conditions.set_projections(gb)
+    return gb
+
+def _two_fractures_crossing_2d():
+    frac = [np.array([[1, 3], [2, 2]]), np.array([[2, 2], [1, 3]])]
+    gb = pp.meshing.cart_grid(frac, [4, 4])
+    pp.contact_conditions.set_projections(gb)
+    return gb
+
+def _single_fracture_3d():
+    frac = [np.array([[2, 3, 3, 2], [2, 2, 3, 3], [2, 2, 2, 2]])]
+    gb = pp.meshing.cart_grid(frac, [5, 5, 4])
+    pp.contact_conditions.set_projections(gb)
+    return gb
+
+def _three_fractures_crossing_3d():
+    frac = [np.array([[1, 3, 3, 1], [1, 1, 3, 3], [2, 2, 2, 2]]),
+            np.array([[1, 1, 3, 3], [2, 2, 2, 2], [1, 3, 3, 1]]),
+            np.array([[2, 2, 2, 2], [1, 1, 3, 3], [1, 3, 3, 1]]),
+            ]
+    gb = pp.meshing.cart_grid(frac, [4, 4, 4])
     pp.contact_conditions.set_projections(gb)
     return gb
 
 
 class ContactModel(pp.ContactMechanics):
 
-    def __init__(self, param):
+    def __init__(self, param, grid_meth):
         super().__init__(param)
+        self._grid_meth = grid_meth
 
     def _bc_values(self, g):
         return g.face_centers[:g.dim].ravel('f')
 
+    def create_grid(self):
+        self.gb = self._grid_meth()
 
+
+def _stepwise_newton_with_comparison(model_as, model_ad):
+
+    model_as.prepare_simulation()
+    model_as.before_newton_loop()
+
+    model_ad.prepare_simulation()
+    model_ad.before_newton_loop()
+
+    is_converged = False
+
+    prev_sol_as= model_as.get_state_vector()
+    init_sol_as = prev_sol_as
+    tol = 1e-10
+
+    iteration_counter = 0
+
+    while iteration_counter <= 20 and not is_converged:
+        # Re-discretize the nonlinear term
+        model_as.before_newton_iteration()
+        model_ad.before_newton_iteration()
+
+        A_assembler, b_assembler = model_as.assembler.assemble_matrix_rhs()
+        A_ad, b_ad = model_ad._eq_manager.assemble_matrix_rhs()
+
+        dA = A_assembler - A_ad
+        if dA.data.size > 0:
+            assert np.max(np.abs(dA.data)) < tol
+
+        # No check on equality of right hand sides, they will be different since
+        # ad uses a cumulative approach to the updates.
+
+        # Solve linear system
+        sol_as = model_as.assemble_and_solve_linear_system(tol)
+        sol_ad = model_ad.assemble_and_solve_linear_system(tol)
+
+        model_as.after_newton_iteration(sol_as)
+        model_ad.after_newton_iteration(sol_ad)
+
+        _, is_converged, is_diverged = model_as.check_convergence(
+                        sol_as, prev_sol_as, init_sol_as, {'nl_convergence_tol': tol}
+                    )
+        prev_sol_as = sol_as
+        iteration_counter += 1
+
+        if is_converged:
+            model_as.after_newton_convergence(sol_as, [], iteration_counter)
+            model_ad.after_newton_convergence(sol_ad, [], iteration_counter)
+
+    state_as = model_as.get_state_vector()
+    state_ad = model_ad.get_state_vector()
+    # Solutions should be identical.
+    assert np.linalg.norm(state_as - state_ad) < tol
+
+@pytest.mark.parametrize("grid_method", [_single_fracture_2d,
+                                         _single_fracture_near_global_boundary_2d,
+                                         _two_fractures_2d,
+                                         _two_fractures_crossing_2d,
+                                         _single_fracture_3d,
+                                         _three_fractures_crossing_3d,
+                                         ])
 def test_contact_mechanics(grid_method):
+    grid_method = _two_fractures_crossing_2d
+    model_as = ContactModel({}, grid_method)
 
-    model = ContactModel({})
-    setattr(model, 'create_grid', grid_method)
+    model_ad = ContactModel({}, grid_method)
+    model_ad._use_ad = True
 
-
+    _stepwise_newton_with_comparison(model_as, model_ad)
