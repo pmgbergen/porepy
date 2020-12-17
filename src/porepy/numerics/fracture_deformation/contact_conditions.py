@@ -401,16 +401,16 @@ class ColoumbContact:
         data_displacement = np.array(displacement_weight).ravel(order="C")
 
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
-            self.traction_discretization
+            self.traction_matrix_key
         ] = pp.utils.sparse_mat.csr_matrix_from_blocks(
             data_traction, self.dim, num_blocks
         )
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
-            self.displacement_discretization
+            self.displacement_matrix_key
         ] = pp.utils.sparse_mat.csr_matrix_from_blocks(
             data_displacement, self.dim, num_blocks
         )
-        data_l[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_discretization] = rhs
+        data_l[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_matrix_key] = rhs
 
         # Also store the contact state
         data_l[pp.STATE][pp.ITERATE]["penetration"] = penetration_bc
