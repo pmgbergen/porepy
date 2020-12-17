@@ -377,3 +377,23 @@ class EquationManager:
         # (but should also be able to do rediscretization based on
         # dependency graph etc).
         pass
+
+    def __repr__(self) -> str:
+        s = "Equation manager for mixed-dimensional grid with "\
+            f"{self.gb.num_graph_nodes()} grids and {self.gb.num_graph_edges()}"\
+            " interfaces.\n"
+
+        var = []
+        for g, _ in self.gb:
+            for v in self.variables[g]:
+                var.append(v)
+
+        unique_vars = list(set(var))
+        s += "Variables present on at least one grid or interface:\n\t"
+        s += ", ".join(unique_vars) + "\n"
+
+        eq_names = [eq.name for eq in self.equations]
+        s += f"In total {len(self.equations)} equations, with names: \n\t"
+        s += ", ".join(eq_names)
+
+        return s
