@@ -146,7 +146,7 @@ class FracturePropagation(abc.ABC):
             d[pp.STATE]["old_solution"] = {}
             for var, dofs in d[pp.PRIMARY_VARIABLES].items():
                 # Copy old solution vector values
-                d[pp.STATE]["old_solution"][var] = x[self.assembler.dof_ind(g, var)]
+                d[pp.STATE]["old_solution"][var] = x[self.assembler._dof_manager.dof_ind(g, var)]
 
                 # Only cell-based dofs have been considered so far.
                 # It should not be difficult to handle other types of variables,
@@ -188,7 +188,7 @@ class FracturePropagation(abc.ABC):
 
             for var, dofs in d[pp.PRIMARY_VARIABLES].items():
                 # Copy old solution vector values
-                d[pp.STATE]["old_solution"][var] = x[self.assembler.dof_ind(e, var)]
+                d[pp.STATE]["old_solution"][var] = x[self.assembler._dof_manager.dof_ind(e, var)]
 
                 # Only cell-based dofs have been considered so far.
                 cell_dof = dofs.get("cells")
@@ -229,7 +229,7 @@ class FracturePropagation(abc.ABC):
                 # Mapping of old variables
                 cell_dof = dofs.get("cells")
                 mapping = sps.kron(cell_map, sps.eye(cell_dof))
-                x_new[self.assembler.dof_ind(g, var)] = (
+                x_new[self.assembler._dof_manager.dof_ind(g, var)] = (
                     mapping * d[pp.STATE]["old_solution"][var]
                 )
 
@@ -238,7 +238,7 @@ class FracturePropagation(abc.ABC):
                 # Values of newly formed variables
                 new_vals = self._initialize_new_variable_values(g, d, var, dofs)
                 # Update newly formed variables
-                x_new[self.assembler.dof_ind(g, var)[new_ind]] = new_vals
+                x_new[self.assembler._dof_manager.dof_ind(g, var)[new_ind]] = new_vals
 
         for e, d in self.gb.edges():
             # Same procedure as for nodes, see above for comments
@@ -250,12 +250,12 @@ class FracturePropagation(abc.ABC):
             for var, dofs in d[pp.PRIMARY_VARIABLES].items():
                 cell_dof = dofs.get("cells")
                 mapping = sps.kron(cell_map, sps.eye(cell_dof))
-                x_new[self.assembler.dof_ind(e, var)] = (
+                x_new[self.assembler._dof_manager.dof_ind(e, var)] = (
                     mapping * d[pp.STATE]["old_solution"][var]
                 )
                 new_ind = self._new_dof_inds(mapping)
                 new_vals = self._initialize_new_variable_values(e, d, var, dofs)
-                x_new[self.assembler.dof_ind(e, var)[new_ind]] = new_vals
+                x_new[self.assembler._dof_manager.dof_ind(e, var)[new_ind]] = new_vals
 
         # Store the mapped solution vector
         return x_new

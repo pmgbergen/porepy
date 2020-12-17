@@ -1117,7 +1117,7 @@ class Assembler:
 
         """
         # Loop over identified grid-varibale combinations
-        for key, index in self.block_dof.items():
+        for key, index in self._dof_manager.block_dof.items():
             # Grid quantity (grid or interface), and variable
             grid, variable = key
             # Get data dictionary - this is slightly different for grid and interface
@@ -1139,7 +1139,7 @@ class Assembler:
                 ) + grid.num_nodes * dof.get("nodes", 0)
 
             # Update local counting
-            self.full_dof[index] = num_dofs
+            self._dof_manager.full_dof[index] = num_dofs
 
     def _initialize_matrix_rhs(
         self, sps_matrix: Type[csc_or_csr_matrix]
