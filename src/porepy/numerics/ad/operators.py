@@ -80,7 +80,7 @@ class Operator:
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
     def __repr__(self) -> str:
-        return f"Operator formed by {self._tree._op} with {len(self._tree._children)} children"
+        return f"Operator formed by {self.tree.op} with {len(self.tree.children)} children"
 
     def viz(self):
         """Give a visualization of the operator tree that has this operator at the top."""
@@ -178,6 +178,9 @@ class Matrix(Operator):
 
         """
         return self._mat
+
+    def transpose(self) -> "Matrix":
+        return Matrix(self._mat.transpose())
 
 
 class Array(Operator):
