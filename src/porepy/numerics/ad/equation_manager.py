@@ -266,11 +266,19 @@ class Equation:
         if tree.op == operators.Operation.add:
             # To add we need two objects
             assert len(results) == 2
+
+            # Convert any vectors that mascarade as a nx1 (1xn) scipy matrix
+            self._ravel_scipy_matrix(results)
+
             return results[0] + results[1]
 
         elif tree.op == operators.Operation.sub:
             # To subtract we need two objects
             assert len(results) == 2
+
+            # Convert any vectors that mascarade as a nx1 (1xn) scipy matrix
+            self._ravel_scipy_matrix(results)
+
             return results[0] - results[1]
 
         elif tree.op == operators.Operation.mul:
@@ -288,6 +296,17 @@ class Equation:
 
         else:
             raise ValueError("Should not happen")
+
+    def _ravel_scipy_matrix(self, results):
+        # In some cases, parsing may leave what is essentially an array, but with the
+        # format of a scipy matrix. This must be converted to a numpy array before
+        # moving on.
+        # Note: It is not clear that this conversion is meaningful in all cases, so be
+        # cautious with adding this extra parsing to more operations.
+        for i, res in enumerate(results):
+            if isinstance(res, sps.spmatrix):
+                assert res.shape[0] == 1 or res.shape[1] == 1
+                results[i] = res.toarray().ravel()
 
 
 class EquationManager:
