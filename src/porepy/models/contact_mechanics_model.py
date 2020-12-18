@@ -95,7 +95,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
         self._iteration: int = 0
 
-        self._use_ad: bool = params.get("use_ad", False)
+        self._use_ad: bool = self.params.get("use_ad", False)
 
     # Public methods
 
