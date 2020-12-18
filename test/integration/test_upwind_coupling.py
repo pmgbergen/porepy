@@ -53,10 +53,11 @@ class BasicsTest(unittest.TestCase):
 
         for e, d in gb.edges():
             pp.initialize_data(d["mortar_grid"], d, "transport", {})
-            
+
         add_constant_darcy_flux(gb, upwind, [0, 1, 0], a)
 
-        assembler = pp.Assembler(gb)
+        dof_manager = pp.DofManager(gb)
+        assembler = pp.Assembler(gb, dof_manager)
         assembler.discretize()
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
@@ -70,7 +71,7 @@ class BasicsTest(unittest.TestCase):
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
         U, rhs = permute_matrix_vector(
-            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
+            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
         )
 
         theta = np.linalg.solve(U.A, rhs)
@@ -139,11 +140,12 @@ class BasicsTest(unittest.TestCase):
 
         for e, d in gb.edges():
             pp.initialize_data(d["mortar_grid"], d, "transport", {})
-    
+
 
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
-        assembler = pp.Assembler(gb)
+        dof_manager = pp.DofManager(gb)
+        assembler = pp.Assembler(gb, dof_manager)
         assembler.discretize()
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
@@ -158,7 +160,7 @@ class BasicsTest(unittest.TestCase):
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
         U, rhs = permute_matrix_vector(
-            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
+            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
         )
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
@@ -274,10 +276,11 @@ class BasicsTest(unittest.TestCase):
 
         for e, d in gb.edges():
             pp.initialize_data(d["mortar_grid"], d, "transport", {})
-            
+
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
-        assembler = pp.Assembler(gb)
+        dof_manager = pp.DofManager(gb)
+        assembler = pp.Assembler(gb, dof_manager)
         assembler.discretize()
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
@@ -291,7 +294,7 @@ class BasicsTest(unittest.TestCase):
             grids[d["edge_number"] + gb.num_graph_nodes()] = e
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
         U, rhs = permute_matrix_vector(
-            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
+            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
         )
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
@@ -887,10 +890,11 @@ class BasicsTest(unittest.TestCase):
 
         for e, d in gb.edges():
             pp.initialize_data(d["mortar_grid"], d, "transport", {})
-            
+
         add_constant_darcy_flux(gb, upwind, [0, 0, 1], a)
 
-        assembler = pp.Assembler(gb)
+        dof_manager = pp.DofManager(gb)
+        assembler = pp.Assembler(gb, dof_manager)
         assembler.discretize()
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
@@ -905,7 +909,7 @@ class BasicsTest(unittest.TestCase):
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
         U, rhs = permute_matrix_vector(
-            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
+            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
         )
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
@@ -974,10 +978,11 @@ class BasicsTest(unittest.TestCase):
 
         for e, d in gb.edges():
             pp.initialize_data(d["mortar_grid"], d, "transport", {})
-            
+
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
-        assembler = pp.Assembler(gb)
+        dof_manager = pp.DofManager(gb)
+        assembler = pp.Assembler(gb, dof_manager)
         assembler.discretize()
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
@@ -992,7 +997,7 @@ class BasicsTest(unittest.TestCase):
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
         U, rhs = permute_matrix_vector(
-            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
+            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
         )
 
         theta = np.linalg.solve(U.A, rhs)
@@ -1154,9 +1159,11 @@ class BasicsTest(unittest.TestCase):
 
         for e, d in gb.edges():
             pp.initialize_data(d["mortar_grid"], d, "transport", {})
-            
+
         add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
-        assembler = pp.Assembler(gb)
+
+        dof_manager = pp.DofManager(gb)
+        assembler = pp.Assembler(gb, dof_manager)
 
         assembler.discretize()
         U_tmp, rhs = assembler.assemble_matrix_rhs()
@@ -1170,7 +1177,7 @@ class BasicsTest(unittest.TestCase):
             grids[d["edge_number"] + gb.num_graph_nodes()] = e
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
         U, rhs = permute_matrix_vector(
-            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
+            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
         )
 
         theta = np.linalg.solve(U.A, rhs)
@@ -1303,9 +1310,11 @@ class BasicsTest(unittest.TestCase):
 
         for e, d in gb.edges():
             pp.initialize_data(d["mortar_grid"], d, "transport", {})
-            
+
         add_constant_darcy_flux(gb, upwind, [2, 0, 0], a)
-        assembler = pp.Assembler(gb)
+
+        dof_manager = pp.DofManager(gb)
+        assembler = pp.Assembler(gb, dof_manager)
         assembler.discretize()
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
@@ -1320,7 +1329,7 @@ class BasicsTest(unittest.TestCase):
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
         M, rhs = permute_matrix_vector(
-            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
+            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
         )
 
         # add generic mass matrix to solve system
@@ -1465,10 +1474,11 @@ class BasicsTest(unittest.TestCase):
 
         for e, d in gb.edges():
             pp.initialize_data(d["mortar_grid"], d, "transport", {})
-            
+
         add_constant_darcy_flux(gb, upwind, [1, 1, 0], a)
 
-        assembler = pp.Assembler(gb)
+        dof_manager = pp.DofManager(gb)
+        assembler = pp.Assembler(gb, dof_manager)
         assembler.discretize()
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
@@ -1483,7 +1493,7 @@ class BasicsTest(unittest.TestCase):
             variables[d["edge_number"] + gb.num_graph_nodes()] = "lambda_u"
 
         M, rhs = permute_matrix_vector(
-            U_tmp, rhs, assembler.block_dof, assembler.full_dof, grids, variables
+            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
         )
         theta = np.linalg.solve(M.A, rhs)
         M_known = np.array(
