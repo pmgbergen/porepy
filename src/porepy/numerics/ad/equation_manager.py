@@ -12,10 +12,10 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import scipy.sparse as sps
 
-from .forward_mode import initAdArrays
-from . import operators
-
 import porepy as pp
+
+from . import operators
+from .forward_mode import initAdArrays
 
 __all__ = ["Equation", "EquationManager"]
 
@@ -210,7 +210,9 @@ class Equation:
         # Cannot access this directly from pp.STATE in the data dictionary, since
         # merged variables requires some more work
         prev_vals_list = [prev_vals[ind] for ind in self._variable_dofs]
-        self._prev_vals = {var_id: val for (var_id, val) in zip(self._variable_ids, prev_vals_list)}
+        self._prev_vals = {
+            var_id: val for (var_id, val) in zip(self._variable_ids, prev_vals_list)
+        }
 
         # Parse operators. This is left to a separate function to facilitate the
         # necessary recursion for complex operators.
@@ -398,9 +400,11 @@ class EquationManager:
         pass
 
     def __repr__(self) -> str:
-        s = "Equation manager for mixed-dimensional grid with "\
-            f"{self.gb.num_graph_nodes()} grids and {self.gb.num_graph_edges()}"\
+        s = (
+            "Equation manager for mixed-dimensional grid with "
+            f"{self.gb.num_graph_nodes()} grids and {self.gb.num_graph_edges()}"
             " interfaces.\n"
+        )
 
         var = []
         for g, _ in self.gb:

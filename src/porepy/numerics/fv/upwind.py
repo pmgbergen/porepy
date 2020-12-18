@@ -1,4 +1,5 @@
-from typing import Dict, Any, Tuple
+from typing import Any, Dict, Tuple
+
 import numpy as np
 import scipy.sparse as sps
 

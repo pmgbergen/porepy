@@ -19,6 +19,7 @@ The corresponding (null) rhs vectors are stored as
 self._key() + "bound_mass" or self._key() + "bound_inv_mass", respectively.
 """
 from typing import Dict, Tuple
+
 import numpy as np
 import scipy.sparse as sps
 

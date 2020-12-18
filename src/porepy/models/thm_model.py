@@ -684,7 +684,7 @@ class THM(parent_model.ContactMechanicsBiot):
             solution_vector (np.array): solution vector for the current iterate.
 
         """
-        #super().update_state(solution_vector)
+        # super().update_state(solution_vector)
         super()._update_iterate(solution_vector)
 
         dof_manager = self.dof_manager
