@@ -737,7 +737,6 @@ class PartialBiotMpsa(TestPartialMPSA):
             stab += partial_stab
             bound_displacement_pressure += partial_bound_pressure
 
-
         self.assertTrue((div_u_full - div_u).max() < 1e-8)
         self.assertTrue((bound_div_u_full - bound_div_u).min() > -1e-8)
         self.assertTrue((grad_p_full - grad_p).max() < 1e-8)

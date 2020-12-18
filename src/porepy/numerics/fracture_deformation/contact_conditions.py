@@ -117,11 +117,11 @@ class ColoumbContact:
         #   gut feel says yes, but I'm not sure.
 
         # Process input
-        parameters_l = data_l[pp.PARAMETERS]
+        parameters_l: pp.Parameters = data_l[pp.PARAMETERS]
 
         # Numerical parameter, value and sensitivity is currently unknown.
         # The thesis of Hueeber is probably a good place to look for information.
-        c_num = parameters_l[self.keyword].get(
+        c_num: float = parameters_l[self.keyword].get(
             "contact_mechanics_numerical_parameter", 100
         )
         # Obtain the four cellwise parameters:
@@ -138,26 +138,25 @@ class ColoumbContact:
             "cohesion",
         ]
         defaults = [None, 0, 0, 0]
-        vals = parameters_l.expand_scalars(
+        (
+            friction_coefficient,
+            initial_gap,
+            dilation_angle,
+            cohesion,
+        ) = parameters_l.expand_scalars(
             g_l.num_cells, self.keyword, cellwise_parameters, defaults
         )
-        friction_coefficient, initial_gap, dilation_angle, cohesion = (
-            vals[0],
-            vals[1],
-            vals[2],
-            vals[3],
-        )
 
-        mg = data_edge["mortar_grid"]
+        mg: pp.MortarGrid = data_edge["mortar_grid"]
 
         # In an attempt to reduce the sensitivity of the numerical parameter on the
         # model parameters, we scale it with area and an order-of-magnitude estimate
         # for the elastic moduli.
-        area = g_l.cell_volumes
+        area: np.ndarray = g_l.cell_volumes
 
-        parameters_h = data_h[pp.PARAMETERS][self.discr_h.keyword]
-        constit_h = parameters_h["fourth_order_tensor"]
-        mean_constit = (
+        parameters_h: Dict = data_h[pp.PARAMETERS][self.discr_h.keyword]
+        constit_h: pp.FourthOrderTensor = parameters_h["fourth_order_tensor"]
+        mean_constit: np.ndarray = (
             mg.mortar_to_secondary_avg()
             * mg.primary_to_mortar_avg()
             * 0.5
@@ -177,22 +176,28 @@ class ColoumbContact:
         # IMPLEMENATION NOTE: It is paramount that this projection is used for all
         # operations relating to this surface, or else directions of normal vectors
         # will get confused.
-        projection = data_l["tangential_normal_projection"]
+        projection: pp.TangentialNormalProjection = data_l[
+            "tangential_normal_projection"
+        ]
 
         # The contact force is already computed in local coordinates
-        contact_force = data_l[pp.STATE][pp.ITERATE][self.contact_variable]
+        contact_force: np.ndarray = data_l[pp.STATE][pp.ITERATE][self.contact_variable]
 
         # Pick out the tangential and normal direction of the contact force.
         # The contact force of the first cell is in the first self.dim elements
         # of the vector, second cell has the next self.dim etc.
         # By design the tangential force is the first self.dim-1 components of
         # each cell, while the normal force is the last component.
-        normal_indices = np.arange(self.dim - 1, contact_force.size, self.dim)
-        tangential_indices = np.setdiff1d(np.arange(contact_force.size), normal_indices)
-        contact_force_normal = contact_force[normal_indices]
-        contact_force_tangential = contact_force[tangential_indices].reshape(
-            (self.dim - 1, g_l.num_cells), order="F"
+        normal_indices: np.ndarray = np.arange(
+            self.dim - 1, contact_force.size, self.dim
         )
+        tangential_indices: np.ndarray = np.setdiff1d(
+            np.arange(contact_force.size), normal_indices
+        )
+        contact_force_normal: np.ndarray = contact_force[normal_indices]
+        contact_force_tangential: np.ndarray = contact_force[
+            tangential_indices
+        ].reshape((self.dim - 1, g_l.num_cells), order="F")
 
         # The displacement jump (in global coordinates) is found by switching the
         # sign of the second mortar grid, and then sum the displacements on the
@@ -200,18 +205,18 @@ class ColoumbContact:
         # its sign switched).
         # The tangential displacements are relative to the initial state, which in the
         # transient case equals the previous time step.
-        previous_displacement_iterate = data_edge[pp.STATE][pp.ITERATE][
+        previous_displacement_iterate: np.ndarray = data_edge[pp.STATE][pp.ITERATE][
             self.mortar_displacement_variable
         ]
-        previous_displacement_time = data_edge[pp.STATE][
+        previous_displacement_time: np.ndarray = data_edge[pp.STATE][
             self.mortar_displacement_variable
         ]
-        displacement_jump_global_coord_iterate = (
+        displacement_jump_global_coord_iterate: np.ndarray = (
             mg.mortar_to_secondary_avg(nd=self.dim)
             * mg.sign_of_mortar_sides(nd=self.dim)
             * previous_displacement_iterate
         )
-        displacement_jump_global_coord_time = (
+        displacement_jump_global_coord_time: np.ndarray = (
             mg.mortar_to_secondary_avg(nd=self.dim)
             * mg.sign_of_mortar_sides(nd=self.dim)
             * previous_displacement_time
@@ -325,7 +330,9 @@ class ColoumbContact:
                 # There is no interaction between displacement jumps in normal and
                 # tangential direction. Opposite sign compared to Berge because
                 # of jump conventions being opposite.
-                L = -np.hstack((loc_displacement_tangential, np.atleast_2d(zer).T))
+                L: np.ndarray = -1.0 * np.hstack(
+                    (loc_displacement_tangential, np.atleast_2d(zer).T)
+                )
                 normal_displacement = np.hstack((-d_gap[:, i], 1))
                 loc_displacement_weight = np.vstack((L, normal_displacement))
                 # Right hand side is computed from (24-25). In the normal
@@ -564,7 +571,7 @@ class ColoumbContact:
 
         return L, r, v
 
-    def _l2(self, x):
+    def _l2(self, x: np.ndarray) -> np.ndarray:
         x = np.atleast_2d(x)
         return np.sqrt(np.sum(x ** 2, axis=0))
 

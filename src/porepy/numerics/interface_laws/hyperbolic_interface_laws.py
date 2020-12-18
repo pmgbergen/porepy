@@ -2,6 +2,7 @@
 Module of coupling laws for hyperbolic equations.
 """
 
+from typing import Dict, Union
 import numpy as np
 import scipy.sparse as sps
 
@@ -15,13 +16,13 @@ class UpwindCoupling(
     def __init__(self, keyword):
         super(UpwindCoupling, self).__init__(keyword)
 
-    def key(self):
+    def key(self) -> str:
         return self.keyword + "_"
 
-    def discretization_key(self):
+    def discretization_key(self) -> str:
         return self.key() + pp.DISCRETIZATION
 
-    def ndof(self, mg):
+    def ndof(self, mg: pp.MortarGrid) -> int:
         return mg.num_cells
 
     def discretize(
@@ -30,37 +31,43 @@ class UpwindCoupling(
         pass
 
     def assemble_matrix_rhs(
-        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
-    ):
+        self,
+        g_primary: pp.Grid,
+        g_secondary: pp.Grid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_edge: Dict,
+        matrix: np.ndarray,
+    ) -> Union[np.ndarray, np.ndarray]:
         """
         Construct the matrix (and right-hand side) for the coupling conditions.
         Note: the right-hand side is not implemented now.
 
         Parameters:
-            g_primary: grid of higher dimension
-            g_secondary: grid of lower dimension
-            data_primary: dictionary which stores the data for the higher dimensional
-                grid
-            data_secondary: dictionary which stores the data for the lower dimensional
-                grid
-            data_edge: dictionary which stores the data for the edges of the grid
-                bucket
-            matrix: Uncoupled discretization matrix.
+            g_primary: Grid on one neighboring subdomain.
+            g_secondary: Grid on the other neighboring subdomain.
+            data_primary: Data dictionary for the primary suddomain
+            data_secondary: Data dictionary for the secondary subdomain.
+            data_edge: Data dictionary for the edge between the subdomains
+            matrix: original discretization for the primary subdomain
 
         Returns:
-            cc: block matrix which store the contribution of the coupling
-                condition. See the abstract coupling class for a more detailed
-                description.
+            np.array: Block matrix of size 3 x 3, whwere each block represents
+                coupling between variables on this interface. Index 0, 1 and 2
+                represent the primary, secondary and mortar variable, respectively.
+            np.array: Block matrix of size 3 x 1, representing the right hand
+                side of this coupling. Index 0, 1 and 2 represent the primary,
+                secondary and mortar variable, respectively.
 
         """
 
         # Normal component of the velocity from the higher dimensional grid
 
         # @ALL: This should perhaps be defined by a globalized keyword
-        lam_flux = data_edge[pp.PARAMETERS][self.keyword]["darcy_flux"]
+        lam_flux: np.ndarray = data_edge[pp.PARAMETERS][self.keyword]["darcy_flux"]
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
-        mg = data_edge["mortar_grid"]
+        mg: pp.MortarGrid = data_edge["mortar_grid"]
 
         # We know the number of dofs from the primary and secondary side from their
         # discretizations
@@ -68,48 +75,54 @@ class UpwindCoupling(
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((3, 3))
 
-        # Projection from mortar to upper dimenional faces
+        # Projection from mortar to primary grid faces
 
-        # mapping from upper dim cellls to faces
-        # The mortars always points from upper to lower, so we don't flip any
+        # mapping from primary grid cells to faces
+        # The mortars always points from primary to secondary, so we don't flip any
         # signs
-        face_to_cell_h = np.abs(pp.fvutils.scalar_divergence(g_primary))
+        face_to_cell_primary = np.abs(pp.fvutils.scalar_divergence(g_primary))
         # We also need a trace-like projection from cells to faces
-        trace_h = face_to_cell_h.T
+        trace_primary = face_to_cell_primary.T
 
-        # Find upwind weighting. if flag is True we use the upper weights
-        # if flag is False we use the lower weighs
+        # Find upwind weighting. if flag is True we use the primary grid weights
+        # if flag is False we use the secondary grid weights
         flag = (lam_flux > 0).astype(np.float)
         not_flag = 1 - flag
 
         # assemble matrices
         # Note the sign convention: The Darcy mortar flux is positive if it goes
-        # from g_h to g_l. Thus a positive transport flux (assuming positive
-        # concentration) will go out of g_h, into g_l.
+        # from g_primary to g_secondary. Thus a positive transport flux (assuming
+        # positive concentration) will go out of g_primary, into g_secondary.
 
-        # Transport out of upper equals lambda.
+        # Transport out of primary equals lambda.
         # Use integrated projcetion operator; the flux is an extensive quantity
-        cc[0, 2] = face_to_cell_h * mg.mortar_to_primary_int()
+        cc[self.g_primary_ind, self.g_mortar_ind] = (
+            face_to_cell_primary * mg.mortar_to_primary_int()
+        )
 
         # transport out of lower is -lambda
-        cc[1, 2] = -mg.mortar_to_secondary_int()
+        cc[self.g_secondary_ind, self.g_mortar_ind] = -mg.mortar_to_secondary_int()
 
         # Discretisation of mortars
-        # If fluid flux(lam_flux) is positive we use the upper value as weight,
+        # If fluid flux(lam_flux) is positive we use the primary value as weight,
         # i.e., T_primaryat * fluid_flux = lambda.
-        # We set cc[2, 0] = T_primaryat * fluid_flux
+        # We set cc[mortar_ind, primary_ind] = T_primaryat * fluid_flux
         # Use averaged projection operator for an intensive quantity
-        cc[2, 0] = sps.diags(lam_flux * flag) * mg.primary_to_mortar_avg() * trace_h
+        cc[self.g_mortar_ind, self.g_primary_ind] = (
+            sps.diags(lam_flux * flag) * mg.primary_to_mortar_avg() * trace_primary
+        )
 
-        # If fluid flux is negative we use the lower value as weight,
+        # If fluid flux is negative we use the secondary value as weight,
         # i.e., T_check * fluid_flux = lambda.
-        # we set cc[2, 1] = T_check * fluid_flux
+        # we set cc[mortar_ind, secondary_ind] = T_check * fluid_flux
         # Use averaged projection operator for an intensive quantity
-        cc[2, 1] = sps.diags(lam_flux * not_flag) * mg.secondary_to_mortar_avg()
+        cc[self.g_mortar_ind, self.g_secondary_ind] = (
+            sps.diags(lam_flux * not_flag) * mg.secondary_to_mortar_avg()
+        )
 
         # The rhs of T * fluid_flux = lambda
         # Recover the information for the grid-grid mapping
-        cc[2, 2] = -sps.eye(mg.num_cells)
+        cc[self.g_mortar_ind, self.g_mortar_ind] = -sps.eye(mg.num_cells)
 
         if data_primary["node_number"] == data_secondary["node_number"]:
             # All contributions to be returned to the same block of the
@@ -123,15 +136,15 @@ class UpwindCoupling(
 
     def cfl(
         self,
-        g_primary,
-        g_secondary,
-        data_primary,
-        data_secondary,
-        data_edge,
-        d_name="mortar_solution",
-    ):
-        """
-        Return the time step according to the CFL condition.
+        g_primary: pp.Grid,
+        g_secondary: pp.Grid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_edge: Dict,
+        d_name: str = "mortar_solution",
+    ) -> float:
+        """Return the time step according to the CFL condition.
+
         Note: the vector field is assumed to be given as the normal velocity,
         weighted with the face area, at each face.
 

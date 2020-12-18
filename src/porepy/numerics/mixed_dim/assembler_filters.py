@@ -135,40 +135,36 @@ class ListFilter(AssemblerFilter):
         def return_true(s):
             return True
 
+        # 1. Initialize grid filter
         if grid_list is None:
             # There should be no filtering based on grids
-
             self._grid_filter = return_true
-
+        elif len(grid_list) == 0:
+            # This is considered a no-pass filter.
+            # This will for instance be the case if a GridBucket is filtered
+            # on a dimension that is not present (will return an empty list)
+            self._grid_filter = return_false
         else:
-            if len(grid_list) == 0:
-                # This is considered a no-pass filter.
-                # This will for instance be the case if a GridBucket is filtered
-                # on a dimension that is not present (will return an empty list)
+            # Non-trivial filter
+            self._grid_filter = self._make_grid_filter(grid_list)
 
-                self._grid_filter = return_false
-
-            else:
-                # Non-trivial filter
-                self._grid_filter = self._make_grid_filter(grid_list)
-
+        # 2. Initialize variable filter
         if variable_list is None:
             self._var_filter: Callable[[Optional[List[str]]], bool] = return_true
+        elif len(variable_list) == 0:
+            self._var_filter = return_false
         else:
-            if len(variable_list) == 0:
-                self._var_filter = return_false
-            else:
-                self._variable_list: List[str] = variable_list
-                self._var_filter = self._make_string_filter(self._variable_list)
+            self._variable_list: List[str] = variable_list
+            self._var_filter = self._make_string_filter(self._variable_list)
 
+        # 3. Initialize term filter
         if term_list is None:
             self._term_filter: Callable[[Optional[List[str]]], bool] = return_true
+        elif len(term_list) == 0:
+            self._term_filter = return_false
         else:
-            if len(term_list) == 0:
-                self._term_filter = return_false
-            else:
-                self._term_list: List[str] = term_list
-                self._term_filter = self._make_string_filter(self._term_list)
+            self._term_list: List[str] = term_list
+            self._term_filter = self._make_string_filter(self._term_list)
 
     def filter(
         self,
@@ -275,14 +271,14 @@ class ListFilter(AssemblerFilter):
                 raise ValueError(
                     "A filter cannot combine negated and standard variables"
                 )
-            if include:
+            elif include:
                 return all([y in include for y in x])
             elif exclude:
                 # Keep elements not in exclude
                 return all([y not in exclude for y in x])
-
-            # This should not be possible (either the strings start with !, or they don't)
-            raise ValueError("Error in filter specification")
+            else:
+                # This should not be possible (either the strings start with !, or they don't)
+                raise ValueError("Error in filter specification")
 
         return _var_term_filter
 

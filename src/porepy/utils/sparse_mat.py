@@ -7,21 +7,16 @@ import scipy.sparse as sps
 from porepy.utils.mcolon import mcolon
 
 
-def zero_columns(A, cols):
+def zero_columns(A: sps.csc_matrix, cols: np.ndarray) -> None:
     """
     Function to zero out columns in matrix A. Note that this function does not
     change the sparcity structure of the matrix, it only changes the column
     values to 0
 
-    Parameter
-    ---------
-    A (scipy.sparse.spmatrix): A sparce matrix
+    Parameters
+    ----------
+    A (scipy.sparse.spmatrix): A sparse matrix
     cols (ndarray): A numpy array of columns that should be zeroed
-    Return
-    ------
-    None
-
-
     """
 
     if A.getformat() != "csc":
@@ -32,21 +27,18 @@ def zero_columns(A, cols):
     A.data[col_indptr] = 0
 
 
-def zero_rows(A, rows):
-    """
-    Function to zero out rows in matrix A. Note that this function does not
-    change the sparcity structure of the matrix, it only changes the row
-    values to 0
+def zero_rows(A: sps.csr_matrix, rows: np.ndarray) -> None:
+    """Function to zero out rows in matrix A.
 
-    Parameter
-    ---------
-    A (scipy.sparse.spmatrix): A sparce matrix
-    rows (ndarray): A numpy array of columns that should be zeroed
-    Return
-    ------
-    None
+    Note that this function does not change the sparsity structure
+    of the matrix, it only changes the row values to 0.
 
-
+    Parameters
+    ----------
+    A (scipy.sparse.spmatrix):
+        A sparce matrix
+    rows (ndarray):
+        A numpy array of columns that should be zeroed
     """
 
     if A.getformat() != "csr":
@@ -57,24 +49,22 @@ def zero_rows(A, rows):
     A.data[row_indptr] = 0
 
 
-def merge_matrices(A, B, lines):
-    """
-    Replace rows/coloms of matrix A with rows/cols of matrix B.
+def merge_matrices(A: sps.spmatrix, B: sps.spmatrix, lines: np.ndarray) -> None:
+    """Replace rows/coloms of matrix A with rows/cols of matrix B.
+
     If A and B are csc matrices this function is equivalent with
     A[:, lines] = B
     If A and B are csr matrices this funciton is equivalent iwth
     A[lines, :] = B
 
-    Parameter
-    ---------
-    A (scipy.sparse.spmatrix): A sparce matrix
-    B (scipy.sparse.spmatrix): A sparce matrix
-    lines (ndarray): Lines of A to be replaced by B.
-
-    Return
-    ------
-    None
-
+    Parameters
+    ----------
+    A (scipy.sparse.spmatrix):
+        A sparce matrix
+    B (scipy.sparse.spmatrix):
+        A sparce matrix
+    lines (ndarray):
+        Lines of A to be replaced by B.
 
     """
     if A.getformat() != "csc" and A.getformat() != "csr":
@@ -133,7 +123,7 @@ def merge_matrices(A, B, lines):
     A.indptr = indptr + num_added
 
 
-def stack_mat(A, B):
+def stack_mat(A: sps.spmatrix, B: sps.spmatrix) -> None:
     """
     Stack matrix B at the end of matrix A.
     If A and B are csc matrices this function is equivalent to
@@ -176,7 +166,7 @@ def stack_mat(A, B):
         A._shape = (A._shape[0] + B._shape[0], A._shape[1])
 
 
-def slice_indices(A, slice_ind):
+def slice_indices(A: sps.spmatrix, slice_ind: np.ndarray) -> np.ndarray:
     """
     Function for slicing sparse matrix along rows or columns.
     If A is a csc_matrix A will be sliced along columns, while if A is a
@@ -219,7 +209,7 @@ def slice_indices(A, slice_ind):
     return indices
 
 
-def slice_mat(A, ind):
+def slice_mat(A: sps.spmatrix, ind: np.ndarray) -> sps.spmatrix:
     """
     Function for slicing sparse matrix along rows or columns.
     If A is a csc_matrix A will be sliced along columns, while if A is a
@@ -275,7 +265,7 @@ def slice_mat(A, ind):
 
 def csr_matrix_from_blocks(
     data: np.ndarray, block_size: int, num_blocks: int
-) -> sps.spmatrix:
+) -> sps.csr_matrix:
     """Create a csr representation of a block diagonal matrix of uniform block size.
 
     The function is equivalent to, but orders of magnitude faster than, the call
@@ -309,7 +299,7 @@ def csr_matrix_from_blocks(
 
 def csc_matrix_from_blocks(
     data: np.ndarray, block_size: int, num_blocks: int
-) -> sps.spmatrix:
+) -> sps.csc_matrix:
     """Create a csc representation of a block diagonal matrix of uniform block size.
 
     The function is equivalent to, but orders of magnitude faster than, the call

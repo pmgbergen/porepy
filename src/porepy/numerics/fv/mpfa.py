@@ -2,7 +2,7 @@
 Implementation of the multi-point flux approximation O-method.
 
 """
-from typing import Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 import scipy.sparse as sps
@@ -14,7 +14,7 @@ class Mpfa(pp.FVElliptic):
     def __init__(self, keyword):
         super(pp.Mpfa, self).__init__(keyword)
 
-    def ndof(self, g):
+    def ndof(self, g: pp.Grid) -> int:
         """
         Return the number of degrees of freedom associated to the method.
         In this case number of cells (pressure dof).
@@ -30,7 +30,7 @@ class Mpfa(pp.FVElliptic):
         """
         return g.num_cells
 
-    def discretize(self, g, data):
+    def discretize(self, g: pp.Grid, data: Dict) -> None:
         """
         Discretize the second order elliptic equation using multi-point flux
         approximation.
@@ -406,7 +406,7 @@ class Mpfa(pp.FVElliptic):
                 self.bound_pressure_vector_source_matrix_key
             ] = bound_pressure_vector_source_glob
 
-    def update_discretization(self, g, data):
+    def update_discretization(self, g: pp.Grid, data: Dict) -> None:
         """Update discretization.
 
         The updates can generally come as a combination of two forms:
@@ -489,7 +489,13 @@ class Mpfa(pp.FVElliptic):
         )
 
     def _flux_discretization(
-        self, g, k, bnd, inverter, ambient_dimension=None, eta=None
+        self,
+        g: pp.Grid,
+        k: pp.SecondOrderTensor,
+        bnd: pp.BoundaryCondition,
+        inverter: str,
+        ambient_dimension: int = None,
+        eta: float = None,
     ):
         """
         Actual implementation of the MPFA O-method. To calculate MPFA on a grid
@@ -530,11 +536,8 @@ class Mpfa(pp.FVElliptic):
         Neumann conditions will have a non-zero right hand side for (i), while
         Dirichlet gives a right hand side for (iii).
         """
-
-        if eta is None:
-            eta = pp.fvutils.determine_eta(g)
-        if ambient_dimension is None:
-            ambient_dimension = g.dim
+        eta = eta or pp.fvutils.determine_eta(g)
+        ambient_dimension = ambient_dimension or g.dim
 
         # The method reduces to the more efficient TPFA in one dimension, so that
         # method may be called. In 0D, there is no internal discretization to be
@@ -1138,10 +1141,8 @@ class Mpfa(pp.FVElliptic):
     documented.
     """
 
-    def _estimate_peak_memory(self, g):
-        """
-        Rough estimate of peak memory need
-        """
+    def _estimate_peak_memory(self, g: pp.Grid) -> int:
+        """ Rough estimate of peak memory need"""
         nd = g.dim
         if nd == 0:
             return 0
@@ -1175,7 +1176,11 @@ class Mpfa(pp.FVElliptic):
         return total_size
 
     def _block_diagonal_structure(
-        self, sub_cell_index, cell_node_blocks, nno, bound_exclusion
+        self,
+        sub_cell_index: np.ndarray,
+        cell_node_blocks: np.ndarray,
+        nno,
+        bound_exclusion,
     ):
         """Define matrices to turn linear system into block-diagonal form
         Parameters

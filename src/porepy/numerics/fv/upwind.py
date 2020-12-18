@@ -1,3 +1,4 @@
+from typing import Dict, Tuple
 import numpy as np
 import scipy.sparse as sps
 
@@ -12,14 +13,14 @@ class Upwind(pp.numerics.discretization.Discretization):
 
     """
 
-    def __init__(self, keyword="transport"):
+    def __init__(self, keyword: str = "transport"):
         self.keyword = keyword
 
         # Keywords used to store matrix and right hand side in the matrix_dictionary
         self.matrix_keyword = "transport"
         self.rhs_keyword = "rhs"
 
-    def ndof(self, g):
+    def ndof(self, g: pp.Grid) -> int:
         """
         Return the number of degrees of freedom associated to the method.
         In this case number of cells (concentration dof).
@@ -35,7 +36,9 @@ class Upwind(pp.numerics.discretization.Discretization):
         """
         return g.num_cells
 
-    def assemble_matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(
+        self, g: pp.Grid, data: Dict
+    ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Return the matrix for an upwind discretization of a linear transport
         problem.
 
@@ -52,7 +55,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
-    def assemble_matrix(self, g, data):
+    def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.spmatrix:
         """Return the matrix for an upwind discretization of a linear transport
         problem.
 
@@ -70,7 +73,7 @@ class Upwind(pp.numerics.discretization.Discretization):
 
     # ------------------------------------------------------------------------------#
 
-    def assemble_rhs(self, g, data):
+    def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
         """Return the right-hand side for an upwind discretization of a linear
         transport problem.
 
@@ -87,7 +90,7 @@ class Upwind(pp.numerics.discretization.Discretization):
 
         return matrix_dictionary[self.rhs_keyword]
 
-    def discretize(self, g, data, d_name="darcy_flux"):
+    def discretize(self, g: pp.Grid, data: Dict, d_name: str = "darcy_flux") -> None:
         """
         Return the matrix and righ-hand side for a discretization of a scalar
         linear transport problem using the upwind scheme.
@@ -136,8 +139,8 @@ class Upwind(pp.numerics.discretization.Discretization):
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
         """
 
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary: Dict = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary: Dict = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         # Shortcut for point grids
         if g.dim == 0:
@@ -215,11 +218,12 @@ class Upwind(pp.numerics.discretization.Discretization):
                 bc_val_neu[is_neu] = bc_val[is_neu]
 
             matrix_dictionary[self.rhs_keyword] = (
-                -inflow.transpose() * bc_val_dir
+                -inflow.transpose()
+                * bc_val_dir  # TODO: EIRIK. 'inflow' is not defined if has_bc is False.
                 - np.abs(g.cell_faces.transpose()) * bc_val_neu
             )
 
-    def cfl(self, g, data, d_name="darcy_flux"):
+    def cfl(self, g: pp.Grid, data: Dict, d_name: str = "darcy_flux") -> float:
         """
         Return the time step according to the CFL condition.
         Note: the vector field is assumed to be given as the normal velocity,
@@ -243,9 +247,9 @@ class Upwind(pp.numerics.discretization.Discretization):
         if g.dim == 0:
             return np.inf
         # Retrieve the data
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        darcy_flux = parameter_dictionary[d_name]
-        phi = parameter_dictionary["mass_weight"]
+        parameter_dictionary: Dict = data[pp.PARAMETERS][self.keyword]
+        darcy_flux: np.ndarray = parameter_dictionary[d_name]
+        phi: np.ndarray = parameter_dictionary["mass_weight"]
 
         faces, cells, _ = sps.find(g.cell_faces)
 
@@ -267,7 +271,9 @@ class Upwind(pp.numerics.discretization.Discretization):
         # deltaT is deltaX/darcy_flux with coefficient
         return np.amin(np.abs(np.divide(dist, darcy_flux[faces])) * coeff)
 
-    def darcy_flux(self, g, beta, cell_apertures=None):
+    def darcy_flux(
+        self, g: pp.Grid, beta: np.ndarray, cell_apertures: np.ndarray = None
+    ):
         """
         Return the normal component of the velocity, for each face, weighted by
         the face area and aperture.
@@ -305,14 +311,16 @@ class Upwind(pp.numerics.discretization.Discretization):
             [np.dot(n, a * beta) for n, a in zip(g.face_normals.T, face_apertures)]
         )
 
-    def outflow(self, g, data, d_name="darcy_flux"):
+    def outflow(
+        self, g: pp.Grid, data: Dict, d_name: str = "darcy_flux"
+    ) -> sps.spmatrix:
         if g.dim == 0:
             return sps.csr_matrix([0])
 
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        darcy_flux = parameter_dictionary[d_name]
-        bc = parameter_dictionary["bc"]
-        bc_val = parameter_dictionary["bc_values"]
+        parameter_dictionary: Dict = data[pp.PARAMETERS][self.keyword]
+        darcy_flux: np.ndarray = parameter_dictionary[d_name]
+        bc: pp.BoundaryCondition = parameter_dictionary["bc"]
+        bc_val: np.ndarray = parameter_dictionary["bc_values"]
 
         has_bc = not (bc is None or bc_val is None)
 
@@ -354,8 +362,8 @@ class Upwind(pp.numerics.discretization.Discretization):
             outflow_faces, domain_boundary_faces, assume_unique=True
         )
 
-        # va tutto bene se ho neumann omogeneo
-        # gli outflow sono positivi
+        # Everything is fine if we have homogeneous neumann
+        # Outflows are positive
 
         if_outflow_faces = if_faces.copy()
         if_outflow_faces.data[:] = 0

@@ -100,7 +100,7 @@ class Mpsa(Discretization):
         return solution_array
 
     def extract_stress(
-        self, g: pp.Grid, solution_array: np.ndarray, d: Dict
+        self, g: pp.Grid, solution_array: np.ndarray, data: Dict
     ) -> np.ndarray:
         """Extract the stress corresponding to a solution
 
@@ -116,13 +116,15 @@ class Mpsa(Discretization):
             np.array (g.num_cells): Vector of stresses on the grid faces.
 
         """
-        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.keyword]
-        parameter_dictionary = d[pp.PARAMETERS][self.keyword]
+        matrix_dictionary: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
+            self.keyword
+        ]
+        parameter_dictionary: Dict = data[pp.PARAMETERS][self.keyword]
 
         stress = matrix_dictionary[self.stress_matrix_key].tocsr()
         bound_stress = matrix_dictionary[self.bound_stress_matrix_key].tocsr()
 
-        bc_val = parameter_dictionary["bc_values"]
+        bc_val: np.ndarray = parameter_dictionary["bc_values"]
 
         return stress * solution_array + bound_stress * bc_val
 
@@ -201,9 +203,7 @@ class Mpsa(Discretization):
         )
 
         # Extract a grid, and get global indices of its active faces and nodes
-        active_grid, extracted_faces, extracted_nodes = pp.partition.extract_subgrid(
-            g, active_cells
-        )
+        active_grid, extracted_faces, _ = pp.partition.extract_subgrid(g, active_cells)
         # Constitutive law and boundary condition for the active grid
         active_constit: pp.FourthOrderTensor = self._constit_for_subgrid(
             constit, active_cells
@@ -343,7 +343,7 @@ class Mpsa(Discretization):
                 self.bound_displacment_face_matrix_key
             ] = bound_displacement_face_glob
 
-    def update_discretization(self, g, data):
+    def update_discretization(self, g: pp.Grid, data: Dict) -> None:
         """Update discretization.
 
         The updates can generally come as a combination of two forms:

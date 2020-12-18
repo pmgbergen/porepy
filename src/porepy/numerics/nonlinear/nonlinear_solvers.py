@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class NewtonSolver:
-    def __init__(self, params=None):
+    def __init__(self, params: dict = None):
         if params is None:
             params = {}
 

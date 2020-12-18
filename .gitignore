@@ -36,3 +36,7 @@ bin/*
 *.nbi
 *.egg-info
 *.DS_Store
+.vscode/settings.json
+.gitignore
+.vscode/.ropeproject/config.py
+.vscode/.ropeproject/objectdb

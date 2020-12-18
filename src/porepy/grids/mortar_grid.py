@@ -289,7 +289,7 @@ class MortarGrid:
         self._secondary_to_mortar_int = sps.bmat(matrix, format="csc")
         self._check_mappings()
 
-    def update_primary(self, g_new: pp.Grid, g_old: pp.Grid, tol: float = None):
+    def update_primary(self, g_new: pp.Grid, g_old: pp.Grid, tol: float = None) -> None:
         """
 
         Update the _primary_to_mortar_int map when the primary (higher-dimensional) grid is
@@ -582,9 +582,10 @@ class MortarGrid:
     def _convert_to_vector_variable(
         self, matrix: sps.spmatrix, nd: int
     ) -> sps.spmatrix:
-        """Convert the scalar projection to a vector quantity. If the prescribed
-        dimension is 1 (default for all the above methods), the projection matrix
-        will in effect not be altered.
+        """Convert the scalar projection to a vector quantity.
+
+        If the prescribed dimension is 1 (default for all the above methods),
+        the projection matrix will in effect not be altered.
         """
         if nd == 1:
             # No need to do expansion for 1d variables.
@@ -662,12 +663,13 @@ class MortarGrid:
         """Initialize projections from primary and secondary to mortar.
 
         Parameters:
-        primary_secondary (sps.spmatrix): projection from the primary to the secondary.
-            It is assumed that the primary, secondary and mortar grids are all matching.
-        face_duplicate_ind (np.ndarray, optional): Which faces should be considered
-                duplicates, and mapped to the second of the side_grids. If not provided,
-                duplicate faces will be inferred from the indices of the faces. Will
-                only be used if len(side_Grids) == 2.
+        primary_secondary (sps.spmatrix):
+            Projection from the primary to the secondary. It is assumed that the
+            primary, secondary and mortar grids are all matching.
+        face_duplicate_ind (np.ndarray, optional):
+            Which faces should be considered duplicates, and mapped to the second
+            of the side_grids. If not provided, duplicate faces will be inferred
+            from the indices of the faces. Will only be used if len(side_Grids) == 2.
 
         """
         # primary_secondary is a mapping from the cells (faces if secondary.dim == primary.dim)

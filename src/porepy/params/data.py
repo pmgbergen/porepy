@@ -64,7 +64,7 @@ data[pp.STATE][keyword]["bc_values"].
 """
 import numbers
 import warnings
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 
@@ -86,7 +86,12 @@ class Parameters(dict):
     one sub-dictionary for each keyword.
     """
 
-    def __init__(self, g=None, keywords=None, dictionaries=None):
+    def __init__(
+        self,
+        g: pp.Grid = None,
+        keywords: Union[List[str], str] = None,
+        dictionaries: Union[List[Dict], Dict] = None,
+    ) -> None:
         """Initialize Data object.
 
         Parameters:
@@ -114,7 +119,11 @@ class Parameters(dict):
             s += ", ".join(str(p) for p in self[k].keys())
         return s
 
-    def update_dictionaries(self, keywords, dictionaries=None):
+    def update_dictionaries(
+        self,
+        keywords: Union[List[str], str],
+        dictionaries: Union[List[Dict], Dict] = None,
+    ) -> None:
         """Update the dictionaries corresponding to some keywords.
 
         Use either the dictionaries OR the property_ids / values.
@@ -143,7 +152,7 @@ class Parameters(dict):
             else:
                 self[key] = dictionaries[i]
 
-    def set_from_other(self, keyword_add, keyword_get, parameters):
+    def set_from_other(self, keyword_add: str, keyword_get: str, parameters: List):
         """Add parameters from existing values for a different keyword.
 
         Typical usage: Ensure parameters like aperture and porosity are consistent
@@ -161,7 +170,7 @@ class Parameters(dict):
         for p in parameters:
             self[keyword_add][p] = self[keyword_get][p]
 
-    def overwrite_shared_parameters(self, parameters, values):
+    def overwrite_shared_parameters(self, parameters: List, values: List):
         """Updates the given parameter for all keywords.
 
         Brute force method to ensure a parameter is updated/overwritten for all
@@ -174,7 +183,7 @@ class Parameters(dict):
                 if p in self[kw]:
                     self[kw][p] = v
 
-    def modify_parameters(self, keyword, parameters, values):
+    def modify_parameters(self, keyword: str, parameters: List, values: List):
         """Modify the values of some parameters of a given keyword.
 
         Usage: Ensure consistent parameter updates, see set_from_other. Does not work
@@ -194,7 +203,7 @@ class Parameters(dict):
         keyword: str,
         parameters: List[str],
         defaults: Optional[List] = None,
-    ) -> List:
+    ) -> List[np.ndarray]:
         """Expand parameters assigned as a single scalar to n_vals arrays.
         Used e.g. for parameters which may be heterogeneous in space (cellwise),
         but are often homogeneous and assigned as a scalar.
@@ -216,6 +225,7 @@ class Parameters(dict):
                 val = self[keyword].get(p)
             else:
                 val = self[keyword].get(p, d)
+
             if np.asarray(val).size == 1:
                 val *= np.ones(n_vals)
             values.append(val)
@@ -230,7 +240,11 @@ new Parameters class.
 
 
 def initialize_default_data(
-    g, data, parameter_type, specified_parameters=None, keyword=None
+    g: pp.Grid,
+    data: Dict,
+    parameter_type: str,
+    specified_parameters: Dict = None,
+    keyword: str = None,
 ):
     """Initialize a data dictionary for a single keyword.
 

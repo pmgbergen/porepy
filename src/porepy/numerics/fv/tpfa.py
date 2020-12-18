@@ -4,6 +4,7 @@ Created on Sat Feb 27 21:09:29 2016
 
 @author: keile
 """
+from typing import Any, Dict
 import numpy as np
 import scipy.sparse as sps
 
@@ -22,10 +23,10 @@ class Tpfa(pp.FVElliptic):
 
     """
 
-    def __init__(self, keyword):
+    def __init__(self, keyword: str):
         super(Tpfa, self).__init__(keyword)
 
-    def discretize(self, g, data):
+    def discretize(self, g: pp.Grid, data: Dict) -> None:
         """
         Discretize the second order elliptic equation using two-point flux approximation.
 
@@ -74,8 +75,10 @@ class Tpfa(pp.FVElliptic):
         data (dict): For entries, see above.
         """
         # Get the dictionaries for storage of data and discretization matrices
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary: Dict[str, Any] = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
+            self.keyword
+        ]
 
         # Ambient dimension of the grid
         vector_source_dim: int = parameter_dictionary.get("ambient_dimension", g.dim)
@@ -99,8 +102,8 @@ class Tpfa(pp.FVElliptic):
             return None
 
         # Extract parameters
-        k = parameter_dictionary["second_order_tensor"]
-        bnd = parameter_dictionary["bc"]
+        k: pp.SecondOrderTensor = parameter_dictionary["second_order_tensor"]
+        bnd: pp.BoundaryCondition = parameter_dictionary["bc"]
 
         fi_g, ci_g, sgn_g = sps.find(g.cell_faces)
 

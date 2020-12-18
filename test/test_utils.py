@@ -11,7 +11,7 @@ import porepy as pp
 
 
 def permute_matrix_vector(A, rhs, block_dof, full_dof, grids, variables):
-    """ Permute the matrix and rhs from assembler order to a specified order.
+    """Permute the matrix and rhs from assembler order to a specified order.
 
     Args:
         A: global solution matrix as returned by Assembler.assemble_matrix_rhs.
@@ -48,7 +48,7 @@ def permute_matrix_vector(A, rhs, block_dof, full_dof, grids, variables):
 
 
 def setup_flow_assembler(gb, method, data_key=None, coupler=None):
-    """ Setup a standard assembler for the flow problem for a given grid bucket.
+    """Setup a standard assembler for the flow problem for a given grid bucket.
 
     The assembler will be set up with primary variable name 'pressure' on the
     GridBucket nodes, and mortar_flux for the mortar variables.
@@ -98,7 +98,7 @@ def setup_flow_assembler(gb, method, data_key=None, coupler=None):
 
 
 def solve_and_distribute_pressure(gb, assembler):
-    """ Given an assembler, assemble and solve the pressure equation, and distribute
+    """Given an assembler, assemble and solve the pressure equation, and distribute
     the result.
 
     Parameters:
@@ -112,7 +112,7 @@ def solve_and_distribute_pressure(gb, assembler):
 
 
 def compare_arrays(a, b, tol=1e-4, sort=True):
-    """ Compare two arrays and check that they are equal up to a column permutation.
+    """Compare two arrays and check that they are equal up to a column permutation.
 
     Typical usage is to compare coordinate arrays.
 
@@ -146,8 +146,7 @@ def compare_arrays(a, b, tol=1e-4, sort=True):
 
 
 def delete_file(file_name):
-    """ Delete a file if it exist. Cleanup after tests.
-    """
+    """Delete a file if it exist. Cleanup after tests."""
     if os.path.exists(file_name):
         os.remove(file_name)
 

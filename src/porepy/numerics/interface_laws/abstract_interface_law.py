@@ -32,6 +32,15 @@ class AbstractInterfaceLaw(abc.ABC):
         self.edge_coupling_via_high_dim = False
         self.edge_coupling_via_low_dim = False
 
+        # Block matrix indices
+        self.g_primary_ind = 0
+        self.g_secondary_ind = 1
+        self.g_mortar_ind = 2
+
+        self.e_grid_ind = 0
+        self.e_primary_ind = 1
+        self.e_secondary_ind = 2
+
     def _key(self) -> str:
         return self.keyword + "_"
 
@@ -54,7 +63,12 @@ class AbstractInterfaceLaw(abc.ABC):
 
     @abc.abstractmethod
     def discretize(
-        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
+        self,
+        g_primary: pp.Grid,
+        g_secondary: pp.Grid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_edge: Dict,
     ) -> None:
         """Discretize the interface law and store the discretization in the
         edge data.
@@ -63,17 +77,22 @@ class AbstractInterfaceLaw(abc.ABC):
         interface.
 
         Parameters:
-            g_h: Grid of the primary domanin.
-            g_l: Grid of the secondary domain.
-            data_h: Data dictionary for the primary domain.
-            data_l: Data dictionary for the secondary domain.
+            g_primary: Grid of the primary domanin.
+            g_secondary: Grid of the secondary domain.
+            data_primary: Data dictionary for the primary domain.
+            data_secondary: Data dictionary for the secondary domain.
             data_edge: Data dictionary for the edge between the domains.
 
         """
         pass
 
     def update_discretization(
-        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
+        self,
+        g_primary: pp.Grid,
+        g_secondary: pp.Grid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_edge: Dict,
     ) -> None:
         """Partial update of discretization.
 
@@ -95,14 +114,14 @@ class AbstractInterfaceLaw(abc.ABC):
 
 
         Parameters:
-            g_h: Grid of the primary domanin.
-            g_l: Grid of the secondary domain.
-            data_h: Data dictionary for the primary domain.
-            data_l: Data dictionary for the secondary domain.
+            g_primary: Grid of the primary domanin.
+            g_secondary: Grid of the secondary domain.
+            data_primary: Data dictionary for the primary domain.
+            data_secondary: Data dictionary for the secondary domain.
             data_edge: Data dictionary for the edge between the domains.
 
         """
-        self.discretize(g_h, g_l, data_h, data_l, data_edge)
+        self.discretize(g_primary, g_secondary, data_primary, data_secondary, data_edge)
 
     @abc.abstractmethod
     def assemble_matrix_rhs(
@@ -125,7 +144,7 @@ class AbstractInterfaceLaw(abc.ABC):
             data_primary: Data dictionary for the primary suddomain
             data_secondary: Data dictionary for the secondary subdomain.
             data_edge: Data dictionary for the edge between the subdomains
-            matrix_primary: original discretization for the primary subdomain
+            matrix: original discretization for the primary subdomain
 
         Returns:
             np.array: Block matrix of size 3 x 3, whwere each block represents
@@ -244,27 +263,28 @@ class AbstractInterfaceLaw(abc.ABC):
 
         """
 
-        primary_ind = 0
-        secondary_ind = 1
-        mortar_ind = 2
-
         dof_primary = discr_primary.ndof(g_primary)
         dof_secondary = discr_secondary.ndof(g_secondary)
         dof_mortar = self.ndof(mg)
 
-        if not dof_primary == matrix[primary_ind, primary_ind].shape[1]:
+        if not dof_primary == matrix[self.g_primary_ind, self.g_primary_ind].shape[1]:
             raise ValueError(
                 """The number of dofs of the primary discretization given
             in the coupling discretization must match the number of dofs given by the matrix
             """
             )
-        elif not dof_secondary == matrix[primary_ind, secondary_ind].shape[1]:
+        elif (
+            not dof_secondary
+            == matrix[self.g_primary_ind, self.g_secondary_ind].shape[1]
+        ):
             raise ValueError(
                 """The number of dofs of the secondary discretization given
             in the coupling discretization must match the number of dofs given by the matrix
             """
             )
-        elif not self.ndof(mg) == matrix[primary_ind, mortar_ind].shape[1]:
+        elif (
+            not self.ndof(mg) == matrix[self.g_primary_ind, self.g_mortar_ind].shape[1]
+        ):
             raise ValueError(
                 """The number of dofs of the edge discretization given
             in the coupling discretization must match the number of dofs given by the matrix
@@ -278,9 +298,9 @@ class AbstractInterfaceLaw(abc.ABC):
 
         # The rhs is just zeros
         rhs = np.empty(3, dtype=np.object)
-        rhs[primary_ind] = np.zeros(dof_primary)
-        rhs[secondary_ind] = np.zeros(dof_secondary)
-        rhs[mortar_ind] = np.zeros(dof_mortar)
+        rhs[self.g_primary_ind] = np.zeros(dof_primary)
+        rhs[self.g_secondary_ind] = np.zeros(dof_secondary)
+        rhs[self.g_mortar_ind] = np.zeros(dof_mortar)
 
         return cc, rhs
 
@@ -308,38 +328,40 @@ class AbstractInterfaceLaw(abc.ABC):
             matrix_primary: original discretization for the primary subdomain
 
         Returns:
-            np.array: Block matrix of size 3 x 3, whwere each block represents
-                coupling between variables on this interface. Index 0, 1 and 2
-                represent the primary, secondary and mortar variable, respectively.
+            np.ndarray: Block matrix of size 3 x 3, whwere each block represents
+                coupling between variables on this interface. Indices 0, 1 and 2
+                represent the primary, secondary and mortar variables, respectively.
                 Each of the blocks have an empty sparse matrix with size
                 corresponding to the number of dofs of the grid and variable.
-            np.array: Block matrix of size 3 x 1, representing the right hand
-                side of this coupling. Index 0, 1 and 2 represent the primary,
+            np.ndarray: Block matrix of size 3 x 1, representing the right hand
+                side of this coupling. Indices 0, 1 and 2 represent the primary,
                 secondary and mortar variable, respectively.
 
         """
-
-        grid_ind = 0
-        primary_ind = 1
-        secondary_ind = 2
 
         dof_grid = discr_grid.ndof(g)
         dof_mortar_primary = self.ndof(mg_primary)
         dof_mortar_secondary = self.ndof(mg_secondary)
 
-        if not dof_grid == matrix[grid_ind, grid_ind].shape[1]:
+        if not dof_grid == matrix[self.e_grid_ind, self.e_grid_ind].shape[1]:
             raise ValueError(
                 """The number of dofs of the primary discretization given
             in the coupling discretization must match the number of dofs given by the matrix
             """
             )
-        elif not dof_mortar_primary == matrix[grid_ind, primary_ind].shape[1]:
+        elif (
+            not dof_mortar_primary
+            == matrix[self.e_grid_ind, self.e_primary_ind].shape[1]
+        ):
             raise ValueError(
                 """The number of dofs of the secondary discretization given
             in the coupling discretization must match the number of dofs given by the matrix
             """
             )
-        elif not dof_mortar_secondary == matrix[grid_ind, secondary_ind].shape[1]:
+        elif (
+            not dof_mortar_secondary
+            == matrix[self.e_grid_ind, self.e_secondary_ind].shape[1]
+        ):
             raise ValueError(
                 """The number of dofs of the edge discretization given
             in the coupling discretization must match the number of dofs given by the matrix
@@ -353,9 +375,9 @@ class AbstractInterfaceLaw(abc.ABC):
 
         # The rhs is just zeros
         rhs = np.empty(3, dtype=np.object)
-        rhs[grid_ind] = np.zeros(dof_grid)
-        rhs[primary_ind] = np.zeros(dof_mortar_primary)
-        rhs[secondary_ind] = np.zeros(dof_mortar_secondary)
+        rhs[self.e_grid_ind] = np.zeros(dof_grid)
+        rhs[self.e_primary_ind] = np.zeros(dof_mortar_primary)
+        rhs[self.e_secondary_ind] = np.zeros(dof_mortar_secondary)
 
         return cc, rhs
 

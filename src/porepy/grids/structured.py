@@ -6,6 +6,7 @@ Acknowledgements:
     (MRST) developed by SINTEF ICT, see www.sintef.no/projectweb/mrst/
 
 """
+from typing import Tuple
 import numpy as np
 import scipy as sp
 import scipy.sparse as sps
@@ -22,7 +23,13 @@ class TensorGrid(Grid):
 
     """
 
-    def __init__(self, x, y=None, z=None, name=None):
+    def __init__(
+        self,
+        x: np.ndarray,
+        y: np.ndarray = None,
+        z: np.ndarray = None,
+        name: str = None,
+    ):
         """
         Constructor for 1D or 2D or 3D tensor grid
 
@@ -37,8 +44,7 @@ class TensorGrid(Grid):
                 None, in which case the grid is 2D.
             name (str): Name of grid, passed to super constructor
         """
-        if name is None:
-            name = "TensorGrid"
+        name = name or "TensorGrid"
 
         if y is None:
             nodes, face_nodes, cell_faces = self._create_1d_grid(x)
@@ -53,7 +59,9 @@ class TensorGrid(Grid):
             self.cart_dims = np.array([x.size, y.size, z.size]) - 1
             super(TensorGrid, self).__init__(3, nodes, face_nodes, cell_faces, name)
 
-    def _create_1d_grid(self, nodes_x):
+    def _create_1d_grid(
+        self, nodes_x: np.ndarray
+    ) -> Tuple[np.ndarray, sps.csc_matrix, sps.csc_matrix]:
         """
         Compute grid topology for 1D grids.
 
@@ -68,7 +76,9 @@ class TensorGrid(Grid):
         num_nodes = num_x + 1
         num_faces = num_x + 1
 
-        nodes = np.vstack((nodes_x, np.zeros(nodes_x.size), np.zeros(nodes_x.size)))
+        nodes: np.ndarray = np.vstack(
+            (nodes_x, np.zeros(nodes_x.size), np.zeros(nodes_x.size))
+        )
 
         # Face nodes
         indptr = np.arange(num_faces + 1)
@@ -96,7 +106,9 @@ class TensorGrid(Grid):
         )
         return nodes, face_nodes, cell_faces
 
-    def _create_2d_grid(self, nodes_x, nodes_y):
+    def _create_2d_grid(
+        self, nodes_x: np.ndarray, nodes_y: np.ndarray
+    ) -> Tuple[np.ndarray, sps.csc_matrix, sps.csc_matrix]:
         """
         Compute grid topology for 2D grids.
 
@@ -176,7 +188,9 @@ class TensorGrid(Grid):
         )
         return nodes, face_nodes, cell_faces
 
-    def _create_3d_grid(self, nodes_x, nodes_y, nodes_z):
+    def _create_3d_grid(
+        self, nodes_x: np.ndarray, nodes_y: np.ndarray, nodes_z: np.ndarray
+    ) -> Tuple[np.ndarray, sps.csc_matrix, sps.csc_matrix]:
 
         num_x = nodes_x.size - 1
         num_y = nodes_y.size - 1
@@ -291,7 +305,7 @@ class CartGrid(TensorGrid):
 
     """
 
-    def __init__(self, nx, physdims=None):
+    def __init__(self, nx: np.ndarray, physdims: np.ndarray = None):
         """
         Constructor for Cartesian grid
 
@@ -305,8 +319,6 @@ class CartGrid(TensorGrid):
             Defaults to same as nx, that is, cells of unit size.
 
         """
-
-        #        nx = nx.astype(np.int)
 
         dims = np.asarray(nx).shape
         xmin, ymin, zmin = 0.0, 0.0, 0.0
@@ -332,19 +344,19 @@ class CartGrid(TensorGrid):
         # TensorGrid constructor
         if len(dims) == 0:
             nodes_x = xmin + np.linspace(0, physdims, nx + 1)
-            super(self.__class__, self).__init__(nodes_x, name=name)
+            super().__init__(nodes_x, name=name)
         elif dims[0] == 1:
             nodes_x = np.linspace(0, physdims, nx[0] + 1).ravel()
-            super(self.__class__, self).__init__(nodes_x, name=name)
+            super().__init__(nodes_x, name=name)
         elif dims[0] == 2:
             nodes_x = xmin + np.linspace(0, physdims[0], nx[0] + 1)
             nodes_y = ymin + np.linspace(0, physdims[1], nx[1] + 1)
-            super(self.__class__, self).__init__(nodes_x, nodes_y, name=name)
+            super().__init__(nodes_x, nodes_y, name=name)
         elif dims[0] == 3:
             nodes_x = xmin + np.linspace(0, physdims[0], nx[0] + 1)
             nodes_y = ymin + np.linspace(0, physdims[1], nx[1] + 1)
             nodes_z = zmin + np.linspace(0, physdims[2], nx[2] + 1)
-            super(self.__class__, self).__init__(nodes_x, nodes_y, nodes_z, name=name)
+            super().__init__(nodes_x, nodes_y, nodes_z, name=name)
         else:
             raise ValueError(
                 "Cartesian grid only implemented for up to three \

@@ -4,7 +4,7 @@
 
 """
 import abc
-from typing import Dict, Union
+from typing import Dict, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -20,6 +20,15 @@ class Discretization(abc.ABC):
 
     def __init__(self, keyword: str) -> None:
         self.keyword = keyword
+
+        # Block matrix indices
+        self.g_primary_ind = 0
+        self.g_secondary_ind = 1
+        self.g_mortar_ind = 2
+
+        self.e_grid_ind = 0
+        self.e_primary_ind = 1
+        self.e_secondary_ind = 2
 
     @abc.abstractmethod
     def ndof(self, g: pp.Grid) -> int:
@@ -104,7 +113,7 @@ class Discretization(abc.ABC):
     @abc.abstractmethod
     def assemble_matrix_rhs(
         self, g: pp.Grid, data: Dict
-    ) -> Union[sps.spmatrix, np.ndarray]:
+    ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Assemble discretization matrix and rhs vector.
 
         Parameters:
@@ -168,7 +177,9 @@ class VoidDiscretization(Discretization):
 
     """
 
-    def __init__(self, keyword, ndof_cell=0, ndof_face=0, ndof_node=0):
+    def __init__(
+        self, keyword: str, ndof_cell: int = 0, ndof_face: int = 0, ndof_node: int = 0
+    ):
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
@@ -198,7 +209,7 @@ class VoidDiscretization(Discretization):
         """
         return self.keyword + "_"
 
-    def ndof(self, g):
+    def ndof(self, g: pp.Grid):
         """Abstract method. Return the number of degrees of freedom associated to the
         method.
 
@@ -215,7 +226,7 @@ class VoidDiscretization(Discretization):
             + g.num_nodes * self.ndof_node
         )
 
-    def discretize(self, g, data):
+    def discretize(self, g: pp.Grid, data: dict):
         """Construct discretization matrices. Operation is void for this discretization.
 
         Parameters:
@@ -225,7 +236,9 @@ class VoidDiscretization(Discretization):
         """
         pass
 
-    def assemble_matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(
+        self, g: pp.Grid, data: dict
+    ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Assemble discretization matrix and rhs vector, both empty.
 
         Parameters:

@@ -11,7 +11,7 @@ import porepy as pp
 
 
 class SimplexGrid2dDomainOneImmersedFracture:
-    """ Grid of 18 cells, that contains a single fully immersed fracture,
+    """Grid of 18 cells, that contains a single fully immersed fracture,
         initially aligned with the y-axis.
 
     By tuning parameters, the fracture can be rotated, nodes in the 2d grids
@@ -20,15 +20,15 @@ class SimplexGrid2dDomainOneImmersedFracture:
     """
 
     def grid_2d(self, flip_normals=False, pert_node=False, rotate_fracture=False):
-        """ flip_normals: Some, but not all, faces in 2d grid on fracture
-                surface are rotated. Divergence operator is modified accordingly.
-                The solution should be invariant under this change.
-            perturb_node: One node in 2d grid on the fracture surface is shifted.
-                This breaks symmetry of the grid across the fracture.
-                Should not be combined with rotate_fracture.
-            rotate_fracture: Fracture is rotated from aligned with the y-axis
-                to a slightly tilted position. Should not be combined with
-                perturb_node
+        """flip_normals: Some, but not all, faces in 2d grid on fracture
+            surface are rotated. Divergence operator is modified accordingly.
+            The solution should be invariant under this change.
+        perturb_node: One node in 2d grid on the fracture surface is shifted.
+            This breaks symmetry of the grid across the fracture.
+            Should not be combined with rotate_fracture.
+        rotate_fracture: Fracture is rotated from aligned with the y-axis
+            to a slightly tilted position. Should not be combined with
+            perturb_node
         """
 
         nodes = np.array(

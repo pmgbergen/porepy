@@ -3,10 +3,12 @@ Geometric projections related to the tangential and normal spaces of a set of
 vectors.
 """
 
+from typing import Optional, Tuple, Union
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.utils.sparse_mat import csc_matrix_from_blocks
 
 
 class TangentialNormalProjection:
@@ -29,28 +31,27 @@ class TangentialNormalProjection:
 
     """
 
-    def __init__(self, normals, dim=None):
-        if dim is None:
-            dim = normals.shape[0]
+    def __init__(self, normals: np.ndarray, dim: int = None):
+        dim: int = dim or normals.shape[0]
 
         # Normalize vectors
         normals = normals / np.linalg.norm(normals, axis=0)
 
-        self.num_vecs = normals.shape[1]
-        self.dim = dim
+        self.num_vecs: int = normals.shape[1]
+        self.dim: int = dim
 
         # Compute normal and tangential basis
         basis, normal = self._decompose_vector(normals)
 
         basis = basis.reshape((dim, dim, self.num_vecs))
-        self.tangential_basis = basis[:, :-1, :]
+        self.tangential_basis: np.ndarray = basis[:, :-1, :]
 
         # The projection is found by inverting the basis vectors
-        self.projection = self._invert_3d_matrix(basis)
-        self.normals = normal
+        self.projection: np.ndarray = self._invert_3d_matrix(basis)
+        self.normals: np.ndarray = normal
 
     ## Methods for genertation of projection matrices
-    def project_tangential_normal(self, num=None):
+    def project_tangential_normal(self, num: int = None) -> sps.csc_matrix:
         """Define a projection matrix to decompose a matrix into tangential
         and normal components.
 
@@ -88,11 +89,11 @@ class TangentialNormalProjection:
         else:
             data = np.tile(self.projection[:, :, 0].ravel(order="F"), num)
 
-        mat = pp.utils.sparse_mat.csc_matrix_from_blocks(data, self.dim, num)
+        mat = csc_matrix_from_blocks(data, self.dim, num)
 
         return mat
 
-    def project_tangential(self, num=None):
+    def project_tangential(self, num: int = None) -> sps.csc_matrix:
         """Define a projection matrix of a specific size onto the tangent space.
 
         The intended usage is to project a grid-based vector variable onto the
@@ -124,8 +125,7 @@ class TangentialNormalProjection:
         full_projection = self.project_tangential_normal(num)
 
         # Find type and size of projection.
-        if num is None:
-            num = self.num_vecs
+        num = num or self.num_vecs
         size_proj = self.dim * num
 
         # Generate restriction matrix to the tangential space only
@@ -141,7 +141,7 @@ class TangentialNormalProjection:
         # Return the restricted matrix.
         return remove_normal_components * full_projection
 
-    def project_normal(self, num=None):
+    def project_normal(self, num: int = None) -> sps.csc_matrix:
         """Define a projection matrix of a specific size onto the normal space.
 
         The intended usage is to project a grid-based vector variable onto the
@@ -189,7 +189,7 @@ class TangentialNormalProjection:
         # Return the restricted matrix
         return remove_tangential_components * full_projection
 
-    def local_projection(self, ind=None):
+    def local_projection(self, ind: int = None) -> np.ndarray:
         """Get the local projection matrix (refe)
 
         Paremeters:
@@ -202,13 +202,11 @@ class TangentialNormalProjection:
                 and normal space (last)
 
         """
-        if ind is None:
-            ind = 0
-        return self.projection[:, :, ind]
+        return self.projection[:, :, ind or 0]
 
     ### Helper functions below
 
-    def _decompose_vector(self, nc):
+    def _decompose_vector(self, nc: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         if self.dim == 3:
             t1 = np.random.rand(self.dim, 1) * np.ones(self.num_vecs)
             t2 = np.random.rand(self.dim, 1) * np.ones(self.num_vecs)
@@ -220,7 +218,11 @@ class TangentialNormalProjection:
             basis = np.hstack([tc1, normal])
         return basis, normal
 
-    def _gram_schmidt(self, u1, u2, u3=None):
+    def _gram_schmidt(
+        self, u1: np.ndarray, u2: np.ndarray, u3: np.ndarray = None
+    ) -> Union[
+        Tuple[np.ndarray, np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]
+    ]:
         """
         Perform a Gram Schmidt procedure for the vectors u1, u2 and u3 to obtain a set of
         orhtogonal vectors.
@@ -247,18 +249,18 @@ class TangentialNormalProjection:
 
         return u1, u2, u3
 
-    def _invert_3d_matrix(self, M):
+    def _invert_3d_matrix(self, M: np.ndarray) -> np.ndarray:
         """
-        Find the inverse of the (m,m,k) 3D ndArray M. The inverse is intrepreted as the
+        Find the inverse of the (m,m,k) 3D array M. The inverse is intrepreted as the
         2d inverse of M[:, :, i] for i = 0...k
 
         Parameters:
-        M: (m, m, k) ndArray
+            M: (m, m, k) np.ndarray
 
         Returns:
-        M_inv: Inverse of M
+            M_inv: Inverse of M
         """
-        M_inv = np.zeros(M.shape)
+        M_inv = np.zeros_like(M)
         for i in range(M.shape[-1]):
             M_inv[:, :, i] = np.linalg.inv(M[:, :, i])
         return M_inv

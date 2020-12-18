@@ -1,6 +1,7 @@
 """
 Discretization of the source term of an equation for FV methods.
 """
+from typing import Dict, Tuple
 import numpy as np
 import scipy.sparse as sps
 
@@ -17,7 +18,7 @@ class ScalarSource(pp.numerics.discretization.Discretization):
     rhs = param.get_source.keyword.
     """
 
-    def __init__(self, keyword):
+    def __init__(self, keyword: str):
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
@@ -27,7 +28,7 @@ class ScalarSource(pp.numerics.discretization.Discretization):
         """
         self.keyword = keyword
 
-    def _key(self):
+    def _key(self) -> str:
         """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
 
@@ -37,7 +38,7 @@ class ScalarSource(pp.numerics.discretization.Discretization):
         """
         return self.keyword + "_"
 
-    def ndof(self, g):
+    def ndof(self, g: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method.
 
         Parameter:
@@ -49,7 +50,9 @@ class ScalarSource(pp.numerics.discretization.Discretization):
         """
         return g.num_cells
 
-    def assemble_matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(
+        self, g: pp.Grid, data: Dict
+    ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Return the (null) matrix and right-hand side for a discretization of the
         integrated source term. Also discretize the necessary operators if the data
         dictionary does not contain a source term.
@@ -68,7 +71,7 @@ class ScalarSource(pp.numerics.discretization.Discretization):
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
-    def assemble_matrix(self, g, data):
+    def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.spmatrix:
         """Return the (null) matrix and for a discretization of the integrated source
         term. Also discretize the necessary operators if the data dictionary does not
         contain a source term.
@@ -87,7 +90,7 @@ class ScalarSource(pp.numerics.discretization.Discretization):
 
     # ------------------------------------------------------------------------------#
 
-    def assemble_rhs(self, g, data):
+    def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
         """Return the rhs for a discretization of the integrated source term. Also
         discretize the necessary operators if the data dictionary does not contain a
         source term.
@@ -110,7 +113,7 @@ class ScalarSource(pp.numerics.discretization.Discretization):
         ), "There should be one source value for each cell"
         return matrix_dictionary["bound_source"] * sources
 
-    def discretize(self, g, data):
+    def discretize(self, g: pp.Grid, data: Dict) -> None:
         """Discretize an integrated source term.
 
         Parameters:

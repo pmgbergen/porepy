@@ -6,17 +6,16 @@ for MPxA discertizations, however, due to the somewhat intricate inheritance rel
 between these methods, the current structure with multiple auxiliary methods emerged.
 
 """
-from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.grids.grid_bucket import GridBucket
 from porepy.utils import matrix_compression, mcolon
 
 
-class SubcellTopology(object):
+class SubcellTopology:
     """
     Class to represent data of subcell topology (interaction regions) for
     mpsa/mpfa.
@@ -46,7 +45,7 @@ class SubcellTopology(object):
 
     """
 
-    def __init__(self, g):
+    def __init__(self, g: pp.Grid):
         """
         Constructor for subcell topology
 
@@ -178,7 +177,7 @@ class SubcellTopology(object):
         s += str(self.fno.size) + " subfaces before pairing face neighbors\n"
         return s
 
-    def pair_over_subfaces(self, other):
+    def pair_over_subfaces(self, other: sps.spmatrix) -> sps.spmatrix:
         """
         Transfer quantities from a cell-face base (cells sharing a face have
         their own expressions) to a face-based. The quantities should live
@@ -203,7 +202,7 @@ class SubcellTopology(object):
         pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno, self.subhfno)))
         return pair_over_subfaces * other
 
-    def pair_over_subfaces_nd(self, other):
+    def pair_over_subfaces_nd(self, other: sps.matrix) -> sps.matrix:
         """ nd-version of pair_over_subfaces, see above. """
         nd = self.g.dim
         # For force balance, displacements and stresses on the two sides of the
@@ -219,7 +218,12 @@ class SubcellTopology(object):
 # ------------------------ End of class SubcellTopology ----------------------
 
 
-def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
+def compute_dist_face_cell(
+    g: pp.Grid,
+    subcell_topology: SubcellTopology,
+    eta: float,
+    return_paired: bool = True,
+) -> sps.spmatrix:
     """
     Compute vectors from cell centers continuity points on each sub-face.
 
@@ -279,7 +283,7 @@ def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
         return mat
 
 
-def determine_eta(g):
+def determine_eta(g: pp.Grid) -> float:
     """Set default value for the location of continuity point eta in MPFA and
     MSPA.
 
@@ -442,7 +446,9 @@ def remove_nonlocal_contribution(
 # ------------- Methods related to block inversion ----------------------------
 
 
-def invert_diagonal_blocks(mat, s, method=None):
+def invert_diagonal_blocks(
+    mat: sps.spmatrix, s: int, method: str = None
+) -> sps.spmatrix:
     """
     Invert block diagonal matrix.
 
@@ -641,7 +647,7 @@ def invert_diagonal_blocks(mat, s, method=None):
     return ia
 
 
-def block_diag_matrix(vals, sz):
+def block_diag_matrix(vals: np.ndarray, sz):
     """
     Construct block diagonal matrix based on matrix elements and block sizes.
 
@@ -1765,14 +1771,14 @@ def map_subgrid_to_grid(
 
 def compute_darcy_flux(
     gb,
-    keyword="flow",
-    keyword_store=None,
-    d_name="darcy_flux",
-    p_name="pressure",
-    lam_name="mortar_solution",
-    data=None,
-    from_iterate=False,
-):
+    keyword: str = "flow",
+    keyword_store: str = None,
+    d_name: str = "darcy_flux",
+    p_name: str = "pressure",
+    lam_name: str = "mortar_solution",
+    data: Dict = None,
+    from_iterate: bool = False,
+) -> None:
     """
     Computes darcy_flux over all faces in the entire grid /grid bucket given
     pressures for all nodes, provided as node properties.
@@ -1831,11 +1837,12 @@ def compute_darcy_flux(
         dis += vector_source_discr * vector_source
         return dis
 
-    if keyword_store is None:
-        keyword_store = keyword
-    if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
-        parameter_dictionary = data[pp.PARAMETERS][keyword]
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
+    keyword_store = keyword_store or keyword
+    if not isinstance(gb, pp.GridBucket):
+        parameter_dictionary: Dict[str, Any] = data[pp.PARAMETERS][keyword]
+        matrix_dictionary: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
+            keyword
+        ]
         if "flux" in matrix_dictionary:
             dis = calculate_flux(parameter_dictionary, matrix_dictionary, data)
         else:
@@ -1848,7 +1855,7 @@ def compute_darcy_flux(
 
     # Compute fluxes from pressures internal to the subdomain, and for global
     # boundary conditions.
-    for g, d in gb:
+    for _, d in gb:
         parameter_dictionary = d[pp.PARAMETERS][keyword]
         matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][keyword]
         if "flux" in matrix_dictionary:
@@ -1884,7 +1891,10 @@ def compute_darcy_flux(
         d[pp.PARAMETERS][keyword_store][d_name] = extract_variable(d, lam_name).copy()
 
 
-def boundary_to_sub_boundary(bound, subcell_topology):
+def boundary_to_sub_boundary(
+    bound: Union[pp.BoundaryCondition, pp.BoundaryConditionVectorial],
+    subcell_topology: SubcellTopology,
+):
     """
     Convert a boundary condition defined for faces to a boundary condition defined by
     subfaces.
@@ -1920,7 +1930,9 @@ def boundary_to_sub_boundary(bound, subcell_topology):
     return bound
 
 
-def append_dofs_of_discretization(g, d, kw1, kw2, k_dof):
+def append_dofs_of_discretization(
+    g: pp.Grid, d: Dict, kw1: str, kw2: str, k_dof: int
+) -> None:
     """
     Appends rows to existing discretizations stored as 'stress' and
     'bound_stress' in the data dictionary on the nodes. Only applies to the
@@ -1951,7 +1963,7 @@ def append_dofs_of_discretization(g, d, kw1, kw2, k_dof):
 
 
 def partial_discretization(
-    g, data, tensor, bnd, apertures, partial_discr, physics="flow"
+    g: pp.Grid, data: Dict, tensor, bnd, apertures, partial_discr, physics="flow"
 ):
     """
     Perform a partial (local) multi-point discretization on a grid with
@@ -1964,14 +1976,15 @@ def partial_discretization(
         4)  Inserting the newly computed values to the just deleted rows.
     """
     # Get keywords and affected geometry
-    known_physics = ["flow", "mechanics"]
-    assert physics in known_physics
     if physics == "flow":
         kw1, kw2 = "flux", "bound_flux"
         dof_multiplier = 1
     elif physics == "mechanics":
         kw1, kw2 = "stress", "bound_stress"
         dof_multiplier = g.dim
+    else:
+        raise ValueError(f"Unknown physics, {physics}")
+
     cells = g.tags.get("discretize_cells")
     faces = g.tags.get("discretize_faces")
     nodes = g.tags.get("discretize_nodes")

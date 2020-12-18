@@ -19,7 +19,7 @@ except ModuleNotFoundError:
     )
 
 
-class GmshWriter(object):
+class GmshWriter:
     """
     Write a gmsh.geo file for a fractured 2D domains, possibly including
     compartments
@@ -27,8 +27,8 @@ class GmshWriter(object):
 
     def __init__(
         self,
-        pts,
-        lines,
+        pts: np.ndarray,
+        lines: np.ndarray,
         polygons=None,
         domain=None,
         nd=None,

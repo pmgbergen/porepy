@@ -10,7 +10,6 @@ import logging
 import porepy as pp
 from porepy.models import (
     contact_mechanics_model,
-
 )
 
 # Module-wide logger
@@ -44,7 +43,8 @@ class ContactMechanicsExample(contact_mechanics_model.ContactMechanics):
         """
         x_endpoints = np.array([0.2, 0.8])
         gb, self.box = gb, self.box = pp.grid_buckets_2d.single_horizontal(
-            self.mesh_args, x_endpoints,
+            self.mesh_args,
+            x_endpoints,
         )
 
         # Set projections to local coordinates for all fractures

@@ -263,7 +263,7 @@ class Grid:
         self.face_centers = self.nodes
         self.face_normals = np.zeros((3, 0))  # not well-defined
 
-        self.cell_volumes = np.ones(self.num_cells)
+        self.cell_volumes: np.ndarray = np.ones(self.num_cells)
         if not hasattr(self, "cell_centers"):
             raise ValueError("Can not compute geometry of 0d grid without cell centers")
         # Here, we should assign the cell centers, however this does nothing:
@@ -286,7 +286,7 @@ class Grid:
         xf1 = self.face_centers[:, cf[::2]]
         xf2 = self.face_centers[:, cf[1::2]]
 
-        self.cell_volumes = np.linalg.norm(xf1 - xf2, axis=0)
+        self.cell_volumes: np.ndarray = np.linalg.norm(xf1 - xf2, axis=0)
         self.cell_centers = 0.5 * (xf1 + xf2)
 
         # Ensure that normal vector direction corresponds with sign convention

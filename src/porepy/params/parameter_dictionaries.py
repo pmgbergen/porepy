@@ -4,12 +4,13 @@ Here, we store various parameter dictionaries with "sensible" (typically unitary
 zero) default values for the parameters required by the discretization objects.
 """
 
+from typing import Dict
 import numpy as np
 
 import porepy as pp
 
 
-def flow_dictionary(g, in_data=None):
+def flow_dictionary(g: pp.Grid, in_data: Dict = None) -> Dict:
     """Dictionary with parameters for standard flow problems.
 
     All parameters listed below which are not specified in in_data are assigned default
@@ -42,7 +43,7 @@ def flow_dictionary(g, in_data=None):
     return d
 
 
-def transport_dictionary(g, in_data=None):
+def transport_dictionary(g: pp.Grid, in_data: Dict = None) -> Dict:
     """Dictionary with parameters for standard transport problems.
 
     All parameters listed below which are not specified in in_data are assigned default
@@ -76,7 +77,7 @@ def transport_dictionary(g, in_data=None):
     return d
 
 
-def mechanics_dictionary(g, in_data=None):
+def mechanics_dictionary(g: pp.Grid, in_data: Dict = None) -> Dict:
     """Dictionary with parameters for standard mechanics problems.
 
     All parameters listed below which are not specified in in_data are assigned default

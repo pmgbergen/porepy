@@ -83,7 +83,7 @@ class EllipticDiscretization(Discretization):
         """
         pass
 
-    def extract_pressure(self, g, solution_array, data):
+    def extract_pressure(self, g: pp.Grid, solution_array: np.ndarray, data: Dict):
         """Abstract method. Extract the pressure part of a solution.
 
         The implementation will depend what the primary variables of the specific
@@ -103,7 +103,7 @@ class EllipticDiscretization(Discretization):
         """
         raise NotImplementedError("Method not implemented")
 
-    def extract_flux(self, g, solution_array, data):
+    def extract_flux(self, g: pp.Grid, solution_array: np.ndarray, data: Dict):
         """Abstract method. Extract the pressure part of a solution.
 
         The implementation will depend what are the primary variables of the specific
