@@ -2,6 +2,7 @@
 Module of coupling laws for hyperbolic equations.
 """
 from typing import Dict, Tuple
+
 import numpy as np
 import scipy.sparse as sps
 

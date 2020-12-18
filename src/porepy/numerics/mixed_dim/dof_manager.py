@@ -1,8 +1,9 @@
 """ Implementation of a degree of freedom manager.
 """
-from typing import Dict, Tuple, Union, List, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+
 import porepy as pp
 
 
@@ -97,9 +98,12 @@ class DofManager:
         dof_start = np.hstack((0, np.cumsum(self.full_dof)))
         return np.arange(dof_start[block_ind], dof_start[block_ind + 1])
 
-    def num_dofs(self, g: Optional[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]] =None,
-                                   var: str = None) -> int:
-        """ Get the number of degrees of freedom for a specific grid and/or variable.
+    def num_dofs(
+        self,
+        g: Optional[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]] = None,
+        var: str = None,
+    ) -> int:
+        """Get the number of degrees of freedom for a specific grid and/or variable.
 
         Four scenarios are possible:
           * If a grid (or interface) is specified, the total size for all variables of

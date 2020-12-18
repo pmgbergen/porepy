@@ -146,7 +146,9 @@ class FracturePropagation(abc.ABC):
             d[pp.STATE]["old_solution"] = {}
             for var, dofs in d[pp.PRIMARY_VARIABLES].items():
                 # Copy old solution vector values
-                d[pp.STATE]["old_solution"][var] = x[self.assembler._dof_manager.dof_ind(g, var)]
+                d[pp.STATE]["old_solution"][var] = x[
+                    self.assembler._dof_manager.dof_ind(g, var)
+                ]
 
                 # Only cell-based dofs have been considered so far.
                 # It should not be difficult to handle other types of variables,
@@ -188,7 +190,9 @@ class FracturePropagation(abc.ABC):
 
             for var, dofs in d[pp.PRIMARY_VARIABLES].items():
                 # Copy old solution vector values
-                d[pp.STATE]["old_solution"][var] = x[self.assembler._dof_manager.dof_ind(e, var)]
+                d[pp.STATE]["old_solution"][var] = x[
+                    self.assembler._dof_manager.dof_ind(e, var)
+                ]
 
                 # Only cell-based dofs have been considered so far.
                 cell_dof = dofs.get("cells")

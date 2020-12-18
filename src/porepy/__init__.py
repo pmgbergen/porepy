@@ -147,7 +147,7 @@ from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 from porepy.models.contact_mechanics_model import ContactMechanics
 from porepy.models.thm_model import THM
 
-#from porepy.numerics.ad.equation_manager import Equation, EquationManager
+# from porepy.numerics.ad.equation_manager import Equation, EquationManager
 from porepy.numerics import ad
 
 # Visualization

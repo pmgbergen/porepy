@@ -8,16 +8,12 @@ etc.
 """
 __all__ = []
 
-from . import operators
-from .operators import *
-from . import functions
-from .functions import *
-from . import forward_mode
-from .forward_mode import *
-from . import grid_operators
-from .grid_operators import *
-from . import equation_manager
+from . import equation_manager, forward_mode, functions, grid_operators, operators
 from .equation_manager import *
+from .forward_mode import *
+from .functions import *
+from .grid_operators import *
+from .operators import *
 
 __all__.extend(operators.__all__)
 __all__.extend(functions.__all__)

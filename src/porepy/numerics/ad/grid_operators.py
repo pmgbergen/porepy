@@ -2,14 +2,14 @@
 defined here are mainly wrappers that constructs Ad matrices based on grid information.
 
 """
-from typing import List, Dict, Tuple, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
-import porepy as pp
 import scipy.sparse as sps
 
-from .operators import Operator, MergedOperator, Matrix
+import porepy as pp
 
+from .operators import Matrix, MergedOperator, Operator
 
 __all__ = [
     "MortarProjections",
@@ -315,7 +315,7 @@ class MortarProjections(Operator):
         # Also generate a merged version of MortarGrid.sign_of_mortar_sides:
         mats = []
         for e in edges:
-            mg = gb.edge_props(e, 'mortar_grid')
+            mg = gb.edge_props(e, "mortar_grid")
             mats.append(mg.sign_of_mortar_sides(nd))
         self.sign_of_mortar_sides = Matrix(sps.block_diag(mats))
 

@@ -1,15 +1,16 @@
 """ Implementation of wrappers for Ad representations of several operators.
 """
-from enum import Enum
-from typing import Optional, List, Any, Tuple, Dict, Union, Callable
-from itertools import count
 import copy
+from enum import Enum
+from itertools import count
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-import numpy as np
-import porepy as pp
-import networkx as nx
-import scipy.sparse as sps
 import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
+import scipy.sparse as sps
+
+import porepy as pp
 
 __all__ = [
     "Operator",
@@ -80,7 +81,9 @@ class Operator:
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
     def __repr__(self) -> str:
-        return f"Operator formed by {self.tree.op} with {len(self.tree.children)} children"
+        return (
+            f"Operator formed by {self.tree.op} with {len(self.tree.children)} children"
+        )
 
     def viz(self):
         """Give a visualization of the operator tree that has this operator at the top."""
@@ -322,7 +325,7 @@ class Variable(Operator):
             )
 
     def previous_timestep(self) -> "Variable":
-        ndof = {'cells': self._cells, 'faces': self._faces, 'nodes': self._nodes}
+        ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
         return Variable(self._name, ndof, self.g, previous_timestep=True)
 
     def __repr__(self) -> str:

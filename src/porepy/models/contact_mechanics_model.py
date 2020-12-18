@@ -637,8 +637,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
             # momentum balance equation in g_h
             momentum_eq = pp.ad.Equation(div * stress, dof_manager, "momentuum")
-         #   breakpoint()
-            #eq1 = pp.ad.Equation(, dof_manager).to_ad(gb)
+            #   breakpoint()
+            # eq1 = pp.ad.Equation(, dof_manager).to_ad(gb)
 
             coloumb_ad = pp.ad.Discretization(
                 {g: coloumb for g in g_frac}, "contact_ad"
@@ -674,10 +674,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                     continue
 
                 faces_on_fracture_surface = mg.primary_to_mortar_int().tocsr().indices
-                m = (
-                    pp.grid_utils.switch_sign_if_inwards_normal(
-                        g_primary, self._Nd, faces_on_fracture_surface
-                    )
+                m = pp.grid_utils.switch_sign_if_inwards_normal(
+                    g_primary, self._Nd, faces_on_fracture_surface
                 )
                 if mat is None:
                     mat = m
@@ -705,7 +703,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 dof_manager,
                 "force_balance",
             )
-#            eq2 = pp.ad.Equation(contact_from_secondary, dof_manager).to_ad(gb)
+            #            eq2 = pp.ad.Equation(contact_from_secondary, dof_manager).to_ad(gb)
 
             eq_manager.equations += [momentum_eq, contact_eq, force_balance_eq]
 
@@ -805,7 +803,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
                     # For the fractures, update the contact force
                     if g.dim == self._Nd and name == self.displacement_variable:
-                        displacement = solution_vector[dof[bi] : dof[bi+1]]
+                        displacement = solution_vector[dof[bi] : dof[bi + 1]]
                         if cumulative:
                             data[pp.STATE][pp.ITERATE][
                                 self.displacement_variable
@@ -824,7 +822,6 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                             data[pp.STATE][pp.ITERATE][
                                 self.contact_traction_variable
                             ] = contact.copy()
-
 
     def _set_friction_coefficient(self, g: pp.Grid) -> np.ndarray:
         """The friction coefficient is uniform, and equal to 1."""
