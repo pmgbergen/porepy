@@ -993,7 +993,7 @@ class BasicsTest(unittest.TestCase):
 
         theta_known = np.array([1, 1, 1, 0, 0])
 
-        deltaT_known = 5 * 1e-1
+        # deltaT_known = 5 * 1e-1
 
         rtol = 1e-15
         atol = rtol

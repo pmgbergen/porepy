@@ -2,16 +2,16 @@
 
 import os.path
 from glob import glob
-from os.path import basename, splitext
 
-from setuptools import find_packages, setup
+from setuptools import find_packages
 
 # ----------------------  Cython compilation
 # Build cython extensions as part of setup. Based on
 # https://stackoverflow.com/questions/4505747/how-should-i-structure-a-python-package-that-contains-cython-code
-USE_CYTHON = False
 from distutils.core import setup
 from distutils.extension import Extension
+
+USE_CYTHON = False
 
 if USE_CYTHON:
     try:
@@ -63,7 +63,13 @@ setup(
     version="1.3.1",
     license="GPL",
     keywords=["porous media simulation fractures deformable"],
-    author="Eirik Keilegavlen, Runar Berge, Alessio Fumagalli, Michele Starnoni, Ivar Stefansson and Jhabriel Varela",
+    author="Eirik Keilegavlen, "
+    "Runar Berge, "
+    "Alessio Fumagalli, "
+    "Michele Starnoni, "
+    "Ivar Stefansson, "
+    "and "
+    "Jhabriel Varela",
     install_requires=required,
     description="Simulation tool for fractured and deformable porous media",
     long_description=long_description,

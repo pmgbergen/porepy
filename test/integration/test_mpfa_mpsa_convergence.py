@@ -25,7 +25,7 @@ import sympy
 
 import porepy as pp
 from porepy.grids import simplex, structured
-from porepy.numerics.fv import fvutils, mpfa, mpsa
+from porepy.numerics.fv import fvutils
 from porepy.params import bc, tensor
 from porepy.utils.mcolon import mcolon
 

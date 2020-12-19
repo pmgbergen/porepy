@@ -261,7 +261,7 @@ def compute_dist_face_cell(
     _, cols = np.meshgrid(subcell_topology.subhfno, np.arange(dims))
     cols += matrix_compression.rldecode(np.cumsum(blocksz) - blocksz[0], blocksz)
     if np.asarray(eta).size == subcell_topology.num_subfno_unique:
-        eta_vec = eta[subcell_topology.subfno]
+        eta_vec = eta[int(subcell_topology.subfno)]
     elif np.asarray(eta).size == 1:
         eta_vec = eta * np.ones(subcell_topology.fno.size)
         # Set eta values to zero at the boundary
@@ -447,7 +447,7 @@ def remove_nonlocal_contribution(
 
 
 def invert_diagonal_blocks(
-    mat: sps.spmatrix, s: int, method: str = None
+    mat: sps.spmatrix, s: np.ndarray[np.int64], method: str = None
 ) -> sps.spmatrix:
     """
     Invert block diagonal matrix.

@@ -282,8 +282,6 @@ class TestTangentialNormalProjection(unittest.TestCase):
                 self.assertTrue(proj_vector[i + j * dim], proj_vector[i])
 
     def test_several_normal_vectors(self):
-        dim = 2
-
         s2 = np.sqrt(2)
         s3 = np.sqrt(3)
         n1 = np.array([[0.5], [s3 / 2]])

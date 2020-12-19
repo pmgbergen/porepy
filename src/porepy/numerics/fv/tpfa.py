@@ -5,6 +5,7 @@ Created on Sat Feb 27 21:09:29 2016
 @author: keile
 """
 from typing import Any, Dict
+
 import numpy as np
 import scipy.sparse as sps
 

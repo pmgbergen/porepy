@@ -1,4 +1,4 @@
-"""
+r"""
 For details on the conditions discretized herein, see
 
 Berge et al., 2019: Finite volume discretization for poroelastic media with fractures
@@ -39,6 +39,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.discretization import Discretization
 
 logger = logging.getLogger(__name__)
 

@@ -8,14 +8,15 @@ classes handling the arising coupling terms are provided.
 
 import logging
 import time
+from typing import Dict, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
-from typing import Dict, Tuple, Union
 
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
 from porepy.numerics.discretization import Discretization
+from porepy.numerics.fracture_deformation.contact_conditions import ColoumbContact
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ class PrimalContactCoupling(
         self,
         keyword: str,
         discr_primary: Discretization,
-        discr_secondary: Discretization,
+        discr_secondary: Union[Discretization, ColoumbContact],
         use_surface_discr: bool = False,
     ):
         super(PrimalContactCoupling, self).__init__(keyword)

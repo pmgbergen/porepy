@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 import scipy
 import sympy
-from scipy.sparse.linalg import spsolve
 
 import porepy as pp
 
@@ -54,8 +53,6 @@ def perturb(g, rate, dx):
             & (g.nodes[1] > 0.5 + 1e-10)
         )
     )
-    # r3 = np.ravel(np.argwhere((g.nodes[0] < 1 - 1e-10) & (g.nodes[0] > 1e-10) & (g.nodes[1] < 0.75 - 1e-10) & (g.nodes[1] > 0.5 + 1e-10)))
-    # r4 = np.ravel(np.argwhere((g.nodes[0] < 1 - 1e-10) & (g.nodes[0] > 1e-10) & (g.nodes[1] < 1.0 - 1e-10) & (g.nodes[1] > 0.75 + 1e-10)))
     pert_nodes = np.concatenate((r1, r2))
     npertnodes = pert_nodes.size
     rand = np.vstack((np.random.rand(g.dim, npertnodes), np.repeat(0.0, npertnodes)))

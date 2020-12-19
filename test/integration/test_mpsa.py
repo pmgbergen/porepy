@@ -19,10 +19,10 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-def setup_stiffness(g, mu=1, l=1):
+def setup_stiffness(g, mu=1, lmbda=1):
     mu = np.ones(g.num_cells) * mu
-    l = np.ones(g.num_cells) * l
-    return pp.FourthOrderTensor(mu, l)
+    lmbda = np.ones(g.num_cells) * lmbda
+    return pp.FourthOrderTensor(mu, lmbda)
 
 
 class TestMpsaExactReproduction(unittest.TestCase):
@@ -39,8 +39,8 @@ class TestMpsaExactReproduction(unittest.TestCase):
                 g, bound_faces.ravel("F"), ["dir"] * bound_faces.size
             )
             mu = 1
-            l = 1
-            constit = setup_stiffness(g, mu, l)
+            lmbda = 1
+            constit = setup_stiffness(g, mu, lmbda)
 
             xc = g.cell_centers
             xf = g.face_centers
@@ -84,10 +84,10 @@ class TestMpsaExactReproduction(unittest.TestCase):
             ]
             traction = stress * d + bound_stress * d_bound.ravel("F")
 
-            s_xx = (2 * mu + l) * gx + l * gy
+            s_xx = (2 * mu + lmbda) * gx + lmbda * gy
             s_xy = mu * (gx + gy)
             s_yx = mu * (gx + gy)
-            s_yy = (2 * mu + l) * gy + l * gx
+            s_yy = (2 * mu + lmbda) * gy + lmbda * gx
 
             n = g.face_normals
             traction_ex_x = s_xx * n[0] + s_xy * n[1]

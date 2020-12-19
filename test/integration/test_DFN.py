@@ -1,5 +1,6 @@
 """
-Module for testing the discrete fracture network (DFN) with continuous pressure and normal flux at the intersection.
+Module for testing the discrete fracture network (DFN) with continuous pressure and
+normal flux at the intersection.
 """
 
 import unittest

@@ -25,7 +25,7 @@ class BasicsTest(unittest.TestCase):
 
         pt = np.tile(np.array([2, 1, 0]), (g.nodes.shape[1], 1)).T
         find = np.isclose(pt, g.nodes).all(axis=0)
-        self.assertTrue(find.any() == False)
+        self.assertTrue(find.any() is False)
 
         faces_cell0, _, orient_cell0 = sps.find(g.cell_faces[:, 0])
         self.assertTrue(np.array_equal(faces_cell0, [1, 2, 4, 5, 7, 8, 10, 11]))

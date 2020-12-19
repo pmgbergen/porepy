@@ -289,7 +289,6 @@ def set_bc_mech_tension(
                         bound_faces,
                     )
                 if symmetry:
-                    back = bound_face_centers[1, :] > 2 * t - eps
                     left_ind = left.nonzero()[0]
                     for i in left_ind:
                         labels[i] = "dir_x"
@@ -406,15 +405,15 @@ def set_bc_mech_tension_sneddon(
                     back = bound_face_centers[1, :] > 2 * t - eps
                     back_ind = back.nonzero()[0]
                     left_ind = left.nonzero()[0]
-                    front_ind = front.nonzero()[0]
+                    # front_ind = front.nonzero()[0]
                     right_ind = right.nonzero()[0]
                     bottom_ind = bottom.nonzero()[0]
                     for i in back_ind:
                         labels[i] = "dir_y"
                     for i in left_ind:
                         labels[i] = "dir_x"
-                    for i in front_ind:
-                        labels[i] = "dir_y"
+                    # for i in front_ind:
+                    #     labels[i] = "dir_y"
                     for i in right_ind:
                         labels[i] = "dir_x"
                     for i in topbot_ind:
@@ -621,7 +620,7 @@ def set_bc_mech(gb, top_displacement=0.01):
             bound_face_centers = g.face_centers[:, bound_faces]
 
             top = bound_face_centers[last_ind, :] > 1 - eps
-            bottom = bound_face_centers[last_ind, :] < eps
+            # bottom = bound_face_centers[last_ind, :] < eps
             left = bound_face_centers[0, :] > 1 - eps
             right = bound_face_centers[0, :] < eps
 

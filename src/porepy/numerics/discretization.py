@@ -4,7 +4,7 @@
 
 """
 import abc
-from typing import Dict, Tuple, Union
+from typing import Dict, Tuple
 
 import numpy as np
 import scipy.sparse as sps
@@ -17,6 +17,7 @@ class Discretization(abc.ABC):
     for a discretization class to be compatible with the assembler.
 
     """
+
     # Block matrix indices
     g_primary_ind = 0
     g_secondary_ind = 1

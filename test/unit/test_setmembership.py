@@ -59,7 +59,7 @@ class TestIsmember(unittest.TestCase):
         self.assertTrue(np.allclose(ma, ma_known))
         self.assertTrue(np.allclose(ia, ia_known))
 
-    def test_ismember_rows_unqual_sizes_1(self):
+    def test_ismember_rows_unqual_sizes_2(self):
         # b larger than b
         a = np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]])
         b = np.array([[3, 1, 2, 5, 3, 4, 7], [3, 3, 3, 1, 9, 9, 9]])
@@ -107,7 +107,7 @@ class TestIsmember(unittest.TestCase):
         self.assertTrue(np.allclose(ma, ma_known))
         self.assertTrue(np.allclose(ia, ia_known))
 
-    def test_ismember_rows_1d(self):
+    def test_ismember_rows_1d_2(self):
         a = np.array([0, 2, 1, 13, 0])
         b = np.array([2, 4, 13, 0])
 
@@ -149,7 +149,7 @@ class TestUniqueColumns(unittest.TestCase):
 
     def test_remove_one_point(self):
         p = np.ones((2, 2))
-        p_unique, new_2_old, old_2_new = setmembership.unique_columns_tol(p)
+        _, new_2_old, old_2_new = setmembership.unique_columns_tol(p)
 
         self.assertTrue(np.allclose(p, np.ones((2, 1))))
         self.assertTrue(np.alltrue(old_2_new == np.zeros(2)))

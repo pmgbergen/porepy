@@ -270,10 +270,7 @@ class TestSparseMath(unittest.TestCase):
     def test_merge_mat_split_columns_same_pos(self):
         # Test slicing of csr_matrix
         A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
-
         B = sps.csc_matrix(np.array([[0, 2], [3, 1], [1, 0]]))
-
-        A_t = sps.csc_matrix(np.array([[2, 0, 0], [1, 0, 0], [0, 0, 3]]))
         try:
             sparse_mat.merge_matrices(A, B, np.array([0, 0], dtype=np.int))
         except ValueError:

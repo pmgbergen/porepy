@@ -3,7 +3,7 @@ Module with functions for computing intersections between geometric objects.
 
 """
 import logging
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -1547,7 +1547,9 @@ def surface_tessalations(
     return isect_polys, mappings
 
 
-def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
+def split_intersecting_segments_2d(
+    p: np.ndarray, e: np.ndarray, tol: float = 1e-4, return_argsort: bool = False
+) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
 

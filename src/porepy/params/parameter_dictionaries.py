@@ -5,6 +5,7 @@ zero) default values for the parameters required by the discretization objects.
 """
 
 from typing import Dict
+
 import numpy as np
 
 import porepy as pp

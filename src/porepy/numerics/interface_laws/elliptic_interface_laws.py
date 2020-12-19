@@ -599,7 +599,8 @@ class FluxPressureContinuity(RobinCoupling):
                 self.g_mortar_ind, self.g_secondary_ind
             ]
             rhs_secondary[self.g_mortar_ind] = -rhs_secondary[self.g_mortar_ind]
-            # Note that cc_secondary[mortar_ind, mortar_ind] is flipped twice, first for pressure continuity
+            # Note that cc_secondary[mortar_ind, mortar_ind] is flipped twice, first for
+            # pressure continuity
         else:
             # Consider this terms only if the grids are of different dimension, by
             # imposing pressure trace continuity and conservation of the normal flux

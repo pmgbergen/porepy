@@ -358,8 +358,8 @@ class TestPartialMPSA(unittest.TestCase):
 
         # Assign random permeabilities, for good measure
         np.random.seed(42)
-        mu = np.random.random(g.num_cells)
-        lmbda = np.random.random(g.num_cells)
+        mu = np.random.random_sample(g.num_cells)
+        lmbda = np.random.random_sample(g.num_cells)
         stiffness = pp.FourthOrderTensor(mu=mu, lmbda=lmbda)
 
         stress = sps.csr_matrix((g.num_faces * g.dim, g.num_cells * g.dim))
@@ -639,8 +639,8 @@ class PartialBiotMpsa(TestPartialMPSA):
 
         # Assign random permeabilities, for good measure
         np.random.seed(42)
-        mu = np.random.random(g.num_cells)
-        lmbda = np.random.random(g.num_cells)
+        mu = np.random.random_sample(g.num_cells)
+        lmbda = np.random.random_sample(g.num_cells)
         stiffness = pp.FourthOrderTensor(mu=mu, lmbda=lmbda)
 
         nd = g.dim
@@ -855,8 +855,6 @@ class UpdateDiscretizations(unittest.TestCase):
 
         # Perturb one node
         g_larger.nodes[0, 2] += 0.2
-        # Faces that have their geometry changed
-        update_faces = np.array([2, 21, 22])
 
         # Perturb the permeability in some cells on the larger grid
         perm_larger = pp.SecondOrderTensor(np.ones(g_larger.num_cells))
@@ -911,8 +909,6 @@ class UpdateDiscretizations(unittest.TestCase):
 
         # Perturb one node
         g_larger.nodes[0, 2] += 0.2
-        # Faces that have their geometry changed
-        update_faces = np.array([2, 21, 22])
 
         # Perturb the permeability in some cells on the larger grid
         mu, lmbda = np.ones(g_larger.num_cells), np.ones(g_larger.num_cells)
@@ -982,8 +978,6 @@ class UpdateDiscretizations(unittest.TestCase):
 
         # Perturb one node
         g_larger.nodes[0, 2] += 0.2
-        # Faces that have their geometry changed
-        update_faces = np.array([2, 21, 22])
 
         # Perturb the permeability in some cells on the larger grid
         mu, lmbda = np.ones(g_larger.num_cells), np.ones(g_larger.num_cells)

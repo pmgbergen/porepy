@@ -92,14 +92,14 @@ class TestFractureIsVertex(unittest.TestCase):
         p = np.array([0.5, 0.5, 0])
         f = self.frac()
         is_vert, ind = f.is_vertex(p)
-        self.assertTrue(is_vert == False)
+        self.assertTrue(is_vert is False)
         self.assertTrue(ind is None)
 
     def test_is_vertex(self):
         p = np.array([0.0, 0.0, 0])
         f = self.frac()
         is_vert, ind = f.is_vertex(p)
-        self.assertTrue(is_vert == True)
+        self.assertTrue(is_vert is True)
         self.assertTrue(ind == 0)
 
     def test_tolerance_sensitivity(self):
@@ -107,11 +107,11 @@ class TestFractureIsVertex(unittest.TestCase):
         p = np.array([1e-4, 0, 0])
         f = self.frac()
         is_vert, ind = f.is_vertex(p, tol=1e-5)
-        self.assertTrue(is_vert == False)
+        self.assertTrue(is_vert is False)
         self.assertTrue(ind is None)
 
         is_vert, ind = f.is_vertex(p, tol=1e-3)
-        self.assertTrue(is_vert == True)
+        self.assertTrue(is_vert is True)
         self.assertTrue(ind == 0)
 
 

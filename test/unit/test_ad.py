@@ -1,5 +1,4 @@
 import unittest
-import warnings
 
 import numpy as np
 import scipy.sparse as sps
@@ -167,7 +166,6 @@ class AdTest(unittest.TestCase):
         A = sps.csc_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
 
         f = A * a + b
-        jac = A * Ja + Jb
 
         self.assertTrue(np.all(f.val == [15, 33, 51]))
         self.assertTrue(np.sum(f.full_jac() != A * Ja + Jb) == 0)
@@ -226,10 +224,10 @@ class AdTest(unittest.TestCase):
         self.assertTrue(c.val == 2 and np.allclose(c.jac, 1))
 
     def test_full_jac(self):
-        J1 = sps.csc_matrix(
-            np.array([[1, 3, 5], [1, 5, 1], [6, 2, 4], [2, 4, 1], [6, 2, 1]])
-        )
-        J2 = sps.csc_matrix(np.array([[1, 2], [2, 5], [6, 0], [9, 9], [45, 2]]))
+        # J1 = sps.csc_matrix(
+        #     np.array([[1, 3, 5], [1, 5, 1], [6, 2, 4], [2, 4, 1], [6, 2, 1]])
+        # )
+        # J2 = sps.csc_matrix(np.array([[1, 2], [2, 5], [6, 0], [9, 9], [45, 2]]))
         J = np.array(
             [
                 [1, 3, 5, 1, 2],

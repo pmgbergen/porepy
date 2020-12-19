@@ -537,6 +537,7 @@ class TestAssembler(unittest.TestCase):
 
     def test_filter_grid(self):
         # Use a list filter to only discretize on one node
+        gb = self.define_gb()
         variable_name = "variable_1"
         variable_name_edge = "variable_edge"
         operator_1 = "operator_1"
@@ -578,117 +579,7 @@ class TestAssembler(unittest.TestCase):
         A_known[g2_ind, g2_ind] = 2
         assert np.allclose(A_known, A.todense())
 
-    def test_two_variables_no_coupling(self):
-        """Two variables, no coupling between the variables. Test that the
-        assembler can deal with more than one variable.
-        """
-        gb = self.define_gb()
-        variable_name_1 = "variable_1"
-        variable_name_2 = "variable_2"
-        variable_name_edge_1 = "variable_edge_1"
-        variable_name_edge_2 = "variable_edge_2"
-        operator_1 = "operator_1"
-        for g, d in gb:
-            d[pp.PRIMARY_VARIABLES] = {
-                variable_name_1: {"cells": 1},
-                variable_name_2: {"cells": 1},
-            }
-            if g.grid_num == 1:
-                d[pp.DISCRETIZATION] = {
-                    variable_name_1: {operator_1: MockNodeDiscretization(1)},
-                    variable_name_2: {operator_1: MockNodeDiscretization(2)},
-                }
-                g1 = g
-            else:
-                d[pp.DISCRETIZATION] = {
-                    variable_name_1: {operator_1: MockNodeDiscretization(3)},
-                    variable_name_2: {operator_1: MockNodeDiscretization(4)},
-                }
-                g2 = g
-
-        for e, d in gb.edges():
-            d[pp.PRIMARY_VARIABLES] = {
-                variable_name_edge_1: {"cells": 1},
-                variable_name_edge_2: {"cells": 1},
-            }
-            d[pp.DISCRETIZATION] = {
-                variable_name_edge_1: {operator_1: MockNodeDiscretization(5)},
-                variable_name_edge_2: {operator_1: MockNodeDiscretization(6)},
-            }
-
-        general_assembler = pp.Assembler(gb)
-        A, _ = general_assembler.assemble_matrix_rhs()
-
-        A_known = np.zeros((6, 6))
-
-        g11_ind = general_assembler.block_dof[(g1, variable_name_1)]
-        g12_ind = general_assembler.block_dof[(g1, variable_name_2)]
-        g21_ind = general_assembler.block_dof[(g2, variable_name_1)]
-        g22_ind = general_assembler.block_dof[(g2, variable_name_2)]
-        e1_ind = general_assembler.block_dof[(e, variable_name_edge_1)]
-        e2_ind = general_assembler.block_dof[(e, variable_name_edge_2)]
-        A_known[g11_ind, g11_ind] = 1
-        A_known[g12_ind, g12_ind] = 2
-        A_known[g21_ind, g21_ind] = 3
-        A_known[g22_ind, g22_ind] = 4
-        A_known[e1_ind, e1_ind] = 5
-        A_known[e2_ind, e2_ind] = 6
-        assert np.allclose(A_known, A.todense())
-
-    def test_two_variables_one_active(self):
-        """Define two variables, but then only assemble with respect to one
-        of them. Should result in what is effectively a 1-variable system
-
-        """
-        gb = self.define_gb()
-        variable_name_1 = "variable_1"
-        variable_name_2 = "variable_2"
-        operator = "operator"
-        for g, d in gb:
-            d[pp.PRIMARY_VARIABLES] = {
-                variable_name_1: {"cells": 1},
-                variable_name_2: {"cells": 1},
-            }
-            if g.grid_num == 1:
-                d[pp.DISCRETIZATION] = {
-                    variable_name_1: {operator: MockNodeDiscretization(1)},
-                    variable_name_2: {operator: MockNodeDiscretization(2)},
-                }
-                g1 = g
-            else:
-                d[pp.DISCRETIZATION] = {
-                    variable_name_1: {operator: MockNodeDiscretization(3)},
-                    variable_name_2: {operator: MockNodeDiscretization(4)},
-                }
-                g2 = g
-
-        for e, d in gb.edges():
-            d[pp.PRIMARY_VARIABLES] = {
-                variable_name_1: {"cells": 1},
-                variable_name_2: {"cells": 1},
-            }
-            d[pp.DISCRETIZATION] = {
-                variable_name_1: {operator: MockNodeDiscretization(5)},
-                variable_name_2: {operator: MockNodeDiscretization(6)},
-            }
-
-        general_assembler = pp.Assembler(gb)
-        filt = ListFilter(variable_list=[variable_name_2])
-        A, _ = general_assembler.assemble_matrix_rhs(filt=filt)
-
-        A_known = np.zeros((6, 6))
-
-        g12_ind = general_assembler.block_dof[(g1, variable_name_2)]
-        g22_ind = general_assembler.block_dof[(g2, variable_name_2)]
-        e2_ind = general_assembler.block_dof[(e, variable_name_2)]
-
-        A_known[g12_ind, g12_ind] = 2
-        A_known[g22_ind, g22_ind] = 4
-        A_known[e2_ind, e2_ind] = 6
-
-        assert np.allclose(A_known, A.todense())
-
-    def test_filter_grid(self):
+    def test_filter_grid_2(self):
         # Use a list filter to only discretize on one node
         gb = self.define_gb()
 
@@ -730,7 +621,6 @@ class TestAssembler(unittest.TestCase):
 
         general_assembler = pp.Assembler(gb)
         g1_ind = general_assembler.block_dof[(g1, variable_name)]
-        g2_ind = general_assembler.block_dof[(g2, variable_name)]
         e_ind = general_assembler.block_dof[(e, variable_name_e)]
 
         # Only grid 1
@@ -1486,7 +1376,7 @@ class TestAssembler(unittest.TestCase):
                 d[pp.DISCRETIZATION_MATRICES] = {key_1: {term: A}}
                 g2_ind = i
             i += 1
-        for e, d in gb.edges():
+        for _, d in gb.edges():
             d[pp.DISCRETIZATION_MATRICES] = {}
 
         general_assembler = pp.Assembler(gb)
@@ -1533,7 +1423,7 @@ class TestAssembler(unittest.TestCase):
                 d[pp.PARAMETERS] = {key_1: {term: param}}
 
             i += 1
-        for e, d in gb.edges():
+        for _, d in gb.edges():
             d[pp.PARAMETERS] = {}
 
         general_assembler = pp.Assembler(gb)
@@ -1655,7 +1545,7 @@ class TestAssembler(unittest.TestCase):
                 d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}}
                 g.dim = 1
 
-        for e, d in gb.edges():
+        for _, d in gb.edges():
             d[pp.PRIMARY_VARIABLES] = {variable_name_1: {"cells": 1}}
 
         # Assemble the global matrix
@@ -1681,13 +1571,13 @@ class TestAssembler(unittest.TestCase):
                 self.assertTrue(variable_name_2 in line)
             elif "in dimension 1" in line:
                 self.assertTrue(variable_name_1 in line)
-                self.assertTrue(not variable_name_2 in line)
+                self.assertTrue(variable_name_2 not in line)
 
         self.assertTrue("dimensions 2 and 1" in rep)
         for line in rep.split("\n"):
             if "in dimensions 2 and 1" in line:
                 self.assertTrue(variable_name_1 in line)
-                self.assertTrue(not variable_name_2 in line)
+                self.assertTrue(variable_name_2 not in line)
 
     def test_repr_three_nodes_three_edges_different_variables(self):
         # Assembler.__str__ will be the same as in the above two-node test. Focus on

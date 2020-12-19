@@ -179,7 +179,7 @@ class TestBucket(unittest.TestCase):
 
         # Define a grid that is not in the gb
         g = MockGrid()
-        self.assertTrue(not g in gb)
+        self.assertTrue(g not in gb)
 
     def test_contains_edge(self):
         gb = pp.GridBucket()
@@ -239,10 +239,10 @@ class TestBucket(unittest.TestCase):
             self.assertTrue(pboth in d.keys())
             if g == g1:
                 self.assertTrue(p1 in d.keys())
-                self.assertTrue(not p2 in d.keys())
+                self.assertTrue(p2 not in d.keys())
             else:
                 self.assertTrue(p2 in d.keys())
-                self.assertTrue(not p1 in d.keys())
+                self.assertTrue(p1 not in d.keys())
 
     def test_add_node_prop_node_number(self):
         gb = self.simple_bucket(1)
@@ -336,10 +336,10 @@ class TestBucket(unittest.TestCase):
             self.assertTrue(pboth in d.keys())
             if g1 in g and g2 in g:
                 self.assertTrue(p1 in d.keys())
-                self.assertTrue(not p2 in d.keys())
+                self.assertTrue(p2 not in d.keys())
             else:
                 self.assertTrue(p2 in d.keys())
-                self.assertTrue(not p1 in d.keys())
+                self.assertTrue(p1 not in d.keys())
 
     def test_overwrite_edge_props(self):
         gb = pp.GridBucket()
@@ -461,10 +461,10 @@ class TestBucket(unittest.TestCase):
     def test_bounding_box(self):
         gb = pp.GridBucket()
         g1 = pp.CartGrid([1, 1, 1])
-        g1.nodes = np.random.random((g1.dim, g1.num_nodes))
+        g1.nodes = np.random.random_sample((g1.dim, g1.num_nodes))
         g2 = pp.CartGrid([1, 1, 1])
         # Shift g2 with 1
-        g2.nodes = 1 + np.random.random((g2.dim, g2.num_nodes))
+        g2.nodes = 1 + np.random.random_sample((g2.dim, g2.num_nodes))
 
         gb.add_nodes([g1, g2])
 
@@ -493,10 +493,10 @@ class TestBucket(unittest.TestCase):
         self.assertTrue(gb.num_faces() == (g1.num_faces + g2.num_faces))
         self.assertTrue(gb.num_nodes() == (g1.num_nodes + g2.num_nodes))
 
-        l = lambda g: g.dim == 1
-        self.assertTrue(gb.num_cells(l) == g1.num_cells)
-        self.assertTrue(gb.num_faces(l) == g1.num_faces)
-        self.assertTrue(gb.num_nodes(l) == g1.num_nodes)
+        dim_cond = lambda g: g.dim == 1
+        self.assertTrue(gb.num_cells(dim_cond) == g1.num_cells)
+        self.assertTrue(gb.num_faces(dim_cond) == g1.num_faces)
+        self.assertTrue(gb.num_nodes(dim_cond) == g1.num_nodes)
 
     def test_num_graph_nodes_edges(self):
         gb = pp.GridBucket()
@@ -529,7 +529,7 @@ class TestBucket(unittest.TestCase):
         gb.remove_node_props("a")
 
         for _, d in gb:
-            self.assertTrue(not "a" in d.keys())
+            self.assertTrue("a" not in d.keys())
             self.assertTrue("b" in d.keys())
 
     def test_remove_multiple_node_props(self):
@@ -540,7 +540,7 @@ class TestBucket(unittest.TestCase):
 
         for _, d in gb:
             for p in props:
-                self.assertTrue(not p in d.keys())
+                self.assertTrue(p not in d.keys())
 
     def test_remove_selective_node_props(self):
         gb = pp.GridBucket()
@@ -557,12 +557,12 @@ class TestBucket(unittest.TestCase):
         gb.remove_node_props("c", [g1, g2])
 
         for g, d in gb:
-            self.assertTrue(not "c" in d.keys())
+            self.assertTrue("c" not in d.keys())
             if g == g1:
-                self.assertTrue(not "a" in d.keys())
+                self.assertTrue("a" not in d.keys())
                 self.assertTrue("b" in d.keys())
             else:
-                self.assertTrue(not "b" in d.keys())
+                self.assertTrue("b" not in d.keys())
                 self.assertTrue("a" in d.keys())
 
     def test_remove_node_prop_node_number(self):
@@ -572,10 +572,10 @@ class TestBucket(unittest.TestCase):
     def test_cell_volumes(self):
         gb = pp.GridBucket()
         g1 = pp.CartGrid([1, 1, 1])
-        g1.nodes += 0.1 * np.random.random((g1.dim, g1.num_nodes))
+        g1.nodes += 0.1 * np.random.random_sample((g1.dim, g1.num_nodes))
         g1.compute_geometry()
         g2 = pp.CartGrid([1, 1, 1])
-        g2.nodes += 0.1 * np.random.random((g2.dim, g2.num_nodes))
+        g2.nodes += 0.1 * np.random.random_sample((g2.dim, g2.num_nodes))
         g2.compute_geometry()
 
         gb.add_nodes([g1, g2])
@@ -589,10 +589,10 @@ class TestBucket(unittest.TestCase):
     def test_cell_centers(self):
         gb = pp.GridBucket()
         g1 = pp.CartGrid([1, 1, 1])
-        g1.nodes += 0.1 * np.random.random((g1.dim, g1.num_nodes))
+        g1.nodes += 0.1 * np.random.random_sample((g1.dim, g1.num_nodes))
         g1.compute_geometry()
         g2 = pp.CartGrid([1, 1, 1])
-        g2.nodes += 0.1 * np.random.random((g2.dim, g2.num_nodes))
+        g2.nodes += 0.1 * np.random.random_sample((g2.dim, g2.num_nodes))
         g2.compute_geometry()
 
         gb.add_nodes([g1, g2])
@@ -605,10 +605,10 @@ class TestBucket(unittest.TestCase):
     def test_face_centers(self):
         gb = pp.GridBucket()
         g1 = pp.CartGrid([1, 1, 1])
-        g1.nodes += 0.1 * np.random.random((g1.dim, g1.num_nodes))
+        g1.nodes += 0.1 * np.random.random_sample((g1.dim, g1.num_nodes))
         g1.compute_geometry()
         g2 = pp.CartGrid([1, 1, 1])
-        g2.nodes += 0.1 * np.random.random((g2.dim, g2.num_nodes))
+        g2.nodes += 0.1 * np.random.random_sample((g2.dim, g2.num_nodes))
         g2.compute_geometry()
 
         gb.add_nodes([g1, g2])
@@ -629,6 +629,7 @@ def test_pickle_bucket():
     gb_read = pickle.load(open(fn, "rb"))
 
     test_utils.compare_grid_buckets(gb, gb_read)
+
 
 if __name__ == "__main__":
     unittest.main()

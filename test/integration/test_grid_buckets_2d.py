@@ -1,7 +1,8 @@
 """
 Tests for the standard grids of the grid_bucket_2d module.
 
-Some of these tests are sensitive to meshing or node ordering. If this turns out to cause problems, we deactivate the corresponding asserts.
+Some of these tests are sensitive to meshing or node ordering.
+If this turns out to cause problems, we deactivate the corresponding asserts.
 """
 import unittest
 

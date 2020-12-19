@@ -26,6 +26,7 @@ class AbstractInterfaceLaw(abc.ABC):
             assemble_edge_coupling_via_low_dim().
 
     """
+
     # Block matrix indices
     g_primary_ind = 0
     g_secondary_ind = 1

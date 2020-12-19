@@ -101,7 +101,7 @@ class TestBoundaries(unittest.TestCase):
 
     def test_bounding_box(self):
         g = pp.CartGrid([1, 1])
-        g.nodes = np.random.random((g.dim, g.num_nodes))
+        g.nodes = np.random.random_sample((g.dim, g.num_nodes))
 
         bmin, bmax = g.bounding_box()
         self.assertTrue(np.allclose(bmin, g.nodes.min(axis=1)))
@@ -437,7 +437,9 @@ class TestStructuredTetrahedralGrid(unittest.TestCase):
         g.compute_geometry()
         self.g = g
 
-        # The ordering of faces may differ depending on the test system (presumably version of scipy or similar). Below are hard-coded combination of face-nodes, and the corresponding faces and face_areas.
+        # The ordering of faces may differ depending on the test system
+        # (presumably version of scipy or similar). Below are hard-coded
+        # combination of face-nodes, and the corresponding faces and face_areas.
         self.fn = np.array(
             [
                 [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 3, 3, 4, 5],
@@ -588,7 +590,7 @@ class TestStructuredSimplexGridCoverage(unittest.TestCase):
 
 class TestGridMappings1d(unittest.TestCase):
     def test_merge_single_grid(self):
-        """
+        r"""
         Test coupling from one grid to itself. An example setting:
                         |--|--|--| ( grid )
                         0  1  2  3
@@ -615,7 +617,7 @@ class TestGridMappings1d(unittest.TestCase):
         self.assertTrue(np.all(mg.secondary_to_mortar_int().A == [0, 0, 1]))
 
     def test_merge_two_grids(self):
-        """
+        r"""
         Test coupling from one grid of three faces to grid of two faces.
         An example setting:
                         0  1  2
@@ -663,25 +665,30 @@ def test_pickle_grid(g):
 
     test_utils.delete_file(fn)
 
-@pytest.mark.parametrize("g",[         pp.PointGrid([0, 0, 0]),
+
+@pytest.mark.parametrize(
+    "g",
+    [
+        pp.PointGrid([0, 0, 0]),
         pp.CartGrid([2]),
         pp.CartGrid([2, 2]),
-        pp.StructuredTriangleGrid([2, 2]),]
+        pp.StructuredTriangleGrid([2, 2]),
+    ],
 )
 def test_pickle_mortar_grid(g):
-    fn = 'tmp.grid'
+    fn = "tmp.grid"
     g.compute_geometry()
     mg = pp.MortarGrid(g.dim, {0: g, 1: g})
 
-    pickle.dump(mg, open(fn, 'wb'))
-    mg_read = pickle.load(open(fn, 'rb'))
+    pickle.dump(mg, open(fn, "wb"))
+    mg_read = pickle.load(open(fn, "rb"))
 
     test_utils.compare_mortar_grids(mg, mg_read)
 
     mg_one_sided = pp.MortarGrid(g.dim, {0: g})
 
-    pickle.dump(mg, open(fn, 'wb'))
-    mg_read = pickle.load(open(fn, 'rb'))
+    pickle.dump(mg, open(fn, "wb"))
+    mg_read = pickle.load(open(fn, "rb"))
 
     test_utils.compare_mortar_grids(mg_one_sided, mg_read)
 

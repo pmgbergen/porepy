@@ -11,13 +11,6 @@ import pytest
 import porepy as pp
 
 
-def _assign_params(g, perm, bc):
-    data = pp.initialize_parameters(
-        {}, g, "flow", {"bc": bc, "second_order_tensor": perm}
-    )
-    return data
-
-
 @pytest.mark.parametrize("method", ["tpfa", "mpfa"])
 def test_fv_cart_2d(method):
     """ Apply TPFA and MPFA on Cartesian grid, should obtain Laplacian stencil."""
@@ -143,7 +136,3 @@ def test_fv_cart_2d_periodic(method):
     assert np.allclose(a.A, A_lap)
     assert np.allclose(b, 0)
     return a
-
-
-if __name__ == "__main__":
-    unittest.main()

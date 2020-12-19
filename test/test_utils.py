@@ -150,14 +150,19 @@ def delete_file(file_name):
     if os.path.exists(file_name):
         os.remove(file_name)
 
+
 def compare_grids(g1, g2):
-    """ Compare two grids. They are considered equal if the topology and geometry is the
+    """Compare two grids. They are considered equal if the topology and geometry is the
     same.
     """
     if g1.dim != g2.dim:
         return False
 
-    if (g1.num_cells, g1.num_faces, g1.num_nodes) != (g2.num_cells, g2.num_faces, g2.num_nodes):
+    if (g1.num_cells, g1.num_faces, g1.num_nodes) != (
+        g2.num_cells,
+        g2.num_faces,
+        g2.num_nodes,
+    ):
         return False
 
     dfn = g1.face_nodes - g2.face_nodes
@@ -172,13 +177,14 @@ def compare_grids(g1, g2):
         coord = g1.nodes - g2.nodes
     else:
         coord = g1.cell_centers - g2.cell_centers
-    dist = np.sum(coord**2, axis=0)
+    dist = np.sum(coord ** 2, axis=0)
     if dist.max() > 1e-16:
         return False
 
     # No need to test other geometric quastities; these are processed from those already
     # checked, thus the grids are identical.
     return True
+
 
 def compare_mortar_grids(mg1, mg2):
     if mg1.dim != mg2.dim:
@@ -195,6 +201,7 @@ def compare_mortar_grids(mg1, mg2):
             return False
 
     return True
+
 
 def compare_grid_buckets(gb1, gb2):
     for dim in range(3):

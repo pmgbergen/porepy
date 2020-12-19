@@ -1023,25 +1023,29 @@ class TestMeshReplacement3d(unittest.TestCase):
         self.assertTrue(np.abs(p1h[1, 8] - 0.5) < 1e-6)
 
 
-@pytest.mark.parametrize("g",[         pp.PointGrid([0, 0, 0]),
+@pytest.mark.parametrize(
+    "g",
+    [
+        pp.PointGrid([0, 0, 0]),
         pp.CartGrid([2]),
         pp.CartGrid([2, 2]),
-        pp.StructuredTriangleGrid([2, 2]),]
+        pp.StructuredTriangleGrid([2, 2]),
+    ],
 )
 def test_pickle_mortar_grid(g):
-    fn = 'tmp.grid'
+    fn = "tmp.grid"
     g.compute_geometry()
     mg = pp.MortarGrid(g.dim, {0: g, 1: g})
 
-    pickle.dump(mg, open(fn, 'wb'))
-    mg_read = pickle.load(open(fn, 'rb'))
+    pickle.dump(mg, open(fn, "wb"))
+    mg_read = pickle.load(open(fn, "rb"))
 
     test_utils.compare_mortar_grids(mg, mg_read)
 
     mg_one_sided = pp.MortarGrid(g.dim, {0: g})
 
-    pickle.dump(mg, open(fn, 'wb'))
-    mg_read = pickle.load(open(fn, 'rb'))
+    pickle.dump(mg, open(fn, "wb"))
+    mg_read = pickle.load(open(fn, "rb"))
 
     test_utils.compare_mortar_grids(mg_one_sided, mg_read)
 

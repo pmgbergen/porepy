@@ -56,7 +56,7 @@ class MpfaReconstructPressure(unittest.TestCase):
         kxx = np.ones(g.num_cells)
         k = pp.SecondOrderTensor(kxx)
 
-        s_t = pp.fvutils.SubcellTopology(g)
+        # s_t = pp.fvutils.SubcellTopology(g)
 
         bc = pp.BoundaryCondition(g)
         bc.is_dir[g.get_all_boundary_faces()] = True

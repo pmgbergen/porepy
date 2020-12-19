@@ -134,7 +134,6 @@ class TestGridRefinement2dSimplex(unittest.TestCase):
         self.assertTrue(np.allclose(np.bincount(parent, h.cell_volumes), 0.5))
 
 
-
 """ EK: I can no longer recall the intention behind these tests - they seem to
 be related to an early implementation of mortar functionality. The tests are
 disabled for now, but should be brought back to life at some point.
@@ -271,7 +270,6 @@ class TestRefinementGridBucket(unittest.TestCase):
         for _, d in gb.edges():
             self.assertTrue(np.allclose(d["face_cells"].todense(), known_face_cells))
 """
-
 
 
 class TestRefinementMortarGrid(unittest.TestCase):

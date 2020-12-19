@@ -36,7 +36,8 @@ class TestTHM(unittest.TestCase):
 
         u, p, T = self._solve(setup)
 
-        # By symmetry (reasonable to expect from this grid), the average x displacement should be zero
+        # By symmetry (reasonable to expect from this grid), the average x displacement
+        # should be zero
         self.assertTrue(np.abs(np.sum(u[0::2])) < 1e-8)
         # Check that the expansion yields a negative pressure
         self.assertTrue(np.all(p < -1e-8))
@@ -50,7 +51,8 @@ class TestTHM(unittest.TestCase):
 
         u, p, T = self._solve(setup)
 
-        # By symmetry (reasonable to expect from this grid), the average x displacement should be zero
+        # By symmetry (reasonable to expect from this grid), the average x displacement
+        # should be zero
         self.assertTrue(np.abs(np.sum(u[0::2])) < 1e-8)
         # Check that the expansion yields a positive pressure
         self.assertTrue(np.all(p > -1e-8))
@@ -163,9 +165,7 @@ class TestContactMechanicsTHM(unittest.TestCase):
 
         setup = SetupTHM(ux_south=0, uy_south=-0.001, ux_north=0, uy_north=0)
 
-        u_mortar, contact_force, fracture_pressure, fracture_temperature = self._solve(
-            setup
-        )
+        u_mortar, contact_force, fracture_pressure, _ = self._solve(setup)
 
         # All components should be open in the normal direction
         self.assertTrue(np.all(u_mortar[1] > 0))
@@ -246,10 +246,8 @@ class TestContactMechanicsTHM(unittest.TestCase):
         setup.end_time *= 3
         setup.mesh_args = [2, 2]
         setup.simplex = False
-        #
-        u_mortar, contact_force, fracture_pressure, fracture_temperature = self._solve(
-            setup
-        )
+
+        u_mortar, _, fracture_pressure, fracture_temperature = self._solve(setup)
         self.assertTrue(np.all(np.isclose(fracture_pressure, -4.31072866e-06)))
         self.assertTrue(np.all(np.isclose(u_mortar[1], 9.99187742e-04)))
         self.assertTrue(np.all(np.isclose(fracture_temperature, 0.0)))
@@ -271,9 +269,7 @@ class TestContactMechanicsTHM(unittest.TestCase):
         setup.T_0_Kelvin = 1
         setup.alpha, setup.gamma, setup.advection_weight = 1e-15, 1e-15, 1e-15
         setup.subtract_fracture_pressure = False
-        u_mortar, contact_force, fracture_pressure, fracture_temperature = self._solve(
-            setup
-        )
+        u_mortar, _, fracture_pressure, fracture_temperature = self._solve(setup)
         self.assertTrue(np.all(np.isclose(fracture_temperature, -2.05192594e-06)))
         self.assertTrue(np.all(np.isclose(u_mortar[1], 1.00061081e-03)))
         self.assertTrue(np.all(np.isclose(fracture_pressure, 0.0)))
@@ -318,7 +314,7 @@ class SetupTHM(ProblemDataTime, model.THM):
         super()._set_temperature_parameters()
         if hasattr(self, "advection_weight"):
             w = self.advection_weight
-            for g, d in self.gb:
+            for _, d in self.gb:
                 d[pp.PARAMETERS][self.temperature_parameter_key]["advection_weight"] = w
 
 

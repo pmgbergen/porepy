@@ -121,7 +121,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
 
-        new_pt, isect_pt, on_bound, pairs, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
             [f_1, f_2]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -129,8 +129,8 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(np.allclose(np.sort(isect_pt[0]), [0, 1]))
         self.assertTrue(np.allclose(np.sort(isect_pt[1]), [0, 1]))
         self.assertTrue(on_bound.size == 2)
-        self.assertTrue(np.all(on_bound[0]) == False)
-        self.assertTrue(np.all(on_bound[1]) == False)
+        self.assertTrue(np.all(on_bound[0]) is False)
+        self.assertTrue(np.all(on_bound[1]) is False)
 
         known_points = np.array([[0, 0, -0.7], [0, 0, 0.8]]).T
         self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
@@ -157,9 +157,9 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(len(isect_pt[1]) == 4)
         self.assertTrue(len(isect_pt[2]) == 4)
         self.assertTrue(on_bound.size == 3)
-        self.assertTrue(np.all(on_bound[0]) == False)
-        self.assertTrue(np.all(on_bound[1]) == False)
-        self.assertTrue(np.all(on_bound[2]) == False)
+        self.assertTrue(np.all(on_bound[0]) is False)
+        self.assertTrue(np.all(on_bound[1]) is False)
+        self.assertTrue(np.all(on_bound[2]) is False)
 
         known_points = np.array(
             [[0, 0, -0.7], [0, 0, 0.8], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]]
@@ -203,9 +203,9 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(len(isect_pt[1]) == 2)
         self.assertTrue(len(isect_pt[2]) == 2)
         self.assertTrue(on_bound.size == 3)
-        self.assertTrue(np.all(on_bound[0]) == False)
-        self.assertTrue(np.all(on_bound[1]) == False)
-        self.assertTrue(np.all(on_bound[2]) == False)
+        self.assertTrue(np.all(on_bound[0]) is False)
+        self.assertTrue(np.all(on_bound[1]) is False)
+        self.assertTrue(np.all(on_bound[2]) is False)
 
         known_points = np.array(
             [[0, 0, -0.7], [0, 0, 0.8], [0.5, 0.0, -0.7], [0.5, 0.0, 0.8]]
@@ -249,9 +249,9 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(len(isect_pt[1]) == 4)
         self.assertTrue(len(isect_pt[2]) == 4)
         self.assertTrue(on_bound.size == 3)
-        self.assertTrue(np.all(on_bound[0]) == False)
-        self.assertTrue(np.all(on_bound[1]) == False)
-        self.assertTrue(np.all(on_bound[2]) == False)
+        self.assertTrue(np.all(on_bound[0]) is False)
+        self.assertTrue(np.all(on_bound[1]) is False)
+        self.assertTrue(np.all(on_bound[2]) is False)
 
         known_points = np.array(
             [
@@ -307,9 +307,9 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(len(isect_pt[1]) == 4)
         self.assertTrue(len(isect_pt[2]) == 4)
         self.assertTrue(on_bound.size == 3)
-        self.assertTrue(np.all(on_bound[0]) == False)
-        self.assertTrue(np.all(on_bound[1]) == False)
-        self.assertTrue(np.all(on_bound[2]) == False)
+        self.assertTrue(np.all(on_bound[0]) is False)
+        self.assertTrue(np.all(on_bound[1]) is False)
+        self.assertTrue(np.all(on_bound[2]) is False)
 
         known_points = np.array(
             [
@@ -352,7 +352,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         """
         f_1 = np.array([[-0.5, 0.5, 0.5, -0.5], [-1, -1, 1, 1], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]])
-        new_pt, isect_pt, on_bound, pairs, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
             [f_1, f_2]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -360,8 +360,8 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(len(isect_pt[0]) == 2)
         self.assertTrue(len(isect_pt[1]) == 2)
         self.assertTrue(on_bound.size == 2)
-        self.assertTrue(np.all(on_bound[0]) == False)
-        self.assertTrue(np.all(on_bound[1]) == False)
+        self.assertTrue(np.all(on_bound[0]) is False)
+        self.assertTrue(np.all(on_bound[1]) is False)
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
         self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
@@ -379,7 +379,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         """
         f_1 = np.array([[-0.5, 0.5, 0.5, -0.5], [-1, -1, 1, 1], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]])
-        new_pt, isect_pt, on_bound, pairs, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
             [f_2, f_1]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -387,8 +387,8 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(len(isect_pt[0]) == 2)
         self.assertTrue(len(isect_pt[1]) == 2)
         self.assertTrue(on_bound.size == 2)
-        self.assertTrue(np.all(on_bound[0]) == False)
-        self.assertTrue(np.all(on_bound[1]) == False)
+        self.assertTrue(np.all(on_bound[0]) is False)
+        self.assertTrue(np.all(on_bound[1]) is False)
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
         self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
@@ -405,7 +405,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         """
         f_1 = np.array([[-0.5, 0.5, 0.5, -0.5], [-1, -1, 1, 1], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 2, 1]])
-        new_pt, isect_pt, on_bound, pairs, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
             [f_1, f_2]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -413,8 +413,8 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(len(isect_pt[0]) == 2)
         self.assertTrue(len(isect_pt[1]) == 2)
         self.assertTrue(on_bound.size == 2)
-        self.assertTrue(np.all(on_bound[0]) == False)
-        self.assertTrue(np.all(on_bound[1]) == False)
+        self.assertTrue(np.all(on_bound[0]) is False)
+        self.assertTrue(np.all(on_bound[1]) is False)
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
         self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
@@ -440,8 +440,8 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(len(isect_pt[0]) == 2)
         self.assertTrue(len(isect_pt[1]) == 2)
         self.assertTrue(on_bound.size == 2)
-        self.assertTrue(np.all(on_bound[0]) == False)
-        self.assertTrue(np.all(on_bound[1]) == False)
+        self.assertTrue(np.all(on_bound[0]) is False)
+        self.assertTrue(np.all(on_bound[1]) is False)
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
         self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
@@ -459,9 +459,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         f_2 = np.array(
             [[0.5, 1.0, 1.0, 0.5], [0.0, 0.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]]
         )
-        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
-            [f_1, f_2]
-        )
+        new_pt, isect_pt, _, _, _ = pp.intersections.polygons_3d([f_1, f_2])
         self.assertTrue(new_pt.shape[1] == 0)
         self.assertTrue(isect_pt.size == 2)
         self.assertTrue(len(isect_pt[0]) == 0)
@@ -632,9 +630,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
             [[2.0, 2.0, 2.0, 2.0], [-2.0, -2.0, 2.0, 2.0], [2.0, -2.0, -2.0, 2.0]]
         )
 
-        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
-            [f_1, f_2]
-        )
+        new_pt, isect_pt, on_bound, _, _ = pp.intersections.polygons_3d([f_1, f_2])
         self.assertTrue(new_pt.shape[1] == 2)
         self.assertTrue(isect_pt.size == 2)
         self.assertTrue(len(isect_pt[0]) == 2)
@@ -733,7 +729,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
 
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[2, 3, 3, 2], [0, 0, 1, 1], [0, 0, 0, 0]])
-        new_pt, isect_pt, on_bound, _, _ = pp.intersections.polygons_3d([f_1, f_2])
+        new_pt, _, _, _, _ = pp.intersections.polygons_3d([f_1, f_2])
         self.assertTrue(new_pt.shape[1] == 0)
 
     def test_same_plane_intersections(self):
@@ -964,7 +960,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             [[0.2, 0.8, 0.8, 0.2], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
         )
 
-        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+        constrained_poly, _ = pp.constrain_geometry.polygons_by_polyhedron(
             poly, self.cart_polyhedron
         )
         self.assertTrue(len(constrained_poly) == 1)
@@ -975,7 +971,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             [[1.2, 1.8, 1.8, 1.2], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
         )
 
-        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+        constrained_poly, _ = pp.constrain_geometry.polygons_by_polyhedron(
             poly, self.cart_polyhedron
         )
         self.assertTrue(len(constrained_poly) == 0)
@@ -987,7 +983,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             [[-0.2, 1.8, 1.8, -0.2], [0.5, 0.5, 0.5, 0.5], [-0.2, -0.2, 1.8, 1.8]]
         )
 
-        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+        constrained_poly, _ = pp.constrain_geometry.polygons_by_polyhedron(
             poly, self.cart_polyhedron
         )
 
@@ -1006,7 +1002,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             [[0.2, 1.8, 1.8, 0.2], [0.5, 0.5, 0.5, 0.5], [-0.2, -0.2, 1.8, 1.8]]
         )
 
-        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+        constrained_poly, _ = pp.constrain_geometry.polygons_by_polyhedron(
             poly, self.cart_polyhedron
         )
 
@@ -1025,7 +1021,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             [[-0.2, 1.8, 1.8, -0.2], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
         )
 
-        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+        constrained_poly, _ = pp.constrain_geometry.polygons_by_polyhedron(
             poly, self.cart_polyhedron
         )
 
@@ -1223,9 +1219,6 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
             poly, self.non_convex_polyhedron
         )
-        import pdb
-
-        #      pdb.set_trace()
 
         self.assertTrue(len(constrained_poly) == 2)
         self.assertTrue(
@@ -1252,7 +1245,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             f, self.non_convex_polyhedron
         )
 
-        # TODO: Fix known poitns
+        # TODO: Fix known points
         known_constrained_poly = np.array(
             [
                 [0.5, 0.6875, 0.8, 0.65, 0.35, 0.2, 0.2, 0.25],
@@ -1281,7 +1274,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [2, 2, 2, 2]]),
         ]
 
-        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+        constrained_poly, _ = pp.constrain_geometry.polygons_by_polyhedron(
             f_1, polyhedron
         )
         self.assertTrue(test_utils.compare_arrays(f_1, constrained_poly[0]))
@@ -1301,7 +1294,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [2, 2, 2, 2]]),
         ]
 
-        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+        constrained_poly, _ = pp.constrain_geometry.polygons_by_polyhedron(
             f_1, polyhedron
         )
         known_poly = np.array([[-1, 2, 2, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
@@ -1321,7 +1314,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [2, 2, 2, 2]]),
         ]
 
-        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+        constrained_poly, _ = pp.constrain_geometry.polygons_by_polyhedron(
             f_1, polyhedron
         )
         known_poly = f_1
@@ -1342,7 +1335,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         top = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [1, 1, 1, 1]])
         polyhedron = [west_bottom, west_top, east, south, north, bottom, top]
 
-        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+        constrained_poly, _ = pp.constrain_geometry.polygons_by_polyhedron(
             f_1, polyhedron
         )
         known_poly = np.array(
@@ -1372,7 +1365,7 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
             np.array([[0.0, 0.0, 0.0], [1.0, 2.0, 1.0], [0.0, 1.0, 1.0]]),
         ]
 
-        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+        constrained_poly, _ = pp.constrain_geometry.polygons_by_polyhedron(
             f_1, polyhedron
         )
         known_poly = np.array(

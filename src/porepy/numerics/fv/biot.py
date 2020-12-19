@@ -542,7 +542,7 @@ class Biot(pp.Mpsa):
         )
 
         # Extract a grid, and get global indices of its active faces and nodes
-        active_grid, extracted_faces, extracted_nodes = pp.partition.extract_subgrid(
+        active_grid, extracted_faces, _ = pp.partition.extract_subgrid(
             g, active_cells
         )
         # Constitutive law and boundary condition for the active grid
@@ -641,7 +641,7 @@ class Biot(pp.Mpsa):
             face_map_vec, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
                 active_grid, l2g_faces, l2g_cells, is_vector=True
             )
-            face_map_scalar, cell_map_scalar = pp.fvutils.map_subgrid_to_grid(
+            _, cell_map_scalar = pp.fvutils.map_subgrid_to_grid(
                 active_grid, l2g_faces, l2g_cells, is_vector=False
             )
 
@@ -1151,6 +1151,8 @@ class Biot(pp.Mpsa):
             trace = np.array([0, 3])
         elif nd == 3:
             trace = np.array([0, 4, 8])
+        else:
+            raise ValueError(f"Not well-defined grid dimension, {nd}")
 
         # Sub-cell wise trace of strain tensor: One row per sub-cell
         row, col = np.meshgrid(np.arange(cell_node_blocks.shape[1]), trace)
@@ -1460,7 +1462,8 @@ class DivU(Discretization):
                 see method discretize()
 
         Returns:
-            matrix: sparse csr (g.dim * g_num_cells, g.dim * g_num_cells) Discretization matrix.
+            matrix: sparse csr (g.dim * g_num_cells, g.dim * g_num_cells)
+                Discretization matrix.
             rhs: array (g.dim * g_num_cells) Right-hand side.
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)

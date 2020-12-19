@@ -47,7 +47,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
             d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
         gb.add_edge_props("kn")
-        for e, d in gb.edges():
+        for _, d in gb.edges():
             mg = d["mortar_grid"]
             flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(mg.num_cells)}
             d[pp.PARAMETERS] = pp.Parameters(
@@ -57,15 +57,15 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         discretization_key = kw + "_" + pp.DISCRETIZATION
 
-        for g, d in gb:
-            # Choose discretization and define the solver
-            if method == "mpfa":
-                discr = pp.Mpfa(kw)
-            elif method == "mvem":
-                discr = pp.MVEM(kw)
-            else:
-                discr = pp.Tpfa(kw)
+        # Choose discretization and define the solver
+        if method == "mpfa":
+            discr = pp.Mpfa(kw)
+        elif method == "mvem":
+            discr = pp.MVEM(kw)
+        else:
+            discr = pp.Tpfa(kw)
 
+        for _, d in gb:
             d[discretization_key] = discr
 
         for _, d in gb.edges():
@@ -81,22 +81,22 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
-        new_side_grids = {
-            s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
-            for s, g in mg.side_grids.items()
-        }
+            new_side_grids = {
+                s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
+                for s, g in mg.side_grids.items()
+            }
 
-        mg.update_mortar(new_side_grids, tol=1e-4)
+            mg.update_mortar(new_side_grids, tol=1e-4)
 
-        # refine the 1d-physical grid
-        old_g = gb.nodes_of_edge(e)[0]
-        new_g = pp.refinement.remesh_1d(old_g, num_nodes=num_nodes_1d)
-        new_g.compute_geometry()
+            # refine the 1d-physical grid
+            old_g = gb.nodes_of_edge(e)[0]
+            new_g = pp.refinement.remesh_1d(old_g, num_nodes=num_nodes_1d)
+            new_g.compute_geometry()
 
-        gb.update_nodes({old_g: new_g})
-        mg = d["mortar_grid"]
+            gb.update_nodes({old_g: new_g})
+            mg = d["mortar_grid"]
 
-        mg.update_secondary(new_g, tol=1e-4)
+            mg.update_secondary(new_g, tol=1e-4)
 
         return gb
 
@@ -108,6 +108,8 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
             discretization = pp.Mpfa(key)
         elif method == "mvem":
             discretization = pp.MVEM(key)
+        else:
+            raise ValueError(f"Unknown method, {method}")
         assembler = test_utils.setup_flow_assembler(gb, discretization, key)
         assembler.discretize()
         A_flow, b_flow = assembler.assemble_matrix_rhs()
@@ -471,7 +473,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
             p = np.array([[0, 1], [0.5, 0.5]])
             e = np.array([[0], [1]])
         #            p = [np.array([[0.5, 0.5], [0, 1]])]
-        elif num_fracs == 2:
+        else:
             raise ValueError("Not implemented")
         mesh_size = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
         network = pp.FractureNetwork2d(p, e, domain)
@@ -554,7 +556,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
 
         gb.add_edge_props("kn")
         kn = 1e7
-        for e, d in gb.edges():
+        for _, d in gb.edges():
             mg = d["mortar_grid"]
 
             flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(mg.num_cells)}
@@ -737,6 +739,8 @@ class TestMortar3D(unittest.TestCase):
                     np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
                 ),
             ]
+        else:
+            raise ValueError("Unknown number of fractures")
 
         network = pp.FractureNetwork3d(fl, domain)
         mesh_args = {"mesh_size_frac": 0.5, "mesh_size_min": 0.5}
@@ -772,7 +776,7 @@ class TestMortar3D(unittest.TestCase):
             d[pp.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
             d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
         kn = 1e7
-        for e, d in gb.edges():
+        for _, d in gb.edges():
             mg = d["mortar_grid"]
 
             flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(mg.num_cells)}
@@ -795,15 +799,16 @@ class TestMortar3D(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(p)
 
-    def run_vem(self, gb):
-        solver_flow = pp.MVEM("flow")
+    # TODO: Fix this method
+    # def run_vem(self, gb):
+    #     solver_flow = pp.MVEM("flow")
 
-        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+    #     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-        up = sps.linalg.spsolve(A_flow, b_flow)
-        solver_flow.split(gb, "up", up)
-        solver_flow.extract_p(gb, "up", "pressure")
-        self.verify_cv(gb)
+    #     up = sps.linalg.spsolve(A_flow, b_flow)
+    #     solver_flow.split(gb, "up", up)
+    #     solver_flow.extract_p(gb, "up", "pressure")
+    #     self.verify_cv(gb)
 
     def test_mpfa_no_fracs(self):
         gb = self.setup(num_fracs=0)
@@ -857,7 +862,8 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
                 [1, 1, 0],
                 [0, 1, 0],
             ]
-        ).T
+        )
+        nodes = np.transpose(nodes)
         if pert_node:
             nodes[0, 3] = 0.75
 
@@ -916,7 +922,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         gb = pp.meshing._assemble_in_bucket([[g2], [g1]])
 
         gb.add_edge_props("face_cells")
-        for e, d in gb.edges():
+        for _, d in gb.edges():
             a = np.zeros((g2.num_faces, g1.num_cells))
             a[2, 1] = 1
             a[3, 0] = 1
@@ -967,7 +973,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
             d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
         gb.add_edge_props("kn")
-        for e, d in gb.edges():
+        for _, d in gb.edges():
             mg = d["mortar_grid"]
             flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(mg.num_cells)}
             d[pp.PARAMETERS] = pp.Parameters(

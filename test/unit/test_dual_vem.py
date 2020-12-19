@@ -1167,7 +1167,6 @@ class TestMVEMGravity(unittest.TestCase):
             )
             self.assertTrue(np.isclose(err, p_err_known))
 
-            P = data[pp.DISCRETIZATION_MATRICES]["flow"][solver.vector_proj_key]
             u = solver.extract_flux(g, up, data)
             P0u = solver.project_flux(g, u, data)
             uu_ex_0 = u_ex_0(g.cell_centers)

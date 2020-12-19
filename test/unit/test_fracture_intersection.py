@@ -219,10 +219,6 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
         lines = np.array([[0, 2], [1, 3], [1, 2], [3, 4]])
 
-        x_min, x_max, y_min, y_max = pp.intersections._axis_aligned_bounding_box_2d(
-            p, lines
-        )
-
         new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
 
         p_known = np.hstack((p, np.array([[0], [0]])))
@@ -236,7 +232,6 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
 
         lines = np.array([[0, 1], [2, 3]])
-        box = np.array([[2], [2]])
         new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
         self.assertTrue(np.allclose(new_pts, p))
         self.assertTrue(np.allclose(new_lines, lines))

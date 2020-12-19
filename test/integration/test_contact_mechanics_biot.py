@@ -37,7 +37,8 @@ class TestBiot(unittest.TestCase):
         setup.mesh_args["mesh_size_bound"] = 0.5
         u, p = self._solve(setup)
 
-        # By symmetry (reasonable to expect from this grid), the average x displacement should be zero
+        # By symmetry (reasonable to expect from this grid), the average x displacement
+        # should be zero
         self.assertTrue(np.abs(np.sum(u[0::2])) < 1e-8)
         # Check that the expansion yields a negative pressure
         self.assertTrue(np.all(p < -1e-8))

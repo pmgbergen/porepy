@@ -103,7 +103,8 @@ class SortTriangleEdges(unittest.TestCase):
         self.assertTrue(np.allclose(sorted_t, truth))
 
     def test_two_fracs_sort_second_not_third(self):
-        # The first will lead the second to be sorted, which again remove the need to sort the third
+        # The first will lead the second to be sorted,
+        # which again remove the need to sort the third
         t = np.array([[0, 1, 2], [1, 2, 3], [2, 3, 4]]).T
 
         sorted_t = sort_points.sort_triangle_edges(t)
@@ -112,7 +113,8 @@ class SortTriangleEdges(unittest.TestCase):
         self.assertTrue(np.allclose(sorted_t, truth))
 
     def test_two_fracs_sort_second_then_third(self):
-        # The first will lead the second to be sorted, which again remove the need to sort the third
+        # The first will lead the second to be sorted,
+        # which again remove the need to sort the third
         t = np.array([[0, 1, 2], [1, 2, 3], [3, 2, 4]]).T
 
         sorted_t = sort_points.sort_triangle_edges(t)

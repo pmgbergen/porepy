@@ -231,7 +231,6 @@ class TestParameterDictionaries(unittest.TestCase):
         data = pp.initialize_default_data(self.g, {}, "transport", specified_parameters)
         dictionary = data[pp.PARAMETERS]["transport"]
         self.assertEqual(dictionary["foo"], "bar")
-        zeros = np.zeros(self.g.num_cells)
         self.assertAlmostEqual(dictionary["bc"], 15)
 
     def test_initialize_default_data_other_keyword(self):

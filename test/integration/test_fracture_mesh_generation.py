@@ -1098,7 +1098,7 @@ class TestStructuredGrids(unittest.TestCase):
         for i, g in enumerate(grids):
             self.assertTrue(len(g) == num_grids[i])
 
-        g_2d = grids[0][0]
+        # g_2d = grids[0][0]
         g_1d_1 = grids[1][0]
         g_1d_2 = grids[1][1]
         g_0d = grids[2][0]
@@ -1113,7 +1113,7 @@ class TestStructuredGrids(unittest.TestCase):
         self.assertTrue(np.all(f_nodes_2 == glob_2))
         self.assertTrue(np.all(f_nodes_0 == glob_0))
 
-    def test_tripple_x_intersection_3d(self):
+    def test_triple_x_intersection_3d(self):
         """
         Create a cartesian grid in the unit cube, and insert three fractures.
         """
@@ -1152,14 +1152,14 @@ class TestStructuredGrids(unittest.TestCase):
         f_1 = np.array([[2, 6], [5, 5]])
         f_2 = np.array([[4, 4], [2, 5]])
         f = [f_1, f_2]
-        gb = pp.meshing.cart_grid(f, [10, 10], physdims=[10, 10])
+        pp.meshing.cart_grid(f, [10, 10], physdims=[10, 10])
 
     def test_L_intersection_2d(self):
         f_1 = np.array([[2, 6], [5, 5]])
         f_2 = np.array([[6, 6], [2, 5]])
         f = [f_1, f_2]
 
-        gb = pp.meshing.cart_grid(f, [10, 10], physdims=[10, 10])
+        pp.meshing.cart_grid(f, [10, 10], physdims=[10, 10])
 
     def test_several_intersections_3d(self):
         f_1 = np.array([[2, 5, 5, 2], [2, 2, 5, 5], [5, 5, 5, 5]])
@@ -1167,7 +1167,7 @@ class TestStructuredGrids(unittest.TestCase):
         f_3 = np.array([[4, 4, 4, 4], [1, 1, 8, 8], [1, 8, 8, 1]])
         f_4 = np.array([[3, 3, 6, 6], [3, 3, 3, 3], [3, 7, 7, 3]])
         f = [f_1, f_2, f_3, f_4]
-        gb = pp.meshing.cart_grid(f, np.array([8, 8, 8]))
+        pp.meshing.cart_grid(f, np.array([8, 8, 8]))
 
 
 if __name__ == "__main__":

@@ -3,11 +3,11 @@ Geometric projections related to the tangential and normal spaces of a set of
 vectors.
 """
 
-from typing import Optional, Tuple, Union
+from typing import Tuple, Union
+
 import numpy as np
 import scipy.sparse as sps
 
-import porepy as pp
 from porepy.utils.sparse_mat import csc_matrix_from_blocks
 
 

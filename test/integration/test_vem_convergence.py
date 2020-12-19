@@ -89,7 +89,7 @@ class TestVEMVaryingPerm(unittest.TestCase):
 
         up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
 
-        u = solver_flow.extract_flux(g, up, data)
+        # u = solver_flow.extract_flux(g, up, data)
         p = solver_flow.extract_pressure(g, up, data)
         #    P0u = solver_flow.project_flux(g, u, data, keyword="flow")
 
@@ -185,7 +185,7 @@ class TestVEMVaryingPermTiltedGrid(unittest.TestCase):
 
         up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
 
-        u = solver_flow.extract_flux(g, up, data)
+        # u = solver_flow.extract_flux(g, up, data)
         p = solver_flow.extract_pressure(g, up, data)
         #    P0u = solver_flow.project_flux(g, u, data)
 
@@ -270,9 +270,9 @@ class TestVEMVaryingPermSurface_2(unittest.TestCase):
 
         up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
 
-        u = solver_flow.extract_flux(g, up, data)
+        # u = solver_flow.extract_flux(g, up, data)
         p = solver_flow.extract_pressure(g, up, data)
-        P0u = solver_flow.project_flux(g, u, data)
+        # P0u = solver_flow.project_flux(g, u, data)
 
         diam = np.amax(g.cell_diameters())
         return diam, self.error_p(g, p)
