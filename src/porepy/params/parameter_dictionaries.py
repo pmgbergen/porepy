@@ -8,9 +8,10 @@ from typing import Dict
 import numpy as np
 
 import porepy as pp
+from porepy.grids.grid import Grid
 
 
-def flow_dictionary(g: pp.Grid, in_data: Dict = None) -> Dict:
+def flow_dictionary(g: Grid, in_data: Dict = None) -> Dict:
     """Dictionary with parameters for standard flow problems.
 
     All parameters listed below which are not specified in in_data are assigned default
@@ -43,7 +44,7 @@ def flow_dictionary(g: pp.Grid, in_data: Dict = None) -> Dict:
     return d
 
 
-def transport_dictionary(g: pp.Grid, in_data: Dict = None) -> Dict:
+def transport_dictionary(g: Grid, in_data: Dict = None) -> Dict:
     """Dictionary with parameters for standard transport problems.
 
     All parameters listed below which are not specified in in_data are assigned default
@@ -77,7 +78,7 @@ def transport_dictionary(g: pp.Grid, in_data: Dict = None) -> Dict:
     return d
 
 
-def mechanics_dictionary(g: pp.Grid, in_data: Dict = None) -> Dict:
+def mechanics_dictionary(g: Grid, in_data: Dict = None) -> Dict:
     """Dictionary with parameters for standard mechanics problems.
 
     All parameters listed below which are not specified in in_data are assigned default

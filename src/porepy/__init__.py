@@ -76,6 +76,7 @@ from porepy.fracs.fractures_3d import Fracture, EllipticFracture, FractureNetwor
 from porepy.fracs.fractures_2d import FractureNetwork2d
 
 # Numerics
+from porepy import numerics
 from porepy.numerics.discretization import VoidDiscretization
 from porepy.numerics.interface_laws.elliptic_discretization import (
     EllipticDiscretization,

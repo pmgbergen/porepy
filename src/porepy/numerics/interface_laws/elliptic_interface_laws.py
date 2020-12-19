@@ -11,13 +11,11 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-import porepy.numerics.interface_laws.abstract_interface_law
 from porepy.numerics.discretization import Discretization
+from porepy.numerics.interface_laws.abstract_interface_law import AbstractInterfaceLaw
 
 
-class RobinCoupling(
-    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
-):
+class RobinCoupling(AbstractInterfaceLaw):
     """A condition with resistance to flow between subdomains. Implementation
     of the model studied (though not originally proposed) by Martin et
     al 2005.
@@ -30,7 +28,7 @@ class RobinCoupling(
         discr_primary: Discretization,
         discr_secondary: Discretization = None,
     ):
-        super(RobinCoupling, self).__init__(keyword)
+        super().__init__(keyword)
         if discr_secondary is None:
             discr_secondary = discr_primary
         self.discr_primary = discr_primary
@@ -399,10 +397,7 @@ class FluxPressureContinuity(RobinCoupling):
         discr_primary: Discretization,
         discr_secondary: Discretization = None,
     ):
-        if discr_secondary is None:
-            discr_secondary = discr_primary
-        self.discr_primary = discr_primary
-        self.discr_secondary = discr_secondary
+        super().__init__(keyword, discr_primary, discr_secondary)
 
         # This interface law will have direct interface coupling to represent
         # the influence of the flux boundary condition of the secondary

@@ -24,7 +24,7 @@ class Tpfa(pp.FVElliptic):
     """
 
     def __init__(self, keyword: str):
-        super(Tpfa, self).__init__(keyword)
+        super().__init__(keyword)
 
     def discretize(self, g: pp.Grid, data: Dict) -> None:
         """

@@ -17,9 +17,7 @@ class FVElliptic(pp.EllipticDiscretization):
     """
 
     def __init__(self, keyword: str):
-
-        # Identify which parameters to use:
-        self.keyword = keyword
+        super().__init__(keyword)
 
         # Keywords used to identify individual terms in the discretization matrix dictionary
         # The flux discretization (transmissibility matrix)

@@ -70,6 +70,7 @@ import numpy as np
 
 import porepy as pp
 import porepy.params.parameter_dictionaries as dicts
+from porepy.grids.grid import Grid
 
 
 class Parameters(dict):
@@ -88,7 +89,7 @@ class Parameters(dict):
 
     def __init__(
         self,
-        g: pp.Grid = None,
+        g: Grid = None,
         keywords: Union[List[str], str] = None,
         dictionaries: Union[List[Dict], Dict] = None,
     ) -> None:
@@ -240,7 +241,7 @@ new Parameters class.
 
 
 def initialize_default_data(
-    g: pp.Grid,
+    g: Grid,
     data: Dict,
     parameter_type: str,
     specified_parameters: Dict = None,

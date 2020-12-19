@@ -202,7 +202,7 @@ class SubcellTopology:
         pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno, self.subhfno)))
         return pair_over_subfaces * other
 
-    def pair_over_subfaces_nd(self, other: sps.matrix) -> sps.matrix:
+    def pair_over_subfaces_nd(self, other: sps.spmatrix) -> sps.spmatrix:
         """ nd-version of pair_over_subfaces, see above. """
         nd = self.g.dim
         # For force balance, displacements and stresses on the two sides of the

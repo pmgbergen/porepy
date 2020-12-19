@@ -57,7 +57,7 @@ class EllipticDiscretization(Discretization):
             keyword (str): Identifier of all information used for this
                 discretization.
         """
-        self.keyword = keyword
+        super().__init__(keyword)
 
     def _key(self) -> str:
         """Get the keyword of this object, on a format friendly to access relevant

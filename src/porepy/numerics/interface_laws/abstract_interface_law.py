@@ -26,20 +26,19 @@ class AbstractInterfaceLaw(abc.ABC):
             assemble_edge_coupling_via_low_dim().
 
     """
+    # Block matrix indices
+    g_primary_ind = 0
+    g_secondary_ind = 1
+    g_mortar_ind = 2
+
+    e_grid_ind = 0
+    e_primary_ind = 1
+    e_secondary_ind = 2
 
     def __init__(self, keyword: str) -> None:
         self.keyword = keyword
         self.edge_coupling_via_high_dim = False
         self.edge_coupling_via_low_dim = False
-
-        # Block matrix indices
-        self.g_primary_ind = 0
-        self.g_secondary_ind = 1
-        self.g_mortar_ind = 2
-
-        self.e_grid_ind = 0
-        self.e_primary_ind = 1
-        self.e_secondary_ind = 2
 
     def _key(self) -> str:
         return self.keyword + "_"
