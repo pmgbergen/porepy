@@ -632,13 +632,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 * mortar_proj.mortar_to_primary_avg
                 * u_mortar
             )
-            self._initial_condition()
-            self._discretize()
 
             # momentum balance equation in g_h
             momentum_eq = pp.ad.Equation(div * stress, dof_manager, "momentuum")
-            #   breakpoint()
-            # eq1 = pp.ad.Equation(, dof_manager).to_ad(gb)
 
             coloumb_ad = pp.ad.Discretization(
                 {g: coloumb for g in g_frac}, "contact_ad"
