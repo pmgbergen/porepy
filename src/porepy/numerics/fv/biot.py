@@ -77,7 +77,7 @@ class Biot(pp.Mpsa):
         The keywords are used to access and store parameters and discretization
         matrices.
         """
-        super(pp.Biot, self).__init__("")
+        super().__init__("")
         self.mechanics_keyword = mechanics_keyword
         self.flow_keyword = flow_keyword
         # Set variable names for the vector and scalar variable, used to access
@@ -1527,7 +1527,6 @@ class DivU(Discretization):
 
         div_u = matrix_dictionary[self.div_u_matrix_key]
         rhs_time = np.squeeze(biot_alpha * div_u * d_cell)
-
         return rhs_bound + rhs_time
 
     def assemble_int_bound_displacement_trace(

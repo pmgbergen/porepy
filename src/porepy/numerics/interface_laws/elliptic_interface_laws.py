@@ -24,7 +24,7 @@ class RobinCoupling(
     """
 
     def __init__(self, keyword, discr_primary, discr_secondary=None):
-        super(RobinCoupling, self).__init__(keyword)
+        super().__init__(keyword)
         if discr_secondary is None:
             discr_secondary = discr_primary
         self.discr_primary = discr_primary
