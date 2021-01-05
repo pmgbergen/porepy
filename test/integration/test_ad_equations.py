@@ -9,6 +9,7 @@ import numpy as np
 import scipy.sparse.linalg as spla
 import scipy.sparse as sps
 
+from test import test_utils
 
 def test_md_flow():
 
@@ -278,40 +279,88 @@ class ContactModel(pp.ContactMechanics):
         super().__init__(param)
         self._grid_meth = grid_meth
 
+        self.eq_order = ['u', 'contact_traction', 'mortar_u']
+
     def _bc_values(self, g):
         return g.face_centers[:g.dim].ravel('f')
 
     def create_grid(self):
+        np.random.seed(0)
         self.gb = self._grid_meth()
+#        pp.contact_conditions.set_projections(self.gb)
 
 
-def _stepwise_newton_with_comparison(model_as, model_ad):
+class BiotContactModel(pp.ContactMechanicsBiot):
 
-    model_as.prepare_simulation()
+    def __init__(self, param, grid_meth):
+        ############# NB: tests should be with and without subtract_fracture_pressure
+        ## Time steps should be an input parameters, try a few
+        # Make initial states random?
+        # Biot alpha should vary
+        super().__init__(param)
+        self.time_step = 0.5
+        self.end_time = 1
+        self._grid_meth = grid_meth
+
+        self.eq_order = ['u', 'contact_traction', 'mortar_u', 'p', 'mortar_p']
+
+    def _bc_values_scalar(self, g):
+        return g.face_centers[:g.dim].sum(axis=0)
+
+    def _bc_values_mechanics(self, g):
+        return g.face_centers[:g.dim].ravel('f')
+
+    def create_grid(self):
+        np.random.seed(0)
+        self.gb = self._grid_meth()
+        xn = self.gb.grids_of_dimension(self.gb.dim_max())[0].nodes
+        box = {'xmin': xn[0].min(), 'xmax': xn[0].max(),
+               'ymin': xn[1].min(), 'ymax': xn[0].max()}
+        if self.gb.dim_max() == 3:
+            box.update({'zmin': xn[2].min(), 'zmax': xn[2].max()})
+        self.box = box
+
+
+def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
+
+    if prepare:
+        # Only do this for time-independent problems
+        model_as.prepare_simulation()
+        model_ad.prepare_simulation()
     model_as.before_newton_loop()
-
-    model_ad.prepare_simulation()
     model_ad.before_newton_loop()
 
-    is_converged = False
+    is_converged_as = False
+    is_converged_ad = False
 
-    prev_sol_as= model_as.get_state_vector()
+    prev_sol_as = model_as.get_state_vector()
     init_sol_as = prev_sol_as
+
+    prev_sol_ad = model_ad.get_state_vector()
+    init_sol_ad = prev_sol_ad
+
     tol = 1e-10
 
     iteration_counter = 0
 
-    while iteration_counter <= 20 and not is_converged:
+    dofs = _block_reordering(model_as.eq_order, model_as.dof_manager, model_ad._eq_manager)
+
+    while iteration_counter <= 20 and (not is_converged_as or not is_converged_ad):
         # Re-discretize the nonlinear term
         model_as.before_newton_iteration()
         model_ad.before_newton_iteration()
 
-        A_assembler, b_assembler = model_as.assembler.assemble_matrix_rhs()
+        A_as, b_as = model_as.assembler.assemble_matrix_rhs()
         A_ad, b_ad = model_ad._eq_manager.assemble_matrix_rhs()
 
-        dA = A_assembler - A_ad
+        A_as = A_as[dofs]
+        b_as = b_as[dofs]
+
+        dA = A_as - A_ad
+ #       breakpoint()
         if dA.data.size > 0:
-            assert np.max(np.abs(dA.data)) < tol
+            if np.max(np.abs(dA.data)) > tol:
+                raise ValueError("Mismatch in Jacobian matrices")
 
         # No check on equality of right hand sides, they will be different since
         # ad uses a cumulative approach to the updates.
@@ -319,24 +368,109 @@ def _stepwise_newton_with_comparison(model_as, model_ad):
         # Solve linear system
         sol_as = model_as.assemble_and_solve_linear_system(tol)
         sol_ad = model_ad.assemble_and_solve_linear_system(tol)
-
+#        g = model_ad.gb.grids_of_dimension(2)[0]
+#        print(model_ad.gb.node_props(g, pp.STATE)['p'])
+#        breakpoint()
         model_as.after_newton_iteration(sol_as)
         model_ad.after_newton_iteration(sol_ad)
 
-        _, is_converged, is_diverged = model_as.check_convergence(
+ #       breakpoint()
+        _, is_converged_as, _ = model_as.check_convergence(
                         sol_as, prev_sol_as, init_sol_as, {'nl_convergence_tol': tol}
                     )
+        _, is_converged_ad, is_diverged = model_as.check_convergence(
+                        sol_ad + prev_sol_ad, prev_sol_ad, init_sol_ad, {'nl_convergence_tol': tol}
+                    )
+
         prev_sol_as = sol_as
+ #       breakpoint()
+        prev_sol_ad += sol_ad
         iteration_counter += 1
 
-        if is_converged:
+        if is_converged_as:
             model_as.after_newton_convergence(sol_as, [], iteration_counter)
+        if is_converged_ad:
             model_ad.after_newton_convergence(sol_ad, [], iteration_counter)
 
     state_as = model_as.get_state_vector()
     state_ad = model_ad.get_state_vector()
     # Solutions should be identical.
     assert np.linalg.norm(state_as - state_ad) < tol
+
+def _block_reordering(eq_names, dof_manager, eqn_manager):
+
+    assert len(eq_names) == len(eqn_manager.equations)
+
+    def compare_grids(g1, g2):
+        if g1.dim != g2.dim:
+            return False
+        if g1.dim == 0:
+            return np.allclose(g1.cell_centers, g2.cell_centers)
+
+        n1, n2 = g1.nodes, g2.nodes
+
+        return test_utils.compare_arrays(n1, n2, sort=False)
+
+
+    keys = []
+    for (name, eq) in zip(eq_names, eqn_manager.equations):
+        for grid_eq in eq.grid_order:
+            for (grid, var) in dof_manager.block_dof:
+                if var != name:
+                    continue
+                # This is the right variable, now sort the grids
+                if isinstance(grid, tuple) and isinstance(grid_eq, tuple):
+                    g0, g1 = grid
+                    ge0, ge1 = grid_eq
+
+                    if compare_grids(g0, ge0) and compare_grids(g1, ge1):
+                        if (grid, var) not in keys:
+                            keys.append((grid, var))
+                        else:
+                            breakpoint()
+                            debug = False
+
+
+                elif isinstance(grid, pp.Grid) and isinstance(grid_eq, pp.Grid):
+                    if compare_grids(grid, grid_eq):# and (grid, var) not in keys:
+                        keys.append((grid, var))
+                else:
+                    continue
+
+    assert len(keys) == len(dof_manager.block_dof)
+
+    new_ind = np.hstack([dof_manager.dof_ind(k[0], k[1]) for k in keys])
+    return new_ind
+
+
+def _timestep_stepwise_newton_with_comparison(model_as, model_ad):
+
+    model_as.prepare_simulation()
+    model_as.before_newton_loop()
+
+    model_ad.prepare_simulation()
+    model_ad.before_newton_loop()
+
+    tol = 1e-10
+
+    model_as.time_index = 0
+    model_ad.time_index = 0
+    t_end = model_as.end_time
+
+    while model_as.time < t_end:
+        for model in (model_as, model_ad):
+            model.time += model.time_step
+            model.time_index += 1
+        _stepwise_newton_with_comparison(model_as, model_ad, prepare=False)
+
+
+    state_as = model_as.get_state_vector()
+    state_ad = model_ad.get_state_vector()
+    # Solutions should be identical.
+    assert np.linalg.norm(state_as - state_ad) < tol
+
+
+
 
 @pytest.mark.parametrize("grid_method", [_single_fracture_2d,
                                          _single_fracture_near_global_boundary_2d,
@@ -346,10 +480,27 @@ def _stepwise_newton_with_comparison(model_as, model_ad):
                                          _three_fractures_crossing_3d,
                                          ])
 def test_contact_mechanics(grid_method):
-    grid_method = _two_fractures_crossing_2d
     model_as = ContactModel({}, grid_method)
 
     model_ad = ContactModel({}, grid_method)
     model_ad._use_ad = True
 
     _stepwise_newton_with_comparison(model_as, model_ad)
+
+
+@pytest.mark.parametrize("grid_method", [_single_fracture_2d,
+                                         _single_fracture_near_global_boundary_2d,
+                                         _two_fractures_2d,
+                                         _two_fractures_crossing_2d,
+                                         _single_fracture_3d,
+                                         _three_fractures_crossing_3d,
+                                         ])
+def test_contact_mechanics_biot(grid_method):
+    model_as = BiotContactModel({}, grid_method)
+
+    model_ad = BiotContactModel({}, grid_method)
+    model_ad._use_ad = True
+    _timestep_stepwise_newton_with_comparison(model_as, model_ad)
+
+#test_contact_mechanics_biot(_single_fracture_3d)
+test_contact_mechanics_biot(_three_fractures_crossing_3d)
