@@ -42,7 +42,11 @@ class Equation:
     """
 
     def __init__(
-        self, operator: operators.Operator, dof_manager: pp.DofManager, name: str = None
+        self,
+        operator: operators.Operator,
+        dof_manager: pp.DofManager,
+        name: str = None,
+        grid_order: Optional[List[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]]] = None,
     ):
         """Define an Equation.
 
@@ -70,6 +74,7 @@ class Equation:
         self._dof_manager = dof_manager
 
         self.name = name
+        self.grid_order = grid_order
 
         variable_dofs, variable_ids = self._identify_variables(dof_manager)
 
@@ -79,6 +84,7 @@ class Equation:
         # Storage for matrices; will likely be removed (moved to the individual
         # operators).
         self._stored_matrices = {}
+
 
     def local_dofs(self) -> np.ndarray:
         dofs = np.hstack([d for d in self._variable_dofs])
@@ -163,6 +169,9 @@ class Equation:
 
             # Gather all indices for this variable
             inds.append(np.hstack([i for i in ind_var]))
+
+            # FIXME: Variables that occur twice in an equation are registered twice
+            # FIXME: Variables with same name on same grid apparently have different ids
 
         return inds, variable_ids
 
