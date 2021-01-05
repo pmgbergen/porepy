@@ -78,6 +78,22 @@ class TestContactMechanicsBiot(unittest.TestCase):
 
         return u_mortar_local_decomposed, contact_force, fracture_pressure
 
+    def _verify_aperture_computation(self, setup, u_mortar):
+        # Verify the computation of apertures.
+        g = setup.gb.grids_of_dimension(setup._Nd - 1)[0]
+        param_dict = setup.gb.node_props(g, pp.PARAMETERS)
+        sliding = np.abs(u_mortar[0])
+        opening = np.abs(u_mortar[1])
+        aperture = setup._compute_aperture(g, from_iterate=False)
+
+        dilation_angle = param_dict[setup.mechanics_parameter_key]["dilation_angle"]
+        self.assertTrue(
+            np.allclose(
+                aperture,
+                setup.initial_aperture + opening + np.tan(dilation_angle) * sliding,
+            )
+        )
+
     def test_pull_north_positive_opening(self):
 
         setup = SetupContactMechanicsBiot(
@@ -102,6 +118,9 @@ class TestContactMechanicsBiot(unittest.TestCase):
         # Check that the dilation of the fracture yields a negative fracture pressure
         self.assertTrue(np.all(fracture_pressure < -1e-7))
 
+        # Check aperture computation
+        self._verify_aperture_computation(setup, u_mortar)
+
     def test_pull_south_positive_opening(self):
 
         setup = SetupContactMechanicsBiot(
@@ -125,6 +144,9 @@ class TestContactMechanicsBiot(unittest.TestCase):
         # Check that the dilation of the fracture yields a negative fracture pressure
         self.assertTrue(np.all(fracture_pressure < -1e-7))
 
+        # Check aperture computation
+        self._verify_aperture_computation(setup, u_mortar)
+
     def test_push_north_zero_opening(self):
 
         setup = SetupContactMechanicsBiot(
@@ -142,6 +164,9 @@ class TestContactMechanicsBiot(unittest.TestCase):
         # Compression of the domain yields a (slightly) positive fracture pressure
         self.assertTrue(np.all(fracture_pressure > 1e-10))
 
+        # Check aperture computation
+        self._verify_aperture_computation(setup, u_mortar)
+
     def test_push_south_zero_opening(self):
 
         setup = SetupContactMechanicsBiot(
@@ -158,6 +183,9 @@ class TestContactMechanicsBiot(unittest.TestCase):
 
         # Compression of the domain yields a (slightly) positive fracture pressure
         self.assertTrue(np.all(fracture_pressure > 1e-10))
+
+        # Check aperture computation
+        self._verify_aperture_computation(setup, u_mortar)
 
     def test_positive_fracture_pressure_positive_opening(self):
 
@@ -181,6 +209,9 @@ class TestContactMechanicsBiot(unittest.TestCase):
 
         # Fracture pressure is positive
         self.assertTrue(np.all(fracture_pressure > 1e-7))
+
+        # Check aperture computation
+        self._verify_aperture_computation(setup, u_mortar)
 
     def test_time_dependent_pull_north_negative_scalar(self):
         """To obtain the value used in the corresponding TM test,
@@ -214,6 +245,9 @@ class TestContactMechanicsBiot(unittest.TestCase):
         # increased in each time step. This leads to a too small fracture pressure.
         self.assertTrue(np.all(np.isclose(fracture_pressure, -4.31072866e-06)))
 
+        # Check aperture computation
+        self._verify_aperture_computation(setup, u_mortar)
+
 
 class SetupContactMechanicsBiot(
     test.common.contact_mechanics_examples.ProblemDataTime, model.ContactMechanicsBiot
@@ -233,6 +267,14 @@ class SetupContactMechanicsBiot(
         self.ux_north = ux_north
         self.uy_north = uy_north
         self.scalar_source_value = source_value
+
+    def _set_mechanics_parameters(self):
+        super()._set_mechanics_parameters()
+        for g, d in self.gb:
+            if g.dim == self._Nd - 1:
+                d[pp.PARAMETERS][self.mechanics_parameter_key]["dilation_angle"] = (
+                    np.pi / 6
+                )
 
 
 if __name__ == "__main__":

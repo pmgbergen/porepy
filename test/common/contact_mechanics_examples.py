@@ -10,7 +10,6 @@ import logging
 import porepy as pp
 from porepy.models import (
     contact_mechanics_model,
-
 )
 
 # Module-wide logger
@@ -44,7 +43,8 @@ class ContactMechanicsExample(contact_mechanics_model.ContactMechanics):
         """
         x_endpoints = np.array([0.2, 0.8])
         gb, self.box = gb, self.box = pp.grid_buckets_2d.single_horizontal(
-            self.mesh_args, x_endpoints,
+            self.mesh_args,
+            x_endpoints,
         )
 
         # Set projections to local coordinates for all fractures
@@ -158,23 +158,28 @@ class ProblemDataTime:
         self.initial_aperture = 1e-4
         apertures = np.ones(g.num_cells)
         gb = self.gb
-        if g.dim == (self.Nd - 1):
+        if g.dim == (self._Nd - 1):
             # Initial aperture
             apertures *= self.initial_aperture
 
+            data = gb.node_props(g)
+            proj = data["tangential_normal_projection"]
+
+            dilation_angle = data[pp.PARAMETERS][self.mechanics_parameter_key][
+                "dilation_angle"
+            ]
             # Reconstruct the displacement solution on the fracture
             g_h = gb.node_neighbors(g)[0]
-            assert g_h.dim == self.Nd
+            assert g_h.dim == self._Nd
             data_edge = gb.edge_props((g, g_h))
             if pp.STATE in data_edge:
                 u_mortar_local = self.reconstruct_local_displacement_jump(
-                    data_edge, from_iterate=from_iterate
+                    data_edge, projection=proj, from_iterate=from_iterate
                 )
                 # Magnitudes of normal and tangential components
                 norm_u_n = np.absolute(u_mortar_local[-1])
                 norm_u_tau = np.linalg.norm(u_mortar_local[:-1], axis=0)
                 # Add contributions
-                slip_angle = np.pi / 2
-                apertures += norm_u_n * np.cos(slip_angle) + norm_u_tau
+                apertures += norm_u_tau * np.tan(dilation_angle) + norm_u_n
 
         return apertures
