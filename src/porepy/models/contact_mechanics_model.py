@@ -634,7 +634,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             )
 
             # momentum balance equation in g_h
-            momentum_eq = pp.ad.Equation(div * stress, dof_manager, "momentuum")
+            momentum_eq = pp.ad.Equation(div * stress, dof_manager, name="momentuum",
+                                         grid_order=[g_primary])
 
             coloumb_ad = pp.ad.Discretization(
                 {g: coloumb for g in g_frac}, "contact_ad"
@@ -659,7 +660,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 + exclude_normal * coloumb_ad.displacement * jump_rotate * u_mortar_prev
             )
             contact_conditions = coloumb_ad.traction * contact_force + jump_discr - rhs
-            contact_eq = pp.ad.Equation(contact_conditions, dof_manager, "contact")
+            contact_eq = pp.ad.Equation(contact_conditions, dof_manager,
+                                        grid_order=g_frac,
+                                        name="contact")
 
             # Force balance
 
@@ -697,7 +700,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             force_balance_eq = pp.ad.Equation(
                 contact_from_primary_mortar + contact_from_secondary,
                 dof_manager,
-                "force_balance",
+                name="force_balance",
+                grid_order=edge_list
             )
             #            eq2 = pp.ad.Equation(contact_from_secondary, dof_manager).to_ad(gb)
 
@@ -793,12 +797,11 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                             ] = mortar_u.copy()
 
                 else:
+                    # g is a node (not edge)
                     data = self.gb.node_props(g)
 
-                    # g is a node (not edge)
-
-                    # For the fractures, update the contact force
                     if g.dim == self._Nd and name == self.displacement_variable:
+                        # In the matrix, update displacement
                         displacement = solution_vector[dof[bi] : dof[bi + 1]]
                         if cumulative:
                             data[pp.STATE][pp.ITERATE][
@@ -809,6 +812,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                                 self.displacement_variable
                             ] = displacement.copy()
                     elif g.dim < self._Nd and name == self.contact_traction_variable:
+                        # For the fractures, update the contact force
                         contact = solution_vector[dof[bi] : dof[bi + 1]]
                         if cumulative:
                             data[pp.STATE][pp.ITERATE][
