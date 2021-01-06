@@ -160,8 +160,7 @@ class Equation:
                     if i == 0:
                         # Store id of variable, but only for the first one; we will
                         # concatenate the arrays in ind_var into one array
-                        # Q: Why not use the id of variable here?
-                        variable_ids.append(sub_var.id)
+                        variable_ids.append(variable.id)
             else:
                 # This is a variable that lives on a single grid
                 ind_var.append(dof_manager.dof_ind(variable.g, variable._name))
@@ -257,9 +256,9 @@ class Equation:
                 op, operators.MergedVariable
             ):
                 if op.prev_time:
-                    return self._prev_vals[op.sub_vars[0].id]
+                    return self._prev_vals[op.id]
                 else:
-                    return self._ad[op.sub_vars[0].id]
+                    return self._ad[op.id]
             else:
                 if op.prev_time:
                     return self._prev_vals[op.id]
