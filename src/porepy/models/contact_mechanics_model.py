@@ -727,7 +727,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 # Initialize displacement variable
                 displacement = np.zeros(g.num_cells * self._Nd)
                 state = {self.displacement_variable: displacement}
-                pp.set_iterate(d, {self.displacement_variable: displacement})
+                pp.set_iterate(d, {self.displacement_variable: displacement.copy()})
             elif g.dim == self._Nd - 1:
                 # Initialize contact variable
                 traction = np.vstack(
@@ -736,9 +736,9 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 state = {
                     self.contact_traction_variable: traction,
                 }
-                pp.set_iterate(d, {self.contact_traction_variable: traction})
+                pp.set_iterate(d, {self.contact_traction_variable: traction.copy()})
             else:
-                state = {}
+                state = {pp.ITERATE: {}}
             pp.set_state(d, state)
 
         for _, d in self.gb.edges():
@@ -750,7 +750,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 iterate = {self.mortar_displacement_variable: np.zeros(size)}
                 pp.set_iterate(d, iterate)
             else:
-                state = {}
+                state = {pp.ITERATE: {}}
             pp.set_state(d, state)
 
     def _update_iterate(self, solution_vector: np.ndarray) -> None:
