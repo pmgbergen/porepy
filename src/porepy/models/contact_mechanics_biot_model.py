@@ -828,7 +828,8 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             # Initial value for the scalar variable.
             initial_scalar_value = np.zeros(g.num_cells)
             d[pp.STATE].update({self.scalar_variable: initial_scalar_value})
-            d[pp.STATE][pp.ITERATE].update({self.scalar_variable: initial_scalar_value})
+
+            d[pp.STATE][pp.ITERATE].update({self.scalar_variable: initial_scalar_value.copy()})
             if g.dim == self._Nd:
                 bc_values = self._bc_values_mechanics(g)
                 mech_dict = {"bc_values": bc_values}
@@ -838,7 +839,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             mg = d["mortar_grid"]
             initial_value = np.zeros(mg.num_cells)
             d[pp.STATE][self.mortar_scalar_variable] = initial_value
-            d[pp.STATE][pp.ITERATE][self.mortar_scalar_variable] = initial_value
+            d[pp.STATE][pp.ITERATE][self.mortar_scalar_variable] = initial_value.copy()
 
     def _update_iterate(self, solution: np.ndarray) -> None:
         super()._update_iterate(solution)
