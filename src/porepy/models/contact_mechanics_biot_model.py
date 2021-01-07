@@ -525,25 +525,19 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             normal_proj = pp.ad.Matrix(sps.block_diag(normal_proj_list))
 
             # Ad representation of discretizations
-            mpsa_ad = pp.ad.Discretization({g_primary: mpsa}, "momentuum_discr")
-            grad_p_ad = pp.ad.Discretization({g_primary: grad_p_disc})
+            mpsa_ad = pp.ad.MpsaAd(self.mechanics_parameter_key, g_primary)
+            grad_p_ad = pp.ad.GradPAd(self.mechanics_parameter_key, g_primary)
 
-            mpfa = pp.Mpfa(self.scalar_parameter_key)
-            mass = pp.MassMatrix(self.scalar_parameter_key)
-            robin = pp.RobinCoupling(self.scalar_parameter_key, mpfa)
+            mpfa_ad = pp.ad.MpfaAd(self.scalar_parameter_key, grid_list)
+            mass_ad = pp.ad.MassMatrixAd(self.scalar_parameter_key, grid_list)
+            robin_ad = pp.ad.RobinCouplingAd(self.scalar_parameter_key, edge_list)
 
-            mpfa_ad = pp.ad.Discretization({g: mpfa for g in grid_list})
-            mass_ad = pp.ad.Discretization({g: mass for g in grid_list})
-            robin_ad = pp.ad.Discretization({e: robin for e in edge_list})
+            div_u_ad = pp.ad.DivUAd(self.mechanics_parameter_key,
+                                    grids=g_primary,
+                                    mat_dict_keyword=self.scalar_parameter_key)
+            stab_biot_ad = pp.ad.BiotStabilizationAd(self.scalar_parameter_key, g_primary)
 
-            div_u_ad = pp.ad.Discretization(
-                {g_primary: div_u_disc}, mat_dict_key=self.scalar_parameter_key
-            )
-            stab_biot_ad = pp.ad.Discretization({g_primary: stabilization_disc_s})
-
-            coloumb_ad = pp.ad.Discretization(
-                {g: contact_law for g in g_frac}, "contact_ad"
-            )
+            coloumb_ad = pp.ad.ColoumbContactAd(self.mechanics_parameter_key, g_frac)
 
             bc_ad = pp.ad.BoundaryCondition(
                 self.mechanics_parameter_key, grids=[g_primary]

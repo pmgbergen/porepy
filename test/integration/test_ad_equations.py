@@ -71,12 +71,9 @@ def test_md_flow():
     grid_list = [g for g, _ in gb]
     edge_list = [e for e, _ in gb.edges()]
 
-    discr_map = {g: discr for g in grid_list}
-    node_discr = pp.ad.Discretization(discr_map, keyword)
+    node_discr = pp.ad.MpfaAd(keyword, grid_list)
 
-    coupling = pp.RobinCoupling(keyword, discr, discr)
-    edge_map = {e: coupling for e in edge_list}
-    edge_discr = pp.ad.Discretization(edge_map, keyword)
+    edge_discr = pp.ad.RobinCouplingAd(keyword, edge_list)
 
     bc_val = pp.ad.BoundaryCondition(keyword, grid_list)
 
@@ -175,16 +172,13 @@ def test_biot():
     div_scalar = pp.ad.Divergence([g])
     div_vector = pp.ad.Divergence([g], is_scalar=False)
 
-    mpsa = pp.ad.Discretization({g: pp.Mpsa(mechanics_keyword)})
-    gradp = pp.ad.Discretization({g: pp.GradP(mechanics_keyword)})
-    div_u = pp.ad.Discretization({g: pp.DivU(flow_keyword)}, mat_dict_key="flow")
-    stabilization = pp.ad.Discretization({g: pp.BiotStabilization(flow_keyword)})
+    mpsa = pp.ad.MpsaAd(mechanics_keyword, g)
+    gradp = pp.ad.GradPAd(mechanics_keyword, g)
+    div_u = pp.ad.DivUAd(mechanics_keyword, g, flow_keyword)
+    stabilization = pp.ad.BiotStabilizationAd(flow_keyword, g)
 
-    mpfa = pp.Mpfa(flow_keyword)
-    mass = pp.MassMatrix(flow_keyword)
-
-    mpfa_discr = pp.ad.Discretization({g: mpfa})
-    mass_discr = pp.ad.Discretization({g: mass})
+    mpfa_discr = pp.ad.MpfaAd(flow_keyword, g)
+    mass_discr = pp.ad.MassMatrixAd(flow_keyword, g)
 
     u = manager.variables[g][displacement_variable]
     p = manager.variables[g][pressure_variable]
