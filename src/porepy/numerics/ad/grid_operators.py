@@ -9,7 +9,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from .operators import Matrix, MergedOperator, Operator
+from .operators import Matrix, Operator
 
 __all__ = [
     "MortarProjections",
@@ -329,7 +329,7 @@ class MortarProjections(Operator):
         return s
 
 
-class Trace(MergedOperator):
+class Trace(Operator):
     """Wrapper class for Ad representations of trace operators and their inverse,
     that is, mappings between grid cells and faces.
 
@@ -411,7 +411,7 @@ class Trace(MergedOperator):
         return s
 
 
-class Divergence(MergedOperator):
+class Divergence(Operator):
     """Wrapper class for Ad representations of divergence operators."""
 
     def __init__(
@@ -489,7 +489,7 @@ class Divergence(MergedOperator):
         return matrix
 
 
-class BoundaryCondition(MergedOperator):
+class BoundaryCondition(Operator):
     """Wrapper class for Ad representations of boundary conditions for a given keyword."""
 
     def __init__(
