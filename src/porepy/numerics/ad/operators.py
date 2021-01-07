@@ -304,7 +304,6 @@ class Variable(Operator):
         self._num_cells = num_cells
 
         self.id = next(self._ids)
-
         self._set_tree()
 
     def size(self) -> int:
@@ -360,7 +359,9 @@ class MergedVariable(Variable):
 
         """
         self.sub_vars = variables
-        self.id = next(self._ids)
+
+        # Use counter from superclass to ensure unique Variable ids
+        self.id = next(Variable._ids)
 
         # Take the name from the first variabe.
         self._name = variables[0]._name
