@@ -76,10 +76,29 @@ class Equation:
         self.name = name
         self.grid_order = grid_order
 
-        variable_dofs, variable_ids = self._identify_variables(dof_manager)
+        # Identify all variables in the Operator tree. This will include real variables,
+        # and representation of previous time steps.
+        variable_dofs, variable_ids, is_prev_time = self._identify_variables(dof_manager)
 
-        self._variable_dofs = variable_dofs
-        self._variable_ids = variable_ids
+        # Split variable dof indices and ids into groups of current variables (those
+        # of the current iteration step), and those from the previous time step
+        current_indices = []
+        current_ids = []
+        prev_indices = []
+        prev_ids = []
+        for ind, var_id, is_prev in zip(variable_dofs, variable_ids, is_prev_time):
+            if is_prev:
+                prev_indices.append(ind)
+                prev_ids.append(var_id)
+            else:
+                current_indices.append(ind)
+                current_ids.append(var_id)
+
+        # Save information.
+        self._variable_dofs = current_indices
+        self._variable_ids = current_ids
+        self._prev_time_dofs = prev_indices
+        self._prev_time_ids = prev_ids
 
         # Storage for matrices; will likely be removed (moved to the individual
         # operators).
@@ -147,10 +166,12 @@ class Equation:
         # For each variable, get the global index
         inds = []
         variable_ids = []
+        prev_time = []
         for variable in variables:
             # Indices (in DofManager sense) of this variable. Will be built gradually
             # for MergedVariables, in one go for plain Variables.
             ind_var = []
+            prev_time.append(variable.prev_time)
 
             if isinstance(variable, (pp.ad.MergedVariable, operators.MergedVariable)):
                 # Loop over all subvariables for the merged variable
@@ -169,10 +190,7 @@ class Equation:
             # Gather all indices for this variable
             inds.append(np.hstack([i for i in ind_var]))
 
-            # FIXME: Variables that occur twice in an equation are registered twice
-            # FIXME: Variables with same name on same grid apparently have different ids
-
-        return inds, variable_ids
+        return inds, variable_ids, prev_time
 
     def to_ad(self, gb: pp.GridBucket, state: Optional[np.ndarray] = None):
         """Evaluate the residual and Jacobian matrix for a given state.
@@ -212,14 +230,14 @@ class Equation:
                 else:
                     state[ind] = gb.node_props(g, pp.STATE)[pp.ITERATE][var]
 
+        # Initialize Ad variables with the current iterates
         ad_vars = initAdArrays([state[ind] for ind in self._variable_dofs])
         self._ad = {var_id: ad for (var_id, ad) in zip(self._variable_ids, ad_vars)}
 
-        # Cannot access this directly from pp.STATE in the data dictionary, since
-        # merged variables requires some more work
-        prev_vals_list = [prev_vals[ind] for ind in self._variable_dofs]
+        # Also make mappings from the previous time step.
+        prev_vals_list = [prev_vals[ind] for ind in self._prev_time_dofs]
         self._prev_vals = {
-            var_id: val for (var_id, val) in zip(self._variable_ids, prev_vals_list)
+            var_id: val for (var_id, val) in zip(self._prev_time_ids, prev_vals_list)
         }
 
         # Parse operators. This is left to a separate function to facilitate the
