@@ -606,7 +606,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             ]
             tangential_proj = pp.ad.Matrix(sps.block_diag(tangential_proj_lists))
 
-            mpsa_ad = pp.ad.Discretization({g_primary: mpsa}, "momentuum_discr")
+            mpsa_ad = mpsa_ad = pp.ad.MpsaAd(self.mechanics_parameter_key, g_primary)
             bc_ad = pp.ad.BoundaryCondition(
                 self.mechanics_parameter_key, grids=[g_primary]
             )
@@ -637,9 +637,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             momentum_eq = pp.ad.Equation(div * stress, dof_manager, name="momentuum",
                                          grid_order=[g_primary])
 
-            coloumb_ad = pp.ad.Discretization(
-                {g: coloumb for g in g_frac}, "contact_ad"
-            )
+            coloumb_ad = pp.ad.ColoumbContactAd(self.mechanics_parameter_key, g_frac)
             jump_rotate = (
                 tangential_proj
                 * subdomain_proj.cell_restriction(g_frac)
