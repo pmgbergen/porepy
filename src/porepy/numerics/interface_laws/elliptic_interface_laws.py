@@ -23,7 +23,7 @@ class RobinCoupling(
 
     """
 
-    def __init__(self, keyword, discr_primary, discr_secondary=None):
+    def __init__(self, keyword, discr_primary=None, discr_secondary=None):
         super().__init__(keyword)
         if discr_secondary is None:
             discr_secondary = discr_primary
