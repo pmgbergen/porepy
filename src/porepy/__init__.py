@@ -32,6 +32,10 @@ from porepy.utils import error, grid_utils
 from porepy.utils.tangential_normal_projection import TangentialNormalProjection
 
 from porepy.utils import permutations
+from porepy.utils.interpolation_tables import (
+    InterpolationTable,
+    AdaptiveInterpolationTable,
+)
 
 from porepy.geometry import (
     intersections,
