@@ -71,7 +71,7 @@ def test_interpolation(dim, factory):
         low, high, resolution, function.func()
     )
 
-    npt = 5
+    npt = 100
 
     pts = low.reshape((-1, 1)) + np.random.rand(dim, npt) * (high - low).reshape(
         (-1, 1)
@@ -89,9 +89,9 @@ def test_interpolation(dim, factory):
     known_val = function.truth(pts)
 
     # Function values should be reproduced with sufficient accuracy
-    assert np.allclose(vals, known_val, function.tol)
+    assert np.max(np.abs(vals - known_val)) < function.tol
     # The two interpolation approaches should be identical
-    assert np.allclose(vals, adaptive_vals)
+    assert np.allclose(vals, adaptive_vals, atol=1e-10)
 
     for d in range(dim):
         diff = table.diff(pts, axis=d)
@@ -103,5 +103,5 @@ def test_interpolation(dim, factory):
         known_diff = function.diff(pts, d)
         # Note that for the time being, this test is not active for the
         # Quadractic function (due to diff_tol)
-        assert np.allclose(diff, known_diff, function.diff_tol)
-        assert np.allclose(diff, adaptive_diff)
+        assert np.max(np.abs(diff - known_diff)) < function.diff_tol
+        assert np.allclose(diff, adaptive_diff, atol=1e-10)

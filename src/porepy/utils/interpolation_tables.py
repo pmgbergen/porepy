@@ -1,6 +1,6 @@
 """ The module contains interpolation tables, intended for use in function
 evalutaions. Specifically, the motivation is to facilitate the parametrization
-framework described in 
+framework described in
 
     Operator-based linearization approach for modeling of multiphase
     multi-component flow in porous media by Denis Voskov (JCP 2017)
@@ -21,7 +21,7 @@ constant approximations of derivatives.
 
 """
 import itertools
-from typing import Callable, List, Iterator, Union
+from typing import Callable, Iterator, List, Union
 
 import numpy as np
 
