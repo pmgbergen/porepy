@@ -129,10 +129,15 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
         gb_new.add_edge(new_edge, face_cells_new)
 
         # Create a mortar grid, add to data of new edge
-        side_g = {
-            mortar_grid.LEFT_SIDE: gl_new.copy(),
-            mortar_grid.RIGHT_SIDE: gl_new.copy(),
-        }
+        if len(face_on_other_side) == 0:  # Only one side
+            side_g = {
+                mortar_grid.MortarSides.LEFT_SIDE: gl_new.copy(),
+            }
+        else:
+            side_g = {
+                mortar_grid.MortarSides.LEFT_SIDE: gl_new.copy(),
+                mortar_grid.MortarSides.RIGHT_SIDE: gl_new.copy(),
+            }
 
         # Construct mortar grid, with instructions on which faces belong to which side
         mg = pp.MortarGrid(

@@ -1,6 +1,7 @@
 """ Module containing the class for the mortar grid.
 """
 import warnings
+from enum import Enum
 from typing import Dict, Generator, List, Optional, Tuple, Union
 
 import numpy as np
@@ -8,12 +9,12 @@ from scipy import sparse as sps
 
 import porepy as pp
 
-# Module level constants, used to define sides of a mortar grid.
-# This is in essence an Enum, but that led to trouble in pickling a GridBucket.
-NONE_SIDE = 0
-LEFT_SIDE = 1
-RIGHT_SIDE = 2
-WHOLE_SIDE = np.iinfo(type(NONE_SIDE)).max
+
+class MortarSides(Enum):
+    # Enum of constants used to identify the grids on each side of the mortar
+    NONE_SIDE = 0
+    LEFT_SIDE = 1
+    RIGHT_SIDE = 2
 
 
 class MortarGrid:
@@ -54,7 +55,7 @@ class MortarGrid:
     def __init__(
         self,
         dim: int,
-        side_grids: Dict[int, pp.Grid],
+        side_grids: Dict[MortarSides, pp.Grid],
         primary_secondary: sps.spmatrix = None,
         name: Union[str, List[str]] = "",
         face_duplicate_ind: Optional[np.ndarray] = None,
@@ -87,7 +88,7 @@ class MortarGrid:
             raise ValueError("All the mortar grids have to have the same dimension")
 
         self.dim = dim
-        self.side_grids: Dict[int, pp.Grid] = side_grids.copy()
+        self.side_grids: Dict[MortarSides, pp.Grid] = side_grids.copy()
         self.sides: np.ndarray = np.array(list(self.side_grids.keys()))
 
         if not (self.num_sides() == 1 or self.num_sides() == 2):
@@ -171,7 +172,7 @@ class MortarGrid:
     ### Methods to update the mortar grid, or the neighboring grids.
 
     def update_mortar(
-        self, new_side_grids: Dict[int, pp.Grid], tol: float = None
+        self, new_side_grids: Dict[MortarSides, pp.Grid], tol: float = None
     ) -> None:
         """
         Update the low_to_mortar_int and high_to_mortar_int maps when the mortar grids
@@ -630,12 +631,10 @@ class MortarGrid:
         elif self.num_sides() == 2:
             # By the ordering of the mortar cells, we know that all cells on the one
             # side are put first, then the other side. Set + and - accordingly.
-            # Implementation note: self.side_grids is a dictionary, not a list, thus
-            # the indexing [1] and [2] (and not [0])
             data = np.hstack(
                 (
-                    -np.ones(self.side_grids[1].num_cells * nd),
-                    np.ones(self.side_grids[2].num_cells * nd),
+                    -np.ones(self.side_grids[MortarSides.LEFT_SIDE].num_cells * nd),
+                    np.ones(self.side_grids[MortarSides.RIGHT_SIDE].num_cells * nd),
                 )
             )
             return sps.dia_matrix((data, 0), shape=(nd * nc, nd * nc))
