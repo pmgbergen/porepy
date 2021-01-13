@@ -8,7 +8,14 @@ etc.
 """
 __all__ = []
 
-from . import equation_manager, forward_mode, functions, grid_operators, operators, discretizations
+from . import (
+    equation_manager,
+    forward_mode,
+    functions,
+    grid_operators,
+    operators,
+    discretizations,
+)
 from .equation_manager import *
 from .forward_mode import *
 from .functions import *

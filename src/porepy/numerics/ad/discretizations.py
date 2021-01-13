@@ -10,11 +10,17 @@ from .operators import Operator
 
 import porepy as pp
 
-__all__ = ["Discretization", "MpsaAd", "GradPAd", "DivUAd",
-           "BiotStabilizationAd", "ColoumbContactAd", "MpfaAd", "MassMatrixAd",
-           "RobinCouplingAd"]
-
-
+__all__ = [
+    "Discretization",
+    "MpsaAd",
+    "GradPAd",
+    "DivUAd",
+    "BiotStabilizationAd",
+    "ColoumbContactAd",
+    "MpfaAd",
+    "MassMatrixAd",
+    "RobinCouplingAd",
+]
 
 
 class Discretization:
@@ -79,8 +85,8 @@ class Discretization:
 
 ### Mechanics related discretizations
 
-class MpsaAd:
 
+class MpsaAd:
     def __init__(self, keyword, grids):
         if isinstance(grids, list):
             self._grids = grids
@@ -94,8 +100,8 @@ class MpsaAd:
         s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
         return s
 
-class GradPAd:
 
+class GradPAd:
     def __init__(self, keyword, grids):
         if isinstance(grids, list):
             self._grids = grids
@@ -109,8 +115,8 @@ class GradPAd:
         s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
         return s
 
-class DivUAd:
 
+class DivUAd:
     def __init__(self, keyword, grids, mat_dict_keyword):
         if isinstance(grids, list):
             self._grids = grids
@@ -119,13 +125,13 @@ class DivUAd:
         self._discretization = pp.DivU(keyword, mat_dict_keyword)
         self._name = "DivU from Biot"
         _wrap_discretization(self, self._discretization, grids, mat_dict_keyword)
+
     def __repr__(self) -> str:
         s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
         return s
 
 
 class BiotStabilizationAd:
-
     def __init__(self, keyword, grids):
         if isinstance(grids, list):
             self._grids = grids
@@ -134,13 +140,13 @@ class BiotStabilizationAd:
         self._discretization = pp.BiotStabilization(keyword)
         self._name = "Biot stabilization term"
         _wrap_discretization(self, self._discretization, grids)
+
     def __repr__(self) -> str:
         s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
         return s
 
 
 class ColoumbContactAd:
-
     def __init__(self, keyword, grids):
 
         if isinstance(grids, list):
@@ -152,8 +158,9 @@ class ColoumbContactAd:
         if not dim.size == 1:
             raise ValueError("Expected unique dimension of grids with contact problems")
 
-        self._discretization = pp.ColoumbContact(keyword, ambient_dimension=dim[0],
-                                                 discr_h=pp.Mpsa(keyword))
+        self._discretization = pp.ColoumbContact(
+            keyword, ambient_dimension=dim[0], discr_h=pp.Mpsa(keyword)
+        )
         self._name = "Biot stabilization term"
         _wrap_discretization(self, self._discretization, grids)
 
@@ -162,12 +169,10 @@ class ColoumbContactAd:
         return s
 
 
-
-
 ## Flow related
 
-class MpfaAd:
 
+class MpfaAd:
     def __init__(self, keyword, grids):
 
         if isinstance(grids, list):
@@ -184,7 +189,6 @@ class MpfaAd:
 
 
 class MassMatrixAd:
-
     def __init__(self, keyword, grids):
         if isinstance(grids, list):
             self._grids = grids
@@ -214,6 +218,7 @@ class RobinCouplingAd:
         s = f"Ad discretization of type {self._name}. Defined on {len(self._edges)} grids"
         return s
 
+
 class _MergedOperator(Operator):
     """Representation of specific discretization fields for an Ad discretization.
 
@@ -227,8 +232,7 @@ class _MergedOperator(Operator):
 
     def __init__(
         self,
-        grids:
-            Union[pp.Grid, Tuple[pp.Grid, pp.Grid]],
+        grids: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]],
         discr: "pp.AbstractDiscretization",
         key: str,
         mat_dict_key: str,
@@ -315,14 +319,13 @@ class _MergedOperator(Operator):
             return sps.block_diag(mat)
 
 
-
 def _wrap_discretization(obj, discr, grids, mat_dict_key: Optional[str] = None):
     key_set = []
     # Loop over all discretizations, identify all attributes that ends with
     # "_matrix_key". These will be taken as discretizations (they are discretization
     # matrices for specific terms, to be).
     if not isinstance(grids, list):
-        grids= [grids]
+        grids = [grids]
 
     if mat_dict_key is None:
         mat_dict_key = discr.keyword
@@ -337,7 +340,3 @@ def _wrap_discretization(obj, discr, grids, mat_dict_key: Optional[str] = None):
     for key in key_set:
         op = _MergedOperator(grids, discr, key, mat_dict_key)
         setattr(obj, key, op)
-
-
-
-
