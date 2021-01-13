@@ -836,8 +836,8 @@ class ContactModel2d(ContactMechanics):
 
         # Construct mortar grid
         side_grids = {
-            mortar_grid.LEFT_SIDE: g_1d.copy(),
-            mortar_grid.RIGHT_SIDE: g_1d.copy(),
+            mortar_grid.MortarSides.LEFT_SIDE: g_1d.copy(),
+            mortar_grid.MortarSides.RIGHT_SIDE: g_1d.copy(),
         }
 
         data = np.array([1, 1])

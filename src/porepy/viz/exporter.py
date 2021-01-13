@@ -368,7 +368,7 @@ class Exporter:
             d["grid_dim"] = g.dim * ones
             d["grid_node_number"] = d["node_number"] * ones
             d["is_mortar"] = 0 * ones
-            d["mortar_side"] = int(pp.grids.mortar_grid.NONE_SIDE) * ones
+            d["mortar_side"] = pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
 
         # collect the data and extra data in a single stack for each dimension
         for dim in self.dims:
@@ -407,7 +407,7 @@ class Exporter:
                 ones = np.ones(g.num_cells, dtype=np.int)
                 d["grid_dim"][side] = g.dim * ones
                 d["is_mortar"][side] = ones
-                d["mortar_side"][side] = int(side) * ones
+                d["mortar_side"][side] = side.value * ones
                 d["cell_id"][side] = np.arange(g.num_cells, dtype=np.int) + mg_num_cells
                 mg_num_cells += g.num_cells
                 d["grid_edge_number"][side] = d["edge_number"] * ones
