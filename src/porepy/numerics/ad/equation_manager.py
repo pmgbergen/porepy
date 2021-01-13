@@ -78,7 +78,9 @@ class Equation:
 
         # Identify all variables in the Operator tree. This will include real variables,
         # and representation of previous time steps.
-        variable_dofs, variable_ids, is_prev_time = self._identify_variables(dof_manager)
+        variable_dofs, variable_ids, is_prev_time = self._identify_variables(
+            dof_manager
+        )
 
         # Split variable dof indices and ids into groups of current variables (those
         # of the current iteration step), and those from the previous time step
@@ -103,7 +105,6 @@ class Equation:
         # Storage for matrices; will likely be removed (moved to the individual
         # operators).
         self._stored_matrices = {}
-
 
     def local_dofs(self) -> np.ndarray:
         dofs = np.hstack([d for d in self._variable_dofs])

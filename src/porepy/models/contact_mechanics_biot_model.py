@@ -501,9 +501,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             edge_list_highest = [(g_primary, g) for g in g_frac]
             edge_list = [e for e, _ in gb.edges()]
 
-            mortar_proj_scalar = pp.ad.MortarProjections(
-                edges=edge_list, gb=gb, nd=1
-            )
+            mortar_proj_scalar = pp.ad.MortarProjections(edges=edge_list, gb=gb, nd=1)
             mortar_proj_vector = pp.ad.MortarProjections(
                 edges=edge_list_highest, gb=gb, nd=self._Nd
             )
@@ -532,10 +530,14 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             mass_ad = pp.ad.MassMatrixAd(self.scalar_parameter_key, grid_list)
             robin_ad = pp.ad.RobinCouplingAd(self.scalar_parameter_key, edge_list)
 
-            div_u_ad = pp.ad.DivUAd(self.mechanics_parameter_key,
-                                    grids=g_primary,
-                                    mat_dict_keyword=self.scalar_parameter_key)
-            stab_biot_ad = pp.ad.BiotStabilizationAd(self.scalar_parameter_key, g_primary)
+            div_u_ad = pp.ad.DivUAd(
+                self.mechanics_parameter_key,
+                grids=g_primary,
+                mat_dict_keyword=self.scalar_parameter_key,
+            )
+            stab_biot_ad = pp.ad.BiotStabilizationAd(
+                self.scalar_parameter_key, g_primary
+            )
 
             coloumb_ad = pp.ad.ColoumbContactAd(self.mechanics_parameter_key, g_frac)
 
@@ -726,7 +728,6 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
             accumulation_all = mass_ad.mass * (p - p_prev)
 
-
             flux = (
                 mpfa_ad.flux * p
                 + mpfa_ad.bound_flux * bc_val_scalar
@@ -823,7 +824,9 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             initial_scalar_value = np.zeros(g.num_cells)
             d[pp.STATE].update({self.scalar_variable: initial_scalar_value})
 
-            d[pp.STATE][pp.ITERATE].update({self.scalar_variable: initial_scalar_value.copy()})
+            d[pp.STATE][pp.ITERATE].update(
+                {self.scalar_variable: initial_scalar_value.copy()}
+            )
             if g.dim == self._Nd:
                 bc_values = self._bc_values_mechanics(g)
                 mech_dict = {"bc_values": bc_values}
