@@ -4,8 +4,9 @@ Coupling conditions between subdomains for elliptic equations.
 Current content:
     Robin-type couplings, as decsribed by Martin et al 2005.
     Full continuity conditions between subdomains
+
 """
-from typing import Tuple
+from typing import Tuple, Optional, Dict, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -21,12 +22,51 @@ class RobinCoupling(
     of the model studied (though not originally proposed) by Martin et
     al 2005.
 
+    The class can be used either as pure discretization, or also to do assembly of
+    the local (to the interface / mortar grid) linear system. The latter case will
+    be invoked if a global linear system is constructed by way of the assembler.
+
     """
 
-    def __init__(self, keyword, discr_primary=None, discr_secondary=None):
+    def __init__(
+        self,
+        keyword: str,
+        discr_primary: Optional["pp.Discretization"] = None,
+        discr_secondary: Optional["pp.Discretization"] = None,
+        primary_keyword: Optional[str] = None,
+    ) -> None:
+        """Initialize Robin Coupling.
+
+        Parameters:
+            keyword (str): Keyword used to access parameters needed for this
+                discretization in the data dictionary. Will also define where
+                 discretization matrices are stored.
+            discr_primary: Discretization on the higher-dimensional neighbor. Only
+                needed when the RobinCoupling is used for local assembly.
+            discr_secondary: Discretization on the lower-dimensional neighbor. Only
+                needed when the RobinCoupling is used for local assembly. If not
+                provided, it is assumed that primary and secondary discretizations
+                are identical.
+            primary_keyword: Parameter keyword for the discretization on the higher-
+                dimensional neighbor, which the RobinCoupling is intended coupled to.
+                Only needed when the object is not used for local assembly (that is,
+                needed if Ad is used).
+        """
         super().__init__(keyword)
+
         if discr_secondary is None:
             discr_secondary = discr_primary
+
+        if primary_keyword is not None:
+            self._primary_keyword = primary_keyword
+        else:
+            if discr_primary is None:
+                raise ValueError(
+                    "Either primary keyword or primary discretization must be specified"
+                )
+            else:
+                self._primary_keyword = discr_primary.keyword
+
         self.discr_primary = discr_primary
         self.discr_secondary = discr_secondary
 
@@ -56,10 +96,12 @@ class RobinCoupling(
             # At least one of the neighboring discretizations is FV.
             self.kinv_scaling = False
 
-    def ndof(self, mg):
+    def ndof(self, mg: pp.MortarGrid):
         return mg.num_cells
 
-    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+    def discretize(
+        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge, Dict
+    ):
         """Discretize the interface law and store the discretization in the
         edge data.
 
@@ -71,13 +113,16 @@ class RobinCoupling(
             data_edge: Data dictionary for the edge between the domains.
 
         """
-        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-        parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
-        parameter_dictionary_h = data_h[pp.PARAMETERS][self.discr_primary.keyword]
-        # Mortar data structure.
-        mg = data_edge["mortar_grid"]
+        matrix_dictionary_edge: Dict[str, sps.spmatrix] = data_edge[
+            pp.DISCRETIZATION_MATRICES
+        ][self.keyword]
+        parameter_dictionary_edge: Dict = data_edge[pp.PARAMETERS][self.keyword]
 
-        kn = parameter_dictionary_edge["normal_diffusivity"]
+        parameter_dictionary_h: Dict = data_h[pp.PARAMETERS][self._primary_keyword]
+        # Mortar data structure.
+        mg: pp.MortarGrid = data_edge["mortar_grid"]
+
+        kn: Union[np.ndarray, float] = parameter_dictionary_edge["normal_diffusivity"]
         # If normal diffusivity is given as a constant, parse to np.array
         if not isinstance(kn, np.ndarray):
             kn *= np.ones(mg.num_cells)
@@ -177,7 +222,7 @@ class RobinCoupling(
 
     def assemble_matrix_rhs(
         self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
-    ):
+    ) -> None:
         """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
@@ -265,12 +310,12 @@ class RobinCoupling(
 
     def assemble_edge_coupling_via_high_dim(
         self,
-        g,
-        data_grid,
-        edge_primary,
-        data_primary_edge,
-        edge_secondary,
-        data_secondary_edge,
+        g: pp.Grid,
+        data_grid: Dict,
+        edge_primary: Tuple[pp.Grid, pp.Grid],
+        data_primary_edge: Dict,
+        edge_secondary: Tuple[pp.Grid, pp.Grid],
+        data_secondary_edge: Dict,
         matrix,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Represent the impact on a primary interface of the mortar (thus boundary)
@@ -294,8 +339,8 @@ class RobinCoupling(
                 secondary and mortar variable, respectively.
 
         """
-        mg_primary = data_primary_edge["mortar_grid"]
-        mg_secondary = data_secondary_edge["mortar_grid"]
+        mg_primary: pp.MortarGrid = data_primary_edge["mortar_grid"]
+        mg_secondary: pp.MortarGrid = data_secondary_edge["mortar_grid"]
 
         # Normally, the projections will be pressure from the primary (high-dim node)
         # to the primary mortar, and flux from secondary mortar to primary
@@ -319,9 +364,9 @@ class RobinCoupling(
             g, data_grid, proj_pressure, proj_flux, cc, matrix, rhs
         )
         # Scale the equations (this will modify from K^-1 to K scaling if relevant)
-        matrix_dictionary_edge = data_primary_edge[pp.DISCRETIZATION_MATRICES][
-            self.keyword
-        ]
+        matrix_dictionary_edge: Dict[str, sps.spmatrix] = data_primary_edge[
+            pp.DISCRETIZATION_MATRICES
+        ][self.keyword]
         for block in range(cc.shape[1]):
             # Scale the pressure blocks in the row of the primary mortar problem.
             # The secondary mortar will be treated somewhere else (handled by the
@@ -353,7 +398,12 @@ class FluxPressureContinuity(RobinCoupling):
 
     """
 
-    def __init__(self, keyword, discr_primary, discr_secondary=None):
+    def __init__(
+        self,
+        keyword: str,
+        discr_primary: "pp.Discretization",
+        discr_secondary: Optional["pp.Discretization"] = None,
+    ) -> None:
         if discr_secondary is None:
             discr_secondary = discr_primary
         self.discr_primary = discr_primary
@@ -366,7 +416,9 @@ class FluxPressureContinuity(RobinCoupling):
         # No coupling via lower-dimensional interfaces.
         self.edge_coupling_via_low_dim = False
 
-    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+    def discretize(
+        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
+    ) -> None:
         """Nothing really to do here
 
         Parameters:
@@ -380,8 +432,14 @@ class FluxPressureContinuity(RobinCoupling):
         pass
 
     def assemble_rhs(
-        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
-    ):
+        self,
+        g_primary: pp.Grid,
+        g_secondary: pp.Grid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_edge: Dict,
+        matrix: np.ndarray,
+    ) -> np.ndarray:
         """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
@@ -392,7 +450,6 @@ class FluxPressureContinuity(RobinCoupling):
             data_secondary: Data dictionary for the secondary subdomain.
             data_edge: Data dictionary for the edge between the subdomains
             matrix_primary: original discretization for the primary subdomain
-            matrix_secondary: original discretization for the secondary subdomain
 
         """
         # IMPLEMENTATION NOTE: This function is aimed at computational savings in a case
@@ -404,7 +461,7 @@ class FluxPressureContinuity(RobinCoupling):
         secondary_ind = 1
 
         # Generate matrix for the coupling.
-        mg = data_edge["mortar_grid"]
+        mg: pp.MortarGrid = data_edge["mortar_grid"]
         cc_primary, rhs_primary = self._define_local_block_matrix(
             g_primary, g_secondary, self.discr_primary, self.discr_secondary, mg, matrix
         )
@@ -436,7 +493,13 @@ class FluxPressureContinuity(RobinCoupling):
         return rhs
 
     def assemble_matrix_rhs(
-        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
+        self,
+        g_primary: pp.Grid,
+        g_secondary: pp.Grid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_edge: Dict,
+        matrix: np.ndarray,
     ):
         """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
@@ -448,7 +511,6 @@ class FluxPressureContinuity(RobinCoupling):
             data_secondary: Data dictionary for the secondary subdomain.
             data_edge: Data dictionary for the edge between the subdomains
             matrix_primary: original discretization for the primary subdomain
-            matrix_secondary: original discretization for the secondary subdomain
 
         """
         primary_ind = 0
