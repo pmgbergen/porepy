@@ -590,7 +590,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 * p
             )
 
-            momentum_eq = pp.ad.Equation(
+            momentum_eq = pp.ad.Expression(
                 div_vector * stress, dof_manager, "momentuum", grid_order=[g_primary]
             )
 
@@ -616,7 +616,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 + exclude_normal * coloumb_ad.displacement * jump_rotate * u_mortar_prev
             )
             contact_conditions = coloumb_ad.traction * contact_force + jump_discr - rhs
-            contact_eq = pp.ad.Equation(
+            contact_eq = pp.ad.Expression(
                 contact_conditions, dof_manager, "contact", grid_order=g_frac
             )
 
@@ -692,13 +692,8 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
                 p_frac = subdomain_proj_scalar.cell_restriction(g_frac) * p
 
-                contact_from_secondary2 = (
-                    #    mortar_proj_scalar.secondary_to_mortar_avg
-                    #    * subdomain_proj_vector.cell_prolongation(g_frac)
-                    normal_matrix
-                    * p_frac
-                )
-            force_balance_eq = pp.ad.Equation(
+                contact_from_secondary2 = normal_matrix * p_frac
+            force_balance_eq = pp.ad.Expression(
                 contact_from_primary_mortar
                 + contact_from_secondary
                 + contact_from_secondary2,
@@ -772,10 +767,10 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 + robin_ad.mortar_discr * mortar_flux
             )
 
-            flow_eq = pp.ad.Equation(
+            flow_eq = pp.ad.Expression(
                 flow_md, dof_manager, "flow on nodes", grid_order=grid_list
             )
-            interface_eq = pp.ad.Equation(
+            interface_eq = pp.ad.Expression(
                 interface_flow_eq,
                 dof_manager,
                 "flow on interface",

@@ -18,13 +18,14 @@ from .discretizations import _MergedOperator
 from . import operators
 from .forward_mode import initAdArrays
 
-__all__ = ["Equation", "EquationManager"]
+__all__ = ["Expression", "EquationManager"]
 
 grid_like_type = Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
 
 
-class Equation:
-    """Ad representation of an equation.
+class Expression:
+    """Ad representation of an expression which can be evaluated (translated to
+    numerical values).
 
     Conceptually, an Equation is an Operator tree that has been equated to zero.
 
@@ -366,7 +367,7 @@ class EquationManager:
         self,
         gb: pp.GridBucket,
         dof_manager: pp.DofManager,
-        equations: Optional[List[Equation]] = None,
+        equations: Optional[List[Expression]] = None,
     ) -> None:
         self.gb = gb
         self._set_variables(gb)
