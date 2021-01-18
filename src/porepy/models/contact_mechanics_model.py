@@ -643,7 +643,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             )
 
             # momentum balance equation in g_h
-            momentum_eq = pp.ad.Equation(
+            momentum_eq = pp.ad.Expression(
                 div * stress, dof_manager, name="momentuum", grid_order=[g_primary]
             )
 
@@ -668,7 +668,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 + exclude_normal * coloumb_ad.displacement * jump_rotate * u_mortar_prev
             )
             contact_conditions = coloumb_ad.traction * contact_force + jump_discr - rhs
-            contact_eq = pp.ad.Equation(
+            contact_eq = pp.ad.Expression(
                 contact_conditions, dof_manager, grid_order=g_frac, name="contact"
             )
 
@@ -705,7 +705,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 * tangential_proj.transpose()
                 * contact_force
             )
-            force_balance_eq = pp.ad.Equation(
+            force_balance_eq = pp.ad.Expression(
                 contact_from_primary_mortar + contact_from_secondary,
                 dof_manager,
                 name="force_balance",

@@ -104,10 +104,10 @@ def test_md_flow():
         + edge_discr.mortar_discr * lmbda
     )
 
-    flow_eq_ad = pp.ad.Equation(flow_eq, dof_manager, "flow on nodes")
+    flow_eq_ad = pp.ad.Expression(flow_eq, dof_manager, "flow on nodes")
     flow_eq_ad.discretize(gb)
 
-    interface_eq_ad = pp.ad.Equation(interface_flux, dof_manager, "flow on interface")
+    interface_eq_ad = pp.ad.Expression(interface_flux, dof_manager, "flow on interface")
 
     manager.equations += [flow_eq_ad, interface_eq_ad]
 
