@@ -12,6 +12,7 @@ import porepy as pp
 
 __all__ = [
     "Discretization",
+    "BiotAd",
     "MpsaAd",
     "GradPAd",
     "DivUAd",
@@ -86,6 +87,26 @@ class Discretization:
 ### Mechanics related discretizations
 
 
+class BiotAd:
+    def __init__(self, keyword, grids):
+        if isinstance(grids, list):
+            self._grids = grids
+        else:
+            self._grids = [grids]
+        self._discretization = pp.Biot(keyword)
+        self._name = "BiotMpsa"
+
+        self.keyword = keyword
+
+        _wrap_discretization(
+            self, self._discretization, grids, mat_dict_key=self.keyword
+        )
+
+    def __repr__(self) -> str:
+        s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
+        return s
+
+
 class MpsaAd:
     def __init__(self, keyword, grids):
         if isinstance(grids, list):
@@ -94,6 +115,9 @@ class MpsaAd:
             self._grids = [grids]
         self._discretization = pp.Mpsa(keyword)
         self._name = "Mpsa"
+
+        self.keyword = keyword
+
         _wrap_discretization(self, self._discretization, grids)
 
     def __repr__(self) -> str:
@@ -109,6 +133,8 @@ class GradPAd:
             self._grids = [grids]
         self._discretization = pp.GradP(keyword)
         self._name = "GradP from Biot"
+        self.keyword = keyword
+
         _wrap_discretization(self, self._discretization, grids)
 
     def __repr__(self) -> str:
@@ -123,7 +149,10 @@ class DivUAd:
         else:
             self._grids = [grids]
         self._discretization = pp.DivU(keyword, mat_dict_keyword)
+
         self._name = "DivU from Biot"
+        self.keyword = mat_dict_keyword
+
         _wrap_discretization(self, self._discretization, grids, mat_dict_keyword)
 
     def __repr__(self) -> str:
@@ -139,6 +168,8 @@ class BiotStabilizationAd:
             self._grids = [grids]
         self._discretization = pp.BiotStabilization(keyword)
         self._name = "Biot stabilization term"
+        self.keyword = keyword
+
         _wrap_discretization(self, self._discretization, grids)
 
     def __repr__(self) -> str:
@@ -154,7 +185,9 @@ class ColoumbContactAd:
         else:
             self._grids = [grids]
 
-        dim = np.unique([g.dim for g in grids])
+        dim = np.unique([g[0].dim for g in grids])
+
+        low_dim_grids = [g[1] for g in grids]
         if not dim.size == 1:
             raise ValueError("Expected unique dimension of grids with contact problems")
 
@@ -162,7 +195,10 @@ class ColoumbContactAd:
             keyword, ambient_dimension=dim[0], discr_h=pp.Mpsa(keyword)
         )
         self._name = "Biot stabilization term"
-        _wrap_discretization(self, self._discretization, grids)
+        self.keyword = keyword
+        _wrap_discretization(
+            self, self._discretization, grids, mat_dict_grids=low_dim_grids
+        )
 
     def __repr__(self) -> str:
         s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
@@ -181,6 +217,7 @@ class MpfaAd:
             self._grids = [grids]
         self._discretization = pp.Mpfa(keyword)
         self._name = "Mpfa"
+        self.keyword = keyword
         _wrap_discretization(self, self._discretization, grids)
 
     def __repr__(self) -> str:
@@ -196,6 +233,7 @@ class MassMatrixAd:
             self._grids = [grids]
         self._discretization = pp.MassMatrix(keyword)
         self._name = "Mass matrix"
+        self.keyword = keyword
         _wrap_discretization(self, self._discretization, grids)
 
     def __repr__(self) -> str:
@@ -209,9 +247,9 @@ class RobinCouplingAd:
             self._edges = edges
         else:
             self._edges = [edges]
-        self._discretization = pp.RobinCoupling(keyword)
+        self._discretization = pp.RobinCoupling(keyword, primary_keyword=keyword)
         self._name = "Robin interface coupling"
-
+        self.keyword = keyword
         _wrap_discretization(self, self._discretization, edges)
 
     def __repr__(self) -> str:
@@ -236,6 +274,7 @@ class _MergedOperator(Operator):
         discr: "pp.AbstractDiscretization",
         key: str,
         mat_dict_key: str,
+        mat_dict_grids: Optional[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]],
     ) -> None:
         """Initiate a merged discretization.
 
@@ -255,6 +294,7 @@ class _MergedOperator(Operator):
 
         # Special field to access matrix dictionary for Biot
         self.mat_dict_key = mat_dict_key
+        self.mat_dict_grids = mat_dict_grids
 
         self._set_tree(None)
 
@@ -279,7 +319,7 @@ class _MergedOperator(Operator):
 
         # Loop over all grid-discretization combinations, get hold of the discretization
         # matrix for this grid quantity
-        for g in self.grids:
+        for g in self.mat_dict_grids:
 
             # Get data dictionary for either grid or interface
             if isinstance(g, pp.Grid):
@@ -319,7 +359,9 @@ class _MergedOperator(Operator):
             return sps.block_diag(mat)
 
 
-def _wrap_discretization(obj, discr, grids, mat_dict_key: Optional[str] = None):
+def _wrap_discretization(
+    obj, discr, grids, mat_dict_key: Optional[str] = None, mat_dict_grids=None
+):
     key_set = []
     # Loop over all discretizations, identify all attributes that ends with
     # "_matrix_key". These will be taken as discretizations (they are discretization
@@ -330,6 +372,9 @@ def _wrap_discretization(obj, discr, grids, mat_dict_key: Optional[str] = None):
     if mat_dict_key is None:
         mat_dict_key = discr.keyword
 
+    if mat_dict_grids is None:
+        mat_dict_grids = grids
+
     for s in dir(discr):
         if s.endswith("_matrix_key"):
             key = s[:-11]
@@ -338,5 +383,6 @@ def _wrap_discretization(obj, discr, grids, mat_dict_key: Optional[str] = None):
     # Make a merged discretization for each of the identified terms.
     # If some keys are not shared by all values in grid_discr, errors will result.
     for key in key_set:
-        op = _MergedOperator(grids, discr, key, mat_dict_key)
+        op = _MergedOperator(grids, discr, key, mat_dict_key, mat_dict_grids)
+        setattr(op, "keyword", mat_dict_key)
         setattr(obj, key, op)
