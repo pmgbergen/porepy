@@ -161,7 +161,10 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
     def before_newton_iteration(self) -> None:
         # Re-discretize the nonlinear term
         filt = pp.assembler_filters.ListFilter(term_list=[self.friction_coupling_term])
-        self.assembler.discretize(filt=filt)
+        if self._use_ad:
+            self._eq_manager.equations[1].discretize(self.gb)
+        else:
+            self.assembler.discretize(filt=filt)
 
     def after_newton_iteration(self, solution_vector: np.ndarray) -> None:
         """
@@ -555,34 +558,40 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         # For the Nd domain we solve linear elasticity with mpsa.
         Nd = self._Nd
         gb = self.gb
-        mpsa = pp.Mpsa(self.mechanics_parameter_key)
-        # We need a void discretization for the contact traction variable defined on
-        # the fractures.
-        empty_discr = pp.VoidDiscretization(self.mechanics_parameter_key, ndof_cell=Nd)
 
-        for g, d in gb:
-            if g.dim == Nd:
-                d[pp.DISCRETIZATION] = {self.displacement_variable: {"mpsa": mpsa}}
-            elif g.dim == Nd - 1:
-                d[pp.DISCRETIZATION] = {
-                    self.contact_traction_variable: {"empty": empty_discr}
-                }
+        if not self._use_ad:
+            mpsa = pp.Mpsa(self.mechanics_parameter_key)
+            # We need a void discretization for the contact traction variable defined on
+            # the fractures.
+            empty_discr = pp.VoidDiscretization(
+                self.mechanics_parameter_key, ndof_cell=Nd
+            )
 
-        # Define the contact condition on the mortar grid
-        coloumb = pp.ColoumbContact(self.mechanics_parameter_key, Nd, mpsa)
-        contact = pp.PrimalContactCoupling(self.mechanics_parameter_key, mpsa, coloumb)
-
-        for e, d in gb.edges():
-            g_l, g_h = gb.nodes_of_edge(e)
-            if g_h.dim == Nd:
-                d[pp.COUPLING_DISCRETIZATION] = {
-                    self.friction_coupling_term: {
-                        g_h: (self.displacement_variable, "mpsa"),
-                        g_l: (self.contact_traction_variable, "empty"),
-                        (g_h, g_l): (self.mortar_displacement_variable, contact),
+            for g, d in gb:
+                if g.dim == Nd:
+                    d[pp.DISCRETIZATION] = {self.displacement_variable: {"mpsa": mpsa}}
+                elif g.dim == Nd - 1:
+                    d[pp.DISCRETIZATION] = {
+                        self.contact_traction_variable: {"empty": empty_discr}
                     }
-                }
-        if self._use_ad:
+
+            # Define the contact condition on the mortar grid
+            coloumb = pp.ColoumbContact(self.mechanics_parameter_key, Nd, mpsa)
+            contact = pp.PrimalContactCoupling(
+                self.mechanics_parameter_key, mpsa, coloumb
+            )
+
+            for e, d in gb.edges():
+                g_l, g_h = gb.nodes_of_edge(e)
+                if g_h.dim == Nd:
+                    d[pp.COUPLING_DISCRETIZATION] = {
+                        self.friction_coupling_term: {
+                            g_h: (self.displacement_variable, "mpsa"),
+                            g_l: (self.contact_traction_variable, "empty"),
+                            (g_h, g_l): (self.mortar_displacement_variable, contact),
+                        }
+                    }
+        else:
 
             dof_manager = pp.DofManager(gb)
             eq_manager = pp.ad.EquationManager(gb, dof_manager)
@@ -638,7 +647,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 div * stress, dof_manager, name="momentuum", grid_order=[g_primary]
             )
 
-            coloumb_ad = pp.ad.ColoumbContactAd(self.mechanics_parameter_key, g_frac)
+            coloumb_ad = pp.ad.ColoumbContactAd(self.mechanics_parameter_key, edge_list)
             jump_rotate = (
                 tangential_proj
                 * subdomain_proj.cell_restriction(g_frac)
@@ -834,7 +843,10 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
         tic = time.time()
         logger.info("Discretize")
-        self.assembler.discretize()
+        if self._use_ad:
+            self._eq_manager.discretize(self.gb)
+        else:
+            self.assembler.discretize()
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
     def _initialize_linear_solver(self) -> None:
