@@ -11,6 +11,7 @@ import scipy.sparse as sps
 
 from test import test_utils
 
+
 def test_md_flow():
 
     # Three fractures, will create intersection lines and point
@@ -21,8 +22,8 @@ def test_md_flow():
     gb = pp.meshing.cart_grid(fracs=[frac_1, frac_2, frac_3], nx=np.array([6, 6, 6]))
     gb.compute_geometry()
 
-    pressure_variable = 'pressure'
-    flux_variable = 'mortar_flux'
+    pressure_variable = "pressure"
+    flux_variable = "mortar_flux"
 
     keyword = "flow"
     discr = pp.Tpfa(keyword)
@@ -31,7 +32,8 @@ def test_md_flow():
     for g, d in gb:
 
         if g.dim == gb.dim_max():
-            bc = pp.BoundaryCondition(g, np.array([0, g.num_faces - 1]), ["dir", "dir"])
+            upper_left_ind = np.argmax(np.linalg.norm(g.face_centers, axis=0))
+            bc = pp.BoundaryCondition(g, np.array([0, upper_left_ind]), ["dir", "dir"])
             bc_values = np.zeros(g.num_faces)
             bc_values[0] = 1
             specified_parameters = {"bc": bc, "bc_values": bc_values}
@@ -41,9 +43,10 @@ def test_md_flow():
 
         d[pp.PRIMARY_VARIABLES] = {pressure_variable: {"cells": 1}}
         d[pp.DISCRETIZATION] = {pressure_variable: {"diff": discr}}
-        d[pp.STATE] = {pressure_variable: np.zeros(g.num_cells),
-             pp.ITERATE: {pressure_variable: np.zeros(g.num_cells)}
-         }
+        d[pp.STATE] = {
+            pressure_variable: np.zeros(g.num_cells),
+            pp.ITERATE: {pressure_variable: np.zeros(g.num_cells)},
+        }
     for e, d in gb.edges():
         mg = d["mortar_grid"]
         pp.initialize_data(mg, d, "flow", {"normal_diffusivity": 1})
@@ -55,9 +58,10 @@ def test_md_flow():
             e[1]: (pressure_variable, "diff"),
             e: (flux_variable, coupling_discr),
         }
-        d[pp.STATE] = {flux_variable: np.zeros(mg.num_cells),
-             pp.ITERATE: {flux_variable: np.zeros(mg.num_cells)}}
-
+        d[pp.STATE] = {
+            flux_variable: np.zeros(mg.num_cells),
+            pp.ITERATE: {flux_variable: np.zeros(mg.num_cells)},
+        }
 
     dof_manager = pp.DofManager(gb)
     assembler = pp.Assembler(gb, dof_manager)
@@ -100,8 +104,10 @@ def test_md_flow():
         + edge_discr.mortar_discr * lmbda
     )
 
-    flow_eq_ad = pp.ad.Equation(flow_eq, dof_manager, 'flow on nodes')
-    interface_eq_ad = pp.ad.Equation(interface_flux, dof_manager, 'flow on interface')
+    flow_eq_ad = pp.ad.Equation(flow_eq, dof_manager, "flow on nodes")
+    flow_eq_ad.discretize(gb)
+
+    interface_eq_ad = pp.ad.Equation(interface_flux, dof_manager, "flow on interface")
 
     manager.equations += [flow_eq_ad, interface_eq_ad]
 
@@ -131,7 +137,7 @@ def test_biot():
     pressure_variable = "pressure"
 
     mechanics_keyword = "mechanics"
-    flow_keyword ="flow"
+    flow_keyword = "flow"
 
     d = gb.node_props(g)
 
@@ -141,14 +147,24 @@ def test_biot():
     bc_mech = pp.BoundaryConditionVectorial(g, faces=np.array([0]), cond=["dir"])
     bc_val_mech = np.ones(g.num_faces * g.dim)
 
-    mech_param = {"biot_alpha": 1, "bc": bc_mech, "bc_values": bc_val_mech, 'inverter': 'python'}
-    flow_param = {"biot_alpha": 1, "bc": bc_flow, "bc_values": bc_val_flow, 'inverter': 'python'}
+    mech_param = {
+        "biot_alpha": 1,
+        "bc": bc_mech,
+        "bc_values": bc_val_mech,
+        "inverter": "python",
+    }
+    flow_param = {
+        "biot_alpha": 1,
+        "bc": bc_flow,
+        "bc_values": bc_val_flow,
+        "inverter": "python",
+    }
     pp.initialize_default_data(g, d, mechanics_keyword, mech_param)
     pp.initialize_default_data(g, d, flow_keyword, flow_param)
 
     d[pp.PRIMARY_VARIABLES] = {
         displacement_variable: {"cells": g.dim},
-        pressure_variable : {"cells": 1},
+        pressure_variable: {"cells": 1},
     }
 
     dof_manager = pp.DofManager(gb)
@@ -200,7 +216,9 @@ def test_biot():
     div_u_rhs = div_u.div_u
     stab_rhs = stabilization.stabilization
     manager.equations.append(
-        pp.ad.Equation(momentuum, dof_manager=dof_manager, name="Momentuum conservation")
+        pp.ad.Equation(
+            momentuum, dof_manager=dof_manager, name="Momentuum conservation"
+        )
     )
 
     flow_momentuum_eq = accumulation + compr * p + dt * diffusion
@@ -226,6 +244,7 @@ def test_biot():
 
 # Below are grid buckte generators to be used for tests of contact-mechanics models
 
+
 def _single_fracture_2d():
     frac = [np.array([[2, 3], [2, 2]])]
     gb = pp.meshing.cart_grid(frac, [5, 4])
@@ -239,11 +258,13 @@ def _single_fracture_near_global_boundary_2d():
     pp.contact_conditions.set_projections(gb)
     return gb
 
+
 def _two_fractures_2d():
     frac = [np.array([[2, 3], [1, 1]]), np.array([[2, 3], [3, 3]])]
     gb = pp.meshing.cart_grid(frac, [5, 4])
     pp.contact_conditions.set_projections(gb)
     return gb
+
 
 def _two_fractures_crossing_2d():
     frac = [np.array([[1, 3], [2, 2]]), np.array([[2, 2], [1, 3]])]
@@ -251,41 +272,44 @@ def _two_fractures_crossing_2d():
     pp.contact_conditions.set_projections(gb)
     return gb
 
+
 def _single_fracture_3d():
     frac = [np.array([[2, 3, 3, 2], [2, 2, 3, 3], [2, 2, 2, 2]])]
     gb = pp.meshing.cart_grid(frac, [5, 5, 4])
     pp.contact_conditions.set_projections(gb)
     return gb
 
+
 def _three_fractures_crossing_3d():
-    frac = [np.array([[1, 3, 3, 1], [1, 1, 3, 3], [2, 2, 2, 2]]),
-            np.array([[1, 1, 3, 3], [2, 2, 2, 2], [1, 3, 3, 1]]),
-            np.array([[2, 2, 2, 2], [1, 1, 3, 3], [1, 3, 3, 1]]),
-            ]
+    frac = [
+        np.array([[1, 3, 3, 1], [1, 1, 3, 3], [2, 2, 2, 2]]),
+        np.array([[1, 1, 3, 3], [2, 2, 2, 2], [1, 3, 3, 1]]),
+        np.array([[2, 2, 2, 2], [1, 1, 3, 3], [1, 3, 3, 1]]),
+    ]
     gb = pp.meshing.cart_grid(frac, [4, 4, 4])
     pp.contact_conditions.set_projections(gb)
     return gb
 
 
 class ContactModel(pp.ContactMechanics):
-
     def __init__(self, param, grid_meth):
         super().__init__(param)
         self._grid_meth = grid_meth
 
-        self.eq_order = ['u', 'contact_traction', 'mortar_u']
+        self.eq_order = ["u", "contact_traction", "mortar_u"]
 
     def _bc_values(self, g):
-        return g.face_centers[:g.dim].ravel('f')
+        return g.face_centers[: g.dim].ravel("f")
 
     def create_grid(self):
         np.random.seed(0)
         self.gb = self._grid_meth()
+
+
 #        pp.contact_conditions.set_projections(self.gb)
 
 
 class BiotContactModel(pp.ContactMechanicsBiot):
-
     def __init__(self, param, grid_meth):
         ############# NB: tests should be with and without subtract_fracture_pressure
         ## Time steps should be an input parameters, try a few
@@ -296,22 +320,26 @@ class BiotContactModel(pp.ContactMechanicsBiot):
         self.end_time = 1
         self._grid_meth = grid_meth
 
-        self.eq_order = ['u', 'contact_traction', 'mortar_u', 'p', 'mortar_p']
+        self.eq_order = ["u", "contact_traction", "mortar_u", "p", "mortar_p"]
 
     def _bc_values_scalar(self, g):
-        return g.face_centers[:g.dim].sum(axis=0)
+        return g.face_centers[: g.dim].sum(axis=0)
 
     def _bc_values_mechanics(self, g):
-        return g.face_centers[:g.dim].ravel('f')
+        return g.face_centers[: g.dim].ravel("f")
 
     def create_grid(self):
         np.random.seed(0)
         self.gb = self._grid_meth()
         xn = self.gb.grids_of_dimension(self.gb.dim_max())[0].nodes
-        box = {'xmin': xn[0].min(), 'xmax': xn[0].max(),
-               'ymin': xn[1].min(), 'ymax': xn[0].max()}
+        box = {
+            "xmin": xn[0].min(),
+            "xmax": xn[0].max(),
+            "ymin": xn[1].min(),
+            "ymax": xn[0].max(),
+        }
         if self.gb.dim_max() == 3:
-            box.update({'zmin': xn[2].min(), 'zmax': xn[2].max()})
+            box.update({"zmin": xn[2].min(), "zmax": xn[2].max()})
         self.box = box
 
 
@@ -337,7 +365,9 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
 
     iteration_counter = 0
 
-    dofs = _block_reordering(model_as.eq_order, model_as.dof_manager, model_ad._eq_manager)
+    dofs = _block_reordering(
+        model_as.eq_order, model_as.dof_manager, model_ad._eq_manager
+    )
 
     while iteration_counter <= 20 and (not is_converged_as or not is_converged_ad):
         # Re-discretize the nonlinear term
@@ -351,7 +381,7 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
         b_as = b_as[dofs]
 
         dA = A_as - A_ad
- #       breakpoint()
+        #       breakpoint()
         if dA.data.size > 0:
             if np.max(np.abs(dA.data)) > tol:
                 raise ValueError("Mismatch in Jacobian matrices")
@@ -362,22 +392,22 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
         # Solve linear system
         sol_as = model_as.assemble_and_solve_linear_system(tol)
         sol_ad = model_ad.assemble_and_solve_linear_system(tol)
-#        g = model_ad.gb.grids_of_dimension(2)[0]
-#        print(model_ad.gb.node_props(g, pp.STATE)['p'])
-#        breakpoint()
+        #        g = model_ad.gb.grids_of_dimension(2)[0]
+        #        print(model_ad.gb.node_props(g, pp.STATE)['p'])
+        #        breakpoint()
         model_as.after_newton_iteration(sol_as)
         model_ad.after_newton_iteration(sol_ad)
 
- #       breakpoint()
+        #       breakpoint()
         _, is_converged_as, _ = model_as.check_convergence(
-                        sol_as, prev_sol_as, init_sol_as, {'nl_convergence_tol': tol}
-                    )
+            sol_as, prev_sol_as, init_sol_as, {"nl_convergence_tol": tol}
+        )
         _, is_converged_ad, is_diverged = model_as.check_convergence(
-                        sol_ad + prev_sol_ad, prev_sol_ad, init_sol_ad, {'nl_convergence_tol': tol}
-                    )
+            sol_ad + prev_sol_ad, prev_sol_ad, init_sol_ad, {"nl_convergence_tol": tol}
+        )
 
         prev_sol_as = sol_as
- #       breakpoint()
+        #       breakpoint()
         prev_sol_ad += sol_ad
         iteration_counter += 1
 
@@ -390,6 +420,7 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
     state_ad = model_ad.get_state_vector()
     # Solutions should be identical.
     assert np.linalg.norm(state_as - state_ad) < tol
+
 
 def _block_reordering(eq_names, dof_manager, eqn_manager):
 
@@ -404,7 +435,6 @@ def _block_reordering(eq_names, dof_manager, eqn_manager):
         n1, n2 = g1.nodes, g2.nodes
 
         return test_utils.compare_arrays(n1, n2, sort=False)
-
 
     keys = []
     for (name, eq) in zip(eq_names, eqn_manager.equations):
@@ -424,9 +454,8 @@ def _block_reordering(eq_names, dof_manager, eqn_manager):
                             breakpoint()
                             debug = False
 
-
                 elif isinstance(grid, pp.Grid) and isinstance(grid_eq, pp.Grid):
-                    if compare_grids(grid, grid_eq):# and (grid, var) not in keys:
+                    if compare_grids(grid, grid_eq):  # and (grid, var) not in keys:
                         keys.append((grid, var))
                 else:
                     continue
@@ -457,22 +486,23 @@ def _timestep_stepwise_newton_with_comparison(model_as, model_ad):
             model.time_index += 1
         _stepwise_newton_with_comparison(model_as, model_ad, prepare=False)
 
-
     state_as = model_as.get_state_vector()
     state_ad = model_ad.get_state_vector()
     # Solutions should be identical.
     assert np.linalg.norm(state_as - state_ad) < tol
 
 
-
-
-@pytest.mark.parametrize("grid_method", [_single_fracture_2d,
-                                         _single_fracture_near_global_boundary_2d,
-                                         _two_fractures_2d,
-                                         _two_fractures_crossing_2d,
-                                         _single_fracture_3d,
-                                         _three_fractures_crossing_3d,
-                                         ])
+@pytest.mark.parametrize(
+    "grid_method",
+    [
+        _single_fracture_2d,
+        _single_fracture_near_global_boundary_2d,
+        _two_fractures_2d,
+        _two_fractures_crossing_2d,
+        _single_fracture_3d,
+        _three_fractures_crossing_3d,
+    ],
+)
 def test_contact_mechanics(grid_method):
     model_as = ContactModel({}, grid_method)
 
@@ -482,13 +512,17 @@ def test_contact_mechanics(grid_method):
     _stepwise_newton_with_comparison(model_as, model_ad)
 
 
-@pytest.mark.parametrize("grid_method", [_single_fracture_2d,
-                                         _single_fracture_near_global_boundary_2d,
-                                         _two_fractures_2d,
-                                         _two_fractures_crossing_2d,
-                                         _single_fracture_3d,
-                                         _three_fractures_crossing_3d,
-                                         ])
+@pytest.mark.parametrize(
+    "grid_method",
+    [
+        _single_fracture_2d,
+        _single_fracture_near_global_boundary_2d,
+        _two_fractures_2d,
+        _two_fractures_crossing_2d,
+        _single_fracture_3d,
+        _three_fractures_crossing_3d,
+    ],
+)
 def test_contact_mechanics_biot(grid_method):
     model_as = BiotContactModel({}, grid_method)
 
@@ -496,5 +530,7 @@ def test_contact_mechanics_biot(grid_method):
     model_ad._use_ad = True
     _timestep_stepwise_newton_with_comparison(model_as, model_ad)
 
-#test_contact_mechanics_biot(_single_fracture_3d)
-test_contact_mechanics_biot(_three_fractures_crossing_3d)
+
+test_contact_mechanics_biot(_single_fracture_2d)
+# test_contact_mechanics_biot(_single_fracture_3d)
+# test_contact_mechanics_biot(_three_fractures_crossing_3d)
