@@ -31,8 +31,8 @@ class RobinCoupling(
     def __init__(
         self,
         keyword: str,
-        discr_primary: Optional["pp.Discretization"] = None,
-        discr_secondary: Optional["pp.Discretization"] = None,
+        discr_primary: Optional["pp.EllipticDiscretization"] = None,
+        discr_secondary: Optional["pp.EllipticDiscretization"] = None,
         primary_keyword: Optional[str] = None,
     ) -> None:
         """Initialize Robin Coupling.
@@ -100,7 +100,7 @@ class RobinCoupling(
         return mg.num_cells
 
     def discretize(
-        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge, Dict
+        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
     ):
         """Discretize the interface law and store the discretization in the
         edge data.
@@ -221,8 +221,14 @@ class RobinCoupling(
             )
 
     def assemble_matrix_rhs(
-        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
-    ) -> None:
+        self,
+        g_primary: pp.Grid,
+        g_secondary: pp.Grid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_edge: Dict,
+        matrix: sps.spmatrix,
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
@@ -250,6 +256,8 @@ class RobinCoupling(
 
         primary_ind = 0
         secondary_ind = 1
+        assert self.discr_primary is not None and self.discr_secondary is not None
+
         cc, rhs = self._define_local_block_matrix(
             g_primary, g_secondary, self.discr_primary, self.discr_secondary, mg, matrix
         )
@@ -342,6 +350,8 @@ class RobinCoupling(
         mg_primary: pp.MortarGrid = data_primary_edge["mortar_grid"]
         mg_secondary: pp.MortarGrid = data_secondary_edge["mortar_grid"]
 
+        assert self.discr_primary is not None and self.discr_secondary is not None
+
         # Normally, the projections will be pressure from the primary (high-dim node)
         # to the primary mortar, and flux from secondary mortar to primary
         proj_pressure = mg_primary.primary_to_mortar_avg()
@@ -401,13 +411,15 @@ class FluxPressureContinuity(RobinCoupling):
     def __init__(
         self,
         keyword: str,
-        discr_primary: "pp.Discretization",
-        discr_secondary: Optional["pp.Discretization"] = None,
+        discr_primary: pp.EllipticDiscretization,
+        discr_secondary: Optional[pp.EllipticDiscretization] = None,
     ) -> None:
+
+        self.discr_primary: pp.EllipticDiscretization = discr_primary
         if discr_secondary is None:
-            discr_secondary = discr_primary
-        self.discr_primary = discr_primary
-        self.discr_secondary = discr_secondary
+            self.discr_secondary: pp.EllipticDiscretization = discr_primary
+        else:
+            self.discr_secondary = discr_secondary
 
         # This interface law will have direct interface coupling to represent
         # the influence of the flux boundary condition of the secondary
@@ -462,8 +474,9 @@ class FluxPressureContinuity(RobinCoupling):
 
         # Generate matrix for the coupling.
         mg: pp.MortarGrid = data_edge["mortar_grid"]
+
         cc_primary, rhs_primary = self._define_local_block_matrix(
-            g_primary, g_secondary, self.discr_primary, self.discr_secondary, mg, matrix
+            g_primary, g_secondary, self.discr_primary, self.discr_secondary, mg, matrix  # type: ignore
         )
         # I got some problems with pointers when doing rhs_primary = rhs_secondary.copy()
         # so just reconstruct everything.
@@ -482,9 +495,10 @@ class FluxPressureContinuity(RobinCoupling):
         else:
             primary_ind = 0
 
-        self.discr_primary.assemble_int_bound_pressure_trace_rhs(
-            g_primary, data_primary, data_edge, cc_primary, rhs_primary, primary_ind
-        )
+        # EK: Not sure what this call refers to, so I'll comment it out.
+        #        self.discr_primary.assemble_int_bound_pressure_trace_rhs(
+        #            g_primary, data_primary, data_edge, cc_primary, rhs_primary, primary_ind
+        #        )
 
         if g_primary.dim == g_secondary.dim:
             rhs_secondary[2] = -rhs_secondary[2]

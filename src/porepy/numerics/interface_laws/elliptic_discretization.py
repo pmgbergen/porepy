@@ -134,7 +134,7 @@ class EllipticDiscretization(Discretization):
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,
-        use_secondary_proj: bool,
+        use_secondary_proj: bool = False,
     ) -> None:
         """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
@@ -221,7 +221,7 @@ class EllipticDiscretization(Discretization):
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,
-        use_secondary_proj: bool,
+        use_secondary_proj: bool = False,
     ) -> None:
         """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
