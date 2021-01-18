@@ -920,9 +920,9 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             self._discretize_biot()
 
             # Next, discretize term on the matrix grid not covered by the Biot discretization,
-            # i.e. the source term
+            # i.e. the diffusion, mass and source terms
             filt = pp.assembler_filters.ListFilter(
-                grid_list=[g_max], term_list=["source"]
+                grid_list=[g_max], term_list=["source", "mass", "diffusion"]
             )
             self.assembler.discretize(filt=filt)
 
