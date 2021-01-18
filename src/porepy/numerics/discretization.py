@@ -24,7 +24,7 @@ class Discretization(abc.ABC):
     def __repr__(self) -> str:
         s = f"Discretization of type {self.__class__.__name__}"
         if hasattr(self, "keyword"):
-            s += f"with keyword {self.keyword}"
+            s += f" with keyword {self.keyword}"
         return s
 
     @abc.abstractmethod
