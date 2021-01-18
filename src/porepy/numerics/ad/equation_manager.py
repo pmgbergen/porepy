@@ -14,6 +14,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+from .discretizations import _MergedOperator
 from . import operators
 from .forward_mode import initAdArrays
 
@@ -101,6 +102,8 @@ class Equation:
         self._variable_ids = current_ids
         self._prev_time_dofs = prev_indices
         self._prev_time_ids = prev_ids
+
+        self._identify_discretizations()
 
         # Storage for matrices; will likely be removed (moved to the individual
         # operators).
@@ -192,6 +195,24 @@ class Equation:
             inds.append(np.hstack([i for i in ind_var]))
 
         return inds, variable_ids, prev_time
+
+    def _identify_subtree_discretizations(self, op, discr):
+
+        if len(op.tree.children) > 0:
+            for child in op.tree.children:
+                discr += self._identify_subtree_discretizations(child, [])
+
+        if isinstance(op, _MergedOperator):
+            discr.append(op)
+
+        return discr
+
+    def _identify_discretizations(self):
+        all_discr = self._identify_subtree_discretizations(self._operator, [])
+        self.discretizations = _uniquify_discretization_list(all_discr)
+
+    def discretize(self, gb: pp.GridBucket) -> None:
+        _discretize_from_list(self.discretizations, gb)
 
     def to_ad(self, gb: pp.GridBucket, state: Optional[np.ndarray] = None):
         """Evaluate the residual and Jacobian matrix for a given state.
@@ -420,11 +441,17 @@ class EquationManager:
         rhs = np.hstack([vec for vec in b])
         return A, rhs
 
-    def discretize(self):
+    def discretize(self, gb):
         # Somehow loop over all equations, discretize identified objects
         # (but should also be able to do rediscretization based on
         # dependency graph etc).
-        pass
+        discr = []
+
+        for eqn in self.equations:
+            discr = eqn._identify_subtree_discretizations(eqn._operator, discr)
+
+        unique_discr = _uniquify_discretization_list(discr)
+        _discretize_from_list(unique_discr, gb)
 
     def __repr__(self) -> str:
         s = (
@@ -447,3 +474,50 @@ class EquationManager:
         s += ", ".join(eq_names)
 
         return s
+
+
+def _uniquify_discretization_list(all_discr):
+    unique_discr_grids: Dict[
+        Union["pp.Discretization", "pp.AbstractInterfaceLaw"], List
+    ] = {}
+
+    cls_obj_map = {}
+
+    cls_key_covered = []
+
+    for discr in all_discr:
+        cls = discr.discr.__class__
+        param_keyword = discr.keyword
+
+        key = (cls, param_keyword)
+
+        if key in cls_key_covered:
+            d = cls_obj_map[cls]
+            for g in discr.grids:
+                if g not in unique_discr_grids[d]:
+                    unique_discr_grids[d].append(g)
+        else:
+            cls_obj_map[cls] = discr.discr
+            cls_key_covered.append(key)
+            unique_discr_grids[discr.discr] = discr.grids
+
+    return unique_discr_grids
+
+
+def _discretize_from_list(discretizations, gb):
+    for discr in discretizations:
+        # Discr has type _MergedOperator
+        for g in discretizations[discr]:
+            if isinstance(g, tuple):
+                data = gb.edge_props(g)
+                g_primary, g_secondary = g
+                d_primary = gb.node_props(g_primary)
+                d_secondary = gb.node_props(g_secondary)
+                discr.discretize(g_primary, g_secondary, d_primary, d_secondary, data)
+            else:
+                data = gb.node_props(g)
+                try:
+                    discr.discretize(g, data)
+                except NotImplementedError:
+                    # This will likely be GradP and other Biot discretizations
+                    pass
