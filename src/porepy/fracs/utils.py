@@ -11,6 +11,7 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
+@pp.time_logger
 def fracture_length_2d(pts, edges):
     """Find the length of 2D fracture traces.
 
@@ -31,6 +32,7 @@ def fracture_length_2d(pts, edges):
     return length
 
 
+@pp.time_logger
 def uniquify_points(pts, edges, tol):
     """Uniquify a set of points by merging almost coinciding coordinates.
 
@@ -67,6 +69,7 @@ def uniquify_points(pts, edges, tol):
     return p_unique, e_unique, point_edge
 
 
+@pp.time_logger
 def snap_fracture_set_2d(pts, edges, snap_tol, termination_tol=1e-2, max_iter=100):
     """Snap vertexes of a set of fracture lines embedded in 2D, so that small
     distances between lines and vertexes are removed.

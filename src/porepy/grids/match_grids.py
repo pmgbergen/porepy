@@ -13,6 +13,7 @@ from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 logger = logging.getLogger(__name__)
 
 
+@pp.time_logger
 def match_1d(new_1d: pp.Grid, old_1d: pp.Grid, tol: float):
     """Obtain mappings between the cells of non-matching 1d grids.
 
@@ -80,6 +81,7 @@ def match_1d(new_1d: pp.Grid, old_1d: pp.Grid, tol: float):
     return weights, new_g_ind, old_g_ind
 
 
+@pp.time_logger
 def match_2d(new_g: pp.Grid, old_g: pp.Grid, tol: float):
     """Match two simplex tessalations to identify overlapping cells.
 
@@ -97,6 +99,7 @@ def match_2d(new_g: pp.Grid, old_g: pp.Grid, tol: float):
 
     """
 
+    @pp.time_logger
     def proj_pts(p, cc, normal):
         """ Project points to the 2d plane defined by normal and center them around cc"""
         rot = pp.map_geometry.project_plane_matrix(p - cc, normal)
@@ -135,6 +138,7 @@ def match_2d(new_g: pp.Grid, old_g: pp.Grid, tol: float):
     return weights, new_g_ind, old_g_ind
 
 
+@pp.time_logger
 def match_grids_along_1d_mortar(
     mg: pp.MortarGrid, g_new: pp.Grid, g_old: pp.Grid, tol: float
 ) -> sps.csr_matrix:
@@ -179,6 +183,7 @@ def match_grids_along_1d_mortar(
     # points, is based on a geometric tolerance. For very fine, or bad, grids
     # this may give trouble.
 
+    @pp.time_logger
     def cells_from_faces(g, fi):
         # Find cells of faces, specified by face indices fi.
         # It is assumed that fi is on the boundary, e.g. there is a single
@@ -193,6 +198,7 @@ def match_grids_along_1d_mortar(
 
         return ci[ind_map]
 
+    @pp.time_logger
     def create_1d_from_nodes(nodes):
         # From a set of nodes, create a 1d grid. duplicate nodes are removed
         # and we verify that the nodes are indeed colinear
@@ -206,6 +212,7 @@ def match_grids_along_1d_mortar(
         g.compute_geometry()
         return g, sort_ind
 
+    @pp.time_logger
     def nodes_of_faces(g, fi):
         # Find nodes of a set of faces.
         f = np.zeros(g.num_faces)
@@ -213,6 +220,7 @@ def match_grids_along_1d_mortar(
         nodes = np.where(g.face_nodes * f > 0)[0]
         return nodes
 
+    @pp.time_logger
     def face_to_cell_map(g_2d, g_1d, loc_faces, loc_nodes):
         # Match faces in a 2d grid and cells in a 1d grid by identifying
         # face-nodes and cell-node relations.
@@ -391,6 +399,7 @@ def match_grids_along_1d_mortar(
     return matrix.tocsr()
 
 
+@pp.time_logger
 def gb_refinement(
     gb: pp.GridBucket, gb_ref: pp.GridBucket, tol: float = 1e-8, mode: str = "nested"
 ):
@@ -456,6 +465,7 @@ def gb_refinement(
         gb.set_node_prop(grid=g, key="coarse_fine_cell_mapping", val=mapping)
 
 
+@pp.time_logger
 def structured_refinement(
     g: pp.Grid, g_ref: pp.Grid, point_in_poly_tol=1e-8
 ) -> sps.csc_matrix:

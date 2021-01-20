@@ -22,9 +22,11 @@ class Tpfa(pp.FVElliptic):
 
     """
 
+    @pp.time_logger
     def __init__(self, keyword):
         super(Tpfa, self).__init__(keyword)
 
+    @pp.time_logger
     def discretize(self, g, data):
         """
         Discretize the second order elliptic equation using two-point flux approximation.

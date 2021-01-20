@@ -17,6 +17,7 @@ updated, this will raise a KeyError.
 """
 
 
+@pp.time_logger
 def read():
     """Read configuration file, located somewhere in the PYTHONPATH.
 

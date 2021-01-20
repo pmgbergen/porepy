@@ -105,6 +105,7 @@ class THM(parent_model.ContactMechanicsBiot):
 
     """
 
+    @pp.time_logger
     def __init__(self, params: Optional[Dict] = None) -> None:
         super().__init__(params)
 
@@ -138,6 +139,7 @@ class THM(parent_model.ContactMechanicsBiot):
         # temperature mechanics coupling
         self.mechanics_temperature_parameter_key: str = "mech_temperature"
 
+    @pp.time_logger
     def before_newton_iteration(self) -> None:
         """Re-discretize the nonlinear terms"""
         self.compute_fluxes()
@@ -149,6 +151,7 @@ class THM(parent_model.ContactMechanicsBiot):
         filt = pp.assembler_filters.ListFilter(term_list=terms)
         self.assembler.discretize(filt=filt)
 
+    @pp.time_logger
     def reconstruct_stress(self, previous_iterate: bool = False) -> None:
         """
         Compute the stress in the highest-dimensional grid based on the displacement
@@ -179,6 +182,7 @@ class THM(parent_model.ContactMechanicsBiot):
         # Stress contribution from the scalar variable
         d[pp.STATE]["stress"] += matrix_dictionary["grad_p"] * T
 
+    @pp.time_logger
     def compute_fluxes(self) -> None:
         """Compute the fluxes in the mixed-dimensional grid from the current state of
         the pressure variables.
@@ -194,6 +198,7 @@ class THM(parent_model.ContactMechanicsBiot):
             from_iterate=True,
         )
 
+    @pp.time_logger
     def _set_parameters(self) -> None:
         """
         Set the parameters for the simulation.
@@ -202,6 +207,7 @@ class THM(parent_model.ContactMechanicsBiot):
         self._set_temperature_parameters()
         self._set_mechanics_parameters()
 
+    @pp.time_logger
     def _set_mechanics_parameters(self) -> None:
         """
         Set the parameters for the simulation.
@@ -219,6 +225,7 @@ class THM(parent_model.ContactMechanicsBiot):
                     },
                 )
 
+    @pp.time_logger
     def _set_scalar_parameters(self) -> None:
         """Set parameters for the pressure / mass conservation equation."""
         # Most values are handled as if this was a poro-elastic problem
@@ -236,6 +243,7 @@ class THM(parent_model.ContactMechanicsBiot):
                 {"mass_weight": t2s_coupling, "time_step": self.time_step},
             )
 
+    @pp.time_logger
     def _set_temperature_parameters(self) -> None:
         """Parameters for the temperature equation."""
         tensor_scale: float = (
@@ -314,30 +322,36 @@ class THM(parent_model.ContactMechanicsBiot):
                 },
             )
 
+    @pp.time_logger
     def _bc_type_temperature(self, g: pp.Grid) -> pp.BoundaryCondition:
         # Define boundary regions
         all_bf, *_ = self._domain_boundary_sides(g)
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, all_bf, "dir")
 
+    @pp.time_logger
     def _bc_values_temperature(self, g: pp.Grid) -> np.ndarray:
         return np.zeros(g.num_faces)
 
+    @pp.time_logger
     def _source_temperature(self, g: pp.Grid) -> np.ndarray:
         return np.zeros(g.num_cells)
 
+    @pp.time_logger
     def _biot_beta(self, g: pp.Grid) -> float:
         """
         TM coupling coefficient
         """
         return 1.0
 
+    @pp.time_logger
     def _scalar_temperature_coupling_coefficient(self, g: pp.Grid) -> float:
         """
         TH coupling coefficient
         """
         return -1.0
 
+    @pp.time_logger
     def _assign_variables(self) -> None:
         """
         Assign primary variables to the nodes and edges of the grid bucket.
@@ -357,6 +371,7 @@ class THM(parent_model.ContactMechanicsBiot):
                 }
             )
 
+    @pp.time_logger
     def _assign_discretizations(self) -> None:
         """
         Assign discretizations to the nodes and edges of the grid bucket.
@@ -505,6 +520,7 @@ class THM(parent_model.ContactMechanicsBiot):
                     }
                 )
 
+    @pp.time_logger
     def _initial_condition(self) -> None:
         """
         In addition to the values set by the parent class, we set initial value for the
@@ -534,6 +550,7 @@ class THM(parent_model.ContactMechanicsBiot):
 
             pp.set_iterate(d, iterate)
 
+    @pp.time_logger
     def _save_mechanical_bc_values(self) -> None:
         """
         The div_u term uses the mechanical bc values for both current and previous time
@@ -549,6 +566,7 @@ class THM(parent_model.ContactMechanicsBiot):
         d[pp.STATE][key]["bc_values"] = d[pp.PARAMETERS][key]["bc_values"].copy()
         d[pp.STATE][key_t]["bc_values"] = d[pp.PARAMETERS][key_t]["bc_values"].copy()
 
+    @pp.time_logger
     def _discretize(self) -> None:
         """Discretize all terms"""
         if not hasattr(self, "assembler"):
@@ -614,6 +632,7 @@ class THM(parent_model.ContactMechanicsBiot):
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
+    @pp.time_logger
     def _copy_biot_discretizations(self) -> None:
         """The Biot discretization is designed to discretize a single term of the
         grad_p type. It should not be difficult to generalize this, but pending such
@@ -669,6 +688,7 @@ class THM(parent_model.ContactMechanicsBiot):
         state = {key_m_from_t: bc_dict}
         pp.set_state(d, state)
 
+    @pp.time_logger
     def _update_iterate(self, solution_vector: np.ndarray) -> None:
         """
         Extract parts of the solution for current iterate.

@@ -17,12 +17,14 @@ logger = logging.getLogger(__name__)
 
 
 class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
+    @pp.time_logger
     def __init__(self, keyword: str) -> None:
         super(RT0, self).__init__(keyword, "RT0")
         # variable name to store the structure that map a cell to the opposite nodes
         # of the local faces
         self.cell_face_to_opposite_node = "rt0_class_cell_face_to_opposite_node"
 
+    @pp.time_logger
     def discretize(self, g: pp.Grid, data: Dict) -> None:
         """Discretize a second order elliptic equation using using a RT0-P0 method.
 
@@ -183,6 +185,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         matrix_dictionary[self.vector_proj_key] = proj
 
     @staticmethod
+    @pp.time_logger
     def massHdiv(
         inv_K: np.ndarray,
         c_volume: float,
@@ -224,6 +227,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K_exp, np.dot(N, C)))))
 
     @staticmethod
+    @pp.time_logger
     def faces_to_cell(
         pt: np.ndarray,
         coord: np.ndarray,
@@ -252,6 +256,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         P[dim, :] = c_delta / np.einsum("ij,ij->j", f_delta, f_normals)
         return np.dot(R.T, P)
 
+    @pp.time_logger
     def _compute_cell_face_to_opposite_node(
         self, g: pp.Grid, data: np.ndarray, recompute: bool = False
     ) -> None:

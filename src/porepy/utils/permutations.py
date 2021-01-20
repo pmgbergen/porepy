@@ -1,7 +1,9 @@
 """ Utility function for permutation of numbers.
 """
+import porepy as pp
 
 
+@pp.time_logger
 def multinary_permutations(base, length):
     """
     Define a generator over all numbers of a certain length for a number system

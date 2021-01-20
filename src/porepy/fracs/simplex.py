@@ -8,12 +8,14 @@ from typing import Any, Dict, Tuple
 import meshio
 import numpy as np
 
+import porepy as pp
 from porepy.grids import constants
 from porepy.grids.gmsh import mesh_2_grid
 
 logger = logging.getLogger(__name__)
 
 
+@pp.time_logger
 def triangle_grid_embedded(file_name):
     """Create triangular (2D) grid of a domain embedded in 3D space, without
     meshing the 3D volume.
@@ -80,6 +82,7 @@ def triangle_grid_embedded(file_name):
     return grids
 
 
+@pp.time_logger
 def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
     """Generate a list of grids dimensions {2, 1, 0}, starting from a gmsh mesh.
 
@@ -148,6 +151,7 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
     return grids
 
 
+@pp.time_logger
 def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
     """Generate a list of grids dimensions {1, 0}, starting from a gmsh mesh.
 
@@ -213,6 +217,7 @@ def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
     return grids
 
 
+@pp.time_logger
 def tetrahedral_grid_from_gmsh(file_name, constraints=None, **kwargs):
     """Generate a list of grids of dimensions {3, 2, 1, 0}, starting from a gmsh
     mesh.
@@ -280,6 +285,7 @@ def tetrahedral_grid_from_gmsh(file_name, constraints=None, **kwargs):
     return grids
 
 
+@pp.time_logger
 def _read_gmsh_file(
     file_name: str,
 ) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[int, str]]:

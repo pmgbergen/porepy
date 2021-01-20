@@ -1,7 +1,10 @@
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
 
+
+@pp.time_logger
 def half_space_int(n, x0, pts):
     """
     Find the points that lie in the intersection of half spaces (3D)
@@ -55,6 +58,7 @@ def half_space_int(n, x0, pts):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger
 def half_space_pt(n, x0, pts, recompute=True):
     """
     Find an interior point for the halfspaces.
@@ -119,6 +123,7 @@ def half_space_pt(n, x0, pts, recompute=True):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger
 def star_shape_cell_centers(g, as_nan=False):
     """
     For a given grid compute the star shape center for each cell.

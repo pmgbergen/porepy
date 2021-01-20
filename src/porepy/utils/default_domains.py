@@ -3,7 +3,10 @@ Module for creating standard domain dictionaries.
 """
 from typing import Dict, Sequence, Union
 
+import porepy as pp
 
+
+@pp.time_logger
 def CubeDomain(physdims: Sequence[Union[int, float]]) -> Dict["str", Union[int, float]]:
     """
     Create a domain dictionary of a Cube domain with lower left corner
@@ -36,6 +39,7 @@ def CubeDomain(physdims: Sequence[Union[int, float]]) -> Dict["str", Union[int, 
     return domain
 
 
+@pp.time_logger
 def SquareDomain(
     physdims: Sequence[Union[int, float]]
 ) -> Dict["str", Union[int, float]]:
@@ -52,6 +56,7 @@ def SquareDomain(
     return CubeDomain(physdims)
 
 
+@pp.time_logger
 def UnitCubeDomain() -> Dict["str", Union[int, float]]:
     """
     Create a domain dictionary of a Unit cube
@@ -63,6 +68,7 @@ def UnitCubeDomain() -> Dict["str", Union[int, float]]:
     return CubeDomain([1, 1, 1])
 
 
+@pp.time_logger
 def UnitSquareDomain() -> Dict["str", Union[int, float]]:
     """
     Create a domain dictionary of a Unit square

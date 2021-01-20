@@ -8,6 +8,7 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
+@pp.time_logger
 def run_stationary_model(model, params):
     model.prepare_simulation()
 
@@ -18,6 +19,7 @@ def run_stationary_model(model, params):
     model.after_simulation()
 
 
+@pp.time_logger
 def run_time_dependent_model(model, params):
     """
     Time loop for the model classes.
@@ -53,6 +55,7 @@ def run_time_dependent_model(model, params):
     model.after_simulation()
 
 
+@pp.time_logger
 def _run_iterative_model(model, params):
     """Intended use is for multi-step models with iterative couplings.
 

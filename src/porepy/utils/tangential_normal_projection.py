@@ -29,6 +29,7 @@ class TangentialNormalProjection:
 
     """
 
+    @pp.time_logger
     def __init__(self, normals, dim=None):
         if dim is None:
             dim = normals.shape[0]
@@ -50,6 +51,7 @@ class TangentialNormalProjection:
         self.normals = normal
 
     ## Methods for genertation of projection matrices
+    @pp.time_logger
     def project_tangential_normal(self, num=None):
         """Define a projection matrix to decompose a matrix into tangential
         and normal components.
@@ -92,6 +94,7 @@ class TangentialNormalProjection:
 
         return mat
 
+    @pp.time_logger
     def project_tangential(self, num=None):
         """Define a projection matrix of a specific size onto the tangent space.
 
@@ -141,6 +144,7 @@ class TangentialNormalProjection:
         # Return the restricted matrix.
         return remove_normal_components * full_projection
 
+    @pp.time_logger
     def project_normal(self, num=None):
         """Define a projection matrix of a specific size onto the normal space.
 
@@ -189,6 +193,7 @@ class TangentialNormalProjection:
         # Return the restricted matrix
         return remove_tangential_components * full_projection
 
+    @pp.time_logger
     def local_projection(self, ind=None):
         """Get the local projection matrix (refe)
 
@@ -208,6 +213,7 @@ class TangentialNormalProjection:
 
     ### Helper functions below
 
+    @pp.time_logger
     def _decompose_vector(self, nc):
         if self.dim == 3:
             t1 = np.random.rand(self.dim, 1) * np.ones(self.num_vecs)
@@ -220,6 +226,7 @@ class TangentialNormalProjection:
             basis = np.hstack([tc1, normal])
         return basis, normal
 
+    @pp.time_logger
     def _gram_schmidt(self, u1, u2, u3=None):
         """
         Perform a Gram Schmidt procedure for the vectors u1, u2 and u3 to obtain a set of
@@ -247,6 +254,7 @@ class TangentialNormalProjection:
 
         return u1, u2, u3
 
+    @pp.time_logger
     def _invert_3d_matrix(self, M):
         """
         Find the inverse of the (m,m,k) 3D ndArray M. The inverse is intrepreted as the

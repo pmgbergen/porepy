@@ -1,3 +1,6 @@
+import porepy as pp
+
+
 class GmshConstants(object):
     """
     This class is a container for storing constant values that are used in
@@ -7,6 +10,7 @@ class GmshConstants(object):
     This may not be the most pythonic way of doing this, but it works.
     """
 
+    @pp.time_logger
     def __init__(self):
         # Indicate a neutral point (or line?), that is, internal to everything
         self.NEUTRAL_TAG = 0

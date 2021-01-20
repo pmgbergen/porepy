@@ -21,6 +21,7 @@ from porepy.utils import (
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger
 def coarsen(
     g: Union[pp.Grid, pp.GridBucket], method: str, **method_kwargs
 ) -> Union[None, sps.spmatrix]:
@@ -57,6 +58,7 @@ def coarsen(
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger
 def generate_coarse_grid(g, subdiv):
     """Generate a coarse grid clustering the cells according to the flags
     given by subdiv. Subdiv should be long as the number of cells in the
@@ -100,6 +102,7 @@ def generate_coarse_grid(g, subdiv):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger
 def reorder_partition(
     subdiv: Union[Dict[Any, Tuple[Any, np.ndarray]], np.ndarray]
 ) -> Union[Dict[Any, Tuple[Any, np.ndarray]], np.ndarray]:
@@ -128,6 +131,7 @@ def reorder_partition(
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger
 def _generate_coarse_grid_single(g, subdiv, face_map):
     """
     Specific function for a single grid. Use the common interface instead.
@@ -246,6 +250,7 @@ def _generate_coarse_grid_single(g, subdiv, face_map):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger
 def _generate_coarse_grid_gb(gb, subdiv):
     """
     Specific function for a grid bucket. Use the common interface instead.
@@ -296,6 +301,7 @@ def _generate_coarse_grid_gb(gb, subdiv):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger
 def _tpfa_matrix(g, perm=None):
     """
     Compute a two-point flux approximation matrix useful related to a call of
@@ -331,6 +337,7 @@ def _tpfa_matrix(g, perm=None):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger
 def generate_seeds(gb):
     """
     Giving the higher dimensional grid in a grid bucket, generate the seed for
@@ -372,6 +379,7 @@ def generate_seeds(gb):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger
 def create_aggregations(g, **kwargs):
     """Create a cell partition based on their volumes.
 
@@ -477,6 +485,7 @@ def create_aggregations(g, **kwargs):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger
 def __get_neigh(cells_id, c2c, partition):
     """Support function for create_aggregations"""
     neighbors = np.empty(0, dtype=np.int)
@@ -496,6 +505,7 @@ def __get_neigh(cells_id, c2c, partition):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger
 def create_partition(A, g, seeds=None, **kwargs):
     """
     Create the partition based on an input matrix using the algebraic multigrid

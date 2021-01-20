@@ -10,6 +10,7 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
+@pp.time_logger
 def grid_error(
     gb: "pp.GridBucket",
     gb_ref: "pp.GridBucket",
@@ -116,6 +117,7 @@ def grid_error(
     return errors
 
 
+@pp.time_logger
 def interpolate(g, fun):
     """
     Interpolate a scalar or vector function on the cell centers of the grid.
@@ -134,7 +136,9 @@ def interpolate(g, fun):
 
     Examples
     --------
+    @pp.time_logger
     def fun_p(pt): return np.sin(2*np.pi*pt[0])*np.sin(2*np.pi*pt[1])
+    @pp.time_logger
     def fun_u(pt): return [\
                       -2*np.pi*np.cos(2*np.pi*pt[0])*np.sin(2*np.pi*pt[1]),
                       -2*np.pi*np.sin(2*np.pi*pt[0])*np.cos(2*np.pi*pt[1])]
@@ -149,6 +153,7 @@ def interpolate(g, fun):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger
 def norm_L2(g, val):
     """
     Compute the L2 norm of a scalar or vector field.
@@ -167,6 +172,7 @@ def norm_L2(g, val):
 
     Examples
     --------
+    @pp.time_logger
     def fun_p(pt): return np.sin(2*np.pi*pt[0])*np.sin(2*np.pi*pt[1])
     p_ex = interpolate(g, fun_p)
     norm_ex = norm_L2(g, p_ex)
@@ -183,6 +189,7 @@ def norm_L2(g, val):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger
 def error_L2(g, val, val_ex, relative=True):
     """
     Compute the L2 error of a scalar or vector field with respect to a reference
@@ -208,6 +215,7 @@ def error_L2(g, val, val_ex, relative=True):
     Examples
     --------
     p = ...
+    @pp.time_logger
     def fun_p(pt): return np.sin(2*np.pi*pt[0])*np.sin(2*np.pi*pt[1])
     p_ex = interpolate(g, fun_p)
     err_p = err_L2(g, p, p_ex)

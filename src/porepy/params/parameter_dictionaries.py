@@ -9,6 +9,7 @@ import numpy as np
 import porepy as pp
 
 
+@pp.time_logger
 def flow_dictionary(g, in_data=None):
     """Dictionary with parameters for standard flow problems.
 
@@ -42,6 +43,7 @@ def flow_dictionary(g, in_data=None):
     return d
 
 
+@pp.time_logger
 def transport_dictionary(g, in_data=None):
     """Dictionary with parameters for standard transport problems.
 
@@ -76,6 +78,7 @@ def transport_dictionary(g, in_data=None):
     return d
 
 
+@pp.time_logger
 def mechanics_dictionary(g, in_data=None):
     """Dictionary with parameters for standard mechanics problems.
 

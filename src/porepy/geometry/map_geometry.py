@@ -7,6 +7,7 @@ import numpy as np
 import porepy as pp
 
 
+@pp.time_logger
 def force_point_collinearity(pts):
     """
     Given a set of points, return them aligned on a line.
@@ -31,6 +32,7 @@ def force_point_collinearity(pts):
     return pts[:, 0, np.newaxis] * (1 - dist) + pts[:, end, np.newaxis] * dist
 
 
+@pp.time_logger
 def map_grid(g, tol=1e-5, R=None):
     """If a 2d or a 1d grid is passed, the function return the cell_centers,
     face_normals, and face_centers using local coordinates. If a 3d grid is
@@ -92,6 +94,7 @@ def map_grid(g, tol=1e-5, R=None):
     return cell_centers, face_normals, face_centers, R, dim, nodes
 
 
+@pp.time_logger
 def sort_points_on_line(pts, tol=1e-5):
     """
     Return the indexes of the point according to their position on a line.
@@ -123,6 +126,7 @@ def sort_points_on_line(pts, tol=1e-5):
     return np.argsort(p[active_dim])[0]
 
 
+@pp.time_logger
 def project_points_to_line(p, tol=1e-4):
     """Project a set of colinear points onto a line.
 
@@ -175,6 +179,7 @@ def project_points_to_line(p, tol=1e-4):
     return sorted_coord, rot, active_dimension, sort_ind
 
 
+@pp.time_logger
 def project_plane_matrix(pts, normal=None, tol=1e-5, reference=None, check_planar=True):
     """Project the points on a plane using local coordinates.
 
@@ -212,6 +217,7 @@ def project_plane_matrix(pts, normal=None, tol=1e-5, reference=None, check_plana
     return rotation_matrix(angle, vect)
 
 
+@pp.time_logger
 def project_line_matrix(pts, tangent=None, tol=1e-5, reference=None):
     """Project the points on a line using local coordinates.
 
@@ -242,6 +248,7 @@ def project_line_matrix(pts, tangent=None, tol=1e-5, reference=None):
     return rotation_matrix(angle, vect)
 
 
+@pp.time_logger
 def rotation_matrix(a, vect):
     """Compute the rotation matrix about a vector by an angle using the matrix
     form of Rodrigues formula.
@@ -273,6 +280,7 @@ def rotation_matrix(a, vect):
     )
 
 
+@pp.time_logger
 def normal_matrix(pts=None, normal=None):
     """Compute the normal projection matrix of a plane.
 
@@ -299,6 +307,7 @@ def normal_matrix(pts=None, normal=None):
     return np.tensordot(normal, normal, axes=0)
 
 
+@pp.time_logger
 def tangent_matrix(pts=None, normal=None):
     """Compute the tangential projection matrix of a plane.
 
@@ -318,6 +327,7 @@ def tangent_matrix(pts=None, normal=None):
     return np.eye(3) - normal_matrix(pts, normal)
 
 
+@pp.time_logger
 def compute_normal(pts, check=True):
     """Compute the normal of a set of points. The sign of the normal is arbitary
 
@@ -348,12 +358,14 @@ def compute_normal(pts, check=True):
     return normal / np.linalg.norm(normal)
 
 
+@pp.time_logger
 def compute_normals_1d(pts):
     t = compute_tangent(pts)
     n = np.array([t[1], -t[0], 0]) / np.sqrt(t[0] ** 2 + t[1] ** 2)
     return np.r_["1,2,0", n, np.dot(rotation_matrix(np.pi / 2.0, t), n)]
 
 
+@pp.time_logger
 def compute_tangent(pts, check=True):
     """Compute a tangent vector of a set of points.
 

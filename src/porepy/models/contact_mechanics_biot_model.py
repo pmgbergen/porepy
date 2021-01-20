@@ -82,6 +82,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
     """
 
+    @pp.time_logger
     def __init__(self, params: Optional[Dict] = None) -> None:
         super().__init__(params)
 
@@ -105,6 +106,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         # temperature. See assign_discretizations
         self.subtract_fracture_pressure: bool = True
 
+    @pp.time_logger
     def before_newton_loop(self) -> None:
         """Will be run before entering a Newton loop.
         E.g.
@@ -113,25 +115,30 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         """
         self._set_parameters()
 
+    @pp.time_logger
     def before_newton_iteration(self) -> None:
         # Re-discretize the nonlinear term
         filt = pp.assembler_filters.ListFilter(term_list=[self.friction_coupling_term])
         self.assembler.discretize(filt=filt)
 
+    @pp.time_logger
     def after_newton_iteration(self, solution: np.ndarray) -> None:
         self._update_iterate(solution)
 
+    @pp.time_logger
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
         super().after_newton_convergence(solution, errors, iteration_counter)
         self._save_mechanical_bc_values()
 
+    @pp.time_logger
     def after_newton_failure(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
         raise ValueError("Newton iterations did not converge")
 
+    @pp.time_logger
     def reconstruct_stress(self, previous_iterate: bool = False) -> None:
         """
         Compute the stress in the highest-dimensional grid based on the displacement
@@ -168,6 +175,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
     # Methods for setting parametrs etc.
 
+    @pp.time_logger
     def _set_parameters(self) -> None:
         """
         Set the parameters for the simulation.
@@ -175,6 +183,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         self._set_scalar_parameters()
         self._set_mechanics_parameters()
 
+    @pp.time_logger
     def _set_mechanics_parameters(self) -> None:
         """
         Set the parameters for the simulation.
@@ -220,6 +229,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             mg: pp.MortarGrid = d["mortar_grid"]
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
+    @pp.time_logger
     def _set_scalar_parameters(self) -> None:
         tensor_scale = self.scalar_scale / self.length_scale ** 2
         kappa = 1 * tensor_scale
@@ -275,16 +285,19 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 {"normal_diffusivity": normal_diffusivity},
             )
 
+    @pp.time_logger
     def _bc_type_mechanics(self, g: pp.Grid) -> pp.BoundaryConditionVectorial:
         # Use parent class method for mechanics
         return super()._bc_type(g)
 
+    @pp.time_logger
     def _bc_type_scalar(self, g: pp.Grid) -> pp.BoundaryCondition:
         # Define boundary regions
         all_bf, *_ = self._domain_boundary_sides(g)
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, all_bf, "dir")
 
+    @pp.time_logger
     def _bc_values_mechanics(self, g: pp.Grid) -> np.ndarray:
         """
         Note that Dirichlet values should be divided by length_scale, and Neumann values
@@ -293,21 +306,26 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         # Set the boundary values
         return super()._bc_values(g)
 
+    @pp.time_logger
     def _bc_values_scalar(self, g: pp.Grid) -> np.ndarray:
         """
         Note that Dirichlet values should be divided by scalar_scale.
         """
         return np.zeros(g.num_faces)
 
+    @pp.time_logger
     def _source_mechanics(self, g: pp.Grid) -> np.ndarray:
         return super()._source(g)
 
+    @pp.time_logger
     def _source_scalar(self, g: pp.Grid) -> np.ndarray:
         return np.zeros(g.num_cells)
 
+    @pp.time_logger
     def _biot_alpha(self, g: pp.Grid) -> float:
         return 1
 
+    @pp.time_logger
     def _aperture(self, g: pp.Grid) -> np.ndarray:
         """
         Aperture is a characteristic thickness of a cell, with units [m].
@@ -320,6 +338,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             aperture *= 0.1
         return aperture
 
+    @pp.time_logger
     def _specific_volume(self, g: pp.Grid) -> np.ndarray:
         """
         The specific volume of a cell accounts for the dimension reduction and has
@@ -330,6 +349,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         a = self._aperture(g)
         return np.power(a, self._Nd - g.dim)
 
+    @pp.time_logger
     def _assign_discretizations(self) -> None:
         """
         Assign discretizations to the nodes and edges of the grid bucket.
@@ -478,6 +498,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                     }
                 }
 
+    @pp.time_logger
     def _assign_variables(self) -> None:
         """
         Assign primary variables to the nodes and edges of the grid bucket.
@@ -509,6 +530,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             else:
                 d[pp.PRIMARY_VARIABLES] = {self.mortar_scalar_variable: {"cells": 1}}
 
+    @pp.time_logger
     def _initial_condition(self) -> None:
         """
         Initial guess for Newton iteration, scalar variable and bc_values (for time
@@ -530,6 +552,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             initial_value = np.zeros(mg.num_cells)
             d[pp.STATE][self.mortar_scalar_variable] = initial_value
 
+    @pp.time_logger
     def _save_mechanical_bc_values(self) -> None:
         """
         The div_u term uses the mechanical bc values for both current and previous time
@@ -543,6 +566,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
     # Methods for discretization etc.
 
+    @pp.time_logger
     def _discretize(self) -> None:
         """Discretize all terms"""
         if not hasattr(self, "assembler"):
@@ -587,6 +611,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
+    @pp.time_logger
     def _initialize_linear_solver(self) -> None:
 
         solver = self.params.get("linear_solver", "direct")
@@ -606,6 +631,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         else:
             raise ValueError("unknown linear solver " + solver)
 
+    @pp.time_logger
     def _discretize_biot(self, update_after_geometry_change: bool = False) -> None:
         """
         To save computational time, the full Biot equation (without contact mechanics)

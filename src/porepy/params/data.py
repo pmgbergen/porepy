@@ -86,6 +86,7 @@ class Parameters(dict):
     one sub-dictionary for each keyword.
     """
 
+    @pp.time_logger
     def __init__(self, g=None, keywords=None, dictionaries=None):
         """Initialize Data object.
 
@@ -106,6 +107,7 @@ class Parameters(dict):
         self.update_dictionaries(keywords, dictionaries)
         self.grid = g
 
+    @pp.time_logger
     def __repr__(self):
         s = "Data object for physical processes "
         s += ", ".join(str(k) for k in self.keys())
@@ -114,6 +116,7 @@ class Parameters(dict):
             s += ", ".join(str(p) for p in self[k].keys())
         return s
 
+    @pp.time_logger
     def update_dictionaries(self, keywords, dictionaries=None):
         """Update the dictionaries corresponding to some keywords.
 
@@ -143,6 +146,7 @@ class Parameters(dict):
             else:
                 self[key] = dictionaries[i]
 
+    @pp.time_logger
     def set_from_other(self, keyword_add, keyword_get, parameters):
         """Add parameters from existing values for a different keyword.
 
@@ -161,6 +165,7 @@ class Parameters(dict):
         for p in parameters:
             self[keyword_add][p] = self[keyword_get][p]
 
+    @pp.time_logger
     def overwrite_shared_parameters(self, parameters, values):
         """Updates the given parameter for all keywords.
 
@@ -174,6 +179,7 @@ class Parameters(dict):
                 if p in self[kw]:
                     self[kw][p] = v
 
+    @pp.time_logger
     def modify_parameters(self, keyword, parameters, values):
         """Modify the values of some parameters of a given keyword.
 
@@ -188,6 +194,7 @@ class Parameters(dict):
         for (p, v) in zip(parameters, values):
             modify_variable(self[keyword][p], v)
 
+    @pp.time_logger
     def expand_scalars(
         self,
         n_vals: int,
@@ -202,6 +209,7 @@ class Parameters(dict):
             n_vals: Size of the expanded arrays. E.g. g.num_cells
             keyword: The parameter keyword.
             parameters: List of parameters.
+            @pp.time_logger
             defaults (optional): List of default values, one for each parameter.
                 If not set, no default values will be provided and an error
                 will ensue if one of the listed parameters is not present in
@@ -229,6 +237,7 @@ new Parameters class.
 """
 
 
+@pp.time_logger
 def initialize_default_data(
     g, data, parameter_type, specified_parameters=None, keyword=None
 ):
@@ -245,6 +254,7 @@ def initialize_default_data(
             Must be one of the following:
                 "flow", "transport" and "mechanics".
         specified_parameters: A dictionary with specified parameters, overriding the
+            @pp.time_logger
             default values. Defualts to an empty dictionary (only default values).
         keyword: String to identify the parameters. Defaults to the parameter type.
 
@@ -274,6 +284,7 @@ def initialize_default_data(
     return initialize_data(g, data, keyword, d)
 
 
+@pp.time_logger
 def initialize_data(
     g, data: Dict, keyword: str, specified_parameters: Optional[Dict] = None
 ) -> Dict:
@@ -303,6 +314,7 @@ def initialize_data(
     return data
 
 
+@pp.time_logger
 def set_state(data: Dict, state: Optional[Dict] = None) -> Dict:
     """Initialize or update a state dictionary.
 
@@ -325,6 +337,7 @@ def set_state(data: Dict, state: Optional[Dict] = None) -> Dict:
     return data
 
 
+@pp.time_logger
 def set_iterate(data: Dict, iterate: Optional[Dict] = None) -> Dict:
     """Initialize or update an iterate dictionary.
 
@@ -341,6 +354,7 @@ def set_iterate(data: Dict, iterate: Optional[Dict] = None) -> Dict:
     return data
 
 
+@pp.time_logger
 def modify_variable(variable, new_value):
     """Changes the value (not id) of the stored parameter.
 
@@ -376,6 +390,7 @@ def modify_variable(variable, new_value):
         )
 
 
+@pp.time_logger
 def add_nonpresent_dictionary(dictionary, key):
     """
     Check if key is in the dictionary, if not add it with an empty dictionary.
@@ -384,6 +399,7 @@ def add_nonpresent_dictionary(dictionary, key):
         dictionary[key] = {}
 
 
+@pp.time_logger
 def add_discretization_matrix_keyword(dictionary, keyword):
     """Ensure presence of sub-dictionaries.
 

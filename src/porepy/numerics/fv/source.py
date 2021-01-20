@@ -17,6 +17,7 @@ class ScalarSource(pp.numerics.discretization.Discretization):
     rhs = param.get_source.keyword.
     """
 
+    @pp.time_logger
     def __init__(self, keyword):
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
@@ -27,6 +28,7 @@ class ScalarSource(pp.numerics.discretization.Discretization):
         """
         self.keyword = keyword
 
+    @pp.time_logger
     def _key(self):
         """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
@@ -37,6 +39,7 @@ class ScalarSource(pp.numerics.discretization.Discretization):
         """
         return self.keyword + "_"
 
+    @pp.time_logger
     def ndof(self, g):
         """Return the number of degrees of freedom associated to the method.
 
@@ -49,6 +52,7 @@ class ScalarSource(pp.numerics.discretization.Discretization):
         """
         return g.num_cells
 
+    @pp.time_logger
     def assemble_matrix_rhs(self, g, data):
         """Return the (null) matrix and right-hand side for a discretization of the
         integrated source term. Also discretize the necessary operators if the data
@@ -68,6 +72,7 @@ class ScalarSource(pp.numerics.discretization.Discretization):
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
+    @pp.time_logger
     def assemble_matrix(self, g, data):
         """Return the (null) matrix and for a discretization of the integrated source
         term. Also discretize the necessary operators if the data dictionary does not
@@ -87,6 +92,7 @@ class ScalarSource(pp.numerics.discretization.Discretization):
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger
     def assemble_rhs(self, g, data):
         """Return the rhs for a discretization of the integrated source term. Also
         discretize the necessary operators if the data dictionary does not contain a
@@ -110,6 +116,7 @@ class ScalarSource(pp.numerics.discretization.Discretization):
         ), "There should be one source value for each cell"
         return matrix_dictionary["bound_source"] * sources
 
+    @pp.time_logger
     def discretize(self, g, data):
         """Discretize an integrated source term.
 

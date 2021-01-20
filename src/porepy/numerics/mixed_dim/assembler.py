@@ -41,6 +41,7 @@ class Assembler:
 
     """
 
+    @pp.time_logger
     def __init__(self, gb: pp.GridBucket) -> None:
         """Construct an assembler for a given GridBucket on a given set of variables.
 
@@ -57,6 +58,7 @@ class Assembler:
         self._identify_dofs()
 
     @staticmethod
+    @pp.time_logger
     def _discretization_key(row: str, col: str = None) -> str:
         if col is None or row == col:
             return row
@@ -64,6 +66,7 @@ class Assembler:
             return row + "_" + col
 
     @staticmethod
+    @pp.time_logger
     def _variable_term_key(term: str, key_1: str, key_2: str, key_3: str = None) -> str:
         """Get the key-variable combination used to identify a specific term in the equation.
 
@@ -105,6 +108,7 @@ class Assembler:
             # Coupling between edge and node
             return "_".join([term, key_1, key_2, key_3])
 
+    @pp.time_logger
     def assemble_matrix_rhs(
         self,
         filt: Optional[pp.assembler_filters.AssemblerFilter] = None,
@@ -129,6 +133,7 @@ class Assembler:
               nodes. There are no limitations on variable naming conventions in the
               coupling.
             * Construct a system matrix that only consideres a subset of the variables
+              @pp.time_logger
               defined in the GridBucket data dictionary.
             * Return either a single discretization matrix covering all variables and
               terms, or one matrix per term per variable. The latter is useful e.g. in
@@ -220,6 +225,7 @@ class Assembler:
 
             return matrix, rhs
 
+    @pp.time_logger
     def update_discretization(
         self, filt: Optional[pp.assembler_filters.AssemblerFilter] = None
     ) -> None:
@@ -301,6 +307,7 @@ class Assembler:
 
         self._operate_on_gb(operation="update_discretization", filt=new_filt)
 
+    @pp.time_logger
     def discretize(
         self, filt: Optional[pp.assembler_filters.AssemblerFilter] = None
     ) -> None:
@@ -319,6 +326,7 @@ class Assembler:
         """
         self._operate_on_gb("discretize", filt=filt)
 
+    @pp.time_logger
     def _operate_on_gb(
         self,
         operation: str,
@@ -387,6 +395,7 @@ class Assembler:
         else:
             return None
 
+    @pp.time_logger
     def _operate_on_nodes_and_edges(
         self,
         filt: pp.assembler_filters.AssemblerFilter,
@@ -475,6 +484,7 @@ class Assembler:
                 if not assemble_matrix_only:
                     rhs[var_key_name][ri] += loc_b  # type:ignore
 
+    @pp.time_logger
     def _operate_on_edge_coupling(
         self,
         filt: pp.assembler_filters.AssemblerFilter,
@@ -906,6 +916,7 @@ class Assembler:
                     matrix[mat_key][edge_idx, oi] = tmp_mat[1, 2]  # type:ignore
                     rhs[mat_key][edge_idx] += loc_rhs[1]
 
+    @pp.time_logger
     def _identify_dofs(self) -> None:
         """
         Initialize local matrices for all combinations of variables and operators.
@@ -1128,6 +1139,7 @@ class Assembler:
         self.variable_combinations: List[str] = variable_combinations
         self._grid_variable_term_combinations = grid_variable_term_combinations
 
+    @pp.time_logger
     def update_dof_count(self) -> None:
         """Update the count of degrees of freedom related to a GridBucket.
 
@@ -1166,6 +1178,7 @@ class Assembler:
             # Update local counting
             self.full_dof[index] = num_dofs
 
+    @pp.time_logger
     def _initialize_matrix_rhs(
         self, sps_matrix: Type[csc_or_csr_matrix]
     ) -> Tuple[Dict[str, csc_or_csr_matrix], Dict[str, np.ndarray]]:
@@ -1229,6 +1242,7 @@ class Assembler:
         return matrix_dict, rhs_dict
 
     @staticmethod
+    @pp.time_logger
     def _assign_matrix_vector(
         dof: np.ndarray, sps_matrix: Type[csc_or_csr_matrix]
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -1244,6 +1258,7 @@ class Assembler:
 
         return matrix, rhs
 
+    @pp.time_logger
     def assemble_operator(self, keyword: str, operator_name: str) -> sps.spmatrix:
         """
         Assemble a global agebraic operator from the local algebraic operators on
@@ -1262,6 +1277,7 @@ class Assembler:
         """
         operator = []
 
+        @pp.time_logger
         def _get_operator(data, _keyword, _operator_name):
             loc_disc = data[pp.DISCRETIZATION_MATRICES].get(_keyword, None)
             if loc_disc is None:  # Return if keyword is not found
@@ -1291,6 +1307,7 @@ class Assembler:
             )
         return sps.block_diag(operator)
 
+    @pp.time_logger
     def assemble_parameter(self, keyword: str, parameter_name: str) -> np.ndarray:
         """
         Assemble a global parameter from the local parameters defined on
@@ -1312,6 +1329,7 @@ class Assembler:
             parameter.append(d[pp.PARAMETERS][keyword][parameter_name])
         return np.hstack(parameter)
 
+    @pp.time_logger
     def _local_variables(self, d: Dict) -> Dict[str, Dict[str, int]]:
         """Find variables defined in a data dictionary, and do intersection
         with defined active variables.
@@ -1330,6 +1348,7 @@ class Assembler:
         # Active variables
         return d.get(pp.PRIMARY_VARIABLES, None)
 
+    @pp.time_logger
     def distribute_variable(
         self, values: np.ndarray, variable_names: List[str] = None
     ) -> None:
@@ -1371,6 +1390,7 @@ class Assembler:
                 else:
                     data[pp.STATE] = {var_name: values[dof[bi] : dof[bi + 1]]}
 
+    @pp.time_logger
     def dof_ind(
         self, g: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], name: str
     ) -> np.ndarray:
@@ -1390,6 +1410,7 @@ class Assembler:
         dof_start = np.hstack((0, np.cumsum(self.full_dof)))
         return np.arange(dof_start[block_ind], dof_start[block_ind + 1])
 
+    @pp.time_logger
     def num_dof(self) -> int:
         """Get total number of unknowns of the identified variables.
 
@@ -1398,6 +1419,7 @@ class Assembler:
         """
         return self.full_dof.sum()
 
+    @pp.time_logger
     def variables_of_grid(
         self, g: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
     ) -> List[str]:
@@ -1412,6 +1434,7 @@ class Assembler:
         """
         return [key[1] for key in self.block_dof.keys() if key[0] == g]
 
+    @pp.time_logger
     def __str__(self) -> str:
         names = [key[1] for key in self.block_dof.keys()]
         unique_vars = list(set(names))
@@ -1425,6 +1448,7 @@ class Assembler:
 
         return s
 
+    @pp.time_logger
     def __repr__(self) -> str:
         s = (
             f"Assembler objcet with in total {self.num_dof()} dofs"

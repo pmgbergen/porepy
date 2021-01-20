@@ -10,6 +10,7 @@ import numpy as np
 import scipy as sp
 import scipy.sparse as sps
 
+import porepy as pp
 from porepy.grids.grid import Grid
 
 
@@ -22,6 +23,7 @@ class TensorGrid(Grid):
 
     """
 
+    @pp.time_logger
     def __init__(self, x, y=None, z=None, name=None):
         """
         Constructor for 1D or 2D or 3D tensor grid
@@ -53,6 +55,7 @@ class TensorGrid(Grid):
             self.cart_dims = np.array([x.size, y.size, z.size]) - 1
             super(TensorGrid, self).__init__(3, nodes, face_nodes, cell_faces, name)
 
+    @pp.time_logger
     def _create_1d_grid(self, nodes_x):
         """
         Compute grid topology for 1D grids.
@@ -96,6 +99,7 @@ class TensorGrid(Grid):
         )
         return nodes, face_nodes, cell_faces
 
+    @pp.time_logger
     def _create_2d_grid(self, nodes_x, nodes_y):
         """
         Compute grid topology for 2D grids.
@@ -176,6 +180,7 @@ class TensorGrid(Grid):
         )
         return nodes, face_nodes, cell_faces
 
+    @pp.time_logger
     def _create_3d_grid(self, nodes_x, nodes_y, nodes_z):
 
         num_x = nodes_x.size - 1
@@ -291,6 +296,7 @@ class CartGrid(TensorGrid):
 
     """
 
+    @pp.time_logger
     def __init__(self, nx, physdims=None):
         """
         Constructor for Cartesian grid

@@ -1,8 +1,10 @@
 """
 Compute bounding boxes of geometric objects.
 """
+import porepy as pp
 
 
+@pp.time_logger
 def from_points(pts, overlap=0):
     """Obtain a bounding box for a point cloud.
 

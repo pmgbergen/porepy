@@ -12,23 +12,29 @@ import porepy.numerics.interface_laws.abstract_interface_law
 class UpwindCoupling(
     porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
 ):
+    @pp.time_logger
     def __init__(self, keyword):
         super(UpwindCoupling, self).__init__(keyword)
 
+    @pp.time_logger
     def key(self):
         return self.keyword + "_"
 
+    @pp.time_logger
     def discretization_key(self):
         return self.key() + pp.DISCRETIZATION
 
+    @pp.time_logger
     def ndof(self, mg):
         return mg.num_cells
 
+    @pp.time_logger
     def discretize(
         self, g_primary, g_secondary, data_primary, data_secondary, data_edge
     ):
         pass
 
+    @pp.time_logger
     def assemble_matrix_rhs(
         self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
     ):
@@ -121,6 +127,7 @@ class UpwindCoupling(
         matrix += cc
         return matrix, rhs
 
+    @pp.time_logger
     def cfl(
         self,
         g_primary,

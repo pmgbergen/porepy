@@ -8,6 +8,7 @@ import numpy as np
 import porepy as pp
 
 
+@pp.time_logger
 def segment_set(start, end):
     """Compute distance and closest points between sets of line segments.
 
@@ -44,6 +45,7 @@ def segment_set(start, end):
     return d, cp
 
 
+@pp.time_logger
 def segment_segment_set(start, end, start_set, end_set):
     """Compute distance and closest points between a segment and a set of
     segments.
@@ -84,6 +86,7 @@ def segment_segment_set(start, end, start_set, end_set):
     return d, cp, cp_set
 
 
+@pp.time_logger
 def two_segments(s1_start, s1_end, s2_start, s2_end):
     """
     Compute the distance between two line segments.
@@ -199,6 +202,7 @@ def two_segments(s1_start, s1_end, s2_start, s2_end):
     return np.sqrt(dist.dot(dist)), cp1, cp2
 
 
+@pp.time_logger
 def points_segments(p, start, end):
     """Compute distances between points and line segments.
 
@@ -289,6 +293,7 @@ def points_segments(p, start, end):
     return d, cp
 
 
+@pp.time_logger
 def point_pointset(p, pset, exponent=2):
     """
     Compute distance between a point and a set of points.
@@ -324,6 +329,7 @@ def point_pointset(p, pset, exponent=2):
     )
 
 
+@pp.time_logger
 def pointset(p, max_diag=False):
     """Compute mutual distance between all points in a point set.
 
@@ -352,6 +358,7 @@ def pointset(p, max_diag=False):
     return d
 
 
+@pp.time_logger
 def points_polygon(p, poly, tol=1e-5):
     """Compute distance from points to a polygon. Also find closest point on
     the polygon.
@@ -440,6 +447,7 @@ def points_polygon(p, poly, tol=1e-5):
     return d, cp, in_poly
 
 
+@pp.time_logger
 def segments_polygon(start, end, poly, tol=1e-5):
     """Compute the distance from line segments to a polygon.
 

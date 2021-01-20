@@ -42,6 +42,7 @@ class FractureNetwork2d(object):
             indices, refering to pts, of the start and end points of the fractures.
             Additional rows are optional tags of the fractures.
         domain (dictionary or np.ndarray): The domain in which the fracture set is
+            @pp.time_logger
             defined. If dictionary, it should contain keys 'xmin', 'xmax', 'ymin',
             'ymax', each of which maps to a double giving the range of the domain.
             If np.array, it should be of size 2 x n, and given the vertexes of the.
@@ -55,6 +56,7 @@ class FractureNetwork2d(object):
 
     """
 
+    @pp.time_logger
     def __init__(self, pts=None, edges=None, domain=None, tol=1e-8):
         """Define the frature set.
 
@@ -65,6 +67,7 @@ class FractureNetwork2d(object):
             indices, refering to pts, of the start and end points of the fractures.
             Additional rows are optional tags of the fractures.
         domain (dictionary or set of points): The domain in which the fracture set is
+             @pp.time_logger
              defined. See self.attributes for description.
         tol (double, optional): Tolerance used in geometric computations. Defaults to
             1e-8.
@@ -106,6 +109,7 @@ class FractureNetwork2d(object):
         if domain is not None:
             logger.info("Domain specification :" + str(domain))
 
+    @pp.time_logger
     def copy(self):
         """Create deep copy of the network.
 
@@ -128,6 +132,7 @@ class FractureNetwork2d(object):
         fn.tags = self.tags.copy()
         return fn
 
+    @pp.time_logger
     def add_network(self, fs):
         """Add this fracture set to another one, and return a new set.
 
@@ -204,6 +209,7 @@ class FractureNetwork2d(object):
         fn.tags = tags
         return fn
 
+    @pp.time_logger
     def mesh(
         self,
         mesh_args,
@@ -272,6 +278,7 @@ class FractureNetwork2d(object):
         # Assemble in grid bucket
         return pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
 
+    @pp.time_logger
     def prepare_for_gmsh(
         self,
         mesh_args,
@@ -350,6 +357,7 @@ class FractureNetwork2d(object):
         self._to_gmsh(in_file, ndim=ndim)
         return in_file
 
+    @pp.time_logger
     def _find_and_split_intersections(self, constraints):
         # Unified description of points and lines for domain, and fractures
 
@@ -433,6 +441,7 @@ class FractureNetwork2d(object):
             }
         )
 
+    @pp.time_logger
     def _find_intersection_points(self, lines):
         const = constants.GmshConstants()
 
@@ -458,6 +467,7 @@ class FractureNetwork2d(object):
 
         return frac_id[frac_ia[frac_count > 1]]
 
+    @pp.time_logger
     def _insert_auxiliary_points(
         self, mesh_size_frac=None, mesh_size_bound=None, mesh_size_min=None
     ):
@@ -485,6 +495,7 @@ class FractureNetwork2d(object):
         self.decomposition["edges"] = lines
         self.decomposition["mesh_size"] = mesh_size
 
+    @pp.time_logger
     def impose_external_boundary(self, domain=None, add_domain_edges=True):
         """
         Constrain the fracture network to lie within a domain.
@@ -559,6 +570,7 @@ class FractureNetwork2d(object):
         self.bounding_box_imposed = True
         return edges_deleted
 
+    @pp.time_logger
     def _to_gmsh(self, in_file, ndim):
 
         # Create a writer of gmsh .geo-files
@@ -591,6 +603,7 @@ class FractureNetwork2d(object):
 
     ## end of methods related to meshing
 
+    @pp.time_logger
     def _decompose_domain(self, domain, num_x, ny=None):
         x0 = domain["xmin"]
         dx = (domain["xmax"] - domain["xmin"]) / num_x
@@ -602,6 +615,7 @@ class FractureNetwork2d(object):
         else:
             return x0, dx
 
+    @pp.time_logger
     def snap(self, tol):
         """Modify point definition so that short branches are removed, and
         almost intersecting fractures become intersecting.
@@ -623,6 +637,7 @@ class FractureNetwork2d(object):
 
         return FractureNetwork2d(p, e, self.domain, self.tol)
 
+    @pp.time_logger
     def constrain_to_domain(self, domain=None):
         """Constrain the fracture network to lay within a specified domain.
 
@@ -651,6 +666,7 @@ class FractureNetwork2d(object):
 
         return FractureNetwork2d(p, e, domain, self.tol)
 
+    @pp.time_logger
     def _domain_to_points(self, domain):
         """Helper function to convert a domain specification in the form of
         a dictionary into a point set.
@@ -673,6 +689,7 @@ class FractureNetwork2d(object):
 
     # --------- Methods for analysis of the fracture set
 
+    @pp.time_logger
     def as_graph(self, split_intersections=True):
         """Represent the fracture set as a graph, using the networkx data structure.
 
@@ -712,6 +729,7 @@ class FractureNetwork2d(object):
         else:
             return G
 
+    @pp.time_logger
     def split_intersections(self, tol=None):
         """Create a new FractureSet, with all fracture intersections removed
 
@@ -742,6 +760,7 @@ class FractureNetwork2d(object):
 
     # --------- Utility functions below here
 
+    @pp.time_logger
     def start_points(self, fi=None):
         """Get start points of all fractures, or a subset.
 
@@ -765,6 +784,7 @@ class FractureNetwork2d(object):
             p = p.reshape((-1, 1))
         return p
 
+    @pp.time_logger
     def end_points(self, fi=None):
         """Get start points of all fractures, or a subset.
 
@@ -788,6 +808,7 @@ class FractureNetwork2d(object):
             p = p.reshape((-1, 1))
         return p
 
+    @pp.time_logger
     def get_points(self, fi=None):
         """Return start and end points for a specified fracture.
 
@@ -805,6 +826,7 @@ class FractureNetwork2d(object):
         """
         return self.start_points(fi), self.end_points(fi)
 
+    @pp.time_logger
     def length(self, fi=None):
         """
         Compute the total length of the fractures, based on the fracture id.
@@ -831,6 +853,7 @@ class FractureNetwork2d(object):
         tot_l = lambda f: np.sum(length[np.isin(fi, f)])
         return np.array([tot_l(f) for f in np.unique(fi)])
 
+    @pp.time_logger
     def orientation(self, fi=None):
         """Compute the angle of the fractures to the x-axis.
 
@@ -864,11 +887,13 @@ class FractureNetwork2d(object):
 
         return mean_a
 
+    @pp.time_logger
     def compute_center(self, p=None, edges=None):
         """Compute center points of a set of fractures.
 
         Parameters:
             p (np.array, 2 x n , optional): Points used to describe the fractures.
+                @pp.time_logger
                 defaults to the fractures in this set.
             edges (np.array, 2 x num_frac, optional): Indices, refering to pts, of the start
                 and end points of the fractures for which the centres should be computed.
@@ -887,6 +912,7 @@ class FractureNetwork2d(object):
         pts_c = np.array([avg(e[0], e[1]) for e in edges.T]).T
         return pts_c
 
+    @pp.time_logger
     def domain_measure(self, domain=None):
         """Get the measure (length, area) of a given box domain, specified by its
         extensions stored in a dictionary.
@@ -910,6 +936,7 @@ class FractureNetwork2d(object):
         else:
             return domain["xmax"] - domain["xmin"]
 
+    @pp.time_logger
     def plot(self, **kwargs):
         """Plot the fracture set.
 
@@ -921,6 +948,7 @@ class FractureNetwork2d(object):
         """
         pp.plot_fractures(self.pts, self.edges, domain=self.domain, **kwargs)
 
+    @pp.time_logger
     def to_csv(self, file_name):
         """
         Save the 2d network on a csv file with comma , as separator.
@@ -942,6 +970,7 @@ class FractureNetwork2d(object):
                 data.extend(self.pts[:, edge[1]])
                 csv_writer.writerow(data)
 
+    @pp.time_logger
     def to_file(
         self, file_name: str, data: Dict[str, np.ndarray] = None, **kwargs
     ) -> None:
@@ -1019,6 +1048,7 @@ class FractureNetwork2d(object):
         )
         meshio.write(folder_name + file_name, meshio_grid_to_export, binary=binary)
 
+    @pp.time_logger
     def __str__(self):
         s = "Fracture set consisting of " + str(self.num_frac) + " fractures"
         if self.pts is not None:
@@ -1030,5 +1060,6 @@ class FractureNetwork2d(object):
             s += str(self.domain)
         return s
 
+    @pp.time_logger
     def __repr__(self):
         return self.__str__()

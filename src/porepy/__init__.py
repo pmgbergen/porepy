@@ -26,6 +26,8 @@ __version__ = "1.3.1"
 # user can be exposed to should have a shortcut here. Borderline cases will be
 # decided as needed
 
+from porepy.utils.logging import *
+
 from porepy.utils.common_constants import *
 
 from porepy.utils import error, grid_utils

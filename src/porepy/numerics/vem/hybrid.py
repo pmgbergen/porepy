@@ -23,9 +23,11 @@ class HybridDualVEM:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger
     def __init__(self, keyword="flow"):
         self.keyword = keyword
 
+    @pp.time_logger
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
@@ -44,6 +46,7 @@ class HybridDualVEM:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger
     def matrix_rhs(self, g, data):
         """
         Return the matrix and righ-hand side for a discretization of a second
@@ -207,6 +210,7 @@ class HybridDualVEM:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger
     def compute_up(self, g, solution, data):
         """
         Return the velocity and pressure computed from the hybrid variables.

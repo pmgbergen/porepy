@@ -1,6 +1,7 @@
 import porepy as pp
 
 
+@pp.time_logger
 def set_mesh_sizes(mesh_args):
     """
     Checks whether mesh_size_min and mesh_size_bound are present in the mesh_args dictionary.
@@ -14,6 +15,7 @@ def set_mesh_sizes(mesh_args):
         mesh_args["mesh_size_min"] = 1 / 5 * mesh_args["mesh_size_frac"]
 
 
+@pp.time_logger
 def make_gb_2d_simplex(mesh_args, points, edges, domain):
     """
     Construct a grid bucket with triangle grid in the 2d domain.
@@ -36,6 +38,7 @@ def make_gb_2d_simplex(mesh_args, points, edges, domain):
     return gb
 
 
+@pp.time_logger
 def make_gb_2d_cartesian(n_cells, fractures, domain):
     """
     Construct a grid bucket with Cartesian grid in the 2d domain.

@@ -13,6 +13,7 @@ import numpy as np
 import porepy as pp
 
 
+@pp.time_logger
 def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     """
     Set the preferred mesh size for geometrical points as specified by
@@ -33,6 +34,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
         mesh_size_min: Minimal mesh size; we will make no attempts to enforce
             even smaller mesh sizes upon Gmsh.
         mesh_size_bound: Boundary mesh size. Will be added to the points
+            @pp.time_logger
             defining the boundary. If included, pts_on_boundary is mandatory.
 
     See the gmsh manual for further details.
@@ -229,6 +231,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     return dist_pts, pts, lines
 
 
+@pp.time_logger
 def obtain_interdim_mappings(lg, fn, n_per_face):
     """
     Find mappings between faces in higher dimension and cells in the lower

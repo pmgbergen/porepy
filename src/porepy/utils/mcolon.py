@@ -6,10 +6,12 @@ Acknowledgements:
     by SINTEF ICT, see www.sintef.no/projectweb/mrst/ .
 
 """
-
 import numpy as np
 
+import porepy as pp
 
+
+@pp.time_logger
 def mcolon(lo, hi):
     """Expansion of np.arange(a, b) for arrays a and b.
 

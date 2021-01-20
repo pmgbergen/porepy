@@ -6,10 +6,12 @@ Acknowledgements:
     by SINTEF ICT, see www.sintef.no/projectweb/mrst/ .
 
 """
-
 import numpy as np
 
+import porepy as pp
 
+
+@pp.time_logger
 def rldecode(A, n):
     """Decode compressed information.
 
@@ -36,6 +38,7 @@ def rldecode(A, n):
     return B
 
 
+@pp.time_logger
 def rlencode(A):
     """ Compress matrix by looking for identical columns. """
     comp = A[::, 0:-1] != A[::, 1::]

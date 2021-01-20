@@ -63,6 +63,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
     """
 
+    @pp.time_logger
     def __init__(self, params: Optional[Dict] = None):
 
         # Variables
@@ -97,6 +98,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
     # Public methods
 
+    @pp.time_logger
     def create_grid(self) -> None:
         """Create a (fractured) domain in 2D or 3D, with projections to local
         coordinates set for all fractures.
@@ -120,6 +122,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             "Method for grid creation should be implemented in a subclass"
         )
 
+    @pp.time_logger
     def get_state_vector(self) -> np.ndarray:
         """Get a vector of the current state of the variables; with the same ordering
             as in the assembler.
@@ -142,6 +145,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
         return state
 
+    @pp.time_logger
     def before_newton_loop(self):
         """Will be run before entering a Newton loop.
         Discretize time-dependent quantities etc.
@@ -149,11 +153,13 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         self.convergence_status = False
         self._iteration = 0
 
+    @pp.time_logger
     def before_newton_iteration(self) -> None:
         # Re-discretize the nonlinear term
         filt = pp.assembler_filters.ListFilter(term_list=[self.friction_coupling_term])
         self.assembler.discretize(filt=filt)
 
+    @pp.time_logger
     def after_newton_iteration(self, solution_vector: np.ndarray) -> None:
         """
         Extract parts of the solution for current iterate.
@@ -169,12 +175,14 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         self._iteration += 1
         self._update_iterate(solution_vector)
 
+    @pp.time_logger
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
         self.assembler.distribute_variable(solution)
         self.convergence_status = True
 
+    @pp.time_logger
     def after_newton_failure(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
@@ -183,6 +191,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         else:
             raise ValueError("Tried solving singular matrix for the linear problem.")
 
+    @pp.time_logger
     def check_convergence(
         self,
         solution: np.ndarray,
@@ -267,6 +276,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
         return error_mech, converged, diverged
 
+    @pp.time_logger
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
 
         A, b = self.assembler.assemble_matrix_rhs()
@@ -280,6 +290,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         else:
             raise NotImplementedError("Not that far yet")
 
+    @pp.time_logger
     def reconstruct_local_displacement_jump(
         self,
         data_edge: Dict,
@@ -315,6 +326,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         u_mortar_local = project_to_local * displacement_jump_global_coord
         return u_mortar_local.reshape((self._Nd, -1), order="F")
 
+    @pp.time_logger
     def reconstruct_stress(self, previous_iterate: bool = False) -> None:
         """
         Compute the stress in the highest-dimensional grid based on the displacement
@@ -375,6 +387,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
         d[pp.STATE]["stress"] = stress
 
+    @pp.time_logger
     def prepare_simulation(self) -> None:
         """Is run prior to a time-stepping scheme. Use this to initialize
         discretizations, export for visualization, linear solvers etc.
@@ -394,12 +407,14 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             g_max, file_name="mechanics", folder_name=self.viz_folder_name
         )
 
+    @pp.time_logger
     def after_simulation(self) -> None:
         """Called after a time-dependent problem"""
         pass
 
     # Methods for populating the model etc.
 
+    @pp.time_logger
     def _set_parameters(self) -> None:
         """
         Set the parameters for the simulation.
@@ -445,10 +460,12 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             mg = d["mortar_grid"]
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
+    @pp.time_logger
     def _nd_grid(self) -> pp.Grid:
         """Get the grid of the highest dimension. Assumes self.gb is set."""
         return self.gb.grids_of_dimension(self._Nd)[0]
 
+    @pp.time_logger
     def _domain_boundary_sides(
         self, g: pp.Grid
     ) -> Tuple[
@@ -479,6 +496,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         all_bf = g.get_boundary_faces()
         return all_bf, east, west, north, south, top, bottom
 
+    @pp.time_logger
     def _bc_type(self, g: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions: Dirichlet on all global boundaries,
         Dirichlet also on fracture faces.
@@ -493,6 +511,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         bc.is_dir[:, frac_face] = True
         return bc
 
+    @pp.time_logger
     def _bc_values(self, g: pp.Grid) -> np.ndarray:
         """Set homogeneous conditions on all boundary faces."""
         # Values for all Nd components, facewise
@@ -501,10 +520,12 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         values = values.ravel("F")
         return values
 
+    @pp.time_logger
     def _source(self, g: pp.Grid) -> np.ndarray:
         """"""
         return np.zeros(self._Nd * g.num_cells)
 
+    @pp.time_logger
     def _assign_variables(self) -> None:
         """
         Assign variables to the nodes and edges of the grid bucket.
@@ -532,6 +553,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             else:
                 d[pp.PRIMARY_VARIABLES] = {}
 
+    @pp.time_logger
     def _assign_discretizations(self) -> None:
         """
         Assign discretizations to the nodes and edges of the grid bucket.
@@ -570,6 +592,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
 
     # Methods for discretization, numerical issues etc.
 
+    @pp.time_logger
     def _initial_condition(self):
         """Set initial guess for the variables.
 
@@ -611,6 +634,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 state = {}
             pp.set_state(d, state)
 
+    @pp.time_logger
     def _update_iterate(self, solution_vector: np.ndarray) -> None:
         """
         Extract parts of the solution for current iterate.
@@ -659,10 +683,12 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                                 self.contact_traction_variable
                             ] = contact.copy()
 
+    @pp.time_logger
     def _set_friction_coefficient(self, g: pp.Grid) -> np.ndarray:
         """The friction coefficient is uniform, and equal to 1."""
         return np.ones(g.num_cells)
 
+    @pp.time_logger
     def _discretize(self) -> None:
         """Discretize all terms"""
 
@@ -674,6 +700,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         self.assembler.discretize()
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
+    @pp.time_logger
     def _initialize_linear_solver(self) -> None:
         solver: str = self.params.get("linear_solver", "direct")
         if solver == "direct":
@@ -692,6 +719,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         else:
             raise ValueError(f"Unknown linear solver {solver}")
 
+    @pp.time_logger
     def _is_nonlinear_problem(self) -> bool:
         """
         If there is no fracture, the problem is usually linear.

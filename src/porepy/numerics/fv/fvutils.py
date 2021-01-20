@@ -46,6 +46,7 @@ class SubcellTopology(object):
 
     """
 
+    @pp.time_logger
     def __init__(self, g):
         """
         Constructor for subcell topology
@@ -169,6 +170,7 @@ class SubcellTopology(object):
         self.num_subfno_unique = self.subfno_unique.max() + 1
         self.unique_subfno = unique_subfno
 
+    @pp.time_logger
     def __repr__(self):
         s = "Subcell topology with:\n"
         s += str(self.num_cno) + " cells\n"
@@ -178,6 +180,7 @@ class SubcellTopology(object):
         s += str(self.fno.size) + " subfaces before pairing face neighbors\n"
         return s
 
+    @pp.time_logger
     def pair_over_subfaces(self, other):
         """
         Transfer quantities from a cell-face base (cells sharing a face have
@@ -203,6 +206,7 @@ class SubcellTopology(object):
         pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno, self.subhfno)))
         return pair_over_subfaces * other
 
+    @pp.time_logger
     def pair_over_subfaces_nd(self, other):
         """ nd-version of pair_over_subfaces, see above. """
         nd = self.g.dim
@@ -219,6 +223,7 @@ class SubcellTopology(object):
 # ------------------------ End of class SubcellTopology ----------------------
 
 
+@pp.time_logger
 def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
     """
     Compute vectors from cell centers continuity points on each sub-face.
@@ -279,6 +284,7 @@ def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
         return mat
 
 
+@pp.time_logger
 def determine_eta(g):
     """Set default value for the location of continuity point eta in MPFA and
     MSPA.
@@ -307,6 +313,7 @@ def determine_eta(g):
         return 0
 
 
+@pp.time_logger
 def find_active_indices(
     parameter_dictionary: Dict[str, Any], g: pp.Grid
 ) -> Tuple[np.ndarray, np.ndarray]:
@@ -357,6 +364,7 @@ def find_active_indices(
     return active_cells, active_faces
 
 
+@pp.time_logger
 def subproblems(
     g: pp.Grid, max_memory: int, peak_memory_estimate: int
 ) -> Generator[
@@ -414,6 +422,7 @@ def subproblems(
             yield sub_g, loc_faces, cells_in_partition, l2g_cells, l2g_faces
 
 
+@pp.time_logger
 def remove_nonlocal_contribution(
     raw_ind: np.ndarray, nd: int, *args: sps.spmatrix
 ) -> None:
@@ -442,6 +451,7 @@ def remove_nonlocal_contribution(
 # ------------- Methods related to block inversion ----------------------------
 
 
+@pp.time_logger
 def invert_diagonal_blocks(mat, s, method=None):
     """
     Invert block diagonal matrix.
@@ -641,6 +651,7 @@ def invert_diagonal_blocks(mat, s, method=None):
     return ia
 
 
+@pp.time_logger
 def block_diag_matrix(vals, sz):
     """
     Construct block diagonal matrix based on matrix elements and block sizes.
@@ -662,6 +673,7 @@ def block_diag_matrix(vals, sz):
     return sps.csr_matrix((vals, row, indptr))
 
 
+@pp.time_logger
 def block_diag_index(m, n=None):
     """
     Get row and column indices for block diagonal matrix
@@ -704,6 +716,7 @@ def block_diag_index(m, n=None):
 # ------------------- End of methods related to block inversion ---------------
 
 
+@pp.time_logger
 def expand_indices_nd(ind, nd, direction="F"):
     """
     Expand indices from scalar to vector form.
@@ -733,6 +746,7 @@ def expand_indices_nd(ind, nd, direction="F"):
     return new_ind
 
 
+@pp.time_logger
 def expand_indices_incr(ind, dim, increment):
 
     # Convenience method for duplicating a list, with a certain increment
@@ -746,6 +760,7 @@ def expand_indices_incr(ind, dim, increment):
     return ind_new
 
 
+@pp.time_logger
 def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
     """
     Create mapping from half-faces to faces for vector problems.
@@ -780,6 +795,7 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
     return hf2f
 
 
+@pp.time_logger
 def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
 
     """
@@ -809,6 +825,7 @@ def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
     return mat
 
 
+@pp.time_logger
 def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
 
     """
@@ -828,6 +845,7 @@ def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
 
     num_cells = cell_index.max() + 1
 
+    @pp.time_logger
     def build_sc2c_single_dimension(dim):
         rows = np.arange(sub_cell_index[dim].size)
         cols = cell_index
@@ -845,6 +863,7 @@ def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
     return sc2c
 
 
+@pp.time_logger
 def scalar_divergence(g: pp.Grid) -> sps.csr_matrix:
     """
     Get divergence operator for a grid.
@@ -865,6 +884,7 @@ def scalar_divergence(g: pp.Grid) -> sps.csr_matrix:
     return g.cell_faces.T.tocsr()
 
 
+@pp.time_logger
 def vector_divergence(g: pp.Grid) -> sps.csr_matrix:
     """
     Get vector divergence operator for a grid g
@@ -893,6 +913,7 @@ def vector_divergence(g: pp.Grid) -> sps.csr_matrix:
     return block_div.transpose().tocsr()
 
 
+@pp.time_logger
 def scalar_tensor_vector_prod(
     g: pp.Grid, k: pp.SecondOrderTensor, subcell_topology: SubcellTopology
 ) -> Tuple[sps.csr_matrix, np.ndarray, np.ndarray]:
@@ -913,6 +934,7 @@ def scalar_tensor_vector_prod(
     Returns:
         nk: sub-face wise product of normal vector and permeability tensor.
         cell_node_blocks pairings of node and cell indices, which together
+            @pp.time_logger
             define a sub-cell.
         sub_cell_ind: index of all subcells
     """
@@ -961,6 +983,7 @@ def scalar_tensor_vector_prod(
     return nk, cell_node_blocks, sub_cell_ind
 
 
+@pp.time_logger
 def zero_out_sparse_rows(A, rows, diag=None):
     """
     zeros out given rows from sparse csr matrix. Optionally also set values on
@@ -1004,6 +1027,7 @@ class ExcludeBoundaries(object):
 
     """
 
+    @pp.time_logger
     def __init__(self, subcell_topology, bound, nd):
         """
         Define mappings to exclude boundary subfaces/components with Dirichlet,
@@ -1084,6 +1108,7 @@ class ExcludeBoundaries(object):
             self.keep_rob = self._exclude_matrix_xyz(~bound.is_rob)
             self.keep_neu = self._exclude_matrix_xyz(~bound.is_neu)
 
+    @pp.time_logger
     def _linear_transformation(self, loc_trans):
         """
         Creates a global linear transformation matrix from a set of local matrices.
@@ -1127,6 +1152,7 @@ class ExcludeBoundaries(object):
         else:
             raise AttributeError("Unknow loc_trans type: " + self.bc_type)
 
+    @pp.time_logger
     def _exclude_matrix(self, ids):
         """
         creates an exclusion matrix. This is a mapping from sub-faces to
@@ -1145,6 +1171,7 @@ class ExcludeBoundaries(object):
             shape=(row.size, self.num_subfno),
         ).tocsr()
 
+    @pp.time_logger
     def _exclude_matrix_xyz(self, ids):
         col_x = np.argwhere([not it for it in ids[0]])
 
@@ -1166,6 +1193,7 @@ class ExcludeBoundaries(object):
 
         return exclude_nd
 
+    @pp.time_logger
     def exclude_dirichlet(self, other, transform=True):
         """
         Mapping to exclude faces/components with Dirichlet boundary conditions from
@@ -1185,6 +1213,7 @@ class ExcludeBoundaries(object):
             return exclude_dirichlet * self.basis_matrix * other
         return exclude_dirichlet * other
 
+    @pp.time_logger
     def exclude_neumann(self, other, transform=True):
         """
         Mapping to exclude faces/components with Neumann boundary conditions from
@@ -1202,6 +1231,7 @@ class ExcludeBoundaries(object):
             return self.exclude_neu * self.basis_matrix * other
         return self.exclude_neu * other
 
+    @pp.time_logger
     def exclude_neumann_robin(self, other, transform=True):
         """
         Mapping to exclude faces/components with Neumann and Robin boundary
@@ -1220,6 +1250,7 @@ class ExcludeBoundaries(object):
         else:
             return self.exclude_neu_rob * other
 
+    @pp.time_logger
     def exclude_neumann_dirichlet(self, other, transform=True):
         """
         Mapping to exclude faces/components with Neumann and Dirichlet boundary
@@ -1237,6 +1268,7 @@ class ExcludeBoundaries(object):
             return self.exclude_neu_dir * self.basis_matrix * other
         return self.exclude_neu_dir * other
 
+    @pp.time_logger
     def exclude_robin_dirichlet(self, other, transform=True):
         """
         Mapping to exclude faces/components with Robin and Dirichlet boundary
@@ -1254,6 +1286,7 @@ class ExcludeBoundaries(object):
             return self.exclude_rob_dir * self.basis_matrix * other
         return self.exclude_rob_dir * other
 
+    @pp.time_logger
     def exclude_boundary(self, other, transform=False):
         """Mapping to exclude faces/component with any boundary condition from
         local systems.
@@ -1271,6 +1304,7 @@ class ExcludeBoundaries(object):
             return self.exclude_bnd * self.basis_matrix * other
         return self.exclude_bnd * other
 
+    @pp.time_logger
     def keep_robin(self, other, transform=True):
         """
         Mapping to exclude faces/components that is not on the Robin boundary
@@ -1288,6 +1322,7 @@ class ExcludeBoundaries(object):
             return self.keep_rob * self.basis_matrix * other
         return self.keep_rob * other
 
+    @pp.time_logger
     def keep_neumann(self, other, transform=True):
         """
         Mapping to exclude faces/components that is not on the Neumann boundary
@@ -1309,6 +1344,7 @@ class ExcludeBoundaries(object):
 # -----------------End of class ExcludeBoundaries-----------------------------
 
 
+@pp.time_logger
 def partial_update_discretization(
     g: pp.Grid,  # Grid
     data: Dict,  # full data dictionary for this grid
@@ -1498,6 +1534,7 @@ def partial_update_discretization(
                 )
 
 
+@pp.time_logger
 def cell_ind_for_partial_update(
     g: pp.Grid,
     cells: np.ndarray = None,
@@ -1703,6 +1740,7 @@ def cell_ind_for_partial_update(
     return cell_ind.astype("int"), face_ind.astype("int")
 
 
+@pp.time_logger
 def map_subgrid_to_grid(
     g: pp.Grid,
     loc_faces: np.ndarray,
@@ -1763,6 +1801,7 @@ def map_subgrid_to_grid(
     return face_map, cell_map
 
 
+@pp.time_logger
 def compute_darcy_flux(
     gb,
     keyword="flow",
@@ -1810,12 +1849,14 @@ def compute_darcy_flux(
 
     """
 
+    @pp.time_logger
     def extract_variable(d, var):
         if from_iterate:
             return d[pp.STATE][pp.ITERATE][var]
         else:
             return d[pp.STATE][var]
 
+    @pp.time_logger
     def calculate_flux(param_dict, mat_dict, d):
         # Calculate the flux. First contributions from pressure and boundary conditions
         dis = (
@@ -1884,6 +1925,7 @@ def compute_darcy_flux(
         d[pp.PARAMETERS][keyword_store][d_name] = extract_variable(d, lam_name).copy()
 
 
+@pp.time_logger
 def boundary_to_sub_boundary(bound, subcell_topology):
     """
     Convert a boundary condition defined for faces to a boundary condition defined by
@@ -1920,6 +1962,7 @@ def boundary_to_sub_boundary(bound, subcell_topology):
     return bound
 
 
+@pp.time_logger
 def append_dofs_of_discretization(g, d, kw1, kw2, k_dof):
     """
     Appends rows to existing discretizations stored as 'stress' and
@@ -1950,6 +1993,7 @@ def append_dofs_of_discretization(g, d, kw1, kw2, k_dof):
     d[kw2] = sps.hstack([sps.vstack([d[kw2], new_rows]), new_columns], format="csr")
 
 
+@pp.time_logger
 def partial_discretization(
     g, data, tensor, bnd, apertures, partial_discr, physics="flow"
 ):

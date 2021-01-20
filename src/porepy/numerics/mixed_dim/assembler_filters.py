@@ -13,6 +13,7 @@ Credits: Design idea and main implementation by Haakon Ervik.
 import abc
 from typing import Callable, List, Optional, Tuple, Union
 
+import porepy as pp
 from porepy import Grid
 
 # Discretizations can be defined either on a subdomain, on an
@@ -27,6 +28,7 @@ class AssemblerFilter(abc.ABC):
     """Abstract base class of filters for use with the Assembler."""
 
     @abc.abstractmethod
+    @pp.time_logger
     def filter(
         self,
         grids: Optional[List[grid_like_type]] = None,
@@ -56,6 +58,7 @@ class AssemblerFilter(abc.ABC):
 class AllPassFilter(AssemblerFilter):
     """All pass filter. The filter method always return True."""
 
+    @pp.time_logger
     def filter(
         self,
         grids: Optional[List[grid_like_type]] = None,
@@ -114,6 +117,7 @@ class ListFilter(AssemblerFilter):
 
     """
 
+    @pp.time_logger
     def __init__(
         self,
         grid_list: Optional[List[grid_like_type]] = None,
@@ -129,9 +133,11 @@ class ListFilter(AssemblerFilter):
 
         """
         # Helper functions, needed for no-pass and all-pass behavior
+        @pp.time_logger
         def return_false(s):
             return False
 
+        @pp.time_logger
         def return_true(s):
             return True
 
@@ -170,6 +176,7 @@ class ListFilter(AssemblerFilter):
                 self._term_list: List[str] = term_list
                 self._term_filter = self._make_string_filter(self._term_list)
 
+    @pp.time_logger
     def filter(
         self,
         grids: Optional[List[grid_like_type]] = None,
@@ -199,6 +206,7 @@ class ListFilter(AssemblerFilter):
             and self._term_filter(terms)
         )
 
+    @pp.time_logger
     def _parse_grid_list(
         self, grid_list: List[grid_like_type]
     ) -> Tuple[List, List, List]:
@@ -224,6 +232,7 @@ class ListFilter(AssemblerFilter):
                 couplings.append(g)
         return nodes, edges, couplings
 
+    @pp.time_logger
     def _make_grid_filter(self, grid_list):
 
         nodes, edges, couplings = self._parse_grid_list(grid_list)
@@ -231,6 +240,7 @@ class ListFilter(AssemblerFilter):
         self._edges: List[Tuple[Grid, Grid]] = edges
         self._couplings: List[Tuple[Grid, Grid, Tuple[Grid, Grid]]] = couplings
 
+        @pp.time_logger
         def _grid_filter(gl):
             if not isinstance(gl, list):
                 gl = [gl]
@@ -245,6 +255,7 @@ class ListFilter(AssemblerFilter):
 
         return _grid_filter
 
+    @pp.time_logger
     def _make_string_filter(
         self, var_term_list: Optional[List[str]] = None
     ) -> Callable[[Optional[List[str]]], bool]:
@@ -255,6 +266,7 @@ class ListFilter(AssemblerFilter):
         filter is a list of strings.
         """
 
+        @pp.time_logger
         def return_true(s):
             return True
 
@@ -263,6 +275,7 @@ class ListFilter(AssemblerFilter):
             # that always returns True.
             return return_true
 
+        @pp.time_logger
         def _var_term_filter(x):
             if not x:
                 # Filtering of a None type is always positive
@@ -286,6 +299,7 @@ class ListFilter(AssemblerFilter):
 
         return _var_term_filter
 
+    @pp.time_logger
     def __repr__(self) -> str:
         s = "ListFilter based on"
         if self._nodes or self._edges or self._couplings:

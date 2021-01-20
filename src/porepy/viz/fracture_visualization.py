@@ -9,6 +9,7 @@ import numpy as np
 import porepy as pp
 
 
+@pp.time_logger
 def plot_fractures(pts, edges, domain=None, colortag=None, ax=None, **kwargs):
     """
     Plot 2d fractures as lines in a domain.
@@ -139,6 +140,7 @@ def plot_fractures(pts, edges, domain=None, colortag=None, ax=None, **kwargs):
     return ax
 
 
+@pp.time_logger
 def plot_wells(d, w, colortag=None, **kwargs):
     """
     Plot 2d wells as points in a domain.

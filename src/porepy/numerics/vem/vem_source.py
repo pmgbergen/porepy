@@ -22,12 +22,15 @@ class DualScalarSource(pp.numerics.discretization.Discretization):
     rhs = - param.get_source.keyword in a saddle point fashion.
     """
 
+    @pp.time_logger
     def __init__(self, keyword="flow"):
         self.keyword = keyword
 
+    @pp.time_logger
     def ndof(self, g):
         return g.num_cells + g.num_faces
 
+    @pp.time_logger
     def assemble_matrix_rhs(self, g, data):
         """Return the (null) matrix and right-hand side for a discretization of the
         integrated source term. Also discretize the necessary operators if the data
@@ -48,6 +51,7 @@ class DualScalarSource(pp.numerics.discretization.Discretization):
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
+    @pp.time_logger
     def assemble_matrix(self, g, data):
         """Return the (null) matrix and for a discretization of the integrated source
         term. Also discretize the necessary operators if the data dictionary does not
@@ -66,6 +70,7 @@ class DualScalarSource(pp.numerics.discretization.Discretization):
 
         return matrix_dictionary["source"]
 
+    @pp.time_logger
     def assemble_rhs(self, g, data):
         """Return the rhs for a discretization of the integrated source term. Also
         discretize the necessary operators if the data dictionary does not contain a
@@ -96,6 +101,7 @@ class DualScalarSource(pp.numerics.discretization.Discretization):
         rhs[is_p] = -sources
         return rhs
 
+    @pp.time_logger
     def discretize(self, g, data):
         """Discretize an integrated source term.
 

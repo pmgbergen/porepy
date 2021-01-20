@@ -49,6 +49,7 @@ class EllipticDiscretization(Discretization):
 
     """
 
+    @pp.time_logger
     def __init__(self, keyword: str) -> None:
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
@@ -59,6 +60,7 @@ class EllipticDiscretization(Discretization):
         """
         self.keyword = keyword
 
+    @pp.time_logger
     def _key(self) -> str:
         """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
@@ -70,6 +72,7 @@ class EllipticDiscretization(Discretization):
         return self.keyword + "_"
 
     @abstractmethod
+    @pp.time_logger
     def ndof(self, g: pp.Grid) -> int:
         """Abstract method. Return the number of degrees of freedom associated to the
         method.
@@ -83,6 +86,7 @@ class EllipticDiscretization(Discretization):
         """
         pass
 
+    @pp.time_logger
     def extract_pressure(self, g, solution_array, data):
         """Abstract method. Extract the pressure part of a solution.
 
@@ -103,6 +107,7 @@ class EllipticDiscretization(Discretization):
         """
         raise NotImplementedError("Method not implemented")
 
+    @pp.time_logger
     def extract_flux(self, g, solution_array, data):
         """Abstract method. Extract the pressure part of a solution.
 
@@ -125,6 +130,7 @@ class EllipticDiscretization(Discretization):
         raise NotImplementedError("Method not implemented")
 
     @abstractmethod
+    @pp.time_logger
     def assemble_int_bound_flux(
         self,
         g: pp.Grid,
@@ -170,6 +176,7 @@ class EllipticDiscretization(Discretization):
         pass
 
     @abstractmethod
+    @pp.time_logger
     def assemble_int_bound_source(
         self,
         g: pp.Grid,
@@ -212,6 +219,7 @@ class EllipticDiscretization(Discretization):
         pass
 
     @abstractmethod
+    @pp.time_logger
     def assemble_int_bound_pressure_trace(
         self,
         g: pp.Grid,
@@ -259,6 +267,7 @@ class EllipticDiscretization(Discretization):
         pass
 
     @abstractmethod
+    @pp.time_logger
     def assemble_int_bound_pressure_trace_between_interfaces(
         self,
         g: pp.Grid,
@@ -294,6 +303,7 @@ class EllipticDiscretization(Discretization):
         pass
 
     @abstractmethod
+    @pp.time_logger
     def assemble_int_bound_pressure_cell(
         self,
         g: pp.Grid,
@@ -336,6 +346,7 @@ class EllipticDiscretization(Discretization):
         pass
 
     @abstractmethod
+    @pp.time_logger
     def enforce_neumann_int_bound(
         self, g: pp.Grid, data_edge: Dict, matrix: np.ndarray, self_ind: int
     ) -> None:
