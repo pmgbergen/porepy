@@ -705,7 +705,10 @@ class FractureNetwork2d(object):
             G.add_node(pi, coordinate=pts[:, pi])
 
         for ei in range(edges.shape[1]):
-            G.add_edge(edges[0, ei], edges[1, ei])
+            tags = {}
+            for key, value in split_network.tags.items():
+                tags[key] = value[ei]
+            G.add_edge(edges[0, ei], edges[1, ei], labels=tags)
 
         if split_intersections:
             return G, split_network
