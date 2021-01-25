@@ -15,6 +15,8 @@ from porepy.utils import tags
 from porepy.utils.matrix_compression import rldecode
 from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 
+module_sections = ["gridding"]
+
 
 @pp.time_logger(sections=module_sections)
 def merge_grids(grids, intersections, tol=1e-4):

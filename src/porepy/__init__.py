@@ -29,8 +29,9 @@ __version__ = "1.3.1"
 try:
     cwd = Path(os.getcwd())
     pth = cwd / Path("porepy.cfg")
-    config = configparser.ConfigParser()
-    config.read(pth)
+    cfg = configparser.ConfigParser()
+    cfg.read(pth)
+    config = dict(cfg)
 except:
     # the assumption is that no configurations are given
     config = {}

@@ -610,11 +610,13 @@ class GridBucket:
 
         """
         if isinstance(new_grids, pp.Grid):
-            new_grids = [new_grids]
+            ng = [new_grids]
+        else:
+            ng = new_grids  # type: ignore
 
-        if np.any([i is j for i in new_grids for j in list(self._nodes.keys())]):
+        if np.any([i is j for i in ng for j in list(self._nodes.keys())]):
             raise ValueError("Grid already defined in bucket")
-        for grid in new_grids:
+        for grid in ng:
             self._nodes[grid] = {}
 
     @pp.time_logger(sections=module_sections)

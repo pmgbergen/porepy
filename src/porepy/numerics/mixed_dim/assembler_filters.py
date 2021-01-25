@@ -229,7 +229,7 @@ class ListFilter(AssemblerFilter):
                 # Also append the reverse ordering of the grids.
                 edges.append((g[1], g[0]))
             else:
-                if not len(g) == 3:
+                if not len(g) == 3:  # type: ignore
                     raise ValueError(f"Invalid grid-like object for filtering {g}")
                 couplings.append(g)
         return nodes, edges, couplings

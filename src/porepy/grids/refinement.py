@@ -19,7 +19,6 @@ from porepy.grids.grid import Grid
 from porepy.grids.simplex import TriangleGrid
 from porepy.grids.structured import TensorGrid
 
-
 module_sections = ["grids", "gridding"]
 
 

@@ -7,7 +7,9 @@ the frontend functions found in utils.
 
 """
 import warnings
+
 import numpy as np
+
 import porepy as pp
 
 module_sections = ["gridding"]

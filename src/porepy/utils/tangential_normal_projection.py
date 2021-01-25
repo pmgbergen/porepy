@@ -7,7 +7,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-
 module_sections = ["matrix", "numerics", "discretization"]
 
 

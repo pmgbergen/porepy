@@ -46,20 +46,19 @@ Example logging section of porepy.cfg:
 
 """
 import functools
-import logging, logging.handlers
-import time
 import inspect
-import configparser
+import logging
+import logging.handlers
+import time
+from typing import Dict
 
 import porepy as pp
-import numpy as np
-import scipy.sparse as sps
 
 __all__ = ["time_logger"]
 
 
 try:
-    config = dict(pp.config["logging"])
+    config: Dict = pp.config["logging"]  # type: ignore
     raw_sections = config.get("sections", "all")
     active_sections = [s.strip().lower() for s in raw_sections.split(",")]
     logger_is_active = config["active"].strip().lower() == "true"
@@ -134,13 +133,12 @@ if not trace_logger.hasHandlers():
     trace_logger.addHandler(trace_handler)
 
 
-def trace(func):
-    @functools.wraps(func)
-    @pp.time_logger(sections=module_sections)
-    def analyze_args(*args, **kwargs):
-        msg = f"Calling function {func.__name__}\n"
-        for a in args:
-            if isinstance(a, np.ndarray):
-                s = f"\t numpy array of shape {a.shape} and type {a.dtype}"
-            elif isinstance(a, sps.spmatrix):
-                s = f"\t sparse matrix of shape {a.shape} with {a.data.size} nonzeros"
+# def trace(func):
+#    @functools.wraps(func)
+#    def analyze_args(*args, **kwargs):
+#        msg = f"Calling function {func.__name__}\n"
+#        for a in args:
+#            if isinstance(a, np.ndarray):
+#                s = f"\t numpy array of shape {a.shape} and type {a.dtype}"
+#            elif isinstance(a, sps.spmatrix):
+#                s = f"\t sparse matrix of shape {a.shape} with {a.data.size} nonzeros"

@@ -3,7 +3,6 @@ import numpy as np
 import porepy as pp
 from porepy.ad.forward_mode import Ad_array
 
-
 module_sections = ["assembly", "numerics"]
 
 

@@ -168,7 +168,7 @@ class Exporter:
 
         else:
             self.is_GridBucket = False
-            self.grid: pp.Grid = grid
+            self.grid: pp.Grid = grid  # type: ignore
 
         self.file_name = file_name
         self.folder_name = folder_name

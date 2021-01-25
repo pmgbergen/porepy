@@ -9,7 +9,6 @@ import porepy as pp
 import porepy.grids.constants as gridding_constants
 from porepy.utils import sort_points
 
-
 module_sections = ["grids", "gridding"]
 
 try:

@@ -5,7 +5,6 @@ import numpy as np
 
 import porepy as pp
 
-
 module_sections = ["utils"]
 logger = logging.getLogger(__name__)
 
