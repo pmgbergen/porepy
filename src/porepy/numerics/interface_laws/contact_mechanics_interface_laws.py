@@ -16,6 +16,7 @@ import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
 
 logger = logging.getLogger(__name__)
+module_sections = ["numerics"]
 
 
 class PrimalContactCoupling(
@@ -44,7 +45,7 @@ class PrimalContactCoupling(
     See also contact_conditions.py
     """
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(
         self, keyword, discr_primary, discr_secondary, use_surface_discr=False
     ):
@@ -56,7 +57,7 @@ class PrimalContactCoupling(
         # Account for interaction between different, but intersecting, mortar grids
         self.edge_coupling_via_high_dim = True
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def ndof(self, mg):
         """Get the number of dof for this coupling.
 
@@ -65,7 +66,7 @@ class PrimalContactCoupling(
         """
         return (mg.dim + 1) * mg.num_cells
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
 
         tic = time.time()
@@ -92,7 +93,7 @@ class PrimalContactCoupling(
 
         logger.debug("Done. Elapsed time {}".format(time.time() - tic))
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
     ):
@@ -278,7 +279,7 @@ class PrimalContactCoupling(
 
         return matrix, rhs
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_edge_coupling_via_high_dim(
         self,
         g_between,
@@ -377,7 +378,7 @@ class MatrixScalarToForceBalance(
 
     """
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword, discr_primary, discr_secondary):
         """
         Parameters:
@@ -394,21 +395,21 @@ class MatrixScalarToForceBalance(
         self.discr_secondary = discr_secondary
         # Keyword used to retrieve gradP discretization.
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def ndof(self, mg):
         # Assume the interface law is defined only on mortar grids next to the
         # ambient dimension
         ambient_dimension = mg.dim + 1
         return ambient_dimension * mg.num_cells
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """
         Nothing to do
         """
         pass
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
     ):
@@ -495,7 +496,7 @@ class FractureScalarToForceBalance(
 
     """
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(self, discr_primary, discr_secondary, keyword=None):
         """
         Parameters:
@@ -511,21 +512,21 @@ class FractureScalarToForceBalance(
         self.discr_primary = discr_primary
         self.discr_secondary = discr_secondary
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def ndof(self, mg):
         # Assume the interface law is defined only on mortar grids next to the
         # ambient dimension
         ambient_dimension = mg.dim + 1
         return ambient_dimension * mg.num_cells
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """
         Nothing to do
         """
         pass
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
     ):
@@ -606,7 +607,7 @@ class DivUCoupling(
     to the div u term in fracture ("div aperture") and matrix.
     """
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(self, variable, discr_primary, discr_secondary, keyword=None):
         super(DivUCoupling, self).__init__(keyword)
         # Set variable names for the vector variable on the nodes (displacement), used
@@ -618,20 +619,20 @@ class DivUCoupling(
         # assemble_int_bound_displacement_source for the secondary.
         self.discr_secondary = discr_secondary
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def ndof(self, mg):
         # Assume the interface law is defined only on mortar grids next to the
         # ambient dimension
         return (mg.dim + 1) * mg.num_cells
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """
         Nothing to do
         """
         pass
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
     ):

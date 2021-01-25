@@ -4,7 +4,10 @@ import porepy as pp
 from porepy.ad.forward_mode import Ad_array
 
 
-@pp.time_logger
+module_sections = ["assembly", "numerics"]
+
+
+@pp.time_logger(sections=module_sections)
 def exp(var):
     if isinstance(var, Ad_array):
         val = np.exp(var.val)
@@ -14,7 +17,7 @@ def exp(var):
         return np.exp(var)
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def log(var):
     if not isinstance(var, Ad_array):
         return np.log(var)
@@ -24,7 +27,7 @@ def log(var):
     return Ad_array(val, der)
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def sign(var):
     if not isinstance(var, Ad_array):
         return np.sign(var)
@@ -32,7 +35,7 @@ def sign(var):
         return np.sign(var.val)
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def abs(var):
     if not isinstance(var, Ad_array):
         return np.abs(var)

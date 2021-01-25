@@ -9,6 +9,9 @@ import porepy as pp
 import porepy.grids.constants as gridding_constants
 from porepy.utils import sort_points
 
+
+module_sections = ["grids", "gridding"]
+
 try:
     import gmsh
 except ModuleNotFoundError:
@@ -26,7 +29,7 @@ class GmshWriter(object):
     compartments
     """
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(
         self,
         pts,
@@ -81,7 +84,7 @@ class GmshWriter(object):
             fracture_constraint_intersection_points
         )
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def write_geo(self, file_name):
 
         if self.tolerance is not None:
@@ -114,7 +117,7 @@ class GmshWriter(object):
         with open(file_name, "w") as f:
             f.write(s)
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _write_fractures_1d(self):
         # Both fractures and compartments are
         constants = gridding_constants.GmshConstants()
@@ -183,7 +186,7 @@ class GmshWriter(object):
         s += "// End of /compartment boundary/auxiliary elements specification\n\n"
         return s
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _write_fractures_2d(self):
         # Both fractures and compartments are
         constants = gridding_constants.GmshConstants()
@@ -254,7 +257,7 @@ class GmshWriter(object):
         s += "// End of /compartment boundary/auxiliary elements specification\n\n"
         return s
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _write_boundary_2d(self):
         constants = gridding_constants.GmshConstants()
         bound_line_ind = np.argwhere(
@@ -314,7 +317,7 @@ class GmshWriter(object):
         s += "// End of domain specification\n\n"
         return s
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _write_boundary_3d(self):
         ls = "\n"
         s = "// Start domain specification" + ls
@@ -340,7 +343,7 @@ class GmshWriter(object):
         s += "// End of domain specification\n\n"
         return s
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _write_points(self, boundary=False):
         p = self.pts
         num_p = p.shape[1]
@@ -358,7 +361,7 @@ class GmshWriter(object):
         s += "// End of point specification\n\n"
         return s
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _write_lines(self, embed_in=None):
         lines = self.lines
         num_lines = lines.shape[1]
@@ -405,7 +408,7 @@ class GmshWriter(object):
         s += "// End of line specification " + ls + ls
         return s
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _write_polygons(self, boundary=False):
         """
         Writes either all fractures or all boundary planes.
@@ -505,7 +508,7 @@ class GmshWriter(object):
 
         return s
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _write_physical_points(self):
         ls = "\n"
         s = "// Start physical point specification" + ls
@@ -577,7 +580,7 @@ class GmshGridBucketWriter(object):
 
     """
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(self, gb):
         """
         Parameters:
@@ -593,7 +596,7 @@ class GmshGridBucketWriter(object):
         # Compute number of grids in each dimension of the gb
         self._num_grids()
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def write(self, file_name):
         """
         Write the whole bucket to a .msh file.
@@ -610,7 +613,7 @@ class GmshGridBucketWriter(object):
         with open(file_name, "w") as f:
             f.write(s)
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _preamble(self):
         # Write the preamble (mesh Format) section
         s_preamble = "$MeshFormat\n"
@@ -618,7 +621,7 @@ class GmshGridBucketWriter(object):
         s_preamble += "$EndMeshFormat\n"
         return s_preamble
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _num_grids(self):
         # Find number of grids in each dimension
         max_dim = 3
@@ -641,7 +644,7 @@ class GmshGridBucketWriter(object):
                 )
         self.num_grids = num_grids
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _points(self):
         # The global point set
         p = self.gb.grids_of_dimension(len(self.num_grids) - 1)[0].nodes
@@ -663,7 +666,7 @@ class GmshGridBucketWriter(object):
         s += "$EndNodes" + ls
         return s
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _physical_names(self):
         ls = "\n"
         s = "$PhysicalNames" + ls
@@ -687,7 +690,7 @@ class GmshGridBucketWriter(object):
         s += "$EndPhysicalNames" + ls
         return s
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _elements(self):
         ls = "\n"
         s = "$Elements" + ls
@@ -727,7 +730,7 @@ class GmshGridBucketWriter(object):
 # ------------------ End of GmshGridBucketWriter------------------------------
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) -> None:
     """Convenience function to run gmsh.
 
@@ -745,7 +748,7 @@ def run_gmsh(in_file: Union[str, Path], out_file: Union[str, Path], dim: int) ->
     """
     # Helper functions
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _dump_gmsh_log(_log: List[str], in_file_name: Path) -> Path:
         """Write a gmsh log to file.
 

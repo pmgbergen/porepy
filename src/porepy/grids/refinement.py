@@ -20,7 +20,10 @@ from porepy.grids.simplex import TriangleGrid
 from porepy.grids.structured import TensorGrid
 
 
-@pp.time_logger
+module_sections = ["grids", "gridding"]
+
+
+@pp.time_logger(sections=module_sections)
 def distort_grid_1d(
     g: pp.Grid, ratio: Optional[float] = 0.1, fixed_nodes: Optional[np.ndarray] = None
 ) -> pp.Grid:
@@ -61,7 +64,7 @@ def distort_grid_1d(
     return g
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
     """Refine cells in a 1d grid.
 
@@ -145,7 +148,7 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
     return g
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def refine_triangle_grid(g: pp.TriangleGrid) -> Union[pp.TriangleGrid, np.ndarray]:
     """Uniform refinement of triangle grid, all cells are split into four
     subcells by combining existing nodes and face centrers.
@@ -217,7 +220,7 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> Union[pp.TriangleGrid, np.ndarra
     return TriangleGrid(new_nodes, tri=new_tri, name=name), parent
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def remesh_1d(g_old: pp.Grid, num_nodes: int, tol: Optional[float] = 1e-6) -> pp.Grid:
     """Create a new 1d mesh covering the same domain as an old one.
 
@@ -274,12 +277,12 @@ def remesh_1d(g_old: pp.Grid, num_nodes: int, tol: Optional[float] = 1e-6) -> pp
 
 
 class GridSequenceIterator:
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(self, factory):
         self._factory = factory
         self._counter = 0
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __next__(self):
         if self._counter >= self._factory._num_refinements:
             self._factory.close()
@@ -319,7 +322,7 @@ class GridSequenceFactory(abc.ABC):
 
     """
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(
         self, network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d], params: Dict
     ) -> None:
@@ -346,23 +349,23 @@ class GridSequenceFactory(abc.ABC):
         if self._refinement_mode == "nested":
             self._prepare_nested()
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __iter__(self):
         return GridSequenceIterator(self)
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def close(self):
         if hasattr(self, "_gmsh"):
             self._gmsh.finalize()
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _generate(self, counter):
         if self._refinement_mode == "nested":
             return self._generate_nested(counter)
         elif self._refinement_mode == "unstructured":
             return self._generate_unstructured(counter)
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _prepare_nested(self):
         # Operate on a deep copy of the network to avoid that fractures etc. are
         # unintentionally modified during operations.
@@ -380,7 +383,7 @@ class GridSequenceFactory(abc.ABC):
         self._out_file = file_name
         self._gmsh = gmsh
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _generate_nested(self, counter: int):
         assert Path(self._in_file).is_file()
         out_file = Path(self._out_file)
@@ -396,7 +399,7 @@ class GridSequenceFactory(abc.ABC):
         pp.contact_conditions.set_projections(gb)
         return gb
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _generate_unstructured(self, counter: int):
         net = self._network.copy()
         mesh_args = self._mesh_parameters[counter]
@@ -404,7 +407,7 @@ class GridSequenceFactory(abc.ABC):
         gb = net.mesh(mesh_args, **grid_param)
         return gb
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _set_parameters(self, param):
         self._refinement_mode = param["mode"]
 

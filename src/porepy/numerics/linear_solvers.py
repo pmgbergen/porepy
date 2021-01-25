@@ -10,9 +10,11 @@ from typing import Dict, Tuple
 import porepy as pp
 from porepy.models.abstract_model import AbstractModel
 
+module_sections = ["numerics", "matrix"]
+
 
 class LinearSolver:
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(self, params: Dict = None) -> None:
         """Define linear solver.
 
@@ -27,7 +29,7 @@ class LinearSolver:
         # default_options.update(params)
         self.params = params  # default_options
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def solve(self, setup: AbstractModel) -> Tuple[float, bool]:
         """Solve a linear problem defined by the current state of the model.
 

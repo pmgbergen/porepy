@@ -20,10 +20,12 @@ from porepy.grids.grid_bucket import GridBucket
 from porepy.utils import mcolon
 
 logger = logging.getLogger(__name__)
+module_sections = ["gridding"]
+
 mortar_sides = mortar_grid.MortarSides
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def grid_list_to_grid_bucket(
     grids: List[List[pp.Grid]], time_tot: float = None, **kwargs
 ) -> pp.GridBucket:
@@ -81,7 +83,7 @@ def grid_list_to_grid_bucket(
     return gb
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucket:
     """
     Creates a cartesian fractured GridBucket in 2- or 3-dimensions.
@@ -141,7 +143,7 @@ def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucke
     return grid_list_to_grid_bucket(grids, **kwargs)
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def _tag_faces(grids, check_highest_dim=True):
     """
     Tag faces of grids. Three different tags are given to different types of
@@ -202,7 +204,7 @@ def _tag_faces(grids, check_highest_dim=True):
                 g.tags["domain_boundary_faces"] = domain_boundary_tags
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def _nodes_per_face(g):
     """
     Returns the number of nodes per face for a given grid
@@ -224,7 +226,7 @@ def _nodes_per_face(g):
     return n_per_face
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def _assemble_in_bucket(grids, **kwargs):
     """
     Create a GridBucket from a list of grids.
@@ -273,7 +275,7 @@ def _assemble_in_bucket(grids, **kwargs):
     return bucket
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def create_mortar_grids(gb, ensure_matching_face_cell=True, **kwargs):
 
     gb.add_edge_props("mortar_grid")

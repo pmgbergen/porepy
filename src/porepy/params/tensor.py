@@ -12,6 +12,9 @@ import numpy as np
 import porepy as pp
 
 
+module_sections = ["parameters"]
+
+
 class SecondOrderTensor(object):
     """Cell-wise permeability represented by (3 ,3 ,Nc)-matrix.
 
@@ -20,7 +23,7 @@ class SecondOrderTensor(object):
     and kyy, and no cross terms.
     """
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(self, kxx, kyy=None, kzz=None, kxy=None, kxz=None, kyz=None):
         """Initialize permeability
 
@@ -101,7 +104,7 @@ class SecondOrderTensor(object):
 
         self.values = perm
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def copy(self):
         """
         Define a deep copy of the tensor.
@@ -121,7 +124,7 @@ class SecondOrderTensor(object):
 
         return SecondOrderTensor(kxx, kxy=kxy, kxz=kxz, kyy=kyy, kyz=kyz, kzz=kzz)
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def rotate(self, R):
         """
         Rotate the permeability given a rotation matrix.
@@ -158,7 +161,7 @@ class FourthOrderTensor(object):
 
     """
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(self, mu, lmbda, phi=None):
         """Constructor for fourth order tensor on Lame-parameter form
 
@@ -243,7 +246,7 @@ class FourthOrderTensor(object):
         c = mu_mat * mu + lmbda_mat * lmbda + phi_mat * phi
         self.values = c
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def copy(self):
         C = FourthOrderTensor(mu=self.mu, lmbda=self.lmbda)
         C.values = self.values.copy()

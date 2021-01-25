@@ -16,10 +16,11 @@ import numpy as np
 import porepy as pp
 import porepy.grids.standard_grids.utils as utils
 
+module_sections = ["grids", "gridding"]
 unit_domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
     """
     Create a grid bucket for a domain containing a single horizontal fracture at y=0.5.
@@ -55,7 +56,7 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
     return gb, unit_domain
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def single_vertical(mesh_args=None, y_endpoints=None, simplex=True):
     """
     Create a grid bucket for a domain containing a single vertical fracture at x=0.5.
@@ -91,7 +92,7 @@ def single_vertical(mesh_args=None, y_endpoints=None, simplex=True):
     return gb
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex=True):
     """
     Create a grid bucket for a domain containing fractures, one horizontal and one vertical
@@ -143,7 +144,7 @@ def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex
     return gb, unit_domain
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def seven_fractures_one_L_intersection(mesh_args=None):
     """
     Create a grid bucket for a domain containing the network introduced as example 1 of
@@ -182,7 +183,7 @@ def seven_fractures_one_L_intersection(mesh_args=None):
     return gb, domain
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def benchmark_regular(mesh_args, is_coarse=False):
     """
     Create a grid bucket for a domain containing the network introduced as example 2 of

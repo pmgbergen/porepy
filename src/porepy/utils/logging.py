@@ -14,13 +14,23 @@ takes on the order 1e-5 seconds, but when applied to a function called 1000s of 
 the cost becomes relevant. To log only parts of the code, all functions are classified
 as relevant for the following (overlapping) categories
 
+    all: Used to log all methods.
+    assembly: Assembly of discretization matrices.
+    discretization: Specific to discretization (less general than numerics)
     geometry: Computations related to geometry
     gridding: Everything that has to do with mesh construction
+    grids: Manipulations of grids beyond mesh construction
     parameters: Define parameters
+    matrix: Related to matrix algebra.
     models: Functions related to multi-physics models
     numerics: Discretization-related
     utils: All (minor) utility-related functions
+    visualization: Related to visualization
 
+To see which methods are logged by the different logging keywords, one must access the
+implementation of individual methods. The logging keywords are commonly set on the
+module level. Note that there are borderline items relative to the categorization, in
+particular for the narrower categories.
 
 Example logging section of porepy.cfg:
 
@@ -72,38 +82,41 @@ path_length = __file__.split("/").index("porepy")
 
 
 # @pp.time_logger
-def time_logger(func, sections, active=config.get("active", False)):
+def time_logger(sections, active=config.get("active", False)):
     """A decorator that measures ellapsed time for a function."""
 
-    @functools.wraps(func)
-    def log_time(*args, **kwargs):
-        if not active:
-            return func(*args, **kwargs)
-        elif not any([s in active_sections for s in sections]):
-            return func(*args, **kwargs)
+    def inner_func(func):
+        @functools.wraps(func)
+        def log_time(*args, **kwargs):
+            if not active:
+                return func(*args, **kwargs)
+            elif not any([s in active_sections for s in sections]):
+                return func(*args, **kwargs)
 
-        fn = "/".join(inspect.getfile(func).split("/")[path_length + 1 :])
+            fn = "/".join(inspect.getfile(func).split("/")[path_length + 1 :])
 
-        name = f"{func.__name__} in file {fn}."
+            name = f"{func.__name__} in file {fn}."
 
-        t_logger.log(level=logging.INFO, msg=f"Calling {name}")
+            t_logger.log(level=logging.INFO, msg=f"Calling {name}")
 
-        #        log.l += name + "\n"
+            #        log.l += name + "\n"
 
-        start_time = time.perf_counter()
-        value = func(*args, **kwargs)
+            start_time = time.perf_counter()
+            value = func(*args, **kwargs)
 
-        end_time = time.perf_counter()
-        run_time = end_time - start_time
+            end_time = time.perf_counter()
+            run_time = end_time - start_time
 
-        t_logger.log(
-            level=logging.INFO,
-            msg=f"Finished {name} Elapsed time: {run_time:.8f} s",
-        )
+            t_logger.log(
+                level=logging.INFO,
+                msg=f"Finished {name} Elapsed time: {run_time:.8f} s",
+            )
 
-        return value
+            return value
 
-    return log_time
+        return log_time
+
+    return inner_func
 
 
 trace_logger = logging.getLogger("Trace")
@@ -120,7 +133,7 @@ if not trace_logger.hasHandlers():
 
 def trace(func):
     @functools.wraps(func)
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def analyze_args(*args, **kwargs):
         msg = f"Calling function {func.__name__}\n"
         for a in args:

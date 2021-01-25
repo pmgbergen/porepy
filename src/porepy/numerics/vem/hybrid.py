@@ -10,6 +10,8 @@ from numpy.linalg import solve
 import porepy as pp
 from porepy.numerics.vem.dual_elliptic import DualElliptic
 
+module_sections = ["numerics", "discretization", "assembly"]
+
 
 class HybridDualVEM:
     """Implementation of mixed virtual element method, using hybridization to
@@ -23,11 +25,11 @@ class HybridDualVEM:
 
     # ------------------------------------------------------------------------------#
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword="flow"):
         self.keyword = keyword
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
@@ -46,7 +48,7 @@ class HybridDualVEM:
 
     # ------------------------------------------------------------------------------#
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def matrix_rhs(self, g, data):
         """
         Return the matrix and righ-hand side for a discretization of a second
@@ -210,7 +212,7 @@ class HybridDualVEM:
 
     # ------------------------------------------------------------------------------#
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def compute_up(self, g, solution, data):
         """
         Return the velocity and pressure computed from the hybrid variables.

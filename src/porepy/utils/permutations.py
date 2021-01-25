@@ -2,8 +2,10 @@
 """
 import porepy as pp
 
+module_sections = ["utils"]
 
-@pp.time_logger
+
+@pp.time_logger(sections=module_sections)
 def multinary_permutations(base, length):
     """
     Define a generator over all numbers of a certain length for a number system

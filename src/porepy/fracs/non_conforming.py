@@ -16,7 +16,7 @@ from porepy.utils.matrix_compression import rldecode
 from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def merge_grids(grids, intersections, tol=1e-4):
     """Main method of module, merge all grids"""
     list_of_grids, global_ind_offset = init_global_ind(grids)
@@ -33,7 +33,7 @@ def merge_grids(grids, intersections, tol=1e-4):
     return grid_list_by_dim
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def init_global_ind(gl):
     """Initialize a global indexing of nodes to a set of local grids.
 
@@ -70,7 +70,7 @@ def init_global_ind(gl):
     return list_of_grids, global_ind_offset
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def process_intersections(grids, intersections, global_ind_offset, list_of_grids, tol):
     """Loop over all intersections, combined two and two grids."""
 
@@ -118,7 +118,7 @@ def process_intersections(grids, intersections, global_ind_offset, list_of_grids
     return grid_1d_list
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids, tol):
 
     (
@@ -162,7 +162,7 @@ def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids, tol):
     return combined_1d, global_ind_offset
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
     """Merge two 1d grids with non-matching nodes to a single grid.
 
@@ -257,7 +257,7 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
     )
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def update_global_point_ind(grid_list, old_ind, new_ind):
     """Update global point indices in a list of grids.
 
@@ -275,7 +275,7 @@ def update_global_point_ind(grid_list, old_ind, new_ind):
         g.global_point_ind[o2n] = new_ind[ismem]
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def update_nodes(
     g, g_1d, new_grid_1d, this_in_combined, sort_ind, global_ind_offset, list_of_grids
 ):
@@ -378,7 +378,7 @@ def update_nodes(
     return new_nodes, delete_faces, global_ind_offset
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def update_face_nodes(
     g, delete_faces, num_new_faces, new_node_offset, nodes_per_face=None
 ):
@@ -436,7 +436,7 @@ def update_face_nodes(
     return ind_new_face
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def update_cell_faces(
     g, delete_faces, new_faces, in_combined, fn_orig, node_coord_orig, tol=1e-4
 ):
@@ -637,7 +637,7 @@ def update_cell_faces(
     g.cell_faces = sps.csc_matrix((data, ind, indptr_new))
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def update_face_tags(g, delete_faces, new_faces):
     """Update the face tags of a cell.
 

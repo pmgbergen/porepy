@@ -10,8 +10,10 @@ import numpy as np
 
 import porepy as pp
 
+module_sections = ["utils"]
 
-@pp.time_logger
+
+@pp.time_logger(sections=module_sections)
 def rldecode(A, n):
     """Decode compressed information.
 
@@ -38,7 +40,7 @@ def rldecode(A, n):
     return B
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def rlencode(A):
     """ Compress matrix by looking for identical columns. """
     comp = A[::, 0:-1] != A[::, 1::]

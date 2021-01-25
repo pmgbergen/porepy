@@ -10,8 +10,10 @@ import porepy as pp
 from porepy.grids import constants
 from porepy.grids.gmsh import mesh_2_grid
 
+module_sections = ["gridding"]
 
-@pp.time_logger
+
+@pp.time_logger(sections=module_sections)
 def _cart_grid_3d(fracs, nx, physdims=None):
     """
     Create grids for a domain with possibly intersecting fractures in 3d.
@@ -204,7 +206,7 @@ def _cart_grid_3d(fracs, nx, physdims=None):
     return grids
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def _cart_grid_2d(fracs, nx, physdims=None):
     """
     Create grids for a domain with possibly intersecting fractures in 2d.
@@ -274,7 +276,7 @@ def _cart_grid_2d(fracs, nx, physdims=None):
     return grids
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def _create_embedded_2d_grid(loc_coord, glob_id):
     """
     Create a 2d grid that is embedded in a 3d grid.
@@ -319,7 +321,7 @@ def _create_embedded_2d_grid(loc_coord, glob_id):
     return g
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def _find_nodes_on_line(g, nx, s_pt, e_pt):
     """
     We have the start and end point of the fracture. From this we find the

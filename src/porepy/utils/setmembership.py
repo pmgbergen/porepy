@@ -5,8 +5,10 @@ import numpy as np
 
 import porepy as pp
 
+module_sections = ["utils"]
 
-@pp.time_logger
+
+@pp.time_logger(sections=module_sections)
 def unique_rows(data):
     """
     Function similar to Matlab's unique(...,'rows')
@@ -29,7 +31,7 @@ def unique_rows(data):
     return data[ia], ia, ic
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def ismember_rows(a, b, sort=True):
     """
     Find *columns* of a that are also members of *columns* of b.
@@ -106,7 +108,7 @@ def ismember_rows(a, b, sort=True):
     return ismem_a, ia
 
 
-@pp.time_logger
+@pp.time_logger(sections=module_sections)
 def unique_columns_tol(mat, tol=1e-8):
     """
     Remove duplicates from a point set, for a given distance traveling.

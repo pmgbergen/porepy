@@ -11,6 +11,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+module_sections = ["numerics"]
+
 
 class CellDofFaceDofMap(object):
     """
@@ -33,7 +35,7 @@ class CellDofFaceDofMap(object):
 
     """
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword):
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
@@ -44,7 +46,7 @@ class CellDofFaceDofMap(object):
         """
         self.keyword = keyword
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _key(self):
         """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
@@ -55,7 +57,7 @@ class CellDofFaceDofMap(object):
         """
         return self.keyword + "_"
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def ndof(self, g):
         """Return the number of degrees of freedom, in this case the number of cells
 
@@ -68,7 +70,7 @@ class CellDofFaceDofMap(object):
         """
         return g.num_cells
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def extract_pressure(self, g, solution_array, data=None):
         """Return exactly the solution_array itself.
 
@@ -85,7 +87,7 @@ class CellDofFaceDofMap(object):
         """
         return solution_array
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def extract_flux(self, g, solution_array, data=None):
         """We return an empty vector for consistency with the previous method.
 
@@ -101,7 +103,7 @@ class CellDofFaceDofMap(object):
         """
         return np.empty(0)
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g, data):
         """Construct discretization matrices. Operation is void for this discretization.
 
@@ -112,7 +114,7 @@ class CellDofFaceDofMap(object):
         """
         pass
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(self, g, data=None):
         """Return the matrix and right-hand side, no PDE are associate with
         this discretization so empty matrix and zero rhs is returned.
@@ -128,7 +130,7 @@ class CellDofFaceDofMap(object):
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix(self, g, data=None):
         """An empty matrix with size num_cells x num_cells.
 
@@ -142,7 +144,7 @@ class CellDofFaceDofMap(object):
         """
         return sps.csr_matrix((self.ndof(g), self.ndof(g)))
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_rhs(self, g, data=None):
         """Zero right-hand side vector.
 
@@ -156,7 +158,7 @@ class CellDofFaceDofMap(object):
         """
         return np.zeros(self.ndof(g))
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_flux(
         self, g, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj
     ):
@@ -193,7 +195,7 @@ class CellDofFaceDofMap(object):
         """
         raise NotImplementedError("Method not implemented")
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_source(self, g, data, data_edge, cc, matrix, rhs, self_ind):
         """Assemble the contribution from an internal boundary,
         manifested as a source term.
@@ -230,7 +232,7 @@ class CellDofFaceDofMap(object):
 
         cc[self_ind, 2] -= proj.T
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace(
         self, g, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj
     ):
@@ -267,7 +269,7 @@ class CellDofFaceDofMap(object):
         """
         raise NotImplementedError("Method not implemented")
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_cell(
         self, g, data, data_edge, cc, matrix, rhs, self_ind
     ):
@@ -306,7 +308,7 @@ class CellDofFaceDofMap(object):
 
         cc[2, self_ind] -= proj
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def enforce_neumann_int_bound(self, g_primary, data_edge, matrix, self_ind):
         """Enforce Neumann boundary conditions on a given system matrix.
 

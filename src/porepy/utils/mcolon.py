@@ -7,11 +7,12 @@ Acknowledgements:
 
 """
 import numpy as np
-
 import porepy as pp
 
+module_sections = ["utils"]
 
-@pp.time_logger
+
+@pp.time_logger(sections=module_sections)
 def mcolon(lo, hi):
     """Expansion of np.arange(a, b) for arrays a and b.
 

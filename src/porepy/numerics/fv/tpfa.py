@@ -9,6 +9,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+module_sections = ["numerics", "disrcetization"]
+
 
 class Tpfa(pp.FVElliptic):
     """Discretize elliptic equations by a two-point flux approximation.
@@ -22,11 +24,11 @@ class Tpfa(pp.FVElliptic):
 
     """
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword):
         super(Tpfa, self).__init__(keyword)
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g, data):
         """
         Discretize the second order elliptic equation using two-point flux approximation.

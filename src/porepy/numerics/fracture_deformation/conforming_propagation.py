@@ -40,6 +40,7 @@ import porepy as pp
 from .propagation_model import FracturePropagation
 
 logger = logging.getLogger(__name__)
+module_sections = ["models", "numerics"]
 
 
 class ConformingFracturePropagation(FracturePropagation):
@@ -67,7 +68,7 @@ class ConformingFracturePropagation(FracturePropagation):
 
     """
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(self, params):
         self.params = params
         # Tag for tensile propagation. This enforces SIF_II=SIF_III=0
@@ -77,13 +78,13 @@ class ConformingFracturePropagation(FracturePropagation):
         # been found. In practice, this is modified by self.evaluate_propagation()
         self.propagated_fracture: bool = False
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def has_propagated(self) -> bool:
         if not hasattr(self, "propagated_fracture"):
             return False
         return self.propagated_fracture
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def evaluate_propagation(self) -> None:
         """
         Evaluate propagation for all fractures based on the current solution.
@@ -153,7 +154,7 @@ class ConformingFracturePropagation(FracturePropagation):
 
         pp.propagate_fracture.propagate_fractures(gb, face_list)
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _displacement_correlation(
         self, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
     ) -> None:
@@ -233,7 +234,7 @@ class ConformingFracturePropagation(FracturePropagation):
         )
         parameters_l["SIFs"] = sifs
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _sifs_from_delta_u(
         self, d_u: np.ndarray, rm: np.ndarray, parameters: Dict[str, Any]
     ) -> np.ndarray:
@@ -293,7 +294,7 @@ class ConformingFracturePropagation(FracturePropagation):
             K[2] = np.sqrt(2 * np.pi / rm) * np.divide(mu, 4) * d_u[2, :]
         return K
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _propagation_criterion(self, d: Dict) -> None:
         """
         Tag faces for propagation if the equivalent SIF exceeds a critical value.
@@ -334,7 +335,7 @@ class ConformingFracturePropagation(FracturePropagation):
         parameters["propagate_faces"] = K_equivalent >= K_crit[0]
         parameters["SIFs_equivalent"] = K_equivalent
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _angle_criterion(self, d: Dict) -> None:
         """
         Compute propagation angle based on SIFs.
@@ -386,7 +387,7 @@ class ConformingFracturePropagation(FracturePropagation):
         # picking of faces to propagate along.
         # parameters["propagation_angle_tangential"]
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _propagation_vector(self, g: pp.Grid, d: dict, face: int) -> np.ndarray:
         """
 
@@ -419,7 +420,7 @@ class ConformingFracturePropagation(FracturePropagation):
         propagation_vector = np.dot(R, tip_basis[0])
         return propagation_vector
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _pick_propagation_faces(
         self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
     ) -> None:
@@ -541,7 +542,7 @@ class ConformingFracturePropagation(FracturePropagation):
         vals[cells] = 1
         data_h[pp.STATE]["neighbor_cells"] = vals
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _tip_bases(
         self,
         g: pp.Grid,
@@ -588,12 +589,12 @@ class ConformingFracturePropagation(FracturePropagation):
             basis[2, :, :] = np.cross(basis[0, :, :], basis[1, :, :], axis=0)
         return basis
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _candidate_faces(self, g_h: pp.Grid, edge_h, g_l: pp.Grid, face_l: np.ndarray):
         # TODO: Use identified_faces to avoid pathological cases arising through
         # propagation of multiple fractures within the same propagation step.
 
-        @pp.time_logger
+        @pp.time_logger(sections=module_sections)
         def faces_of_edge(g: pp.Grid, e: np.ndarray) -> np.ndarray:
             """
             Obtain indices of all faces sharing an edge.

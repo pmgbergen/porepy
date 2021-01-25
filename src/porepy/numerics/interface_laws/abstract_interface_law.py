@@ -10,6 +10,8 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.discretization import Discretization
 
+module_sections = ["numerics"]
+
 
 class AbstractInterfaceLaw(abc.ABC):
     """Partial implementation of an interface (between two grids) law. Any full
@@ -27,22 +29,22 @@ class AbstractInterfaceLaw(abc.ABC):
 
     """
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword: str) -> None:
         self.keyword = keyword
         self.edge_coupling_via_high_dim = False
         self.edge_coupling_via_low_dim = False
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _key(self) -> str:
         return self.keyword + "_"
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _discretization_key(self) -> str:
         return self._key() + pp.DISCRETIZATION
 
     @abc.abstractmethod
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def ndof(self, mg: pp.MortarGrid) -> int:
         """Get the number of degrees of freedom of this interface law for a
         given mortar grid.
@@ -57,7 +59,7 @@ class AbstractInterfaceLaw(abc.ABC):
         pass
 
     @abc.abstractmethod
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def discretize(
         self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
     ) -> None:
@@ -77,7 +79,7 @@ class AbstractInterfaceLaw(abc.ABC):
         """
         pass
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def update_discretization(
         self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
     ) -> None:
@@ -111,7 +113,7 @@ class AbstractInterfaceLaw(abc.ABC):
         self.discretize(g_h, g_l, data_h, data_l, data_edge)
 
     @abc.abstractmethod
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self,
         g_primary: pp.Grid,
@@ -145,7 +147,7 @@ class AbstractInterfaceLaw(abc.ABC):
         """
         pass
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix(
         self,
         g_primary: pp.Grid,
@@ -181,7 +183,7 @@ class AbstractInterfaceLaw(abc.ABC):
         )
         return A
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_rhs(
         self,
         g_primary: pp.Grid,
@@ -217,7 +219,7 @@ class AbstractInterfaceLaw(abc.ABC):
         )
         return b
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _define_local_block_matrix(
         self,
         g_primary: pp.Grid,
@@ -294,7 +296,7 @@ class AbstractInterfaceLaw(abc.ABC):
 
         return cc, rhs
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def _define_local_block_matrix_edge_coupling(
         self,
         g: pp.Grid,
@@ -370,7 +372,7 @@ class AbstractInterfaceLaw(abc.ABC):
 
         return cc, rhs
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_edge_coupling_via_high_dim(  # type: ignore
         self,
         g_between: pp.Grid,
@@ -426,7 +428,7 @@ class AbstractInterfaceLaw(abc.ABC):
                                       dimensional grid must implement this model"""
             )
 
-    @pp.time_logger
+    @pp.time_logger(sections=module_sections)
     def assemble_edge_coupling_via_low_dim(  # type: ignore
         self,
         g_between: pp.Grid,
