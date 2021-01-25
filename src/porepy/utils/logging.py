@@ -61,10 +61,14 @@ __all__ = ["time_logger"]
 try:
     config = dict(pp.config["logging"])
     raw_sections = config.get("sections", "all")
-    active_sections = ["all"] + [s.strip() for s in raw_sections.split(",")]
+    active_sections = [s.strip().lower() for s in raw_sections.split(",")]
+    logger_is_active = config["active"].strip().lower() == "true"
+    always_log = "all" in active_sections
+
 except KeyError:
     config = {}
     active_sections = ["all"]
+    logger_is_active = False
 
 t_logger = logging.getLogger("Timer")
 t_logger.setLevel(logging.INFO)
@@ -82,37 +86,36 @@ path_length = __file__.split("/").index("porepy")
 
 
 # @pp.time_logger
-def time_logger(sections, active=config.get("active", False)):
+def time_logger(sections):
     """A decorator that measures ellapsed time for a function."""
 
     def inner_func(func):
         @functools.wraps(func)
         def log_time(*args, **kwargs):
-            if not active:
+            if not logger_is_active:
                 return func(*args, **kwargs)
-            elif not any([s in active_sections for s in sections]):
+            elif always_log or any([s in active_sections for s in sections]):
+
+                fn = "/".join(inspect.getfile(func).split("/")[path_length + 1 :])
+
+                name = f"{func.__name__} in file {fn}."
+
+                t_logger.log(level=logging.INFO, msg=f"Calling {name}")
+
+                start_time = time.perf_counter()
+                value = func(*args, **kwargs)
+
+                end_time = time.perf_counter()
+                run_time = end_time - start_time
+
+                t_logger.log(
+                    level=logging.INFO,
+                    msg=f"Finished {name} Elapsed time: {run_time:.8f} s",
+                )
+
+                return value
+            else:
                 return func(*args, **kwargs)
-
-            fn = "/".join(inspect.getfile(func).split("/")[path_length + 1 :])
-
-            name = f"{func.__name__} in file {fn}."
-
-            t_logger.log(level=logging.INFO, msg=f"Calling {name}")
-
-            #        log.l += name + "\n"
-
-            start_time = time.perf_counter()
-            value = func(*args, **kwargs)
-
-            end_time = time.perf_counter()
-            run_time = end_time - start_time
-
-            t_logger.log(
-                level=logging.INFO,
-                msg=f"Finished {name} Elapsed time: {run_time:.8f} s",
-            )
-
-            return value
 
         return log_time
 
