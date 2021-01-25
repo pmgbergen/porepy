@@ -18,8 +18,22 @@ viz: Visualization; paraview, matplotlib.
 isort:skip_file
 
 """
+import os
+from pathlib import Path
+import configparser
 
 __version__ = "1.3.1"
+
+
+# Try to read the config file from the directory where python process was launched
+try:
+    cwd = Path(os.getcwd())
+    pth = cwd / Path("porepy.cfg")
+    config = configparser.ConfigParser()
+    config.read(pth)
+except:
+    # the assumption is that no configurations are given
+    config = {}
 
 # ------------------------------------
 # Simplified namespaces. The rue of thumb is that classes and modules that a
