@@ -21,7 +21,12 @@ Methods for tag handling. The following primary applications are intended:
 """
 import numpy as np
 
+import porepy as pp
 
+module_sections = ["gridding", "grids"]
+
+
+@pp.time_logger(sections=module_sections)
 def append_tags(tags, keys, appendices):
     """
     Append tags of certain keys.
@@ -33,6 +38,7 @@ def append_tags(tags, keys, appendices):
         tags[key] = np.append(tags[key], appendices[i])
 
 
+@pp.time_logger(sections=module_sections)
 def standard_face_tags():
     """
     Returns the three standard face tag keys.
@@ -40,6 +46,7 @@ def standard_face_tags():
     return ["fracture_faces", "tip_faces", "domain_boundary_faces"]
 
 
+@pp.time_logger(sections=module_sections)
 def standard_node_tags():
     """
     Returns the standard node tag key.
@@ -47,6 +54,7 @@ def standard_node_tags():
     return ["fracture_nodes", "tip_nodes", "domain_boundary_nodes"]
 
 
+@pp.time_logger(sections=module_sections)
 def all_tags(parent, ft):
     """
     Return a logical array indicate which of the parent objects are
@@ -55,6 +63,7 @@ def all_tags(parent, ft):
     return np.logical_or(np.logical_or(parent[ft[0]], parent[ft[1]]), parent[ft[2]])
 
 
+@pp.time_logger(sections=module_sections)
 def all_face_tags(parent):
     """
     Return a logical array indicate which of the parent (grid.tags) faces are
@@ -63,6 +72,7 @@ def all_face_tags(parent):
     return all_tags(parent, standard_face_tags())
 
 
+@pp.time_logger(sections=module_sections)
 def all_node_tags(parent):
     """
     Return a logical array indicate which of the parent (grid.nodes) nodes are
@@ -71,6 +81,7 @@ def all_node_tags(parent):
     return all_tags(parent, standard_node_tags())
 
 
+@pp.time_logger(sections=module_sections)
 def extract(all_tags, indices, keys=None):
     """
     Extracts only the values of indices (e.g. a face subset) for the given
@@ -85,6 +96,7 @@ def extract(all_tags, indices, keys=None):
     return new_tags
 
 
+@pp.time_logger(sections=module_sections)
 def add_tags(parent, new_tags):
     """
     Add new tags (as a premade dictionary) to the tags of the parent object
@@ -98,6 +110,7 @@ def add_tags(parent, new_tags):
     parent.tags = nt
 
 
+@pp.time_logger(sections=module_sections)
 def add_node_tags_from_face_tags(gb, tag_base):
     """
     Set domain boundary tags for all nodes at at least one domain boundary

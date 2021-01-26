@@ -19,6 +19,7 @@ from porepy.numerics.discretization import Discretization
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
+module_sections = ["numerics", "disrcetization"]
 
 
 class Mpsa(Discretization):
@@ -40,6 +41,7 @@ class Mpsa(Discretization):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword: str) -> None:
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
@@ -55,6 +57,7 @@ class Mpsa(Discretization):
         self.bound_displacment_cell_matrix_key = "bound_displacement_cell"
         self.bound_displacment_face_matrix_key = "bound_displacement_face"
 
+    @pp.time_logger(sections=module_sections)
     def _key(self) -> str:
         """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
@@ -65,6 +68,7 @@ class Mpsa(Discretization):
         """
         return self.keyword + "_"
 
+    @pp.time_logger(sections=module_sections)
     def ndof(self, g: pp.Grid) -> int:
         """
         Return the number of degrees of freedom associated to the method.
@@ -81,6 +85,7 @@ class Mpsa(Discretization):
         """
         return g.dim * g.num_cells
 
+    @pp.time_logger(sections=module_sections)
     def extract_displacement(
         self, g: pp.Grid, solution_array: np.ndarray, d: Dict
     ) -> np.ndarray:
@@ -99,6 +104,7 @@ class Mpsa(Discretization):
         """
         return solution_array
 
+    @pp.time_logger(sections=module_sections)
     def extract_stress(
         self, g: pp.Grid, solution_array: np.ndarray, d: Dict
     ) -> np.ndarray:
@@ -126,6 +132,7 @@ class Mpsa(Discretization):
 
         return stress * solution_array + bound_stress * bc_val
 
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g: pp.Grid, data: Dict) -> None:
         """
         Discretize the second order vector elliptic equation using multi-point
@@ -343,6 +350,7 @@ class Mpsa(Discretization):
                 self.bound_displacment_face_matrix_key
             ] = bound_displacement_face_glob
 
+    @pp.time_logger(sections=module_sections)
     def update_discretization(self, g, data):
         """Update discretization.
 
@@ -360,6 +368,7 @@ class Mpsa(Discretization):
 
             modified_cells, modified_faces
 
+        @pp.time_logger(sections=module_sections)
         define cells, faces and nodes that have been modified (either parameters,
         geometry or topology), and should be rediscretized. It is up to the
         discretization method to implement the change necessary by this modification.
@@ -411,6 +420,7 @@ class Mpsa(Discretization):
             vector_face_left=vector_face_left,
         )
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self, g: pp.Grid, data: Dict
     ) -> Tuple[sps.spmatrix, np.ndarray]:
@@ -438,6 +448,7 @@ class Mpsa(Discretization):
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.spmatrix:
         """
         Return the matrix for a discretization of a second order elliptic vector
@@ -467,6 +478,7 @@ class Mpsa(Discretization):
 
         return M
 
+    @pp.time_logger(sections=module_sections)
     def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
         """Return the right-hand side for a discretization of a second
         order elliptic equation using a finite volume method.
@@ -498,6 +510,7 @@ class Mpsa(Discretization):
 
         return -div * bound_stress * bc_val + parameter_dictionary["source"]
 
+    @pp.time_logger(sections=module_sections)
     def _stress_disrcetization(
         self,
         g: pp.Grid,
@@ -717,6 +730,7 @@ class Mpsa(Discretization):
             hf_bound *= hf2f.T
         return stress, bound_stress, hf_cell, hf_bound
 
+    @pp.time_logger(sections=module_sections)
     def _create_inverse_gradient_matrix(
         self,
         g: pp.Grid,
@@ -831,6 +845,7 @@ class Mpsa(Discretization):
 
         return hook, igrad, cell_node_blocks
 
+    @pp.time_logger(sections=module_sections)
     def _create_rhs_cell_center(
         self,
         g: pp.Grid,
@@ -870,6 +885,7 @@ class Mpsa(Discretization):
 
         return rhs_cells
 
+    @pp.time_logger(sections=module_sections)
     def _create_bound_rhs(
         self,
         bound: pp.BoundaryConditionVectorial,
@@ -1077,6 +1093,7 @@ class Mpsa(Discretization):
 
         return rhs_bound
 
+    @pp.time_logger(sections=module_sections)
     def _reconstruct_displacement(
         self,
         g: pp.Grid,
@@ -1168,6 +1185,7 @@ class Mpsa(Discretization):
     #
     # -----------------------------------------------------------------------------
 
+    @pp.time_logger(sections=module_sections)
     def _estimate_peak_memory_mpsa(self, g: pp.Grid) -> int:
         """Rough estimate of peak memory need for mpsa discretization."""
         nd = g.dim
@@ -1202,6 +1220,7 @@ class Mpsa(Discretization):
         # between local and block ordering etc.
         return total_size
 
+    @pp.time_logger(sections=module_sections)
     def _get_displacement_submatrices(
         self,
         g: pp.Grid,
@@ -1237,6 +1256,7 @@ class Mpsa(Discretization):
 
         return d_cont_grad, d_cont_cell
 
+    @pp.time_logger(sections=module_sections)
     def _get_displacement_submatrices_rob(
         self,
         g: pp.Grid,
@@ -1292,6 +1312,7 @@ class Mpsa(Discretization):
         )
         return rob_grad, rob_cell
 
+    @pp.time_logger(sections=module_sections)
     def _split_stiffness_matrix(
         self, constit: pp.FourthOrderTensor
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -1353,6 +1374,7 @@ class Mpsa(Discretization):
         casym -= csym
         return csym, casym
 
+    @pp.time_logger(sections=module_sections)
     def _tensor_vector_prod(
         self,
         g: pp.Grid,
@@ -1505,6 +1527,7 @@ class Mpsa(Discretization):
 
         return ncsym, ncasym, cell_node_blocks, grad_ind
 
+    @pp.time_logger(sections=module_sections)
     def _inverse_gradient(
         self,
         grad_eqs: sps.spmatrix,
@@ -1530,6 +1553,7 @@ class Mpsa(Discretization):
         logger.debug("max igrad: " + str(np.max(np.abs(igrad))))
         return igrad
 
+    @pp.time_logger(sections=module_sections)
     def _block_diagonal_structure(
         self,
         sub_cell_index: np.ndarray,
@@ -1590,6 +1614,7 @@ class Mpsa(Discretization):
         ).tocsr()
         return rows2blk_diag, cols2blk_diag, size_of_blocks
 
+    @pp.time_logger(sections=module_sections)
     def _unique_hooks_law(
         self,
         csym: np.ndarray,
@@ -1642,6 +1667,7 @@ class Mpsa(Discretization):
 
         return hook
 
+    @pp.time_logger(sections=module_sections)
     def _cell_variable_contribution(
         self, g: pp.Grid, subcell_topology: pp.fvutils.SubcellTopology
     ) -> sps.spmatrix:
@@ -1672,6 +1698,7 @@ class Mpsa(Discretization):
 
         return d_cont_cell
 
+    @pp.time_logger(sections=module_sections)
     def _rearange_columns_displacement_eqs(
         self,
         d_cont_grad: np.ndarray,
@@ -1717,6 +1744,7 @@ class Mpsa(Discretization):
         d_cont_cell = d_cont_cell[:, d_cont_cell_map]
         return d_cont_grad, d_cont_cell
 
+    @pp.time_logger(sections=module_sections)
     def _row_major_to_col_major(self, shape: Tuple, nd: int, axis: int) -> sps.spmatrix:
         """Transform columns of displacement balance from increasing cell
         ordering (first x-variables of all cells, then y) to increasing
@@ -1744,6 +1772,7 @@ class Mpsa(Discretization):
             raise ValueError("axis must be 0 or 1")
         return P
 
+    @pp.time_logger(sections=module_sections)
     def _eliminate_ncasym_neumann(
         self,
         ncasym: np.ndarray,
@@ -1816,6 +1845,7 @@ class Mpsa(Discretization):
 
         # ncasym.indices[y_pntr[yuz]] -= 2
 
+    @pp.time_logger(sections=module_sections)
     def _reduce_grid_constit_2d(
         self, g: pp.Grid, constit: pp.FourthOrderTensor
     ) -> Tuple[pp.Grid, pp.FourthOrderTensor]:
@@ -1845,6 +1875,7 @@ class Mpsa(Discretization):
         constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=1)
         return g, constit
 
+    @pp.time_logger(sections=module_sections)
     def _bc_for_subgrid(
         self, bc: pp.BoundaryConditionVectorial, sub_g: pp.Grid, face_map: np.ndarray
     ) -> pp.BoundaryConditionVectorial:
@@ -1878,6 +1909,7 @@ class Mpsa(Discretization):
 
         return sub_bc
 
+    @pp.time_logger(sections=module_sections)
     def _constit_for_subgrid(
         self, constit: pp.FourthOrderTensor, loc_cells: np.ndarray
     ) -> pp.FourthOrderTensor:

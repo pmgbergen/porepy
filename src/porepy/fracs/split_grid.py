@@ -12,7 +12,10 @@ from porepy.utils.graph import Graph
 from porepy.utils.half_space import half_space_int
 from porepy.utils.mcolon import mcolon
 
+module_sections = ["gridding"]
 
+
+@pp.time_logger(sections=module_sections)
 def split_fractures(bucket, **kwargs):
     """
     Wrapper function to split all fractures. For each grid in the bucket,
@@ -103,6 +106,7 @@ def split_fractures(bucket, **kwargs):
     return bucket
 
 
+@pp.time_logger(sections=module_sections)
 def split_faces(gh, face_cells):
     """
     Split faces of the grid along each fracture. This function will
@@ -145,6 +149,7 @@ def split_faces(gh, face_cells):
     return face_cells
 
 
+@pp.time_logger(sections=module_sections)
 def split_specific_faces(
     gh: pp.Grid,
     face_cell_list: List[sps.spmatrix],
@@ -214,6 +219,7 @@ def split_specific_faces(
         return face_cell_list
 
 
+@pp.time_logger(sections=module_sections)
 def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
     """
     Splits the nodes of a grid given a set of lower-dimensional grids
@@ -254,6 +260,7 @@ def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
     return True
 
 
+@pp.time_logger(sections=module_sections)
 def duplicate_faces(gh, face_cells):
     """
     Duplicate all faces that are connected to a lower-dim cell
@@ -275,6 +282,7 @@ def duplicate_faces(gh, face_cells):
     return _duplicate_specific_faces(gh, frac_id)
 
 
+@pp.time_logger(sections=module_sections)
 def _duplicate_specific_faces(gh: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
     """
     Duplicate faces of gh specified by frac_id.
@@ -343,6 +351,7 @@ def _duplicate_specific_faces(gh: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
     return frac_id
 
 
+@pp.time_logger(sections=module_sections)
 def _update_face_cells(
     face_cells: List[sps.spmatrix],
     face_id: np.ndarray,
@@ -428,6 +437,7 @@ def _update_face_cells(
     return face_cells
 
 
+@pp.time_logger(sections=module_sections)
 def update_cell_connectivity(
     g: pp.Grid, face_id: np.ndarray, normal: np.ndarray, x0: np.ndarray
 ) -> int:
@@ -519,6 +529,7 @@ def update_cell_connectivity(
     return 0
 
 
+@pp.time_logger(sections=module_sections)
 def remove_faces(g, face_id, rem_cell_faces=True):
     """
     Remove faces from grid.
@@ -546,6 +557,7 @@ def remove_faces(g, face_id, rem_cell_faces=True):
         g.cell_faces = g.cell_faces[keep, :]
 
 
+@pp.time_logger(sections=module_sections)
 def duplicate_nodes(g, nodes, offset):
     """
     Duplicate nodes on a fracture. The number of duplication will depend on
@@ -647,6 +659,7 @@ def duplicate_nodes(g, nodes, offset):
     return node_count
 
 
+@pp.time_logger(sections=module_sections)
 def sort_sub_list(indices, indptr):
     ix = np.zeros(indices.size, dtype=int)
     for i in range(indptr.size - 1):
@@ -659,6 +672,7 @@ def sort_sub_list(indices, indptr):
     return indices, iv
 
 
+@pp.time_logger(sections=module_sections)
 def find_cell_color(g, cells):
     """
     Color the cells depending on the cell connections. Each group of cells
@@ -702,6 +716,7 @@ def find_cell_color(g, cells):
     return graph.color[child_cell_ind[cells]]
 
 
+@pp.time_logger(sections=module_sections)
 def avg_normal(g, faces):
     """
     Calculates the average face normal of a set of faces. The average normal
@@ -723,6 +738,7 @@ def avg_normal(g, faces):
     return n
 
 
+@pp.time_logger(sections=module_sections)
 def remove_nodes(g, rem):
     """
     Remove nodes from grid.

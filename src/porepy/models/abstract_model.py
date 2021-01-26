@@ -9,6 +9,8 @@ import numpy as np
 
 import porepy as pp
 
+module_sections = ["models", "numerics"]
+
 
 class AbstractModel(abc.ABC):
     """This is an abstract class that specifies methods that a model must implement to
@@ -17,6 +19,7 @@ class AbstractModel(abc.ABC):
     """
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def get_state_vector(self) -> np.ndarray:
         """Get a vector of the current state of the variables; with the same ordering
             as in the assembler.
@@ -28,6 +31,7 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def prepare_simulation(self) -> None:
         """Method called prior to the start of time stepping, or prior to entering the
         non-linear solver for stationary problems.
@@ -39,6 +43,7 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def before_newton_loop(self) -> None:
         """Method to be called before entering the non-linear solver, thus at the start
         of a new time step.
@@ -49,6 +54,7 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def before_newton_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
 
@@ -58,6 +64,7 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def after_newton_iteration(self, solution_vector: np.ndarray):
         """Method to be called after every non-linear iteration.
 
@@ -71,6 +78,7 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
@@ -85,6 +93,7 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def after_newton_failure(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
@@ -99,6 +108,7 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def check_convergence(
         self,
         solution: np.ndarray,
@@ -128,6 +138,7 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
         """Assemble the linearized system, described by the current state of the model,
         solve and return the new solution vector.
@@ -143,9 +154,11 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def after_simulation(self) -> None:
         """Run at the end of simulation. Can be used for cleaup etc."""
 
+    @pp.time_logger(sections=module_sections)
     def _l2_norm_cell(self, g: pp.Grid, u: np.ndarray) -> float:
         """
         Compute the cell volume weighted norm of a vector-valued cellwise quantity for

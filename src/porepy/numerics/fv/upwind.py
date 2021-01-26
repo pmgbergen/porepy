@@ -3,6 +3,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+module_sections = ["numerics", "disrcetization"]
+
 
 class Upwind(pp.numerics.discretization.Discretization):
     """
@@ -12,6 +14,7 @@ class Upwind(pp.numerics.discretization.Discretization):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword="transport"):
         self.keyword = keyword
 
@@ -19,6 +22,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         self.matrix_keyword = "transport"
         self.rhs_keyword = "rhs"
 
+    @pp.time_logger(sections=module_sections)
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
@@ -35,6 +39,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         """
         return g.num_cells
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(self, g, data):
         """Return the matrix for an upwind discretization of a linear transport
         problem.
@@ -52,6 +57,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix(self, g, data):
         """Return the matrix for an upwind discretization of a linear transport
         problem.
@@ -70,6 +76,7 @@ class Upwind(pp.numerics.discretization.Discretization):
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def assemble_rhs(self, g, data):
         """Return the right-hand side for an upwind discretization of a linear
         transport problem.
@@ -87,6 +94,7 @@ class Upwind(pp.numerics.discretization.Discretization):
 
         return matrix_dictionary[self.rhs_keyword]
 
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g, data, d_name="darcy_flux"):
         """
         Return the matrix and righ-hand side for a discretization of a scalar
@@ -219,6 +227,7 @@ class Upwind(pp.numerics.discretization.Discretization):
                 - np.abs(g.cell_faces.transpose()) * bc_val_neu
             )
 
+    @pp.time_logger(sections=module_sections)
     def cfl(self, g, data, d_name="darcy_flux"):
         """
         Return the time step according to the CFL condition.
@@ -267,6 +276,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         # deltaT is deltaX/darcy_flux with coefficient
         return np.amin(np.abs(np.divide(dist, darcy_flux[faces])) * coeff)
 
+    @pp.time_logger(sections=module_sections)
     def darcy_flux(self, g, beta, cell_apertures=None):
         """
         Return the normal component of the velocity, for each face, weighted by
@@ -305,6 +315,7 @@ class Upwind(pp.numerics.discretization.Discretization):
             [np.dot(n, a * beta) for n, a in zip(g.face_normals.T, face_apertures)]
         )
 
+    @pp.time_logger(sections=module_sections)
     def outflow(self, g, data, d_name="darcy_flux"):
         if g.dim == 0:
             return sps.csr_matrix([0])

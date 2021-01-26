@@ -8,7 +8,10 @@ volumetric (m^3/m^3) for fluids.
 """
 import porepy as pp
 
+module_sections = ["parameters"]
 
+
+@pp.time_logger(sections=module_sections)
 def poisson_from_lame(mu, lmbda):
     """Compute Poisson's ratio from Lame parameters
 
@@ -23,6 +26,7 @@ def poisson_from_lame(mu, lmbda):
     return lmbda / (2 * (mu + lmbda))
 
 
+@pp.time_logger(sections=module_sections)
 def lame_from_young_poisson(e, nu):
     """Compute Lame parameters from Young's modulus and Poisson's ratio.
 
@@ -41,6 +45,7 @@ def lame_from_young_poisson(e, nu):
     return lmbda, mu
 
 
+@pp.time_logger(sections=module_sections)
 def bulk_from_lame(lmbda, mu):
     """
     Compute bulk modulus from Lamé parameters.
@@ -68,6 +73,7 @@ class UnitRock(object):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, theta_ref=None):
         self.PERMEABILITY = 1
         self.THERMAL_EXPANSION = 1
@@ -83,9 +89,11 @@ class UnitRock(object):
         else:
             self.theta_ref = theta_ref
 
+    @pp.time_logger(sections=module_sections)
     def specific_heat_capacity(self, _):
         return 1.0
 
+    @pp.time_logger(sections=module_sections)
     def thermal_conductivity(self, theta=None):
         return 1.0
 
@@ -98,6 +106,7 @@ class SandStone(UnitRock):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, theta_ref=None):
 
         # Fairly permeable rock.
@@ -118,6 +127,7 @@ class SandStone(UnitRock):
 
         self.DENSITY = 2650 * pp.KILOGRAM / pp.METER ** 3
 
+    @pp.time_logger(sections=module_sections)
     def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
         if theta is None:
             theta = self.theta_ref
@@ -136,6 +146,7 @@ class Shale(UnitRock):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, theta_ref=None):
         # No source for permeability and porosity.
         self.PERMEABILITY = 1e-5 * pp.DARCY
@@ -156,6 +167,7 @@ class Shale(UnitRock):
 
         self.DENSITY = 2650 * pp.KILOGRAM / pp.METER ** 3
 
+    @pp.time_logger(sections=module_sections)
     def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
         if theta is None:
             theta = self.theta_ref
@@ -173,6 +185,7 @@ class Granite(UnitRock):
     https://www.jsg.utexas.edu/tyzhu/files/Some-Useful-Numbers.pdf
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, theta_ref=None):
         # No source for permeability and porosity
         self.PERMEABILITY = 1e-8 * pp.DARCY
@@ -195,6 +208,7 @@ class Granite(UnitRock):
         else:
             self.theta_ref = theta_ref
 
+    @pp.time_logger(sections=module_sections)
     def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
         if theta is None:
             theta = self.theta_ref
@@ -203,5 +217,6 @@ class Granite(UnitRock):
         theta_ref = 0
         return c_ref + eta * (theta - theta_ref)
 
+    @pp.time_logger(sections=module_sections)
     def thermal_conductivity(self, theta=None):
         return 3.07

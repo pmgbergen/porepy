@@ -13,6 +13,8 @@ import scipy.sparse as sps
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
 
+module_sections = ["numerics"]
+
 
 class RobinCoupling(
     porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
@@ -23,6 +25,7 @@ class RobinCoupling(
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword, discr_primary, discr_secondary=None):
         super(RobinCoupling, self).__init__(keyword)
         if discr_secondary is None:
@@ -56,9 +59,11 @@ class RobinCoupling(
             # At least one of the neighboring discretizations is FV.
             self.kinv_scaling = False
 
+    @pp.time_logger(sections=module_sections)
     def ndof(self, mg):
         return mg.num_cells
 
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """Discretize the interface law and store the discretization in the
         edge data.
@@ -175,6 +180,7 @@ class RobinCoupling(
                 mg.cell_volumes * kn
             )
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
     ):
@@ -263,6 +269,7 @@ class RobinCoupling(
 
         return matrix, rhs
 
+    @pp.time_logger(sections=module_sections)
     def assemble_edge_coupling_via_high_dim(
         self,
         g,
@@ -350,6 +357,7 @@ class FluxPressureContinuity(RobinCoupling):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword, discr_primary, discr_secondary=None):
         if discr_secondary is None:
             discr_secondary = discr_primary
@@ -363,6 +371,7 @@ class FluxPressureContinuity(RobinCoupling):
         # No coupling via lower-dimensional interfaces.
         self.edge_coupling_via_low_dim = False
 
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """Nothing really to do here
 
@@ -376,6 +385,7 @@ class FluxPressureContinuity(RobinCoupling):
         """
         pass
 
+    @pp.time_logger(sections=module_sections)
     def assemble_rhs(
         self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
     ):
@@ -432,6 +442,7 @@ class FluxPressureContinuity(RobinCoupling):
 
         return rhs
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
     ):

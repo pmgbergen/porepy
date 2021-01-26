@@ -8,7 +8,10 @@ import numpy as np
 import porepy as pp
 from porepy.grids import constants
 
+module_sections = ["grids", "gridding"]
 
+
+@pp.time_logger(sections=module_sections)
 def create_3d_grids(pts: np.ndarray, cells: Dict[str, np.ndarray]) -> List[pp.Grid]:
     """Create a tetrahedral grid from a gmsh tessalation.
 
@@ -34,6 +37,7 @@ def create_3d_grids(pts: np.ndarray, cells: Dict[str, np.ndarray]) -> List[pp.Gr
     return [g_3d]
 
 
+@pp.time_logger(sections=module_sections)
 def create_2d_grids(
     pts: np.ndarray,
     cells: Dict[str, np.ndarray],
@@ -197,6 +201,7 @@ def create_2d_grids(
         return [g_2d]
 
 
+@pp.time_logger(sections=module_sections)
 def create_1d_grids(
     pts: np.ndarray,
     cells: Dict[str, np.ndarray],
@@ -317,6 +322,7 @@ def create_1d_grids(
         return g_1d
 
 
+@pp.time_logger(sections=module_sections)
 def create_0d_grids(
     pts: np.ndarray,
     cells: Dict[str, np.ndarray],
@@ -389,6 +395,7 @@ def create_0d_grids(
     return g_0d
 
 
+@pp.time_logger(sections=module_sections)
 def create_embedded_line_grid(
     loc_coord: np.ndarray, glob_id: np.ndarray, tol: float = 1e-4
 ) -> pp.Grid:
