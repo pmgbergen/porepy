@@ -57,6 +57,7 @@ import porepy as pp
 __all__ = ["time_logger"]
 
 
+# Try to access configuration information, as activated by the import of PorePy
 try:
     config: Dict = pp.config["logging"]  # type: ignore
     raw_sections = config.get("sections", "all")
@@ -74,13 +75,16 @@ t_logger.setLevel(logging.INFO)
 
 
 if not t_logger.hasHandlers():
+    # Add handler to write to file.
+    # FIXME: Should it be possible to change the name of the log?
     time_handler = logging.FileHandler("PorePyTimings.log")
     time_handler.setLevel(logging.INFO)
     time_formatter = logging.Formatter("%(message)s")
     time_handler.setFormatter(time_formatter)
     t_logger.addHandler(time_handler)
 
-
+# Find where in the file path the directory 'porepy' is located.
+# We will use this below to strip away the common parts of file names.
 path_length = __file__.split("/").index("porepy")
 
 
@@ -88,25 +92,37 @@ path_length = __file__.split("/").index("porepy")
 def time_logger(sections):
     """A decorator that measures ellapsed time for a function."""
 
+    # The double nested function is needed to allow decorators with
+    # default arguments (it turned out)
+    # Inspiration: https://realpython.com/primer-on-python-decorators/
     def inner_func(func):
         @functools.wraps(func)
         def log_time(*args, **kwargs):
             if not logger_is_active:
+                # Shortcut if logging is not activated.
+                # This is
                 return func(*args, **kwargs)
             elif always_log or any([s in active_sections for s in sections]):
 
+                # Get the name of the file, but strip away the part above
+                # '/src/porepy'
                 fn = "/".join(inspect.getfile(func).split("/")[path_length + 1 :])
 
+                # String representation of the file
                 name = f"{func.__name__} in file {fn}."
 
+                # Log the calling of the file
                 t_logger.log(level=logging.INFO, msg=f"Calling {name}")
 
                 start_time = time.perf_counter()
+                # Run the function
                 value = func(*args, **kwargs)
 
+                # Timing
                 end_time = time.perf_counter()
                 run_time = end_time - start_time
 
+                # Logging
                 t_logger.log(
                     level=logging.INFO,
                     msg=f"Finished {name} Elapsed time: {run_time:.8f} s",
@@ -121,16 +137,16 @@ def time_logger(sections):
     return inner_func
 
 
-trace_logger = logging.getLogger("Trace")
-trace_logger.setLevel(logging.INFO)
+# trace_logger = logging.getLogger("Trace")
+# trace_logger.setLevel(logging.INFO)
 
 
-if not trace_logger.hasHandlers():
-    trace_handler = logging.FileHandler("PorePyTraces.log")
-    trace_handler.setLevel(logging.INFO)
-    trace_formatter = logging.Formatter("%(message)s")
-    trace_handler.setFormatter(trace_formatter)
-    trace_logger.addHandler(trace_handler)
+# if not trace_logger.hasHandlers():
+#    trace_handler = logging.FileHandler("PorePyTraces.log")
+#    trace_handler.setLevel(logging.INFO)
+#    trace_formatter = logging.Formatter("%(message)s")
+#    trace_handler.setFormatter(trace_formatter)
+#    trace_logger.addHandler(trace_handler)
 
 
 # def trace(func):
