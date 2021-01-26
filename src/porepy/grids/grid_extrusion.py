@@ -57,7 +57,7 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
     g_map = {}
 
     # Container for grid information
-    Mapping = namedtuple("mapping", ["grid", "cell_map", "face_map"])
+    Mapping = namedtuple("Mapping", ["grid", "cell_map", "face_map"])
 
     # Loop over all grids in the old bucket, extrude the grid, save mapping information
     for g, _ in gb:
