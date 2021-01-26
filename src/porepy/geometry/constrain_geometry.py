@@ -6,7 +6,10 @@ import numpy as np
 
 import porepy as pp
 
+module_sections = ["geometry"]
 
+
+@pp.time_logger(sections=module_sections)
 def lines_by_polygon(poly_pts, pts, edges):
     """
     Compute the intersections between a polygon (also not convex) and a set of lines.
@@ -82,6 +85,7 @@ def lines_by_polygon(poly_pts, pts, edges):
     return int_pts, int_edges, np.array(edges_kept, dtype=np.int)
 
 
+@pp.time_logger(sections=module_sections)
 def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
     """Constrain a seort of polygons in 3d to lie inside a, generally non-convex, polyhedron.
 
@@ -443,6 +447,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
     return constrained_polygons, np.array(orig_poly_ind)
 
 
+@pp.time_logger(sections=module_sections)
 def snap_points_to_segments(p_edges, edges, tol, p_to_snap=None):
     """
     Snap points in the proximity of lines to the lines.

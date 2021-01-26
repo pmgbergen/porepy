@@ -21,6 +21,7 @@ import porepy as pp
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
+module_sections = ["visualization"]
 # ------------------------------------------------------------------------------#
 
 
@@ -29,17 +30,20 @@ class Field:
     Internal class to store information for the data to export.
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, name: str, values: Optional[np.ndarray] = None) -> None:
         # name of the field
         self.name = name
         self.values = values
 
+    @pp.time_logger(sections=module_sections)
     def __repr__(self) -> str:
         """
         Repr function
         """
         return self.name + " - values: " + str(self.values)
 
+    @pp.time_logger(sections=module_sections)
     def check(self, values: Optional[np.ndarray], g: pp.Grid) -> None:
         """
         Consistency checks making sure the field self.name is filled and has
@@ -52,6 +56,7 @@ class Field:
         if np.atleast_2d(values).shape[1] != g.num_cells:
             raise ValueError("Field " + str(self.name) + " has wrong dimension.")
 
+    @pp.time_logger(sections=module_sections)
     def _check_values(self) -> None:
         if self.values is None:
             raise ValueError("Field " + str(self.name) + " values not valid")
@@ -65,9 +70,11 @@ class Fields:
     Internal class to store a list of field.
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self) -> None:
         self._fields: List[Field] = []
 
+    @pp.time_logger(sections=module_sections)
     def __iter__(self) -> Generator[Field, None, None]:
         """
         Iterator on all the fields.
@@ -75,12 +82,14 @@ class Fields:
         for f in self._fields:
             yield f
 
+    @pp.time_logger(sections=module_sections)
     def __repr__(self) -> str:
         """
         Repr function
         """
         return "\n".join([repr(f) for f in self])
 
+    @pp.time_logger(sections=module_sections)
     def extend(self, new_fields: List[Field]) -> None:
         """
         Extend the list of fields with additional fields.
@@ -90,6 +99,7 @@ class Fields:
         else:
             raise ValueError
 
+    @pp.time_logger(sections=module_sections)
     def names(self) -> List[str]:
         """
         Return the list of name of the fields.
@@ -101,6 +111,7 @@ class Fields:
 
 
 class Exporter:
+    @pp.time_logger(sections=module_sections)
     def __init__(
         self,
         grid: Union[pp.Grid, pp.GridBucket],
@@ -157,7 +168,7 @@ class Exporter:
 
         else:
             self.is_GridBucket = False
-            self.grid: pp.Grid = grid
+            self.grid: pp.Grid = grid  # type: ignore
 
         self.file_name = file_name
         self.folder_name = folder_name
@@ -196,6 +207,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def change_name(self, file_name: str) -> None:
         """
         Change the root name of the files, useful when different keywords are
@@ -208,6 +220,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def write_vtu(
         self,
         data: Optional[Union[Dict, List[str]]] = None,
@@ -262,6 +275,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def write_pvd(
         self, timestep: np.ndarray, file_extension: Optional[np.ndarray] = None
     ) -> None:
@@ -313,6 +327,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def _export_g(self, data: Dict[str, np.ndarray], time_step):
         """
         Export a single grid (not grid bucket) to a vtu file.
@@ -344,6 +359,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def _export_gb(self, data: List[str], time_step: float):
         # Convert data to list, or provide an empty list
         if data is not None:
@@ -449,6 +465,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def _export_pvd_gb(self, file_name: str, time_step: float) -> None:
         o_file = open(file_name, "w")
         b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
@@ -480,6 +497,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def _export_grid(
         self, gs: Iterable[pp.Grid], dim: int
     ) -> Union[None, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
@@ -500,6 +518,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def _export_1d(
         self, gs: Iterable[pp.Grid]
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -559,6 +578,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def _export_2d(
         self, gs: Iterable[pp.Grid]
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -639,6 +659,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def _export_3d(
         self, gs: Iterable[pp.Grid]
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -771,6 +792,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def _write(self, fields: Iterable[Field], file_name: str, meshio_geom) -> None:
 
         cell_data = {}
@@ -805,6 +827,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def _update_meshio_geom(self):
         if self.is_GridBucket:
             for dim in self.dims:
@@ -824,6 +847,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def _make_folder(self, folder_name: Optional[str] = None, name: str = "") -> str:
         if folder_name is None:
             return name
@@ -834,6 +858,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def _make_file_name(
         self,
         file_name: str,
@@ -858,6 +883,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
+    @pp.time_logger(sections=module_sections)
     def _make_file_name_mortar(
         self, file_name: str, dim: int, time_step: Optional[float] = None
     ) -> str:
@@ -878,6 +904,7 @@ class Exporter:
 
     ### Below follows utility functions for sorting points in 3d
 
+    @pp.time_logger(sections=module_sections)
     def _point_ind(
         self,
         cell_ptr,
@@ -933,6 +960,7 @@ class Exporter:
 
         return cell_nodes
 
+    @pp.time_logger(sections=module_sections)
     def _point_ind_numba(
         self,
         cell_ptr,
@@ -951,6 +979,7 @@ class Exporter:
             nopython=True,
             nogil=False,
         )
+        @pp.time_logger(sections=module_sections)
         def _function_to_compile(
             cell_ptr,
             face_ptr,

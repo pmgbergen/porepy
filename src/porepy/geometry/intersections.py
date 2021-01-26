@@ -10,10 +10,13 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+module_sections = ["geometry"]
+
 # Module level logger
 logger = logging.getLogger(__name__)
 
 
+@pp.time_logger(sections=module_sections)
 def segments_2d(start_1, end_1, start_2, end_2, tol=1e-8):
     """
     Check if two line segments defined by their start end endpoints, intersect.
@@ -153,6 +156,7 @@ def segments_2d(start_1, end_1, start_2, end_2, tol=1e-8):
         return None
 
 
+@pp.time_logger(sections=module_sections)
 def segments_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     """
     Find intersection points (or segments) of two 3d lines.
@@ -351,6 +355,7 @@ def segments_3d(start_1, end_1, start_2, end_2, tol=1e-8):
             return None
 
 
+@pp.time_logger(sections=module_sections)
 def polygons_3d(polys, target_poly=None, tol=1e-8):
     """Compute the intersection between polygons embedded in 3d.
 
@@ -419,15 +424,18 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
     pairs = _intersect_pairs(pairs_xy, pairs_z)
 
     # Various utility functions
+    @pp.time_logger(sections=module_sections)
     def center(p):
         # Compute the mean coordinate of a set of points
         return p.mean(axis=1).reshape((-1, 1))
 
+    @pp.time_logger(sections=module_sections)
     def normalize(v):
         # Normalize a vector
         nrm = np.sqrt(np.sum(v ** 2, axis=0))
         return v / nrm
 
+    @pp.time_logger(sections=module_sections)
     def mod_sign(v, tol=1e-8):
         # Modified signum function: The value is 0 if it is very close to zero.
         if isinstance(v, np.ndarray):
@@ -442,6 +450,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
             else:
                 return 1
 
+    @pp.time_logger(sections=module_sections)
     def intersection(start, end, normal, center):
         # Find a point p on the segment between start and end, so that the vector
         # p - center is perpendicular to normal
@@ -455,6 +464,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
         assert t >= 0 and t <= 1
         return start + t * dx
 
+    @pp.time_logger(sections=module_sections)
     def vector_pointset_point(a, b, tol=1e-4):
         # Create a set of non-zero vectors from a point in the plane spanned by
         # a, to all points in b
@@ -1142,6 +1152,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
     return new_pt, isect_pt, is_bound_isect, polygon_pairs, segment_vertex_intersection
 
 
+@pp.time_logger(sections=module_sections)
 def triangulations(p_1, p_2, t_1, t_2):
     """Compute intersection of two triangle tessalation of a surface.
 
@@ -1239,6 +1250,7 @@ def triangulations(p_1, p_2, t_1, t_2):
     return intersections
 
 
+@pp.time_logger(sections=module_sections)
 def line_tesselation(p1, p2, l1, l2):
     """Compute intersection of two line segment tessalations of a line.
 
@@ -1284,6 +1296,7 @@ def line_tesselation(p1, p2, l1, l2):
     return intersections
 
 
+@pp.time_logger(sections=module_sections)
 def surface_tessalations(
     poly_sets: List[List[np.ndarray]], return_simplexes: bool = False
 ) -> Tuple[List[np.ndarray], List[sps.csr_matrix]]:
@@ -1324,6 +1337,7 @@ def surface_tessalations(
         # Nothing to do here, but this may be slow.
         pass
 
+    @pp.time_logger(sections=module_sections)
     def _min_max_coord(coord):
         # Convenience function to get max and minimum coordinates for a set of polygons
         min_coord = np.array([c.min() for c in coord])
@@ -1547,6 +1561,7 @@ def surface_tessalations(
     return isect_polys, mappings
 
 
+@pp.time_logger(sections=module_sections)
 def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
     """Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
@@ -1617,6 +1632,7 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
 
         # Utility function to pull out one or several points from an array based
         # on index
+        @pp.time_logger(sections=module_sections)
         def pt(p, ind):
             a = p[:, ind]
             if ind.size == 1:
@@ -1631,6 +1647,7 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
         end_other = pt(p, e[1, other])
 
         # Utility function to normalize the fracture length
+        @pp.time_logger(sections=module_sections)
         def normalize(v):
             nrm = np.sqrt(np.sum(v ** 2, axis=0))
 
@@ -1639,6 +1656,7 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
             nrm[hit] = 1
             return v / nrm
 
+        @pp.time_logger(sections=module_sections)
         def dist(a, b):
             return np.sqrt(np.sum((a - b) ** 2))
 
@@ -1662,6 +1680,7 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
             main_other_end = normalize(0.3 * start_other + 0.7 * end_other - start_main)
 
         # Modified signum function: The value is 0 if it is very close to zero.
+        @pp.time_logger(sections=module_sections)
         def mod_sign(v, tol):
             sgn = np.sign(v)
             sgn[np.abs(v) < tol] = 0
@@ -1777,6 +1796,7 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
             return unique_all_pt, new_edge.astype(np.int)
 
 
+@pp.time_logger(sections=module_sections)
 def _axis_aligned_bounding_box_2d(p, e):
     """For a set of lines in 2d, obtain the bounding box for each line.
 
@@ -1811,6 +1831,7 @@ def _axis_aligned_bounding_box_2d(p, e):
     return x_min, x_max, y_min, y_max
 
 
+@pp.time_logger(sections=module_sections)
 def _axis_aligned_bounding_box_3d(polys):
     """For a set of polygons embedded in 3d, obtain the bounding box for each object.
 
@@ -1852,6 +1873,7 @@ def _axis_aligned_bounding_box_3d(polys):
     return x_min, x_max, y_min, y_max, z_min, z_max
 
 
+@pp.time_logger(sections=module_sections)
 def _identify_overlapping_intervals(left, right):
     """Based on a set of start and end coordinates for intervals, identify pairs of
     overlapping intervals.
@@ -1926,6 +1948,7 @@ def _identify_overlapping_intervals(left, right):
         return pairs
 
 
+@pp.time_logger(sections=module_sections)
 def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
     """Based on a set of start and end coordinates for bounding boxes, identify pairs of
     overlapping rectangles.
@@ -2012,6 +2035,7 @@ def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
         return pairs
 
 
+@pp.time_logger(sections=module_sections)
 def _intersect_pairs(p1, p2):
     """For two lists containing pair of indices, find the intersection.
 

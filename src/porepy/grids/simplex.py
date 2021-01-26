@@ -6,13 +6,15 @@ Acknowledgements:
     Toolbox (MRST) developed by SINTEF ICT, see www.sintef.no/projectweb/mrst/
 
 """
-
 import numpy as np
 import scipy.sparse as sps
 import scipy.spatial
 
+import porepy as pp
 from porepy.grids.grid import Grid
 from porepy.utils import accumarray, setmembership
+
+module_sections = ["grids", "gridding"]
 
 
 class TriangleGrid(Grid):
@@ -23,6 +25,7 @@ class TriangleGrid(Grid):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, p, tri=None, name=None):
         """
         Create triangular grid from point cloud.
@@ -102,6 +105,7 @@ class TriangleGrid(Grid):
 
         super(TriangleGrid, self).__init__(2, nodes, face_nodes, cell_faces, name)
 
+    @pp.time_logger(sections=module_sections)
     def cell_node_matrix(self):
         """Get cell-node relations in a Nc x 3 matrix
         Perhaps move this method to a superclass when tet-grids are implemented
@@ -127,6 +131,7 @@ class StructuredTriangleGrid(TriangleGrid):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, nx, physdims=None):
         """
         Construct a triangular grid by splitting Cartesian cells in two.
@@ -194,6 +199,7 @@ class TetrahedralGrid(Grid):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, p, tet=None, name=None):
         """
         Create a tetrahedral grid from a set of point and cells.
@@ -275,6 +281,7 @@ class TetrahedralGrid(Grid):
             3, nodes, face_nodes, cell_faces, "TetrahedralGrid"
         )
 
+    @pp.time_logger(sections=module_sections)
     def __permute_nodes(self, p, t):
         v = self.__triple_product(p, t)
         permute = np.where(v > 0)[0]
@@ -285,6 +292,7 @@ class TetrahedralGrid(Grid):
             t[:2, permute] = t[1::-1, permute]
         return t
 
+    @pp.time_logger(sections=module_sections)
     def __triple_product(self, p, t):
         px = p[0]
         py = p[1]
@@ -314,6 +322,7 @@ class StructuredTetrahedralGrid(TetrahedralGrid):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, nx, physdims=None):
         """
         Construct a triangular grid by splitting Cartesian cells in two.

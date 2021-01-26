@@ -21,7 +21,10 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.grids import mortar_grid
 
+module_sections = ["grids", "gridding"]
 
+
+@pp.time_logger(sections=module_sections)
 def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket, Dict]:
     """Extrude a GridBucket by extending all fixed-dimensional grids in the z-direction.
 
@@ -54,7 +57,7 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
     g_map = {}
 
     # Container for grid information
-    Mapping = namedtuple("mapping", ["grid", "cell_map", "face_map"])
+    Mapping = namedtuple("Mapping", ["grid", "cell_map", "face_map"])
 
     # Loop over all grids in the old bucket, extrude the grid, save mapping information
     for g, _ in gb:
@@ -151,6 +154,7 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
     return gb_new, g_map
 
 
+@pp.time_logger(sections=module_sections)
 def extrude_grid(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
     """Increase the dimension of a given grid by 1, by extruding the grid in the
     z-direction.
@@ -192,6 +196,7 @@ def extrude_grid(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.nda
         raise ValueError("The grid to be extruded should have dimension at most 2")
 
 
+@pp.time_logger(sections=module_sections)
 def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
     """Extrude a 2d grid into 3d by prismatic extension.
 
@@ -521,6 +526,7 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
     return g_new, cell_map, face_map
 
 
+@pp.time_logger(sections=module_sections)
 def _extrude_1d(
     g: pp.TensorGrid, z: np.ndarray
 ) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
@@ -635,6 +641,7 @@ def _extrude_1d(
     return g_new, cell_map, face_map
 
 
+@pp.time_logger(sections=module_sections)
 def _extrude_0d(
     g: pp.PointGrid, z: np.ndarray
 ) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
@@ -688,6 +695,7 @@ def _extrude_0d(
     return g_new, cell_map, face_map
 
 
+@pp.time_logger(sections=module_sections)
 def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
     """Define all standard tags (face and nodes) for the extruded grids
 
@@ -776,6 +784,7 @@ def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
     return tags
 
 
+@pp.time_logger(sections=module_sections)
 def _create_mappings(
     g: pp.Grid, g_new: pp.Grid, num_cell_layers: int
 ) -> Tuple[np.ndarray, np.ndarray]:
