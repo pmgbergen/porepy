@@ -340,7 +340,7 @@ class Expression:
         elif tree.op == operators.Operation.evaluate:
             # This is a function, which should have at least one argument
             assert len(results) > 1
-            return results[0].func(results[1:])
+            return results[0].func(*results[1:])
 
         elif tree.op == operators.Operation.div:
             return results[0] / results[1]
