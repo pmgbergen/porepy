@@ -26,18 +26,16 @@ class BasicsTest(unittest.TestCase):
             "mesh_size_bound": 0.1,
         }
 
-        file_name = "mesh_simplex"
-        in_file = network.prepare_for_gmsh(
-            mesh_args, None, True, None, file_name, False
-        )
-        out_file = in_file[:-4] + ".msh"
+        file_name = "mesh_simplex.msh"
+        gmsh_data = network.prepare_for_gmsh(mesh_args, None, True, None, False)
 
         # Consider the dimension of the problem
         ndim = 2
-        pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dim=ndim)
+        gmsh_writer = pp.fracs.gmsh_interface.GmshWriter(gmsh_data)
+        gmsh_writer.generate(file_name, ndim)
 
         grid_list = pp.fracs.simplex.triangle_grid_from_gmsh(
-            out_file,
+            file_name,
         )
         pp.meshing._tag_faces(grid_list, False)
         for grid_of_dim in grid_list:
