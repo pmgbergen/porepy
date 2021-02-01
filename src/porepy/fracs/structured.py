@@ -7,8 +7,8 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.grids import constants
-from porepy.grids.gmsh import mesh_2_grid
+from .gmsh_interface import Tags
+from . import msh_2_grid
 
 module_sections = ["gridding"]
 
@@ -156,16 +156,15 @@ def _cart_grid_3d(fracs, nx, physdims=None):
     # meaningful.
     edge_tags, _, _ = network._classify_edges(poly, [])
 
-    const = constants.GmshConstants()
     auxiliary_points, edge_tags = network._on_domain_boundary(edges, edge_tags)
-    bound_and_aux = np.array([const.DOMAIN_BOUNDARY_TAG, const.AUXILIARY_TAG])
+    bound_and_aux = np.array([Tags.DOMAIN_BOUNDARY_LINE.value, Tags.AUXILIARY.value])
 
     # From information of which lines are internal, we can find intersection points.
     # This part will become more elaborate if we introduce constraints, see the
     # FractureNetwork3d class.
 
     # Find all points on fracture intersection lines
-    isect_p = edges[:, edge_tags == const.FRACTURE_INTERSECTION_LINE_TAG].ravel()
+    isect_p = edges[:, edge_tags == Tags.FRACTURE_INTERSECTION_LINE.value].ravel()
     # Count the number of occurences
     num_occ_pt = np.bincount(isect_p)
     # Intersection poitns if
@@ -174,7 +173,7 @@ def _cart_grid_3d(fracs, nx, physdims=None):
     edges = np.vstack((edges, edge_tags))
 
     # Loop through the edges to make 1D grids. Ommit the auxiliary edges.
-    for e in np.ravel(np.where(edges[2] == const.FRACTURE_INTERSECTION_LINE_TAG)):
+    for e in np.ravel(np.where(edges[2] == Tags.FRACTURE_INTERSECTION_LINE.value)):
         # We find the start and end point of each fracture intersection (1D
         # grid) and then the corresponding global node index.
         if np.isin(edge_tags[e], bound_and_aux):
@@ -187,14 +186,14 @@ def _cart_grid_3d(fracs, nx, physdims=None):
             loc_coord.shape[1] > 1
         ), "1d grid in intersection should span\
             more than one node"
-        g = mesh_2_grid.create_embedded_line_grid(loc_coord, nodes)
+        g = msh_2_grid.create_embedded_line_grid(loc_coord, nodes)
         g_1d.append(g)
 
     # Create 0D grids
     # Here we also use the intersection information from the FractureNetwork
     # class. No grids for auxiliary points.
     for p in intersection_points:
-        if auxiliary_points[p] == const.DOMAIN_BOUNDARY_TAG:
+        if auxiliary_points[p] == Tags.DOMAIN_BOUNDARY_POINT:
             continue
         node = np.argmin(pp.distances.point_pointset(pts[:, p], g_3d.nodes))
         assert np.allclose(g_3d.nodes[:, node], pts[:, p])
@@ -261,7 +260,7 @@ def _cart_grid_2d(fracs, nx, physdims=None):
         nodes = _find_nodes_on_line(g_2d, nx, f[:, 0], f[:, 1])
         # nodes = np.unique(nodes)
         loc_coord = g_2d.nodes[:, nodes]
-        g = mesh_2_grid.create_embedded_line_grid(loc_coord, nodes)
+        g = msh_2_grid.create_embedded_line_grid(loc_coord, nodes)
         g_1d.append(g)
         shared_nodes[nodes] += 1
 
