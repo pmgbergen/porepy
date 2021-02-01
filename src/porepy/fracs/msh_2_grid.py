@@ -6,7 +6,7 @@ from typing import Dict, List, Tuple, Union
 import numpy as np
 
 import porepy as pp
-from porepy.grids import constants
+from .gmsh_interface import PhysicalNames
 
 module_sections = ["grids", "gridding"]
 
@@ -80,9 +80,8 @@ def create_2d_grids(
 
     """
 
-    gmsh_constants = constants.GmshConstants()
     if surface_tag is None:
-        surface_tag = gmsh_constants.PHYSICAL_NAME_FRACTURES
+        surface_tag = PhysicalNames.FRACTURE.value
 
     if constraints is None:
         constraints = np.array([], dtype=np.int)
@@ -248,9 +247,8 @@ def create_1d_grids(
             returned in return_fracture_tips is True.
 
     """
-    gmsh_constants = constants.GmshConstants()
     if line_tag is None:
-        line_tag = gmsh_constants.PHYSICAL_NAME_FRACTURE_LINE
+        line_tag = PhysicalNames.FRACTURE_INTERSECTION_LINE.value
 
     if constraints is None:
         constraints = np.empty(0, dtype=np.int)
@@ -299,7 +297,7 @@ def create_1d_grids(
         if frac_num in constraints:
             continue
 
-        if line_type == gmsh_constants.PHYSICAL_NAME_FRACTURE_TIP[:-1]:
+        if line_type == PhysicalNames.FRACTURE_TIP.value[:-1]:
             gmsh_tip_num.append(i)
 
             # We need not know which fracture the line is on the tip of (do
@@ -359,7 +357,7 @@ def create_0d_grids(
 
     """
     if target_tag_stem is None:
-        target_tag_stem = constants.GmshConstants().PHYSICAL_NAME_FRACTURE_POINT
+        target_tag_stem = PhysicalNames.FRACTURE_INTERSECTION_POINT.value
 
     g_0d = []
 
