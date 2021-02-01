@@ -9,8 +9,8 @@ import meshio
 import numpy as np
 
 import porepy as pp
-from porepy.grids import constants
 from . import msh_2_grid
+from .gmsh_interface import PhysicalNames
 
 logger = logging.getLogger(__name__)
 module_sections = ["gridding"]
@@ -110,9 +110,6 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
 
     pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
-    # Constants used in the gmsh.geo-file
-    const = constants.GmshConstants()
-
     # Create grids from gmsh mesh.
     logger.info("Create grids of various dimensions")
     g_2d = msh_2_grid.create_2d_grids(
@@ -123,7 +120,7 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
         cells,
         phys_names,
         cell_info,
-        line_tag=const.PHYSICAL_NAME_FRACTURES,
+        line_tag=PhysicalNames.FRACTURE.value,
         constraints=constraints,
         **kwargs,
     )
@@ -179,9 +176,6 @@ def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
 
     pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
-    # Constants used in the gmsh.geo-file
-    const = constants.GmshConstants()
-
     # Create grids from gmsh mesh.
     logger.info("Create grids of various dimensions")
     g_1d, _ = msh_2_grid.create_1d_grids(
@@ -189,7 +183,7 @@ def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
         cells,
         phys_names,
         cell_info,
-        line_tag=const.PHYSICAL_NAME_FRACTURES,
+        line_tag=PhysicalNames.FRACTURE.value,
         constraints=constraints,
         **kwargs,
     )
