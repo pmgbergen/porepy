@@ -13,8 +13,7 @@ import numpy as np
 import porepy as pp
 import porepy.fracs.simplex
 from porepy.fracs import tools
-from porepy.grids import constants
-from porepy.grids.gmsh import gmsh_interface
+from .gmsh_interface import GmshData2d, GmshWriter, Tags
 from porepy.utils.setmembership import unique_columns_tol
 
 logger = logging.getLogger(__name__)
@@ -91,7 +90,7 @@ class FractureNetwork2d(object):
 
         self.tags = {}
         self.bounding_box_imposed = False
-        self.decomposition = {}
+        self._decomposition = {}
 
         if pts is None and edges is None:
             logger.info("Generated empty fracture set")
@@ -243,26 +242,27 @@ class FractureNetwork2d(object):
             GridBucket: Mixed-dimensional mesh.
 
         """
-        in_file = self.prepare_for_gmsh(
-            mesh_args, tol, do_snap, constraints, file_name, dfn
-        )
-        out_file = in_file[:-4] + ".msh"
+        if file_name is None:
+            file_name = "gmsh_frac_file.msh"
+
+        gmsh_repr = self.prepare_for_gmsh(mesh_args, tol, do_snap, constraints, dfn)
+        gmsh_writer = GmshWriter(gmsh_repr)
 
         # Consider the dimension of the problem, normally 2d but if dfn is true 1d
         ndim = 2 - int(dfn)
 
-        pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dim=ndim)
+        gmsh_writer.generate(file_name, ndim, write_geo=True)
 
         if dfn:
             # Create list of grids
             grid_list = porepy.fracs.simplex.line_grid_from_gmsh(
-                out_file, constraints=constraints
+                file_name, constraints=constraints
             )
 
         else:
             # Create list of grids
             grid_list = porepy.fracs.simplex.triangle_grid_from_gmsh(
-                out_file, constraints=constraints
+                file_name, constraints=constraints
             )
 
         if preserve_fracture_tags:
@@ -287,7 +287,6 @@ class FractureNetwork2d(object):
         tol=None,
         do_snap=True,
         constraints=None,
-        file_name=None,
         dfn=False,
     ):
         """Process network intersections and write a gmsh .geo configuration file,
@@ -314,15 +313,13 @@ class FractureNetwork2d(object):
 
         if tol is None:
             tol = self.tol
+
+        # No constraints if not available.
         if constraints is None:
             constraints = np.empty(0, dtype=np.int)
         else:
             constraints = np.atleast_1d(constraints)
         constraints = np.sort(constraints)
-
-        if file_name is None:
-            file_name = "gmsh_frac_file"
-        in_file = file_name + ".geo"
 
         p = self.pts
         e = self.edges
@@ -348,16 +345,49 @@ class FractureNetwork2d(object):
                 adjustment[constraints > e] += 1
 
             constraints -= adjustment
+
             # Delete constraints corresponding to deleted edges
             constraints = np.delete(constraints, to_delete)
 
-        # Consider the dimension of the problem, normally 2d but if dfn is true 1d
-        ndim = 2 - int(dfn)
-
         self._find_and_split_intersections(constraints)
         self._insert_auxiliary_points(**mesh_args)
-        self._to_gmsh(in_file, ndim=ndim)
-        return in_file
+
+        # Transfer data to the format expected by the gmsh interface
+        decomp = self._decomposition
+
+        edges = decomp["edges"]
+
+        # Only lines specified as fractures are defined as physical
+        phys_line_tags = {}
+        edge_types = edges[2]
+        for ei, tag in enumerate(edge_types):
+            if tag == Tags.FRACTURE.value:
+                phys_line_tags[ei] = Tags.FRACTURE.value
+            elif tag == Tags.DOMAIN_BOUNDARY_LINE.value:
+                phys_line_tags[ei] = Tags.DOMAIN_BOUNDARY_LINE.value
+
+        phys_point_tags = {
+            i: Tags.FRACTURE_INTERSECTION_POINT.value for i in decomp["intersections"]
+        }
+
+        point_on_fracture = edges[:2, edge_types == Tags.FRACTURE.value].ravel()
+        point_on_boundary = edges[
+            :2, edge_types == Tags.DOMAIN_BOUNDARY_POINT.value
+        ].ravel()
+        fracture_boundary_points = np.intersect1d(point_on_fracture, point_on_boundary)
+
+        phys_point_tags.update(
+            {pi: Tags.FRACTURE_BOUNDARY_POINT.value for pi in fracture_boundary_points}
+        )
+
+        data = GmshData2d(
+            pts=decomp["points"],
+            mesh_size=decomp["mesh_size"],
+            lines=edges,
+            physical_points=phys_point_tags,
+            physical_lines=phys_line_tags,
+        )
+        return data
 
     @pp.time_logger(sections=module_sections)
     def _find_and_split_intersections(self, constraints):
@@ -369,12 +399,11 @@ class FractureNetwork2d(object):
         if not np.all(np.diff(edges[:2], axis=0) != 0):
             raise ValueError("Found a point edge in splitting of edges")
 
-        const = constants.GmshConstants()
-
         tags = np.zeros((2, edges.shape[1]), dtype=np.int)
-        tags[0][np.logical_not(self.tags["boundary"])] = const.FRACTURE_TAG
-        tags[0][self.tags["boundary"]] = const.DOMAIN_BOUNDARY_TAG
-        tags[0][constraints] = const.AUXILIARY_TAG
+
+        tags[0][np.logical_not(self.tags["boundary"])] = Tags.FRACTURE.value
+        tags[0][self.tags["boundary"]] = Tags.DOMAIN_BOUNDARY_LINE.value
+        tags[0][constraints] = Tags.AUXILIARY.value
         tags[1] = np.arange(edges.shape[1])
 
         edges = np.vstack((edges, tags))
@@ -385,8 +414,8 @@ class FractureNetwork2d(object):
         to_remove = np.where(edges[0, :] == edges[1, :])[0]
         lines = np.delete(edges, to_remove, axis=1)
 
-        self.decomposition["domain_boundary_points"] = old_2_new[
-            self.decomposition["domain_boundary_points"]
+        self._decomposition["domain_boundary_points"] = old_2_new[
+            self._decomposition["domain_boundary_points"]
         ]
 
         # In some cases the fractures and boundaries impose the same constraint
@@ -418,8 +447,8 @@ class FractureNetwork2d(object):
         to_remove = np.where(lines[0, :] == lines[1, :])[0]
         lines = np.delete(lines, to_remove, axis=1)
 
-        self.decomposition["domain_boundary_points"] = old_2_new[
-            self.decomposition["domain_boundary_points"]
+        self._decomposition["domain_boundary_points"] = old_2_new[
+            self._decomposition["domain_boundary_points"]
         ]
 
         # Remove lines with the same start and end-point.
@@ -434,7 +463,7 @@ class FractureNetwork2d(object):
         # We find the end points that are shared by more than one intersection
         intersections = self._find_intersection_points(lines_split)
 
-        self.decomposition.update(
+        self._decomposition.update(
             {
                 "points": pts_split,
                 "edges": lines_split,
@@ -445,16 +474,16 @@ class FractureNetwork2d(object):
 
     @pp.time_logger(sections=module_sections)
     def _find_intersection_points(self, lines):
-        const = constants.GmshConstants()
 
-        frac_id = np.ravel(lines[:2, lines[2] == const.FRACTURE_TAG])
+        frac_id = np.ravel(lines[:2, lines[2] == Tags.FRACTURE.value])
         _, frac_ia, frac_count = np.unique(frac_id, True, False, True)
 
         # In the case we have auxiliary points remove do not create a 0d point in
         # case one intersects a single fracture. In the case of multiple fractures intersection
         # with an auxiliary point do consider the 0d.
         aux_id = np.logical_or(
-            lines[2] == const.AUXILIARY_TAG, lines[2] == const.DOMAIN_BOUNDARY_TAG
+            lines[2] == Tags.AUXILIARY.value,
+            lines[2] == Tags.DOMAIN_BOUNDARY_LINE.value,
         )
         if np.any(aux_id):
             aux_id = np.ravel(lines[:2, aux_id])
@@ -478,9 +507,9 @@ class FractureNetwork2d(object):
         logger.info("Determine mesh size")
         tm = time.time()
 
-        p = self.decomposition["points"]
-        lines = self.decomposition["edges"]
-        boundary_pt_ind = self.decomposition["domain_boundary_points"]
+        p = self._decomposition["points"]
+        lines = self._decomposition["edges"]
+        boundary_pt_ind = self._decomposition["domain_boundary_points"]
 
         mesh_size, pts_split, lines = tools.determine_mesh_size(
             p,
@@ -493,9 +522,9 @@ class FractureNetwork2d(object):
 
         logger.info("Done. Elapsed time " + str(time.time() - tm))
 
-        self.decomposition["points"] = pts_split
-        self.decomposition["edges"] = lines
-        self.decomposition["mesh_size"] = mesh_size
+        self._decomposition["points"] = pts_split
+        self._decomposition["edges"] = lines
+        self._decomposition["mesh_size"] = mesh_size
 
     @pp.time_logger(sections=module_sections)
     def impose_external_boundary(self, domain=None, add_domain_edges=True):
@@ -560,48 +589,17 @@ class FractureNetwork2d(object):
             new_boundary_tags = boundary_tags + dom_lines.shape[1] * [True]
             self.tags["boundary"] = np.array(new_boundary_tags)
 
-            self.decomposition["domain_boundary_points"] = num_p + np.arange(
+            self._decomposition["domain_boundary_points"] = num_p + np.arange(
                 dom_p.shape[1], dtype=np.int
             )
         else:
             self.tags["boundary"] = boundary_tags
-            self.decomposition["domain_boundary_points"] = np.empty(0, dtype=np.int)
+            self._decomposition["domain_boundary_points"] = np.empty(0, dtype=np.int)
             self.edges = e
             self.pts = p
 
         self.bounding_box_imposed = True
         return edges_deleted
-
-    @pp.time_logger(sections=module_sections)
-    def _to_gmsh(self, in_file, ndim):
-
-        # Create a writer of gmsh .geo-files
-        p = self.decomposition["points"]
-        edges = self.decomposition["edges"]
-        intersections = self.decomposition["intersections"]
-        mesh_size = self.decomposition["mesh_size"]
-        domain = self.decomposition["domain"]
-
-        # Find points that are both on a domain boundary, and on a fracture.
-        # These will be decleared Physical
-        const = constants.GmshConstants()
-        point_on_fracture = edges[:2, edges[2] == const.FRACTURE_TAG].ravel()
-        point_on_boundary = edges[:2, edges[2] == const.DOMAIN_BOUNDARY_TAG].ravel()
-        fracture_boundary_points = np.intersect1d(point_on_fracture, point_on_boundary)
-
-        self.decomposition["fracture_boundary_points"] = fracture_boundary_points
-
-        gw = gmsh_interface.GmshWriter(
-            p,
-            edges,
-            domain=domain,
-            mesh_size=mesh_size,
-            intersection_points=intersections,
-            domain_boundary_points=self.decomposition["domain_boundary_points"],
-            fracture_and_boundary_points=fracture_boundary_points,
-            nd=ndim,
-        )
-        gw.write_geo(in_file)
 
     ## end of methods related to meshing
 
