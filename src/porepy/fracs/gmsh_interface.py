@@ -256,7 +256,8 @@ class GmshWriter:
                 )
             )
         ).ravel()
-        self._add_lines(inds, embed_in_domain=True)
+        frac_tags = self._add_lines(inds, embed_in_domain=True)
+        self._frac_tags = frac_tags
 
         # We consider fractures and boundary tag
 
@@ -269,7 +270,7 @@ class GmshWriter:
                 )
             )
         ).ravel()
-        self._add_polygons_3d(inds, embed_in_domain=True)
+        self._frac_tags = self._add_polygons_3d(inds, embed_in_domain=True)
 
     def _add_polygons_3d(self, inds, embed_in_domain):
 
@@ -365,6 +366,8 @@ class GmshWriter:
         ).ravel()
 
         bound_line_tags = self._add_lines(bound_line_ind, embed_in_domain=False)
+
+        self._bound_line_tags = bound_line_tags
         gmsh.model.geo.synchronize()
         #        line_group = gmsh.model.addPhysicalGroup(1, bound_line_tags)
         #        gmsh.model.setPhysicalName(1, line_group, PhysicalNames.DOMAIN_BOUNDARY.value)
@@ -383,6 +386,9 @@ class GmshWriter:
         ).ravel()
 
         bound_surf_tags = self._add_polygons_3d(inds, embed_in_domain=False)
+
+        self._bound_surf_tags = bound_surf_tags
+
         gmsh.model.geo.synchronize()
         bound_group = gmsh.model.addPhysicalGroup(2, bound_surf_tags)
         gmsh.model.setPhysicalName(
