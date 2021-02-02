@@ -2,7 +2,7 @@
 """
 from enum import Enum
 from dataclasses import dataclass
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Tuple
 
 import porepy as pp
 import numpy as np
@@ -272,9 +272,12 @@ class GmshWriter:
         ).ravel()
         self._frac_tags = self._add_polygons_3d(inds, embed_in_domain=True)
 
-    def _add_polygons_3d(self, inds, embed_in_domain):
+    def _add_polygons_3d(self, inds: np.ndarray, embed_in_domain: bool) -> List[int]:
 
-        phys_surf = self._data.physical_surfaces
+        if self._data.physical_surfaces is not None:
+            phys_surf = self._data.physical_surfaces
+        else:
+            phys_surf = {}
 
         gmsh.model.geo.synchronize()
 
@@ -282,6 +285,9 @@ class GmshWriter:
         surf_dim = 2
 
         surf_tag = []
+
+        to_phys_tags: List[Tuple[int, str, List[int]]] = []
+
         for pi in inds:
             line_tags = []
             for line in self._data.polygons[0][pi]:
@@ -293,31 +299,38 @@ class GmshWriter:
             # Register the surface as physical if relevant. This will make gmsh export
             # the cells on the surface.
             if pi in phys_surf:
-                gmsh.model.geo.synchronize()
                 physical_name = tag_to_physical_name(phys_surf[pi])
-                ps = gmsh.model.addPhysicalGroup(surf_dim, [surf_tag[-1]])
-                gmsh.model.setPhysicalName(surf_dim, ps, physical_name + str(pi))
+                to_phys_tags.append((pi, physical_name + str(pi), [surf_tag[-1]]))
 
-            gmsh.model.geo.synchronize()
-
-            # Embed the surface in the domain
-            if embed_in_domain:
-                gmsh.model.mesh.embed(
-                    surf_dim, [surf_tag[-1]], self._dim, self._domain_tag
-                )
-            gmsh.model.geo.synchronize()
-
-            # Emded lines in this surface
-            for li in self._data.lines_in_surface[pi]:
-                gmsh.model.mesh.embed(
-                    line_dim, [self._line_tags[li]], surf_dim, surf_tag[-1]
-                )
+        # Update the model with all added surfaces
         gmsh.model.geo.synchronize()
+
+        for (pi, phys_name, tag) in to_phys_tags:
+            ps = gmsh.model.addPhysicalGroup(surf_dim, tag)
+            gmsh.model.setPhysicalName(surf_dim, ps, phys_name)
+
+        # Embed the surface in the domain
+        if embed_in_domain:
+            for tag in surf_tag:
+                gmsh.model.mesh.embed(surf_dim, [tag], self._dim, self._domain_tag)
+
+        gmsh.model.geo.synchronize()
+
+        # For all surfaces, embed lines in the
+        # Do this after all surfaces have been added to get away with a single synchronization
+        for tag_ind, pi in enumerate(inds):
+            for li in self._data.lines_in_surface[pi]:
+                # note the use of indices here, different for lines, polygons and
+                # the ordering of surface tags
+                gmsh.model.mesh.embed(
+                    line_dim, [self._line_tags[li]], surf_dim, surf_tag[tag_ind]
+                )
+
         return surf_tag
 
-    def _add_lines(self, ind, embed_in_domain):
+    def _add_lines(self, ind: np.ndarray, embed_in_domain: bool) -> List[int]:
         # Helper function to write lines. Used for both
-        line_tags = []
+        line_tags: List[int] = []
 
         if ind.size == 0:
             return line_tags
@@ -334,27 +347,40 @@ class GmshWriter:
 
         has_physical_lines = hasattr(self._data, "physical_lines")
 
+        # Temporary storage of the lines that are to be assigned physical
+        # groups
+        to_physical_group: List[Tuple[int, str, List[int]]] = []
+
         for i in range_id:
             loc_tags = []
             for mask in np.flatnonzero(lines_id == i):
                 p0 = self._point_tags[lines[0, mask]]
                 p1 = self._point_tags[lines[1, mask]]
                 loc_tags.append(gmsh.model.geo.addLine(p0, p1))
-
+                # Get hold of physical_name, in case we need it
                 physical_name = tag_to_physical_name(tag[mask])
 
-            # Assign physical name to the line if specified. This will make gmsh
-            # represent the line as a separate physical object in the .msh file
-            if has_physical_lines and i in self._data.physical_lines:
-                gmsh.model.geo.synchronize()
-                phys_group = gmsh.model.addPhysicalGroup(line_dim, loc_tags)
-                gmsh.model.setPhysicalName(line_dim, phys_group, f"{physical_name}{i}")
-
+            # Store local tags
             line_tags += loc_tags
 
-            gmsh.model.geo.synchronize()
-            if embed_in_domain:
-                gmsh.model.mesh.embed(line_dim, loc_tags, self._dim, self._domain_tag)
+            # Add this line to the set of physical groups to be assigned
+            # We do not assign physical groupings inside this for-loop, as this would
+            # require multiple costly synchronizations (gmsh style)
+            if has_physical_lines and i in self._data.physical_lines:
+                to_physical_group.append((i, physical_name, loc_tags))
+
+        # Synchronize model with all new lines
+        gmsh.model.geo.synchronize()
+
+        # Assign physical name to the line if specified. This will make gmsh
+        # represent the line as a separate physical object in the .msh file
+        for (i, physical_name, loc_tags) in to_physical_group:
+            phys_group = gmsh.model.addPhysicalGroup(line_dim, loc_tags)
+            gmsh.model.setPhysicalName(line_dim, phys_group, f"{physical_name}{i}")
+
+        # Syncronize model, and embed all lines in the domain if specified
+        if embed_in_domain:
+            gmsh.model.mesh.embed(line_dim, line_tags, self._dim, self._domain_tag)
 
         return line_tags
 
@@ -368,12 +394,10 @@ class GmshWriter:
         bound_line_tags = self._add_lines(bound_line_ind, embed_in_domain=False)
 
         self._bound_line_tags = bound_line_tags
-        gmsh.model.geo.synchronize()
-        #        line_group = gmsh.model.addPhysicalGroup(1, bound_line_tags)
-        #        gmsh.model.setPhysicalName(1, line_group, PhysicalNames.DOMAIN_BOUNDARY.value)
-        #       breakpoint()
+
         loop_tag = gmsh.model.geo.addCurveLoop(bound_line_tags, reorient=True)
         domain_tag = gmsh.model.geo.addPlaneSurface([loop_tag])
+
         gmsh.model.geo.synchronize()
         phys_group = gmsh.model.addPhysicalGroup(2, [domain_tag])
         gmsh.model.setPhysicalName(2, phys_group, PhysicalNames.DOMAIN.value)
@@ -389,13 +413,6 @@ class GmshWriter:
 
         self._bound_surf_tags = bound_surf_tags
 
-        gmsh.model.geo.synchronize()
-        bound_group = gmsh.model.addPhysicalGroup(2, bound_surf_tags)
-        gmsh.model.setPhysicalName(
-            2, bound_group, PhysicalNames.DOMAIN_BOUNDARY_SURFACE.value
-        )
-
-        gmsh.model.geo.synchronize()
         loop_tag = gmsh.model.geo.addSurfaceLoop(bound_surf_tags)
         domain_tag = gmsh.model.geo.addVolume([loop_tag])
         gmsh.model.geo.synchronize()
