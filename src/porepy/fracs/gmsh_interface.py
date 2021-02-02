@@ -162,6 +162,8 @@ class GmshWriter:
     def define_geometry(self):
         gmsh.initialize()
 
+        gmsh.option.setNumber("General.Verbosity", 3)
+
         # All geometries need their points
         self._point_tags = self._add_points()
 
@@ -305,6 +307,7 @@ class GmshWriter:
         # Update the model with all added surfaces
         gmsh.model.geo.synchronize()
 
+        # Add the surfaces as physical tags if so specified.
         for (pi, phys_name, tag) in to_phys_tags:
             ps = gmsh.model.addPhysicalGroup(surf_dim, tag)
             gmsh.model.setPhysicalName(surf_dim, ps, phys_name)
