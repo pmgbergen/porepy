@@ -1,7 +1,6 @@
 import csv
-
+import gmsh
 import numpy as np
-
 import porepy as pp
 
 module_sections = ["gridding"]
@@ -299,7 +298,7 @@ def network_2d_from_csv(
 
 
 @pp.time_logger(sections=module_sections)
-def dfm_from_gmsh(file_name: str, dim: int, **kwargs):
+def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.GridBucket:
     """Generate a GridBucket from a gmsh file.
 
     If the provided file is input for gmsh (.geo, not .msh), gmsh will be called
@@ -325,11 +324,19 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs):
         in_file = file_name + ".geo"
         out_file = file_name + ".msh"
 
-        pp.grids.gmsh.gmsh_interface.run_gmsh(
-            in_file,
-            out_file,
-            dim=dim,
-        )
+        # initialize gmsh
+        gmsh.initialize()
+        # Reduce verbosity
+        gmsh.option.setNumber("General.Verbosity", 3)
+        # read the specified file.
+        gmsh.merge(in_file)
+
+        # Generate mesh, write
+        gmsh.model.mesh.generate(dim=dim)
+        gmsh.write(out_file)
+
+        # Wipe Gmsh's memory
+        gmsh.finalize()
 
     if dim == 2:
         grids = pp.fracs.simplex.triangle_grid_from_gmsh(out_file, **kwargs)
