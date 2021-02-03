@@ -80,7 +80,7 @@ def plot_fractures(pts, edges, domain=None, colortag=None, ax=None, **kwargs):
                 (0, 0, 0.5),
             ]
         else:
-            raise NotImplementedError("Have not thought of more than twelwe colors")
+            col = plt.get_cmap("tab20")(np.mod(utag, 20))
 
     if kwargs.get("domain", True):
         domain_color = "red"
