@@ -1,6 +1,8 @@
 import csv
+
 import gmsh
 import numpy as np
+
 import porepy as pp
 
 module_sections = ["gridding"]

@@ -13,8 +13,9 @@ import numpy as np
 import porepy as pp
 import porepy.fracs.simplex
 from porepy.fracs import tools
-from .gmsh_interface import GmshData2d, GmshWriter, Tags
 from porepy.utils.setmembership import unique_columns_tol
+
+from .gmsh_interface import GmshData2d, GmshWriter, Tags
 
 logger = logging.getLogger(__name__)
 

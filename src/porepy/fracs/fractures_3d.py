@@ -14,8 +14,9 @@ import meshio
 import numpy as np
 
 import porepy as pp
-from .gmsh_interface import GmshData3d, GmshWriter, Tags
 from porepy.utils import setmembership, sort_points
+
+from .gmsh_interface import GmshData3d, GmshWriter, Tags
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -816,10 +817,6 @@ class FractureNetwork3d(object):
         # intersecting lines and polygons
         self.split_intersections()
 
-        # Dump the network description to gmsh .geo format, and run gmsh to
-        # generate grid
-        in_3d = not dfn
-
         # Having found all intersections etc., the next step is to classify the geometric
         # objects before representing them in the data format expected by the Gmsh interface.
         # The classification is somewhat complex, since, for certain applications, it is
@@ -940,9 +937,8 @@ class FractureNetwork3d(object):
         fracture_boundary_points = np.where(
             point_tags == Tags.FRACTURE_BOUNDARY_LINE.value
         )[0]
-
         # Intersections on the boundary should not have a 0d grid assigned
-        self.zero_d_pt = np.setdiff1d(
+        zero_d_pt = np.setdiff1d(
             intersection_points, np.hstack((boundary_points, fracture_boundary_points))
         )
 
@@ -951,60 +947,27 @@ class FractureNetwork3d(object):
         # Obtain mesh size parameters
         mesh_size = self._determine_mesh_size(point_tags=point_tags)
 
-        # The tolerance applied in gmsh should be consistent with the tolerance
-        # used in the splitting of the fracture network. The documentation of
-        # gmsh is not clear, but it seems gmsh scales a given tolerance with
-        # the size of the domain - presumably by the largest dimension. To
-        # counteract this, we divide our (absolute) tolerance self.tol with the
-        # domain size.
-        if in_3d:
-            if isinstance(self.domain, dict):
-                dx = np.array(
-                    [
-                        [self.domain["xmax"] - self.domain["xmin"]],
-                        [self.domain["ymax"] - self.domain["ymin"]],
-                        [self.domain["zmax"] - self.domain["zmin"]],
-                    ]
-                )
-            else:  # Specified by planes
-                max_coord = -np.full(3, np.inf)
-                min_coord = np.full(3, np.inf)
-                for boundary_poly in self.domain:
-                    max_coord = np.maximum(max_coord, boundary_poly.max(axis=1))
-                    min_coord = np.minimum(min_coord, boundary_poly.min(axis=1))
-                dx = (max_coord - min_coord).reshape((3, 1))
-
-            gmsh_tolerance = self.tol / dx.max()
-        else:
-            gmsh_tolerance = self.tol
-
-        # Initialize and run the gmsh writer:
-        if in_3d:
-            dom = self.domain
-        else:
-            dom = None
-
         line_in_poly = self.decomposition["line_in_frac"]
 
-        physical_points = {}
+        physical_points: Dict[int, Tags] = {}
         for pi in fracture_boundary_points:
-            physical_points[pi] = Tags.FRACTURE_BOUNDARY_POINT.value
+            physical_points[pi] = Tags.FRACTURE_BOUNDARY_POINT
 
         for pi in fracture_constraint_intersection:
-            physical_points[pi] = Tags.FRACTURE_CONSTRAINT_INTERSECTION_POINT.value
+            physical_points[pi] = Tags.FRACTURE_CONSTRAINT_INTERSECTION_POINT
 
         for pi in boundary_points:
-            physical_points[pi] = Tags.DOMAIN_BOUNDARY_POINT.value
+            physical_points[pi] = Tags.DOMAIN_BOUNDARY_POINT
 
-        for pi in self.zero_d_pt:
-            physical_points[pi] = Tags.FRACTURE_INTERSECTION_POINT.value
+        for pi in zero_d_pt:
+            physical_points[pi] = Tags.FRACTURE_INTERSECTION_POINT
 
         # Use separate structures to store tags and physical names for the polygons.
         # The former is used for feeding information into gmsh, while the latter is
         # used to tag information in the output from gmsh. They are kept as separate
         # variables since a user may want to modify the physical surfaces before
         # generating the .msh file.
-        physical_surfaces = {}
+        physical_surfaces: Dict[int, Tags] = {}
         polygon_tags = np.zeros(len(self._fractures), dtype=np.int)
 
         if has_boundary:
@@ -1014,13 +977,13 @@ class FractureNetwork3d(object):
 
         for fi, _ in enumerate(self._fractures):
             if has_boundary and self.tags["boundary"][fi]:
-                physical_surfaces[fi] = Tags.DOMAIN_BOUNDARY_SURFACE.value
+                physical_surfaces[fi] = Tags.DOMAIN_BOUNDARY_SURFACE
                 polygon_tags[fi] = Tags.DOMAIN_BOUNDARY_SURFACE.value
             elif fi + num_bound_surf in constraints:
-                physical_surfaces[fi] = Tags.AUXILIARY.value
+                physical_surfaces[fi] = Tags.AUXILIARY
                 polygon_tags[fi] = Tags.AUXILIARY.value
             else:
-                physical_surfaces[fi] = Tags.FRACTURE.value
+                physical_surfaces[fi] = Tags.FRACTURE
                 polygon_tags[fi] = Tags.FRACTURE.value
 
         physical_lines = {}
@@ -1030,7 +993,7 @@ class FractureNetwork3d(object):
                 Tags.FRACTURE_INTERSECTION_LINE.value,
                 Tags.DOMAIN_BOUNDARY_LINE.value,
                 Tags.FRACTURE_BOUNDARY_LINE.value,
-                    Tags.AUXILIARY.value,
+                Tags.AUXILIARY.value,
             ):
                 physical_lines[ei] = edges[2, ei]
 

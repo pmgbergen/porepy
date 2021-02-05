@@ -7,8 +7,9 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from .gmsh_interface import Tags
+
 from . import msh_2_grid
+from .gmsh_interface import Tags
 
 module_sections = ["gridding"]
 
