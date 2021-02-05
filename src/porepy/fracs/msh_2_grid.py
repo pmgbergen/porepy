@@ -6,6 +6,7 @@ from typing import Dict, List, Tuple, Union
 import numpy as np
 
 import porepy as pp
+
 from .gmsh_interface import PhysicalNames
 
 module_sections = ["grids", "gridding"]

@@ -14,7 +14,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.fracs import split_grid, structured, tools
+from porepy.fracs import split_grid, structured
 from porepy.grids import mortar_grid
 from porepy.grids.grid_bucket import GridBucket
 from porepy.utils import mcolon

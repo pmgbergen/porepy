@@ -13,14 +13,12 @@ Content:
         gmsh model. Can also mesh.
 
 """
-from enum import Enum
 from dataclasses import dataclass
-from typing import Dict, Optional, List, Tuple, Union
-
-import porepy as pp
-import numpy as np
+from enum import Enum
+from typing import Dict, List, Optional, Tuple, Union
 
 import gmsh
+import numpy as np
 
 __all__ = [
     "GmshData1d",
@@ -77,7 +75,7 @@ class PhysicalNames(Enum):
     of objects in a mixed-dimensional geometry.
     """
 
-    # Note that neutral tags have no physical names - they should not receive special treatment.
+    # Note that neutral tags have no physical names - they should not receive special treatment
 
     # The assumption (for now) is that there is a single boundary
     # This may change if we implement DD - but then we need to revisit these concepts to
@@ -119,11 +117,11 @@ class PhysicalNames(Enum):
 
 
 def _tag_to_physical_name(tag: Union[int, Tags]) -> str:
-    # Convenience function to map from numerical to string representation of a geometric object.
-    if isinstance(tag, int):
-        t = Tags(tag)
-    else:
-        t = tag
+    # Convenience function to map from numerical to string representation of a geometric object
+    #    if isinstance(tag, Tags):
+    t = Tags(tag)
+    #    else:
+    #        t = Tags(tag)
     for pn in PhysicalNames:
         if pn.name == t.name:
             return pn.value
@@ -170,7 +168,7 @@ class GmshData3d(_GmshData):
     # Polygons (both boundary surfaces, fractures and auxiliary lines).
     # See FractureNetwork3d for examples of usage.
     polygons: List[np.ndarray]
-    # Tags used to identify the type of polygons
+    # Tags used to identify the type of polygons.
     polygon_tags: np.ndarray
     # Physical name information for polygons. Used to set gmsh tags for objects to be
     # represented in hte output mesh.
@@ -308,7 +306,7 @@ class GmshWriter:
         """
         if ndim == -1:
             ndim = self._dim
-        if file_name[:-4] != ".msh":
+        if file_name[-4:] != ".msh":
             file_name = file_name + ".msh"
         if write_geo:
             fn = file_name[:-4] + ".geo_unrolled"
@@ -488,9 +486,8 @@ class GmshWriter:
 
         return line_tags
 
-    def _add_domain_2d(self) -> None:
-        """ Write boundary lines, and tie them together to a closed loop. Define domain.
-        """
+    def _add_domain_2d(self) -> int:
+        """Write boundary lines, and tie them together to a closed loop. Define domain."""
         bound_line_ind = np.argwhere(
             self._data.lines[2] == Tags.DOMAIN_BOUNDARY_LINE.value
         ).ravel()
@@ -507,8 +504,11 @@ class GmshWriter:
         gmsh.model.setPhysicalName(2, phys_group, PhysicalNames.DOMAIN.value)
         return domain_tag
 
-    def _add_domain_3d(self) -> None:
+    def _add_domain_3d(self) -> int:
         """Write boundary surfaces and domain"""
+        if not isinstance(self._data, GmshData3d):
+            raise ValueError("Need 3d geometry to specify 3d domain")
+
         inds = np.argwhere(
             self._data.polygon_tags == Tags.DOMAIN_BOUNDARY_SURFACE.value
         ).ravel()
