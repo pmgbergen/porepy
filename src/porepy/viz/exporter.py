@@ -344,7 +344,7 @@ class Exporter:
         if len(data) > 0:
             fields.extend([Field(n, v) for n, v in data.items()])
 
-        grid_dim = self.grid.dim * np.ones(self.grid.num_cells, dtype=np.int)
+        grid_dim = self.grid.dim * np.ones(self.grid.num_cells, dtype=int)
 
         fields.extend(
             [
@@ -380,7 +380,7 @@ class Exporter:
         self.gb.add_node_props(extra_node_names)
         # fill the extra data
         for g, d in self.gb:
-            ones = np.ones(g.num_cells, dtype=np.int)
+            ones = np.ones(g.num_cells, dtype=int)
             d["grid_dim"] = g.dim * ones
             d["grid_node_number"] = d["node_number"] * ones
             d["is_mortar"] = 0 * ones
@@ -420,11 +420,11 @@ class Exporter:
             mg = d["mortar_grid"]
             mg_num_cells = 0
             for side, g in mg.side_grids.items():
-                ones = np.ones(g.num_cells, dtype=np.int)
+                ones = np.ones(g.num_cells, dtype=int)
                 d["grid_dim"][side] = g.dim * ones
                 d["is_mortar"][side] = ones
                 d["mortar_side"][side] = side.value * ones
-                d["cell_id"][side] = np.arange(g.num_cells, dtype=np.int) + mg_num_cells
+                d["cell_id"][side] = np.arange(g.num_cells, dtype=int) + mg_num_cells
                 mg_num_cells += g.num_cells
                 d["grid_edge_number"][side] = d["edge_number"] * ones
 
@@ -535,7 +535,7 @@ class Exporter:
         num_cells = np.sum([g.num_cells for g in gs])
         cell_to_nodes = {cell_type: np.empty((num_cells, 2))}
         # cell id map
-        cell_id = {cell_type: np.empty(num_cells, dtype=np.int)}
+        cell_id = {cell_type: np.empty(num_cells, dtype=int)}
         cell_pos = 0
 
         # points
@@ -571,7 +571,7 @@ class Exporter:
         meshio_cell_id = np.empty(num_block, dtype=np.object)
 
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
-            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(np.int))
+            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(int))
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
         return meshio_pts, meshio_cells, meshio_cell_id
@@ -652,7 +652,7 @@ class Exporter:
         meshio_cell_id = np.empty(num_block, dtype=np.object)
 
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
-            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(np.int))
+            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(int))
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
         return meshio_pts, meshio_cells, meshio_cell_id
@@ -755,7 +755,7 @@ class Exporter:
                     fc += 1
 
                 # collect all the nodes for the cell
-                nodes_loc = np.unique(faces_loc).astype(np.int)
+                nodes_loc = np.unique(faces_loc).astype(int)
 
                 # define the type of cell we are currently saving
                 cell_type = "polyhedron" + str(nodes_loc.size)
@@ -916,7 +916,7 @@ class Exporter:
         normals,
         num_cell_nodes,
     ):
-        cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=np.int)
+        cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=int)
         counter = 0
         for ci in range(cell_ptr.size - 1):
             loc_c = slice(cell_ptr[ci], cell_ptr[ci + 1])

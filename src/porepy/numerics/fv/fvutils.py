@@ -381,7 +381,7 @@ def subproblems(
         loc2g_face = np.ones(g.num_faces, dtype=bool)
         yield g, loc_faces, loc_cells, loc2g_cells, loc2g_face
 
-    num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(np.int)
+    num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(int)
 
     if num_part == 1:
         yield g, np.arange(g.num_faces), np.arange(g.num_cells), np.arange(
@@ -1403,8 +1403,8 @@ def partial_update_discretization(
 
     update_info = data["update_discretization"]
     # By default, neither cells nor faces have been updated
-    update_cells = update_info.get("modified_cells", np.array([], dtype=np.int))
-    update_faces = update_info.get("modified_faces", np.array([], dtype=np.int))
+    update_cells = update_info.get("modified_cells", np.array([], dtype=int))
+    update_faces = update_info.get("modified_faces", np.array([], dtype=int))
 
     # Mappings of cells and faces. Default to identity maps
     cell_map = update_info.get("map_cells", sps.identity(g.num_cells))
@@ -1714,7 +1714,7 @@ def cell_ind_for_partial_update(
         # The data type of active_vertex is int (in contrast to similar cases
         # in other parts of this function), since we will use it to count the
         # number of active face_nodes below.
-        active_vertexes = np.zeros(g.num_nodes, dtype=np.int)
+        active_vertexes = np.zeros(g.num_nodes, dtype=int)
         active_vertexes[nodes] = 1
 
         # Find cells that share these nodes

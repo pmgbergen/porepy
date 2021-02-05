@@ -106,7 +106,7 @@ class MortarGrid:
 
         # easy access attributes with a fixed ordering of the side grids
         self.num_cells: np.ndarray = np.sum(
-            [g.num_cells for g in self.side_grids.values()], dtype=np.int
+            [g.num_cells for g in self.side_grids.values()], dtype=int
         )
         self.cell_volumes: np.ndarray = np.hstack(
             [g.cell_volumes for g in self.side_grids.values()]
@@ -166,7 +166,7 @@ class MortarGrid:
 
         # Update the attributes
         self.num_cells = np.sum(
-            [g.num_cells for g in self.side_grids.values()], dtype=np.int
+            [g.num_cells for g in self.side_grids.values()], dtype=int
         )
         self.cell_volumes = np.hstack(
             [g.cell_volumes for g in self.side_grids.values()]

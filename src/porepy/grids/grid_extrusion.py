@@ -96,14 +96,14 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
         face_map = g_map[gh].face_map
 
         # Data structure for the new face-cell map
-        rows = np.empty(0, dtype=np.int)
-        cols = np.empty(0, dtype=np.int)
+        rows = np.empty(0, dtype=int)
+        cols = np.empty(0, dtype=int)
 
         # The standard MortarGrid __init__ assumes that when faces are split because of
         # a fracture, the faces are ordered with one side first, then the other. This
         # will not be True for this layered construction. Instead, keep track of all
         # faces that should be moved to the other side.
-        face_on_other_side = np.empty(0, dtype=np.int)
+        face_on_other_side = np.empty(0, dtype=int)
 
         # Loop over cells in gl would not have been as clean, as each cell is associated
         # with faces on both sides
@@ -378,9 +378,9 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
             raise ValueError("this should not happen. Is the cell non-convex??")
 
     # Compressed column storage for horizontal faces: Store node indices
-    fn_rows_horizontal = np.array([], dtype=np.int)
+    fn_rows_horizontal = np.array([], dtype=int)
     # .. and pointers to the start of new faces
-    fn_cols_horizontal = np.array(0, dtype=np.int)
+    fn_cols_horizontal = np.array(0, dtype=int)
     # Loop over all layers of nodes (one more than number of cells)
     # This means that the horizontal faces of a given cell is given by its index (bottom)
     # and its index + the number of 2d cells, both offset with the total number of
@@ -405,9 +405,9 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
     fn_cols_horizontal += num_vertical_faces * nodes_per_face_vertical
 
     # Put together the vertical and horizontal data, create the face-node relation
-    indptr = np.hstack((fn_cols_vertical, fn_cols_horizontal)).astype(np.int)
-    indices = np.hstack((fn_rows_vertical, fn_rows_horizontal)).astype(np.int)
-    data = np.ones(indices.size, dtype=np.int)
+    indptr = np.hstack((fn_cols_vertical, fn_cols_horizontal)).astype(int)
+    indices = np.hstack((fn_rows_vertical, fn_rows_horizontal)).astype(int)
+    data = np.ones(indices.size, dtype=int)
 
     # Finally, construct the face-node sparse matrix
     face_nodes = sps.csc_matrix((data, indices, indptr), shape=(nn_3d, nf_3d))
@@ -431,10 +431,10 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
     cf_cols_2d = g.cell_faces.indptr
     cf_data_2d = g.cell_faces.data
 
-    cf_rows_vertical = np.array([], dtype=np.int)
+    cf_rows_vertical = np.array([], dtype=int)
     # For the cells, we will store the number of facqes for each cell. This will later
     # be expanded to a full set of cell indices
-    cf_vertical_cell_count = np.array([], dtype=np.int)
+    cf_vertical_cell_count = np.array([], dtype=int)
     cf_data_vertical = np.array([])
 
     for k in range(num_cell_layers):
@@ -464,7 +464,7 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
     # Bottom layer
     cf_rows_horizontal = num_vertical_faces + np.arange(nc_2d)
     cf_cols_horizontal = np.arange(nc_2d)
-    cf_data_horizontal = -np.ones(nc_2d, dtype=np.int)
+    cf_data_horizontal = -np.ones(nc_2d, dtype=int)
 
     # Intermediate layers, note
     for k in range(1, num_cell_layers):
@@ -573,7 +573,7 @@ def _extrude_1d(
 
     fn_old = g.face_nodes.indices
     # Vertical faces are made by extruding old face-node relation
-    fn_vert = np.empty((2, 0), dtype=np.int)
+    fn_vert = np.empty((2, 0), dtype=int)
     for k in range(num_cell_layers):
         fn_this = k * nn_old + np.vstack((fn_old, nn_old + fn_old))
         fn_vert = np.hstack((fn_vert, fn_this))
@@ -599,7 +599,7 @@ def _extrude_1d(
 
     # Next, cell-faces
     # We know there are exactly four faces for each cell
-    cf_rows = np.empty((4, 0), dtype=np.int)
+    cf_rows = np.empty((4, 0), dtype=int)
     cf_old = g.cell_faces.indices.reshape((2, -1), order="f")
 
     # Create vertical and horizontal faces together
@@ -619,7 +619,7 @@ def _extrude_1d(
     cf_rows = cf_rows.ravel("f")
     cf_cols = np.tile(np.arange(nc_new), (4, 1)).ravel("f")
     # Define positive and negative sides. The choices here are somewhat arbitrary.
-    tmp = np.ones(nc_new, dtype=np.int)
+    tmp = np.ones(nc_new, dtype=int)
     cf_data = np.vstack((-tmp, tmp, -tmp, tmp)).ravel("f")
     cf = sps.coo_matrix((cf_data, (cf_rows, cf_cols)), shape=(nf_new, nc_new)).tocsc()
 

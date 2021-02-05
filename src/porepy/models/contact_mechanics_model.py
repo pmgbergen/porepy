@@ -214,7 +214,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         mech_dof = self.assembler.dof_ind(g_max, self.displacement_variable)
 
         # Also find indices for the contact variables
-        contact_dof = np.array([], dtype=np.int)
+        contact_dof = np.array([], dtype=int)
         for e, _ in self.gb.edges():
             if e[0].dim == self._Nd:
                 contact_dof = np.hstack(

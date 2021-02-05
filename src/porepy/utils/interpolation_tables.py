@@ -217,7 +217,7 @@ class InterpolationTable:
         # Helper function to get the base (generalized lower-left) vertex of a
         # hypecube.
 
-        ind = np.zeros(coord.shape, dtype=np.int)
+        ind = np.zeros(coord.shape, dtype=int)
 
         # For each dimension, find the first index where coordinate in the
         # interpolation grid is higher than that of the point to be evaluated.

@@ -47,11 +47,11 @@ def distort_grid_1d(
 
     """
     if fixed_nodes is None:
-        fixed_nodes = np.array([0, g.num_nodes - 1], dtype=np.int)
+        fixed_nodes = np.array([0, g.num_nodes - 1], dtype=int)
     else:
         # Ensure that boundary nodes are also fixed
         fixed_nodes = np.hstack((fixed_nodes, np.array([0, g.num_nodes - 1])))
-        fixed_nodes = np.unique(fixed_nodes).astype(np.int)
+        fixed_nodes = np.unique(fixed_nodes).astype(int)
 
     g.compute_geometry()
     r = ratio * (0.5 - np.random.random(g.num_nodes - 2))
@@ -97,7 +97,7 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
     # occurence of the cell)
     if_add = np.r_[1, np.ediff1d(cell_nodes.indices)].astype(np.bool)
 
-    indices = np.empty(0, dtype=np.int)
+    indices = np.empty(0, dtype=int)
     # Template array of node indices for refined cells
     ind = np.vstack((np.arange(ratio), np.arange(ratio) + 1)).flatten("F")
     nd = np.r_[np.diff(cell_nodes.indices)[1::2], 0]
@@ -182,7 +182,7 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> Union[pp.TriangleGrid, np.ndarra
     binom = ((0, 1), (1, 2), (2, 0))
 
     # Holder for new tessalation.
-    new_tri = np.empty(shape=(nd + 1, g.num_cells, nd + 2), dtype=np.int)
+    new_tri = np.empty(shape=(nd + 1, g.num_cells, nd + 2), dtype=int)
 
     # Loop over combinations
     for ti, b in enumerate(binom):

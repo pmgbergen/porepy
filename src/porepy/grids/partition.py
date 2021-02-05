@@ -50,7 +50,7 @@ def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
     # Convert the cells into the format required by pymetis
     adjacency_list = [list(c2c.getrow(i).indices) for i in range(c2c.shape[0])]
     # Call pymetis
-    # It seems it is important that num_part is an int, not an np.int.
+    # It seems it is important that num_part is an int, not an int.
     part = pymetis.part_graph(int(num_part), adjacency=adjacency_list)
 
     # The meaning of the first number returned by pymetis is not clear (poor
@@ -186,7 +186,7 @@ def partition_coordinates(
 
     if g.dim == 0:
         # Nothing really to do here.
-        return np.zeros(g.num_cells, dtype=np.int)
+        return np.zeros(g.num_cells, dtype=int)
 
     # The division into boxes must be done within the active dimensions of the grid.
     # For 1d and 2d grids, this involves a mapping of the grid into its natural

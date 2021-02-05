@@ -534,7 +534,7 @@ def update_cell_faces(
     # with deleted_2_new_faces to match new and old faces
     # Safeguarding (or stupidity?): Only faces along 1d grid have non-negative
     # index, but we should never hit any of the other elements
-    cf_2_f = -np.ones(delete_faces.max() + 1, dtype=np.int)
+    cf_2_f = -np.ones(delete_faces.max() + 1, dtype=int)
     cf_2_f[delete_faces] = np.arange(delete_faces.size)
 
     # Map from faces, as stored in cell_faces,to the corresponding cells

@@ -146,7 +146,7 @@ class Grid:
         self.global_point_ind: np.ndarray = np.arange(self.num_nodes)
         self._physical_name_index: int = -1
 
-        self.frac_pairs: np.ndarray = np.array([[]], dtype=np.int)
+        self.frac_pairs: np.ndarray = np.array([[]], dtype=int)
 
         # Add tag for the boundary faces
         if external_tags is None:
@@ -817,11 +817,11 @@ class Grid:
         # Increase the data by one to distinguish cell indices from boundary
         # cells
         data = n.indices + 1
-        cols = ((n.data + 1) / 2).astype("i")
+        cols = ((n.data + 1) / 2).astype(int)
         neighs = sps.coo_matrix((data, (rows, cols))).todense()
         # Subtract 1 to get back to real cell indices
         neighs -= 1
-        neighs = neighs.transpose().A.astype("int")
+        neighs = neighs.transpose().A.astype(int)
         # Finally, we need to switch order of rows to get normal vectors
         # pointing from first to second row.
         return neighs[::-1]
@@ -928,7 +928,7 @@ class Grid:
             min_id = np.argmin(d)
             return min_id, np.sqrt(d[min_id])
 
-        ci = np.empty(p.shape[1], dtype=np.int)
+        ci = np.empty(p.shape[1], dtype=int)
         di = np.empty(p.shape[1])
         for i in range(p.shape[1]):
             ci[i], di[i] = min_dist(p[:, i].reshape((3, -1)))

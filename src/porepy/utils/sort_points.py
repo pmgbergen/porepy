@@ -50,7 +50,7 @@ def sort_point_pairs(
     found = np.zeros(num_lines, dtype=np.bool)
 
     # Initialize array of sorting indices
-    sort_ind = np.zeros(num_lines, dtype=np.int)
+    sort_ind = np.zeros(num_lines, dtype=int)
 
     # In the case of non-circular ordering ensure to start from the correct one
     if not is_circular:

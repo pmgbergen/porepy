@@ -85,7 +85,7 @@ def create_2d_grids(
         surface_tag = gmsh_constants.PHYSICAL_NAME_FRACTURES
 
     if constraints is None:
-        constraints = np.array([], dtype=np.int)
+        constraints = np.array([], dtype=int)
 
     if is_embedded:
         # List of 2D grids, one for each surface
@@ -117,7 +117,7 @@ def create_2d_grids(
 
             # Cells of this surface
             loc_cells = np.where(tri_tags == pn_ind)[0]
-            loc_tri_cells = tri_cells[loc_cells, :].astype(np.int)
+            loc_tri_cells = tri_cells[loc_cells, :].astype(int)
 
             # Find unique points, and a mapping from local to global points
             pind_loc, p_map = np.unique(loc_tri_cells, return_inverse=True)
@@ -253,7 +253,7 @@ def create_1d_grids(
         line_tag = gmsh_constants.PHYSICAL_NAME_FRACTURE_LINE
 
     if constraints is None:
-        constraints = np.empty(0, dtype=np.int)
+        constraints = np.empty(0, dtype=int)
     # Recover lines
     # There will be up to three types of physical lines: intersections (between
     # fractures), fracture tips, and auxiliary lines (to be disregarded)

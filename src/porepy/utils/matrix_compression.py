@@ -33,8 +33,8 @@ def rldecode(A, n):
         n (int): Number of occurences for each element
     """
     r = n > 0
-    i = np.cumsum(np.hstack((np.zeros(1, dtype=np.int), n[r])), dtype=np.int)
-    j = np.zeros(i[-1], dtype=np.int)
+    i = np.cumsum(np.hstack((np.zeros(1, dtype=int), n[r])), dtype=int)
+    j = np.zeros(i[-1], dtype=int)
     j[i[1:-1:]] = 1
     B = A[np.cumsum(j)]
     return B

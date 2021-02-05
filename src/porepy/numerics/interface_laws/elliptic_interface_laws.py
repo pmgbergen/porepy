@@ -150,7 +150,7 @@ class RobinCoupling(
 
         # The values in vals are sorted by the mortar cell index ordering (proj is a
         # csr matrix).
-        ci_mortar = np.arange(mg.num_cells, dtype=np.int)
+        ci_mortar = np.arange(mg.num_cells, dtype=int)
 
         # The mortar cell indices are expanded to account for the vector source
         # having multiple dimensions

@@ -80,9 +80,9 @@ def lines_by_polygon(poly_pts, pts, edges):
         int_edges = np.vstack((int_edges, edges[2:, edges_kept]))
     else:
         # If no edges are kept, return an empty array with the right dimensions
-        int_edges = np.empty((edges.shape[0], 0), dtype=np.int)
+        int_edges = np.empty((edges.shape[0], 0), dtype=int)
 
-    return int_pts, int_edges, np.array(edges_kept, dtype=np.int)
+    return int_pts, int_edges, np.array(edges_kept, dtype=int)
 
 
 @pp.time_logger(sections=module_sections)
@@ -218,7 +218,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
 
         # First, count the number of times a segment of the polygon is associated with
         # an intersection point
-        count_boundary_segment = np.zeros(num_vert, dtype=np.int)
+        count_boundary_segment = np.zeros(num_vert, dtype=int)
         for isect in seg_vert:
             # Only consider segment intersections, not interior (len==0), and vertexes
             if len(isect) > 0 and isect[1]:
@@ -296,7 +296,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
             if len(isects_of_segment[seg_ind]) == 0:
                 continue
             # Index and coordinate of intersection points on this segment
-            loc_isect_ind = np.asarray(isects_of_segment[seg_ind], dtype=np.int).ravel()
+            loc_isect_ind = np.asarray(isects_of_segment[seg_ind], dtype=int).ravel()
 
             # Consider unique intersection points; there may be repititions in cases
             # where the polyhedron has multiple parallel sides.
@@ -341,7 +341,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                 [i for i in segments_interior_boundary]
             ).T
         else:
-            segments_interior_boundary = np.zeros((2, 0), dtype=np.int)
+            segments_interior_boundary = np.zeros((2, 0), dtype=int)
 
         # At this stage, we have identified all segments, possibly with duplicates.
         # Next task is to arrive at a unique representation of the segments.

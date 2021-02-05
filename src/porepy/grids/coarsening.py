@@ -45,7 +45,7 @@ def coarsen(
         partition = create_aggregations(g, **method_kwargs)
 
     elif method.lower() == "by_tpfa":
-        seeds = np.empty(0, dtype=np.int)
+        seeds = np.empty(0, dtype=int)
         if method_kwargs.get("if_seeds", False):
             seeds = generate_seeds(g)
         matrix = _tpfa_matrix(g)
@@ -176,7 +176,7 @@ def _generate_coarse_grid_single(g, subdiv, face_map):
         mask[np.unique(faces_old, return_index=True)[1]] = False
         # extract the indexes of the internal edges, to be discared
         index = np.array(
-            [np.where(faces_old == f)[0] for f in faces_old[mask]], dtype=np.int
+            [np.where(faces_old == f)[0] for f in faces_old[mask]], dtype=int
         ).ravel()
         faces_new = np.delete(faces_old, index)
         cell_faces = np.r_[cell_faces, faces_new]
@@ -345,7 +345,7 @@ def generate_seeds(gb):
     Giving the higher dimensional grid in a grid bucket, generate the seed for
     the tip of lower
     """
-    seeds = np.empty(0, dtype=np.int)
+    seeds = np.empty(0, dtype=int)
 
     if isinstance(gb, grid.Grid):
         return seeds
@@ -401,7 +401,7 @@ def create_aggregations(g, **kwargs):
     partition = dict()
 
     for g in g_list:
-        partition_local = -np.ones(g.num_cells, dtype=np.int)
+        partition_local = -np.ones(g.num_cells, dtype=int)
 
         volumes = g.cell_volumes.copy()
         volumes_checked = volumes.copy()
@@ -490,7 +490,7 @@ def create_aggregations(g, **kwargs):
 @pp.time_logger(sections=module_sections)
 def __get_neigh(cells_id, c2c, partition):
     """Support function for create_aggregations"""
-    neighbors = np.empty(0, dtype=np.int)
+    neighbors = np.empty(0, dtype=int)
 
     for cell_id in np.atleast_1d(cells_id):
         # Extract the neighbors of the current cell
@@ -622,7 +622,7 @@ def create_partition(A, g, seeds=None, **kwargs):
     c2c = np.abs(A) > 0
     c2c_rows, _, _ = sps.find(c2c)
 
-    pairs = np.empty((0, 2), dtype=np.int)
+    pairs = np.empty((0, 2), dtype=int)
     for idx, it in enumerate(np.where(is_coarse)[0]):
         loc = slice(c2c.indptr[it], c2c.indptr[it + 1])
         ind = np.setdiff1d(c2c_rows[loc], it)

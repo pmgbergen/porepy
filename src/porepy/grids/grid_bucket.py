@@ -932,7 +932,7 @@ class GridBucket:
         node_source = np.atleast_2d(g_src.global_point_ind)
         node_target = np.atleast_2d(g_trg.global_point_ind)
         _, trg_2_src_nodes = setmembership.ismember_rows(
-            node_source.astype(np.int32), node_target.astype(np.int32)
+            node_source.astype(int32), node_target.astype(int32)
         )
         return trg_2_src_nodes
 
@@ -1316,7 +1316,7 @@ class GridBucket:
         if cond is None:
             cond = lambda g: True
         return np.sum(
-            [grid.num_cells for grid in self._nodes.keys() if cond(grid)], dtype=np.int
+            [grid.num_cells for grid in self._nodes.keys() if cond(grid)], dtype=int
         )
 
     @pp.time_logger(sections=module_sections)
@@ -1341,7 +1341,7 @@ class GridBucket:
                 for _, data in self.edges()
                 if data.get("mortar_grid") and cond(data["mortar_grid"])
             ],
-            dtype=np.int,
+            dtype=int,
         )
 
     @pp.time_logger(sections=module_sections)

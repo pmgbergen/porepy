@@ -242,7 +242,7 @@ def point_in_polyhedron(polyhedron, test_points, tol=1e-8):
 
     # Uniquify points, and update triangulation
     upoints, _, ib = pp.utils.setmembership.unique_columns_tol(points, tol=tol)
-    ut = ib[tri.astype(np.int)]
+    ut = ib[tri.astype(int)]
 
     # The in-polyhedra algorithm requires a very particular ordering of the vertexes
     # in the triangulation. Fix this.

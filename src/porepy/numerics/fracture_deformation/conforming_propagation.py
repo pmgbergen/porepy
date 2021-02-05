@@ -150,7 +150,7 @@ class ConformingFracturePropagation(FracturePropagation):
 
             else:
                 # No updates to the geometry.
-                face_list.update({g_l: np.array([], dtype=np.int)})
+                face_list.update({g_l: np.array([], dtype=int)})
 
         pp.propagate_fracture.propagate_fractures(gb, face_list)
 
