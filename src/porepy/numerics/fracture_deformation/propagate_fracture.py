@@ -479,7 +479,7 @@ def _update_connectivity_fracture_grid(
     # ASSUMPTION: This breaks if not all faces have the same number of cells
     # Rewrite is possible, but more technical
     all_faces_l = np.reshape(
-        g_l.face_nodes.indices, (g_l.dim, n_old_faces_l), order="f"
+        g_l.face_nodes.indices, (g_l.dim, n_old_faces_l), order="F"
     )
 
     # Initialize indices and values for the cell_faces update

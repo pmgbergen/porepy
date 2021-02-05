@@ -150,7 +150,7 @@ def _generate_coarse_grid_single(g, subdiv, face_map):
     # declare the storage array to build the face_nodes map
     face_nodes = np.empty(0, dtype=g.face_nodes.indptr.dtype)
     nodes = np.empty(0, dtype=face_nodes.dtype)
-    visit = np.zeros(g.num_faces, dtype=np.bool)
+    visit = np.zeros(g.num_faces, dtype=bool)
 
     # compute the face_node indexes
     num_nodes_per_face = g.face_nodes.indptr[1:] - g.face_nodes.indptr[:-1]
@@ -172,7 +172,7 @@ def _generate_coarse_grid_single(g, subdiv, face_map):
 
         # reconstruct the cell_faces mapping
         faces_old, _, orient_old = sps.find(g.cell_faces[:, cells_old])
-        mask = np.ones(faces_old.size, dtype=np.bool)
+        mask = np.ones(faces_old.size, dtype=bool)
         mask[np.unique(faces_old, return_index=True)[1]] = False
         # extract the indexes of the internal edges, to be discared
         index = np.array(
@@ -193,7 +193,7 @@ def _generate_coarse_grid_single(g, subdiv, face_map):
             np.sum(
                 [face_node_ind == f for f in faces_new[not_visit]],
                 axis=0,
-                dtype=np.bool,
+                dtype=bool,
             )
         )
         face_nodes = np.r_[face_nodes, face_node_ind[mask]]
@@ -553,7 +553,7 @@ def create_partition(A, g, seeds=None, **kwargs):
     Nc = A.shape[0]
 
     # For each node, which other nodes are strongly connected to it
-    ST = sps.lil_matrix((Nc, Nc), dtype=np.bool)
+    ST = sps.lil_matrix((Nc, Nc), dtype=bool)
 
     # In the first instance, all cells are strongly connected to each other
     At = A.T
@@ -582,9 +582,9 @@ def create_partition(A, g, seeds=None, **kwargs):
     lmbda = np.array([len(s) for s in ST.rows])
 
     # Define coarse nodes
-    candidate = np.ones(Nc, dtype=np.bool)
-    is_fine = np.zeros(Nc, dtype=np.bool)
-    is_coarse = np.zeros(Nc, dtype=np.bool)
+    candidate = np.ones(Nc, dtype=bool)
+    is_fine = np.zeros(Nc, dtype=bool)
+    is_coarse = np.zeros(Nc, dtype=bool)
 
     # cells that are not important for any other cells are on the fine scale.
     for row_id, row in enumerate(ST.rows):
@@ -645,7 +645,7 @@ def create_partition(A, g, seeds=None, **kwargs):
 
     # Primal grid
     NC = coarse.size
-    primal = sps.lil_matrix((NC, Nc), dtype=np.bool)
+    primal = sps.lil_matrix((NC, Nc), dtype=bool)
     primal[np.arange(NC), coarse[np.arange(NC)]] = True
 
     connection = sps.lil_matrix((Nc, Nc), dtype=np.double)

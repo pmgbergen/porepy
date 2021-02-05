@@ -404,7 +404,7 @@ def subproblems(
             # To discretize with as little overlap as possible, we use the
             # keyword nodes to specify the update stencil. Find nodes of the
             # local cells.
-            cells_in_partition_boolean = np.zeros(g.num_cells, dtype=np.bool)
+            cells_in_partition_boolean = np.zeros(g.num_cells, dtype=bool)
             cells_in_partition_boolean[cells_in_partition] = 1
 
             nodes_in_partition: np.ndarray = np.squeeze(
@@ -1169,7 +1169,7 @@ class ExcludeBoundaries(object):
         col = np.argwhere([not it for it in ids])
         row = np.arange(col.size)
         return sps.coo_matrix(
-            (np.ones(row.size, dtype=np.bool), (row, col.ravel("C"))),
+            (np.ones(row.size, dtype=bool), (row, col.ravel("C"))),
             shape=(row.size, self.num_subfno),
         ).tocsr()
 
@@ -1581,7 +1581,7 @@ def cell_ind_for_partial_update(
 
     # Faces that are active, and should have their discretization stencil
     # updated / returned.
-    active_faces = np.zeros(g.num_faces, dtype=np.bool)
+    active_faces = np.zeros(g.num_faces, dtype=bool)
 
     # Index of cells to include in the subgrid.
     cell_ind = np.empty(0)
@@ -1619,10 +1619,10 @@ def cell_ind_for_partial_update(
 
         # The active faces (to be updated; (o-x and o-o above) are those that
         # share at least one vertex with cells in ind.
-        prim_cells = np.zeros(g.num_cells, dtype=np.bool)
+        prim_cells = np.zeros(g.num_cells, dtype=bool)
         prim_cells[cells] = 1
         # Vertexes of the cells
-        active_vertexes = np.zeros(g.num_nodes, dtype=np.bool)
+        active_vertexes = np.zeros(g.num_nodes, dtype=bool)
         active_vertexes[np.squeeze(np.where(cn * prim_cells > 0))] = 1
 
         # Faces of the vertexes, these will be the active faces.
@@ -1673,11 +1673,11 @@ def cell_ind_for_partial_update(
         data = np.ones_like(cf.data)
         cf = sps.csc_matrix((data, cf.indices, cf.indptr))
 
-        primary_faces = np.zeros(g.num_faces, dtype=np.bool)
+        primary_faces = np.zeros(g.num_faces, dtype=bool)
         primary_faces[faces] = 1
 
         # The active faces are those sharing a vertex with the primary faces
-        primary_vertex = np.zeros(g.num_nodes, dtype=np.bool)
+        primary_vertex = np.zeros(g.num_nodes, dtype=bool)
         primary_vertex[np.squeeze(np.where((g.face_nodes * primary_faces) > 0))] = 1
         active_face_ind = np.squeeze(
             np.where((g.face_nodes.transpose() * primary_vertex) > 0)
@@ -1685,7 +1685,7 @@ def cell_ind_for_partial_update(
         active_faces[active_face_ind] = 1
 
         # Find vertexes of the active faces
-        active_nodes = np.zeros(g.num_nodes, dtype=np.bool)
+        active_nodes = np.zeros(g.num_nodes, dtype=bool)
         active_nodes[np.squeeze(np.where((g.face_nodes * active_faces) > 0))] = 1
 
         cn = g.cell_nodes()
@@ -1694,7 +1694,7 @@ def cell_ind_for_partial_update(
         primary_cells = np.squeeze(np.where((cn.transpose() * active_nodes) > 0))
 
         # Get all nodes of the primary cells. These are the secondary_nodes
-        active_cells = np.zeros(g.num_cells, dtype=np.bool)
+        active_cells = np.zeros(g.num_cells, dtype=bool)
         active_cells[primary_cells] = 1
         secondary_nodes = np.where(cn * active_cells)[0]
         active_nodes[secondary_nodes] = 1

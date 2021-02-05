@@ -206,8 +206,8 @@ class Fracture(object):
 
         to_enforce = np.hstack(
             (
-                np.zeros(self.p.shape[1], dtype=np.bool),
-                np.ones(p.shape[1], dtype=np.bool),
+                np.zeros(self.p.shape[1], dtype=bool),
+                np.ones(p.shape[1], dtype=bool),
             )
         )
         self.p = np.hstack((self.p, p))
@@ -2256,8 +2256,8 @@ class FractureNetwork3d(object):
 
         # construct the meshio data structure
         num_block = len(cell_to_nodes)
-        meshio_cells = np.empty(num_block, dtype=np.object)
-        meshio_cell_id = np.empty(num_block, dtype=np.object)
+        meshio_cells = np.empty(num_block, dtype=object)
+        meshio_cell_id = np.empty(num_block, dtype=object)
 
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
             meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
@@ -2272,7 +2272,7 @@ class FractureNetwork3d(object):
         # store also the data
         for key, val in data.items():
             # for each field create a sub-vector for each geometrically uniform group of cells
-            meshio_data[key] = np.empty(num_block, dtype=np.object)
+            meshio_data[key] = np.empty(num_block, dtype=object)
             # fill up the data
             for block, ids in enumerate(meshio_cell_id):
                 if val.ndim == 1:
@@ -2317,7 +2317,7 @@ class FractureNetwork3d(object):
         frac_tags["boundary"] = frac_tags.get("boundary", []) + [False] * (
             len(self._fractures) - len(frac_tags.get("boundary", []))
         )
-        frac_tags["constraint"] = np.zeros(len(self._fractures), dtype=np.bool)
+        frac_tags["constraint"] = np.zeros(len(self._fractures), dtype=bool)
         frac_tags["constraint"][constraints] = True
 
         # Get preliminary set of tags for the edges. Also find which edges are

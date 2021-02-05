@@ -105,7 +105,7 @@ class MortarGrid:
         self.tol = tol
 
         # easy access attributes with a fixed ordering of the side grids
-        self.num_cells: np.ndarray = np.sum(
+        self.num_cells: int = np.sum(  # type: ignore
             [g.num_cells for g in self.side_grids.values()], dtype=int
         )
         self.cell_volumes: np.ndarray = np.hstack(
@@ -165,7 +165,7 @@ class MortarGrid:
             g.compute_geometry()
 
         # Update the attributes
-        self.num_cells = np.sum(
+        self.num_cells = np.sum(  # type: ignore
             [g.num_cells for g in self.side_grids.values()], dtype=int
         )
         self.cell_volumes = np.hstack(
@@ -220,7 +220,7 @@ class MortarGrid:
         # diagonal matrix, where in each block we have the mapping between the
         # (relative to side) old grid and the new one.
         matrix_blocks: np.ndarray = np.empty(
-            (self.num_sides(), self.num_sides()), dtype=np.object
+            (self.num_sides(), self.num_sides()), dtype=object
         )
 
         # Loop on all the side grids, if not given an identity matrix is
@@ -288,7 +288,7 @@ class MortarGrid:
         # stored we need to remap it. The resulting matrix will be a block
         # matrix, where in each block we have the mapping between the
         # (relative to side) the new grid and the mortar grid.
-        matrix = np.empty((self.num_sides(), 1), dtype=np.object)
+        matrix = np.empty((self.num_sides(), 1), dtype=object)
 
         for pos, (side, _) in enumerate(self.side_grids.items()):
             matrix[pos, 0] = split_matrix[side]
@@ -663,7 +663,7 @@ class MortarGrid:
 
     @pp.time_logger(sections=module_sections)
     def cell_diameters(self) -> np.ndarray:
-        diams = np.empty(self.num_sides(), dtype=np.object)
+        diams = np.empty(self.num_sides(), dtype=object)
         for pos, (_, g) in enumerate(self.side_grids.items()):
             diams[pos] = g.cell_diameters()
         return np.concatenate(diams).ravel()
@@ -759,10 +759,10 @@ class MortarGrid:
         shape_primary = (self.num_cells, primary_secondary.shape[1])
         shape_secondary = (self.num_cells, primary_secondary.shape[0])
         self._primary_to_mortar_int = sps.csc_matrix(
-            (data.astype(np.float), (cells, primary_f)), shape=shape_primary
+            (data.astype(float), (cells, primary_f)), shape=shape_primary
         )
         self._secondary_to_mortar_int = sps.csc_matrix(
-            (data.astype(np.float), (cells, secondary_f)), shape=shape_secondary
+            (data.astype(float), (cells, secondary_f)), shape=shape_secondary
         )
 
 

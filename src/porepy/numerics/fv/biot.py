@@ -744,7 +744,7 @@ class Biot(pp.Mpsa):
         # general combinations of specified cells, nodes and faces.
         tmp = g.cell_faces.transpose()
         tmp.data = np.abs(tmp.data)
-        af_vec = np.zeros(g.num_faces, dtype=np.bool)
+        af_vec = np.zeros(g.num_faces, dtype=bool)
         af_vec[active_faces] = 1
         update_cell_ind = np.where(tmp * af_vec)[0]
         eliminate_cells = np.setdiff1d(np.arange(g.num_cells), update_cell_ind)

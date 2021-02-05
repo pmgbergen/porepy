@@ -117,7 +117,7 @@ def merge_matrices(A, B, lines):
 
     indptr = indptr - num_rem
 
-    keep = np.ones(A.data.size, dtype=np.bool)
+    keep = np.ones(A.data.size, dtype=bool)
     keep[ind_ix] = False
     indices = indices[keep]
     data = data[keep]

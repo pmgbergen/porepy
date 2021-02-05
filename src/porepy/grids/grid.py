@@ -11,7 +11,7 @@ Acknowledgements:
 
 """
 import itertools
-from typing import Dict, List, Union
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -702,7 +702,7 @@ class Grid:
     @pp.time_logger(sections=module_sections)
     def update_boundary_face_tag(self) -> None:
         """Tag faces on the boundary of the grid with boundary tag."""
-        zeros = np.zeros(self.num_faces, dtype=np.bool)
+        zeros = np.zeros(self.num_faces, dtype=bool)
         self.tags["domain_boundary_faces"] = zeros
         if self.dim > 0:  # by default no 0d grid at the boundary of the domain
             bd_faces = np.argwhere(
@@ -738,7 +738,7 @@ class Grid:
             raise ValueError("periodic face number cannot be negative")
 
         self.periodic_face_map = periodic_face_map
-        self.tags["domain_boundary_faces"][self.periodic_face_map.ravel()] = False
+        self.tags["domain_boundary_faces"][self.periodic_face_map.ravel("C")] = False
 
     @pp.time_logger(sections=module_sections)
     def update_boundary_node_tag(self) -> None:
@@ -749,7 +749,7 @@ class Grid:
             "fracture_faces": "fracture_nodes",
             "tip_faces": "tip_nodes",
         }
-        zeros = np.zeros(self.num_nodes, dtype=np.bool)
+        zeros = np.zeros(self.num_nodes, dtype=bool)
 
         for face_tag, node_tag in mask.items():
             self.tags[node_tag] = zeros.copy()
@@ -854,7 +854,9 @@ class Grid:
         return c2c
 
     @pp.time_logger(sections=module_sections)
-    def signs_and_cells_of_boundary_faces(self, faces: np.ndarray) -> np.ndarray:
+    def signs_and_cells_of_boundary_faces(
+        self, faces: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Get the direction of the normal vector (inward or outwards from a cell)
         and the cell neighbour of _boundary_ faces.
 
@@ -883,7 +885,7 @@ class Grid:
         return sgn, ci
 
     @pp.time_logger(sections=module_sections)
-    def bounding_box(self) -> Union[np.ndarray, np.ndarray]:
+    def bounding_box(self) -> Tuple[np.ndarray, np.ndarray]:
         """
         Return the bounding box of the grid.
 
@@ -899,7 +901,9 @@ class Grid:
         return np.amin(coords, axis=1), np.amax(coords, axis=1)
 
     @pp.time_logger(sections=module_sections)
-    def closest_cell(self, p: np.ndarray, return_distance: bool = False) -> np.ndarray:
+    def closest_cell(
+        self, p: np.ndarray, return_distance: bool = False
+    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """For a set of points, find closest cell by cell center.
 
         If several centers have the same distance, one of them will be
@@ -953,16 +957,16 @@ class Grid:
     @pp.time_logger(sections=module_sections)
     def _check_tags(self) -> None:
         for key in tags.standard_node_tags():
-            if key not in self.tags.keys():
+            if key not in self.tags:
                 raise ValueError(f"The tag key {key} must be specified")
-            value: np.ndarray = self.tags.get(key)
+            value: np.ndarray = self.tags[key]
             if not value.size == self.num_nodes:
                 raise ValueError(f"Wrong size of value for tag {key}")
 
         for key in tags.standard_face_tags():
-            if key not in self.tags.keys():
+            if key not in self.tags:
                 raise ValueError(f"The tag key {key} must be specified")
-            value = self.tags.get(key)
+            value = self.tags[key]
             if not value.size == self.num_faces:
                 raise ValueError(f"Wrong size of value for tag {key}")
 

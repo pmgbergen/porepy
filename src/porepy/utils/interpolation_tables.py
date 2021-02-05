@@ -21,7 +21,7 @@ constant approximations of derivatives.
 
 """
 import itertools
-from typing import Callable, Iterator, List, Union
+from typing import Callable, Iterator, List, Tuple
 
 import numpy as np
 
@@ -107,7 +107,7 @@ class InterpolationTable:
 
         # Prepare table of function values. This will be filled in by __init__
         sz = np.prod(npt)
-        self._values = np.zeros((dim, sz))
+        self._values: np.ndarray = np.zeros((dim, sz))  # type: ignore
 
     @pp.time_logger(sections=module_sections)
     def interpolate(self, x: np.ndarray) -> np.ndarray:
@@ -131,12 +131,9 @@ class InterpolationTable:
         # (right) and base (left) coordinate.
         right_weight, left_weight = self._right_left_weights(x, base_ind)
 
-        # placeholder variable for the function evaulation
-        values = None
-
         # Loop over all vertexes in the hypercube. Evaluate the function in the
         # vertex with the relevant weight.
-        for incr, eval_ind in self._generate_indices(base_ind):
+        for i, (incr, eval_ind) in enumerate(self._generate_indices(base_ind)):
             # Incr is 0 for dimensions to be evaluated in the left (base)
             # coordinate, 1 for others.
             # eval_ind is the linear index for this vertex.
@@ -148,9 +145,9 @@ class InterpolationTable:
 
             # Add this part of the function evaluation and store it
             new_val = weight * self._values[:, eval_ind]
-            if values is None:
+            if i == 0:
                 # create array if this is the first iteration.
-                values = new_val
+                values: np.ndarray = new_val
             else:
                 values += new_val
 
@@ -240,7 +237,7 @@ class InterpolationTable:
     @pp.time_logger(sections=module_sections)
     def _generate_indices(
         self, base_ind: np.ndarray
-    ) -> Iterator[Union[np.ndarray, np.ndarray]]:
+    ) -> Iterator[Tuple[np.ndarray, np.ndarray]]:
         # Iterator for linear indices that form the vertexes of a hypercube with a
         # given base vertex, and the dimension-wise increments in indices from the
         # base.
@@ -251,12 +248,13 @@ class InterpolationTable:
             incr = np.asarray(increment).reshape((-1, 1))
             vertex_ind = base_ind + incr
             eval_ind = np.sum(vertex_ind * self._strides, axis=0).ravel()
+            assert isinstance(eval_ind, np.ndarray)
             yield incr, eval_ind
 
     @pp.time_logger(sections=module_sections)
     def _right_left_weights(
         self, x: np.ndarray, base_ind: np.ndarray
-    ) -> Union[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray]:
         # For each dimension, find the interpolation weights to the right
         # and left sides
 
@@ -322,7 +320,8 @@ class AdaptiveInterpolationTable(InterpolationTable):
         self._function = function
 
         # Keep track of which grid points have had their values computed.
-        self._has_value = np.zeros(np.prod(npt), dtype=np.bool)
+        num_pt = np.prod(npt)
+        self._has_value: np.ndarray = np.zeros(num_pt, dtype=bool)  # type: ignore
 
     @pp.time_logger(sections=module_sections)
     def interpolate(self, x):

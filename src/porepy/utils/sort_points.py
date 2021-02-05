@@ -47,7 +47,7 @@ def sort_point_pairs(
     sorted_lines = -np.ones(lines.shape, dtype=lines.dtype)
 
     # Keep track of which lines have been found, which are still candidates
-    found = np.zeros(num_lines, dtype=np.bool)
+    found = np.zeros(num_lines, dtype=bool)
 
     # Initialize array of sorting indices
     sort_ind = np.zeros(num_lines, dtype=int)
@@ -81,7 +81,7 @@ def sort_point_pairs(
     prev = sorted_lines[1, 0]
 
     # Order of the origin line list, store if they are flipped or not to form the chain
-    is_ordered = np.zeros(num_lines, dtype=np.bool)
+    is_ordered = np.zeros(num_lines, dtype=bool)
     is_ordered[0] = True
 
     # The sorting algorithm: Loop over all places in sorted_line to be filled,
@@ -120,7 +120,7 @@ def sort_point_plane(
     pts: np.ndarray,
     centre: np.ndarray,
     normal: Optional[np.ndarray] = None,
-    tol: Optional[float] = 1e-5,
+    tol: float = 1e-5,
 ) -> np.ndarray:
     """Sort the points which lie on a plane.
 
@@ -201,7 +201,7 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
     num_iter = 0
 
     # Bookkeeping of already processed triangles. Not sure if this is needed.
-    is_ordered = np.zeros(nt, dtype=np.bool)
+    is_ordered = np.zeros(nt, dtype=bool)
     is_ordered[0] = 1
 
     while len(queue) > 0:

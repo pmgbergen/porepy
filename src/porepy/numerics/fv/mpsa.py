@@ -951,7 +951,7 @@ class Mpsa(Discretization):
         is_neu_nd = (
             bound_exclusion.keep_neumann(bound.is_neu.ravel("C"), transform=False)
             .ravel("F")
-            .astype(np.bool)
+            .astype(bool)
         )
 
         neu_ind = np.argsort(subfno_neu)
@@ -965,7 +965,7 @@ class Mpsa(Discretization):
         is_rob_nd = (
             bound_exclusion.keep_robin(bound.is_rob.ravel("C"), transform=False)
             .ravel("F")
-            .astype(np.bool)
+            .astype(bool)
         )
 
         rob_ind = np.argsort(subfno_rob)
@@ -981,7 +981,7 @@ class Mpsa(Discretization):
                 bound.is_dir.ravel("C"), transform=False
             )
             .ravel("F")
-            .astype(np.bool)
+            .astype(bool)
         )
 
         dir_ind = np.argsort(subfno_dir)

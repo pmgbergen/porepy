@@ -489,7 +489,7 @@ class ConformingFracturePropagation(FracturePropagation):
         )
 
         # Reconstruct non-unique and reshape to edges (first dim is 2 if nd=3)
-        edges_h = np.reshape(nodes_h[ind_l], (nd - 1, faces_l.size), order="f")
+        edges_h = np.reshape(nodes_h[ind_l], (nd - 1, faces_l.size), order="F")
 
         # IMPLEMENTATION NOTE: No attempt at vectorization: Too many pitfalls. In particular,
         # the number of candidate faces is unknown and may differ between the nodes.

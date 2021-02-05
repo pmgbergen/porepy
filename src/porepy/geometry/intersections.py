@@ -488,7 +488,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
     num_polys = len(polys)
 
     # Storage array for storing the index of the intersection points for each polygon
-    isect_pt = np.empty(num_polys, dtype=np.object)
+    isect_pt = np.empty(num_polys, dtype=object)
     # Storage for whehter an intersection is on the boundary of a polygon
     is_bound_isect = np.empty_like(isect_pt)
     # Storage for which segment or vertex of a polygon is intersected
@@ -1351,7 +1351,7 @@ def surface_tessalations(
         x = [poly[i][0] for i in range(len(poly))]
         y = [poly[i][1] for i in range(len(poly))]
 
-        list_of_sets.append((x, y))
+        list_of_sets.append((x, y))  # type: ignore
 
     # The below algorithm relies heavily on shapely's functionality for intersection of
     # polygons. The idea is to intersect represent each set of polygons in the shapely
@@ -1467,10 +1467,9 @@ def surface_tessalations(
             )
 
     # Finally translate the intersected polygons back to a list of np.ndarrays
-    isect_polys: List[np.ndarray] = []
-
-    for px, py in zip(isect_x, isect_y):
-        isect_polys.append(np.vstack((px, py)))
+    isect_polys: List[np.ndarray] = [
+        np.vstack((px, py)) for px, py in zip(isect_x, isect_y)
+    ]
 
     if return_simplexes:
         # Finally, if requested, convert the subdivision into a triangulation.
@@ -1493,10 +1492,11 @@ def surface_tessalations(
         tri: List[np.ndarray] = []
 
         # Loop over all isect_polys, split those with more than three vertexes
-        for pi, poly in enumerate(isect_polys):
+        # EK: Somehow, mypy does not understand poly will be an np.ndarray, thus all ignores
+        for pi, poly in enumerate(isect_polys):  # type: ignore
             if poly.shape[1] == 3:  # type: ignore
                 # Triangles can be used as they are
-                tri.append(poly)
+                tri.append(poly)  # type: ignore
                 cols.append(pi)
                 rows.append(tri_counter)
                 tri_counter += 1
@@ -1508,8 +1508,9 @@ def surface_tessalations(
 
                 # Three representation of the polygon vertexes, by shifting their order
                 start = poly
-                middle = np.roll(poly, -1, axis=1)  # This is the vertex we test
-                end = np.roll(poly, -2, axis=1)
+                # This is the vertex we test
+                middle = np.roll(poly, -1, axis=1)  # type: ignore
+                end = np.roll(poly, -2, axis=1)  # type: ignore
                 # Use ccw test on all vertexes in the polygon
                 is_ccw = np.array(
                     [
@@ -1530,8 +1531,8 @@ def surface_tessalations(
                     # shape, the triangulation will also have bad triangles - to improve
                     # we would need to do a more careful triangulation, adding more
                     # points
-                    center = np.mean(poly, axis=1).reshape((-1, 1))
-                    ext_poly = np.hstack((poly, center)).T
+                    center = np.mean(poly, axis=1).reshape((-1, 1))  # type: ignore
+                    ext_poly = np.hstack((poly, center)).T  # type: ignore
                     for t in Delaunay(ext_poly).simplices:
                         tri.append(ext_poly[t].T)
                         #
@@ -1606,7 +1607,7 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
 
     # Data structure for storage of intersection points. For each fracture,
     # we have an array that will contain the index of the intersections.
-    isect_pt = np.empty(num_lines, dtype=np.object)
+    isect_pt = np.empty(num_lines, dtype=object)
     for i in range(isect_pt.size):
         isect_pt[i] = np.empty(0, dtype=int)
 

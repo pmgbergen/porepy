@@ -228,7 +228,7 @@ class AbstractInterfaceLaw(abc.ABC):
         discr_secondary: Discretization,
         mg: pp.MortarGrid,
         matrix: np.ndarray,
-    ) -> Union[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Initialize a block matrix and right hand side for the local linear
         system of the primary and secondary grid and the interface.
 
@@ -289,7 +289,7 @@ class AbstractInterfaceLaw(abc.ABC):
         cc = cc.reshape((3, 3))
 
         # The rhs is just zeros
-        rhs = np.empty(3, dtype=np.object)
+        rhs = np.empty(3, dtype=object)
         rhs[primary_ind] = np.zeros(dof_primary)
         rhs[secondary_ind] = np.zeros(dof_secondary)
         rhs[mortar_ind] = np.zeros(dof_mortar)
@@ -304,7 +304,7 @@ class AbstractInterfaceLaw(abc.ABC):
         mg_primary: pp.MortarGrid,
         mg_secondary: pp.MortarGrid,
         matrix: np.ndarray,
-    ) -> Union[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Initialize a block matrix and right hand side for the local linear
         system of the primary and secondary grid and the interface.
 
@@ -365,7 +365,7 @@ class AbstractInterfaceLaw(abc.ABC):
         cc = cc.reshape((3, 3))
 
         # The rhs is just zeros
-        rhs = np.empty(3, dtype=np.object)
+        rhs = np.empty(3, dtype=object)
         rhs[grid_ind] = np.zeros(dof_grid)
         rhs[primary_ind] = np.zeros(dof_mortar_primary)
         rhs[secondary_ind] = np.zeros(dof_mortar_secondary)

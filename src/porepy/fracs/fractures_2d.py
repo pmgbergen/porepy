@@ -1026,7 +1026,7 @@ class FractureNetwork2d(object):
         cell_type = "line"
 
         # cell connectivity information
-        meshio_cells = np.empty(1, dtype=np.object)
+        meshio_cells = np.empty(1, dtype=object)
         meshio_cells[0] = meshio.CellBlock(cell_type, self.edges.T)
 
         # prepare the points

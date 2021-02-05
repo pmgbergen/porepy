@@ -79,7 +79,7 @@ def process_intersections(grids, intersections, global_ind_offset, list_of_grids
     # All connections will be hit upon twice, one from each intersecting fracture.
     # Keep track of which connections have been treated, and can be skipped.
     num_frac = len(grids)
-    isect_is_processed = sps.lil_matrix((num_frac, num_frac), dtype=np.bool)
+    isect_is_processed = sps.lil_matrix((num_frac, num_frac), dtype=bool)
 
     grid_1d_list = []
 
@@ -429,7 +429,7 @@ def update_face_nodes(
     indices = fn.flatten(order="F")
 
     # Trivial updates of data and indptr. Fortunately, this is 2d
-    data = np.ones(fn.size, dtype=np.bool)
+    data = np.ones(fn.size, dtype=bool)
     indptr = np.arange(0, fn.size + 1, nodes_per_face)
     g.face_nodes = sps.csc_matrix((data, indices, indptr))
     g.num_faces = int(fn.size / nodes_per_face)

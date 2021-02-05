@@ -277,7 +277,9 @@ class Exporter:
 
     @pp.time_logger(sections=module_sections)
     def write_pvd(
-        self, timestep: np.ndarray, file_extension: Optional[np.ndarray] = None
+        self,
+        timestep: np.ndarray,
+        file_extension: Optional[Union[np.ndarray, List[int]]] = None,
     ) -> None:
         """
         Interface function to export in PVD file the time loop information.
@@ -299,6 +301,10 @@ class Exporter:
         """
         if file_extension is None:
             file_extension = self._exported_time_step_file_names
+        elif isinstance(file_extension, np.ndarray):
+            file_extension = file_extension.tolist()
+
+        assert file_extension is not None  # make mypy happy
 
         o_file = open(self._make_folder(self.folder_name, self.file_name) + ".pvd", "w")
         b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
@@ -392,13 +398,13 @@ class Exporter:
             file_name = self._make_folder(self.folder_name, file_name)
             for field in fields:
                 grids = self.gb.get_grids(lambda g: g.dim == dim)
-                values = np.empty(grids.size, dtype=np.object)
-                for i, g in enumerate(grids):
+                values = []
+                for g in grids:
                     if field.name in data:
-                        values[i] = self.gb._nodes[g][pp.STATE][field.name]
+                        values.append(self.gb.node_props(g, pp.STATE)[field.name])
                     else:
-                        values[i] = self.gb._nodes[g][field.name]
-                    field.check(values[i], g)
+                        values.append(self.gb.node_props(g, field.name))
+                    field.check(values[-1], g)
                 field.values = np.hstack(values)
 
             if self.meshio_geom[dim] is not None:
@@ -440,17 +446,14 @@ class Exporter:
             edges: List[Tuple[pp.Grid, pp.Grid]] = [
                 e for e, d in self.gb.edges() if cond(d)
             ]
-            num_grids = np.sum([m.num_sides() for m in mgs])
 
             for field in extra_edge_fields:
-                values = np.empty(num_grids, dtype=np.object)
-                i = 0
+                values = []
                 for mg, edge in zip(mgs, edges):
                     for side, _ in mg.side_grids.items():
                         # Convert edge to tuple to be compatible with GridBucket
                         # data structure
-                        values[i] = self.gb.edge_props(edge, field.name)[side]
-                        i += 1
+                        values.append(self.gb.edge_props(edge, field.name)[side])
 
                 field.values = np.hstack(values)
 
@@ -526,21 +529,20 @@ class Exporter:
         Export the geometrical data (point coordinates) and connectivity
         information from the 1d PorePy grids to meshio.
         """
-        gs = np.atleast_1d(gs)
 
         # in 1d we have only one cell type
         cell_type = "line"
 
         # cell connectivity information
-        num_cells = np.sum([g.num_cells for g in gs])
-        cell_to_nodes = {cell_type: np.empty((num_cells, 2))}
+        num_cells = np.sum(np.array([g.num_cells for g in gs]))
+        cell_to_nodes = {cell_type: np.empty((num_cells, 2))}  # type: ignore
         # cell id map
-        cell_id = {cell_type: np.empty(num_cells, dtype=int)}
+        cell_id = {cell_type: np.empty(num_cells, dtype=int)}  # type: ignore
         cell_pos = 0
 
         # points
         num_pts = np.sum([g.num_nodes for g in gs])
-        meshio_pts = np.empty((num_pts, 3))
+        meshio_pts = np.empty((num_pts, 3))  # type: ignore
         pts_pos = 0
 
         # loop on all the 1d grids
@@ -567,8 +569,8 @@ class Exporter:
 
         # construct the meshio data structure
         num_block = len(cell_to_nodes)
-        meshio_cells = np.empty(num_block, dtype=np.object)
-        meshio_cell_id = np.empty(num_block, dtype=np.object)
+        meshio_cells = np.empty(num_block, dtype=object)
+        meshio_cell_id = np.empty(num_block, dtype=object)
 
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
             meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(int))
@@ -586,19 +588,18 @@ class Exporter:
         Export the geometrical data (point coordinates) and connectivity
         information from the 2d PorePy grids to meshio.
         """
-        gs = np.atleast_1d(gs)
 
         # use standard name for simple object type
         polygon_map = {"polygon3": "triangle", "polygon4": "quad"}
 
         # cell->nodes connectivity information
-        cell_to_nodes = {}
+        cell_to_nodes: Dict[str, np.ndarray] = {}
         # cell id map
-        cell_id = {}
+        cell_id: Dict[str, List[int]] = {}
 
         # points
         num_pts = np.sum([g.num_nodes for g in gs])
-        meshio_pts = np.empty((num_pts, 3))
+        meshio_pts = np.empty((num_pts, 3))  # type: ignore
         pts_pos = 0
         cell_pos = 0
 
@@ -648,8 +649,8 @@ class Exporter:
 
         # construct the meshio data structure
         num_block = len(cell_to_nodes)
-        meshio_cells = np.empty(num_block, dtype=np.object)
-        meshio_cell_id = np.empty(num_block, dtype=np.object)
+        meshio_cells = np.empty(num_block, dtype=object)
+        meshio_cell_id = np.empty(num_block, dtype=object)
 
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
             meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(int))
@@ -667,21 +668,20 @@ class Exporter:
         Export the geometrical data (point coordinates) and connectivity
         information from the 3d PorePy grids to meshio.
         """
-        gs = np.atleast_1d(gs)
 
         # use standard name for simple object type
         # NOTE: this part is not developed
         # polygon_map  = {"polyhedron4": "tetra", "polyhedron8": "hexahedron"}
 
         # cell-faces and cell nodes connectivity information
-        cell_to_faces = {}
-        cell_to_nodes = {}
+        cell_to_faces: Dict[str, List[List[int]]] = {}
+        cell_to_nodes: Dict[str, np.ndarray] = {}
         # cell id map
-        cell_id = {}
+        cell_id: Dict[str, List[int]] = {}
 
         # points
         num_pts = np.sum([g.num_nodes for g in gs])
-        meshio_pts = np.empty((num_pts, 3))
+        meshio_pts = np.empty((num_pts, 3))  # type: ignore
         pts_pos = 0
         cell_pos = 0
 
@@ -696,7 +696,7 @@ class Exporter:
             # Ensure ordering of the cells
             g_faces_cells = g_faces_cells[np.argsort(g_cells)]
 
-            g_nodes_faces, g_faces, _ = sps.find(g.face_nodes)
+            g_nodes_faces, _, _ = sps.find(g.face_nodes)
 
             cptr = g.cell_faces.indptr
             fptr = g.face_nodes.indptr
@@ -742,17 +742,17 @@ class Exporter:
             # implementation note: I did not even try feeding this to numba, my
             # guess is that it will not like the vtk specific stuff.
             nc = 0
-            fc = 0
+            f_counter = 0
 
             # loop on all the grid cells
             for c in np.arange(g.num_cells):
-                faces_loc = []
+                faces_loc: List[int] = []
                 # loop on all the cell faces
-                for f in np.arange(face_per_cell[c]):
-                    fi = g.cell_faces.indices[fc]
+                for _ in np.arange(face_per_cell[c]):
+                    fi = g.cell_faces.indices[f_counter]
                     faces_loc += [cell_nodes[nc : (nc + nodes_per_face[fi])]]
                     nc += nodes_per_face[fi]
-                    fc += 1
+                    f_counter += 1
 
                 # collect all the nodes for the cell
                 nodes_loc = np.unique(faces_loc).astype(int)
@@ -781,8 +781,8 @@ class Exporter:
 
         # construct the meshio data structure
         num_block = len(cell_to_nodes)
-        meshio_cells = np.empty(num_block, dtype=np.object)
-        meshio_cell_id = np.empty(num_block, dtype=np.object)
+        meshio_cells = np.empty(num_block, dtype=object)
+        meshio_cell_id = np.empty(num_block, dtype=object)
 
         for block, (cell_type, cell_block) in enumerate(cell_to_faces.items()):
             meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
@@ -806,7 +806,7 @@ class Exporter:
                 continue
 
             # for each field create a sub-vector for each geometrically uniform group of cells
-            cell_data[field.name] = np.empty(num_block, dtype=np.object)
+            cell_data[field.name] = np.empty(num_block, dtype=object)
             # fill up the data
             for block, ids in enumerate(cell_id):
                 if field.values.ndim == 1:

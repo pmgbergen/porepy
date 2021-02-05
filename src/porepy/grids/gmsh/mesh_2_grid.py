@@ -164,10 +164,10 @@ def create_2d_grids(
         # The reason to do so is because we want to compare faces and line columnwise,
         # i.e., is_line[i] should be true iff faces[:, i] == line[:, j] for ONE j. If
         # you can make numpy do this, you can remove the string formating.
-        tmp = np.core.defchararray.add(faces[0, idxf].astype(str), ",")
-        facestr = np.core.defchararray.add(tmp, faces[1, idxf].astype(str))
-        tmp = np.core.defchararray.add(line[0, idxl].astype(str), ",")
-        linestr = np.core.defchararray.add(tmp, line[1, idxl].astype(str))
+        tmp = np.char.add(faces[0, idxf].astype(str), ",")
+        facestr = np.char.add(tmp, faces[1, idxf].astype(str))
+        tmp = np.char.add(line[0, idxl].astype(str), ",")
+        linestr = np.char.add(tmp, line[1, idxl].astype(str))
 
         is_line = np.isin(facestr, linestr, assume_unique=True)
 
@@ -186,7 +186,7 @@ def create_2d_grids(
         # in the cell_info["line"]. The map phys_names recover the literal name.
         for tag in np.unique(cell_info["line"]):
             tag_name = phys_names[tag].lower() + "_faces"
-            g_2d.tags[tag_name] = np.zeros(g_2d.num_faces, dtype=np.bool)
+            g_2d.tags[tag_name] = np.zeros(g_2d.num_faces, dtype=bool)
             # Add correct tag
             faces = line2face[cell_info["line"] == tag]
             g_2d.tags[tag_name][faces] = True

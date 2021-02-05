@@ -248,13 +248,13 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         segments_interior_boundary = []
 
         # Check if individual vertexs are on the boundary
-        vertex_on_boundary = np.zeros(num_vert, np.bool)
+        vertex_on_boundary = np.zeros(num_vert, bool)
         for isect in seg_vert:
             if len(isect) > 0 and not isect[1]:
                 vertex_on_boundary[isect[0]] = 1
 
         # Storage of the intersections associated with each segment of the original polygon
-        isects_of_segment = np.zeros(num_vert, np.object)
+        isects_of_segment = np.zeros(num_vert, object)
         for i in range(num_vert):
             isects_of_segment[i] = []
 

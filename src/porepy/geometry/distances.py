@@ -509,7 +509,7 @@ def segments_polygon(start, end, poly, tol=1e-5):
     t[non_zero_incline] = -start[2, non_zero_incline] / dz[non_zero_incline]
     # Segments with z=0 along the segment
     zero_along_segment = np.logical_and(
-        non_zero_incline, np.logical_and(t >= 0, t <= 1).astype(np.bool)
+        non_zero_incline, np.logical_and(t >= 0, t <= 1).astype(bool)
     )
 
     x0 = start + (end - start) * t

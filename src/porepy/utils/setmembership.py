@@ -157,7 +157,7 @@ def unique_columns_tol(mat, tol=1e-8):
     num_cols = mat.shape[1]
 
     # By default, no columns are kept
-    keep = np.zeros(num_cols, dtype=np.bool)
+    keep = np.zeros(num_cols, dtype=bool)
 
     # We will however keep the first point
     keep[0] = True

@@ -258,7 +258,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
     @pp.time_logger(sections=module_sections)
     def _compute_cell_face_to_opposite_node(
-        self, g: pp.Grid, data: np.ndarray, recompute: bool = False
+        self, g: pp.Grid, data: Dict, recompute: bool = False
     ) -> None:
         """Compute a map that given a face return the node on the opposite side,
         typical request of a Raviart-Thomas approximation.
