@@ -361,10 +361,12 @@ class FractureNetwork2d(object):
         phys_line_tags = {}
         edge_types = edges[2]
         for ei, tag in enumerate(edge_types):
-            if tag == Tags.FRACTURE.value:
-                phys_line_tags[ei] = Tags.FRACTURE.value
-            elif tag == Tags.DOMAIN_BOUNDARY_LINE.value:
-                phys_line_tags[ei] = Tags.DOMAIN_BOUNDARY_LINE.value
+            if tag in (
+                Tags.FRACTURE.value,
+                Tags.DOMAIN_BOUNDARY_LINE.value,
+                Tags.AUXILIARY.value,
+            ):
+                phys_line_tags[ei] = tag
 
         phys_point_tags = {
             i: Tags.FRACTURE_INTERSECTION_POINT.value for i in decomp["intersections"]

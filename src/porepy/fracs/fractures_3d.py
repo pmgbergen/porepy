@@ -1030,6 +1030,7 @@ class FractureNetwork3d(object):
                 Tags.FRACTURE_INTERSECTION_LINE.value,
                 Tags.DOMAIN_BOUNDARY_LINE.value,
                 Tags.FRACTURE_BOUNDARY_LINE.value,
+                    Tags.AUXILIARY.value,
             ):
                 physical_lines[ei] = edges[2, ei]
 
