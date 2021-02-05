@@ -371,20 +371,21 @@ class GridSequenceFactory(abc.ABC):
         net = self._network.copy()
 
         file_name = "gmsh_convergence"
-        in_file = net.prepare_for_gmsh(
-            self._mesh_parameters, **self._grid_parameters, file_name=file_name
+        # Generate data in a format suitable for defining a model in gmsh
+        gmsh_data = net.prepare_for_gmsh(
+            self._mesh_parameters,
+            **self._grid_parameters,
         )
-
-        gmsh.initialize()
-        gmsh.open(in_file)
+        # Initialize gmsh model with the relevant data. The data will be accessible
+        # in gmsh.model.mesh (that is the way the Gmsh Python API works)
+        pp.fracs.gmsh_interface.GmshWriter(gmsh_data)
+        # Generate the first grid
         gmsh.model.mesh.generate(dim=self.dim)
-        self._in_file = in_file
         self._out_file = file_name
         self._gmsh = gmsh
 
     @pp.time_logger(sections=module_sections)
     def _generate_nested(self, counter: int):
-        assert Path(self._in_file).is_file()
         out_file = Path(self._out_file)
         out_file = out_file.parent / out_file.stem
         out_file_name = f"{out_file}_{counter}.msh"
