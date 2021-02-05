@@ -72,16 +72,16 @@ class BasicsTest(unittest.TestCase):
 
         g = gb.grids_of_dimension(2)[0]
 
-        tag = np.where(g.tags["domain_boundary_0_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_0_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
 
-        tag = np.where(g.tags["domain_boundary_1_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_1_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_2_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_3_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_3_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 0))
 
     def test_boundary_refined(self):
@@ -92,16 +92,16 @@ class BasicsTest(unittest.TestCase):
 
         g = gb.grids_of_dimension(2)[0]
 
-        tag = np.where(g.tags["domain_boundary_0_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_0_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
 
-        tag = np.where(g.tags["domain_boundary_1_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_1_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_2_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_3_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_3_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 0))
 
     def test_auxiliary(self):
@@ -118,16 +118,16 @@ class BasicsTest(unittest.TestCase):
         gb = network.mesh(mesh_args, constraints=np.array([0]))
         g = gb.grids_of_dimension(2)[0]
 
-        tag = np.where(g.tags["domain_boundary_1_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_1_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
 
-        tag = np.where(g.tags["domain_boundary_2_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_3_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_3_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_4_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_4_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 0))
 
         fc = g.face_centers[:2]
@@ -155,16 +155,16 @@ class BasicsTest(unittest.TestCase):
         gb = network.mesh(mesh_args, constraints=np.array([0]))
         g = gb.grids_of_dimension(2)[0]
 
-        tag = np.where(g.tags["domain_boundary_1_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_1_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
 
-        tag = np.where(g.tags["domain_boundary_2_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_3_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_3_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_4_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_4_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 0))
 
         fc = g.face_centers[:2]
@@ -195,16 +195,16 @@ class BasicsTest(unittest.TestCase):
         gb = network.mesh(mesh_args, constraints=np.arange(2))
         g = gb.grids_of_dimension(2)[0]
 
-        tag = np.where(g.tags["domain_boundary_2_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
 
-        tag = np.where(g.tags["domain_boundary_3_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_3_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_4_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_4_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_5_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_5_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 0))
 
         fc = g.face_centers[:2]
@@ -244,16 +244,16 @@ class BasicsTest(unittest.TestCase):
         gb = network.mesh(mesh_args, constraints=np.array([0, 1]))
         g = gb.grids_of_dimension(2)[0]
 
-        tag = np.where(g.tags["domain_boundary_2_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
 
-        tag = np.where(g.tags["domain_boundary_3_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_3_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_4_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_4_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_5_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_5_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 0))
 
         fc = g.face_centers[:2]
@@ -283,16 +283,16 @@ class BasicsTest(unittest.TestCase):
         )
         g = gb.grids_of_dimension(2)[0]
 
-        tag = np.where(g.tags["domain_boundary_1_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_1_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
 
-        tag = np.where(g.tags["domain_boundary_2_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_3_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_3_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_4_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_4_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 0))
 
         fc = g.face_centers[:2]
@@ -315,16 +315,16 @@ class BasicsTest(unittest.TestCase):
 
         g = gb.grids_of_dimension(2)[0]
 
-        tag = np.where(g.tags["domain_boundary_1_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_1_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
 
-        tag = np.where(g.tags["domain_boundary_2_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_3_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_3_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_4_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_4_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 0))
 
         fc = g.face_centers[:2]
@@ -348,16 +348,16 @@ class BasicsTest(unittest.TestCase):
         )
         g = gb.grids_of_dimension(2)[0]
 
-        tag = np.where(g.tags["domain_boundary_2_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
 
-        tag = np.where(g.tags["domain_boundary_3_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_3_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_4_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_4_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_5_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_5_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 0))
 
         fc = g.face_centers[:2]
@@ -398,17 +398,17 @@ class BasicsTest(unittest.TestCase):
         gb = network.mesh(mesh_args, constraints=constraints)
         g = gb.grids_of_dimension(2)[0]
 
-        tag = np.where(g.tags["domain_boundary_2_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
 
-        tag = np.where(g.tags["domain_boundary_3_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_3_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 1))
 
-        # domain_boundary_2 should be at y=1
-        tag = np.where(g.tags["domain_boundary_4_faces"])[0]
+        # domain_boundary_line_2 should be at y=1
+        tag = np.where(g.tags["domain_boundary_line_4_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_5_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_5_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 0))
 
         fc = g.face_centers[:2]
@@ -447,16 +447,16 @@ class BasicsTest(unittest.TestCase):
         gb = network.mesh(mesh_args, constraints=np.array([0, 1]))
         g = gb.grids_of_dimension(2)[0]
 
-        tag = np.where(g.tags["domain_boundary_2_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
 
-        tag = np.where(g.tags["domain_boundary_3_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_3_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_4_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_4_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 1))
 
-        tag = np.where(g.tags["domain_boundary_5_faces"])[0]
+        tag = np.where(g.tags["domain_boundary_line_5_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[0, tag], 0))
 
         fc = g.face_centers[:2]
