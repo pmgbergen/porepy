@@ -184,7 +184,7 @@ def stack_mat(A, B):
 
 
 @pp.time_logger(sections=module_sections)
-def slice_indices(A, slice_ind):
+def slice_indices(A, slice_ind, return_array_ind=False):
     """
     Function for slicing sparse matrix along rows or columns.
     If A is a csc_matrix A will be sliced along columns, while if A is a
@@ -215,16 +215,18 @@ def slice_indices(A, slice_ind):
         slice_ind = np.where(slice_ind)[0]
 
     if isinstance(slice_ind, int):
-        indices = A.indices[
-            slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
-        ]
+        array_ind = slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
+        indices = A.indices[array_ind]
     elif slice_ind.size == 1:
-        indices = A.indices[
-            slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
-        ]
+        array_ind = slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
+        indices = A.indices[array_ind]
     else:
-        indices = A.indices[mcolon(A.indptr[slice_ind], A.indptr[slice_ind + 1])]
-    return indices
+        array_ind = mcolon(A.indptr[slice_ind], A.indptr[slice_ind + 1])
+        indices = A.indices[array_ind]
+    if return_array_ind:
+        return indices, array_ind
+    else:
+        return indices
 
 
 @pp.time_logger(sections=module_sections)
