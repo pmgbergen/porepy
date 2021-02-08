@@ -85,7 +85,7 @@ def create_2d_grids(
         surface_tag = gmsh_constants.PHYSICAL_NAME_FRACTURES
 
     if constraints is None:
-        constraints = np.array([], dtype=np.int)
+        constraints = np.array([], dtype=int)
 
     if is_embedded:
         # List of 2D grids, one for each surface
@@ -117,7 +117,7 @@ def create_2d_grids(
 
             # Cells of this surface
             loc_cells = np.where(tri_tags == pn_ind)[0]
-            loc_tri_cells = tri_cells[loc_cells, :].astype(np.int)
+            loc_tri_cells = tri_cells[loc_cells, :].astype(int)
 
             # Find unique points, and a mapping from local to global points
             pind_loc, p_map = np.unique(loc_tri_cells, return_inverse=True)
@@ -164,10 +164,10 @@ def create_2d_grids(
         # The reason to do so is because we want to compare faces and line columnwise,
         # i.e., is_line[i] should be true iff faces[:, i] == line[:, j] for ONE j. If
         # you can make numpy do this, you can remove the string formating.
-        tmp = np.core.defchararray.add(faces[0, idxf].astype(str), ",")
-        facestr = np.core.defchararray.add(tmp, faces[1, idxf].astype(str))
-        tmp = np.core.defchararray.add(line[0, idxl].astype(str), ",")
-        linestr = np.core.defchararray.add(tmp, line[1, idxl].astype(str))
+        tmp = np.char.add(faces[0, idxf].astype(str), ",")
+        facestr = np.char.add(tmp, faces[1, idxf].astype(str))
+        tmp = np.char.add(line[0, idxl].astype(str), ",")
+        linestr = np.char.add(tmp, line[1, idxl].astype(str))
 
         is_line = np.isin(facestr, linestr, assume_unique=True)
 
@@ -186,7 +186,7 @@ def create_2d_grids(
         # in the cell_info["line"]. The map phys_names recover the literal name.
         for tag in np.unique(cell_info["line"]):
             tag_name = phys_names[tag].lower() + "_faces"
-            g_2d.tags[tag_name] = np.zeros(g_2d.num_faces, dtype=np.bool)
+            g_2d.tags[tag_name] = np.zeros(g_2d.num_faces, dtype=bool)
             # Add correct tag
             faces = line2face[cell_info["line"] == tag]
             g_2d.tags[tag_name][faces] = True
@@ -253,7 +253,7 @@ def create_1d_grids(
         line_tag = gmsh_constants.PHYSICAL_NAME_FRACTURE_LINE
 
     if constraints is None:
-        constraints = np.empty(0, dtype=np.int)
+        constraints = np.empty(0, dtype=int)
     # Recover lines
     # There will be up to three types of physical lines: intersections (between
     # fractures), fracture tips, and auxiliary lines (to be disregarded)

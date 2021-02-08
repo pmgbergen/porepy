@@ -117,7 +117,7 @@ def merge_matrices(A, B, lines):
 
     indptr = indptr - num_rem
 
-    keep = np.ones(A.data.size, dtype=np.bool)
+    keep = np.ones(A.data.size, dtype=bool)
     keep[ind_ix] = False
     indices = indices[keep]
     data = data[keep]
@@ -411,7 +411,7 @@ def _csx_matrix_from_blocks(
         )
         indices = base + block_increase
     else:
-        indices = np.arange(num_blocks, dytpe=np.int)
+        indices = np.arange(num_blocks, dytpe=int)
 
     mat = matrix_format(
         (data, indices, indptr),

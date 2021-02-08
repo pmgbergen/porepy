@@ -1353,9 +1353,9 @@ class Mpfa(pp.FVElliptic):
             data = scaled_sgn
         else:
             # Special handling when no elements are found.
-            rows = np.array([], dtype=np.int)
-            cols = np.array([], dtype=np.int)
-            data = np.array([], dtype=np.int)
+            rows = np.array([], dtype=int)
+            cols = np.array([], dtype=int)
+            data = np.array([], dtype=int)
 
         # Dirichlet boundary conditions
         dir_ind = np.argwhere(

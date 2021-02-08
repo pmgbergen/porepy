@@ -314,7 +314,7 @@ class CartGrid(TensorGrid):
 
         """
 
-        #        nx = nx.astype(np.int)
+        #        nx = nx.astype(int)
 
         dims = np.asarray(nx).shape
         xmin, ymin, zmin = 0.0, 0.0, 0.0
