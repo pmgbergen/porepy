@@ -115,7 +115,7 @@ class FracturePropagation(abc.ABC):
         return vals
 
     @pp.time_logger(sections=module_sections)
-    def _map_variables(self, x: np.ndarray) -> None:
+    def _map_variables(self, x: np.ndarray) -> np.ndarray:
         """
         Map variables from old to new grids in d[pp.STATE] and d[pp.STATE][pp.ITERATE].
         Also call update of self.assembler.update_dof_count and update the current

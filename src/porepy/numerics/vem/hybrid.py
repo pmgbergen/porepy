@@ -122,8 +122,8 @@ class HybridDualVEM:
         # Allocate the data to store matrix entries, that's the most efficient
         # way to create a sparse matrix.
         size = np.sum(np.square(g.cell_faces.indptr[1:] - g.cell_faces.indptr[:-1]))
-        row = np.empty(size, dtype=np.int)
-        col = np.empty(size, dtype=np.int)
+        row = np.empty(size, dtype=int)
+        col = np.empty(size, dtype=int)
         data = np.empty(size)
         rhs = np.zeros(g.num_faces)
 

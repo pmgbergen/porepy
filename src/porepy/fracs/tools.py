@@ -74,7 +74,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     # so I ended with not trying to implement the necessary changes.
     pts_extra = np.empty((pts.shape[0], 0))
     dist_extra = np.empty(0)
-    pts_id_extra = np.empty(0, dtype=np.int)
+    pts_id_extra = np.empty(0, dtype=int)
     vals_extra = np.empty(0)
 
     # For each point we compute the distance between the point and the other
@@ -152,7 +152,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
             ]
             pts_extra = np.c_[pts_extra, cp[hit[to_add], 0].T]
             pts_id_extra = np.r_[
-                pts_id_extra, line[3] * np.ones(to_add.sum(), dtype=np.int)
+                pts_id_extra, line[3] * np.ones(to_add.sum(), dtype=int)
             ]
             vals_extra = np.r_[vals_extra, vals[hit[to_add]]]
 
@@ -164,7 +164,8 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     # useless ones.
     extra_ids, inv_index = np.unique(pts_id_extra, return_inverse=True)
 
-    to_remove = np.empty(0, dtype=np.int)
+    to_remove = np.empty(0, dtype=int)
+
     for idx, i in enumerate(extra_ids):
         mask = np.flatnonzero(inv_index == idx)
         if mask.size > 1:
@@ -200,7 +201,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     vals = np.r_[vals, vals_extra]
     # Re-create the lines, considering the new introduced points
     seg_ids = np.unique(lines[3, :])
-    new_lines = np.empty((4, 0), dtype=np.int)
+    new_lines = np.empty((4, 0), dtype=int)
     for seg_id in seg_ids:
         mask_bool = lines[3, :] == seg_id
         extra_mask_bool = pts_id_extra == seg_id

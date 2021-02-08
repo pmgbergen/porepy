@@ -207,8 +207,8 @@ class Fracture(object):
 
         to_enforce = np.hstack(
             (
-                np.zeros(self.p.shape[1], dtype=np.bool),
-                np.ones(p.shape[1], dtype=np.bool),
+                np.zeros(self.p.shape[1], dtype=bool),
+                np.ones(p.shape[1], dtype=bool),
             )
         )
         self.p = np.hstack((self.p, p))
@@ -795,7 +795,7 @@ class FractureNetwork3d(object):
             self.impose_external_boundary(self.domain)
 
         if constraints is None:
-            constraints = np.array([], dtype=np.int)
+            constraints = np.array([], dtype=int)
 
         # Find intersections between fractures
         if not self.has_checked_intersections:
@@ -846,8 +846,8 @@ class FractureNetwork3d(object):
 
         # Count the number of times a lines is defined as 'inside' a fracture, and the
         # the number of times this is casued by a constraint
-        in_frac_occurences = np.zeros(edges.shape[1], dtype=np.int)
-        in_frac_occurences_by_constraints = np.zeros(edges.shape[1], dtype=np.int)
+        in_frac_occurences = np.zeros(edges.shape[1], dtype=int)
+        in_frac_occurences_by_constraints = np.zeros(edges.shape[1], dtype=int)
 
         for poly_ind, poly_edges in enumerate(self.decomposition["line_in_frac"]):
             for edge_ind in poly_edges:
@@ -896,7 +896,7 @@ class FractureNetwork3d(object):
         intersection_points = []
         for pi in intersection_point_canditates:
             _, edge_ind = np.where(edges == pi)
-            frac_arr = np.array([], dtype=np.int)
+            frac_arr = np.array([], dtype=int)
             for e in edge_ind:
                 frac_arr = np.append(frac_arr, self.decomposition["edges_2_frac"][e])
             unique_fracs = np.unique(frac_arr)
@@ -914,9 +914,8 @@ class FractureNetwork3d(object):
             if is_frac.sum() > 1:
                 intersection_points.append(pi)
 
-        # Finall, we have the full set of intersection points (take a good laugh when finding
+        # Finally, we have the full set of intersection points (take a good laugh when finding
         # this line in the next round of debugging).
-        intersection_points = np.array(intersection_points)
 
         # Candidates that were not intersections
         fracture_constraint_intersection = np.setdiff1d(
@@ -968,7 +967,7 @@ class FractureNetwork3d(object):
         # variables since a user may want to modify the physical surfaces before
         # generating the .msh file.
         physical_surfaces: Dict[int, Tags] = {}
-        polygon_tags = np.zeros(len(self._fractures), dtype=np.int)
+        polygon_tags = np.zeros(len(self._fractures), dtype=int)
 
         if has_boundary:
             num_bound_surf = sum(self.tags["boundary"])
@@ -1119,8 +1118,8 @@ class FractureNetwork3d(object):
             # fractures. The indexing is a bit involved, but is based on there being
             # two intersection points for each segment - thus the indices in i0 and i1
             # must be divided by two.
-            on_bound_0 = bound_info[ind_0][np.floor(i0[0] / 2).astype(np.int)]
-            on_bound_1 = bound_info[ind_1][np.floor(i1[0] / 2).astype(np.int)]
+            on_bound_0 = bound_info[ind_0][np.floor(i0[0] / 2).astype(int)]
+            on_bound_1 = bound_info[ind_1][np.floor(i1[0] / 2).astype(int)]
 
             # Add the intersection to the internal list
             self.intersections.append(
@@ -1388,8 +1387,8 @@ class FractureNetwork3d(object):
         )
 
         # Update the edges_2_frac map to refer to the new edges
-        edges_2_frac_new = e_unique.shape[1] * [np.empty(0, dtype=np.int)]
-        is_boundary_edge_new = e_unique.shape[1] * [np.empty(0, dtype=np.int)]
+        edges_2_frac_new = e_unique.shape[1] * [np.empty(0, dtype=int)]
+        is_boundary_edge_new = e_unique.shape[1] * [np.empty(0, dtype=int)]
 
         for old_i, new_i in enumerate(all_2_unique_e):
             edges_2_frac_new[new_i], ind = np.unique(
@@ -1599,7 +1598,7 @@ class FractureNetwork3d(object):
         vertex or as internal.
 
         Returns:
-            list of np.int: indices of fractures, one list item per point.
+            list of int: indices of fractures, one list item per point.
 
         """
         fracs_of_points = []
@@ -1849,7 +1848,7 @@ class FractureNetwork3d(object):
         if inds.size > 0:
             split_frac = np.where(np.bincount(inds) > 1)[0]
         else:
-            split_frac = np.zeros(0, dtype=np.int)
+            split_frac = np.zeros(0, dtype=int)
 
         ind_map = np.delete(old_frac_ind, delete_frac)
 
@@ -2012,7 +2011,7 @@ class FractureNetwork3d(object):
 
         # ... on the points...
         point_tags = Tags.NEUTRAL.value * np.ones(
-            self.decomposition["points"].shape[1], dtype=np.int
+            self.decomposition["points"].shape[1], dtype=int
         )
         # and the mapping between fractures and edges.
         edges_2_frac = self.decomposition["edges_2_frac"]
@@ -2440,8 +2439,8 @@ class FractureNetwork3d(object):
 
         # construct the meshio data structure
         num_block = len(cell_to_nodes)
-        meshio_cells = np.empty(num_block, dtype=np.object)
-        meshio_cell_id = np.empty(num_block, dtype=np.object)
+        meshio_cells = np.empty(num_block, dtype=object)
+        meshio_cell_id = np.empty(num_block, dtype=object)
 
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
             meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
@@ -2456,7 +2455,7 @@ class FractureNetwork3d(object):
         # store also the data
         for key, val in data.items():
             # for each field create a sub-vector for each geometrically uniform group of cells
-            meshio_data[key] = np.empty(num_block, dtype=np.object)
+            meshio_data[key] = np.empty(num_block, dtype=object)
             # fill up the data
             for block, ids in enumerate(meshio_cell_id):
                 if val.ndim == 1:
@@ -2583,7 +2582,7 @@ class FractureNetwork3d(object):
         # Intersection points, in 2d coordinates
         ip = np.empty((2, 0))
 
-        other_frac = np.empty(0, dtype=np.int)
+        other_frac = np.empty(0, dtype=int)
 
         for i in isect:
             if i.first.index == frac_num:
