@@ -100,7 +100,7 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
     """
 
     if constraints is None:
-        constraints = np.empty(0, dtype=np.int)
+        constraints = np.empty(0, dtype=int)
 
     start_time = time.time()
 
@@ -169,7 +169,7 @@ def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
     """
 
     if constraints is None:
-        constraints = np.empty(0, dtype=np.int)
+        constraints = np.empty(0, dtype=int)
 
     start_time = time.time()
 

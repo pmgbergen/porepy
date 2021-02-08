@@ -68,7 +68,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     num_pts = pts.shape[1]
     pts_extra = np.empty((pts.shape[0], 0))
     dist_extra = np.empty(0)
-    pts_id_extra = np.empty(0, dtype=np.int)
+    pts_id_extra = np.empty(0, dtype=int)
     vals_extra = np.empty(0)
     # For each point we compute the distance between the point and the other
     # pairs of points. We keep the minimum distance between the previously
@@ -115,7 +115,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
             ]
             pts_extra = np.c_[pts_extra, cp[hit[to_add], 0].T]
             pts_id_extra = np.r_[
-                pts_id_extra, line[3] * np.ones(to_add.sum(), dtype=np.int)
+                pts_id_extra, line[3] * np.ones(to_add.sum(), dtype=int)
             ]
             vals_extra = np.r_[vals_extra, vals[hit[to_add]]]
 
@@ -126,7 +126,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     # consider all the new points together and remove (from the new points) the
     # useless ones.
     extra_ids, inv_index = np.unique(pts_id_extra, return_inverse=True)
-    to_remove = np.empty(0, dtype=np.int)
+    to_remove = np.empty(0, dtype=int)
     for idx, i in enumerate(extra_ids):
         mask = np.flatnonzero(inv_index == idx)
         if mask.size > 1:
@@ -161,7 +161,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     vals = np.r_[vals, vals_extra]
     # Re-create the lines, considering the new introduced points
     seg_ids = np.unique(lines[3, :])
-    new_lines = np.empty((4, 0), dtype=np.int)
+    new_lines = np.empty((4, 0), dtype=int)
     for seg_id in seg_ids:
         mask_bool = lines[3, :] == seg_id
         extra_mask_bool = pts_id_extra == seg_id
@@ -196,7 +196,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     # and, beacuse of val, needs additional points we increase the number of
     # lines.
     relax = kwargs.get("relaxation", 0.8)
-    lines = np.empty((4, 0), dtype=np.int)
+    lines = np.empty((4, 0), dtype=int)
     for seg in new_lines.T:
         mesh_size_pt1 = dist_pts[seg[0]]
         mesh_size_pt2 = dist_pts[seg[1]]

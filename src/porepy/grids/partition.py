@@ -50,7 +50,7 @@ def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
     # Convert the cells into the format required by pymetis
     adjacency_list = [list(c2c.getrow(i).indices) for i in range(c2c.shape[0])]
     # Call pymetis
-    # It seems it is important that num_part is an int, not an np.int.
+    # It seems it is important that num_part is an int, not an int.
     part = pymetis.part_graph(int(num_part), adjacency=adjacency_list)
 
     # The meaning of the first number returned by pymetis is not clear (poor
@@ -186,7 +186,7 @@ def partition_coordinates(
 
     if g.dim == 0:
         # Nothing really to do here.
-        return np.zeros(g.num_cells, dtype=np.int)
+        return np.zeros(g.num_cells, dtype=int)
 
     # The division into boxes must be done within the active dimensions of the grid.
     # For 1d and 2d grids, this involves a mapping of the grid into its natural
@@ -325,7 +325,7 @@ def determine_coarse_dimensions(target: int, fine_size: np.ndarray) -> np.ndarra
     # Array to store optimal values. Set the default value to one, this avoids
     # interfering with target_now below.
     optimum = np.ones(nd)
-    found = np.zeros(nd, dtype=np.bool)
+    found = np.zeros(nd, dtype=bool)
 
     # Counter for number of iterations. Should be unnecessary, remove when the
     # code is trusted.
@@ -738,7 +738,7 @@ def overlap(
 
     # Boolean storage of cells in the active set; these are the ones that will
     # be in the overlap
-    active_cells = np.zeros(g.num_cells, dtype=np.bool)
+    active_cells = np.zeros(g.num_cells, dtype=bool)
     # Initialize by the specified cells
     active_cells[cell_ind] = 1
 
@@ -747,7 +747,7 @@ def overlap(
         cn = g.cell_nodes()
 
         # Also introduce active nodes
-        active_nodes = np.zeros(g.num_nodes, dtype=np.bool)
+        active_nodes = np.zeros(g.num_nodes, dtype=bool)
 
         # Gradually increase the size of the cell set
         for _ in range(num_layers):
@@ -766,7 +766,7 @@ def overlap(
         data = np.ones_like(cf.data)
         cf = sps.csc_matrix((data, cf.indices, cf.indptr))
 
-        active_faces = np.zeros(g.num_faces, dtype=np.bool)
+        active_faces = np.zeros(g.num_faces, dtype=bool)
 
         # Gradually increase the size of the cell set
         for _ in range(num_layers):

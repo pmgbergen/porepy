@@ -150,7 +150,7 @@ class RobinCoupling(
 
         # The values in vals are sorted by the mortar cell index ordering (proj is a
         # csr matrix).
-        ci_mortar = np.arange(mg.num_cells, dtype=np.int)
+        ci_mortar = np.arange(mg.num_cells, dtype=int)
 
         # The mortar cell indices are expanded to account for the vector source
         # having multiple dimensions
@@ -417,7 +417,7 @@ class FluxPressureContinuity(RobinCoupling):
         )
         # I got some problems with pointers when doing rhs_primary = rhs_secondary.copy()
         # so just reconstruct everything.
-        rhs_secondary = np.empty(3, dtype=np.object)
+        rhs_secondary = np.empty(3, dtype=object)
         rhs_secondary[primary_ind] = np.zeros_like(rhs_primary[primary_ind])
         rhs_secondary[secondary_ind] = np.zeros_like(rhs_primary[secondary_ind])
         rhs_secondary[2] = np.zeros_like(rhs_primary[2])
@@ -472,7 +472,7 @@ class FluxPressureContinuity(RobinCoupling):
 
         # I got some problems with pointers when doing rhs_primary = rhs_secondary.copy()
         # so just reconstruct everything.
-        rhs_secondary = np.empty(3, dtype=np.object)
+        rhs_secondary = np.empty(3, dtype=object)
         rhs_secondary[primary_ind] = np.zeros_like(rhs_primary[primary_ind])
         rhs_secondary[secondary_ind] = np.zeros_like(rhs_primary[secondary_ind])
         rhs_secondary[2] = np.zeros_like(rhs_primary[2])

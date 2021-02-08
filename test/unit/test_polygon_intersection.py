@@ -168,7 +168,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
 
         self.assertTrue(seg_vert.size == 3)
 
-        counter = np.zeros(3, dtype=np.int)
+        counter = np.zeros(3, dtype=int)
 
         for p in pairs:
             if p[0] == 0 and p[1] == 1:
@@ -214,7 +214,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
 
         self.assertTrue(seg_vert.size == 3)
 
-        counter = np.zeros(3, dtype=np.int)
+        counter = np.zeros(3, dtype=int)
 
         self.assertTrue(len(pairs) == 2)
 
@@ -267,7 +267,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
 
         self.assertTrue(len(pairs) == 3)
 
-        counter = np.zeros(3, dtype=np.int)
+        counter = np.zeros(3, dtype=int)
 
         for p in pairs:
             if p[0] == 0 and p[1] == 1:
@@ -323,7 +323,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         ).T
         self.assertTrue(test_utils.compare_arrays(new_pt, known_points))
 
-        counter = np.zeros(3, dtype=np.int)
+        counter = np.zeros(3, dtype=int)
 
         for p in pairs:
             if p[0] == 0 and p[1] == 1:

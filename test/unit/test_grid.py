@@ -197,7 +197,7 @@ class TestCartGridGeometry2DPert(unittest.TestCase):
 
 class TestCartGridGeometryUnpert3D(unittest.TestCase):
     def setUp(self):
-        nc = 2 * np.ones(3, dtype=np.int)
+        nc = 2 * np.ones(3, dtype=int)
         g = structured.CartGrid(nc)
         g.compute_geometry()
         self.g = g
@@ -337,7 +337,7 @@ class TestCartGridGeometryUnpert3D(unittest.TestCase):
 
 class TestCartGridGeometry1CellPert3D(unittest.TestCase):
     def setUp(self):
-        nc = np.ones(3, dtype=np.int)
+        nc = np.ones(3, dtype=int)
         g = structured.CartGrid(nc)
         g.nodes[:, -1] = [2, 2, 2]
         g.compute_geometry()
