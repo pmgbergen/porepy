@@ -184,7 +184,7 @@ class StructuredTriangleGrid(TriangleGrid):
         tri = tri_base
 
         # Loop over all remaining rows in the y-direction.
-        for iter1 in range(nx[1].astype("int64") - 1):
+        for iter1 in range(nx[1].astype(int) - 1):
             # The node numbers are increased by nx[0] + 1 for each row
             tri = np.hstack((tri, tri_base + (iter1 + 1) * (nx[0] + 1)))
 
@@ -340,7 +340,7 @@ class StructuredTetrahedralGrid(TetrahedralGrid):
         physdims (np.ndarray, size 2): domain size. Defaults to nx,
         thus Cartesian cells are unit squares
         """
-        nx = np.asarray(nx)
+        nx = np.asarray(nx).astype(int)
         assert nx.size == 3
 
         if physdims is None:
@@ -409,8 +409,8 @@ class StructuredTetrahedralGrid(TetrahedralGrid):
         # so pre-allocation is possible if this turns out to be a bottleneck
 
         # Loop over all remaining rows in the y-direction.
-        for iter2 in range(nx[2].astype("int64")):
-            for iter1 in range(nx[1].astype("int64")):
+        for iter2 in range(nx[2].astype(int)):
+            for iter1 in range(nx[1].astype(int)):
                 increment = iter2 * nxy + iter1 * (nx[0] + 1)
                 if iter2 == 0 and iter1 == 0:
                     tet = tet_base + increment

@@ -57,7 +57,7 @@ def propagate_fractures(gb: pp.GridBucket, faces: Dict[pp.Grid, np.ndarray]) -> 
     d_h["split_faces"] = np.empty(0, dtype=int)
 
     # Data structure for keeping track of faces in g_h to be split
-    split_faces = np.empty(0, dtype=np.int)
+    split_faces = np.empty(0, dtype=int)
 
     # By default, we will not update the higher-dimensional grid. This will be
     # changed in the below for loop if the grid gets faces split.
@@ -199,12 +199,12 @@ def propagate_fractures(gb: pp.GridBucket, faces: Dict[pp.Grid, np.ndarray]) -> 
         # Create mappings between the old and and faces and cells in g_l
         arr = np.arange(n_old_faces_l)
         face_map_l = sps.coo_matrix(
-            (np.ones(n_old_faces_l, dtype=np.int), (arr, arr)),
+            (np.ones(n_old_faces_l, dtype=int), (arr, arr)),
             shape=(g_l.num_faces, n_old_faces_l),
         ).tocsr()
         arr = np.arange(n_old_cells_l)
         cell_map_l = sps.coo_matrix(
-            (np.ones(n_old_cells_l, dtype=np.int), (arr, arr)),
+            (np.ones(n_old_cells_l, dtype=int), (arr, arr)),
             shape=(g_l.num_cells, n_old_cells_l),
         ).tocsr()
 
@@ -221,7 +221,7 @@ def propagate_fractures(gb: pp.GridBucket, faces: Dict[pp.Grid, np.ndarray]) -> 
         arr = np.arange(nfh)
         face_map_h.append(
             sps.coo_matrix(
-                (np.ones(nfh, dtype=np.int), (arr, arr)),
+                (np.ones(nfh, dtype=int), (arr, arr)),
                 shape=(g_h.num_faces, nfh),
             ).tocsr()
         )
@@ -370,7 +370,7 @@ def _update_geometry(
         cc = np.empty((3, 0))  # Cell centers
         # Many of the faces will have their quantities computed twice,
         # once from each side. Keep track of which faces we are dealing with
-        face_ind = np.array([], dtype=np.int)
+        face_ind = np.array([], dtype=int)
 
         for ci in new_cells:
             sub_g, fi, _ = pp.partition.extract_subgrid(g_l, ci)
@@ -463,7 +463,7 @@ def _update_connectivity_fracture_grid(
     new_cells_l = np.arange(n_old_cells_l, n_old_cells_l + n_new_cells_l)
 
     # Initialize fields for new faces in g_l
-    new_faces_l = np.empty((g_l.dim, 0), dtype=np.int)
+    new_faces_l = np.empty((g_l.dim, 0), dtype=int)
     new_face_centers_l = np.empty((3, 0))
 
     # Counter of total number of faces in g_l
@@ -479,17 +479,17 @@ def _update_connectivity_fracture_grid(
     # ASSUMPTION: This breaks if not all faces have the same number of cells
     # Rewrite is possible, but more technical
     all_faces_l = np.reshape(
-        g_l.face_nodes.indices, (g_l.dim, n_old_faces_l), order="f"
+        g_l.face_nodes.indices, (g_l.dim, n_old_faces_l), order="F"
     )
 
     # Initialize indices and values for the cell_faces update
     ind_f, ind_c, cf_val = (
-        np.empty(0, dtype=np.int),
-        np.empty(0, dtype=np.int),
-        np.empty(0, dtype=np.int),
+        np.empty(0, dtype=int),
+        np.empty(0, dtype=int),
+        np.empty(0, dtype=int),
     )
     # and for the face_nodes update
-    fn_ind_f, fn_ind_n = np.empty(0, dtype=np.int), np.empty(0, dtype=np.int)
+    fn_ind_f, fn_ind_n = np.empty(0, dtype=int), np.empty(0, dtype=int)
 
     # Loop over all new cells to be created
     for i, c in enumerate(new_cells_l):

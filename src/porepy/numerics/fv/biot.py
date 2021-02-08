@@ -399,8 +399,8 @@ class Biot(pp.Mpsa):
         # is technical). If no updates, we short cut the method
         update_info = data["update_discretization"]
         # By default, neither cells nor faces have been updated
-        update_cells = update_info.get("modified_cells", np.array([], dtype=np.int))
-        update_faces = update_info.get("modified_faces", np.array([], dtype=np.int))
+        update_cells = update_info.get("modified_cells", np.array([], dtype=int))
+        update_faces = update_info.get("modified_faces", np.array([], dtype=int))
 
         if update_cells.size == 0 and update_faces.size == 0:
             return
@@ -744,7 +744,7 @@ class Biot(pp.Mpsa):
         # general combinations of specified cells, nodes and faces.
         tmp = g.cell_faces.transpose()
         tmp.data = np.abs(tmp.data)
-        af_vec = np.zeros(g.num_faces, dtype=np.bool)
+        af_vec = np.zeros(g.num_faces, dtype=bool)
         af_vec[active_faces] = 1
         update_cell_ind = np.where(tmp * af_vec)[0]
         eliminate_cells = np.setdiff1d(np.arange(g.num_cells), update_cell_ind)

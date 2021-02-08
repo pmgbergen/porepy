@@ -259,8 +259,8 @@ def network_2d_from_csv(
             edges = np.hstack((edges, edges_loc))
             edges_frac_id = np.hstack((edges_frac_id, [fi] * edges_loc.shape[1]))
 
-        edges = edges.astype(np.int)
-        edges_frac_id = edges_frac_id.astype(np.int)
+        edges = edges.astype(int)
+        edges_frac_id = edges_frac_id.astype(int)
 
     else:
         # Let the edges correspond to the ordering of the fractures
@@ -278,10 +278,10 @@ def network_2d_from_csv(
 
     pts, _, old_2_new = pp.utils.setmembership.unique_columns_tol(pts, tol=tol)
 
-    edges[:2] = old_2_new[edges[:2].astype(np.int)]
+    edges[:2] = old_2_new[edges[:2].astype(int)]
 
     to_remove = np.where(edges[0, :] == edges[1, :])[0]
-    edges = np.delete(edges, to_remove, axis=1).astype(np.int)
+    edges = np.delete(edges, to_remove, axis=1).astype(int)
 
     if not np.all(np.diff(edges[:2], axis=0) != 0):
         raise ValueError
@@ -290,7 +290,7 @@ def network_2d_from_csv(
 
     if return_frac_id:
         edges_frac_id = np.delete(edges_frac_id, to_remove)
-        return network, edges_frac_id.astype(np.int)
+        return network, edges_frac_id.astype(int)
     else:
         return network
 

@@ -14,7 +14,7 @@ cython = "^0.29.7"
 future = "^0.17.1"
 six = "^1.12.0"
 shapely = {extras = ["vectorized"], version = "^1.7.0"}
-numba = "^0.50.0"
+numba = "^0.52.0"
 scipy = "^1.4.1"
 numpy = "^1.18.5"
 gmsh = "^4.5"
