@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 from porepy.ad.forward_mode import Ad_array
@@ -24,6 +25,22 @@ def log(var):
     val = np.log(var.val)
     der = var.diagvec_mul_jac(1 / var.val)
     return Ad_array(val, der)
+
+
+@pp.time_logger(sections=module_sections)
+def max(var1, var2):
+    if var1 > var2:
+        return var1
+    else:
+        return var2
+
+
+@pp.time_logger(sections=module_sections)
+def min(var1, var2):
+    flag = var1 < var2
+    flag1 = sps.diags(flag, dtype=int)
+    flag2 = sps.diags(1 - flag, dtype=int)
+    return flag1 * var1 + flag2 * var2
 
 
 @pp.time_logger(sections=module_sections)

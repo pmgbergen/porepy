@@ -96,7 +96,7 @@ class DualScalarSource(pp.numerics.discretization.Discretization):
         # The sources are assigned to the rows representing conservation.
         rhs = np.zeros(self.ndof(g))
         is_p = np.hstack(
-            (np.zeros(g.num_faces, dtype=np.bool), np.ones(g.num_cells, dtype=np.bool))
+            (np.zeros(g.num_faces, dtype=bool), np.ones(g.num_cells, dtype=bool))
         )
         # A minus sign is apparently needed here to be consistent with the user
         # side convention of the finite volume method

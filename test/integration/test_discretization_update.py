@@ -126,13 +126,13 @@ def test_propagation(geometry, method):
         # Transfer information on new faces and cells from the format used
         # by self.evaluate_propagation to the format needed for update of
         # discretizations (see Discretization.update_discretization()).
-        new_faces = data.get("new_faces", np.array([], dtype=np.int))
-        split_faces = data.get("split_faces", np.array([], dtype=np.int))
+        new_faces = data.get("new_faces", np.array([], dtype=int))
+        split_faces = data.get("split_faces", np.array([], dtype=int))
         modified_faces = np.hstack((new_faces, split_faces))
         update_info = {
             "map_cells": data["cell_index_map"],
             "map_faces": data["face_index_map"],
-            "modified_cells": data.get("new_cells", np.array([], dtype=np.int)),
+            "modified_cells": data.get("new_cells", np.array([], dtype=int)),
             "modified_faces": modified_faces,
         }
         data["update_discretization"] = update_info

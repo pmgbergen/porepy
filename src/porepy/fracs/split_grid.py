@@ -939,7 +939,7 @@ def _find_cell_color(g, cells):
     # Local cell-face and face-node maps.
     assert g.cell_faces.getformat() == "csc"
     cell_faces = sparse_mat.slice_mat(g.cell_faces, c)
-    child_cell_ind = -np.ones(g.num_cells, dtype=np.int)
+    child_cell_ind = -np.ones(g.num_cells, dtype=int)
     child_cell_ind[c] = np.arange(cell_faces.shape[1])
 
     # Create a copy of the cell-face relation, so that we can modify it at

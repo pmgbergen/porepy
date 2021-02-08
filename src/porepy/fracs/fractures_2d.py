@@ -81,7 +81,7 @@ class FractureNetwork2d(object):
         else:
             self.pts = pts
         if edges is None:
-            self.edges = np.zeros((2, 0), dtype=np.int)
+            self.edges = np.zeros((2, 0), dtype=int)
         else:
             self.edges = edges
         self.domain = domain
@@ -185,12 +185,12 @@ class FractureNetwork2d(object):
             n_self = self_tags.shape[0]
             n_fs = fs_tags.shape[0]
             if n_self < n_fs:
-                extra_tags = np.empty((n_fs - n_self, self.num_frac), dtype=np.int)
+                extra_tags = np.empty((n_fs - n_self, self.num_frac), dtype=int)
                 self_tags = np.vstack((self_tags, extra_tags))
             elif n_self > n_fs:
-                extra_tags = np.empty((n_self - n_fs, fs.num_frac), dtype=np.int)
+                extra_tags = np.empty((n_self - n_fs, fs.num_frac), dtype=int)
                 fs_tags = np.vstack((fs_tags, extra_tags))
-            tags = np.hstack((self_tags, fs_tags)).astype(np.int)
+            tags = np.hstack((self_tags, fs_tags)).astype(int)
             e = np.vstack((e, tags))
 
         if self.domain is not None and fs.domain is not None:
@@ -317,7 +317,7 @@ class FractureNetwork2d(object):
 
         # No constraints if not available.
         if constraints is None:
-            constraints = np.empty(0, dtype=np.int)
+            constraints = np.empty(0, dtype=int)
         else:
             constraints = np.atleast_1d(constraints)
         constraints = np.sort(constraints)
@@ -340,7 +340,7 @@ class FractureNetwork2d(object):
             to_delete = np.where(np.isin(constraints, edges_deleted))[0]
 
             # Adjust constraint indices for deleted edges
-            adjustment = np.zeros(constraints.size, dtype=np.int)
+            adjustment = np.zeros(constraints.size, dtype=int)
             for e in edges_deleted:
                 # All constraints with index above the deleted edge should be reduced
                 adjustment[constraints > e] += 1
@@ -402,7 +402,7 @@ class FractureNetwork2d(object):
         if not np.all(np.diff(edges[:2], axis=0) != 0):
             raise ValueError("Found a point edge in splitting of edges")
 
-        tags = np.zeros((2, edges.shape[1]), dtype=np.int)
+        tags = np.zeros((2, edges.shape[1]), dtype=int)
 
         tags[0][np.logical_not(self.tags["boundary"])] = Tags.FRACTURE.value
         tags[0][self.tags["boundary"]] = Tags.DOMAIN_BOUNDARY_LINE.value
@@ -593,11 +593,11 @@ class FractureNetwork2d(object):
             self.tags["boundary"] = np.array(new_boundary_tags)
 
             self._decomposition["domain_boundary_points"] = num_p + np.arange(
-                dom_p.shape[1], dtype=np.int
+                dom_p.shape[1], dtype=int
             )
         else:
             self.tags["boundary"] = boundary_tags
-            self._decomposition["domain_boundary_points"] = np.empty(0, dtype=np.int)
+            self._decomposition["domain_boundary_points"] = np.empty(0, dtype=int)
             self.edges = e
             self.pts = p
 
@@ -1027,7 +1027,7 @@ class FractureNetwork2d(object):
         cell_type = "line"
 
         # cell connectivity information
-        meshio_cells = np.empty(1, dtype=np.object)
+        meshio_cells = np.empty(1, dtype=object)
         meshio_cells[0] = meshio.CellBlock(cell_type, self.edges.T)
 
         # prepare the points

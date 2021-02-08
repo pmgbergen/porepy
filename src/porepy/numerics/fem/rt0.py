@@ -98,15 +98,15 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         # Allocate the data to store matrix A entries
         size_A = np.power(g.dim + 1, 2) * g.num_cells
-        rows_A = np.empty(size_A, dtype=np.int)
-        cols_A = np.empty(size_A, dtype=np.int)
+        rows_A = np.empty(size_A, dtype=int)
+        cols_A = np.empty(size_A, dtype=int)
         data_A = np.empty(size_A)
         idx_A = 0
 
         # Allocate the data to store matrix P entries
         size_P = 3 * (g.dim + 1) * g.num_cells
-        rows_P = np.empty(size_P, dtype=np.int)
-        cols_P = np.empty(size_P, dtype=np.int)
+        rows_P = np.empty(size_P, dtype=int)
+        cols_P = np.empty(size_P, dtype=int)
         data_P = np.empty(size_P)
         idx_P = 0
         idx_row_P = 0
@@ -258,7 +258,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
     @pp.time_logger(sections=module_sections)
     def _compute_cell_face_to_opposite_node(
-        self, g: pp.Grid, data: np.ndarray, recompute: bool = False
+        self, g: pp.Grid, data: Dict, recompute: bool = False
     ) -> None:
         """Compute a map that given a face return the node on the opposite side,
         typical request of a Raviart-Thomas approximation.
@@ -283,7 +283,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         faces = faces[np.argsort(cells)]
 
         # initialize the map
-        cell_face_to_opposite_node = np.empty((g.num_cells, g.dim + 1), dtype=np.int)
+        cell_face_to_opposite_node = np.empty((g.num_cells, g.dim + 1), dtype=int)
 
         nodes, _, _ = sps.find(g.face_nodes)
         indptr = g.face_nodes.indptr

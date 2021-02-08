@@ -84,12 +84,12 @@ def _two_fractures_multiple_steps_3d():
     g2 = gb.grids_of_dimension(gb.dim_max() - 1)[1]
 
     targets = [
-        {g1: np.array([16, 6]), g2: np.array([], dtype=np.int)},
+        {g1: np.array([16, 6]), g2: np.array([], dtype=int)},
         {g1: np.array([1, 11, 26]), g2: np.array([8])},
     ]
 
     angles = [
-        {g1: np.array([0, 0]), g2: np.array([], dtype=np.int)},
+        {g1: np.array([0, 0]), g2: np.array([], dtype=int)},
         {g1: np.array([0, 0, 0]), g2: np.array([0])},
     ]
 

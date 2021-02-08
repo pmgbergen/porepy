@@ -60,6 +60,26 @@ class Ad_array:
         return -self.__sub__(other)
 
     @pp.time_logger(sections=module_sections)
+    def __lt__(self, other):
+        return self.val < _cast(other).val
+
+    @pp.time_logger(sections=module_sections)
+    def __le__(self, other):
+        return self.val <= _cast(other).val
+
+    @pp.time_logger(sections=module_sections)
+    def __gt__(self, other):
+        return self.val > _cast(other).val
+
+    @pp.time_logger(sections=module_sections)
+    def __ge__(self, other):
+        return self.val >= _cast(other).val
+
+    @pp.time_logger(sections=module_sections)
+    def __eq__(self, other):
+        return self.val == _cast(other).val
+
+    @pp.time_logger(sections=module_sections)
     def __mul__(self, other):
         if not isinstance(other, Ad_array):  # other is scalar
             val = self.val * other
@@ -114,6 +134,10 @@ class Ad_array:
         b.val = -b.val
         b.jac = -b.jac
         return b
+
+    @pp.time_logger(sections=module_sections)
+    def __len__(self):
+        return len(self.val)
 
     @pp.time_logger(sections=module_sections)
     def copy(self):
