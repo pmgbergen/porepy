@@ -1314,9 +1314,9 @@ class GridBucket:
         """
         if cond is None:
             cond = lambda g: True
-        return np.sum(
+        return np.sum(  # type: ignore
             [grid.num_cells for grid in self._nodes.keys() if cond(grid)], dtype=int
-        )  # type: ignore
+        )
 
     @pp.time_logger(sections=module_sections)
     def num_mortar_cells(self, cond: Callable[[pp.Grid], bool] = None) -> int:
@@ -1334,14 +1334,14 @@ class GridBucket:
         """
         if cond is None:
             cond = lambda g: True
-        return np.sum(
+        return np.sum(  # type: ignore
             [
                 data["mortar_grid"].num_cells
                 for _, data in self.edges()
                 if data.get("mortar_grid") and cond(data["mortar_grid"])
             ],
             dtype=int,
-        )  # type: ignore
+        )
 
     @pp.time_logger(sections=module_sections)
     def num_faces(self, cond: Callable[[pp.Grid], bool] = None) -> int:
@@ -1360,10 +1360,8 @@ class GridBucket:
         if cond is None:
             cond = lambda g: True
 
-        return np.sum(
-            [  # type: ignore
-                grid.num_faces for grid in self._nodes.keys() if cond(grid)
-            ]
+        return np.sum(  # type: ignore
+            [grid.num_faces for grid in self._nodes.keys() if cond(grid)]
         )
 
     @pp.time_logger(sections=module_sections)
@@ -1383,10 +1381,8 @@ class GridBucket:
         if cond is None:
             cond = lambda g: True
 
-        return np.sum(
-            [  # type: ignore
-                grid.num_nodes for grid in self._nodes.keys() if cond(grid)
-            ]
+        return np.sum(  # type: ignore
+            [grid.num_nodes for grid in self._nodes.keys() if cond(grid)]
         )
 
     @pp.time_logger(sections=module_sections)
