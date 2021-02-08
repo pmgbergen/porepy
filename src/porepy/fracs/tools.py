@@ -66,10 +66,17 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
         dist_pts[pt_id] = np.amin(distances, axis=0)
 
     num_pts = pts.shape[1]
+
+    # Data structures for storing information on extra points.
+    # IMPLEMENTATION NOTE, EK: These variables are gradally appended during iterations.
+    # This is somewhat costly (estimated to ~10% of the total runtime) for large
+    # sets of lines. However, there turned out to be a lot of special cases to cover,
+    # so I ended with not trying to implement the necessary changes.
     pts_extra = np.empty((pts.shape[0], 0))
     dist_extra = np.empty(0)
     pts_id_extra = np.empty(0, dtype=int)
     vals_extra = np.empty(0)
+
     # For each point we compute the distance between the point and the other
     # pairs of points. We keep the minimum distance between the previously
     # computed point distance and the distance among the other pairs of points.
@@ -77,23 +84,53 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     # grid size) on the corresponding pair of points with a corresponding
     # distance.
 
+    # Find the bounding box for all lines. We only need to do close comparisons
+    # with points that are within this bounding box.
+    x_min = np.minimum(pts[0, lines[0]], pts[0, lines[1]])
+    x_max = np.maximum(pts[0, lines[0]], pts[0, lines[1]])
+    y_min = np.minimum(pts[1, lines[0]], pts[1, lines[1]])
+    y_max = np.maximum(pts[1, lines[0]], pts[1, lines[1]])
+
     # Loop over all lines
-    for line in lines.T:
+    for line_ind, line in enumerate(lines.T):
         # Find start and endpoint of this line
         start, end = pts[:, line[0]], pts[:, line[1]]
-        # Compute the distacne between this line and all points in the domain
+
+        # Size of buffer region for bounding box.
+        buff = 1.1 * np.minimum(vals[line[0]], vals[line[1]])
+
+        # Lines which are outside the bounding box
+        outside_lines = np.logical_or.reduce(
+            (
+                x_max < x_min[line_ind] - buff,
+                x_min > x_max[line_ind] + buff,
+                y_max < y_min[line_ind] - buff,
+                y_min > y_max[line_ind] + buff,
+            )
+        )
+
+        # Index of lines inside the box.
+        inside_lines = np.where(np.logical_not(outside_lines))[0].ravel()
+
+        # Points that are inside the bounding box: All points on lines inside the box.
+        # Note that we are careful when to add indexing on these points below.
+        inside_pts = np.unique(lines[:2, inside_lines])
+
+        # Compute the distacne between this line and all points inside the box
         # This will also include the start and endpoint of this line, but we
         # deal with that later
-        dist, cp = pp.distances.points_segments(pts, start, end)
+        dist, cp = pp.distances.points_segments(pts[:, inside_pts], start, end)
 
         # We know there is a single segment, thus the distance vector can be reduced
         dist = dist[:, 0]
         # Find points that are closer than the target distance
         hit = np.where(
-            np.logical_and(dist < vals, np.logical_not(np.isclose(dist, 0.0)))
+            np.logical_and(
+                dist < vals[inside_pts], np.logical_not(np.isclose(dist, 0.0))
+            )
         )[0]
         # Update the minimum distance found for these points
-        dist_pts[hit] = np.minimum(dist_pts[hit], dist[hit])
+        dist_pts[inside_pts[hit]] = np.minimum(dist_pts[inside_pts[hit]], dist[hit])
 
         # cp[hit, 0] now contains points on the main line that are closest to
         # another point, and that sufficiently close to warrant attention.
@@ -126,7 +163,9 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     # consider all the new points together and remove (from the new points) the
     # useless ones.
     extra_ids, inv_index = np.unique(pts_id_extra, return_inverse=True)
+
     to_remove = np.empty(0, dtype=int)
+
     for idx, i in enumerate(extra_ids):
         mask = np.flatnonzero(inv_index == idx)
         if mask.size > 1:
@@ -155,6 +194,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     dist_extra = np.delete(dist_extra, to_remove)
     pts_id_extra = np.delete(pts_id_extra, to_remove)
     vals_extra = np.delete(vals_extra, to_remove)
+
     # Consider all the points
     pts = np.c_[pts, pts_extra]
     dist_pts = np.r_[dist_pts, dist_extra]
@@ -195,9 +235,18 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     # Consider extra points related to the input value, if the fracture is long
     # and, beacuse of val, needs additional points we increase the number of
     # lines.
+    # Make bounding boxes for the new segments.
+    x_min_new = np.minimum(pts[0, new_lines[0]], pts[0, new_lines[1]])
+    x_max_new = np.maximum(pts[0, new_lines[0]], pts[0, new_lines[1]])
+    y_min_new = np.minimum(pts[1, new_lines[0]], pts[1, new_lines[1]])
+    y_max_new = np.maximum(pts[1, new_lines[0]], pts[1, new_lines[1]])
+
     relax = kwargs.get("relaxation", 0.8)
-    lines = np.empty((4, 0), dtype=int)
-    for seg in new_lines.T:
+
+    # Make a list of new lines, will convert to numpy array towards the end
+    line_list = []
+
+    for seg_ind, seg in enumerate(new_lines.T):
         mesh_size_pt1 = dist_pts[seg[0]]
         mesh_size_pt2 = dist_pts[seg[1]]
         dist = np.linalg.norm(pts[:, seg[0]] - pts[:, seg[1]])
@@ -205,7 +254,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
             mesh_size_pt1 >= relax * vals[seg[0]]
             and mesh_size_pt2 >= relax * vals[seg[1]]
         ) or (relax * dist <= 2 * mesh_size_pt1 and relax * dist <= 2 * mesh_size_pt2):
-            lines = np.c_[lines, seg]
+            line_list.append(seg.tolist())
         else:
             pt_id = pts.shape[1]
             new_pt = 0.5 * (pts[:, seg[0]] + pts[:, seg[1]])
@@ -213,22 +262,49 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
 
             mesh_size = np.amin(np.r_[vals[seg[:2]], dist / 2.0])
 
-            start_old = old_pts[:, old_lines[0]]
-            end_old = old_pts[:, old_lines[1]]
+            # Size of buffer region for bounding box. Not sure if this can be made
+            # smaller, but it may not matter too much.
+            buff = 1.1 * mesh_size
 
-            # Compute the ditsacne between the current point and all old lines
-            dist1, cp = pp.distances.points_segments(new_pt, start_old, end_old)
-            # Disregard points that lie on the old segment by assigning a value so high
-            # that it will not be picked up by the minimum.
-            dist1[np.isclose(dist1, 0.0)] = mesh_size * 10
+            # Compare the bounding boxes of the old segments with the box for this new
+            # segment.
+            outside_lines = np.logical_or.reduce(
+                (
+                    x_max < x_min_new[seg_ind] - buff,
+                    x_min > x_max_new[seg_ind] + buff,
+                    y_max < y_min_new[seg_ind] - buff,
+                    y_min > y_max_new[seg_ind] + buff,
+                )
+            )
+
+            # Index of lines inside the box.
+            inside_lines = np.where(np.logical_not(outside_lines))[0].ravel()
+
+            # Find the closest point of the old lines inside the box.
+            if inside_lines.size > 0:
+                start_old = old_pts[:, old_lines[0, inside_lines]]
+                end_old = old_pts[:, old_lines[1, inside_lines]]
+
+                # Compute the ditsacne between the current point and all old lines
+                dist1, _ = pp.distances.points_segments(new_pt, start_old, end_old)
+
+                # Disregard points that lie on the old segment by assigning a value so high
+                # that it will not be picked up by the minimum.
+                dist1[np.isclose(dist1, 0.0)] = mesh_size * 10
+
+            else:
+                # Nothing to do here, assign value that will be disregarded.
+                dist1 = np.array([mesh_size * 10])
+
             # Update the minimum mesh size if any dist1 is less than the current value
             mesh_size = np.minimum(mesh_size, dist1.min())
 
             dist_pts = np.r_[dist_pts, mesh_size]
             vals = np.r_[vals, mesh_size]
-            lines = np.c_[
-                lines, [seg[0], pt_id, seg[2], seg[3]], [pt_id, seg[1], seg[2], seg[3]]
-            ]
+            line_list.append([seg[0], pt_id, seg[2], seg[3]])
+            line_list.append([pt_id, seg[1], seg[2], seg[3]])
+
+    lines = np.array(line_list, dtype=np.int).T
 
     return dist_pts, pts, lines
 

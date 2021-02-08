@@ -111,7 +111,7 @@ class TestMeshSize(unittest.TestCase):
             mesh_size_min=mesh_size_min,
             mesh_size_bound=mesh_size_bound,
         )
-        mesh_size = network._determine_mesh_size(boundary_point_tags=on_boundary)
+        mesh_size = network._determine_mesh_size(point_tags=on_boundary)
 
         decomp = network.decomposition
 

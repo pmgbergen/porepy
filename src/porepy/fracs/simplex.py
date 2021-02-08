@@ -9,8 +9,9 @@ import meshio
 import numpy as np
 
 import porepy as pp
-from porepy.grids import constants
-from porepy.grids.gmsh import mesh_2_grid
+
+from . import msh_2_grid
+from .gmsh_interface import PhysicalNames
 
 logger = logging.getLogger(__name__)
 module_sections = ["gridding"]
@@ -51,15 +52,15 @@ def triangle_grid_embedded(file_name):
 
     pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
-    g_2d = mesh_2_grid.create_2d_grids(
+    g_2d = msh_2_grid.create_2d_grids(
         pts,
         cells,
         is_embedded=True,
         phys_names=phys_names,
         cell_info=cell_info,
     )
-    g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
-    g_0d = mesh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
+    g_1d, _ = msh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
+    g_0d = msh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
 
     grids = [g_2d, g_1d, g_0d]
 
@@ -110,24 +111,21 @@ def triangle_grid_from_gmsh(file_name, constraints=None, **kwargs):
 
     pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
-    # Constants used in the gmsh.geo-file
-    const = constants.GmshConstants()
-
     # Create grids from gmsh mesh.
     logger.info("Create grids of various dimensions")
-    g_2d = mesh_2_grid.create_2d_grids(
+    g_2d = msh_2_grid.create_2d_grids(
         pts, cells, is_embedded=False, phys_names=phys_names, cell_info=cell_info
     )
-    g_1d, _ = mesh_2_grid.create_1d_grids(
+    g_1d, _ = msh_2_grid.create_1d_grids(
         pts,
         cells,
         phys_names,
         cell_info,
-        line_tag=const.PHYSICAL_NAME_FRACTURES,
+        line_tag=PhysicalNames.FRACTURE.value,
         constraints=constraints,
         **kwargs,
     )
-    g_0d = mesh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
+    g_0d = msh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
     grids = [g_2d, g_1d, g_0d]
 
     logger.info(
@@ -179,21 +177,18 @@ def line_grid_from_gmsh(file_name, constraints=None, **kwargs):
 
     pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
-    # Constants used in the gmsh.geo-file
-    const = constants.GmshConstants()
-
     # Create grids from gmsh mesh.
     logger.info("Create grids of various dimensions")
-    g_1d, _ = mesh_2_grid.create_1d_grids(
+    g_1d, _ = msh_2_grid.create_1d_grids(
         pts,
         cells,
         phys_names,
         cell_info,
-        line_tag=const.PHYSICAL_NAME_FRACTURES,
+        line_tag=PhysicalNames.FRACTURE.value,
         constraints=constraints,
         **kwargs,
     )
-    g_0d = mesh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
+    g_0d = msh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
     grids = [g_1d, g_0d]
 
     logger.info(
@@ -249,8 +244,8 @@ def tetrahedral_grid_from_gmsh(file_name, constraints=None, **kwargs):
     # Call upon helper functions to create grids in various dimensions.
     # The constructors require somewhat different information, reflecting the
     # different nature of the grids.
-    g_3d = mesh_2_grid.create_3d_grids(pts, cells)
-    g_2d = mesh_2_grid.create_2d_grids(
+    g_3d = msh_2_grid.create_3d_grids(pts, cells)
+    g_2d = msh_2_grid.create_2d_grids(
         pts,
         cells,
         is_embedded=True,
@@ -259,8 +254,8 @@ def tetrahedral_grid_from_gmsh(file_name, constraints=None, **kwargs):
         constraints=constraints,
     )
 
-    g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
-    g_0d = mesh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
+    g_1d, _ = msh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
+    g_0d = msh_2_grid.create_0d_grids(pts, cells, phys_names, cell_info)
 
     grids = [g_3d, g_2d, g_1d, g_0d]
 
