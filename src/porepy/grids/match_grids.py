@@ -63,8 +63,8 @@ def match_1d(new_1d: pp.Grid, old_1d: pp.Grid, tol: float):
     intersect = pp.intersections.line_tesselation(p1, p2, lines1, lines2)
 
     num = len(intersect)
-    new_g_ind = np.zeros(num, dtype=np.int)
-    old_g_ind = np.zeros(num, dtype=np.int)
+    new_g_ind = np.zeros(num, dtype=int)
+    old_g_ind = np.zeros(num, dtype=int)
     weights = np.zeros(num)
 
     for ind, i in enumerate(intersect):
@@ -126,8 +126,8 @@ def match_2d(new_g: pp.Grid, old_g: pp.Grid, tol: float):
     )
 
     num = len(isect)
-    new_g_ind = np.zeros(num, dtype=np.int)
-    old_g_ind = np.zeros(num, dtype=np.int)
+    new_g_ind = np.zeros(num, dtype=int)
+    old_g_ind = np.zeros(num, dtype=int)
     weights = np.zeros(num)
 
     for ind, i in enumerate(isect):

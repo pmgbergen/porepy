@@ -96,14 +96,14 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
         face_map = g_map[gh].face_map
 
         # Data structure for the new face-cell map
-        rows = np.empty(0, dtype=np.int)
-        cols = np.empty(0, dtype=np.int)
+        rows = np.empty(0, dtype=int)
+        cols = np.empty(0, dtype=int)
 
         # The standard MortarGrid __init__ assumes that when faces are split because of
         # a fracture, the faces are ordered with one side first, then the other. This
         # will not be True for this layered construction. Instead, keep track of all
         # faces that should be moved to the other side.
-        face_on_other_side = np.empty(0, dtype=np.int)
+        face_on_other_side = np.empty(0, dtype=int)
 
         # Loop over cells in gl would not have been as clean, as each cell is associated
         # with faces on both sides
@@ -120,7 +120,7 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
                     (face_on_other_side, face_map[faces[idx]])
                 )
 
-        data = np.ones(rows.size, dtype=np.bool)
+        data = np.ones(rows.size, dtype=bool)
         # Create new face-cell map
         face_cells_new = sps.coo_matrix(
             (data, (rows, cols)), shape=(gl_new.num_cells, gh_new.num_faces)
@@ -378,9 +378,9 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
             raise ValueError("this should not happen. Is the cell non-convex??")
 
     # Compressed column storage for horizontal faces: Store node indices
-    fn_rows_horizontal = np.array([], dtype=np.int)
+    fn_rows_horizontal = np.array([], dtype=int)
     # .. and pointers to the start of new faces
-    fn_cols_horizontal = np.array(0, dtype=np.int)
+    fn_cols_horizontal = np.array(0, dtype=int)
     # Loop over all layers of nodes (one more than number of cells)
     # This means that the horizontal faces of a given cell is given by its index (bottom)
     # and its index + the number of 2d cells, both offset with the total number of
@@ -405,9 +405,9 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
     fn_cols_horizontal += num_vertical_faces * nodes_per_face_vertical
 
     # Put together the vertical and horizontal data, create the face-node relation
-    indptr = np.hstack((fn_cols_vertical, fn_cols_horizontal)).astype(np.int)
-    indices = np.hstack((fn_rows_vertical, fn_rows_horizontal)).astype(np.int)
-    data = np.ones(indices.size, dtype=np.int)
+    indptr = np.hstack((fn_cols_vertical, fn_cols_horizontal)).astype(int)
+    indices = np.hstack((fn_rows_vertical, fn_rows_horizontal)).astype(int)
+    data = np.ones(indices.size, dtype=int)
 
     # Finally, construct the face-node sparse matrix
     face_nodes = sps.csc_matrix((data, indices, indptr), shape=(nn_3d, nf_3d))
@@ -431,10 +431,10 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
     cf_cols_2d = g.cell_faces.indptr
     cf_data_2d = g.cell_faces.data
 
-    cf_rows_vertical = np.array([], dtype=np.int)
+    cf_rows_vertical = np.array([], dtype=int)
     # For the cells, we will store the number of facqes for each cell. This will later
     # be expanded to a full set of cell indices
-    cf_vertical_cell_count = np.array([], dtype=np.int)
+    cf_vertical_cell_count = np.array([], dtype=int)
     cf_data_vertical = np.array([])
 
     for k in range(num_cell_layers):
@@ -464,7 +464,7 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
     # Bottom layer
     cf_rows_horizontal = num_vertical_faces + np.arange(nc_2d)
     cf_cols_horizontal = np.arange(nc_2d)
-    cf_data_horizontal = -np.ones(nc_2d, dtype=np.int)
+    cf_data_horizontal = -np.ones(nc_2d, dtype=int)
 
     # Intermediate layers, note
     for k in range(1, num_cell_layers):
@@ -573,7 +573,7 @@ def _extrude_1d(
 
     fn_old = g.face_nodes.indices
     # Vertical faces are made by extruding old face-node relation
-    fn_vert = np.empty((2, 0), dtype=np.int)
+    fn_vert = np.empty((2, 0), dtype=int)
     for k in range(num_cell_layers):
         fn_this = k * nn_old + np.vstack((fn_old, nn_old + fn_old))
         fn_vert = np.hstack((fn_vert, fn_this))
@@ -591,16 +591,16 @@ def _extrude_1d(
     # Finalize the face-node map
     fn_rows = np.hstack((fn_vert, fn_hor))
     fn_cols = np.tile(np.arange(fn_rows.shape[1]), (2, 1))
-    fn_data = np.ones(fn_cols.size, dtype=np.bool)
+    fn_data = np.ones(fn_cols.size, dtype=bool)
 
     fn = sps.coo_matrix(
-        (fn_data, (fn_rows.ravel("f"), fn_cols.ravel("f"))), shape=(nn_new, nf_new)
+        (fn_data, (fn_rows.ravel("F"), fn_cols.ravel("F"))), shape=(nn_new, nf_new)
     ).tocsc()
 
     # Next, cell-faces
     # We know there are exactly four faces for each cell
-    cf_rows = np.empty((4, 0), dtype=np.int)
-    cf_old = g.cell_faces.indices.reshape((2, -1), order="f")
+    cf_rows = np.empty((4, 0), dtype=int)
+    cf_old = g.cell_faces.indices.reshape((2, -1), order="F")
 
     # Create vertical and horizontal faces together
     for k in range(num_cell_layers):
@@ -616,11 +616,11 @@ def _extrude_1d(
         cf_rows = np.hstack((cf_rows, np.vstack((cf_vert_this, cf_hor_this))))
 
     # Finalize Cell-face relation
-    cf_rows = cf_rows.ravel("f")
-    cf_cols = np.tile(np.arange(nc_new), (4, 1)).ravel("f")
+    cf_rows = cf_rows.ravel("F")
+    cf_cols = np.tile(np.arange(nc_new), (4, 1)).ravel("F")
     # Define positive and negative sides. The choices here are somewhat arbitrary.
-    tmp = np.ones(nc_new, dtype=np.int)
-    cf_data = np.vstack((-tmp, tmp, -tmp, tmp)).ravel("f")
+    tmp = np.ones(nc_new, dtype=int)
+    cf_data = np.vstack((-tmp, tmp, -tmp, tmp)).ravel("F")
     cf = sps.coo_matrix((cf_data, (cf_rows, cf_cols)), shape=(nf_new, nc_new)).tocsc()
 
     tags = _define_tags(g, num_cell_layers)
@@ -688,7 +688,7 @@ def _extrude_0d(
     g_new.compute_geometry()
 
     # The single cell in g has produced all cells in g_new
-    cell_map = np.empty(1, dtype=np.object)
+    cell_map = np.empty(1, dtype=object)
     cell_map[0] = np.arange(g_new.num_cells)
     face_map = np.empty(0)
 
@@ -729,7 +729,7 @@ def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
     ).ravel()
 
     # All nodes in the bottom and top layers are on the domain boundary.
-    domain_boundary_node_tag = np.ones(nn_old, dtype=np.bool)
+    domain_boundary_node_tag = np.ones(nn_old, dtype=bool)
 
     # Intermediate layers are as for the original grid
     for _ in range(num_cell_layers - 1):
@@ -742,9 +742,9 @@ def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
     ## Face tags
     # ASSUMPTION: We know that the vertical faces are defined first. For these, the
     # information can be copied from the original grid.
-    fracture_face_tag = np.empty(0, dtype=np.bool)
-    tip_face_tag = np.empty(0, dtype=np.bool)
-    boundary_face_tag = np.empty(0, dtype=np.bool)
+    fracture_face_tag = np.empty(0, dtype=bool)
+    tip_face_tag = np.empty(0, dtype=bool)
+    boundary_face_tag = np.empty(0, dtype=bool)
     for _ in range(num_cell_layers):
         fracture_face_tag = np.hstack((fracture_face_tag, g.tags["fracture_faces"]))
         tip_face_tag = np.hstack((tip_face_tag, g.tags["tip_faces"]))
@@ -755,21 +755,21 @@ def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
     ## Next the horizontal faces.
     # The horizontal faces are all non-fracture, non-tip
     fracture_face_tag = np.hstack(
-        (fracture_face_tag, np.zeros(nc_old * (num_cell_layers + 1), dtype=np.bool))
+        (fracture_face_tag, np.zeros(nc_old * (num_cell_layers + 1), dtype=bool))
     )
     tip_face_tag = np.hstack(
-        (tip_face_tag, np.zeros(nc_old * (num_cell_layers + 1), dtype=np.bool))
+        (tip_face_tag, np.zeros(nc_old * (num_cell_layers + 1), dtype=bool))
     )
 
     # The bottom and top layer of horizontal faces are on the boundary, the rest is not
     boundary_face_tag = np.hstack(
         (
             boundary_face_tag,
-            np.ones(nc_old, dtype=np.bool),
+            np.ones(nc_old, dtype=bool),
             # Intermediate layers
-            np.zeros(nc_old * (num_cell_layers - 1), dtype=np.bool),
+            np.zeros(nc_old * (num_cell_layers - 1), dtype=bool),
             # top
-            np.ones(nc_old, dtype=np.bool),
+            np.ones(nc_old, dtype=bool),
         )
     )
 
@@ -789,11 +789,11 @@ def _create_mappings(
     g: pp.Grid, g_new: pp.Grid, num_cell_layers: int
 ) -> Tuple[np.ndarray, np.ndarray]:
 
-    cell_map = np.empty(g.num_cells, dtype=np.object)
+    cell_map = np.empty(g.num_cells, dtype=object)
     for c in range(g.num_cells):
         cell_map[c] = np.arange(c, g_new.num_cells, g.num_cells)
 
-    face_map = np.empty(g.num_faces, dtype=np.object)
+    face_map = np.empty(g.num_faces, dtype=object)
     for f in range(g.num_faces):
         face_map[f] = np.arange(f, g.num_faces * num_cell_layers, g.num_faces)
 

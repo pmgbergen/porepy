@@ -219,20 +219,19 @@ class GridBucket:
             elif edge[1] == node:
                 neigh.append(edge[0])
 
-        neigh = np.array(neigh)
-
+        neigh_arr = np.array(neigh)
         if not only_higher and not only_lower:
-            return neigh
+            return neigh_arr
         elif only_higher and only_lower:
             raise ValueError("Cannot return both only higher and only lower")
         elif only_higher:
             # Find the neighbours that are higher dimensional
-            is_high = np.array([w.dim > node.dim for w in neigh])
-            return neigh[is_high]
+            is_high = np.array([w.dim > node.dim for w in neigh_arr])
+            return neigh_arr[is_high]
         else:
             # Find the neighbours that are higher dimensional
-            is_low = np.array([w.dim < node.dim for w in neigh])
-            return neigh[is_low]
+            is_low = np.array([w.dim < node.dim for w in neigh_arr])
+            return neigh_arr[is_low]
 
     # ------------ Getters for grids
 
@@ -932,7 +931,7 @@ class GridBucket:
         node_source = np.atleast_2d(g_src.global_point_ind)
         node_target = np.atleast_2d(g_trg.global_point_ind)
         _, trg_2_src_nodes = setmembership.ismember_rows(
-            node_source.astype(np.int32), node_target.astype(np.int32)
+            node_source.astype(np.int32_), node_target.astype(int)
         )
         return trg_2_src_nodes
 
@@ -1147,7 +1146,7 @@ class GridBucket:
             if cond(e) and d.get("mortar_grid")
         ]
 
-        return np.amax(np.hstack((diam_g, diam_mg)))
+        return np.amax(np.hstack((diam_g, diam_mg)))  # type: ignore
 
     @pp.time_logger(sections=module_sections)
     def bounding_box(
@@ -1175,7 +1174,7 @@ class GridBucket:
                 "zmax": max_vals[2],
             }
         else:
-            return min_vals, max_vals
+            return min_vals, max_vals  # type: ignore
 
     @pp.time_logger(sections=module_sections)
     def size(self) -> int:
@@ -1193,7 +1192,7 @@ class GridBucket:
             int: Minimum dimension of the grids present in the hierarchy.
 
         """
-        return np.amin([grid.dim for grid, _ in self])
+        return np.amin([grid.dim for grid, _ in self])  # type: ignore
 
     @pp.time_logger(sections=module_sections)
     def dim_max(self) -> int:
@@ -1202,10 +1201,10 @@ class GridBucket:
             int: Maximum dimension of the grids present in the hierarchy.
 
         """
-        return np.amax([grid.dim for grid, _ in self])
+        return np.amax([grid.dim for grid, _ in self])  # type: ignore
 
     @pp.time_logger(sections=module_sections)
-    def all_dims(self) -> np.array:
+    def all_dims(self) -> np.ndarray:
         """
         Returns:
             np.array: Active dimensions of the grids present in the hierarchy.
@@ -1315,8 +1314,8 @@ class GridBucket:
         """
         if cond is None:
             cond = lambda g: True
-        return np.sum(
-            [grid.num_cells for grid in self._nodes.keys() if cond(grid)], dtype=np.int
+        return np.sum(  # type: ignore
+            [grid.num_cells for grid in self._nodes.keys() if cond(grid)], dtype=int
         )
 
     @pp.time_logger(sections=module_sections)
@@ -1335,13 +1334,13 @@ class GridBucket:
         """
         if cond is None:
             cond = lambda g: True
-        return np.sum(
+        return np.sum(  # type: ignore
             [
                 data["mortar_grid"].num_cells
                 for _, data in self.edges()
                 if data.get("mortar_grid") and cond(data["mortar_grid"])
             ],
-            dtype=np.int,
+            dtype=int,
         )
 
     @pp.time_logger(sections=module_sections)
@@ -1360,7 +1359,10 @@ class GridBucket:
         """
         if cond is None:
             cond = lambda g: True
-        return np.sum([grid.num_faces for grid in self._nodes.keys() if cond(grid)])
+
+        return np.sum(  # type: ignore
+            [grid.num_faces for grid in self._nodes.keys() if cond(grid)]
+        )
 
     @pp.time_logger(sections=module_sections)
     def num_nodes(self, cond: Callable[[pp.Grid], bool] = None) -> int:
@@ -1378,7 +1380,10 @@ class GridBucket:
         """
         if cond is None:
             cond = lambda g: True
-        return np.sum([grid.num_nodes for grid in self._nodes.keys() if cond(grid)])
+
+        return np.sum(  # type: ignore
+            [grid.num_nodes for grid in self._nodes.keys() if cond(grid)]
+        )
 
     @pp.time_logger(sections=module_sections)
     def num_graph_nodes(self):

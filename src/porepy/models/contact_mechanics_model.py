@@ -11,7 +11,7 @@ undergo major changes on little notice.
 """
 import logging
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -199,7 +199,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         prev_solution: np.ndarray,
         init_solution: np.ndarray,
         nl_params: Dict[str, Any],
-    ) -> Tuple[float, bool, bool]:
+    ) -> Tuple[float, bool, Union[np.bool_, bool]]:
         g_max = self._nd_grid()
 
         if not self._is_nonlinear_problem():
@@ -214,7 +214,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         mech_dof = self.assembler.dof_ind(g_max, self.displacement_variable)
 
         # Also find indices for the contact variables
-        contact_dof = np.array([], dtype=np.int)
+        contact_dof = np.array([], dtype=int)
         for e, _ in self.gb.edges():
             if e[0].dim == self._Nd:
                 contact_dof = np.hstack(
@@ -247,7 +247,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         # tol_divergence = nl_params["nl_divergence_tol"]
 
         converged = False
-        diverged = False
+        diverged = False  # type: ignore
 
         # Check absolute convergence criterion
         if difference_in_iterates_mech < tol_convergence:
