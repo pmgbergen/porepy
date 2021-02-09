@@ -178,6 +178,8 @@ def _tag_faces(grids, check_highest_dim=True):
         # Boundary nodes of g_h in terms of global indices
         bnd_nodes_glb = g_h.global_point_ind[np.unique(bnd_nodes)]
 
+        global_node_is_fracture_tip = np.zeros(g_h.num_nodes, dtype=bool)
+
         for g_dim in grids[1:-1]:
             for g in g_dim:
                 # We find the global nodes of all boundary faces
@@ -189,19 +191,28 @@ def _tag_faces(grids, check_highest_dim=True):
                 nodes_glb = g.global_point_ind[nodes_loc]
                 # We then tag each node as a tip node if it is not a global
                 # boundary node
-                is_tip = np.in1d(nodes_glb, bnd_nodes_glb, invert=True)
+                is_tip_node = np.in1d(nodes_glb, bnd_nodes_glb, invert=True)
+                g.tags["tip_nodes"] = is_tip_node
+
+                if g.dim == g_h.dim - 1:
+                    global_node_is_fracture_tip[nodes_glb[is_tip_node]] = True
+
                 # We reshape the nodes such that each column equals the nodes of
                 # one face. If a face only contains global boundary nodes, the
                 # local face is also a boundary face. Otherwise, we add a TIP tag.
+                # Note that we only consider boundary faces, hence any is okay.
                 n_per_face = _nodes_per_face(g)
-                is_tip = np.any(
-                    is_tip.reshape((n_per_face, bnd_faces_l.size), order="F"), axis=0
+                is_tip_face = np.any(
+                    is_tip_node.reshape((n_per_face, bnd_faces_l.size), order="F"),
+                    axis=0,
                 )
 
-                g.tags["tip_faces"][bnd_faces_l[is_tip]] = True
+                g.tags["tip_faces"][bnd_faces_l[is_tip_face]] = True
                 domain_boundary_tags = np.zeros(g.num_faces, dtype=bool)
-                domain_boundary_tags[bnd_faces_l[np.logical_not(is_tip)]] = True
+                domain_boundary_tags[bnd_faces_l[np.logical_not(is_tip_face)]] = True
                 g.tags["domain_boundary_faces"] = domain_boundary_tags
+
+        g_h.tags["node_is_fracture_tip"] = global_node_is_fracture_tip
 
 
 @pp.time_logger(sections=module_sections)
