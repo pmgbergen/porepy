@@ -375,10 +375,15 @@ class FractureNetwork2d(object):
 
         point_on_fracture = edges[:2, edge_types == Tags.FRACTURE.value].ravel()
         point_on_boundary = edges[
-            :2, edge_types == Tags.DOMAIN_BOUNDARY_POINT.value
+            :2, edge_types == Tags.DOMAIN_BOUNDARY_LINE.value
         ].ravel()
         fracture_boundary_points = np.intersect1d(point_on_fracture, point_on_boundary)
 
+        phys_point_tags.update(
+            {pi: Tags.DOMAIN_BOUNDARY_POINT.value for pi in point_on_boundary}
+        )
+
+        # register fracture boundary points, override previously added boundary points
         phys_point_tags.update(
             {pi: Tags.FRACTURE_BOUNDARY_POINT.value for pi in fracture_boundary_points}
         )
