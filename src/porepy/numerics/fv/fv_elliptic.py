@@ -367,15 +367,15 @@ class FVElliptic(pp.EllipticDiscretization):
         # around a node.
         bc_val = parameter_dictionary["bc_values"]
         rhs[2] -= proj * matrix_dictionary[self.bound_pressure_face_matrix_key] * bc_val
-        # Add gravity contribution
-        vector_source_discr = matrix_dictionary[
-            self.bound_pressure_vector_source_matrix_key
-        ]
-        # The vector source, defaults to zero if not specified.
-        vector_source = parameter_dictionary.get(
-            "vector_source", np.zeros(vector_source_discr.shape[1])
-        )
-        rhs[2] -= proj * vector_source_discr * vector_source
+
+        # Add gravity contribution if relevant
+        if "vector_source" in parameter_dictionary:
+            vector_source_discr = matrix_dictionary[
+                self.bound_pressure_vector_source_matrix_key
+            ]
+            # The vector source, defaults to zero if not specified.
+            vector_source = parameter_dictionary.get("vector_source")
+            rhs[2] -= proj * vector_source_discr * vector_source
 
     @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace_rhs(
@@ -422,15 +422,16 @@ class FVElliptic(pp.EllipticDiscretization):
         # around a node.
         bc_val = parameter_dictionary["bc_values"]
         rhs[2] -= proj * matrix_dictionary[self.bound_pressure_face_matrix_key] * bc_val
-        # Add gravity contribution
-        vector_source_discr = matrix_dictionary[
-            self.bound_pressure_vector_source_matrix_key
-        ]
-        # The vector source, defaults to zero if not specified.
-        vector_source = parameter_dictionary.get(
-            "vector_source", np.zeros(vector_source_discr.shape[1])
-        )
-        rhs[2] -= proj * vector_source_discr * vector_source
+
+        # Add gravity contribution if relevant
+        if "vector_source" in parameter_dictionary:
+            vector_source_discr = matrix_dictionary[
+                self.bound_pressure_vector_source_matrix_key
+            ]
+
+            # The vector source, defaults to zero if not specified.
+            vector_source = parameter_dictionary.get("vector_source")
+            rhs[2] -= proj * vector_source_discr * vector_source
 
     @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace_between_interfaces(
