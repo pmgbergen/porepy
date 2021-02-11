@@ -178,6 +178,7 @@ def _tag_faces(grids, check_highest_dim=True):
         # Boundary nodes of g_h in terms of global indices
         bnd_nodes_glb = g_h.global_point_ind[np.unique(bnd_nodes)]
 
+        # Keep track of nodes in g_h that correspond to tip nodes of a fracture.
         global_node_is_fracture_tip = np.zeros(g_h.num_nodes, dtype=bool)
 
         for g_dim in grids[1:-1]:
@@ -194,6 +195,7 @@ def _tag_faces(grids, check_highest_dim=True):
                 is_tip_node = np.in1d(nodes_glb, bnd_nodes_glb, invert=True)
                 g.tags["tip_nodes"] = is_tip_node
 
+                # Only register tip nodes for fractures.
                 if g.dim == g_h.dim - 1:
                     global_node_is_fracture_tip[nodes_glb[is_tip_node]] = True
 
@@ -212,7 +214,7 @@ def _tag_faces(grids, check_highest_dim=True):
                 domain_boundary_tags[bnd_faces_l[np.logical_not(is_tip_face)]] = True
                 g.tags["domain_boundary_faces"] = domain_boundary_tags
 
-        g_h.tags["node_is_fracture_tip"] = global_node_is_fracture_tip
+        g_h.tags["node_is_fracture_tip"] = global_node_is_fracture_tip.astype(bool)
 
 
 @pp.time_logger(sections=module_sections)
