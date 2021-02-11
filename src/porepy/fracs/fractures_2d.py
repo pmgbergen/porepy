@@ -5,7 +5,7 @@ import copy
 import csv
 import logging
 import time
-from typing import Dict
+from typing import Dict, Optional, Union
 
 import meshio
 import numpy as np
@@ -535,7 +535,11 @@ class FractureNetwork2d(object):
         self._decomposition["mesh_size"] = mesh_size
 
     @pp.time_logger(sections=module_sections)
-    def impose_external_boundary(self, domain=None, add_domain_edges=True):
+    def impose_external_boundary(
+        self,
+        domain: Optional[Union[Dict, np.ndarray]] = None,
+        add_domain_edges: bool = True,
+    ) -> np.ndarray:
         """
         Constrain the fracture network to lie within a domain.
 
@@ -555,6 +559,8 @@ class FractureNetwork2d(object):
                 and therefore deleted.
 
         """
+        if domain is None:
+            domain = self.domain
 
         if isinstance(domain, dict):
             # First create lines that define the domain
@@ -575,6 +581,20 @@ class FractureNetwork2d(object):
         p, e, edges_kept = pp.constrain_geometry.lines_by_polygon(
             dom_p, self.pts, self.edges
         )
+
+        # Special case where an edge has one point on the boundary of the domain,
+        # the other outside the domain. In this case the edge should be removed.
+        # The edge will have been cut so that the endpoints coincide. Look for
+        # such edges
+        _, _, n2o = pp.utils.setmembership.unique_columns_tol(p, self.tol)
+        reduced_edges = n2o[e]
+        not_point_edge = np.diff(reduced_edges, axis=0).ravel() != 0
+
+        # The point involved in point edges may be superfluous in the description
+        # of the fracture network; this we will deal with later. For now, simply
+        # remove the point edge.
+        e = e[:, not_point_edge]
+        edges_kept = edges_kept[not_point_edge]
 
         edges_deleted = np.setdiff1d(np.arange(self.edges.shape[1]), edges_kept)
 
