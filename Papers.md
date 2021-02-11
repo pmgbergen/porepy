@@ -1,6 +1,9 @@
 # Papers
 
-List of papers that have used PorePy to generate (parts of) the numerical results. The indicated year is the first submission on [arXiv](https://arxiv.org/). Where applicable, open-source runscripts for the paper are accesible as the first link in each item.
+List of papers that have used PorePy to generate (parts of) the numerical results. The indicated year is the first submission on [arXiv](https://arxiv.org/). Where applicable, open-source runscripts for the paper are accessible as the first link in each item.
+
+###### 2021 ######
+* [arXiv:2101.08331 [math.NA]](https://github.com/jhabriel/mixdim-estimates) paper "*A posteriori error estimates for hierarchical mixed-dimensional elliptic equations*" by Jhabriel Varela, Elyes Ahmed, Eirik Keilegavlen, Jan Martin Nordbotten, Florin Radu. See [arXiv pre-print](https://arxiv.org/abs/2101.08331).
 
 ###### 2020 ######
 * [arXiv:2012.06493 [math.Na]](https://github.com/pmgbergen/Numerical-modelling-of-convection-driven-cooling-deformation-and-fracturing-of-thermo-poroelastic-m)  paper "*Numerical modelling of convection-driven cooling, deformation and fracturing of thermo-poroelastic media*" by Ivar Stefansson, Eirik Keilegavlen, Sæunn Halldórsdóttir, Inga Berre. See [arXiv pre-print](https://arxiv.org/abs/2012.06493).
