@@ -705,9 +705,7 @@ class Grid:
         zeros = np.zeros(self.num_faces, dtype=bool)
         self.tags["domain_boundary_faces"] = zeros
         if self.dim > 0:  # by default no 0d grid at the boundary of the domain
-            bd_faces = np.argwhere(
-                np.abs(self.cell_faces).sum(axis=1).A.ravel("F") == 1
-            ).ravel("F")
+            bd_faces = np.argwhere(np.diff(self.cell_faces.tocsr().indptr) == 1).ravel()
             self.tags["domain_boundary_faces"][bd_faces] = True
 
     @pp.time_logger(sections=module_sections)
