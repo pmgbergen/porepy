@@ -75,7 +75,6 @@ class FractureNetwork2d(object):
             1e-8.
 
         """
-
         if pts is None:
             self.pts = np.zeros((2, 0))
         else:
@@ -325,6 +324,8 @@ class FractureNetwork2d(object):
         p = self.pts
         e = self.edges
 
+        num_edge_orig = e.shape[1]
+
         # Snap points to edges
         if do_snap and p is not None and p.size > 0:
             p, _ = pp.frac_utils.snap_fracture_set_2d(p, self.edges, snap_tol=tol)
@@ -332,23 +333,39 @@ class FractureNetwork2d(object):
         self.pts = p
 
         if not self.bounding_box_imposed:
-            edges_deleted = self.impose_external_boundary(
+            edges_kept, edges_deleted = self.impose_external_boundary(
                 self.domain, add_domain_edges=not dfn
             )
-
             # Find edges of constraints to delete
             to_delete = np.where(np.isin(constraints, edges_deleted))[0]
 
-            # Adjust constraint indices for deleted edges
-            adjustment = np.zeros(constraints.size, dtype=int)
-            for e in edges_deleted:
-                # All constraints with index above the deleted edge should be reduced
-                adjustment[constraints > e] += 1
+            # Adjust constraint indices: Must be decreased for all deleted lines with
+            # lower index, and increased for all lines with lower index that have been
+            # split.
+            adjustment = np.zeros(num_edge_orig, dtype=int)
+            # Deleted edges give an index reduction of 1
+            adjustment[edges_deleted] = -1
 
-            constraints -= adjustment
+            # identify edges that have been split
+            num_occ = np.bincount(edges_kept, minlength=adjustment.size)
+
+            # Not sure what to do with split constraints; it should not be difficult,
+            # but the current implementation does not cover it.
+            assert np.all(num_occ[constraints] < 2)
+
+            # Splitting of fractures give an increase of index corresponding to the number
+            # of repeats. The clip avoids negative values for deleted edges, these have
+            # been acounted for before. Maybe we could merge the two adjustments.
+            adjustment += np.clip(num_occ - 1, 0, None)
+
+            # Do the real adjustment
+            constraints += np.cumsum(adjustment)[constraints]
 
             # Delete constraints corresponding to deleted edges
             constraints = np.delete(constraints, to_delete)
+
+            # FIXME: We do not keep track of indices of fractures and constraints
+            # before and after imposing the boundary.
 
         self._find_and_split_intersections(constraints)
         self._insert_auxiliary_points(**mesh_args)
@@ -400,7 +417,6 @@ class FractureNetwork2d(object):
     @pp.time_logger(sections=module_sections)
     def _find_and_split_intersections(self, constraints):
         # Unified description of points and lines for domain, and fractures
-
         points = self.pts
         edges = self.edges
 
@@ -627,7 +643,7 @@ class FractureNetwork2d(object):
             self.pts = p
 
         self.bounding_box_imposed = True
-        return edges_deleted
+        return edges_kept, edges_deleted
 
     ## end of methods related to meshing
 
