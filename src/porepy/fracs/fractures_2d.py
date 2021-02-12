@@ -5,7 +5,7 @@ import copy
 import csv
 import logging
 import time
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Tuple, Union
 
 import meshio
 import numpy as np
@@ -555,7 +555,7 @@ class FractureNetwork2d(object):
         self,
         domain: Optional[Union[Dict, np.ndarray]] = None,
         add_domain_edges: bool = True,
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Constrain the fracture network to lie within a domain.
 
@@ -626,7 +626,11 @@ class FractureNetwork2d(object):
             # preserve the tags
             for key, value in self.tags.items():
                 self.tags[key] = np.hstack(
-                    (value[edges_kept], [None] * dom_lines.shape[1])
+                    (
+                        value[edges_kept],
+                        Tags.DOMAIN_BOUNDARY_LINE.value
+                        * np.ones(dom_lines.shape[1], dtype=int),
+                    )
                 )
 
             # Define the new boundary tags
