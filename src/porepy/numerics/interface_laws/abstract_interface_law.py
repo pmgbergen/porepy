@@ -386,6 +386,8 @@ class AbstractInterfaceLaw(abc.ABC):
         edge_secondary: Tuple[pp.Grid, pp.Grid],
         data_edge_secondary: Dict,
         matrix: np.ndarray,
+        assemble_matrix: bool = True,
+        assemble_rhs: bool = True,
     ) -> Union[np.ndarray, np.ndarray]:
         """Method to assemble the contribution from one interface to another one.
 
@@ -415,6 +417,10 @@ class AbstractInterfaceLaw(abc.ABC):
             edge_secondary (tuple of grids): The grids of the secondary edge.
             data_edge_secondary (dict): Data dictionary of the secondary interface.
             matrix: original discretization.
+            assemble_matrix (optional): If True (defalut), contributions to local matrix
+                are assembled.
+            assemble_rhs (optional): If True (defalut), contributions to local rhs
+                are assembled.
 
         Returns:
             np.array: Block matrix of size 3 x 3, whwere each block represents
@@ -442,6 +448,8 @@ class AbstractInterfaceLaw(abc.ABC):
         edge_secondary: Tuple[pp.Grid, pp.Grid],
         data_edge_secondary: Dict,
         matrix: np.ndarray,
+        assemble_matrix: bool = False,
+        assemble_rhs: bool = False,
     ) -> Union[np.ndarray, np.ndarray]:
         """Method to assemble the contribution from one interface to another one.
 
@@ -471,6 +479,10 @@ class AbstractInterfaceLaw(abc.ABC):
             edge_secondary (tuple of grids): The grids of the secondary edge.
             data_edge_secondary (dict): Data dictionary of the secondary interface.
             matrix: original discretization.
+            assemble_matrix (optional): If True (defalut), contributions to local matrix
+                are assembled.
+            assemble_rhs (optional): If True (defalut), contributions to local rhs
+                are assembled.
 
         Returns:
             np.array: Block matrix of size 3 x 3, whwere each block represents
