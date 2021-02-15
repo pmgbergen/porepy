@@ -202,15 +202,17 @@ class FVElliptic(pp.EllipticDiscretization):
 
         div = g.cell_faces.T
 
-        # Also assemble vector sources.
-        # Discretization of the vector source term
-        vector_source_discr = matrix_dictionary[self.vector_source_matrix_key]
-        # The vector source, defaults to zero if not specified.
-        vector_source = parameter_dictionary.get(
-            "vector_source", np.zeros(vector_source_discr.shape[1])
-        )
+        val = -div * bound_flux * bc_val
 
-        return -div * bound_flux * bc_val - div * vector_source_discr * vector_source
+        # Also assemble vector sources.
+        # Discretization of the vector source term if specified
+
+        if "vector_source" in parameter_dictionary:
+            vector_source_discr = matrix_dictionary[self.vector_source_matrix_key]
+            vector_source = parameter_dictionary.get("vector_source")
+            val -= div * vector_source_discr * vector_source
+
+        return val
 
     @pp.time_logger(sections=module_sections)
     def assemble_int_bound_flux(
@@ -312,7 +314,17 @@ class FVElliptic(pp.EllipticDiscretization):
 
     @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace(
-        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj=False
+        self,
+        g,
+        data,
+        data_edge,
+        cc,
+        matrix,
+        rhs,
+        self_ind,
+        use_secondary_proj=False,
+        assemble_matrix=True,
+        assemble_rhs=True,
     ):
         """Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -355,27 +367,34 @@ class FVElliptic(pp.EllipticDiscretization):
             proj_int = mg.mortar_to_secondary_int()
         else:
             proj = mg.primary_to_mortar_avg()
-            proj_int = mg.mortar_to_primary_int()
+            if assemble_matrix:
+                proj_int = mg.mortar_to_primary_int()
 
-        cc[2, self_ind] += proj * matrix_dictionary[self.bound_pressure_cell_matrix_key]
-        cc[2, 2] += (
-            proj * matrix_dictionary[self.bound_pressure_face_matrix_key] * proj_int
-        )
+        if assemble_matrix:
+            cc[2, self_ind] += (
+                proj * matrix_dictionary[self.bound_pressure_cell_matrix_key]
+            )
+            cc[2, 2] += (
+                proj * matrix_dictionary[self.bound_pressure_face_matrix_key] * proj_int
+            )
         # Add contribution from boundary conditions to the pressure at the fracture
         # faces. For TPFA this will be zero, but for MPFA we will get a contribution
         # on the fractures extending to the boundary due to the interaction region
         # around a node.
-        bc_val = parameter_dictionary["bc_values"]
-        rhs[2] -= proj * matrix_dictionary[self.bound_pressure_face_matrix_key] * bc_val
+        if assemble_rhs:
+            bc_val = parameter_dictionary["bc_values"]
+            rhs[2] -= (
+                proj * matrix_dictionary[self.bound_pressure_face_matrix_key] * bc_val
+            )
 
-        # Add gravity contribution if relevant
-        if "vector_source" in parameter_dictionary:
-            vector_source_discr = matrix_dictionary[
-                self.bound_pressure_vector_source_matrix_key
-            ]
-            # The vector source, defaults to zero if not specified.
-            vector_source = parameter_dictionary.get("vector_source")
-            rhs[2] -= proj * vector_source_discr * vector_source
+            # Add gravity contribution if relevant
+            if "vector_source" in parameter_dictionary:
+                vector_source_discr = matrix_dictionary[
+                    self.bound_pressure_vector_source_matrix_key
+                ]
+                # The vector source, defaults to zero if not specified.
+                vector_source = parameter_dictionary.get("vector_source")
+                rhs[2] -= proj * vector_source_discr * vector_source
 
     @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace_rhs(
