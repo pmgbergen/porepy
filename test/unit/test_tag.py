@@ -1,16 +1,57 @@
+""" Tests of tagging of mesh quantities.
+
+The tests have been developed gradually, and are not coherent, but should give reasonable
+coverage.
+"""
 import unittest
 
 import numpy as np
 
 import porepy as pp
 
-# ------------------------------------------------------------------------------#
+
+def test_node_is_fracture_tip_2d():
+    # Test that nodes in the highest dimensional grids are correctly labeled as tip nodes
+
+    f1 = np.array([[1, 3], [2, 2]])
+    f2 = np.array([[1, 3], [3, 3]])
+    f3 = np.array([[3, 3], [1, 2]])
+    f4 = np.array([[2, 2], [2, 4]])
+
+    # T-intersection between 1 and 4.
+    # L-intersection between 1 and 3
+    # X-intersection between 2 and 4
+    # 2 has two endings in the domain 1 and 3 have one ending in the domain.
+    # 4 has one node at the domain boundary - should not be a tip node
+
+    fracs = [f1, f2, f3, f4]
+    gb = pp.meshing.cart_grid(fracs, nx=np.array([4, 4]))
+
+    g = gb.grids_of_dimension(2)[0]
+
+    # Base comparison on coordinates (safe on Cartesian grids), then we don't have to deal
+    # with changing node indices
+    known_tips = np.array([[1, 1, 3, 3], [2, 3, 3, 1], [0, 0, 0, 0]])
+
+    tip_ind = []
+
+    # Find closest point
+    for i in range(known_tips.shape[1]):
+        p = known_tips[:, i].reshape((-1, 1))
+        tip_ind.append(np.argmin(np.sum(np.power(p - g.nodes, 2), axis=0)))
+
+    tip_ind = np.array(tip_ind)
+
+    # Check that the nodes with the known coordinates are tagged as tips
+    is_tip = g.tags["node_is_fracture_tip"]
+    assert np.all(is_tip[tip_ind])
+
+    # Check that all other nodes are tagged as non-tips
+    other_ind = np.setdiff1d(np.arange(g.num_nodes), tip_ind)
+    assert np.all(np.logical_not(is_tip[other_ind]))
 
 
 class BasicsTest(unittest.TestCase):
-
-    # ------------------------------------------------------------------------------#
-
     def test_tag_1d(self):
         g = pp.CartGrid(3, 1)
 
@@ -21,8 +62,6 @@ class BasicsTest(unittest.TestCase):
         known = [True, False, False, True]
         self.assertTrue(np.array_equal(g.tags["domain_boundary_faces"], known))
         self.assertTrue(np.array_equal(g.tags["domain_boundary_nodes"], known))
-
-    # ------------------------------------------------------------------------------#
 
     def test_tag_2d_simplex(self):
         g = pp.StructuredTriangleGrid([3] * 2, [1] * 2)
@@ -92,8 +131,6 @@ class BasicsTest(unittest.TestCase):
             dtype=bool,
         )
         self.assertTrue(np.array_equal(g.tags["domain_boundary_nodes"], known))
-
-    # ------------------------------------------------------------------------------#
 
     def test_tag_2d_cart(self):
         g = pp.CartGrid([4] * 2, [1] * 2)
@@ -180,8 +217,6 @@ class BasicsTest(unittest.TestCase):
         )
 
         self.assertTrue(np.array_equal(g.tags["domain_boundary_nodes"], known))
-
-    # ------------------------------------------------------------------------------#
 
     def test_tag_3d_simplex(self):
         g = pp.StructuredTetrahedralGrid([2] * 3, [1] * 3)
@@ -737,8 +772,6 @@ class BasicsTest(unittest.TestCase):
         )
         self.assertTrue(np.array_equal(g.tags["domain_boundary_nodes"], known))
 
-    # ------------------------------------------------------------------------------#
-
     def test_tag_2d_1d_cart(self):
         gb, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
 
@@ -803,8 +836,6 @@ class BasicsTest(unittest.TestCase):
                 ]
                 computed = np.where(g.tags["domain_boundary_nodes"])[0]
                 self.assertTrue(np.array_equal(computed, known))
-
-    # ------------------------------------------------------------------------------#
 
     def test_tag_2d_1d_cart_complex(self):
         gb, _ = pp.grid_buckets_2d.two_intersecting(
@@ -895,9 +926,6 @@ class BasicsTest(unittest.TestCase):
                 ]
                 computed = np.where(g.tags["domain_boundary_nodes"])[0]
                 self.assertTrue(np.array_equal(computed, known))
-
-
-# ------------------------------------------------------------------------------#
 
 
 if __name__ == "__main__":
