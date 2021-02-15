@@ -55,7 +55,6 @@ def grid_list_to_grid_bucket(
     # Tag tip faces
     check_highest_dim = kwargs.get("check_highest_dim", False)
     _tag_faces(grids, check_highest_dim)
-
     logger.info("Assemble in bucket")
     tm_bucket = time.time()
     gb = _assemble_in_bucket(grids)
@@ -178,8 +177,15 @@ def _tag_faces(grids, check_highest_dim=True):
         # Boundary nodes of g_h in terms of global indices
         bnd_nodes_glb = g_h.global_point_ind[np.unique(bnd_nodes)]
 
+        # Find the nodes in g_h that are on the tip of a fracture (not counting
+        # fracture endings on the global boundary). Do this by identifying tip nodes
+        # among the grids of dimension dim_max - 1. Exclude tips that also occur on
+        # other fractures (this will correspond to T or L-intersection, which look
+        # like tips from individual fractures).
         # Keep track of nodes in g_h that correspond to tip nodes of a fracture.
-        global_node_is_fracture_tip = np.zeros(g_h.num_nodes, dtype=bool)
+        global_node_as_fracture_tip = np.zeros(g_h.num_nodes, dtype=int)
+        # Also count the number of occurences of nodes on fractures
+        num_occ_nodes = np.zeros(g_h.num_nodes, dtype=int)
 
         for g_dim in grids[1:-1]:
             for g in g_dim:
@@ -197,7 +203,8 @@ def _tag_faces(grids, check_highest_dim=True):
 
                 # Only register tip nodes for fractures.
                 if g.dim == g_h.dim - 1:
-                    global_node_is_fracture_tip[nodes_glb[is_tip_node]] = True
+                    global_node_as_fracture_tip[nodes_glb[is_tip_node]] += 1
+                    num_occ_nodes[g.global_point_ind] += 1
 
                 # We reshape the nodes such that each column equals the nodes of
                 # one face. If a face only contains global boundary nodes, the
@@ -214,7 +221,11 @@ def _tag_faces(grids, check_highest_dim=True):
                 domain_boundary_tags[bnd_faces_l[np.logical_not(is_tip_face)]] = True
                 g.tags["domain_boundary_faces"] = domain_boundary_tags
 
-        g_h.tags["node_is_fracture_tip"] = global_node_is_fracture_tip.astype(bool)
+        # The tip nodes should both be on the tip of a fracture, and not be present
+        # on other fractures.
+        may_be_tip = global_node_as_fracture_tip == 1
+        occurs_once = num_occ_nodes == 1
+        g_h.tags["node_is_fracture_tip"] = np.logical_and(may_be_tip, occurs_once)
 
 
 @pp.time_logger(sections=module_sections)
