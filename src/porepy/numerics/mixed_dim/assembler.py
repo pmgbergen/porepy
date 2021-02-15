@@ -866,6 +866,12 @@ class Assembler:
                     loc_mat, _ = self._assign_matrix_vector(
                         self.full_dof[[primary_idx, edge_idx, oi]], sps_matrix
                     )
+                    assemble_matrix, assemble_rhs = True, True
+                    if assemble_matrix_only:
+                        assemble_rhs = False
+                    if assemble_rhs_only:
+                        assemble_matrix = False
+
                     (tmp_mat, loc_rhs) = edge_discr.assemble_edge_coupling_via_high_dim(
                         g_primary,
                         data_primary,
@@ -874,6 +880,8 @@ class Assembler:
                         other_edge,
                         data_other,
                         loc_mat,
+                        assemble_matrix=assemble_matrix,
+                        assemble_rhs=assemble_rhs,
                     )
                     matrix[mat_key][edge_idx, oi] = tmp_mat[1, 2]  # type:ignore
                     rhs[mat_key][edge_idx] += loc_rhs[1]  # type:ignore
@@ -912,8 +920,20 @@ class Assembler:
                     loc_mat, _ = self._assign_matrix_vector(
                         self.full_dof[[secondary_idx, edge_idx, oi]], sps_matrix
                     )
-                    (tmp_mat, loc_rhs) = edge_discr.assemble_edge_coupling_via_high_dim(
-                        g_secondary, data_secondary, data_edge, data_other, loc_mat
+                    assemble_matrix, assemble_rhs = True, True
+                    if assemble_matrix_only:
+                        assemble_rhs = False
+                    if assemble_rhs_only:
+                        assemble_matrix = False
+
+                    (tmp_mat, loc_rhs) = edge_discr.assemble_edge_coupling_via_low_dim(
+                        g_secondary,
+                        data_secondary,
+                        data_edge,
+                        data_other,
+                        loc_mat,
+                        assemble_matrix=assemble_matrix,
+                        assemble_rhs=assemble_rhs,
                     )
                     matrix[mat_key][edge_idx, oi] = tmp_mat[1, 2]  # type:ignore
                     rhs[mat_key][edge_idx] += loc_rhs[1]
