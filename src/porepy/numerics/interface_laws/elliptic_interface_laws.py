@@ -146,7 +146,7 @@ class RobinCoupling(
         # We know that the ambient dimension for the vector source must be at least as
         # high as g_h, thus taking the first vector_source_dim components of the normal
         # vector should be fine.
-        vals = outwards_unit_mortar_normals[:vector_source_dim].ravel("f")
+        vals = outwards_unit_mortar_normals[:vector_source_dim].ravel("F")
 
         # The values in vals are sorted by the mortar cell index ordering (proj is a
         # csr matrix).
@@ -154,7 +154,7 @@ class RobinCoupling(
 
         # The mortar cell indices are expanded to account for the vector source
         # having multiple dimensions
-        rows = np.tile(ci_mortar, (vector_source_dim, 1)).ravel("f")
+        rows = np.tile(ci_mortar, (vector_source_dim, 1)).ravel("F")
         # Columns must account for the values being vector values.
         cols = pp.fvutils.expand_indices_nd(ci_mortar, vector_source_dim)
 
@@ -439,9 +439,20 @@ class RobinCoupling(
         mg_primary = data_primary_edge["mortar_grid"]
         mg_secondary = data_secondary_edge["mortar_grid"]
 
-        cc, rhs = self._define_local_block_matrix_edge_coupling(
-            g, self.discr_primary, mg_primary, mg_secondary, matrix
-        )
+        if assemble_matrix:
+            cc, rhs = self._define_local_block_matrix_edge_coupling(
+                g, self.discr_primary, mg_primary, mg_secondary, matrix
+            )
+        else:
+            rhs = self._define_local_block_matrix_edge_coupling(
+                g,
+                self.discr_primary,
+                mg_primary,
+                mg_secondary,
+                matrix,
+                create_matrix=False,
+            )
+
         matrix_dictionary_edge = data_primary_edge[pp.DISCRETIZATION_MATRICES][
             self.keyword
         ]
@@ -474,6 +485,8 @@ class RobinCoupling(
                 cc[1, block] = (
                     matrix_dictionary_edge[self.mortar_scaling_key] * cc[1, block]
                 )
+        else:
+            cc = None
 
         if assemble_rhs:
             rhs[1] = matrix_dictionary_edge[self.mortar_scaling_key] * rhs[1]
@@ -552,9 +565,18 @@ class FluxPressureContinuity(RobinCoupling):
 
         # Generate matrix for the coupling.
         mg = data_edge["mortar_grid"]
-        cc_primary, rhs_primary = self._define_local_block_matrix(
-            g_primary, g_secondary, self.discr_primary, self.discr_secondary, mg, matrix
+        rhs_primary = self._define_local_block_matrix(
+            g_primary,
+            g_secondary,
+            self.discr_primary,
+            self.discr_secondary,
+            mg,
+            matrix,
+            create_matrix=False,
         )
+        # Make a variable that corresponds to the matrix, should not be used
+        cc_primary = None
+
         # I got some problems with pointers when doing rhs_primary = rhs_secondary.copy()
         # so just reconstruct everything.
         rhs_secondary = np.empty(3, dtype=object)
