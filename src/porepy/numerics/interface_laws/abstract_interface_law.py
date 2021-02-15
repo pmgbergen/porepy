@@ -228,6 +228,7 @@ class AbstractInterfaceLaw(abc.ABC):
         discr_secondary: Discretization,
         mg: pp.MortarGrid,
         matrix: np.ndarray,
+        create_matrix: bool = True,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Initialize a block matrix and right hand side for the local linear
         system of the primary and secondary grid and the interface.
@@ -255,7 +256,6 @@ class AbstractInterfaceLaw(abc.ABC):
                 secondary and mortar variable, respectively.
 
         """
-
         primary_ind = 0
         secondary_ind = 1
         mortar_ind = 2
@@ -285,8 +285,9 @@ class AbstractInterfaceLaw(abc.ABC):
         # We know the number of dofs from the primary and secondary side from their
         # discretizations
         dof = np.array([dof_primary, dof_secondary, dof_mortar])
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc = cc.reshape((3, 3))
+        if create_matrix:
+            cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+            cc = cc.reshape((3, 3))
 
         # The rhs is just zeros
         rhs = np.empty(3, dtype=object)
@@ -294,7 +295,10 @@ class AbstractInterfaceLaw(abc.ABC):
         rhs[secondary_ind] = np.zeros(dof_secondary)
         rhs[mortar_ind] = np.zeros(dof_mortar)
 
-        return cc, rhs
+        if not create_matrix:
+            return rhs
+        else:
+            return cc, rhs
 
     @pp.time_logger(sections=module_sections)
     def _define_local_block_matrix_edge_coupling(
