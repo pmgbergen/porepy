@@ -412,6 +412,8 @@ class RobinCoupling(
         edge_secondary,
         data_secondary_edge,
         matrix,
+        assemble_matrix=True,
+        assemble_rhs=True,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Represent the impact on a primary interface of the mortar (thus boundary)
         flux on a secondary interface.
@@ -437,39 +439,44 @@ class RobinCoupling(
         mg_primary = data_primary_edge["mortar_grid"]
         mg_secondary = data_secondary_edge["mortar_grid"]
 
-        # Normally, the projections will be pressure from the primary (high-dim node)
-        # to the primary mortar, and flux from secondary mortar to primary
-        proj_pressure = mg_primary.primary_to_mortar_avg()
-        proj_flux = mg_secondary.mortar_to_primary_int()
-
-        # If the primary and / or secondary mortar is a boundary mortar grid, things
-        # become more complex. This probably assumes that a FluxPressureContinuity
-        # discretization is applied on the relevant mortar grid.
-        if edge_primary[0].dim == edge_primary[1].dim and edge_primary[0] == g:
-            proj_pressure = mg_primary.secondary_to_mortar_avg()
-        if edge_secondary[0].dim == edge_secondary[1].dim and edge_secondary[0] == g:
-            proj_flux = mg_secondary.mortar_to_secondary_int()
-
         cc, rhs = self._define_local_block_matrix_edge_coupling(
             g, self.discr_primary, mg_primary, mg_secondary, matrix
         )
-
-        # Assemble contribution between higher dimensions.
-        self.discr_primary.assemble_int_bound_pressure_trace_between_interfaces(
-            g, data_grid, proj_pressure, proj_flux, cc, matrix, rhs
-        )
-        # Scale the equations (this will modify from K^-1 to K scaling if relevant)
         matrix_dictionary_edge = data_primary_edge[pp.DISCRETIZATION_MATRICES][
             self.keyword
         ]
-        for block in range(cc.shape[1]):
-            # Scale the pressure blocks in the row of the primary mortar problem.
-            # The secondary mortar will be treated somewhere else (handled by the
-            # assembler).
-            cc[1, block] = (
-                matrix_dictionary_edge[self.mortar_scaling_key] * cc[1, block]
+
+        if assemble_matrix:
+            # Normally, the projections will be pressure from the primary (high-dim node)
+            # to the primary mortar, and flux from secondary mortar to primary
+            proj_pressure = mg_primary.primary_to_mortar_avg()
+            proj_flux = mg_secondary.mortar_to_primary_int()
+
+            # If the primary and / or secondary mortar is a boundary mortar grid, things
+            # become more complex. This probably assumes that a FluxPressureContinuity
+            # discretization is applied on the relevant mortar grid.
+            if edge_primary[0].dim == edge_primary[1].dim and edge_primary[0] == g:
+                proj_pressure = mg_primary.secondary_to_mortar_avg()
+            if (
+                edge_secondary[0].dim == edge_secondary[1].dim
+                and edge_secondary[0] == g
+            ):
+                proj_flux = mg_secondary.mortar_to_secondary_int()
+            # Assemble contribution between higher dimensions.
+            self.discr_primary.assemble_int_bound_pressure_trace_between_interfaces(
+                g, data_grid, proj_pressure, proj_flux, cc, matrix, rhs
             )
-        rhs[1] = matrix_dictionary_edge[self.mortar_scaling_key] * rhs[1]
+            # Scale the equations (this will modify from K^-1 to K scaling if relevant)
+            for block in range(cc.shape[1]):
+                # Scale the pressure blocks in the row of the primary mortar problem.
+                # The secondary mortar will be treated somewhere else (handled by the
+                # assembler).
+                cc[1, block] = (
+                    matrix_dictionary_edge[self.mortar_scaling_key] * cc[1, block]
+                )
+
+        if assemble_rhs:
+            rhs[1] = matrix_dictionary_edge[self.mortar_scaling_key] * rhs[1]
 
         return cc, rhs
 
