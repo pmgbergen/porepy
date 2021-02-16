@@ -145,22 +145,23 @@ def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucke
 @pp.time_logger(sections=module_sections)
 def _tag_faces(grids, check_highest_dim=True):
     """
-    Tag faces of grids. Three different tags are given to different types of
-    faces:
-        NONE: None of the below (i.e. an internal face)
-        DOMAIN_BOUNDARY: All faces that lie on the domain boundary
-            (i.e. should be given a boundary condition).
-        FRACTURE: All faces that are split (i.e. has a connection to a
-            lower dim grid).
-        TIP: A boundary face that is not on the domain boundary, nor
-            coupled to a lower domentional domain.
+        Tag faces of grids. Three different tags are given to different types of
+        faces:
+            NONE: None of the below (i.e. an internal face)
+            DOMAIN_BOUNDARY: All faces that lie on the domain boundary
+                (i.e. should be given a boundary condition).
+            FRACTURE: All faces that are split (i.e. has a connection to a
+                lower dim grid).
+            TIP: A boundary face that is not on the domain boundary, nor
+                coupled to a lower domentional domain.
 
-    Parameters:
-        grids (list): List of grids to be tagged. Sorted per dimension.
-        check_highest_dim (boolean, default=True): If true, we require there is
-            a single mesh in the highest dimension. The test is useful, but
-            should be waived for dfn meshes.
-
+        Parameters:
+            grids (list): List of grids to be tagged. Sorted per dimension.
+            check_highest_dim (boolean, default=True): If true, we require there is
+                a single mesh in the highest dimension. The test is useful, but
+                should be waived for dfn meshes.
+            tag_tip_node (bool, default=True): If True, nodes in the highest-dimensional grid
+    are tagged
     """
 
     # Assume only one grid of highest dimension
@@ -182,10 +183,16 @@ def _tag_faces(grids, check_highest_dim=True):
         # among the grids of dimension dim_max - 1. Exclude tips that also occur on
         # other fractures (this will correspond to T or L-intersection, which look
         # like tips from individual fractures).
+
+        # IMPLEMENTATION NOTE: To account for cases where not all global nodes are
+        # present in g_h (e.g. for DFN-type grids), and avoid issues relating to nodes
+        # in lower-dimensional grids that are not present in g_h, we store node numbers
+        # instead of using booleans arrays on the nodes in g_h.
+
         # Keep track of nodes in g_h that correspond to tip nodes of a fracture.
-        global_node_as_fracture_tip = np.zeros(g_h.num_nodes, dtype=int)
+        global_node_as_fracture_tip = np.array([], dtype=int)
         # Also count the number of occurences of nodes on fractures
-        num_occ_nodes = np.zeros(g_h.num_nodes, dtype=int)
+        num_occ_nodes = np.array([], dtype=int)
 
         for g_dim in grids[1:-1]:
             for g in g_dim:
@@ -203,8 +210,10 @@ def _tag_faces(grids, check_highest_dim=True):
 
                 # Only register tip nodes for fractures.
                 if g.dim == g_h.dim - 1:
-                    global_node_as_fracture_tip[nodes_glb[is_tip_node]] += 1
-                    num_occ_nodes[g.global_point_ind] += 1
+                    global_node_as_fracture_tip = np.hstack(
+                        (global_node_as_fracture_tip, np.unique(nodes_glb[is_tip_node]))
+                    )
+                    num_occ_nodes = np.hstack((num_occ_nodes, g.global_point_ind))
 
                 # We reshape the nodes such that each column equals the nodes of
                 # one face. If a face only contains global boundary nodes, the
@@ -223,9 +232,18 @@ def _tag_faces(grids, check_highest_dim=True):
 
         # The tip nodes should both be on the tip of a fracture, and not be present
         # on other fractures.
-        may_be_tip = global_node_as_fracture_tip == 1
-        occurs_once = num_occ_nodes == 1
-        g_h.tags["node_is_fracture_tip"] = np.logical_and(may_be_tip, occurs_once)
+        may_be_tip = np.where(np.bincount(global_node_as_fracture_tip) == 1)[0]
+        occurs_once = np.where(np.bincount(num_occ_nodes) == 1)[0]
+        true_tip = np.intersect1d(may_be_tip, occurs_once)
+
+        # Take the intersection between tip nodes and the nodes in this fracture.
+        _, local_true_tip = pp.utils.setmembership.ismember_rows(
+            true_tip, g_h.global_point_ind
+        )
+        tip_tag = np.zeros(g_h.num_nodes, dtype=bool)
+        tip_tag[local_true_tip] = True
+
+        g_h.tags["node_is_fracture_tip"] = tip_tag
 
 
 @pp.time_logger(sections=module_sections)
