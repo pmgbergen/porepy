@@ -742,6 +742,7 @@ class FractureNetwork3d(object):
         gmsh_repr = self.prepare_for_gmsh(mesh_args, dfn, constraints)
 
         gmsh_writer = GmshWriter(gmsh_repr)
+
         if dfn:
             dim_meshing = 2
         else:
@@ -978,7 +979,7 @@ class FractureNetwork3d(object):
             if has_boundary and self.tags["boundary"][fi]:
                 physical_surfaces[fi] = Tags.DOMAIN_BOUNDARY_SURFACE
                 polygon_tags[fi] = Tags.DOMAIN_BOUNDARY_SURFACE.value
-            elif fi + num_bound_surf in constraints:
+            elif fi in constraints:
                 physical_surfaces[fi] = Tags.AUXILIARY
                 polygon_tags[fi] = Tags.AUXILIARY.value
             else:
