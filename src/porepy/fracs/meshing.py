@@ -205,15 +205,9 @@ def _tag_faces(grids, check_highest_dim=True):
                 nodes_glb = g.global_point_ind[nodes_loc]
                 # We then tag each node as a tip node if it is not a global
                 # boundary node
-                is_tip_node = np.in1d(nodes_glb, bnd_nodes_glb, invert=True)
-                g.tags["tip_nodes"] = is_tip_node
-
-                # Only register tip nodes for fractures.
-                if g.dim == g_h.dim - 1:
-                    global_node_as_fracture_tip = np.hstack(
-                        (global_node_as_fracture_tip, np.unique(nodes_glb[is_tip_node]))
-                    )
-                    num_occ_nodes = np.hstack((num_occ_nodes, g.global_point_ind))
+                node_on_tip_not_global_bnd = np.in1d(
+                    nodes_glb, bnd_nodes_glb, invert=True
+                )
 
                 # We reshape the nodes such that each column equals the nodes of
                 # one face. If a face only contains global boundary nodes, the
@@ -221,14 +215,41 @@ def _tag_faces(grids, check_highest_dim=True):
                 # Note that we only consider boundary faces, hence any is okay.
                 n_per_face = _nodes_per_face(g)
                 is_tip_face = np.any(
-                    is_tip_node.reshape((n_per_face, bnd_faces_l.size), order="F"),
+                    node_on_tip_not_global_bnd.reshape(
+                        (n_per_face, bnd_faces_l.size), order="F"
+                    ),
                     axis=0,
                 )
 
+                # Tag faces on tips and boundaries
                 g.tags["tip_faces"][bnd_faces_l[is_tip_face]] = True
                 domain_boundary_tags = np.zeros(g.num_faces, dtype=bool)
                 domain_boundary_tags[bnd_faces_l[np.logical_not(is_tip_face)]] = True
                 g.tags["domain_boundary_faces"] = domain_boundary_tags
+
+                # Also tag the nodes of the lower-dimensional grid that are on a tip
+                is_tip_node = np.zeros(g.num_nodes, dtype=bool)
+                is_tip_node[nodes_loc[node_on_tip_not_global_bnd]] = True
+                g.tags["tip_nodes"] = is_tip_node
+
+                if g.dim == g_h.dim - 1:
+                    # For co-dimension 1, we also register those nodes in the host grid which
+                    # are correspond to the tip of a fracture. We use a slightly wider definition
+                    # of a fracture tip in this context: Nodes that are on the domain boundary,
+                    # but also part of a tip face (on the fracture) which extends into the domain
+                    # are also considered to be tip nodes. Filtering away these will be simple,
+                    # using the domain_boundary_nodes tag, if necessary.
+                    nodes_on_fracture_tip = np.unique(
+                        nodes_glb.reshape((n_per_face, bnd_faces_l.size), order="F")[
+                            :, is_tip_face
+                        ]
+                    )
+
+                    global_node_as_fracture_tip = np.hstack(
+                        (global_node_as_fracture_tip, nodes_on_fracture_tip)
+                    )
+                    # Count all global nodes used in this
+                    num_occ_nodes = np.hstack((num_occ_nodes, g.global_point_ind))
 
         # The tip nodes should both be on the tip of a fracture, and not be present
         # on other fractures.
@@ -242,7 +263,6 @@ def _tag_faces(grids, check_highest_dim=True):
         )
         tip_tag = np.zeros(g_h.num_nodes, dtype=bool)
         tip_tag[local_true_tip] = True
-
         g_h.tags["node_is_fracture_tip"] = tip_tag
 
 
