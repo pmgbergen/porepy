@@ -277,6 +277,10 @@ class Fracture(object):
             boolean, true if the polygon is convex.
 
         """
+        if self.p.shape[1] == 3:
+            # A triangle is always convex
+            return True
+
         p_2d = self.plane_coordinates()
         return self.as_sp_polygon(p_2d).is_convex()
 
