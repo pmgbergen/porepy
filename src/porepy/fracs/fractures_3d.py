@@ -2187,12 +2187,11 @@ class FractureNetwork3d(object):
         self.mesh_size_min = mesh_size_min
         self.mesh_size_bound = mesh_size_bound
 
-        @pp.time_logger(sections=module_sections)
         def dist_p(a, b):
-            a = a.reshape((-1, 1))
+            if a.size == 3:
+                a = a.reshape((-1, 1))
             b = b.reshape((-1, 1))
-            d = b - a
-            return np.sqrt(np.sum(d ** 2))
+            return np.sqrt(np.sum(np.power(b - a, 2), axis=0))
 
         intersecting_fracs = []
         # Loop over all fractures
@@ -2255,12 +2254,134 @@ class FractureNetwork3d(object):
             # Take note of the intersecting fractures
             intersecting_fracs.append(isect_f)
 
+
+        # Next, insert points along segments that are close to other fractures,
+        # which are not touching. The insertion is not symmetric, so that when
+        # a point is inserted on one fracture, it is not inserted on the close
+        # fracture which triggered the insertion (the corresponding point on the
+        # second fracture may beinserted on later).
         for fi, f in enumerate(self._fractures):
-            nfp = f.p.shape[1]
+
             # Do not insert auxiliary points on domain boundaries
             if "boundary" in self.tags.keys() and self.tags["boundary"][fi]:
                 continue
 
+            # Get the segments of all other fractures which do no intersect with
+            # the main one.
+            # First the indices
+            other_fractures= []
+            for of in self._fractures:
+                if not (of.index in intersecting_fracs[fi] or of.index == f.index):
+                    other_fractures.append(of)
+
+            # If no other fractures were found, we go on.
+            if len(other_fractures) == 0:
+                continue
+
+            # Next, arrays of start and end points. This allows us to use the
+            # vectorized segment-segment distance computation.
+            start_all = np.zeros((3, 0))
+            end_all = np.zeros((3, 0))
+            for of in other_fractures:
+                start_all = np.hstack((start_all, of.p))
+                end_all = np.hstack((end_all, np.roll(of.p, -1, axis=1)))
+
+            # Now, loop over all segments in the main fracture, look for close
+            # segments on other fractures, and insert points along the main
+            # segment if some are close enough. Points may be inserted if the
+            # other fracture is closer than mesh_size_frac, however, the
+            # auxiliary points should not be too dense along the main segment.
+            # Specifically, points are only inserted if the distance form existing
+            # points on the segment (endpoint or auxiliary) is larger than the
+            # minimum distance. This implies that if several other fractures
+            # have nearby closest points along the segment, only some of the
+            # possible auxiliary points wil be inserted, however, the mesh
+            # size in that part of the segment should still be fairly small.
+
+            # Since the number of points in the fracture description changes by
+            # insertion of auxiliary points, we use a counter and while loop
+            # to loop over the segments.
+            start_index = 0
+
+            while start_index < f.p.shape[1]:
+                # Start and end of this segment. These should be vertexes in the
+                # original fracture (prior to insertion of auxiliary points)
+                seg_start = f.p[:, start_index].reshape((-1, 1))
+                # Modulus to finish the final segment of the fracture.
+                seg_end = f.p[:, (start_index + 1) % f.p.shape[1]].reshape((-1, 1))
+
+                # Find the distance from this segment to all other segments
+                # (not intersecting).
+                dist, cp_f, _ = pp.distances.segment_segment_set(
+                    seg_start, seg_end, start_all, end_all
+                    )
+
+                # Sort the points according to distances, so that we try to insert
+                # the most needed auxiliary points first
+                sort_ind = np.argsort(dist)
+                dist = dist[sort_ind]
+                cp_f = cp_f[:, sort_ind]
+
+                # Chances are, many of the other segments will be closest to an end
+                # of this segment. These can be disregarded (below).
+                dist_segment_ends = np.minimum(dist_p(cp_f, seg_start), dist_p(cp_f, seg_end))
+                not_closest_on_ends = dist_segment_ends > mesh_size_min
+
+                # Also cut all points corresponding to segments that are further
+                # away than the prescribed fracture mesh size
+                not_far_away = dist < mesh_size_frac
+
+                is_candidate = np.logical_and(not_closest_on_ends, not_far_away)
+
+                if not np.any(is_candidate):
+                    # If no candidate point was found for this edge, we can move on:
+                    # Increase the start index to hit the next segment along the main
+                    # fracture.
+                    start_index += 1
+                else:
+                    # First pick out all condidate auxiliary points, then reduce
+                    # to a unique subset (close candidate points may occur e.g.
+                    # for fractures close to complex domain boundaries.)
+                    candidates = cp_f[:, is_candidate]
+                    unique_candidates, _, o2n = pp.utils.setmembership.unique_columns_tol(candidates, self.tol)
+
+                    # Make arrays for points along the segment (originally the
+                    # endpoints), and for the auxiliary points
+                    segment_points = np.hstack((seg_start, seg_end))
+                    new_points = np.zeros((3, 0))
+
+                    # Loop over all candidate points (due to the sorting on
+                    # distances, the candidates corresponds to increasing distance
+                    # from the nearby fracture).
+                    for point_counter in range(unique_candidates.shape[1]):
+                        pt = unique_candidates[:, point_counter].reshape((-1, 1))
+
+                        # Insert the candidate point if it is sufficiently far
+                        # away from existing points along the line.
+                        if np.min(dist_p(segment_points, pt)) > mesh_size_min:
+                            # No sorting of points along the line, take care
+                            # of this below.
+                            segment_points = np.hstack((segment_points, pt))
+                            # Register new point.
+                            new_points = np.hstack((new_points, pt))
+
+                    # Compute distance between new points and segment start
+                    dist_from_start = dist_p(new_points, seg_start)
+
+                    # Sort the new points according to distance. This will make
+                    # the new sub-segments a line along the main segment. Then insert.
+                    sorted_new = new_points[:, np.argsort(dist_from_start)]
+
+                    f.p = np.insert(f.p, [start_index + 1], sorted_new, axis=1)
+                    #breakpoint()
+                    for pi in range(sorted_new.shape[1]):
+                        self._split_intersections_of_fracture(fi, sorted_new[:, pi].reshape((-1, 1)))
+
+                    # Move the start index to the next segment, compensating for
+                    # inserted auxiliary points.
+                    start_index += 1 + sorted_new.shape[1]
+
+            """
             for of in self._fractures:
                 # Can do some box arguments here to avoid computations
 
@@ -2307,7 +2428,7 @@ class FractureNetwork3d(object):
                             # Check if some of the intersections of the fracture should
                             # be split when the new point is added.
                             self._split_intersections_of_fracture(fi, cp_fm)
-
+            """
     @pp.time_logger(sections=module_sections)
     def _split_intersections_of_fracture(self, fi, cp):
         """Check if a point lies on intersections of a given fracture, and if so,
