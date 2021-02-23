@@ -263,7 +263,15 @@ def _tag_faces(grids, check_highest_dim=True):
         )
         tip_tag = np.zeros(g_h.num_nodes, dtype=bool)
         tip_tag[local_true_tip] = True
+        # Tag nodes that are on the tip of a fracture, and not involved in other fractures
         g_h.tags["node_is_fracture_tip"] = tip_tag
+
+        on_any_tip = np.where(np.bincount(global_node_as_fracture_tip) > 0)[0]
+        _, local_any_tip = pp.utils.setmembership.ismember_rows(on_any_tip, g_h.global_point_ind)
+        tip_of_a_fracture = np.zeros_like(tip_tag)
+        tip_of_a_fracture[local_any_tip] = True
+        # Tag nodes that are on the tip of a fracture, independent of whether it is
+        g_h.tags['node_is_tip_of_some_fracture'] = tip_of_a_fracture
 
 
 @pp.time_logger(sections=module_sections)
