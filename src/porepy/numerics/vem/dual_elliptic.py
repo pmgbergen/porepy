@@ -486,6 +486,8 @@ class DualElliptic(
         rhs: np.ndarray,
         self_ind: int,
         use_secondary_proj: bool = False,
+        assemble_matrix=True,
+        assemble_rhs=True,
     ) -> None:
         """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
