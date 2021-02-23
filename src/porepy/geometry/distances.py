@@ -544,7 +544,7 @@ def segments_polygon(start, end, poly, tol=1e-5):
             cp_l = cp_e_p
 
         poly_start = poly
-        poly_end = np.roll(poly, -1)
+        poly_end = np.roll(poly, -1, axis=1)
 
         ds, cp_s, _ = segment_segment_set(
             start[:, si], end[:, si], poly_start, poly_end
