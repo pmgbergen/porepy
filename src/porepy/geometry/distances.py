@@ -67,141 +67,114 @@ def segment_segment_set(start, end, start_set, end_set):
             point closest on the secondary segment
 
     """
-    start = np.squeeze(start)
-    end = np.squeeze(end)
+    start = start.reshape((-1, 1))
+    end = end.reshape((-1, 1))
 
-    nd = start.shape[0]
-    ns = start_set.shape[1]
-
-    d = np.zeros(ns)
-    cp_set = np.zeros((nd, ns))
-    cp = np.zeros((nd, ns))
-
-    # Loop over all segments, compute the distance and closest point compared
-    # to the main one.
-    for i in range(ns):
-        dl, cpi, cpj = two_segments(start, end, start_set[:, i], end_set[:, i])
-        d[i] = dl
-        cp[:, i] = cpi
-        cp_set[:, i] = cpj
-
-    return d, cp, cp_set
-
-
-@pp.time_logger(sections=module_sections)
-def two_segments(s1_start, s1_end, s2_start, s2_end):
-    """
-    Compute the distance between two line segments.
-
-    Also find the closest point on each of the two segments. In the case where
-    the closest points are not unique (parallel lines), points somewhere along
-    the segments are returned.
-
-    The implementaion is based on http://geomalgorithms.com/a07-_distance.html
-    (C++ code can be found somewhere on the page). Also confer that page for
-    explanation of the algorithm.
-
-    Implementation note:
-        It should be possible to rewrite the algorithm to allow for one of (or
-        both?) segments to be a set of segments, thus exploiting
-        vectorization.
-
-    Parameters:
-        s1_start (np.array, size nd): Start point for the first segment
-        s1_end (np.array, size nd): End point for the first segment
-        s2_start (np.array, size nd): Start point for the second segment
-        s2_end (np.array, size nd): End point for the second segment
-
-    Returns:
-        double: Minimum distance between the segments
-        np.array (size nd): Closest point on the first segment
-        np.array (size nd): Closest point on the second segment
-
-    """
-    s1_start = s1_start.ravel()
-    s2_start = s2_start.ravel()
-
-    s1_end = s1_end.ravel()
-    s2_end = s2_end.ravel()
+    if start_set.size < 4:
+        start_set = start_set.reshape((-1, 1))
+        end_set = end_set.reshape((-1, 1))
 
     # For the rest of the algorithm, see the webpage referred to above for details.
-    d1 = s1_end - s1_start
-    d2 = s2_end - s2_start
-    d_starts = s1_start - s2_start
+    d1 = end - start
+    d2 = end_set - start_set
+    d_starts = start - start_set
 
-    dot_1_1 = d1.dot(d1)
-    dot_1_2 = d1.dot(d2)
-    dot_2_2 = d2.dot(d2)
-    dot_1_starts = d1.dot(d_starts)
-    dot_2_starts = d2.dot(d_starts)
+    def dot(v1, v2):
+        return np.sum(v1 * v2, axis=0)
+
+    dot_1_1 = dot(d1, d1)
+    dot_1_2 = dot(d1, d2)
+    dot_2_2 = dot(d2, d2)
+    dot_1_starts = dot(d1, d_starts)
+    dot_2_starts = dot(d2, d_starts)
     discr = dot_1_1 * dot_2_2 - dot_1_2 ** 2
 
     # Variable used to fine almost parallel lines. Sensitivity to this value has not
     # been tested.
-    SMALL_TOLERANCE = 1e-8 * np.minimum(dot_1_1, dot_2_2)
+    SMALL_TOLERANCE = 1e-8 * np.minimum(dot_1_1, np.min(dot_2_2))
 
     # Sanity check
-    assert discr >= -SMALL_TOLERANCE * dot_1_1 * dot_2_2
+    assert np.all(discr >= -SMALL_TOLERANCE * dot_1_1 * dot_2_2)
 
-    sc = sN = sD = discr
-    tc = tN = tD = discr
+    sc = discr.copy()
+    sN = discr.copy()
+    sD = discr.copy()
+    tc = discr.copy()
+    tN = discr.copy()
+    tD = discr.copy()
 
-    if discr < SMALL_TOLERANCE:
-        sN = 0
-        sD = 1
-        tN = dot_2_starts
-        tD = dot_2_2
-    else:
-        sN = dot_1_2 * dot_2_starts - dot_2_2 * dot_1_starts
-        tN = dot_1_1 * dot_2_starts - dot_1_2 * dot_1_starts
-        if sN < 0.0:  # sc < 0 => the s=0 edge is visible
-            sN = 0.0
-            tN = dot_2_starts
-            tD = dot_2_2
+    parallel = discr < SMALL_TOLERANCE
+    not_parallel = np.logical_not(parallel)
 
-        elif sN > sD:  # sc > 1  => the s=1 edge is visible
-            sN = sD
-            tN = dot_1_2 + dot_2_starts
-            tD = dot_2_2
+    sN[parallel] = 0
+    sD[parallel] = 1
+    tN[parallel] = dot_2_starts[parallel]
+    tD[parallel] = dot_2_2[parallel]
 
-    if tN < 0.0:  # tc < 0 => the t=0 edge is visible
-        tN = 0.0
-        # recompute sc for this edge
-        if -dot_1_starts < 0.0:
-            sN = 0.0
-        elif -dot_1_starts > dot_1_1:
-            sN = sD
-        else:
-            sN = -dot_1_starts
-            sD = dot_1_1
-    elif tN > tD:  # tc > 1  => the t=1 edge is visible
-        tN = tD
-        # recompute sc for this edge
-        if (-dot_1_starts + dot_1_2) < 0.0:
-            sN = 0
-        elif (-dot_1_starts + dot_1_2) > dot_1_1:
-            sN = sD
-        else:
-            sN = -dot_1_starts + dot_1_2
-            sD = dot_1_1
+    sN[not_parallel] = (
+        dot_1_2[not_parallel] * dot_2_starts[not_parallel]
+        - dot_2_2[not_parallel] * dot_1_starts[not_parallel]
+    )
+    tN[not_parallel] = (
+        dot_1_1 * dot_2_starts[not_parallel]
+        - dot_1_2[not_parallel] * dot_1_starts[not_parallel]
+    )
 
-    # finally do the division to get sc and tc
-    if abs(sN) < SMALL_TOLERANCE:
-        sc = 0.0
-    else:
-        sc = sN / sD
-    if abs(tN) < SMALL_TOLERANCE:
-        tc = 0.0
-    else:
-        tc = tN / tD
+    # sc < 0 => the s=0 edge is visible
+    s0_visible = np.logical_and(not_parallel, sN < 0)
+    # sc > 1  => the s=1 edge is visible
+    s1_visible = np.logical_and(not_parallel, sN > sD)
+    sN[s0_visible] = 0.0
+    tN[s0_visible] = dot_2_starts[s0_visible]
+    tD[s0_visible] = dot_2_2[s0_visible]
+
+    sN[s1_visible] = sD[s1_visible]
+    tN[s1_visible] = dot_1_2[s1_visible] + dot_2_starts[s1_visible]
+    tD[s1_visible] = dot_2_2[s1_visible]
+
+    t0_visible = tN < 0
+
+    pos_dot_1_start = np.logical_and(t0_visible, dot_1_starts > 0)
+    dot_1_start_g_dot_1_1 = np.logical_and(t0_visible, -dot_1_starts > dot_1_1)
+    other = np.logical_and(
+        t0_visible,
+        np.logical_and(
+            np.logical_not(pos_dot_1_start), np.logical_not(dot_1_start_g_dot_1_1)
+        ),
+    )
+
+    tN[t0_visible] = 0
+    sN[pos_dot_1_start] = 0
+    sN[dot_1_start_g_dot_1_1] = sD[dot_1_start_g_dot_1_1]
+    sN[other] = -dot_1_starts[other]
+    sD[other] = dot_1_1
+
+    t1_visible = tN > tD
+    case_1 = np.logical_and(t1_visible, (-dot_1_starts + dot_1_2) < 0)
+    case_2 = np.logical_and(t1_visible, (-dot_1_starts + dot_1_2) > dot_1_1)
+    case_3 = np.logical_and(
+        t1_visible, np.logical_and(np.logical_not(case_1), np.logical_not(case_2))
+    )
+
+    tN[t1_visible] = tD[t1_visible]
+    sN[case_1] = 0
+    sN[case_2] = sD[case_2]
+    sN[case_3] = -dot_1_starts[case_3] + dot_1_2[case_3]
+    sD[case_3] = dot_1_1
+
+    sc = sN / sD
+    sc[sN < SMALL_TOLERANCE] = 0
+
+    tc = tN / tD
+    tc[tN < SMALL_TOLERANCE] = 0
 
     # get the difference of the two closest points
     dist = d_starts + sc * d1 - tc * d2
 
-    cp1 = s1_start + d1 * sc
-    cp2 = s2_start + d2 * tc
+    cp1 = start + d1 * sc
+    cp2 = start_set + d2 * tc
 
-    return np.sqrt(dist.dot(dist)), cp1, cp2
+    return np.sqrt(np.sum(np.power(dist, 2), axis=0)), cp1, cp2
 
 
 @pp.time_logger(sections=module_sections)
@@ -554,31 +527,33 @@ def segments_polygon(start, end, poly, tol=1e-5):
     start = orig_start
     end = orig_end
 
-    # Distance from endpoints to
+    # Distance from endpoints to polygons
     d_start_poly, cp_s_p, _ = points_polygon(start, poly)
     d_end_poly, cp_e_p, _ = points_polygon(end, poly)
 
     # Loop over all segments that did not cross the polygon. The minimum is
     # found either by the endpoints, or as between two segments.
     for si in not_found:
+        # For starters, assume the closest point is on the start of the segment
         md = d_start_poly[si]
         cp_l = cp_s_p
 
+        # Update with the end coordinate if relevant
         if d_end_poly[si] < md:
             md = d_end_poly
             cp_l = cp_e_p
 
-        # Loop over polygon segments
-        for poly_i in range(num_vert):
-            ds, cp_s, _ = two_segments(
-                start[:, si],
-                end[:, si],
-                poly[:, poly_i],
-                poly[:, (poly_i + 1) % num_vert],
-            )
-            if ds < md:
-                md = ds
-                cp_l = cp_s
+        poly_start = poly
+        poly_end = np.roll(poly, -1)
+
+        ds, cp_s, _ = segment_segment_set(
+            start[:, si], end[:, si], poly_start, poly_end
+        )
+
+        min_seg = np.argmin(ds)
+        if ds[min_seg] < md:
+            md = ds[min_seg]
+            cp_l = cp_s[:, min_seg]
 
         # By now, we have found the minimum
         d[si] = md
