@@ -795,9 +795,10 @@ def duplicate_nodes(g, nodes, offset):
 
     # Also map the tags for nodes that are on fracture tips if this is relevant
     # (that is, if the grid is of the highest dimension)
-    key = "node_is_fracture_tip"
-    if key in g.tags:
-        g.tags[key] = g.tags[key][new_2_old_nodes].astype(bool)
+    keys = ["node_is_fracture_tip", "node_is_tip_of_some_fracture"]
+    for key in keys:
+        if key in g.tags:
+            g.tags[key] = g.tags[key][new_2_old_nodes].astype(bool)
 
     return num_added
 
