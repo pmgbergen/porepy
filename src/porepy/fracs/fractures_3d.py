@@ -8,7 +8,7 @@ import copy
 import csv
 import logging
 import time
-from typing import Dict
+from typing import Dict, Union, List, Dict, Tuple
 
 import meshio
 import numpy as np
@@ -461,132 +461,6 @@ class EllipticFracture(Fracture):
         assert pp.geometry_property_checks.points_are_planar(self.orig_p, self.normal)
 
 
-# -------------------------------------------------------------------------
-
-
-class Intersection(object):
-    """Class representing the intersection between two fractures.
-
-    Fractures are identified by their indexes, which is not robust. Apply with
-    care.
-
-    Intersections may be created even for non-intersecting fractures. These are
-    identified by an empty coordinate set. This behavior is unfortunate, but
-    caused by legacy design choices.
-
-    Attributes:
-        first (int): Index of first fracture.
-        second (int): Index of second fracture.
-        coord (np.array, 3xn_pt): End coordinates of intersection line. Should
-            contain up to two points. No points signifies this is an empty
-            intersection.
-        bound_first (boolean): Whether the intersection is on the boundary of
-            the first fracture.
-        bound_second (boolean): Whether the intersection is on the boundary of
-            the second fracture.
-
-    """
-
-    @pp.time_logger(sections=module_sections)
-    def __init__(
-        self, ind, first, second, coord, bound_first=False, bound_second=False
-    ):
-        """Initialize Intersection object.
-
-        Parameters:
-            first (int): Index of first fracture in intersection.
-            second (ind): Index of second fracture in intersection.
-            coord (np.arary, 3xn_pt): Index of intersection points. May have
-                from 0 to 2 points.
-            bound_first (boolean, optional). Is intersection on boundary of
-                first fracture? Defaults to false.
-            bound_second (boolean, optional). Is intersection on boundary of
-                second fracture? Defaults to false.
-
-        """
-        self.index = ind
-        self.first = first
-        self.second = second
-        self.coord = coord
-        # Information on whether the intersection points lies on the boundaries
-        # of the fractures
-        self.bound_first = bound_first
-        self.bound_second = bound_second
-
-    @pp.time_logger(sections=module_sections)
-    def __repr__(self):
-        s = (
-            "Intersection between fractures "
-            + str(self.first.index)
-            + " and "
-            + str(self.second.index)
-            + "\n"
-        )
-        s += "Intersection points: \n"
-        for i in range(self.coord.shape[1]):
-            s += (
-                "("
-                + str(self.coord[0, i])
-                + ", "
-                + str(self.coord[1, i])
-                + ", "
-                + str(self.coord[2, i])
-                + ") \n"
-            )
-        if self.coord.size > 0:
-            s += "On boundary of first fracture " + str(self.bound_first) + "\n"
-            s += "On boundary of second fracture " + str(self.bound_second)
-            s += "\n"
-        return s
-
-    @pp.time_logger(sections=module_sections)
-    def get_other_fracture(self, i):
-        """Get the other based on index.
-
-        Parameters:
-            i (int): Index of a fracture of this intersection.
-
-        Returns:
-            int: Index of the other fracture.
-
-        Raises:
-            ValueError if fracture with index i does not belong to
-                intersection.
-
-        """
-
-        if self.first == i:
-            return self.second
-        elif self.second == i:
-            return self.first
-        else:
-            raise ValueError("Fracture " + str(i) + " is not in intersection")
-
-    @pp.time_logger(sections=module_sections)
-    def on_boundary_of_fracture(self, i):
-        """Check if the intersection is on the boundary of a fracture.
-
-        Parameters:
-            i (int): Index of a fracture of this intersection.
-
-        Returns:
-            boolean: True if intersection is on boundary of this intersection.
-
-        Raises:
-            ValueError if fracture with index i does not belong to
-                intersection.
-        """
-        if self.first == i:
-            return self.bound_first
-        elif self.second == i:
-            return self.bound_second
-        else:
-            raise ValueError("Fracture " + str(i) + " is not in intersection")
-
-
-# ----------------------------------------------------------------------------
-
-
 class FractureNetwork3d(object):
     """
     Collection of Fractures with geometrical information. Facilitates
@@ -652,7 +526,19 @@ class FractureNetwork3d(object):
         for i, f in enumerate(self._fractures):
             f.set_index(i)
 
-        self.intersections = []
+        # Store intersection information as a dictionary. Keep track of
+        # the intersecting fractures, the start and end point of the intersection line,
+        # and whether the intersection is on the boundary of the fractures.
+        # Note that a Y-type intersection between three fractures is represented
+        # as three intersections.
+        self.intersections: Dict[str, np.ndarray] = {
+            "first": np.array([], dtype=object),
+            "second": np.array([], dtype=object),
+            "start": np.zeros((3, 0)),
+            "end": np.zeros((3, 0)),
+            "bound_first": np.array([], dtype=bool),
+            "bound_second": np.array([], dtype=bool),
+        }
 
         self.has_checked_intersections = False
         self.tol = tol
@@ -796,6 +682,10 @@ class FractureNetwork3d(object):
 
         # The implementation in this function is fairly straightforward, all
         # technical difficulties are hidden in other functions.
+
+        # Impose the boundary of the domain. This may cut and split fractures.
+        # FIXME: When fractures are split or deleted, there will likely be
+        # mapping errors between fracture indices.
         if not dfn and not self.bounding_box_imposed:
             self.impose_external_boundary(self.domain)
 
@@ -813,6 +703,9 @@ class FractureNetwork3d(object):
         if "mesh_size_min" not in mesh_args.keys():
             raise ValueError("Meshing algorithm needs argument mesh_size_min")
 
+        # Insert auxiliary points for mesh size control. This is done after the
+        # intersections are found, but before the fractures are collected into a
+        # set of edges (see split_intersecions).
         mesh_size_frac = mesh_args.get("mesh_size_frac", None)
         mesh_size_min = mesh_args.get("mesh_size_min", None)
         mesh_size_bound = mesh_args.get("mesh_size_bound", None)
@@ -1027,7 +920,9 @@ class FractureNetwork3d(object):
         return self._fractures[position]
 
     @pp.time_logger(sections=module_sections)
-    def intersections_of_fracture(self, frac):
+    def intersections_of_fracture(
+        self, frac: Union[int, Fracture]
+    ) -> Tuple[List[int], List[bool]]:
         """Get all known intersections for a fracture.
 
         If called before find_intersections(), the returned list will be empty.
@@ -1043,13 +938,18 @@ class FractureNetwork3d(object):
             fi = frac
         else:
             fi = frac.index
-        frac_arr = []
-        for i in self.intersections:
-            if i.coord.size == 0:
-                continue
-            if i.first.index == fi or i.second.index == fi:
-                frac_arr.append(i)
-        return frac_arr
+
+        isects = []
+        is_first = []
+        for i in range(len(self.intersections["first"])):
+            if self.intersections["first"][i].index == fi:
+                isects.append(i)
+                is_first.append(True)
+            elif self.intersections["second"][i].index == fi:
+                isects.append(i)
+                is_first.append((False))
+
+        return isects, is_first
 
     @pp.time_logger(sections=module_sections)
     def find_intersections(self, use_orig_points=False):
@@ -1126,74 +1026,20 @@ class FractureNetwork3d(object):
             on_bound_0 = bound_info[ind_0][np.floor(i0[0] / 2).astype(int)]
             on_bound_1 = bound_info[ind_1][np.floor(i1[0] / 2).astype(int)]
 
-            # Add the intersection to the internal list
-            self.intersections.append(
-                Intersection(
-                    len(self.intersections),
-                    self._fractures[ind_0],
-                    self._fractures[ind_1],
-                    isect[:, point_ind[ind_1][common_ind]],
-                    bound_first=on_bound_0,
-                    bound_second=on_bound_1,
-                )
+            # Add the intersection to the internal storage
+            self._add_intersection(
+                self._fractures[ind_0],
+                self._fractures[ind_1],
+                isect[:, point_ind[ind_1][common_ind[0]]],
+                isect[:, point_ind[ind_1][common_ind[1]]],
+                bound_first=on_bound_0,
+                bound_second=on_bound_1,
             )
         logger.info(
             "Found %i intersections. Ellapsed time: %.5f",
             len(self.intersections),
             time.time() - start_time,
         )
-
-    @pp.time_logger(sections=module_sections)
-    def intersection_info(self, frac_num=None):
-        """Obtain information on intersections of one or several fractures.
-
-        Specifically, the non-empty intersections are given for each fracture,
-        together with aggregated numbers.
-
-        Parameters:
-            frac_num (int or np.array, optional): Fractures to be considered.
-                Defaults to all fractures in network.
-
-        Returns:
-            str: Information on fracture intersections.
-
-        """
-        # Number of fractures with some intersection
-        num_intersecting_fracs = 0
-        # Number of intersections in total
-        num_intersections = 0
-
-        if frac_num is None:
-            frac_num = np.arange(len(self._fractures))
-
-        s = ""
-
-        for f in np.atleast_1d(np.asarray(frac_num)):
-            isects = []
-            for i in self.intersections:
-                if i.first.index == f and i.coord.shape[1] > 0:
-                    isects.append(i.second.index)
-                elif i.second.index == f and i.coord.shape[1] > 0:
-                    isects.append(i.first.index)
-            if len(isects) > 0:
-                num_intersecting_fracs += 1
-                num_intersections += len(isects)
-
-                s += (
-                    "Fracture " + str(f) + " intersects with"
-                    " fracture(s) " + str(isects) + "\n"
-                )
-        # Print aggregate numbers. Note that all intersections are counted
-        # twice (from first and second), thus divide by two.
-        s += (
-            "In total "
-            + str(num_intersecting_fracs)
-            + " fractures "
-            + "intersect in "
-            + str(int(num_intersections / 2))
-            + " intersections"
-        )
-        return s
 
     @pp.time_logger(sections=module_sections)
     def split_intersections(self):
@@ -1299,6 +1145,9 @@ class FractureNetwork3d(object):
                 edge is on the boundary of a fracture.
 
         """
+        # The workflow is based on first collecting information for all fractures,
+        # next get information for all intersections between fractures.
+
         logger.info("Compile list of points and edges")
         start_time = time.time()
 
@@ -1328,29 +1177,41 @@ class FractureNetwork3d(object):
                 edges_2_frac.append([fi])
                 is_boundary_edge.append([True])
 
-        # Next, loop over all intersections, and define new points and edges
-        for i in self.intersections:
-            # Only add information if the intersection exists, that is, it has
-            # a coordinate.
-            if i.coord.size > 0:
-                num_p = all_p.shape[1]
+        # Next, add points relating to the intersections between fractures.
+        # Since the intersections are already defined as numpy arrays, this is
+        # relatively straightforward.
+        num_isect = self.intersections["start"].shape[1]
+        num_p = all_p.shape[1]
 
-                all_p = np.hstack((all_p, i.coord))
+        # Intersection points are added by first all starts, then all ends
+        isect_pt = np.hstack((self.intersections["start"], self.intersections["end"]))
+        # Intersection edges are offset by the number of fracture edges
+        intersection_edges = num_p + np.vstack(
+            (np.arange(num_isect), num_isect + np.arange(num_isect))
+        )
+        # Merge fields
+        all_p = np.hstack((all_p, isect_pt))
+        edges = np.hstack((edges, intersection_edges))
 
-                edges = np.hstack((edges, num_p + np.arange(2).reshape((-1, 1))))
-                edges_2_frac.append([i.first.index, i.second.index])
-                # If the intersection points are on the boundary of both
-                # fractures, this is a boundary segment.
-                # This does not cover the case of a T-intersection, that will
-                # have to come later.
-                if i.bound_first and i.bound_second:
-                    is_boundary_edge.append([True, True])
-                elif i.bound_first and not i.bound_second:
-                    is_boundary_edge.append([True, False])
-                elif not i.bound_first and i.bound_second:
-                    is_boundary_edge.append([False, True])
-                else:
-                    is_boundary_edge.append([False, False])
+        # Mapping from intersections to their fractures
+        isect_2_frac = [
+            [
+                self.intersections["first"][i].index,
+                self.intersections["second"][i].index,
+            ]
+            for i in range(num_isect)
+        ]
+        edges_2_frac += isect_2_frac
+
+        # Boolean for intersections being on fracture boundaries
+        isect_is_boundary = [
+            [
+                self.intersections["bound_first"][i],
+                self.intersections["bound_second"][i],
+            ]
+            for i in range(num_isect)
+        ]
+        is_boundary_edge += isect_is_boundary
 
         # Ensure that edges are integers
         edges = edges.astype("int")
@@ -1359,6 +1220,7 @@ class FractureNetwork3d(object):
             "Points and edges done. Elapsed time %.5f", time.time() - start_time
         )
 
+        # Uniquify the points and edges before returning.
         return self._uniquify_points_and_edges(
             all_p, edges, edges_2_frac, is_boundary_edge
         )
@@ -2187,13 +2049,29 @@ class FractureNetwork3d(object):
         self.mesh_size_min = mesh_size_min
         self.mesh_size_bound = mesh_size_bound
 
+        # Auxiliary points may be added for two reasons: For fractures that do intersect
+        # the points are added on the segments on the fracture boundaries, close to the
+        # endpoints of the intersection segments. This is tailored to the way gmsh
+        # creates grids, with meshing of 1d lines before 2d surffaces.
+        # For non-intersecting fractures, auxiliary points may be added on the fracture
+        # segments if they are sufficiently close.
+
+        # FIXME: If a fracture is close to the interior of another fracture, this
+        # will not be seen by the current algorithm. The solution should be to add
+        # points to the fracture surface, but make sure that this is not decleared
+        # physical. The operation should only be done for fracture pairs where no
+        # auxiliary points were added because of close segments.
+
         def dist_p(a, b):
+            # Helper funciton to get the distance from a set of points (a) to a single point (b).
             if a.size == 3:
                 a = a.reshape((-1, 1))
             b = b.reshape((-1, 1))
             return np.sqrt(np.sum(np.power(b - a, 2), axis=0))
 
-        intersecting_fracs = []
+        # Dictionary that for each fracture maps the index of all other fractures.
+        intersecting_fracs: Dict[List[int]] = {}
+
         # Loop over all fractures
         for fi, f in enumerate(self._fractures):
 
@@ -2206,35 +2084,48 @@ class FractureNetwork3d(object):
 
             # Keep track of which other fractures are intersecting - will be
             # needed later on
-            isect_f = []
-            for i in self.intersections_of_fracture(f):
-                if f is i.first:
-                    isect_f.append(i.second.index)
+            intersections_this_fracture: List[int] = []
+
+            # Loop over all intersections of the fracture
+            isects, is_first_isect = self.intersections_of_fracture(f)
+            for (i, is_first) in zip(isects, is_first_isect):
+
+                # Register this intersection
+                if is_first:
+                    intersections_this_fracture.append(
+                        self.intersections["second"][i].index
+                    )
                 else:
-                    isect_f.append(i.first.index)
+                    intersections_this_fracture.append(
+                        self.intersections["first"][i].index
+                    )
 
                 # Find the point on the fracture segments that is closest to the
                 # intersection point
+                isect_coord = np.vstack(
+                    (self.intersections["start"][:, i], self.intersections["end"][:, i])
+                ).T
+
                 dist, cp = pp.distances.points_segments(
-                    i.coord, f.p, np.roll(f.p, -1, axis=1)
+                    isect_coord, f.p, np.roll(f.p, -1, axis=1)
                 )
                 # Insert a (candidate) point only at the segment closest to the
                 # intersection point. If the intersection line runs parallel
                 # with a segment, this may be insufficient, but we will deal
                 # with this if it turns out to be a problem.
                 closest_segment = np.argmin(dist, axis=1)
-                min_dist = dist[np.arange(i.coord.shape[1]), closest_segment]
+                min_dist = dist[np.arange(2), closest_segment]
 
                 inserted_points = 0
 
                 for pi, (si, di) in enumerate(zip(closest_segment, min_dist)):
                     if di < mesh_size_frac and di > mesh_size_min:
-                        # Distance between the closest point and the two end points of
-                        # this segment
+                        # Distance between the closest point aself.intersectionsnd the two end points of
+                        # this segmentself.intersectionsself.iself.intersectionsself.intersectionsntersections
                         d_1 = dist_p(cp[pi, si], f.p[:, si])
                         d_2 = dist_p(cp[pi, si], f.p[:, (si + 1) % nfp])
                         # If the intersection point is not very close to any of
-                        # the points on the segment, we split the segment.@
+                        # the points on the segment, we split the segment.
                         # NB: It is critical that this is done before a call to
                         # self.split_intersections(), or else the export to gmsh
                         # will go wrong.
@@ -2250,10 +2141,10 @@ class FractureNetwork3d(object):
                             nfp += 1
                             # Check if some of the intersections of the fracture should
                             # be split when the new point is added.
-                            self._split_intersections_of_fracture(fi, cp[pi, si])
-            # Take note of the intersecting fractures
-            intersecting_fracs.append(isect_f)
+                            self._split_intersections_of_fracture(cp[pi, si])
 
+            # Take note of the intersecting fractures
+            intersecting_fracs[fi] = intersections_this_fracture
 
         # Next, insert points along segments that are close to other fractures,
         # which are not touching. The insertion is not symmetric, so that when
@@ -2269,7 +2160,7 @@ class FractureNetwork3d(object):
             # Get the segments of all other fractures which do no intersect with
             # the main one.
             # First the indices
-            other_fractures= []
+            other_fractures = []
             for of in self._fractures:
                 if not (of.index in intersecting_fracs[fi] or of.index == f.index):
                     other_fractures.append(of)
@@ -2314,7 +2205,7 @@ class FractureNetwork3d(object):
                 # (not intersecting).
                 dist, cp_f, _ = pp.distances.segment_segment_set(
                     seg_start, seg_end, start_all, end_all
-                    )
+                )
 
                 # Sort the points according to distances, so that we try to insert
                 # the most needed auxiliary points first
@@ -2324,7 +2215,9 @@ class FractureNetwork3d(object):
 
                 # Chances are, many of the other segments will be closest to an end
                 # of this segment. These can be disregarded (below).
-                dist_segment_ends = np.minimum(dist_p(cp_f, seg_start), dist_p(cp_f, seg_end))
+                dist_segment_ends = np.minimum(
+                    dist_p(cp_f, seg_start), dist_p(cp_f, seg_end)
+                )
                 not_closest_on_ends = dist_segment_ends > mesh_size_min
 
                 # Also cut all points corresponding to segments that are further
@@ -2343,7 +2236,11 @@ class FractureNetwork3d(object):
                     # to a unique subset (close candidate points may occur e.g.
                     # for fractures close to complex domain boundaries.)
                     candidates = cp_f[:, is_candidate]
-                    unique_candidates, _, o2n = pp.utils.setmembership.unique_columns_tol(candidates, self.tol)
+                    (
+                        unique_candidates,
+                        _,
+                        o2n,
+                    ) = pp.utils.setmembership.unique_columns_tol(candidates, self.tol)
 
                     # Make arrays for points along the segment (originally the
                     # endpoints), and for the auxiliary points
@@ -2373,119 +2270,118 @@ class FractureNetwork3d(object):
                     sorted_new = new_points[:, np.argsort(dist_from_start)]
 
                     f.p = np.insert(f.p, [start_index + 1], sorted_new, axis=1)
-                    #breakpoint()
+
+                    # If the new points sit on top of intersections, these must be split
                     for pi in range(sorted_new.shape[1]):
-                        self._split_intersections_of_fracture(fi, sorted_new[:, pi].reshape((-1, 1)))
+                        self._split_intersections_of_fracture(
+                            sorted_new[:, pi].reshape((-1, 1))
+                        )
 
                     # Move the start index to the next segment, compensating for
                     # inserted auxiliary points.
                     start_index += 1 + sorted_new.shape[1]
 
-            """
-            for of in self._fractures:
-                # Can do some box arguments here to avoid computations
-
-                # First, check if the two fractures are intersecting;
-                # this is covered in the above loop
-                if of.index in intersecting_fracs[fi] or of.index == f.index:
-                    continue
-
-                # Start and end points of this (f) and the other (of) fracture
-                f_start = f.p
-                f_end = np.roll(f_start, -1, axis=1)
-                of_start = of.p
-                of_end = np.roll(of_start, -1, axis=1)
-
-                inserted_points = 0
-
-                # Then, compare distance between segments
-                # Loop over fracture segments of this fracture
-                for si, fs in enumerate(f.segments()):
-                    # Compute distance to all segments of the other fracture,
-                    # and find the closest point on the other fracture
-                    fs = f_start[:, si].squeeze()  # .reshape((-1, 1))
-                    fe = f_end[:, si].squeeze()  # .reshape((-1, 1))
-                    d, cp_f, _ = pp.distances.segment_segment_set(
-                        fs, fe, of_start, of_end
-                    )
-                    mi = np.argmin(d)
-
-                    # If the distance is smaller than the ideal length, but the
-                    # closets point is not too close to the segment endpoints,
-                    # we add a new point
-                    cp_fm = cp_f[:, mi]
-
-                    if d[mi] < mesh_size_frac:
-                        d_1 = dist_p(cp_fm, f_start[:, si])
-                        d_2 = dist_p(cp_fm, f_end[:, si])
-                        if d_1 > mesh_size_min and d_2 > mesh_size_min:
-                            f.p = np.insert(
-                                f.p, (si + 1 + inserted_points) % nfp, cp_fm, axis=1
-                            )
-
-                            nfp += 1
-                            inserted_points += 1
-                            # Check if some of the intersections of the fracture should
-                            # be split when the new point is added.
-                            self._split_intersections_of_fracture(fi, cp_fm)
-            """
     @pp.time_logger(sections=module_sections)
-    def _split_intersections_of_fracture(self, fi, cp):
+    def _split_intersections_of_fracture(self, cp: np.ndarray) -> None:
         """Check if a point lies on intersections of a given fracture, and if so,
         split the intersection into two.
 
         The intended usage is when auxiliary points are added to a fracture's vertexes
-        after the intersections have been identified. Wider usage of the function may
-        be possible, but this has not been considered, so be careful.
+        after the intersections have been identified.
 
         Parameters:
-            fi (int): Fracture index, referring to self._fractures.
             cp (np.array, size 3): Coordinate of the added point. The intersection will
                 be split if the point lies on the intersection.
 
         """
-        # Loop over all intersections of this fracture.
-        for isect in self.intersections_of_fracture(fi):
-            # Endpoints of the intersection
-            i0 = isect.coord[:, 0].reshape((-1, 1))
-            i1 = isect.coord[:, 1].reshape((-1, 1))
-            # Distacne from the new point to the segment of the intersection
-            d_isect, _ = pp.distances.points_segments(cp, i0, i1)
+        # Intersections must be split for all fractures, not only those where the
+        # fracture is involved, or else Y-type intersections may not be treated
+        # correctly.
 
-            # If the new point is close, we will delete the old intersection, and add
-            # two more that together span the same segment as the old one.
-            if d_isect < self.tol:
-                # Add two new intersections. The boundary information is kept from the
-                # old one.
-                self.intersections.append(
-                    Intersection(
-                        self.intersections[-1].index + 1,
-                        isect.first,
-                        isect.second,
-                        np.hstack(
-                            (isect.coord[:, 0].reshape((-1, 1)), cp.reshape((-1, 1)))
-                        ),
-                        bound_first=isect.bound_first,
-                        bound_second=isect.bound_second,
-                    )
-                )
-                self.intersections.append(
-                    Intersection(
-                        self.intersections[-1].index + 1,
-                        isect.first,
-                        isect.second,
-                        np.hstack(
-                            (cp.reshape((-1, 1)), isect.coord[:, 1].reshape((-1, 1)))
-                        ),
-                        bound_first=isect.bound_first,
-                        bound_second=isect.bound_second,
-                    )
-                )
-                # Finally, delete the old intersection: Find its location, and del.
-                isect_place = np.where(
-                    [i.index == isect.index for i in self.intersections]
-                )[0][0]
-                del self.intersections[isect_place]
+        if cp.size < 4:
+            cp = cp.reshape((-1, 1))
+
+        # Compute distacne from the point to all other points
+        isect_start = self.intersections["start"]
+        isect_end = self.intersections["end"]
+        d_isect, _ = pp.distances.points_segments(cp, isect_start, isect_end)
+
+        # We are only interested in segments that are  close to the point
+        close_to_segment = d_isect[0] < self.tol
+        # If there are no close segments, there is nothing more to do.
+        if not np.any(close_to_segment):
+            return
+
+        # If the close point is the endpoint of the intersection segment, we
+        # should not split it
+        dist_start = pp.distances.point_pointset(cp, isect_start)
+        dist_end = pp.distances.point_pointset(cp, isect_end)
+        close_to_endpoint = np.logical_or(dist_start < self.tol, dist_end < self.tol)
+
+        # replace intersections that are cut in two pieces, both with non-zero length.
+        to_replace = np.where(
+            np.logical_and(close_to_segment, np.logical_not(close_to_endpoint))
+        )[0]
+
+        if to_replace.size == 0:
+            return
+
+        # Duplicate intersections, and split into two.
+        first = self.intersections["first"][to_replace]
+        second = self.intersections["second"][to_replace]
+
+        bound_first = self.intersections["bound_first"][to_replace]
+        bound_second = self.intersections["bound_second"][to_replace]
+
+        start = self.intersections["start"][:, to_replace]
+        end = self.intersections["end"][:, to_replace]
+        if start.size < 4:
+            start = start.reshape((-1, 1))
+            end = end.reshape((-1, 1))
+
+        new_first = np.tile(first, 2)
+        new_second = np.tile(second, 2)
+        new_bound_first = np.tile(bound_first, 2)
+        new_bound_second = np.tile(bound_second, 2)
+
+        new_start = np.hstack((start, end))
+        new_end = np.tile(cp, 2 * to_replace.size)
+
+        self._add_intersection(
+            new_first, new_second, new_start, new_end, new_bound_first, new_bound_second
+        )
+        # Delete the old intersections.
+        for key in self.intersections:
+            self.intersections[key] = np.delete(
+                self.intersections[key], to_replace, axis=-1
+            )
+
+    def _add_intersection(
+        self,
+        first: Union[Fracture, np.ndarray],
+        second: Union[Fracture, np.ndarray],
+        start: np.ndarray,
+        end: np.ndarray,
+        bound_first: Union[bool, np.ndarray],
+        bound_second: Union[bool, np.ndarray],
+    ) -> None:
+        # Add one or several fracture pairs to the intersections.
+        # If several fractures, these should be wrapped in a numpy array.
+        self.intersections["first"] = np.hstack((self.intersections["first"], first))
+        self.intersections["second"] = np.hstack((self.intersections["second"], second))
+
+        if start.size < 4:
+            start = start.reshape((-1, 1))
+            end = end.reshape((-1, 1))
+
+        self.intersections["start"] = np.hstack((self.intersections["start"], start))
+        self.intersections["end"] = np.hstack((self.intersections["end"], end))
+        self.intersections["bound_first"] = np.hstack(
+            (self.intersections["bound_first"], bound_first)
+        )
+        self.intersections["bound_second"] = np.hstack(
+            (self.intersections["bound_second"], bound_second)
+        )
 
     @pp.time_logger(sections=module_sections)
     def to_file(
