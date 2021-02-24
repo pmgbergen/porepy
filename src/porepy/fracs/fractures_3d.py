@@ -867,11 +867,6 @@ class FractureNetwork3d(object):
         physical_surfaces: Dict[int, Tags] = {}
         polygon_tags = np.zeros(len(self._fractures), dtype=int)
 
-        if has_boundary:
-            num_bound_surf = sum(self.tags["boundary"])
-        else:
-            num_bound_surf = 0
-
         for fi, _ in enumerate(self._fractures):
             if has_boundary and self.tags["boundary"][fi]:
                 physical_surfaces[fi] = Tags.DOMAIN_BOUNDARY_SURFACE
@@ -893,8 +888,6 @@ class FractureNetwork3d(object):
                 Tags.AUXILIARY.value,
             ):
                 physical_lines[ei] = edges[2, ei]
-
-        #        breakpoint()
 
         gmsh_repr = GmshData3d(
             dim=3,
@@ -1772,15 +1765,6 @@ class FractureNetwork3d(object):
 
         bound_planes = [west, east, south, north, bottom, top]
         return bound_planes
-
-    #        boundary_tags = self.tags.get("boundary", [False] * len(self._fractures))
-
-    # Add the boundaries to the fracture network and tag them.
-    #        if keep_box:
-    #            for f in bound_planes:
-    #                self.add(f)
-    #               boundary_tags.append(True)
-    #       self.tags["boundary"] = boundary_tags
 
     @pp.time_logger(sections=module_sections)
     def _classify_edges(self, polygon_edges, constraints):
