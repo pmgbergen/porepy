@@ -21,9 +21,11 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import porepy as pp
 
+module_sections = ["visualization"]
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger(sections=module_sections)
 def plot_grid(g, cell_value=None, vector_value=None, info=None, **kwargs):
     """
     Plot the grid in a 3d framework.
@@ -67,6 +69,7 @@ def plot_grid(g, cell_value=None, vector_value=None, info=None, **kwargs):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger(sections=module_sections)
 def save_img(name, g, cell_value=None, vector_value=None, info=None, **kwargs):
     """
     Plot and save the grid in a 3d framework.
@@ -109,6 +112,7 @@ class Arrow3D(FancyArrowPatch):
     Arrow representation intended for visualization of vector quantities.
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, xs, ys, zs, *args, **kwargs):
         """
         Provide the coordinates of the vertices as xs, ys and zs, each a list of the
@@ -117,6 +121,7 @@ class Arrow3D(FancyArrowPatch):
         FancyArrowPatch.__init__(self, (0, 0), (0, 0), *args, **kwargs)
         self._verts3d = xs, ys, zs
 
+    @pp.time_logger(sections=module_sections)
     def draw(self, renderer):
         xs3d, ys3d, zs3d = self._verts3d
         xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
@@ -127,6 +132,7 @@ class Arrow3D(FancyArrowPatch):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger(sections=module_sections)
 def quiver(vector_value, ax, g, **kwargs):
     """
     Draws arrows representing vectors.
@@ -170,6 +176,7 @@ def quiver(vector_value, ax, g, **kwargs):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger(sections=module_sections)
 def plot_single(g, cell_value, vector_value, info, **kwargs):
     """
     Plot data on a single grid.
@@ -247,6 +254,7 @@ def plot_single(g, cell_value, vector_value, info, **kwargs):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger(sections=module_sections)
 def plot_gb(gb, cell_value, vector_value, info, **kwargs):
     """
     Plot an entire grid bucket.
@@ -316,6 +324,7 @@ def plot_gb(gb, cell_value, vector_value, info, **kwargs):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger(sections=module_sections)
 def plot_grid_xd(g, cell_value, vector_value, ax, **kwargs):
     """
     Wrapper function to plot grid of arbitrary dimension. In 1d and 2d, the cell_value
@@ -337,6 +346,7 @@ def plot_grid_xd(g, cell_value, vector_value, ax, **kwargs):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger(sections=module_sections)
 def lim(nodes):
     """
     Extracts the x, y and z limits of a node array.
@@ -350,6 +360,7 @@ def lim(nodes):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger(sections=module_sections)
 def color_map(extr_value, cmap_type="jet"):
     """
     Constructs a color map and sets the extremal values of the value range.
@@ -364,6 +375,7 @@ def color_map(extr_value, cmap_type="jet"):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger(sections=module_sections)
 def add_info(g, info, ax, **kwargs):
     """
     Adds information on numbering of geometry information of the grid g to ax.
@@ -373,10 +385,12 @@ def add_info(g, info, ax, **kwargs):
     centers, respectively.
     """
 
+    @pp.time_logger(sections=module_sections)
     def disp(i, p, c, m):
         ax.scatter(*p, c=c, marker=m)
         ax.text(*p, i)
 
+    @pp.time_logger(sections=module_sections)
     def disp_loop(v, c, m):
         [disp(i, ic, c, m) for i, ic in enumerate(v.T)]
 
@@ -399,6 +413,7 @@ def add_info(g, info, ax, **kwargs):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger(sections=module_sections)
 def plot_grid_0d(g, ax, **kwargs):
     """
     Plot the 1d grid g as a circle on the axis ax.
@@ -409,6 +424,7 @@ def plot_grid_0d(g, ax, **kwargs):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger(sections=module_sections)
 def plot_grid_1d(g, cell_value, ax, **kwargs):
     """
     Plot the 1d grid g to the axis ax, with cell_value represented by the cell coloring.
@@ -420,12 +436,14 @@ def plot_grid_1d(g, cell_value, ax, **kwargs):
         scalar_map = kwargs["color_map"]
         alpha = kwargs.get("alpha", 1)
 
+        @pp.time_logger(sections=module_sections)
         def color_edge(value):
             return scalar_map.to_rgba(value, alpha)
 
     else:
         cell_value = np.zeros(g.num_cells)
 
+        @pp.time_logger(sections=module_sections)
         def color_edge(value):
             return "k"
 
@@ -444,6 +462,7 @@ def plot_grid_1d(g, cell_value, ax, **kwargs):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger(sections=module_sections)
 def plot_grid_2d(g, cell_value, ax, **kwargs):
     """
     Plot the 2d grid g to the axis ax, with cell_value represented by the cell coloring.
@@ -462,6 +481,7 @@ def plot_grid_2d(g, cell_value, ax, **kwargs):
     if kwargs.get("color_map"):
         scalar_map = kwargs["color_map"]
 
+        @pp.time_logger(sections=module_sections)
         def color_face(value):
             return scalar_map.to_rgba(value, alpha)
 
@@ -469,6 +489,7 @@ def plot_grid_2d(g, cell_value, ax, **kwargs):
         cell_value = np.zeros(g.num_cells)
         rgb = kwargs.get("rgb", [1, 0, 0])
 
+        @pp.time_logger(sections=module_sections)
         def color_face(value):
             return np.r_[rgb, alpha]
 
@@ -504,6 +525,7 @@ def plot_grid_2d(g, cell_value, ax, **kwargs):
 # ------------------------------------------------------------------------------#
 
 
+@pp.time_logger(sections=module_sections)
 def plot_grid_3d(g, ax, **kwargs):
     """
     Plot the 3d grid g to the axis ax.
@@ -515,6 +537,7 @@ def plot_grid_3d(g, ax, **kwargs):
     rgb = kwargs.get("rgb", [1, 0, 0])
     alpha = kwargs.get("alpha", 1)
 
+    @pp.time_logger(sections=module_sections)
     def color_face(value):
         return np.r_[rgb, alpha]
 

@@ -24,7 +24,7 @@ jobs:
     # https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#specifying-a-python-version
     strategy:
       matrix:
-        python-version:  [3.6, 3.7, 3.8]
+        python-version:  [3.7, 3.8]
       # Complete all versions in matrix even if one fails.
       fail-fast: false
 
@@ -45,6 +45,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install libglu1-mesa
         export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
+        pip install -U pip
         pip install -r requirements-dev.txt
         pip install jupyter
         pip install .

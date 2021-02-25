@@ -12,7 +12,10 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+module_sections = ["grids", "gridding"]
 
+
+@pp.time_logger(sections=module_sections)
 def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
     """
     Partition a grid using metis.
@@ -47,7 +50,7 @@ def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
     # Convert the cells into the format required by pymetis
     adjacency_list = [list(c2c.getrow(i).indices) for i in range(c2c.shape[0])]
     # Call pymetis
-    # It seems it is important that num_part is an int, not an np.int.
+    # It seems it is important that num_part is an int, not an int.
     part = pymetis.part_graph(int(num_part), adjacency=adjacency_list)
 
     # The meaning of the first number returned by pymetis is not clear (poor
@@ -55,6 +58,7 @@ def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
     return np.array(part[1])
 
 
+@pp.time_logger(sections=module_sections)
 def partition_structured(
     g: pp.TensorGrid, num_part: int = 1, coarse_dims: np.ndarray = None
 ) -> np.ndarray:
@@ -138,6 +142,7 @@ def partition_structured(
     return glob_dims.astype("int")
 
 
+@pp.time_logger(sections=module_sections)
 def partition_coordinates(
     g: pp.Grid, num_coarse: int, check_connectivity: bool = True
 ) -> np.ndarray:
@@ -181,7 +186,7 @@ def partition_coordinates(
 
     if g.dim == 0:
         # Nothing really to do here.
-        return np.zeros(g.num_cells, dtype=np.int)
+        return np.zeros(g.num_cells, dtype=int)
 
     # The division into boxes must be done within the active dimensions of the grid.
     # For 1d and 2d grids, this involves a mapping of the grid into its natural
@@ -255,6 +260,7 @@ def partition_coordinates(
     return partition
 
 
+@pp.time_logger(sections=module_sections)
 def partition(g: pp.Grid, num_coarse: int) -> np.ndarray:
     """
     Wrapper for partition methods, tries to apply best possible algorithm.
@@ -283,6 +289,7 @@ def partition(g: pp.Grid, num_coarse: int) -> np.ndarray:
             return partition_coordinates(g, num_coarse)
 
 
+@pp.time_logger(sections=module_sections)
 def determine_coarse_dimensions(target: int, fine_size: np.ndarray) -> np.ndarray:
     """
     For a logically Cartesian grid determine a coarse partitioning based on a
@@ -318,7 +325,7 @@ def determine_coarse_dimensions(target: int, fine_size: np.ndarray) -> np.ndarra
     # Array to store optimal values. Set the default value to one, this avoids
     # interfering with target_now below.
     optimum = np.ones(nd)
-    found = np.zeros(nd, dtype=np.bool)
+    found = np.zeros(nd, dtype=bool)
 
     # Counter for number of iterations. Should be unnecessary, remove when the
     # code is trusted.
@@ -386,6 +393,7 @@ def determine_coarse_dimensions(target: int, fine_size: np.ndarray) -> np.ndarra
     return optimum.astype("int")
 
 
+@pp.time_logger(sections=module_sections)
 def extract_subgrid(
     g: pp.Grid,
     c: np.ndarray,
@@ -413,6 +421,7 @@ def extract_subgrid(
         sort=True (bool): If true c is sorted
         faces=False (bool): If true c are intrepetred as faces, and the
                             exptracted grid will be a lower dimensional grid
+                            @pp.time_logger(sections=module_sections)
                             defined by the these faces
         is_planar: (optional) defaults to True. Only used when extracting faces from a
            3d grid. If True the faces f must be planar. Set to False to use this
@@ -489,6 +498,7 @@ def extract_subgrid(
     return h, unique_faces, unique_nodes
 
 
+@pp.time_logger(sections=module_sections)
 def __extract_submatrix(mat, ind):
     """From a matrix, extract the column specified by ind. All zero columns
     are stripped from the sub-matrix. Mappings from global to local row numbers
@@ -504,6 +514,7 @@ def __extract_submatrix(mat, ind):
     return sps.csc_matrix((data, rows_sub, cols), shape), unique_rows
 
 
+@pp.time_logger(sections=module_sections)
 def __extract_cells_from_faces(g, f, is_planar):
     """
     Extracting a lower-dimensional grid from the fraces of the higher
@@ -519,6 +530,7 @@ def __extract_cells_from_faces(g, f, is_planar):
         raise NotImplementedError("can only create a subgrid for dimension 1, 2 and 3")
 
 
+@pp.time_logger(sections=module_sections)
 def __extract_cells_from_faces_1d(g, f):
     assert np.size(f) == 1
     node = np.argwhere(g.face_nodes[:, f])[:, 0]
@@ -527,6 +539,7 @@ def __extract_cells_from_faces_1d(g, f):
     return h, f, node
 
 
+@pp.time_logger(sections=module_sections)
 def __extract_cells_from_faces_2d(g, f):
     # Local cell-face and face-node maps.
     cell_nodes, unique_nodes = __extract_submatrix(g.face_nodes, f)
@@ -567,6 +580,7 @@ def __extract_cells_from_faces_2d(g, f):
     return h, f, unique_nodes
 
 
+@pp.time_logger(sections=module_sections)
 def __extract_cells_from_faces_3d(g, f, is_planar=True):
     """
     Extract a 2D grid from the faces of a 3D grid. One of the uses of this function
@@ -657,6 +671,7 @@ def __extract_cells_from_faces_3d(g, f, is_planar=True):
     return h, f, unique_nodes
 
 
+@pp.time_logger(sections=module_sections)
 def partition_grid(
     g: pp.Grid, ind: np.ndarray
 ) -> Tuple[List[pp.Grid], List[np.ndarray], List[np.ndarray]]:
@@ -696,6 +711,7 @@ def partition_grid(
     return sub_grid, face_map_list, node_map_list
 
 
+@pp.time_logger(sections=module_sections)
 def overlap(
     g: pp.Grid, cell_ind: np.ndarray, num_layers: int, criterion: str = "node"
 ) -> np.ndarray:
@@ -733,7 +749,7 @@ def overlap(
 
     # Boolean storage of cells in the active set; these are the ones that will
     # be in the overlap
-    active_cells = np.zeros(g.num_cells, dtype=np.bool)
+    active_cells = np.zeros(g.num_cells, dtype=bool)
     # Initialize by the specified cells
     active_cells[cell_ind] = 1
 
@@ -742,7 +758,7 @@ def overlap(
         cn = g.cell_nodes()
 
         # Also introduce active nodes
-        active_nodes = np.zeros(g.num_nodes, dtype=np.bool)
+        active_nodes = np.zeros(g.num_nodes, dtype=bool)
 
         # Gradually increase the size of the cell set
         for _ in range(num_layers):
@@ -761,7 +777,7 @@ def overlap(
         data = np.ones_like(cf.data)
         cf = sps.csc_matrix((data, cf.indices, cf.indptr))
 
-        active_faces = np.zeros(g.num_faces, dtype=np.bool)
+        active_faces = np.zeros(g.num_faces, dtype=bool)
 
         # Gradually increase the size of the cell set
         for _ in range(num_layers):
@@ -777,6 +793,7 @@ def overlap(
     return np.sort(np.squeeze(np.argwhere(active_cells > 0)))
 
 
+@pp.time_logger(sections=module_sections)
 def grid_is_connected(
     g: pp.Grid, cell_ind: np.ndarray = None
 ) -> Tuple[bool, List[np.ndarray]]:

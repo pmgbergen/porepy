@@ -6,18 +6,22 @@
 # PorePy: A Simulation Tool for Fractured and Deformable Porous Media written in Python.
 PorePy currently has the following distinguishing features:
 - General grids in 2d and 3d, as well as mixed-dimensional grids defined by intersecting fracture networks.
-- Support for analysis, visualization and gridding of fractured domains.
-- Discretization of flow and transport, using finite volume methods and virtual finite elements.
-- Discretization of elasticity and poro-elasticity, using finite volume methods.
+- Automatic gridding for complex fracture networks in 2d and 3d.
+- Discretization of mixed-dimensional multi-physics processes:
+    - Finite volume and mixed and virtual finite element methods for flow
+    - Finite volume methods for transport and thermo-poroelasticity
+    - Deformation of existing fractures treated as a frictional contact problem
+    - Some functionality for fracture propagation along existing grid lines
 
-For more information, see the [Wiki](https://github.com/pmgbergen/porepy/wiki/PorePy-wiki).
 
-PorePy is developed by the [Porous Media Group](http://pmg.b.uib.no/) at the University of Bergen, Norway. The software is developed under projects funded by the Research Council of Norway and Statoil.
+For more information, see the [Wiki](https://github.com/pmgbergen/porepy/wiki).
+
+PorePy is developed by the [Porous Media Group](http://pmg.b.uib.no/) at the University of Bergen, Norway. The software is developed under projects funded by the Research Council of Norway and Equinor.
 
 # Citing
 If you use PorePy in your research, we ask you to cite the following publication
 
-Keilegavlen, E., Berge, R., Fumagalli, A., Starnoni, M., Stefansson, I., Varela, J., & Berre, I. (2020). PorePy: an open-source software for simulation of multiphysics processes in fractured porous media. Computational Geosciences, 1-23, [doi:10.1007/s10596-020-10002-5](https://doi.org/10.1007/s10596-020-10002-5)
+Keilegavlen, E., Berge, R., Fumagalli, A., Starnoni, M., Stefansson, I., Varela, J., & Berre, I. PorePy: an open-source software for simulation of multiphysics processes in fractured porous media. Computational Geosciences,  25, 243–265 (2021), [doi:10.1007/s10596-020-10002-5](https://doi.org/10.1007/s10596-020-10002-5)
 
 Runscripts for most, if not all, papers that uses porepy is available at [here](./Papers.md).
 Note that you may have to revert to an older version of PorePy to run the examples (we try to keep the runscripts updated, but sometime fail to do so, for various reasons).
@@ -26,7 +30,7 @@ Note that you may have to revert to an older version of PorePy to run the exampl
 Install instructions can be found here [Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
 Note that there are a few simple but non-obvious steps in the installation, so please read the entire document before sending questions.
 
-PorePy is developed under Python >=3.6.
+PorePy is developed under Python >=3.7.
 
 To get the most current version, install from github:
 
@@ -49,18 +53,11 @@ or for editable installs into the user directory:
     pip install --user -e .
 
 
-# Using Docker
-A docker image is available from docker.io/keileg/porepy:
-```bash
->  docker pull docker.io/keileg/porepy
-```
-
-For the moment, Docker support should be considered experimental.
 
 # (Semi-) Optional packages
 To function optimally, PorePy should have access to some more packages:
 *  `pymetis` (for mesh partitioning).
-* Some computationally expensive methods can be accelerated with `Cython` or `Numba`.
+* Some computationally expensive methods can be accelerated with `Numba`.
 * We use `shapely` for certain geometry-operations.
 * Meshing: currently by [gmsh](http://gmsh.info/doc/texinfo/gmsh.html).
 

@@ -9,7 +9,10 @@ import scipy
 
 import porepy as pp
 
+module_sections = ["geometry"]
 
+
+@pp.time_logger(sections=module_sections)
 def is_ccw_polygon(poly: np.ndarray) -> bool:
     """
     Determine if the vertices of a polygon are sorted counter clockwise.
@@ -58,6 +61,7 @@ def is_ccw_polygon(poly: np.ndarray) -> bool:
 # ----------------------------------------------------------
 
 
+@pp.time_logger(sections=module_sections)
 def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
     """
     Check if the line segments formed by three points is part of a
@@ -79,6 +83,7 @@ def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
         p3 (np.ndarray): Points to be tested
         tol (double, optional): Tolerance used in the comparison, can be used
             to account for rounding errors. Defaults to zero.
+        @pp.time_logger(sections=module_sections)
         default (boolean, optional): Mode returned if the point is within the
             tolerance. Should be set according to what is desired behavior of
             the function (will vary with application). Defaults to False.
@@ -104,7 +109,7 @@ def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
 
     # Should there be a scaling of the tolerance relative to the distance
     # between the points?
-    is_ccw = np.ones(num_points, dtype=np.bool)
+    is_ccw = np.ones(num_points, dtype=bool)
     is_ccw[np.abs(cross_product) <= tol] = default
 
     is_ccw[cross_product < -tol] = False
@@ -119,6 +124,7 @@ def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
 # -----------------------------------------------------------------------------
 
 
+@pp.time_logger(sections=module_sections)
 def point_in_polygon(poly, p, tol=0, default=False):
     """
     Check if a set of points are inside a polygon.
@@ -131,6 +137,7 @@ def point_in_polygon(poly, p, tol=0, default=False):
         p (np.ndarray, 2 x n2): Points to be tested.
         tol (double, optional): Tolerance for rounding errors. Defaults to
             zero.
+        @pp.time_logger(sections=module_sections)
         default (boolean, optional): Default behavior if the point is close to
             the boundary of the polygon. Defaults to False.
 
@@ -154,7 +161,7 @@ def point_in_polygon(poly, p, tol=0, default=False):
 
     poly_size = poly.shape[1]
 
-    inside = np.ones(pt.shape[1], dtype=np.bool)
+    inside = np.ones(pt.shape[1], dtype=bool)
     for j in range(poly.shape[1]):
         this_ccw = is_ccw_polyline(
             poly[:, j], poly[:, (j + 1) % poly_size], pt, tol=tol, default=default
@@ -164,6 +171,7 @@ def point_in_polygon(poly, p, tol=0, default=False):
     return inside
 
 
+@pp.time_logger(sections=module_sections)
 def point_in_polyhedron(polyhedron, test_points, tol=1e-8):
     """Test whether a set of point is inside a polyhedron.
 
@@ -234,7 +242,7 @@ def point_in_polyhedron(polyhedron, test_points, tol=1e-8):
 
     # Uniquify points, and update triangulation
     upoints, _, ib = pp.utils.setmembership.unique_columns_tol(points, tol=tol)
-    ut = ib[tri.astype(np.int)]
+    ut = ib[tri.astype(int)]
 
     # The in-polyhedra algorithm requires a very particular ordering of the vertexes
     # in the triangulation. Fix this.
@@ -248,7 +256,7 @@ def point_in_polyhedron(polyhedron, test_points, tol=1e-8):
     if test_points.size < 4:
         test_points = test_points.reshape((-1, 1))
 
-    is_inside = np.zeros(test_points.shape[1], dtype=np.bool)
+    is_inside = np.zeros(test_points.shape[1], dtype=bool)
 
     # Loop over all points, check if they are inside.
     for pi in range(test_points.shape[1]):
@@ -272,6 +280,7 @@ def point_in_polyhedron(polyhedron, test_points, tol=1e-8):
     return is_inside
 
 
+@pp.time_logger(sections=module_sections)
 def points_are_planar(pts, normal=None, tol=1e-5):
     """Check if the points lie on a plane.
 
@@ -290,7 +299,7 @@ def points_are_planar(pts, normal=None, tol=1e-5):
     else:
         normal = normal.flatten() / np.linalg.norm(normal)
 
-    check_all = np.zeros(pts.shape[1] - 1, dtype=np.bool)
+    check_all = np.zeros(pts.shape[1] - 1, dtype=bool)
 
     for idx, p in enumerate(pts[:, 1:].T):
         den = np.linalg.norm(pts[:, 0] - p)
@@ -300,6 +309,7 @@ def points_are_planar(pts, normal=None, tol=1e-5):
     return np.all(check_all)
 
 
+@pp.time_logger(sections=module_sections)
 def point_in_cell(poly, p, if_make_planar=True):
     """
     Check whatever a point is inside a cell. Note a similar behaviour could be
@@ -343,6 +353,7 @@ def point_in_cell(poly, p, if_make_planar=True):
     return is_odd
 
 
+@pp.time_logger(sections=module_sections)
 def points_are_collinear(pts, tol=1e-5):
     """Check if the points lie on a line.
 
@@ -374,6 +385,7 @@ def points_are_collinear(pts, tol=1e-5):
     return np.allclose(coll, np.zeros(coll.size), atol=tol, rtol=0)
 
 
+@pp.time_logger(sections=module_sections)
 def polygon_hanging_nodes(p, edges, tol=1e-8):
     """
     Find hanging nodes of a polygon

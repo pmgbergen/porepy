@@ -1,10 +1,14 @@
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
 from porepy.grids.grid import Grid
+
+module_sections = ["grids", "gridding"]
 
 
 class PointGrid(Grid):
+    @pp.time_logger(sections=module_sections)
     def __init__(self, pt: np.ndarray, name: str = None) -> None:
         """
         Constructor for 0D grid
