@@ -424,18 +424,15 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
     pairs = _intersect_pairs(pairs_xy, pairs_z)
 
     # Various utility functions
-    @pp.time_logger(sections=module_sections)
     def center(p):
         # Compute the mean coordinate of a set of points
         return p.mean(axis=1).reshape((-1, 1))
 
-    @pp.time_logger(sections=module_sections)
     def normalize(v):
         # Normalize a vector
         nrm = np.sqrt(np.sum(v ** 2, axis=0))
         return v / nrm
 
-    @pp.time_logger(sections=module_sections)
     def mod_sign(v, tol=1e-8):
         # Modified signum function: The value is 0 if it is very close to zero.
         if isinstance(v, np.ndarray):
@@ -450,7 +447,6 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
             else:
                 return 1
 
-    @pp.time_logger(sections=module_sections)
     def intersection(start, end, normal, center):
         # Find a point p on the segment between start and end, so that the vector
         # p - center is perpendicular to normal
@@ -464,7 +460,6 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
         assert t >= 0 and t <= 1
         return start + t * dx
 
-    @pp.time_logger(sections=module_sections)
     def vector_pointset_point(a, b, tol=1e-4):
         # Create a set of non-zero vectors from a point in the plane spanned by
         # a, to all points in b
@@ -1337,7 +1332,6 @@ def surface_tessalations(
         # Nothing to do here, but this may be slow.
         pass
 
-    @pp.time_logger(sections=module_sections)
     def _min_max_coord(coord):
         # Convenience function to get max and minimum coordinates for a set of polygons
         min_coord = np.array([c.min() for c in coord])
@@ -1633,7 +1627,6 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
 
         # Utility function to pull out one or several points from an array based
         # on index
-        @pp.time_logger(sections=module_sections)
         def pt(p, ind):
             a = p[:, ind]
             if ind.size == 1:
@@ -1648,7 +1641,6 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
         end_other = pt(p, e[1, other])
 
         # Utility function to normalize the fracture length
-        @pp.time_logger(sections=module_sections)
         def normalize(v):
             nrm = np.sqrt(np.sum(v ** 2, axis=0))
 
@@ -1657,7 +1649,6 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
             nrm[hit] = 1
             return v / nrm
 
-        @pp.time_logger(sections=module_sections)
         def dist(a, b):
             return np.sqrt(np.sum((a - b) ** 2))
 
@@ -1681,7 +1672,6 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
             main_other_end = normalize(0.3 * start_other + 0.7 * end_other - start_main)
 
         # Modified signum function: The value is 0 if it is very close to zero.
-        @pp.time_logger(sections=module_sections)
         def mod_sign(v, tol):
             sgn = np.sign(v)
             sgn[np.abs(v) < tol] = 0
