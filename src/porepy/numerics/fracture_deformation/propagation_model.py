@@ -26,6 +26,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+module_sections = ["grids", "numerics", "models"]
+
 
 class FracturePropagation(abc.ABC):
     """Abstract base class for fracture propagation methods.
@@ -51,6 +53,7 @@ class FracturePropagation(abc.ABC):
     """
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def __init__(self, assembler):
         # Abtract init, aimed at appeasing mypy. In practice, these attributes should
         # come from combining this class with a mechanical model.
@@ -59,6 +62,7 @@ class FracturePropagation(abc.ABC):
         self.Nd = self.gb.dim_max()
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def evaluate_propagation(self) -> None:
         """Evaluate propagation of fractures based on the current solution.
 
@@ -67,9 +71,11 @@ class FracturePropagation(abc.ABC):
         """
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def has_propagated(self) -> bool:
         """Should return True if fractures were propagated in the previous step."""
 
+    @pp.time_logger(sections=module_sections)
     def _initialize_new_variable_values(
         self, g: pp.Grid, d: Dict, var: str, dofs: Dict[str, int]
     ) -> np.ndarray:
@@ -108,7 +114,8 @@ class FracturePropagation(abc.ABC):
         vals = np.zeros(n_new * cell_dof)
         return vals
 
-    def _map_variables(self, x: np.ndarray) -> None:
+    @pp.time_logger(sections=module_sections)
+    def _map_variables(self, x: np.ndarray) -> np.ndarray:
         """
         Map variables from old to new grids in d[pp.STATE] and d[pp.STATE][pp.ITERATE].
         Also call update of self.assembler.update_dof_count and update the current
@@ -260,6 +267,7 @@ class FracturePropagation(abc.ABC):
         # Store the mapped solution vector
         return x_new
 
+    @pp.time_logger(sections=module_sections)
     def _new_dof_inds(self, mapping: sps.spmatrix) -> np.ndarray:
         """
         The new DOFs/geometric entities are those which do not correspond to an

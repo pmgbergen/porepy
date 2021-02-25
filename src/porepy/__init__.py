@@ -18,13 +18,30 @@ viz: Visualization; paraview, matplotlib.
 isort:skip_file
 
 """
+import os
+from pathlib import Path
+import configparser
 
 __version__ = "1.3.1"
+
+
+# Try to read the config file from the directory where python process was launched
+try:
+    cwd = Path(os.getcwd())
+    pth = cwd / Path("porepy.cfg")
+    cfg = configparser.ConfigParser()
+    cfg.read(pth)
+    config = dict(cfg)
+except:
+    # the assumption is that no configurations are given
+    config = {}
 
 # ------------------------------------
 # Simplified namespaces. The rue of thumb is that classes and modules that a
 # user can be exposed to should have a shortcut here. Borderline cases will be
 # decided as needed
+
+from porepy.utils.logging import *
 
 from porepy.utils.common_constants import *
 
@@ -32,6 +49,10 @@ from porepy.utils import error, grid_utils
 from porepy.utils.tangential_normal_projection import TangentialNormalProjection
 
 from porepy.utils import permutations
+from porepy.utils.interpolation_tables import (
+    InterpolationTable,
+    AdaptiveInterpolationTable,
+)
 
 from porepy.geometry import (
     intersections,

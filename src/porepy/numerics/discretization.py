@@ -11,6 +11,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+module_sections = ["numerics"]
+
 
 class Discretization(abc.ABC):
     """Interface for all discretizations. Specifies methods that must be implemented
@@ -18,10 +20,12 @@ class Discretization(abc.ABC):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword: str) -> None:
         self.keyword = keyword
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def ndof(self, g: pp.Grid) -> int:
         """
         Return the number of degrees of freedom associated to the method.
@@ -35,6 +39,7 @@ class Discretization(abc.ABC):
         """
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g: pp.Grid, data: Dict) -> None:
         """Construct discretization matrices.
 
@@ -48,6 +53,7 @@ class Discretization(abc.ABC):
         """
         pass
 
+    @pp.time_logger(sections=module_sections)
     def update_discretization(self, g: pp.Grid, data: Dict) -> None:
         """Partial update of discretization.
 
@@ -75,6 +81,7 @@ class Discretization(abc.ABC):
 
             modified_cells, modified_faces, modified_nodes
 
+        @pp.time_logger(sections=module_sections)
         define cells, faces and nodes that have been modified (either parameters,
         geometry or topology), and should be rediscretized. It is up to the
         discretization method to implement the change necessary by this modification.
@@ -102,6 +109,7 @@ class Discretization(abc.ABC):
         self.discretize(g, data)
 
     @abc.abstractmethod
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self, g: pp.Grid, data: Dict
     ) -> Union[sps.spmatrix, np.ndarray]:
@@ -118,6 +126,7 @@ class Discretization(abc.ABC):
         """
         pass
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.spmatrix:
         """Assemble discretization matrix.
 
@@ -136,6 +145,7 @@ class Discretization(abc.ABC):
         A, _ = self.assemble_matrix_rhs(g, data)
         return A
 
+    @pp.time_logger(sections=module_sections)
     def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
         """Assemble right hand side term.
 
@@ -168,6 +178,7 @@ class VoidDiscretization(Discretization):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword, ndof_cell=0, ndof_face=0, ndof_node=0):
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
@@ -188,6 +199,7 @@ class VoidDiscretization(Discretization):
         self.ndof_face = ndof_face
         self.ndof_node = ndof_node
 
+    @pp.time_logger(sections=module_sections)
     def _key(self):
         """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
@@ -198,6 +210,7 @@ class VoidDiscretization(Discretization):
         """
         return self.keyword + "_"
 
+    @pp.time_logger(sections=module_sections)
     def ndof(self, g):
         """Abstract method. Return the number of degrees of freedom associated to the
         method.
@@ -215,6 +228,7 @@ class VoidDiscretization(Discretization):
             + g.num_nodes * self.ndof_node
         )
 
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g, data):
         """Construct discretization matrices. Operation is void for this discretization.
 
@@ -225,6 +239,7 @@ class VoidDiscretization(Discretization):
         """
         pass
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(self, g, data):
         """Assemble discretization matrix and rhs vector, both empty.
 

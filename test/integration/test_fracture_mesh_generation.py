@@ -1169,6 +1169,5 @@ class TestStructuredGrids(unittest.TestCase):
         f = [f_1, f_2, f_3, f_4]
         gb = pp.meshing.cart_grid(f, np.array([8, 8, 8]))
 
-
 if __name__ == "__main__":
     unittest.main()

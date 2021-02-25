@@ -8,27 +8,35 @@ import scipy.sparse as sps
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
 
+module_sections = ["numerics"]
+
 
 class UpwindCoupling(
     porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
 ):
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword):
         super(UpwindCoupling, self).__init__(keyword)
 
+    @pp.time_logger(sections=module_sections)
     def key(self):
         return self.keyword + "_"
 
+    @pp.time_logger(sections=module_sections)
     def discretization_key(self):
         return self.key() + pp.DISCRETIZATION
 
+    @pp.time_logger(sections=module_sections)
     def ndof(self, mg):
         return mg.num_cells
 
+    @pp.time_logger(sections=module_sections)
     def discretize(
         self, g_primary, g_secondary, data_primary, data_secondary, data_edge
     ):
         pass
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
     ):
@@ -121,6 +129,7 @@ class UpwindCoupling(
         matrix += cc
         return matrix, rhs
 
+    @pp.time_logger(sections=module_sections)
     def cfl(
         self,
         g_primary,

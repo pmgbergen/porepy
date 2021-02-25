@@ -6,6 +6,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+module_sections = ["numerics", "disrcetization"]
+
 
 class FVElliptic(pp.EllipticDiscretization):
     """Superclass for finite volume discretizations of the elliptic equation.
@@ -15,6 +17,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword):
 
         # Identify which parameters to use:
@@ -34,6 +37,7 @@ class FVElliptic(pp.EllipticDiscretization):
         self.vector_source_matrix_key = "vector_source"
         self.bound_pressure_vector_source_matrix_key = "bound_pressure_vector_source"
 
+    @pp.time_logger(sections=module_sections)
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
@@ -50,6 +54,7 @@ class FVElliptic(pp.EllipticDiscretization):
         """
         return g.num_cells
 
+    @pp.time_logger(sections=module_sections)
     def extract_pressure(self, g, solution_array, data):
         """Extract the pressure part of a solution.
         The method is trivial for finite volume methods, with the pressure
@@ -67,6 +72,7 @@ class FVElliptic(pp.EllipticDiscretization):
         """
         return solution_array
 
+    @pp.time_logger(sections=module_sections)
     def extract_flux(self, g, solution_array, data):
         """Extract the flux related to a solution.
 
@@ -93,6 +99,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
         return flux * solution_array + bound_flux * bc_val
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(self, g, data):
         """Return the matrix and right-hand side for a discretization of a second
         order elliptic equation.
@@ -136,6 +143,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix(self, g, data):
         """Return the matrix for a discretization of a second order elliptic equation
         using a FV method.
@@ -164,6 +172,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
         return M
 
+    @pp.time_logger(sections=module_sections)
     def assemble_rhs(self, g, data):
         """Return the right-hand side for a discretization of a second order elliptic
         equation using a finite volume method.
@@ -203,6 +212,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
         return -div * bound_flux * bc_val - div * vector_source_discr * vector_source
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_flux(
         self, g, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj=False
     ):
@@ -263,6 +273,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
         cc[self_ind, 2] += div * bound_flux * proj
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_source(self, g, data, data_edge, cc, matrix, rhs, self_ind):
         """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
@@ -299,6 +310,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
         cc[self_ind, 2] -= proj
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace(
         self, g, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj=False
     ):
@@ -365,6 +377,7 @@ class FVElliptic(pp.EllipticDiscretization):
         )
         rhs[2] -= proj * vector_source_discr * vector_source
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace_rhs(
         self, g, data, data_edge, cc, rhs, self_ind, use_secondary_proj=False
     ):
@@ -419,6 +432,7 @@ class FVElliptic(pp.EllipticDiscretization):
         )
         rhs[2] -= proj * vector_source_discr * vector_source
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace_between_interfaces(
         self, g, data_grid, proj_primary, proj_secondary, cc, matrix, rhs
     ):
@@ -453,6 +467,7 @@ class FVElliptic(pp.EllipticDiscretization):
             * proj_secondary
         )
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_cell(
         self, g, data, data_edge, cc, matrix, rhs, self_ind
     ):
@@ -490,6 +505,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
         cc[2, self_ind] -= proj
 
+    @pp.time_logger(sections=module_sections)
     def enforce_neumann_int_bound(self, g, data_edge, matrix, self_ind):
         """Enforce Neumann boundary conditions on a given system matrix.
 
@@ -523,6 +539,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g, data):
         """
         Formal discretization method - nothing to do here.
@@ -535,6 +552,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
         """
         pass
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix(self, g, data):
         """Assemble system matrix. Will be zero matrix of appropriate size.
 
@@ -548,6 +566,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
         """
         return sps.csc_matrix((self.ndof(g), self.ndof(g)))
 
+    @pp.time_logger(sections=module_sections)
     def assemble_rhs(self, g, data):
         """Assemble right hand side vector. Will be zero vector of appropriate size.
 
@@ -562,6 +581,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
 
         return np.zeros(self.ndof(g))
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_flux(
         self, g, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj=False
     ):
@@ -597,6 +617,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
                                   higher-dimensional discretization"""
         )
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace(
         self, g, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj=False
     ):

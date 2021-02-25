@@ -17,8 +17,12 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.grids import mortar_grid
+
+module_sections = ["grids", "gridding", "numerics"]
 
 
+@pp.time_logger(sections=module_sections)
 def propagate_fractures(gb: pp.GridBucket, faces: Dict[pp.Grid, np.ndarray]) -> None:
     """
     gb - grid bucket with matrix and fracture grids.
@@ -53,7 +57,7 @@ def propagate_fractures(gb: pp.GridBucket, faces: Dict[pp.Grid, np.ndarray]) -> 
     d_h["split_faces"] = np.empty(0, dtype=int)
 
     # Data structure for keeping track of faces in g_h to be split
-    split_faces = np.empty(0, dtype=np.int)
+    split_faces = np.empty(0, dtype=int)
 
     # By default, we will not update the higher-dimensional grid. This will be
     # changed in the below for loop if the grid gets faces split.
@@ -195,12 +199,12 @@ def propagate_fractures(gb: pp.GridBucket, faces: Dict[pp.Grid, np.ndarray]) -> 
         # Create mappings between the old and and faces and cells in g_l
         arr = np.arange(n_old_faces_l)
         face_map_l = sps.coo_matrix(
-            (np.ones(n_old_faces_l, dtype=np.int), (arr, arr)),
+            (np.ones(n_old_faces_l, dtype=int), (arr, arr)),
             shape=(g_l.num_faces, n_old_faces_l),
         ).tocsr()
         arr = np.arange(n_old_cells_l)
         cell_map_l = sps.coo_matrix(
-            (np.ones(n_old_cells_l, dtype=np.int), (arr, arr)),
+            (np.ones(n_old_cells_l, dtype=int), (arr, arr)),
             shape=(g_l.num_cells, n_old_cells_l),
         ).tocsr()
 
@@ -217,7 +221,7 @@ def propagate_fractures(gb: pp.GridBucket, faces: Dict[pp.Grid, np.ndarray]) -> 
         arr = np.arange(nfh)
         face_map_h.append(
             sps.coo_matrix(
-                (np.ones(nfh, dtype=np.int), (arr, arr)),
+                (np.ones(nfh, dtype=int), (arr, arr)),
                 shape=(g_h.num_faces, nfh),
             ).tocsr()
         )
@@ -262,6 +266,7 @@ def propagate_fractures(gb: pp.GridBucket, faces: Dict[pp.Grid, np.ndarray]) -> 
         pp.contact_conditions.set_projections(gb, [e])
 
 
+@pp.time_logger(sections=module_sections)
 def _update_mortar_grid(
     g_h: pp.Grid, g_l: pp.Grid, d_e: Dict[str, Any], new_cells, new_faces_h
 ):
@@ -325,7 +330,10 @@ def _update_mortar_grid(
 
     # The new mortar grid is constructed to be matching with g_l.
     # If splitting is undertaken for a non-matching grid, all bets are off.
-    side_grids = {1: g_l, 2: g_l}
+    side_grids = {
+        mortar_grid.MortarSides.LEFT_SIDE: g_l,
+        mortar_grid.MortarSides.RIGHT_SIDE: g_l,
+    }
     mg_new = pp.MortarGrid(
         g_l.dim, side_grids, d_e["face_cells"], face_duplicate_ind=other_side_new
     )
@@ -333,6 +341,7 @@ def _update_mortar_grid(
     d_e["mortar_grid"] = mg_new
 
 
+@pp.time_logger(sections=module_sections)
 def _update_geometry(
     g_h: pp.Grid,
     g_l: pp.Grid,
@@ -361,7 +370,7 @@ def _update_geometry(
         cc = np.empty((3, 0))  # Cell centers
         # Many of the faces will have their quantities computed twice,
         # once from each side. Keep track of which faces we are dealing with
-        face_ind = np.array([], dtype=np.int)
+        face_ind = np.array([], dtype=int)
 
         for ci in new_cells:
             sub_g, fi, _ = pp.partition.extract_subgrid(g_l, ci)
@@ -428,6 +437,7 @@ def _update_geometry(
         g_l.face_normals = face_normals
 
 
+@pp.time_logger(sections=module_sections)
 def _update_connectivity_fracture_grid(
     g_l: pp.Grid,  # higher dimensional grid
     g_h: pp.Grid,  # lower dimensional grid
@@ -453,7 +463,7 @@ def _update_connectivity_fracture_grid(
     new_cells_l = np.arange(n_old_cells_l, n_old_cells_l + n_new_cells_l)
 
     # Initialize fields for new faces in g_l
-    new_faces_l = np.empty((g_l.dim, 0), dtype=np.int)
+    new_faces_l = np.empty((g_l.dim, 0), dtype=int)
     new_face_centers_l = np.empty((3, 0))
 
     # Counter of total number of faces in g_l
@@ -469,17 +479,17 @@ def _update_connectivity_fracture_grid(
     # ASSUMPTION: This breaks if not all faces have the same number of cells
     # Rewrite is possible, but more technical
     all_faces_l = np.reshape(
-        g_l.face_nodes.indices, (g_l.dim, n_old_faces_l), order="f"
+        g_l.face_nodes.indices, (g_l.dim, n_old_faces_l), order="F"
     )
 
     # Initialize indices and values for the cell_faces update
     ind_f, ind_c, cf_val = (
-        np.empty(0, dtype=np.int),
-        np.empty(0, dtype=np.int),
-        np.empty(0, dtype=np.int),
+        np.empty(0, dtype=int),
+        np.empty(0, dtype=int),
+        np.empty(0, dtype=int),
     )
     # and for the face_nodes update
-    fn_ind_f, fn_ind_n = np.empty(0, dtype=np.int), np.empty(0, dtype=np.int)
+    fn_ind_f, fn_ind_n = np.empty(0, dtype=int), np.empty(0, dtype=int)
 
     # Loop over all new cells to be created
     for i, c in enumerate(new_cells_l):
@@ -666,6 +676,7 @@ def _update_connectivity_fracture_grid(
     return n_new_faces, new_face_centers_l
 
 
+@pp.time_logger(sections=module_sections)
 def _update_cells_fracture_grid(
     g_h: pp.Grid, g_l: pp.Grid, faces_h: np.ndarray
 ) -> np.ndarray:
@@ -682,6 +693,7 @@ def _update_cells_fracture_grid(
     return new_cells
 
 
+@pp.time_logger(sections=module_sections)
 def _update_nodes_fracture_grid(
     g_h: pp.Grid, g_l: pp.Grid, faces_h: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray]:
@@ -734,6 +746,7 @@ def _update_nodes_fracture_grid(
     return unique_nodes_l, unique_nodes_h
 
 
+@pp.time_logger(sections=module_sections)
 def _append_face_geometry_fracture_grid(
     g: pp.Grid, n_new_faces: int, new_centers: np.ndarray
 ) -> None:
@@ -747,6 +760,7 @@ def _append_face_geometry_fracture_grid(
     g.num_faces += n_new_faces
 
 
+@pp.time_logger(sections=module_sections)
 def _append_face_tags(g, n_new_faces):
     """
     Initiates default face tags (False) for new faces.
@@ -756,6 +770,7 @@ def _append_face_tags(g, n_new_faces):
     pp.utils.tags.append_tags(g.tags, keys, new_tags)
 
 
+@pp.time_logger(sections=module_sections)
 def _append_node_tags(g, n_new_nodes):
     """
     Initiates default face tags (False) for new faces.
@@ -765,6 +780,7 @@ def _append_node_tags(g, n_new_nodes):
     pp.utils.tags.append_tags(g.tags, keys, new_tags)
 
 
+@pp.time_logger(sections=module_sections)
 def _split_fracture_extension(
     bucket: pp.GridBucket,
     g_h: pp.Grid,
@@ -833,6 +849,7 @@ def _split_fracture_extension(
         g.cell_faces.eliminate_zeros()
 
 
+@pp.time_logger(sections=module_sections)
 def _tag_affected_cells_and_faces(gb):
     """
     Tag the lower-dimensional cells and higher-dimensional faces which have
@@ -862,6 +879,7 @@ def _tag_affected_cells_and_faces(gb):
     g_l.tags["discretize_cells"] = t
 
 
+@pp.time_logger(sections=module_sections)
 def propgation_angle(K):
     """
     Compute the angle of propagation from already computed SIFs. The

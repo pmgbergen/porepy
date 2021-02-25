@@ -1,11 +1,12 @@
+""" Various tests of GridBucket functionality. Covers getters and setters, topologial
+information on the bucket, and pickling and unpickling of buckets.
+"""
 import unittest
+import pickle
 
 import numpy as np
-import scipy.sparse as sps
-
+from test import test_utils
 import porepy as pp
-from porepy.fracs import meshing
-from porepy.grids.grid_bucket import GridBucket
 
 
 class MockGrid(pp.Grid):
@@ -619,6 +620,15 @@ class TestBucket(unittest.TestCase):
         self.assertTrue(np.all(g1.face_centers == gb.face_centers(cond)))
 
 
+def test_pickle_bucket():
+    fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
+    gb = pp.meshing.cart_grid(fracs, [2, 2])
+
+    fn = "tmp.grid_bucket"
+    pickle.dump(gb, open(fn, "wb"))
+    gb_read = pickle.load(open(fn, "rb"))
+
+    test_utils.compare_grid_buckets(gb, gb_read)
+
 if __name__ == "__main__":
-    TestBucket().test_contains_node()
     unittest.main()

@@ -8,6 +8,10 @@ import warnings
 
 import numpy as np
 
+import porepy as pp
+
+module_sections = ["parameters"]
+
 
 class AbstractBoundaryCondition(object):
     """
@@ -15,6 +19,7 @@ class AbstractBoundaryCondition(object):
     boundary conditions
     """
 
+    @pp.time_logger(sections=module_sections)
     def copy(self):
         """
         Create a deep copy of the boundary condition.
@@ -60,6 +65,7 @@ class BoundaryCondition(AbstractBoundaryCondition):
             face i has been assigned a Robin condition.
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, g, faces=None, cond=None):
         """Constructor for BoundaryCondition.
 
@@ -151,6 +157,7 @@ class BoundaryCondition(AbstractBoundaryCondition):
                 else:
                     raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
 
+    @pp.time_logger(sections=module_sections)
     def __repr__(self) -> str:
         num_cond = self.is_neu.sum() + self.is_dir.sum() + self.is_rob.sum()
         s = (
@@ -218,6 +225,7 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, g, faces=None, cond=None):
         """Constructor for BoundaryConditionVectorial.
 
@@ -278,6 +286,7 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
         basis = np.tile(np.eye(g.dim), (1, g.num_faces))
         self.basis = np.reshape(basis, (g.dim, g.dim, g.num_faces), "F")
 
+    @pp.time_logger(sections=module_sections)
     def __repr__(self) -> str:
         s = (
             f"Boundary condition for vectorial problem in {self.dim} dimensions\n"
@@ -325,6 +334,7 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
 
         return s
 
+    @pp.time_logger(sections=module_sections)
     def set_bc(self, faces, cond):
 
         if faces is not None:
@@ -360,6 +370,7 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
                     raise ValueError(f"Unknown boundary condition {s}")
 
 
+@pp.time_logger(sections=module_sections)
 def face_on_side(g, side, tol=1e-8):
     """Find faces on specified sides of a grid.
 

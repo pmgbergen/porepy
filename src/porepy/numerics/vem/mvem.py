@@ -13,6 +13,7 @@ import porepy as pp
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
+module_sections = ["numerics", "discretization", "assembly"]
 
 
 class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
@@ -24,9 +25,11 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword: str) -> None:
         super(MVEM, self).__init__(keyword, "MVEM")
 
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g: pp.Grid, data: Dict) -> None:
         """Discretize a second order elliptic equation using a dual virtual element
         method.
@@ -107,15 +110,15 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         # Allocate the data to store matrix entries, that's the most efficient
         # way to create a sparse matrix.
         size_A = np.sum(np.square(g.cell_faces.indptr[1:] - g.cell_faces.indptr[:-1]))
-        rows_A = np.empty(size_A, dtype=np.int)
-        cols_A = np.empty(size_A, dtype=np.int)
+        rows_A = np.empty(size_A, dtype=int)
+        cols_A = np.empty(size_A, dtype=int)
         data_A = np.empty(size_A)
         idx_A = 0
 
         # Allocate the data to store matrix P entries
         size_P = 3 * np.sum(g.cell_faces.indptr[1:] - g.cell_faces.indptr[:-1])
-        rows_P = np.empty(size_P, dtype=np.int)
-        cols_P = np.empty(size_P, dtype=np.int)
+        rows_P = np.empty(size_P, dtype=int)
+        cols_P = np.empty(size_P, dtype=int)
         data_P = np.empty(size_P)
         idx_P = 0
         idx_row_P = 0
@@ -186,6 +189,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         matrix_dictionary[self.vector_proj_key] = proj
 
     @staticmethod
+    @pp.time_logger(sections=module_sections)
     def massHdiv(
         K: np.ndarray,
         inv_K: np.ndarray,
@@ -256,6 +260,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         return A, Pi_s
 
     @staticmethod
+    @pp.time_logger(sections=module_sections)
     def check_conservation(g, u):
         """
         Return the local conservation of mass in the cells.

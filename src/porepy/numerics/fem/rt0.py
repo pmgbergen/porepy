@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-
 @author: fumagalli, alessio
 """
 
@@ -14,15 +13,18 @@ import porepy as pp
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
+module_sections = ["numerics", "discretization"]
 
 
 class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword: str) -> None:
         super(RT0, self).__init__(keyword, "RT0")
         # variable name to store the structure that map a cell to the opposite nodes
         # of the local faces
         self.cell_face_to_opposite_node = "rt0_class_cell_face_to_opposite_node"
 
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g: pp.Grid, data: Dict) -> None:
         """Discretize a second order elliptic equation using using a RT0-P0 method.
 
@@ -96,15 +98,15 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         # Allocate the data to store matrix A entries
         size_A = np.power(g.dim + 1, 2) * g.num_cells
-        rows_A = np.empty(size_A, dtype=np.int)
-        cols_A = np.empty(size_A, dtype=np.int)
+        rows_A = np.empty(size_A, dtype=int)
+        cols_A = np.empty(size_A, dtype=int)
         data_A = np.empty(size_A)
         idx_A = 0
 
         # Allocate the data to store matrix P entries
         size_P = 3 * (g.dim + 1) * g.num_cells
-        rows_P = np.empty(size_P, dtype=np.int)
-        cols_P = np.empty(size_P, dtype=np.int)
+        rows_P = np.empty(size_P, dtype=int)
+        cols_P = np.empty(size_P, dtype=int)
         data_P = np.empty(size_P)
         idx_P = 0
         idx_row_P = 0
@@ -183,6 +185,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         matrix_dictionary[self.vector_proj_key] = proj
 
     @staticmethod
+    @pp.time_logger(sections=module_sections)
     def massHdiv(
         inv_K: np.ndarray,
         c_volume: float,
@@ -224,6 +227,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K_exp, np.dot(N, C)))))
 
     @staticmethod
+    @pp.time_logger(sections=module_sections)
     def faces_to_cell(
         pt: np.ndarray,
         coord: np.ndarray,
@@ -252,8 +256,9 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         P[dim, :] = c_delta / np.einsum("ij,ij->j", f_delta, f_normals)
         return np.dot(R.T, P)
 
+    @pp.time_logger(sections=module_sections)
     def _compute_cell_face_to_opposite_node(
-        self, g: pp.Grid, data: np.ndarray, recompute: bool = False
+        self, g: pp.Grid, data: Dict, recompute: bool = False
     ) -> None:
         """Compute a map that given a face return the node on the opposite side,
         typical request of a Raviart-Thomas approximation.
@@ -278,7 +283,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         faces = faces[np.argsort(cells)]
 
         # initialize the map
-        cell_face_to_opposite_node = np.empty((g.num_cells, g.dim + 1), dtype=np.int)
+        cell_face_to_opposite_node = np.empty((g.num_cells, g.dim + 1), dtype=int)
 
         nodes, _, _ = sps.find(g.face_nodes)
         indptr = g.face_nodes.indptr

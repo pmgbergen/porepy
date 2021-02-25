@@ -10,7 +10,7 @@ from porepy.numerics.fv import fvutils
 
 class TestFvutils(unittest.TestCase):
     def test_subcell_topology_2d_cart_1(self):
-        x = np.ones(2, dtype=np.int)
+        x = np.ones(2, dtype=int)
         g = structured.CartGrid(x)
 
         subcell_topology = fvutils.SubcellTopology(g)

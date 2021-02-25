@@ -14,14 +14,18 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.fracs import split_grid, structured, tools
+from porepy.fracs import split_grid, structured
 from porepy.grids import mortar_grid
 from porepy.grids.grid_bucket import GridBucket
 from porepy.utils import mcolon
 
 logger = logging.getLogger(__name__)
+module_sections = ["gridding"]
+
+mortar_sides = mortar_grid.MortarSides
 
 
+@pp.time_logger(sections=module_sections)
 def grid_list_to_grid_bucket(
     grids: List[List[pp.Grid]], time_tot: float = None, **kwargs
 ) -> pp.GridBucket:
@@ -79,6 +83,7 @@ def grid_list_to_grid_bucket(
     return gb
 
 
+@pp.time_logger(sections=module_sections)
 def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucket:
     """
     Creates a cartesian fractured GridBucket in 2- or 3-dimensions.
@@ -138,6 +143,7 @@ def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucke
     return grid_list_to_grid_bucket(grids, **kwargs)
 
 
+@pp.time_logger(sections=module_sections)
 def _tag_faces(grids, check_highest_dim=True):
     """
     Tag faces of grids. Three different tags are given to different types of
@@ -198,6 +204,7 @@ def _tag_faces(grids, check_highest_dim=True):
                 g.tags["domain_boundary_faces"] = domain_boundary_tags
 
 
+@pp.time_logger(sections=module_sections)
 def _nodes_per_face(g):
     """
     Returns the number of nodes per face for a given grid
@@ -219,6 +226,7 @@ def _nodes_per_face(g):
     return n_per_face
 
 
+@pp.time_logger(sections=module_sections)
 def _assemble_in_bucket(grids, **kwargs):
     """
     Create a GridBucket from a list of grids.
@@ -243,10 +251,23 @@ def _assemble_in_bucket(grids, **kwargs):
 
     # We now find the face_cell mapings.
     for dim in range(len(grids) - 1):
+        # If there are no grids of dimension one less, continue.
+        if len(grids[dim + 1]) == 0:
+            continue
+
+        # Loop over all grids of the higher dimension, look for lower-dimensional
+        # grids where the cell of the lower-dimensional grid shares nodes with
+        # the faces of the higher-dimensional grid. If this face-cell intersection
+        # is non-empty, there is a coupling will be made between the higher and
+        # lower-dimensional grid, and the face-to-cell relation will be saved.
         for hg in grids[dim]:
+
             # We have to specify the number of nodes per face to generate a
             # matrix of the nodes of each face.
             n_per_face = _nodes_per_face(hg)
+
+            # Get the face-node relation for the higher-dimensional grid,
+            # stored with one column per face
             fn_loc = hg.face_nodes.indices.reshape(
                 (n_per_face, hg.num_faces), order="F"
             )
@@ -254,19 +275,95 @@ def _assemble_in_bucket(grids, **kwargs):
             fn = hg.global_point_ind[fn_loc]
             fn = np.sort(fn, axis=0)
 
-            for lg in grids[dim + 1]:
-                cell_2_face, cell = tools.obtain_interdim_mappings(lg, fn, n_per_face)
-                if cell_2_face.size > 0:
-                    face_cells = sps.csc_matrix(
-                        (np.ones(cell.size, dtype=bool), (cell, cell_2_face)),
-                        (lg.num_cells, hg.num_faces),
-                    )
+            # Get a cell-node relation for the lower-dimensional grids.
+            # It turns out that to do the intersection between the node groups
+            # is costly (mainly because the call to ismember_rows below does
+            # a unique over all faces-nodes in the higher-dimensional grid).
+            # To save a lot of time, we first group cell-nodes for all lower-
+            # dimensional grids, do the intersection once, and then process
+            # the results.
 
-                    bucket.add_edge([hg, lg], face_cells)
+            # The treatmnet of the lower-dimensional grids is a bit special
+            # for point grids (else below)
+            if hg.dim > 1:
+                # Data structure for cell-nodes
+                cn = []
+                # Number of cells per grid. Will be used to define offsets
+                # for cell-node relations for each grid, hence initialize with
+                # zero.
+                num_cn = [0]
+                for lg in grids[dim + 1]:
+                    # Local cell-node relation
+                    cn_loc = lg.cell_nodes().indices.reshape(
+                        (n_per_face, lg.num_cells), order="F"
+                    )
+                    cn.append(np.sort(lg.global_point_ind[cn_loc], axis=0))
+                    num_cn.append(lg.num_cells)
+
+                # Stack all cell-nodes, and define offset array
+                cn_all = np.hstack([c for c in cn])
+                cell_node_offsets = np.cumsum(num_cn)
+            else:
+                # 0d grid is much easier, although getting hold of the single
+                # point index is a bit technical
+                cn_all = np.array(
+                    [np.atleast_1d(lg.global_point_ind)[0] for lg in grids[dim + 1]]
+                )
+                cell_node_offsets = np.arange(cn_all.size + 1)
+                # Ensure that face-node relation is 1d in this case
+                fn = fn.ravel()
+
+            # Find intersection between cell-node and face-nodes.
+            # Node nede to sort along 0-axis, we know we've done that above.
+            is_mem, cell_2_face = pp.utils.setmembership.ismember_rows(
+                cn_all, fn, sort=False
+            )
+            # Now, for each lower-dimensional grid, either all of none of the cells
+            # have been identified as faces in the higher-dimensional grid.
+            # (If hg is the highest dimension, there should be a match for all grids
+            # in lg, however, if hg is itself a fracture, lg is an intersection which
+            # need not involve hg).
+
+            # Special treatment if not all cells were found: cell_2_face then only
+            # contains those cells found; to make them conincide with the indices
+            # of is_mem (that is, as the faces are stored in cn_all), we expand the
+            # cell_2_face array
+            if is_mem.size != cell_2_face.size:
+                # If something goes wrong here, we will likely get an index of -1
+                # when initializing the sparse matrix below - that should be a
+                # clear indicator.
+                tmp = -np.ones(is_mem.size, dtype=np.int)
+                tmp[is_mem] = cell_2_face
+                cell_2_face = tmp
+
+            # Loop over all lower-dimensional grids; find the cells that had matching
+            # faces in hg (should be either none or all the cells).
+            for counter, lg in enumerate(grids[dim + 1]):
+                # Indices of this grid in is_mem and cell_2_face (thanks to the above
+                # expansion, involving tmp)
+                ind = slice(cell_node_offsets[counter], cell_node_offsets[counter + 1])
+                loc_mem = is_mem[ind]
+                # If no match, continue
+                if np.sum(loc_mem) == 0:
+                    continue
+                # If some match, all should be matches. If this goes wrong, there is
+                # likely something wrong with the mesh.
+                assert np.all(loc_mem)
+                # Create mapping between faces and cells.
+                face_cell_map = sps.csc_matrix(
+                    (
+                        np.ones(loc_mem.size, dtype=bool),
+                        (np.arange(loc_mem.size), cell_2_face[ind]),
+                    ),
+                    shape=(lg.num_cells, hg.num_faces),
+                )
+                # Define the new edge.
+                bucket.add_edge([hg, lg], face_cell_map)
 
     return bucket
 
 
+@pp.time_logger(sections=module_sections)
 def create_mortar_grids(gb, ensure_matching_face_cell=True, **kwargs):
 
     gb.add_edge_props("mortar_grid")
@@ -288,10 +385,10 @@ def create_mortar_grids(gb, ensure_matching_face_cell=True, **kwargs):
         if np.all(num_sides > 1):
             # we are in a two sides situation
             side_g = {
-                mortar_grid.LEFT_SIDE: lg.copy(),
-                mortar_grid.RIGHT_SIDE: lg.copy(),
+                mortar_sides.LEFT_SIDE: lg.copy(),
+                mortar_sides.RIGHT_SIDE: lg.copy(),
             }
         else:
             # the tag name is just a place-holder we assume left side
-            side_g = {mortar_grid.LEFT_SIDE: lg.copy()}
+            side_g = {mortar_sides.LEFT_SIDE: lg.copy()}
         d["mortar_grid"] = mortar_grid.MortarGrid(lg.dim, side_g, d["face_cells"])
