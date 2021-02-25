@@ -1000,7 +1000,7 @@ class FractureNetwork2d(object):
         pp.plot_fractures(self.pts, self.edges, domain=self.domain, **kwargs)
 
     @pp.time_logger(sections=module_sections)
-    def to_csv(self, file_name):
+    def to_csv(self, file_name, with_header=True):
         """
         Save the 2d network on a csv file with comma , as separator.
         Note: the file is overwritten if present.
@@ -1014,6 +1014,9 @@ class FractureNetwork2d(object):
 
         with open(file_name, "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
+            if with_header:
+                header = ["# FID", "START_X", "START_Y", "END_X", "END_Y"]
+                csv_writer.writerow(header)
             # write all the fractures
             for edge_id, edge in enumerate(self.edges.T):
                 data = [edge_id]
