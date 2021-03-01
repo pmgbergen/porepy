@@ -791,41 +791,64 @@ class FractureNetwork3d(object):
         # All intersection points should occur at least twice
         isect_p = edges[:2, intersection_edge].ravel()
         num_occ_pt = np.bincount(isect_p)
-        intersection_point_canditates = np.where(num_occ_pt > 1)[0]
+        intersection_point_candidates = np.where(num_occ_pt > 1)[0]
 
         # .. however, this is not enough: If a fracture and a constraint intersect at
         # a domain boundary, the candidate is not a true intersection point.
         # Loop over all candidates, find all polygons that have this as part of an edge,
-        # and ccount the number of those polygons that are fractures (e.g. not boundary
-        # or constraint). If there are more than two, this is indeed  a fracture intersection
-        # and an intersection point grid should be assigned
+        # and count the number of those polygons that are fractures (e.g. not boundary
+        # or constraint). If there is more than one, this is indeed  a fracture intersection
+        # and an intersection point grid should be assigned.
+        # (Reason for more than one, not two, I believe is: Two fractures crossing will not
+        # make a 0d point by themselves). Point must then come either from a third fracture,
+        # or a constraint. In the latter case, we anyhow need the intersection point as a
+        # grid to get dynamics between the intersection line correctly represented.
         intersection_points = []
-        for pi in intersection_point_canditates:
+        # Points that are both on a boundary, and on a fracture. This may represent one of
+        # a few cases: A fracture-constraint intersection on a boundary, and/or a fracture
+        # crossing a domain surface boundary.
+        fracture_and_boundary_points = []
+
+        for pi in intersection_point_candidates:
+            # edges of this point
             _, edge_ind = np.where(edges == pi)
+
+            # Fractures of the edge
             frac_arr = np.array([], dtype=int)
             for e in edge_ind:
                 frac_arr = np.append(frac_arr, self.decomposition["edges_2_frac"][e])
+            # Uniquify.
             unique_fracs = np.unique(frac_arr)
 
+            # If the domain has a boundary, classify the polygons of this point as
+            # fracture, fracture or boundary (and tacitly, constraints)
             if has_boundary:
+                is_boundary = np.array(self.tags["boundary"])[unique_fracs]
                 is_frac = np.logical_not(
-                    np.logical_or(
-                        np.in1d(unique_fracs, constraints),
-                        np.array(self.tags["boundary"])[unique_fracs],
-                    )
+                    np.logical_or(np.in1d(unique_fracs, constraints), is_boundary)
+                )
+                is_frac_or_boundary = np.logical_not(
+                    np.in1d(unique_fracs, constraints),
                 )
             else:
                 is_frac = np.logical_not(np.in1d(unique_fracs, constraints))
+                is_frac_or_boundary = is_frac
 
+            # If more than one fracture share this point, it is an intersection point.
+            # See comment above on why not > 2.
             if is_frac.sum() > 1:
                 intersection_points.append(pi)
+            # If the point is on a fracture, and on a boundary surface, it will be
+            # classified otherwise.
+            if is_frac.sum() > 0 and (is_frac_or_boundary.sum() - is_frac.sum()) > 0:
+                fracture_and_boundary_points.append(pi)
 
         # Finally, we have the full set of intersection points (take a good laugh when finding
         # this line in the next round of debugging).
 
         # Candidates that were not intersections
         fracture_constraint_intersection = np.setdiff1d(
-            intersection_point_canditates, intersection_points
+            intersection_point_candidates, fracture_and_boundary_points
         )
         # Special tag for intersection between fracture and constraint.
         # These are not needed in the gmsh postprocessing (will not produce 0d grids),
@@ -834,16 +857,19 @@ class FractureNetwork3d(object):
             fracture_constraint_intersection
         ] = Tags.FRACTURE_CONSTRAINT_INTERSECTION_POINT.value
 
+        point_tags[fracture_and_boundary_points] = Tags.FRACTURE_BOUNDARY_POINT.value
+
         # We're done! Hurah!
 
         # Find points tagged as on the domain boundary
         boundary_points = np.where(point_tags == Tags.DOMAIN_BOUNDARY_POINT.value)[0]
 
         fracture_boundary_points = np.where(
-            point_tags == Tags.FRACTURE_BOUNDARY_LINE.value
+            point_tags == Tags.FRACTURE_BOUNDARY_POINT.value
         )[0]
+
         # Intersections on the boundary should not have a 0d grid assigned
-        zero_d_pt = np.setdiff1d(
+        true_intersection_points = np.setdiff1d(
             intersection_points, np.hstack((boundary_points, fracture_boundary_points))
         )
 
@@ -864,7 +890,7 @@ class FractureNetwork3d(object):
         for pi in boundary_points:
             physical_points[pi] = Tags.DOMAIN_BOUNDARY_POINT
 
-        for pi in zero_d_pt:
+        for pi in true_intersection_points:
             physical_points[pi] = Tags.FRACTURE_INTERSECTION_POINT
 
         # Use separate structures to store tags and physical names for the polygons.
