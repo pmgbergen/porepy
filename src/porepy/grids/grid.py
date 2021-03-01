@@ -613,19 +613,7 @@ class Grid:
                 connection between cell and node.
 
         """
-        # Local version of cell-face map, using absolute value to avoid
-        # artifacts from +- in the original version.
-        shape = (self.num_faces, self.num_cells)
-        cf_loc = sps.csc_matrix(
-            (
-                np.abs(self.cell_faces.data),
-                self.cell_faces.indices,
-                self.cell_faces.indptr,
-            ),
-            shape,
-        )
-
-        mat = (self.face_nodes * cf_loc) > 0
+        mat = (self.face_nodes * np.abs(self.cell_faces)) > 0
         return mat
 
     @pp.time_logger(sections=module_sections)
