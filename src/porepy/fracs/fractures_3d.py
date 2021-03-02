@@ -1152,7 +1152,7 @@ class FractureNetwork3d(object):
                 it.
         """
         f2e = []
-        for fi in len(self._fractures):
+        for fi in range(len(self._fractures)):
             f_l = []
             for ei, e in enumerate(edges_2_frac):
                 if fi in e:
@@ -1397,7 +1397,7 @@ class FractureNetwork3d(object):
             # It seems necessary to increase the tolerance here somewhat to
             # obtain a more robust algorithm. Not sure about how to do this
             # consistent.
-            p_new, edges_new = pp.intersections.split_intersecting_segments_2d(
+            p_new, edges_new, tags = pp.intersections.split_intersecting_segments_2d(
                 p_2d, edges_2d, tol=self.tol
             )
             # Then, patch things up by converting new points to 3D,
@@ -1460,12 +1460,30 @@ class FractureNetwork3d(object):
                     edges_new_glob[:, ei].reshape((-1, 1)), edges[:2, edges_loc_ind]
                 )
                 if is_old[0]:
-                    glob_ei = edges_loc_ind[old_loc_ind[0]]
+                    # The edge was preserved, with the same indices for start and end
+                    # during splitting. Information on edge-to-fracs, and on whether this
+                    # is a boundary edge is identical to that of the edge before the
+                    # splitting routine. The global index is that of the local edges
+                    # that had the same nodes.
+                    glob_ei = [edges_loc_ind[old_loc_ind[0]]]
                 else:
-                    glob_ei = edges_new[2, ei]
+                    # This edge is formed by splitting of old edges. To recover all,
+                    # exploit information from the splitting of segments.
+                    cols_mapped_to_glob_ei = tags[1] == ei
+                    glob_ei = tags[0][cols_mapped_to_glob_ei]
+
                 # Update edge_2_frac and boundary information.
-                edges_2_frac.append(edges_2_frac[glob_ei])
-                is_boundary_edge.append(is_boundary_edge[glob_ei])
+                e2f = np.array([], dtype=int)
+                ib = np.array([], dtype=bool)
+                for gi in glob_ei:
+                    e2f = np.hstack((e2f, edges_2_frac[gi]))
+                    ib = np.hstack((ib, is_boundary_edge[gi]))
+
+                # There may de duplicates in e2f (if the size of glob_ei is larger
+                # than 1), but these are removed in the below call to uniquify points
+                # and edges.
+                edges_2_frac.append(e2f)
+                is_boundary_edge.append(ib)
 
             # Finally, purge the old edges
             edges = np.delete(edges, edges_loc_ind, axis=1)
