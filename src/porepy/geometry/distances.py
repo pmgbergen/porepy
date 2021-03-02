@@ -37,12 +37,13 @@ def segment_set(start, end):
 
     for i in range(ns):
         cp[i, i, :] = start[:, i] + 0.5 * (end[:, i] - start[:, i])
-        for j in range(i + 1, ns):
-            dl, cpi, cpj = two_segments(start[:, i], end[:, i], start[:, j], end[:, j])
-            d[i, j] = dl
-            d[j, i] = dl
-            cp[i, j, :] = cpi
-            cp[j, i, :] = cpj
+        dl, cpi, cpj = segment_segment_set(
+            start[:, i], end[:, i], start[:, i + 1 :], end[:, i + 1]
+        )
+        dl[i, i + 1 :] = dl
+        dl[i + 1 :, i] = dl
+        cp[i, i + 1 :] = cpi
+        cp[i + 1 :, i] = cpj
 
     return d, cp
 
