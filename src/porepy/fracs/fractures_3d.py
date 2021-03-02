@@ -8,7 +8,7 @@ import copy
 import csv
 import logging
 import time
-from typing import Dict, Union, List, Dict, Tuple
+from typing import Dict, Union, List, Dict, Tuple, Optional
 
 import meshio
 import numpy as np
@@ -1600,24 +1600,14 @@ class FractureNetwork3d(object):
 
         return p_2d, edges_2d, p_loc_c, rot
 
-    @pp.time_logger(sections=module_sections)
-    def change_tolerance(self, new_tol):
-        """
-        Redo the whole configuration based on the new tolerance
-        """
-        pass
-
-    @pp.time_logger(sections=module_sections)
     def __repr__(self):
         s = "Fracture set with " + str(len(self._fractures)) + " fractures"
         return s
 
-    @pp.time_logger(sections=module_sections)
     def _reindex_fractures(self):
         for fi, f in enumerate(self._fractures):
             f.index = fi
 
-    @pp.time_logger(sections=module_sections)
     def bounding_box(self):
         """Obtain bounding box for fracture network.
 
@@ -1646,8 +1636,10 @@ class FractureNetwork3d(object):
 
     @pp.time_logger(sections=module_sections)
     def impose_external_boundary(
-        self, domain=None, truncate_fractures=True, keep_box=True
-    ):
+        self,
+        domain: Optional[Union[Dict[str, float], List[np.ndarray]]] = None,
+        keep_box: bool = True,
+    ) -> np.ndarray:
         """
         Set an external boundary for the fracture set.
 
@@ -1659,7 +1651,7 @@ class FractureNetwork3d(object):
         If no bounding box is provided, a box will be fited outside the fracture
         network.
 
-        If desired, the fratures will be truncated to lay within the bounding
+        The fratures will be truncated to lay within the bounding
         box; that is, Fracture.p will be modified. The orginal coordinates of
         the fracture boundary can still be recovered from the attribute
         Fracture.orig_points.
@@ -1668,23 +1660,20 @@ class FractureNetwork3d(object):
         from the fracture set.
 
         Parameters:
-            box (dictionary): Has fields 'xmin', 'xmax', and similar for y and
-                z.
-            truncate_fractures (boolean, optional): If True, fractures outside
-            the bounding box will be disregarded, while fractures crossing the
-            boundary will be truncated.
+            box (dictionary or list of np.ndarray): See above for description.
+            keep_box (bool, optional): If True (default), the bounding surfaces will be
+                added to the end of the fracture list, and tagged as boundary.
 
         Returns:
             np.array: Mapping from old to new fractures, referring to the fractures in
                 self._fractures before and after imposing the external boundary.
                 The mapping does not account for the boundary fractures added to the
-                end of the fracture array.
+                end of the fracture array (if keep_box) is True.
 
-        Raises
-        ------
-        ValueError
-            If the FractureNetwork contains no fractures and no domain was passed
-            to this method.
+        Raises:
+            ValueError
+                If the FractureNetwork contains no fractures and no domain was passed
+                to this method.
 
         """
         if domain is None and not self._fractures:
@@ -1778,8 +1767,9 @@ class FractureNetwork3d(object):
         self._reindex_fractures()
         return ind_map
 
-    @pp.time_logger(sections=module_sections)
-    def _make_bounding_planes_from_box(self, box, keep_box=True):
+    def _make_bounding_planes_from_box(
+        self, box: Dict[str, float], keep_box: bool = True
+    ) -> List[np.ndarray]:
         """
         Translate the bounding box into fractures. Tag them as boundaries.
         For now limited to a box consisting of six planes.
