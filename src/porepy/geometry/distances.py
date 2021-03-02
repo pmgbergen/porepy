@@ -53,6 +53,9 @@ def segment_segment_set(start, end, start_set, end_set):
     """Compute distance and closest points between a segment and a set of
     segments.
 
+    Algorithm can be found at http://geomalgorithms.com/a07-_distance.html (see
+    C++ code quite far down on that page).
+
     Parameters:
         start (np.array, nd x 1): Start point of the main segment
         end (np.array, nd x 1): End point of the main segment
@@ -93,9 +96,6 @@ def segment_segment_set(start, end, start_set, end_set):
     # Variable used to fine almost parallel lines. Sensitivity to this value has not
     # been tested.
     SMALL_TOLERANCE = 1e-8 * np.minimum(dot_1_1, np.min(dot_2_2))
-
-    # Sanity check
-    assert np.all(discr >= -SMALL_TOLERANCE * dot_1_1 * dot_2_2)
 
     sc = discr.copy()
     sN = discr.copy()
