@@ -1214,7 +1214,6 @@ class FractureNetwork3d(object):
         # relatively straightforward.
         num_isect = self.intersections["start"].shape[1]
         num_p = all_p.shape[1]
-
         # Intersection points are added by first all starts, then all ends
         isect_pt = np.hstack((self.intersections["start"], self.intersections["end"]))
         # Intersection edges are offset by the number of fracture edges
@@ -1623,8 +1622,13 @@ class FractureNetwork3d(object):
 
         return p_2d, edges_2d, p_loc_c, rot
 
-    def __repr__(self):
-        s = "Fracture set with " + str(len(self._fractures)) + " fractures"
+    def __repr__(self) -> str:
+        s = "Fracture set with " + str(len(self._fractures)) + " planes\n"
+        if "boundary" in self.tags:
+            bnd = "boundary"
+            s += f"{sum(self.tags[bnd])} of the fractures are domain boundaries"
+        else:
+            s += "No boundary information is given"
         return s
 
     def _reindex_fractures(self):
