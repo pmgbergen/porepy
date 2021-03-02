@@ -496,7 +496,13 @@ class FractureNetwork3d(object):
     """
 
     @pp.time_logger(sections=module_sections)
-    def __init__(self, fractures=None, domain=None, tol=1e-8, run_checks=False):
+    def __init__(
+        self,
+        fractures: Optional[List[Fracture]] = None,
+        domain: Optional[Union[Dict[str, float], List[np.ndarray]]] = None,
+        tol: float = 1e-8,
+        run_checks: bool = False,
+    ) -> None:
         """Initialize fracture network.
 
         Generate network from specified fractures. The fractures will have
@@ -516,12 +522,11 @@ class FractureNetwork3d(object):
                 processing. Can be considered a limited debug mode. Defaults to False.
 
         """
-        if fractures is None:
-            self._fractures = []
-        elif not isinstance(fractures, list):
-            self._fractures = [fractures]
-        else:
-            self._fractures = fractures
+        self._fractures = []
+
+        if fractures is not None:
+            for f in fractures:
+                self._fractures.append(f)
 
         for i, f in enumerate(self._fractures):
             f.set_index(i)
