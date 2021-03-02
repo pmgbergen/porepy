@@ -404,7 +404,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                 coords_centered = unique_coords - center
                 R = pp.map_geometry.project_plane_matrix(coords_centered)
                 pt = R.dot(coords_centered)[:2]
-                _, el = pp.intersections.split_intersecting_segments_2d(pt, el, tol)
+                _, el, _ = pp.intersections.split_intersecting_segments_2d(pt, el, tol)
 
             if np.any(count == 1):
                 # There should be exactly two loose ends, if not, this is really

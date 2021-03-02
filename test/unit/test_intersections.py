@@ -20,7 +20,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
 
         lines = np.array([[0, 1], [2, 3]])
-        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
         self.assertTrue(np.allclose(new_pts, p))
         self.assertTrue(np.allclose(new_lines, lines))
 
@@ -31,7 +31,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         )
         lines = np.array([[0, 3], [1, 4], [2, 5]]).T
 
-        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
 
         self.assertTrue(np.allclose(new_pts, p))
         self.assertTrue(test_utils.compare_arrays(new_lines, lines))
@@ -43,7 +43,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         )
         lines = np.array([[0, 3], [2, 5], [1, 4]]).T
 
-        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
         p_known = np.hstack((p, np.array([[0.4], [0.4]])))
         lines_known = np.array([[0, 3], [2, 6], [6, 5], [1, 6], [6, 4]]).T
         self.assertTrue(np.allclose(new_pts, p_known))
@@ -53,7 +53,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
         lines = np.array([[0, 2], [1, 3]]).T
 
-        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
 
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
 
@@ -66,7 +66,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
         lines = np.array([[0, 2], [3, 1]]).T
 
-        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
 
         new_lines = np.sort(new_lines, axis=0)
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
@@ -78,7 +78,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
         lines = np.array([[0, 3], [1, 2]]).T
 
-        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
 
         new_lines = np.sort(new_lines, axis=0)
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
@@ -90,7 +90,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2], [0, 0, 0]])
         lines = np.array([[0, 2], [0, 1]]).T
 
-        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
 
         new_lines = np.sort(new_lines, axis=0)
         lines_known = np.array([[0, 1], [1, 2]]).T
@@ -102,7 +102,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2], [0, 0, 0]])
         lines = np.array([[0, 2], [1, 2]]).T
 
-        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
 
         new_lines = np.sort(new_lines, axis=0)
         lines_known = np.array([[0, 1], [1, 2]]).T
@@ -114,7 +114,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
         lines = np.array([[0, 3], [2, 1]]).T
 
-        new_pts, new_lines = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
         new_lines = np.sort(new_lines, axis=0)
 
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
