@@ -460,7 +460,7 @@ class FractureNetwork2d(object):
         logger.info("Remove edge crossings")
         tm = time.time()
 
-        pts_split, lines_split = pp.intersections.split_intersecting_segments_2d(
+        pts_split, lines_split, _ = pp.intersections.split_intersecting_segments_2d(
             pts_all, lines, tol=self.tol
         )
         logger.info("Done. Elapsed time " + str(time.time() - tm))
@@ -796,7 +796,8 @@ class FractureNetwork2d(object):
         if tol is None:
             tol = self.tol
 
-        p, e, argsort = pp.intersections.split_intersecting_segments_2d(
+        # FIXME: tag_info may contain useful information if segments are intersecting.
+        p, e, tag_info, argsort = pp.intersections.split_intersecting_segments_2d(
             self.pts, self.edges, tol=self.tol, return_argsort=True
         )
         # map the tags
