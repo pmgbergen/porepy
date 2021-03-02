@@ -1566,10 +1566,10 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
 
     The connections are defined by their start and endpoints, and can also
     have tags assigned. If so, the tags are preserved as connections are split.
-
-    IMPLEMENTATION NOTE: This is a re-implementation of the old function
-    remove_edge_crossings, based on a much faster algorithm. The two functions
-    will coexist for a while.
+    The connections are uniquified, so that no combination of point indices
+    occurs more than once.
+    NOTE: For (partly) overlapping segments, only one of the tags will survive the
+    uniquification. The other can be reconstructed by using the third output.
 
     Parameters:
         p (np.ndarray, 2 x n_pt): Coordinates of points to be processed
@@ -1583,6 +1583,11 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
     Returns:
         np.ndarray, (2 x n_pt), array of points, possibly expanded.
         np.ndarray, (n x n_edges), array of new edges. Non-intersecting.
+        tuple of 2 arrays, both n_con: First item is a set of tags, before
+            uniquification of the edges. The second is a column mapping from the
+            unique edges to all edges. To recover lost tags associated with the
+            points in column i, first find all original columns which maps to
+            i (tuple[1] == i), then recover the tags by the hits.
         np.array, (n_edges), array to map the new edges with the input edges.
             Returned if return_argsort is True.
 
@@ -1728,10 +1733,15 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
     # If we have found no intersection points, we can safely return the incoming
     # points and edges.
     if len(new_pts) == 0:
+        # Tag information is trivial in this case
+        tags = e[2:].copy()
+        mapping = np.arange(e.shape[1])
+        tag_info = (tags, mapping)
         if return_argsort:
-            return p, e, np.arange(e.shape[1])
+            return p, e, tag_info, np.arange(e.shape[1])
         else:
-            return p, e
+            return p, e, tag_info
+        
     # If intersection points are found, the intersecting lines must be split into
     # shorter segments.
     else:
@@ -1774,17 +1784,22 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
         # Finally, uniquify edges. This operation is necessary for overlapping edges.
         # Operate on sorted point indices per edge
         new_edge[:2] = np.sort(new_edge[:2], axis=0)
+        
+        # Keep the old tags before uniquifying
+        tags = new_edge[2:].copy().ravel()
         # Uniquify.
-        _, edge_map, _ = pp.utils.setmembership.unique_columns_tol(
+        _, edge_map, all_2_unique = pp.utils.setmembership.unique_columns_tol(
             new_edge[:2].astype(int), tol
         )
+        tag_info = (tags, all_2_unique)
+
         new_edge = new_edge[:, edge_map]
         argsort = argsort[edge_map]
 
         if return_argsort:
-            return unique_all_pt, new_edge.astype(int), argsort
+            return unique_all_pt, new_edge.astype(int), tag_info, argsort
         else:
-            return unique_all_pt, new_edge.astype(int)
+            return unique_all_pt, new_edge.astype(int), tag_info
 
 
 @pp.time_logger(sections=module_sections)
