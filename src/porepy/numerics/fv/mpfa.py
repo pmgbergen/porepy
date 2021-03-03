@@ -1427,8 +1427,8 @@ class Mpfa(pp.FVElliptic):
         # (EK: DFM upscaling) the tagging of grid boundary faces which underlies
         # the boundary condition implementation may be inaccurate, and copying
         # the information is necessary.
-        sub_bc.is_neu = bc.is_neu[face_map]
-        
+        # sub_bc.is_neu = bc.is_neu[face_map]
+
         sub_bc.is_dir = bc.is_dir[face_map]
         sub_bc.is_rob = bc.is_rob[face_map]
         sub_bc.is_neu[sub_bc.is_dir + sub_bc.is_rob] = False
