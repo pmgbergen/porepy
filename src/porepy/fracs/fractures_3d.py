@@ -8,7 +8,7 @@ import copy
 import csv
 import logging
 import time
-from typing import Dict, Union, List, Dict, Tuple, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 import meshio
 import numpy as np
@@ -558,7 +558,7 @@ class FractureNetwork3d(object):
         self.mesh_size_frac = None
         self.mesh_size_bound = None
         # Assign an empty tag dictionary
-        self.tags = {}
+        self.tags: Dict[str, List[bool]] = {}
 
         # No auxiliary points have been added
         self.auxiliary_points_added = False
@@ -613,7 +613,7 @@ class FractureNetwork3d(object):
         file_name=None,
         constraints=None,
         write_geo=False,
-        **kwargs
+        **kwargs,
     ):
         """Mesh the fracture network, and generate a mixed-dimensional grid.
 
@@ -2098,7 +2098,8 @@ class FractureNetwork3d(object):
         # auxiliary points were added because of close segments.
 
         def dist_p(a, b):
-            # Helper funciton to get the distance from a set of points (a) to a single point (b).
+            # Helper funciton to get the distance from a set of points (a) to a single point
+            # (b).
             if a.size == 3:
                 a = a.reshape((-1, 1))
             b = b.reshape((-1, 1))
@@ -2155,8 +2156,8 @@ class FractureNetwork3d(object):
 
                 for pi, (si, di) in enumerate(zip(closest_segment, min_dist)):
                     if di < mesh_size_frac and di > mesh_size_min:
-                        # Distance between the closest point aself.intersectionsnd the two end points of
-                        # this segmentself.intersectionsself.iself.intersectionsself.intersectionsntersections
+                        # Distance between the closest point of the intersection segment
+                        # and the points of this fracture.
                         d_1 = dist_p(cp[pi, si], f.p[:, si])
                         d_2 = dist_p(cp[pi, si], f.p[:, (si + 1) % nfp])
                         # If the intersection point is not very close to any of
@@ -2402,8 +2403,12 @@ class FractureNetwork3d(object):
     ) -> None:
         # Add one or several fracture pairs to the intersections.
         # If several fractures, these should be wrapped in a numpy array.
-        self.intersections["first"] = np.hstack((self.intersections["first"], first))
-        self.intersections["second"] = np.hstack((self.intersections["second"], second))
+        self.intersections["first"] = np.hstack(
+            (self.intersections["first"], first)  # type: ignore
+        )
+        self.intersections["second"] = np.hstack(
+            (self.intersections["second"], second)  # type: ignore
+        )
 
         if start.size < 4:
             start = start.reshape((-1, 1))
