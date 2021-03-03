@@ -229,7 +229,7 @@ class AbstractInterfaceLaw(abc.ABC):
         mg: pp.MortarGrid,
         matrix: np.ndarray,
         create_matrix: bool = True,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """Initialize a block matrix and right hand side for the local linear
         system of the primary and secondary grid and the interface.
 
@@ -271,19 +271,22 @@ class AbstractInterfaceLaw(abc.ABC):
             if not dof_primary == matrix[primary_ind, primary_ind].shape[1]:
                 raise ValueError(
                     """The number of dofs of the primary discretization given
-                in the coupling discretization must match the number of dofs given by the matrix
+                in the coupling discretization must match the number of dofs given by the
+                matrix.
                 """
                 )
             elif not dof_secondary == matrix[primary_ind, secondary_ind].shape[1]:
                 raise ValueError(
                     """The number of dofs of the secondary discretization given
-                in the coupling discretization must match the number of dofs given by the matrix
+                in the coupling discretization must match the number of dofs given by the
+                matrix.
                 """
                 )
             elif not self.ndof(mg) == matrix[primary_ind, mortar_ind].shape[1]:
                 raise ValueError(
                     """The number of dofs of the edge discretization given
-                in the coupling discretization must match the number of dofs given by the matrix
+                in the coupling discretization must match the number of dofs given by the
+                matrix.
                 """
                 )
             cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
@@ -309,7 +312,7 @@ class AbstractInterfaceLaw(abc.ABC):
         mg_secondary: pp.MortarGrid,
         matrix: np.ndarray,
         create_matrix: bool = True,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """Initialize a block matrix and right hand side for the local linear
         system of the primary and secondary grid and the interface.
 
@@ -351,19 +354,22 @@ class AbstractInterfaceLaw(abc.ABC):
             if not dof_grid == matrix[grid_ind, grid_ind].shape[1]:
                 raise ValueError(
                     """The number of dofs of the primary discretization given
-                in the coupling discretization must match the number of dofs given by the matrix
+                in the coupling discretization must match the number of dofs given by the
+                matrix.
                 """
                 )
             elif not dof_mortar_primary == matrix[grid_ind, primary_ind].shape[1]:
                 raise ValueError(
                     """The number of dofs of the secondary discretization given
-                in the coupling discretization must match the number of dofs given by the matrix
+                in the coupling discretization must match the number of dofs given by the
+                matrix.
                 """
                 )
             elif not dof_mortar_secondary == matrix[grid_ind, secondary_ind].shape[1]:
                 raise ValueError(
                     """The number of dofs of the edge discretization given
-                in the coupling discretization must match the number of dofs given by the matrix
+                in the coupling discretization must match the number of dofs given by the
+                matrix.
                 """
                 )
             # We know the number of dofs from the primary and secondary side from their
