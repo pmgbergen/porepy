@@ -370,7 +370,7 @@ class RobinCoupling(
                     "vector_source"
                 )
                 if vector_source_discr.shape[1] != vector_source.size:
-                    # If this happens chances are that either the ambient dimension was not set,
+                    # If this happens chances are that either the ambient dimension was not set
                     # and thereby its default value was used. Another not unlikely reason is
                     # that the ambient dimension is set, but with a value that does not match
                     # the specified vector source.

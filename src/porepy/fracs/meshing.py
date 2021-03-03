@@ -234,11 +234,12 @@ def _tag_faces(grids, check_highest_dim=True):
 
                 if g.dim == g_h.dim - 1:
                     # For co-dimension 1, we also register those nodes in the host grid which
-                    # are correspond to the tip of a fracture. We use a slightly wider definition
-                    # of a fracture tip in this context: Nodes that are on the domain boundary,
-                    # but also part of a tip face (on the fracture) which extends into the domain
-                    # are also considered to be tip nodes. Filtering away these will be simple,
-                    # using the domain_boundary_nodes tag, if necessary.
+                    # are correspond to the tip of a fracture. We use a slightly wider
+                    # definition of a fracture tip in this context: Nodes that are on the
+                    # domain boundary, but also part of a tip face (on the fracture) which
+                    # extends into the domain are also considered to be tip nodes. Filtering
+                    # away these will be simple, using the domain_boundary_nodes tag, if
+                    # necessary.
                     nodes_on_fracture_tip = np.unique(
                         nodes_glb.reshape((n_per_face, bnd_faces_l.size), order="F")[
                             :, is_tip_face
@@ -267,11 +268,13 @@ def _tag_faces(grids, check_highest_dim=True):
         g_h.tags["node_is_fracture_tip"] = tip_tag
 
         on_any_tip = np.where(np.bincount(global_node_as_fracture_tip) > 0)[0]
-        _, local_any_tip = pp.utils.setmembership.ismember_rows(on_any_tip, g_h.global_point_ind)
+        _, local_any_tip = pp.utils.setmembership.ismember_rows(
+            on_any_tip, g_h.global_point_ind
+        )
         tip_of_a_fracture = np.zeros_like(tip_tag)
         tip_of_a_fracture[local_any_tip] = True
         # Tag nodes that are on the tip of a fracture, independent of whether it is
-        g_h.tags['node_is_tip_of_some_fracture'] = tip_of_a_fracture
+        g_h.tags["node_is_tip_of_some_fracture"] = tip_of_a_fracture
 
 
 @pp.time_logger(sections=module_sections)
