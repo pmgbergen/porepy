@@ -508,8 +508,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
 
     # Pre-compute polygon normals to save computational time
     polygon_normals = [
-        pp.map_geometry.compute_normal(poly).reshape((-1, 1))
-        for poly in polys
+        pp.map_geometry.compute_normal(poly).reshape((-1, 1)) for poly in polys
     ]
 
     # Loop over all fracture pairs (taking more than one simultaneously if an index
@@ -1741,7 +1740,7 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
             return p, e, tag_info, np.arange(e.shape[1])
         else:
             return p, e, tag_info
-        
+
     # If intersection points are found, the intersecting lines must be split into
     # shorter segments.
     else:
@@ -1784,7 +1783,7 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
         # Finally, uniquify edges. This operation is necessary for overlapping edges.
         # Operate on sorted point indices per edge
         new_edge[:2] = np.sort(new_edge[:2], axis=0)
-        
+
         # Keep the old tags before uniquifying
         tags = new_edge[2:].copy().ravel()
         # Uniquify.

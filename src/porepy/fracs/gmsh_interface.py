@@ -91,7 +91,7 @@ class PhysicalNames(Enum):
     # Auxiliary line and plane
     AUXILIARY_LINE = "AUXILIARY_LINE_"
     AUXILIARY_PLANE = "AUXILIARY_PLANE_"
-    
+
     # Objects used to define the domain boundary
     DOMAIN_BOUNDARY_POINT = "DOMAIN_BOUNDARY_POINT_"
 

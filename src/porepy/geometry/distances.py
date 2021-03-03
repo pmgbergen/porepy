@@ -442,7 +442,6 @@ def segments_polygon(start, end, poly, tol=1e-5):
         end = end.reshape((-1, 1))
 
     num_p = start.shape[1]
-    num_vert = poly.shape[1]
     nd = start.shape[0]
 
     d = np.zeros(num_p)

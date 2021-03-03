@@ -1307,7 +1307,7 @@ class Assembler:
         if create_matrix:
             return matrix, rhs
         else:
-            rhs
+            return rhs
 
     @pp.time_logger(sections=module_sections)
     def assemble_operator(self, keyword: str, operator_name: str) -> sps.spmatrix:
