@@ -779,7 +779,7 @@ class FractureNetwork3d(object):
         auxiliary_line[some_boundary_edge] = False
         # The edge tags for internal lines were set accordingly in self._classify_edges.
         # Update to auxiliray line if this was really what we had.
-        edge_tags[auxiliary_line] = Tags.AUXILIARY.value
+        edge_tags[auxiliary_line] = Tags.AUXILIARY_LINE.value
 
         # .. and we're done with edges (until someone defines a new special case)
         # Next, find intersection points.
@@ -911,8 +911,8 @@ class FractureNetwork3d(object):
                 physical_surfaces[fi] = Tags.DOMAIN_BOUNDARY_SURFACE
                 polygon_tags[fi] = Tags.DOMAIN_BOUNDARY_SURFACE.value
             elif fi in constraints:
-                physical_surfaces[fi] = Tags.AUXILIARY
-                polygon_tags[fi] = Tags.AUXILIARY.value
+                physical_surfaces[fi] = Tags.AUXILIARY_PLANE
+                polygon_tags[fi] = Tags.AUXILIARY_PLANE.value
             else:
                 physical_surfaces[fi] = Tags.FRACTURE
                 polygon_tags[fi] = Tags.FRACTURE.value
@@ -924,7 +924,7 @@ class FractureNetwork3d(object):
                 Tags.FRACTURE_INTERSECTION_LINE.value,
                 Tags.DOMAIN_BOUNDARY_LINE.value,
                 Tags.FRACTURE_BOUNDARY_LINE.value,
-                Tags.AUXILIARY.value,
+                Tags.AUXILIARY_LINE.value,
             ):
                 physical_lines[ei] = edges[2, ei]
 
