@@ -132,7 +132,7 @@ class BasicsTest(unittest.TestCase):
 
         fc = g.face_centers[:2]
 
-        tag = g.tags["auxiliary_0_faces"]
+        tag = g.tags["auxiliary_line_0_faces"]
         dist, _ = pp.distances.points_segments(fc, subdomain_start, subdomain_end)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
@@ -169,7 +169,7 @@ class BasicsTest(unittest.TestCase):
 
         fc = g.face_centers[:2]
 
-        tag = g.tags["auxiliary_0_faces"]
+        tag = g.tags["auxiliary_line_0_faces"]
         dist, _ = pp.distances.points_segments(fc, subdomain_start, subdomain_end)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
@@ -209,7 +209,7 @@ class BasicsTest(unittest.TestCase):
 
         fc = g.face_centers[:2]
 
-        tag = g.tags["auxiliary_0_faces"]
+        tag = g.tags["auxiliary_line_0_faces"]
         dist, _ = pp.distances.points_segments(fc, constraint_start_0, constraint_end_0)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
@@ -217,7 +217,7 @@ class BasicsTest(unittest.TestCase):
             np.all(np.logical_not(np.allclose(dist[np.logical_not(tag), 0], 0)))
         )
 
-        tag = g.tags["auxiliary_1_faces"]
+        tag = g.tags["auxiliary_line_1_faces"]
         dist, _ = pp.distances.points_segments(fc, constraint_start_1, constraint_end_1)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
@@ -258,7 +258,7 @@ class BasicsTest(unittest.TestCase):
 
         fc = g.face_centers[:2]
 
-        tag = g.tags["auxiliary_0_faces"]
+        tag = g.tags["auxiliary_line_0_faces"]
         dist, _ = pp.distances.points_segments(fc, constraint_start_0, constraint_end_0)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
@@ -266,7 +266,7 @@ class BasicsTest(unittest.TestCase):
             np.all(np.logical_not(np.allclose(dist[np.logical_not(tag), 0], 0)))
         )
 
-        tag = g.tags["auxiliary_1_faces"]
+        tag = g.tags["auxiliary_line_1_faces"]
         dist, _ = pp.distances.points_segments(fc, constraint_start_1, constraint_end_1)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
@@ -421,7 +421,7 @@ class BasicsTest(unittest.TestCase):
             np.all(np.logical_not(np.allclose(dist[np.logical_not(tag), 0], 0)))
         )
 
-        tag = g.tags["auxiliary_1_faces"]
+        tag = g.tags["auxiliary_line_1_faces"]
         dist, _ = pp.distances.points_segments(fc, constraint_start, constraint_end)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
@@ -461,7 +461,7 @@ class BasicsTest(unittest.TestCase):
 
         fc = g.face_centers[:2]
 
-        tag = g.tags["auxiliary_0_faces"]
+        tag = g.tags["auxiliary_line_0_faces"]
         dist, _ = pp.distances.points_segments(fc, constraint_start_0, constraint_end_0)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
@@ -469,7 +469,7 @@ class BasicsTest(unittest.TestCase):
             np.all(np.logical_not(np.allclose(dist[np.logical_not(tag), 0], 0)))
         )
 
-        tag = g.tags["auxiliary_1_faces"]
+        tag = g.tags["auxiliary_line_1_faces"]
         dist, _ = pp.distances.points_segments(fc, constraint_start_1, constraint_end_1)
 
         self.assertTrue(np.allclose(dist[tag, 0], 0))
