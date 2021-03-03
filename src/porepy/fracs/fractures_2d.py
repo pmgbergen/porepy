@@ -382,7 +382,7 @@ class FractureNetwork2d(object):
             if tag in (
                 Tags.FRACTURE.value,
                 Tags.DOMAIN_BOUNDARY_LINE.value,
-                Tags.AUXILIARY.value,
+                Tags.AUXILIARY_LINE.value,
             ):
                 phys_line_tags[ei] = tag
 
@@ -427,7 +427,7 @@ class FractureNetwork2d(object):
 
         tags[0][np.logical_not(self.tags["boundary"])] = Tags.FRACTURE.value
         tags[0][self.tags["boundary"]] = Tags.DOMAIN_BOUNDARY_LINE.value
-        tags[0][constraints] = Tags.AUXILIARY.value
+        tags[0][constraints] = Tags.AUXILIARY_LINE.value
         tags[1] = np.arange(edges.shape[1])
 
         edges = np.vstack((edges, tags))
@@ -506,7 +506,7 @@ class FractureNetwork2d(object):
         # case one intersects a single fracture. In the case of multiple fractures intersection
         # with an auxiliary point do consider the 0d.
         aux_id = np.logical_or(
-            lines[2] == Tags.AUXILIARY.value,
+            lines[2] == Tags.AUXILIARY_LINE.value,
             lines[2] == Tags.DOMAIN_BOUNDARY_LINE.value,
         )
         if np.any(aux_id):
