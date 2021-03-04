@@ -646,36 +646,37 @@ class Assembler:
                     # nodes, together with the relavant mortar variable and term
                     # Associate the first variable with primary, the second with
                     # secondary, and the final with edge.
-                    loc_mat, _ = self._assign_matrix_vector(
-                        self.full_dof[[primary_idx, secondary_idx, edge_idx]],
-                        sps_matrix,
-                    )
+                    if not assemble_rhs_only:
+                        loc_mat, _ = self._assign_matrix_vector(
+                            self.full_dof[[primary_idx, secondary_idx, edge_idx]],
+                            sps_matrix,
+                        )
 
-                    # Pick out the discretizations on the primary and secondary node
-                    # for the relevant variables.
-                    # There should be no contribution or modification of the
-                    # [0, 1] and [1, 0] terms, since the variables are only
-                    # allowed to communicate via the edges.
-                    if mat_key_primary:
-                        loc_mat[0, 0] = matrix[mat_key_primary][  # type:ignore
-                            primary_idx, primary_idx
-                        ]
-                    else:
-                        raise ValueError(
-                            f"No discretization found on the primary grid "
-                            f"of dimension {g_primary.dim}, for the "
-                            f"coupling term {term_key}."
-                        )
-                    if mat_key_secondary:
-                        loc_mat[1, 1] = matrix[mat_key_secondary][  # type:ignore
-                            secondary_idx, secondary_idx
-                        ]
-                    else:
-                        raise ValueError(
-                            f"No discretization found on the secondary grid "
-                            f"of dimension {g_secondary.dim}, for the "
-                            f"coupling term {term_key}."
-                        )
+                        # Pick out the discretizations on the primary and secondary node
+                        # for the relevant variables.
+                        # There should be no contribution or modification of the
+                        # [0, 1] and [1, 0] terms, since the variables are only
+                        # allowed to communicate via the edges.
+                        if mat_key_primary:
+                            loc_mat[0, 0] = matrix[mat_key_primary][  # type:ignore
+                                primary_idx, primary_idx
+                            ]
+                        else:
+                            raise ValueError(
+                                f"No discretization found on the primary grid "
+                                f"of dimension {g_primary.dim}, for the "
+                                f"coupling term {term_key}."
+                            )
+                        if mat_key_secondary:
+                            loc_mat[1, 1] = matrix[mat_key_secondary][  # type:ignore
+                                secondary_idx, secondary_idx
+                            ]
+                        else:
+                            raise ValueError(
+                                f"No discretization found on the secondary grid "
+                                f"of dimension {g_secondary.dim}, for the "
+                                f"coupling term {term_key}."
+                            )
 
                     # Run the discretization, and assign the resulting matrix
                     # to a temporary construct
@@ -695,7 +696,7 @@ class Assembler:
                             data_primary,
                             data_secondary,
                             data_edge,
-                            loc_mat,
+                            None,  # The local matrix should not be used
                         )
                     else:
                         tmp_mat, loc_rhs = edge_discr.assemble_matrix_rhs(
@@ -857,25 +858,55 @@ class Assembler:
                     if oi is None:
                         continue
 
+                    assemble_matrix, assemble_rhs = True, True
+                    if assemble_matrix_only:
+                        assemble_rhs = False
+                    if assemble_rhs_only:
+                        assemble_matrix = False
+
                     # Assign a local matrix, which will be populated with the
                     # current state of the local system.
                     # Local here refers to the variable and term on the two
                     # nodes, together with the relavant mortar variable and term
                     # Associate the first variable with primary, the second with
                     # secondary, and the final with edge.
-                    loc_mat, _ = self._assign_matrix_vector(
-                        self.full_dof[[primary_idx, edge_idx, oi]], sps_matrix
-                    )
-                    (tmp_mat, loc_rhs) = edge_discr.assemble_edge_coupling_via_high_dim(
-                        g_primary,
-                        data_primary,
-                        e,
-                        data_edge,
-                        other_edge,
-                        data_other,
-                        loc_mat,
-                    )
-                    matrix[mat_key][edge_idx, oi] = tmp_mat[1, 2]  # type:ignore
+                    if assemble_matrix:
+                        loc_mat, _ = self._assign_matrix_vector(
+                            self.full_dof[[primary_idx, edge_idx, oi]], sps_matrix
+                        )
+
+                        (
+                            tmp_mat,
+                            loc_rhs,
+                        ) = edge_discr.assemble_edge_coupling_via_high_dim(
+                            g_primary,
+                            data_primary,
+                            e,
+                            data_edge,
+                            other_edge,
+                            data_other,
+                            loc_mat,
+                            assemble_matrix=assemble_matrix,
+                            assemble_rhs=assemble_rhs,
+                        )
+                        matrix[mat_key][edge_idx, oi] = tmp_mat[1, 2]  # type:ignore
+                    else:
+                        loc_mat = None
+                        (
+                            tmp_mat,
+                            loc_rhs,
+                        ) = edge_discr.assemble_edge_coupling_via_high_dim(
+                            g_primary,
+                            data_primary,
+                            e,
+                            data_edge,
+                            other_edge,
+                            data_other,
+                            loc_mat,
+                            assemble_matrix=assemble_matrix,
+                            assemble_rhs=assemble_rhs,
+                        )
+
                     rhs[mat_key][edge_idx] += loc_rhs[1]  # type:ignore
 
             if operation == "assemble" and edge_discr.edge_coupling_via_low_dim:
@@ -912,8 +943,20 @@ class Assembler:
                     loc_mat, _ = self._assign_matrix_vector(
                         self.full_dof[[secondary_idx, edge_idx, oi]], sps_matrix
                     )
-                    (tmp_mat, loc_rhs) = edge_discr.assemble_edge_coupling_via_high_dim(
-                        g_secondary, data_secondary, data_edge, data_other, loc_mat
+                    assemble_matrix, assemble_rhs = True, True
+                    if assemble_matrix_only:
+                        assemble_rhs = False
+                    if assemble_rhs_only:
+                        assemble_matrix = False
+
+                    (tmp_mat, loc_rhs) = edge_discr.assemble_edge_coupling_via_low_dim(
+                        g_secondary,
+                        data_secondary,
+                        data_edge,
+                        data_other,
+                        loc_mat,
+                        assemble_matrix=assemble_matrix,
+                        assemble_rhs=assemble_rhs,
                     )
                     matrix[mat_key][edge_idx, oi] = tmp_mat[1, 2]  # type:ignore
                     rhs[mat_key][edge_idx] += loc_rhs[1]
@@ -1246,19 +1289,25 @@ class Assembler:
     @staticmethod
     @pp.time_logger(sections=module_sections)
     def _assign_matrix_vector(
-        dof: np.ndarray, sps_matrix: Type[csc_or_csr_matrix]
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        dof: np.ndarray, sps_matrix: Type[csc_or_csr_matrix], create_matrix: bool = True
+    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """ Assign a block matrix and vector with specified number of dofs per block"""
         num_blocks = dof.size
-        matrix = np.empty((num_blocks, num_blocks), dtype=object)
+
+        if create_matrix:
+            matrix = np.empty((num_blocks, num_blocks), dtype=object)
         rhs = np.empty(num_blocks, dtype=object)
 
         for ri in range(num_blocks):
             rhs[ri] = np.zeros(dof[ri])
-            for ci in range(num_blocks):
-                matrix[ri, ci] = sps_matrix((dof[ri], dof[ci]))
+            if create_matrix:
+                for ci in range(num_blocks):
+                    matrix[ri, ci] = sps_matrix((dof[ri], dof[ci]))
 
-        return matrix, rhs
+        if create_matrix:
+            return matrix, rhs
+        else:
+            return rhs
 
     @pp.time_logger(sections=module_sections)
     def assemble_operator(self, keyword: str, operator_name: str) -> sps.spmatrix:

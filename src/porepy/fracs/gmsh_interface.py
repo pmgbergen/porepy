@@ -51,7 +51,8 @@ class Tags(Enum):
     FRACTURE = 10
 
     # Auxiliary line or plane. Used for constraints.
-    AUXILIARY = 11
+    AUXILIARY_LINE = 11
+    AUXILIARY_PLANE = 12
 
     # A fracture tip - can be point or line
     FRACTURE_TIP = 20
@@ -69,7 +70,7 @@ class Tags(Enum):
     FRACTURE_CONSTRAINT_INTERSECTION_POINT = 31
 
     # Intersection point between fracture and domain boundary
-    FRACTURE_BOUNDARY_POINT = 12
+    FRACTURE_BOUNDARY_POINT = 32
 
 
 class PhysicalNames(Enum):
@@ -87,8 +88,9 @@ class PhysicalNames(Enum):
     # Fractures
     FRACTURE = "FRACTURE_"
 
-    # Auxiliary line or plane
-    AUXILIARY = "AUXILIARY_"
+    # Auxiliary line and plane
+    AUXILIARY_LINE = "AUXILIARY_LINE_"
+    AUXILIARY_PLANE = "AUXILIARY_PLANE_"
 
     # Objects used to define the domain boundary
     DOMAIN_BOUNDARY_POINT = "DOMAIN_BOUNDARY_POINT_"
@@ -356,7 +358,7 @@ class GmshWriter:
             np.logical_or.reduce(
                 (
                     self._data.lines[2] == Tags.FRACTURE.value,
-                    self._data.lines[2] == Tags.AUXILIARY.value,
+                    self._data.lines[2] == Tags.AUXILIARY_LINE.value,
                 )
             )
         ).ravel()
@@ -368,7 +370,7 @@ class GmshWriter:
             np.logical_or.reduce(
                 (
                     self._data.polygon_tags == Tags.FRACTURE.value,
-                    self._data.polygon_tags == Tags.AUXILIARY.value,
+                    self._data.polygon_tags == Tags.AUXILIARY_PLANE.value,
                 )
             )
         ).ravel()

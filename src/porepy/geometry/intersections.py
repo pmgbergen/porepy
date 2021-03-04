@@ -424,18 +424,15 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
     pairs = _intersect_pairs(pairs_xy, pairs_z)
 
     # Various utility functions
-    @pp.time_logger(sections=module_sections)
     def center(p):
         # Compute the mean coordinate of a set of points
         return p.mean(axis=1).reshape((-1, 1))
 
-    @pp.time_logger(sections=module_sections)
     def normalize(v):
         # Normalize a vector
         nrm = np.sqrt(np.sum(v ** 2, axis=0))
         return v / nrm
 
-    @pp.time_logger(sections=module_sections)
     def mod_sign(v, tol=1e-8):
         # Modified signum function: The value is 0 if it is very close to zero.
         if isinstance(v, np.ndarray):
@@ -450,7 +447,6 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
             else:
                 return 1
 
-    @pp.time_logger(sections=module_sections)
     def intersection(start, end, normal, center):
         # Find a point p on the segment between start and end, so that the vector
         # p - center is perpendicular to normal
@@ -464,7 +460,6 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
         assert t >= 0 and t <= 1
         return start + t * dx
 
-    @pp.time_logger(sections=module_sections)
     def vector_pointset_point(a, b, tol=1e-4):
         # Create a set of non-zero vectors from a point in the plane spanned by
         # a, to all points in b
@@ -513,8 +508,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
 
     # Pre-compute polygon normals to save computational time
     polygon_normals = [
-        pp.map_geometry.compute_normal(poly, check=False).reshape((-1, 1))
-        for poly in polys
+        pp.map_geometry.compute_normal(poly).reshape((-1, 1)) for poly in polys
     ]
 
     # Loop over all fracture pairs (taking more than one simultaneously if an index
@@ -1337,7 +1331,6 @@ def surface_tessalations(
         # Nothing to do here, but this may be slow.
         pass
 
-    @pp.time_logger(sections=module_sections)
     def _min_max_coord(coord):
         # Convenience function to get max and minimum coordinates for a set of polygons
         min_coord = np.array([c.min() for c in coord])
@@ -1572,10 +1565,10 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
 
     The connections are defined by their start and endpoints, and can also
     have tags assigned. If so, the tags are preserved as connections are split.
-
-    IMPLEMENTATION NOTE: This is a re-implementation of the old function
-    remove_edge_crossings, based on a much faster algorithm. The two functions
-    will coexist for a while.
+    The connections are uniquified, so that no combination of point indices
+    occurs more than once.
+    NOTE: For (partly) overlapping segments, only one of the tags will survive the
+    uniquification. The other can be reconstructed by using the third output.
 
     Parameters:
         p (np.ndarray, 2 x n_pt): Coordinates of points to be processed
@@ -1589,6 +1582,11 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
     Returns:
         np.ndarray, (2 x n_pt), array of points, possibly expanded.
         np.ndarray, (n x n_edges), array of new edges. Non-intersecting.
+        tuple of 2 arrays, both n_con: First item is a set of tags, before
+            uniquification of the edges. The second is a column mapping from the
+            unique edges to all edges. To recover lost tags associated with the
+            points in column i, first find all original columns which maps to
+            i (tuple[1] == i), then recover the tags by the hits.
         np.array, (n_edges), array to map the new edges with the input edges.
             Returned if return_argsort is True.
 
@@ -1633,7 +1631,6 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
 
         # Utility function to pull out one or several points from an array based
         # on index
-        @pp.time_logger(sections=module_sections)
         def pt(p, ind):
             a = p[:, ind]
             if ind.size == 1:
@@ -1648,7 +1645,6 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
         end_other = pt(p, e[1, other])
 
         # Utility function to normalize the fracture length
-        @pp.time_logger(sections=module_sections)
         def normalize(v):
             nrm = np.sqrt(np.sum(v ** 2, axis=0))
 
@@ -1657,7 +1653,6 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
             nrm[hit] = 1
             return v / nrm
 
-        @pp.time_logger(sections=module_sections)
         def dist(a, b):
             return np.sqrt(np.sum((a - b) ** 2))
 
@@ -1681,7 +1676,6 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
             main_other_end = normalize(0.3 * start_other + 0.7 * end_other - start_main)
 
         # Modified signum function: The value is 0 if it is very close to zero.
-        @pp.time_logger(sections=module_sections)
         def mod_sign(v, tol):
             sgn = np.sign(v)
             sgn[np.abs(v) < tol] = 0
@@ -1738,10 +1732,15 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
     # If we have found no intersection points, we can safely return the incoming
     # points and edges.
     if len(new_pts) == 0:
+        # Tag information is trivial in this case
+        tags = e[2:].copy()
+        mapping = np.arange(e.shape[1])
+        tag_info = (tags, mapping)
         if return_argsort:
-            return p, e, np.arange(e.shape[1])
+            return p, e, tag_info, np.arange(e.shape[1])
         else:
-            return p, e
+            return p, e, tag_info
+
     # If intersection points are found, the intersecting lines must be split into
     # shorter segments.
     else:
@@ -1784,17 +1783,22 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
         # Finally, uniquify edges. This operation is necessary for overlapping edges.
         # Operate on sorted point indices per edge
         new_edge[:2] = np.sort(new_edge[:2], axis=0)
+
+        # Keep the old tags before uniquifying
+        tags = new_edge[2:].copy().ravel()
         # Uniquify.
-        _, edge_map, _ = pp.utils.setmembership.unique_columns_tol(
+        _, edge_map, all_2_unique = pp.utils.setmembership.unique_columns_tol(
             new_edge[:2].astype(int), tol
         )
+        tag_info = (tags, all_2_unique)
+
         new_edge = new_edge[:, edge_map]
         argsort = argsort[edge_map]
 
         if return_argsort:
-            return unique_all_pt, new_edge.astype(int), argsort
+            return unique_all_pt, new_edge.astype(int), tag_info, argsort
         else:
-            return unique_all_pt, new_edge.astype(int)
+            return unique_all_pt, new_edge.astype(int), tag_info
 
 
 @pp.time_logger(sections=module_sections)

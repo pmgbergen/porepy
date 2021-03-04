@@ -228,7 +228,8 @@ class AbstractInterfaceLaw(abc.ABC):
         discr_secondary: Discretization,
         mg: pp.MortarGrid,
         matrix: np.ndarray,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        create_matrix: bool = True,
+    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """Initialize a block matrix and right hand side for the local linear
         system of the primary and secondary grid and the interface.
 
@@ -255,7 +256,6 @@ class AbstractInterfaceLaw(abc.ABC):
                 secondary and mortar variable, respectively.
 
         """
-
         primary_ind = 0
         secondary_ind = 1
         mortar_ind = 2
@@ -263,30 +263,34 @@ class AbstractInterfaceLaw(abc.ABC):
         dof_primary = discr_primary.ndof(g_primary)
         dof_secondary = discr_secondary.ndof(g_secondary)
         dof_mortar = self.ndof(mg)
-
-        if not dof_primary == matrix[primary_ind, primary_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the primary discretization given
-            in the coupling discretization must match the number of dofs given by the matrix
-            """
-            )
-        elif not dof_secondary == matrix[primary_ind, secondary_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the secondary discretization given
-            in the coupling discretization must match the number of dofs given by the matrix
-            """
-            )
-        elif not self.ndof(mg) == matrix[primary_ind, mortar_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the edge discretization given
-            in the coupling discretization must match the number of dofs given by the matrix
-            """
-            )
         # We know the number of dofs from the primary and secondary side from their
         # discretizations
         dof = np.array([dof_primary, dof_secondary, dof_mortar])
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc = cc.reshape((3, 3))
+
+        if create_matrix:
+            if not dof_primary == matrix[primary_ind, primary_ind].shape[1]:
+                raise ValueError(
+                    """The number of dofs of the primary discretization given
+                in the coupling discretization must match the number of dofs given by the
+                matrix.
+                """
+                )
+            elif not dof_secondary == matrix[primary_ind, secondary_ind].shape[1]:
+                raise ValueError(
+                    """The number of dofs of the secondary discretization given
+                in the coupling discretization must match the number of dofs given by the
+                matrix.
+                """
+                )
+            elif not self.ndof(mg) == matrix[primary_ind, mortar_ind].shape[1]:
+                raise ValueError(
+                    """The number of dofs of the edge discretization given
+                in the coupling discretization must match the number of dofs given by the
+                matrix.
+                """
+                )
+            cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+            cc = cc.reshape((3, 3))
 
         # The rhs is just zeros
         rhs = np.empty(3, dtype=object)
@@ -294,7 +298,10 @@ class AbstractInterfaceLaw(abc.ABC):
         rhs[secondary_ind] = np.zeros(dof_secondary)
         rhs[mortar_ind] = np.zeros(dof_mortar)
 
-        return cc, rhs
+        if not create_matrix:
+            return rhs
+        else:
+            return cc, rhs
 
     @pp.time_logger(sections=module_sections)
     def _define_local_block_matrix_edge_coupling(
@@ -304,7 +311,8 @@ class AbstractInterfaceLaw(abc.ABC):
         mg_primary: pp.MortarGrid,
         mg_secondary: pp.MortarGrid,
         matrix: np.ndarray,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        create_matrix: bool = True,
+    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """Initialize a block matrix and right hand side for the local linear
         system of the primary and secondary grid and the interface.
 
@@ -339,30 +347,35 @@ class AbstractInterfaceLaw(abc.ABC):
         dof_grid = discr_grid.ndof(g)
         dof_mortar_primary = self.ndof(mg_primary)
         dof_mortar_secondary = self.ndof(mg_secondary)
-
-        if not dof_grid == matrix[grid_ind, grid_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the primary discretization given
-            in the coupling discretization must match the number of dofs given by the matrix
-            """
-            )
-        elif not dof_mortar_primary == matrix[grid_ind, primary_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the secondary discretization given
-            in the coupling discretization must match the number of dofs given by the matrix
-            """
-            )
-        elif not dof_mortar_secondary == matrix[grid_ind, secondary_ind].shape[1]:
-            raise ValueError(
-                """The number of dofs of the edge discretization given
-            in the coupling discretization must match the number of dofs given by the matrix
-            """
-            )
-        # We know the number of dofs from the primary and secondary side from their
-        # discretizations
         dof = np.array([dof_grid, dof_mortar_primary, dof_mortar_secondary])
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc = cc.reshape((3, 3))
+
+        if create_matrix:
+
+            if not dof_grid == matrix[grid_ind, grid_ind].shape[1]:
+                raise ValueError(
+                    """The number of dofs of the primary discretization given
+                in the coupling discretization must match the number of dofs given by the
+                matrix.
+                """
+                )
+            elif not dof_mortar_primary == matrix[grid_ind, primary_ind].shape[1]:
+                raise ValueError(
+                    """The number of dofs of the secondary discretization given
+                in the coupling discretization must match the number of dofs given by the
+                matrix.
+                """
+                )
+            elif not dof_mortar_secondary == matrix[grid_ind, secondary_ind].shape[1]:
+                raise ValueError(
+                    """The number of dofs of the edge discretization given
+                in the coupling discretization must match the number of dofs given by the
+                matrix.
+                """
+                )
+            # We know the number of dofs from the primary and secondary side from their
+            # discretizations
+            cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+            cc = cc.reshape((3, 3))
 
         # The rhs is just zeros
         rhs = np.empty(3, dtype=object)
@@ -370,7 +383,10 @@ class AbstractInterfaceLaw(abc.ABC):
         rhs[primary_ind] = np.zeros(dof_mortar_primary)
         rhs[secondary_ind] = np.zeros(dof_mortar_secondary)
 
-        return cc, rhs
+        if create_matrix:
+            return cc, rhs
+        else:
+            return rhs
 
     @pp.time_logger(sections=module_sections)
     def assemble_edge_coupling_via_high_dim(  # type: ignore
@@ -382,6 +398,8 @@ class AbstractInterfaceLaw(abc.ABC):
         edge_secondary: Tuple[pp.Grid, pp.Grid],
         data_edge_secondary: Dict,
         matrix: np.ndarray,
+        assemble_matrix: bool = True,
+        assemble_rhs: bool = True,
     ) -> Union[np.ndarray, np.ndarray]:
         """Method to assemble the contribution from one interface to another one.
 
@@ -411,6 +429,10 @@ class AbstractInterfaceLaw(abc.ABC):
             edge_secondary (tuple of grids): The grids of the secondary edge.
             data_edge_secondary (dict): Data dictionary of the secondary interface.
             matrix: original discretization.
+            assemble_matrix (optional): If True (defalut), contributions to local matrix
+                are assembled.
+            assemble_rhs (optional): If True (defalut), contributions to local rhs
+                are assembled.
 
         Returns:
             np.array: Block matrix of size 3 x 3, whwere each block represents
@@ -438,6 +460,8 @@ class AbstractInterfaceLaw(abc.ABC):
         edge_secondary: Tuple[pp.Grid, pp.Grid],
         data_edge_secondary: Dict,
         matrix: np.ndarray,
+        assemble_matrix: bool = False,
+        assemble_rhs: bool = False,
     ) -> Union[np.ndarray, np.ndarray]:
         """Method to assemble the contribution from one interface to another one.
 
@@ -467,6 +491,10 @@ class AbstractInterfaceLaw(abc.ABC):
             edge_secondary (tuple of grids): The grids of the secondary edge.
             data_edge_secondary (dict): Data dictionary of the secondary interface.
             matrix: original discretization.
+            assemble_matrix (optional): If True (defalut), contributions to local matrix
+                are assembled.
+            assemble_rhs (optional): If True (defalut), contributions to local rhs
+                are assembled.
 
         Returns:
             np.array: Block matrix of size 3 x 3, whwere each block represents

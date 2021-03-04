@@ -5,7 +5,7 @@ import copy
 import csv
 import logging
 import time
-from typing import Dict
+from typing import Dict, Optional, Tuple, Union
 
 import meshio
 import numpy as np
@@ -75,7 +75,6 @@ class FractureNetwork2d(object):
             1e-8.
 
         """
-
         if pts is None:
             self.pts = np.zeros((2, 0))
         else:
@@ -325,6 +324,8 @@ class FractureNetwork2d(object):
         p = self.pts
         e = self.edges
 
+        num_edge_orig = e.shape[1]
+
         # Snap points to edges
         if do_snap and p is not None and p.size > 0:
             p, _ = pp.frac_utils.snap_fracture_set_2d(p, self.edges, snap_tol=tol)
@@ -332,23 +333,39 @@ class FractureNetwork2d(object):
         self.pts = p
 
         if not self.bounding_box_imposed:
-            edges_deleted = self.impose_external_boundary(
+            edges_kept, edges_deleted = self.impose_external_boundary(
                 self.domain, add_domain_edges=not dfn
             )
-
             # Find edges of constraints to delete
             to_delete = np.where(np.isin(constraints, edges_deleted))[0]
 
-            # Adjust constraint indices for deleted edges
-            adjustment = np.zeros(constraints.size, dtype=int)
-            for e in edges_deleted:
-                # All constraints with index above the deleted edge should be reduced
-                adjustment[constraints > e] += 1
+            # Adjust constraint indices: Must be decreased for all deleted lines with
+            # lower index, and increased for all lines with lower index that have been
+            # split.
+            adjustment = np.zeros(num_edge_orig, dtype=int)
+            # Deleted edges give an index reduction of 1
+            adjustment[edges_deleted] = -1
 
-            constraints -= adjustment
+            # identify edges that have been split
+            num_occ = np.bincount(edges_kept, minlength=adjustment.size)
+
+            # Not sure what to do with split constraints; it should not be difficult,
+            # but the current implementation does not cover it.
+            assert np.all(num_occ[constraints] < 2)
+
+            # Splitting of fractures give an increase of index corresponding to the number
+            # of repeats. The clip avoids negative values for deleted edges, these have
+            # been acounted for before. Maybe we could merge the two adjustments.
+            adjustment += np.clip(num_occ - 1, 0, None)
+
+            # Do the real adjustment
+            constraints += np.cumsum(adjustment)[constraints]
 
             # Delete constraints corresponding to deleted edges
             constraints = np.delete(constraints, to_delete)
+
+            # FIXME: We do not keep track of indices of fractures and constraints
+            # before and after imposing the boundary.
 
         self._find_and_split_intersections(constraints)
         self._insert_auxiliary_points(**mesh_args)
@@ -365,7 +382,7 @@ class FractureNetwork2d(object):
             if tag in (
                 Tags.FRACTURE.value,
                 Tags.DOMAIN_BOUNDARY_LINE.value,
-                Tags.AUXILIARY.value,
+                Tags.AUXILIARY_LINE.value,
             ):
                 phys_line_tags[ei] = tag
 
@@ -375,10 +392,15 @@ class FractureNetwork2d(object):
 
         point_on_fracture = edges[:2, edge_types == Tags.FRACTURE.value].ravel()
         point_on_boundary = edges[
-            :2, edge_types == Tags.DOMAIN_BOUNDARY_POINT.value
+            :2, edge_types == Tags.DOMAIN_BOUNDARY_LINE.value
         ].ravel()
         fracture_boundary_points = np.intersect1d(point_on_fracture, point_on_boundary)
 
+        phys_point_tags.update(
+            {pi: Tags.DOMAIN_BOUNDARY_POINT.value for pi in point_on_boundary}
+        )
+
+        # register fracture boundary points, override previously added boundary points
         phys_point_tags.update(
             {pi: Tags.FRACTURE_BOUNDARY_POINT.value for pi in fracture_boundary_points}
         )
@@ -395,7 +417,6 @@ class FractureNetwork2d(object):
     @pp.time_logger(sections=module_sections)
     def _find_and_split_intersections(self, constraints):
         # Unified description of points and lines for domain, and fractures
-
         points = self.pts
         edges = self.edges
 
@@ -406,7 +427,7 @@ class FractureNetwork2d(object):
 
         tags[0][np.logical_not(self.tags["boundary"])] = Tags.FRACTURE.value
         tags[0][self.tags["boundary"]] = Tags.DOMAIN_BOUNDARY_LINE.value
-        tags[0][constraints] = Tags.AUXILIARY.value
+        tags[0][constraints] = Tags.AUXILIARY_LINE.value
         tags[1] = np.arange(edges.shape[1])
 
         edges = np.vstack((edges, tags))
@@ -439,7 +460,7 @@ class FractureNetwork2d(object):
         logger.info("Remove edge crossings")
         tm = time.time()
 
-        pts_split, lines_split = pp.intersections.split_intersecting_segments_2d(
+        pts_split, lines_split, _ = pp.intersections.split_intersecting_segments_2d(
             pts_all, lines, tol=self.tol
         )
         logger.info("Done. Elapsed time " + str(time.time() - tm))
@@ -485,7 +506,7 @@ class FractureNetwork2d(object):
         # case one intersects a single fracture. In the case of multiple fractures intersection
         # with an auxiliary point do consider the 0d.
         aux_id = np.logical_or(
-            lines[2] == Tags.AUXILIARY.value,
+            lines[2] == Tags.AUXILIARY_LINE.value,
             lines[2] == Tags.DOMAIN_BOUNDARY_LINE.value,
         )
         if np.any(aux_id):
@@ -530,7 +551,11 @@ class FractureNetwork2d(object):
         self._decomposition["mesh_size"] = mesh_size
 
     @pp.time_logger(sections=module_sections)
-    def impose_external_boundary(self, domain=None, add_domain_edges=True):
+    def impose_external_boundary(
+        self,
+        domain: Optional[Union[Dict, np.ndarray]] = None,
+        add_domain_edges: bool = True,
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Constrain the fracture network to lie within a domain.
 
@@ -550,6 +575,8 @@ class FractureNetwork2d(object):
                 and therefore deleted.
 
         """
+        if domain is None:
+            domain = self.domain
 
         if isinstance(domain, dict):
             # First create lines that define the domain
@@ -571,6 +598,20 @@ class FractureNetwork2d(object):
             dom_p, self.pts, self.edges
         )
 
+        # Special case where an edge has one point on the boundary of the domain,
+        # the other outside the domain. In this case the edge should be removed.
+        # The edge will have been cut so that the endpoints coincide. Look for
+        # such edges
+        _, _, n2o = pp.utils.setmembership.unique_columns_tol(p, self.tol)
+        reduced_edges = n2o[e]
+        not_point_edge = np.diff(reduced_edges, axis=0).ravel() != 0
+
+        # The point involved in point edges may be superfluous in the description
+        # of the fracture network; this we will deal with later. For now, simply
+        # remove the point edge.
+        e = e[:, not_point_edge]
+        edges_kept = edges_kept[not_point_edge]
+
         edges_deleted = np.setdiff1d(np.arange(self.edges.shape[1]), edges_kept)
 
         # Define boundary tags. Set False to all existing edges (after cutting those
@@ -585,7 +626,11 @@ class FractureNetwork2d(object):
             # preserve the tags
             for key, value in self.tags.items():
                 self.tags[key] = np.hstack(
-                    (value[edges_kept], [None] * dom_lines.shape[1])
+                    (
+                        value[edges_kept],
+                        Tags.DOMAIN_BOUNDARY_LINE.value
+                        * np.ones(dom_lines.shape[1], dtype=int),
+                    )
                 )
 
             # Define the new boundary tags
@@ -602,7 +647,7 @@ class FractureNetwork2d(object):
             self.pts = p
 
         self.bounding_box_imposed = True
-        return edges_deleted
+        return edges_kept, edges_deleted
 
     ## end of methods related to meshing
 
@@ -751,7 +796,8 @@ class FractureNetwork2d(object):
         if tol is None:
             tol = self.tol
 
-        p, e, argsort = pp.intersections.split_intersecting_segments_2d(
+        # FIXME: tag_info may contain useful information if segments are intersecting.
+        p, e, tag_info, argsort = pp.intersections.split_intersecting_segments_2d(
             self.pts, self.edges, tol=self.tol, return_argsort=True
         )
         # map the tags
@@ -955,7 +1001,7 @@ class FractureNetwork2d(object):
         pp.plot_fractures(self.pts, self.edges, domain=self.domain, **kwargs)
 
     @pp.time_logger(sections=module_sections)
-    def to_csv(self, file_name):
+    def to_csv(self, file_name, with_header=True):
         """
         Save the 2d network on a csv file with comma , as separator.
         Note: the file is overwritten if present.
@@ -969,6 +1015,9 @@ class FractureNetwork2d(object):
 
         with open(file_name, "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
+            if with_header:
+                header = ["# FID", "START_X", "START_Y", "END_X", "END_Y"]
+                csv_writer.writerow(header)
             # write all the fractures
             for edge_id, edge in enumerate(self.edges.T):
                 data = [edge_id]
