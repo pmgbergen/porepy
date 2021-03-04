@@ -153,7 +153,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         """
         f_1 = pp.Fracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        network = pp.FractureNetwork3d(f_1, domain=domain)
+        network = pp.FractureNetwork3d([f_1], domain=domain)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
         gb = network.mesh(mesh_args)
 
@@ -674,7 +674,7 @@ class TestDFMMeshGenerationWithConstraints(TestDFMMeshGeneration):
         """
         f_1 = pp.Fracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-        network = pp.FractureNetwork3d(f_1, domain=domain)
+        network = pp.FractureNetwork3d([f_1], domain=domain)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
         gb = network.mesh(mesh_args, constraints=np.array([0]))
 
@@ -1000,7 +1000,7 @@ class TestDFMNonConvexDomain(unittest.TestCase):
             np.array([[-1, 2, 2, -1], [0.5, 0.5, 0.5, 0.5], [-1, -1, 0.3, 0.3]])
         )
 
-        network = pp.FractureNetwork3d(f_1, domain=self.non_convex_polyhedron)
+        network = pp.FractureNetwork3d([f_1], domain=self.non_convex_polyhedron)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
         gb = network.mesh(mesh_args)
         self.assertTrue(len(gb.grids_of_dimension(2)) == 2)
@@ -1011,7 +1011,7 @@ class TestDFMNonConvexDomain(unittest.TestCase):
             np.array([[-1, 2, 2, -1], [0.5, 0.5, 0.5, 0.5], [-1, -1, 0.7, 0.7]])
         )
 
-        network = pp.FractureNetwork3d(f_1, domain=self.non_convex_polyhedron)
+        network = pp.FractureNetwork3d([f_1], domain=self.non_convex_polyhedron)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
         gb = network.mesh(mesh_args)
         self.assertTrue(len(gb.grids_of_dimension(2)) == 1)

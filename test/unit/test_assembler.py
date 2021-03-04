@@ -1953,6 +1953,8 @@ class MockEdgeDiscretizationEdgeCouplings(
         edge_secondary,
         data_edge_secondary,
         matrix,
+        assemble_matrix=True,
+        assemble_rhs=True,
     ):
         mg_primary = data_edge_primary["mortar_grid"]
         mg_secondary = data_edge_secondary["mortar_grid"]

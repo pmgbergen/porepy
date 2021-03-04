@@ -215,7 +215,13 @@ def project_plane_matrix(pts, normal=None, tol=1e-5, reference=None, check_plana
 
     reference = np.asarray(reference, dtype=np.float)
     angle = np.arccos(np.dot(normal, reference))
-    vect = np.cross(normal, reference)
+    vect = np.array(
+        [
+            normal[1] * reference[2] - normal[2] * reference[1],
+            normal[2] * reference[0] - normal[0] * reference[2],
+            normal[0] * reference[1] - normal[1] * reference[0],
+        ]
+    )
     return rotation_matrix(angle, vect)
 
 
@@ -246,7 +252,13 @@ def project_line_matrix(pts, tangent=None, tol=1e-5, reference=None):
 
     reference = np.asarray(reference, dtype=np.float)
     angle = np.arccos(np.dot(tangent, reference))
-    vect = np.cross(tangent, reference)
+    vect = np.array(
+        [
+            tangent[1] * reference[2] - tangent[2] * reference[1],
+            tangent[2] * reference[0] - tangent[0] * reference[2],
+            tangent[0] * reference[1] - tangent[1] * reference[0],
+        ]
+    )
     return rotation_matrix(angle, vect)
 
 
@@ -266,7 +278,7 @@ def rotation_matrix(a, vect):
     identify matrix.
 
     """
-    if np.allclose(vect, [0.0, 0.0, 0.0]):
+    if np.allclose(vect, np.zeros(3)):
         return np.identity(3)
     vect = vect / np.linalg.norm(vect)
 
