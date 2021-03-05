@@ -41,7 +41,7 @@ class Operator:
         disc: Optional = None,
         name: Optional[str] = None,
         grid: Optional[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]] = None,
-        tree: Optional["_Tree"] = None,
+        tree: Optional["Tree"] = None,
     ) -> None:
         if disc is not None:
             self._discr = disc
@@ -54,7 +54,7 @@ class Operator:
 
     def _set_tree(self, tree=None):
         if tree is None:
-            self.tree = _Tree(Operation.void)
+            self.tree = Tree(Operation.void)
         else:
             self.tree = tree
 
@@ -108,20 +108,20 @@ class Operator:
 
     def __mul__(self, other):
         children = self._parse_other(other)
-        tree = _Tree(Operation.mul, children)
+        tree = Tree(Operation.mul, children)
         return Operator(tree=tree)
 
     def __truediv__(self, other):
         children = self._parse_other(other)
-        return Operator(tree=_Tree(Operation.div, children))
+        return Operator(tree=Tree(Operation.div, children))
 
     def __add__(self, other):
         children = self._parse_other(other)
-        return Operator(tree=_Tree(Operation.add, children))
+        return Operator(tree=Tree(Operation.add, children))
 
     def __sub__(self, other):
         children = [self, other]
-        return Operator(tree=_Tree(Operation.sub, children))
+        return Operator(tree=Tree(Operation.sub, children))
 
     def __rmul__(self, other):
         return self.__mul__(other)
@@ -439,7 +439,7 @@ class Function(Operator):
 
     def __call__(self, *args):
         children = [self, *args]
-        op = Operator(tree=_Tree(self._operation, children=children))
+        op = Operator(tree=Tree(self._operation, children=children))
         return op
 
     def __repr__(self) -> str:
@@ -475,7 +475,7 @@ class ApplicableOperator(Function):
 
     def __call__(self, *args):
         children = [self, *args]
-        op = Operator(tree=_Tree(Operation.apply, children=children))
+        op = Operator(tree=Tree(Operation.apply, children=children))
         return op
 
         return s
@@ -494,13 +494,13 @@ class SecondOrderTensorAd(SecondOrderTensor, Operator):
     def parse(self, gb):
         return self.values
 
-class _Tree:
+class Tree:
     """Simple implementation of a Tree class. Used to represent combinations of
     Ad operators.
     """
 
     # https://stackoverflow.com/questions/2358045/how-can-i-implement-a-tree-in-python
-    def __init__(self, operation: Operation, children: Optional[List["_Tree"]] = None):
+    def __init__(self, operation: Operation, children: Optional[List["Tree"]] = None):
 
         self.op = operation
 
