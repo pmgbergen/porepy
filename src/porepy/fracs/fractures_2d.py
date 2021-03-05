@@ -344,6 +344,10 @@ class FractureNetwork2d(object):
             # FIXME: We do not keep track of indices of fractures and constraints
             # before and after imposing the boundary.
 
+        # The fractures should also be snapped to the boundary.
+        if do_snap:
+            self._snap_to_boundary()
+
         self._find_and_split_intersections(constraints)
         self._insert_auxiliary_points(**mesh_args)
 
@@ -695,6 +699,24 @@ class FractureNetwork2d(object):
             logger.warning("Fracture snapping failed to converge")
             logger.warning("Residual: " + str(diff))
             return pts, False
+
+    def _snap_to_boundary(self):
+        # Snap points to the domain boundary.
+        # The function modifies self.pts.
+        is_bound = self.tags["boundary"]
+        # Index of interior points
+        interior_pt_ind = np.unique(self.edges[:2, np.logical_not(is_bound)])
+        # Snap only to boundary edges (snapping of fractures internally is another
+        # operation, see self.snap_fracture_set()
+        bound_edges = self.edges[:, is_bound]
+
+        # Use function to snap the points
+        snapped_pts = pp.constrain_geometry.snap_points_to_segments(
+            self.pts, bound_edges, self.tol, p_to_snap=self.pts[:, interior_pt_ind]
+        )
+
+        # Replace the
+        self.pts[:, interior_pt_ind] = snapped_pts
 
     ## end of methods related to meshing
 
