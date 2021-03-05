@@ -79,21 +79,26 @@ class Expression:
         self.grid_order = grid_order
 
         # Identify all variables in the Operator tree. This will include real variables,
-        # and representation of previous time steps.
-        variable_dofs, variable_ids, is_prev_time = self._identify_variables(
+        # and representation of previous time steps and iterations.
+        variable_dofs, variable_ids, is_prev_time, is_prev_iter = self._identify_variables(
             dof_manager
         )
 
         # Split variable dof indices and ids into groups of current variables (those
-        # of the current iteration step), and those from the previous time step
+        # of the current iteration step), and those from the previous time steps and iterations.
         current_indices = []
         current_ids = []
         prev_indices = []
         prev_ids = []
-        for ind, var_id, is_prev in zip(variable_dofs, variable_ids, is_prev_time):
+        prev_iter_indices = []
+        prev_iter_ids = []
+        for ind, var_id, is_prev, is_prev_it in zip(variable_dofs, variable_ids, is_prev_time, is_prev_iter):
             if is_prev:
                 prev_indices.append(ind)
                 prev_ids.append(var_id)
+            elif is_prev_it:
+                prev_iter_indices.append(ind)
+                prev_iter_ids.append(var_id)
             else:
                 current_indices.append(ind)
                 current_ids.append(var_id)
@@ -103,6 +108,8 @@ class Expression:
         self._variable_ids = current_ids
         self._prev_time_dofs = prev_indices
         self._prev_time_ids = prev_ids
+        self._prev_iter_dofs = prev_iter_indices
+        self._prev_iter_ids = prev_iter_ids
 
         self._identify_discretizations()
 
@@ -172,11 +179,13 @@ class Expression:
         inds = []
         variable_ids = []
         prev_time = []
+        prev_iter = []
         for variable in variables:
             # Indices (in DofManager sense) of this variable. Will be built gradually
             # for MergedVariables, in one go for plain Variables.
             ind_var = []
             prev_time.append(variable.prev_time)
+            prev_iter.append(variable.prev_iter)
 
             if isinstance(variable, (pp.ad.MergedVariable, operators.MergedVariable)):
                 # Loop over all subvariables for the merged variable
@@ -195,7 +204,7 @@ class Expression:
             # Gather all indices for this variable
             inds.append(np.hstack([i for i in ind_var]))
 
-        return inds, variable_ids, prev_time
+        return inds, variable_ids, prev_time, prev_iter
 
     def _identify_subtree_discretizations(self, op, discr):
 
@@ -257,6 +266,12 @@ class Expression:
         ad_vars = initAdArrays([state[ind] for ind in self._variable_dofs])
         self._ad = {var_id: ad for (var_id, ad) in zip(self._variable_ids, ad_vars)}
 
+        # Also make mappings from the previous iteration.
+        prev_iter_vals_list = [state[ind] for ind in self._prev_iter_dofs]
+        self._prev_iter_vals = {
+            var_id: val for (var_id, val) in zip(self._prev_iter_ids, prev_iter_vals_list)
+        }
+
         # Also make mappings from the previous time step.
         prev_vals_list = [prev_vals[ind] for ind in self._prev_time_dofs]
         self._prev_vals = {
@@ -299,11 +314,15 @@ class Expression:
             ):
                 if op.prev_time:
                     return self._prev_vals[op.id]
+                elif op.prev_iter:
+                    return self._prev_iter_vals[op.id]
                 else:
                     return self._ad[op.id]
             else:
                 if op.prev_time:
                     return self._prev_vals[op.id]
+                elif op.prev_iter:
+                    return self._prev_iter_vals[op.id]
                 else:
                     return self._ad[op.id]
         elif op.is_leaf():
