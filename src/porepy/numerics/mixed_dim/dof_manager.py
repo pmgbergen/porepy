@@ -134,12 +134,17 @@ class DofManager:
             return num
         elif g is None:
             num = 0
+            if not isinstance(var, list):
+                var = [var]
             for grid, variable in self.block_dof:
-                if var == variable:
+                if variable in var:
                     bi = self.block_dof[(grid, variable)]
                     num += self.full_dof[bi]
             return num
         else:
+            if isinstance(var, list):
+                # TODO Include something here!
+                raise RuntimeError("Not implemented!")
             return self.full_dof[(g, var)]
 
     def __str__(self) -> str:
