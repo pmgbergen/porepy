@@ -129,7 +129,7 @@ class Expression:
         operator tree.
         """
         # The variables should be located at leaves in the tree. Traverse the tree
-        # recursively, look for varibales, and then gather the results.
+        # recursively, look for variables, and then gather the results.
 
         if isinstance(op, operators.Variable) or isinstance(op, pp.ad.Variable):
             # We are at the bottom of the a branch of the tree, return the operator
