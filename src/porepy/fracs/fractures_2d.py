@@ -111,29 +111,6 @@ class FractureNetwork2d(object):
             logger.info("Domain specification :" + str(domain))
 
     @pp.time_logger(sections=module_sections)
-    def copy(self):
-        """Create deep copy of the network.
-
-        The method will create a deep copy of all fractures, as well as the domain, of
-        the network. Note that if the fractures have had extra points imposed as part
-        of a meshing procedure, these will included in the copied fractures.
-
-        Returns:
-            pp.FractureNetwork3d.
-
-        """
-        p_new = np.copy(self.pts)
-        edges_new = np.copy(self.edges)
-        domain = self.domain
-        if domain is not None:
-            # Get a deep copy of domain, but no need to do that if domain is None
-            domain = copy.deepcopy(domain)
-
-        fn = FractureNetwork2d(p_new, edges_new, domain, self.tol)
-        fn.tags = self.tags.copy()
-        return fn
-
-    @pp.time_logger(sections=module_sections)
     def add_network(self, fs):
         """Add this fracture set to another one, and return a new set.
 
@@ -664,28 +641,6 @@ class FractureNetwork2d(object):
             return x0, dx
 
     @pp.time_logger(sections=module_sections)
-    def snap(self, tol):
-        """Modify point definition so that short branches are removed, and
-        almost intersecting fractures become intersecting.
-
-        Parameters:
-            tol (double): Threshold for geometric modifications. Points and
-                segments closer than the threshold may be modified.
-
-        Returns:
-            FractureNetwork2d: A new network with modified point coordinates.
-        """
-
-        # We will not modify the original fractures
-        p = self.pts.copy()
-        e = self.edges.copy()
-
-        # Prolong
-        p = pp.constrain_geometry.snap_points_to_segments(p, e, tol)
-
-        return FractureNetwork2d(p, e, self.domain, self.tol)
-
-    @pp.time_logger(sections=module_sections)
     def constrain_to_domain(self, domain=None):
         """Constrain the fracture network to lay within a specified domain.
 
@@ -735,6 +690,92 @@ class FractureNetwork2d(object):
         else:
             return domain
 
+    # Methods for copying fracture network
+    def copy(self) -> "pp.FractureNetwork2d":
+        """Create deep copy of the network.
+
+        The method will create a deep copy of all fractures, as well as the domain, of
+        the network. Note that if the fractures have had extra points imposed as part
+        of a meshing procedure, these will included in the copied fractures.
+
+        Returns:
+            pp.FractureNetwork2d.
+
+        See also:
+            self.snapped_copy(), self.copy_with_split_intersections()
+
+        """
+        p_new = np.copy(self.pts)
+        edges_new = np.copy(self.edges)
+        domain = self.domain
+        if domain is not None:
+            # Get a deep copy of domain, but no need to do that if domain is None
+            domain = copy.deepcopy(domain)
+        fn = FractureNetwork2d(p_new, edges_new, domain, self.tol)
+        fn.tags = self.tags.copy()
+
+        return fn
+
+    @pp.time_logger(sections=module_sections)
+    def snapped_copy(self, tol: float) -> "pp.FractureNetwork2d":
+        """Modify point definition so that short branches are removed, and
+        almost intersecting fractures become intersecting.
+
+        Parameters:
+            tol (double): Threshold for geometric modifications. Points and
+                segments closer than the threshold may be modified.
+
+        Returns:
+            FractureNetwork2d: A new network with modified point coordinates.
+
+        See also:
+            self.copy(), self.copy_with_split_intersections()
+
+        """
+        # We will not modify the original fractures
+        p = self.pts.copy()
+        e = self.edges.copy()
+
+        # Prolong
+        p = pp.constrain_geometry.snap_points_to_segments(p, e, tol)
+
+        return FractureNetwork2d(p, e, self.domain, self.tol)
+
+    @pp.time_logger(sections=module_sections)
+    def copy_with_split_intersections(
+        self, tol: Optional[float] = None
+    ) -> "pp.FractureNetwork2d":
+        """Create a new FractureSet, with all fracture intersections removed
+
+        Parameters:
+            tol (optional): Tolerance used in geometry computations when
+                splitting fractures. Defaults to the tolerance of this network.
+
+        Returns:
+            FractureSet: New set, where all intersection points are added so that
+                the set only contains non-intersecting branches.
+
+        See also:
+            self.copy(), self.snapped_copy()
+
+        """
+        if tol is None:
+            tol = self.tol
+
+        # FIXME: tag_info may contain useful information if segments are intersecting.
+        p, e, tag_info, argsort = pp.intersections.split_intersecting_segments_2d(
+            self.pts, self.edges, tol=self.tol, return_argsort=True
+        )
+        # map the tags
+        tags = {}
+        for key, value in self.tags.items():
+            tags[key] = value[argsort]
+
+        fn = FractureNetwork2d(p, e, self.domain, tol=self.tol)
+        fn.tags = tags
+
+        return fn
+
     # --------- Methods for analysis of the fracture set
 
     @pp.time_logger(sections=module_sections)
@@ -779,36 +820,6 @@ class FractureNetwork2d(object):
             return G, split_network
         else:
             return G
-
-    @pp.time_logger(sections=module_sections)
-    def split_intersections(self, tol=None):
-        """Create a new FractureSet, with all fracture intersections removed
-
-        Parameters:
-            tol (optional): Tolerance used in geometry computations when
-                splitting fractures. Defaults to the tolerance of this network.
-
-        Returns:
-            FractureSet: New set, where all intersection points are added so that
-                the set only contains non-intersecting branches.
-
-        """
-        if tol is None:
-            tol = self.tol
-
-        # FIXME: tag_info may contain useful information if segments are intersecting.
-        p, e, tag_info, argsort = pp.intersections.split_intersecting_segments_2d(
-            self.pts, self.edges, tol=self.tol, return_argsort=True
-        )
-        # map the tags
-        tags = {}
-        for key, value in self.tags.items():
-            tags[key] = value[argsort]
-
-        fn = FractureNetwork2d(p, e, self.domain, tol=self.tol)
-        fn.tags = tags
-
-        return fn
 
     # --------- Utility functions below here
 
