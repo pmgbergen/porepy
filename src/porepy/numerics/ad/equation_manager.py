@@ -357,6 +357,10 @@ class Expression:
             else:
                 return results[0].func(*results[1:])
 
+        elif tree.op == operators.Operation.apply:
+            assert len(results) > 1
+            return results[0].apply(*results[1:])
+
         elif tree.op == operators.Operation.div:
             return results[0] / results[1]
 

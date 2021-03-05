@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 
-Operation = Enum("Operation", ["void", "add", "sub", "mul", "evaluate", "div", "localeval"])
+Operation = Enum("Operation", ["void", "add", "sub", "mul", "evaluate", "div", "localeval", "apply"])
 
 
 class Operator:
@@ -456,6 +456,23 @@ class Function(Operator):
 
         """
         return self
+
+class ApplicableOperator(Function):
+    """Ad representation of operator providing metod 'apply'. This class is meant as base class."""
+
+    def __init__(self) -> None:
+        """Initialization empty.
+        """
+
+    def __repr__(self) -> str:
+        s = f"AD applicable operator."
+
+    def __call__(self, *args):
+        children = [self, *args]
+        op = Operator(tree=_Tree(Operation.apply, children=children))
+        return op
+
+        return s
 
 class SecondOrderTensorAd(SecondOrderTensor, Operator):
 
