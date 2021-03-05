@@ -279,6 +279,7 @@ class Variable(Operator):
         grid_like: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]],
         num_cells: int = 0,
         previous_timestep: bool = False,
+        previous_iteration: bool = False
     ):
         """Initiate an Ad representation of the variable.
 
@@ -298,6 +299,7 @@ class Variable(Operator):
         self.g = grid_like
 
         self.prev_time: bool = previous_timestep
+        self.prev_iter: bool = previous_iteration
 
         # The number of cells in the grid. Will only be used if grid_like is a tuple
         # that is, if this is a mortar variable
@@ -326,6 +328,10 @@ class Variable(Operator):
     def previous_timestep(self) -> "Variable":
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
         return Variable(self._name, ndof, self.g, previous_timestep=True)
+
+    def previous_iteration(self) -> "Variable":
+        ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
+        return Variable(self._name, ndof, self.g, previous_iteration=True)
 
     def __repr__(self) -> str:
         s = (
