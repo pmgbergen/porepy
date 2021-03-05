@@ -11,6 +11,7 @@ from porepy.numerics.ad.equation_manager import Expression
 from porepy.numerics.ad.operators import SecondOrderTensorAd
 from porepy.numerics.ad.grid_operators import DirBC
 from porepy.numerics.ad.local_forward_mode import initLocalAdArrays
+from porepy.numerics.solvers.andersonacceleration import AndersonAcceleration
 
 # Van Genuchten hydraulic constitutive laws
 sr_vg = 0.
@@ -165,6 +166,11 @@ elif weighting_type == "lazy upstream":
 else:
     raise RuntimeError("weighting scheme does not exist")
 
+# Anderson acceleration
+dimension = g.num_cells
+depth = 10
+acceleration = AndersonAcceleration(dimension, depth)
+
 # Time loop
 total_iteration_counter = 0
 for n in range(1,num_time_steps+1):
@@ -204,7 +210,8 @@ for n in range(1,num_time_steps+1):
         if sat_linearization=="newton":
             flow_momentum_eq = mass_ad.mass * satAd(p) + dt * div * tpfa_ad.flux(face_transmissibility, p, bc_flow)
         elif sat_linearization=="l-scheme":
-            L = 0.075 # sort of optimized...
+            L = 0.075 # sort of optimized...AA does not add much more effect to that; 150 -> 140 iterations
+            #L = 1 # choice completely off... AA almost halves the iteration count; 500 -> 250 iterations
             flow_momentum_eq = (dt * div * tpfa_ad.flux(face_transmissibility, p, bc_flow)
                     + mass_ad.mass * (satAd(p.previous_iteration()))
                     + mass_ad.mass * (L * (p - p.previous_iteration())))
@@ -229,6 +236,9 @@ for n in range(1,num_time_steps+1):
         pressure_increment = sps.linalg.spsolve(A, b)
         # Update approximation
         d[pp.STATE][pp.ITERATE][pressure_variable] += pressure_increment
+
+        # Apply Anderson acceletion
+        d[pp.STATE][pp.ITERATE][pressure_variable] = acceleration.apply(d[pp.STATE][pp.ITERATE][pressure_variable], pressure_increment, iteration_counter)
 
         # Compute 'error' as norm of the residual
         residual_norm = np.linalg.norm(b, 2)
