@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 
-Operation = Enum("Operation", ["void", "add", "sub", "mul", "evaluate", "div"])
+Operation = Enum("Operation", ["void", "add", "sub", "mul", "evaluate", "div", "localeval"])
 
 
 class Operator:
@@ -408,7 +408,7 @@ class MergedVariable(Variable):
 class Function(Operator):
     """Ad representation of a function."""
 
-    def __init__(self, func: Callable, name: str):
+    def __init__(self, func: Callable, name: str, local = False):
         """Initialize a function.
 
         Parameters:
@@ -419,6 +419,7 @@ class Function(Operator):
         """
         self.func = func
         self._name = name
+        self._operation = Operation.evaluate if local == False else Operation.localeval
         self._set_tree()
 
     def __mul__(self, other):
@@ -432,7 +433,7 @@ class Function(Operator):
 
     def __call__(self, *args):
         children = [self, *args]
-        op = Operator(tree=_Tree(Operation.evaluate, children=children))
+        op = Operator(tree=_Tree(self._operation, children=children))
         return op
 
     def __repr__(self) -> str:
