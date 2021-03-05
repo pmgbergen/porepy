@@ -517,7 +517,7 @@ class BoundaryCondition(Operator):
 
         """
 
-        self._keyword = keyword
+        self.keyword = keyword
         self._g: List[pp.Grid] = _grid_list(grids, gb)
         self._set_tree()
 
@@ -549,10 +549,43 @@ class BoundaryCondition(Operator):
         val = []
         for g in self._g:
             data = gb.node_props(g)
-            val.append(data[pp.PARAMETERS][self._keyword]["bc_values"])
+            val.append(data[pp.PARAMETERS][self.keyword]["bc_values"])
 
         return np.hstack([v for v in val])
 
+
+class DirBC(Operator):
+    """Extract (scalar) Dirichlet BC from Boundary condition.
+    This can be e.g. useful when applying AD functions to bonudary data."""
+
+    def __init__(
+        self,
+        bc,
+        grids: Optional[List[pp.Grid]] = None,
+        gb: Optional[pp.GridBucket] = None
+    ):
+        self._bc = bc
+        self._g: List[pp.Grid] = _grid_list(grids, gb)
+        if not (len(self._g)==1):
+            raise RuntimeError("DirBc not implemented for more than one grid.")
+        self._set_tree()
+
+    def __repr__(self) -> str:
+        return f"Dirichlet boundary data of size {self._boundarycondition.val.size}"
+
+    def parse(self, gb: pp.GridBucket):
+
+        bc_val = self._bc.parse(gb) # TODO Is this done anyhow already?
+        keyword = self._bc.keyword
+        g = self._g[0]
+        data = gb.node_props(g)
+        bc = data[pp.PARAMETERS][keyword]["bc"]
+        is_dir = bc.is_dir
+        is_not_dir = np.logical_not(is_dir)
+        dir_bc_val = bc_val.copy()
+        dir_bc_val[is_not_dir] = float("NaN")
+
+        return dir_bc_val
 
 #### Helper methods below
 
