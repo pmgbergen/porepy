@@ -305,7 +305,7 @@ class FractureNetwork2d(object):
 
         # Snap points to edges
         if do_snap and p is not None and p.size > 0:
-            p, _ = self.snap_fracture_set(p, self.edges, snap_tol=tol)
+            p, _ = self._snap_fracture_set(p, snap_tol=tol)
 
         self.pts = p
 
@@ -633,7 +633,6 @@ class FractureNetwork2d(object):
     def _snap_fracture_set(
         self,
         pts: np.ndarray,
-        edges: np.ndarray,
         snap_tol: float,
         termination_tol: float = 1e-2,
         max_iter: int = 100,
@@ -660,9 +659,6 @@ class FractureNetwork2d(object):
 
         Parameters:
             pts (np.array, 2 x n_pts): Array of start and endpoints for fractures.
-            edges (np.ndarray, n x n_fracs): First row contains index of start
-                of all fractures, referring to columns in pts. Second contains
-                index of endpoints.
             snap_tol (double): Snapping tolerance. Distances below this will be
                 snapped.
             termination_tol (double): Minimum point movement needed for the
@@ -678,6 +674,7 @@ class FractureNetwork2d(object):
 
         """
         pts_orig = pts.copy()
+        edges = self.edges
         counter = 0
         pn = 0 * pts
         while counter < max_iter:
@@ -707,7 +704,7 @@ class FractureNetwork2d(object):
         # Index of interior points
         interior_pt_ind = np.unique(self.edges[:2, np.logical_not(is_bound)])
         # Snap only to boundary edges (snapping of fractures internally is another
-        # operation, see self.snap_fracture_set()
+        # operation, see self._snap_fracture_set()
         bound_edges = self.edges[:, is_bound]
 
         # Use function to snap the points
