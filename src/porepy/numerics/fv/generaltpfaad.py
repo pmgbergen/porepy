@@ -490,3 +490,139 @@ class FluxBasedUpwindAd(ApplicableOperator):
         face_mobility = mob_f[0] * hs_f_01 + mob_f[1] * hs_f_10
 
         return face_mobility
+
+class HarmAvgAd(ApplicableOperator):
+    """ Object computing the harmonic average at faces given a cell-wise defined field."""
+
+    def __init__(self, g, data, tpfa):
+        # TODO iRegarding input parameter tpfa, actually only tpfa-unrelated info is retrieved from tpfa here.
+
+        self._set_tree()
+
+        self._g = g
+        self._data = data
+        self._tpfa = tpfa
+
+        # For later computation of face transmissibilities, create the linear operator corresponding to bincount
+        f_periodic_max = max(tpfa.fi_periodic)
+        c_periodic_max = len(tpfa.fi_periodic)
+        col = np.arange(c_periodic_max)
+        row = tpfa.fi_periodic[col]
+        data = np.ones_like(row)
+        self.bincount_fi_periodic = sps.csr_matrix((data, (row, col)), shape=(f_periodic_max + 1, c_periodic_max))
+
+    def __repr__(self) -> str:
+        return f"Harmonic average operator"
+
+    def apply(self, cellwise_field):
+        """ Compute transmissibility via harmonic averaging over faces."""
+
+        if isinstance(cellwise_field, Local_Ad_array):
+            return self._apply_ad(cellwise_field)
+        elif isinstance(cellwise_field, np.ndarray):
+            return self._apply_non_ad(cellwise_field)
+        else:
+            raise RuntimeError("Harmonic average not implemented for this type of cellwise tensorfield.")
+
+    def _apply_ad(self, cellwise_field) -> Ad_array:
+        """ Compute transmissibility via harmonic averaging over faces."""
+
+        # References to private variables
+        g = self._g
+        data = self._data
+        tpfa = self._tpfa
+
+        if data.get("Aavatsmark_transmissibilities", False):
+            raise RuntimeError("AD version of Aavatsmark_transmissibilities not implemented.")
+
+        # Get connectivity and grid based data
+        fi = tpfa.fi
+        ci = tpfa.ci
+        sgn = tpfa.sgn
+        fi_periodic = tpfa.fi_periodic
+        ci_periodic = tpfa.ci_periodic
+        fc_cc = tpfa.fc_cc
+        dist_face_cell = np.power(np.power(fc_cc, 2).sum(axis=0), 0.5)
+
+        # Consider two cases: scalar and tensor valued fields.
+
+        assert(cellwise_field.val, np.ndarray)
+        # Case 1: Scalar valued fields.
+        if len(cellwise_field.val.shape) == 1:
+            t_cf_val = cellwise_field.val[ci]
+            t_cf_jac = cellwise_field.jac[ci]
+            t_cf_val /= dist_face_cell
+            t_cf_jac /= dist_face_cell
+
+        # Case 2: Tensor valued fields.
+        elif (len(cellwise_field.val.shape) == 3 and all([cellwise_field.val.shape[i] == 3 for i in range(0,2)])):
+            t_cf_tensor_val = cellwise_field.val[::, ::, ci]
+            t_cf_tensor_jac = cellwise_field.jac[::, ::, ci]
+            tn_cf_val = (t_cf_tensor_val * fc_cc).sum(axis=1)
+            tn_cf_jac = (t_cf_tensor_jac * fc_cc).sum(axis=1)
+            ntn_cf_val = (tn_cf_val * fc_cc).sum(axis=0)
+            ntn_cf_jac = (tn_cf_jac * fc_cc).sum(axis=0)
+            dist_face_cell_3 = np.power(dist_face_cell, 3)
+            t_cf_val = np.divide(ntn_cf_val, dist_face_cell_3)
+            t_cf_jac = np.divide(ntn_cf_jac, dist_face_cell_3)
+
+        else:
+            raise RuntimeError("Type of cell-wise field not supported.")
+
+        # Continue with AD representation and utilize chain rule.
+        t_face = Ad_array(t_cf_val, sps.diags(t_cf_jac).tocsc())
+
+        # The final harmonic averaging using a linear operator representation of bincount.
+        # TODO test!
+        t_face = (self.bincount_fi_periodic * dist_face_cell) * ((self.bincount_fi_periodic * t_face ** (-1) ) ** (-1))
+
+        # Project column space of t.jac onto the actual cell
+        # TODO is there not a better way to create the projection matrix? By correct indexing?
+        c = np.arange(len(ci_periodic))
+        proj = sps.coo_matrix((np.ones_like(c), (c, ci_periodic))).tocsr()
+        t_face.jac = t_face.jac * proj
+
+        return t_face
+
+    def _apply_non_ad(self, cellwise_field) -> np.ndarray:
+        """ Compute transmissibility via harmonic averaging over faces."""
+
+        # References to private variables
+        g = self._g
+        data = self._data
+        tpfa = self._tpfa
+        if data.get("Aavatsmark_transmissibilities", False):
+            raise RuntimeError("AD version of Aavatsmark_transmissibilities not implemented.")
+
+        # Get connectivity and grid based data
+        fi = tpfa.fi
+        ci = tpfa.ci
+        sgn = tpfa.sgn
+        fi_periodic = tpfa.fi_periodic
+        ci_periodic = tpfa.ci_periodic
+        fc_cc = tpfa.fc_cc
+        dist_face_cell = np.power(np.power(fc_cc, 2).sum(axis=0), 0.5)
+
+        # Consider two cases: scalar and tensor valued fields.
+
+        assert(cellwise_field, np.ndarray)
+        # Case 1: Scalar valued fields.
+        if len(cellwise_field.shape) == 1:
+            t_cf_val = cellwise_field[ci]
+            t_cf_val /= dist_face_cell
+
+        # Case 2: Tensor valued fields.
+        elif (len(cellwise_field.shape) == 3 and all([cellwise_field.shape[i] == 3 for i in range(0,2)])):
+            t_cf_tensor_val = cellwise_field[::, ::, ci]
+            tn_cf_val = (t_cf_tensor_val * fc_cc).sum(axis=1)
+            ntn_cf_val = (tn_cf_val * fc_cc).sum(axis=0)
+            dist_face_cell_3 = np.power(dist_face_cell, 3)
+            t_cf_val = np.divide(ntn_cf_val, dist_face_cell_3)
+
+        else:
+            raise RuntimeError("Type of cell-wise field not supported.")
+
+        # The final harmonic averaging using a linear operator representation of bincount.
+        t_face = (self.bincount_fi_periodic * dist_face_cell) / (self.bincount_fi_periodic * t_cf_val ** (-1))
+
+        return t_face
