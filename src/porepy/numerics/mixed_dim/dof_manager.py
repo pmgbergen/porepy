@@ -3,6 +3,7 @@
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 
@@ -146,6 +147,37 @@ class DofManager:
                 # TODO Include something here!
                 raise RuntimeError("Not implemented!")
             return self.full_dof[(g, var)]
+
+    def transform_dofs(self, dofs: np.ndarray, var: Optional[list] = None):
+        """Transforms dofs associated to full list of dofs to a restricted list of dofs."""
+
+        # TODO this procedure should only be performed once! One could consider storing the projection matrix.
+        # Double-check whether dofs are actually represented by var.
+        total_dofs = np.sum(self.full_dof)
+        if var is not None:
+            is_var_dofs = np.zeros(total_dofs, dtype=bool)
+            if not isinstance(var, list):
+                var = [var]
+            for grid, variable in self.block_dof:
+                if variable in var:
+                    var_dof_ind = self.dof_ind(grid, variable)
+                    is_var_dofs[var_dof_ind] = True
+            assert all(is_var_dofs[dofs])
+
+        # Input dofs in the context of all dofs managed by DofManager
+        total_dofs = np.sum(self.full_dof)
+        global_dofs = np.zeros(total_dofs)
+        global_dofs[dofs] = 1
+
+        # Projection matrix from space of all dofs to restricted list of var
+        num_dofs = self.num_dofs(var=var)
+        projection = sps.coo_matrix(
+            (np.arange(num_dofs), (np.arange(num_dofs), dofs)),
+            shape=(num_dofs, total_dofs)
+        )
+
+        # Return the restricted dofs
+        return projection * global_dofs
 
     def __str__(self) -> str:
         grid_likes = [key[0] for key in self.block_dof]
