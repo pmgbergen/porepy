@@ -11,6 +11,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.params.tensor import SecondOrderTensor
 
 __all__ = [
     "Operator",
@@ -455,6 +456,19 @@ class Function(Operator):
         """
         return self
 
+class SecondOrderTensorAd(SecondOrderTensor, Operator):
+
+    def __init__(self, kxx, kyy=None, kzz=None, kxy=None, kxz=None, kyz=None):
+        super(SecondOrderTensorAd, self).__init__(kxx, kyy, kzz, kxy, kxz, kyz)
+        self._set_tree()
+
+    def __repr__(self) -> str:
+        s = f"AD second order tensor"
+
+        return s
+
+    def parse(self, gb):
+        return self.values
 
 class _Tree:
     """Simple implementation of a Tree class. Used to represent combinations of
