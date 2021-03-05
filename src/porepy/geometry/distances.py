@@ -201,7 +201,12 @@ def points_segments(p, start, end):
     if p.size < 4:
         p = p.reshape((-1, 1))
 
-    num_p = p.shape[1]
+    # Number of points - the case of an empty array needs special handling.
+    if p.size > 0:
+        num_p = p.shape[1]
+    else:
+        num_p = 0
+
     num_l = start.shape[1]
     d = np.zeros((num_p, num_l))
 
