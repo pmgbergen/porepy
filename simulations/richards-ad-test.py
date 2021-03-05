@@ -152,6 +152,7 @@ hs = heaviside
 upwind = UpwindAd(g, tpfa_ad, hs)
 weighting_type = "lazy upstream"
 if weighting_type == "harmonic":
+    # TODO can we in a general fashion allow for mobilityAd(p) * perm and perm * rhoAd(p) here? In the latter curently __rmul__ is ran for Local_Ad_array many many times. Is this related since rhoAd(p) is a row vector?
     mobilityAd = pp.ad.Function(mobility, name='mobility', local = True)
     face_transmissibility = harmAvg(mobilityAd(p) * perm)
 elif weighting_type == "lazy harmonic":
@@ -207,6 +208,11 @@ for n in range(1,num_time_steps+1):
             flow_momentum_eq = (dt * div * tpfa_ad.flux(face_transmissibility, p, bc_flow)
                     + mass_ad.mass * (satAd(p.previous_iteration()))
                     + mass_ad.mass * (L * (p - p.previous_iteration())))
+        # TODO the following does not work - TypeError...
+        # mass_ad.mass * (satAd(p.previous_iteration()) + L * (p - p.previous_iteration()))
+        # TODO the following does raise an error stemming from equation_manager.py
+        #flow_momentum_eq = mass_ad.mass * satAd(p.previous_iteration()) + dt * div * tpfa_ad.flux(face_transmissibility, p, bc_flow)
+        #flow_momentum_eq = dt * div * tpfa_ad.flux(face_transmissibility, p, bc_flow) + mass_ad.mass * satAd(p.previous_iteration())
 
         # Rhs of the flow equation
         flow_rhs = mass_ad.mass * satAd(p.previous_timestep()) + dt * mass_ad.mass * source
