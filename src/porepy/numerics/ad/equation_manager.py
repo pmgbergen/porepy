@@ -293,6 +293,7 @@ class Expression:
             # How to access the array of (Ad representation of) states depends on wether
             # this is a single or combined variable; see self.__init__, definition of
             # self._variable_ids.
+            # TODO no differecen between merged or no merged variables!?
             if isinstance(op, pp.ad.MergedVariable) or isinstance(
                 op, operators.MergedVariable
             ):
