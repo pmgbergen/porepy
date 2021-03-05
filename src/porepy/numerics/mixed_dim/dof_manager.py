@@ -130,14 +130,14 @@ class DofManager:
             for grid, variable in self.block_dof:
                 if grid == g:
                     bi = self.block_dof[(grid, variable)]
-                    num += self.full_dof[bi].size
+                    num += self.full_dof[bi]
             return num
         elif g is None:
             num = 0
             for grid, variable in self.block_dof:
                 if var == variable:
                     bi = self.block_dof[(grid, variable)]
-                    num += self.full_dof[bi].size
+                    num += self.full_dof[bi]
             return num
         else:
             return self.full_dof[(g, var)]
