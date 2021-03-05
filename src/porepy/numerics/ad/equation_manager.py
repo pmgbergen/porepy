@@ -342,6 +342,21 @@ class Expression:
             assert len(results) > 1
             return results[0].func(*results[1:])
 
+        elif tree.op == operators.Operation.localeval:
+            # This is a local function, which should have at least one argument
+            assert len(results) > 1
+            if all([isinstance(r, Ad_array) for r in results[1:]]):
+                # TODO: return results[0].func(*makeLocalAd(results[1:]))
+                if len(results)>2:
+                    raise RuntimeError("Not implemented.") #evaluation of loacl functions only supported for single argument functions.
+                else:
+                    argval = results[1].val
+                    argjac = results[1].jac.diagonal()
+                    arg = Local_Ad_array(argval, argjac)
+                    return results[0].func(arg)
+            else:
+                return results[0].func(*results[1:])
+
         elif tree.op == operators.Operation.div:
             return results[0] / results[1]
 
