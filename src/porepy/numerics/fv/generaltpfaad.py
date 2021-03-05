@@ -425,3 +425,68 @@ class UpwindAd(ApplicableOperator):
         face_mobility = mob_f[0] * hs_f_01 + mob_f[1] * hs_f_10
 
         return face_mobility
+
+class FluxBasedUpwindAd(ApplicableOperator):
+
+    def __init__(self, g, tpfa, hs : callable = heaviside):
+
+        self._set_tree()
+        self._g = g
+        self._tpfa = tpfa
+        self._heaviside = hs
+
+        # Construct projection from cell-valued arrays to face-valued arrays with values to the
+        # "left" and "right" of the face, here denoted by '0' and '1', respectively.
+        cf_dense = g.cell_face_as_dense()
+        cf_inner = [c>=0 for c in cf_dense]
+
+        row = [np.arange(g.num_faces)[cf_inner[i]] for i in range(0,2)]
+        col = [cf_dense[i][cf_inner[i]] for i in range(0,2)]
+        data = [np.ones_like(row[i]) for i in range(0,2)]
+        self._cf_inner = [sps.csr_matrix((data[i], (row[i], col[i])), shape = (g.num_faces, g.num_cells), dtype = float) for i in range(0,2)]
+
+        # Store which 'left' and 'right' cells of all faces correspond to the Dirichlet boundary.
+        cf_is_boundary = np.logical_not(cf_inner)
+        self._cf_is_boundary = cf_is_boundary
+        is_dir = tpfa.is_dir
+        self._cf_is_dir = [np.logical_and(cf_is_boundary[i],is_dir) for i in range(0,2)]
+
+    def __repr__(self) -> str:
+        return f"Upwind AD face operator"
+
+    def apply(self, mobility_inner, mobility_bound, face_flux):
+        """ Compute transmissibility via upwinding over faces. Use monotonicityexpr for deciding directionality.
+
+            Idea: 'face value' = 'left cell value' * Heaviside('flux from left') + 'right cell value' * Heaviside('flux from right')."""
+
+        # TODO only implemented for scalar relative permeabilities so far
+        # TODO so far not for periodic bondary conditions.
+
+        # Rename internal properties
+        hs = self._heaviside
+        cf_inner = self._cf_inner
+        cf_is_dir = self._cf_is_dir
+        cf_is_boundary = self._cf_is_boundary
+
+        # Determine direction-determining cell values to the left(0) and right(1) of each face.
+        # Use Dirichlet boundary data where suitable.
+        # Neglect Neumann boundaries since face transmissibilities at Neumann boundary data
+        # anyhow does not play a role.
+        assert(face_flux, np.ndarray) # TODO extend to Ad_arrays
+
+        # Do the same for the mobility as for the direction-determining arrays.
+        if isinstance(mobility_inner, Ad_array):
+            raise RuntimeError("Not implemented.")
+        else:
+            mob_f = [cf_inner[i] * mobility_inner for i in range(0,2)]
+            for i in range(0,2):
+                mob_f[i][cf_is_boundary[i]] = mobility_bound[cf_is_boundary[i]]
+
+        # Evaluate the Heaviside function of the "flux directions".
+        hs_f_01 = hs(face_flux)
+        hs_f_10 = hs(-face_flux)
+
+        # Determine the face mobility by utilizing the general idea (see above).
+        face_mobility = mob_f[0] * hs_f_01 + mob_f[1] * hs_f_10
+
+        return face_mobility
