@@ -18,7 +18,7 @@ self._key() + "mass" or self._key() + "inv_mass".
 The corresponding (null) rhs vectors are stored as
 self._key() + "bound_mass" or self._key() + "bound_inv_mass", respectively.
 """
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -41,9 +41,9 @@ class MassMatrix(pp.numerics.discretization.Discretization):
             keyword (str): Identifier of all information used for this
                 discretization.
         """
-        self.keyword = keyword
-        self.mass_matrix_key = "mass"
-        self.bound_mass_matrix_key = "bound_mass"
+        self.keyword: str = keyword
+        self.mass_matrix_key: str = "mass"
+        self.bound_mass_matrix_key: str = "bound_mass"
 
     def _key(self) -> str:
         """Get the keyword of this object, on a format friendly to access relevant
@@ -102,7 +102,7 @@ class MassMatrix(pp.numerics.discretization.Discretization):
                 discretization.
 
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary: Dict[str, Union[sps.spmatrix, np.ndarray]] = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         M = matrix_dictionary[self.mass_matrix_key]
         return M
@@ -120,12 +120,12 @@ class MassMatrix(pp.numerics.discretization.Discretization):
                 boundary conditions.
 
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary: Dict[str, Union[sps.spmatrix, np.ndarray]] = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
-        rhs = matrix_dictionary[self.bound_mass_matrix_key]
+        rhs: np.ndarray = matrix_dictionary[self.bound_mass_matrix_key]
         return rhs
 
-    def discretize(self, g: pp.Grid, data: np.ndarray) -> None:
+    def discretize(self, g: pp.Grid, data: Dict) -> None:
         """Discretize a L2-mass bilinear form with constant test and trial functions.
 
         Note that the porosity is not included in the volumes, and should be included
@@ -154,8 +154,8 @@ class MassMatrix(pp.numerics.discretization.Discretization):
             data: dictionary to store the data.
 
         """
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary: Dict = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary: Dict[str, Union[sps.spmatrix, np.ndarray]] = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         ndof = self.ndof(g)
         w = parameter_dictionary["mass_weight"]
         volumes = g.cell_volumes
@@ -181,9 +181,9 @@ class InvMassMatrix:
             keyword (str): Identifier of all information used for this
                 discretization.
         """
-        self.keyword = keyword
-        self.mass_matrix_key = "inv_mass"
-        self.bound_mass_matrix_key = "inv_bound_mass"
+        self.keyword: str = keyword
+        self.mass_matrix_key: str = "inv_mass"
+        self.bound_mass_matrix_key: str = "inv_bound_mass"
 
     def _key(self) -> str:
         """Get the keyword of this object, on a format friendly to access relevant
@@ -245,7 +245,7 @@ class InvMassMatrix:
             scipy.sparse.csr_matrix (self.ndof x self.ndof): System matrix of this
                 discretization.
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary: Dict[str, Union[sps.spmatrix, np.ndarray]] = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         M = matrix_dictionary[self.mass_matrix_key]
         return M
@@ -264,7 +264,7 @@ class InvMassMatrix:
             np.ndarray: Right hand side vector with representation of boundary
                 conditions: A null vector of length g.num_faces.
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary: Dict[str, Union[sps.spmatrix, np.ndarray]] = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         rhs = matrix_dictionary[self.bound_mass_matrix_key]
         return rhs
@@ -291,7 +291,7 @@ class InvMassMatrix:
                 weight with the cell volumes.
 
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary: Dict[str, Union[sps.spmatrix, np.ndarray]] = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         mass = MassMatrix(keyword=self.keyword)
         mass.discretize(g, data)

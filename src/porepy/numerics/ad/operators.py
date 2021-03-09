@@ -40,16 +40,12 @@ class Operator:
 
     def __init__(
         self,
-        disc: Optional = None,
         name: Optional[str] = None,
         grid: Optional[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]] = None,
         tree: Optional["Tree"] = None,
     ) -> None:
-        if disc is not None:
-            self._discr = disc
         if name is not None:
             self._name = name
-            assert disc is not None
         if grid is not None:
             self.g = grid
         self._set_tree(tree)
@@ -209,7 +205,7 @@ class Array(Operator):
         self._set_tree()
 
     def __repr__(self) -> str:
-        return f"Wrapped numpy array of size {self.values.size}"
+        return f"Wrapped numpy array of size {self._values.size}"
 
     def parse(self, gb: pp.GridBucket) -> np.ndarray:
         """Convert the Ad Array into an actual array.
@@ -244,7 +240,7 @@ class Scalar(Operator):
         self._set_tree()
 
     def __repr__(self) -> str:
-        return f"Wrapped scalar with value {self.value}"
+        return f"Wrapped scalar with value {self._value}"
 
     def parse(self, gb: pp.GridBucket) -> float:
         """Convert the Ad Scalar into an actual number.
@@ -478,29 +474,29 @@ class ApplicableOperator(Function):
 
     def __init__(self) -> None:
         """Initialization empty."""
+        pass
 
     def __repr__(self) -> str:
-        s = f"AD applicable operator."
+        s = "AD applicable operator."
+        return s
 
     def __call__(self, *args):
         children = [self, *args]
         op = Operator(tree=Tree(Operation.apply, children=children))
         return op
 
-        return s
-
 
 class SecondOrderTensorAd(SecondOrderTensor, Operator):
     def __init__(self, kxx, kyy=None, kzz=None, kxy=None, kxz=None, kyz=None):
-        super(SecondOrderTensorAd, self).__init__(kxx, kyy, kzz, kxy, kxz, kyz)
+        super().__init__(kxx, kyy, kzz, kxy, kxz, kyz)
         self._set_tree()
 
     def __repr__(self) -> str:
-        s = f"AD second order tensor"
+        s = "AD second order tensor"
 
         return s
 
-    def parse(self, gb):
+    def parse(self, gb: pp.GridBucket) -> np.ndarray:
         return self.values
 
 
@@ -510,15 +506,15 @@ class Tree:
     """
 
     # https://stackoverflow.com/questions/2358045/how-can-i-implement-a-tree-in-python
-    def __init__(self, operation: Operation, children: Optional[List["Tree"]] = None):
+    def __init__(self, operation: Operation, children: Optional[List[Operator]] = None):
 
         self.op = operation
 
-        self.children = []
+        self.children: List[Operator] = []
         if children is not None:
             for child in children:
                 self.add_child(child)
 
-    def add_child(self, node: Operator):
+    def add_child(self, node: Operator) -> None:
         assert isinstance(node, Operator) or isinstance(node, pp.ad.Operator)
         self.children.append(node)

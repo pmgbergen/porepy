@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from typing import Dict, Callable
 import numpy as np
 import scipy.sparse as sps
 
@@ -28,7 +29,7 @@ class GeneralTpfaAd(pp.FVElliptic):
     """
 
     def __init__(self, keyword):
-        super(GeneralTpfaAd, self).__init__(keyword)
+        super().__init__(keyword)
 
     def discretize(self, g, data):
         """This is an excerpt discretize of tpfa.py but using merely constant transmissibility equal to 1.
@@ -38,8 +39,8 @@ class GeneralTpfaAd(pp.FVElliptic):
         self.data = data
 
         # Get the dictionaries for storage of data and discretization matrices
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary: Dict = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         # Ambient dimension of the grid
         vector_source_dim: int = parameter_dictionary.get("ambient_dimension", g.dim)
@@ -63,8 +64,7 @@ class GeneralTpfaAd(pp.FVElliptic):
             return None
 
         # Extract parameters
-        k = parameter_dictionary["second_order_tensor"]
-        bnd = parameter_dictionary["bc"]
+        bnd: pp.BoundaryCondition() = parameter_dictionary["bc"]
 
         fi_g, ci_g, sgn_g = sps.find(g.cell_faces)
 
@@ -250,7 +250,7 @@ class _TpfaFluxAd(ApplicableOperator):
         self._set_tree()
 
     def __repr__(self) -> str:
-        return f"AD version of a TPFA flux."
+        return "AD version of a TPFA flux."
 
     # TODO make bc = None default, and face_transmissibility = None (essentially idnetity)
     def apply(self, face_transmissibility, potential, bc):
@@ -364,7 +364,7 @@ class _TpfaFluxAd(ApplicableOperator):
 
 # TODO Actually only tpfa-unrelated info is retrieved from tpfa here.
 class UpwindAd(ApplicableOperator):
-    def __init__(self, g, tpfa, hs: callable = heaviside):
+    def __init__(self, g, tpfa, hs: Callable = heaviside):
 
         self._set_tree()
         self._g = g
@@ -449,7 +449,7 @@ class UpwindAd(ApplicableOperator):
 
 
 class FluxBasedUpwindAd(ApplicableOperator):
-    def __init__(self, g, tpfa, hs: callable = heaviside):
+    def __init__(self, g, tpfa, hs: Callable = heaviside):
 
         self._set_tree()
         self._g = g
@@ -502,7 +502,7 @@ class FluxBasedUpwindAd(ApplicableOperator):
         # Use Dirichlet boundary data where suitable.
         # Neglect Neumann boundaries since face transmissibilities at Neumann boundary data
         # anyhow does not play a role.
-        assert (face_flux, np.ndarray)  # TODO extend to Ad_arrays
+        #assert (face_flux, np.ndarray)  # TODO extend to Ad_arrays
 
         # Do the same for the mobility as for the direction-determining arrays.
         if isinstance(mobility_inner, Ad_array):
@@ -583,7 +583,7 @@ class HarmAvgAd(ApplicableOperator):
 
         # Consider two cases: scalar and tensor valued fields.
 
-        assert (cellwise_field.val, np.ndarray)
+        #assert (cellwise_field.val, np.ndarray)
         # Case 1: Scalar valued fields.
         if len(cellwise_field.val.shape) == 1:
             t_cf_val = cellwise_field.val[ci]
@@ -648,7 +648,7 @@ class HarmAvgAd(ApplicableOperator):
 
         # Consider two cases: scalar and tensor valued fields.
 
-        assert (cellwise_field, np.ndarray)
+       # assert (cellwise_field, np.ndarray)
         # Case 1: Scalar valued fields.
         if len(cellwise_field.shape) == 1:
             t_cf_val = cellwise_field[ci]

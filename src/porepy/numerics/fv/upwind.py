@@ -181,7 +181,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         neg_flux = np.logical_not(pos_flux)
 
         # Array to store index of the cell in the usptream direction
-        upstream_cell_ind = np.zeros(g.num_faces, dtype=np.int)
+        upstream_cell_ind = np.zeros(g.num_faces, dtype=int)
         # Fill the array based on the cell-face relation. By construction, the normal
         # vector of a face points from the first to the second row in this array
         cf_dense = g.cell_face_as_dense()
@@ -193,7 +193,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         # Make row and data arrays, preparing to make an coo-matrix for the upstream
         # cell-to-face map.
         row = np.arange(g.num_faces)
-        data = np.ones(g.num_faces, dtype=np.int)
+        values = np.ones(g.num_faces, dtype=int)
 
         # We need to eliminate faces on the boundary; these will be discretized
         # separately below. On faces with Neumann conditions, boundary conditions apply
@@ -220,13 +220,13 @@ class Upwind(pp.numerics.discretization.Discretization):
         # Delete indices that should be treated by boundary conditions
         delete_ind = np.sort(np.r_[neumann_ind, inflow_ind])
         row = np.delete(row, delete_ind)
-        data = np.delete(data, delete_ind)
+        values = np.delete(values, delete_ind)
         col = np.delete(upstream_cell_ind, delete_ind)
 
         # Finally we can construct the upstream weighting matrix.
         upstream_mat = sps.coo_matrix(
             (
-                data,
+                values,
                 (row, col),
             ),
             shape=(g.num_faces, g.num_cells),
@@ -253,9 +253,9 @@ class Upwind(pp.numerics.discretization.Discretization):
         col = row
         # Need minus signs on both Neumann and Dirichlet data to ensure that accumulation
         # follows from negative fluxes.
-        data = np.hstack([-sgn_div[neumann_ind], -darcy_flux[inflow_ind]])
+        values_bc = np.hstack([-sgn_div[neumann_ind], -darcy_flux[inflow_ind]])
         bc_discr = sps.coo_matrix(
-            (data, (row, col)), shape=(g.num_faces, g.num_faces)
+            (values_bc, (row, col)), shape=(g.num_faces, g.num_faces)
         ).tocsr()
 
         matrix_dictionary[self.rhs_matrix_key] = bc_discr
