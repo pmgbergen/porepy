@@ -4,9 +4,13 @@ module for operations on sparse matrices
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
 from porepy.utils.mcolon import mcolon
 
+module_sections = ["gridding", "discretization", "matrix", "numerics"]
 
+
+@pp.time_logger(sections=module_sections)
 def zero_columns(A, cols):
     """
     Function to zero out columns in matrix A. Note that this function does not
@@ -32,6 +36,7 @@ def zero_columns(A, cols):
     A.data[col_indptr] = 0
 
 
+@pp.time_logger(sections=module_sections)
 def zero_rows(A, rows):
     """
     Function to zero out rows in matrix A. Note that this function does not
@@ -57,6 +62,7 @@ def zero_rows(A, rows):
     A.data[row_indptr] = 0
 
 
+@pp.time_logger(sections=module_sections)
 def merge_matrices(A, B, lines):
     """
     Replace rows/coloms of matrix A with rows/cols of matrix B.
@@ -111,7 +117,7 @@ def merge_matrices(A, B, lines):
 
     indptr = indptr - num_rem
 
-    keep = np.ones(A.data.size, dtype=np.bool)
+    keep = np.ones(A.data.size, dtype=bool)
     keep[ind_ix] = False
     indices = indices[keep]
     data = data[keep]
@@ -133,6 +139,7 @@ def merge_matrices(A, B, lines):
     A.indptr = indptr + num_added
 
 
+@pp.time_logger(sections=module_sections)
 def stack_mat(A, B):
     """
     Stack matrix B at the end of matrix A.
@@ -176,7 +183,8 @@ def stack_mat(A, B):
         A._shape = (A._shape[0] + B._shape[0], A._shape[1])
 
 
-def slice_indices(A, slice_ind):
+@pp.time_logger(sections=module_sections)
+def slice_indices(A, slice_ind, return_array_ind=False):
     """
     Function for slicing sparse matrix along rows or columns.
     If A is a csc_matrix A will be sliced along columns, while if A is a
@@ -207,18 +215,21 @@ def slice_indices(A, slice_ind):
         slice_ind = np.where(slice_ind)[0]
 
     if isinstance(slice_ind, int):
-        indices = A.indices[
-            slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
-        ]
+        array_ind = slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
+        indices = A.indices[array_ind]
     elif slice_ind.size == 1:
-        indices = A.indices[
-            slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
-        ]
+        array_ind = slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
+        indices = A.indices[array_ind]
     else:
-        indices = A.indices[mcolon(A.indptr[slice_ind], A.indptr[slice_ind + 1])]
-    return indices
+        array_ind = mcolon(A.indptr[slice_ind], A.indptr[slice_ind + 1])
+        indices = A.indices[array_ind]
+    if return_array_ind:
+        return indices, array_ind
+    else:
+        return indices
 
 
+@pp.time_logger(sections=module_sections)
 def slice_mat(A, ind):
     """
     Function for slicing sparse matrix along rows or columns.
@@ -273,6 +284,7 @@ def slice_mat(A, ind):
         return sps.csr_matrix((data, indices, indptr), shape=(N, A.shape[1]))
 
 
+@pp.time_logger(sections=module_sections)
 def csr_matrix_from_blocks(
     data: np.ndarray, block_size: int, num_blocks: int
 ) -> sps.spmatrix:
@@ -307,6 +319,7 @@ def csr_matrix_from_blocks(
     return _csx_matrix_from_blocks(data, block_size, num_blocks, sps.csr_matrix)
 
 
+@pp.time_logger(sections=module_sections)
 def csc_matrix_from_blocks(
     data: np.ndarray, block_size: int, num_blocks: int
 ) -> sps.spmatrix:
@@ -341,6 +354,7 @@ def csc_matrix_from_blocks(
     return _csx_matrix_from_blocks(data, block_size, num_blocks, sps.csc_matrix)
 
 
+@pp.time_logger(sections=module_sections)
 def _csx_matrix_from_blocks(
     data: np.ndarray, block_size: int, num_blocks: int, matrix_format
 ) -> sps.spmatrix:
@@ -399,7 +413,7 @@ def _csx_matrix_from_blocks(
         )
         indices = base + block_increase
     else:
-        indices = np.arange(num_blocks, dytpe=np.int)
+        indices = np.arange(num_blocks, dytpe=int)
 
     mat = matrix_format(
         (data, indices, indptr),

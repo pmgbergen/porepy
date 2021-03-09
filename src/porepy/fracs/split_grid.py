@@ -3,6 +3,7 @@ Module for splitting a grid at the fractures.
 """
 from typing import List, Optional
 
+import networkx as nx
 import numpy as np
 from scipy import sparse as sps
 
@@ -12,7 +13,10 @@ from porepy.utils.graph import Graph
 from porepy.utils.half_space import half_space_int
 from porepy.utils.mcolon import mcolon
 
+module_sections = ["gridding"]
 
+
+@pp.time_logger(sections=module_sections)
 def split_fractures(bucket, **kwargs):
     """
     Wrapper function to split all fractures. For each grid in the bucket,
@@ -103,6 +107,7 @@ def split_fractures(bucket, **kwargs):
     return bucket
 
 
+@pp.time_logger(sections=module_sections)
 def split_faces(gh, face_cells):
     """
     Split faces of the grid along each fracture. This function will
@@ -145,6 +150,7 @@ def split_faces(gh, face_cells):
     return face_cells
 
 
+@pp.time_logger(sections=module_sections)
 def split_specific_faces(
     gh: pp.Grid,
     face_cell_list: List[sps.spmatrix],
@@ -214,6 +220,7 @@ def split_specific_faces(
         return face_cell_list
 
 
+@pp.time_logger(sections=module_sections)
 def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
     """
     Splits the nodes of a grid given a set of lower-dimensional grids
@@ -245,15 +252,13 @@ def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
     # to the cells on one side of the fractures.
     node_count = duplicate_nodes(gh, nodes, offset)
 
-    # We remove the old nodes.
-    # gh = remove_nodes(gh, nodes)
-
     # Update the number of nodes
     gh.num_nodes = gh.num_nodes + node_count  # - nodes.size
 
     return True
 
 
+@pp.time_logger(sections=module_sections)
 def duplicate_faces(gh, face_cells):
     """
     Duplicate all faces that are connected to a lower-dim cell
@@ -275,6 +280,7 @@ def duplicate_faces(gh, face_cells):
     return _duplicate_specific_faces(gh, frac_id)
 
 
+@pp.time_logger(sections=module_sections)
 def _duplicate_specific_faces(gh: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
     """
     Duplicate faces of gh specified by frac_id.
@@ -343,6 +349,7 @@ def _duplicate_specific_faces(gh: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
     return frac_id
 
 
+@pp.time_logger(sections=module_sections)
 def _update_face_cells(
     face_cells: List[sps.spmatrix],
     face_id: np.ndarray,
@@ -428,6 +435,7 @@ def _update_face_cells(
     return face_cells
 
 
+@pp.time_logger(sections=module_sections)
 def update_cell_connectivity(
     g: pp.Grid, face_id: np.ndarray, normal: np.ndarray, x0: np.ndarray
 ) -> int:
@@ -519,6 +527,7 @@ def update_cell_connectivity(
     return 0
 
 
+@pp.time_logger(sections=module_sections)
 def remove_faces(g, face_id, rem_cell_faces=True):
     """
     Remove faces from grid.
@@ -546,6 +555,7 @@ def remove_faces(g, face_id, rem_cell_faces=True):
         g.cell_faces = g.cell_faces[keep, :]
 
 
+@pp.time_logger(sections=module_sections)
 def duplicate_nodes(g, nodes, offset):
     """
     Duplicate nodes on a fracture. The number of duplication will depend on
@@ -562,6 +572,255 @@ def duplicate_nodes(g, nodes, offset):
     offset    - How far from the original node the duplications should be
                 placed.
     """
+    # In the case of a non-zero offset (presumably intended for visualization), use a
+    # (somewhat slow) legacy implementation which can handle this.
+    if offset != 0:
+        return _duplicate_nodes_with_offset(g, nodes, offset)
+
+    # Nodes must be duplicated in the array of node coordinates. Moreover, the face-node
+    # relation must be updated so that when a node is split in two or more, all faces on
+    # each of the spitting lines / planes are assigned the same version / index of the
+    # spit node. The modification of node numbering further means that the face-node relation
+    # must be updated also for faces not directly involved in the splitting.
+    #
+    # The below implementation consists of the following major steps:
+    # 1. Isolate clusters of cells surrounding each node to be split, and make connection maps
+    #    that include only cells within each cluster.
+    # 2. Use the connection map to further subdivide the clusters into parts that lay on
+    #    different sides of dividing lines / planes.
+    # 3. Modify the face-node relation by splitting nodes. Also update node numbering in
+    #    unsplit nodes.
+    # 4. Duplicate split nodes in the coordinate array.
+
+    # Bookeeping etc.
+    cell_node = g.cell_nodes().tocsr()
+    face_node = g.face_nodes.tocsc()
+    cell_face = g.cell_faces
+
+    num_nodes_to_duplicate = nodes.size
+
+    ## Step 1
+    # Create a list where each item are the cells associated with a node to be expanded.
+    cell_clusters = [np.unique(sparse_mat.slice_indices(cell_node, n)) for n in nodes]
+
+    # Number of cells in each cluster.
+    sz_cell_clusters = [c.size for c in cell_clusters]
+    tot_sz = np.sum([sz_cell_clusters])
+
+    # Create a mapping of cells from linear ordering to the clusters.
+    # Separate variable for the rows - these will be used to map back from the cluster
+    # cell numbering to the standard numbering
+    rows_cell_map = np.hstack(cell_clusters)
+    cell_map = sps.coo_matrix(
+        (np.ones(tot_sz), (rows_cell_map, np.arange(tot_sz))),
+        shape=(g.num_cells, tot_sz),
+    ).tocsc()
+
+    # Connection map between cells, limited to the cells included in the clusters.
+    # Cells may occur more than once in the map (if several of the cell's nodes are to be
+    # split) and there may be connections between cells associated with different nodes.
+    cf_loc = cell_face * cell_map
+    c2c = cf_loc.T * cf_loc
+    # All non-zero data signifies connections; simplify the representation
+    c2c.data = np.clip(np.abs(c2c.data), 0, 1)
+
+    # The connection matrix is known to be symmetric, and we only need to handle the upper
+    # triangular part
+    c2c = sps.triu(c2c)
+
+    # Remove matrix elements outside the blocks to decouple connections between cells
+    # associated with different nodes. Do this by identifying elements in the sparse
+    # storage format outside the blocks, and set their matrix values to zero.
+    # This will leave a block diagonal connection matrix, one block per node.
+
+    # All non-zero elements in c2c.
+    row_c2c, col_c2c, dat_c2c = sps.find(c2c)
+
+    # Get sorted (increasing columns) version of the matrix. This allows for iteration through
+    # the columns of the matrix.
+    sort_ind = np.argsort(col_c2c)
+    sorted_rows = row_c2c[sort_ind]
+    sorted_cols = col_c2c[sort_ind]
+    sorted_data = dat_c2c[sort_ind]
+
+    # Array to keep indices to remove
+    remove_ind = np.zeros(sorted_rows.size, dtype=np.bool)
+
+    # Array with the start of the blocks corresponding to each cluster.
+    block_start = np.hstack((0, np.cumsum([sz_cell_clusters])))
+
+    # Iteration index for the start of the column group in the matrix fields 'indices' and
+    # 'data' (referring to the sparse storage).
+    col_group_start: int = 0
+
+    # Loop over all groups of columns (one group per node nodes). Find the matrix elements
+    # of this block, take note of elements outside the column indices (these will be
+    # couplings to other nodes).
+    for bi in range(num_nodes_to_duplicate):
+        # Data for this block ends with the first column that belongs to the next block.
+        # Note that we only search from the start index of this block, and use this as
+        # an offset (saves time).
+        col_group_end: int = col_group_start + np.argmax(
+            sorted_cols[col_group_start:] == block_start[bi + 1]
+        )
+        # Special case for the last iteration: the last element in block_start has value
+        # one higher than the number of rows, thus the equality above is never met, and
+        # argmax returns the first element in the comparison. Correct this to let the
+        # slice run to the end of the arrays.
+        if bi == num_nodes_to_duplicate - 1:
+            col_group_end = sorted_cols.size
+
+        # Indices of elements in these rows.
+        block_inds = slice(col_group_start, col_group_end)
+
+        # Rows that are outside this block
+        outside = np.logical_or(
+            sorted_rows[block_inds] < block_start[bi],
+            sorted_rows[block_inds] >= block_start[bi + 1],
+        )
+        # Mark matrix elements belonging to outside rows for removal
+        remove_ind[block_inds][outside] = 1
+
+        # The end of this column group becomes the start of the next one.
+        col_group_start = col_group_end
+
+    # Remove all data outside the main blocks.
+    sorted_data[remove_ind] = 0
+
+    # Make a new, block-diagonal connection matrix.
+    # IMPLEMENTATION NOTE: Going to a csc matrix should be straightforward,
+    # since sc already is sorted. It is however not clear networkx will be faster
+    # with a non-coo matrix.
+    c2c_loc = sps.coo_matrix((sorted_data, (sorted_rows, sorted_cols)), shape=c2c.shape)
+    # Drop all zero elements
+    c2c_loc.eliminate_zeros()
+
+    ## Step 2
+    # Now the connection matrix only contains connection between cells that share a node
+    # to be duplicated. These can again be split into subclusters, that have lost their
+    # connections due to the previous splitting of faces.
+    # Identify these subclusters by the use of networkx
+    graph = nx.Graph(c2c_loc)
+    subclusters = [sorted(list(c)) for c in nx.connected_components(graph)]
+
+    # For each subcluster, find its associated node (to be split)
+    node_of_subcluster = []
+    search_start = 0
+    for comp in subclusters:
+        # Find the first element with index one too much, then subtract one.
+        # See the above loop (col_group_end) for further comments.
+        # Also note we could have used any element in comp.
+        ind = search_start + np.argmax(block_start[search_start:] > comp[0]) - 1
+        # Store this node index
+        node_of_subcluster.append(ind)
+        # Start of next search interval.
+        search_start = ind
+
+    node_of_component = np.array(node_of_subcluster)
+
+    ## Step 3
+    # Modify the face-node relation by adjusting the node indices (field indices in the
+    # sparse storage of the matrix). The duplicated nodes are added right after the
+    # original node in the node ordering. Two adjustments are thus needed: First the
+    # insertion of extra nodes, second this insertion increases the index of all nodes
+    # with higher index.
+
+    # Copy node-indices in the face-node relation. The first copy will preserve the old
+    # node ordering. The second will carry the local adjustments due to the
+    old_node_ind = face_node.indices.copy()
+    new_node_ind = face_node.indices.copy()
+
+    # Loop over all the subclusters of cells. The faces of the cells that have the
+    # associated node to be split have the node index increased, depending on how many
+    # times the node has been encountered before.
+
+    # Count the number of encounters for a node.
+    node_occ = np.zeros(num_nodes_to_duplicate, dtype=int)
+
+    # Loop over combination of nodes and subclusters
+    for ni, comp in zip(node_of_component, subclusters):
+
+        # If the increase in node index is zero, there is no need to do anything.
+        if node_occ[ni] == 0:
+            node_occ[ni] += 1
+            continue
+
+        # Map cell indexes from the ordering in the clusters back to global ordering
+        loc_cells = rows_cell_map[comp]
+        # Faces of these cells
+        loc_faces = np.unique(sparse_mat.slice_indices(g.cell_faces, loc_cells))
+        # Nodes of the faces, and indices in the sparse storage format where the nodes
+        # are located.
+        loc_nodes, data_ind = sparse_mat.slice_indices(
+            face_node, loc_faces, return_array_ind=True
+        )
+        # Indices in the sparse storage that should be increased
+        incr_ind = data_ind[loc_nodes == nodes[ni]]
+        # Increase the node index according to previous encounters.
+        new_node_ind[incr_ind] += node_occ[ni]
+        # Take note of this iteration
+        node_occ[ni] += 1
+
+    # Count the number of repititions in the nodes: The unsplit nodes have 1, the split
+    # depends on the number of identified subclusters
+    repititions = np.ones(g.num_nodes, dtype=np.int32)
+    repititions[nodes] = np.bincount(node_of_component)
+    # The number of added nodes
+    added = repititions - 1
+    num_added = added.sum()
+
+    # Array of cumulative increments due to the splitting of nodes with lower index.
+    # Put a zero up front to make the adjustment for the nodes with higher index
+    increment = np.cumsum(np.hstack((0, added)))
+
+    # The new node indices are formed by combining the two sources of adjustment.
+    # Both split and unsplit nodes are impacted by the increments.
+    # The increments must be taken with respect to the old indices
+    face_node.indices = (new_node_ind + increment[old_node_ind]).astype(np.int32)
+    # Ensure the right format of the sparse storage. Somehow this got messed up somewhere.
+    face_node.indptr = face_node.indptr.astype(np.int32)
+
+    # Adjust the shape of face-nodes to account for the added nodes
+    face_node._shape = (g.num_nodes + num_added, g.num_faces)
+
+    # From the number of repititions of the node (1 for untouched nodes),
+    # get mapping from new to old indices.
+    # To see how this works, read the documentation of rldecode, including the examples.
+    new_2_old_nodes = pp.utils.matrix_compression.rldecode(
+        np.arange(repititions.size), repititions
+    )
+    g.nodes = g.nodes[:, new_2_old_nodes]
+    # The global point ind is shared by all split nodes
+    g.global_point_ind = g.global_point_ind[new_2_old_nodes]
+
+    # Also map the tags for nodes that are on fracture tips if this is relevant
+    # (that is, if the grid is of the highest dimension)
+    keys = ["node_is_fracture_tip", "node_is_tip_of_some_fracture"]
+    for key in keys:
+        if hasattr(g, "tags") and key in g.tags:
+            g.tags[key] = g.tags[key][new_2_old_nodes].astype(bool)
+
+    return num_added
+
+
+@pp.time_logger(sections=module_sections)
+def _duplicate_nodes_with_offset(g: pp.Grid, nodes: np.ndarray, offset: float) -> int:
+    """
+    Duplicate nodes on a fracture, and perturb the duplicated nodes. This option
+    is useful for visualization purposes.
+
+    NOTE: This is a legacy implementation, which should not be invoked directly.
+    Instead use duplicate nodes (more efficient, but without the possibility to
+    perturb nodes); that method will invoke the present if a perturbation is
+    requested.
+
+    Parameters:
+    ----------
+    g         - The grid for which the nodes are duplicated
+    nodes     - The nodes to be duplicated
+    offset    - How far from the original node the duplications should be
+                placed.
+    """
     node_count = 0
 
     # We wish to convert the sparse csc matrix to a sparse
@@ -570,33 +829,30 @@ def duplicate_nodes(g, nodes, offset):
     # therefore find the inverse sorting of the nodes of each face.
     # After we have performed the row operations we will map the nodes
     # back to their original position.
+    _, iv = _sort_sub_list(g.face_nodes.indices, g.face_nodes.indptr)
 
-    _, iv = sort_sub_list(g.face_nodes.indices, g.face_nodes.indptr)
     g.face_nodes = g.face_nodes.tocsr()
     # Iterate over each internal node and split it according to the graph.
     # For each cell attached to the node, we check wich color the cell has.
     # All cells with the same color is then attached to a new copy of the
     # node.
     cell_nodes = g.cell_nodes().tocsr()
+
     for node in nodes:
         # t_node takes into account the added nodes.
         t_node = node + node_count
         # Find cells connected to node
 
-        cells = sparse_mat.slice_indices(cell_nodes, node)
-        #        cell_nodes = g.cell_nodes().tocsr()
-        #        ind_ptr = cell_nodes.indptr
-        #        cells = cell_nodes.indices[
-        #            mcolon(ind_ptr[t_node], ind_ptr[t_node + 1])]
-        cells = np.unique(cells)
+        cells = np.unique(sparse_mat.slice_indices(cell_nodes, node))
         # Find the color of each cell. A group of cells is given the same color
         # if they are connected by faces. This means that all cells on one side
         # of a fracture will have the same color, but a different color than
         # the cells on the other side of the fracture. Equivalently, the cells
         # at a X-intersection will be given four different colors
-        colors = find_cell_color(g, cells)
+        colors = _find_cell_color(g, cells)
         # Find which cells share the same color
         colors, ix = np.unique(colors, return_inverse=True)
+
         # copy coordinate of old node
         new_nodes = np.repeat(g.nodes[:, t_node, None], colors.size, axis=1)
         faces = np.array([], dtype=int)
@@ -604,22 +860,28 @@ def duplicate_nodes(g, nodes, offset):
         assert g.cell_faces.getformat() == "csc"
         assert g.face_nodes.getformat() == "csr"
         faces_of_node_t = sparse_mat.slice_indices(g.face_nodes, t_node)
+
         for j in range(colors.size):
             # For each color we wish to add one node. First we find all faces that
             # are connected to the fracture node, and have the correct cell
             # color
-            colored_faces = sparse_mat.slice_indices(g.cell_faces, cells[ix == j])
-            colored_faces = np.unique(colored_faces)
+            colored_faces = np.unique(
+                sparse_mat.slice_indices(g.cell_faces, cells[ix == j])
+            )
+
             is_colored = np.in1d(faces_of_node_t, colored_faces, assume_unique=True)
 
             faces = np.append(faces, faces_of_node_t[is_colored])
+
             # These faces are then attached to new node number j.
             face_pos = np.append(face_pos, face_pos[-1] + np.sum(is_colored))
+
             # If an offset is given, we will change the position of the nodes.
             # We move the nodes a length of offset away from the fracture(s).
             if offset > 0 and colors.size > 1:
-                new_nodes[:, j] -= avg_normal(g, faces_of_node_t[is_colored]) * offset
-        # The total number of faces should not have changed, only their
+                new_nodes[:, j] -= _avg_normal(g, faces_of_node_t[is_colored]) * offset
+
+                # The total number of faces should not have changed, only their
         # connection to nodes. We can therefore just update the indices and
         # indptr map.
         g.face_nodes.indices[face_pos[0] : face_pos[-1]] = faces
@@ -631,6 +893,7 @@ def duplicate_nodes(g, nodes, offset):
         )
         # We delete the old node because of the offset. If we do not
         # have an offset we could keep it and add one less node.
+
         g.nodes = np.delete(g.nodes, t_node, axis=1)
         g.nodes = np.insert(g.nodes, [t_node] * new_nodes.shape[1], new_nodes, axis=1)
 
@@ -647,7 +910,8 @@ def duplicate_nodes(g, nodes, offset):
     return node_count
 
 
-def sort_sub_list(indices, indptr):
+@pp.time_logger(sections=module_sections)
+def _sort_sub_list(indices, indptr):
     ix = np.zeros(indices.size, dtype=int)
     for i in range(indptr.size - 1):
         sub_ind = slice(indptr[i], indptr[i + 1])
@@ -659,7 +923,8 @@ def sort_sub_list(indices, indptr):
     return indices, iv
 
 
-def find_cell_color(g, cells):
+@pp.time_logger(sections=module_sections)
+def _find_cell_color(g, cells):
     """
     Color the cells depending on the cell connections. Each group of cells
     that are connected (either directly by a shared face or through a series
@@ -681,7 +946,7 @@ def find_cell_color(g, cells):
     # Local cell-face and face-node maps.
     assert g.cell_faces.getformat() == "csc"
     cell_faces = sparse_mat.slice_mat(g.cell_faces, c)
-    child_cell_ind = -np.ones(g.num_cells, dtype=np.int)
+    child_cell_ind = -np.ones(g.num_cells, dtype=int)
     child_cell_ind[c] = np.arange(cell_faces.shape[1])
 
     # Create a copy of the cell-face relation, so that we can modify it at
@@ -702,7 +967,8 @@ def find_cell_color(g, cells):
     return graph.color[child_cell_ind[cells]]
 
 
-def avg_normal(g, faces):
+@pp.time_logger(sections=module_sections)
+def _avg_normal(g, faces):
     """
     Calculates the average face normal of a set of faces. The average normal
     is only constructed from the boundary faces, that is, a face that belongs
@@ -723,6 +989,7 @@ def avg_normal(g, faces):
     return n
 
 
+@pp.time_logger(sections=module_sections)
 def remove_nodes(g, rem):
     """
     Remove nodes from grid.

@@ -9,11 +9,15 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+module_sections = ["numerics", "disrcetization"]
+
 
 class Mpfa(pp.FVElliptic):
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword):
         super(pp.Mpfa, self).__init__(keyword)
 
+    @pp.time_logger(sections=module_sections)
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
@@ -30,6 +34,7 @@ class Mpfa(pp.FVElliptic):
         """
         return g.num_cells
 
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g, data):
         """
         Discretize the second order elliptic equation using multi-point flux
@@ -76,9 +81,7 @@ class Mpfa(pp.FVElliptic):
         """
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-
         # Extract parameters
-
         # Dimension for vector source term field. Defaults to the same as the grid.
         # For grids embedded in a higher dimension, this must be set to the ambient
         # dimension.
@@ -406,6 +409,7 @@ class Mpfa(pp.FVElliptic):
                 self.bound_pressure_vector_source_matrix_key
             ] = bound_pressure_vector_source_glob
 
+    @pp.time_logger(sections=module_sections)
     def update_discretization(self, g, data):
         """Update discretization.
 
@@ -423,6 +427,7 @@ class Mpfa(pp.FVElliptic):
 
             modified_cells, modified_faces
 
+        @pp.time_logger(sections=module_sections)
         define cells, faces and nodes that have been modified (either parameters,
         geometry or topology), and should be rediscretized. It is up to the
         discretization method to implement the change necessary by this modification.
@@ -488,6 +493,7 @@ class Mpfa(pp.FVElliptic):
             vector_cell_right=vector_cell_right,
         )
 
+    @pp.time_logger(sections=module_sections)
     def _flux_discretization(
         self, g, k, bnd, inverter, ambient_dimension=None, eta=None
     ):
@@ -986,6 +992,7 @@ class Mpfa(pp.FVElliptic):
             bound_pressure_vector_source,
         )
 
+    @pp.time_logger(sections=module_sections)
     def _discretize_vector_source(
         self,
         g: pp.Grid,
@@ -1138,6 +1145,7 @@ class Mpfa(pp.FVElliptic):
     documented.
     """
 
+    @pp.time_logger(sections=module_sections)
     def _estimate_peak_memory(self, g):
         """
         Rough estimate of peak memory need
@@ -1174,6 +1182,7 @@ class Mpfa(pp.FVElliptic):
         # between local and block ordering etc.
         return total_size
 
+    @pp.time_logger(sections=module_sections)
     def _block_diagonal_structure(
         self, sub_cell_index, cell_node_blocks, nno, bound_exclusion
     ):
@@ -1223,6 +1232,7 @@ class Mpfa(pp.FVElliptic):
 
         return rows2blk_diag, cols2blk_diag, size_of_blocks
 
+    @pp.time_logger(sections=module_sections)
     def _create_bound_rhs(
         self,
         bnd,
@@ -1341,9 +1351,9 @@ class Mpfa(pp.FVElliptic):
             data = scaled_sgn
         else:
             # Special handling when no elements are found.
-            rows = np.array([], dtype=np.int)
-            cols = np.array([], dtype=np.int)
-            data = np.array([], dtype=np.int)
+            rows = np.array([], dtype=int)
+            cols = np.array([], dtype=int)
+            data = np.array([], dtype=int)
 
         # Dirichlet boundary conditions
         dir_ind = np.argwhere(
@@ -1385,6 +1395,7 @@ class Mpfa(pp.FVElliptic):
 
         return rhs_bound.tocsr()
 
+    @pp.time_logger(sections=module_sections)
     def _bc_for_subgrid(
         self, bc: pp.BoundaryCondition, sub_g: pp.Grid, face_map: np.ndarray
     ) -> pp.BoundaryCondition:
@@ -1409,6 +1420,13 @@ class Mpfa(pp.FVElliptic):
 
         sub_bc = pp.BoundaryCondition(sub_g)
 
+        # Copy the Neumann information as from the parent grid. For standard
+        # problems this should not be necessary, however, in special cases
+        # (EK: DFM upscaling) the tagging of grid boundary faces which underlies
+        # the boundary condition implementation may be inaccurate, and copying
+        # the information is necessary.
+        # sub_bc.is_neu = bc.is_neu[face_map]
+
         sub_bc.is_dir = bc.is_dir[face_map]
         sub_bc.is_rob = bc.is_rob[face_map]
         sub_bc.is_neu[sub_bc.is_dir + sub_bc.is_rob] = False
@@ -1418,6 +1436,7 @@ class Mpfa(pp.FVElliptic):
 
         return sub_bc
 
+    @pp.time_logger(sections=module_sections)
     def _constit_for_subgrid(
         self, constit: pp.SecondOrderTensor, loc_cells: np.ndarray
     ) -> pp.SecondOrderTensor:
@@ -1427,6 +1446,7 @@ class Mpfa(pp.FVElliptic):
         return loc_c
 
 
+@pp.time_logger(sections=module_sections)
 def reconstruct_presssure(g, subcell_topology, eta):
     """
     Function for reconstructing the pressure at the half faces given the

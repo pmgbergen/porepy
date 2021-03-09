@@ -25,6 +25,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+module_sections = ["numerics", "disrcetization"]
+
 
 class MassMatrix(pp.numerics.discretization.Discretization):
     """Class that provides the discretization of a L2-mass bilinear form with constant
@@ -66,6 +68,7 @@ class MassMatrix(pp.numerics.discretization.Discretization):
         """
         return g.num_cells
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self, g: pp.Grid, data: Dict
     ) -> Tuple[sps.spmatrix, np.ndarray]:
@@ -162,9 +165,6 @@ class MassMatrix(pp.numerics.discretization.Discretization):
             (coeff, 0), shape=(ndof, ndof)
         )
         matrix_dictionary[self.bound_mass_matrix_key] = np.zeros(ndof)
-
-
-##########################################################################
 
 
 class InvMassMatrix:

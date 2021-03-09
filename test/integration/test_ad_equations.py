@@ -112,12 +112,11 @@ def test_md_flow():
     manager.equations += [flow_eq_ad, interface_eq_ad]
 
     state = np.zeros(gb.num_cells() + gb.num_mortar_cells())
-    A, b = manager.assemble_matrix_rhs(state)
+    A, b = manager.assemble_matrix_rhs(state=state)
     diff = A - A_ref
     if diff.data.size > 0:
         assert np.max(np.abs(diff.data)) < 1e-10
     assert np.max(np.abs(b - b_ref)) < 1e-10
-
 
 # Below are grid buckte generators to be used for tests of contact-mechanics models
 
@@ -327,9 +326,6 @@ def _block_reordering(eq_names, dof_manager, eqn_manager):
                     if compare_grids(g0, ge0) and compare_grids(g1, ge1):
                         if (grid, var) not in keys:
                             keys.append((grid, var))
-                        else:
-                            breakpoint()
-                            debug = False
 
                 elif isinstance(grid, pp.Grid) and isinstance(grid_eq, pp.Grid):
                     if compare_grids(grid, grid_eq):  # and (grid, var) not in keys:

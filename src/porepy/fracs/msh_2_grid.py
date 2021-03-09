@@ -6,9 +6,13 @@ from typing import Dict, List, Tuple, Union
 import numpy as np
 
 import porepy as pp
-from porepy.grids import constants
+
+from .gmsh_interface import PhysicalNames
+
+module_sections = ["grids", "gridding"]
 
 
+@pp.time_logger(sections=module_sections)
 def create_3d_grids(pts: np.ndarray, cells: Dict[str, np.ndarray]) -> List[pp.Grid]:
     """Create a tetrahedral grid from a gmsh tessalation.
 
@@ -34,6 +38,7 @@ def create_3d_grids(pts: np.ndarray, cells: Dict[str, np.ndarray]) -> List[pp.Gr
     return [g_3d]
 
 
+@pp.time_logger(sections=module_sections)
 def create_2d_grids(
     pts: np.ndarray,
     cells: Dict[str, np.ndarray],
@@ -76,12 +81,11 @@ def create_2d_grids(
 
     """
 
-    gmsh_constants = constants.GmshConstants()
     if surface_tag is None:
-        surface_tag = gmsh_constants.PHYSICAL_NAME_FRACTURES
+        surface_tag = PhysicalNames.FRACTURE.value
 
     if constraints is None:
-        constraints = np.array([], dtype=np.int)
+        constraints = np.array([], dtype=int)
 
     if is_embedded:
         # List of 2D grids, one for each surface
@@ -113,7 +117,7 @@ def create_2d_grids(
 
             # Cells of this surface
             loc_cells = np.where(tri_tags == pn_ind)[0]
-            loc_tri_cells = tri_cells[loc_cells, :].astype(np.int)
+            loc_tri_cells = tri_cells[loc_cells, :].astype(int)
 
             # Find unique points, and a mapping from local to global points
             pind_loc, p_map = np.unique(loc_tri_cells, return_inverse=True)
@@ -160,10 +164,10 @@ def create_2d_grids(
         # The reason to do so is because we want to compare faces and line columnwise,
         # i.e., is_line[i] should be true iff faces[:, i] == line[:, j] for ONE j. If
         # you can make numpy do this, you can remove the string formating.
-        tmp = np.core.defchararray.add(faces[0, idxf].astype(str), ",")
-        facestr = np.core.defchararray.add(tmp, faces[1, idxf].astype(str))
-        tmp = np.core.defchararray.add(line[0, idxl].astype(str), ",")
-        linestr = np.core.defchararray.add(tmp, line[1, idxl].astype(str))
+        tmp = np.char.add(faces[0, idxf].astype(str), ",")
+        facestr = np.char.add(tmp, faces[1, idxf].astype(str))
+        tmp = np.char.add(line[0, idxl].astype(str), ",")
+        linestr = np.char.add(tmp, line[1, idxl].astype(str))
 
         is_line = np.isin(facestr, linestr, assume_unique=True)
 
@@ -182,7 +186,7 @@ def create_2d_grids(
         # in the cell_info["line"]. The map phys_names recover the literal name.
         for tag in np.unique(cell_info["line"]):
             tag_name = phys_names[tag].lower() + "_faces"
-            g_2d.tags[tag_name] = np.zeros(g_2d.num_faces, dtype=np.bool)
+            g_2d.tags[tag_name] = np.zeros(g_2d.num_faces, dtype=bool)
             # Add correct tag
             faces = line2face[cell_info["line"] == tag]
             g_2d.tags[tag_name][faces] = True
@@ -197,6 +201,7 @@ def create_2d_grids(
         return [g_2d]
 
 
+@pp.time_logger(sections=module_sections)
 def create_1d_grids(
     pts: np.ndarray,
     cells: Dict[str, np.ndarray],
@@ -243,12 +248,11 @@ def create_1d_grids(
             returned in return_fracture_tips is True.
 
     """
-    gmsh_constants = constants.GmshConstants()
     if line_tag is None:
-        line_tag = gmsh_constants.PHYSICAL_NAME_FRACTURE_LINE
+        line_tag = PhysicalNames.FRACTURE_INTERSECTION_LINE.value
 
     if constraints is None:
-        constraints = np.empty(0, dtype=np.int)
+        constraints = np.empty(0, dtype=int)
     # Recover lines
     # There will be up to three types of physical lines: intersections (between
     # fractures), fracture tips, and auxiliary lines (to be disregarded)
@@ -294,7 +298,7 @@ def create_1d_grids(
         if frac_num in constraints:
             continue
 
-        if line_type == gmsh_constants.PHYSICAL_NAME_FRACTURE_TIP[:-1]:
+        if line_type == PhysicalNames.FRACTURE_TIP.value[:-1]:
             gmsh_tip_num.append(i)
 
             # We need not know which fracture the line is on the tip of (do
@@ -317,6 +321,7 @@ def create_1d_grids(
         return g_1d
 
 
+@pp.time_logger(sections=module_sections)
 def create_0d_grids(
     pts: np.ndarray,
     cells: Dict[str, np.ndarray],
@@ -353,7 +358,7 @@ def create_0d_grids(
 
     """
     if target_tag_stem is None:
-        target_tag_stem = constants.GmshConstants().PHYSICAL_NAME_FRACTURE_POINT
+        target_tag_stem = PhysicalNames.FRACTURE_INTERSECTION_POINT.value
 
     g_0d = []
 
@@ -389,6 +394,7 @@ def create_0d_grids(
     return g_0d
 
 
+@pp.time_logger(sections=module_sections)
 def create_embedded_line_grid(
     loc_coord: np.ndarray, glob_id: np.ndarray, tol: float = 1e-4
 ) -> pp.Grid:

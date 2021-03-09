@@ -406,7 +406,7 @@ def test_ad_variable_vrappers():
     var_ad = eq_manager.merge_variables([(g, var) for g in grid_list])
 
     # Check equivalence between the two approaches to generation.
-    eq_1 = pp.ad.Equation(var_ad, dof_manager)
+    eq_1 = pp.ad.Expression(var_ad, dof_manager)
 
     # Check that the state is correctly evaluated.
     inds_var = np.hstack([dof_manager.dof_ind(g, var) for g in grid_list])
@@ -421,7 +421,7 @@ def test_ad_variable_vrappers():
 
     # Represent the variable on the previous time step. This should be a numpy array
     prev_var_ad = var_ad.previous_timestep()
-    eq_prev = pp.ad.Equation(prev_var_ad, dof_manager)
+    eq_prev = pp.ad.Expression(prev_var_ad, dof_manager)
     prev_evaluated = eq_prev.to_ad(gb)
     assert isinstance(prev_evaluated, np.ndarray)
     assert np.allclose(true_state[inds_var], prev_evaluated)
@@ -436,7 +436,7 @@ def test_ad_variable_vrappers():
     edge_list = [e for e, _ in gb.edges()]
     var_edge = eq_manager.merge_variables([(e, mortar_var) for e in edge_list])
 
-    eq_2 = pp.ad.Equation(var_edge, dof_manager)
+    eq_2 = pp.ad.Expression(var_edge, dof_manager)
     edge_inds = np.hstack([dof_manager.dof_ind(e, mortar_var) for e in edge_list])
     assert np.allclose(true_iterate[edge_inds], eq_2.to_ad(gb, true_iterate).val)
 
@@ -445,8 +445,8 @@ def test_ad_variable_vrappers():
     v1 = eq_manager.variable(g, var)
     v2 = eq_manager.variable(g, var2)
 
-    eq_3 = pp.ad.Equation(v1, dof_manager)
-    eq_4 = pp.ad.Equation(v2, dof_manager)
+    eq_3 = pp.ad.Expression(v1, dof_manager)
+    eq_4 = pp.ad.Expression(v2, dof_manager)
 
     ind1 = dof_manager.dof_ind(g, var)
     ind2 = dof_manager.dof_ind(g, var2)
@@ -455,7 +455,7 @@ def test_ad_variable_vrappers():
     assert np.allclose(true_iterate[ind2], eq_4.to_ad(gb, true_iterate).val)
 
     v1_prev = v1.previous_timestep()
-    eq_5 = pp.ad.Equation(v1_prev, dof_manager)
+    eq_5 = pp.ad.Expression(v1_prev, dof_manager)
     assert np.allclose(true_state[ind1], eq_5.to_ad(gb, true_iterate))
 
 def test_ad_discretization_class():
@@ -463,7 +463,8 @@ def test_ad_discretization_class():
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
     gb = pp.meshing.cart_grid(fracs, [2, 2])
 
-    grid_list = np.array([g for g, _ in gb])
+    grid_list = [g for g, _ in gb]
+    sub_list = grid_list[:2]
 
     # Make two Mock discretizaitons, with different keywords
     key = "foo"
@@ -471,13 +472,10 @@ def test_ad_discretization_class():
     discr = _MockDiscretization(key)
     sub_discr = _MockDiscretization(sub_key)
 
-    # First discretization applies to all grids, the second just to a subset
-    discr_map = {g: discr for g in grid_list}
-    sub_discr_map = {g: sub_discr for g in grid_list[:2]}
 
     # Ad wrappers
-    discr_ad = pp.ad.Discretization(discr_map)
-    sub_discr_ad = pp.ad.Discretization(sub_discr_map)
+    discr_ad = pp.ad.Discretization(grid_list, discr)
+    sub_discr_ad = pp.ad.Discretization(sub_list, sub_discr)
 
     # Check that the Ad wrapper has made a field of foobar, but not of the attribute
     # with a slightly misspelled name
@@ -485,16 +483,16 @@ def test_ad_discretization_class():
     assert not hasattr(discr_ad, "not")
 
     # values
-    known_val = np.random.rand(len(discr_map))
-    known_sub_val = np.random.rand(len(sub_discr_map))
+    known_val = np.random.rand(len(grid_list))
+    known_sub_val = np.random.rand(len(sub_list))
 
     # Assign a value to the discretization matrix, with the right key
-    for vi, g in enumerate(discr_map):
+    for vi, g in enumerate(grid_list):
         d = gb.node_props(g)
         d[pp.DISCRETIZATION_MATRICES] = {key: {"foobar": known_val[vi]}}
 
     # Same with submatrix
-    for vi, g in enumerate(sub_discr_map):
+    for vi, g in enumerate(sub_list):
         d = gb.node_props(g)
         d[pp.DISCRETIZATION_MATRICES].update({sub_key: {"foobar": known_sub_val[vi]}})
 

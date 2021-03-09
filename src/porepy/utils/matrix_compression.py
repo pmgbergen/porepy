@@ -6,10 +6,14 @@ Acknowledgements:
     by SINTEF ICT, see www.sintef.no/projectweb/mrst/ .
 
 """
-
 import numpy as np
 
+import porepy as pp
 
+module_sections = ["utils"]
+
+
+@pp.time_logger(sections=module_sections)
 def rldecode(A, n):
     """Decode compressed information.
 
@@ -29,13 +33,14 @@ def rldecode(A, n):
         n (int): Number of occurences for each element
     """
     r = n > 0
-    i = np.cumsum(np.hstack((np.zeros(1, dtype=np.int), n[r])), dtype=np.int)
-    j = np.zeros(i[-1], dtype=np.int)
+    i = np.cumsum(np.hstack((np.zeros(1, dtype=int), n[r])), dtype=int)
+    j = np.zeros(i[-1], dtype=int)
     j[i[1:-1:]] = 1
     B = A[np.cumsum(j)]
     return B
 
 
+@pp.time_logger(sections=module_sections)
 def rlencode(A):
     """ Compress matrix by looking for identical columns. """
     comp = A[::, 0:-1] != A[::, 1::]

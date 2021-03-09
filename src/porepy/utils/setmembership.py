@@ -3,7 +3,12 @@ Various functions with set operations.
 """
 import numpy as np
 
+import porepy as pp
 
+module_sections = ["utils"]
+
+
+@pp.time_logger(sections=module_sections)
 def unique_rows(data):
     """
     Function similar to Matlab's unique(...,'rows')
@@ -26,6 +31,7 @@ def unique_rows(data):
     return data[ia], ia, ic
 
 
+@pp.time_logger(sections=module_sections)
 def ismember_rows(a, b, sort=True):
     """
     Find *columns* of a that are also members of *columns* of b.
@@ -102,9 +108,7 @@ def ismember_rows(a, b, sort=True):
     return ismem_a, ia
 
 
-# ---------------------------------------------------------
-
-
+@pp.time_logger(sections=module_sections)
 def unique_columns_tol(mat, tol=1e-8):
     """
     Remove duplicates from a point set, for a given distance traveling.
@@ -144,7 +148,7 @@ def unique_columns_tol(mat, tol=1e-8):
 
     # If the matrix is integers, and the tolerance less than 1/2, we can use
     # numpy's unique function
-    if issubclass(mat.dtype.type, np.integer) and tol < 0.5:
+    if issubclass(mat.dtype.type, np.int_) and tol < 0.5:
         un_ar, new_2_old, old_2_new = np.unique(
             mat, return_index=True, return_inverse=True, axis=1
         )
@@ -153,7 +157,7 @@ def unique_columns_tol(mat, tol=1e-8):
     num_cols = mat.shape[1]
 
     # By default, no columns are kept
-    keep = np.zeros(num_cols, dtype=np.bool)
+    keep = np.zeros(num_cols, dtype=bool)
 
     # We will however keep the first point
     keep[0] = True

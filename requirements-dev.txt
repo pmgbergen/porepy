@@ -12,7 +12,7 @@ shapely[vectorized]
 pytest >= 4.6
 pytest-cov
 pytest-runner
-numba >= 0.50
+numba >= 0.52.0
 gmsh
 flake8
 mypy

@@ -21,9 +21,13 @@ constant approximations of derivatives.
 
 """
 import itertools
-from typing import Callable, Iterator, List, Union
+from typing import Callable, Iterator, List, Tuple
 
 import numpy as np
+
+import porepy as pp
+
+module_sections = ["parameters"]
 
 
 class InterpolationTable:
@@ -38,6 +42,7 @@ class InterpolationTable:
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(
         self,
         low: np.ndarray,
@@ -68,6 +73,7 @@ class InterpolationTable:
         for i, c in enumerate(zip(*self._coord)):
             self._values[:, i] = function(*c)
 
+    @pp.time_logger(sections=module_sections)
     def _set_sizes(
         self, low: np.ndarray, high: np.ndarray, npt: np.ndarray, dim: int
     ) -> None:
@@ -101,8 +107,9 @@ class InterpolationTable:
 
         # Prepare table of function values. This will be filled in by __init__
         sz = np.prod(npt)
-        self._values = np.zeros((dim, sz))
+        self._values: np.ndarray = np.zeros((dim, sz))  # type: ignore
 
+    @pp.time_logger(sections=module_sections)
     def interpolate(self, x: np.ndarray) -> np.ndarray:
         """Perform interpolation on a Cartesian grid by a piecwise linear
         approximation.
@@ -124,12 +131,9 @@ class InterpolationTable:
         # (right) and base (left) coordinate.
         right_weight, left_weight = self._right_left_weights(x, base_ind)
 
-        # placeholder variable for the function evaulation
-        values = None
-
         # Loop over all vertexes in the hypercube. Evaluate the function in the
         # vertex with the relevant weight.
-        for incr, eval_ind in self._generate_indices(base_ind):
+        for i, (incr, eval_ind) in enumerate(self._generate_indices(base_ind)):
             # Incr is 0 for dimensions to be evaluated in the left (base)
             # coordinate, 1 for others.
             # eval_ind is the linear index for this vertex.
@@ -141,14 +145,15 @@ class InterpolationTable:
 
             # Add this part of the function evaluation and store it
             new_val = weight * self._values[:, eval_ind]
-            if values is None:
+            if i == 0:
                 # create array if this is the first iteration.
-                values = new_val
+                values: np.ndarray = new_val
             else:
                 values += new_val
 
         return values
 
+    @pp.time_logger(sections=module_sections)
     def diff(self, x: np.ndarray, axis: int) -> np.ndarray:
         """Perform differentiation on a Cartesian grid by a piecwise constant
         approximation.
@@ -204,11 +209,12 @@ class InterpolationTable:
         #        breakpoint()
         return values / denominator
 
+    @pp.time_logger(sections=module_sections)
     def _find_base_vertex(self, coord: np.ndarray) -> np.ndarray:
         # Helper function to get the base (generalized lower-left) vertex of a
         # hypecube.
 
-        ind = np.zeros(coord.shape, dtype=np.int)
+        ind = np.zeros(coord.shape, dtype=int)
 
         # For each dimension, find the first index where coordinate in the
         # interpolation grid is higher than that of the point to be evaluated.
@@ -228,9 +234,10 @@ class InterpolationTable:
 
         return ind
 
+    @pp.time_logger(sections=module_sections)
     def _generate_indices(
         self, base_ind: np.ndarray
-    ) -> Iterator[Union[np.ndarray, np.ndarray]]:
+    ) -> Iterator[Tuple[np.ndarray, np.ndarray]]:
         # Iterator for linear indices that form the vertexes of a hypercube with a
         # given base vertex, and the dimension-wise increments in indices from the
         # base.
@@ -241,11 +248,13 @@ class InterpolationTable:
             incr = np.asarray(increment).reshape((-1, 1))
             vertex_ind = base_ind + incr
             eval_ind = np.sum(vertex_ind * self._strides, axis=0).ravel()
+            assert isinstance(eval_ind, np.ndarray)
             yield incr, eval_ind
 
+    @pp.time_logger(sections=module_sections)
     def _right_left_weights(
         self, x: np.ndarray, base_ind: np.ndarray
-    ) -> Union[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray]:
         # For each dimension, find the interpolation weights to the right
         # and left sides
 
@@ -281,6 +290,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(
         self,
         low: np.ndarray,
@@ -310,8 +320,10 @@ class AdaptiveInterpolationTable(InterpolationTable):
         self._function = function
 
         # Keep track of which grid points have had their values computed.
-        self._has_value = np.zeros(np.prod(npt), dtype=np.bool)
+        num_pt = np.prod(npt)
+        self._has_value: np.ndarray = np.zeros(num_pt, dtype=bool)  # type: ignore
 
+    @pp.time_logger(sections=module_sections)
     def interpolate(self, x):
         """Perform interpolation on a Cartesian grid by a piecwise linear
         approximation. Compute and store the necessary function values.
@@ -329,6 +341,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
         # Use standard method for interpolation.
         return super().interpolate(x)
 
+    @pp.time_logger(sections=module_sections)
     def diff(self, x, axis):
         """Perform differentiation on a Cartesian grid by a piecwise constant
         approximation.
@@ -347,6 +360,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
         # Use standard method for differentiation.
         return super().diff(x, axis)
 
+    @pp.time_logger(sections=module_sections)
     def _fill_values(self, x: np.ndarray):
         # Find points in the interpolation grid that will be used for function
         # evaluation. Compute function values as needed.

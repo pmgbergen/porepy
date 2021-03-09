@@ -16,9 +16,13 @@ import numpy as np
 
 import porepy as pp
 
+module_sections = ["numerics", "grids", "gridding"]
+
+
 # ---------------------propagation criteria----------------------------------#
 
 
+@pp.time_logger(sections=module_sections)
 def faces_to_open(gb, u, critical_sifs, **kw):
     """
     Determine where a fracture should propagate based on the displacement
@@ -107,6 +111,7 @@ def faces_to_open(gb, u, critical_sifs, **kw):
     return faces_h_to_open, sifs
 
 
+@pp.time_logger(sections=module_sections)
 def identify_faces_to_open(g_h, g_l, tips_to_propagate, rm_vectors):
     """
     Identify the faces to open. For now, just pick out the face lying
@@ -142,6 +147,7 @@ def identify_faces_to_open(g_h, g_l, tips_to_propagate, rm_vectors):
     return np.array(faces_h, dtype=int)
 
 
+@pp.time_logger(sections=module_sections)
 def determine_onset(sifs, critical_values):
     """
     For the time being, very crude criterion: K_I > K_I,cricial.
@@ -160,6 +166,7 @@ def determine_onset(sifs, critical_values):
     return exceed_critical
 
 
+@pp.time_logger(sections=module_sections)
 def sif_from_delta_u(d_u, rm, mu, kappa):
     """
     Compute the stress intensity factors from the relative displacements
@@ -183,6 +190,7 @@ def sif_from_delta_u(d_u, rm, mu, kappa):
     return K
 
 
+@pp.time_logger(sections=module_sections)
 def identify_correlation_points(g_h, g_l, rm, u, face_cells):
     """
     Get the relative displacement for displacement correlation SIF computation.
@@ -250,6 +258,7 @@ def identify_correlation_points(g_h, g_l, rm, u, face_cells):
     return cells_l, faces_l, rm_vectors, actual_rm, normal_rm
 
 
+@pp.time_logger(sections=module_sections)
 def relative_displacements(u, face_cells, g_l, cells_l, faces_l, g_h):
     """
     Compute the relative displacements between the higher-dimensional faces
@@ -347,6 +356,7 @@ def relative_displacements(u, face_cells, g_l, cells_l, faces_l, g_h):
     return delta_us
 
 
+@pp.time_logger(sections=module_sections)
 def estimate_rm(g, **kw):
     """
     Estimate the optimal distance between tip face centers and correlation

@@ -6,8 +6,10 @@ import logging
 import porepy as pp
 
 logger = logging.getLogger(__name__)
+module_sections = ["models", "numerics"]
 
 
+@pp.time_logger(sections=module_sections)
 def run_stationary_model(model, params):
     model.prepare_simulation()
 
@@ -18,6 +20,7 @@ def run_stationary_model(model, params):
     model.after_simulation()
 
 
+@pp.time_logger(sections=module_sections)
 def run_time_dependent_model(model, params):
     """
     Time loop for the model classes.
@@ -53,6 +56,7 @@ def run_time_dependent_model(model, params):
     model.after_simulation()
 
 
+@pp.time_logger(sections=module_sections)
 def _run_iterative_model(model, params):
     """Intended use is for multi-step models with iterative couplings.
 
