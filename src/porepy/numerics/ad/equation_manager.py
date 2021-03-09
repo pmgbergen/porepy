@@ -233,14 +233,20 @@ class Expression:
     def discretize(self, gb: pp.GridBucket) -> None:
         _discretize_from_list(self.discretizations, gb)
 
-    def to_ad(self, gb: pp.GridBucket, state: Optional[np.ndarray] = None, true_ad_variables: Optional[list] = None):
+    def to_ad(self,
+              gb: pp.GridBucket,
+              state: Optional[np.ndarray] = None,
+              active_variables: Optional[list] = None
+              ):
         """Evaluate the residual and Jacobian matrix for a given state.
 
         Parameters:
             gb (pp.GridBucket): GridBucket used to represent the problem. Will be used
                 to parse the operators that combine to form this Equation..
-            state (np.ndarray): State vector for which the residual and its derivative
-                should be formed.
+            state (np.ndarray, optional): State vector for which the residual and its derivative
+                should be formed. If not provided, the state will be pulled from the
+                previous iterate (if this exists), or alternatively from the state
+                at the previous time step.
 
         Returns:
             An Ad-array representation of the residual and Jacbobian.
@@ -267,30 +273,38 @@ class Expression:
 
             if populate_state:
                 if isinstance(g, tuple):
-                    state[ind] = gb.edge_props(g, pp.STATE)[pp.ITERATE][var]
+                    try:
+                        state[ind] = gb.edge_props(g, pp.STATE)[pp.ITERATE][var]
+                    except KeyError:
+                        prev_vals[ind] = gb.edge_props(g, pp.STATE)[var]
                 else:
-                    state[ind] = gb.node_props(g, pp.STATE)[pp.ITERATE][var]
+                    try:
+                        state[ind] = gb.node_props(g, pp.STATE)[pp.ITERATE][var]
+                    except KeyError:
+                        state[ind] = gb.node_props(g, pp.STATE)[var]
 
         # Initialize Ad variables with the current iterates
-        if true_ad_variables is None:
+        if active_variables is None:
             ad_vars = initAdArrays([state[ind] for ind in self._variable_dofs])
             self._ad = {var_id: ad for (var_id, ad) in zip(self._variable_ids, ad_vars)}
         else:
-            true_ad_variable_ids = [v.id for v in true_ad_variables]
-            ad_variable_ids = list(set(self._variable_ids).intersection(true_ad_variable_ids))
-            assert(all([i in self._variable_ids for i in true_ad_variable_ids]))
-            ad_variable_local_ids = [self._variable_ids.index(i) for i in true_ad_variable_ids]
+            active_variable_ids = [v.id for v in active_variables]
+
+            ad_variable_ids = list(set(self._variable_ids).intersection(active_variable_ids))
+            assert(all([i in self._variable_ids for i in active_variable_ids]))
+            ad_variable_local_ids = [self._variable_ids.index(i) for i in active_variable_ids]
             ad_variable_dofs = [self._variable_dofs[i] for i in ad_variable_local_ids]
             ad_vars = initAdArrays([state[ind] for ind in ad_variable_dofs])
             self._ad = {var_id: ad for (var_id, ad) in zip(ad_variable_ids, ad_vars)}
 
         # Also make mappings from the previous iteration.
-        if true_ad_variables is None:
+        if active_variables is None:
             prev_iter_vals_list = [state[ind] for ind in self._prev_iter_dofs]
             self._prev_iter_vals = {
                 var_id: val for (var_id, val) in zip(self._prev_iter_ids, prev_iter_vals_list)
             }
         else:
+            # FIXME: This needs explanations
             prev_iter_vals_list = [state[ind] for ind in self._prev_iter_dofs]
             non_ad_variable_ids = list(set(self._variable_ids) - set(ad_variable_ids))
             non_ad_variable_local_ids = [self._variable_ids.index(i) for i in non_ad_variable_ids]
@@ -343,7 +357,7 @@ class Expression:
                 if op.prev_time:
                     return self._prev_vals[op.id]
                 elif op.prev_iter:
-                    return self._prev_iter_vals[op.id]
+                        return self._prev_iter_vals[op.id]
                 else:
                     return self._ad[op.id]
             else:
@@ -481,7 +495,10 @@ class EquationManager:
 
         return values
 
-    def assemble_matrix_rhs(self, equations: Optional[list] = None, ad_var: Optional[list] = None, state: Optional[np.ndarray] = None):
+    def assemble_matrix_rhs(self,
+                            equations: Optional[list] = None,
+                            ad_var: Optional[list] = None,
+                            state: Optional[np.ndarray] = None):
         mat: List[sps.spmatrix] = []
         b: List[np.ndarray] = []
 
@@ -499,7 +516,7 @@ class EquationManager:
             if equations is not None and not(eq.name in equations):
                 continue
 
-            ad = eq.to_ad(self.gb, state, true_ad_variables=variables)
+            ad = eq.to_ad(self.gb, state, active_variables=variables)
 
             # The columns of the Jacobian has the size of the local variables.
             # Map these to the global ones
