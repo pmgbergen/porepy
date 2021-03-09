@@ -562,11 +562,11 @@ class DirBC(Operator):
         self,
         bc,
         grids: Optional[List[pp.Grid]] = None,
-        gb: Optional[pp.GridBucket] = None
+        gb: Optional[pp.GridBucket] = None,
     ):
         self._bc = bc
         self._g: List[pp.Grid] = _grid_list(grids, gb)
-        if not (len(self._g)==1):
+        if not (len(self._g) == 1):
             raise RuntimeError("DirBc not implemented for more than one grid.")
         self._set_tree()
 
@@ -575,7 +575,7 @@ class DirBC(Operator):
 
     def parse(self, gb: pp.GridBucket):
 
-        bc_val = self._bc.parse(gb) # TODO Is this done anyhow already?
+        bc_val = self._bc.parse(gb)  # TODO Is this done anyhow already?
         keyword = self._bc.keyword
         g = self._g[0]
         data = gb.node_props(g)
@@ -586,6 +586,7 @@ class DirBC(Operator):
         dir_bc_val[is_not_dir] = float("NaN")
 
         return dir_bc_val
+
 
 #### Helper methods below
 

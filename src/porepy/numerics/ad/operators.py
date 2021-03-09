@@ -24,7 +24,9 @@ __all__ = [
 ]
 
 
-Operation = Enum("Operation", ["void", "add", "sub", "mul", "evaluate", "div", "localeval", "apply"])
+Operation = Enum(
+    "Operation", ["void", "add", "sub", "mul", "evaluate", "div", "localeval", "apply"]
+)
 
 
 class Operator:
@@ -279,7 +281,7 @@ class Variable(Operator):
         grid_like: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]],
         num_cells: int = 0,
         previous_timestep: bool = False,
-        previous_iteration: bool = False
+        previous_iteration: bool = False,
     ):
         """Initiate an Ad representation of the variable.
 
@@ -421,7 +423,7 @@ class MergedVariable(Variable):
 class Function(Operator):
     """Ad representation of a function."""
 
-    def __init__(self, func: Callable, name: str, local = False):
+    def __init__(self, func: Callable, name: str, local=False):
         """Initialize a function.
 
         Parameters:
@@ -470,12 +472,12 @@ class Function(Operator):
         """
         return self
 
+
 class ApplicableOperator(Function):
     """Ad representation of operator providing metod 'apply'. This class is meant as base class."""
 
     def __init__(self) -> None:
-        """Initialization empty.
-        """
+        """Initialization empty."""
 
     def __repr__(self) -> str:
         s = f"AD applicable operator."
@@ -487,8 +489,8 @@ class ApplicableOperator(Function):
 
         return s
 
-class SecondOrderTensorAd(SecondOrderTensor, Operator):
 
+class SecondOrderTensorAd(SecondOrderTensor, Operator):
     def __init__(self, kxx, kyy=None, kzz=None, kxy=None, kxz=None, kyz=None):
         super(SecondOrderTensorAd, self).__init__(kxx, kyy, kzz, kxy, kxz, kyz)
         self._set_tree()
@@ -500,6 +502,7 @@ class SecondOrderTensorAd(SecondOrderTensor, Operator):
 
     def parse(self, gb):
         return self.values
+
 
 class Tree:
     """Simple implementation of a Tree class. Used to represent combinations of
