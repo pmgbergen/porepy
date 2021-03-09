@@ -151,7 +151,10 @@ class DofManager:
             return self.full_dof[(g, var)]
 
     def distribute_variable(
-        self, values: np.ndarray, variable_names: Optional[List[str]] = None, additive:bool=False
+        self,
+        values: np.ndarray,
+        variable_names: Optional[List[str]] = None,
+        additive: bool = False,
     ) -> None:
         """Distribute a vector to the nodes and edges in the GridBucket.
 
@@ -198,7 +201,6 @@ class DofManager:
                     # If no values exist, there is othing to add to
                     data[pp.STATE] = {var_name: values[dof[bi] : dof[bi + 1]]}
 
-
     def transform_dofs(self, dofs: np.ndarray, var: Optional[list] = None):
         """Transforms dofs associated to full list of dofs to a restricted list of dofs."""
 
@@ -224,7 +226,7 @@ class DofManager:
         num_dofs = self.num_dofs(var=var)
         projection = sps.coo_matrix(
             (np.arange(num_dofs), (np.arange(num_dofs), dofs)),
-            shape=(num_dofs, total_dofs)
+            shape=(num_dofs, total_dofs),
         )
 
         # Return the restricted dofs

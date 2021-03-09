@@ -81,9 +81,12 @@ class Expression:
 
         # Identify all variables in the Operator tree. This will include real variables,
         # and representation of previous time steps and iterations.
-        variable_dofs, variable_ids, is_prev_time, is_prev_iter = self._identify_variables(
-            dof_manager
-        )
+        (
+            variable_dofs,
+            variable_ids,
+            is_prev_time,
+            is_prev_iter,
+        ) = self._identify_variables(dof_manager)
 
         # Split variable dof indices and ids into groups of current variables (those
         # of the current iteration step), and those from the previous time steps and iterations.
@@ -93,7 +96,9 @@ class Expression:
         prev_ids = []
         prev_iter_indices = []
         prev_iter_ids = []
-        for ind, var_id, is_prev, is_prev_it in zip(variable_dofs, variable_ids, is_prev_time, is_prev_iter):
+        for ind, var_id, is_prev, is_prev_it in zip(
+            variable_dofs, variable_ids, is_prev_time, is_prev_iter
+        ):
             if is_prev:
                 prev_indices.append(ind)
                 prev_ids.append(var_id)
@@ -124,8 +129,10 @@ class Expression:
             dofs = np.hstack([d for d in self._variable_dofs])
         else:
             true_ad_variable_ids = [v.id for v in true_ad_variables]
-            assert(all([i in self._variable_ids for i in true_ad_variable_ids]))
-            ad_variable_local_ids = [self._variable_ids.index(i) for i in true_ad_variable_ids]
+            assert all([i in self._variable_ids for i in true_ad_variable_ids])
+            ad_variable_local_ids = [
+                self._variable_ids.index(i) for i in true_ad_variable_ids
+            ]
             ad_variable_dofs = [self._variable_dofs[i] for i in ad_variable_local_ids]
             dofs = np.hstack([d for d in ad_variable_dofs])
         return dofs
@@ -233,11 +240,12 @@ class Expression:
     def discretize(self, gb: pp.GridBucket) -> None:
         _discretize_from_list(self.discretizations, gb)
 
-    def to_ad(self,
-              gb: pp.GridBucket,
-              state: Optional[np.ndarray] = None,
-              active_variables: Optional[list] = None
-              ):
+    def to_ad(
+        self,
+        gb: pp.GridBucket,
+        state: Optional[np.ndarray] = None,
+        active_variables: Optional[list] = None,
+    ):
         """Evaluate the residual and Jacobian matrix for a given state.
 
         Parameters:
@@ -290,9 +298,13 @@ class Expression:
         else:
             active_variable_ids = [v.id for v in active_variables]
 
-            ad_variable_ids = list(set(self._variable_ids).intersection(active_variable_ids))
-            assert(all([i in self._variable_ids for i in active_variable_ids]))
-            ad_variable_local_ids = [self._variable_ids.index(i) for i in active_variable_ids]
+            ad_variable_ids = list(
+                set(self._variable_ids).intersection(active_variable_ids)
+            )
+            assert all([i in self._variable_ids for i in active_variable_ids])
+            ad_variable_local_ids = [
+                self._variable_ids.index(i) for i in active_variable_ids
+            ]
             ad_variable_dofs = [self._variable_dofs[i] for i in ad_variable_local_ids]
             ad_vars = initAdArrays([state[ind] for ind in ad_variable_dofs])
             self._ad = {var_id: ad for (var_id, ad) in zip(ad_variable_ids, ad_vars)}
@@ -301,17 +313,26 @@ class Expression:
         if active_variables is None:
             prev_iter_vals_list = [state[ind] for ind in self._prev_iter_dofs]
             self._prev_iter_vals = {
-                var_id: val for (var_id, val) in zip(self._prev_iter_ids, prev_iter_vals_list)
+                var_id: val
+                for (var_id, val) in zip(self._prev_iter_ids, prev_iter_vals_list)
             }
         else:
             # FIXME: This needs explanations
             prev_iter_vals_list = [state[ind] for ind in self._prev_iter_dofs]
             non_ad_variable_ids = list(set(self._variable_ids) - set(ad_variable_ids))
-            non_ad_variable_local_ids = [self._variable_ids.index(i) for i in non_ad_variable_ids]
-            non_ad_variable_dofs = [self._variable_dofs[i] for i in non_ad_variable_local_ids]
+            non_ad_variable_local_ids = [
+                self._variable_ids.index(i) for i in non_ad_variable_ids
+            ]
+            non_ad_variable_dofs = [
+                self._variable_dofs[i] for i in non_ad_variable_local_ids
+            ]
             non_ad_vals_list = [state[ind] for ind in non_ad_variable_dofs]
             self._prev_iter_vals = {
-                var_id: val for (var_id, val) in zip(self._prev_iter_ids + non_ad_variable_ids, prev_iter_vals_list + non_ad_vals_list)
+                var_id: val
+                for (var_id, val) in zip(
+                    self._prev_iter_ids + non_ad_variable_ids,
+                    prev_iter_vals_list + non_ad_vals_list,
+                )
             }
 
         # Also make mappings from the previous time step.
@@ -357,13 +378,15 @@ class Expression:
                 if op.prev_time:
                     return self._prev_vals[op.id]
                 elif op.prev_iter:
-                        return self._prev_iter_vals[op.id]
+                    return self._prev_iter_vals[op.id]
                 else:
                     return self._ad[op.id]
             else:
                 if op.prev_time:
                     return self._prev_vals[op.id]
-                elif op.prev_iter or not (op.id in self._ad): # TODO make it more explicit that op corresponds to a non_ad_variable? e.g. by op.id in non_ad_variable_ids.
+                elif op.prev_iter or not (
+                    op.id in self._ad
+                ):  # TODO make it more explicit that op corresponds to a non_ad_variable? e.g. by op.id in non_ad_variable_ids.
                     return self._prev_iter_vals[op.id]
                 else:
                     return self._ad[op.id]
@@ -409,8 +432,10 @@ class Expression:
             assert len(results) > 1
             if all([isinstance(r, Ad_array) for r in results[1:]]):
                 # TODO: return results[0].func(*makeLocalAd(results[1:]))
-                if len(results)>2:
-                    raise RuntimeError("Not implemented.") #evaluation of loacl functions only supported for single argument functions.
+                if len(results) > 2:
+                    raise RuntimeError(
+                        "Not implemented."
+                    )  # evaluation of loacl functions only supported for single argument functions.
                 else:
                     argval = results[1].val
                     argjac = results[1].jac.diagonal()
@@ -495,10 +520,12 @@ class EquationManager:
 
         return values
 
-    def assemble_matrix_rhs(self,
-                            equations: Optional[list] = None,
-                            ad_var: Optional[list] = None,
-                            state: Optional[np.ndarray] = None):
+    def assemble_matrix_rhs(
+        self,
+        equations: Optional[list] = None,
+        ad_var: Optional[list] = None,
+        state: Optional[np.ndarray] = None,
+    ):
         mat: List[sps.spmatrix] = []
         b: List[np.ndarray] = []
 
@@ -508,12 +535,14 @@ class EquationManager:
             variables = None
         else:
             variables = sorted(list(set(ad_var)), key=lambda v: v.id)
-            num_global_dofs = self.dof_manager.num_dofs(var=[v._name for v in variables])
+            num_global_dofs = self.dof_manager.num_dofs(
+                var=[v._name for v in variables]
+            )
 
         for eq in self.equations:
 
             # Neglect equation if not explicilty asked for.
-            if equations is not None and not(eq.name in equations):
+            if equations is not None and not (eq.name in equations):
                 continue
 
             ad = eq.to_ad(self.gb, state, active_variables=variables)
@@ -522,7 +551,9 @@ class EquationManager:
             # Map these to the global ones
             local_dofs = eq.local_dofs(true_ad_variables=variables)
             if variables is not None:
-                local_dofs = self.dof_manager.transform_dofs(local_dofs, var=[v._name for v in variables])
+                local_dofs = self.dof_manager.transform_dofs(
+                    local_dofs, var=[v._name for v in variables]
+                )
 
             num_local_dofs = local_dofs.size
             projection = sps.coo_matrix(

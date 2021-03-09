@@ -4,7 +4,17 @@ import scipy.sparse as sps
 from porepy.numerics.ad.forward_mode import Ad_array
 from porepy.numerics.ad.local_forward_mode import Local_Ad_array
 
-__all__ = ["exp", "log", "sign", "abs", "sin", "cos", "tanh", "heaviside", "RegularizedHeaviside"]
+__all__ = [
+    "exp",
+    "log",
+    "sign",
+    "abs",
+    "sin",
+    "cos",
+    "tanh",
+    "heaviside",
+    "RegularizedHeaviside",
+]
 
 
 def exp(var):
@@ -84,7 +94,7 @@ def cos(var):
 def tanh(var):
     if isinstance(var, Ad_array):
         val = np.tanh(var.val)
-        jac = sps.diags(1 - np.tanh(var.val)**2).tocsc() * var.jac
+        jac = sps.diags(1 - np.tanh(var.val) ** 2).tocsc() * var.jac
         return Ad_array(val, jac)
     elif isinstance(var, Local_Ad_array):
         val = np.tanh(var.val)
@@ -94,7 +104,7 @@ def tanh(var):
         return np.tanh(var)
 
 
-def heaviside(var, zerovalue : float = 0.5):
+def heaviside(var, zerovalue: float = 0.5):
     if isinstance(var, Ad_array) or isinstance(var, Local_Ad_array):
         return np.heaviside(var.val, zerovalue)
     else:
@@ -102,18 +112,17 @@ def heaviside(var, zerovalue : float = 0.5):
 
 
 class RegularizedHeaviside:
-
-    def __init__(self, regularization : callable):
+    def __init__(self, regularization: callable):
         self._regularization = regularization
 
-    def __call__(self, var, zerovalue : float = 0.5):
+    def __call__(self, var, zerovalue: float = 0.5):
         if isinstance(var, Ad_array):
-            val = np.heaviside(var.val, 0.)
+            val = np.heaviside(var.val, 0.0)
             regularization = self._regularization(var)
             jac = regularization.jac
             return Ad_array(val, jac)
         elif isinstance(var, Local_Ad_array):
-            val = np.heaviside(var.val, 0.)
+            val = np.heaviside(var.val, 0.0)
             regularization = self._regularization(var)
             jac = regularization.jac
             return Local_Ad_array(val, jac)

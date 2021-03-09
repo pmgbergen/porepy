@@ -23,7 +23,9 @@ def initLocalAdArrays(variables):
         # set jacobian of variable i to I
         jac[i] = np.ones(num_val[i])
         # initiate Ad_array
-        jac = np.array(jac) # TODO use some more efficient data structure? There is many zeros.
+        jac = np.array(
+            jac
+        )  # TODO use some more efficient data structure? There is many zeros.
         ad_arrays.append(Local_Ad_array(val, jac))
 
     return ad_arrays
@@ -31,6 +33,7 @@ def initLocalAdArrays(variables):
 
 class Local_Ad_array:
     """ Special case of Ad_array. Essentially with a diagonal Jacobian."""
+
     def __init__(self, val=1.0, jac=0.0):
         self.val = val
         self.jac = jac
@@ -42,7 +45,9 @@ class Local_Ad_array:
 
     def __add__(self, other):
         if isinstance(other, Ad_array):
-            raise RuntimeError("Operations between (normal) Ad_array and Local_Ad_array not implemented.")
+            raise RuntimeError(
+                "Operations between (normal) Ad_array and Local_Ad_array not implemented."
+            )
         if isinstance(other, Local_Ad_array):
             val = self.val + other.val
             jac = self.jac + other.jac
@@ -56,7 +61,9 @@ class Local_Ad_array:
 
     def __sub__(self, other):
         if isinstance(other, Ad_array):
-            raise RuntimeError("Operations between (normal) Ad_array and Local_Ad_array not implemented.")
+            raise RuntimeError(
+                "Operations between (normal) Ad_array and Local_Ad_array not implemented."
+            )
         b = Local_Ad_array()
         if isinstance(other, Local_Ad_array):
             b.val = -other.val
@@ -72,7 +79,9 @@ class Local_Ad_array:
 
     def __mul__(self, other):
         if isinstance(other, Ad_array):
-            raise RuntimeError("Operations between (normal) Ad_array and Local_Ad_array not implemented.")
+            raise RuntimeError(
+                "Operations between (normal) Ad_array and Local_Ad_array not implemented."
+            )
         if not isinstance(other, Local_Ad_array):  # other is scalar
             val = self.val * other
             jac = self.jac * other
@@ -83,7 +92,9 @@ class Local_Ad_array:
 
     def __rmul__(self, other):
         if isinstance(other, Ad_array):
-            raise RuntimeError("Operations between (normal) Ad_array and Local_Ad_array not implemented.")
+            raise RuntimeError(
+                "Operations between (normal) Ad_array and Local_Ad_array not implemented."
+            )
         if isinstance(other, Local_Ad_array):
             # other is Ad_var, so should have called __mul__
             raise RuntimeError("Somthing went horrible wrong")
@@ -93,19 +104,23 @@ class Local_Ad_array:
 
     def __pow__(self, other):
         if isinstance(other, Ad_array):
-            raise RuntimeError("Operations between (normal) Ad_array and Local_Ad_array not implemented.")
+            raise RuntimeError(
+                "Operations between (normal) Ad_array and Local_Ad_array not implemented."
+            )
         if not isinstance(other, Local_Ad_array):
             val = self.val ** other
             jac = other * self.val ** (other - 1) * self.jac
         else:
             val = self.val ** other.val
             jac = other.val * self.val ** (other.val - 1) * self.jac
-            + self.val ** other.val * np.log(self.val) * other.jac
+            +self.val ** other.val * np.log(self.val) * other.jac
         return Local_Ad_array(val, jac)
 
     def __rpow__(self, other):
         if isinstance(other, Ad_array):
-            raise RuntimeError("Operations between (normal) Ad_array and Local_Ad_array not implemented.")
+            raise RuntimeError(
+                "Operations between (normal) Ad_array and Local_Ad_array not implemented."
+            )
         if isinstance(other, Local_Ad_array):
             raise ValueError(
                 "Somthing went horrible wrong, should" "have called __pow__"
@@ -117,7 +132,9 @@ class Local_Ad_array:
 
     def __truediv__(self, other):
         if isinstance(other, Ad_array):
-            raise RuntimeError("Operations between (normal) Ad_array and Local_Ad_array not implemented.")
+            raise RuntimeError(
+                "Operations between (normal) Ad_array and Local_Ad_array not implemented."
+            )
         return self * other ** -1
 
     def __neg__(self):

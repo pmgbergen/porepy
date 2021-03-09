@@ -5,10 +5,16 @@ import scipy.sparse as sps
 import porepy as pp
 
 from porepy.numerics.ad import operators
-from porepy.numerics.ad.operators import Operator, ApplicableOperator, Variable, Operation
+from porepy.numerics.ad.operators import (
+    Operator,
+    ApplicableOperator,
+    Variable,
+    Operation,
+)
 from porepy.numerics.ad.forward_mode import Ad_array
 from porepy.numerics.ad.local_forward_mode import Local_Ad_array
 from porepy.numerics.ad.functions import heaviside
+
 
 class GeneralTpfaAd(pp.FVElliptic):
     """Discretize elliptic equations by a two-point flux approximation with arbitrarily weighted mobility.
@@ -26,7 +32,7 @@ class GeneralTpfaAd(pp.FVElliptic):
         super(GeneralTpfaAd, self).__init__(keyword)
 
     def discretize(self, g, data):
-        """ This is an excerpt discretize of tpfa.py but using merely constant transmissibility equal to 1.
+        """This is an excerpt discretize of tpfa.py but using merely constant transmissibility equal to 1.
         In addition, several grid connectivity related fields are stored for later use."""
 
         # Store for later evaluation of the flux - expect to run discretize before evaluating flux
@@ -121,11 +127,13 @@ class GeneralTpfaAd(pp.FVElliptic):
         col = np.arange(c_periodic_max)
         row = fi_periodic[col]
         data = np.ones_like(row)
-        bincount_fi_periodic = sps.csr_matrix((data, (row, col)), shape=(f_periodic_max + 1, c_periodic_max))
+        bincount_fi_periodic = sps.csr_matrix(
+            (data, (row, col)), shape=(f_periodic_max + 1, c_periodic_max)
+        )
 
         # t does not encode the transsmissibility but will be only used for defininig the cell to face map, and the scaling by the inverse of distances of cell centers.
         dist_face_cell = np.power(np.power(fc_cc, 2).sum(axis=0), 0.5)
-        area_face_cell = np.power(np.power(g.face_normals[:, fi],2).sum(axis=0), 0.5)
+        area_face_cell = np.power(np.power(g.face_normals[:, fi], 2).sum(axis=0), 0.5)
         t = (bincount_fi_periodic * (dist_face_cell / area_face_cell)) ** (-1)
 
         # Save values for use in recovery of boundary face pressures
@@ -211,7 +219,6 @@ class GeneralTpfaAd(pp.FVElliptic):
             self.bound_pressure_vector_source_matrix_key
         ] = bound_pressure_vector_source
 
-
         ################################################################
         # This is extra - needed for UpwindAd and HarmAvgAd
         ################################################################
@@ -236,8 +243,8 @@ class GeneralTpfaAd(pp.FVElliptic):
         tpfaFlux = _TpfaFluxAd(self)
         return tpfaFlux(face_transmissibility, potential, bc_data)
 
-class _TpfaFluxAd(ApplicableOperator):
 
+class _TpfaFluxAd(ApplicableOperator):
     def __init__(self, tpfa):
 
         self._tpfa = tpfa
@@ -276,8 +283,12 @@ class _TpfaFluxAd(ApplicableOperator):
         # flux.val = diag(face_transmissibility.val) * flux_matrix * potential.val
         #          = diag(flux_matrix * potential.val) * face_transmissibility.val; hence:
         # Start assuming face_transmissibility is constant
-        flux_val = sps.diags(face_transmissibility_val).tocsc() * flux_matrix * potential.val
-        flux_jac = sps.diags(face_transmissibility_val).tocsc() * flux_matrix * potential.jac
+        flux_val = (
+            sps.diags(face_transmissibility_val).tocsc() * flux_matrix * potential.val
+        )
+        flux_jac = (
+            sps.diags(face_transmissibility_val).tocsc() * flux_matrix * potential.jac
+        )
 
         # Boundary contribution - require some care with neumann boundary conditions.
         # How the boundary flux and its jacobian is computed:
@@ -289,12 +300,14 @@ class _TpfaFluxAd(ApplicableOperator):
         is_neu = tpfa.is_neu
         t_b_val[is_neu] = 1
 
-        #flux_val += sps.diags(t_b_val).tocsc() * bound_flux_matrix * bc # TODO rm?
+        # flux_val += sps.diags(t_b_val).tocsc() * bound_flux_matrix * bc # TODO rm?
         flux_val += t_b_val * (bound_flux_matrix * bc)
 
         # Now account in the Jacobian for nonlinear face_transmissibility
         if isinstance(face_transmissibility, Ad_array):
-            flux_jac += sps.diags(flux_matrix * potential.val) * face_transmissibility.jac
+            flux_jac += (
+                sps.diags(flux_matrix * potential.val) * face_transmissibility.jac
+            )
 
             # Boundary contribution - require some care with neumann boundary conditions
             t_b_jac = face_transmissibility.jac
@@ -330,7 +343,9 @@ class _TpfaFluxAd(ApplicableOperator):
         # flux.val = diag(face_transmissibility.val) * flux_matrix * potential.val
         #          = diag(flux_matrix * potential.val) * face_transmissibility.val; hence:
         # Start assuming face_transmissibility is constant
-        flux_val = sps.diags(face_transmissibility_val).tocsc() * flux_matrix * potential
+        flux_val = (
+            sps.diags(face_transmissibility_val).tocsc() * flux_matrix * potential
+        )
 
         # Boundary contribution - require some care with neumann boundary conditions.
         # How the boundary flux and its jacobian is computed:
@@ -342,15 +357,15 @@ class _TpfaFluxAd(ApplicableOperator):
         is_neu = tpfa.is_neu
         t_b_val[is_neu] = 1
 
-        #flux_val += sps.diags(t_b_val).tocsc() * bound_flux_matrix * bc # TODO rm?
+        # flux_val += sps.diags(t_b_val).tocsc() * bound_flux_matrix * bc # TODO rm?
         flux_val += t_b_val * (bound_flux_matrix * bc)
 
         return flux_val
 
+
 # TODO Actually only tpfa-unrelated info is retrieved from tpfa here.
 class UpwindAd(ApplicableOperator):
-
-    def __init__(self, g, tpfa, hs : callable = heaviside):
+    def __init__(self, g, tpfa, hs: callable = heaviside):
 
         self._set_tree()
         self._g = g
@@ -360,25 +375,32 @@ class UpwindAd(ApplicableOperator):
         # Construct projection from cell-valued arrays to face-valued arrays with values to the
         # "left" and "right" of the face, here denoted by '0' and '1', respectively.
         cf_dense = g.cell_face_as_dense()
-        cf_inner = [c>=0 for c in cf_dense]
+        cf_inner = [c >= 0 for c in cf_dense]
 
-        row = [np.arange(g.num_faces)[cf_inner[i]] for i in range(0,2)]
-        col = [cf_dense[i][cf_inner[i]] for i in range(0,2)]
-        data = [np.ones_like(row[i]) for i in range(0,2)]
-        self._cf_inner = [sps.csr_matrix((data[i], (row[i], col[i])), shape = (g.num_faces, g.num_cells), dtype = float) for i in range(0,2)]
+        row = [np.arange(g.num_faces)[cf_inner[i]] for i in range(0, 2)]
+        col = [cf_dense[i][cf_inner[i]] for i in range(0, 2)]
+        data = [np.ones_like(row[i]) for i in range(0, 2)]
+        self._cf_inner = [
+            sps.csr_matrix(
+                (data[i], (row[i], col[i])),
+                shape=(g.num_faces, g.num_cells),
+                dtype=float,
+            )
+            for i in range(0, 2)
+        ]
 
         # Store which 'left' and 'right' cells of all faces correspond to the Dirichlet boundary.
         cf_boundary = np.logical_not(cf_inner)
         is_dir = tpfa.is_dir
-        self._cf_is_dir = [np.logical_and(cf_boundary[i],is_dir) for i in range(0,2)]
+        self._cf_is_dir = [np.logical_and(cf_boundary[i], is_dir) for i in range(0, 2)]
 
     def __repr__(self) -> str:
         return f"Upwind AD face operator"
 
     def apply(self, mobility_inner, direction_inner, mobility_bound, direction_bound):
-        """ Compute transmissibility via upwinding over faces. Use monotonicityexpr for deciding directionality.
+        """Compute transmissibility via upwinding over faces. Use monotonicityexpr for deciding directionality.
 
-            Idea: 'face value' = 'left cell value' * Heaviside('flux from left') + 'right cell value' * Heaviside('flux from right')."""
+        Idea: 'face value' = 'left cell value' * Heaviside('flux from left') + 'right cell value' * Heaviside('flux from right')."""
 
         # TODO only implemented for scalar relative permeabilities so far
         # TODO so far not for periodic bondary conditions.
@@ -394,27 +416,27 @@ class UpwindAd(ApplicableOperator):
         # anyhow does not play a role.
         # Determine the Jacobian manually - only in the interior of the domain.
         if isinstance(direction_inner, Ad_array):
-            dir_f_val = [cf_inner[i] * direction_inner.val for i in range(0,2)]
-            for i in range(0,2):
+            dir_f_val = [cf_inner[i] * direction_inner.val for i in range(0, 2)]
+            for i in range(0, 2):
                 dir_f_val[i][cf_is_dir[i]] = direction_bound[cf_is_dir[i]]
-            dir_f_jac = [cf_inner[i] * direction_inner.jac for i in range(0,2)]
-            dir_f = [Ad_array(dir_f_val[i], dir_f_jac[i]) for i in range(0,2)]
+            dir_f_jac = [cf_inner[i] * direction_inner.jac for i in range(0, 2)]
+            dir_f = [Ad_array(dir_f_val[i], dir_f_jac[i]) for i in range(0, 2)]
         else:
-            dir_f = [cf_inner[i] * direction_inner for i in range(0,2)]
-            for i in range(0,2):
+            dir_f = [cf_inner[i] * direction_inner for i in range(0, 2)]
+            for i in range(0, 2):
                 dir_f[i][cf_is_dir[i]] = direction_bound[cf_is_dir[i]]
 
         # Do the same for the mobility as for the direction-determining arrays.
         if isinstance(mobility_inner, Ad_array):
-            mob_f_val = [cf_inner[i] * mobility_inner.val for i in range(0,2)]
-            for i in range(0,2):
+            mob_f_val = [cf_inner[i] * mobility_inner.val for i in range(0, 2)]
+            for i in range(0, 2):
                 mob_f_val[i][cf_is_dir[i]] = mobility_bound[cf_is_dir[i]]
-            mob_f_jac = [cf_inner[i] * mobility_inner.jac for i in range(0,2)]
-            mob_f = [Ad_array(mob_f_val[i], mob_f_jac[i]) for i in range(0,2)]
+            mob_f_jac = [cf_inner[i] * mobility_inner.jac for i in range(0, 2)]
+            mob_f = [Ad_array(mob_f_val[i], mob_f_jac[i]) for i in range(0, 2)]
 
         else:
-            mob_f = [cf_inner[i] * mobility_inner for i in range(0,2)]
-            for i in range(0,2):
+            mob_f = [cf_inner[i] * mobility_inner for i in range(0, 2)]
+            for i in range(0, 2):
                 mob_f[i][cf_is_dir[i]] = mobility_bound[cf_is_dir[i]]
 
         # Evaluate the Heaviside function of the "flux directions".
@@ -426,9 +448,9 @@ class UpwindAd(ApplicableOperator):
 
         return face_mobility
 
-class FluxBasedUpwindAd(ApplicableOperator):
 
-    def __init__(self, g, tpfa, hs : callable = heaviside):
+class FluxBasedUpwindAd(ApplicableOperator):
+    def __init__(self, g, tpfa, hs: callable = heaviside):
 
         self._set_tree()
         self._g = g
@@ -438,26 +460,35 @@ class FluxBasedUpwindAd(ApplicableOperator):
         # Construct projection from cell-valued arrays to face-valued arrays with values to the
         # "left" and "right" of the face, here denoted by '0' and '1', respectively.
         cf_dense = g.cell_face_as_dense()
-        cf_inner = [c>=0 for c in cf_dense]
+        cf_inner = [c >= 0 for c in cf_dense]
 
-        row = [np.arange(g.num_faces)[cf_inner[i]] for i in range(0,2)]
-        col = [cf_dense[i][cf_inner[i]] for i in range(0,2)]
-        data = [np.ones_like(row[i]) for i in range(0,2)]
-        self._cf_inner = [sps.csr_matrix((data[i], (row[i], col[i])), shape = (g.num_faces, g.num_cells), dtype = float) for i in range(0,2)]
+        row = [np.arange(g.num_faces)[cf_inner[i]] for i in range(0, 2)]
+        col = [cf_dense[i][cf_inner[i]] for i in range(0, 2)]
+        data = [np.ones_like(row[i]) for i in range(0, 2)]
+        self._cf_inner = [
+            sps.csr_matrix(
+                (data[i], (row[i], col[i])),
+                shape=(g.num_faces, g.num_cells),
+                dtype=float,
+            )
+            for i in range(0, 2)
+        ]
 
         # Store which 'left' and 'right' cells of all faces correspond to the Dirichlet boundary.
         cf_is_boundary = np.logical_not(cf_inner)
         self._cf_is_boundary = cf_is_boundary
         is_dir = tpfa.is_dir
-        self._cf_is_dir = [np.logical_and(cf_is_boundary[i],is_dir) for i in range(0,2)]
+        self._cf_is_dir = [
+            np.logical_and(cf_is_boundary[i], is_dir) for i in range(0, 2)
+        ]
 
     def __repr__(self) -> str:
         return f"Upwind AD face operator"
 
     def apply(self, mobility_inner, mobility_bound, face_flux):
-        """ Compute transmissibility via upwinding over faces. Use monotonicityexpr for deciding directionality.
+        """Compute transmissibility via upwinding over faces. Use monotonicityexpr for deciding directionality.
 
-            Idea: 'face value' = 'left cell value' * Heaviside('flux from left') + 'right cell value' * Heaviside('flux from right')."""
+        Idea: 'face value' = 'left cell value' * Heaviside('flux from left') + 'right cell value' * Heaviside('flux from right')."""
 
         # TODO only implemented for scalar relative permeabilities so far
         # TODO so far not for periodic bondary conditions.
@@ -472,14 +503,14 @@ class FluxBasedUpwindAd(ApplicableOperator):
         # Use Dirichlet boundary data where suitable.
         # Neglect Neumann boundaries since face transmissibilities at Neumann boundary data
         # anyhow does not play a role.
-        assert(face_flux, np.ndarray) # TODO extend to Ad_arrays
+        assert (face_flux, np.ndarray)  # TODO extend to Ad_arrays
 
         # Do the same for the mobility as for the direction-determining arrays.
         if isinstance(mobility_inner, Ad_array):
             raise RuntimeError("Not implemented.")
         else:
-            mob_f = [cf_inner[i] * mobility_inner for i in range(0,2)]
-            for i in range(0,2):
+            mob_f = [cf_inner[i] * mobility_inner for i in range(0, 2)]
+            for i in range(0, 2):
                 mob_f[i][cf_is_boundary[i]] = mobility_bound[cf_is_boundary[i]]
 
         # Evaluate the Heaviside function of the "flux directions".
@@ -490,6 +521,7 @@ class FluxBasedUpwindAd(ApplicableOperator):
         face_mobility = mob_f[0] * hs_f_01 + mob_f[1] * hs_f_10
 
         return face_mobility
+
 
 class HarmAvgAd(ApplicableOperator):
     """ Object computing the harmonic average at faces given a cell-wise defined field."""
@@ -509,7 +541,9 @@ class HarmAvgAd(ApplicableOperator):
         col = np.arange(c_periodic_max)
         row = tpfa.fi_periodic[col]
         data = np.ones_like(row)
-        self.bincount_fi_periodic = sps.csr_matrix((data, (row, col)), shape=(f_periodic_max + 1, c_periodic_max))
+        self.bincount_fi_periodic = sps.csr_matrix(
+            (data, (row, col)), shape=(f_periodic_max + 1, c_periodic_max)
+        )
 
     def __repr__(self) -> str:
         return f"Harmonic average operator"
@@ -522,7 +556,9 @@ class HarmAvgAd(ApplicableOperator):
         elif isinstance(cellwise_field, np.ndarray):
             return self._apply_non_ad(cellwise_field)
         else:
-            raise RuntimeError("Harmonic average not implemented for this type of cellwise tensorfield.")
+            raise RuntimeError(
+                "Harmonic average not implemented for this type of cellwise tensorfield."
+            )
 
     def _apply_ad(self, cellwise_field) -> Ad_array:
         """ Compute transmissibility via harmonic averaging over faces."""
@@ -533,7 +569,9 @@ class HarmAvgAd(ApplicableOperator):
         tpfa = self._tpfa
 
         if data.get("Aavatsmark_transmissibilities", False):
-            raise RuntimeError("AD version of Aavatsmark_transmissibilities not implemented.")
+            raise RuntimeError(
+                "AD version of Aavatsmark_transmissibilities not implemented."
+            )
 
         # Get connectivity and grid based data
         fi = tpfa.fi
@@ -546,7 +584,7 @@ class HarmAvgAd(ApplicableOperator):
 
         # Consider two cases: scalar and tensor valued fields.
 
-        assert(cellwise_field.val, np.ndarray)
+        assert (cellwise_field.val, np.ndarray)
         # Case 1: Scalar valued fields.
         if len(cellwise_field.val.shape) == 1:
             t_cf_val = cellwise_field.val[ci]
@@ -555,7 +593,9 @@ class HarmAvgAd(ApplicableOperator):
             t_cf_jac /= dist_face_cell
 
         # Case 2: Tensor valued fields.
-        elif (len(cellwise_field.val.shape) == 3 and all([cellwise_field.val.shape[i] == 3 for i in range(0,2)])):
+        elif len(cellwise_field.val.shape) == 3 and all(
+            [cellwise_field.val.shape[i] == 3 for i in range(0, 2)]
+        ):
             t_cf_tensor_val = cellwise_field.val[::, ::, ci]
             t_cf_tensor_jac = cellwise_field.jac[::, ::, ci]
             tn_cf_val = (t_cf_tensor_val * fc_cc).sum(axis=1)
@@ -574,7 +614,9 @@ class HarmAvgAd(ApplicableOperator):
 
         # The final harmonic averaging using a linear operator representation of bincount.
         # TODO test!
-        t_face = (self.bincount_fi_periodic * dist_face_cell) * ((self.bincount_fi_periodic * t_face ** (-1) ) ** (-1))
+        t_face = (self.bincount_fi_periodic * dist_face_cell) * (
+            (self.bincount_fi_periodic * t_face ** (-1)) ** (-1)
+        )
 
         # Project column space of t.jac onto the actual cell
         # TODO is there not a better way to create the projection matrix? By correct indexing?
@@ -592,7 +634,9 @@ class HarmAvgAd(ApplicableOperator):
         data = self._data
         tpfa = self._tpfa
         if data.get("Aavatsmark_transmissibilities", False):
-            raise RuntimeError("AD version of Aavatsmark_transmissibilities not implemented.")
+            raise RuntimeError(
+                "AD version of Aavatsmark_transmissibilities not implemented."
+            )
 
         # Get connectivity and grid based data
         fi = tpfa.fi
@@ -605,14 +649,16 @@ class HarmAvgAd(ApplicableOperator):
 
         # Consider two cases: scalar and tensor valued fields.
 
-        assert(cellwise_field, np.ndarray)
+        assert (cellwise_field, np.ndarray)
         # Case 1: Scalar valued fields.
         if len(cellwise_field.shape) == 1:
             t_cf_val = cellwise_field[ci]
             t_cf_val /= dist_face_cell
 
         # Case 2: Tensor valued fields.
-        elif (len(cellwise_field.shape) == 3 and all([cellwise_field.shape[i] == 3 for i in range(0,2)])):
+        elif len(cellwise_field.shape) == 3 and all(
+            [cellwise_field.shape[i] == 3 for i in range(0, 2)]
+        ):
             t_cf_tensor_val = cellwise_field[::, ::, ci]
             tn_cf_val = (t_cf_tensor_val * fc_cc).sum(axis=1)
             ntn_cf_val = (tn_cf_val * fc_cc).sum(axis=0)
@@ -623,6 +669,8 @@ class HarmAvgAd(ApplicableOperator):
             raise RuntimeError("Type of cell-wise field not supported.")
 
         # The final harmonic averaging using a linear operator representation of bincount.
-        t_face = (self.bincount_fi_periodic * dist_face_cell) / (self.bincount_fi_periodic * t_cf_val ** (-1))
+        t_face = (self.bincount_fi_periodic * dist_face_cell) / (
+            self.bincount_fi_periodic * t_cf_val ** (-1)
+        )
 
         return t_face
