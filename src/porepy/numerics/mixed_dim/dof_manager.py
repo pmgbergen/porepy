@@ -151,7 +151,7 @@ class DofManager:
             return self.full_dof[(g, var)]
 
     def distribute_variable(
-        self, values: np.ndarray, variable_names: Optional[List[str]] = None
+        self, values: np.ndarray, variable_names: Optional[List[str]] = None, additive:bool=False
     ) -> None:
         """Distribute a vector to the nodes and edges in the GridBucket.
 
@@ -165,6 +165,8 @@ class DofManager:
             variable_names (list of str, optional): Names of the variable to be
                 distributed. If not provided, all variables found in block_dof
                 will be distributed
+            additive (bool, optional): If True, the variables are added to the current
+                state, instead of overwrite the existing value.
 
         """
         if variable_names is None:
@@ -187,8 +189,13 @@ class DofManager:
                     data = self.gb.node_props(g)
 
                 if pp.STATE in data.keys():
-                    data[pp.STATE][var_name] = values[dof[bi] : dof[bi + 1]]
+                    vals = values[dof[bi] : dof[bi + 1]]
+                    if additive:
+                        vals += data[pp.STATE][var_name]
+
+                    data[pp.STATE][var_name] = vals
                 else:
+                    # If no values exist, there is othing to add to
                     data[pp.STATE] = {var_name: values[dof[bi] : dof[bi + 1]]}
 
 
