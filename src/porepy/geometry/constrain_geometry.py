@@ -6,7 +6,10 @@ import numpy as np
 
 import porepy as pp
 
+module_sections = ["geometry"]
 
+
+@pp.time_logger(sections=module_sections)
 def lines_by_polygon(poly_pts, pts, edges):
     """
     Compute the intersections between a polygon (also not convex) and a set of lines.
@@ -77,11 +80,12 @@ def lines_by_polygon(poly_pts, pts, edges):
         int_edges = np.vstack((int_edges, edges[2:, edges_kept]))
     else:
         # If no edges are kept, return an empty array with the right dimensions
-        int_edges = np.empty((edges.shape[0], 0), dtype=np.int)
+        int_edges = np.empty((edges.shape[0], 0), dtype=int)
 
-    return int_pts, int_edges, np.array(edges_kept, dtype=np.int)
+    return int_pts, int_edges, np.array(edges_kept, dtype=int)
 
 
+@pp.time_logger(sections=module_sections)
 def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
     """Constrain a seort of polygons in 3d to lie inside a, generally non-convex, polyhedron.
 
@@ -214,7 +218,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
 
         # First, count the number of times a segment of the polygon is associated with
         # an intersection point
-        count_boundary_segment = np.zeros(num_vert, dtype=np.int)
+        count_boundary_segment = np.zeros(num_vert, dtype=int)
         for isect in seg_vert:
             # Only consider segment intersections, not interior (len==0), and vertexes
             if len(isect) > 0 and isect[1]:
@@ -244,13 +248,13 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         segments_interior_boundary = []
 
         # Check if individual vertexs are on the boundary
-        vertex_on_boundary = np.zeros(num_vert, np.bool)
+        vertex_on_boundary = np.zeros(num_vert, bool)
         for isect in seg_vert:
             if len(isect) > 0 and not isect[1]:
                 vertex_on_boundary[isect[0]] = 1
 
         # Storage of the intersections associated with each segment of the original polygon
-        isects_of_segment = np.zeros(num_vert, np.object)
+        isects_of_segment = np.zeros(num_vert, object)
         for i in range(num_vert):
             isects_of_segment[i] = []
 
@@ -287,12 +291,14 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         # For all original segments that have intersection points (or vertex) on a
         # polyhedron boundary, find all points along the segment (original endpoints
         # and intersection points. Find out which of these sub-segments are inside and
-        # outside the polyhedron, remove exterior parts
+        # outside the polyhedron, remove exterior parts.
+        # FIXME: The above is not correct in the case where a polygon segment lies
+        # in the plane of several parallel boundary surfaces.
         for seg_ind in range(num_vert):
             if len(isects_of_segment[seg_ind]) == 0:
                 continue
             # Index and coordinate of intersection points on this segment
-            loc_isect_ind = np.asarray(isects_of_segment[seg_ind], dtype=np.int).ravel()
+            loc_isect_ind = np.asarray(isects_of_segment[seg_ind], dtype=int).ravel()
 
             # Consider unique intersection points; there may be repititions in cases
             # where the polyhedron has multiple parallel sides.
@@ -337,7 +343,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                 [i for i in segments_interior_boundary]
             ).T
         else:
-            segments_interior_boundary = np.zeros((2, 0), dtype=np.int)
+            segments_interior_boundary = np.zeros((2, 0), dtype=int)
 
         # At this stage, we have identified all segments, possibly with duplicates.
         # Next task is to arrive at a unique representation of the segments.
@@ -398,7 +404,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                 coords_centered = unique_coords - center
                 R = pp.map_geometry.project_plane_matrix(coords_centered)
                 pt = R.dot(coords_centered)[:2]
-                _, el = pp.intersections.split_intersecting_segments_2d(pt, el, tol)
+                _, el, _ = pp.intersections.split_intersecting_segments_2d(pt, el, tol)
 
             if np.any(count == 1):
                 # There should be exactly two loose ends, if not, this is really
@@ -443,6 +449,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
     return constrained_polygons, np.array(orig_poly_ind)
 
 
+@pp.time_logger(sections=module_sections)
 def snap_points_to_segments(p_edges, edges, tol, p_to_snap=None):
     """
     Snap points in the proximity of lines to the lines.

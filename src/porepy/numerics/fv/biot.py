@@ -34,6 +34,8 @@ from porepy.numerics.discretization import Discretization
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
+module_sections = ["numerics", "disrcetization"]
+
 
 class Biot(pp.Mpsa):
     """Discretization class for poro-elasticity, based on MPSA.
@@ -65,6 +67,7 @@ class Biot(pp.Mpsa):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(
         self,
         mechanics_keyword: str = "mechanics",
@@ -99,6 +102,7 @@ class Biot(pp.Mpsa):
 
         self.mass_matrix_key = "mass"
 
+    @pp.time_logger(sections=module_sections)
     def ndof(self, g: pp.Grid) -> int:
         """Return the number of degrees of freedom associated wiht the method.
 
@@ -114,6 +118,7 @@ class Biot(pp.Mpsa):
         """
         return g.num_cells * (1 + g.dim)
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self, g: pp.Grid, data: Dict
     ) -> Tuple[sps.spmatrix, np.ndarray]:
@@ -125,10 +130,11 @@ class Biot(pp.Mpsa):
 
         """
         raise NotImplementedError(
-            """This class cannot be used for assembly. 
+            """This class cannot be used for assembly.
     Use the ContactMechanicsBiot class instead."""
         )
 
+    @pp.time_logger(sections=module_sections)
     def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
         """Return the right hand side for a poro-elastic system.
 
@@ -138,10 +144,11 @@ class Biot(pp.Mpsa):
 
         """
         raise NotImplementedError(
-            """This class cannot be used for assembly. 
+            """This class cannot be used for assembly.
     Use the ContactMechanicsBiot class instead."""
         )
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.spmatrix:
         """Assemble the poro-elastic system matrix.
 
@@ -158,10 +165,11 @@ class Biot(pp.Mpsa):
 
         """
         raise NotImplementedError(
-            """This class cannot be used for assembly. 
+            """This class cannot be used for assembly.
     Use the ContactMechanicsBiot class instead."""
         )
 
+    @pp.time_logger(sections=module_sections)
     def update_discretization(self, g, data):
         """Update discretization.
 
@@ -179,6 +187,7 @@ class Biot(pp.Mpsa):
 
             modified_cells, modified_faces
 
+        @pp.time_logger(sections=module_sections)
         define cells, faces and nodes that have been modified (either parameters,
         geometry or topology), and should be rediscretized. It is up to the
         discretization method to implement the change necessary by this modification.
@@ -203,8 +212,8 @@ class Biot(pp.Mpsa):
         # is technical). If no updates, we short cut the method
         update_info = data["update_discretization"]
         # By default, neither cells nor faces have been updated
-        update_cells = update_info.get("modified_cells", np.array([], dtype=np.int))
-        update_faces = update_info.get("modified_faces", np.array([], dtype=np.int))
+        update_cells = update_info.get("modified_cells", np.array([], dtype=int))
+        update_faces = update_info.get("modified_faces", np.array([], dtype=int))
 
         if update_cells.size == 0 and update_faces.size == 0:
             return
@@ -296,7 +305,6 @@ class Biot(pp.Mpsa):
                     Used in mpsa.
 
         In addition, the following parameters are optional:
-
             Related to coupling terms:
                 biot_alpha (double between 0 and 1): Biot's coefficient.
                     Defaults to 1.
@@ -537,7 +545,7 @@ class Biot(pp.Mpsa):
         # general combinations of specified cells, nodes and faces.
         tmp = g.cell_faces.transpose()
         tmp.data = np.abs(tmp.data)
-        af_vec = np.zeros(g.num_faces, dtype=np.bool)
+        af_vec = np.zeros(g.num_faces, dtype=bool)
         af_vec[active_faces] = 1
         update_cell_ind = np.where(tmp * af_vec)[0]
         eliminate_cells = np.setdiff1d(np.arange(g.num_cells), update_cell_ind)
@@ -587,6 +595,7 @@ class Biot(pp.Mpsa):
             matrices_f[self.bound_div_u_matrix_key] = bound_div_u
             matrices_f[self.stabilization_matrix_key] = stabilization
 
+    @pp.time_logger(sections=module_sections)
     def _local_discretization(
         self,
         g: pp.Grid,
@@ -730,6 +739,7 @@ class Biot(pp.Mpsa):
 
         # Add discretizations to data
 
+    @pp.time_logger(sections=module_sections)
     def _create_rhs_grad_p(
         self,
         g: pp.Grid,
@@ -820,6 +830,7 @@ class Biot(pp.Mpsa):
         # convenience method for reshaping nAlpha from face-based
         # to component-based. This is to build a block diagonal sparse matrix
         # compatible with igrad * rhs_units, that is first all x-component, then y, and z
+        @pp.time_logger(sections=module_sections)
         def map_tensor(mat, nd, ind):
             newmat = mat[:, ind[0]]
 
@@ -838,6 +849,7 @@ class Biot(pp.Mpsa):
         # The pressure term in the tractions continuity equation is discretized
         # as a force on the faces. The right hand side is thus formed of the
         # unit vector.
+        @pp.time_logger(sections=module_sections)
         def build_rhs_units_single_dimension(dim):
             # EK: Can we skip argument dim?
             vals = np.ones(num_subfno_unique)
@@ -932,6 +944,7 @@ class Biot(pp.Mpsa):
 
         return rhs_jumps, grad_p_face
 
+    @pp.time_logger(sections=module_sections)
     def _face_vector_to_scalar(self, nf: int, nd: int) -> sps.coo_matrix:
         """Create a mapping from vector quantities on faces (stresses) to scalar
         quantities. The mapping is intended for the boundary discretization of the
@@ -946,6 +959,7 @@ class Biot(pp.Mpsa):
         vals = np.ones(nf * nd)
         return sps.coo_matrix((vals, (rows, cols))).tocsr()
 
+    @pp.time_logger(sections=module_sections)
     def _subcell_gradient_to_cell_scalar(
         self, g: pp.Grid, cell_node_blocks: np.ndarray
     ) -> sps.spmatrix:
@@ -990,6 +1004,7 @@ class Biot(pp.Mpsa):
         return div
 
     # ----------------------- Methods for post processing -------------------------
+    @pp.time_logger(sections=module_sections)
     def extract_vector(self, g, u, dims=None, as_vector=False):
         """Extract displacement field from solution.
 
@@ -1018,6 +1033,7 @@ class Biot(pp.Mpsa):
         else:
             return vals
 
+    @pp.time_logger(sections=module_sections)
     def extract_scalar(self, g, u):
         """Extract pressure field from solution.
 
@@ -1032,6 +1048,7 @@ class Biot(pp.Mpsa):
         """
         return u[g.dim * g.num_cells :]
 
+    @pp.time_logger(sections=module_sections)
     def compute_flux(self, g, u, data):
         """Compute flux field corresponding to a solution.
 
@@ -1054,6 +1071,7 @@ class Biot(pp.Mpsa):
         flux = flux_discr * p + bound_flux * bound_val
         return flux
 
+    @pp.time_logger(sections=module_sections)
     def compute_stress(self, g, u, data):
         """Compute stress field corresponding to a solution.
 
@@ -1082,6 +1100,7 @@ class Biot(pp.Mpsa):
 class GradP(Discretization):
     """Class for the pressure gradient term of the Biot equation."""
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword):
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
@@ -1094,6 +1113,7 @@ class GradP(Discretization):
         # Use the same key to acces the discretization matrix as the Biot class.
         self.grad_p_matrix_key = Biot().grad_p_matrix_key
 
+    @pp.time_logger(sections=module_sections)
     def ndof(self, g):
         """Return the number of degrees of freedom associated to the method.
 
@@ -1110,6 +1130,7 @@ class GradP(Discretization):
         """
         return g.dim * g.num_cells
 
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g, data):
         """Discretize the pressure gradient term of the Biot equation.
 
@@ -1126,6 +1147,7 @@ class GradP(Discretization):
                                   class. See the Biot class."""
         )
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(self, g, data):
         """Return the matrix and right-hand side for a discretization of the pressure
         gradient term of the Biot equation.
@@ -1142,6 +1164,7 @@ class GradP(Discretization):
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix(self, g, data):
         """Return the matrix and right-hand side for a discretization of the pressure
         gradient term of the Biot equation.
@@ -1174,6 +1197,7 @@ class GradP(Discretization):
             grad_p = mat_dict[mat_key]
         return div_mech * grad_p
 
+    @pp.time_logger(sections=module_sections)
     def assemble_rhs(self, g, data):
         """Return the zero right-hand side for a discretization of the pressure
         gradient term.
@@ -1192,6 +1216,7 @@ class GradP(Discretization):
 class DivU(Discretization):
     """Class for the displacement divergence term of the Biot equation."""
 
+    @pp.time_logger(sections=module_sections)
     def __init__(
         self,
         mechanics_keyword="mechanics",
@@ -1221,6 +1246,7 @@ class DivU(Discretization):
         # Set the variable used for contact mechanics.
         self.mortar_variable = mortar_variable
 
+    @pp.time_logger(sections=module_sections)
     def ndof(self, g):
         """Return the number of degrees of freedom associated to the method.
 
@@ -1237,6 +1263,7 @@ class DivU(Discretization):
         """
         return g.num_cells
 
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g, data):
         """Discretize the displacement divergence term of the Biot equation.
 
@@ -1253,6 +1280,7 @@ class DivU(Discretization):
                                   class. See the Biot class."""
         )
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(self, g, data):
         """Return the matrix and right-hand side for a discretization of the
         displacement divergence term of the Biot equation.
@@ -1269,6 +1297,7 @@ class DivU(Discretization):
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix(self, g, data):
         """Return the matrix and right-hand side for a discretization of the
         displacement divergence term of the Biot equation.
@@ -1296,6 +1325,7 @@ class DivU(Discretization):
         biot_alpha = data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
         return matrix_dictionary[mat_key] * biot_alpha
 
+    @pp.time_logger(sections=module_sections)
     def assemble_rhs(self, g, data):
         """Return the right-hand side for a discretization of the displacement
         divergence term.
@@ -1337,6 +1367,7 @@ class DivU(Discretization):
         rhs_time = np.squeeze(biot_alpha * div_u * d_cell)
         return rhs_bound + rhs_time
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_displacement_trace(
         self, g, data, data_edge, grid_swap, cc, matrix, rhs, self_ind
     ):
@@ -1396,6 +1427,7 @@ class DivU(Discretization):
         cc[self_ind, 2] += biot_alpha * bound_div_u * proj
         rhs[self_ind] += biot_alpha * bound_div_u * proj * u_bound_previous
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_displacement_source(
         self, g, data, data_edge, cc, matrix, rhs, self_ind
     ):
@@ -1478,6 +1510,7 @@ class DivU(Discretization):
 class BiotStabilization(Discretization):
     """Class for the stabilization term of the Biot equation."""
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword="mechanics", variable="pressure"):
         """Set the two keywords.
 
@@ -1507,6 +1540,7 @@ class BiotStabilization(Discretization):
         """
         return g.num_cells
 
+    @pp.time_logger(sections=module_sections)
     def discretize(self, g, data):
         """Discretize the stabilization term of the Biot equation.
 
@@ -1523,6 +1557,7 @@ class BiotStabilization(Discretization):
                                   class. See the Biot class."""
         )
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(self, g, data):
         """Return the matrix and right-hand side for a discretization of the
         stabilization term of the Biot equation.
@@ -1539,6 +1574,7 @@ class BiotStabilization(Discretization):
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix(self, g, data):
         """Return the matrix and right-hand side for a discretization of the
         stabilization term of the Biot equation.
@@ -1565,6 +1601,7 @@ class BiotStabilization(Discretization):
             )
         return matrix_dictionary[mat_key]
 
+    @pp.time_logger(sections=module_sections)
     def assemble_rhs(self, g, data):
         """Return the right-hand side for the stabilization part of the displacement
         divergence term.

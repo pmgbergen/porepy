@@ -12,7 +12,10 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+module_sections = ["numerics", "discretization", "assembly"]
 
+
+@pp.time_logger(sections=module_sections)
 def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
     """
     Save in the grid bucket a piece-wise vector representation of the flux
@@ -68,6 +71,7 @@ class DualElliptic(
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword: str, name: str) -> None:
 
         # Identify which parameters to use:
@@ -84,6 +88,7 @@ class DualElliptic(
         # Discretization of vector source terms (gravity)
         self.vector_source_key = "vector_source"
 
+    @pp.time_logger(sections=module_sections)
     def ndof(self, g: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method.
 
@@ -106,6 +111,7 @@ class DualElliptic(
         else:
             raise ValueError
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self, g: pp.Grid, data: Dict
     ) -> Tuple[sps.csr_matrix, np.ndarray]:
@@ -135,6 +141,7 @@ class DualElliptic(
         # Assemble right hand side term
         return M, self.assemble_rhs(g, data, bc_weight)
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.csr_matrix:
         """Assemble matrix from an existing discretization."""
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
@@ -143,9 +150,10 @@ class DualElliptic(
         div = matrix_dictionary[self.div_matrix_key]
         return sps.bmat([[mass, div.T], [div, None]], format="csr")
 
+    @pp.time_logger(sections=module_sections)
     def assemble_neumann_robin(
         self, g: pp.Grid, data: Dict, M, bc_weight: np.ndarray = None
-    ) -> Tuple[sps.csr_matrix, np.ndarray]:
+    ) -> Tuple[sps.csr_matrix, int]:
         """Impose Neumann and Robin boundary discretization on an already assembled
         system matrix.
         """
@@ -192,6 +200,7 @@ class DualElliptic(
 
         return M, norm
 
+    @pp.time_logger(sections=module_sections)
     def assemble_rhs(
         self, g: pp.Grid, data: Dict, bc_weight: float = 1.0
     ) -> np.ndarray:
@@ -265,6 +274,7 @@ class DualElliptic(
 
         return rhs
 
+    @pp.time_logger(sections=module_sections)
     def project_flux(self, g: pp.Grid, u: np.ndarray, data: Dict) -> np.ndarray:
         """Project the velocity computed with a dual solver to obtain a
         piecewise constant vector field, one triplet for each cell.
@@ -301,6 +311,7 @@ class DualElliptic(
 
         return proj_u.reshape((3, -1), order="F")
 
+    @pp.time_logger(sections=module_sections)
     def _assemble_neumann_common(
         self,
         g: pp.Grid,
@@ -329,7 +340,7 @@ class DualElliptic(
         # is_dir.
         is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
         if bc and np.any(is_neu):
-            is_neu = np.hstack((is_neu, np.zeros(g.num_cells, dtype=np.bool)))
+            is_neu = np.hstack((is_neu, np.zeros(g.num_cells, dtype=bool)))
             is_neu = np.where(is_neu)[0]
 
             # set in an efficient way the essential boundary conditions, by
@@ -344,6 +355,7 @@ class DualElliptic(
         return M, norm
 
     @staticmethod
+    @pp.time_logger(sections=module_sections)
     def _velocity_dof(
         g: pp.Grid, mg: pp.MortarGrid, hat_E_int: sps.csc_matrix
     ) -> sps.csr_matrix:
@@ -361,6 +373,7 @@ class DualElliptic(
         hat_E_int = sps.bmat([[U * hat_E_int], [sps.csr_matrix(shape)]])
         return hat_E_int
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_flux(
         self,
         g: pp.Grid,
@@ -414,6 +427,7 @@ class DualElliptic(
         hat_E_int = self._velocity_dof(g, mg, proj)
         cc[self_ind, 2] += matrix[self_ind, self_ind] * hat_E_int
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_source(
         self,
         g: pp.Grid,
@@ -461,6 +475,7 @@ class DualElliptic(
         shape = (g.num_faces, A.shape[1])
         cc[self_ind, 2] += sps.bmat([[sps.csr_matrix(shape)], [A]])
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace(
         self,
         g: pp.Grid,
@@ -471,6 +486,8 @@ class DualElliptic(
         rhs: np.ndarray,
         self_ind: int,
         use_secondary_proj: bool = False,
+        assemble_matrix=True,
+        assemble_rhs=True,
     ) -> None:
         """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -515,6 +532,7 @@ class DualElliptic(
         cc[2, self_ind] -= hat_E_int.T * matrix[self_ind, self_ind]
         cc[2, 2] -= hat_E_int.T * matrix[self_ind, self_ind] * hat_E_int
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace_rhs(
         self, g, data, data_edge, cc, rhs, self_ind, use_secondary_proj=False
     ):
@@ -546,6 +564,7 @@ class DualElliptic(
         # Nothing to do here.
         pass
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace_between_interfaces(
         self,
         g: pp.Grid,
@@ -582,6 +601,7 @@ class DualElliptic(
         """
         pass
 
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_cell(
         self,
         g: pp.Grid,
@@ -632,6 +652,7 @@ class DualElliptic(
 
         cc[2, self_ind] -= sps.bmat([[sps.csr_matrix(shape)], [A]]).T
 
+    @pp.time_logger(sections=module_sections)
     def enforce_neumann_int_bound(
         self, g: pp.Grid, data_edge: Dict, matrix: np.ndarray, self_ind: int
     ) -> None:
@@ -653,7 +674,7 @@ class DualElliptic(
 
         hat_E_int = self._velocity_dof(g, mg, mg.mortar_to_primary_int())
 
-        dof = np.where(hat_E_int.sum(axis=1).A.astype(np.bool))[0]
+        dof = np.where(hat_E_int.sum(axis=1).A.astype(bool))[0]
         norm = np.linalg.norm(matrix[self_ind, self_ind].diagonal(), np.inf)
 
         for row in dof:
@@ -669,6 +690,7 @@ class DualElliptic(
         d[dof] = norm
         matrix[self_ind, self_ind].setdiag(d)
 
+    @pp.time_logger(sections=module_sections)
     def extract_flux(
         self, g: pp.Grid, solution_array: np.ndarray, data: Dict
     ) -> np.ndarray:
@@ -691,6 +713,7 @@ class DualElliptic(
         # pylint: disable=invalid-name
         return solution_array[: g.num_faces]
 
+    @pp.time_logger(sections=module_sections)
     def extract_pressure(
         self, g: pp.Grid, solution_array: np.ndarray, data: Dict
     ) -> np.ndarray:
@@ -714,6 +737,7 @@ class DualElliptic(
         return solution_array[g.num_faces :]
 
     @staticmethod
+    @pp.time_logger(sections=module_sections)
     def _inv_matrix_1d(K: np.ndarray) -> np.ndarray:
         """Explicit inversion of a matrix 1x1.
 
@@ -728,6 +752,7 @@ class DualElliptic(
         return np.array([[1.0 / K[0, 0]]])
 
     @staticmethod
+    @pp.time_logger(sections=module_sections)
     def _inv_matrix_2d(K: np.ndarray) -> np.ndarray:
         """Explicit inversion of a symmetric matrix 2x2.
 
@@ -743,6 +768,7 @@ class DualElliptic(
         return np.array([[K[1, 1], -K[0, 1]], [-K[0, 1], K[0, 0]]]) / det
 
     @staticmethod
+    @pp.time_logger(sections=module_sections)
     def _inv_matrix_3d(K: np.ndarray) -> np.ndarray:
         """Explicit inversion of a symmetric matrix 3x3.
 

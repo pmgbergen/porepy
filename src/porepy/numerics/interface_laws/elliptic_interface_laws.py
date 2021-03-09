@@ -14,6 +14,8 @@ import scipy.sparse as sps
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
 
+module_sections = ["numerics"]
+
 
 class RobinCoupling(
     porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
@@ -186,15 +188,15 @@ class RobinCoupling(
         # We know that the ambient dimension for the vector source must be at least as
         # high as g_h, thus taking the first vector_source_dim components of the normal
         # vector should be fine.
-        vals = outwards_unit_mortar_normals[:vector_source_dim].ravel("f")
+        vals = outwards_unit_mortar_normals[:vector_source_dim].ravel("F")
 
         # The values in vals are sorted by the mortar cell index ordering (proj is a
         # csr matrix).
-        ci_mortar = np.arange(mg.num_cells, dtype=np.int)
+        ci_mortar = np.arange(mg.num_cells, dtype=int)
 
         # The mortar cell indices are expanded to account for the vector source
         # having multiple dimensions
-        rows = np.tile(ci_mortar, (vector_source_dim, 1)).ravel("f")
+        rows = np.tile(ci_mortar, (vector_source_dim, 1)).ravel("F")
         # Columns must account for the values being vector values.
         cols = pp.fvutils.expand_indices_nd(ci_mortar, vector_source_dim)
 
@@ -220,6 +222,76 @@ class RobinCoupling(
                 mg.cell_volumes * kn
             )
 
+    def assemble_matrix(
+        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
+    ):
+        """Assemble the dicretization of the interface law, and its impact on
+        the neighboring domains. Assemble only matrix, not rhs terms.
+
+        Parameters:
+            g_primary: Grid on one neighboring subdomain.
+            g_secondary: Grid on the other neighboring subdomain.
+            data_primary: Data dictionary for the primary suddomain
+            data_secondary: Data dictionary for the secondary subdomain.
+            data_edge: Data dictionary for the edge between the subdomains.
+                If gravity is taken into consideration, the parameter sub-
+                dictionary should contain something like a/2 * g, where
+                g is the ambient_dimension x n_mortar_cells gravity vector
+                as used in Starnoni et al 2020, typically with
+                    g[ambient_dimension]= -G * rho.
+            matrix: original discretization
+
+            The discretization matrices must be included since they will be
+            changed by the imposition of Neumann boundary conditions on the
+            internal boundary in some numerical methods (Read: VEM, RT0)
+
+        """
+
+        return self._assemble(
+            g_primary,
+            g_secondary,
+            data_primary,
+            data_secondary,
+            data_edge,
+            matrix,
+            assemble_rhs=False,
+        )
+
+    def assemble_rhs(
+        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
+    ):
+        """Assemble the dicretization of the interface law, and its impact on
+        the neighboring domains. Assemble only rhs terms, not the discretization.
+
+        Parameters:
+            g_primary: Grid on one neighboring subdomain.
+            g_secondary: Grid on the other neighboring subdomain.
+            data_primary: Data dictionary for the primary suddomain
+            data_secondary: Data dictionary for the secondary subdomain.
+            data_edge: Data dictionary for the edge between the subdomains.
+                If gravity is taken into consideration, the parameter sub-
+                dictionary should contain something like a/2 * g, where
+                g is the ambient_dimension x n_mortar_cells gravity vector
+                as used in Starnoni et al 2020, typically with
+                    g[ambient_dimension]= -G * rho.
+            matrix: original discretization
+
+            The discretization matrices must be included since they will be
+            changed by the imposition of Neumann boundary conditions on the
+            internal boundary in some numerical methods (Read: VEM, RT0)
+
+        """
+        return self._assemble(
+            g_primary,
+            g_secondary,
+            data_primary,
+            data_secondary,
+            data_edge,
+            matrix,
+            assemble_matrix=False,
+        )
+
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self,
         g_primary: pp.Grid,
@@ -248,74 +320,137 @@ class RobinCoupling(
             The discretization matrices must be included since they will be
             changed by the imposition of Neumann boundary conditions on the
             internal boundary in some numerical methods (Read: VEM, RT0)
-
         """
+        return self._assemble(
+            g_primary,
+            g_secondary,
+            data_primary,
+            data_secondary,
+            data_edge,
+            matrix,
+        )
+
+    def _assemble(
+        self,
+        g_primary,
+        g_secondary,
+        data_primary,
+        data_secondary,
+        data_edge,
+        matrix,
+        assemble_matrix=True,
+        assemble_rhs=True,
+    ):
+        """Actual implementation of assembly. May skip matrix and rhs if specified."""
+
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
         mg = data_edge["mortar_grid"]
 
         primary_ind = 0
         secondary_ind = 1
-        assert self.discr_primary is not None and self.discr_secondary is not None
 
-        cc, rhs = self._define_local_block_matrix(
-            g_primary, g_secondary, self.discr_primary, self.discr_secondary, mg, matrix
-        )
+        if assemble_rhs and not assemble_matrix:
+            # We need not make the cc matrix to assemble local matrix contributions
+            rhs = self._define_local_block_matrix(
+                g_primary,
+                g_secondary,
+                self.discr_primary,
+                self.discr_secondary,
+                mg,
+                matrix,
+                create_matrix=False,
+            )
+            # We will occationally need the variable cc, but it need not have a value
+            cc = None
+        else:
+            cc, rhs = self._define_local_block_matrix(
+                g_primary,
+                g_secondary,
+                self.discr_primary,
+                self.discr_secondary,
+                mg,
+                matrix,
+            )
 
         # The convention, for now, is to put the higher dimensional information
         # in the first column and row in matrix, lower-dimensional in the second
         # and mortar variables in the third
-        cc[2, 2] = matrix_dictionary_edge[self.mortar_discr_matrix_key]
+        if assemble_matrix:
+            cc[2, 2] = matrix_dictionary_edge[self.mortar_discr_matrix_key]
 
+        # Assembly of contribution from boundary pressure must be called even if only
+        # matrix or rhs must be assembled.
         self.discr_primary.assemble_int_bound_pressure_trace(
-            g_primary, data_primary, data_edge, cc, matrix, rhs, primary_ind
-        )
-        self.discr_primary.assemble_int_bound_flux(
-            g_primary, data_primary, data_edge, cc, matrix, rhs, primary_ind
+            g_primary,
+            data_primary,
+            data_edge,
+            cc,
+            matrix,
+            rhs,
+            primary_ind,
+            assemble_matrix=assemble_matrix,
+            assemble_rhs=assemble_rhs,
         )
 
-        self.discr_secondary.assemble_int_bound_pressure_cell(
-            g_secondary, data_secondary, data_edge, cc, matrix, rhs, secondary_ind
-        )
-        self.discr_secondary.assemble_int_bound_source(
-            g_secondary, data_secondary, data_edge, cc, matrix, rhs, secondary_ind
-        )
-        # Also assemble vector sources.
-        # Discretization of the vector source term
-        vector_source_discr: sps.spmatrix = matrix_dictionary_edge[
-            self.mortar_vector_source_matrix_key
-        ]
-        # The vector source, defaults to zero if not specified.
-        vector_source: np.ndarray = parameter_dictionary_edge.get(
-            "vector_source", np.zeros(vector_source_discr.shape[1])
-        )
-        if vector_source_discr.shape[1] != vector_source.size:
-            # If this happens chances are that either the ambient dimension was not set,
-            # and thereby its default value was used. Another not unlikely reason is
-            # that the ambient dimension is set, but with a value that does not match
-            # the specified vector source.
-            raise ValueError(
-                """Mismatch in vector source dimensions.
-                Did you forget to specify the ambient dimension?"""
+        if assemble_matrix:
+            # Calls only for matrix assembly
+            self.discr_primary.assemble_int_bound_flux(
+                g_primary, data_primary, data_edge, cc, matrix, rhs, primary_ind
+            )
+            self.discr_secondary.assemble_int_bound_pressure_cell(
+                g_secondary, data_secondary, data_edge, cc, matrix, rhs, secondary_ind
+            )
+            self.discr_secondary.assemble_int_bound_source(
+                g_secondary, data_secondary, data_edge, cc, matrix, rhs, secondary_ind
             )
 
-        rhs[2] = rhs[2] - vector_source_discr * vector_source
+        if assemble_rhs:
+            # Calls only for rhs assembly
+            if "vector_source" in parameter_dictionary_edge:
+                # Also assemble vector sources.
+                # Discretization of the vector source term
+                vector_source_discr: sps.spmatrix = matrix_dictionary_edge[
+                    self.mortar_vector_source_matrix_key
+                ]
+                # The vector source, defaults to zero if not specified.
+                vector_source: np.ndarray = parameter_dictionary_edge.get(
+                    "vector_source"
+                )
+                if vector_source_discr.shape[1] != vector_source.size:
+                    # If this happens chances are that either the ambient dimension was not set
+                    # and thereby its default value was used. Another not unlikely reason is
+                    # that the ambient dimension is set, but with a value that does not match
+                    # the specified vector source.
+                    raise ValueError(
+                        """Mismatch in vector source dimensions.
+                        Did you forget to specify the ambient dimension?"""
+                    )
 
-        for block in range(cc.shape[1]):
-            # Scale the pressure blocks in the mortar problem
-            cc[2, block] = (
-                matrix_dictionary_edge[self.mortar_scaling_matrix_key] * cc[2, block]
+                rhs[2] = rhs[2] - vector_source_discr * vector_source
+
+            rhs[2] = matrix_dictionary_edge[self.mortar_scaling_matrix_key] * rhs[2]
+
+        if assemble_matrix:
+            for block in range(cc.shape[1]):
+                # Scale the pressure blocks in the mortar problem
+                cc[2, block] = (
+                    matrix_dictionary_edge[self.mortar_scaling_matrix_key] * cc[2, block]
+                )
+            matrix += cc
+
+            self.discr_primary.enforce_neumann_int_bound(
+                g_primary, data_edge, matrix, primary_ind
             )
-        rhs[2] = matrix_dictionary_edge[self.mortar_scaling_matrix_key] * rhs[2]
 
-        matrix += cc
+        if not assemble_matrix:
+            return rhs
+        elif not assemble_rhs:
+            return matrix
+        else:
+            return matrix, rhs
 
-        self.discr_primary.enforce_neumann_int_bound(
-            g_primary, data_edge, matrix, primary_ind
-        )
-
-        return matrix, rhs
-
+    @pp.time_logger(sections=module_sections)
     def assemble_edge_coupling_via_high_dim(
         self,
         g: pp.Grid,
@@ -325,6 +460,8 @@ class RobinCoupling(
         edge_secondary: Tuple[pp.Grid, pp.Grid],
         data_secondary_edge: Dict,
         matrix,
+        assemble_matrix=True,
+        assemble_rhs=True,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Represent the impact on a primary interface of the mortar (thus boundary)
         flux on a secondary interface.
@@ -352,39 +489,57 @@ class RobinCoupling(
 
         assert self.discr_primary is not None and self.discr_secondary is not None
 
-        # Normally, the projections will be pressure from the primary (high-dim node)
-        # to the primary mortar, and flux from secondary mortar to primary
-        proj_pressure = mg_primary.primary_to_mortar_avg()
-        proj_flux = mg_secondary.mortar_to_primary_int()
-
-        # If the primary and / or secondary mortar is a boundary mortar grid, things
-        # become more complex. This probably assumes that a FluxPressureContinuity
-        # discretization is applied on the relevant mortar grid.
-        if edge_primary[0].dim == edge_primary[1].dim and edge_primary[0] == g:
-            proj_pressure = mg_primary.secondary_to_mortar_avg()
-        if edge_secondary[0].dim == edge_secondary[1].dim and edge_secondary[0] == g:
-            proj_flux = mg_secondary.mortar_to_secondary_int()
-
-        cc, rhs = self._define_local_block_matrix_edge_coupling(
-            g, self.discr_primary, mg_primary, mg_secondary, matrix
-        )
-
-        # Assemble contribution between higher dimensions.
-        self.discr_primary.assemble_int_bound_pressure_trace_between_interfaces(
-            g, data_grid, proj_pressure, proj_flux, cc, matrix, rhs
-        )
-        # Scale the equations (this will modify from K^-1 to K scaling if relevant)
-        matrix_dictionary_edge: Dict[str, sps.spmatrix] = data_primary_edge[
-            pp.DISCRETIZATION_MATRICES
-        ][self.keyword]
-        for block in range(cc.shape[1]):
-            # Scale the pressure blocks in the row of the primary mortar problem.
-            # The secondary mortar will be treated somewhere else (handled by the
-            # assembler).
-            cc[1, block] = (
-                matrix_dictionary_edge[self.mortar_scaling_matrix_key] * cc[1, block]
+        if assemble_matrix:
+            cc, rhs = self._define_local_block_matrix_edge_coupling(
+                g, self.discr_primary, mg_primary, mg_secondary, matrix
             )
-        rhs[1] = matrix_dictionary_edge[self.mortar_scaling_matrix_key] * rhs[1]
+        else:
+            rhs = self._define_local_block_matrix_edge_coupling(
+                g,
+                self.discr_primary,
+                mg_primary,
+                mg_secondary,
+                matrix,
+                create_matrix=False,
+            )
+
+        matrix_dictionary_edge = data_primary_edge[pp.DISCRETIZATION_MATRICES][
+            self.keyword
+        ]
+
+        if assemble_matrix:
+            # Normally, the projections will be pressure from the primary (high-dim node)
+            # to the primary mortar, and flux from secondary mortar to primary
+            proj_pressure = mg_primary.primary_to_mortar_avg()
+            proj_flux = mg_secondary.mortar_to_primary_int()
+
+            # If the primary and / or secondary mortar is a boundary mortar grid, things
+            # become more complex. This probably assumes that a FluxPressureContinuity
+            # discretization is applied on the relevant mortar grid.
+            if edge_primary[0].dim == edge_primary[1].dim and edge_primary[0] == g:
+                proj_pressure = mg_primary.secondary_to_mortar_avg()
+            if (
+                edge_secondary[0].dim == edge_secondary[1].dim
+                and edge_secondary[0] == g
+            ):
+                proj_flux = mg_secondary.mortar_to_secondary_int()
+            # Assemble contribution between higher dimensions.
+            self.discr_primary.assemble_int_bound_pressure_trace_between_interfaces(
+                g, data_grid, proj_pressure, proj_flux, cc, matrix, rhs
+            )
+            # Scale the equations (this will modify from K^-1 to K scaling if relevant)
+            for block in range(cc.shape[1]):
+                # Scale the pressure blocks in the row of the primary mortar problem.
+                # The secondary mortar will be treated somewhere else (handled by the
+                # assembler).
+                cc[1, block] = (
+                    matrix_dictionary_edge[self.mortar_scaling_matrix_key] * cc[1, block]
+                )
+        else:
+            cc = None
+
+        if assemble_rhs:
+            rhs[1] = matrix_dictionary_edge[self.mortar_scaling_matrix_key] * rhs[1]
 
         return cc, rhs
 
@@ -443,6 +598,7 @@ class FluxPressureContinuity(RobinCoupling):
         """
         pass
 
+    @pp.time_logger(sections=module_sections)
     def assemble_rhs(
         self,
         g_primary: pp.Grid,
@@ -475,12 +631,17 @@ class FluxPressureContinuity(RobinCoupling):
         # Generate matrix for the coupling.
         mg: pp.MortarGrid = data_edge["mortar_grid"]
 
-        cc_primary, rhs_primary = self._define_local_block_matrix(
-            g_primary, g_secondary, self.discr_primary, self.discr_secondary, mg, matrix  # type: ignore
-        )
-        # I got some problems with pointers when doing rhs_primary = rhs_secondary.copy()
+        rhs_primary = self._define_local_block_matrix(
+            g_primary,
+            g_secondary,
+            self.discr_primary,
+            self.discr_secondary,
+            mg,
+            matrix,
+            create_matrix=False,
+            )
         # so just reconstruct everything.
-        rhs_secondary = np.empty(3, dtype=np.object)
+        rhs_secondary = np.empty(3, dtype=object)
         rhs_secondary[primary_ind] = np.zeros_like(rhs_primary[primary_ind])
         rhs_secondary[secondary_ind] = np.zeros_like(rhs_primary[secondary_ind])
         rhs_secondary[2] = np.zeros_like(rhs_primary[2])
@@ -506,6 +667,28 @@ class FluxPressureContinuity(RobinCoupling):
 
         return rhs
 
+    def assemble_matrix(
+        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
+    ):
+        """Assemble the dicretization of the interface law, and its impact on
+        the neighboring domains.
+
+        Parameters:
+            g_primary: Grid on one neighboring subdomain.
+            g_secondary: Grid on the other neighboring subdomain.
+            data_primary: Data dictionary for the primary suddomain
+            data_secondary: Data dictionary for the secondary subdomain.
+            data_edge: Data dictionary for the edge between the subdomains
+            matrix_primary: original discretization for the primary subdomain
+            matrix_secondary: original discretization for the secondary subdomain
+
+        """
+        A, _ = self.assemble_matrix_rhs(
+            g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
+        )
+        return A
+
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self,
         g_primary: pp.Grid,
@@ -540,7 +723,7 @@ class FluxPressureContinuity(RobinCoupling):
 
         # I got some problems with pointers when doing rhs_primary = rhs_secondary.copy()
         # so just reconstruct everything.
-        rhs_secondary = np.empty(3, dtype=np.object)
+        rhs_secondary = np.empty(3, dtype=object)
         rhs_secondary[primary_ind] = np.zeros_like(rhs_primary[primary_ind])
         rhs_secondary[secondary_ind] = np.zeros_like(rhs_primary[secondary_ind])
         rhs_secondary[2] = np.zeros_like(rhs_primary[2])

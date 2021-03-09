@@ -1,10 +1,14 @@
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
 from porepy.grids.grid import Grid
+
+module_sections = ["grids", "gridding"]
 
 
 class PointGrid(Grid):
+    @pp.time_logger(sections=module_sections)
     def __init__(self, pt: np.ndarray, name: str = None) -> None:
         """
         Constructor for 0D grid
@@ -29,8 +33,8 @@ class PointGrid(Grid):
 
         name = "PointGrid" if name is None else name
 
-        face_nodes = sps.identity(0, np.int, "csr")
-        cell_faces = sps.csr_matrix((0, pt.shape[1]), dtype=np.int)
+        face_nodes = sps.identity(0, int, "csr")
+        cell_faces = sps.csr_matrix((0, pt.shape[1]), dtype=int)
 
         nodes = np.zeros((3, 0))
         self.cell_centers = pt

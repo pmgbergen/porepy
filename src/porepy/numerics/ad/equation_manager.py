@@ -538,7 +538,6 @@ class EquationManager:
             num_global_dofs = self.dof_manager.num_dofs(
                 var=[v._name for v in variables]
             )
-
         for eq in self.equations:
 
             # Neglect equation if not explicilty asked for.
@@ -546,7 +545,6 @@ class EquationManager:
                 continue
 
             ad = eq.to_ad(self.gb, state, active_variables=variables)
-
             # The columns of the Jacobian has the size of the local variables.
             # Map these to the global ones
             local_dofs = eq.local_dofs(true_ad_variables=variables)
