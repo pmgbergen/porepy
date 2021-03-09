@@ -14,9 +14,9 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from .discretizations import _MergedOperator
 from . import operators
-from .forward_mode import initAdArrays, Ad_array
+from .discretizations import _MergedOperator
+from .forward_mode import Ad_array, initAdArrays
 from .local_forward_mode import Local_Ad_array
 
 __all__ = ["Expression", "EquationManager"]

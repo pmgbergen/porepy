@@ -1,14 +1,14 @@
 """
 
 """
-from typing import Dict, Union, Tuple, Optional
-import scipy.sparse as sps
+from typing import Dict, Optional, Tuple, Union
+
 import numpy as np
-
-from .operators import Operator
-
+import scipy.sparse as sps
 
 import porepy as pp
+
+from .operators import Operator
 
 __all__ = [
     "Discretization",
