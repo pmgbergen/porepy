@@ -48,7 +48,7 @@ class Expression:
         self,
         operator: operators.Operator,
         dof_manager: pp.DofManager,
-        name: str = None,
+        name: str = "",
         grid_order: Optional[List[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]]] = None,
     ):
         """Define an Equation.
@@ -119,10 +119,6 @@ class Expression:
 
         self._identify_discretizations()
 
-        # Storage for matrices; will likely be removed (moved to the individual
-        # operators).
-        self._stored_matrices = {}
-
     # TODO why is this called local? and not global?
     def local_dofs(self, true_ad_variables: Optional[list] = None) -> np.ndarray:
         if true_ad_variables is None:
@@ -140,7 +136,7 @@ class Expression:
     def __repr__(self) -> str:
         return f"Equation named {self.name}"
 
-    def _find_subtree_variables(self, op: operators.Operator) -> List["Variable"]:
+    def _find_subtree_variables(self, op: operators.Operator) -> List[operators.Variable]:
         """Method to recursively look for Variables (or MergedVariables) in an
         operator tree.
         """
@@ -157,7 +153,7 @@ class Expression:
                 self._find_subtree_variables(child) for child in op.tree.children
             ]
             # Some work is needed to parse the information
-            var_list = []
+            var_list: List[operators.Variable] = []
             for var in sub_variables:
                 if isinstance(var, operators.Variable) or isinstance(
                     var, pp.ad.Variable
@@ -272,6 +268,7 @@ class Expression:
         if populate_state:
             state = np.zeros(self._dof_manager.num_dofs())
 
+        assert state is not None
         for (g, var) in self._dof_manager.block_dof:
             ind = self._dof_manager.dof_ind(g, var)
             if isinstance(g, tuple):
@@ -535,8 +532,9 @@ class EquationManager:
             variables = None
         else:
             variables = sorted(list(set(ad_var)), key=lambda v: v.id)
+            names: List[str] = [v._name for v in variables]
             num_global_dofs = self.dof_manager.num_dofs(
-                var=[v._name for v in variables]
+                var=names
             )
         for eq in self.equations:
 
@@ -550,7 +548,7 @@ class EquationManager:
             local_dofs = eq.local_dofs(true_ad_variables=variables)
             if variables is not None:
                 local_dofs = self.dof_manager.transform_dofs(
-                    local_dofs, var=[v._name for v in variables]
+                    local_dofs, var=names
                 )
 
             num_local_dofs = local_dofs.size
@@ -597,9 +595,10 @@ class EquationManager:
         s += "Variables present on at least one grid or interface:\n\t"
         s += ", ".join(unique_vars) + "\n"
 
-        eq_names = [eq.name for eq in self.equations]
-        s += f"In total {len(self.equations)} equations, with names: \n\t"
-        s += ", ".join(eq_names)
+        if self.equations is not None:
+            eq_names = [eq.name for eq in self.equations]
+            s += f"In total {len(self.equations)} equations, with names: \n\t"
+            s += ", ".join(eq_names)
 
         return s
 

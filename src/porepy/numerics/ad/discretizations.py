@@ -1,7 +1,7 @@
 """
 
 """
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union, List
 
 import numpy as np
 import scipy.sparse as sps
@@ -51,8 +51,8 @@ class Discretization:
 
     def __init__(
         self,
-        grids: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]],
-        discretization: "pp.AbstractDiscretization",
+        grids: Union[List[pp.Grid], List[Tuple[pp.Grid, pp.Grid]]],
+        discretization: "pp.numerics.discretization.Discretization",
         mat_dict_key: Optional[str] = None,
     ):
         """Construct a wrapper around a Discretization object for a set of grids.
@@ -80,7 +80,7 @@ class Discretization:
         _wrap_discretization(self, self._discretization, self.grids, self.mat_dict_key)
 
     def __repr__(self) -> str:
-        s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
+        s = f"Ad discretization of type {self._name}. Defined on {len(self.grids)} grids"
         return s
 
 
@@ -270,8 +270,8 @@ class _MergedOperator(Operator):
 
     def __init__(
         self,
-        grids: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]],
-        discr: "pp.AbstractDiscretization",
+        grids: Union[List[pp.Grid], List[Tuple[pp.Grid, pp.Grid]]],
+        discr: "pp.numerics.discretization.Discretization",
         key: str,
         mat_dict_key: str,
         mat_dict_grids: Optional[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]],

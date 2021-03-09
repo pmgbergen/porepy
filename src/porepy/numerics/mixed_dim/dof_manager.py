@@ -24,7 +24,7 @@ class DofManager:
 
     """
 
-    def __init__(self, gb):
+    def __init__(self, gb: pp.GridBucket) -> None:
 
         self.gb = gb
 
@@ -104,7 +104,7 @@ class DofManager:
     def num_dofs(
         self,
         g: Optional[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]] = None,
-        var: str = None,
+        var: Optional[Union[List[str], str]] = None,
     ) -> int:
         """Get the number of degrees of freedom for a specific grid and/or variable.
 
@@ -127,7 +127,7 @@ class DofManager:
 
         """
         if g is None and var is None:
-            return np.sum(self.full_dof)
+            return np.sum(self.full_dof)  # type: ignore
         elif var is None:
             num = 0
             for grid, variable in self.block_dof:
@@ -137,8 +137,8 @@ class DofManager:
             return num
         elif g is None:
             num = 0
-            if not isinstance(var, list):
-                var = [var]
+            if not isinstance(var, list):  # type: ignore
+                var = [var]  # type: ignore
             for grid, variable in self.block_dof:
                 if variable in var:
                     bi = self.block_dof[(grid, variable)]
@@ -201,12 +201,12 @@ class DofManager:
                     # If no values exist, there is othing to add to
                     data[pp.STATE] = {var_name: values[dof[bi] : dof[bi + 1]]}
 
-    def transform_dofs(self, dofs: np.ndarray, var: Optional[list] = None):
+    def transform_dofs(self, dofs: np.ndarray, var: Optional[list] = None) -> np.ndarray:
         """Transforms dofs associated to full list of dofs to a restricted list of dofs."""
 
         # TODO this procedure should only be performed once! One could consider storing the projection matrix.
         # Double-check whether dofs are actually represented by var.
-        total_dofs = np.sum(self.full_dof)
+        total_dofs: int = np.sum(self.full_dof)  # type: ignore
         if var is not None:
             is_var_dofs = np.zeros(total_dofs, dtype=bool)
             if not isinstance(var, list):
@@ -218,12 +218,12 @@ class DofManager:
             assert all(is_var_dofs[dofs])
 
         # Input dofs in the context of all dofs managed by DofManager
-        total_dofs = np.sum(self.full_dof)
+        total_dofs: int = np.sum(self.full_dof)  # type: ignore
         global_dofs = np.zeros(total_dofs)
         global_dofs[dofs] = 1
 
         # Projection matrix from space of all dofs to restricted list of var
-        num_dofs = self.num_dofs(var=var)
+        num_dofs = self.num_dofs(var=var)  # type: ignore
         projection = sps.coo_matrix(
             (np.arange(num_dofs), (np.arange(num_dofs), dofs)),
             shape=(num_dofs, total_dofs),
@@ -249,7 +249,7 @@ class DofManager:
         s = (
             f"Degree of freedom manager for {num_grids} "
             f"subdomains and {num_interfaces} interfaces.\n"
-            f"Total number of degrees of freedom: {self.num_dof()}\n"
+            f"Total number of degrees of freedom: {self.num_dofs()}\n"
             "Total number of subdomain and interface variables:"
             f"{len(self.block_dof)}\n"
             f"Variable names: {unique_vars}"

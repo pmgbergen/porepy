@@ -1,3 +1,4 @@
+from typing import Callable
 import numpy as np
 import scipy.sparse as sps
 
@@ -112,7 +113,7 @@ def heaviside(var, zerovalue: float = 0.5):
 
 
 class RegularizedHeaviside:
-    def __init__(self, regularization: callable):
+    def __init__(self, regularization: Callable):
         self._regularization = regularization
 
     def __call__(self, var, zerovalue: float = 0.5):

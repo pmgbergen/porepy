@@ -1,8 +1,6 @@
 import numpy as np
 import scipy as sp
 
-import porepy as pp
-
 
 class AndersonAcceleration:
     """Anderson acceleration as described by Walker and Ni in doi:10.2307/23074353."""
@@ -12,9 +10,14 @@ class AndersonAcceleration:
         self._dimension = dimension
         self._depth = depth
 
+        # Initialize arrays for iterates.
+        self.reset()
+        self._fkm1: np.ndarray = self._Fk.copy()
+        self._gkm1: np.ndarray = self._Gk.copy()
+
     def reset(self):
-        self._Fk = np.zeros((self._dimension, self._depth))  # changes in increments
-        self._Gk = np.zeros(
+        self._Fk: np.ndarray = np.zeros((self._dimension, self._depth))  # changes in increments
+        self._Gk: np.ndarray = np.zeros(
             (self._dimension, self._depth)
         )  # changes in fixed point applications
 

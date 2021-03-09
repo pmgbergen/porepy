@@ -32,7 +32,7 @@ class SubdomainProjections(Operator):
     def __init__(
         self,
         grids: Optional[List[pp.Grid]] = None,
-        gb: Optional[List[pp.Grid]] = None,
+        gb: Optional[pp.GridBucket] = None,
         nd: int = 1,
     ) -> None:
         """Construct sudomain restrictions and prolongations for a set of subdomains.
@@ -194,8 +194,8 @@ class MortarProjections(Operator):
 
     def __init__(
         self,
+        gb: pp.GridBucket,
         grids: Optional[List[pp.Grid]] = None,
-        gb: pp.GridBucket = None,
         edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None,
         nd: int = 1,
     ) -> None:
@@ -348,8 +348,8 @@ class Trace(Operator):
 
     def __init__(
         self,
+        gb: Optional[pp.GridBucket] = None,
         grids: Optional[List[pp.Grid]] = None,
-        gb: Optional[List[pp.Grid]] = None,
         nd: int = 1,
     ):
         """Construct trace operators and their inverse for a given set of subdomains.
@@ -450,7 +450,7 @@ class Divergence(Operator):
         else:
             s = "Vector "
 
-        s += f"divergence defined on {len(self.g)} grids\n"
+        s += f"divergence defined on {len(self._g)} grids\n"
 
         nf = 0
         nc = 0
@@ -524,8 +524,8 @@ class BoundaryCondition(Operator):
     def __repr__(self) -> str:
         s = f"Boundary Condition operator with keyword {self.keyword}\n"
 
-        dims = np.zeros(4, dtype=np.int)
-        for g in self.g:
+        dims = np.zeros(4, dtype=int)
+        for g in self._g:
             dims[g.dim] += 1
 
         for d in range(3, -1, -1):
@@ -571,7 +571,7 @@ class DirBC(Operator):
         self._set_tree()
 
     def __repr__(self) -> str:
-        return f"Dirichlet boundary data of size {self._boundarycondition.val.size}"
+        return f"Dirichlet boundary data of size {self._bc.val.size}"
 
     def parse(self, gb: pp.GridBucket):
 
@@ -591,7 +591,7 @@ class DirBC(Operator):
 #### Helper methods below
 
 
-def _grid_list(grids: List[pp.Grid], gb: pp.GridBucket) -> List[pp.Grid]:
+def _grid_list(grids: Optional[List[pp.Grid]], gb: Optional[pp.GridBucket]) -> List[pp.Grid]:
     # Helper method to parse input data
     if grids is None:
         if gb is None:

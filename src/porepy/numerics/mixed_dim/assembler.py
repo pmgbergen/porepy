@@ -1415,6 +1415,7 @@ class Assembler:
 
         """
         self._dof_manager.distribute_variable(values, variable_names)
+
     @pp.time_logger(sections=module_sections)
     def num_dof(self) -> int:
         """Get total number of unknowns of the identified variables.
@@ -1422,7 +1423,7 @@ class Assembler:
         Returns:
             int: Number of unknowns. Size of solution vector.
         """
-        return self._dof_manager.full_dof.sum()
+        return self._dof_manager.num_dofs()
 
     @pp.time_logger(sections=module_sections)
     def variables_of_grid(

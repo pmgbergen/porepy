@@ -82,7 +82,7 @@ class UpwindCoupling(
 
         # Find upwind weighting. if flag is True we use the upper weights
         # if flag is False we use the lower weighs
-        flag = (lam_flux > 0).astype(np.float)
+        flag = (lam_flux > 0).astype(float)
         not_flag = 1 - flag
 
         # Discretizations are the flux, but masked so that only the upstream direction
@@ -196,7 +196,7 @@ class UpwindCoupling(
             cc = np.array([np.sum(cc, axis=(0, 1))])
 
         # rhs is zero
-        rhs = np.squeeze([np.zeros(dof[0]), np.zeros(dof[1]), np.zeros(dof[2])])
+        rhs = np.hstack([np.zeros(dof[0]), np.zeros(dof[1]), np.zeros(dof[2])])
         matrix += cc
         return matrix, rhs
 
