@@ -3,17 +3,16 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-
 from porepy.numerics.ad import operators
-from porepy.numerics.ad.operators import (
-    Operator,
-    ApplicableOperator,
-    Variable,
-    Operation,
-)
 from porepy.numerics.ad.forward_mode import Ad_array
-from porepy.numerics.ad.local_forward_mode import Local_Ad_array
 from porepy.numerics.ad.functions import heaviside
+from porepy.numerics.ad.local_forward_mode import Local_Ad_array
+from porepy.numerics.ad.operators import (
+    ApplicableOperator,
+    Operation,
+    Operator,
+    Variable,
+)
 
 
 class GeneralTpfaAd(pp.FVElliptic):

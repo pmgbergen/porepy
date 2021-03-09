@@ -6,7 +6,7 @@ Current content:
     Full continuity conditions between subdomains
 
 """
-from typing import Tuple, Optional, Dict, Union
+from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
