@@ -1288,7 +1288,7 @@ class Assembler:
         return np.hstack(parameter)
 
     def distribute_variable(
-        self, values: np.ndarray, variable_names: List[str] = None
+        self, values: np.ndarray, variable_names: Optional[List[str]] = None
     ) -> None:
         """Distribute a vector to the nodes and edges in the GridBucket.
 
@@ -1304,29 +1304,7 @@ class Assembler:
                 will be distributed
 
         """
-        if variable_names is None:
-            variable_names = []
-            for pair in self._dof_manager.block_dof.keys():
-                variable_names.append(pair[1])
-
-        dof = np.cumsum(np.append(0, np.asarray(self._dof_manager.full_dof)))
-
-        for var_name in set(variable_names):
-            for pair, bi in self._dof_manager.block_dof.items():
-                g = pair[0]
-                name = pair[1]
-                if name != var_name:
-                    continue
-                if isinstance(g, tuple):
-                    # This is really an edge
-                    data = self.gb.edge_props(g)
-                else:
-                    data = self.gb.node_props(g)
-
-                if pp.STATE in data.keys():
-                    data[pp.STATE][var_name] = values[dof[bi] : dof[bi + 1]]
-                else:
-                    data[pp.STATE] = {var_name: values[dof[bi] : dof[bi + 1]]}
+        self.dof_manager.distribute_variable(values, variable_names)
 
     def num_dof(self) -> int:
         """Get total number of unknowns of the identified variables.

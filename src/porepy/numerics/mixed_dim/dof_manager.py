@@ -26,6 +26,8 @@ class DofManager:
 
     def __init__(self, gb):
 
+        self.gb = gb
+
         # Counter for block index
         block_dof_counter = 0
 
@@ -147,6 +149,48 @@ class DofManager:
                 # TODO Include something here!
                 raise RuntimeError("Not implemented!")
             return self.full_dof[(g, var)]
+
+    def distribute_variable(
+        self, values: np.ndarray, variable_names: Optional[List[str]] = None
+    ) -> None:
+        """Distribute a vector to the nodes and edges in the GridBucket.
+
+        The intended use is to split a multi-physics solution vector into its
+        component parts.
+
+        Parameters:
+            values (np.array): Vector to be split. It is assumed that it corresponds
+                to the ordering implied in block_dof and full_dof, e.g. that it is
+                the solution of a linear system assembled with the assembler.
+            variable_names (list of str, optional): Names of the variable to be
+                distributed. If not provided, all variables found in block_dof
+                will be distributed
+
+        """
+        if variable_names is None:
+            variable_names = []
+            for pair in self.block_dof.keys():
+                variable_names.append(pair[1])
+
+        dof = np.cumsum(np.append(0, np.asarray(self.full_dof)))
+
+        for var_name in set(variable_names):
+            for pair, bi in self.block_dof.items():
+                g = pair[0]
+                name = pair[1]
+                if name != var_name:
+                    continue
+                if isinstance(g, tuple):
+                    # This is really an edge
+                    data = self.gb.edge_props(g)
+                else:
+                    data = self.gb.node_props(g)
+
+                if pp.STATE in data.keys():
+                    data[pp.STATE][var_name] = values[dof[bi] : dof[bi + 1]]
+                else:
+                    data[pp.STATE] = {var_name: values[dof[bi] : dof[bi + 1]]}
+
 
     def transform_dofs(self, dofs: np.ndarray, var: Optional[list] = None):
         """Transforms dofs associated to full list of dofs to a restricted list of dofs."""
