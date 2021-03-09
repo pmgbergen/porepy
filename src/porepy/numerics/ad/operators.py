@@ -381,11 +381,18 @@ class MergedVariable(Variable):
         self.is_interface = isinstance(self.sub_vars[0].g, tuple)
 
         self.prev_time: bool = False
+        self.prev_iter: bool = False
 
     def previous_timestep(self) -> "MergedVariable":
         new_subs = [var.previous_timestep() for var in self.sub_vars]
         new_var = MergedVariable(new_subs)
         new_var.prev_time = True
+        return new_var
+
+    def previous_iteration(self) -> "MergedVariable":
+        new_subs = [var.previous_iteration() for var in self.sub_vars]
+        new_var = MergedVariable(new_subs)
+        new_var.prev_iter = True
         return new_var
 
     def copy(self) -> "MergedVariable":
