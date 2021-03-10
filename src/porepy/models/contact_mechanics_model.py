@@ -11,7 +11,7 @@ undergo major changes on little notice.
 """
 import logging
 import time
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union, List
 
 import numpy as np
 import scipy.sparse as sps
@@ -98,6 +98,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
         self._iteration: int = 0
 
         self._use_ad: bool = self.params.get("use_ad", False)
+        self._eq_manager: pp.ad.EquationManager
 
     # Public methods
 
@@ -619,8 +620,8 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             dof_manager = pp.DofManager(gb)
             eq_manager = pp.ad.EquationManager(gb, dof_manager)
 
-            g_primary = gb.grids_of_dimension(Nd)[0]
-            g_frac = gb.grids_of_dimension(Nd - 1).tolist()
+            g_primary: pp.Grid = gb.grids_of_dimension(Nd)[0]
+            g_frac: List[pp.Grid] = gb.grids_of_dimension(Nd - 1).tolist()
             num_frac_cells = np.sum([g.num_cells for g in g_frac])
 
             if len(gb.grids_of_dimension(Nd)) != 1:
@@ -650,7 +651,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 [(e, self.mortar_displacement_variable) for e in edge_list]
             )
             contact_force = eq_manager.merge_variables(
-                [g, self.contact_traction_variable] for g in g_frac
+                [(g, self.contact_traction_variable) for g in g_frac]
             )
 
             u_mortar_prev = u_mortar.previous_timestep()

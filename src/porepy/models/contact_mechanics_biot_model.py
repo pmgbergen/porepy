@@ -585,7 +585,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 [(e, self.mortar_displacement_variable) for e in edge_list_highest]
             )
             contact_force = eq_manager.merge_variables(
-                [g, self.contact_traction_variable] for g in g_frac
+                [(g, self.contact_traction_variable) for g in g_frac]
             )
             p = eq_manager.merge_variables(
                 [(g, self.scalar_variable) for g in grid_list]

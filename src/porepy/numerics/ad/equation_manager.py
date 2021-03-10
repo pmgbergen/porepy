@@ -7,7 +7,7 @@
   subsets of variables with other variables (outside the set) to assemble different terms
 *
 """
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Sequence
 
 import numpy as np
 import scipy.sparse as sps
@@ -49,7 +49,7 @@ class Expression:
         operator: operators.Operator,
         dof_manager: pp.DofManager,
         name: str = "",
-        grid_order: Optional[List[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]]] = None,
+        grid_order: Optional[Sequence[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]]] = None,
     ):
         """Define an Equation.
 
@@ -136,7 +136,9 @@ class Expression:
     def __repr__(self) -> str:
         return f"Equation named {self.name}"
 
-    def _find_subtree_variables(self, op: operators.Operator) -> List[operators.Variable]:
+    def _find_subtree_variables(
+        self, op: operators.Operator
+    ) -> List[operators.Variable]:
         """Method to recursively look for Variables (or MergedVariables) in an
         operator tree.
         """
@@ -499,7 +501,7 @@ class EquationManager:
         self.variables = variables
         # Define discretizations
 
-    def merge_variables(self, grid_var: List[Tuple[grid_like_type, str]]):
+    def merge_variables(self, grid_var: Sequence[Tuple[grid_like_type, str]]):
         return pp.ad.MergedVariable([self.variables[g][v] for g, v in grid_var])
 
     def variable(self, grid_like: grid_like_type, variable: str):
@@ -533,9 +535,7 @@ class EquationManager:
         else:
             variables = sorted(list(set(ad_var)), key=lambda v: v.id)
             names: List[str] = [v._name for v in variables]
-            num_global_dofs = self.dof_manager.num_dofs(
-                var=names
-            )
+            num_global_dofs = self.dof_manager.num_dofs(var=names)
         for eq in self.equations:
 
             # Neglect equation if not explicilty asked for.
@@ -547,9 +547,7 @@ class EquationManager:
             # Map these to the global ones
             local_dofs = eq.local_dofs(true_ad_variables=variables)
             if variables is not None:
-                local_dofs = self.dof_manager.transform_dofs(
-                    local_dofs, var=names
-                )
+                local_dofs = self.dof_manager.transform_dofs(local_dofs, var=names)
 
             num_local_dofs = local_dofs.size
             projection = sps.coo_matrix(
