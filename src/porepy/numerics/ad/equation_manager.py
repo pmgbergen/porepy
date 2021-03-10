@@ -121,16 +121,16 @@ class Expression:
         self._identify_discretizations()
 
     # TODO why is this called local? and not global?
-    def local_dofs(self, true_ad_variables: Optional[list] = None) -> np.ndarray:
-        if true_ad_variables is None:
+    def local_dofs(self, active_variables: Optional[list] = None) -> np.ndarray:
+        if active_variables is None:
             dofs = np.hstack([d for d in self._variable_dofs])
         else:
-            true_ad_variable_ids = [v.id for v in true_ad_variables]
-            assert all([i in self._variable_ids for i in true_ad_variable_ids])
-            ad_variable_local_ids = [
-                self._variable_ids.index(i) for i in true_ad_variable_ids
+            active_variable_ids = [v.id for v in active_variables]
+            assert all([i in self._variable_ids for i in active_variable_ids])
+            active_variable_local_ids = [
+                self._variable_ids.index(i) for i in active_variable_ids
             ]
-            ad_variable_dofs = [self._variable_dofs[i] for i in ad_variable_local_ids]
+            ad_variable_dofs = [self._variable_dofs[i] for i in active_variable_local_ids]
             dofs = np.hstack([d for d in ad_variable_dofs])
         return dofs
 
@@ -297,17 +297,16 @@ class Expression:
             self._ad = {var_id: ad for (var_id, ad) in zip(self._variable_ids, ad_vars)}
         else:
             active_variable_ids = [v.id for v in active_variables]
-
-            ad_variable_ids = list(
+            active_variable_ids = list(
                 set(self._variable_ids).intersection(active_variable_ids)
             )
             assert all([i in self._variable_ids for i in active_variable_ids])
-            ad_variable_local_ids = [
+            active_variable_local_ids = [
                 self._variable_ids.index(i) for i in active_variable_ids
             ]
-            ad_variable_dofs = [self._variable_dofs[i] for i in ad_variable_local_ids]
-            ad_vars = initAdArrays([state[ind] for ind in ad_variable_dofs])
-            self._ad = {var_id: ad for (var_id, ad) in zip(ad_variable_ids, ad_vars)}
+            active_variable_dofs = [self._variable_dofs[i] for i in active_variable_local_ids]
+            ad_vars = initAdArrays([state[ind] for ind in active_variable_dofs])
+            self._ad = {var_id: ad for (var_id, ad) in zip(active_variable_ids, ad_vars)}
 
         # Also make mappings from the previous iteration.
         if active_variables is None:
@@ -319,19 +318,19 @@ class Expression:
         else:
             # FIXME: This needs explanations
             prev_iter_vals_list = [state[ind] for ind in self._prev_iter_dofs]
-            non_ad_variable_ids = list(set(self._variable_ids) - set(ad_variable_ids))
-            non_ad_variable_local_ids = [
-                self._variable_ids.index(i) for i in non_ad_variable_ids
+            inactive_variable_ids = list(set(self._variable_ids) - set(active_variable_ids))
+            inactive_variable_local_ids = [
+                self._variable_ids.index(i) for i in inactive_variable_ids
             ]
-            non_ad_variable_dofs = [
-                self._variable_dofs[i] for i in non_ad_variable_local_ids
+            inactive_variable_dofs = [
+                self._variable_dofs[i] for i in inactive_variable_local_ids
             ]
-            non_ad_vals_list = [state[ind] for ind in non_ad_variable_dofs]
+            inactive_vals_list = [state[ind] for ind in inactive_variable_dofs]
             self._prev_iter_vals = {
                 var_id: val
                 for (var_id, val) in zip(
-                    self._prev_iter_ids + non_ad_variable_ids,
-                    prev_iter_vals_list + non_ad_vals_list,
+                    self._prev_iter_ids + inactive_variable_ids,
+                    prev_iter_vals_list + inactive_vals_list,
                 )
             }
 
@@ -386,8 +385,8 @@ class Expression:
                     return self._prev_vals[op.id]
                 elif op.prev_iter or not (
                     op.id in self._ad
-                ):  # TODO make it more explicit that op corresponds to a non_ad_variable?
-                    # e.g. by op.id in non_ad_variable_ids.
+                ):  # TODO make it more explicit that op corresponds to a inactive_variable?
+                    # e.g. by op.id in inactive_variable_ids.
                     return self._prev_iter_vals[op.id]
                 else:
                     return self._ad[op.id]
@@ -547,7 +546,7 @@ class EquationManager:
             ad = eq.to_ad(self.gb, state, active_variables=variables)
             # The columns of the Jacobian has the size of the local variables.
             # Map these to the global ones
-            local_dofs = eq.local_dofs(true_ad_variables=variables)
+            local_dofs = eq.local_dofs(active_variables=variables)
             if variables is not None:
                 local_dofs = self.dof_manager.transform_dofs(local_dofs, var=names)
 
