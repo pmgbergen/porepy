@@ -829,8 +829,10 @@ class TestUpwindCoupling(unittest.TestCase):
 
         lam = np.arange(de["mortar_grid"].num_cells)
         de[pp.PARAMETERS] = {"transport": {"darcy_flux": lam}}
+        de[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         upwind_coupler = pp.UpwindCoupling("transport")
+        upwind_coupler.discretize(g2, g1, d2, d1, de)
 
         matrix, _ = upwind_coupler.assemble_matrix_rhs(g2, g1, d2, d1, de, zero_mat)
 
@@ -874,9 +876,11 @@ class TestUpwindCoupling(unittest.TestCase):
 
         lam = np.arange(de["mortar_grid"].num_cells)
         de[pp.PARAMETERS] = {"transport": {"darcy_flux": -lam}}
+        de[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         upwind_coupler = pp.UpwindCoupling("transport")
 
+        upwind_coupler.discretize(g2, g1, d2, d1, de)
         matrix, _ = upwind_coupler.assemble_matrix_rhs(g2, g1, d2, d1, de, zero_mat)
 
         matrix_2 = np.array(

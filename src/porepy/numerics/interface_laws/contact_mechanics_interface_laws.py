@@ -289,6 +289,8 @@ class PrimalContactCoupling(
         edge_secondary,
         data_edge_secondary,
         matrix,
+        assemble_matrix: bool = True,
+        assemble_rhs: bool = True,
     ):
         """Assemble the stress contribution from the mortar displacement on one edge
         on the stress balance on a neighboring edge, in the sense that the two edges

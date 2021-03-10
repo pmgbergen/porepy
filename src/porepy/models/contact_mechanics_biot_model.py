@@ -120,7 +120,10 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
     def before_newton_iteration(self) -> None:
         # Re-discretize the nonlinear term
         filt = pp.assembler_filters.ListFilter(term_list=[self.friction_coupling_term])
-        self.assembler.discretize(filt=filt)
+        if self._use_ad:
+            self._eq_manager.equations[1].discretize(self.gb)
+        else:
+            self.assembler.discretize(filt=filt)
 
     @pp.time_logger(sections=module_sections)
     def after_newton_iteration(self, solution: np.ndarray) -> None:
@@ -359,145 +362,451 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         subtract the fracture pressure contribution for the contact traction. This
         should not be done if the scalar variable is temperature.
         """
-        # Shorthand
-        key_s, key_m = self.scalar_parameter_key, self.mechanics_parameter_key
-        var_s, var_d = self.scalar_variable, self.displacement_variable
+        if not self._use_ad:
 
-        # Define discretization
-        # For the Nd domain we solve linear elasticity with mpsa.
-        mpsa = pp.Mpsa(key_m)
-        empty_discr = pp.VoidDiscretization(key_m, ndof_cell=self._Nd)
-        # Scalar discretizations (all dimensions)
-        diff_disc_s = IE_discretizations.ImplicitMpfa(key_s)
-        mass_disc_s = IE_discretizations.ImplicitMassMatrix(key_s, var_s)
-        source_disc_s = pp.ScalarSource(key_s)
-        # Coupling discretizations
-        # All dimensions
-        div_u_disc = pp.DivU(
-            key_m,
-            key_s,
-            variable=var_d,
-            mortar_variable=self.mortar_displacement_variable,
-        )
-        # Nd
-        grad_p_disc = pp.GradP(key_m)
-        stabilization_disc_s = pp.BiotStabilization(key_s, var_s)
+            # Shorthand
+            key_s, key_m = self.scalar_parameter_key, self.mechanics_parameter_key
+            var_s, var_d = self.scalar_variable, self.displacement_variable
 
-        # Assign node discretizations
-        for g, d in self.gb:
-            if g.dim == self._Nd:
-                d[pp.DISCRETIZATION] = {
-                    var_d: {"mpsa": mpsa},
-                    var_s: {
-                        "diffusion": diff_disc_s,
-                        "mass": mass_disc_s,
-                        "stabilization": stabilization_disc_s,
-                        "source": source_disc_s,
-                    },
-                    var_d + "_" + var_s: {"grad_p": grad_p_disc},
-                    var_s + "_" + var_d: {"div_u": div_u_disc},
-                }
+            # Define discretization
+            # For the Nd domain we solve linear elasticity with mpsa.
+            mpsa = pp.Mpsa(key_m)
+            empty_discr = pp.VoidDiscretization(key_m, ndof_cell=self._Nd)
+            # Scalar discretizations (all dimensions)
+            diff_disc_s = IE_discretizations.ImplicitMpfa(key_s)
+            mass_disc_s = IE_discretizations.ImplicitMassMatrix(key_s, var_s)
+            source_disc_s = pp.ScalarSource(key_s)
+            # Coupling discretizations
+            # All dimensions
+            div_u_disc = pp.DivU(
+                key_m,
+                key_s,
+                variable=var_d,
+                mortar_variable=self.mortar_displacement_variable,
+            )
+            # Nd
+            grad_p_disc = pp.GradP(key_m)
+            stabilization_disc_s = pp.BiotStabilization(key_s, var_s)
 
-            elif g.dim == self._Nd - 1:
-                d[pp.DISCRETIZATION] = {
-                    self.contact_traction_variable: {"empty": empty_discr},
-                    var_s: {
-                        "diffusion": diff_disc_s,
-                        "mass": mass_disc_s,
-                        "source": source_disc_s,
-                    },
-                }
-            else:
-                d[pp.DISCRETIZATION] = {
-                    var_s: {
-                        "diffusion": diff_disc_s,
-                        "mass": mass_disc_s,
-                        "source": source_disc_s,
+            # Assign node discretizations
+            for g, d in self.gb:
+                if g.dim == self._Nd:
+                    d[pp.DISCRETIZATION] = {
+                        var_d: {"mpsa": mpsa},
+                        var_s: {
+                            "diffusion": diff_disc_s,
+                            "mass": mass_disc_s,
+                            "stabilization": stabilization_disc_s,
+                            "source": source_disc_s,
+                        },
+                        var_d + "_" + var_s: {"grad_p": grad_p_disc},
+                        var_s + "_" + var_d: {"div_u": div_u_disc},
                     }
-                }
 
-        # Define edge discretizations for the mortar grid
-        contact_law = pp.ColoumbContact(self.mechanics_parameter_key, self._Nd, mpsa)
-        contact_discr = pp.PrimalContactCoupling(
-            self.mechanics_parameter_key, mpsa, contact_law
-        )
-        # Account for the mortar displacements effect on scalar balance in the matrix,
-        # as an internal boundary contribution, fracture, aperture changes appear as a
-        # source contribution.
-        div_u_coupling = pp.DivUCoupling(
-            self.displacement_variable, div_u_disc, div_u_disc
-        )
-        # Account for the pressure contributions to the force balance on the fracture
-        # (see contact_discr).
-        # This discretization needs the keyword used to store the grad p discretization:
-        grad_p_key = key_m
-        matrix_scalar_to_force_balance = pp.MatrixScalarToForceBalance(
-            grad_p_key, mass_disc_s, mass_disc_s
-        )
-        if self.subtract_fracture_pressure:
-            fracture_scalar_to_force_balance = pp.FractureScalarToForceBalance(
-                mass_disc_s, mass_disc_s
+                elif g.dim == self._Nd - 1:
+                    d[pp.DISCRETIZATION] = {
+                        self.contact_traction_variable: {"empty": empty_discr},
+                        var_s: {
+                            "diffusion": diff_disc_s,
+                            "mass": mass_disc_s,
+                            "source": source_disc_s,
+                        },
+                    }
+                else:
+                    d[pp.DISCRETIZATION] = {
+                        var_s: {
+                            "diffusion": diff_disc_s,
+                            "mass": mass_disc_s,
+                            "source": source_disc_s,
+                        }
+                    }
+
+            # Define edge discretizations for the mortar grid
+            contact_law = pp.ColoumbContact(
+                self.mechanics_parameter_key, self._Nd, mpsa
+            )
+            contact_discr = pp.PrimalContactCoupling(
+                self.mechanics_parameter_key, mpsa, contact_law
+            )
+            # Account for the mortar displacements effect on scalar balance in the matrix,
+            # as an internal boundary contribution, fracture, aperture changes appear as a
+            # source contribution.
+            div_u_coupling = pp.DivUCoupling(
+                self.displacement_variable, div_u_disc, div_u_disc
+            )
+            # Account for the pressure contributions to the force balance on the fracture
+            # (see contact_discr).
+            # This discretization needs the keyword used to store the grad p discretization:
+            grad_p_key = key_m
+            matrix_scalar_to_force_balance = pp.MatrixScalarToForceBalance(
+                grad_p_key, mass_disc_s, mass_disc_s
+            )
+            if self.subtract_fracture_pressure:
+                fracture_scalar_to_force_balance = pp.FractureScalarToForceBalance(
+                    mass_disc_s, mass_disc_s
+                )
+
+            for e, d in self.gb.edges():
+                g_l, g_h = self.gb.nodes_of_edge(e)
+
+                if g_h.dim == self._Nd:
+                    d[pp.COUPLING_DISCRETIZATION] = {
+                        self.friction_coupling_term: {
+                            g_h: (var_d, "mpsa"),
+                            g_l: (self.contact_traction_variable, "empty"),
+                            (g_h, g_l): (
+                                self.mortar_displacement_variable,
+                                contact_discr,
+                            ),
+                        },
+                        self.scalar_coupling_term: {
+                            g_h: (var_s, "diffusion"),
+                            g_l: (var_s, "diffusion"),
+                            e: (
+                                self.mortar_scalar_variable,
+                                pp.RobinCoupling(key_s, diff_disc_s),
+                            ),
+                        },
+                        "div_u_coupling": {
+                            g_h: (
+                                var_s,
+                                "mass",
+                            ),  # This is really the div_u, but this is not implemented
+                            g_l: (var_s, "mass"),
+                            e: (self.mortar_displacement_variable, div_u_coupling),
+                        },
+                        "matrix_scalar_to_force_balance": {
+                            g_h: (var_s, "mass"),
+                            g_l: (var_s, "mass"),
+                            e: (
+                                self.mortar_displacement_variable,
+                                matrix_scalar_to_force_balance,
+                            ),
+                        },
+                    }
+                    if self.subtract_fracture_pressure:
+                        d[pp.COUPLING_DISCRETIZATION].update(
+                            {
+                                "fracture_scalar_to_force_balance": {
+                                    g_h: (var_s, "mass"),
+                                    g_l: (var_s, "mass"),
+                                    e: (
+                                        self.mortar_displacement_variable,
+                                        fracture_scalar_to_force_balance,
+                                    ),
+                                }
+                            }
+                        )
+                else:
+                    d[pp.COUPLING_DISCRETIZATION] = {
+                        self.scalar_coupling_term: {
+                            g_h: (var_s, "diffusion"),
+                            g_l: (var_s, "diffusion"),
+                            e: (
+                                self.mortar_scalar_variable,
+                                pp.RobinCoupling(key_s, diff_disc_s),
+                            ),
+                        }
+                    }
+
+        else:
+
+            gb = self.gb
+            Nd = self._Nd
+            dof_manager = pp.DofManager(gb)
+            eq_manager = pp.ad.EquationManager(gb, dof_manager)
+
+            g_primary = gb.grids_of_dimension(Nd)[0]
+            g_frac = gb.grids_of_dimension(Nd - 1).tolist()
+
+            grid_list = [
+                g_primary,
+                *g_frac,
+                *gb.grids_of_dimension(Nd - 2),
+                *gb.grids_of_dimension(Nd - 3),
+            ]
+
+            if len(gb.grids_of_dimension(Nd)) != 1:
+                raise NotImplementedError("This will require further work")
+
+            edge_list_highest = [(g_primary, g) for g in g_frac]
+            edge_list = [e for e, _ in gb.edges()]
+
+            mortar_proj_scalar = pp.ad.MortarProjections(edges=edge_list, gb=gb, nd=1)
+            mortar_proj_vector = pp.ad.MortarProjections(
+                edges=edge_list_highest, gb=gb, nd=self._Nd
+            )
+            subdomain_proj_scalar = pp.ad.SubdomainProjections(gb=gb)
+            subdomain_proj_vector = pp.ad.SubdomainProjections(gb=gb, nd=self._Nd)
+
+            tangential_normal_proj_list = []
+            normal_proj_list = []
+            for gf in g_frac:
+                proj = gb.node_props(gf, "tangential_normal_projection")
+                tangential_normal_proj_list.append(
+                    proj.project_tangential_normal(gf.num_cells)
+                )
+                normal_proj_list.append(proj.project_normal(gf.num_cells))
+
+            tangential_normal_proj = pp.ad.Matrix(
+                sps.block_diag(tangential_normal_proj_list)
+            )
+            normal_proj = pp.ad.Matrix(sps.block_diag(normal_proj_list))
+
+            # Ad representation of discretizations
+            mpsa_ad = pp.ad.BiotAd(self.mechanics_parameter_key, g_primary)
+            grad_p_ad = pp.ad.GradPAd(self.mechanics_parameter_key, g_primary)
+
+            mpfa_ad = pp.ad.MpfaAd(self.scalar_parameter_key, grid_list)
+            mass_ad = pp.ad.MassMatrixAd(self.scalar_parameter_key, grid_list)
+            robin_ad = pp.ad.RobinCouplingAd(self.scalar_parameter_key, edge_list)
+
+            div_u_ad = pp.ad.DivUAd(
+                self.mechanics_parameter_key,
+                grids=g_primary,
+                mat_dict_keyword=self.scalar_parameter_key,
+            )
+            stab_biot_ad = pp.ad.BiotStabilizationAd(
+                self.scalar_parameter_key, g_primary
             )
 
-        for e, d in self.gb.edges():
-            g_l, g_h = self.gb.nodes_of_edge(e)
+            coloumb_ad = pp.ad.ColoumbContactAd(
+                self.mechanics_parameter_key, edge_list_highest
+            )
 
-            if g_h.dim == self._Nd:
-                d[pp.COUPLING_DISCRETIZATION] = {
-                    self.friction_coupling_term: {
-                        g_h: (var_d, "mpsa"),
-                        g_l: (self.contact_traction_variable, "empty"),
-                        (g_h, g_l): (self.mortar_displacement_variable, contact_discr),
-                    },
-                    self.scalar_coupling_term: {
-                        g_h: (var_s, "diffusion"),
-                        g_l: (var_s, "diffusion"),
-                        e: (
-                            self.mortar_scalar_variable,
-                            pp.RobinCoupling(key_s, diff_disc_s),
-                        ),
-                    },
-                    "div_u_coupling": {
-                        g_h: (
-                            var_s,
-                            "mass",
-                        ),  # This is really the div_u, but this is not implemented
-                        g_l: (var_s, "mass"),
-                        e: (self.mortar_displacement_variable, div_u_coupling),
-                    },
-                    "matrix_scalar_to_force_balance": {
-                        g_h: (var_s, "mass"),
-                        g_l: (var_s, "mass"),
-                        e: (
-                            self.mortar_displacement_variable,
-                            matrix_scalar_to_force_balance,
-                        ),
-                    },
-                }
-                if self.subtract_fracture_pressure:
-                    d[pp.COUPLING_DISCRETIZATION].update(
-                        {
-                            "fracture_scalar_to_force_balance": {
-                                g_h: (var_s, "mass"),
-                                g_l: (var_s, "mass"),
-                                e: (
-                                    self.mortar_displacement_variable,
-                                    fracture_scalar_to_force_balance,
-                                ),
-                            }
-                        }
+            bc_ad = pp.ad.BoundaryCondition(
+                self.mechanics_parameter_key, grids=[g_primary]
+            )
+            div_vector = pp.ad.Divergence(grids=[g_primary], is_scalar=False)
+
+            # Primary variables on Ad form
+            u = eq_manager.variable(g_primary, self.displacement_variable)
+            u_mortar = eq_manager.merge_variables(
+                [(e, self.mortar_displacement_variable) for e in edge_list_highest]
+            )
+            contact_force = eq_manager.merge_variables(
+                [(g, self.contact_traction_variable) for g in g_frac]
+            )
+            p = eq_manager.merge_variables(
+                [(g, self.scalar_variable) for g in grid_list]
+            )
+            mortar_flux = eq_manager.merge_variables(
+                [(e, self.mortar_scalar_variable) for e in edge_list]
+            )
+
+            u_prev = u.previous_timestep()
+            u_mortar_prev = u_mortar.previous_timestep()
+            p_prev = p.previous_timestep()
+
+            # Stress in g_h
+            stress = (
+                mpsa_ad.stress * u
+                + mpsa_ad.bound_stress * bc_ad
+                + mpsa_ad.bound_stress
+                * subdomain_proj_vector.face_restriction(g_primary)
+                * mortar_proj_vector.mortar_to_primary_avg
+                * u_mortar
+                + grad_p_ad.grad_p
+                * subdomain_proj_scalar.cell_restriction(g_primary)
+                * p
+            )
+
+            momentum_eq = pp.ad.Expression(
+                div_vector * stress, dof_manager, "momentuum", grid_order=[g_primary]
+            )
+
+            jump = (
+                subdomain_proj_vector.cell_restriction(g_frac)
+                * mortar_proj_vector.mortar_to_secondary_avg
+                * mortar_proj_vector.sign_of_mortar_sides
+            )
+            jump_rotate = tangential_normal_proj * jump
+
+            # Contact conditions
+            num_frac_cells = np.sum([g.num_cells for g in g_frac])
+
+            jump_discr = coloumb_ad.displacement * jump_rotate * u_mortar
+            tmp = np.ones(num_frac_cells * self._Nd)
+            tmp[self._Nd - 1 :: self._Nd] = 0
+            exclude_normal = pp.ad.Matrix(
+                sps.dia_matrix((tmp, 0), shape=(tmp.size, tmp.size))
+            )
+            # Rhs of contact conditions
+            rhs = (
+                coloumb_ad.rhs
+                + exclude_normal * coloumb_ad.displacement * jump_rotate * u_mortar_prev
+            )
+            contact_conditions = coloumb_ad.traction * contact_force + jump_discr - rhs
+            contact_eq = pp.ad.Expression(
+                contact_conditions, dof_manager, "contact", grid_order=g_frac
+            )
+
+            # Force balance
+            mat = None
+            for _, d in gb.edges():
+                mg: pp.MortarGrid = d["mortar_grid"]
+                if mg.dim < self._Nd - 1:
+                    continue
+
+                faces_on_fracture_surface = mg.primary_to_mortar_int().tocsr().indices
+                m = pp.grid_utils.switch_sign_if_inwards_normal(
+                    g_primary, self._Nd, faces_on_fracture_surface
+                )
+                if mat is None:
+                    mat = m
+                else:
+                    mat += m
+
+            sign_switcher = pp.ad.Matrix(mat)
+
+            # Contact from primary grid and mortar displacements (via primary grid)
+            contact_from_primary_mortar = (
+                mortar_proj_vector.primary_to_mortar_int
+                * subdomain_proj_vector.face_prolongation(g_primary)
+                * sign_switcher
+                * stress
+            )
+            contact_from_secondary = (
+                mortar_proj_vector.sign_of_mortar_sides
+                * mortar_proj_vector.secondary_to_mortar_int
+                * subdomain_proj_vector.cell_prolongation(g_frac)
+                * tangential_normal_proj.transpose()
+                * contact_force
+            )
+            if self.subtract_fracture_pressure:
+                # This gives an error because of -=
+
+                mat = []
+
+                for e in edge_list_highest:
+                    mg = gb.edge_props(e, "mortar_grid")
+
+                    faces_on_fracture_surface = (
+                        mg.primary_to_mortar_int().tocsr().indices
                     )
-            else:
-                d[pp.COUPLING_DISCRETIZATION] = {
-                    self.scalar_coupling_term: {
-                        g_h: (var_s, "diffusion"),
-                        g_l: (var_s, "diffusion"),
-                        e: (
-                            self.mortar_scalar_variable,
-                            pp.RobinCoupling(key_s, diff_disc_s),
-                        ),
-                    }
-                }
+                    sgn, _ = g_primary.signs_and_cells_of_boundary_faces(
+                        faces_on_fracture_surface
+                    )
+                    fracture_normals = g_primary.face_normals[
+                        : self._Nd, faces_on_fracture_surface
+                    ]
+                    outwards_fracture_normals = sgn * fracture_normals
+
+                    data = outwards_fracture_normals.ravel("F")
+                    row = np.arange(g_primary.dim * mg.num_cells)
+                    col = np.tile(np.arange(mg.num_cells), (g_primary.dim, 1)).ravel(
+                        "F"
+                    )
+                    n_dot_I = sps.csc_matrix((data, (row, col)))
+                    # i) The scalar contribution to the contact stress is mapped to
+                    # the mortar grid  and multiplied by n \dot I, with n being the
+                    # outwards normals on the two sides.
+                    # Note that by using different normals for the two sides, we do not need to
+                    # adjust the secondary pressure with the corresponding signs by applying
+                    # sign_of_mortar_sides as done in PrimalContactCoupling.
+                    # iii) The contribution should be subtracted so that we balance the primary
+                    # forces by
+                    # T_contact - n dot I p,
+                    # hence the minus.
+                    mat.append(n_dot_I * mg.secondary_to_mortar_int(nd=1))
+                # May need to do this as for tangential projections, additive that is
+                normal_matrix = pp.ad.Matrix(sps.block_diag(mat))
+
+                p_frac = subdomain_proj_scalar.cell_restriction(g_frac) * p
+
+                contact_from_secondary2 = normal_matrix * p_frac
+            force_balance_eq = pp.ad.Expression(
+                contact_from_primary_mortar
+                + contact_from_secondary
+                + contact_from_secondary2,
+                dof_manager,
+                "force_balance",
+                grid_order=edge_list_highest,
+            )
+
+            bc_val_scalar = pp.ad.BoundaryCondition(
+                self.scalar_parameter_key, grid_list
+            )
+
+            div_scalar = pp.ad.Divergence(grids=grid_list)
+
+            dt = self.time_step
+
+            # FIXME: Need bc for div_u term, including previous time step
+            accumulation_primary = (
+                div_u_ad.div_u * (u - u_prev)
+                + stab_biot_ad.stabilization
+                * subdomain_proj_scalar.cell_restriction(g_primary)
+                * (p - p_prev)
+                + div_u_ad.bound_div_u
+                * subdomain_proj_vector.face_restriction(g_primary)
+                * mortar_proj_vector.mortar_to_primary_int
+                * (u_mortar - u_mortar_prev)
+            )
+
+            # Accumulation term on the fractures.
+            frac_vol = np.hstack([g.cell_volumes for g in g_frac])
+            vol_mat = pp.ad.Matrix(
+                sps.dia_matrix((frac_vol, 0), shape=(num_frac_cells, num_frac_cells))
+            )
+            accumulation_fracs = (
+                vol_mat * normal_proj * jump * (u_mortar - u_mortar_prev)
+            )
+
+            accumulation_all = mass_ad.mass * (p - p_prev)
+
+            flux = (
+                mpfa_ad.flux * p
+                + mpfa_ad.bound_flux * bc_val_scalar
+                + mpfa_ad.bound_flux
+                * mortar_proj_scalar.mortar_to_primary_int
+                * mortar_flux
+            )
+            flow_md = (
+                dt
+                * (  # Time scaling of flux terms, both inter-dimensional and from
+                    # the higher dimension
+                    div_scalar * flux
+                    - mortar_proj_scalar.mortar_to_secondary_int * mortar_flux
+                )
+                + accumulation_all
+                + subdomain_proj_scalar.cell_prolongation(g_primary)
+                * accumulation_primary
+                + subdomain_proj_scalar.cell_prolongation(g_frac) * accumulation_fracs
+            )
+
+            interface_flow_eq = robin_ad.mortar_scaling * (
+                mortar_proj_scalar.primary_to_mortar_avg
+                * mpfa_ad.bound_pressure_cell
+                * p
+                + mortar_proj_scalar.primary_to_mortar_avg
+                * mpfa_ad.bound_pressure_face
+                * (
+                    mortar_proj_scalar.mortar_to_primary_int * mortar_flux
+                    + bc_val_scalar
+                )
+                - mortar_proj_scalar.secondary_to_mortar_avg * p
+                + robin_ad.mortar_discr * mortar_flux
+            )
+
+            flow_eq = pp.ad.Expression(
+                flow_md, dof_manager, "flow on nodes", grid_order=grid_list
+            )
+            interface_eq = pp.ad.Expression(
+                interface_flow_eq,
+                dof_manager,
+                "flow on interface",
+                grid_order=edge_list,
+            )
+
+            eq_manager.equations += [
+                momentum_eq,
+                contact_eq,
+                force_balance_eq,
+                flow_eq,
+                interface_eq,
+            ]
+            self._eq_manager = eq_manager
 
     @pp.time_logger(sections=module_sections)
     def _assign_variables(self) -> None:
@@ -543,6 +852,10 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             # Initial value for the scalar variable.
             initial_scalar_value = np.zeros(g.num_cells)
             d[pp.STATE].update({self.scalar_variable: initial_scalar_value})
+
+            d[pp.STATE][pp.ITERATE].update(
+                {self.scalar_variable: initial_scalar_value.copy()}
+            )
             if g.dim == self._Nd:
                 bc_values = self._bc_values_mechanics(g)
                 mech_dict = {"bc_values": bc_values}
@@ -552,6 +865,44 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             mg = d["mortar_grid"]
             initial_value = np.zeros(mg.num_cells)
             d[pp.STATE][self.mortar_scalar_variable] = initial_value
+            d[pp.STATE][pp.ITERATE][self.mortar_scalar_variable] = initial_value.copy()
+
+    def _update_iterate(self, solution: np.ndarray) -> None:
+        super()._update_iterate(solution)
+
+        cumulative = self._use_ad
+
+        dof_manager = self.dof_manager
+        variable_names = []
+        for pair in dof_manager.block_dof.keys():
+            variable_names.append(pair[1])
+
+        dof = np.cumsum(np.append(0, np.asarray(dof_manager.full_dof)))
+
+        for var_name in set(variable_names):
+            for pair, bi in dof_manager.block_dof.items():
+                g = pair[0]
+                name = pair[1]
+                if name != var_name:
+                    continue
+
+                local_sol = solution[dof[bi] : dof[bi + 1]].copy()
+
+                if isinstance(g, tuple):
+                    # This is really an edge
+                    if name == self.mortar_scalar_variable:
+                        data = self.gb.edge_props(g)
+                        if cumulative:
+                            data[pp.STATE][pp.ITERATE][name] += local_sol
+                        else:
+                            data[pp.STATE][pp.ITERATE][name] = local_sol
+                else:  # This is a node
+                    if name == self.scalar_variable:
+                        data = self.gb.node_props(g)
+                        if cumulative:
+                            data[pp.STATE][pp.ITERATE][name] += local_sol
+                        else:
+                            data[pp.STATE][pp.ITERATE][name] = local_sol
 
     @pp.time_logger(sections=module_sections)
     def _save_mechanical_bc_values(self) -> None:
@@ -570,45 +921,54 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
     @pp.time_logger(sections=module_sections)
     def _discretize(self) -> None:
         """Discretize all terms"""
+        if not hasattr(self, "dof_manager"):
+            self.dof_manager = pp.DofManager(self.gb)
+
         if not hasattr(self, "assembler"):
-            self.assembler = pp.Assembler(self.gb)
+            self.assembler = pp.Assembler(self.gb, self.dof_manager)
 
         g_max = self.gb.grids_of_dimension(self._Nd)[0]
 
         tic = time.time()
         logger.info("Discretize")
 
-        # Discretization is a bit cumbersome, as the Biot discetization removes the
-        # one-to-one correspondence between discretization objects and blocks in the matrix.
-        # First, Discretize with the biot class
-        self._discretize_biot()
+        if self._use_ad:
+            self._eq_manager.discretize(self.gb)
+        else:
+            # Discretization is a bit cumbersome, as the Biot discetization removes the
+            # one-to-one correspondence between discretization objects and blocks in
+            # the matrix.
+            # First, Discretize with the biot class
+            self._discretize_biot()
 
-        # Next, discretize term on the matrix grid not covered by the Biot discretization,
-        # i.e. the source term
-        filt = pp.assembler_filters.ListFilter(grid_list=[g_max], term_list=["source"])
-        self.assembler.discretize(filt=filt)
-
-        # Build a list of all edges, and all couplings
-        edge_list: List[
-            Union[
-                Tuple[pp.Grid, pp.Grid],
-                Tuple[pp.Grid, pp.Grid, Tuple[pp.Grid, pp.Grid]],
-            ]
-        ] = []
-        for e, _ in self.gb.edges():
-            edge_list.append(e)
-            edge_list.append((e[0], e[1], e))
-        if len(edge_list) > 0:
-            filt = pp.assembler_filters.ListFilter(grid_list=edge_list)  # type: ignore
+            # Next, discretize term on the matrix grid not covered by the Biot discretization,
+            # i.e. the diffusion, mass and source terms
+            filt = pp.assembler_filters.ListFilter(
+                grid_list=[g_max], term_list=["source", "mass", "diffusion"]
+            )
             self.assembler.discretize(filt=filt)
 
-        # Finally, discretize terms on the lower-dimensional grids. This can be done
-        # in the traditional way, as there is no Biot discretization here.
-        for dim in range(0, self._Nd):
-            grid_list = self.gb.grids_of_dimension(dim)
-            if len(grid_list) > 0:
-                filt = pp.assembler_filters.ListFilter(grid_list=grid_list)
+            # Build a list of all edges, and all couplings
+            edge_list: List[
+                Union[
+                    Tuple[pp.Grid, pp.Grid],
+                    Tuple[pp.Grid, pp.Grid, Tuple[pp.Grid, pp.Grid]],
+                ]
+            ] = []
+            for e, _ in self.gb.edges():
+                edge_list.append(e)
+                edge_list.append((e[0], e[1], e))
+            if len(edge_list) > 0:
+                filt = pp.assembler_filters.ListFilter(grid_list=edge_list)  # type: ignore
                 self.assembler.discretize(filt=filt)
+
+            # Finally, discretize terms on the lower-dimensional grids. This can be done
+            # in the traditional way, as there is no Biot discretization here.
+            for dim in range(0, self._Nd):
+                grid_list = self.gb.grids_of_dimension(dim)
+                if len(grid_list) > 0:
+                    filt = pp.assembler_filters.ListFilter(grid_list=grid_list)
+                    self.assembler.discretize(filt=filt)
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 

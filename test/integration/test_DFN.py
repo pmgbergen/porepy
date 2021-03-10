@@ -26,7 +26,7 @@ class TestDFN(unittest.TestCase):
         # setup data and assembler
         setup_data(gb)
         assembler, _ = setup_discr_mvem(gb)
-
+        dof_manager = assembler._dof_manager
         assembler.discretize()
         A, b = assembler.assemble_matrix_rhs()
         A = A.todense()
@@ -58,10 +58,10 @@ class TestDFN(unittest.TestCase):
         A_0 = np.matrix([[0.0]])
         b_0 = np.array([0])
 
-        global_dof = np.cumsum(np.append(0, np.asarray(assembler.full_dof)))
+        global_dof = np.cumsum(np.append(0, np.asarray(dof_manager.full_dof)))
 
         for g, _ in gb:
-            block = assembler.block_dof[(g, "flow")]
+            block = dof_manager.block_dof[(g, "flow")]
             dof = np.arange(global_dof[block], global_dof[block + 1])
 
             if g.dim == 1 and np.allclose(g.nodes[0], 1):  # f1
@@ -128,9 +128,9 @@ class TestDFN(unittest.TestCase):
         for e, d in gb.edges():
             gl, gh = gb.nodes_of_edge(e)
 
-            block_e = assembler.block_dof[(e, "flow")]
-            block_gl = assembler.block_dof[(gl, "flow")]
-            block_gh = assembler.block_dof[(gh, "flow")]
+            block_e = dof_manager.block_dof[(e, "flow")]
+            block_gl = dof_manager.block_dof[(gl, "flow")]
+            block_gh = dof_manager.block_dof[(gh, "flow")]
 
             dof_e = np.arange(global_dof[block_e], global_dof[block_e + 1])
             dof_gl = np.arange(global_dof[block_gl], global_dof[block_gl + 1])
@@ -169,6 +169,8 @@ class TestDFN(unittest.TestCase):
         # setup data and assembler
         setup_data(gb)
         assembler, _ = setup_discr_tpfa(gb)
+        dof_manager = assembler._dof_manager
+
         assembler.discretize()
         A, b = assembler.assemble_matrix_rhs()
         A = A.todense()
@@ -182,10 +184,10 @@ class TestDFN(unittest.TestCase):
         A_0 = np.matrix([[0.0]])
         b_0 = np.array([0])
 
-        global_dof = np.cumsum(np.append(0, np.asarray(assembler.full_dof)))
+        global_dof = np.cumsum(np.append(0, np.asarray(dof_manager.full_dof)))
 
         for g, _ in gb:
-            block = assembler.block_dof[(g, "flow")]
+            block = dof_manager.block_dof[(g, "flow")]
             dof = np.arange(global_dof[block], global_dof[block + 1])
 
             if g.dim == 1 and np.allclose(g.nodes[0], 1):  # f1
@@ -231,9 +233,9 @@ class TestDFN(unittest.TestCase):
         for e, _ in gb.edges():
             gl, gh = gb.nodes_of_edge(e)
 
-            block_e = assembler.block_dof[(e, "flow")]
-            block_gl = assembler.block_dof[(gl, "flow")]
-            block_gh = assembler.block_dof[(gh, "flow")]
+            block_e = dof_manager.block_dof[(e, "flow")]
+            block_gl = dof_manager.block_dof[(gl, "flow")]
+            block_gh = dof_manager.block_dof[(gh, "flow")]
 
             dof_e = np.arange(global_dof[block_e], global_dof[block_e + 1])
             dof_gl = np.arange(global_dof[block_gl], global_dof[block_gl + 1])
