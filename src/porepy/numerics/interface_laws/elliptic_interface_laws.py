@@ -435,7 +435,8 @@ class RobinCoupling(
             for block in range(cc.shape[1]):
                 # Scale the pressure blocks in the mortar problem
                 cc[2, block] = (
-                    matrix_dictionary_edge[self.mortar_scaling_matrix_key] * cc[2, block]
+                    matrix_dictionary_edge[self.mortar_scaling_matrix_key]
+                    * cc[2, block]
                 )
             matrix += cc
 
@@ -533,7 +534,8 @@ class RobinCoupling(
                 # The secondary mortar will be treated somewhere else (handled by the
                 # assembler).
                 cc[1, block] = (
-                    matrix_dictionary_edge[self.mortar_scaling_matrix_key] * cc[1, block]
+                    matrix_dictionary_edge[self.mortar_scaling_matrix_key]
+                    * cc[1, block]
                 )
         else:
             cc = None
@@ -639,7 +641,7 @@ class FluxPressureContinuity(RobinCoupling):
             mg,
             matrix,
             create_matrix=False,
-            )
+        )
         # so just reconstruct everything.
         rhs_secondary = np.empty(3, dtype=object)
         rhs_secondary[primary_ind] = np.zeros_like(rhs_primary[primary_ind])

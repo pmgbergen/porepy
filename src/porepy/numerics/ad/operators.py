@@ -430,7 +430,7 @@ class Function(Operator):
         """
         self.func = func
         self._name = name
-        self._operation = Operation.evaluate if local == False else Operation.localeval
+        self._operation = Operation.evaluate if not local else Operation.localeval
         self._set_tree()
 
     def __mul__(self, other):
@@ -470,7 +470,9 @@ class Function(Operator):
 
 
 class ApplicableOperator(Function):
-    """Ad representation of operator providing metod 'apply'. This class is meant as base class."""
+    """Ad representation of operator providing metod 'apply'.
+    This class is meant as base class.
+    """
 
     def __init__(self) -> None:
         """Initialization empty."""
@@ -516,5 +518,5 @@ class Tree:
                 self.add_child(child)
 
     def add_child(self, node: Operator) -> None:
-        assert isinstance(node, Operator) or isinstance(node, pp.ad.Operator)
+        assert isinstance(node, (Operator, pp.ad.Operator))
         self.children.append(node)

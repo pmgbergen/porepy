@@ -201,10 +201,13 @@ class DofManager:
                     # If no values exist, there is othing to add to
                     data[pp.STATE] = {var_name: values[dof[bi] : dof[bi + 1]]}
 
-    def transform_dofs(self, dofs: np.ndarray, var: Optional[list] = None) -> np.ndarray:
+    def transform_dofs(
+        self, dofs: np.ndarray, var: Optional[list] = None
+    ) -> np.ndarray:
         """Transforms dofs associated to full list of dofs to a restricted list of dofs."""
 
-        # TODO this procedure should only be performed once! One could consider storing the projection matrix.
+        # TODO this procedure should only be performed once! One could consider storing
+        # the projection matrix.
         # Double-check whether dofs are actually represented by var.
         total_dofs: int = np.sum(self.full_dof)  # type: ignore
         if var is not None:

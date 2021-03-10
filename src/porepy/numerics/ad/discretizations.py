@@ -1,7 +1,7 @@
 """
 
 """
-from typing import Dict, Optional, Tuple, Union, List
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps

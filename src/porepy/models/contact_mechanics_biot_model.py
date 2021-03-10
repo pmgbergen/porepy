@@ -698,8 +698,9 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                         "F"
                     )
                     n_dot_I = sps.csc_matrix((data, (row, col)))
-                    # i) The scalar contribution to the contact stress is mapped to the mortar grid
-                    # and multiplied by n \dot I, with n being the outwards normals on the two sides.
+                    # i) The scalar contribution to the contact stress is mapped to
+                    # the mortar grid  and multiplied by n \dot I, with n being the
+                    # outwards normals on the two sides.
                     # Note that by using different normals for the two sides, we do not need to
                     # adjust the secondary pressure with the corresponding signs by applying
                     # sign_of_mortar_sides as done in PrimalContactCoupling.
@@ -935,7 +936,8 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             self._eq_manager.discretize(self.gb)
         else:
             # Discretization is a bit cumbersome, as the Biot discetization removes the
-            # one-to-one correspondence between discretization objects and blocks in the matrix.
+            # one-to-one correspondence between discretization objects and blocks in
+            # the matrix.
             # First, Discretize with the biot class
             self._discretize_biot()
 
