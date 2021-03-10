@@ -27,9 +27,12 @@ __all__ = [
 class Discretization:
     """Wrapper to make a PorePy discretization compatible with the Ad framework.
 
-    For any PorePy discretization class (e.g. Mpfa, Biot, etc.), the wrapper associates
+    For any discretization class compatible with PorePy, the wrapper associates
     a discretization with all attributes of the class' attributes that ends with
     '_matrix_key'.
+
+    Before wrapping a standard discretization by this class, you should check if
+    a wrapper has already been implemented, e.g. pp.ad.MpfaAd etc.
 
     Example:
         # Generate grid
@@ -88,7 +91,13 @@ class Discretization:
 
 
 class BiotAd:
-    def __init__(self, keyword, grids):
+    """Ad wrapper around the Biot discretization class.
+
+    For description of the method, we refer to the standard Biot class.
+
+    """
+
+    def __init__(self, keyword: str, grids: Union[pp.Grid, List[pp.Grid]]) -> None:
         if isinstance(grids, list):
             self._grids = grids
         else:
@@ -98,8 +107,22 @@ class BiotAd:
 
         self.keyword = keyword
 
+        # Declear attributes, these will be initialized by the below call to the
+        # discretization wrapper.
+
+        self.stress: _MergedOperator
+        self.bound_stress: _MergedOperator
+        self.bound_displacement_cell: _MergedOperator
+        self.bound_displacement_face: _MergedOperator
+
+        self.div_u: _MergedOperator
+        self.bound_div_u: _MergedOperator
+        self.grad_p: _MergedOperator
+        self.stabilization: _MergedOperator
+        self.bound_pressure: _MergedOperator
+
         _wrap_discretization(
-            self, self._discretization, grids, mat_dict_key=self.keyword
+            obj=self, discr=self._discretization, grids=grids, mat_dict_key=self.keyword
         )
 
     def __repr__(self) -> str:
@@ -118,6 +141,14 @@ class MpsaAd:
 
         self.keyword = keyword
 
+        # Declear attributes, these will be initialized by the below call to the
+        # discretization wrapper.
+
+        self.stress: _MergedOperator
+        self.bound_stress: _MergedOperator
+        self.bound_displacement_cell: _MergedOperator
+        self.bound_displacement_face: _MergedOperator
+
         _wrap_discretization(self, self._discretization, grids)
 
     def __repr__(self) -> str:
@@ -134,6 +165,8 @@ class GradPAd:
         self._discretization = pp.GradP(keyword)
         self._name = "GradP from Biot"
         self.keyword = keyword
+
+        self.grad_p: _MergedOperator
 
         _wrap_discretization(self, self._discretization, grids)
 
@@ -153,6 +186,9 @@ class DivUAd:
         self._name = "DivU from Biot"
         self.keyword = mat_dict_keyword
 
+        self.div_u: _MergedOperator
+        self.bound_div_u: _MergedOperator
+
         _wrap_discretization(self, self._discretization, grids, mat_dict_keyword)
 
     def __repr__(self) -> str:
@@ -169,6 +205,8 @@ class BiotStabilizationAd:
         self._discretization = pp.BiotStabilization(keyword)
         self._name = "Biot stabilization term"
         self.keyword = keyword
+
+        self.stabilization: _MergedOperator
 
         _wrap_discretization(self, self._discretization, grids)
 
@@ -196,6 +234,11 @@ class ColoumbContactAd:
         )
         self._name = "Biot stabilization term"
         self.keyword = keyword
+
+        self.traction: _MergedOperator
+        self.displacement: _MergedOperator
+        self.rhs: _MergedOperator
+
         _wrap_discretization(
             self, self._discretization, grids, mat_dict_grids=low_dim_grids
         )
@@ -218,6 +261,14 @@ class MpfaAd:
         self._discretization = pp.Mpfa(keyword)
         self._name = "Mpfa"
         self.keyword = keyword
+
+        self.flux: _MergedOperator
+        self.bound_flux: _MergedOperator
+        self.bound_pressure_cell: _MergedOperator
+        self.bound_pressure_face: _MergedOperator
+        self.vector_source: _MergedOperator
+        self.bound_pressure_vector_source: _MergedOperator
+
         _wrap_discretization(self, self._discretization, grids)
 
     def __repr__(self) -> str:
@@ -234,6 +285,8 @@ class MassMatrixAd:
         self._discretization = pp.MassMatrix(keyword)
         self._name = "Mass matrix"
         self.keyword = keyword
+
+        self.mass: _MergedOperator
         _wrap_discretization(self, self._discretization, grids)
 
     def __repr__(self) -> str:
@@ -250,6 +303,9 @@ class RobinCouplingAd:
         self._discretization = pp.RobinCoupling(keyword, primary_keyword=keyword)
         self._name = "Robin interface coupling"
         self.keyword = keyword
+
+        self.mortar_scaling: _MergedOperator
+        self.mortar_discr: _MergedOperator
         _wrap_discretization(self, self._discretization, edges)
 
     def __repr__(self) -> str:
