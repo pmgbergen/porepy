@@ -18,7 +18,6 @@ def initLocalAdArrays(variables):
     ad_arrays = []
     for i, val in enumerate(variables):
         # initiate zero jacobian
-        n = num_val[i]
         jac = [np.zeros(num_val[i]) for m in num_val]
         # set jacobian of variable i to I
         jac[i] = np.ones(num_val[i])

@@ -7,7 +7,7 @@
   subsets of variables with other variables (outside the set) to assemble different terms
 *
 """
-from typing import Dict, List, Optional, Tuple, Union, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -89,7 +89,8 @@ class Expression:
         ) = self._identify_variables(dof_manager)
 
         # Split variable dof indices and ids into groups of current variables (those
-        # of the current iteration step), and those from the previous time steps and iterations.
+        # of the current iteration step), and those from the previous time steps and
+        # iterations.
         current_indices = []
         current_ids = []
         prev_indices = []
@@ -249,9 +250,9 @@ class Expression:
         Parameters:
             gb (pp.GridBucket): GridBucket used to represent the problem. Will be used
                 to parse the operators that combine to form this Equation..
-            state (np.ndarray, optional): State vector for which the residual and its derivative
-                should be formed. If not provided, the state will be pulled from the
-                previous iterate (if this exists), or alternatively from the state
+            state (np.ndarray, optional): State vector for which the residual and its
+                derivatives should be formed. If not provided, the state will be pulled from
+                the previous iterate (if this exists), or alternatively from the state
                 at the previous time step.
 
         Returns:
@@ -385,7 +386,8 @@ class Expression:
                     return self._prev_vals[op.id]
                 elif op.prev_iter or not (
                     op.id in self._ad
-                ):  # TODO make it more explicit that op corresponds to a non_ad_variable? e.g. by op.id in non_ad_variable_ids.
+                ):  # TODO make it more explicit that op corresponds to a non_ad_variable?
+                    # e.g. by op.id in non_ad_variable_ids.
                     return self._prev_iter_vals[op.id]
                 else:
                     return self._ad[op.id]
@@ -432,9 +434,9 @@ class Expression:
             if all([isinstance(r, Ad_array) for r in results[1:]]):
                 # TODO: return results[0].func(*makeLocalAd(results[1:]))
                 if len(results) > 2:
-                    raise RuntimeError(
-                        "Not implemented."
-                    )  # evaluation of loacl functions only supported for single argument functions.
+                    # evaluation of local functions only supported for single
+                    # argument functions.
+                    raise RuntimeError("Not implemented.")
                 else:
                     argval = results[1].val
                     argjac = results[1].jac.diagonal()

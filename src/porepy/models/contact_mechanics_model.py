@@ -11,7 +11,7 @@ undergo major changes on little notice.
 """
 import logging
 import time
-from typing import Any, Dict, Optional, Tuple, Union, List
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps

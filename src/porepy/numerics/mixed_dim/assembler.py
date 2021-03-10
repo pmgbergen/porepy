@@ -661,7 +661,9 @@ class Assembler:
                     # secondary, and the final with edge.
                     if not assemble_rhs_only:
                         loc_mat, _ = self._assign_matrix_vector(
-                            self._dof_manager.full_dof[[primary_idx, secondary_idx, edge_idx]],
+                            self._dof_manager.full_dof[
+                                [primary_idx, secondary_idx, edge_idx]
+                            ],
                             sps_matrix,
                         )
                     # Pick out the discretizations on the primary and secondary node
@@ -913,7 +915,8 @@ class Assembler:
                     # secondary, and the final with edge.
                     if assemble_matrix:
                         loc_mat, _ = self._assign_matrix_vector(
-                            self._dof_manager.full_dof[[primary_idx, edge_idx, oi]], sps_matrix
+                            self._dof_manager.full_dof[[primary_idx, edge_idx, oi]],
+                            sps_matrix,
                         )
 
                         (

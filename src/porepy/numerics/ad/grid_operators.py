@@ -591,7 +591,9 @@ class DirBC(Operator):
 #### Helper methods below
 
 
-def _grid_list(grids: Optional[List[pp.Grid]], gb: Optional[pp.GridBucket]) -> List[pp.Grid]:
+def _grid_list(
+    grids: Optional[List[pp.Grid]], gb: Optional[pp.GridBucket]
+) -> List[pp.Grid]:
     # Helper method to parse input data
     if grids is None:
         if gb is None:

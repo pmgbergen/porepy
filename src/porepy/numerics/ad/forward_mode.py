@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sps
-import porepy as pp
 
+import porepy as pp
 
 __all__ = ["initAdArrays", "Ad_array"]
 

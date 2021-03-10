@@ -16,7 +16,9 @@ class AndersonAcceleration:
         self._gkm1: np.ndarray = self._Gk.copy()
 
     def reset(self):
-        self._Fk: np.ndarray = np.zeros((self._dimension, self._depth))  # changes in increments
+        self._Fk: np.ndarray = np.zeros(
+            (self._dimension, self._depth)
+        )  # changes in increments
         self._Gk: np.ndarray = np.zeros(
             (self._dimension, self._depth)
         )  # changes in fixed point applications
