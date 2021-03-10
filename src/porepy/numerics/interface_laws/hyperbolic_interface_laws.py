@@ -196,7 +196,14 @@ class UpwindCoupling(
             cc = np.array([np.sum(cc, axis=(0, 1))])
 
         # rhs is zero
-        rhs = np.hstack([np.zeros(dof[0]), np.zeros(dof[1]), np.zeros(dof[2])])
+        rhs = np.array(
+            [np.zeros(dof[0]), np.zeros(dof[1]), np.zeros(dof[2])], dtype=object
+        )
+        if rhs.ndim == 2:
+            # Special case if all elements in dof are 1, numpy interprets the
+            # definition of rhs a bit special then.
+            rhs = rhs.ravel()
+
         matrix += cc
         return matrix, rhs
 
