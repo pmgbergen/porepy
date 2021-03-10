@@ -1,3 +1,5 @@
+from typing import Any, Dict, Tuple
+
 import numpy as np
 import scipy.sparse as sps
 
@@ -14,16 +16,14 @@ class Upwind(pp.numerics.discretization.Discretization):
 
     """
 
-    @pp.time_logger(sections=module_sections)
-    def __init__(self, keyword="transport"):
+    def __init__(self, keyword: str = "transport") -> None:
         self.keyword = keyword
 
         # Keywords used to store matrix and right hand side in the matrix_dictionary
-        self.matrix_keyword = "transport"
-        self.rhs_keyword = "rhs"
+        self.upwind_matrix_key = "transport"
+        self.rhs_matrix_key = "rhs"
 
-    @pp.time_logger(sections=module_sections)
-    def ndof(self, g):
+    def ndof(self, g: pp.Grid) -> int:
         """
         Return the number of degrees of freedom associated to the method.
         In this case number of cells (concentration dof).
@@ -40,7 +40,9 @@ class Upwind(pp.numerics.discretization.Discretization):
         return g.num_cells
 
     @pp.time_logger(sections=module_sections)
-    def assemble_matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(
+        self, g: pp.Grid, data: Dict
+    ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Return the matrix for an upwind discretization of a linear transport
         problem.
 
@@ -58,7 +60,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
     @pp.time_logger(sections=module_sections)
-    def assemble_matrix(self, g, data):
+    def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.spmatrix:
         """Return the matrix for an upwind discretization of a linear transport
         problem.
 
@@ -71,13 +73,17 @@ class Upwind(pp.numerics.discretization.Discretization):
                 Size: g.num_cells x g.num_cells.
 
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        return matrix_dictionary[self.matrix_keyword]
+        matrix_dictionary: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
+            self.keyword
+        ]
+        upwind = matrix_dictionary[self.upwind_matrix_key]
+        div: sps.spmatrix = pp.fvutils.scalar_divergence(g)
+        return div * upwind
 
     # ------------------------------------------------------------------------------#
 
     @pp.time_logger(sections=module_sections)
-    def assemble_rhs(self, g, data):
+    def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
         """Return the right-hand side for an upwind discretization of a linear
         transport problem.
 
@@ -90,12 +96,20 @@ class Upwind(pp.numerics.discretization.Discretization):
                 conditions. The size of the vector will depend on the discretization.
 
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary: Dict[str, Any] = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
+            self.keyword
+        ]
 
-        return matrix_dictionary[self.rhs_keyword]
+        bc_values: np.ndarray = parameter_dictionary["bc_values"]
+        bc_discr = matrix_dictionary[self.rhs_matrix_key]
+
+        div = sps.spmatrix = pp.fvutils.scalar_divergence(g)
+
+        return div * bc_discr * bc_values
 
     @pp.time_logger(sections=module_sections)
-    def discretize(self, g, data, d_name="darcy_flux"):
+    def discretize(self, g: pp.Grid, data: Dict, d_name: str = "darcy_flux") -> None:
         """
         Return the matrix and righ-hand side for a discretization of a scalar
         linear transport problem using the upwind scheme.
@@ -144,88 +158,107 @@ class Upwind(pp.numerics.discretization.Discretization):
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
         """
 
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary: Dict[str, Any] = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
+            self.keyword
+        ]
 
         # Shortcut for point grids
         if g.dim == 0:
-            matrix_dictionary[self.matrix_keyword] = sps.csr_matrix([0.0])
-            matrix_dictionary[self.rhs_keyword] = np.array([0.0])
+            matrix_dictionary[self.upwind_matrix_key] = sps.csr_matrix((0, 1))
+            matrix_dictionary[self.rhs_matrix_key] = sps.csr_matrix((0, 0))
             return
 
-        darcy_flux = parameter_dictionary[d_name]
-        bc = parameter_dictionary["bc"]
-        bc_val = parameter_dictionary["bc_values"]
+        darcy_flux: np.ndarray = parameter_dictionary[d_name]
+        bc: pp.BoundaryCondition = parameter_dictionary["bc"]
 
-        has_bc = not (bc is None or bc_val is None)
+        # Discretization is made of two parts: One is a mapping from the upstream cell
+        # to the face. Second is a scaling of that upstream function with the Darcy
+        # flux. Then boundary conditions of course complicate everything.
 
-        # Compute the face flux respect to the real direction of the normals
-        indices = g.cell_faces.indices
-        flow_faces = g.cell_faces.copy()
-        flow_faces.data *= darcy_flux[indices]
+        # booleans of flux direction
+        pos_flux = darcy_flux >= 0
+        neg_flux = np.logical_not(pos_flux)
 
-        # Retrieve the faces boundary and their numeration in the flow_faces
-        # We need to impose no-flow for the inflow faces without boundary
-        # condition
-        mask = np.unique(indices, return_index=True)[1]
-        bc_neu = g.get_all_boundary_faces()
+        # Array to store index of the cell in the usptream direction
+        upstream_cell_ind = np.zeros(g.num_faces, dtype=int)
+        # Fill the array based on the cell-face relation. By construction, the normal
+        # vector of a face points from the first to the second row in this array
+        cf_dense = g.cell_face_as_dense()
+        # Positive fluxes point in the same direction as the normal vector, find the
+        # upstream cell
+        upstream_cell_ind[pos_flux] = cf_dense[0, pos_flux]
+        upstream_cell_ind[neg_flux] = cf_dense[1, neg_flux]
 
-        if has_bc:
-            # If boundary conditions are imposed remove the faces from this
-            # procedure.
-            # For primal-like discretizations, internal boundaries
-            # are handled by assigning Neumann conditions.
-            is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
-            bc_dir = np.where(is_dir)[0]
-            bc_neu = np.setdiff1d(bc_neu, bc_dir, assume_unique=True)
-            bc_dir = mask[bc_dir]
+        # Make row and data arrays, preparing to make an coo-matrix for the upstream
+        # cell-to-face map.
+        row = np.arange(g.num_faces)
+        values = np.ones(g.num_faces, dtype=int)
 
-            # Remove Dirichlet inflow
-            inflow = flow_faces.copy()
+        # We need to eliminate faces on the boundary; these will be discretized
+        # separately below. On faces with Neumann conditions, boundary conditions apply
+        # for both inflow and outflow. For Dirichlet, only inflow conditions are given;
+        # for outflow, we use upstream weighting (thus no need to modify the matrix
+        # we are about to build).
 
-            inflow.data[bc_dir] = inflow.data[bc_dir].clip(max=0)
-            flow_faces.data[bc_dir] = flow_faces.data[bc_dir].clip(min=0)
+        # faces with Neumann conditions
+        neumann_ind = np.where(bc.is_neu)[0]
 
-        # Remove all Neumann
-        bc_neu = mask[bc_neu]
-        flow_faces.data[bc_neu] = 0
-
-        # Determine the outflow faces
-        if_faces = flow_faces.copy()
-        if_faces.data = np.sign(if_faces.data)
-
-        # Compute the inflow/outflow related to the cells of the problem
-        flow_faces.data = flow_faces.data.clip(min=0)
-
-        flow_cells = if_faces.transpose() * flow_faces
-        flow_cells.tocsr()
-        flow_cells = flow_cells.astype(np.float)
-
-        # Store disrcetization matrix
-        matrix_dictionary[self.matrix_keyword] = flow_cells
-
-        if not has_bc:
-            # Short cut if there are no trivial boundary conditions
-            matrix_dictionary[self.rhs_keyword] = np.zeros(g.num_cells)
-        else:
-            # Impose the boundary conditions
-            bc_val_dir = np.zeros(g.num_faces)
-            if np.any(bc.is_dir):
-                is_dir = np.where(bc.is_dir)[0]
-                bc_val_dir[is_dir] = bc_val[is_dir]
-
-            # We assume that for Neumann boundary condition a positive 'bc_val'
-            # represents an outflow for the domain. A negative 'bc_val' represents
-            # an inflow for the domain.
-            bc_val_neu = np.zeros(g.num_faces)
-            if np.any(bc.is_neu):
-                is_neu = np.where(bc.is_neu)[0]
-                bc_val_neu[is_neu] = bc_val[is_neu]
-
-            matrix_dictionary[self.rhs_keyword] = (
-                -inflow.transpose() * bc_val_dir
-                - np.abs(g.cell_faces.transpose()) * bc_val_neu
+        # Faces with Dirichlet conditions and inflow. The latter is identified by
+        # considering the direction of the flux, and the upstream element in cf_dense
+        # (note that the exterior of the domain is represented by -1 in cf_dense).
+        inflow_ind = np.where(
+            np.logical_and(
+                bc.is_dir,
+                np.logical_or(
+                    np.logical_and(pos_flux, cf_dense[0] < 0),
+                    np.logical_and(neg_flux, cf_dense[1] < 0),
+                ),
             )
+        )[0]
+
+        # Delete indices that should be treated by boundary conditions
+        delete_ind = np.sort(np.r_[neumann_ind, inflow_ind])
+        row = np.delete(row, delete_ind)
+        values = np.delete(values, delete_ind)
+        col = np.delete(upstream_cell_ind, delete_ind)
+
+        # Finally we can construct the upstream weighting matrix.
+        upstream_mat = sps.coo_matrix(
+            (
+                values,
+                (row, col),
+            ),
+            shape=(g.num_faces, g.num_cells),
+        ).tocsr()
+
+        # Scaling with Darcy fluxes is a diagonal matrix
+        flux_mat = sps.dia_matrix((darcy_flux, 0), shape=(g.num_faces, g.num_faces))
+
+        # Form and store disrcetization matrix
+        matrix_dictionary[self.upwind_matrix_key] = flux_mat * upstream_mat
+
+        ## Boundary conditions
+        # On Neumann boundaries the precribed boundary value should effectively
+        # be added to the adjacent cell, with the convention that influx (so
+        # negative boundary value) should correspond to accumulation
+        # On Dirichlet boundaries, we consider only inflow boundaries.
+
+        # For Neumann faces we need to assign the sign of the divergence, to
+        # counteract multiplication with the same sign when the divergence is
+        # applied (e.g. in self.assemble_matrix).
+        sgn_div = pp.fvutils.scalar_divergence(g).sum(axis=0).A.squeeze()
+
+        row = np.hstack([neumann_ind, inflow_ind])
+        col = row
+        # Need minus signs on both Neumann and Dirichlet data to ensure that accumulation
+        # follows from negative fluxes.
+        values_bc = np.hstack([-sgn_div[neumann_ind], -darcy_flux[inflow_ind]])
+        bc_discr = sps.coo_matrix(
+            (values_bc, (row, col)), shape=(g.num_faces, g.num_faces)
+        ).tocsr()
+
+        matrix_dictionary[self.rhs_matrix_key] = bc_discr
 
     @pp.time_logger(sections=module_sections)
     def cfl(self, g, data, d_name="darcy_flux"):

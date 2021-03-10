@@ -3,9 +3,9 @@ import unittest
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.ad.forward_mode import Ad_array, initAdArrays
-from porepy.ad.functions import exp
-from porepy.ad.utils import concatenate
+from porepy.numerics.ad.forward_mode import Ad_array, initAdArrays
+from porepy.numerics.ad.functions import exp
+from porepy.numerics.ad.utils import concatenate
 
 
 class AdTest(unittest.TestCase):

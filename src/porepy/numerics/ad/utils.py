@@ -2,7 +2,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.ad.forward_mode import Ad_array
+from porepy.numerics.ad.forward_mode import Ad_array
 
 module_sections = ["assembly", "numerics"]
 

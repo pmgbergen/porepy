@@ -81,9 +81,7 @@ class Mpfa(pp.FVElliptic):
         """
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-
         # Extract parameters
-
         # Dimension for vector source term field. Defaults to the same as the grid.
         # For grids embedded in a higher dimension, this must be set to the ambient
         # dimension.

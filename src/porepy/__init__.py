@@ -45,7 +45,7 @@ from porepy.utils.logging import *
 
 from porepy.utils.common_constants import *
 
-from porepy.utils import error, grid_utils
+from porepy.utils import error
 from porepy.utils.tangential_normal_projection import TangentialNormalProjection
 
 from porepy.utils import permutations
@@ -91,6 +91,7 @@ from porepy.grids.point_grid import PointGrid
 from porepy.grids import match_grids
 from porepy.grids.standard_grids import grid_buckets_2d
 from porepy.grids import grid_extrusion
+from porepy.utils import grid_utils
 
 # Fractures
 from porepy.fracs.fractures_3d import Fracture, EllipticFracture, FractureNetwork3d
@@ -131,6 +132,7 @@ from porepy.numerics.interface_laws.elliptic_interface_laws import (
 
 from porepy.numerics.interface_laws.cell_dof_face_dof_map import CellDofFaceDofMap
 from porepy.numerics.mixed_dim import assembler_filters
+from porepy.numerics.mixed_dim.dof_manager import DofManager
 from porepy.numerics.mixed_dim.assembler import Assembler
 
 import porepy.numerics
@@ -165,6 +167,9 @@ from porepy.models.run_models import (
 from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 from porepy.models.contact_mechanics_model import ContactMechanics
 from porepy.models.thm_model import THM
+
+# from porepy.numerics.ad.equation_manager import Equation, EquationManager
+from porepy.numerics import ad
 
 # Visualization
 from porepy.viz.exporter import Exporter

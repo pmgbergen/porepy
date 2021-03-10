@@ -570,8 +570,10 @@ class THM(parent_model.ContactMechanicsBiot):
     @pp.time_logger(sections=module_sections)
     def _discretize(self) -> None:
         """Discretize all terms"""
+        if not hasattr(self, "dof_manager"):
+            self.dof_manager = pp.DofManager(self.gb)
         if not hasattr(self, "assembler"):
-            self.assembler = pp.Assembler(self.gb)
+            self.assembler = pp.Assembler(self.gb, self.dof_manager)
 
         tic = time.time()
         logger.info("Discretize")
@@ -583,11 +585,11 @@ class THM(parent_model.ContactMechanicsBiot):
         self._copy_biot_discretizations()
 
         # Next, discretize term on the matrix grid not covered by the Biot discretization,
-        # i.e. the source term
+        # i.e. the source, diffusion and mass terms
         filt = pp.assembler_filters.ListFilter(
             grid_list=[self._nd_grid()],
             variable_list=[self.scalar_variable],
-            term_list=["source"],
+            term_list=["source", "diffusion", "mass"],
         )
         self.assembler.discretize(filt=filt)
 
@@ -703,16 +705,19 @@ class THM(parent_model.ContactMechanicsBiot):
             solution_vector (np.array): solution vector for the current iterate.
 
         """
+        # super().update_state(solution_vector)
         super()._update_iterate(solution_vector)
-        assembler = self.assembler
+
+        dof_manager = self.dof_manager
+
         variable_names = []
-        for pair in assembler.block_dof.keys():
+        for pair in dof_manager.block_dof.keys():
             variable_names.append(pair[1])
 
-        dof = np.cumsum(np.append(0, np.asarray(assembler.full_dof)))
+        dof = np.cumsum(np.append(0, np.asarray(dof_manager.full_dof)))
 
         for var_name in set(variable_names):
-            for pair, bi in assembler.block_dof.items():
+            for pair, bi in dof_manager.block_dof.items():
                 g = pair[0]
                 name = pair[1]
                 if name != var_name:

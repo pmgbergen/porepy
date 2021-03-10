@@ -2,6 +2,7 @@
 *.py#
 *.msh
 *.geo
+*.geo_unrolled
 *.exe
 *.swp
 *.py~
@@ -12,7 +13,9 @@
 *.vrml
 *.txt
 *.csv
+.mypy_cache/
 *~
+*.log
 *.swo
 *.mtx
 *.gz
