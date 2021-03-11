@@ -3,8 +3,6 @@
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
-import scipy.sparse as sps
-
 import porepy as pp
 
 
@@ -288,11 +286,11 @@ class DofManager:
             var = [var]
 
         # Mark input dofs among all global dofs
-        is_dofs = np.full(total_dofs, False)
+        is_dofs = np.full((total_dofs, 1), False)
         is_dofs[dofs] = True
 
         # Mark dofs associated to var (on all grids)
-        is_var = np.full(total_dofs, False)
+        is_var = np.full((total_dofs, 1), False)
         for grid, variable in self.block_dof:
             if variable in var:
                 var_dofs = self.dof_ind(grid, variable)
