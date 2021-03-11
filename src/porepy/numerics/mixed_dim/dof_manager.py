@@ -211,11 +211,11 @@ class DofManager:
             var = [var]
 
         # Mark input dofs among all global dofs
-        is_dofs = np.full((total_dofs, 1), False)
+        is_dofs = np.full((total_dofs, 1), False, dtype=bool)
         is_dofs[dofs] = True
 
         # Mark dofs associated to var (on all grids)
-        is_var = np.full((total_dofs, 1), False)
+        is_var = np.full((total_dofs, 1), False, dtype=bool)
         for grid, variable in self.block_dof:
             if variable in var:
                 var_dofs = self.dof_ind(grid, variable)
