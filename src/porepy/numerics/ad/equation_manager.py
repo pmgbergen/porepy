@@ -300,12 +300,12 @@ class Expression:
             ad_vars = initAdArrays([state[ind] for ind in self._variable_dofs])
             self._ad = {var_id: ad for (var_id, ad) in zip(self._variable_ids, ad_vars)}
         else:
-            active_variable_ids = [v.id for v in active_variables]
-            present_active_variable_ids = list(
-                set(self._variable_ids).intersection(active_variable_ids)
+            potential_active_variable_ids = [v.id for v in active_variables]
+            active_variable_ids = list(
+                set(self._variable_ids).intersection(potential_active_variable_ids)
             )
             active_variable_local_ids = [
-                self._variable_ids.index(i) for i in present_active_variable_ids
+                self._variable_ids.index(i) for i in active_variable_ids
             ]
             active_variable_dofs = [
                 self._variable_dofs[i] for i in active_variable_local_ids
