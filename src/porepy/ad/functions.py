@@ -29,10 +29,12 @@ def log(var):
 
 @pp.time_logger(sections=module_sections)
 def max(var1, var2):
-    if var1 > var2:
-        return var1
-    else:
-        return var2
+    flag = var1 > var2
+    flag1 = sps.diags(flag, dtype=int)
+    flag2 = sps.diags(1 - flag, dtype=int)
+    if np.isscalar(var2):
+        var2 = var2 * np.ones(len(var1))
+    return flag1 * var1 + flag2 * var2
 
 
 @pp.time_logger(sections=module_sections)
@@ -40,6 +42,8 @@ def min(var1, var2):
     flag = var1 < var2
     flag1 = sps.diags(flag, dtype=int)
     flag2 = sps.diags(1 - flag, dtype=int)
+    if np.isscalar(var2):
+        var2 = var2 * np.ones(len(var1))
     return flag1 * var1 + flag2 * var2
 
 
