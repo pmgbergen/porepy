@@ -198,7 +198,7 @@ class DofManager:
 
                     data[pp.STATE][var_name] = vals
                 else:
-                    # If no values exist, there is othing to add to
+                    # If no values exist, there is nothing to add to
                     data[pp.STATE] = {var_name: values[dof[bi] : dof[bi + 1]]}
 
     def transform_dofs(self, dofs: np.ndarray, var: Optional[list]) -> np.ndarray:
