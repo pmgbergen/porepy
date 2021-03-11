@@ -10,9 +10,8 @@
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
-import scipy.sparse as sps
-
 import porepy as pp
+import scipy.sparse as sps
 
 from . import operators
 from .discretizations import _MergedOperator
