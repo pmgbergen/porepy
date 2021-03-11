@@ -201,6 +201,81 @@ class DofManager:
                     # If no values exist, there is nothing to add to
                     data[pp.STATE] = {var_name: values[dof[bi] : dof[bi + 1]]}
 
+    def distribute_restricted_variable(
+        self,
+        values: np.ndarray,
+        variable_names: Optional[List[str]] = None,
+        iterate: bool = False,
+        additive: bool = False,
+    ) -> None:
+        """Distribute a vector to the nodes and edges in the GridBucket.
+
+        The intended use is to split a multi-physics solution vector into its
+        component parts.
+
+        Parameters:
+            values (np.array): Vector to be split. It is assumed that it corresponds
+                to the ordering implied in block_dof and full_dof, e.g. that it is
+                the solution of a linear system assembled with the assembler.
+            variable_names (list of str, optional): Names of the variable to be
+                distributed. If not provided, all variables found in block_dof
+                will be distributed
+            additive (bool, optional): If True, the variables are added to the current
+                state, instead of overwrite the existing value.
+
+        """
+        if variable_names is None:
+            variable_names = []
+            for pair in self.block_dof.keys():
+                variable_names.append(pair[1])
+
+        # Make variable_names unique
+        variable_names = list(set(variable_names))
+
+        # Determine restricted dof set for provided variables
+        var_num_dofs = [self.num_dofs(var=v) for v in variable_names]
+        dof = np.cumsum(np.append(0, np.asarray(var_num_dofs)))
+
+        for var_name in set(variable_names):
+            vi = variable_names.index(var_name)
+            for pair, bi in self.block_dof.items():
+                g = pair[0]
+                name = pair[1]
+                if name != var_name:
+                    continue
+                if isinstance(g, tuple):
+                    # This is really an edge
+                    data = self.gb.edge_props(g)
+                else:
+                    data = self.gb.node_props(g)
+
+                if not(iterate):
+                    if pp.STATE in data.keys():
+                        vals = values[dof[vi] : dof[vi + 1]]
+                        if additive:
+                            vals += data[pp.STATE][var_name]
+
+                        data[pp.STATE][var_name] = vals
+                    else:
+                        # If no values exist, there is nothing to add to
+                        data[pp.STATE] = {var_name: values[dof[vi] : dof[vi + 1]]}
+                else:
+                    if pp.STATE in data.keys():
+                        vals = values[dof[vi] : dof[vi + 1]]
+                        if pp.ITERATE in data[pp.STATE].keys():
+                            if additive:
+                                vals += data[pp.STATE][pp.ITERATE][var_name]
+
+                            data[pp.STATE][pp.ITERATE][var_name] = vals
+                        else:
+                            data[pp.STATE][pp.ITERATE] = {}
+                            data[pp.STATE][pp.ITERATE][var_name] = vals
+
+                    else:
+                        # If no values exist, there is nothing to add to
+                        data[pp.STATE] = {}
+                        data[pp.STATE][pp.ITERATE] = {var_name: values[dof[vi] : dof[vi + 1]]}
+
     def transform_dofs(self, dofs: np.ndarray, var: Optional[list]) -> np.ndarray:
         """Transforms dofs associated to full list of dofs to a restricted list of dofs.
 
