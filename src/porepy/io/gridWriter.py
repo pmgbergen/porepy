@@ -248,8 +248,10 @@ def mergeGridsOfEqualDim(gb):
     mergedGrids = []
     gridsOfDim = np.empty(dimMax + 1, dtype=list)
     gridIdx = np.empty(dimMax + 1, dtype=list)
+    numCells = np.empty(dimMax + 1, dtype=list)
     for i in range(dimMax + 1):
-        gridIdx[i] =[]
+        gridIdx[i] = []
+        numCells[i] = []
         gridsOfDim[i] = gb.grids_of_dimension(i)
         if len(gridsOfDim[i])==0:
             mergedGrids.append([])
@@ -259,6 +261,7 @@ def mergeGridsOfEqualDim(gb):
         for grid in gridsOfDim[i]:
             d = gb.node_props(grid)
             gridIdx[i].append(d['node_number'])
+            numCells[i].append(grid.num_cells)
         
     mortarsOfDim = np.empty(dimMax + 1, dtype=list)
     for i in range(len(mortarsOfDim)):
@@ -331,6 +334,13 @@ def mergeGridsOfEqualDim(gb):
 
     mergedGb = pp.GridBucket()
     mergedGb.add_nodes([g for g in mergedGrids if g != []])
+    for dim in range(dimMax + 1):
+        cell_idx = []
+        for i in range(len(gridIdx[dim])):
+            cell_idx.append(gridIdx[dim][i] * np.ones(numCells[dim][i], dtype=int))
+        if len(gridIdx[dim]) > 0:
+            data = mergedGb.node_props(mergedGb.grids_of_dimension(dim)[0])
+            data["cell_2_frac"] = np.hstack(cell_idx)
 
     for dim in range(dimMax):
         mg = mergedMortars[dim]
@@ -340,7 +350,7 @@ def mergeGridsOfEqualDim(gb):
         gs = mergedGrids[dim]
         
         mergedGb.add_edge((gm, gs), np.empty(0))
-        mg = pp.MortarGrid(gs.dim, {'0': mg})
+        mg = pp.MortarGrid(gs.dim, {pp.grids.mortar_grid.MortarSides.NONE_SIDE: mg})
         mg._primary_to_mortar_int = mergedPrimary2Mortar[dim]
         mg._secondary_to_mortar_int = mergedSecondary2Mortar[dim]
 
