@@ -201,39 +201,37 @@ class DofManager:
                     # If no values exist, there is othing to add to
                     data[pp.STATE] = {var_name: values[dof[bi] : dof[bi + 1]]}
 
-    def transform_dofs(
-        self, dofs: np.ndarray, var: Optional[list] = None
-    ) -> np.ndarray:
-        """Transforms dofs associated to full list of dofs to a restricted list of dofs."""
+    def transform_dofs(self, dofs: np.ndarray, var: Optional[list]) -> np.ndarray:
+        """Transforms dofs associated to full list of dofs to a restricted list of dofs.
 
-        # TODO this procedure should only be performed once! One could consider storing
-        # the projection matrix.
-        # Double-check whether dofs are actually represented by var.
-        total_dofs: int = np.sum(self.full_dof)  # type: ignore
-        if var is not None:
-            is_var_dofs = np.zeros(total_dofs, dtype=bool)
-            if not isinstance(var, list):
-                var = [var]
-            for grid, variable in self.block_dof:
-                if variable in var:
-                    var_dof_ind = self.dof_ind(grid, variable)
-                    is_var_dofs[var_dof_ind] = True
-            assert all(is_var_dofs[dofs])
+        It is implicitly assumed that for each variable in var all versions on all possible
+        grids are addressed."""
 
-        # Input dofs in the context of all dofs managed by DofManager
-        total_dofs: int = np.sum(self.full_dof)  # type: ignore
-        global_dofs = np.zeros(total_dofs)
-        global_dofs[dofs] = 1
+        # Some preparations
+        total_dofs = np.sum(self.full_dof)
+        if not isinstance(var, list):
+            var = [var]
 
-        # Projection matrix from space of all dofs to restricted list of var
-        num_dofs = self.num_dofs(var=var)  # type: ignore
-        projection = sps.coo_matrix(
-            (np.arange(num_dofs), (np.arange(num_dofs), dofs)),
-            shape=(num_dofs, total_dofs),
-        )
+        # Mark input dofs among all global dofs
+        is_dofs = np.full(total_dofs, False)
+        is_dofs[dofs] = True
 
-        # Return the restricted dofs
-        return projection * global_dofs
+        # Mark dofs associated to var (on all grids)
+        is_var = np.full(total_dofs, False)
+        for grid, variable in self.block_dof:
+            if variable in var:
+                var_dofs = self.dof_ind(grid, variable)
+                is_var[var_dofs] = True
+
+        # Make sure the aimed at restriction makes sense
+        assert all(is_var[dofs])
+
+        # Construct the full range of local dofs corresponding to var
+        num_var_dofs = self.num_dofs(var=var)
+        local_dofs = np.arange(num_var_dofs)
+
+        # Return restricted dofs
+        return local_dofs[is_dofs[is_var]]
 
     def __str__(self) -> str:
         grid_likes = [key[0] for key in self.block_dof]
