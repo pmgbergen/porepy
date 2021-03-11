@@ -130,7 +130,9 @@ class Expression:
             active_variable_local_ids = [
                 self._variable_ids.index(i) for i in active_variable_ids
             ]
-            ad_variable_dofs = [self._variable_dofs[i] for i in active_variable_local_ids]
+            ad_variable_dofs = [
+                self._variable_dofs[i] for i in active_variable_local_ids
+            ]
             dofs = np.hstack([d for d in ad_variable_dofs])
         return dofs
 
@@ -304,9 +306,13 @@ class Expression:
             active_variable_local_ids = [
                 self._variable_ids.index(i) for i in active_variable_ids
             ]
-            active_variable_dofs = [self._variable_dofs[i] for i in active_variable_local_ids]
+            active_variable_dofs = [
+                self._variable_dofs[i] for i in active_variable_local_ids
+            ]
             ad_vars = initAdArrays([state[ind] for ind in active_variable_dofs])
-            self._ad = {var_id: ad for (var_id, ad) in zip(active_variable_ids, ad_vars)}
+            self._ad = {
+                var_id: ad for (var_id, ad) in zip(active_variable_ids, ad_vars)
+            }
 
         # Also make mappings from the previous iteration.
         if active_variables is None:
@@ -318,7 +324,9 @@ class Expression:
         else:
             # FIXME: This needs explanations
             prev_iter_vals_list = [state[ind] for ind in self._prev_iter_dofs]
-            inactive_variable_ids = list(set(self._variable_ids) - set(active_variable_ids))
+            inactive_variable_ids = list(
+                set(self._variable_ids) - set(active_variable_ids)
+            )
             inactive_variable_local_ids = [
                 self._variable_ids.index(i) for i in inactive_variable_ids
             ]
