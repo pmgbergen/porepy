@@ -1,4 +1,4 @@
-""" Test the eqution factory which produces what is considered standard equations.
+""" Test the equation factory which produces what is considered standard equations.
 
 The tests are based on equivalence between the equations defined by the AD framework
 and the classical way of defining equations.
@@ -27,29 +27,46 @@ def test_md_flow():
 
     keyword = "flow"
     discr = pp.Tpfa(keyword)
+    source_discr = pp.ScalarSource(keyword)
     coupling_discr = pp.RobinCoupling(keyword, discr, discr)
 
     for g, d in gb:
 
+        # Assign data
         if g.dim == gb.dim_max():
             upper_left_ind = np.argmax(np.linalg.norm(g.face_centers, axis=0))
             bc = pp.BoundaryCondition(g, np.array([0, upper_left_ind]), ["dir", "dir"])
             bc_values = np.zeros(g.num_faces)
             bc_values[0] = 1
-            specified_parameters = {"bc": bc, "bc_values": bc_values}
+            sources = np.random.rand(g.num_cells) * g.cell_volumes
+            specified_parameters = {
+                "bc": bc, 
+                "bc_values": bc_values,
+                "source": sources
+                }
         else:
-            specified_parameters = {}
-        pp.initialize_default_data(g, d, "flow", specified_parameters)
-
+            sources = np.random.rand(g.num_cells) * g.cell_volumes
+            specified_parameters = {"source": sources}
+        
+        # Initialize data
+        pp.initialize_default_data(g, d, keyword, specified_parameters)
+        
+        # Declare grid primary variable
         d[pp.PRIMARY_VARIABLES] = {pressure_variable: {"cells": 1}}
-        d[pp.DISCRETIZATION] = {pressure_variable: {"diff": discr}}
+        
+        # Assign discretization
+        d[pp.DISCRETIZATION] = {
+            pressure_variable: {"diff": discr, "source": source_discr}
+            }
+        
+        # Initialize state
         d[pp.STATE] = {
             pressure_variable: np.zeros(g.num_cells),
             pp.ITERATE: {pressure_variable: np.zeros(g.num_cells)},
         }
     for e, d in gb.edges():
         mg = d["mortar_grid"]
-        pp.initialize_data(mg, d, "flow", {"normal_diffusivity": 1})
+        pp.initialize_data(mg, d, keyword, {"normal_diffusivity": 1})
 
         d[pp.PRIMARY_VARIABLES] = {flux_variable: {"cells": 1}}
         d[pp.COUPLING_DISCRETIZATION] = {}
@@ -80,6 +97,8 @@ def test_md_flow():
     edge_discr = pp.ad.RobinCouplingAd(keyword, edge_list)
 
     bc_val = pp.ad.BoundaryCondition(keyword, grid_list)
+    
+    source = pp.ad.ScalarSource(keyword, grid_list)
 
     projections = pp.ad.MortarProjections(gb=gb)
     div = pp.ad.Divergence(grids=grid_list)
@@ -92,7 +111,7 @@ def test_md_flow():
         + node_discr.bound_flux * bc_val
         + node_discr.bound_flux * projections.mortar_to_primary_int * lmbda
     )
-    flow_eq = div * flux - projections.mortar_to_secondary_int * lmbda
+    flow_eq = div * flux - projections.mortar_to_secondary_int * lmbda - source
 
     interface_flux = edge_discr.mortar_scaling * (
         projections.primary_to_mortar_avg * node_discr.bound_pressure_cell * p
