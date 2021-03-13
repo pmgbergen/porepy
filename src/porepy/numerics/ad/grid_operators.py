@@ -17,6 +17,7 @@ __all__ = [
     "BoundaryCondition",
     "Trace",
     "SubdomainProjections",
+    "ScalarSource",
 ]
 
 
@@ -586,6 +587,74 @@ class DirBC(Operator):
         dir_bc_val[is_not_dir] = float("NaN")
 
         return dir_bc_val
+
+
+class ScalarSource(Operator):
+    """Extract (scalar) integrated source terms for a given keyword"""
+
+    # TODO: Eventually, we should settle for ScalarSource or ScalarSourceAD
+    # TODO: Also, we should decide if this really belongs here in grid_operators.py
+    #      or rather in discretizations.py. To be decided later.
+
+    def __init__(
+        self,
+        keyword: str,
+        grids: Optional[List[pp.Grid]] = None,
+        gb: Optional[pp.GridBucket] = None,
+    ):
+        """Construct a wrapper for scalar sources for a set of subdomains.
+
+        The values of the source terms will be ordered according to the ordering
+        in grids, or the order of the GridBucket iteration over grids. It is
+        critical that the same ordering is used by other operators.
+
+        IMPLEMENTATION NOTE: This class only takes care of scalar sources. Vector
+        sources (as the ones used for mechanics) will be included later.
+
+        Parameters:
+            keyword (str): Keyword that should be used to access the data dictionary
+                to get the relevant boundary conditions.
+            grids (List of pp.Grid): List of grids. The order of the grids in the list
+                sets the ordering of the boundary values.
+            gb (pp.GridBucket): Used if grid list is not provided. The order of the
+                grids is set according to iteration over the GridBucket nodes.
+        """
+
+        self.keyword = keyword
+        self._g: List[pp.Grid] = _grid_list(grids, gb)
+        self._set_tree()
+
+    def __repr__(self) -> str:
+        s = f"Scalar source operator with keyword {self.keyword}\n"
+
+        dims = np.zeros(4, dtype=int)
+        for g in self._g:
+            dims[g.dim] += 1
+
+        for d in range(3, -1, -1):
+            if dims[d] > 0:
+                s += f"{dims[d]} grids of dimension {d}\n"
+
+        return s
+
+    def parse(self, gb: pp.GridBucket) -> np.ndarray:
+        """Convert the Ad expression into numerical values for the scalar sources,
+        in the form of an np.ndarray concatenated for all grids.
+
+        Pameteres:
+            gb (pp.GridBucket): Mixed-dimensional grid. The boundary condition will be
+                taken from the data dictionaries with the relevant keyword.
+
+        Returns:
+            np.ndarray: Value of boundary conditions.
+
+        """
+        val = []
+        for g in self._g:
+            data = gb.node_props(g)
+            val.append(data[pp.PARAMETERS][self.keyword]["source"])
+
+        return np.hstack([v for v in val])
 
 
 #### Helper methods below
