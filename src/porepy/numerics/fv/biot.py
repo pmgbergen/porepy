@@ -1198,19 +1198,38 @@ class GradP(Discretization):
         return div_mech * grad_p
 
     @pp.time_logger(sections=module_sections)
-    def assemble_rhs(self, g, data):
-        """Return the zero right-hand side for a discretization of the pressure
-        gradient term.
+    def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
+        """Return the right-hand side for a discretization of the pressure gradient term.
+
+        The contribution is nonzero only for nonzero p_reference, which mainly is of
+        relevance for thermal stress on the form
+            thermal_expansion * (T-T_reference) * I.
 
         Parameters:
             g (Grid): Computational grid.
             data (dictionary): With data stored.
 
         Returns:
-            np.ndarray: Zero right hand side vector with representation of boundary
-                conditions.
+            np.ndarray: Right-hand side vector with representation of reference pressure
+                contribution.
         """
-        return np.zeros(self.ndof(g))
+        mat_dict = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        # Use the same key to acces the discretization matrix as the Biot class.
+        mat_key = Biot().grad_p_matrix_key
+
+        p_reference = parameter_dictionary["p_reference"]
+        div_mech = pp.fvutils.vector_divergence(g)
+        # Account for half-face based discretisation
+        if mat_dict[mat_key].shape[0] != g.dim * g.num_faces:
+            hf2f_nd = pp.fvutils.map_hf_2_f(g=g)
+            grad_p = hf2f_nd * mat_dict[mat_key]
+        else:
+            grad_p = mat_dict[mat_key]
+
+        # The rhs contribution is the lhs discretization applied to the reference
+        # value.
+        return div_mech * grad_p * p_reference
 
 
 class DivU(Discretization):
