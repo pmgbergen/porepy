@@ -3,14 +3,13 @@
 """ This module contains completed setups for simple contact mechanics problems,
 with and without poroelastic effects in the deformation of the Nd domain.
 """
-import numpy as np
-from scipy.spatial.distance import cdist
 import logging
 
+import numpy as np
+from scipy.spatial.distance import cdist
+
 import porepy as pp
-from porepy.models import (
-    contact_mechanics_model,
-)
+from porepy.models import contact_mechanics_model
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -165,9 +164,6 @@ class ProblemDataTime:
             data = gb.node_props(g)
             proj = data["tangential_normal_projection"]
 
-            dilation_angle = data[pp.PARAMETERS][self.mechanics_parameter_key][
-                "dilation_angle"
-            ]
             # Reconstruct the displacement solution on the fracture
             g_h = gb.node_neighbors(g)[0]
             assert g_h.dim == self._Nd
@@ -178,8 +174,7 @@ class ProblemDataTime:
                 )
                 # Magnitudes of normal and tangential components
                 norm_u_n = np.absolute(u_mortar_local[-1])
-                norm_u_tau = np.linalg.norm(u_mortar_local[:-1], axis=0)
                 # Add contributions
-                apertures += norm_u_tau * np.tan(dilation_angle) + norm_u_n
+                apertures += norm_u_n
 
         return apertures
