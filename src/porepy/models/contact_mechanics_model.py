@@ -771,7 +771,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
                 }
                 pp.set_iterate(d, {self.contact_traction_variable: traction.copy()})
             else:
-                state = {pp.ITERATE: {}}
+                state = pp.set_iterate(d, {})
             pp.set_state(d, state)
 
         for _, d in self.gb.edges():
