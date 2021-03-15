@@ -2493,7 +2493,7 @@ class FractureNetwork3d(object):
             pts_pos += num_pts
             # polygon should be stored uniformly
             if cell_type not in cell_to_nodes:
-                cell_to_nodes[cell_type] = nodes
+                cell_to_nodes[cell_type] = np.atleast_2d(nodes)
                 cell_id[cell_type] = [fid]
             else:
                 cell_to_nodes[cell_type] = np.vstack((cell_to_nodes[cell_type], nodes))
@@ -2503,7 +2503,6 @@ class FractureNetwork3d(object):
         num_block = len(cell_to_nodes)
         meshio_cells = np.empty(num_block, dtype=object)
         meshio_cell_id = np.empty(num_block, dtype=object)
-
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
             meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
             meshio_cell_id[block] = np.array(cell_id[cell_type])
