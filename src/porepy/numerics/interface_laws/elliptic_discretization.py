@@ -16,6 +16,8 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.discretization import Discretization
 
+module_sections = ["numerics"]
+
 
 class EllipticDiscretization(Discretization):
     """This is the parent class of all discretizations for second order elliptic
@@ -49,6 +51,7 @@ class EllipticDiscretization(Discretization):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword: str) -> None:
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
@@ -59,6 +62,7 @@ class EllipticDiscretization(Discretization):
         """
         self.keyword = keyword
 
+    @pp.time_logger(sections=module_sections)
     def _key(self) -> str:
         """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
@@ -70,6 +74,7 @@ class EllipticDiscretization(Discretization):
         return self.keyword + "_"
 
     @abstractmethod
+    @pp.time_logger(sections=module_sections)
     def ndof(self, g: pp.Grid) -> int:
         """Abstract method. Return the number of degrees of freedom associated to the
         method.
@@ -83,6 +88,7 @@ class EllipticDiscretization(Discretization):
         """
         pass
 
+    @pp.time_logger(sections=module_sections)
     def extract_pressure(self, g, solution_array, data):
         """Abstract method. Extract the pressure part of a solution.
 
@@ -103,6 +109,7 @@ class EllipticDiscretization(Discretization):
         """
         raise NotImplementedError("Method not implemented")
 
+    @pp.time_logger(sections=module_sections)
     def extract_flux(self, g, solution_array, data):
         """Abstract method. Extract the pressure part of a solution.
 
@@ -125,6 +132,7 @@ class EllipticDiscretization(Discretization):
         raise NotImplementedError("Method not implemented")
 
     @abstractmethod
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_flux(
         self,
         g: pp.Grid,
@@ -134,7 +142,7 @@ class EllipticDiscretization(Discretization):
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,
-        use_secondary_proj: bool,
+        use_secondary_proj: bool = False,
     ) -> None:
         """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
@@ -170,6 +178,7 @@ class EllipticDiscretization(Discretization):
         pass
 
     @abstractmethod
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_source(
         self,
         g: pp.Grid,
@@ -212,6 +221,7 @@ class EllipticDiscretization(Discretization):
         pass
 
     @abstractmethod
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace(
         self,
         g: pp.Grid,
@@ -221,7 +231,7 @@ class EllipticDiscretization(Discretization):
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,
-        use_secondary_proj: bool,
+        use_secondary_proj: bool = False,
     ) -> None:
         """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -259,6 +269,7 @@ class EllipticDiscretization(Discretization):
         pass
 
     @abstractmethod
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace_between_interfaces(
         self,
         g: pp.Grid,
@@ -294,6 +305,7 @@ class EllipticDiscretization(Discretization):
         pass
 
     @abstractmethod
+    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_cell(
         self,
         g: pp.Grid,
@@ -336,6 +348,7 @@ class EllipticDiscretization(Discretization):
         pass
 
     @abstractmethod
+    @pp.time_logger(sections=module_sections)
     def enforce_neumann_int_bound(
         self, g: pp.Grid, data_edge: Dict, matrix: np.ndarray, self_ind: int
     ) -> None:

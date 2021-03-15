@@ -3,8 +3,8 @@ import unittest
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.ad import functions as af
-from porepy.ad.forward_mode import Ad_array
+from porepy.numerics.ad.forward_mode import Ad_array
+from porepy.numerics.ad import functions as af
 
 
 class AdFunctionTest(unittest.TestCase):

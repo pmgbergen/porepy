@@ -1,8 +1,12 @@
 # Papers
 
-List of papers that have used PorePy to generate (parts of) the numerical results. The indicated year is the first submission on [arXiv](https://arxiv.org/). Where applicable, open-source runscripts for the paper are accesible as the first link in each item.
+List of papers that have used PorePy to generate (parts of) the numerical results. The indicated year is the first submission on [arXiv](https://arxiv.org/). Where applicable, open-source runscripts for the paper are accessible as the first link in each item.
+
+###### 2021 ######
+* [arXiv:2101.08331 [math.NA]](https://github.com/jhabriel/mixdim-estimates) paper "*A posteriori error estimates for hierarchical mixed-dimensional elliptic equations*" by Jhabriel Varela, Elyes Ahmed, Eirik Keilegavlen, Jan Martin Nordbotten, Florin Radu. See [arXiv pre-print](https://arxiv.org/abs/2101.08331).
 
 ###### 2020 ######
+* [arXiv:2012.06493 [math.Na]](https://github.com/pmgbergen/Numerical-modelling-of-convection-driven-cooling-deformation-and-fracturing-of-thermo-poroelastic-m)  paper "*Numerical modelling of convection-driven cooling, deformation and fracturing of thermo-poroelastic media*" by Ivar Stefansson, Eirik Keilegavlen, Sæunn Halldórsdóttir, Inga Berre. See [arXiv pre-print](https://arxiv.org/abs/2012.06493).
 * [arXiv:2011.04227 [math.NA]](https://github.com/alessiofumagalli/arXiv_2011_04227) paper "*A multi-layer reactive transport model for fractured porous media*" by Luca Formaggia, Alessio Fumagalli, Anna Scotti. See [arXiv pre-print](https://arxiv.org/abs/2011.04227).
 * [arXiv:2011.03370 [physics.geo-ph]](https://github.com/keileg/RN-34-stimulation) paper "*Hydro-mechanical simulation and analysis of induced seismicity for a hydraulic stimulation test at the Reykjanes geothermal field, Iceland*" by Eirik Keilegavlen, Laure Duboeuf, Anna Maria Dichiarante, Sæunn Halldórsdóttir, Ivar Stefansson, Marcel Naumann, Egill Árni Guðnason, Kristján Ágústsson, Guðjón Helgi Eggertsson, Volker Oye, Inga Berre. See [arXiv pre-print](https://arxiv.org/abs/2011.03370).
 * [arXiv:2008.11190 [physics.comp-ph]](https://github.com/IvarStefansson/Fault-Slip-in-Hydraulic-Stimulation-of-Geothermal-Reservoirs) paper "*Fault slip in hydraulic stimulation of geothermal reservoirs: governing mechanisms and process-structure interactiona*" by Inga Berre, Ivar Stefansson, Eirik Keilegavlen. See [arXiv pre-print](https://arxiv.org/abs/2008.11190).

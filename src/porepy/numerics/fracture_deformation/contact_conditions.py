@@ -41,9 +41,11 @@ import numpy as np
 import porepy as pp
 
 logger = logging.getLogger(__name__)
+module_sections = ["discretization", "numerics"]
 
 
 class ColoumbContact:
+    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword: str, ambient_dimension: int, discr_h) -> None:
         self.keyword = keyword
 
@@ -52,23 +54,27 @@ class ColoumbContact:
         self.mortar_displacement_variable = "mortar_u"
         self.contact_variable = "contact_traction"
 
-        self.traction_discretization = "traction_discretization"
-        self.displacement_discretization = "displacement_discretization"
-        self.rhs_discretization = "contact_rhs"
+        self.traction_matrix_key = "traction_discretization"
+        self.displacement_matrix_key = "displacement_discretization"
+        self.rhs_matrix_key = "contact_rhs"
 
         self.discr_h = discr_h
         # Tolerance used to define numbers that effectively are zero.
         self.tol = 1e-10
 
+    @pp.time_logger(sections=module_sections)
     def _key(self) -> str:
         return self.keyword + "_"
 
+    @pp.time_logger(sections=module_sections)
     def _discretization_key(self) -> str:
         return self._key() + pp.DISCRETIZATION
 
+    @pp.time_logger(sections=module_sections)
     def ndof(self, g) -> int:
         return g.num_cells * self.dim
 
+    @pp.time_logger(sections=module_sections)
     def discretize(
         self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
     ) -> None:
@@ -137,6 +143,7 @@ class ColoumbContact:
             "dilation_angle",
             "cohesion",
         ]
+
         defaults = [None, 0, 0, 0]
         vals = parameters_l.expand_scalars(
             g_l.num_cells, self.keyword, cellwise_parameters, defaults
@@ -401,36 +408,38 @@ class ColoumbContact:
         data_displacement = np.array(displacement_weight).ravel(order="C")
 
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
-            self.traction_discretization
+            self.traction_matrix_key
         ] = pp.utils.sparse_mat.csr_matrix_from_blocks(
             data_traction, self.dim, num_blocks
         )
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
-            self.displacement_discretization
+            self.displacement_matrix_key
         ] = pp.utils.sparse_mat.csr_matrix_from_blocks(
             data_displacement, self.dim, num_blocks
         )
-        data_l[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_discretization] = rhs
+        data_l[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_matrix_key] = rhs
 
         # Also store the contact state
         data_l[pp.STATE][pp.ITERATE]["penetration"] = penetration_bc
         data_l[pp.STATE][pp.ITERATE]["sliding"] = sliding_bc
 
+    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(self, g: pp.Grid, data: Dict):
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         traction_coefficient = data[pp.DISCRETIZATION_MATRICES][self.keyword][
-            self.traction_discretization
+            self.traction_matrix_key
         ]
         displacement_coefficient = data[pp.DISCRETIZATION_MATRICES][self.keyword][
-            self.displacement_discretization
+            self.displacement_matrix_key
         ]
 
-        rhs = data[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_discretization]
+        rhs = data[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_matrix_key]
 
         return traction_coefficient, displacement_coefficient, rhs
 
     # Active and inactive boundary faces
+    @pp.time_logger(sections=module_sections)
     def _sliding(self, Tt: np.ndarray, ut: np.ndarray, bf: np.ndarray, ct: np.ndarray):
         """Find faces where the frictional bound is exceeded, that is, the face is
         sliding.
@@ -451,6 +460,7 @@ class ColoumbContact:
         # Not sure about the sensitivity to the tolerance parameter here.
         return self._l2(-Tt - ct * ut) - bf > self.tol
 
+    @pp.time_logger(sections=module_sections)
     def _penetration(
         self, Tn: np.ndarray, un: np.ndarray, cn: np.ndarray, gap: np.ndarray
     ) -> np.ndarray:
@@ -474,10 +484,12 @@ class ColoumbContact:
     ## Below here are different help function for calculating the Newton step
     #####
 
+    @pp.time_logger(sections=module_sections)
     def _e(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
         # Compute part of (32) in Berge et al.
         return bf / self._l2(-Tt - cut)
 
+    @pp.time_logger(sections=module_sections)
     def _Q(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
         # Implementation of the term Q involved in the calculation of (32) in Berge
         # et al.
@@ -490,16 +502,19 @@ class ColoumbContact:
 
         return numerator / denominator
 
+    @pp.time_logger(sections=module_sections)
     def _M(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
         """Compute the coefficient M used in Eq. (32) in Berge et al."""
         Id = np.eye(Tt.shape[0])
         # M = e * (I - Q)
         return self._e(Tt, cut, bf) * (Id - self._Q(Tt, cut, bf))
 
+    @pp.time_logger(sections=module_sections)
     def _hf(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
         # This is the product e * Q * (-Tt + cut), used in computation of r in (32)
         return self._e(Tt, cut, bf) * self._Q(Tt, cut, bf).dot(-Tt - cut)
 
+    @pp.time_logger(sections=module_sections)
     def _sliding_coefficients(
         self, Tt: np.ndarray, ut: np.ndarray, bf: np.ndarray, c: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -564,11 +579,13 @@ class ColoumbContact:
 
         return L, r, v
 
+    @pp.time_logger(sections=module_sections)
     def _l2(self, x):
         x = np.atleast_2d(x)
         return np.sqrt(np.sum(x ** 2, axis=0))
 
 
+@pp.time_logger(sections=module_sections)
 def set_projections(
     gb: pp.GridBucket, edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None
 ) -> None:

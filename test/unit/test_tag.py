@@ -1,16 +1,101 @@
+""" Tests of tagging of mesh quantities.
+
+The tests have been developed gradually, and are not coherent, but should give reasonable
+coverage.
+"""
 import unittest
 
 import numpy as np
 
 import porepy as pp
 
-# ------------------------------------------------------------------------------#
+
+def _compare_tip_nodes(g, known_tips):
+    # Compare nodes tagged as being on a fracture boundary (seen from the
+    # grid in the host medium) and known coordinates of such nodes.
+
+    tip_ind = []
+
+    # For each known coordinate find its closest representation in the grid.
+    # This should be more or less identical, or something is wrong
+    for i in range(known_tips.shape[1]):
+        p = known_tips[:, i].reshape((-1, 1))
+        tip_ind.append(np.argmin(np.sum(np.power(p - g.nodes, 2), axis=0)))
+
+    tip_ind = np.array(tip_ind)
+
+    # Check that the nodes with the known coordinates are tagged as tips
+    is_tip = g.tags["node_is_fracture_tip"]
+    assert np.all(is_tip[tip_ind])
+
+    # Check that all other nodes are tagged as non-tips
+    other_ind = np.setdiff1d(np.arange(g.num_nodes), tip_ind)
+    assert np.all(np.logical_not(is_tip[other_ind]))
+
+
+def test_node_is_fracture_tip_2d():
+    # Test that nodes in the highest dimensional grids are correctly labeled as tip nodes
+
+    f1 = np.array([[1, 3], [2, 2]])
+    f2 = np.array([[1, 3], [3, 3]])
+    f3 = np.array([[3, 3], [1, 2]])
+    f4 = np.array([[2, 2], [2, 4]])
+
+    # T-intersection between 1 and 4.
+    # L-intersection between 1 and 3
+    # X-intersection between 2 and 4
+    # 2 has two endings in the domain 1 and 3 have one ending in the domain.
+    # 4 has one node at the domain boundary - should not be a tip node
+
+    fracs = [f1, f2, f3, f4]
+    gb = pp.meshing.cart_grid(fracs, nx=np.array([4, 4]))
+
+    g = gb.grids_of_dimension(2)[0]
+
+    # Base comparison on coordinates (safe on Cartesian grids), then we don't have to deal
+    # with changing node indices
+    known_tips = np.array([[1, 1, 3, 3], [2, 3, 3, 1], [0, 0, 0, 0]])
+
+    _compare_tip_nodes(g, known_tips)
+
+def test_node_is_fracture_tip_3d():
+
+    dims = np.array([6, 5, 5])
+
+    # f1 is isolated, all tip nodes should be marked in gh
+    f1 = np.array([[4, 4, 4, 4], [2, 3, 3, 2], [1, 1, 2, 2]])
+
+    # f2 has several intersections, see below for description
+    f2 = np.array([[2, 2, 2, 2], [1, 4, 4, 1], [1, 1, 4, 4]])
+
+    # Nodes 1 and 2 of f3 are tips, 0 and 3 ends in a T-intersection with f2
+    f3 = np.array([[2, 3, 3, 2], [2, 2, 2, 2], [2, 2, 3, 3]])
+
+    # f4 has an X-intersection with f2, and L-intersection with f5
+    f4 = np.array([[1, 3, 3, 1], [3, 3, 3, 3], [1, 1, 3, 3]])
+
+    # f5 has an L-intersection with f4, but since f5 is taller than f4, the
+    # node at (1, 3, 4) is a tip. f5 extends to the domain boundary, so the
+    # nodes at z=1 and z=4 are tips, but not z=2, z=3.
+    f5 = np.array([[1, 1, 1, 1], [3, 3, 5, 5], [1, 4, 4, 1]])
+
+    gb = pp.meshing.cart_grid([f1, f2, f3, f4, f5], dims)
+    g = gb.grids_of_dimension(3)[0]
+
+    # Gather the tip nodes from one fracture at a time
+    known_tips_1 = f1
+    known_tips_2 = np.array([[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                             [1, 1, 1, 1, 2, 3, 4, 4, 4, 4, 2],
+                             [1, 2, 3, 4, 4, 4, 4, 3, 2, 1, 1]])
+    known_tips_3 = np.array([[3, 3], [2, 2], [2, 3]])
+    known_tips_4 = np.array([[3, 3, 3], [3, 3, 3], [1, 2, 3]])
+    known_tips_5 = np.array([[1, 1, 1, 1, 1], [3, 4, 5, 5, 4], [4, 4, 4, 1, 1]])
+
+    known_tips = np.hstack((known_tips_1, known_tips_2, known_tips_3, known_tips_4, known_tips_5))
+    _compare_tip_nodes(g, known_tips)
 
 
 class BasicsTest(unittest.TestCase):
-
-    # ------------------------------------------------------------------------------#
-
     def test_tag_1d(self):
         g = pp.CartGrid(3, 1)
 
@@ -21,8 +106,6 @@ class BasicsTest(unittest.TestCase):
         known = [True, False, False, True]
         self.assertTrue(np.array_equal(g.tags["domain_boundary_faces"], known))
         self.assertTrue(np.array_equal(g.tags["domain_boundary_nodes"], known))
-
-    # ------------------------------------------------------------------------------#
 
     def test_tag_2d_simplex(self):
         g = pp.StructuredTriangleGrid([3] * 2, [1] * 2)
@@ -92,8 +175,6 @@ class BasicsTest(unittest.TestCase):
             dtype=bool,
         )
         self.assertTrue(np.array_equal(g.tags["domain_boundary_nodes"], known))
-
-    # ------------------------------------------------------------------------------#
 
     def test_tag_2d_cart(self):
         g = pp.CartGrid([4] * 2, [1] * 2)
@@ -180,8 +261,6 @@ class BasicsTest(unittest.TestCase):
         )
 
         self.assertTrue(np.array_equal(g.tags["domain_boundary_nodes"], known))
-
-    # ------------------------------------------------------------------------------#
 
     def test_tag_3d_simplex(self):
         g = pp.StructuredTetrahedralGrid([2] * 3, [1] * 3)
@@ -737,8 +816,6 @@ class BasicsTest(unittest.TestCase):
         )
         self.assertTrue(np.array_equal(g.tags["domain_boundary_nodes"], known))
 
-    # ------------------------------------------------------------------------------#
-
     def test_tag_2d_1d_cart(self):
         gb, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
 
@@ -803,8 +880,6 @@ class BasicsTest(unittest.TestCase):
                 ]
                 computed = np.where(g.tags["domain_boundary_nodes"])[0]
                 self.assertTrue(np.array_equal(computed, known))
-
-    # ------------------------------------------------------------------------------#
 
     def test_tag_2d_1d_cart_complex(self):
         gb, _ = pp.grid_buckets_2d.two_intersecting(
@@ -895,9 +970,6 @@ class BasicsTest(unittest.TestCase):
                 ]
                 computed = np.where(g.tags["domain_boundary_nodes"])[0]
                 self.assertTrue(np.array_equal(computed, known))
-
-
-# ------------------------------------------------------------------------------#
 
 
 if __name__ == "__main__":

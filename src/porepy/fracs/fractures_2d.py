@@ -5,7 +5,7 @@ import copy
 import csv
 import logging
 import time
-from typing import Dict
+from typing import Dict, Optional, Tuple, Union
 
 import meshio
 import numpy as np
@@ -13,11 +13,13 @@ import numpy as np
 import porepy as pp
 import porepy.fracs.simplex
 from porepy.fracs import tools
-from porepy.grids import constants
-from porepy.grids.gmsh import gmsh_interface
 from porepy.utils.setmembership import unique_columns_tol
 
+from .gmsh_interface import GmshData2d, GmshWriter, Tags
+
 logger = logging.getLogger(__name__)
+
+module_sections = ["gridding"]
 
 
 class FractureNetwork2d(object):
@@ -42,6 +44,7 @@ class FractureNetwork2d(object):
             indices, refering to pts, of the start and end points of the fractures.
             Additional rows are optional tags of the fractures.
         domain (dictionary or np.ndarray): The domain in which the fracture set is
+            @pp.time_logger(sections=module_sections)
             defined. If dictionary, it should contain keys 'xmin', 'xmax', 'ymin',
             'ymax', each of which maps to a double giving the range of the domain.
             If np.array, it should be of size 2 x n, and given the vertexes of the.
@@ -55,6 +58,7 @@ class FractureNetwork2d(object):
 
     """
 
+    @pp.time_logger(sections=module_sections)
     def __init__(self, pts=None, edges=None, domain=None, tol=1e-8):
         """Define the frature set.
 
@@ -65,18 +69,18 @@ class FractureNetwork2d(object):
             indices, refering to pts, of the start and end points of the fractures.
             Additional rows are optional tags of the fractures.
         domain (dictionary or set of points): The domain in which the fracture set is
+             @pp.time_logger(sections=module_sections)
              defined. See self.attributes for description.
         tol (double, optional): Tolerance used in geometric computations. Defaults to
             1e-8.
 
         """
-
         if pts is None:
             self.pts = np.zeros((2, 0))
         else:
             self.pts = pts
         if edges is None:
-            self.edges = np.zeros((2, 0), dtype=np.int)
+            self.edges = np.zeros((2, 0), dtype=int)
         else:
             self.edges = edges
         self.domain = domain
@@ -86,7 +90,7 @@ class FractureNetwork2d(object):
 
         self.tags = {}
         self.bounding_box_imposed = False
-        self.decomposition = {}
+        self._decomposition = {}
 
         if pts is None and edges is None:
             logger.info("Generated empty fracture set")
@@ -106,28 +110,7 @@ class FractureNetwork2d(object):
         if domain is not None:
             logger.info("Domain specification :" + str(domain))
 
-    def copy(self):
-        """Create deep copy of the network.
-
-        The method will create a deep copy of all fractures, as well as the domain, of
-        the network. Note that if the fractures have had extra points imposed as part
-        of a meshing procedure, these will included in the copied fractures.
-
-        Returns:
-            pp.FractureNetwork3d.
-
-        """
-        p_new = np.copy(self.pts)
-        edges_new = np.copy(self.edges)
-        domain = self.domain
-        if domain is not None:
-            # Get a deep copy of domain, but no need to do that if domain is None
-            domain = copy.deepcopy(domain)
-
-        fn = FractureNetwork2d(p_new, edges_new, domain, self.tol)
-        fn.tags = self.tags.copy()
-        return fn
-
+    @pp.time_logger(sections=module_sections)
     def add_network(self, fs):
         """Add this fracture set to another one, and return a new set.
 
@@ -178,12 +161,12 @@ class FractureNetwork2d(object):
             n_self = self_tags.shape[0]
             n_fs = fs_tags.shape[0]
             if n_self < n_fs:
-                extra_tags = np.empty((n_fs - n_self, self.num_frac), dtype=np.int)
+                extra_tags = np.empty((n_fs - n_self, self.num_frac), dtype=int)
                 self_tags = np.vstack((self_tags, extra_tags))
             elif n_self > n_fs:
-                extra_tags = np.empty((n_self - n_fs, fs.num_frac), dtype=np.int)
+                extra_tags = np.empty((n_self - n_fs, fs.num_frac), dtype=int)
                 fs_tags = np.vstack((fs_tags, extra_tags))
-            tags = np.hstack((self_tags, fs_tags)).astype(np.int)
+            tags = np.hstack((self_tags, fs_tags)).astype(int)
             e = np.vstack((e, tags))
 
         if self.domain is not None and fs.domain is not None:
@@ -204,6 +187,7 @@ class FractureNetwork2d(object):
         fn.tags = tags
         return fn
 
+    @pp.time_logger(sections=module_sections)
     def mesh(
         self,
         mesh_args,
@@ -235,26 +219,27 @@ class FractureNetwork2d(object):
             GridBucket: Mixed-dimensional mesh.
 
         """
-        in_file = self.prepare_for_gmsh(
-            mesh_args, tol, do_snap, constraints, file_name, dfn
-        )
-        out_file = in_file[:-4] + ".msh"
+        if file_name is None:
+            file_name = "gmsh_frac_file.msh"
+
+        gmsh_repr = self.prepare_for_gmsh(mesh_args, tol, do_snap, constraints, dfn)
+        gmsh_writer = GmshWriter(gmsh_repr)
 
         # Consider the dimension of the problem, normally 2d but if dfn is true 1d
         ndim = 2 - int(dfn)
 
-        pp.grids.gmsh.gmsh_interface.run_gmsh(in_file, out_file, dim=ndim)
+        gmsh_writer.generate(file_name, ndim, write_geo=True)
 
         if dfn:
             # Create list of grids
             grid_list = porepy.fracs.simplex.line_grid_from_gmsh(
-                out_file, constraints=constraints
+                file_name, constraints=constraints
             )
 
         else:
             # Create list of grids
             grid_list = porepy.fracs.simplex.triangle_grid_from_gmsh(
-                out_file, constraints=constraints
+                file_name, constraints=constraints
             )
 
         if preserve_fracture_tags:
@@ -272,13 +257,13 @@ class FractureNetwork2d(object):
         # Assemble in grid bucket
         return pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
 
+    @pp.time_logger(sections=module_sections)
     def prepare_for_gmsh(
         self,
         mesh_args,
         tol=None,
         do_snap=True,
         constraints=None,
-        file_name=None,
         dfn=False,
     ):
         """Process network intersections and write a gmsh .geo configuration file,
@@ -305,66 +290,125 @@ class FractureNetwork2d(object):
 
         if tol is None:
             tol = self.tol
+
+        # No constraints if not available.
         if constraints is None:
-            constraints = np.empty(0, dtype=np.int)
+            constraints = np.empty(0, dtype=int)
         else:
             constraints = np.atleast_1d(constraints)
         constraints = np.sort(constraints)
 
-        if file_name is None:
-            file_name = "gmsh_frac_file"
-        in_file = file_name + ".geo"
-
         p = self.pts
         e = self.edges
 
+        num_edge_orig = e.shape[1]
+
         # Snap points to edges
         if do_snap and p is not None and p.size > 0:
-            p, _ = pp.frac_utils.snap_fracture_set_2d(p, self.edges, snap_tol=tol)
+            p, _ = self._snap_fracture_set(p, snap_tol=tol)
 
         self.pts = p
 
         if not self.bounding_box_imposed:
-            edges_deleted = self.impose_external_boundary(
+            edges_kept, edges_deleted = self.impose_external_boundary(
                 self.domain, add_domain_edges=not dfn
             )
-
             # Find edges of constraints to delete
             to_delete = np.where(np.isin(constraints, edges_deleted))[0]
 
-            # Adjust constraint indices for deleted edges
-            adjustment = np.zeros(constraints.size, dtype=np.int)
-            for e in edges_deleted:
-                # All constraints with index above the deleted edge should be reduced
-                adjustment[constraints > e] += 1
+            # Adjust constraint indices: Must be decreased for all deleted lines with
+            # lower index, and increased for all lines with lower index that have been
+            # split.
+            adjustment = np.zeros(num_edge_orig, dtype=int)
+            # Deleted edges give an index reduction of 1
+            adjustment[edges_deleted] = -1
 
-            constraints -= adjustment
+            # identify edges that have been split
+            num_occ = np.bincount(edges_kept, minlength=adjustment.size)
+
+            # Not sure what to do with split constraints; it should not be difficult,
+            # but the current implementation does not cover it.
+            assert np.all(num_occ[constraints] < 2)
+
+            # Splitting of fractures give an increase of index corresponding to the number
+            # of repeats. The clip avoids negative values for deleted edges, these have
+            # been acounted for before. Maybe we could merge the two adjustments.
+            adjustment += np.clip(num_occ - 1, 0, None)
+
+            # Do the real adjustment
+            constraints += np.cumsum(adjustment)[constraints]
+
             # Delete constraints corresponding to deleted edges
             constraints = np.delete(constraints, to_delete)
 
-        # Consider the dimension of the problem, normally 2d but if dfn is true 1d
-        ndim = 2 - int(dfn)
+            # FIXME: We do not keep track of indices of fractures and constraints
+            # before and after imposing the boundary.
+
+        # The fractures should also be snapped to the boundary.
+        if do_snap:
+            self._snap_to_boundary()
 
         self._find_and_split_intersections(constraints)
         self._insert_auxiliary_points(**mesh_args)
-        self._to_gmsh(in_file, ndim=ndim)
-        return in_file
 
+        # Transfer data to the format expected by the gmsh interface
+        decomp = self._decomposition
+
+        edges = decomp["edges"]
+
+        # Only lines specified as fractures are defined as physical
+        phys_line_tags = {}
+        edge_types = edges[2]
+        for ei, tag in enumerate(edge_types):
+            if tag in (
+                Tags.FRACTURE.value,
+                Tags.DOMAIN_BOUNDARY_LINE.value,
+                Tags.AUXILIARY_LINE.value,
+            ):
+                phys_line_tags[ei] = tag
+
+        phys_point_tags = {
+            i: Tags.FRACTURE_INTERSECTION_POINT.value for i in decomp["intersections"]
+        }
+
+        point_on_fracture = edges[:2, edge_types == Tags.FRACTURE.value].ravel()
+        point_on_boundary = edges[
+            :2, edge_types == Tags.DOMAIN_BOUNDARY_LINE.value
+        ].ravel()
+        fracture_boundary_points = np.intersect1d(point_on_fracture, point_on_boundary)
+
+        phys_point_tags.update(
+            {pi: Tags.DOMAIN_BOUNDARY_POINT.value for pi in point_on_boundary}
+        )
+
+        # register fracture boundary points, override previously added boundary points
+        phys_point_tags.update(
+            {pi: Tags.FRACTURE_BOUNDARY_POINT.value for pi in fracture_boundary_points}
+        )
+
+        data = GmshData2d(
+            pts=decomp["points"],
+            mesh_size=decomp["mesh_size"],
+            lines=edges,
+            physical_points=phys_point_tags,
+            physical_lines=phys_line_tags,
+        )
+        return data
+
+    @pp.time_logger(sections=module_sections)
     def _find_and_split_intersections(self, constraints):
         # Unified description of points and lines for domain, and fractures
-
         points = self.pts
         edges = self.edges
 
         if not np.all(np.diff(edges[:2], axis=0) != 0):
             raise ValueError("Found a point edge in splitting of edges")
 
-        const = constants.GmshConstants()
+        tags = np.zeros((2, edges.shape[1]), dtype=int)
 
-        tags = np.zeros((2, edges.shape[1]), dtype=np.int)
-        tags[0][np.logical_not(self.tags["boundary"])] = const.FRACTURE_TAG
-        tags[0][self.tags["boundary"]] = const.DOMAIN_BOUNDARY_TAG
-        tags[0][constraints] = const.AUXILIARY_TAG
+        tags[0][np.logical_not(self.tags["boundary"])] = Tags.FRACTURE.value
+        tags[0][self.tags["boundary"]] = Tags.DOMAIN_BOUNDARY_LINE.value
+        tags[0][constraints] = Tags.AUXILIARY_LINE.value
         tags[1] = np.arange(edges.shape[1])
 
         edges = np.vstack((edges, tags))
@@ -375,8 +419,8 @@ class FractureNetwork2d(object):
         to_remove = np.where(edges[0, :] == edges[1, :])[0]
         lines = np.delete(edges, to_remove, axis=1)
 
-        self.decomposition["domain_boundary_points"] = old_2_new[
-            self.decomposition["domain_boundary_points"]
+        self._decomposition["domain_boundary_points"] = old_2_new[
+            self._decomposition["domain_boundary_points"]
         ]
 
         # In some cases the fractures and boundaries impose the same constraint
@@ -397,7 +441,7 @@ class FractureNetwork2d(object):
         logger.info("Remove edge crossings")
         tm = time.time()
 
-        pts_split, lines_split = pp.intersections.split_intersecting_segments_2d(
+        pts_split, lines_split, _ = pp.intersections.split_intersecting_segments_2d(
             pts_all, lines, tol=self.tol
         )
         logger.info("Done. Elapsed time " + str(time.time() - tm))
@@ -408,8 +452,8 @@ class FractureNetwork2d(object):
         to_remove = np.where(lines[0, :] == lines[1, :])[0]
         lines = np.delete(lines, to_remove, axis=1)
 
-        self.decomposition["domain_boundary_points"] = old_2_new[
-            self.decomposition["domain_boundary_points"]
+        self._decomposition["domain_boundary_points"] = old_2_new[
+            self._decomposition["domain_boundary_points"]
         ]
 
         # Remove lines with the same start and end-point.
@@ -424,7 +468,7 @@ class FractureNetwork2d(object):
         # We find the end points that are shared by more than one intersection
         intersections = self._find_intersection_points(lines_split)
 
-        self.decomposition.update(
+        self._decomposition.update(
             {
                 "points": pts_split,
                 "edges": lines_split,
@@ -433,17 +477,18 @@ class FractureNetwork2d(object):
             }
         )
 
+    @pp.time_logger(sections=module_sections)
     def _find_intersection_points(self, lines):
-        const = constants.GmshConstants()
 
-        frac_id = np.ravel(lines[:2, lines[2] == const.FRACTURE_TAG])
+        frac_id = np.ravel(lines[:2, lines[2] == Tags.FRACTURE.value])
         _, frac_ia, frac_count = np.unique(frac_id, True, False, True)
 
         # In the case we have auxiliary points remove do not create a 0d point in
         # case one intersects a single fracture. In the case of multiple fractures intersection
         # with an auxiliary point do consider the 0d.
         aux_id = np.logical_or(
-            lines[2] == const.AUXILIARY_TAG, lines[2] == const.DOMAIN_BOUNDARY_TAG
+            lines[2] == Tags.AUXILIARY_LINE.value,
+            lines[2] == Tags.DOMAIN_BOUNDARY_LINE.value,
         )
         if np.any(aux_id):
             aux_id = np.ravel(lines[:2, aux_id])
@@ -458,6 +503,7 @@ class FractureNetwork2d(object):
 
         return frac_id[frac_ia[frac_count > 1]]
 
+    @pp.time_logger(sections=module_sections)
     def _insert_auxiliary_points(
         self, mesh_size_frac=None, mesh_size_bound=None, mesh_size_min=None
     ):
@@ -466,9 +512,9 @@ class FractureNetwork2d(object):
         logger.info("Determine mesh size")
         tm = time.time()
 
-        p = self.decomposition["points"]
-        lines = self.decomposition["edges"]
-        boundary_pt_ind = self.decomposition["domain_boundary_points"]
+        p = self._decomposition["points"]
+        lines = self._decomposition["edges"]
+        boundary_pt_ind = self._decomposition["domain_boundary_points"]
 
         mesh_size, pts_split, lines = tools.determine_mesh_size(
             p,
@@ -481,11 +527,16 @@ class FractureNetwork2d(object):
 
         logger.info("Done. Elapsed time " + str(time.time() - tm))
 
-        self.decomposition["points"] = pts_split
-        self.decomposition["edges"] = lines
-        self.decomposition["mesh_size"] = mesh_size
+        self._decomposition["points"] = pts_split
+        self._decomposition["edges"] = lines
+        self._decomposition["mesh_size"] = mesh_size
 
-    def impose_external_boundary(self, domain=None, add_domain_edges=True):
+    @pp.time_logger(sections=module_sections)
+    def impose_external_boundary(
+        self,
+        domain: Optional[Union[Dict, np.ndarray]] = None,
+        add_domain_edges: bool = True,
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Constrain the fracture network to lie within a domain.
 
@@ -505,6 +556,8 @@ class FractureNetwork2d(object):
                 and therefore deleted.
 
         """
+        if domain is None:
+            domain = self.domain
 
         if isinstance(domain, dict):
             # First create lines that define the domain
@@ -526,6 +579,20 @@ class FractureNetwork2d(object):
             dom_p, self.pts, self.edges
         )
 
+        # Special case where an edge has one point on the boundary of the domain,
+        # the other outside the domain. In this case the edge should be removed.
+        # The edge will have been cut so that the endpoints coincide. Look for
+        # such edges
+        _, _, n2o = pp.utils.setmembership.unique_columns_tol(p, self.tol)
+        reduced_edges = n2o[e]
+        not_point_edge = np.diff(reduced_edges, axis=0).ravel() != 0
+
+        # The point involved in point edges may be superfluous in the description
+        # of the fracture network; this we will deal with later. For now, simply
+        # remove the point edge.
+        e = e[:, not_point_edge]
+        edges_kept = edges_kept[not_point_edge]
+
         edges_deleted = np.setdiff1d(np.arange(self.edges.shape[1]), edges_kept)
 
         # Define boundary tags. Set False to all existing edges (after cutting those
@@ -540,55 +607,117 @@ class FractureNetwork2d(object):
             # preserve the tags
             for key, value in self.tags.items():
                 self.tags[key] = np.hstack(
-                    (value[edges_kept], [None] * dom_lines.shape[1])
+                    (
+                        value[edges_kept],
+                        Tags.DOMAIN_BOUNDARY_LINE.value
+                        * np.ones(dom_lines.shape[1], dtype=int),
+                    )
                 )
 
             # Define the new boundary tags
             new_boundary_tags = boundary_tags + dom_lines.shape[1] * [True]
             self.tags["boundary"] = np.array(new_boundary_tags)
 
-            self.decomposition["domain_boundary_points"] = num_p + np.arange(
-                dom_p.shape[1], dtype=np.int
+            self._decomposition["domain_boundary_points"] = num_p + np.arange(
+                dom_p.shape[1], dtype=int
             )
         else:
             self.tags["boundary"] = boundary_tags
-            self.decomposition["domain_boundary_points"] = np.empty(0, dtype=np.int)
+            self._decomposition["domain_boundary_points"] = np.empty(0, dtype=int)
+            self.edges = e
+            self.pts = p
 
         self.bounding_box_imposed = True
-        return edges_deleted
+        return edges_kept, edges_deleted
 
-    def _to_gmsh(self, in_file, ndim):
+    def _snap_fracture_set(
+        self,
+        pts: np.ndarray,
+        snap_tol: float,
+        termination_tol: float = 1e-2,
+        max_iter: int = 100,
+    ) -> Tuple[np.ndarray, bool]:
+        """Snap vertexes of a set of fracture lines embedded in 2D, so that small
+        distances between lines and vertexes are removed.
 
-        # Create a writer of gmsh .geo-files
-        p = self.decomposition["points"]
-        edges = self.decomposition["edges"]
-        intersections = self.decomposition["intersections"]
-        mesh_size = self.decomposition["mesh_size"]
-        domain = self.decomposition["domain"]
+        This is intended as a utility function to preprocess a fracture network
+            before meshing. The function may change both connectivity and orientation
+            of individual fractures in the network. Specifically, fractures that
+            almost form a T-intersection (or L), may be connected, while
+            X-intersections with very short ends may be truncated to T-intersections.
 
-        # Find points that are both on a domain boundary, and on a fracture.
-        # These will be decleared Physical
-        const = constants.GmshConstants()
-        point_on_fracture = edges[:2, edges[2] == const.FRACTURE_TAG].ravel()
-        point_on_boundary = edges[:2, edges[2] == const.DOMAIN_BOUNDARY_TAG].ravel()
-        fracture_boundary_points = np.intersect1d(point_on_fracture, point_on_boundary)
+        The modification snaps vertexes to the closest point on the adjacent line.
+            This will in general change the orientation of the fracture with the
+            snapped vertex. The alternative, to prolong the fracture along its existing
+            orientation, may result in very long fractures for almost intersecting
+            lines. Depending on how the fractures are ordered, the same point may
+            need to be snapped to a segment several times in an iterative process.
 
-        self.decomposition["fracture_boundary_points"] = fracture_boundary_points
+        The algorithm is *not* deterministic, in the sense that if the ordering of
+            the fractures is permuted, the snapped fracture network will be slightly
+            different.
 
-        gw = gmsh_interface.GmshWriter(
-            p,
-            edges,
-            domain=domain,
-            mesh_size=mesh_size,
-            intersection_points=intersections,
-            domain_boundary_points=self.decomposition["domain_boundary_points"],
-            fracture_and_boundary_points=fracture_boundary_points,
-            nd=ndim,
+        Parameters:
+            pts (np.array, 2 x n_pts): Array of start and endpoints for fractures.
+            snap_tol (double): Snapping tolerance. Distances below this will be
+                snapped.
+            termination_tol (double): Minimum point movement needed for the
+                iterations to continue.
+            max_iter (int, optional): Maximum number of iterations. Defaults to
+                100.
+
+        Returns:
+            np.array (2 x n_pts): Copy of the point array, with modified point
+                coordinates.
+            boolean: True if the iterations converged within allowed number of
+                iterations.
+
+        """
+        pts_orig = pts.copy()
+        edges = self.edges
+        counter = 0
+        pn = 0 * pts
+        while counter < max_iter:
+            pn = pp.constrain_geometry.snap_points_to_segments(pts, edges, tol=snap_tol)
+            diff = np.max(np.abs(pn - pts))
+            logger.debug("Iteration " + str(counter) + ", max difference" + str(diff))
+            pts = pn
+            if diff < termination_tol:
+                break
+            counter += 1
+
+        if counter < max_iter:
+            logger.info(
+                "Fracture snapping converged after " + str(counter) + " iterations"
+            )
+            logger.info("Maximum modification " + str(np.max(np.abs(pts - pts_orig))))
+            return pts, True
+        else:
+            logger.warning("Fracture snapping failed to converge")
+            logger.warning("Residual: " + str(diff))
+            return pts, False
+
+    def _snap_to_boundary(self):
+        # Snap points to the domain boundary.
+        # The function modifies self.pts.
+        is_bound = self.tags["boundary"]
+        # Index of interior points
+        interior_pt_ind = np.unique(self.edges[:2, np.logical_not(is_bound)])
+        # Snap only to boundary edges (snapping of fractures internally is another
+        # operation, see self._snap_fracture_set()
+        bound_edges = self.edges[:, is_bound]
+
+        # Use function to snap the points
+        snapped_pts = pp.constrain_geometry.snap_points_to_segments(
+            self.pts, bound_edges, self.tol, p_to_snap=self.pts[:, interior_pt_ind]
         )
-        gw.write_geo(in_file)
+
+        # Replace the
+        self.pts[:, interior_pt_ind] = snapped_pts
 
     ## end of methods related to meshing
 
+    @pp.time_logger(sections=module_sections)
     def _decompose_domain(self, domain, num_x, ny=None):
         x0 = domain["xmin"]
         dx = (domain["xmax"] - domain["xmin"]) / num_x
@@ -600,27 +729,7 @@ class FractureNetwork2d(object):
         else:
             return x0, dx
 
-    def snap(self, tol):
-        """Modify point definition so that short branches are removed, and
-        almost intersecting fractures become intersecting.
-
-        Parameters:
-            tol (double): Threshold for geometric modifications. Points and
-                segments closer than the threshold may be modified.
-
-        Returns:
-            FractureNetwork2d: A new network with modified point coordinates.
-        """
-
-        # We will not modify the original fractures
-        p = self.pts.copy()
-        e = self.edges.copy()
-
-        # Prolong
-        p = pp.constrain_geometry.snap_points_to_segments(p, e, tol)
-
-        return FractureNetwork2d(p, e, self.domain, self.tol)
-
+    @pp.time_logger(sections=module_sections)
     def constrain_to_domain(self, domain=None):
         """Constrain the fracture network to lay within a specified domain.
 
@@ -649,6 +758,7 @@ class FractureNetwork2d(object):
 
         return FractureNetwork2d(p, e, domain, self.tol)
 
+    @pp.time_logger(sections=module_sections)
     def _domain_to_points(self, domain):
         """Helper function to convert a domain specification in the form of
         a dictionary into a point set.
@@ -669,8 +779,95 @@ class FractureNetwork2d(object):
         else:
             return domain
 
+    # Methods for copying fracture network
+    def copy(self) -> "pp.FractureNetwork2d":
+        """Create deep copy of the network.
+
+        The method will create a deep copy of all fractures, as well as the domain, of
+        the network. Note that if the fractures have had extra points imposed as part
+        of a meshing procedure, these will included in the copied fractures.
+
+        Returns:
+            pp.FractureNetwork2d.
+
+        See also:
+            self.snapped_copy(), self.copy_with_split_intersections()
+
+        """
+        p_new = np.copy(self.pts)
+        edges_new = np.copy(self.edges)
+        domain = self.domain
+        if domain is not None:
+            # Get a deep copy of domain, but no need to do that if domain is None
+            domain = copy.deepcopy(domain)
+        fn = FractureNetwork2d(p_new, edges_new, domain, self.tol)
+        fn.tags = self.tags.copy()
+
+        return fn
+
+    @pp.time_logger(sections=module_sections)
+    def snapped_copy(self, tol: float) -> "pp.FractureNetwork2d":
+        """Modify point definition so that short branches are removed, and
+        almost intersecting fractures become intersecting.
+
+        Parameters:
+            tol (double): Threshold for geometric modifications. Points and
+                segments closer than the threshold may be modified.
+
+        Returns:
+            FractureNetwork2d: A new network with modified point coordinates.
+
+        See also:
+            self.copy(), self.copy_with_split_intersections()
+
+        """
+        # We will not modify the original fractures
+        p = self.pts.copy()
+        e = self.edges.copy()
+
+        # Prolong
+        p = pp.constrain_geometry.snap_points_to_segments(p, e, tol)
+
+        return FractureNetwork2d(p, e, self.domain, self.tol)
+
+    @pp.time_logger(sections=module_sections)
+    def copy_with_split_intersections(
+        self, tol: Optional[float] = None
+    ) -> "pp.FractureNetwork2d":
+        """Create a new FractureSet, with all fracture intersections removed
+
+        Parameters:
+            tol (optional): Tolerance used in geometry computations when
+                splitting fractures. Defaults to the tolerance of this network.
+
+        Returns:
+            FractureSet: New set, where all intersection points are added so that
+                the set only contains non-intersecting branches.
+
+        See also:
+            self.copy(), self.snapped_copy()
+
+        """
+        if tol is None:
+            tol = self.tol
+
+        # FIXME: tag_info may contain useful information if segments are intersecting.
+        p, e, tag_info, argsort = pp.intersections.split_intersecting_segments_2d(
+            self.pts, self.edges, tol=self.tol, return_argsort=True
+        )
+        # map the tags
+        tags = {}
+        for key, value in self.tags.items():
+            tags[key] = value[argsort]
+
+        fn = FractureNetwork2d(p, e, self.domain, tol=self.tol)
+        fn.tags = tags
+
+        return fn
+
     # --------- Methods for analysis of the fracture set
 
+    @pp.time_logger(sections=module_sections)
     def as_graph(self, split_intersections=True):
         """Represent the fracture set as a graph, using the networkx data structure.
 
@@ -703,43 +900,19 @@ class FractureNetwork2d(object):
             G.add_node(pi, coordinate=pts[:, pi])
 
         for ei in range(edges.shape[1]):
-            G.add_edge(edges[0, ei], edges[1, ei])
+            tags = {}
+            for key, value in split_network.tags.items():
+                tags[key] = value[ei]
+            G.add_edge(edges[0, ei], edges[1, ei], labels=tags)
 
         if split_intersections:
             return G, split_network
         else:
             return G
 
-    def split_intersections(self, tol=None):
-        """Create a new FractureSet, with all fracture intersections removed
-
-        Parameters:
-            tol (optional): Tolerance used in geometry computations when
-                splitting fractures. Defaults to the tolerance of this network.
-
-        Returns:
-            FractureSet: New set, where all intersection points are added so that
-                the set only contains non-intersecting branches.
-
-        """
-        if tol is None:
-            tol = self.tol
-
-        p, e, argsort = pp.intersections.split_intersecting_segments_2d(
-            self.pts, self.edges, tol=self.tol, return_argsort=True
-        )
-        # map the tags
-        tags = {}
-        for key, value in self.tags.items():
-            tags[key] = value[argsort]
-
-        fn = FractureNetwork2d(p, e, self.domain, tol=self.tol)
-        fn.tags = tags
-
-        return fn
-
     # --------- Utility functions below here
 
+    @pp.time_logger(sections=module_sections)
     def start_points(self, fi=None):
         """Get start points of all fractures, or a subset.
 
@@ -763,6 +936,7 @@ class FractureNetwork2d(object):
             p = p.reshape((-1, 1))
         return p
 
+    @pp.time_logger(sections=module_sections)
     def end_points(self, fi=None):
         """Get start points of all fractures, or a subset.
 
@@ -786,6 +960,7 @@ class FractureNetwork2d(object):
             p = p.reshape((-1, 1))
         return p
 
+    @pp.time_logger(sections=module_sections)
     def get_points(self, fi=None):
         """Return start and end points for a specified fracture.
 
@@ -803,6 +978,7 @@ class FractureNetwork2d(object):
         """
         return self.start_points(fi), self.end_points(fi)
 
+    @pp.time_logger(sections=module_sections)
     def length(self, fi=None):
         """
         Compute the total length of the fractures, based on the fracture id.
@@ -829,6 +1005,7 @@ class FractureNetwork2d(object):
         tot_l = lambda f: np.sum(length[np.isin(fi, f)])
         return np.array([tot_l(f) for f in np.unique(fi)])
 
+    @pp.time_logger(sections=module_sections)
     def orientation(self, fi=None):
         """Compute the angle of the fractures to the x-axis.
 
@@ -862,11 +1039,13 @@ class FractureNetwork2d(object):
 
         return mean_a
 
+    @pp.time_logger(sections=module_sections)
     def compute_center(self, p=None, edges=None):
         """Compute center points of a set of fractures.
 
         Parameters:
             p (np.array, 2 x n , optional): Points used to describe the fractures.
+                @pp.time_logger(sections=module_sections)
                 defaults to the fractures in this set.
             edges (np.array, 2 x num_frac, optional): Indices, refering to pts, of the start
                 and end points of the fractures for which the centres should be computed.
@@ -885,6 +1064,7 @@ class FractureNetwork2d(object):
         pts_c = np.array([avg(e[0], e[1]) for e in edges.T]).T
         return pts_c
 
+    @pp.time_logger(sections=module_sections)
     def domain_measure(self, domain=None):
         """Get the measure (length, area) of a given box domain, specified by its
         extensions stored in a dictionary.
@@ -908,6 +1088,7 @@ class FractureNetwork2d(object):
         else:
             return domain["xmax"] - domain["xmin"]
 
+    @pp.time_logger(sections=module_sections)
     def plot(self, **kwargs):
         """Plot the fracture set.
 
@@ -919,7 +1100,8 @@ class FractureNetwork2d(object):
         """
         pp.plot_fractures(self.pts, self.edges, domain=self.domain, **kwargs)
 
-    def to_csv(self, file_name):
+    @pp.time_logger(sections=module_sections)
+    def to_csv(self, file_name, with_header=True):
         """
         Save the 2d network on a csv file with comma , as separator.
         Note: the file is overwritten if present.
@@ -933,6 +1115,9 @@ class FractureNetwork2d(object):
 
         with open(file_name, "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
+            if with_header:
+                header = ["# FID", "START_X", "START_Y", "END_X", "END_Y"]
+                csv_writer.writerow(header)
             # write all the fractures
             for edge_id, edge in enumerate(self.edges.T):
                 data = [edge_id]
@@ -940,6 +1125,7 @@ class FractureNetwork2d(object):
                 data.extend(self.pts[:, edge[1]])
                 csv_writer.writerow(data)
 
+    @pp.time_logger(sections=module_sections)
     def to_file(
         self, file_name: str, data: Dict[str, np.ndarray] = None, **kwargs
     ) -> None:
@@ -990,7 +1176,7 @@ class FractureNetwork2d(object):
         cell_type = "line"
 
         # cell connectivity information
-        meshio_cells = np.empty(1, dtype=np.object)
+        meshio_cells = np.empty(1, dtype=object)
         meshio_cells[0] = meshio.CellBlock(cell_type, self.edges.T)
 
         # prepare the points
@@ -1017,6 +1203,7 @@ class FractureNetwork2d(object):
         )
         meshio.write(folder_name + file_name, meshio_grid_to_export, binary=binary)
 
+    @pp.time_logger(sections=module_sections)
     def __str__(self):
         s = "Fracture set consisting of " + str(self.num_frac) + " fractures"
         if self.pts is not None:
@@ -1028,5 +1215,6 @@ class FractureNetwork2d(object):
             s += str(self.domain)
         return s
 
+    @pp.time_logger(sections=module_sections)
     def __repr__(self):
         return self.__str__()

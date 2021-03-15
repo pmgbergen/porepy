@@ -766,7 +766,7 @@ class UpdateDiscretizations(unittest.TestCase):
         self.g_larger = pp.CartGrid([4, 4])
         self.g_larger.compute_geometry()
         cell_map_index = np.array(
-            [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14], dtype=np.int
+            [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14], dtype=int
         )
         self.cell_map = sps.coo_matrix(
             (np.ones(self.g.num_cells), (cell_map_index, np.arange(self.g.num_cells))),

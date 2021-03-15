@@ -6,7 +6,10 @@ import numpy as np
 
 import porepy as pp
 
+module_sections = ["utils"]
 
+
+@pp.time_logger(sections=module_sections)
 def sort_point_pairs(
     lines: np.ndarray,
     check_circular: Optional[bool] = True,
@@ -44,10 +47,10 @@ def sort_point_pairs(
     sorted_lines = -np.ones(lines.shape, dtype=lines.dtype)
 
     # Keep track of which lines have been found, which are still candidates
-    found = np.zeros(num_lines, dtype=np.bool)
+    found = np.zeros(num_lines, dtype=bool)
 
     # Initialize array of sorting indices
-    sort_ind = np.zeros(num_lines, dtype=np.int)
+    sort_ind = np.zeros(num_lines, dtype=int)
 
     # In the case of non-circular ordering ensure to start from the correct one
     if not is_circular:
@@ -78,7 +81,7 @@ def sort_point_pairs(
     prev = sorted_lines[1, 0]
 
     # Order of the origin line list, store if they are flipped or not to form the chain
-    is_ordered = np.zeros(num_lines, dtype=np.bool)
+    is_ordered = np.zeros(num_lines, dtype=bool)
     is_ordered[0] = True
 
     # The sorting algorithm: Loop over all places in sorted_line to be filled,
@@ -112,11 +115,12 @@ def sort_point_pairs(
     return sorted_lines, sort_ind
 
 
+@pp.time_logger(sections=module_sections)
 def sort_point_plane(
     pts: np.ndarray,
     centre: np.ndarray,
     normal: Optional[np.ndarray] = None,
-    tol: Optional[float] = 1e-5,
+    tol: float = 1e-5,
 ) -> np.ndarray:
     """Sort the points which lie on a plane.
 
@@ -147,6 +151,7 @@ def sort_point_plane(
     return np.argsort(np.arctan2(*delta[active_dim]))
 
 
+@pp.time_logger(sections=module_sections)
 def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
     """Sort a set of triangles so that no edges occur twice with the same ordering.
 
@@ -170,6 +175,7 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
 
     # Helper method to remove pairs from the queue if they already exist,
     # add them if not
+    @pp.time_logger(sections=module_sections)
     def update_queue(pair_0, pair_1):
         if pair_0 in queue:
             queue.remove(pair_0)
@@ -195,7 +201,7 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
     num_iter = 0
 
     # Bookkeeping of already processed triangles. Not sure if this is needed.
-    is_ordered = np.zeros(nt, dtype=np.bool)
+    is_ordered = np.zeros(nt, dtype=bool)
     is_ordered[0] = 1
 
     while len(queue) > 0:

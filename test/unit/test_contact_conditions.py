@@ -754,11 +754,12 @@ class ContactModel2d(ContactMechanics):
     def get_matrices(self):
 
         assembler = self.assembler
+        dof_manager = self.dof_manager
 
         A, b = assembler.assemble_matrix_rhs()
 
-        dof_mortar = assembler.dof_ind(self.edge, self.mortar_displacement_variable)
-        dof_contact = assembler.dof_ind(self.g1, self.contact_traction_variable)
+        dof_mortar = dof_manager.dof_ind(self.edge, self.mortar_displacement_variable)
+        dof_contact = dof_manager.dof_ind(self.g1, self.contact_traction_variable)
 
         A_mc = A[dof_mortar][:, dof_contact].toarray()
         A_cm = A[dof_contact][:, dof_mortar].toarray()
@@ -835,8 +836,8 @@ class ContactModel2d(ContactMechanics):
 
         # Construct mortar grid
         side_grids = {
-            mortar_grid.LEFT_SIDE: g_1d.copy(),
-            mortar_grid.RIGHT_SIDE: g_1d.copy(),
+            mortar_grid.MortarSides.LEFT_SIDE: g_1d.copy(),
+            mortar_grid.MortarSides.RIGHT_SIDE: g_1d.copy(),
         }
 
         data = np.array([1, 1])

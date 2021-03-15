@@ -84,12 +84,12 @@ def _two_fractures_multiple_steps_3d():
     g2 = gb.grids_of_dimension(gb.dim_max() - 1)[1]
 
     targets = [
-        {g1: np.array([16, 6]), g2: np.array([], dtype=np.int)},
+        {g1: np.array([16, 6]), g2: np.array([], dtype=int)},
         {g1: np.array([1, 11, 26]), g2: np.array([8])},
     ]
 
     angles = [
-        {g1: np.array([0, 0]), g2: np.array([], dtype=np.int)},
+        {g1: np.array([0, 0]), g2: np.array([], dtype=int)},
         {g1: np.array([0, 0, 0]), g2: np.array([0])},
     ]
 
@@ -800,15 +800,16 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
             }
 
         # Define assembler, thereby a dof ordering
-        assembler = pp.Assembler(gb)
+        dof_manager = pp.DofManager(gb)
+        assembler = pp.Assembler(gb, dof_manager)
         model.assembler = assembler
 
         # Define and initialize a state vector
-        x = np.zeros(assembler.full_dof.sum())
-        x[assembler.dof_ind(g_2d, self.cv2)] = cell_val_2d
+        x = np.zeros(dof_manager.full_dof.sum())
+        x[dof_manager.dof_ind(g_2d, self.cv2)] = cell_val_2d
         for g in g_1d:
-            x[assembler.dof_ind(g, self.cv1)] = cell_val_1d[g]
-            x[assembler.dof_ind((g_2d, g), self.mv)] = cell_val_mortar[g]
+            x[dof_manager.dof_ind(g, self.cv1)] = cell_val_1d[g]
+            x[dof_manager.dof_ind((g_2d, g), self.mv)] = cell_val_mortar[g]
 
         # Keep track of the previous values for each grid.
         # Not needed in 2d, where no updates are expected
@@ -829,7 +830,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
 
             # The values of the 2d cell should not change
             self.assertTrue(
-                np.all(x_new[assembler.dof_ind(g_2d, self.cv2)] == cell_val_2d)
+                np.all(x_new[dof_manager.dof_ind(g_2d, self.cv2)] == cell_val_2d)
             )
             # Also check that pp.STATE and ITERATE has been correctly updated
             d = gb.node_props(g_2d)
@@ -844,7 +845,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 num_new_cells = split[g].size
 
                 # mapped variable
-                x_1d = x_new[assembler.dof_ind(g, self.cv1)]
+                x_1d = x_new[dof_manager.dof_ind(g, self.cv1)]
 
                 # Extension of the 1d grid. All values should be 42 (see propagation class)
                 extended_1d = np.full(var_sz_1d * num_new_cells, 42)
@@ -865,16 +866,16 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 # next step. To be sure values from the first propagation are mapped
                 # correctly, we alter the true value (add 1), and update this both in
                 # the solution vector, state and previous iterate
-                x_new[assembler.dof_ind(g, self.cv1)] = np.r_[
+                x_new[dof_manager.dof_ind(g, self.cv1)] = np.r_[
                     val_1d_prev[g], extended_1d + 1
                 ]
-                val_1d_prev[g] = x_new[assembler.dof_ind(g, self.cv1)]
-                d[pp.STATE][self.cv1] = x_new[assembler.dof_ind(g, self.cv1)]
+                val_1d_prev[g] = x_new[dof_manager.dof_ind(g, self.cv1)]
+                d[pp.STATE][self.cv1] = x_new[dof_manager.dof_ind(g, self.cv1)]
                 val_1d_iterate_prev[g] = np.r_[val_1d_iterate_prev[g], extended_1d + 1]
                 d[pp.STATE][pp.ITERATE][self.cv1] = val_1d_iterate_prev[g]
 
                 ## Check mortar grid - see 1d case above for comments
-                x_mortar = x_new[assembler.dof_ind((g_2d, g), self.mv)]
+                x_mortar = x_new[dof_manager.dof_ind((g_2d, g), self.mv)]
 
                 sz = int(np.round(val_mortar_prev[g].size / 2))
 
@@ -900,13 +901,13 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                     np.all(d[pp.STATE][pp.ITERATE][self.mv] == truth_iterate)
                 )
 
-                x_new[assembler.dof_ind((g_2d, g), self.mv)] = np.r_[
+                x_new[dof_manager.dof_ind((g_2d, g), self.mv)] = np.r_[
                     val_mortar_prev[g][:sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
                     val_mortar_prev[g][sz : 2 * sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
                 ]
-                val_mortar_prev[g] = x_new[assembler.dof_ind((g_2d, g), self.mv)]
+                val_mortar_prev[g] = x_new[dof_manager.dof_ind((g_2d, g), self.mv)]
                 val_mortar_iterate_prev[g] = np.r_[
                     val_mortar_iterate_prev[g][:sz],
                     np.full(var_sz_mortar * num_new_cells, 43),

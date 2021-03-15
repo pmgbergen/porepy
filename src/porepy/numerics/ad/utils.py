@@ -1,9 +1,13 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.ad.forward_mode import Ad_array
+import porepy as pp
+from porepy.numerics.ad.forward_mode import Ad_array
+
+module_sections = ["assembly", "numerics"]
 
 
+@pp.time_logger(sections=module_sections)
 def concatenate(variables, axis=0):
     vals = [var.val for var in variables]
     jacs = np.array([var.jac for var in variables])

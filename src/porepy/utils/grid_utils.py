@@ -1,8 +1,15 @@
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
 
-def switch_sign_if_inwards_normal(g, nd, faces):
+module_sections = ["gridding", "grids"]
+
+
+@pp.time_logger(sections=module_sections)
+def switch_sign_if_inwards_normal(
+    g: pp.Grid, nd: int, faces: np.ndarray
+) -> sps.spmatrix:
     """Construct a matrix that changes sign of quantities on faces with a
     normal that points into the grid.
 
