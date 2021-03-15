@@ -217,6 +217,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                         "fourth_order_tensor": C,
                         "time_step": self.time_step,
                         "biot_alpha": self._biot_alpha(g),
+                        "p_reference": np.zeros(g.num_cells),
                     },
                 )
 
