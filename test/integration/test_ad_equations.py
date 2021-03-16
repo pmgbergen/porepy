@@ -98,7 +98,7 @@ def test_md_flow():
 
     bc_val = pp.ad.BoundaryCondition(keyword, grid_list)
     
-    source = pp.ad.ScalarSource(keyword, grid_list)
+    source = pp.ad.ParameterArray(param_keyword=keyword, array_keyword='source', grids=grid_list)
 
     projections = pp.ad.MortarProjections(gb=gb)
     div = pp.ad.Divergence(grids=grid_list)
