@@ -78,9 +78,17 @@ class Upwind(pp.numerics.discretization.Discretization):
         ]
         upwind = matrix_dictionary[self.upwind_matrix_key]
         div: sps.spmatrix = pp.fvutils.scalar_divergence(g)
-        return div * upwind
 
-    # ------------------------------------------------------------------------------#
+        if div.shape[1] != upwind.shape[0]:
+            # It should not be difficult to fix this, however it requires some thinking
+            # on data format for boundary conditions for systems of equations.
+            raise ValueError(
+                """Dimension mismatch in assembly of discretization term.
+                                Be aware that upwinding with multiple components is only
+                                supported in Ad mode.
+                            """
+            )
+        return div * upwind
 
     @pp.time_logger(sections=module_sections)
     def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
@@ -106,6 +114,16 @@ class Upwind(pp.numerics.discretization.Discretization):
 
         div = sps.spmatrix = pp.fvutils.scalar_divergence(g)
 
+        if div.shape[1] != bc_discr.shape[0] or bc_discr.shape[1] != bc_values.size:
+            # It should not be difficult to fix this, however it requires some thinking
+            # on data format for boundary conditions for systems of equations.
+            raise ValueError(
+                """Dimension mismatch in assembly of rhs term.
+                                Be aware that upwinding with multiple components is only
+                                supported in Ad mode.
+                            """
+            )
+
         return div * bc_discr * bc_values
 
     @pp.time_logger(sections=module_sections)
@@ -127,6 +145,8 @@ class Upwind(pp.numerics.discretization.Discretization):
             following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
             conditions, respectively.
         source : array (g.num_cells) of source (positive) or sink (negative) terms.
+        num_components (int, optional): Number of components to be advected. Defaults
+            to 1.
 
         Parameters
         ----------
@@ -236,7 +256,12 @@ class Upwind(pp.numerics.discretization.Discretization):
         flux_mat = sps.dia_matrix((darcy_flux, 0), shape=(g.num_faces, g.num_faces))
 
         # Form and store disrcetization matrix
-        matrix_dictionary[self.upwind_matrix_key] = flux_mat * upstream_mat
+        # Expand the discretization matrix to more than one component
+        num_components: int = parameter_dictionary.get("num_components", 1)
+        product = flux_mat * upstream_mat
+        matrix_dictionary[self.upwind_matrix_key] = sps.kron(
+            product, sps.eye(num_components)
+        )
 
         ## Boundary conditions
         # On Neumann boundaries the precribed boundary value should effectively
@@ -258,7 +283,10 @@ class Upwind(pp.numerics.discretization.Discretization):
             (values_bc, (row, col)), shape=(g.num_faces, g.num_faces)
         ).tocsr()
 
-        matrix_dictionary[self.rhs_matrix_key] = bc_discr
+        # Expand matrix to the right number of components, and store it
+        matrix_dictionary[self.rhs_matrix_key] = sps.kron(
+            bc_discr, sps.eye(num_components)
+        )
 
     @pp.time_logger(sections=module_sections)
     def cfl(self, g, data, d_name="darcy_flux"):

@@ -147,6 +147,8 @@ class MassMatrix(pp.numerics.discretization.Discretization):
                 represent the porosity, apertures (for lower-dimensional
                 grids), or heat capacity. The discretization will multiply this
                 weight with the cell volumes.
+            num_components (int, optional): Number of components to be accumulated.
+                Defaults to 1.
 
         matrix_dictionary will be updated with the following entries:
             mass: sps.dia_matrix (sparse dia, self.ndof x self.ndof): Mass matrix
@@ -163,12 +165,18 @@ class MassMatrix(pp.numerics.discretization.Discretization):
             pp.DISCRETIZATION_MATRICES
         ][self.keyword]
         ndof = self.ndof(g)
+
         w = parameter_dictionary["mass_weight"]
         volumes = g.cell_volumes
         coeff = volumes * w
 
+        # Expand to cover number of components
+        num_components: int = parameter_dictionary.get("num_components", 1)
+        coeff_exp = np.tile(coeff, (num_components, 1)).ravel("F")
+        tot_ndof = num_components * ndof
+
         matrix_dictionary[self.mass_matrix_key] = sps.dia_matrix(
-            (coeff, 0), shape=(ndof, ndof)
+            (coeff_exp, 0), shape=(tot_ndof, tot_ndof)
         )
         matrix_dictionary[self.bound_mass_matrix_key] = np.zeros(ndof)
 
