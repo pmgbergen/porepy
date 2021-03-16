@@ -643,7 +643,7 @@ class ContactMechanics(porepy.models.abstract_model.AbstractModel):
             bc_ad = pp.ad.BoundaryCondition(
                 self.mechanics_parameter_key, grids=[g_primary]
             )
-            div = pp.ad.Divergence(grids=[g_primary], is_scalar=False)
+            div = pp.ad.Divergence(grids=[g_primary], dim=g_primary.dim)
 
             # Primary variables on Ad form
             u = eq_manager.variable(g_primary, self.displacement_variable)
