@@ -20,6 +20,7 @@ __all__ = [
     "ColoumbContactAd",
     "MpfaAd",
     "MassMatrixAd",
+    "UpwindAd",
     "RobinCouplingAd",
 ]
 
@@ -287,6 +288,25 @@ class MassMatrixAd:
         self.keyword = keyword
 
         self.mass: _MergedOperator
+        _wrap_discretization(self, self._discretization, grids)
+
+    def __repr__(self) -> str:
+        s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
+        return s
+
+
+class UpwindAd:
+    def __init__(self, keyword, grids):
+        if isinstance(grids, list):
+            self._grids = grids
+        else:
+            self._grids = [grids]
+        self._discretization = pp.Upwind(keyword)
+        self._name = "Upwind"
+        self.keyword = keyword
+
+        self.upwind: _MergedOperator
+        self.rhs: _MergedOperator
         _wrap_discretization(self, self._discretization, grids)
 
     def __repr__(self) -> str:
