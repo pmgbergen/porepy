@@ -592,7 +592,6 @@ class DirBC(Operator):
         return dir_bc_val
 
 
-
 class ParameterArray(Operator):
     """Extract an array from the parameter dictionaries for a given set of grids.
 
@@ -601,6 +600,7 @@ class ParameterArray(Operator):
     having to redifine the abstract Ad representation of the equations).
 
     """
+
     # TODO: Eventually, we should settle for ScalarSource or ScalarSourceAD
     # TODO: Also, we should decide if this really belongs here in grid_operators.py
     #      or rather in discretizations.py. To be decided later.
@@ -608,7 +608,7 @@ class ParameterArray(Operator):
     def __init__(
         self,
         param_keyword: str,
-        array_keyword: str, 
+        array_keyword: str,
         grids: Optional[List[pp.Grid]] = None,
         gb: Optional[pp.GridBucket] = None,
     ):
@@ -644,9 +644,10 @@ class ParameterArray(Operator):
         self._set_tree()
 
     def __repr__(self) -> str:
-        s = f"Will access the parameter array with keyword {self.param_keyword}"\
+        s = (
+            f"Will access the parameter array with keyword {self.param_keyword}"
             f" and array keyword {self.array_keyword}"
-
+        )
 
         dims = np.zeros(4, dtype=int)
         for g in self._g:
