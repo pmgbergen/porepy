@@ -600,10 +600,12 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             p_prev = p.previous_timestep()
 
             # Reference pressure, corresponding to an initial stress free state
-            p_reference = pp.ad.ParameterArray(param_keyword=self.mechanics_parameter_key,
-                                               array_keyword="p_reference",
-                                               grids=[g_primary],
-                                               gb=gb)
+            p_reference = pp.ad.ParameterArray(
+                param_keyword=self.mechanics_parameter_key,
+                array_keyword="p_reference",
+                grids=[g_primary],
+                gb=gb,
+            )
 
             # Stress in g_h
             stress = (
@@ -618,8 +620,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 * p
                 # The reference pressure is only defined on g_primary, thus there is no need
                 # for a subdomain projection.
-                - grad_p_ad.grad_p
-                * p_reference
+                - grad_p_ad.grad_p * p_reference
             )
 
             momentum_eq = pp.ad.Expression(
