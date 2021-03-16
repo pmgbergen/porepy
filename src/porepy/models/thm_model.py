@@ -283,7 +283,6 @@ class THM(parent_model.ContactMechanicsBiot):
                     "second_order_tensor": thermal_conductivity,
                     "advection_weight": advection_weight,
                     "time_step": self.time_step,
-                    "darcy_flux": np.zeros(g.num_faces),
                 },
             )
             pp.initialize_data(
@@ -319,7 +318,6 @@ class THM(parent_model.ContactMechanicsBiot):
                 self.temperature_parameter_key,
                 {
                     "normal_diffusivity": normal_diffusivity,
-                    "darcy_flux": np.zeros(mg.num_cells),
                 },
             )
 
@@ -527,7 +525,7 @@ class THM(parent_model.ContactMechanicsBiot):
         In addition to the values set by the parent class, we set initial value for the
         temperature variable, and a previous iterate value for the scalar value. The
         latter is used for computation of Darcy fluxes, needed for the advective term of
-        the energy equation.
+        the energy equation. The Darcy flux parameter is also initialized.
         """
         super()._initial_condition()
 
@@ -536,10 +534,19 @@ class THM(parent_model.ContactMechanicsBiot):
             cell_zeros = np.zeros(g.num_cells)
             state = {self.temperature_variable: cell_zeros}
             iterate = {self.scalar_variable: cell_zeros}  # For initial flux
-            d[pp.STATE].update(state)
+            pp.set_state(d, state)
             pp.set_iterate(d, iterate)
+            # Initial Darcy fluxes for advective flux.
+            pp.initialize_data(
+                g,
+                d,
+                self.temperature_parameter_key,
+                {
+                    "darcy_flux": np.zeros(g.num_faces),
+                },
+            )
 
-        for _, d in self.gb.edges():
+        for e, d in self.gb.edges():
             mg = d["mortar_grid"]
             cell_zeros = np.zeros(mg.num_cells)
             state = {
@@ -547,9 +554,18 @@ class THM(parent_model.ContactMechanicsBiot):
                 self.mortar_temperature_advection_variable: cell_zeros,
             }
             iterate = {self.mortar_scalar_variable: cell_zeros}
-            d[pp.STATE].update(state)
 
+            pp.set_state(d, state)
             pp.set_iterate(d, iterate)
+            # Initial Darcy fluxes for advective flux.
+            d = pp.initialize_data(
+                e,
+                d,
+                self.temperature_parameter_key,
+                {
+                    "darcy_flux": np.zeros(mg.num_cells),
+                },
+            )
 
     @pp.time_logger(sections=module_sections)
     def _save_mechanical_bc_values(self) -> None:
