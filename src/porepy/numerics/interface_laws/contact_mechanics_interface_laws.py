@@ -479,7 +479,7 @@ class MatrixScalarToForceBalance(
 
         ## Reference pressure contribution
         # Rhs contribution of GradP, typically for nonzero reference temperature.
-        p_reference = data_primary[pp.PARAMETERS][self.keyword]["p_reference"]
+        p_reference: np.ndarray = data_primary[pp.PARAMETERS][self.keyword]["p_reference"]
         rhs[mortar_ind] += primary_scalar_to_primary_traction * p_reference
 
         return matrix, rhs
