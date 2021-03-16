@@ -46,7 +46,8 @@ class AbstractBoundaryCondition(object):
 
 class BoundaryCondition(AbstractBoundaryCondition):
 
-    """Class to store information on boundary conditions.
+    """Class to store information on boundary conditions for problems of a single
+    variable.
 
     The BCs are specified by face number, and can have type Dirichlet, Neumann
     or Robin. For details on default values etc. see constructor.
@@ -189,9 +190,9 @@ class BoundaryCondition(AbstractBoundaryCondition):
 
 
 class BoundaryConditionVectorial(AbstractBoundaryCondition):
-
     """
-    Class to store information on boundary conditions.
+    Class to store information on boundary conditions for problems with vector variables
+    (e.g. momentuum conservation).
 
     The BCs are specified by face number and assigned to the single
     component, and can have type Dirichlet,
