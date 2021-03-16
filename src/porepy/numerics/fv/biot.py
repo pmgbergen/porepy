@@ -1214,7 +1214,7 @@ class GradP(Discretization):
                 contribution.
         """
         mat_dict: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        parameter_dictionary: Dict = data[pp.PARAMETERS][self.keyword]
         # Use the same key to acces the discretization matrix as the Biot class.
         mat_key = Biot().grad_p_matrix_key
 
