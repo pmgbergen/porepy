@@ -49,6 +49,7 @@ import functools
 import inspect
 import logging
 import logging.handlers
+import os
 import time
 from typing import Dict
 
@@ -85,7 +86,9 @@ if not t_logger.hasHandlers():
 
 # Find where in the file path the directory 'porepy' is located.
 # We will use this below to strip away the common parts of file names.
-path_length = __file__.split("/").index("porepy")
+# The separator (/ or \) depends on operating system.
+separator = os.sep
+path_length = __file__.split(separator).index("porepy")
 
 
 # @pp.time_logger
@@ -106,7 +109,9 @@ def time_logger(sections):
 
                 # Get the name of the file, but strip away the part above
                 # '/src/porepy'
-                fn = "/".join(inspect.getfile(func).split("/")[path_length + 1 :])
+                fn = separator.join(
+                    inspect.getfile(func).split(separator)[path_length + 1 :]
+                )
 
                 # String representation of the file
                 name = f"{func.__name__} in file {fn}."
