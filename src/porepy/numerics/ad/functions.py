@@ -6,6 +6,9 @@ import scipy.sparse as sps
 from porepy.numerics.ad.forward_mode import Ad_array
 from porepy.numerics.ad.local_forward_mode import Local_Ad_array
 
+import porepy  # noqa isort: skip
+
+
 __all__ = [
     "exp",
     "log",
