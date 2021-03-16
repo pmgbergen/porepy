@@ -17,6 +17,7 @@ __all__ = [
     "BoundaryCondition",
     "Trace",
     "SubdomainProjections",
+    "ParameterArray",
 ]
 
 
@@ -591,6 +592,7 @@ class DirBC(Operator):
         return dir_bc_val
 
 
+
 class ParameterArray(Operator):
     """Extract an array from the parameter dictionaries for a given set of grids.
 
@@ -599,7 +601,6 @@ class ParameterArray(Operator):
     having to redifine the abstract Ad representation of the equations).
 
     """
-
     # TODO: Eventually, we should settle for ScalarSource or ScalarSourceAD
     # TODO: Also, we should decide if this really belongs here in grid_operators.py
     #      or rather in discretizations.py. To be decided later.
@@ -621,6 +622,7 @@ class ParameterArray(Operator):
         sources (as the ones used for mechanics) will be included later.
 
         Parameters:
+
             param_keyword (str): Keyword that should be used to access the data dictionary
                 to get the relevant parameter dictionary (same way as discretizations
                 pick out their parameters).
@@ -628,6 +630,7 @@ class ParameterArray(Operator):
                 sets the ordering of the boundary values.
             gb (pp.GridBucket): Used if grid list is not provided. The order of the
                 grids is set according to iteration over the GridBucket nodes.
+
 
         Example:
             To get the source term for a flow equation initialize with param_keyword='flow',
@@ -643,6 +646,7 @@ class ParameterArray(Operator):
     def __repr__(self) -> str:
         s = f"Will access the parameter array with keyword {self.param_keyword}"\
             f" and array keyword {self.array_keyword}"
+
 
         dims = np.zeros(4, dtype=int)
         for g in self._g:

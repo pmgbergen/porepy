@@ -1,23 +1,18 @@
 # Setting up a PorePy environment
 Installation of PorePy itself should be straightforward, following the instructions in Readme.md.
 
-To get the code fully working requires a few more steps, as described below.
+To get the code fully working requires a few more steps, as described below. Please read the full instructions (including the part on point_in_polyhedron) before reporting an issue on installation.
 
 ## Installation on Linux
 Instructions are found on the GitHub webpage. Others libraries that should be installed found in the file `pyproject.toml`.
 
 ## Intall on Windows
-The recommended solution for Windows is to use VirtualBox with a Linux image, or equivalent options.
+Installation on Windows is currently (Spring 2021) rather easy, following thes Linux instructions. The dependencies should be installed  using either `conda` or the Intel python distribution and then `pip install porepy` from source. 
 
-If you do not want to use VirtualBox, we recommended
-to install the dependencies using either `conda` or the Intel python distribution and then `pip install porepy`, preferrably installing from source.
-Parts of PorePy may not work on Windows due to missing libraries etc. This is not fully clear.
+Please note that running PorePy on Windows is not officially supported, in the sense that we may introduce updates to the code or new dependencies which may break Windows compatibility. 
 
 ## Installation on Mac
-Install on Mac is possible, but may be a bit complicated. We have little experience with this.
-
-## Docker
-A Docker image is available, but should be considered experimental for now.
+Install on Mac should also be straightforward if using `conda`. Similar to Windows, compatibility with Mac is not officially supported.
 
 # Setting up ancillary requirements
 
