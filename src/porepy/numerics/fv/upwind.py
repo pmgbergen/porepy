@@ -261,7 +261,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         product = flux_mat * upstream_mat
         matrix_dictionary[self.upwind_matrix_key] = sps.kron(
             product, sps.eye(num_components)
-        )
+        ).tocsr()
 
         ## Boundary conditions
         # On Neumann boundaries the precribed boundary value should effectively
@@ -286,7 +286,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         # Expand matrix to the right number of components, and store it
         matrix_dictionary[self.rhs_matrix_key] = sps.kron(
             bc_discr, sps.eye(num_components)
-        )
+        ).tocsr()
 
     @pp.time_logger(sections=module_sections)
     def cfl(self, g, data, d_name="darcy_flux"):
