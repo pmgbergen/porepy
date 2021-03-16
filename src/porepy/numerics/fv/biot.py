@@ -1213,7 +1213,7 @@ class GradP(Discretization):
             np.ndarray: Right-hand side vector with representation of reference pressure
                 contribution.
         """
-        mat_dict = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        mat_dict: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         # Use the same key to acces the discretization matrix as the Biot class.
         mat_key = Biot().grad_p_matrix_key
