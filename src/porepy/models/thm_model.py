@@ -10,10 +10,9 @@ coupled to a scalar variable, e.g. pressure (Biot equations) or temperature.
 Here, we expand to two scalar variables. The "scalar_variable" used in ContactMechanicsBiot
 is assumed to be the pressure, and the Biot discretization is applied to this. Then the
 discretizations are copied for the TM coupling, and TH coupling discretizations are
-provided. Note that we solve for the temperature increment T-T_0, and that the energy
-balance equation is divided by T_0 (in Kelvin!) to make the HM and TM coupling terms as
-similar as possible. Parameters, variables and discretizations are set in the model class,
-and the problem may be solved using run_biot.
+provided. Note that the energy balance equation is divided by T_0 (in Kelvin!) to make
+the HM and TM coupling terms as similar as possible. Parameters, variables and discretizations
+are set in the model class, and the problem may be solved using run_biot.
 
 In addition, the discretization yields a stabilization term for each of the scalar
 equations.
@@ -223,6 +222,7 @@ class THM(parent_model.ContactMechanicsBiot):
                     {
                         "biot_alpha": self._biot_beta(g),
                         "bc_values": self._bc_values_mechanics(g),
+                        "p_reference": np.zeros(g.num_cells),
                     },
                 )
 

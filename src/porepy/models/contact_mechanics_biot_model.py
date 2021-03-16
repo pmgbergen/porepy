@@ -217,6 +217,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                         "fourth_order_tensor": C,
                         "time_step": self.time_step,
                         "biot_alpha": self._biot_alpha(g),
+                        "p_reference": np.zeros(g.num_cells),
                     },
                 )
 
@@ -598,6 +599,14 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             u_mortar_prev = u_mortar.previous_timestep()
             p_prev = p.previous_timestep()
 
+            # Reference pressure, corresponding to an initial stress free state
+            p_reference = pp.ad.ParameterArray(
+                param_keyword=self.mechanics_parameter_key,
+                array_keyword="p_reference",
+                grids=[g_primary],
+                gb=gb,
+            )
+
             # Stress in g_h
             stress = (
                 mpsa_ad.stress * u
@@ -609,6 +618,9 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 + grad_p_ad.grad_p
                 * subdomain_proj_scalar.cell_restriction(g_primary)
                 * p
+                # The reference pressure is only defined on g_primary, thus there is no need
+                # for a subdomain projection.
+                - grad_p_ad.grad_p * p_reference
             )
 
             momentum_eq = pp.ad.Expression(
