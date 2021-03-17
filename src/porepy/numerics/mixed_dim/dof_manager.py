@@ -155,6 +155,7 @@ class DofManager:
         values: np.ndarray,
         variable_names: Optional[List[str]] = None,
         additive: bool = False,
+        to_iterate: bool = False,
     ) -> None:
         """Distribute a vector to the nodes and edges in the GridBucket.
 
@@ -169,7 +170,10 @@ class DofManager:
                 distributed. If not provided, all variables found in block_dof
                 will be distributed
             additive (bool, optional): If True, the variables are added to the current
-                state, instead of overwrite the existing value.
+                state or iterate, instead of overwrite the existing value.
+            to_iterate (bool, optional): If True, distribute to iterates, and not the
+                state itself. Set to True inside a non-linear scheme (Newton), False
+                at the end of a time step.
 
         """
         if variable_names is None:
@@ -194,12 +198,23 @@ class DofManager:
                 if pp.STATE in data.keys():
                     vals = values[dof[bi] : dof[bi + 1]]
                     if additive:
-                        vals += data[pp.STATE][var_name]
+                        if to_iterate:
+                            vals += data[pp.STATE][pp.ITERATE][var_name]
+                        else:
+                            vals += data[pp.STATE][var_name]
 
-                    data[pp.STATE][var_name] = vals
+                    if to_iterate:
+                        data[pp.STATE][pp.ITERATE][var_name] = vals
+                    else:
+                        data[pp.STATE][var_name] = vals
                 else:
                     # If no values exist, there is othing to add to
-                    data[pp.STATE] = {var_name: values[dof[bi] : dof[bi + 1]]}
+                    if to_iterate:
+                        data[pp.STATE] = {
+                            pp.ITERATE: {var_name: values[dof[bi] : dof[bi + 1]]}
+                        }
+                    else:
+                        data[pp.STATE] = {var_name: values[dof[bi] : dof[bi + 1]]}
 
     def transform_dofs(
         self, dofs: np.ndarray, var: Optional[list] = None
