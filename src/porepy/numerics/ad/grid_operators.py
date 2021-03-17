@@ -17,7 +17,7 @@ __all__ = [
     "BoundaryCondition",
     "Trace",
     "SubdomainProjections",
-    "ScalarSource",
+    "ParameterArray",
 ]
 
 
@@ -502,6 +502,9 @@ class BoundaryCondition(Operator):
         IMPLEMENTATION NOTE: Only scalar quantities so far; vector operators will be
         added in due course.
 
+        FIXME: Consider merging with ParameterArray by initializing the latter with
+            param_keyword = self.keyword, and array_keyword='bc_values'.
+
         Parameters:
             keyword (str): Keyword that should be used to access the data dictionary
                 to get the relevant boundary conditions.
@@ -583,8 +586,14 @@ class DirBC(Operator):
         return dir_bc_val
 
 
-class ScalarSource(Operator):
-    """Extract (scalar) integrated source terms for a given keyword"""
+class ParameterArray(Operator):
+    """Extract an array from the parameter dictionaries for a given set of grids.
+
+    Can be used to implement sources, and general arrays to be picked from the
+    parameter array (and thereby could be canged during the simulation, without
+    having to redifine the abstract Ad representation of the equations).
+
+    """
 
     # TODO: Eventually, we should settle for ScalarSource or ScalarSourceAD
     # TODO: Also, we should decide if this really belongs here in grid_operators.py
@@ -592,7 +601,8 @@ class ScalarSource(Operator):
 
     def __init__(
         self,
-        keyword: str,
+        param_keyword: str,
+        array_keyword: str,
         grids: Optional[List[pp.Grid]] = None,
         gb: Optional[pp.GridBucket] = None,
     ):
@@ -606,20 +616,32 @@ class ScalarSource(Operator):
         sources (as the ones used for mechanics) will be included later.
 
         Parameters:
-            keyword (str): Keyword that should be used to access the data dictionary
-                to get the relevant boundary conditions.
+
+            param_keyword (str): Keyword that should be used to access the data dictionary
+                to get the relevant parameter dictionary (same way as discretizations
+                pick out their parameters).
             grids (List of pp.Grid): List of grids. The order of the grids in the list
                 sets the ordering of the boundary values.
             gb (pp.GridBucket): Used if grid list is not provided. The order of the
                 grids is set according to iteration over the GridBucket nodes.
+
+
+        Example:
+            To get the source term for a flow equation initialize with param_keyword='flow',
+            and array_keyword='source'.
+
         """
 
-        self.keyword = keyword
+        self.param_keyword = param_keyword
+        self.array_keyword = array_keyword
         self._g: List[pp.Grid] = _grid_list(grids, gb)
         self._set_tree()
 
     def __repr__(self) -> str:
-        s = f"Scalar source operator with keyword {self.keyword}\n"
+        s = (
+            f"Will access the parameter array with keyword {self.param_keyword}"
+            f" and array keyword {self.array_keyword}"
+        )
 
         dims = np.zeros(4, dtype=int)
         for g in self._g:
@@ -646,7 +668,7 @@ class ScalarSource(Operator):
         val = []
         for g in self._g:
             data = gb.node_props(g)
-            val.append(data[pp.PARAMETERS][self.keyword]["source"])
+            val.append(data[pp.PARAMETERS][self.param_keyword][self.array_keyword])
 
         return np.hstack([v for v in val])
 

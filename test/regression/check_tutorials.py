@@ -21,8 +21,7 @@ def run_all():
             print("********************\n")
             failed = True
             failed_files.append(file)
-        cmd_delete = "rm " + new_file
-        os.system(cmd_delete)
+        os.remove(new_file)
     if not failed:
         print("********************\n")
         print("All tutorials ran. \n")
