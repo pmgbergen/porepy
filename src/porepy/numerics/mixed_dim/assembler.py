@@ -666,31 +666,31 @@ class Assembler:
                             ],
                             sps_matrix,
                         )
-                    # Pick out the discretizations on the primary and secondary node
-                    # for the relevant variables.
-                    # There should be no contribution or modification of the
-                    # [0, 1] and [1, 0] terms, since the variables are only
-                    # allowed to communicate via the edges.
-                    if mat_key_primary:
-                        loc_mat[0, 0] = matrix[mat_key_primary][  # type:ignore
-                            primary_idx, primary_idx
-                        ]
-                    else:
-                        raise ValueError(
-                            f"No discretization found on the primary grid "
-                            f"of dimension {g_primary.dim}, for the "
-                            f"coupling term {term_key}."
-                        )
-                    if mat_key_secondary:
-                        loc_mat[1, 1] = matrix[mat_key_secondary][  # type:ignore
-                            secondary_idx, secondary_idx
-                        ]
-                    else:
-                        raise ValueError(
-                            f"No discretization found on the secondary grid "
-                            f"of dimension {g_secondary.dim}, for the "
-                            f"coupling term {term_key}."
-                        )
+                        # Pick out the discretizations on the primary and secondary node
+                        # for the relevant variables.
+                        # There should be no contribution or modification of the
+                        # [0, 1] and [1, 0] terms, since the variables are only
+                        # allowed to communicate via the edges.
+                        if mat_key_primary:
+                            loc_mat[0, 0] = matrix[mat_key_primary][  # type:ignore
+                                primary_idx, primary_idx
+                            ]
+                        else:
+                            raise ValueError(
+                                f"No discretization found on the primary grid "
+                                f"of dimension {g_primary.dim}, for the "
+                                f"coupling term {term_key}."
+                            )
+                        if mat_key_secondary:
+                            loc_mat[1, 1] = matrix[mat_key_secondary][  # type:ignore
+                                secondary_idx, secondary_idx
+                            ]
+                        else:
+                            raise ValueError(
+                                f"No discretization found on the secondary grid "
+                                f"of dimension {g_secondary.dim}, for the "
+                                f"coupling term {term_key}."
+                            )
 
                         # Pick out the discretizations on the primary and secondary node
                         # for the relevant variables.
