@@ -23,6 +23,9 @@ class Upwind(pp.numerics.discretization.Discretization):
         self.upwind_matrix_key = "transport"
         self.rhs_matrix_key = "rhs"
 
+        # Separate discretization matrix for outflow Neumann conditions.
+        self.outflow_neumann_matrix_key = "outflow_neumann"
+
     def ndof(self, g: pp.Grid) -> int:
         """
         Return the number of degrees of freedom associated to the method.
@@ -94,6 +97,9 @@ class Upwind(pp.numerics.discretization.Discretization):
     def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
         """Return the right-hand side for an upwind discretization of a linear
         transport problem.
+
+        NOTE: This function does not represent outflow over Neumann conditions. For that
+        consider using the Ad version of upwinding.
 
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
@@ -253,7 +259,9 @@ class Upwind(pp.numerics.discretization.Discretization):
         ).tocsr()
 
         # Scaling with Darcy fluxes is a diagonal matrix
-        flux_mat = sps.dia_matrix((darcy_flux, 0), shape=(g.num_faces, g.num_faces))
+        flux_mat = sps.dia_matrix(
+            (darcy_flux, 0), shape=(g.num_faces, g.num_faces)
+        ).tocsr()
 
         # Form and store disrcetization matrix
         # Expand the discretization matrix to more than one component
@@ -264,10 +272,21 @@ class Upwind(pp.numerics.discretization.Discretization):
         ).tocsr()
 
         ## Boundary conditions
-        # On Neumann boundaries the precribed boundary value should effectively
+        # Since the upwind discretization could be comibned with a diffusion discretization
+        # in an advection-diffusion equation, treatment of boundary conditions can be a
+        # a bit delicate, and the code should be used with some caution. The below
+        # implementation follows the following steps:
+        #
+        # 1) On Neumann boundaries the precribed boundary value should effectively
         # be added to the adjacent cell, with the convention that influx (so
-        # negative boundary value) should correspond to accumulation
-        # On Dirichlet boundaries, we consider only inflow boundaries.
+        # negative boundary value) should correspond to accumulation.
+        # 2) On Neumann outflow conditions, a separate discretization matrix is constructed.
+        #    This has been tested for advective problems only.
+        # 3) On Dirichlet boundaries, we consider only inflow boundaries.
+        #
+        # IMPLEMENTATION NOTE: The isolation of outflow Neumann condition in a separate
+        # discretization matrix may not be necessary, the reason is partly poorly understood
+        # assumptions in a legacy implementation.
 
         # For Neumann faces we need to assign the sign of the divergence, to
         # counteract multiplication with the same sign when the divergence is
@@ -286,6 +305,28 @@ class Upwind(pp.numerics.discretization.Discretization):
         # Expand matrix to the right number of components, and store it
         matrix_dictionary[self.rhs_matrix_key] = sps.kron(
             bc_discr, sps.eye(num_components)
+        ).tocsr()
+
+        ## Neumann outflow conditions
+        # Outflow Neumann boundaries
+        outflow_neu = np.logical_and(
+            bc.is_neu,
+            np.logical_or(
+                np.logical_and(pos_flux, sgn_div > 0),
+                np.logical_and(neg_flux, sgn_div < 0),
+            ),
+        )
+        neumann_flux_mat = flux_mat.copy()
+        # We know flux_mat is diagonal, and can safely edit the data directly.
+        neumann_flux_mat.data[np.logical_not(outflow_neu)] = 0
+
+        # Use a simple cell to face map here; this will pick up cells that are both
+        # upstream and downstream to Neumann faces, however, the latter will have
+        # their flux filtered away.
+        cell_2_face = np.abs(g.cell_faces)
+
+        matrix_dictionary[self.outflow_neumann_matrix_key] = sps.kron(
+            neumann_flux_mat * cell_2_face, sps.eye(num_components)
         ).tocsr()
 
     @pp.time_logger(sections=module_sections)
