@@ -325,7 +325,8 @@ class Upwind(pp.numerics.discretization.Discretization):
         # their flux filtered away.
         cell_2_face = np.abs(g.cell_faces)
 
-        matrix_dictionary[self.outflow_neumann_matrix_key] = sps.kron(
+        # Add minus sign to be consistent with other boundary terms
+        matrix_dictionary[self.outflow_neumann_matrix_key] = -sps.kron(
             neumann_flux_mat * cell_2_face, sps.eye(num_components)
         ).tocsr()
 
