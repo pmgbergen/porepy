@@ -307,6 +307,7 @@ class UpwindAd:
 
         self.upwind: _MergedOperator
         self.rhs: _MergedOperator
+        self.outflow_neumann: _MergedOperator
         _wrap_discretization(self, self._discretization, grids)
 
     def __repr__(self) -> str:
