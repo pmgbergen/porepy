@@ -194,6 +194,7 @@ class FractureNetwork2d(object):
         file_name=None,
         dfn=False,
         preserve_fracture_tags=None,
+        remove_small_fractures=False,
         **kwargs,
     ):
         """Create GridBucket (mixed-dimensional grid) for this fracture network.
@@ -219,7 +220,7 @@ class FractureNetwork2d(object):
         if file_name is None:
             file_name = "gmsh_frac_file.msh"
 
-        gmsh_repr = self.prepare_for_gmsh(mesh_args, tol, do_snap, constraints, dfn)
+        gmsh_repr = self.prepare_for_gmsh(mesh_args, tol, do_snap, constraints, dfn, remove_small_fractures)
         gmsh_writer = GmshWriter(gmsh_repr)
 
         # Consider the dimension of the problem, normally 2d but if dfn is true 1d
@@ -262,6 +263,7 @@ class FractureNetwork2d(object):
         do_snap=True,
         constraints=None,
         dfn=False,
+        remove_small_fractures=False,
     ):
         """Process network intersections and write a gmsh .geo configuration file,
         ready to be processed by gmsh.
@@ -306,6 +308,14 @@ class FractureNetwork2d(object):
 
         self.pts = p
 
+        if remove_small_fractures:
+            # fractures smaller than the prescribed tolerance are removed
+            to_delete = np.where(self.length() < tol)[0]
+            self.edges = np.delete(self.edges, to_delete, axis=1)
+
+            # remove also the fractures in the tags
+            for _, value in self.tags.items():
+                value = np.delete(value, to_delete)
         if not self.bounding_box_imposed:
             edges_kept, edges_deleted = self.impose_external_boundary(
                 self.domain, add_domain_edges=not dfn
