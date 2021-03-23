@@ -722,6 +722,27 @@ class FractureNetwork2d(object):
         # Replace the
         self.pts[:, interior_pt_ind] = snapped_pts
 
+    def _edges_overlapping_boundary(self, tol : float):
+        # access array for boundary and internal edges
+        is_bound = self.tags["boundary"]
+        is_internal = np.logical_not(is_bound)
+
+        # boundary edges by points
+        start_bound_pts = self.pts[:, self.edges[0, is_bound]]
+        end_bound_pts = self.pts[:, self.edges[1, is_bound]]
+
+        overlap = np.zeros(self.edges.shape[1], dtype=np.bool)
+        # loop on all the internal edges and check if should be removed or not
+        for ind in np.where(is_internal)[0]:
+            # define the start and end point of the current internal edge
+            start = self.pts[:, self.edges[0, ind]]
+            end = self.pts[:, self.edges[1, ind]]
+            # check if the current internal edge is overlapping the boundary
+            overlap[ind] = pp.distances.segment_overlap_segment_set(start, end, start_bound_pts, end_bound_pts,
+            tol=tol)
+
+        return overlap
+
     ## end of methods related to meshing
 
     @pp.time_logger(sections=module_sections)
