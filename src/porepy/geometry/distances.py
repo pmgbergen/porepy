@@ -565,3 +565,36 @@ def segments_polygon(start, end, poly, tol=1e-5):
         cp[:, si] = cp_l.reshape((1, -1))
 
     return d, cp
+
+@pp.time_logger(sections=module_sections)
+def segment_overlap_segment_set(start, end, start_set, end_set, return_indices=False, tol=1e-5):
+    """
+
+    The input tolerance should be very small
+
+    """
+
+    # reshape the input points
+    start_set = np.atleast_2d(start_set)[:2].reshape((2, -1))
+    end_set = np.atleast_2d(end_set)[:2].reshape((2, -1))
+
+    start = start.reshape(-1)[:2]
+    end = end.reshape(-1)[:2]
+    norm = np.linalg.norm(start - end)
+
+    # compute the 2d-cross product useful for the collinearity
+    cross = np.empty((2, start_set.shape[1]))
+    for idx, (i, j) in enumerate(zip(start_set.T, end_set.T)):
+        cross[0, idx] = np.cross(j - i, end - start) / norm
+        cross[1, idx] = np.cross(start - i, j - i) / norm
+
+    # determine if both conditions are satisfied
+    test = np.abs(cross) < tol
+    overlap = np.logical_and(test[0, :], test[1, :])
+
+    # return if the segment overlap any of the others and which one
+    if return_indices:
+        return np.any(overlap), np.where(overlap)[0]
+
+    # return if the segment overlap any of the others
+    return np.any(overlap)
