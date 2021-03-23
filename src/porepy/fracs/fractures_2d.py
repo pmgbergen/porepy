@@ -944,6 +944,29 @@ class FractureNetwork2d(object):
     def num_frac(self):
         """ Return the number of fractures stored"""
         return self.edges.shape[1]
+
+    @pp.time_logger(sections=module_sections)
+    def _remove_orphan_pts(self):
+        """ Remove points that are not part of any edge. Modify the numerations accordingly """
+
+        pts_id = np.unique(self.edges)
+        all_pts_id = np.arange(self.pts.shape[1])
+
+        # determine the orphan points
+        to_keep = np.ones(all_pts_id.size, dtype=np.bool)
+        to_keep[np.setdiff1d(all_pts_id, pts_id, assume_unique=True)] = False
+
+        # create the map between the old and new
+        new_pts_id = -np.ones(all_pts_id.size, dtype=np.int)
+        new_pts_id[to_keep] = np.arange(pts_id.size)
+
+        # update the edges numeration
+        self.edges = new_pts_id[self.edges]
+        # update the points
+        self.pts = self.pts[:, pts_id]
+
+        return new_pts_id
+
     @pp.time_logger(sections=module_sections)
     def start_points(self, fi=None):
         """Get start points of all fractures, or a subset.
