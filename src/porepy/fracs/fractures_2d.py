@@ -316,6 +316,7 @@ class FractureNetwork2d(object):
             # remove also the fractures in the tags
             for _, value in self.tags.items():
                 value = np.delete(value, to_delete)
+
         if not self.bounding_box_imposed:
             edges_kept, edges_deleted = self.impose_external_boundary(
                 self.domain, add_domain_edges=not dfn
@@ -353,7 +354,8 @@ class FractureNetwork2d(object):
 
         # The fractures should also be snapped to the boundary.
         if do_snap:
-            self._snap_to_boundary()
+            self._snap_to_boundary(snap_tol=tol)
+
 
         self._find_and_split_intersections(constraints)
         self._insert_auxiliary_points(**mesh_args)
@@ -416,6 +418,7 @@ class FractureNetwork2d(object):
         tags[0][np.logical_not(self.tags["boundary"])] = Tags.FRACTURE.value
         tags[0][self.tags["boundary"]] = Tags.DOMAIN_BOUNDARY_LINE.value
         tags[0][constraints] = Tags.AUXILIARY_LINE.value
+
         tags[1] = np.arange(edges.shape[1])
 
         edges = np.vstack((edges, tags))
@@ -704,19 +707,21 @@ class FractureNetwork2d(object):
             logger.warning("Residual: " + str(diff))
             return pts, False
 
-    def _snap_to_boundary(self):
+    def _snap_to_boundary(self, snap_tol: float):
         # Snap points to the domain boundary.
         # The function modifies self.pts.
         is_bound = self.tags["boundary"]
+        # interior edges
+        interior_edges = self.edges[:2, np.logical_not(is_bound)]
         # Index of interior points
-        interior_pt_ind = np.unique(self.edges[:2, np.logical_not(is_bound)])
+        interior_pt_ind = np.unique(interior_edges)
         # Snap only to boundary edges (snapping of fractures internally is another
         # operation, see self._snap_fracture_set()
-        bound_edges = self.edges[:, is_bound]
+        bound_edges = self.edges[:2, is_bound]
 
         # Use function to snap the points
         snapped_pts = pp.constrain_geometry.snap_points_to_segments(
-            self.pts, bound_edges, self.tol, p_to_snap=self.pts[:, interior_pt_ind]
+            self.pts, bound_edges, snap_tol, p_to_snap=self.pts[:, interior_pt_ind]
         )
 
         # Replace the
