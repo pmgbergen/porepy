@@ -49,7 +49,6 @@ class FractureNetwork2d(object):
             'ymax', each of which maps to a double giving the range of the domain.
             If np.array, it should be of size 2 x n, and given the vertexes of the.
             domain. The fractures need not lay inside the domain.
-        num_frac (int): Number of fractures in the domain.
         tol (double): Tolerance used in geometric computations.
         tags (dict): Tags for fractures.
         decomposition (dict): Decomposition of the fracture network, used for export to
@@ -86,8 +85,6 @@ class FractureNetwork2d(object):
         self.domain = domain
         self.tol = tol
 
-        self.num_frac = self.edges.shape[1]
-
         self.tags = {}
         self.bounding_box_imposed = False
         self._decomposition = {}
@@ -95,7 +92,7 @@ class FractureNetwork2d(object):
         if pts is None and edges is None:
             logger.info("Generated empty fracture set")
         else:
-            logger.info("Generated a fracture set with %i fractures", self.num_frac)
+            logger.info("Generated a fracture set with %i fractures", self.num_frac())
             if pts.size > 0:
                 logger.info(
                     "Minimum point coordinates x: %.2f, y: %.2f",
@@ -151,20 +148,20 @@ class FractureNetwork2d(object):
         if self.edges.shape[0] > 2:
             self_tags = self.edges[2:]
         else:
-            self_tags = np.empty((0, self.num_frac))
+            self_tags = np.empty((0, self.num_frac()))
         if fs.edges.shape[0] > 2:
             fs_tags = fs.edges[2:]
         else:
-            fs_tags = np.empty((0, fs.num_frac))
+            fs_tags = np.empty((0, fs.num_frac()))
         # Combine tags
         if self_tags.size > 0 or fs_tags.size > 0:
             n_self = self_tags.shape[0]
             n_fs = fs_tags.shape[0]
             if n_self < n_fs:
-                extra_tags = np.empty((n_fs - n_self, self.num_frac), dtype=int)
+                extra_tags = np.empty((n_fs - n_self, self.num_frac()), dtype=int)
                 self_tags = np.vstack((self_tags, extra_tags))
             elif n_self > n_fs:
-                extra_tags = np.empty((n_self - n_fs, fs.num_frac), dtype=int)
+                extra_tags = np.empty((n_self - n_fs, fs.num_frac()), dtype=int)
                 fs_tags = np.vstack((fs_tags, extra_tags))
             tags = np.hstack((self_tags, fs_tags)).astype(int)
             e = np.vstack((e, tags))
@@ -913,6 +910,10 @@ class FractureNetwork2d(object):
     # --------- Utility functions below here
 
     @pp.time_logger(sections=module_sections)
+    def num_frac(self):
+        """ Return the number of fractures stored"""
+        return self.edges.shape[1]
+    @pp.time_logger(sections=module_sections)
     def start_points(self, fi=None):
         """Get start points of all fractures, or a subset.
 
@@ -928,7 +929,7 @@ class FractureNetwork2d(object):
 
         """
         if fi is None:
-            fi = np.arange(self.num_frac)
+            fi = np.arange(self.num_frac())
 
         p = self.pts[:, self.edges[0, fi]]
         # Always return a 2-d array
@@ -952,7 +953,7 @@ class FractureNetwork2d(object):
 
         """
         if fi is None:
-            fi = np.arange(self.num_frac)
+            fi = np.arange(self.num_frac())
 
         p = self.pts[:, self.edges[1, fi]]
         # Always return a 2-d array
@@ -994,7 +995,7 @@ class FractureNetwork2d(object):
 
         """
         if fi is None:
-            fi = np.arange(self.num_frac)
+            fi = np.arange(self.num_frac())
         fi = np.asarray(fi)
 
         # compute the length for each segment
@@ -1019,7 +1020,7 @@ class FractureNetwork2d(object):
 
         """
         if fi is None:
-            fi = np.arange(self.num_frac)
+            fi = np.arange(self.num_frac())
         fi = np.asarray(fi)
 
         # compute the angle for each segment
@@ -1205,7 +1206,7 @@ class FractureNetwork2d(object):
 
     @pp.time_logger(sections=module_sections)
     def __str__(self):
-        s = "Fracture set consisting of " + str(self.num_frac) + " fractures"
+        s = "Fracture set consisting of " + str(self.num_frac()) + " fractures"
         if self.pts is not None:
             s += ", consisting of " + str(self.pts.shape[1]) + " points.\n"
         else:

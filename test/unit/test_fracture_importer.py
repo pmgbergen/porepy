@@ -55,7 +55,7 @@ class TestImport2dCsv(unittest.TestCase):
         self.assertTrue(network.pts.shape == (2, 0))
         self.assertTrue(network.edges.shape == (2, 0))
         self.assertTrue(network.domain is None)
-        self.assertTrue(network.num_frac == 0)
+        self.assertTrue(network.num_frac() == 0)
         test_utils.delete_file(file_name)
 
     def test_max_num_fracs_keyword(self):
@@ -80,7 +80,7 @@ class TestImport2dCsv(unittest.TestCase):
         self.assertTrue(network.pts.shape == (2, 0))
         self.assertTrue(network.edges.shape == (2, 0))
         self.assertTrue(network.domain is None)
-        self.assertTrue(network.num_frac == 0)
+        self.assertTrue(network.num_frac() == 0)
 
         test_utils.delete_file(file_name)
 

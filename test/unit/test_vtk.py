@@ -193,8 +193,8 @@ class MeshioExporterTest(unittest.TestCase):
         domain = {"xmin": -2, "xmax": 3, "ymin": -2, "ymax": 3}
         network_2d = pp.FractureNetwork2d(p, e, domain)
 
-        dummy_scalar = np.ones(network_2d.num_frac)
-        dummy_vector = np.ones((3, network_2d.num_frac))
+        dummy_scalar = np.ones(network_2d.num_frac())
+        dummy_vector = np.ones((3, network_2d.num_frac()))
         data = {"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector}
 
         if not os.path.exists(self.folder):
