@@ -356,6 +356,26 @@ class FractureNetwork2d(object):
         if do_snap:
             self._snap_to_boundary(snap_tol=tol)
 
+        # remove the edges that overlap the boundary
+        to_delete = self._edges_overlapping_boundary(tol)
+        self.edges = np.delete(self.edges, to_delete, axis=1)
+
+        # if a non boundary edge is removed, orphan points may be present. Remove them
+        new_pts_id = self._remove_orphan_pts()
+        self._decomposition["domain_boundary_points"] = new_pts_id[self._decomposition["domain_boundary_points"]]
+
+        # uniquify the points
+        self.pts, _, old_2_new = unique_columns_tol(self.pts, tol=self.tol)
+        self.edges = old_2_new[self.edges]
+        self._decomposition["domain_boundary_points"] = old_2_new[self._decomposition["domain_boundary_points"]]
+
+        # map the constraint index
+        index_map = np.where(np.logical_not(to_delete))[0]
+        constraints = np.arange(index_map.size)[np.in1d(index_map, constraints)]
+
+        # update the tags
+        for key, value in self.tags.items():
+            self.tags[key] = np.delete(value, to_delete)
 
         self._find_and_split_intersections(constraints)
         self._insert_auxiliary_points(**mesh_args)
