@@ -571,7 +571,7 @@ class FluxPressureContinuity(RobinCoupling):
         discr_primary: pp.EllipticDiscretization,
         discr_secondary: Optional[pp.EllipticDiscretization] = None,
     ) -> None:
-
+        self.keyword = keyword
         self.discr_primary: pp.EllipticDiscretization = discr_primary
         if discr_secondary is None:
             self.discr_secondary: pp.EllipticDiscretization = discr_primary
@@ -658,13 +658,28 @@ class FluxPressureContinuity(RobinCoupling):
         else:
             primary_ind = 0
 
-        # EK: Not sure what this call refers to, so I'll comment it out.
-        #        self.discr_primary.assemble_int_bound_pressure_trace_rhs(
-        #            g_primary, data_primary, data_edge, cc_primary, rhs_primary, primary_ind
-        #        )
-
+        # Compared to the full set of sub-assembly methods called in self.assemble_matrix_rhs,
+        # we only get a contribution from the int_bound_pressure term. This must be
+        # assembled for the primary, and, if this is a connection between grids of equal
+        # dimension also the secondary side.
+        cc_primary = None
+        self.discr_primary.assemble_int_bound_pressure_trace_rhs(
+            g_primary, data_primary, data_edge, cc_primary, rhs_primary, primary_ind
+        )
         if g_primary.dim == g_secondary.dim:
+            cc_secondary = None
+            self.discr_secondary.assemble_int_bound_pressure_trace_rhs(
+                g_secondary,
+                data_secondary,
+                data_edge,
+                cc_secondary,
+                rhs_secondary,
+                secondary_ind,
+                use_secondary_proj=True,
+            )
+            # Sign change to enforce continuity.
             rhs_secondary[2] = -rhs_secondary[2]
+
         rhs = rhs_primary + rhs_secondary
 
         return rhs
