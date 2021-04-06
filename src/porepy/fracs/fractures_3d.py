@@ -795,8 +795,19 @@ class FractureNetwork3d(object):
 
         # All intersection points should occur at least twice
         isect_p = edges[:2, intersection_edge].ravel()
-        num_occ_pt = np.bincount(isect_p)
-        intersection_point_candidates = np.where(num_occ_pt > 1)[0]
+        num_occ_isect_pt = np.bincount(isect_p)
+
+        # We should also consider points that are both on a fracture tip and a domain
+        # boundary line - these will be added to the fracture and boundary points below.
+        domain_boundary_line = edge_tags == Tags.DOMAIN_BOUNDARY_LINE.value
+        fracture_tip_line = edge_tags == Tags.FRACTURE_TIP.value
+        domain_boundary_point = edges[:2, domain_boundary_line]
+        fracture_tip_point = edges[:2, fracture_tip_line]
+        domain_and_tip_point = np.intersect1d(domain_boundary_point, fracture_tip_point)
+
+        intersection_point_candidates = np.hstack(
+            (np.where(num_occ_isect_pt > 1)[0], domain_and_tip_point)
+        )
 
         # .. however, this is not enough: If a fracture and a constraint intersect at
         # a domain boundary, the candidate is not a true intersection point.
@@ -927,7 +938,7 @@ class FractureNetwork3d(object):
                 Tags.AUXILIARY_LINE.value,
             ):
                 physical_lines[ei] = edges[2, ei]
-
+        #        breakpoint()
         gmsh_repr = GmshData3d(
             dim=3,
             pts=p,
