@@ -349,8 +349,10 @@ class FractureNetwork2d(object):
             self._snap_to_boundary()
 
         self._find_and_split_intersections(constraints)
-        self._insert_auxiliary_points(**mesh_args)
-
+        if not dfn:
+            self._insert_auxiliary_points(**mesh_args)
+        else:
+            self._set_dfn_mesh_size(**mesh_args)
         # Transfer data to the format expected by the gmsh interface
         decomp = self._decomposition
 
@@ -530,6 +532,31 @@ class FractureNetwork2d(object):
         self._decomposition["points"] = pts_split
         self._decomposition["edges"] = lines
         self._decomposition["mesh_size"] = mesh_size
+
+    @pp.time_logger(sections=module_sections)
+    def _set_dfn_mesh_size(
+        self,
+        mesh_size_frac: Optional[float]=None,
+        mesh_size_bound: Optional[float]=None,
+        mesh_size_min: Optional[float]=None,
+    ):
+        # Gridding size
+        # Tag points at the domain corners
+        logger.info("Determine mesh size")
+        tm = time.time()
+
+        boundary_pt_ind = self._decomposition["domain_boundary_points"]
+        num_pts = self._decomposition["points"].shape[1]
+
+        val = 1
+        if mesh_size_frac is not None:
+            val = mesh_size_frac
+        # One value for each point to distinguish betwee val and val_bound.
+        vals = val * np.ones(num_pts)
+        if mesh_size_bound is not None:
+            vals[boundary_pt_ind] = mesh_size_bound
+        logger.info("Done. Elapsed time " + str(time.time() - tm))
+        self._decomposition["mesh_size"] = vals
 
     @pp.time_logger(sections=module_sections)
     def impose_external_boundary(
