@@ -1063,6 +1063,31 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         self.assertTrue(test_utils.compare_arrays(constrained_poly[1], poly_2))
         self.assertTrue(np.allclose(inds, np.arange(2)))
 
+    def test_intersection_on_segment_and_vertex(self):
+        # Polygon has one vertex at the polyhedron boundary.
+        # Permute the vertexes of the boundary - this used to be an issue.
+        self.setUp()
+
+        poly = np.array([[0.5, 1.5, 1.5], [0.5, 0.5, 0.5], [1.0, 0.5, 1.5]])
+        poly_2 = np.array([[1.5, 1.5, 0.5], [0.5, 0.5, 0.5], [1.5, 0.5, 1.0]])
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            [poly], self.cart_polyhedron
+        )
+        constrained_poly_2, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            [poly_2], self.cart_polyhedron
+        )
+
+        known_constrained_poly = np.array(
+            [[0.5, 1, 1], [0.5, 0.5, 0.5], [1, 0.75, 1]]
+        )
+        self.assertTrue(
+            test_utils.compare_arrays(constrained_poly[0], known_constrained_poly)
+        )
+        self.assertTrue(
+            test_utils.compare_arrays(constrained_poly_2[0], known_constrained_poly)
+        )
+        self.assertTrue(np.allclose(inds, np.arange(1)))
+
     def test_one_poly_non_convex_domain(self):
         # Polygon is intersected by polyhedron, cut, but still in one piece.
         self.setUp()
@@ -1223,9 +1248,6 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
             poly, self.non_convex_polyhedron
         )
-        import pdb
-
-        #      pdb.set_trace()
 
         self.assertTrue(len(constrained_poly) == 2)
         self.assertTrue(
@@ -1384,7 +1406,6 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         )
 
         self.assertTrue(test_utils.compare_arrays(constrained_poly[0], known_poly))
-
-
+        
 if __name__ == "__main__":
     unittest.main()

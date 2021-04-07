@@ -1,4 +1,4 @@
-""" Module with various functions to constrain a geometry.
+b""" Module with various functions to constrain a geometry.
 
 Examples are to cut objects to lie within other objects, etc.
 """
@@ -212,7 +212,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         # boundary.
 
         # The test for interior points does not check if the segment crosses the
-        # domain boundary due to a convex domain; these must be removed.
+        # domain boundary due to a non-convex domain; these must be removed.
         # What we really want is multiple small segments, excluding those that are on
         # the outside of the domain. These are identified below, under case 3.
 
@@ -295,8 +295,10 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         # FIXME: The above is not correct in the case where a polygon segment lies
         # in the plane of several parallel boundary surfaces.
         for seg_ind in range(num_vert):
+            # If no intersections of this segment, continue
             if len(isects_of_segment[seg_ind]) == 0:
                 continue
+
             # Index and coordinate of intersection points on this segment
             loc_isect_ind = np.asarray(isects_of_segment[seg_ind], dtype=int).ravel()
 
@@ -309,6 +311,30 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
             # Start and end of the full segment
             start = poly[:, seg_ind].reshape((-1, 1))
             end = poly[:, next_ind[seg_ind]].reshape((-1, 1))
+
+            # Special case: If there are no points between start and end, this is a
+            # segment going between a boundary vertex and a point which may be
+            # internal to the polyhedron on the boundary or external. In the latter case,
+            # we should not add any information.
+            # Any yes, this case actually showed up during debugging.
+            if loc_isect_ind.size == 0:
+                if not (
+                    (
+                        (
+                            points_inside_polyhedron[seg_ind]
+                            or vertex_on_boundary[seg_ind]
+                        )
+                        and vertex_on_boundary[next_ind[seg_ind]]
+                    )
+                    or (
+                        (
+                            points_inside_polyhedron[next_ind[seg_ind]]
+                            or vertex_on_boundary[next_ind[seg_ind]]
+                        )
+                        and vertex_on_boundary[seg_ind]
+                    )
+                ):
+                    continue
 
             # Sanity check
             assert pp.geometry_property_checks.points_are_collinear(
@@ -332,7 +358,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                 start_pairs = 0
             else:
                 start_pairs = 1
-            # Define the vertex pairs of the sub-segmetns, and add the relevant ones.
+            # Define the vertex pairs of the sub-segments, and add the relevant ones.
             pairs = np.vstack((index_along_segment[:-1], index_along_segment[1:]))
             for pair_ind in range(start_pairs, pairs.shape[1], 2):
                 segments_interior_boundary.append(pairs[:, pair_ind])
