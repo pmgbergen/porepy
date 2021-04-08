@@ -5,7 +5,7 @@ description = ""
 authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.6"
+python = "^3.7"
 meshio = "^4.3.5"
 networkx = "^2.3"
 sympy = "^1.4"
@@ -14,7 +14,7 @@ cython = "^0.29.7"
 future = "^0.17.1"
 six = "^1.12.0"
 shapely = {extras = ["vectorized"], version = "^1.7.0"}
-numba = "^0.52.0"
+numba = "^0.53.0"
 scipy = "^1.4.1"
 numpy = "^1.18.5"
 gmsh = "^4.5"

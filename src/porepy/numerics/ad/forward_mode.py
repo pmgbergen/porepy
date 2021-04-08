@@ -3,6 +3,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+__all__ = ["initAdArrays", "Ad_array"]
+
 module_sections = ["assembly", "numerics"]
 
 
@@ -35,6 +37,11 @@ class Ad_array:
     def __init__(self, val=1.0, jac=0.0):
         self.val = val
         self.jac = jac
+
+    def __repr__(self) -> str:
+        s = f"Ad array of size {self.val.size}\n"
+        s += f"Jacobian is of size {self.jac.shape} and has {self.jac.data.size} elements"
+        return s
 
     @pp.time_logger(sections=module_sections)
     def __add__(self, other):

@@ -10,10 +10,9 @@ coupled to a scalar variable, e.g. pressure (Biot equations) or temperature.
 Here, we expand to two scalar variables. The "scalar_variable" used in ContactMechanicsBiot
 is assumed to be the pressure, and the Biot discretization is applied to this. Then the
 discretizations are copied for the TM coupling, and TH coupling discretizations are
-provided. Note that we solve for the temperature increment T-T_0, and that the energy
-balance equation is divided by T_0 (in Kelvin!) to make the HM and TM coupling terms as
-similar as possible. Parameters, variables and discretizations are set in the model class,
-and the problem may be solved using run_biot.
+provided. Note that the energy balance equation is divided by T_0 (in Kelvin!) to make
+the HM and TM coupling terms as similar as possible. Parameters, variables and discretizations
+are set in the model class, and the problem may be solved using run_biot.
 
 In addition, the discretization yields a stabilization term for each of the scalar
 equations.
@@ -223,6 +222,7 @@ class THM(parent_model.ContactMechanicsBiot):
                     {
                         "biot_alpha": self._biot_beta(g),
                         "bc_values": self._bc_values_mechanics(g),
+                        "p_reference": np.zeros(g.num_cells),
                     },
                 )
 
@@ -283,7 +283,6 @@ class THM(parent_model.ContactMechanicsBiot):
                     "second_order_tensor": thermal_conductivity,
                     "advection_weight": advection_weight,
                     "time_step": self.time_step,
-                    "darcy_flux": np.zeros(g.num_faces),
                 },
             )
             pp.initialize_data(
@@ -319,7 +318,6 @@ class THM(parent_model.ContactMechanicsBiot):
                 self.temperature_parameter_key,
                 {
                     "normal_diffusivity": normal_diffusivity,
-                    "darcy_flux": np.zeros(mg.num_cells),
                 },
             )
 
@@ -527,7 +525,7 @@ class THM(parent_model.ContactMechanicsBiot):
         In addition to the values set by the parent class, we set initial value for the
         temperature variable, and a previous iterate value for the scalar value. The
         latter is used for computation of Darcy fluxes, needed for the advective term of
-        the energy equation.
+        the energy equation. The Darcy flux parameter is also initialized.
         """
         super()._initial_condition()
 
@@ -536,10 +534,19 @@ class THM(parent_model.ContactMechanicsBiot):
             cell_zeros = np.zeros(g.num_cells)
             state = {self.temperature_variable: cell_zeros}
             iterate = {self.scalar_variable: cell_zeros}  # For initial flux
-            d[pp.STATE].update(state)
+            pp.set_state(d, state)
             pp.set_iterate(d, iterate)
+            # Initial Darcy fluxes for advective flux.
+            pp.initialize_data(
+                g,
+                d,
+                self.temperature_parameter_key,
+                {
+                    "darcy_flux": np.zeros(g.num_faces),
+                },
+            )
 
-        for _, d in self.gb.edges():
+        for e, d in self.gb.edges():
             mg = d["mortar_grid"]
             cell_zeros = np.zeros(mg.num_cells)
             state = {
@@ -547,9 +554,18 @@ class THM(parent_model.ContactMechanicsBiot):
                 self.mortar_temperature_advection_variable: cell_zeros,
             }
             iterate = {self.mortar_scalar_variable: cell_zeros}
-            d[pp.STATE].update(state)
 
+            pp.set_state(d, state)
             pp.set_iterate(d, iterate)
+            # Initial Darcy fluxes for advective flux.
+            d = pp.initialize_data(
+                e,
+                d,
+                self.temperature_parameter_key,
+                {
+                    "darcy_flux": np.zeros(mg.num_cells),
+                },
+            )
 
     @pp.time_logger(sections=module_sections)
     def _save_mechanical_bc_values(self) -> None:
@@ -570,8 +586,10 @@ class THM(parent_model.ContactMechanicsBiot):
     @pp.time_logger(sections=module_sections)
     def _discretize(self) -> None:
         """Discretize all terms"""
+        if not hasattr(self, "dof_manager"):
+            self.dof_manager = pp.DofManager(self.gb)
         if not hasattr(self, "assembler"):
-            self.assembler = pp.Assembler(self.gb)
+            self.assembler = pp.Assembler(self.gb, self.dof_manager)
 
         tic = time.time()
         logger.info("Discretize")
@@ -583,11 +601,11 @@ class THM(parent_model.ContactMechanicsBiot):
         self._copy_biot_discretizations()
 
         # Next, discretize term on the matrix grid not covered by the Biot discretization,
-        # i.e. the source term
+        # i.e. the source, diffusion and mass terms
         filt = pp.assembler_filters.ListFilter(
             grid_list=[self._nd_grid()],
             variable_list=[self.scalar_variable],
-            term_list=["source"],
+            term_list=["source", "diffusion", "mass"],
         )
         self.assembler.discretize(filt=filt)
 
@@ -703,16 +721,19 @@ class THM(parent_model.ContactMechanicsBiot):
             solution_vector (np.array): solution vector for the current iterate.
 
         """
+        # super().update_state(solution_vector)
         super()._update_iterate(solution_vector)
-        assembler = self.assembler
+
+        dof_manager = self.dof_manager
+
         variable_names = []
-        for pair in assembler.block_dof.keys():
+        for pair in dof_manager.block_dof.keys():
             variable_names.append(pair[1])
 
-        dof = np.cumsum(np.append(0, np.asarray(assembler.full_dof)))
+        dof = np.cumsum(np.append(0, np.asarray(dof_manager.full_dof)))
 
         for var_name in set(variable_names):
-            for pair, bi in assembler.block_dof.items():
+            for pair, bi in dof_manager.block_dof.items():
                 g = pair[0]
                 name = pair[1]
                 if name != var_name:

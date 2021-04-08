@@ -24,6 +24,12 @@ class Discretization(abc.ABC):
     def __init__(self, keyword: str) -> None:
         self.keyword = keyword
 
+    def __repr__(self) -> str:
+        s = f"Discretization of type {self.__class__.__name__}"
+        if hasattr(self, "keyword"):
+            s += f" with keyword {self.keyword}"
+        return s
+
     @abc.abstractmethod
     @pp.time_logger(sections=module_sections)
     def ndof(self, g: pp.Grid) -> int:

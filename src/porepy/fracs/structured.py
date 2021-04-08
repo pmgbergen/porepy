@@ -158,7 +158,9 @@ def _cart_grid_3d(fracs, nx, physdims=None):
     edge_tags, _, _ = network._classify_edges(poly, [])
 
     auxiliary_points, edge_tags = network._on_domain_boundary(edges, edge_tags)
-    bound_and_aux = np.array([Tags.DOMAIN_BOUNDARY_LINE.value, Tags.AUXILIARY.value])
+    bound_and_aux = np.array(
+        [Tags.DOMAIN_BOUNDARY_LINE.value, Tags.AUXILIARY_LINE.value]
+    )
 
     # From information of which lines are internal, we can find intersection points.
     # This part will become more elaborate if we introduce constraints, see the
