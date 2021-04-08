@@ -81,9 +81,7 @@ class Mpfa(pp.FVElliptic):
         """
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-
         # Extract parameters
-
         # Dimension for vector source term field. Defaults to the same as the grid.
         # For grids embedded in a higher dimension, this must be set to the ambient
         # dimension.
@@ -1421,6 +1419,13 @@ class Mpfa(pp.FVElliptic):
         """
 
         sub_bc = pp.BoundaryCondition(sub_g)
+
+        # Copy the Neumann information as from the parent grid. For standard
+        # problems this should not be necessary, however, in special cases
+        # (EK: DFM upscaling) the tagging of grid boundary faces which underlies
+        # the boundary condition implementation may be inaccurate, and copying
+        # the information is necessary.
+        # sub_bc.is_neu = bc.is_neu[face_map]
 
         sub_bc.is_dir = bc.is_dir[face_map]
         sub_bc.is_rob = bc.is_rob[face_map]

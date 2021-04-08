@@ -291,7 +291,9 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         # For all original segments that have intersection points (or vertex) on a
         # polyhedron boundary, find all points along the segment (original endpoints
         # and intersection points. Find out which of these sub-segments are inside and
-        # outside the polyhedron, remove exterior parts
+        # outside the polyhedron, remove exterior parts.
+        # FIXME: The above is not correct in the case where a polygon segment lies
+        # in the plane of several parallel boundary surfaces.
         for seg_ind in range(num_vert):
             if len(isects_of_segment[seg_ind]) == 0:
                 continue
@@ -402,7 +404,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                 coords_centered = unique_coords - center
                 R = pp.map_geometry.project_plane_matrix(coords_centered)
                 pt = R.dot(coords_centered)[:2]
-                _, el = pp.intersections.split_intersecting_segments_2d(pt, el, tol)
+                _, el, _ = pp.intersections.split_intersecting_segments_2d(pt, el, tol)
 
             if np.any(count == 1):
                 # There should be exactly two loose ends, if not, this is really

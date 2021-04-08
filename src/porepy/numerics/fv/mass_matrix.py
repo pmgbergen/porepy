@@ -18,6 +18,8 @@ self._key() + "mass" or self._key() + "inv_mass".
 The corresponding (null) rhs vectors are stored as
 self._key() + "bound_mass" or self._key() + "bound_inv_mass", respectively.
 """
+from typing import Dict, Tuple, Union
+
 import numpy as np
 import scipy.sparse as sps
 
@@ -31,10 +33,7 @@ class MassMatrix(pp.numerics.discretization.Discretization):
     test and trial functions.
     """
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def __init__(self, keyword="flow"):
+    def __init__(self, keyword: str = "flow") -> None:
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
@@ -42,12 +41,11 @@ class MassMatrix(pp.numerics.discretization.Discretization):
             keyword (str): Identifier of all information used for this
                 discretization.
         """
-        self.keyword = keyword
+        self.keyword: str = keyword
+        self.mass_matrix_key: str = "mass"
+        self.bound_mass_matrix_key: str = "bound_mass"
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def _key(self):
+    def _key(self) -> str:
         """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
 
@@ -57,10 +55,7 @@ class MassMatrix(pp.numerics.discretization.Discretization):
         """
         return self.keyword + "_"
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def ndof(self, g):
+    def ndof(self, g: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method.
         In this case number of cells.
 
@@ -73,10 +68,10 @@ class MassMatrix(pp.numerics.discretization.Discretization):
         """
         return g.num_cells
 
-    # ------------------------------------------------------------------------------#
-
     @pp.time_logger(sections=module_sections)
-    def assemble_matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(
+        self, g: pp.Grid, data: Dict
+    ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Return the matrix and right-hand side (null) for a discretization of a
         L2-mass bilinear form with constant test and trial functions. Also
         discretize the necessary operators if the data dictionary does not contain
@@ -94,10 +89,7 @@ class MassMatrix(pp.numerics.discretization.Discretization):
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def assemble_matrix(self, g, data):
+    def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.spmatrix:
         """Return the matrix for a discretization of a L2-mass bilinear form with
         constant test and trial functions.
 
@@ -110,15 +102,14 @@ class MassMatrix(pp.numerics.discretization.Discretization):
                 discretization.
 
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary: Dict[str, Union[sps.spmatrix, np.ndarray]] = data[
+            pp.DISCRETIZATION_MATRICES
+        ][self.keyword]
 
-        M = matrix_dictionary["mass"]
+        M = matrix_dictionary[self.mass_matrix_key]
         return M
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def assemble_rhs(self, g, data):
+    def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
         """Return the (null) right-hand side for a discretization of a L2-mass bilinear
         form with constant test and trial functions.
 
@@ -131,15 +122,14 @@ class MassMatrix(pp.numerics.discretization.Discretization):
                 boundary conditions.
 
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary: Dict[str, Union[sps.spmatrix, np.ndarray]] = data[
+            pp.DISCRETIZATION_MATRICES
+        ][self.keyword]
 
-        rhs = matrix_dictionary["bound_mass"]
+        rhs: np.ndarray = matrix_dictionary[self.bound_mass_matrix_key]
         return rhs
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def discretize(self, g, data, faces=None):
+    def discretize(self, g: pp.Grid, data: Dict) -> None:
         """Discretize a L2-mass bilinear form with constant test and trial functions.
 
         Note that the porosity is not included in the volumes, and should be included
@@ -167,20 +157,20 @@ class MassMatrix(pp.numerics.discretization.Discretization):
             g : grid, or a subclass, with geometry fields computed.
             data: dictionary to store the data.
 
-
         """
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary: Dict = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary: Dict[str, Union[sps.spmatrix, np.ndarray]] = data[
+            pp.DISCRETIZATION_MATRICES
+        ][self.keyword]
         ndof = self.ndof(g)
         w = parameter_dictionary["mass_weight"]
         volumes = g.cell_volumes
         coeff = volumes * w
 
-        matrix_dictionary["mass"] = sps.dia_matrix((coeff, 0), shape=(ndof, ndof))
-        matrix_dictionary["bound_mass"] = np.zeros(ndof)
-
-
-##########################################################################
+        matrix_dictionary[self.mass_matrix_key] = sps.dia_matrix(
+            (coeff, 0), shape=(ndof, ndof)
+        )
+        matrix_dictionary[self.bound_mass_matrix_key] = np.zeros(ndof)
 
 
 class InvMassMatrix:
@@ -188,8 +178,7 @@ class InvMassMatrix:
     test and trial functions.
     """
 
-    @pp.time_logger(sections=module_sections)
-    def __init__(self, keyword="flow"):
+    def __init__(self, keyword: str = "flow") -> None:
         """
         Set the discretization, with the keyword used for storing various
         information associated with the discretization.
@@ -198,12 +187,11 @@ class InvMassMatrix:
             keyword (str): Identifier of all information used for this
                 discretization.
         """
-        self.keyword = keyword
+        self.keyword: str = keyword
+        self.mass_matrix_key: str = "inv_mass"
+        self.bound_mass_matrix_key: str = "inv_bound_mass"
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def _key(self):
+    def _key(self) -> str:
         """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
 
@@ -213,10 +201,7 @@ class InvMassMatrix:
         """
         return self.keyword + "_"
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def ndof(self, g):
+    def ndof(self, g: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method.
         In this case number of cells.
 
@@ -231,10 +216,9 @@ class InvMassMatrix:
         """
         return g.num_cells
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def assemble_matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(
+        self, g: pp.Grid, data: Dict
+    ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Return the inverse of the matrix and right-hand side (null) for a
         discretization of a L2-mass bilinear form with constant test and trial
         functions. Also discretize the necessary operators if the data dictionary does
@@ -253,10 +237,7 @@ class InvMassMatrix:
         """
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def assemble_matrix(self, g, data):
+    def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.spmatrix:
         """Return the inverse of the matrix for a discretization of a L2-mass bilinear
         form with constant test and trial functions. Also discretize the necessary
         operators if the data dictionary does not contain a discrete inverse mass
@@ -270,15 +251,14 @@ class InvMassMatrix:
             scipy.sparse.csr_matrix (self.ndof x self.ndof): System matrix of this
                 discretization.
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary: Dict[str, Union[sps.spmatrix, np.ndarray]] = data[
+            pp.DISCRETIZATION_MATRICES
+        ][self.keyword]
 
-        M = matrix_dictionary["inv_mass"]
+        M = matrix_dictionary[self.mass_matrix_key]
         return M
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def assemble_rhs(self, g, data):
+    def assemble_rhs(self, g: pp.Grid, data: Dict) -> np.ndarray:
         """Return the (null) right-hand side for a discretization of the inverse of a
         L2-mass bilinear form with constant test and trial functions. Also discretize
         the necessary operators if the data dictionary does not contain a discretization
@@ -292,15 +272,14 @@ class InvMassMatrix:
             np.ndarray: Right hand side vector with representation of boundary
                 conditions: A null vector of length g.num_faces.
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary: Dict[str, Union[sps.spmatrix, np.ndarray]] = data[
+            pp.DISCRETIZATION_MATRICES
+        ][self.keyword]
 
-        rhs = matrix_dictionary["bound_inv_mass"]
+        rhs = matrix_dictionary[self.bound_mass_matrix_key]
         return rhs
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def discretize(self, g, data, faces=None):
+    def discretize(self, g: pp.Grid, data: Dict) -> None:
         """Discretize the inverse of a L2-mass bilinear form with constant test and
         trial functions. Calls the MassMatrix().discretize() method and takes the
         inverse for the lhs.
@@ -322,14 +301,16 @@ class InvMassMatrix:
                 weight with the cell volumes.
 
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary: Dict[str, Union[sps.spmatrix, np.ndarray]] = data[
+            pp.DISCRETIZATION_MATRICES
+        ][self.keyword]
 
         mass = MassMatrix(keyword=self.keyword)
         mass.discretize(g, data)
         M, rhs = mass.assemble_matrix_rhs(g, data)
 
-        matrix_dictionary["inv_mass"] = sps.dia_matrix(
+        matrix_dictionary[self.mass_matrix_key] = sps.dia_matrix(
             (1.0 / M.diagonal(), 0), shape=M.shape
         )
 
-        matrix_dictionary["bound_inv_mass"] = rhs
+        matrix_dictionary[self.bound_mass_matrix_key] = rhs

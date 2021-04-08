@@ -289,6 +289,8 @@ class PrimalContactCoupling(
         edge_secondary,
         data_edge_secondary,
         matrix,
+        assemble_matrix: bool = True,
+        assemble_rhs: bool = True,
     ):
         """Assemble the stress contribution from the mortar displacement on one edge
         on the stress balance on a neighboring edge, in the sense that the two edges
@@ -474,6 +476,13 @@ class MatrixScalarToForceBalance(
         cc[mortar_ind, primary_ind] = primary_scalar_to_primary_traction
 
         matrix += cc
+
+        ## Reference pressure contribution
+        # Rhs contribution of GradP, typically for nonzero reference temperature.
+        p_reference: np.ndarray = data_primary[pp.PARAMETERS][self.keyword][
+            "p_reference"
+        ]
+        rhs[mortar_ind] += primary_scalar_to_primary_traction * p_reference
 
         return matrix, rhs
 

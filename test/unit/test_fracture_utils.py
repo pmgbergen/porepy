@@ -117,42 +117,5 @@ class TestUniquifyPoints(unittest.TestCase):
         self.assertTrue(deleted[0] == 1)
 
 
-class TestFractureSnapping(unittest.TestCase):
-    def test_no_snapping(self):
-        p = np.array([[0, 1, 0, 1], [0, 0, 1, 1]])
-        e = np.array([[0, 2], [1, 3]])
-
-        pn, conv = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=1e-3)
-        self.assertTrue(np.allclose(p, pn))
-        self.assertTrue(conv)
-
-    def test_snap_to_vertex(self):
-        p = np.array([[0, 1, 0, 1], [0, 0, 1e-4, 1]])
-        e = np.array([[0, 2], [1, 3]])
-
-        pn, conv = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=1e-3)
-        p_known = np.array([[0, 1, 0, 1], [0, 0, 0, 1]])
-        self.assertTrue(np.allclose(p_known, pn))
-        self.assertTrue(conv)
-
-    def test_no_snap_to_vertex_small_tol(self):
-        # No snapping because the snapping tolerance is small
-        p = np.array([[0, 1, 0, 1], [0, 0, 1e-4, 1]])
-        e = np.array([[0, 2], [1, 3]])
-
-        pn, conv = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=1e-5)
-        self.assertTrue(np.allclose(p, pn))
-        self.assertTrue(conv)
-
-    def test_snap_to_segment(self):
-        p = np.array([[0, 1, 0.5, 1], [0, 0, 1e-4, 1]])
-        e = np.array([[0, 2], [1, 3]])
-
-        pn, conv = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=1e-3)
-        p_known = np.array([[0, 1, 0.5, 1], [0, 0, 0, 1]])
-        self.assertTrue(np.allclose(p_known, pn))
-        self.assertTrue(conv)
-
-
 if __name__ == "__main__":
     unittest.main()

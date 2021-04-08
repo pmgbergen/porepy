@@ -40,18 +40,18 @@ class TestFractureNetwork2d(unittest.TestCase):
         e = np.array([[0, 2], [1, 3]])
 
         network = pp.FractureNetwork2d(p, e)
-        snapped = network.snap(tol=1e-2)
+        snapped = network.snapped_copy(tol=1e-2)
 
         known_points = np.array([[0, 2, 1, 1], [0, 0, 0, 1]])
         self.assertTrue(test_utils.compare_arrays(known_points, snapped.pts))
 
-        snapped_2 = network.snap(tol=1e-4)
+        snapped_2 = network.snapped_copy(tol=1e-4)
         self.assertTrue(test_utils.compare_arrays(p, snapped_2.pts))
 
     def test_split_intersections(self):
         network = pp.FractureNetwork2d(self.p, self.e)
 
-        split_network = network.split_intersections()
+        split_network = network.copy_with_split_intersections()
         self.assertTrue(test_utils.compare_arrays(split_network.pts, self.p))
         self.assertTrue(split_network.edges.shape[1] == 3)
 
@@ -183,6 +183,46 @@ class TestFractureNetwork2d(unittest.TestCase):
 
         network_1.pts = np.random.rand(2, num_p)
         self.assertTrue(np.allclose(copy.pts, self.p))
+
+    def test_no_snapping(self):
+        p = np.array([[0, 1, 0, 1], [0, 0, 1, 1]])
+        e = np.array([[0, 2], [1, 3]])
+
+        network = pp.FractureNetwork2d(p, e)
+        pn, conv = network._snap_fracture_set(p, snap_tol=1e-3)
+        self.assertTrue(np.allclose(p, pn))
+        self.assertTrue(conv)
+
+    def test_snap_to_vertex(self):
+        p = np.array([[0, 1, 0, 1], [0, 0, 1e-4, 1]])
+        e = np.array([[0, 2], [1, 3]])
+        network = pp.FractureNetwork2d(p, e)
+        pn, conv = network._snap_fracture_set(p, snap_tol=1e-3)
+
+        p_known = np.array([[0, 1, 0, 1], [0, 0, 0, 1]])
+        self.assertTrue(np.allclose(p_known, pn))
+        self.assertTrue(conv)
+
+    def test_no_snap_to_vertex_small_tol(self):
+        # No snapping because the snapping tolerance is small
+        p = np.array([[0, 1, 0, 1], [0, 0, 1e-4, 1]])
+        e = np.array([[0, 2], [1, 3]])
+        network = pp.FractureNetwork2d(p, e)
+        pn, conv = network._snap_fracture_set(p, snap_tol=1e-5)
+
+        self.assertTrue(np.allclose(p, pn))
+        self.assertTrue(conv)
+
+    def test_snap_to_segment(self):
+        p = np.array([[0, 1, 0.5, 1], [0, 0, 1e-4, 1]])
+        e = np.array([[0, 2], [1, 3]])
+
+        network = pp.FractureNetwork2d(p, e)
+        pn, conv = network._snap_fracture_set(p, snap_tol=1e-3)
+        p_known = np.array([[0, 1, 0.5, 1], [0, 0, 0, 1]])
+        self.assertTrue(np.allclose(p_known, pn))
+        self.assertTrue(conv)
+
 
 
 class TestFractureNetwork3dBoundingBox(unittest.TestCase):

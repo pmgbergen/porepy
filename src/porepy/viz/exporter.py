@@ -979,7 +979,6 @@ class Exporter:
             nopython=True,
             nogil=False,
         )
-        @pp.time_logger(sections=module_sections)
         def _function_to_compile(
             cell_ptr,
             face_ptr,

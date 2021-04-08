@@ -54,9 +54,9 @@ class ColoumbContact:
         self.mortar_displacement_variable = "mortar_u"
         self.contact_variable = "contact_traction"
 
-        self.traction_discretization = "traction_discretization"
-        self.displacement_discretization = "displacement_discretization"
-        self.rhs_discretization = "contact_rhs"
+        self.traction_matrix_key = "traction_discretization"
+        self.displacement_matrix_key = "displacement_discretization"
+        self.rhs_matrix_key = "contact_rhs"
 
         self.discr_h = discr_h
         # Tolerance used to define numbers that effectively are zero.
@@ -408,16 +408,16 @@ class ColoumbContact:
         data_displacement = np.array(displacement_weight).ravel(order="C")
 
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
-            self.traction_discretization
+            self.traction_matrix_key
         ] = pp.utils.sparse_mat.csr_matrix_from_blocks(
             data_traction, self.dim, num_blocks
         )
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
-            self.displacement_discretization
+            self.displacement_matrix_key
         ] = pp.utils.sparse_mat.csr_matrix_from_blocks(
             data_displacement, self.dim, num_blocks
         )
-        data_l[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_discretization] = rhs
+        data_l[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_matrix_key] = rhs
 
         # Also store the contact state
         data_l[pp.STATE][pp.ITERATE]["penetration"] = penetration_bc
@@ -428,13 +428,13 @@ class ColoumbContact:
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         traction_coefficient = data[pp.DISCRETIZATION_MATRICES][self.keyword][
-            self.traction_discretization
+            self.traction_matrix_key
         ]
         displacement_coefficient = data[pp.DISCRETIZATION_MATRICES][self.keyword][
-            self.displacement_discretization
+            self.displacement_matrix_key
         ]
 
-        rhs = data[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_discretization]
+        rhs = data[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_matrix_key]
 
         return traction_coefficient, displacement_coefficient, rhs
 
