@@ -545,7 +545,7 @@ class FractureNetwork2d(object):
         mesh_size_frac: Optional[float] = None,
         mesh_size_bound: Optional[float] = None,
         mesh_size_min: Optional[float] = None,
-    ):
+    ): -> None
         """
         Set the "Vailla" mesh size to points. No attemts at automatically
         determine the mesh size is done and no auxillary points are inserted.
