@@ -938,7 +938,7 @@ class FractureNetwork3d(object):
                 Tags.AUXILIARY_LINE.value,
             ):
                 physical_lines[ei] = edges[2, ei]
-        #        breakpoint()
+
         gmsh_repr = GmshData3d(
             dim=3,
             pts=p,
@@ -1147,9 +1147,6 @@ class FractureNetwork3d(object):
         self.decomposition["polygons"] = polygons
         self.decomposition["line_in_frac"] = line_in_frac
 
-        #                              'polygons': poly_segments,
-        #                             'polygon_frac': poly_2_frac}
-
         logger.info(
             "Finished fracture splitting after %.5f seconds", time.time() - start_time
         )
@@ -1261,7 +1258,6 @@ class FractureNetwork3d(object):
         logger.info(
             "Points and edges done. Elapsed time %.5f", time.time() - start_time
         )
-
         # Uniquify the points and edges before returning.
         return self._uniquify_points_and_edges(
             all_p, edges, edges_2_frac, is_boundary_edge
@@ -1290,7 +1286,6 @@ class FractureNetwork3d(object):
         # will form either a L/Y-type intersection (shared boundary segment),
         # or a three fractures meeting in a line.
         # Do a sort of edges before looking for duplicates.
-
         e_unique, unique_ind_e, all_2_unique_e = setmembership.unique_columns_tol(
             np.sort(edges, axis=0)
         )
@@ -1762,7 +1757,6 @@ class FractureNetwork3d(object):
         constrained_polys, inds = pp.constrain_geometry.polygons_by_polyhedron(
             polys, polyhedron
         )
-
         # Delete fractures that are not member of any constrained fracture
         old_frac_ind = np.arange(len(self._fractures))
         delete_frac = np.setdiff1d(old_frac_ind, inds)
@@ -2118,7 +2112,6 @@ class FractureNetwork3d(object):
 
         # Dictionary that for each fracture maps the index of all other fractures.
         intersecting_fracs: Dict[List[int]] = {}
-
         # Loop over all fractures
         for fi, f in enumerate(self._fractures):
 
@@ -2135,6 +2128,7 @@ class FractureNetwork3d(object):
 
             # Loop over all intersections of the fracture
             isects, is_first_isect = self.intersections_of_fracture(f)
+
             for (i, is_first) in zip(isects, is_first_isect):
 
                 # Register this intersection
@@ -2148,7 +2142,8 @@ class FractureNetwork3d(object):
                     )
 
                 # Find the point on the fracture segments that is closest to the
-                # intersection point
+                # intersection point.
+                # Note the use of vstack, combined with a transpose.
                 isect_coord = np.vstack(
                     (self.intersections["start"][:, i], self.intersections["end"][:, i])
                 ).T
@@ -2162,6 +2157,13 @@ class FractureNetwork3d(object):
                 # with this if it turns out to be a problem.
                 closest_segment = np.argmin(dist, axis=1)
                 min_dist = dist[np.arange(2), closest_segment]
+
+                # Sort the points on increasing point indices. This makes it easier to keep
+                # track of where any new point should be added (variable inserted_points
+                # below).
+                sort_ind = np.argsort(closest_segment)
+                closest_segment = closest_segment[sort_ind]
+                min_dist = min_dist[sort_ind]
 
                 inserted_points = 0
 
