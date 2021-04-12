@@ -797,6 +797,8 @@ class FractureNetwork3d(object):
         # All intersection points should occur at least twice
         isect_p = edges[:2, intersection_edge].ravel()
         num_occ_isect_pt = np.bincount(isect_p)
+        # All points that occurs more than once could be intersection points
+        prelim_intersection_candidate = np.where(num_occ_isect_pt > 1)[0]
 
         # We should also consider points that are both on a fracture tip and a domain
         # boundary line - these will be added to the fracture and boundary points below.
@@ -807,7 +809,7 @@ class FractureNetwork3d(object):
         domain_and_tip_point = np.intersect1d(domain_boundary_point, fracture_tip_point)
 
         intersection_point_candidates = np.hstack(
-            (np.where(num_occ_isect_pt > 1)[0], domain_and_tip_point)
+            (prelim_intersection_candidate, domain_and_tip_point)
         )
 
         # .. however, this is not enough: If a fracture and a constraint intersect at
@@ -863,10 +865,12 @@ class FractureNetwork3d(object):
         # Finally, we have the full set of intersection points (take a good laugh when finding
         # this line in the next round of debugging).
 
-        # Candidates that were not intersections
+        # Candidates that were not intersections. Here we do not consider the boundary-tip
+        # combinations.
         fracture_constraint_intersection = np.setdiff1d(
-            intersection_point_candidates, fracture_and_boundary_points
+            prelim_intersection_candidate, fracture_and_boundary_points
         )
+
         # Special tag for intersection between fracture and constraint.
         # These are not needed in the gmsh postprocessing (will not produce 0d grids),
         # but it can be useful to mark them for other purposes (EK: DFM upscaling)
