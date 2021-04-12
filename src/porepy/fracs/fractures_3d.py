@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import meshio
 import numpy as np
+from scipy.spatial import ConvexHull
 
 import porepy as pp
 from porepy.utils import setmembership, sort_points
@@ -1672,6 +1673,7 @@ class FractureNetwork3d(object):
         self,
         domain: Optional[Union[Dict[str, float], List[np.ndarray]]] = None,
         keep_box: bool = True,
+        area_threshold: float = 1e-4,
     ) -> np.ndarray:
         """
         Set an external boundary for the fracture set.
@@ -1696,6 +1698,9 @@ class FractureNetwork3d(object):
             box (dictionary or list of np.ndarray): See above for description.
             keep_box (bool, optional): If True (default), the bounding surfaces will be
                 added to the end of the fracture list, and tagged as boundary.
+            area_threshold (float): Lower threshold for how much of a fracture's area
+                should be within the bounding box for the fracture to be preserved.
+                Defaults to 1e-4.
 
         Returns:
             np.array: Mapping from old to new fractures, referring to the fractures in
@@ -1777,6 +1782,34 @@ class FractureNetwork3d(object):
             for sub_i in hit:
                 self.add(Fracture(constrained_polys[sub_i]))
                 ind_map = np.hstack((ind_map, fi))
+
+        # Compute the area of the constrained fractures, relative to the original size.
+        # Delete small fractures.
+        # IMPLEMENTATION NOTE: Should we have an absolute threshold in addition to the
+        # relative tolerance below?
+        for fi, f in enumerate(self._fractures):
+            # Map the fracture to its natrual plane.
+            # If the fracture is very small, we risk running into trouble here with
+            # geometry checks that essentially detects almost coinciding points (although
+            # the error message comes from a normal vector computation). Therefore, we
+            # use very strict tolerances, and cross our fingers everything is fine.
+            rot = pp.map_geometry.project_plane_matrix(
+                f.p, tol=1e-12, check_planar=False
+            )
+            mapped_coord = rot.dot(f.p - f.center)[:2]
+            mapped_orig = rot.dot(f.orig_p - f.center)[:2]
+
+            # Construct convex hulls, use these to construct the areas
+            hull_now = ConvexHull(mapped_coord.T)
+            hull_orig = ConvexHull(mapped_orig.T)
+
+            if hull_now.area / hull_orig.area < area_threshold:
+                # If the part of the fracture inside the box is very small, add the
+                # fracture to the list to be deleted, and remove it from the index mapping
+                # between all and preserved fractures.
+                delete_frac = np.hstack((delete_frac, fi))
+                hit = np.where(fi == ind_map)[0]
+                ind_map = np.delete(ind_map, hit)
 
         # Delete fractures that have all points outside the bounding box
         # There may be some uncovered cases here, with a fracture barely
