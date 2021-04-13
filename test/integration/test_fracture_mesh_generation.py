@@ -1014,7 +1014,9 @@ class TestDFMNonConvexDomain(unittest.TestCase):
         network = pp.FractureNetwork3d([f_1], domain=self.non_convex_polyhedron)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
         gb = network.mesh(mesh_args)
-        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
+        # The fracture should be split into subfractures because of the non-convexity.
+        # non-convexity.
+        self.assertTrue(len(gb.grids_of_dimension(2)) == 5)
 
 
 class Test2dDomain(unittest.TestCase):
