@@ -1769,29 +1769,51 @@ class FractureNetwork3d(object):
         # Delete fractures that are not member of any constrained fracture
         old_frac_ind = np.arange(len(self._fractures))
         delete_frac = np.setdiff1d(old_frac_ind, inds)
+
+        # Identify fractures that have been split
         if inds.size > 0:
             split_frac = np.where(np.bincount(inds) > 1)[0]
         else:
             split_frac = np.zeros(0, dtype=int)
 
+        # Split fractures should be deleted
+        delete_frac = np.hstack((delete_frac, split_frac))
         ind_map = np.delete(old_frac_ind, delete_frac)
 
         # Update the fractures with the new data format
         for poly, ind in zip(constrained_polys, inds):
             if ind not in split_frac:
                 self._fractures[ind].p = poly
+
         # Special handling of fractures that are split in two
         for fi in split_frac:
             hit = np.where(inds == fi)[0]
+
             for sub_i in hit:
-                self.add(Fracture(constrained_polys[sub_i]))
+                new_frac = Fracture(constrained_polys[sub_i])
+                self.add(new_frac)
                 ind_map = np.hstack((ind_map, fi))
 
-        # Compute the area of the constrained fractures, relative to the original size.
-        # Delete small fractures.
-        # IMPLEMENTATION NOTE: Should we have an absolute threshold in addition to the
-        # relative tolerance below?
+        # Now, we may modify the fractures for two reasons:
+        # 1) Only a tiny part of the fracture is contained within the region,
+        # 2) The constrained polygon in non-convex, and must be split into smaller parts
+        #    to be compatible with the intersection identification.
+
+        # Some bookkeeping is needed to track which fractures to track.
+        current_ind_map = 0
+        delete_from_ind_map = np.array([], dtype=int)
+
+        # Loop over all fractures
         for fi, f in enumerate(self._fractures):
+
+            # No need to check for fractures that will be deleted anyhow.
+            if fi in delete_frac:
+                continue
+
+            # Compute the area of the constrained fractures, relative to the original size.
+            # Delete small fractures.
+            # IMPLEMENTATION NOTE: Should we have an absolute threshold in addition to the
+            # relative tolerance below?
             # Map the fracture to its natrual plane.
             # If the fracture is very small, we risk running into trouble here with
             # geometry checks that essentially detects almost coinciding points (although
@@ -1800,26 +1822,100 @@ class FractureNetwork3d(object):
             rot = pp.map_geometry.project_plane_matrix(
                 f.p, tol=1e-12, check_planar=False
             )
-            mapped_coord = rot.dot(f.p - f.center)[:2]
-            mapped_orig = rot.dot(f.orig_p - f.center)[:2]
+            mapped_coord = rot.dot(f.p - f.center)
+            mapped_orig = rot.dot(f.orig_p - f.center)
 
             # Construct convex hulls, use these to construct the areas
-            hull_now = ConvexHull(mapped_coord.T)
-            hull_orig = ConvexHull(mapped_orig.T)
+            # The area for 2d ConvexHull (scipy style) is represented by the attribute volume.
+            hull_now = ConvexHull(mapped_coord[:2].T)
+            hull_orig = ConvexHull(mapped_orig[:2].T)
 
-            if hull_now.area / hull_orig.area < area_threshold:
+            if hull_now.volume / hull_orig.volume < area_threshold:
                 # If the part of the fracture inside the box is very small, add the
                 # fracture to the list to be deleted, and remove it from the index mapping
                 # between all and preserved fractures.
                 delete_frac = np.hstack((delete_frac, fi))
-                hit = np.where(fi == ind_map)[0]
-                ind_map = np.delete(ind_map, hit)
+                # Take note that this item should be deleted from the index map
+                delete_from_ind_map = np.hstack((delete_from_ind_map, current_ind_map))
+                current_ind_map += 1
+                # No need to consider this fracture more.
+                continue
+
+            # Next, look for non-convex fracture.
+            if f.p.shape[1] == 3:
+                # triangles are convex.
+                # Increase the index pointing to ind_map
+                current_ind_map += 1
+                continue
+
+            # Non-convex polygons are identified by comparing the area of the polygon
+            # to that of its convex hull - if these deviate, the polygon is not convex.
+            # Simpler options may be possible, but this should do as well.
+
+            # Steps:
+            # 1) Find a center point of the polygon, such that the polygon is star shaped
+            #    with respect to this point.
+            # 2) Split polygon into triangles formed by pairs of succeeding vertexes
+            #    together with the center. Compute area.
+            # 3) If the polygon is non-convex, replace it with subpolygons formed by the
+            #    triangles. Again, this may not be the best option, but it is simple.
+
+            # The home brewed computation of star shaped points breaks down if the
+            # computed point is in the origin. Avoid this by shifting the hole polygon
+            # a bit away from the origin.
+            shift = mapped_coord.min(axis=1).reshape((-1, 1)) - 1
+
+            # Arrays of succeeding vertexes.
+            p = mapped_coord - shift
+            pn = np.roll(p, 1, axis=1)
+
+            # Normal vector of each polygon edge.
+            normal = np.vstack([(pn - p)[1], -(pn - p)[0], np.zeros(p.shape[1])])
+            # Compute center point.
+            # Here, we will be in trouble if the polygon has no star shaped point.
+            center = pp.utils.half_space.half_space_pt(
+                normal, 0.5 * (p + pn), np.hstack((p, pn))
+            ).reshape((-1, 1))
+
+            # Edges of the ad hoc triangle.
+            v1 = p - center
+            v2 = pn - center
+
+            # Compute area of all triangles
+            area = 0.5 * np.sum(np.abs(v1[0] * v2[1] - v1[1] * v2[0]))
+
+            # Compare polygon area to that of its convex hull.
+            # The value of the threshold here is arbitrary.
+            if area < 0.999 * hull_now.volume:
+                # The polygon is not convex.
+                # Take note that this should be deleted.
+                delete_frac = np.hstack((delete_frac, fi))
+                delete_from_ind_map = np.hstack((delete_from_ind_map, current_ind_map))
+
+                # Vertexes, and the star shaped point mapped back to 3d.
+                vert = f.p
+                vert_next = np.roll(f.p, 1, axis=1)
+                center_3d = rot.T.dot(center + shift) + f.center
+
+                # Loop over all vertex pairs generate a new fracture.
+                for pi in range(p.shape[1]):
+                    self.add(
+                        Fracture(
+                            np.vstack((vert[:, pi], vert_next[:, pi], center_3d.T)).T
+                        )
+                    )
+                    ind_map = np.hstack((ind_map, fi))
+
+            # Finally increase pointer to ind_map array
+            current_ind_map += 1
 
         # Delete fractures that have all points outside the bounding box
         # There may be some uncovered cases here, with a fracture barely
         # touching the box from the outside, but we leave that for now.
-        for i in np.unique(np.hstack((delete_frac, split_frac)))[::-1]:
+        for i in np.unique(delete_frac)[::-1]:
             del self._fractures[i]
+
+        ind_map = np.delete(ind_map, delete_from_ind_map)
 
         # Final sanity check: All fractures should have at least three
         # points at the end of the manipulations
