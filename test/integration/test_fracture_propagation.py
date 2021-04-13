@@ -135,7 +135,7 @@ def test_pick_propagation_face_conforming_propagation(generate):
     # Propagation model; assign this some necessary fields.
     model = pp.ConformingFracturePropagation({})
     model.mechanics_parameter_key = mech_key
-    model.Nd = gb.dim_max()
+    model._Nd = gb.dim_max()
 
     # Loop over all propagation steps
     for step_target, step_angle in zip(targets, angles):
@@ -675,7 +675,7 @@ class PropagationCriteria(unittest.TestCase):
         pp.contact_conditions.set_projections(gb)
 
         # Model needs to know dimension
-        self.model.Nd = dim
+        self.model._Nd = dim
         # Set for convenient access without passing around:
         self.nd = dim
         self.gb = gb
