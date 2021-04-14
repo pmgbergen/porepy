@@ -414,6 +414,16 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
     # Obtain bounding boxes for the polygons
     x_min, x_max, y_min, y_max, z_min, z_max = _axis_aligned_bounding_box_3d(polys)
 
+    # If a polygon is perfectly aligned with a coordinate axis, and another polygon
+    # terminates in the first one, rounding errors in the coordinates may lead to
+    # the intersection not being picked up. To circumvent the issue, detect such
+    # situations and give ourselves a bit wiggle room.
+    # It seems that this will not give problems in other cases.
+    for (cmin, cmax) in [(x_min, x_max), (y_min, y_max), (z_min, z_max)]:
+        hit = cmax - cmin < tol
+        cmin[hit] -= 0.5 * tol
+        cmax[hit] += 0.5 * tol
+
     # Identify overlapping bounding boxes: First, use a fast method to find
     # overlapping rectangles in the xy-plane.
     pairs_xy = _identify_overlapping_rectangles(x_min, x_max, y_min, y_max)
