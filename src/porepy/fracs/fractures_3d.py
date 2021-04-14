@@ -1864,6 +1864,8 @@ class FractureNetwork3d(object):
             # computed point is in the origin. Avoid this by shifting the hole polygon
             # a bit away from the origin.
             shift = mapped_coord.min(axis=1).reshape((-1, 1)) - 1
+            # Keep the points in the xy-plane
+            shift[2] = 0
 
             # Arrays of succeeding vertexes.
             p = mapped_coord - shift
@@ -1883,6 +1885,7 @@ class FractureNetwork3d(object):
 
             # Compute area of all triangles
             area = 0.5 * np.sum(np.abs(v1[0] * v2[1] - v1[1] * v2[0]))
+
 
             # Compare polygon area to that of its convex hull.
             # The value of the threshold here is arbitrary.
