@@ -479,7 +479,7 @@ class EquationManager:
         self.gb = gb
 
         # Inform mypy about variables, and then set them by a dedicated method.
-        self.variables: Dict[grid_like_type, str]
+        self.variables: Dict[grid_like_type, Dict[str, "pp.ad.Variable"]]
         self._set_variables(gb)
 
         if equations is None:
