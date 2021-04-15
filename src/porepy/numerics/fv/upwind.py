@@ -259,9 +259,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         ).tocsr()
 
         # Scaling with Darcy fluxes is a diagonal matrix
-        flux_mat = sps.dia_matrix(
-            (darcy_flux, 0), shape=(g.num_faces, g.num_faces)
-        ).tocsr()
+        flux_mat = sps.dia_matrix((darcy_flux, 0), shape=(g.num_faces, g.num_faces))
 
         # Form and store disrcetization matrix
         # Expand the discretization matrix to more than one component
@@ -316,9 +314,11 @@ class Upwind(pp.numerics.discretization.Discretization):
                 np.logical_and(neg_flux, sgn_div < 0),
             ),
         )
+        # Copy the Neumann flux matrix.
         neumann_flux_mat = flux_mat.copy()
         # We know flux_mat is diagonal, and can safely edit the data directly.
-        neumann_flux_mat.data[np.logical_not(outflow_neu)] = 0
+        # Note that the data is stored as a 2d array.
+        neumann_flux_mat.data[0][np.logical_not(outflow_neu)] = 0
 
         # Use a simple cell to face map here; this will pick up cells that are both
         # upstream and downstream to Neumann faces, however, the latter will have
