@@ -177,9 +177,9 @@ def unique_columns_tol(mat, tol=1e-8):
         condition = d < tol ** 2
         proximate = np.where(condition)[0]
 
-        if condition[proximate]:  # proximate.size > 0:
+        if np.any(condition[proximate]):  # proximate.size > 0:
             # We will not keep this point
-            old_2_new[i] = proximate
+            old_2_new[i] = np.argmin(d)
         else:
             # We have found a new point
             keep[i] = True
