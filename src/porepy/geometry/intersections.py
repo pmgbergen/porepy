@@ -1566,7 +1566,7 @@ def surface_tessalations(
 
 
 @pp.time_logger(sections=module_sections)
-def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
+def split_intersecting_segments_2d(p, e, tol=1e-8, return_argsort=False):
     """Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
 
@@ -1601,8 +1601,22 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
             Returned if return_argsort is True.
 
     """
+    if p.dtype == int:
+        p = p.astype(float)
+
     # Find the bounding box
     x_min, x_max, y_min, y_max = _axis_aligned_bounding_box_2d(p, e)
+
+    # If a polygon is perfectly aligned with a coordinate axis, and another polygon
+    # terminates in the first one, rounding errors in the coordinates may lead to
+    # the intersection not being picked up. To circumvent the issue, detect such
+    # situations and give ourselves a bit wiggle room.
+    # It seems that this will not give problems in other cases.
+    for (cmin, cmax) in [(x_min, x_max), (y_min, y_max)]:
+        hit = cmax - cmin < tol
+        cmin[hit] -= 0.5 * tol
+        cmax[hit] += 0.5 * tol
+
     # Identify fractures with overlapping bounding boxes
     pairs = _identify_overlapping_rectangles(x_min, x_max, y_min, y_max)
 
@@ -1675,11 +1689,11 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
         # If the segments are overlapping, there will still be issues with nans,
         # but these are dealt with below.
         main_vec = normalize(end_main - start_main)
-        if dist(start_other, start_main) > 1e-4:
+        if dist(start_other, start_main) > tol:
             main_other_start = normalize(start_other - start_main)
         else:
             main_other_start = normalize(0.5 * (start_other + end_other) - start_main)
-        if dist(end_other, start_main) > 1e-4:
+        if dist(end_other, start_main) > tol:
             main_other_end = normalize(end_other - start_main)
         else:
             # Values 0.3 and 0.7 are quite random here.
