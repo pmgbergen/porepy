@@ -68,7 +68,7 @@ def dumpGridToFile(g, fn):
             outfile.write("{:d} \n".format(g.idx))
 
 
-def dumpMortarGridToFile(gb, e, d, fn, max_1_grid_per_dim=False):
+def dumpMortarGridToFile(gb, e, d, fn, max_1_grid_per_dim=False, dfn=False):
     if max_1_grid_per_dim:
         grid_id = str(d['mortar_grid'].dim)
     else:
@@ -87,8 +87,7 @@ def dumpMortarGridToFile(gb, e, d, fn, max_1_grid_per_dim=False):
     # addCellFaceTag(mortar_grid)
     # enforce_opm_face_ordering(mortar_grid)
 
-
-    mortar_grid.dim = gb.dim_max()
+    mortar_grid.dim = gb.dim_max() + dfn
     dumpGridToFile(mortar_grid, grid_name)
     mortar_grid.dim = dim
 
@@ -171,7 +170,7 @@ def dumpMortarProjectionsToFile(g, mg, proj, fn, mode="w"):
         outfile.write(" ".join(map(str, proj.indices)) + "\n")
     
 
-def dumpGridBucketToFile(gb, fn):
+def dumpGridBucketToFile(gb, fn, dfn=False):
     """
     Dump a PorePy grid to a file that can be read by as an unstructured
     opm grid.
@@ -180,7 +179,7 @@ def dumpGridBucketToFile(gb, fn):
     gb  (GridBucket): Each grid of the grid bucket will be written to file.
     fn (String): The file name. This name will will be passed to open() using 'w'
         with a surfix giving the grid number.
-    
+    dfn (bool): OPTIONAL. Set to true if grid bucket is a DFN network
     Returns:
     None
     """
@@ -197,12 +196,12 @@ def dumpGridBucketToFile(gb, fn):
             grid_name = append_id(fn, d["node_number"])
         g.idx = d["node_number"]
         dim = g.dim
-        g.dim = gb.dim_max()
+        g.dim = gb.dim_max() + dfn
         dumpGridToFile(g, grid_name)
         g.dim = dim
 
     for e, d in gb.edges():
-        dumpMortarGridToFile(gb, e, d, fn, max_1_grid_per_dim)  
+        dumpMortarGridToFile(gb, e, d, fn, max_1_grid_per_dim, dfn)
 
 
 def append_id(filename, idx):
