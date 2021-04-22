@@ -349,10 +349,15 @@ class FractureNetwork2d(object):
             self._snap_to_boundary()
 
         self._find_and_split_intersections(constraints)
+        # Insert auxiliary points and determine mesh size.
+        # _insert_auxiliary_points(..) does both.
+        # _set_mesh_size_withouth_auxiliary_points() sets the mesh size
+        # to the existing points. This is only done for DFNs, but could
+        # also be used for any grid if that is desired.
         if not dfn:
             self._insert_auxiliary_points(**mesh_args)
         else:
-            self._set_dfn_mesh_size(**mesh_args)
+            self._set_mesh_size_without_auxiliary_points(**mesh_args)
         # Transfer data to the format expected by the gmsh interface
         decomp = self._decomposition
 
@@ -534,12 +539,18 @@ class FractureNetwork2d(object):
         self._decomposition["mesh_size"] = mesh_size
 
     @pp.time_logger(sections=module_sections)
-    def _set_dfn_mesh_size(
+    def _set_mesh_size_without_auxiliary_points(
         self,
-        mesh_size_frac: Optional[float]=None,
-        mesh_size_bound: Optional[float]=None,
-        mesh_size_min: Optional[float]=None,
-    ):
+        mesh_size_frac: Optional[float] = None,
+        mesh_size_bound: Optional[float] = None,
+        mesh_size_min: Optional[float] = None,
+    ) -> None:
+        """
+        Set the "Vailla" mesh size to points. No attemts at automatically
+        determine the mesh size is done and no auxillary points are inserted.
+        Fracture points are given the mesh_size_frac mesh size and the domain
+        boundary is given the mesh_size_bound mesh size. mesh_size_min is unused.
+        """
         # Gridding size
         # Tag points at the domain corners
         logger.info("Determine mesh size")
@@ -548,7 +559,8 @@ class FractureNetwork2d(object):
         boundary_pt_ind = self._decomposition["domain_boundary_points"]
         num_pts = self._decomposition["points"].shape[1]
 
-        val = 1
+        val = 1.0
+
         if mesh_size_frac is not None:
             val = mesh_size_frac
         # One value for each point to distinguish betwee val and val_bound.
