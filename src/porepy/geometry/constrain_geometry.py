@@ -121,8 +121,16 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         all_poly = [poly] + polyhedron
 
         # Find intersections
-        coord, point_ind, _, _, seg_vert_all = pp.intersections.polygons_3d(
-            all_poly, target_poly=np.arange(1)
+        (
+            coord,
+            point_ind,
+            _,
+            _,
+            seg_vert_all,
+            point_contact,
+        ) = pp.intersections.polygons_3d(
+            all_poly,
+            target_poly=np.arange(1),
         )
 
         # Find indices of the intersection points for this polygon (the first one)
@@ -152,14 +160,23 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                 assert False
 
         # At this point we know there are intersections between the polygon and
-        # polyhedra. The constrained polygon can have up to three types of segments:
+        # polyhedra. The constrained polygon can have up to four types of segments:
         # 1) Both vertexes are on the boundary. The segment is formed by the pair of
         # intersection points between two polygons.
         # 2) Both vertexes are in the interior. This is one of the original segments
         # of the polygon.
-        # 3) A segment of the original polygon crosses on or more of the polyhedron
+        # 3) A vertex is a point contact, another is interior or a point contact.
+        # 4) A segment of the original polygon crosses on or more of the polyhedron
         # boundaries. This includes the case where the original polygon has a vertex
         # on the polyhedron boundary. This can produce one or several segments.
+
+        # Convenience arrays for navigating between vertexes in the polygon
+        num_vert = poly.shape[1]
+        ind = np.arange(num_vert)
+        next_ind = 1 + ind
+        next_ind[-1] = 0
+        prev_ind = np.arange(num_vert) - 1
+        prev_ind[0] = num_vert - 1
 
         # Case 1): Find index of intersection points
         main_ind = point_ind[0]
@@ -167,6 +184,12 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         # Storage for intersection segments between the main polygon and the
         # polyhedron sides.
         boundary_segments = []
+
+        point_contact = point_contact[0]
+        point_contact_ind = np.array([], dtype=int)
+        for p in point_contact:
+            if isinstance(p, np.ndarray):
+                point_contact_ind = np.hstack([point_contact_ind, p])
 
         # First find segments fully on the boundary.
         # Loop over all sides of the polyhedral. Look for intersection points
@@ -182,19 +205,13 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
             boundary_segments.append(other_ip[common])
 
         boundary_segments = np.array([i for i in boundary_segments]).T
+        if boundary_segments.size == 0:
+            boundary_segments = np.zeros((2, 0), dtype=int)
 
         # For segments with at least one interior point, we need to jointly consider
         # intersection points and the original vertexes
         num_coord = coord.shape[1]
         coord_extended = np.hstack((coord, poly))
-
-        # Convenience arrays for navigating between vertexes in the polygon
-        num_vert = poly.shape[1]
-        ind = np.arange(num_vert)
-        next_ind = 1 + ind
-        next_ind[-1] = 0
-        prev_ind = np.arange(num_vert) - 1
-        prev_ind[0] = num_vert - 1
 
         # Case 2): Find segments that are defined by two interior points
         points_inside_polyhedron = pp.geometry_property_checks.point_in_polyhedron(
@@ -208,9 +225,28 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         # Temporary list of interior segments, it will be adjusted below
         interior_segments = np.vstack((ind[segments_inside], next_ind[segments_inside]))
 
+        # Case 3: Segment involving a point contact. This is not that special, however,
+        # it needs special treatment due to the data structures used in polygon intersection
+        # identification.
+        point_contact_segments = np.zeros((2, 0), dtype=int)
+        for pci in point_contact_ind:
+            if (
+                points_inside_polyhedron[next_ind[pci]]
+                or next_ind[pci] in point_contact_ind
+            ):
+                point_contact_segments = np.hstack(
+                    (point_contact_segments, np.array([[pci], [next_ind[pci]]]))
+                )
+            if (
+                points_inside_polyhedron[prev_ind[pci]]
+                or prev_ind[pci] in point_contact_ind
+            ):
+                point_contact_segments = np.hstack(
+                    (point_contact_segments, np.array([[pci], [prev_ind[pci]]]))
+                )
+
         # From here on, we will lean heavily on information on segments that cross the
         # boundary.
-
         # The test for interior points does not check if the segment crosses the
         # domain boundary due to a non-convex domain; these must be removed.
         # What we really want is multiple small segments, excluding those that are on
@@ -253,6 +289,10 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
             if len(isect) > 0 and not isect[1]:
                 vertex_on_boundary[isect[0]] = 1
 
+        # Also count point contacts among the vertexes on the boundary.
+        for i in point_contact_ind:
+            vertex_on_boundary[i] = True
+
         # Storage of the intersections associated with each segment of the original polygon
         isects_of_segment = np.zeros(num_vert, object)
         for i in range(num_vert):
@@ -271,7 +311,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         for isect_ind, isect in enumerate(seg_vert):
             if len(isect) > 0:
                 if isect[1]:
-                    # intersection point lies ona segment
+                    # intersection point lies on a segment
                     if len(isects_of_segment[isect[0]]) == 0:
                         isects_of_segment[isect[0]] = [isect_ind]
                     else:
@@ -376,7 +416,12 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         # To that end, first collect the segments in a single list
         segments = np.sort(
             np.hstack(
-                (boundary_segments, interior_segments, segments_interior_boundary)
+                (
+                    boundary_segments,
+                    interior_segments,
+                    segments_interior_boundary,
+                    point_contact_segments,
+                )
             ),
             axis=0,
         )
@@ -398,7 +443,6 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         # polyhedron is convex, the graph will have a single connected component.
         # If not, there will be multiple connected components. Find these, and
         # make a separate polygon for each.
-
         # Represent the segments as a graph.
         graph = nx.Graph()
         for i in range(unique_segments.shape[1]):
