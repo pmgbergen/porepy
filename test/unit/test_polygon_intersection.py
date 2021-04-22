@@ -1490,6 +1490,48 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         )
 
         self.assertTrue(test_utils.compare_arrays(constrained_poly[0], known_poly))
+
+    def test_point_intersection_fully_inside_box(self):
+
+        self.setUp()
+
+        # f_1 has one intersection along a surface, point intersection in the third vertex.
+        f_1 = np.array([[0, 0, 1], [0.5, 0.5, 0.5], [0.2, 0.8, 0]])
+        # f_2 has three point intersections on different vertexes.
+        f_2 = np.array([[0, 0.5, 1], [0.5, 0.0, 0.5], [0.2, 0.8, 1]])
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            [f_1, f_2], self.cart_polyhedron)
+
+        self.assertTrue(test_utils.compare_arrays(constrained_poly[0], f_1))
+        self.assertTrue(test_utils.compare_arrays(constrained_poly[1], f_2))              
+
+    def test_point_intersection_fully_outside_box(self):
+
+        self.setUp()
+
+        # f_1 has one point intersection outside, rest is outside
+        f_1 = np.array([[-1, -1, 0], [0.5, 0.5, 0.5], [0.2, 0.8, 0]])
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            [f_1], self.cart_polyhedron)
+
+        self.assertTrue(len(constrained_poly) == 0)
+
+    def test_point_intersection_crossing_on_other_side(self):
+
+        self.setUp()
+
+        # Constrained polygon formed by point contact and two standard intersections.
+        f_1 = np.array([[-1, -1, 1], [0.5, 0.5, 0.5], [0.0, 1, 0.5]])
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            [f_1], self.cart_polyhedron)
+
+        known_poly = np.array([[0, 1, 0], [0.5, 0.5, 0.5], [0.25, 0.5, 0.75]])
+
+        self.assertTrue(test_utils.compare_arrays(constrained_poly[0], known_poly))              
         
+
 if __name__ == "__main__":
     unittest.main()
