@@ -137,7 +137,6 @@ def point_in_polygon(poly, p, tol=0, default=False):
         p (np.ndarray, 2 x n2): Points to be tested.
         tol (double, optional): Tolerance for rounding errors. Defaults to
             zero.
-        @pp.time_logger(sections=module_sections)
         default (boolean, optional): Default behavior if the point is close to
             the boundary of the polygon. Defaults to False.
 
