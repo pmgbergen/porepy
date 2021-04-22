@@ -1038,11 +1038,15 @@ class FractureNetwork3d(object):
         # Intersections are found using a method in the comp_geom module, which requires
         # the fractures to be represented as a list of polygons.
         polys = [f.p for f in self._fractures]
+
         # Obtain intersection points, indexes of intersection points for each fracture
         # information on whether the fracture is on the boundary, and pairs of fractures
         # that intersect.
-        isect, point_ind, bound_info, frac_pairs, _ = pp.intersections.polygons_3d(
-            polys
+        # We do not include point contacts here - that should be feasible, but the
+        # implementation may require some effort (e.g. point contact in the interior of
+        # a fracture would require embedding points in surfaces in the gmsh specification).
+        isect, point_ind, bound_info, frac_pairs, *_ = pp.intersections.polygons_3d(
+            polys, include_point_contact=False
         )
 
         # Loop over all pairs of intersection pairs, add the intersections to the
@@ -1885,7 +1889,6 @@ class FractureNetwork3d(object):
 
             # Compute area of all triangles
             area = 0.5 * np.sum(np.abs(v1[0] * v2[1] - v1[1] * v2[0]))
-
 
             # Compare polygon area to that of its convex hull.
             # The value of the threshold here is arbitrary.
