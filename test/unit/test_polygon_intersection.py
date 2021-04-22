@@ -106,7 +106,7 @@ class BasicTest(unittest.TestCase):
 class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
     def test_single_fracture(self):
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
-        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d([f_1])
+        new_pt, isect_pt, on_bound, _, seg_vert, _ = pp.intersections.polygons_3d([f_1])
         self.assertTrue(new_pt.size == 0)
         self.assertTrue(isect_pt.size == 1)
         self.assertTrue(len(isect_pt[0]) == 0)
@@ -121,7 +121,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
 
-        new_pt, isect_pt, on_bound, pairs, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, pairs, seg_vert, _ = pp.intersections.polygons_3d(
             [f_1, f_2]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -148,7 +148,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
         f_3 = np.array([[-1, 1, 1, -1], [-1, -1, 1, 1], [0, 0, 0, 0]])
-        new_pt, isect_pt, on_bound, pairs, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, pairs, seg_vert, _ = pp.intersections.polygons_3d(
             [f_1, f_2, f_3]
         )
         self.assertTrue(new_pt.shape[1] == 6)
@@ -194,7 +194,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
         f_3 = f_2 + np.array([0.5, 0, 0]).reshape((-1, 1))
-        new_pt, isect_pt, on_bound, pairs, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, pairs, seg_vert, _ = pp.intersections.polygons_3d(
             [f_1, f_2, f_3]
         )
         self.assertTrue(new_pt.shape[1] == 4)
@@ -240,7 +240,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         f_2 = np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-1, -1, 1, 1]])
         # fracture along x=0
         f_3 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]])
-        new_pt, isect_pt, on_bound, pairs, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, pairs, seg_vert, _ = pp.intersections.polygons_3d(
             [f_1, f_2, f_3]
         )
         self.assertTrue(new_pt.shape[1] == 6)
@@ -298,7 +298,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
         f_2 = np.array([[-0.5, 0.5, 0.5, -0.5], [-1, -1, 1, 1], [-2, -2, 2, 2]])
         f_3 = np.array([[-1, 1, 1, -1], [-1, -1, 1, 1], [0, 0, 0, 0]])
-        new_pt, isect_pt, on_bound, pairs, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, pairs, seg_vert, _ = pp.intersections.polygons_3d(
             [f_1, f_2, f_3]
         )
         self.assertTrue(new_pt.shape[1] == 6)
@@ -352,7 +352,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         """
         f_1 = np.array([[-0.5, 0.5, 0.5, -0.5], [-1, -1, 1, 1], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]])
-        new_pt, isect_pt, on_bound, pairs, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, pairs, seg_vert,_ = pp.intersections.polygons_3d(
             [f_1, f_2]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -379,7 +379,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         """
         f_1 = np.array([[-0.5, 0.5, 0.5, -0.5], [-1, -1, 1, 1], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]])
-        new_pt, isect_pt, on_bound, pairs, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, pairs, seg_vert, _ = pp.intersections.polygons_3d(
             [f_2, f_1]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -405,7 +405,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         """
         f_1 = np.array([[-0.5, 0.5, 0.5, -0.5], [-1, -1, 1, 1], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 2, 1]])
-        new_pt, isect_pt, on_bound, pairs, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, pairs, seg_vert, _ = pp.intersections.polygons_3d(
             [f_1, f_2]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -432,7 +432,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         """
         f_1 = np.array([[-0.5, 0.5, 0.5, -0.5], [-1, -1, 1, 1], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 2, 1]])
-        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert, _ = pp.intersections.polygons_3d(
             [f_2, f_1]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -459,7 +459,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         f_2 = np.array(
             [[0.5, 1.0, 1.0, 0.5], [0.0, 0.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]]
         )
-        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert, _ = pp.intersections.polygons_3d(
             [f_1, f_2]
         )
         self.assertTrue(new_pt.shape[1] == 0)
@@ -473,7 +473,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         """
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[0, 0, 0, 0], [0.3, 0.7, 0.7, 0.3], [0, 0, 1, 1]])
-        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert, _ = pp.intersections.polygons_3d(
             [f_1, f_2]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -499,7 +499,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         """
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[0, 0, 0, 0], [0.3, 0.7, 0.7, 0.3], [0, 0, 1, 1]])
-        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert, _ = pp.intersections.polygons_3d(
             [f_2, f_1]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -525,7 +525,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         """
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[0, 0, 0, 0], [0.3, 1.0, 1, 0.3], [0, 0, 1, 1]])
-        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert, _ = pp.intersections.polygons_3d(
             [f_1, f_2]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -551,7 +551,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         """
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[0, 0, 0, 0], [0.3, 1.5, 1.5, 0.3], [0, 0, 1, 1]])
-        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert, _ = pp.intersections.polygons_3d(
             [f_1, f_2]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -578,7 +578,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         f_1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         f_2 = np.array([[0.5, 0.5, 1], [0.5, 0.5, 0], [0.5, 0.9, 0.0]]).T
 
-        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert, _ = pp.intersections.polygons_3d(
             [f_1, f_2]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -605,7 +605,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         f_1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         f_2 = np.array([[0.5, 0.5, 1], [0.5, 0.5, 0], [0.5, 1.9, 0.0]]).T
 
-        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert, _ = pp.intersections.polygons_3d(
             [f_1, f_2]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -632,7 +632,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
             [[2.0, 2.0, 2.0, 2.0], [-2.0, -2.0, 2.0, 2.0], [2.0, -2.0, -2.0, 2.0]]
         )
 
-        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert, _ = pp.intersections.polygons_3d(
             [f_1, f_2]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -653,7 +653,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         f_1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         f_2 = np.array([[0.5, 0.5, 1], [0.5, 0.0, 0], [0.5, 1.9, 0.0]]).T
 
-        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert, _ = pp.intersections.polygons_3d(
             [f_1, f_2]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -680,7 +680,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         f_1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         f_2 = np.array([[0.5, 0.5, 1], [0.5, 0.0, 0], [0.5, 1.9, 0.0]]).T
 
-        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert, _ = pp.intersections.polygons_3d(
             [f_2, f_1]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -707,7 +707,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         f_1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         f_2 = np.array([[0.5, 0.5, 1], [0.5, 0.0, 0], [0.5, 1.0, 0.0]]).T
 
-        new_pt, isect_pt, on_bound, _, seg_vert = pp.intersections.polygons_3d(
+        new_pt, isect_pt, on_bound, _, seg_vert, _ = pp.intersections.polygons_3d(
             [f_1, f_2]
         )
         self.assertTrue(new_pt.shape[1] == 2)
@@ -733,14 +733,14 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
 
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[2, 3, 3, 2], [0, 0, 1, 1], [0, 0, 0, 0]])
-        new_pt, isect_pt, on_bound, _, _ = pp.intersections.polygons_3d([f_1, f_2])
+        new_pt, isect_pt, on_bound, *_ = pp.intersections.polygons_3d([f_1, f_2])
         self.assertTrue(new_pt.shape[1] == 0)
 
     def test_same_plane_intersections(self):
 
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[2, 2, 0], [0, 2, 1.5], [0, 0, 0]])
-        new_pt, isect_pt, on_bound, _, _ = pp.intersections.polygons_3d([f_1, f_2])
+        new_pt, isect_pt, on_bound, *_ = pp.intersections.polygons_3d([f_1, f_2])
         self.assertTrue(new_pt.shape[1] == 2)
         self.assertTrue(isect_pt.size == 2)
         self.assertTrue(len(isect_pt[0]) == 2)
@@ -756,7 +756,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         # Shared segment and two vertexes
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[1, 1, 2], [0, 2, 1], [0, 0, 0]])
-        new_pt, isect_pt, on_bound, _, _ = pp.intersections.polygons_3d([f_1, f_2])
+        new_pt, isect_pt, on_bound, *_ = pp.intersections.polygons_3d([f_1, f_2])
         self.assertTrue(new_pt.shape[1] == 2)
         self.assertTrue(isect_pt.size == 2)
         self.assertTrue(len(isect_pt[0]) == 2)
@@ -773,7 +773,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         # has the longest extension.
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[1, 1, 2], [0, 1, 1.5], [0, 0, 0]])
-        new_pt, isect_pt, on_bound, _, _ = pp.intersections.polygons_3d([f_1, f_2])
+        new_pt, isect_pt, on_bound, *_ = pp.intersections.polygons_3d([f_1, f_2])
         self.assertTrue(new_pt.shape[1] == 2)
         self.assertTrue(isect_pt.size == 2)
         self.assertTrue(len(isect_pt[0]) == 2)
@@ -789,7 +789,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         # Shared segment, no common vertex.
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[1, 1, 2], [0.5, 0.9, 1.5], [0, 0, 0]])
-        new_pt, isect_pt, on_bound, _, _ = pp.intersections.polygons_3d([f_1, f_2])
+        new_pt, isect_pt, on_bound, *_ = pp.intersections.polygons_3d([f_1, f_2])
         self.assertTrue(new_pt.shape[1] == 2)
         self.assertTrue(isect_pt.size == 2)
         self.assertTrue(len(isect_pt[0]) == 2)
@@ -806,7 +806,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         # second
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[1, 2, 1], [0, 2, 0.5], [0, 0, 0]])
-        new_pt, isect_pt, on_bound, _, _ = pp.intersections.polygons_3d([f_1, f_2])
+        new_pt, isect_pt, on_bound, *_ = pp.intersections.polygons_3d([f_1, f_2])
         self.assertTrue(new_pt.shape[1] == 2)
         self.assertTrue(isect_pt.size == 2)
         self.assertTrue(len(isect_pt[0]) == 2)
@@ -827,7 +827,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
             [[0.7, 1.4, 1.4, 0.7], [0.4, 0.4, 1.4, 1.4], [0.6, 0.6, 0.6, 0.6]]
         )
 
-        new_pt, isect_pt, _, _, seg_vert = pp.intersections.polygons_3d([f_1, f_2])
+        new_pt, isect_pt, _, _, seg_vert, _ = pp.intersections.polygons_3d([f_1, f_2])
 
         self.assertTrue(new_pt.shape[1] == 2)
         self.assertTrue(isect_pt.size == 2)
@@ -873,7 +873,7 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
             [[0.7, 1.4, 1.4, 0.7], [0.4, 0.4, 1.4, 1.4], [0.6, 0.6, 0.6, 0.6]]
         )
 
-        new_pt, isect_pt, _, _, seg_vert = pp.intersections.polygons_3d([f_2, f_1])
+        new_pt, isect_pt, _, _, seg_vert, _ = pp.intersections.polygons_3d([f_2, f_1])
 
         self.assertTrue(new_pt.shape[1] == 2)
         self.assertTrue(isect_pt.size == 2)
@@ -909,6 +909,90 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         # in its interior
         self.assertTrue(seg_vert[0][x_14_ind][0] == 1)
         self.assertTrue(seg_vert[0][x_14_ind][1])
+
+    def test_single_point_intersection_in_interior(self):
+        f_1 = np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1]])
+        f_2 = np.array([[0, 1, 1], [0.5, 0.5, 0.5], [0.5, 0, 1]])
+
+        new_pt, isect_pt, _, _, seg_vert, point_contact = pp.intersections.polygons_3d([f_1, f_2])
+        # Also intersect in reverse order
+        new_pt2, isect_pt, _, _, seg_vert2, point_contact2 = pp.intersections.polygons_3d([f_2, f_1])        
+
+        known_point = np.array([[0], [0.5], [0.5]])
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_point))
+        self.assertTrue(test_utils.compare_arrays(new_pt2, known_point))
+
+        for arr in point_contact:
+            self.assertTrue(all(arr))
+        for arr in point_contact2:
+            self.assertTrue(all(arr))
+
+        # Intersection is internal to f_1
+        self.assertTrue(len(seg_vert[0][0]) == 0)
+        # Intersection on f_2 is on the first vertex
+        self.assertTrue(seg_vert[1][0][0] == 0)        
+        self.assertFalse(seg_vert[1][0][1])
+
+        self.assertTrue(len(seg_vert2[1][0]) == 0)
+        self.assertTrue(seg_vert2[0][0][0] == 0)
+        self.assertFalse(seg_vert2[0][0][1])
+        
+    def test_single_point_intersection_on_boundary(self):
+        f_1 = np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1]])
+        f_2 = np.array([[0, 1, 1], [0.5, 0.5, 0.5], [0.0, 0, 1]])
+
+        new_pt, isect_pt, _, _, seg_vert, point_contact = pp.intersections.polygons_3d([f_1, f_2])
+        # Also intersect in reverse order
+        new_pt2, isect_pt, _, _, seg_vert2, point_contact2 = pp.intersections.polygons_3d([f_2, f_1])        
+        known_point = np.array([[0], [0.5], [0.0]])
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_point))
+        self.assertTrue(test_utils.compare_arrays(new_pt2, known_point))
+
+        for arr in point_contact:
+            self.assertTrue(all(arr))
+        for arr in point_contact2:
+            self.assertTrue(all(arr))
+
+        # Intersection is on the first segment of f_1
+        self.assertTrue(seg_vert[0][0][0] == 0)        
+        self.assertTrue(seg_vert[0][0][1])
+        # Intersection on f_2 is on the first vertex
+        self.assertTrue(seg_vert[1][0][0] == 0)        
+        self.assertFalse(seg_vert[1][0][0])
+
+        self.assertTrue(seg_vert2[1][0][0] == 0)        
+        self.assertTrue(seg_vert2[1][0][1])
+        self.assertTrue(seg_vert2[0][0][0] == 0)
+        self.assertFalse(seg_vert2[0][0][1])
+
+    def test_single_point_intersection_on_vertex(self):
+        f_1 = np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1]])
+        f_2 = np.array([[0, 0.5, 1], [0, 0.5, 1], [0, 0, 1]])
+
+        new_pt, isect_pt, _, _, seg_vert, point_contact = pp.intersections.polygons_3d([f_1, f_2])
+        # Also intersect in reverse order
+        new_pt2, isect_pt, _, _, seg_vert2, point_contact2 = pp.intersections.polygons_3d([f_2, f_1])        
+        known_point = np.array([[0], [0], [0.0]])
+        self.assertTrue(test_utils.compare_arrays(new_pt, known_point))
+        self.assertTrue(test_utils.compare_arrays(new_pt2, known_point))
+
+        for arr in point_contact:
+            self.assertTrue(all(arr))
+        for arr in point_contact2:
+            self.assertTrue(all(arr))
+
+        # Intersection is on the first segment of f_1
+        self.assertTrue(seg_vert[0][0][0] == 0)        
+        self.assertFalse(seg_vert[0][0][1])
+        # Intersection on f_2 is on the first vertex
+        self.assertTrue(seg_vert[1][0][0] == 0)        
+        self.assertFalse(seg_vert[1][0][0])
+
+        self.assertTrue(seg_vert2[0][0][0] == 0)        
+        self.assertFalse(seg_vert2[0][0][1])
+        # Intersection on f_2 is on the first vertex
+        self.assertTrue(seg_vert2[1][0][0] == 0)        
+        self.assertFalse(seg_vert2[1][0][0])
 
 
 class TestPolygonPolyhedronIntersection(unittest.TestCase):
