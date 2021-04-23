@@ -455,8 +455,9 @@ class UpwindAd(ApplicableOperator):
 
 class FluxBasedUpwindAD(ApplicableOperator):
     """ Flux based upwinding of cell-centered relative permeabilities"""
+
     # Credits to Jakub Both
-    
+
     def __init__(self, g, d, param_key, hs: Callable = heaviside):
 
         self._set_tree()
@@ -487,10 +488,13 @@ class FluxBasedUpwindAD(ApplicableOperator):
         cf_is_boundary = np.logical_not(cf_inner)
         self._cf_is_boundary = cf_is_boundary
         self._is_dir = d[pp.PARAMETERS][param_key]["bc"].is_dir.copy()
-        self._cf_is_dir = [np.logical_and(cf_is_boundary[i], self._is_dir) for i in range(0, 2)]
+        self._cf_is_dir = [
+            np.logical_and(cf_is_boundary[i], self._is_dir) for i in range(0, 2)
+        ]
         self._is_neu = d[pp.PARAMETERS][param_key]["bc"].is_neu.copy()
-        self._cf_is_neu = [np.logical_and(cf_is_boundary[i], self._is_neu) for i in range(0, 2)]
-
+        self._cf_is_neu = [
+            np.logical_and(cf_is_boundary[i], self._is_neu) for i in range(0, 2)
+        ]
 
     def __repr__(self) -> str:
         return " Flux-based upwind AD face operator"
@@ -500,7 +504,7 @@ class FluxBasedUpwindAD(ApplicableOperator):
 
         Idea: 'face value' = 'left cell value' * Heaviside('flux from left')
                            + 'right cell value' * Heaviside('flux from right').
-        
+
         Parameters
         ----------
         inner_values : np.ndarray of size g.num_cells
@@ -522,13 +526,13 @@ class FluxBasedUpwindAD(ApplicableOperator):
             Arithmetic averaged values at the faces of the grid
 
         """
-        
+
         # Rename internal properties
         hs = self._heaviside
         cf_inner = self._cf_inner
         cf_is_boundary = self._cf_is_boundary
 
-        # Only lazy upstream is possible. An error is return is either the 
+        # Only lazy upstream is possible. An error is return is either the
         # cell-based array or the face fluxes are AD objects
         if isinstance(inner_values, Ad_array) or isinstance(face_flux, Ad_array):
             raise TypeError("Object cannot be of the type Ad_array")
@@ -540,7 +544,7 @@ class FluxBasedUpwindAD(ApplicableOperator):
         # Evaluate the Heaviside function of the "flux directions".
         hs_f_01 = hs(face_flux)
         hs_f_10 = hs(-face_flux)
-        
+
         # Determine the face mobility by utilizing the general idea (see above).
         face_upwind = val_f[0] * hs_f_01 + val_f[1] * hs_f_10
 
@@ -567,7 +571,7 @@ class ArithmeticAverageAd(ApplicableOperator):
 
     def apply(self, inner_values, dir_bound_values):
         """
-        Apply arithmetich average 
+        Apply arithmetich average
 
         Parameters
         ----------
@@ -587,7 +591,7 @@ class ArithmeticAverageAd(ApplicableOperator):
             Arithmetic averaged values at the faces of the grid
 
         """
-        
+
         # TODO: Implement true AD average
         if isinstance(inner_values, Ad_array):
             raise TypeError("Object cannot be of the type Ad_array")
@@ -596,16 +600,16 @@ class ArithmeticAverageAd(ApplicableOperator):
             bc = self._d[pp.PARAMETERS][self._param_key]["bc"]
             dir_fcs = bc.is_dir.nonzero()  # dirichlet boundary faces
             int_fcs = self._g.get_internal_faces()  # internal faces
-    
+
             # Faces neighboring mapping
             fcs_neigh = np.zeros((self._g.num_faces, 2), dtype=int)
             fcs_neigh[:, 0] = self._g.cell_face_as_dense()[0]
             fcs_neigh[:, 1] = self._g.cell_face_as_dense()[1]
             int_fcs_neigh = fcs_neigh[int_fcs]
-    
+
             # Initialize array
-            face_avg = np.ones(self._g.num_faces) # Neumann set to 1 by default
-                          
+            face_avg = np.ones(self._g.num_faces)  # Neumann set to 1 by default
+
             # Values at Dirichlet boundaries
             dir_cells_neigh = fcs_neigh[dir_fcs]
             if dir_cells_neigh.size > 0:
@@ -613,14 +617,13 @@ class ArithmeticAverageAd(ApplicableOperator):
                 face_avg[dir_fcs] = 0.5 * (
                     dir_bound_values[dir_fcs] + inner_values[dir_cells]
                 )
-            
+
             # Values at internal faces
             face_avg[int_fcs] = 0.5 * (
-                inner_values[int_fcs_neigh[:, 0]]
-                + inner_values[int_fcs_neigh[:, 1]]
+                inner_values[int_fcs_neigh[:, 0]] + inner_values[int_fcs_neigh[:, 1]]
             )
-        
-        return sps.spdiags(face_avg, 0, self._g.num_faces, self._g.num_faces) 
+
+        return sps.spdiags(face_avg, 0, self._g.num_faces, self._g.num_faces)
 
 
 class HarmAvgAd(ApplicableOperator):
