@@ -606,6 +606,24 @@ class FractureNetwork3d(object):
 
         return FractureNetwork3d(fracs, domain, self.tol)
 
+    def num_frac(self) -> int:
+        """ Get number of fractures in the network, not counting planes on the
+        the domain boundary.
+
+        Returns:
+            int: Number of network fractures.
+        """
+        num = 0
+        if not self.bounding_box_imposed:
+            return len(self._fractures)
+
+        # The boundary are set when the bounding box is imposed.
+        for fi in range(len(self._fractures)):
+            if not self.tags["boundary"][fi]:
+                num += 1
+
+        return 0
+    
     @pp.time_logger(sections=module_sections)
     def mesh(
         self,
