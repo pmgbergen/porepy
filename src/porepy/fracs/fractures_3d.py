@@ -613,7 +613,8 @@ class FractureNetwork3d(object):
         dfn=False,
         file_name=None,
         constraints=None,
-        write_geo=False,
+        write_geo=True,
+        tags_to_transfer: Optional[List[str]] = None,
         **kwargs,
     ):
         """Mesh the fracture network, and generate a mixed-dimensional grid.
@@ -661,6 +662,12 @@ class FractureNetwork3d(object):
             grid_list = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
                 file_name, constraints
             )
+
+        if tags_to_transfer:
+            for id_g, g in enumerate(grid_list[1 - int(dfn)]):
+                for key in tags_to_transfer:
+                    if key not in g.tags:
+                        g.tags[key] = self.tags[key][id_g]
 
         # Merge the grids into a mixed-dimensional GridBucket
         gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
