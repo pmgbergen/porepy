@@ -9,7 +9,9 @@ module_sections = ["gridding"]
 
 
 @pp.time_logger(sections=module_sections)
-def network_3d_from_csv(file_name, has_domain=True, tol=1e-4, **kwargs):
+def network_3d_from_csv(
+    file_name: str, has_domain: bool = True, tol: float = 1e-4, **kwargs
+) -> pp.FractureNetwork3d:
     """
     Create the fracture network from a set of 3d fractures stored in a csv file and
     domain. In the csv file, we assume the following structure
@@ -41,23 +43,31 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4, **kwargs):
 
         # Read the domain first
         if has_domain:
-            domain = np.asarray(next(spam_reader), dtype=np.float)
-            domain = {
-                "xmin": domain[0],
-                "xmax": domain[3],
-                "ymin": domain[1],
-                "ymax": domain[4],
-                "zmin": domain[2],
-                "zmax": domain[5],
-            }
+            read_domain = False
+
+            while not read_domain:
+                line = next(spam_reader)
+                if line[0][0] == "#":
+                    continue
+                else:
+                    data = np.asarray(line, dtype=float)
+                    domain = {
+                        "xmin": data[0],
+                        "xmax": data[3],
+                        "ymin": data[1],
+                        "ymax": data[4],
+                        "zmin": data[2],
+                        "zmax": data[5],
+                    }
+                    read_domain = True
 
         for row in spam_reader:
             # If the line starts with a '#', we consider this a comment
-            if row[0][0] == "#":
+            if len(row) == 0 or row[0][0] == "#":
                 continue
 
             # Read the points
-            pts = np.asarray(row, dtype=np.float)
+            pts = np.asarray(row, dtype=float)
             if not pts.size % 3 == 0:
                 raise ValueError("Points are always 3d")
 
