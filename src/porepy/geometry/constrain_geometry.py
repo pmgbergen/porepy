@@ -138,9 +138,13 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         # Only consider segment-vertex information for the first polygon
         seg_vert = seg_vert_all[0]
 
-        # If there are no intersection points, we just need to test if the
-        # entire polygon is inside the polyhedral
-        if isect_poly.size == 0:
+        # Find number of unique intersection points.
+        _, mapping, _ = pp.utils.setmembership.unique_columns_tol(coord, tol)
+        # If there are no, or a single intersection point, we just need to test if the
+        # entire polygon is inside the polyhedral.
+        # A single intersection point can only be combined with a polygon fully inside
+        # for a non-convex polygon.
+        if isect_poly.size == 0 or mapping.size == 1:
             # Testing with a single point should suffice, but until the code
             # for in-polyhedron testing is more mature, we do some safeguarding:
             # Test for all points in the polygon, they should all be on the
