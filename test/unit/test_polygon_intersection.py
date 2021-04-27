@@ -1531,7 +1531,24 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         known_poly = np.array([[0, 1, 0], [0.5, 0.5, 0.5], [0.25, 0.5, 0.75]])
 
         self.assertTrue(test_utils.compare_arrays(constrained_poly[0], known_poly))              
-        
+
+    def test_point_intersection_rest_of_polygon_outside(self):
+        # This used to be a problem.
+        polyhedron = [
+            np.array([[0.1, 0.0, 0.0], [0.5, 0.4, 0.6], [0.1, 0.0, 0.0]]),
+            np.array([[0.1, 0.0, 0.0], [0.5, 0.6, 0.6], [0.1, 0.0, 0.2]]),
+            np.array([[0.1, 0.0, 0.0], [0.5, 0.6, 0.4], [0.1, 0.2, 0.2]]),
+            np.array([[0.1, 0.0, 0.0], [0.5, 0.4, 0.4], [0.1, 0.2, 0.0]]),
+            np.array([[0.0, 0.0, 0.0], [0.4, 0.6, 0.6], [0.0, 0.0, 0.2]]),
+            np.array([[0.0, 0.0, 0.0], [0.4, 0.6, 0.4], [0.0, 0.2, 0.2]]),
+        ]
+
+        poly = np.array([[0.1, 0.1, 0.1, 0.1],
+               [0.5, 0.5, 0.9, 0.9],
+               [0. , 0.9, 0.9, 0. ]])
+
+        _, inds = pp.constrain_geometry.polygons_by_polyhedron([poly], polyhedron)
+        self.assertTrue(inds.size == 0)
 
 if __name__ == "__main__":
     unittest.main()
