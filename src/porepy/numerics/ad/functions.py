@@ -1,8 +1,10 @@
-import numpy as np
-import porepy  # noqa isort: skip
-
 from typing import Callable
+
+import numpy as np
+
 from porepy.numerics.ad.forward_mode import Ad_array
+
+import porepy  # noqa isort: skip
 
 __all__ = [
     "exp",
