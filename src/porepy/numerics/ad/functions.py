@@ -1,8 +1,7 @@
-import porepy  # noqa isort: skip
-from typing import Callable
-
 import numpy as np
+import porepy  # noqa isort: skip
 
+from typing import Callable
 from porepy.numerics.ad.forward_mode import Ad_array
 
 __all__ = [
