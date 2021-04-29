@@ -1,12 +1,9 @@
+import porepy  # noqa isort: skip
 from typing import Callable
 
 import numpy as np
 
 from porepy.numerics.ad.forward_mode import Ad_array
-from porepy.numerics.ad.local_forward_mode import Local_Ad_array
-
-import porepy  # noqa isort: skip
-
 
 __all__ = [
     "exp",
@@ -37,10 +34,6 @@ def exp(var):
         val = np.exp(var.val)
         der = var.diagvec_mul_jac(np.exp(var.val))
         return Ad_array(val, der)
-    elif isinstance(var, Local_Ad_array):
-        val = np.exp(var.val)
-        der = np.exp(var.val) * var.jac
-        return Local_Ad_array(val, der)
     else:
         return np.exp(var)
 
@@ -50,10 +43,6 @@ def log(var):
         val = np.log(var.val)
         der = var.diagvec_mul_jac(1 / var.val)
         return Ad_array(val, der)
-    elif isinstance(var, Local_Ad_array):
-        val = np.log(var.val)
-        der = (1 / var.val) * var.jac
-        return Local_Ad_array(val, der)
     else:
         return np.log(var)
 
@@ -189,7 +178,7 @@ def arctanh(var):
 
 # %% Step and Heaviside functions
 def heaviside(var, zerovalue: float = 0.5):
-    if isinstance(var, Ad_array) or isinstance(var, Local_Ad_array):
+    if isinstance(var, Ad_array):
         return np.heaviside(var.val, zerovalue)
     else:
         return np.heaviside(var, zerovalue)
@@ -241,10 +230,5 @@ class RegularizedHeaviside:
             regularization = self._regularization(var)
             jac = regularization.jac
             return Ad_array(val, jac)
-        elif isinstance(var, Local_Ad_array):
-            val = np.heaviside(var.val, 0.0)
-            regularization = self._regularization(var)
-            jac = regularization.jac
-            return Local_Ad_array(val, jac)
         else:
             return np.heaviside(var)
