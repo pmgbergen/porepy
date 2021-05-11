@@ -453,12 +453,17 @@ class UpwindAd(ApplicableOperator):
         return face_mobility
 
 
-class FluxBasedUpwindAd(ApplicableOperator):
-    def __init__(self, g, tpfa, hs: Callable = heaviside):
+class FluxBasedUpwindAD(ApplicableOperator):
+    """ Flux based upwinding of cell-centered relative permeabilities"""
+
+    # Credits to Jakub Both
+
+    def __init__(self, g, d, param_key, hs: Callable = heaviside):
 
         self._set_tree()
         self._g = g
-        self._tpfa = tpfa
+        self._d = d
+        self._param_key = param_key
         self._heaviside = hs
 
         # Construct projection from cell-valued arrays to face-valued arrays with values to the
@@ -482,52 +487,143 @@ class FluxBasedUpwindAd(ApplicableOperator):
         # boundary.
         cf_is_boundary = np.logical_not(cf_inner)
         self._cf_is_boundary = cf_is_boundary
-        is_dir = tpfa.is_dir
+        self._is_dir = d[pp.PARAMETERS][param_key]["bc"].is_dir.copy()
         self._cf_is_dir = [
-            np.logical_and(cf_is_boundary[i], is_dir) for i in range(0, 2)
+            np.logical_and(cf_is_boundary[i], self._is_dir) for i in range(0, 2)
+        ]
+        self._is_neu = d[pp.PARAMETERS][param_key]["bc"].is_neu.copy()
+        self._cf_is_neu = [
+            np.logical_and(cf_is_boundary[i], self._is_neu) for i in range(0, 2)
         ]
 
     def __repr__(self) -> str:
-        return f"Upwind AD face operator"
+        return " Flux-based upwind AD face operator"
 
-    def apply(self, mobility_inner, mobility_bound, face_flux):
-        """Compute transmissibility via upwinding over faces. Use monotonicityexpr for
-        deciding directionality.
+    def apply(self, inner_values, dir_bound_values, face_flux):
+        """Compute transmissibility via upwinding over faces.
 
         Idea: 'face value' = 'left cell value' * Heaviside('flux from left')
                            + 'right cell value' * Heaviside('flux from right').
-        """
 
-        # TODO only implemented for scalar relative permeabilities so far
-        # TODO so far not for periodic bondary conditions.
+        Parameters
+        ----------
+        inner_values : np.ndarray of size g.num_cells
+            Cell-center values to be averaged
+        dir_bound_values : np.ndarray of size g.num_faces
+            Containing values of Dirichlet boundary data. Neumann data not used.
+        face_flux : np.ndarray of size g.num_faces
+            Containing fluxes for all faces of the grid. Note that the fluxes
+            are only used to deterime the directionality.
+
+        Raises
+        ------
+        TypeError
+            If the input is an AD_array. Only non AD objects are permitted.
+
+        Returns
+        -------
+        Numpy Array of size g.num_faces
+            Arithmetic averaged values at the faces of the grid
+
+        """
 
         # Rename internal properties
         hs = self._heaviside
         cf_inner = self._cf_inner
         cf_is_boundary = self._cf_is_boundary
 
-        # Determine direction-determining cell values to the left(0) and right(1) of each face.
-        # Use Dirichlet boundary data where suitable.
-        # Neglect Neumann boundaries since face transmissibilities at Neumann boundary data
-        # anyhow does not play a role.
-        # assert (face_flux, np.ndarray)  # TODO extend to Ad_arrays
-
-        # Do the same for the mobility as for the direction-determining arrays.
-        if isinstance(mobility_inner, Ad_array):
-            raise RuntimeError("Not implemented.")
+        # Only lazy upstream is possible. An error is return is either the
+        # cell-based array or the face fluxes are AD objects
+        if isinstance(inner_values, Ad_array) or isinstance(face_flux, Ad_array):
+            raise TypeError("Object cannot be of the type Ad_array")
         else:
-            mob_f = [cf_inner[i] * mobility_inner for i in range(0, 2)]
+            val_f = [cf_inner[i] * inner_values for i in range(0, 2)]
             for i in range(0, 2):
-                mob_f[i][cf_is_boundary[i]] = mobility_bound[cf_is_boundary[i]]
+                val_f[i][cf_is_boundary[i]] = dir_bound_values[cf_is_boundary[i]]
 
         # Evaluate the Heaviside function of the "flux directions".
         hs_f_01 = hs(face_flux)
         hs_f_10 = hs(-face_flux)
 
         # Determine the face mobility by utilizing the general idea (see above).
-        face_mobility = mob_f[0] * hs_f_01 + mob_f[1] * hs_f_10
+        face_upwind = val_f[0] * hs_f_01 + val_f[1] * hs_f_10
 
-        return face_mobility
+        # Deal with Neumann boundary conditions
+        face_upwind[self._is_neu] = 1.0
+
+        return sps.spdiags(face_upwind, 0, self._g.num_faces, self._g.num_faces)
+
+
+class ArithmeticAverageAd(ApplicableOperator):
+    """
+    Computes the face arithmetic average of a cell-based array
+    """
+
+    def __init__(self, g, d, param_key):
+
+        self._set_tree()
+        self._g = g  # grid
+        self._d = d  # dictionary
+        self._param_key = param_key  # keyword
+
+    def __repr__(self) -> str:
+        return "Arithmetic average AD operator"
+
+    def apply(self, inner_values, dir_bound_values):
+        """
+        Apply arithmetich average
+
+        Parameters
+        ----------
+        inner_values : np.ndarray of size g.num_cells
+            Cell-center values to be averaged
+        dir_bound_values : np.ndarray of size g.num_faces
+            Containing values of Dirichlet boundary data. Neumann data not used.
+
+        Raises
+        ------
+        TypeError
+            If the input is an AD_array. Only non AD objects are permitted.
+
+        Returns
+        -------
+        Numpy Array of size g.num_faces
+            Arithmetic averaged values at the faces of the grid
+
+        """
+
+        # TODO: Implement true AD average
+        if isinstance(inner_values, Ad_array):
+            raise TypeError("Object cannot be of the type Ad_array")
+        else:
+            # Retrieve useful data
+            bc = self._d[pp.PARAMETERS][self._param_key]["bc"]
+            dir_fcs = bc.is_dir.nonzero()  # dirichlet boundary faces
+            int_fcs = self._g.get_internal_faces()  # internal faces
+
+            # Faces neighboring mapping
+            fcs_neigh = np.zeros((self._g.num_faces, 2), dtype=int)
+            fcs_neigh[:, 0] = self._g.cell_face_as_dense()[0]
+            fcs_neigh[:, 1] = self._g.cell_face_as_dense()[1]
+            int_fcs_neigh = fcs_neigh[int_fcs]
+
+            # Initialize array
+            face_avg = np.ones(self._g.num_faces)  # Neumann set to 1 by default
+
+            # Values at Dirichlet boundaries
+            dir_cells_neigh = fcs_neigh[dir_fcs]
+            if dir_cells_neigh.size > 0:
+                dir_cells = dir_cells_neigh[(dir_cells_neigh >= 0).nonzero()]
+                face_avg[dir_fcs] = 0.5 * (
+                    dir_bound_values[dir_fcs] + inner_values[dir_cells]
+                )
+
+            # Values at internal faces
+            face_avg[int_fcs] = 0.5 * (
+                inner_values[int_fcs_neigh[:, 0]] + inner_values[int_fcs_neigh[:, 1]]
+            )
+
+        return sps.spdiags(face_avg, 0, self._g.num_faces, self._g.num_faces)
 
 
 class HarmAvgAd(ApplicableOperator):
