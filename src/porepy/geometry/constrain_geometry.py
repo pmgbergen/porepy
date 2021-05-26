@@ -173,7 +173,6 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         # 4) A segment of the original polygon crosses on or more of the polyhedron
         # boundaries. This includes the case where the original polygon has a vertex
         # on the polyhedron boundary. This can produce one or several segments.
-
         # Convenience arrays for navigating between vertexes in the polygon
         num_vert = poly.shape[1]
         ind = np.arange(num_vert)
@@ -441,6 +440,17 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         # Remove point segments.
         point_segment = unique_segments[0] == unique_segments[1]
         unique_segments = unique_segments[:, np.logical_not(point_segment)]
+
+        # Also remove dead ends, identified by points which only occurs once.
+        # Such points may be indications that something went wrong in the
+        # identification algorithm above, but cutting them seems like a reasonable
+        # option.
+        dead_end_points = np.where(np.bincount(unique_segments.ravel()) == 1)[0]
+        dead_end_lines = np.zeros(unique_segments.shape[1], dtype=bool)
+        for dp in dead_end_points:
+            dead_end_lines[np.where(np.any(unique_segments == dp, axis=0))] = True
+
+        unique_segments = unique_segments[:, np.logical_not(dead_end_lines)]
 
         # The final stage is to collect the constrained polygons.
         # If the segments are connected, which will always be the case if the
