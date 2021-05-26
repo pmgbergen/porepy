@@ -527,8 +527,14 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                 inds = sorted_pairs[0]
 
             # And there we are
-            constrained_polygons.append(unique_coords[:, inds])
-            orig_poly_ind.append(pi)
+
+            # In cases where polygons touches the polyhedron along an edge, there may
+            # be two point indices only. Disregard these cases.
+            # NOTE: It is not clear there are not additional cases (or bugs) that are
+            # masked by this if.
+            if inds.size > 2:
+                constrained_polygons.append(unique_coords[:, inds])
+                orig_poly_ind.append(pi)
 
     return constrained_polygons, np.array(orig_poly_ind)
 
