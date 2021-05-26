@@ -602,7 +602,6 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
             # to two vertexes of the polygon
             isect_on_boundary_main = False
             isect_on_boundary_other = False
-
             # We know that the polygons at least are very close to intersecting each
             # others planes. There are four options, differing in whether the vertexes
             # are in the plane of the other polygon or not:
@@ -1088,6 +1087,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
             ):
                 # Contact in a single point
                 continue
+
             if e_1 >= 0:
                 # The first point on the main fracture is at most marginally involved in
                 # the intersection (if e_1 == 0, two segments intersect)
@@ -1135,9 +1135,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
                         if isect_on_boundary_main:
                             # The first intersection coincides with a segment of main
                             ind = seg_vert_main_0[0]
-                            if ind == 0:
-                                ind = num_main - 1
-                            segment_vertex_intersection[main].append((ind, True))
+                            segment_vertex_intersection[main].append((ind, False))
                         else:
                             # The first intersection is in the interior of main
                             segment_vertex_intersection[main].append([])
@@ -1197,10 +1195,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
                             if isect_on_boundary_main:
                                 # No intersection for the first point of main
                                 ind = seg_vert_main_0[0]
-                                if ind == 0:
-                                    ind = num_main - 1
-
-                                segment_vertex_intersection[main].append((ind, True))
+                                segment_vertex_intersection[main].append((ind, False))
                             else:
                                 segment_vertex_intersection[main].append([])
 
