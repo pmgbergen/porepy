@@ -607,7 +607,7 @@ class FractureNetwork3d(object):
         return FractureNetwork3d(fracs, domain, self.tol)
 
     def num_frac(self) -> int:
-        """ Get number of fractures in the network, not counting planes on the
+        """Get number of fractures in the network, not counting planes on the
         the domain boundary.
 
         Returns:
@@ -622,8 +622,8 @@ class FractureNetwork3d(object):
             if not self.tags["boundary"][fi]:
                 num += 1
 
-        return 0
-    
+        return num
+
     @pp.time_logger(sections=module_sections)
     def mesh(
         self,
