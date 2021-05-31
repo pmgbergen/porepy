@@ -31,6 +31,10 @@ class Fracture(object):
     The fracture is defined by its vertexes. It contains various utility
     methods, mainly intended for use together with the FractureNetwork class.
 
+    Non-convex fractures can be initialized, but geometry processing (computation
+    of intersections etc.) is not supported for non-convex geometries. As a
+    work-around, the fracture can be split into convex parts.
+
     Attributes:
         p (np.ndarray, 3 x npt): Fracture vertices. Will be stored in a CCW
             order (or CW, depending on which side it is viewed from).
@@ -44,7 +48,7 @@ class Fracture(object):
     """
 
     @pp.time_logger(sections=module_sections)
-    def __init__(self, points, index=None, check_convexity=False):
+    def __init__(self, points, index=None, check_convexity=False, sort_points=True):
         """Initialize fractures.
 
         __init__ defines the vertexes of the fracture and sort them to be CCW.
@@ -56,13 +60,18 @@ class Fracture(object):
                 should be at least 3 points to define a plane.
             index (int, optional): Index of fracture. Defaults to None.
             check_convexity (boolean, optional): If True, check if the given
-                points are convex. Defaults to True. Can be skipped if the
-                plane is known to be convex to save time.
+                points are convex. Defaults to False. Can be skipped if the
+                plane is known to be convex to save (substantial) time.
+            sort_points (boolean, optional): If True (default) the points are
+                sorted to a ccv ordering. Note that the algorithm assumes
+                convexity of the polygon, thus if a fracture is known to be
+                non-convex, the paramater should be False.
 
         """
         self.p = np.asarray(points, dtype=np.float)
         # Ensure the points are ccw
-        self.points_2_ccw()
+        if sort_points:
+            self.points_2_ccw()
         self.compute_centroid()
         self.compute_normal()
 
@@ -1798,7 +1807,6 @@ class FractureNetwork3d(object):
         # Delete fractures that are not member of any constrained fracture
         old_frac_ind = np.arange(len(self._fractures))
         delete_frac = np.setdiff1d(old_frac_ind, inds)
-
         # Identify fractures that have been split
         if inds.size > 0:
             split_frac = np.where(np.bincount(inds) > 1)[0]
@@ -1819,7 +1827,11 @@ class FractureNetwork3d(object):
             hit = np.where(inds == fi)[0]
 
             for sub_i in hit:
-                new_frac = Fracture(constrained_polys[sub_i])
+                # The fractures may very well be non-convex at this point, so
+                # the points should not be sorted.
+                # Splitting of non-convex fractures into convex subparts is
+                # handled below.
+                new_frac = Fracture(constrained_polys[sub_i], sort_points=False)
                 self.add(new_frac)
                 ind_map = np.hstack((ind_map, fi))
 
