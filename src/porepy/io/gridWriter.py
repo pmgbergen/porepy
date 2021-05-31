@@ -405,8 +405,12 @@ def addCellFaceTagGrid(g, tol=1e-10):
     else:
         raise ValueError("Invalid grid dimension (must be 0,1,2, or 3): {}".format(g.dim))
 
-    R = pp.map_geometry.project_plane_matrix(g.nodes, reference=np.array([0, 1, 0]))
-    cell_centers, _, face_centers, _, _, _ = pp.map_geometry.map_grid(g, R=R)
+    if g.dim <= 2:
+        R = pp.map_geometry.project_plane_matrix(g.nodes, reference=np.array([0, 1, 0]))
+        cell_centers, _, face_centers, _, _, _ = pp.map_geometry.map_grid(g, R=R)
+    else:
+        cell_centers = g.cell_centers
+        face_centers = g.face_centers
     if not ("CartGrid" in g.name or "TensorGrid" in g.name):
         raise ValueError("Can only enforce face ordering for CartGrid or TensorGrid")
 
