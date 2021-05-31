@@ -1092,26 +1092,31 @@ class TestStructuredGrids(unittest.TestCase):
         f_set = [f_1, f_2]
         nx = [3, 3]
 
-        grids = structured._cart_grid_2d(f_set, nx, physdims=nx)
+        grids = [structured._cart_grid_2d(f_set, nx, physdims=nx)]
+        grids.append(
+            structured._tensor_grid_2d(
+                f_set, np.arange(nx[0] + 1), np.arange(nx[1] + 1)
+            )
+        )
+        for grid in grids:
+            num_grids = [1, 2, 1]
+            for i, g in enumerate(grid):
+                self.assertTrue(len(g) == num_grids[i])
 
-        num_grids = [1, 2, 1]
-        for i, g in enumerate(grids):
-            self.assertTrue(len(g) == num_grids[i])
+            g_2d = grid[0][0]
+            g_1d_1 = grid[1][0]
+            g_1d_2 = grid[1][1]
+            g_0d = grid[2][0]
 
-        g_2d = grids[0][0]
-        g_1d_1 = grids[1][0]
-        g_1d_2 = grids[1][1]
-        g_0d = grids[2][0]
-
-        f_nodes_1 = [4, 5, 6]
-        f_nodes_2 = [1, 5, 9]
-        f_nodes_0 = [5]
-        glob_1 = np.sort(g_1d_1.global_point_ind)
-        glob_2 = np.sort(g_1d_2.global_point_ind)
-        glob_0 = np.sort(np.atleast_1d(g_0d.global_point_ind))
-        self.assertTrue(np.all(f_nodes_1 == glob_1))
-        self.assertTrue(np.all(f_nodes_2 == glob_2))
-        self.assertTrue(np.all(f_nodes_0 == glob_0))
+            f_nodes_1 = [4, 5, 6]
+            f_nodes_2 = [1, 5, 9]
+            f_nodes_0 = [5]
+            glob_1 = np.sort(g_1d_1.global_point_ind)
+            glob_2 = np.sort(g_1d_2.global_point_ind)
+            glob_0 = np.sort(np.atleast_1d(g_0d.global_point_ind))
+            self.assertTrue(np.all(f_nodes_1 == glob_1))
+            self.assertTrue(np.all(f_nodes_2 == glob_2))
+            self.assertTrue(np.all(f_nodes_0 == glob_0))
 
     def test_tripple_x_intersection_3d(self):
         """
@@ -1121,32 +1126,42 @@ class TestStructuredGrids(unittest.TestCase):
         f1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
         f2 = np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
         f3 = np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
+        f_set = [f1, f2, f3]
 
-        gb = pp.meshing.cart_grid([f1, f2, f3], [2, 2, 2], physdims=[1, 1, 1])
-        g_3 = gb.grids_of_dimension(3)
-        g_2 = gb.grids_of_dimension(2)
-        g_1 = gb.grids_of_dimension(1)
-        g_0 = gb.grids_of_dimension(0)
-
-        self.assertTrue(len(g_3) == 1)
-        self.assertTrue(len(g_2) == 3)
-        self.assertTrue(len(g_1) == 6)
-        self.assertTrue(len(g_0) == 1)
-
-        self.assertTrue(np.all([g.num_cells == 4 for g in g_2]))
-        self.assertTrue(np.all([g.num_faces == 16 for g in g_2]))
-        self.assertTrue(np.all([g.num_cells == 1 for g in g_1]))
-        self.assertTrue(np.all([g.num_faces == 2 for g in g_1]))
-
-        g_321 = np.hstack([g_3, g_2, g_1])
-        for g in g_321:
-            d = np.all(np.abs(g.nodes - np.array([[0.5], [0.5], [0.5]])) < 1e-6, axis=0)
-            self.assertTrue(any(d))
-        for g in g_0:
-            d = np.all(
-                np.abs(g.cell_centers - np.array([[0.5], [0.5], [0.5]])) < 1e-6, axis=0
+        gbs = [pp.meshing.cart_grid(f_set, [2, 2, 2], physdims=[1, 1, 1])]
+        gbs.append(
+            pp.meshing.tensor_grid(
+                f_set, np.linspace(0, 1, 3), np.linspace(0, 1, 3), np.linspace(0, 1, 3)
             )
-            self.assertTrue(any(d))
+        )
+        for gb in gbs:
+            g_3 = gb.grids_of_dimension(3)
+            g_2 = gb.grids_of_dimension(2)
+            g_1 = gb.grids_of_dimension(1)
+            g_0 = gb.grids_of_dimension(0)
+
+            self.assertTrue(len(g_3) == 1)
+            self.assertTrue(len(g_2) == 3)
+            self.assertTrue(len(g_1) == 6)
+            self.assertTrue(len(g_0) == 1)
+
+            self.assertTrue(np.all([g.num_cells == 4 for g in g_2]))
+            self.assertTrue(np.all([g.num_faces == 16 for g in g_2]))
+            self.assertTrue(np.all([g.num_cells == 1 for g in g_1]))
+            self.assertTrue(np.all([g.num_faces == 2 for g in g_1]))
+
+            g_321 = np.hstack([g_3, g_2, g_1])
+            for g in g_321:
+                d = np.all(
+                    np.abs(g.nodes - np.array([[0.5], [0.5], [0.5]])) < 1e-6, axis=0
+                )
+                self.assertTrue(any(d))
+            for g in g_0:
+                d = np.all(
+                    np.abs(g.cell_centers - np.array([[0.5], [0.5], [0.5]])) < 1e-6,
+                    axis=0,
+                )
+                self.assertTrue(any(d))
 
     def test_T_intersection_2d(self):
         f_1 = np.array([[2, 6], [5, 5]])
@@ -1168,6 +1183,7 @@ class TestStructuredGrids(unittest.TestCase):
         f_4 = np.array([[3, 3, 6, 6], [3, 3, 3, 3], [3, 7, 7, 3]])
         f = [f_1, f_2, f_3, f_4]
         gb = pp.meshing.cart_grid(f, np.array([8, 8, 8]))
+
 
 if __name__ == "__main__":
     unittest.main()
