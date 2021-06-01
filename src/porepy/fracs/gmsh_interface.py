@@ -194,6 +194,11 @@ class GmshWriter:
 
     """
 
+    # Class variable keeping track of whether gmsh has been initialized.
+    # This does not account for calls to gmsh.initialize() and gmsh.finalize()
+    # outside the class.
+    gmsh_initialized = False
+
     @pp.time_logger(sections=["gridding"])
     def __init__(self, data: Union[GmshData2d, GmshData3d]) -> None:
         """Initialization feeds the geometry specification to Gmsh.
@@ -233,7 +238,11 @@ class GmshWriter:
     @pp.time_logger(sections=["gridding"])
     def define_geometry(self) -> None:
         """Feed the geometry specified in self._data to gmsh."""
-        gmsh.initialize()
+
+        # Initialize gmsh if this is not done before
+        if not GmshWriter.gmsh_initialized:
+            gmsh.initialize()
+            GmshWriter.gmsh_initialized = True
 
         gmsh.option.setNumber("General.Verbosity", 3)
 
@@ -294,11 +303,18 @@ class GmshWriter:
         file_name: str,
         ndim: int = -1,
         write_geo: bool = False,
+        clear_gmsh: bool = True,
         finalize: bool = True,
     ) -> None:
         """Make gmsh generate a mesh and write it to specified mesh size.
 
         The mesh is generated from the geometry specified in gmsh.model.
+
+        NOTE: We have experienced issues relating to memory leakages in gmsh which
+        manifest when gmsh is initialized and finalized several times in a session.
+        In these situation, best practice seems to be not to finalize gmsh after
+        mesh generation (set finalize=False, but rather clear the gmsh model by setting
+        clear_gmsh=True), and finalize gmsh from the outside.
 
         Parameters:
             file_name (str): Name of the file. The suffix '.msh' is added if necessary.
@@ -306,9 +322,13 @@ class GmshWriter:
                 dimension of the data used to initialize this GmshWriter will be used.
             write_geo (bool, optional): If True, the geometry will be written before meshing.
                 The name of the file will be file_name.geo_unrolled. Defaults to False.
+            clear_gmsh (bool, optional): If True, the function gmsh.clear() is called after
+                mesh generation. This will delete the geometry from gmsh.
             finalize (bool, optional): If True (default), the finalize method of the gmsh
-                module is called after mesh generation. This will delete the geometry from
-                gmsh.
+                module is called after mesh generation. If set to False, gmsh should be
+                finalized by a direct call to gmsh.finalize(); note however that if this
+                is done, Gmsh cannot be accessed either from the outside or by an
+                instance of the GmshWriter class before gmsh.initialize() is called.
 
         """
         if ndim == -1:
@@ -319,11 +339,21 @@ class GmshWriter:
             fn = file_name[:-4] + ".geo_unrolled"
             gmsh.write(fn)
 
-        gmsh.model.mesh.generate(dim=ndim)
+        for dim in range(1, ndim + 1):
+            try:
+                gmsh.model.mesh.generate(dim=dim)
+            except Exception as exc:
+                s = f"Gmsh meshing failed in dimension {dim}. Error message:\n"
+                s += str(exc)
+                print(s)
+                raise exc
         gmsh.write(file_name)
 
+        if clear_gmsh:
+            gmsh.clear()
         if finalize:
             gmsh.finalize()
+            GmshWriter.gmsh_initialized = False
 
     def _add_points(self) -> List[int]:
         """Add points to gmsh. Also set physical names for points if required."""

@@ -642,6 +642,8 @@ class FractureNetwork3d(object):
         constraints=None,
         write_geo=True,
         tags_to_transfer: Optional[List[str]] = None,
+        finalize_gmsh: bool = True,
+        clear_gmsh: bool = False,
         **kwargs,
     ):
         """Mesh the fracture network, and generate a mixed-dimensional grid.
@@ -680,7 +682,13 @@ class FractureNetwork3d(object):
         else:
             dim_meshing = 3
 
-        gmsh_writer.generate(file_name, dim_meshing, write_geo=write_geo)
+        gmsh_writer.generate(
+            file_name,
+            dim_meshing,
+            write_geo=write_geo,
+            finalize=finalize_gmsh,
+            clear_gmsh=clear_gmsh,
+        )
 
         if dfn:
             grid_list = pp.fracs.simplex.triangle_grid_embedded(file_name)
