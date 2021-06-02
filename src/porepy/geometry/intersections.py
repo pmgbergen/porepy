@@ -1375,9 +1375,7 @@ def _point_in_or_on_polygon(
         # Point not even in the plane of the polygon.
         return 0, None
 
-    if not pp.geometry_property_checks.point_in_polygon(
-        rot_poly, rot_p, tol=tol, default=True
-    ):
+    if not pp.geometry_property_checks.point_in_polygon(rot_poly, rot_p, default=True):
         # Point outside the polygon
         return 0, None
 
