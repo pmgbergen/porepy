@@ -125,18 +125,22 @@ def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
 
 
 @pp.time_logger(sections=module_sections)
-def point_in_polygon(poly, p, tol=0, default=False):
+def point_in_polygon(poly, p, default=False):
     """
     Check if a set of points are inside a polygon.
 
-    The method assumes that the polygon is convex.
+    The polygon need not be convex.
+
+    Credit: The implementation is a translation of an implementation by
+        Mark Dickenson to the PorePy data format for polygons. The original
+        source code can be found at:
+
+        https://github.com/mdickinson/polyhedron/blob/master/polygon.py
 
     Paremeters:
         poly (np.ndarray, 2 x n): vertexes of polygon. The segments are formed by
             connecting subsequent columns of poly
         p (np.ndarray, 2 x n2): Points to be tested.
-        tol (double, optional): Tolerance for rounding errors. Defaults to
-            zero.
         default (boolean, optional): Default behavior if the point is close to
             the boundary of the polygon. Defaults to False.
 
@@ -150,22 +154,57 @@ def point_in_polygon(poly, p, tol=0, default=False):
     else:
         pt = p
 
-    # The test uses is_ccw_polyline, and tacitly assumes that the polygon
-    # vertexes is sorted in a ccw fashion. If this is not the case, flip the
-    # order of the nodes on a copy, and use this for the testing.
-    # Note that if the nodes are not cw nor ccw (e.g. they are crossing), the
-    # test cannot be trusted anyhow.
-    if not is_ccw_polygon(poly):
-        poly = poly.copy()[:, ::-1]
+    # Roll the polygon vertexes once.
+    next_vert = np.roll(poly, -1, axis=1)
 
+    num_pt = pt.shape[1]
     poly_size = poly.shape[1]
 
-    inside = np.ones(pt.shape[1], dtype=bool)
-    for j in range(poly.shape[1]):
-        this_ccw = is_ccw_polyline(
-            poly[:, j], poly[:, (j + 1) % poly_size], pt, tol=tol, default=default
-        )
-        inside[np.logical_not(this_ccw)] = False
+    inside = default * np.ones(num_pt, dtype=bool)
+
+    # Loop over all vertexes, find the status of each of them.
+    for i in range(num_pt):
+        # For description of the method, see the original source code, link above.
+
+        pi = pt[:, i].reshape((-1, 1))
+
+        poly_pi_x = poly[0] - pi[0]
+        poly_pi_y = poly[1] - pi[1]
+
+        next_pi_x = next_vert[0] - pi[0]
+        next_pi_y = next_vert[1] - pi[1]
+
+        if np.logical_or(
+            np.logical_and(poly_pi_x == 0, poly_pi_y == 0),
+            np.logical_and(next_pi_x == 0, next_pi_y == 0),
+        ).any():
+            # The point is on a vertex of the polygon. In this case, we keep
+            # the default value.
+            continue
+
+        vertex_sgn_poly = np.sign(poly_pi_x)
+        hit = vertex_sgn_poly == 0
+        vertex_sgn_poly[hit] = np.sign(poly_pi_y)[hit]
+
+        vertex_sgn_next = np.sign(next_pi_x)
+        hit = vertex_sgn_next == 0
+        vertex_sgn_next[hit] = np.sign(next_pi_y)[hit]
+
+        edge_boundary = vertex_sgn_next - vertex_sgn_poly
+
+        edge_sgn = np.sign(poly_pi_x * next_pi_y - poly_pi_y * next_pi_x)
+        if np.any(edge_sgn == 0):
+            # The point is on an edge of the polygon. In this case, we keep
+            # the default value.
+            continue
+
+        contrib = np.zeros(poly_size)
+
+        edge_sgn_active = edge_boundary != 0
+
+        contrib[edge_sgn_active] = edge_sgn[edge_sgn_active]
+        winding_number = np.sum(contrib) / 2
+        inside[i] = np.abs(winding_number) > 0
 
     return inside
 
