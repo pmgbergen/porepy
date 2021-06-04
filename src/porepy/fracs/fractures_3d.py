@@ -9,10 +9,10 @@ import csv
 import logging
 import time
 from typing import Dict, List, Optional, Tuple, Union
-
+import networkx as nx
 import meshio
 import numpy as np
-from scipy.spatial import ConvexHull
+from scipy.spatial import ConvexHull, Delaunay
 
 import porepy as pp
 from porepy.utils import setmembership, sort_points
@@ -1851,10 +1851,8 @@ class FractureNetwork3d(object):
         # Some bookkeeping is needed to track which fractures to track.
         current_ind_map = 0
         delete_from_ind_map = np.array([], dtype=int)
-
         # Loop over all fractures
         for fi, f in enumerate(self._fractures):
-
             # No need to check for fractures that will be deleted anyhow.
             if fi in delete_frac:
                 continue
@@ -1863,6 +1861,7 @@ class FractureNetwork3d(object):
             # Delete small fractures.
             # IMPLEMENTATION NOTE: Should we have an absolute threshold in addition to the
             # relative tolerance below?
+
             # Map the fracture to its natrual plane.
             # If the fracture is very small, we risk running into trouble here with
             # geometry checks that essentially detects almost coinciding points (although
@@ -1897,65 +1896,172 @@ class FractureNetwork3d(object):
                 current_ind_map += 1
                 continue
 
-            # Non-convex polygons are identified by comparing the area of the polygon
-            # to that of its convex hull - if these deviate, the polygon is not convex.
-            # Simpler options may be possible, but this should do as well.
+            # Non-convex polygons are identified by triangulating the polygon from
+            # its vertexes, and check if all resulting triangles lies inside the
+            # polygon.
 
-            # Steps:
-            # 1) Find a center point of the polygon, such that the polygon is star shaped
-            #    with respect to this point.
-            # 2) Split polygon into triangles formed by pairs of succeeding vertexes
-            #    together with the center. Compute area.
-            # 3) If the polygon is non-convex, replace it with subpolygons formed by the
-            #    triangles. Again, this may not be the best option, but it is simple.
+            # Short hand for mapped vertexes
+            p = mapped_coord
+            num_p = p.shape[1]
 
-            # The home brewed computation of star shaped points breaks down if the
-            # computed point is in the origin. Avoid this by shifting the hole polygon
-            # a bit away from the origin.
-            shift = mapped_coord.min(axis=1).reshape((-1, 1)) - 1
-            # Keep the points in the xy-plane
-            shift[2] = 0
+            tri = Delaunay(p[:2].T)
+            # Triangle centers
+            tri_centers = np.array([p[:2, ti].mean(axis=1) for ti in tri.vertices]).T
+            inside = pp.geometry_property_checks.point_in_polygon(p, tri_centers)
 
-            # Arrays of succeeding vertexes.
-            p = mapped_coord - shift
-            pn = np.roll(p, 1, axis=1)
+            if np.all(inside):
+                # Done with this fracture
+                # Increase the index pointing to ind_map
+                current_ind_map += 1
+                continue
 
-            # Normal vector of each polygon edge.
-            normal = np.vstack([(pn - p)[1], -(pn - p)[0], np.zeros(p.shape[1])])
-            # Compute center point.
-            # Here, we will be in trouble if the polygon has no star shaped point.
-            center = pp.utils.half_space.half_space_pt(
-                normal, 0.5 * (p + pn), np.hstack((p, pn))
-            ).reshape((-1, 1))
+            # The polygon is not convex, and should be split into convex subparts.
+            # We could use the triangulation to that purpose, however, that is
+            # likely to give badly shaped surfaces, and thus cells. Instead, use
+            # the Hertel-Mehlhorn algorithm to construct larger convex polygons
+            # by eliminating edges from the triangulation.
 
-            # Edges of the ad hoc triangle.
-            v1 = p - center
-            v2 = pn - center
+            # First, take note that the original fracture should be deleted.
+            delete_frac = np.hstack((delete_frac, fi))
+            delete_from_ind_map = np.hstack((delete_from_ind_map, current_ind_map))
 
-            # Compute area of all triangles
-            area = 0.5 * np.sum(np.abs(v1[0] * v2[1] - v1[1] * v2[0]))
+            # Subset of triangles that are inside
+            triangles = tri.simplices[inside]
 
-            # Compare polygon area to that of its convex hull.
-            # The value of the threshold here is arbitrary.
-            if area < 0.999 * hull_now.volume:
-                # The polygon is not convex.
-                # Take note that this should be deleted.
-                delete_frac = np.hstack((delete_frac, fi))
-                delete_from_ind_map = np.hstack((delete_from_ind_map, current_ind_map))
+            # Form all edges of the triangles
+            all_edges = np.vstack(
+                [
+                    triangles[:, :2],
+                    triangles[:, 1:],
+                    triangles[:, [2, 0]],
+                ]
+            ).T
+            all_edges.sort(axis=0)
+            edges, _, b = pp.utils.setmembership.unique_columns_tol(all_edges)
 
-                # Vertexes, and the star shaped point mapped back to 3d.
-                vert = f.p
-                vert_next = np.roll(f.p, 1, axis=1)
-                center_3d = rot.T.dot(center + shift) + f.center
+            # Edges on the boundary
+            essential_edge = np.where(np.bincount(b) == 1)[0]
+            # Free edges are candidates for removal
+            free_edges = np.setdiff1d(
+                np.arange(edges.shape[1]), essential_edge
+            ).tolist()
 
-                # Loop over all vertex pairs generate a new fracture.
-                for pi in range(p.shape[1]):
-                    self.add(
-                        Fracture(
-                            np.vstack((vert[:, pi], vert_next[:, pi], center_3d.T)).T
-                        )
+            # To keep track of angles in the polygon, we also need pairs of edges
+            # with a common vertex.
+            # Find the pairs looping over all vertexes, find all its
+            # neighboring vertexes.
+            main_vertex = []
+            other_vertex = []
+            indptr = [0]
+
+            for i in range(num_p):
+                row, _ = np.where(triangles == i)
+                other = np.setdiff1d(triangles[row].ravel(), i)
+                num_other = other.size
+                indptr.append(indptr[-1] + num_other)
+                main_vertex += num_other * [i]
+                other_vertex += other.tolist()
+
+            edge_pairs = np.zeros((3, 0), dtype=int)
+            other_vertex = np.array(other_vertex)
+            indptr = np.array(indptr)
+            main_vertex = np.array(main_vertex)
+            # again loop over all the vertexes, sort the neighboring vertexes
+            for vi in range(num_p):
+                start = indptr[vi]
+                end = indptr[vi + 1]
+                inds = other_vertex[start:end]
+                vecs = p[:, inds] - p[:, vi].reshape((-1, 1))
+
+                angle = np.arctan2(vecs[1], vecs[0])
+                sort_ind = np.argsort(angle)
+                other_vertex[start:end] = inds[sort_ind]
+
+            # Shift the vertexes to find pairs of neighboring edges
+            other_vertex_shifted = np.roll(other_vertex, -1)
+            other_vertex_shifted[indptr[1:] - 1] = other_vertex[indptr[:-1]]
+
+            edge_pairs = np.vstack([main_vertex, other_vertex, other_vertex_shifted])
+
+            # Find angles between all edge pairs.
+            vec_1 = p[:2, edge_pairs[1]] - p[:2, edge_pairs[0]]
+            vec_2 = p[:2, edge_pairs[2]] - p[:2, edge_pairs[0]]
+            len_vec_1 = np.sqrt(np.sum(np.power(vec_1, 2), axis=0))
+            len_vec_2 = np.sqrt(np.sum(np.power(vec_2, 2), axis=0))
+            # The use of arccos will give an angle in (0, pi), that is, the
+            # inner angle between the edge pairs (we know the pair is part of
+            # a triangle).
+            pair_angles = np.arccos(
+                np.sum(vec_1 * vec_2, axis=0) / (len_vec_1 * len_vec_2)
+            )
+
+            # Helper function to combine edges (prepare for merge of the neighboring
+            # edge pairs in both ends of the edge). Also compute angle in the
+            # candidate new pair.
+            def new_pairs_and_angles(ei):
+                old_pairs = []
+                new_pairs = []
+                new_angles = []
+                for e in edges[:, ei]:
+                    loc_pair_ind = np.where(edge_pairs[0] == e)[0]
+                    loc_pairs = edge_pairs[:, loc_pair_ind]
+
+                    other = np.setdiff1d(edges[:, ei], e)
+                    hit = np.logical_or(loc_pairs[1] == other, loc_pairs[2] == other)
+                    new_pair = np.hstack(
+                        [e, np.setdiff1d(loc_pairs[1:, hit].ravel(), other)]
                     )
-                    ind_map = np.hstack((ind_map, fi))
+                    new_pairs.append(new_pair)
+                    old_pairs.append(loc_pair_ind[hit])
+                    new_angles.append(np.sum(pair_angles[loc_pair_ind[hit]]))
+
+                new_pairs = np.array([n for n in new_pairs]).T
+                return old_pairs, new_pairs, np.array(new_angles)
+
+            removed_edges = []
+            # Loop over all free edges, try to merge them. The loop order will
+            # impact the quality, but attempts to do a sofisticated ordering
+            # failed spectacularly, so we loop by edge ordering.
+            while len(free_edges) > 0:
+
+                ind = free_edges.pop(0)
+                # Get information about the perspective new edge pairs
+                old_pair_ind, new_pairs, new_angles = new_pairs_and_angles(ind)
+                # if the resulting pairs both are consistent with a convex
+                # polygon, do the merge.
+                if np.all(new_angles < np.pi):
+                    edge_pairs = np.delete(edge_pairs, old_pair_ind, axis=1)
+                    pair_angles = np.delete(pair_angles, old_pair_ind)
+                    edge_pairs = np.hstack((edge_pairs, new_pairs))
+                    pair_angles = np.hstack((pair_angles, new_angles))
+                    # Take note that this edge should be removed from the triangulation.
+                    removed_edges.append(ind)
+
+            # Identify which triangles to merge by forming a graph of the edges to
+            # remove, and then loop over connected subgraphs.
+            graph = nx.Graph()
+            for e in removed_edges:
+                tri_ind = np.where(
+                    np.sum(
+                        np.logical_or(
+                            triangles == edges[0, e], triangles == edges[1, e]
+                        ).astype(int),
+                        axis=1,
+                    )
+                    == 2
+                )[0]
+                graph.add_edge(tri_ind[0], tri_ind[1])
+
+            for component in nx.connected_components(graph):
+                # Extract subgraph of this cluster
+                sg = graph.subgraph(component)
+                tris = list(sg.nodes)
+                # The node indices are given in a cyclic ordering (CW or CCW),
+                # thus a linear ordering should be fine also for a subpolygon.
+                verts = np.unique(triangles[tris])
+                # To be sure, check the convexity of the polygon.
+                self.add(Fracture(f.p[:, verts], check_convexity=True))
+                ind_map = np.hstack((ind_map, fi))
 
             # Finally increase pointer to ind_map array
             current_ind_map += 1
