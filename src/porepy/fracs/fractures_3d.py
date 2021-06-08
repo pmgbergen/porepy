@@ -2040,6 +2040,11 @@ class FractureNetwork3d(object):
             # Identify which triangles to merge by forming a graph of the edges to
             # remove, and then loop over connected subgraphs.
             graph = nx.Graph()
+
+            # First add add individual triangles to the graph
+            for ti in range(triangles.shape[0]):
+                graph.add_node(ti)
+            # Next connections between the triangles corresponding to removed edges.
             for e in removed_edges:
                 tri_ind = np.where(
                     np.sum(
