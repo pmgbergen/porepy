@@ -755,7 +755,7 @@ class Exporter:
                     f_counter += 1
 
                 # collect all the nodes for the cell
-                nodes_loc = np.unique(faces_loc).astype(int)
+                nodes_loc = np.unique(np.hstack(faces_loc)).astype(int)
 
                 # define the type of cell we are currently saving
                 cell_type = "polyhedron" + str(nodes_loc.size)
