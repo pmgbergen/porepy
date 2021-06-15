@@ -1281,7 +1281,10 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
                             other_intersects_main_1,
                         ]
                         segment_vertex_intersection[main].append(seg_vert_main_0)
-                        segment_vertex_intersection[main].append([])
+                        if mod_sign(np.abs(main_1_other_1).sum()) == 0:
+                            segment_vertex_intersection[main].append(seg_vert_main_1)
+                        else:
+                            segment_vertex_intersection[main].append([])
 
                         segment_vertex_intersection[o].append([])
                         segment_vertex_intersection[o].append(seg_vert_other_1)
