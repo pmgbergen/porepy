@@ -188,7 +188,9 @@ def dump_mortar_projections_to_file(g, mg, proj, fn, mode="w"):
         outfile.write(" ".join(map(str, proj.indices)) + "\n")
 
 
-def dump_grid_bucket_to_file(gb: pp.GridBucket, fn: str, dfn: bool = False, use_dim_as_surfix: bool=False) -> None:
+def dump_grid_bucket_to_file(
+    gb: pp.GridBucket, fn: str, dfn: bool = False, use_dim_as_surfix: bool = False
+) -> None:
     """
     Dump all grids and mortar grids in a GridBucket to a file.
 
