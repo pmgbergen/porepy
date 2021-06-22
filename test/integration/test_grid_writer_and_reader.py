@@ -39,6 +39,31 @@ class TestWriterReader(unittest.TestCase):
 
         self.assertTrue(self._grids_are_equal(g, g_inn))
 
+    def test_2d_cartesian_grid_bucket(self):
+        """
+        Test 2d cartesian grid
+        """
+        frac = np.array([[0, 1], [0.5, 0.5]])
+        gb = pp.meshing.cart_grid([frac], [2, 2], physdims=[1, 1])
+
+        pp.io.grid_writer.dump_grid_bucket_to_file(gb, "test_grid_temp.txt")
+        for g, d in gb:
+            node_number = d["node_number"]
+            name = "test_grid_temp_{}.txt".format(node_number)
+            g_inn = pp.io.grid_reader.read_grid(name)
+            os.remove(name)
+
+            self.assertTrue(self._grids_are_equal(g, g_inn))
+
+        for e, d in gb.edges():
+            name = "test_grid_temp_mortar_{}.txt".format(d["edge_number"])
+            mg_inn = pp.io.grid_reader.read_grid(name)
+            os.remove(name)
+
+            sg = [sub_grid for sub_grid in d["mortar_grid"].side_grids.values()]
+
+            mg = pp.utils.grid_utils.merge_grids(sg)
+            self.assertTrue(self._grids_are_equal(mg, mg_inn))
 
     def test_3d_cartesian_grid(self):
         """

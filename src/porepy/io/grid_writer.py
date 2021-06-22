@@ -132,7 +132,7 @@ def dump_mortar_grid_to_file(gb, e, d, fn, max_1_grid_per_dim=False, dfn=False):
     for sg in mg.side_grids.values():
         mortar_grids.append(sg)
     # We store both sides of the grids as one grid.
-    mortar_grid = merge_grids(mortar_grids)
+    mortar_grid = pp.utils.grid_utils.merge_grids(mortar_grids)
     mortar_grid.idx = mg.idx
     dim = mortar_grid.dim
 
@@ -180,7 +180,8 @@ def dump_mortar_projections_to_file(g, mg, proj, fn, mode="w"):
 
     # Test if directory in file name exists and create if not
     dirpath = os.path.dirname(fn)
-    os.makedirs(dirpath, exist_ok=True)
+    if len(dirpath) > 0:
+        os.makedirs(dirpath, exist_ok=True)
 
     # Open file and start writing
     with open(fn, mode) as outfile:
@@ -189,7 +190,7 @@ def dump_mortar_projections_to_file(g, mg, proj, fn, mode="w"):
         outfile.write(" ".join(map(str, proj.indices)) + "\n")
 
 
-def dump_grid_bucket_to_file(gb, fn, dfn=False):
+def dump_grid_bucket_to_file(gb, fn, dfn=False, use_dim_as_surfix=False):
     """
     Dump all grids and mortar grids in a GridBucket to a file.
 
@@ -201,16 +202,20 @@ def dump_grid_bucket_to_file(gb, fn, dfn=False):
     Returns:
     None
     """
-    # If only 1 grid per dimension use the grid dimension as an index. Otherwise
-    # we use the graph node number.
-    max_1_grid_per_dim = True
-    for dim in range(gb.dim_max()):
-        if len(gb.grids_of_dimension(dim)) > 1:
-            max_1_grid_per_dim = False
-            break
+    # If use_dim_as_surfix is True we use the grid dimension as an index.
+    # This can only be done if there is one grid per dimension.
+    # Otherwise we use the graph node number.
+    if use_dim_as_surfix:
+        for dim in range(gb.dim_max()):
+            if len(gb.grids_of_dimension(dim)) > 1:
+                raise ValueError(
+                    "dump_grid_bucket_to_file tried to use dimension as surfix. This is only possible if there is 1 grid per dimension. The gb has {} grids of dimension {}".format(
+                        len(gb.grids_of_dimension(dim)), dim
+                    )
+                )
 
     for g, d in gb:
-        if max_1_grid_per_dim:
+        if use_dim_as_surfix:
             grid_name = append_id_(fn, str(g.dim))
         else:
             grid_name = append_id_(fn, d["node_number"])
@@ -221,7 +226,7 @@ def dump_grid_bucket_to_file(gb, fn, dfn=False):
         g.dim = dim
 
     for e, d in gb.edges():
-        dump_mortar_grid_to_file(gb, e, d, fn, max_1_grid_per_dim, dfn)
+        dump_mortar_grid_to_file(gb, e, d, fn, use_dim_as_surfix, dfn)
 
 
 def append_id_(filename, idx):
