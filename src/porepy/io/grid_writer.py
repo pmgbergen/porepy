@@ -1,4 +1,5 @@
 import os
+
 import numpy as np
 import scipy.sparse as sps
 
@@ -148,9 +149,6 @@ def dump_mortar_grid_to_file(gb, e, d, fn, max_1_grid_per_dim=False, dfn=False):
     # Now, dump the mortar projections to the primary and secondary
     gl, gh = gb.nodes_of_edge(e)
 
-    dh = gb.node_props(gh)
-    dl = gb.node_props(gl)
-
     name = append_id_(fn, "mapping_" + grid_id)
 
     gh_to_mg = mg.mortar_to_primary_int()
@@ -173,7 +171,7 @@ def dump_mortar_projections_to_file(g, mg, proj, fn, mode="w"):
     None
     """
     if not np.allclose(proj.data, 1):
-        raise NotImplemented("Can not store non-matching grids, yet.")
+        raise NotImplementedError("Can not store non-matching grids, yet.")
 
     if not (proj.getformat() == "csc"):
         proj = proj.tocsc()
@@ -209,7 +207,9 @@ def dump_grid_bucket_to_file(gb, fn, dfn=False, use_dim_as_surfix=False):
         for dim in range(gb.dim_max()):
             if len(gb.grids_of_dimension(dim)) > 1:
                 raise ValueError(
-                    "dump_grid_bucket_to_file tried to use dimension as surfix. This is only possible if there is 1 grid per dimension. The gb has {} grids of dimension {}".format(
+                    """dump_grid_bucket_to_file tried to use dimension as surfix.
+                    This is only possible if there is 1 grid per dimension. The gb
+                    has {} grids of dimension {}""".format(
                         len(gb.grids_of_dimension(dim)), dim
                     )
                 )

@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import scipy.sparse as sps
 
@@ -16,9 +15,6 @@ def read_grid(fn):
     Returns:
     g  (Grid): The grid read from file
     """
-    # Test if directory in file name exists and create if not
-    dirpath = os.path.dirname(fn)
-
     # Open file and start writing
     with open(fn, "r") as infile:
         # Read grid info
@@ -116,6 +112,7 @@ def read_grid(fn):
     g.face_centers = face_centers
     g.cell_volumes = cell_volumes
     g.cell_centers = cell_centers
+    g.cart_dims = cartDims
 
     return g
 
@@ -131,9 +128,6 @@ def read_mrst_grid(fn):
     Returns:
     g  (Grid): The grid read from file
     """
-    # Test if directory in file name exists and create if not
-    dirpath = os.path.dirname(fn)
-
     # Open file and start writing
     with open(fn, "r") as infile:
         # Read grid info
@@ -141,28 +135,31 @@ def read_mrst_grid(fn):
         data = np.array(lines[0].replace("\n", "").split(" ")[1:], dtype=int)
 
         dim, num_cells, num_faces, num_nodes, num_face_nodes, num_cell_faces = data
-        has_cell_facetag = bool(lines[1][0])
+        # line 1 contains boolean index for cell_facetag. However, we don't need this
+        # as we can infer it directly from the shape of cell_face_indices.
         has_indexmap = bool(lines[2][0])
         l_num = 3
 
         cartDims = np.array(lines[l_num].replace("\n", "").split(" ")[1:], dtype=int)
         l_num += 1
 
-        nodes = [l.replace("\n", "").split(" ")[1:] for l in lines[4 : num_nodes + 4]]
+        nodes = [
+            line.replace("\n", "").split(" ")[1:] for line in lines[4 : num_nodes + 4]
+        ]
         nodes = np.array(nodes, dtype=float).T
         offset = num_nodes + 4
 
         # Face nodes
         face_nodePtr = [
-            l.replace("\n", "").split(" ")
-            for l in lines[offset : num_faces + 1 + offset]
+            line.replace("\n", "").split(" ")
+            for line in lines[offset : num_faces + 1 + offset]
         ]
         face_nodePtr = np.array(face_nodePtr, dtype=int).ravel()
         offset += num_faces + 1
 
         face_nodesIndices = [
-            l.replace("\n", "").split(" ")
-            for l in lines[offset : num_face_nodes + offset]
+            line.replace("\n", "").split(" ")
+            for line in lines[offset : num_face_nodes + offset]
         ]
         face_nodesIndices = np.array(face_nodesIndices, dtype=int).ravel()
         data = np.ones(face_nodesIndices.size, dtype=bool)
@@ -171,30 +168,32 @@ def read_mrst_grid(fn):
 
         # neighbourship
         face_cells = [
-            l.replace("\n", "").split(" ") for l in lines[offset : offset + num_faces]
+            line.replace("\n", "").split(" ")
+            for line in lines[offset : offset + num_faces]
         ]
         face_cells = np.array(face_cells, dtype=int).T
         offset += num_faces
 
         # Face areas
         face_areas = [
-            l.replace("\n", "").split(" ") for l in lines[offset : num_faces + offset]
+            line.replace("\n", "").split(" ")
+            for line in lines[offset : num_faces + offset]
         ]
         face_areas = np.array(face_areas, dtype=float).ravel()
         offset += num_faces
 
         # Face centers
         face_centers = [
-            l.replace("\n", "").split(" ")[1:]
-            for l in lines[offset : offset + num_faces]
+            line.replace("\n", "").split(" ")[1:]
+            for line in lines[offset : offset + num_faces]
         ]
         face_centers = np.array(face_centers, dtype=float).T
         offset += num_faces
 
         # Face normals
         face_normals = [
-            l.replace("\n", "").split(" ")[1:]
-            for l in lines[offset : offset + num_faces]
+            line.replace("\n", "").split(" ")[1:]
+            for line in lines[offset : offset + num_faces]
         ]
         face_normals = np.array(face_normals, dtype=float).T
 
@@ -202,15 +201,15 @@ def read_mrst_grid(fn):
 
         # Cell faces
         cell_facePtr = [
-            l.replace("\n", "").split(" ")
-            for l in lines[offset : num_cells + 1 + offset]
+            line.replace("\n", "").split(" ")
+            for line in lines[offset : num_cells + 1 + offset]
         ]
         cell_facePtr = np.array(cell_facePtr, dtype=int).ravel()
         offset += num_cells + 1
 
         cell_faces_indices = [
-            l.replace("\n", "").split(" ")[1:]
-            for l in lines[offset : num_cell_faces + offset]
+            line.replace("\n", "").split(" ")[1:]
+            for line in lines[offset : num_cell_faces + offset]
         ]
         cell_faces_indices = np.array(cell_faces_indices, dtype=int)
         if cell_faces_indices.shape[1] == 2:
@@ -231,23 +230,24 @@ def read_mrst_grid(fn):
         # index map
         if has_indexmap:
             index_map = [
-                l.replace("\n", "").split(" ")
-                for l in lines[offset : offset + num_cells]
+                line.replace("\n", "").split(" ")
+                for line in lines[offset : offset + num_cells]
             ]
             index_map = np.array(index_map, dtype=int).ravel()
             offset += num_cells
 
         # Cell volumes
         cell_volumes = [
-            l.replace("\n", "").split(" ") for l in lines[offset : num_cells + offset]
+            line.replace("\n", "").split(" ")
+            for line in lines[offset : num_cells + offset]
         ]
         cell_volumes = np.array(cell_volumes, dtype=float).ravel()
         offset += num_cells
 
         # Cell centers
         cell_centers = [
-            l.replace("\n", "").split(" ")[1:]
-            for l in lines[offset : offset + num_cells]
+            line.replace("\n", "").split(" ")[1:]
+            for line in lines[offset : offset + num_cells]
         ]
         cell_centers = np.array(cell_centers, dtype=float).T
         offset += num_cells
@@ -262,5 +262,6 @@ def read_mrst_grid(fn):
     g.face_centers = face_centers
     g.cell_volumes = cell_volumes
     g.cell_centers = cell_centers
+    g.cart_dims = cartDims
 
     return g
