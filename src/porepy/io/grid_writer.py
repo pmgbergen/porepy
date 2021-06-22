@@ -15,6 +15,8 @@ def dump_grid_to_file(g: pp.Grid, fn: str) -> None:
     with a MRST (https://www.sintef.no/projectweb/mrst/) or an
     OPM unstructured grid ( https://opm-project.org/ ).
 
+    See also pp.io.grid_reader.read_grid(..).
+
     Parameters:
     g  (Grid): The grid will be written to file
     fn (String): The file name. This will be passed to open() using 'w'
@@ -24,7 +26,8 @@ def dump_grid_to_file(g: pp.Grid, fn: str) -> None:
     """
     # Test if directory in file name exists and create if not
     dirpath = os.path.dirname(fn)
-    os.makedirs(dirpath, exist_ok=True)
+    if len(dirpath) > 0:
+        os.makedirs(dirpath, exist_ok=True)
 
     # Open file and start writing
     with open(fn, "w") as outfile:
