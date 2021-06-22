@@ -78,7 +78,8 @@ def merge_grids(grids):
     for sg in grids[1:]:
         if sg.dim != grids[0].dim:
             raise ValueError(
-                "All grids must have the same dimension. found grid of dimension {}, expected dimension {}".format(
+                """All grids must have the same dimension. found grid of dimension {},
+                expected dimension {}""".format(
                     sg.dim, grids[0].dim
                 )
             )
