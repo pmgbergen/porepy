@@ -459,17 +459,19 @@ def enforce_opm_face_ordering_grid(g):
     # OPM faces ordered counterclockwise starting at West face
     if g.dim==2:
         opm_sort = [0,2,1,3]
+    elif g.dim==3:
+        opm_sort = [0, 1, 2, 3, 4, 5]
     else:
-        return
+        raise ValueError(
+            "Can not assign face ordering for grids of dimension {}".format(g.dim)
+        )
 
-    if not ("CartGrid" in g.name or "TensorGrid" in g.name):
-        raise ValueError("Can only enforce face ordering for CartGrid or TensorGrid")
     if not hasattr(g, "cell_facetag"):
         raise ValueError("Can only order grids with cell_facetag")
 
     # Get ordering of OPM faces in a cell
     _, IC = np.unique(opm_sort, return_inverse=True)
-    cell_facetag = g.cell_facetag.reshape((-1, 4))
+    cell_facetag = g.cell_facetag.reshape((-1, len(opm_sort)))
 
     old2new = np.empty(g.num_faces, dtype=int)
     for k in range(g.num_cells):
