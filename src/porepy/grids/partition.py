@@ -481,18 +481,7 @@ def extract_subgrid(
         if h.num_faces != g.num_faces:
             raise NotImplementedError("Cannot extract grids with periodic boundaries")
         h.periodic_face_map = g.periodic_face_map.copy()
-    h.tags = g.tags.copy()
-    for key in h.tags.keys():
-        if h.tags[key].size == g.num_cells:
-            h.tags[key] = h.tags[key][c]
-        elif h.tags[key].size == g.num_faces:
-            h.tags[key] = h.tags[key][unique_faces]
-        elif h.tags[key].size == g.num_nodes:
-            h.tags[key] = h.tags[key][unique_nodes]
-        else:
-            msg = """Found a grid tag of size {} in extract_subgrid(..). The grid tags
-            must have size of number of cells, faces or nodes"""
-            raise RuntimeError(msg)
+
     h.parent_cell_ind = c
 
     return h, unique_faces, unique_nodes

@@ -33,8 +33,8 @@ class PointGrid(Grid):
 
         name = "PointGrid" if name is None else name
 
-        face_nodes = sps.identity(0, np.int, "csc")
-        cell_faces = sps.csc_matrix((0, pt.shape[1]), dtype=np.int)
+        face_nodes = sps.identity(0, int, "csr")
+        cell_faces = sps.csr_matrix((0, pt.shape[1]), dtype=int)
 
         nodes = np.zeros((3, 0))
         self.cell_centers = pt
