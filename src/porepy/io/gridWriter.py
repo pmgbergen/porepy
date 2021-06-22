@@ -4,10 +4,16 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-def dumpGridToFile(g, fn):
+module_sections = ["io"]
+
+
+@pp.time_logger(sections=module_sections)
+def dump_grid_to_file(g: pp.Grid, fn: str) -> None:
     """
-    Dump a PorePy grid to a file that can be read by as an unstructured
-    opm grid.
+    Dump a PorePy grid to a file. The file format of the dumped file
+    can be read by pp.read_grid_from_file. It is also compatible
+    with a MRST (https://www.sintef.no/projectweb/mrst/) or an
+    OPM unstructured grid ( https://opm-project.org/ ).
 
     Parameters:
     g  (Grid): The grid will be written to file
@@ -22,7 +28,7 @@ def dumpGridToFile(g, fn):
 
     # Open file and start writing
     with open(fn, "w") as outfile:
-        # Write grid info
+        # First line of file contains grid info:
         num_face_nodes = g.face_nodes.indices.size
         num_cell_faces = g.cell_faces.indices.size
         outfile.write(
@@ -36,76 +42,119 @@ def dumpGridToFile(g, fn):
                 hasattr(g, "cell_facetag"),
             )
         )
-        # test if grid has cartdims (i.e. Cartesian indexing)
+        # Second line contains the cartesian indexes of the grid.
+        # If no cartesian indexing, fill with zeros.
         if hasattr(g, "cartdims"):
             cartdims = np.asarray(g.cartdims)
         else:
             cartdims = np.zeros(g.dim, dtype=np.int)
         outfile.write(" ".join(map(str, cartdims)) + "\n")
-        # Write nodes
+        ## Nodes:
+        # Third line is the node coordinates (x1, y1, z1, x2, y2, z2, ...)
         outfile.write(" ".join(map(str, g.nodes[: g.dim].ravel("F"))) + "\n")
+        # line 4 and 5, the sparse csc representation of the face-nodes map.
         outfile.write(" ".join(map(str, g.face_nodes.indptr)) + "\n")
         outfile.write(" ".join(map(str, g.face_nodes.indices)) + "\n")
 
-        # Write faces
+        ## Faces:
+        # line 6: neighbourship of faces. This is a [num_faces, 2] array.
+        # Each line represent a face. neighbourship[f, 0] is the inner cell
+        # (normal points out of cell) connected to face f. neighbourship[f, 1]
+        # is the outer cell (normal points into cell). If if is a boundary face,
+        # either the inner or the outer cell contains the value -1. The neighbouship
+        # is included to be compatible with OPM and MRST.
         neighbourship = get_neighbourship(g)
         outfile.write(" ".join(map(str, neighbourship.ravel("C"))) + "\n")
+        # Line 7-9: face geometry
         outfile.write(" ".join(map(str, g.face_areas)) + "\n")
         outfile.write(" ".join(map(str, g.face_centers[: g.dim].ravel("F"))) + "\n")
         outfile.write(" ".join(map(str, g.face_normals[: g.dim].ravel("F"))) + "\n")
 
-        # Write cells
+        ## Cells
+        # Line 10 write the csc representation of the cell-faces map. If g has a
+        # cell_facetag append this to the indices.
         outfile.write(" ".join(map(str, g.cell_faces.indptr)) + "\n")
         if hasattr(g, "cell_facetag"):
             cell_face_tag = np.ravel(np.vstack((g.cell_faces.indices, g.cell_facetag)),'F')
             outfile.write(" ".join(map(str, cell_face_tag)) + "\n")
         else:
             outfile.write(" ".join(map(str, g.cell_faces.indices)) + "\n")
+        # Line 11 - 12: cell geometry
         outfile.write(" ".join(map(str, g.cell_volumes)) + "\n")
         outfile.write(" ".join(map(str, g.cell_centers[: g.dim].ravel("F"))) + "\n")
 
+        # Finaly, if the grid is given an index we write that to file.
         if hasattr(g, "idx"):
             outfile.write("{:d} \n".format(g.idx))
 
 
-def dumpMortarGridToFile(gb, e, d, fn, max_1_grid_per_dim=False, dfn=False):
+def dump_mortar_grid_to_file(gb, e, d, fn, max_1_grid_per_dim=False, dfn=False):
+    """
+    Dump a PorePy mortar grid to a file. The file format of the dumped file
+    can be read by pp.read_grid_from_file. It is also compatible
+    with a MRST (https://www.sintef.no/projectweb/mrst/) or an
+    OPM unstructured grid ( https://opm-project.org/ ).
+    
+    Both the mortar grid and the mappings to the Primary and Secondary will
+    be dumpt to file. The mappings will have the surfix "_mapping"
+
+    Parameters:
+    gb  (GridBucket): The grid bucket associated with the mortar grid.
+    e (Tuple(Grid, Grid)): The edge in gb associated with the mortar grid.
+    d (Dict): The dictionary of the edge
+    fn (String): The file name. The file name will be appended with an index. 
+        This will be passed to open() using 'w'
+    max_1_grid_per_dim (bool): OPTIONAL, defaults to False. If True, the
+        grid dimension will be used to index the file name. If False,
+        the edge_number will be used.
+    dfn (bool) OPTIONAL, defaults to False. If the gb is a DFN, set this value to
+        True
+
+    Returns:
+    None
+    """
+
+    # Get the index of the grid and append it to file
     if max_1_grid_per_dim:
         grid_id = str(d['mortar_grid'].dim)
     else:
         grid_id = str(d["edge_number"])
-    grid_name = append_id(fn , "mortar_" + grid_id)
+    grid_name = append_id_(fn , "mortar_" + grid_id)
     mg = d['mortar_grid']
     mg.idx = d['edge_number']
+    # We need to obtain the actuall mortar grids from the side grids
     mortar_grids = []
     for sg in mg.side_grids.values():
         mortar_grids.append(sg)
-
+    # We store both sides of the grids as one grid.
     mortar_grid = merge_grids(mortar_grids)
     mortar_grid.idx = mg.idx
     dim = mortar_grid.dim
 
-    # addCellFaceTag(mortar_grid)
-    # enforce_opm_face_ordering(mortar_grid)
-
+    # We need to set the maximum dimension = maximum dimension of the gb,
+    # in order to export the coorect number of coordinates of vector-valued
+    # geometry variables in the grid. If dfn, add 1 to the dimension.
     mortar_grid.dim = gb.dim_max() + dfn
-    dumpGridToFile(mortar_grid, grid_name)
+
+    # Dump the mortar grids (or side grids in pp context).
+    dump_grid_to_file(mortar_grid, grid_name)
     mortar_grid.dim = dim
 
-    # Now, dump the mortar projections
+    # Now, dump the mortar projections to the primary and secondary
     gl, gh = gb.nodes_of_edge(e)
 
     dh = gb.node_props(gh)
     dl = gb.node_props(gl)
 
-    name = append_id(
+    name = append_id_(
         fn , "mapping_" + grid_id
     )
 
     gh_to_mg = mg.mortar_to_primary_int()
     gl_to_mg = mg.mortar_to_secondary_int()
 
-    dumpMortarProjectionsToFile(gh, mg, gh_to_mg, name)
-    dumpMortarProjectionsToFile(gl, mg, gl_to_mg, name, "a")
+    dump_mortar_projections_to_file(gh, mg, gh_to_mg, name)
+    dump_mortar_projections_to_file(gl, mg, gl_to_mg, name, "a")
 
 
 def merge_grids(grids):
@@ -141,7 +190,7 @@ def merge_grids(grids):
     return grid
         
 
-def dumpMortarProjectionsToFile(g, mg, proj, fn, mode="w"):
+def dump_mortar_projections_to_file(g, mg, proj, fn, mode="w"):
     """
     Dump a PorePy grid to a file that can be read by as an unstructured
     opm grid.
@@ -170,19 +219,20 @@ def dumpMortarProjectionsToFile(g, mg, proj, fn, mode="w"):
         outfile.write(" ".join(map(str, proj.indices)) + "\n")
     
 
-def dumpGridBucketToFile(gb, fn, dfn=False):
+def dump_grid_bucket_to_file(gb, fn, dfn=False):
     """
-    Dump a PorePy grid to a file that can be read by as an unstructured
-    opm grid.
+    Dump all grids and mortar grids in a GridBucket to a file.
 
     Parameters:
     gb  (GridBucket): Each grid of the grid bucket will be written to file.
-    fn (String): The file name. This name will will be passed to open() using 'w'
+    fn (String): The file name. This name will be passed to open() using 'w'
         with a surfix giving the grid number.
     dfn (bool): OPTIONAL. Set to true if grid bucket is a DFN network
     Returns:
     None
     """
+    # If only 1 grid per dimension use the grid dimension as an index. Otherwise
+    # we use the graph node number.
     max_1_grid_per_dim = True
     for dim in range(gb.dim_max()):
         if len(gb.grids_of_dimension(dim)) > 1:
@@ -191,20 +241,20 @@ def dumpGridBucketToFile(gb, fn, dfn=False):
 
     for g, d in gb:
         if max_1_grid_per_dim:
-            grid_name = append_id(fn, str(g.dim))
+            grid_name = append_id_(fn, str(g.dim))
         else:
-            grid_name = append_id(fn, d["node_number"])
+            grid_name = append_id_(fn, d["node_number"])
         g.idx = d["node_number"]
         dim = g.dim
         g.dim = gb.dim_max() + dfn
-        dumpGridToFile(g, grid_name)
+        dump_grid_to_file(g, grid_name)
         g.dim = dim
 
     for e, d in gb.edges():
-        dumpMortarGridToFile(gb, e, d, fn, max_1_grid_per_dim, dfn)
+        dump_mortar_grid_to_file(gb, e, d, fn, max_1_grid_per_dim, dfn)
 
 
-def append_id(filename, idx):
+def append_id_(filename, idx):
   return "{0}_{2}{1}".format(*os.path.splitext(filename) + (idx,))
 
 def get_neighbourship(g):
@@ -241,7 +291,7 @@ def get_neighbourship(g):
     return neighbourship
 
 
-def mergeGridsOfEqualDim(gb):
+def merge_grids_of_equal_dim(gb):
     dimMax = gb.dim_max()
     
     mergedGrids = []
@@ -368,18 +418,18 @@ def mergeGridsOfEqualDim(gb):
 
     return mergedGb
 
-def purge0dFacesAndNodes(gb):
+def purge0d_faces_and_nodes(gb):
     for g, d in gb:
         if g.dim!=0:
             continue
-        _purgefaceAndNodesFromGrid(g)
+        _purge_face_and_nodes_from_grid(g)
 
     for e, d in gb.edges():
         mg = d['mortar_grid']
         if mg.dim!=0:
             continue
         for sg in mg.side_grids.values():
-            _purgefaceAndNodesFromGrid(sg)
+            _purge_face_and_nodes_from_grid(sg)
 
 
 def addCellFaceTag(gb):
@@ -530,7 +580,7 @@ def _findCellsXY(g):
 
     return nx, ny
 
-def _purgefaceAndNodesFromGrid(g):
+def _purge_face_and_nodes_from_grid(g):
     g.num_nodes = 0
     g.num_faces = 0
 
@@ -598,4 +648,4 @@ if __name__ == "__main__":
     g.compute_geometry()
     #g.cell_facetag = np.zeros(g.cell_faces.indptr[-1])
 
-    dumpGridToFile(g, file_name)
+    dump_grid_to_file(g, file_name)
