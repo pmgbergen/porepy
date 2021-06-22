@@ -7,7 +7,7 @@ import porepy as pp
 
 def read_grid(fn):
     """
-    Read a MRST grid from a file. 
+    Read a MRST grid from a file.
     See also pp.io.grid_writer.write_grid(..).
 
     Parameters:
@@ -25,7 +25,16 @@ def read_grid(fn):
         lines = infile.readlines()
         data = np.array(lines[0].replace("\n", "").split(" "), dtype=int)
 
-        dim, num_cells, num_faces, num_nodes, num_face_nodes, num_cell_faces, has_cell_facetag, has_indexmap = data
+        (
+            dim,
+            num_cells,
+            num_faces,
+            num_nodes,
+            num_face_nodes,
+            num_cell_faces,
+            has_cell_facetag,
+            has_indexmap,
+        ) = data
 
         cartDims = np.array(lines[1].replace("\n", "").split(" ")[1:], dtype=int)
 
@@ -43,7 +52,7 @@ def read_grid(fn):
 
         # neighbourship
         face_cells = np.array(lines[5].replace("\n", "").split(" "), dtype=int)
-        face_cells = np.reshape(face_cells, (2, -1), 'F')
+        face_cells = np.reshape(face_cells, (2, -1), "F")
 
         # Face areas
         face_areas = np.array(lines[6].replace("\n", "").split(" "), dtype=float)
@@ -85,13 +94,16 @@ def read_grid(fn):
             line_num = 11
 
         # Cell volumes
-        cell_volumes = np.array(lines[line_num].replace("\n", "").split(" "), dtype=float)
+        cell_volumes = np.array(
+            lines[line_num].replace("\n", "").split(" "), dtype=float
+        )
         line_num += 1
         # Cell centers
-        cell_centers = np.array(lines[line_num].replace("\n", "").split(" "), dtype=float)
+        cell_centers = np.array(
+            lines[line_num].replace("\n", "").split(" "), dtype=float
+        )
         cell_centers = np.reshape(cell_centers, (dim, -1), "F")
         cell_centers = np.r_[cell_centers, np.zeros((3 - dim, cell_centers.shape[1]))]
-
 
     g = pp.Grid(dim, nodes, face_nodes, cell_faces, "grid reader")
     if has_indexmap:
@@ -110,7 +122,7 @@ def read_grid(fn):
 
 def read_mrst_grid(fn):
     """
-    Read a MRST grid from a file. 
+    Read a MRST grid from a file.
     See also pp.io.grid_writer.write_grid(..).
 
     Parameters:
