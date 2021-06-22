@@ -67,7 +67,7 @@ def dump_grid_to_file(g: pp.Grid, fn: str) -> None:
         # is the outer cell (normal points into cell). If if is a boundary face,
         # either the inner or the outer cell contains the value -1. The neighbouship
         # is included to be compatible with OPM and MRST.
-        neighbourship = pp.utils.grid_utils.get_face_neighbourship(g)
+        neighbourship = g.cell_face_as_dense()
         outfile.write(" ".join(map(str, neighbourship.ravel("C"))) + "\n")
         # Line 7-9: face geometry
         outfile.write(" ".join(map(str, g.face_areas)) + "\n")
