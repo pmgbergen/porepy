@@ -55,19 +55,18 @@ def get_face_neighbourship(g):
 
 @pp.time_logger(sections=module_sections)
 def merge_grids(grids):
-    """ Merge the given list of grids into one grid. Quantities in the grids
+    """Merge the given list of grids into one grid. Quantities in the grids
     are appendded by the grid ordering of the input list. First all
     quantities related to grids[0], then all quantities related to grids[1], ...
-    
+
     Paramemeters:
     grids (List [pp.Grid]): A list of porepy grids.
-    
+
     Returns:
     pp.Grid: The merged grid
     """
     if len(grids) < 1:
-        return None # or [], or throw error?
-
+        return None  # or [], or throw error?
 
     grid = grids[0].copy()
     if hasattr(grids[0], "cell_facetag"):
@@ -79,19 +78,17 @@ def merge_grids(grids):
     for sg in grids[1:]:
         if sg.dim != grids[0].dim:
             raise ValueError(
-                "All grids must have the same dimension. found grid of dimension {}, expected dimension {}".format(sg.dim, grids[0].dim)
+                "All grids must have the same dimension. found grid of dimension {}, expected dimension {}".format(
+                    sg.dim, grids[0].dim
+                )
             )
         grid.num_cells += sg.num_cells
         grid.num_faces += sg.num_faces
         grid.num_nodes += sg.num_nodes
         grid.nodes = np.hstack((grid.nodes, sg.nodes))
 
-        grid.face_nodes = pp.utils.sparse_mat.stack_diag(
-            grid.face_nodes, sg.face_nodes
-        )
-        grid.cell_faces = pp.utils.sparse_mat.stack_diag(
-            grid.cell_faces, sg.cell_faces
-        )
+        grid.face_nodes = pp.utils.sparse_mat.stack_diag(grid.face_nodes, sg.face_nodes)
+        grid.cell_faces = pp.utils.sparse_mat.stack_diag(grid.cell_faces, sg.cell_faces)
 
         grid.face_areas = np.hstack((grid.face_areas, sg.face_areas))
         grid.face_centers = np.hstack((grid.face_centers, sg.face_centers))
@@ -109,19 +106,19 @@ def merge_grids(grids):
 
 
 def merge_grids_of_equal_dim(gb):
-    """ Merges all grids that have the same dimension in the GridBucket. Thus
+    """Merges all grids that have the same dimension in the GridBucket. Thus
     the returned GridBucket only has one grid per dimension. See also
     pp.utils.grid_utils.merge_grids(grids).
 
     Parameters:
     gb (pp.GridBucket): A Grid bucket with possible many grids per dimension
-    
+
     Returns:
     mergedGb (pp.GridBucket): A grid bucket with the merged grids of gb, and
         updated projections and mortar grids.
     """
     dimMax = gb.dim_max()
-    
+
     # First merge all grid nodes.
     mergedGrids = []
     gridsOfDim = np.empty(dimMax + 1, dtype=list)
@@ -131,7 +128,7 @@ def merge_grids_of_equal_dim(gb):
         gridIdx[i] = []
         numCells[i] = []
         gridsOfDim[i] = gb.grids_of_dimension(i)
-        if len(gridsOfDim[i])==0:
+        if len(gridsOfDim[i]) == 0:
             mergedGrids.append([])
             continue
 
@@ -141,7 +138,7 @@ def merge_grids_of_equal_dim(gb):
         # mortar projections
         for grid in gridsOfDim[i]:
             d = gb.node_props(grid)
-            gridIdx[i].append(d['node_number'])
+            gridIdx[i].append(d["node_number"])
             numCells[i].append(grid.num_cells)
 
     # Initiate mortar grids.
@@ -153,7 +150,7 @@ def merge_grids_of_equal_dim(gb):
     # all mortar grids of dimension i.
     for e, d in gb.edges():
         mortar_grids = []
-        mg = d['mortar_grid']
+        mg = d["mortar_grid"]
         for sg in mg.side_grids.values():
             mortar_grids.append(sg)
         mortarsOfDim[mg.dim].append(merge_grids(mortar_grids))
@@ -164,44 +161,55 @@ def merge_grids_of_equal_dim(gb):
 
     # Loop over all dimensions and initiate the mapping size
     for i in range(dimMax):
-        primary2mortar[i] = np.empty((len(mortarsOfDim[i]), len(gridsOfDim[i+1])),dtype=np.object)
-        secondary2mortar[i] = np.empty((len(mortarsOfDim[i]), len(gridsOfDim[i])), dtype=np.object)
-        
+        primary2mortar[i] = np.empty(
+            (len(mortarsOfDim[i]), len(gridsOfDim[i + 1])), dtype=np.object
+        )
+        secondary2mortar[i] = np.empty(
+            (len(mortarsOfDim[i]), len(gridsOfDim[i])), dtype=np.object
+        )
+
         # Add an empty grid for mortar row. This is to let the block matrices
         # mergedSecondary2Mortar and mergedPrimary2Mortar know the correct dimension
         # if there is an empty mapping. It should be sufficient to add zeros to
         # one of the mortar grids.
-        for j in range(len(gridsOfDim[i+1])):
-            if len(mortarsOfDim[i])==0:
+        for j in range(len(gridsOfDim[i + 1])):
+            if len(mortarsOfDim[i]) == 0:
                 continue
             numMortarCells = mortarsOfDim[i][0].num_cells
-            numGridFaces = gridsOfDim[i+1][j].num_faces
+            numGridFaces = gridsOfDim[i + 1][j].num_faces
             primary2mortar[i][0][j] = sps.csc_matrix((numMortarCells, numGridFaces))
 
         for j in range(len(gridsOfDim[i])):
-            if len(mortarsOfDim[i])==0:
+            if len(mortarsOfDim[i]) == 0:
                 continue
             numMortarCells = mortarsOfDim[i][0].num_cells
             numGridCells = gridsOfDim[i][j].num_cells
             secondary2mortar[i][0][j] = sps.csc_matrix((numMortarCells, numGridCells))
-                       
 
     # Collect the mortar projections
     mortarPos = np.zeros(dimMax + 1, dtype=np.int)
     for e, d in gb.edges():
-        mg = d['mortar_grid']
+        mg = d["mortar_grid"]
         gs, gm = gb.nodes_of_edge(e)
         ds = gb.node_props(gs)
         dm = gb.node_props(gm)
-        assert gs.dim==mg.dim and gm.dim==mg.dim + 1
+        assert gs.dim == mg.dim and gm.dim == mg.dim + 1
 
-        secondaryPos = np.argwhere(np.array(gridIdx[mg.dim]) == ds['node_number']).ravel()
-        primaryPos = np.argwhere(np.array(gridIdx[mg.dim + 1]) == dm['node_number']).ravel()
+        secondaryPos = np.argwhere(
+            np.array(gridIdx[mg.dim]) == ds["node_number"]
+        ).ravel()
+        primaryPos = np.argwhere(
+            np.array(gridIdx[mg.dim + 1]) == dm["node_number"]
+        ).ravel()
 
-        assert (secondaryPos.size==1 and primaryPos.size==1)
+        assert secondaryPos.size == 1 and primaryPos.size == 1
 
-        secondary2mortar[mg.dim][mortarPos[mg.dim], secondaryPos] = mg.secondary_to_mortar_int()
-        primary2mortar[mg.dim][mortarPos[mg.dim], primaryPos] = mg.primary_to_mortar_int()
+        secondary2mortar[mg.dim][
+            mortarPos[mg.dim], secondaryPos
+        ] = mg.secondary_to_mortar_int()
+        primary2mortar[mg.dim][
+            mortarPos[mg.dim], primaryPos
+        ] = mg.primary_to_mortar_int()
         mortarPos[mg.dim] += 1
 
     # Finally, merge the mortar grids and projections
@@ -209,7 +217,7 @@ def merge_grids_of_equal_dim(gb):
     mergedSecondary2Mortar = []
     mergedPrimary2Mortar = []
     for dim in range(dimMax + 1):
-        if len(mortarsOfDim[dim])==0:
+        if len(mortarsOfDim[dim]) == 0:
             mergedMortars.append([])
             mergedSecondary2Mortar.append([])
             mergedPrimary2Mortar.append([])
@@ -231,18 +239,18 @@ def merge_grids_of_equal_dim(gb):
 
     for dim in range(dimMax):
         mg = mergedMortars[dim]
-        if (mg == list([])):
+        if mg == list([]):
             continue
         gm = mergedGrids[dim + 1]
         gs = mergedGrids[dim]
-        
+
         mergedGb.add_edge((gm, gs), np.empty(0))
         mg = pp.MortarGrid(gs.dim, {pp.grids.mortar_grid.MortarSides.NONE_SIDE: mg})
         mg._primary_to_mortar_int = mergedPrimary2Mortar[dim]
         mg._secondary_to_mortar_int = mergedSecondary2Mortar[dim]
 
         d = mergedGb.edge_props((gm, gs))
-        d['mortar_grid'] = mg
+        d["mortar_grid"] = mg
 
     mergedGb.assign_node_ordering()
     # for g, _ in mergedGb:

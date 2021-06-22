@@ -20,7 +20,7 @@ def dump_grid_to_file(g: pp.Grid, fn: str) -> None:
     Parameters:
     g  (Grid): The grid will be written to file
     fn (String): The file name. This will be passed to open() using 'w'
-    
+
     Returns:
     None
     """
@@ -78,7 +78,9 @@ def dump_grid_to_file(g: pp.Grid, fn: str) -> None:
         # cell_facetag append this to the indices.
         outfile.write(" ".join(map(str, g.cell_faces.indptr)) + "\n")
         if hasattr(g, "cell_facetag"):
-            cell_face_tag = np.ravel(np.vstack((g.cell_faces.indices, g.cell_facetag)),'F')
+            cell_face_tag = np.ravel(
+                np.vstack((g.cell_faces.indices, g.cell_facetag)), "F"
+            )
             outfile.write(" ".join(map(str, cell_face_tag)) + "\n")
         else:
             outfile.write(" ".join(map(str, g.cell_faces.indices)) + "\n")
@@ -97,7 +99,7 @@ def dump_mortar_grid_to_file(gb, e, d, fn, max_1_grid_per_dim=False, dfn=False):
     can be read by pp.read_grid_from_file. It is also compatible
     with a MRST (https://www.sintef.no/projectweb/mrst/) or an
     OPM unstructured grid ( https://opm-project.org/ ).
-    
+
     Both the mortar grid and the mappings to the Primary and Secondary will
     be dumpt to file. The mappings will have the surfix "_mapping"
 
@@ -105,7 +107,7 @@ def dump_mortar_grid_to_file(gb, e, d, fn, max_1_grid_per_dim=False, dfn=False):
     gb  (GridBucket): The grid bucket associated with the mortar grid.
     e (Tuple(Grid, Grid)): The edge in gb associated with the mortar grid.
     d (Dict): The dictionary of the edge
-    fn (String): The file name. The file name will be appended with an index. 
+    fn (String): The file name. The file name will be appended with an index.
         This will be passed to open() using 'w'
     max_1_grid_per_dim (bool): OPTIONAL, defaults to False. If True, the
         grid dimension will be used to index the file name. If False,
@@ -119,12 +121,12 @@ def dump_mortar_grid_to_file(gb, e, d, fn, max_1_grid_per_dim=False, dfn=False):
 
     # Get the index of the grid and append it to file
     if max_1_grid_per_dim:
-        grid_id = str(d['mortar_grid'].dim)
+        grid_id = str(d["mortar_grid"].dim)
     else:
         grid_id = str(d["edge_number"])
-    grid_name = append_id_(fn , "mortar_" + grid_id)
-    mg = d['mortar_grid']
-    mg.idx = d['edge_number']
+    grid_name = append_id_(fn, "mortar_" + grid_id)
+    mg = d["mortar_grid"]
+    mg.idx = d["edge_number"]
     # We need to obtain the actuall mortar grids from the side grids
     mortar_grids = []
     for sg in mg.side_grids.values():
@@ -149,9 +151,7 @@ def dump_mortar_grid_to_file(gb, e, d, fn, max_1_grid_per_dim=False, dfn=False):
     dh = gb.node_props(gh)
     dl = gb.node_props(gl)
 
-    name = append_id_(
-        fn , "mapping_" + grid_id
-    )
+    name = append_id_(fn, "mapping_" + grid_id)
 
     gh_to_mg = mg.mortar_to_primary_int()
     gl_to_mg = mg.mortar_to_secondary_int()
@@ -168,14 +168,14 @@ def dump_mortar_projections_to_file(g, mg, proj, fn, mode="w"):
     Parameters:
     g  (Grid): The grid will be written to file
     fn (String): The file name. This will be passed to open() using 'w'
-    
+
     Returns:
     None
     """
     if not np.allclose(proj.data, 1):
         raise NotImplemented("Can not store non-matching grids, yet.")
 
-    if not(proj.getformat() == "csc"):
+    if not (proj.getformat() == "csc"):
         proj = proj.tocsc()
 
     # Test if directory in file name exists and create if not
@@ -187,7 +187,7 @@ def dump_mortar_projections_to_file(g, mg, proj, fn, mode="w"):
         # Write grid info
         outfile.write(" ".join(map(str, proj.indptr)) + "\n")
         outfile.write(" ".join(map(str, proj.indices)) + "\n")
-    
+
 
 def dump_grid_bucket_to_file(gb, fn, dfn=False):
     """
@@ -225,18 +225,18 @@ def dump_grid_bucket_to_file(gb, fn, dfn=False):
 
 
 def append_id_(filename, idx):
-  return "{0}_{2}{1}".format(*os.path.splitext(filename) + (idx,))
+    return "{0}_{2}{1}".format(*os.path.splitext(filename) + (idx,))
 
 
 def purge0d_faces_and_nodes(gb):
     for g, d in gb:
-        if g.dim!=0:
+        if g.dim != 0:
             continue
         _purge_face_and_nodes_from_grid(g)
 
     for e, d in gb.edges():
-        mg = d['mortar_grid']
-        if mg.dim!=0:
+        mg = d["mortar_grid"]
+        if mg.dim != 0:
             continue
         for sg in mg.side_grids.values():
             _purge_face_and_nodes_from_grid(sg)
@@ -253,6 +253,7 @@ def addCellFaceTag(gb):
     else:
         addCellFaceTagGrid(gb, tol)
 
+
 def addCellFaceTagGrid(g, tol=1e-10):
 
     g.cell_facetag = np.zeros(g.cell_faces.indptr[-1], dtype=int)
@@ -263,7 +264,9 @@ def addCellFaceTagGrid(g, tol=1e-10):
     elif g.dim < 2:
         return
     else:
-        raise ValueError("Invalid grid dimension (must be 0,1,2, or 3): {}".format(g.dim))
+        raise ValueError(
+            "Invalid grid dimension (must be 0,1,2, or 3): {}".format(g.dim)
+        )
 
     if g.dim <= 2:
         R = pp.map_geometry.project_plane_matrix(g.nodes, reference=np.array([0, 1, 0]))
@@ -285,19 +288,19 @@ def addCellFaceTagGrid(g, tol=1e-10):
             if diff[0] > tol:
                 g.cell_facetag[k * faces_per_cell + i] = 0
                 num_tags += 1
-            if diff[0] < - tol:
+            if diff[0] < -tol:
                 g.cell_facetag[k * faces_per_cell + i] = 1
                 num_tags += 1
             if diff[1] > tol:
                 g.cell_facetag[k * faces_per_cell + i] = 2
                 num_tags += 1
-            if diff[1] < - tol:
+            if diff[1] < -tol:
                 g.cell_facetag[k * faces_per_cell + i] = 3
                 num_tags += 1
             if g.dim == 3 and diff[2] > tol:
                 g.cell_facetag[k * faces_per_cell + i] = 4
                 num_tags += 1
-            if g.dim == 3 and diff[2] < - tol:
+            if g.dim == 3 and diff[2] < -tol:
                 g.cell_facetag[k * faces_per_cell + i] = 5
                 num_tags += 1
 
@@ -317,9 +320,9 @@ def enforce_opm_face_ordering(gb):
 
 def enforce_opm_face_ordering_grid(g):
     # OPM faces ordered counterclockwise starting at West face
-    if g.dim==2:
-        opm_sort = [0,2,1,3]
-    elif g.dim==3:
+    if g.dim == 2:
+        opm_sort = [0, 2, 1, 3]
+    elif g.dim == 3:
         opm_sort = [0, 1, 2, 3, 4, 5]
     else:
         raise ValueError(
@@ -336,7 +339,7 @@ def enforce_opm_face_ordering_grid(g):
     old2new = np.empty(g.num_faces, dtype=int)
     for k in range(g.num_cells):
         # Get pp ordering of faces
-        IA = np.argsort(cell_facetag[k,:])
+        IA = np.argsort(cell_facetag[k, :])
         # Get faces of cell
         cell_face_pos = pp.utils.mcolon.mcolon(
             g.cell_faces.indptr[k], g.cell_faces.indptr[k + 1]
@@ -357,12 +360,14 @@ def enforce_opm_face_ordering_grid(g):
 
 
 def circumcenterCellCenters(gb):
-    if len(gb.grids_of_dimension(3))>0:
-        raise NotImplementedError('Have not implemented circumcenterCellCenters for dimension 3')
+    if len(gb.grids_of_dimension(3)) > 0:
+        raise NotImplementedError(
+            "Have not implemented circumcenterCellCenters for dimension 3"
+        )
 
     for g in gb.grids_of_dimension(2):
         nodes = g.cell_nodes().indices
-        assert np.all(np.diff(g.cell_nodes().indptr)==3)
+        assert np.all(np.diff(g.cell_nodes().indptr) == 3)
 
         coords = g.nodes[:, nodes]
 
@@ -373,13 +378,23 @@ def circumcenterCellCenters(gb):
         cx = coords[0, 2::3]
         cy = coords[1, 2::3]
         d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
-        ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / d
-        uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / d
+        ux = (
+            (ax * ax + ay * ay) * (by - cy)
+            + (bx * bx + by * by) * (cy - ay)
+            + (cx * cx + cy * cy) * (ay - by)
+        ) / d
+        uy = (
+            (ax * ax + ay * ay) * (cx - bx)
+            + (bx * bx + by * by) * (ax - cx)
+            + (cx * cx + cy * cy) * (bx - ax)
+        ) / d
         uz = np.zeros(g.num_cells)
         g.cell_centers = np.vstack((ux, uy, uz))
+
+
 #        pp.plot_grid(g, alpha=0,info='c')
 
-    
+
 def _findCellsXY(g):
     y0 = g.cell_centers[1, 0]
     nx = 1
@@ -390,6 +405,7 @@ def _findCellsXY(g):
 
     return nx, ny
 
+
 def _purge_face_and_nodes_from_grid(g):
     g.num_nodes = 0
     g.num_faces = 0
@@ -398,13 +414,15 @@ def _purge_face_and_nodes_from_grid(g):
     g.face_nodes = sps.csc_matrix((g.num_nodes, 0))
     g.cell_faces = sps.csc_matrix((0, g.num_cells))
 
-    g.face_areas =  np.zeros((0))
+    g.face_areas = np.zeros((0))
     g.face_normals = np.zeros((3, 0))
     g.face_centers = np.zeros((3, 0))
+
 
 if __name__ == "__main__":
     import porepy as pp
     import sys
+
     if len(sys.argv) == 6:
         nx = int(sys.argv[1])
         ny = int(sys.argv[2])
@@ -417,10 +435,10 @@ if __name__ == "__main__":
         f1 = np.array([[Lx / 2, Ly * 3 / 4], [Lx, Ly * 3 / 4]]).T
         f2 = np.array([[0, Ly * 2 / 4], [Lx / 2, Ly * 2 / 4]]).T
         f3 = np.array([[Lx / 2, Ly * 1 / 4], [Lx, Ly * 1 / 4]]).T
-        gb = pp.meshing.cart_grid([], [nx, ny], physdims=[Lx,Ly])
+        gb = pp.meshing.cart_grid([], [nx, ny], physdims=[Lx, Ly])
         fracPts = np.hstack((f1, f2, f3))
         fracEdgs = np.array([[0, 1], [2, 3], [4, 5]]).T
-        domain = {'xmin': 0, 'ymin': 0, 'xmax': Lx, 'ymax': Ly}
+        domain = {"xmin": 0, "ymin": 0, "xmax": Lx, "ymax": Ly}
         fracture_network = pp.FractureNetwork2d(fracPts, fracEdgs, domain)
         gb = fracture_network.mesh({})
         g = gb.grids_of_dimension(2)[0]
@@ -456,6 +474,6 @@ if __name__ == "__main__":
         print("ioWriter.py nx ny dx dy file_name")
         raise ValueError("Wrong number of arguments")
     g.compute_geometry()
-    #g.cell_facetag = np.zeros(g.cell_faces.indptr[-1])
+    # g.cell_facetag = np.zeros(g.cell_faces.indptr[-1])
 
     dump_grid_to_file(g, file_name)

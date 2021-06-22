@@ -223,7 +223,7 @@ def stack_diag(A, B):
 
     C = A.copy()
 
-    if A.getformat() =="csc":
+    if A.getformat() == "csc":
         indices_offset = A.shape[0]
     else:
         indices_offset = A.shape[1]
