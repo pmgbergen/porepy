@@ -185,6 +185,21 @@ def stack_mat(A, B):
 
 @pp.time_logger(sections=module_sections)
 def copy(A):
+    """
+    Create a new matrix C that is a copy of matrix A
+    This function is equivalent to
+    A.copy(), but does not change the ordering
+    of the A.indices for csc and csr matrices
+
+    Parameters:
+    -----------
+    A (scipy.sparse.spmatrix): A sparce matrix
+
+
+    Return
+    ------
+        A (scipy.sparse.spmatrix): A sparce matrix
+    """
     if A.getformat() == "csc":
         return sps.csc_matrix((A.data, A.indices, A.indptr), shape=A.shape)
     elif A.getformat() == "csr":

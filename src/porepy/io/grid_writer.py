@@ -102,7 +102,7 @@ def dump_mortar_grid_to_file(gb, e, d, fn, max_1_grid_per_dim=False, dfn=False):
     OPM unstructured grid ( https://opm-project.org/ ).
 
     Both the mortar grid and the mappings to the Primary and Secondary will
-    be dumpt to file. The mappings will have the surfix "_mapping"
+    be dumped to file. The mappings will have the surfix "_mapping"
 
     Parameters:
     gb  (GridBucket): The grid bucket associated with the mortar grid.
@@ -188,7 +188,7 @@ def dump_mortar_projections_to_file(g, mg, proj, fn, mode="w"):
         outfile.write(" ".join(map(str, proj.indices)) + "\n")
 
 
-def dump_grid_bucket_to_file(gb, fn, dfn=False, use_dim_as_surfix=False):
+def dump_grid_bucket_to_file(gb: pp.GridBucket, fn: str, dfn: bool = False, use_dim_as_surfix: bool=False) -> None:
     """
     Dump all grids and mortar grids in a GridBucket to a file.
 
@@ -351,11 +351,6 @@ def enforce_opm_face_ordering_grid(g):
         )
         faces = g.cell_faces.indices[cell_face_pos]
         sgn = g.cell_faces.data[cell_face_pos]
-        # for face in faces[[2,3]]:
-        #     nodePos = g.face_nodes.indptr[face]
-        #     nodes = g.face_nodes.indices[nodePos:nodePos+2].copy()
-        #     g.face_nodes.indices[nodePos] = nodes[1]
-        #     g.face_nodes.indices[nodePos + 1] = nodes[0]
 
         # change the orderign to the OPM ordering
         old2new[faces] = faces[IA][IC]
@@ -422,63 +417,3 @@ def _purge_face_and_nodes_from_grid(g):
     g.face_areas = np.zeros((0))
     g.face_normals = np.zeros((3, 0))
     g.face_centers = np.zeros((3, 0))
-
-
-if __name__ == "__main__":
-    import porepy as pp
-    import sys
-
-    if len(sys.argv) == 6:
-        nx = int(sys.argv[1])
-        ny = int(sys.argv[2])
-        dx = float(sys.argv[3])
-        dy = float(sys.argv[4])
-        file_name = sys.argv[5]
-
-        Lx = nx * dx
-        Ly = ny * dy
-        f1 = np.array([[Lx / 2, Ly * 3 / 4], [Lx, Ly * 3 / 4]]).T
-        f2 = np.array([[0, Ly * 2 / 4], [Lx / 2, Ly * 2 / 4]]).T
-        f3 = np.array([[Lx / 2, Ly * 1 / 4], [Lx, Ly * 1 / 4]]).T
-        gb = pp.meshing.cart_grid([], [nx, ny], physdims=[Lx, Ly])
-        fracPts = np.hstack((f1, f2, f3))
-        fracEdgs = np.array([[0, 1], [2, 3], [4, 5]]).T
-        domain = {"xmin": 0, "ymin": 0, "xmax": Lx, "ymax": Ly}
-        fracture_network = pp.FractureNetwork2d(fracPts, fracEdgs, domain)
-        gb = fracture_network.mesh({})
-        g = gb.grids_of_dimension(2)[0]
-        pp.plot_grid(g)
-        # p = np.array([[0, 0], [Lx, 0], [0, Ly]]).T
-        # t = np.array([[0], [1], [2]])
-        # g = pp.TriangleGrid(p, t)
-        if "CartGrid" in g.name:
-            g.cell_facetag = np.zeros(g.cell_faces.indptr[-1], dtype=int)
-            for k in range(nx * ny):
-                for i in range(4):
-                    g.cell_facetag[k * 4 + i] = i
-
-    elif len(sys.argv) == 8:
-        nx = int(sys.argv[1])
-        ny = int(sys.argv[2])
-        nz = int(sys.argv[3])
-        dx = float(sys.argv[4])
-        dy = float(sys.argv[5])
-        dz = float(sys.argv[6])
-
-        file_name = sys.argv[7]
-        g = pp.CartGrid([nx, ny, nz], [nx * dx, ny * dy, nz * dz])
-        for k in range(nx * ny * nz):
-            for i in range(6):
-                g.cell_facetag[k * 6 + i] = i
-
-    else:
-        print("Wrong number of arguments.")
-        print("For 3D use:")
-        print("ioWriter.py nx ny nz dx dy dz file_name")
-        print("For 2D use:")
-        print("ioWriter.py nx ny dx dy file_name")
-        raise ValueError("Wrong number of arguments")
-    g.compute_geometry()
-    # g.cell_facetag = np.zeros(g.cell_faces.indptr[-1])
-
-    dump_grid_to_file(g, file_name)

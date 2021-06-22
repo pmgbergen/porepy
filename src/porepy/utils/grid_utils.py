@@ -54,7 +54,7 @@ def get_face_neighbourship(g):
 
 
 @pp.time_logger(sections=module_sections)
-def merge_grids(grids):
+def merge_grids(grids: List[pp.Grid]) -> pp.Grid:
     """Merge the given list of grids into one grid. Quantities in the grids
     are appendded by the grid ordering of the input list. First all
     quantities related to grids[0], then all quantities related to grids[1], ...
@@ -106,7 +106,7 @@ def merge_grids(grids):
     return grid
 
 
-def merge_grids_of_equal_dim(gb):
+def merge_grids_of_equal_dim(gb: pp.GridBucket) -> pp.GridBucket:
     """Merges all grids that have the same dimension in the GridBucket. Thus
     the returned GridBucket only has one grid per dimension. See also
     pp.utils.grid_utils.merge_grids(grids).
