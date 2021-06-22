@@ -9,53 +9,6 @@ module_sections = ["gridding", "grids"]
 
 
 @pp.time_logger(sections=module_sections)
-def get_face_neighbourship(g):
-    """Get neighbourship of all faces of the grid. The neighbourship
-    is represented as a [num_faces, 2] array. Each row represents a face.
-    neighbourship[f, 0] is the inner cell (normal points out of cell) connected
-    to face f. neighbourship[f, 1] is the outer cell (normal points into cell).
-    If if is a boundary face, either the inner or the outer cell contains the value -1.
-
-    Paramemeters:
-    g (pp.Grid): A pp grid.
-
-    Returns:
-    neighbourship (np.ndarray): A [np.num_faces, 2] array of the face-cell neighbourship.
-    """
-    fi, ci, sgn = sps.find(g.cell_faces)
-    # Boundary faces are faces with only 1 cell
-    _, IA, counts = np.unique(fi, return_inverse=True, return_counts=True)
-    bnd_f = np.where(counts[IA] == 1)[0]
-
-    # We add a connection between all boundary faces and the auxillary cell -1
-    fi_padded = np.insert(fi, bnd_f, fi[bnd_f])
-    ci_padded = np.insert(ci, bnd_f, -1)
-    sgn_padded = np.insert(sgn, bnd_f, -sgn[bnd_f])
-
-    # The face index of the neighbourship is given implicitly from 0 to num_faces.
-    # Therefore, sort the faces.
-    idx = np.argsort(fi_padded)
-    # The neighbourship is a num_faces x 2 array
-    neighbourship = np.reshape(ci_padded[idx], [-1, 2], order="C")
-    # neigh_sgn tells us if the normal vector points into or out of each cell
-    neigh_sgn = np.reshape(sgn_padded[idx], [-1, 2], order="C")
-    # Check that we have one inner cell and one outer cell
-    if not np.all(np.sum(neigh_sgn, axis=1) == 0):
-        raise AssertionError("Could not find cell neighbourship.")
-
-    # The order of the cells should be given implicitly in neighbourship; first row are
-    # inner cells second row are outer cells
-    swap = neigh_sgn[:, 0] == -1
-    temp = np.zeros(neighbourship.shape[0], dtype=np.int)
-    temp[swap] = neighbourship[swap, 0]
-    neighbourship[swap, 0] = neighbourship[swap, 1]
-    neighbourship[swap, 1] = temp[swap]
-
-    # Return
-    return neighbourship
-
-
-@pp.time_logger(sections=module_sections)
 def merge_grids(grids: List[pp.Grid]) -> pp.Grid:
     """Merge the given list of grids into one grid. Quantities in the grids
     are appendded by the grid ordering of the input list. First all
