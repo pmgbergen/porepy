@@ -263,7 +263,6 @@ def addCellFaceTag(gb):
 
 def addCellFaceTagGrid(g, tol=1e-10):
 
-    g.cell_facetag = np.zeros(g.cell_faces.indptr[-1], dtype=int)
     if g.dim == 3:
         faces_per_cell = 6
     elif g.dim == 2:
@@ -284,6 +283,7 @@ def addCellFaceTagGrid(g, tol=1e-10):
     if not ("CartGrid" in g.name or "TensorGrid" in g.name):
         raise ValueError("Can only enforce face ordering for CartGrid or TensorGrid")
 
+    g.cell_facetag = np.zeros(g.cell_faces.indptr[-1], dtype=int)
     for k in range(g.num_cells):
         cc = cell_centers[:, k]
         for i in range(faces_per_cell):
