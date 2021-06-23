@@ -797,6 +797,8 @@ class Grid:
             np.ndarray, 2 x num_faces: Array representation of face-cell
                 relations
         """
+        if self.num_faces == 0:
+            return np.zeros((0, 2))
         n = self.cell_faces.tocsr()
         d = np.diff(n.indptr)
         rows = matrix_compression.rldecode(np.arange(d.size), d)
