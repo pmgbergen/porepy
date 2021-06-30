@@ -637,10 +637,10 @@ class FractureNetwork3d(object):
     def mesh(
         self,
         mesh_args: Dict[str, float],
-        dfn: bool=False,
-        file_name: Optional[str]=None,
-        constraints: Optional[np.ndarray]=None,
-        write_geo: bool=True,
+        dfn: bool = False,
+        file_name: Optional[str] = None,
+        constraints: Optional[np.ndarray] = None,
+        write_geo: bool = True,
         tags_to_transfer: Optional[List[str]] = None,
         finalize_gmsh: bool = True,
         clear_gmsh: bool = False,
@@ -686,7 +686,11 @@ class FractureNetwork3d(object):
         if file_name is None:
             file_name = "gmsh_frac_file.msh"
 
-        gmsh_repr = self.prepare_for_gmsh(mesh_args, dfn, constraints, )
+        gmsh_repr = self.prepare_for_gmsh(
+            mesh_args,
+            dfn,
+            constraints,
+        )
 
         gmsh_writer = GmshWriter(gmsh_repr)
 
@@ -1451,9 +1455,8 @@ class FractureNetwork3d(object):
             # to a standard list (hstack below), and use rldecode to make a mapping
             # from the expanded list back to the original nested list.
             frac_ind_expanded = pp.utils.matrix_compression.rldecode(
-                np.arange(len(edges_2_frac)),
-                np.array([e.size for e in edges_2_frac])
-                )
+                np.arange(len(edges_2_frac)), np.array([e.size for e in edges_2_frac])
+            )
             edges_loc_ind = frac_ind_expanded[np.hstack(edges_2_frac) == fi]
             edges_loc = np.vstack((edges[:, edges_loc_ind], edges_loc_ind))
 
@@ -1744,7 +1747,7 @@ class FractureNetwork3d(object):
         keep_box: bool = True,
         area_threshold: float = 1e-4,
         clear_gmsh: bool = True,
-        finalize_gmsh: bool = True,   
+        finalize_gmsh: bool = True,
     ) -> np.ndarray:
         """
         Set an external boundary for the fracture set.
@@ -1936,7 +1939,7 @@ class FractureNetwork3d(object):
 
             # Use the ear clipping triangulation to create a 'safe' triangulation
             # See Wikipedia for a description of the algothim.
-            
+
             # Indices used the access vertexes of the polygon. We will check if
             # a diagonal can be drawn between i0 and i2, so that the triangle
             # (i0, i1, i2) is inside the polygon and contains no other polygon
@@ -1979,10 +1982,12 @@ class FractureNetwork3d(object):
                 # 2) It is completely outside the polygon
                 # Check for both. There must be better ways of doing this, with more
                 # knowledge of computational geometry, but the code is what it is.
-                
+
                 # Distance from the prospective diagonal to all boundary segments
                 # of the polygon.
-                dist, *_ = pp.distances.segment_segment_set(p[:, i0], p[:, i2], p, p_rolled)
+                dist, *_ = pp.distances.segment_segment_set(
+                    p[:, i0], p[:, i2], p, p_rolled
+                )
 
                 # Mask away all boundary segments which has i0 or i2 as one of its
                 # endpoints.
@@ -1991,7 +1996,9 @@ class FractureNetwork3d(object):
 
                 # Find center of prospective triangle, check if inside the polygon.
                 center = loc_poly.mean(axis=1)
-                center_in_poly = pp.geometry_property_checks.point_in_polygon(p, center)[0]
+                center_in_poly = pp.geometry_property_checks.point_in_polygon(
+                    p, center
+                )[0]
 
                 if not center_in_poly or (mask.any() and dist[mask].min() < self.tol):
                     # We cannot use this triangle - move on:
@@ -2022,7 +2029,9 @@ class FractureNetwork3d(object):
 
             # Compare volumes of the two grids. If they are almost equal, the
             # polygon should be convex.
-            if np.allclose(g_constrained.cell_volumes.sum(), g_full.cell_volumes.sum(), rtol=1e-5):
+            if np.allclose(
+                g_constrained.cell_volumes.sum(), g_full.cell_volumes.sum(), rtol=1e-5
+            ):
                 # Done with this fracture
                 # Increase the index pointing to ind_map
                 current_ind_map += 1
@@ -2168,7 +2177,7 @@ class FractureNetwork3d(object):
                     == 2
                 )[0]
                 graph.add_edge(tri_ind[0], tri_ind[1])
-                
+
             for component in nx.connected_components(graph):
                 # Extract subgraph of this cluster
                 sg = graph.subgraph(component)
@@ -2609,8 +2618,10 @@ class FractureNetwork3d(object):
         # second fracture may beinserted on later).
 
         # Precompute rolling of fracture points - this saves a bit of time.
-        rolled_fracture_points = {f.index: np.roll(f.p, -1, axis=1) for f in self._fractures}
-        
+        rolled_fracture_points = {
+            f.index: np.roll(f.p, -1, axis=1) for f in self._fractures
+        }
+
         for fi, f in enumerate(self._fractures):
 
             # Do not insert auxiliary points on domain boundaries
@@ -2632,7 +2643,9 @@ class FractureNetwork3d(object):
             # Next, arrays of start and end points. This allows us to use the
             # vectorized segment-segment distance computation.
             start_all = np.hstack([of.p for of in other_fractures])
-            end_all = np.hstack([rolled_fracture_points[of.index] for of in other_fractures])
+            end_all = np.hstack(
+                [rolled_fracture_points[of.index] for of in other_fractures]
+            )
 
             # Now, loop over all segments in the main fracture, look for close
             # segments on other fractures, and insert points along the main
