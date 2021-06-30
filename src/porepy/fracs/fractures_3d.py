@@ -1455,8 +1455,8 @@ class FractureNetwork3d(object):
                 np.array([e.size for e in edges_2_frac])
                 )
             edges_loc_ind = frac_ind_expanded[np.hstack(edges_2_frac) == fi]
-            
             edges_loc = np.vstack((edges[:, edges_loc_ind], edges_loc_ind))
+
             p_ind_loc = np.unique(edges_loc[:2])
             p_loc = all_p[:, p_ind_loc]
 
@@ -1896,8 +1896,9 @@ class FractureNetwork3d(object):
             rot = pp.map_geometry.project_plane_matrix(
                 f.p, tol=1e-12, check_planar=False
             )
-            mapped_coord = rot.dot(f.p - f.center)
-            mapped_orig = rot.dot(f.orig_p - f.center)
+            center_coord = f.center
+            mapped_coord = rot.dot(f.p - center_coord)
+            mapped_orig = rot.dot(f.orig_p - center_coord)
 
             # Construct convex hulls, use these to construct the areas
             # The area for 2d ConvexHull (scipy style) is represented by the attribute volume.
@@ -1922,37 +1923,122 @@ class FractureNetwork3d(object):
                 current_ind_map += 1
                 continue
 
-            # Non-convex polygons are identified by triangulating the polygon from
-            # its vertexes, and check if all resulting triangles lies inside the
-            # polygon.
+            # Non-convex polygons are identified by comparing two triangulations,
+            # one standard Delaunay triangulation with no constraints on adhering to
+            # the polygon boundaries, and a second which is guaranteed not to cross
+            # the polygon boundaries. If the two have equal area, the polygon is
+            # convex, and we need not do anything more. If not, it should be
+            # subdivided into smaller subpolygons.
 
-            # Short hand for mapped vertexes
+            # Short hand notation
             p = mapped_coord
             num_p = p.shape[1]
 
-            tri = Delaunay(p[:2].T)
-            # Triangle centers
-            tri_centers = np.array([p[:2, ti].mean(axis=1) for ti in tri.vertices]).T
-            inside = pp.geometry_property_checks.point_in_polygon(p, tri_centers)
+            # Use the ear clipping triangulation to create a 'safe' triangulation
+            # See Wikipedia for a description of the algothim.
+            
+            # Indices used the access vertexes of the polygon. We will check if
+            # a diagonal can be drawn between i0 and i2, so that the triangle
+            # (i0, i1, i2) is inside the polygon and contains no other polygon
+            # vertexes.
+            i0 = 0
+            i1 = 1
+            i2 = 2
 
-            if np.all(inside):
+            # List of nodes removed (isolated by an introduced diagonal)
+            removed = []
+            # List of triangles introduced
+            tris: List[List[int]] = []
+
+            # Helper function to get i2 move to the next available node
+            def _next_i2(i2):
+                start = i2
+                while True:
+                    i2 += 1
+                    if i2 == num_p:
+                        i2 = 0
+                    if i2 not in removed:
+                        return i2
+
+                    # If we have made it a full circle, something is wrong.
+                    if start == i2:
+                        raise ValueError
+
+            # Rolled version of the polygon, and of the indices.
+            # Needed for segment intersection checks
+            p_rolled = np.roll(p, -1, axis=1)
+            # Indices had to be rolled the other way, it turned out
+            ind_rolled = np.roll(np.arange(num_p), 1)
+
+            while True:
+                # vertexes of the prospective subtriangle
+                loc_poly = p[:, [i0, i1, i2]]
+
+                # A prospective diagonal (i0, i2) can be ruled out for two reasons:
+                # 1) It crosses a segment of the polygon
+                # 2) It is completely outside the polygon
+                # Check for both. There must be better ways of doing this, with more
+                # knowledge of computational geometry, but the code is what it is.
+                
+                # Distance from the prospective diagonal to all boundary segments
+                # of the polygon.
+                dist, *_ = pp.distances.segment_segment_set(p[:, i0], p[:, i2], p, p_rolled)
+
+                # Mask away all boundary segments which has i0 or i2 as one of its
+                # endpoints.
+                mask = np.ones(num_p, dtype=bool)
+                mask[np.unique([i0, i2, ind_rolled[i0], ind_rolled[i2]])] = False
+
+                # Find center of prospective triangle, check if inside the polygon.
+                center = loc_poly.mean(axis=1)
+                center_in_poly = pp.geometry_property_checks.point_in_polygon(p, center)[0]
+
+                if not center_in_poly or (mask.any() and dist[mask].min() < self.tol):
+                    # We cannot use this triangle - move on:
+                    # i0 and i1 are moved one step up, i2 is moved to the next
+                    # available vertex
+                    i0 = i1
+                    i1 = i2
+                    i2 = _next_i2(i2)
+                else:
+                    # Introduce the diagonal (i0, i2).
+                    tris.append([i0, i1, i2])
+                    removed.append(i1)
+                    # Move indices i1 and i2. i0 is fixed.
+                    i1 = i2
+                    i2 = _next_i2(i2)
+
+                if len(removed) == num_p - 2:
+                    # By now, we should have considered all possible candidates.
+                    break
+
+            # Make a grid out of this triangulation for easy volume computation.
+            g_constrained = pp.TriangleGrid(p, np.array(tris).T)
+            g_constrained.compute_geometry()
+
+            # Make a grid with a standard Delaunay triangulation.
+            g_full = pp.TriangleGrid(p[:2])
+            g_full.compute_geometry()
+
+            # Compare volumes of the two grids. If they are almost equal, the
+            # polygon should be convex.
+            if np.allclose(g_constrained.cell_volumes.sum(), g_full.cell_volumes.sum(), rtol=1e-5):
                 # Done with this fracture
                 # Increase the index pointing to ind_map
                 current_ind_map += 1
                 continue
 
             # The polygon is not convex, and should be split into convex subparts.
-            # We could use the triangulation to that purpose, however, that is
+            # We could use the good triangulation to that purpose, however, that is
             # likely to give badly shaped surfaces, and thus cells. Instead, use
             # the Hertel-Mehlhorn algorithm to construct larger convex polygons
             # by eliminating edges from the triangulation.
-
             # First, take note that the original fracture should be deleted.
             delete_frac = np.hstack((delete_frac, fi))
             delete_from_ind_map = np.hstack((delete_from_ind_map, current_ind_map))
 
             # Subset of triangles that are inside
-            triangles = tri.simplices[inside]
+            triangles = g_constrained.cell_nodes().indices.reshape((-1, 3))
 
             # Form all edges of the triangles
             all_edges = np.vstack(
@@ -1977,7 +2063,7 @@ class FractureNetwork3d(object):
             # Find the pairs looping over all vertexes, find all its
             # neighboring vertexes.
             main_vertex = []
-            other_vertex = []
+            other_vertex_list: List[int] = []
             indptr = [0]
 
             for i in range(num_p):
@@ -1986,10 +2072,10 @@ class FractureNetwork3d(object):
                 num_other = other.size
                 indptr.append(indptr[-1] + num_other)
                 main_vertex += num_other * [i]
-                other_vertex += other.tolist()
+                other_vertex_list += other.tolist()
 
             edge_pairs = np.zeros((3, 0), dtype=int)
-            other_vertex = np.array(other_vertex)
+            other_vertex = np.array(other_vertex_list)
             indptr = np.array(indptr)
             main_vertex = np.array(main_vertex)
             # again loop over all the vertexes, sort the neighboring vertexes
@@ -2082,7 +2168,7 @@ class FractureNetwork3d(object):
                     == 2
                 )[0]
                 graph.add_edge(tri_ind[0], tri_ind[1])
-
+                
             for component in nx.connected_components(graph):
                 # Extract subgraph of this cluster
                 sg = graph.subgraph(component)
@@ -2091,7 +2177,7 @@ class FractureNetwork3d(object):
                 # thus a linear ordering should be fine also for a subpolygon.
                 verts = np.unique(triangles[tris])
                 # To be sure, check the convexity of the polygon.
-                self.add(Fracture(f.p[:, verts], check_convexity=True))
+                self.add(Fracture(f.p[:, verts], check_convexity=False))
                 ind_map = np.hstack((ind_map, fi))
 
             # Finally increase pointer to ind_map array
