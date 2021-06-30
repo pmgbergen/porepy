@@ -1432,12 +1432,18 @@ class FractureNetwork3d(object):
             # relationship frac_2_edge here, but that would have made the
             # update for new edges (towards the end of this loop) more
             # cumbersome.
-            edges_loc_ind = []
-            for ei, e in enumerate(edges_2_frac):
-                if np.any(e == fi):
-                    edges_loc_ind.append(ei)
 
-            edges_loc = np.vstack((edges[:, edges_loc_ind], np.array(edges_loc_ind)))
+            # frac_2_edge is a list of arrays of varying size; we need to find
+            # occurences of fi within those lists. Looping is slow, so we expand
+            # to a standard list (hstack below), and use rldecode to make a mapping
+            # from the expanded list back to the original nested list.
+            frac_ind_expanded = pp.utils.matrix_compression.rldecode(
+                np.arange(len(edges_2_frac)),
+                np.array([e.size for e in edges_2_frac])
+                )
+            edges_loc_ind = frac_ind_expanded[np.hstack(edges_2_frac) == fi]
+            
+            edges_loc = np.vstack((edges[:, edges_loc_ind], edges_loc_ind))
             p_ind_loc = np.unique(edges_loc[:2])
             p_loc = all_p[:, p_ind_loc]
 
