@@ -2501,6 +2501,10 @@ class FractureNetwork3d(object):
         # a point is inserted on one fracture, it is not inserted on the close
         # fracture which triggered the insertion (the corresponding point on the
         # second fracture may beinserted on later).
+
+        # Precompute rolling of fracture points - this saves a bit of time.
+        rolled_fracture_points = {f.index: np.roll(f.p, -1, axis=1) for f in self._fractures}
+        
         for fi, f in enumerate(self._fractures):
 
             # Do not insert auxiliary points on domain boundaries
@@ -2521,11 +2525,8 @@ class FractureNetwork3d(object):
 
             # Next, arrays of start and end points. This allows us to use the
             # vectorized segment-segment distance computation.
-            start_all = np.zeros((3, 0))
-            end_all = np.zeros((3, 0))
-            for of in other_fractures:
-                start_all = np.hstack((start_all, of.p))
-                end_all = np.hstack((end_all, np.roll(of.p, -1, axis=1)))
+            start_all = np.hstack([of.p for of in other_fractures])
+            end_all = np.hstack([rolled_fracture_points[of.index] for of in other_fractures])
 
             # Now, loop over all segments in the main fracture, look for close
             # segments on other fractures, and insert points along the main
@@ -2620,6 +2621,8 @@ class FractureNetwork3d(object):
                     sorted_new = new_points[:, np.argsort(dist_from_start)]
 
                     f.p = np.insert(f.p, [start_index + 1], sorted_new, axis=1)
+                    # Update precomputed dict of rolled fracture points
+                    rolled_fracture_points[f.index] = np.roll(f.p, -1, axis=-1)
 
                     # If the new points sit on top of intersections, these must be split
                     for pi in range(sorted_new.shape[1]):
