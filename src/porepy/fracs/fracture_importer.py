@@ -229,13 +229,19 @@ def network_2d_from_csv(
     # Shortcut if no data is loaded
     if data.size == 0:
         # we still consider the possibility that a domain is given
-        return pp.FractureNetwork2d(domain=domain, tol=tol)
+        if return_frac_id:
+            return pp.FractureNetwork2d(domain=domain, tol=tol), np.empty(0)
+        else:
+            return pp.FractureNetwork2d(domain=domain, tol=tol)
     data = np.atleast_2d(data)
 
     # Consider subset of fractures if asked for
     if max_num_fracs is not None:
         if max_num_fracs == 0:
-            return pp.FractureNetwork2d(tol=tol)
+            if return_frac_id:
+                return pp.FractureNetwork2d(tol=tol), np.empty(0)
+            else:
+                return pp.FractureNetwork2d(tol=tol)
         else:
             data = data[:max_num_fracs]
 
