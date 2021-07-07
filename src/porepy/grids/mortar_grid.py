@@ -117,6 +117,7 @@ class MortarGrid:
         # Set projections
         if not (primary_secondary is None):
             self._init_projections(primary_secondary, face_duplicate_ind)
+            self._set_projections()
 
     @pp.time_logger(sections=module_sections)
     def __repr__(self) -> str:
@@ -236,6 +237,9 @@ class MortarGrid:
         )
         self._primary_to_mortar_int: sps.spmatrix = matrix * self._primary_to_mortar_int
 
+        # Also update the other mappings
+        self._set_projections()
+
         # Update the side grids
         for side, g in new_side_grids.items():
             self.side_grids[side] = g.copy()
@@ -293,8 +297,11 @@ class MortarGrid:
         for pos, (side, _) in enumerate(self.side_grids.items()):
             matrix[pos, 0] = split_matrix[side]
 
-        # Update the low_to_mortar_int map. No need to update the high_to_mortar_int.
+        # Update the secondary_to_mortar_int map. No need to update the primary_to_mortar_int.
         self._secondary_to_mortar_int = sps.bmat(matrix, format="csc")
+        # Update other mappings to and from secondary
+        self._set_projections(primary=False)
+
         self._check_mappings()
 
     @pp.time_logger(sections=module_sections)
@@ -354,8 +361,9 @@ class MortarGrid:
             # but this is not yet covered.
             raise NotImplementedError("Have not yet implemented this.")
 
-        # Make a comment here
+        # Update mappings to and from the primary grid
         self._primary_to_mortar_int = self._primary_to_mortar_int * split_matrix
+        self._set_projections(secondary=False)
         self._check_mappings()
 
     @pp.time_logger(sections=module_sections)
@@ -461,8 +469,7 @@ class MortarGrid:
                 Size: g_primary.num_faces x mortar_grid.num_cells.
 
         """
-        scaled_mat = self._row_sum_scaling_matrix(self._primary_to_mortar_int)
-        return self._convert_to_vector_variable(scaled_mat, nd)
+        return self._convert_to_vector_variable(self._primary_to_mortar_avg, nd)
 
     @pp.time_logger(sections=module_sections)
     def secondary_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
@@ -484,8 +491,7 @@ class MortarGrid:
             sps.matrix: Projection matrix with row sum unity.
                 Size: g_secondary.num_cells x mortar_grid.num_cells.
         """
-        scaled_mat = self._row_sum_scaling_matrix(self._secondary_to_mortar_int)
-        return self._convert_to_vector_variable(scaled_mat, nd)
+        return self._convert_to_vector_variable(self._secondary_to_mortar_avg, nd)
 
     @pp.time_logger(sections=module_sections)
     def _row_sum_scaling_matrix(self, mat):
@@ -528,7 +534,7 @@ class MortarGrid:
                 Size: mortar_grid.num_cells x g_primary.num_faces.
 
         """
-        return self._convert_to_vector_variable(self.primary_to_mortar_avg().T, nd)
+        return self._convert_to_vector_variable(self._mortar_to_primary_int, nd)
 
     @pp.time_logger(sections=module_sections)
     def mortar_to_secondary_int(self, nd: int = 1) -> sps.spmatrix:
@@ -551,7 +557,7 @@ class MortarGrid:
 
 
         """
-        return self._convert_to_vector_variable(self.secondary_to_mortar_avg().T, nd)
+        return self._convert_to_vector_variable(self._mortar_to_secondary_int, nd)
 
     @pp.time_logger(sections=module_sections)
     def mortar_to_primary_avg(self, nd: int = 1) -> sps.spmatrix:
@@ -574,7 +580,7 @@ class MortarGrid:
                 Size: mortar_grid.num_cells x g_primary.num_faces.
 
         """
-        return self._convert_to_vector_variable(self.primary_to_mortar_int().T, nd)
+        return self._convert_to_vector_variable(self._mortar_to_primary_avg, nd)
 
     @pp.time_logger(sections=module_sections)
     def mortar_to_secondary_avg(self, nd: int = 1) -> sps.spmatrix:
@@ -597,7 +603,7 @@ class MortarGrid:
                 Size: mortar_grid.num_cells x g_secondary.num_faces.
 
         """
-        return self._convert_to_vector_variable(self.secondary_to_mortar_int().T, nd)
+        return self._convert_to_vector_variable(self._mortar_to_secondary_avg, nd)
 
     @pp.time_logger(sections=module_sections)
     def _convert_to_vector_variable(
@@ -764,6 +770,24 @@ class MortarGrid:
         self._secondary_to_mortar_int = sps.csc_matrix(
             (data.astype(float), (cells, secondary_f)), shape=shape_secondary
         )
+
+    def _set_projections(self, primary: bool = True, secondary: bool = True) -> None:
+        """Set projections to and from primary from the current state of
+        self._primary_to_mortar_int and self._secondary_to_mortar_int.
+        """
+        if primary:
+            self._primary_to_mortar_avg = self._row_sum_scaling_matrix(
+                self._primary_to_mortar_int
+            )
+            self._mortar_to_primary_int = self._primary_to_mortar_avg.T
+            self._mortar_to_primary_avg = self._primary_to_mortar_int.T
+
+        if secondary:
+            self._secondary_to_mortar_avg = self._row_sum_scaling_matrix(
+                self._secondary_to_mortar_int
+            )
+            self._mortar_to_secondary_int = self._secondary_to_mortar_avg.T
+            self._mortar_to_secondary_avg = self._secondary_to_mortar_int.T
 
 
 @pp.time_logger(sections=module_sections)

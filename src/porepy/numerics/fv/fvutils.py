@@ -1916,10 +1916,8 @@ def compute_darcy_flux(
         # fluxes.
 
         bound_flux = d_h[pp.DISCRETIZATION_MATRICES][keyword]["bound_flux"]
-        induced_flux = (
-            bound_flux
-            * d["mortar_grid"].mortar_to_primary_int()
-            * extract_variable(d, lam_name)
+        induced_flux = bound_flux * (
+            d["mortar_grid"].mortar_to_primary_int() * extract_variable(d, lam_name)
         )
         # Remove contribution directly on the boundary faces.
         induced_flux[g_h.tags["fracture_faces"]] = 0
