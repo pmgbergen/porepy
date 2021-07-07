@@ -196,6 +196,8 @@ class FractureNetwork2d(object):
         tags_to_transfer: Optional[List[str]] = None,
         remove_small_fractures=False,
         write_geo: bool = True,
+        finalize_gmsh: bool = True,
+        clear_gmsh: bool = False,
         **kwargs,
     ):
         """Create GridBucket (mixed-dimensional grid) for this fracture network.
@@ -215,6 +217,15 @@ class FractureNetwork2d(object):
                 the network are passed to the fracture grids.
             write_geo (bool, optional): If True (default), the gmsh configuration
                 will be written to a .geo_unrolled file.
+            finalize_gmsh (boolean): If True (default), the port to Gmsh is closed when
+                meshing is completed. On repeated invokations of Gmsh in the same Python
+                session, a memory leak in Gmsh may cause reduced performance (written
+                spring 2021). In these cases, it may be better to finalize gmsh externally
+                to this class. See also clear_gmsh.
+            clear_gmsh (boolean, optional): If True, the geometry representation in gmsh
+                is deleted when meshing is completed. This is of use only if finalize_gmsh
+                is set to False, in which case it may be desirable to delete the old
+                geometry before adding a new one. Defaults to False.
 
         Returns:
             GridBucket: Mixed-dimensional mesh.
@@ -231,7 +242,13 @@ class FractureNetwork2d(object):
         # Consider the dimension of the problem, normally 2d but if dfn is true 1d
         ndim = 2 - int(dfn)
 
-        gmsh_writer.generate(file_name, ndim, write_geo=write_geo)
+        gmsh_writer.generate(
+            file_name,
+            ndim,
+            write_geo=write_geo,
+            finalize=finalize_gmsh,
+            clear_gmsh=clear_gmsh,
+        )
 
         if dfn:
             # Create list of grids

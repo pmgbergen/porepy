@@ -566,8 +566,11 @@ def segments_polygon(start, end, poly, tol=1e-5):
 
     return d, cp
 
+
 @pp.time_logger(sections=module_sections)
-def segment_overlap_segment_set(start, end, start_set, end_set, return_indices=False, tol=1e-5):
+def segment_overlap_segment_set(
+    start, end, start_set, end_set, return_indices=False, tol=1e-5
+):
     """
 
     The input tolerance should be very small
