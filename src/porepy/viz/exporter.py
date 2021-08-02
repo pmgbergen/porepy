@@ -631,9 +631,15 @@ class Exporter:
                 nodes_loc, *_ = pp.utils.sort_points.sort_point_pairs(nodes)
 
                 # define the type of cell we are currently saving
-                cell_type = "polygon" + str(nodes_loc.shape[1])
-                cell_type = polygon_map.get(cell_type, cell_type)
+                cell_type_raw = "polygon" + str(nodes_loc.shape[1])
 
+                # The representation of meshio polygon cells changed in version 4.4
+                if meshio.__version__[2] < "4":
+                    default_type = cell_type_raw
+                else:
+                    default_type = "polygon"
+                # Map to triangle/quad if relevant, or simple polygon for general cells.
+                cell_type = polygon_map.get(cell_type_raw, default_type)
                 # if the cell type is not present, then add it
                 if cell_type not in cell_to_nodes:
                     cell_to_nodes[cell_type] = np.atleast_2d(nodes_loc[0] + pts_pos)
