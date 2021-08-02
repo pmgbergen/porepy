@@ -2489,7 +2489,7 @@ class FractureNetwork3d(object):
             # Always represent the fracture as a polygon
             cell_type = "polygon"
             # The representation of polygons changed in meshio version 4.4
-            if meshio.__version__[2] < '4':
+            if meshio.__version__[2] < "4":
                 cell_type += str(num_pts)
             # just stack all the nodes after the others
             nodes = pts_pos + np.arange(num_pts)
