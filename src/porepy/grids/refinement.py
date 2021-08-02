@@ -24,7 +24,7 @@ module_sections = ["grids", "gridding"]
 
 @pp.time_logger(sections=module_sections)
 def distort_grid_1d(
-    g: pp.Grid, ratio: Optional[float] = 0.1, fixed_nodes: Optional[np.ndarray] = None
+    g: pp.Grid, ratio: float = 0.1, fixed_nodes: Optional[np.ndarray] = None
 ) -> pp.Grid:
     """Randomly distort internal nodes in a 1d grid.
 
@@ -197,7 +197,7 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> Tuple[pp.TriangleGrid, np.ndarra
         equal = np.argwhere(np.diff(loc_n, axis=0) == 0)
         # equal is now 2xnum_cells. To pick out the right elements, consider
         # the raveled index, and construct the corresponding raveled array
-        equal_n = loc_n.ravel()[np.ravel_multi_index(equal.T, loc_n.shape)]
+        equal_n = loc_n.ravel()[np.ravel_multi_index(equal.T, loc_n.shape)]  # type: ignore
 
         # Define node combination. Both nodes associated with a face have their
         # offset adjusted.
