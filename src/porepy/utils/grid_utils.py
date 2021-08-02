@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -21,7 +21,7 @@ def merge_grids(grids: List[pp.Grid]) -> pp.Grid:
     pp.Grid: The merged grid
     """
     if len(grids) < 1:
-        return None  # or [], or throw error?
+        raise ValueError("Need at least one grid for merging")
 
     grid = grids[0].copy()
     if hasattr(grids[0], "cell_facetag"):
@@ -76,7 +76,7 @@ def merge_grids_of_equal_dim(gb: pp.GridBucket) -> pp.GridBucket:
     dimMax = gb.dim_max()
 
     # First merge all grid nodes.
-    mergedGrids = []
+    mergedGrids: List[List[pp.Grid]] = []
     gridsOfDim = np.empty(dimMax + 1, dtype=list)
     gridIdx = np.empty(dimMax + 1, dtype=list)
     numCells = np.empty(dimMax + 1, dtype=list)
@@ -118,10 +118,10 @@ def merge_grids_of_equal_dim(gb: pp.GridBucket) -> pp.GridBucket:
     # Loop over all dimensions and initiate the mapping size
     for i in range(dimMax):
         primary2mortar[i] = np.empty(
-            (len(mortarsOfDim[i]), len(gridsOfDim[i + 1])), dtype=np.object
+            (len(mortarsOfDim[i]), len(gridsOfDim[i + 1])), dtype=object
         )
         secondary2mortar[i] = np.empty(
-            (len(mortarsOfDim[i]), len(gridsOfDim[i])), dtype=np.object
+            (len(mortarsOfDim[i]), len(gridsOfDim[i])), dtype=object
         )
 
         # Add an empty grid for mortar row. This is to let the block matrices
@@ -143,7 +143,7 @@ def merge_grids_of_equal_dim(gb: pp.GridBucket) -> pp.GridBucket:
             secondary2mortar[i][0][j] = sps.csc_matrix((numMortarCells, numGridCells))
 
     # Collect the mortar projections
-    mortarPos = np.zeros(dimMax + 1, dtype=np.int)
+    mortarPos = np.zeros(dimMax + 1, dtype=int)
     for e, d in gb.edges():
         mg = d["mortar_grid"]
         gs, gm = gb.nodes_of_edge(e)
@@ -169,9 +169,9 @@ def merge_grids_of_equal_dim(gb: pp.GridBucket) -> pp.GridBucket:
         mortarPos[mg.dim] += 1
 
     # Finally, merge the mortar grids and projections
-    mergedMortars = []
-    mergedSecondary2Mortar = []
-    mergedPrimary2Mortar = []
+    mergedMortars: List[List[pp.MortarGrid]] = []
+    mergedSecondary2Mortar: List[Union[List, sps.spmatrix]] = []
+    mergedPrimary2Mortar: List[Union[List, sps.spmatrix]] = []
     for dim in range(dimMax + 1):
         if len(mortarsOfDim[dim]) == 0:
             mergedMortars.append([])
