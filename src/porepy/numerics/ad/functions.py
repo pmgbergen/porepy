@@ -234,4 +234,4 @@ class RegularizedHeaviside:
             jac = regularization.jac
             return Ad_array(val, jac)
         else:
-            return np.heaviside(var)
+            return np.heaviside(var)  # type: ignore
