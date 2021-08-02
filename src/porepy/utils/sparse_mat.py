@@ -413,7 +413,7 @@ def _csx_matrix_from_blocks(
         )
         indices = base + block_increase
     else:
-        indices = np.arange(num_blocks, dytpe=int)
+        indices = np.arange(num_blocks, dtype=int)
 
     mat = matrix_format(
         (data, indices, indptr),
