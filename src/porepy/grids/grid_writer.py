@@ -51,7 +51,8 @@ def dump_grid_to_file(g: pp.Grid, fn: str) -> None:
         if hasattr(g, "cartdims"):
             cartdims = np.asarray(g.cartdims)
         else:
-            cartdims = np.zeros(g.dim, dtype=np.int)
+            cartdims = np.zeros(g.dim, dtype=int)
+
         outfile.write(" ".join(map(str, cartdims)) + "\n")
         ## Nodes:
         # Third line is the node coordinates (x1, y1, z1, x2, y2, z2, ...)

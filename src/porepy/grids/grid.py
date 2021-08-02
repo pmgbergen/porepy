@@ -145,6 +145,9 @@ class Grid:
         self.parent_cell_ind: np.ndarray = np.arange(self.num_cells)
         self.global_point_ind: np.ndarray = np.arange(self.num_nodes)
         self._physical_name_index: int = -1
+        self.cartdims: np.ndarray
+        self.cell_facetag: int
+        self.idx: int
 
         self.frac_pairs: np.ndarray = np.array([[]], dtype=int)
 
