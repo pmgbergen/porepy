@@ -59,7 +59,7 @@ class FracturePropagation(abc.ABC):
         # come from combining this class with a mechanical model.
         self.assembler = assembler
         self.gb = self.assembler.gb
-        self.Nd = self.gb.dim_max()
+        self._Nd = self.gb.dim_max()
 
     @abc.abstractmethod
     @pp.time_logger(sections=module_sections)

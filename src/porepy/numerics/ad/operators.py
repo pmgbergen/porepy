@@ -417,7 +417,13 @@ class MergedVariable(Variable):
 
 
 class Function(Operator):
-    """Ad representation of a function."""
+    """Ad representation of a function.
+
+    The intended use is as a wrapper for operations on pp.ad.Ad_array objects,
+    in forms which are not directly or easily expressed by the rest of the Ad
+    framework.
+
+    """
 
     def __init__(self, func: Callable, name: str, local=False):
         """Initialize a function.
@@ -518,5 +524,5 @@ class Tree:
                 self.add_child(child)
 
     def add_child(self, node: Operator) -> None:
-        assert isinstance(node, (Operator, pp.ad.Operator))
+        #        assert isinstance(node, (Operator, "pp.ad.Operator"))
         self.children.append(node)

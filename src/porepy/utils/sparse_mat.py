@@ -184,6 +184,74 @@ def stack_mat(A, B):
 
 
 @pp.time_logger(sections=module_sections)
+def copy(A):
+    """
+    Create a new matrix C that is a copy of matrix A
+    This function is equivalent to
+    A.copy(), but does not change the ordering
+    of the A.indices for csc and csr matrices
+
+    Parameters:
+    -----------
+    A (scipy.sparse.spmatrix): A sparce matrix
+
+
+    Return
+    ------
+        A (scipy.sparse.spmatrix): A sparce matrix
+    """
+    if A.getformat() == "csc":
+        return sps.csc_matrix((A.data, A.indices, A.indptr), shape=A.shape)
+    elif A.getformat() == "csr":
+        return sps.csr_matrix((A.data, A.indices, A.indptr), shape=A.shape)
+    else:
+        return A.copy()
+
+
+@pp.time_logger(sections=module_sections)
+def stack_diag(A, B):
+    """
+    Create a new matrix C that contains matrix A and B at the diagonal:
+    C = [[A, 0], [0, B]]
+    This function is equivalent to
+    sps.block_diag((A, B), format=A.format), but does not change the ordering
+    of the A.indices or B.indices
+
+    Parameters:
+    -----------
+    A (scipy.sparse.spmatrix): A sparce matrix
+    B (scipy.sparse.spmatrix): A sparce matrix
+
+    Return
+    ------
+    None
+
+
+    """
+    if A.getformat() != "csc" and A.getformat() != "csr":
+        raise ValueError("Need a csc or csr matrix")
+    elif A.getformat() != B.getformat():
+        raise ValueError("A and B must be of same matrix type")
+
+    if B.indptr.size == 1:
+        return A
+
+    C = A.copy()
+
+    if A.getformat() == "csc":
+        indices_offset = A.shape[0]
+    else:
+        indices_offset = A.shape[1]
+
+    C.indptr = np.append(A.indptr, B.indptr[1:] + A.indptr[-1])
+    C.indices = np.append(A.indices, B.indices + indices_offset)
+    C.data = np.append(A.data, B.data)
+
+    C._shape = (A._shape[0] + B._shape[0], A._shape[1] + B._shape[1])
+    return C
+
+
+@pp.time_logger(sections=module_sections)
 def slice_indices(A, slice_ind, return_array_ind=False):
     """
     Function for slicing sparse matrix along rows or columns.
@@ -413,7 +481,7 @@ def _csx_matrix_from_blocks(
         )
         indices = base + block_increase
     else:
-        indices = np.arange(num_blocks, dytpe=int)
+        indices = np.arange(num_blocks, dtype=int)
 
     mat = matrix_format(
         (data, indices, indptr),
