@@ -48,7 +48,7 @@ def read_grid(fn):
 
         # neighbourship
         face_cells = np.array(lines[5].replace("\n", "").split(" "), dtype=int)
-        face_cells = np.reshape(face_cells, (2, -1), "F")
+        face_cells = np.reshape(face_cells, (2, -1), "C")
 
         # Face areas
         face_areas = np.array(lines[6].replace("\n", "").split(" "), dtype=float)
