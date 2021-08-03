@@ -145,6 +145,9 @@ class Grid:
         self.parent_cell_ind: np.ndarray = np.arange(self.num_cells)
         self.global_point_ind: np.ndarray = np.arange(self.num_nodes)
         self._physical_name_index: int = -1
+        self.cartdims: np.ndarray
+        self.cell_facetag: int
+        self.idx: int
 
         self.frac_pairs: np.ndarray = np.array([[]], dtype=int)
 
@@ -797,6 +800,8 @@ class Grid:
             np.ndarray, 2 x num_faces: Array representation of face-cell
                 relations
         """
+        if self.num_faces == 0:
+            return np.zeros((0, 2))
         n = self.cell_faces.tocsr()
         d = np.diff(n.indptr)
         rows = matrix_compression.rldecode(np.arange(d.size), d)

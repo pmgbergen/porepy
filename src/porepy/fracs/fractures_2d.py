@@ -349,7 +349,6 @@ class FractureNetwork2d(object):
             self._snap_to_boundary()
 
         self._find_and_split_intersections(constraints)
-
         # Insert auxiliary points and determine mesh size.
         # _insert_auxiliary_points(..) does both.
         # _set_mesh_size_withouth_auxiliary_points() sets the mesh size
@@ -561,6 +560,7 @@ class FractureNetwork2d(object):
         num_pts = self._decomposition["points"].shape[1]
 
         val = 1.0
+
         if mesh_size_frac is not None:
             val = mesh_size_frac
         # One value for each point to distinguish betwee val and val_bound.
