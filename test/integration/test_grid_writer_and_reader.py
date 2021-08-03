@@ -12,6 +12,7 @@ class TestWriterReader(unittest.TestCase):
     We test the grid writer and reader by dumping the grid
     to file, then read it, and compare it to the original grid.
     """
+
     def test_2d_cartesian_grid(self):
         """
         Test 2d cartesian grid
@@ -19,8 +20,8 @@ class TestWriterReader(unittest.TestCase):
         g = pp.CartGrid([2, 2], [1, 1])
         g.compute_geometry()
 
-        pp.io.grid_writer.dump_grid_to_file(g, "test_grid_temp.txt")
-        g_inn = pp.io.grid_reader.read_grid("test_grid_temp.txt")
+        pp.grids.grid_writer.dump_grid_to_file(g, "test_grid_temp.txt")
+        g_inn = pp.grids.grid_reader.read_grid("test_grid_temp.txt")
         os.remove("test_grid_temp.txt")
 
         self.assertTrue(self._grids_are_equal(g, g_inn))
@@ -33,8 +34,8 @@ class TestWriterReader(unittest.TestCase):
         g.compute_geometry()
         g.cell_facetag = np.random.randint(0, 4, g.cell_faces.indices.size)
 
-        pp.io.grid_writer.dump_grid_to_file(g, "test_grid_temp.txt")
-        g_inn = pp.io.grid_reader.read_grid("test_grid_temp.txt")
+        pp.grids.grid_writer.dump_grid_to_file(g, "test_grid_temp.txt")
+        g_inn = pp.grids.grid_reader.read_grid("test_grid_temp.txt")
         os.remove("test_grid_temp.txt")
 
         self.assertTrue(self._grids_are_equal(g, g_inn))
@@ -46,18 +47,18 @@ class TestWriterReader(unittest.TestCase):
         frac = np.array([[0, 1], [0.5, 0.5]])
         gb = pp.meshing.cart_grid([frac], [2, 2], physdims=[1, 1])
 
-        pp.io.grid_writer.dump_grid_bucket_to_file(gb, "test_grid_temp.txt")
+        pp.grids.grid_writer.dump_grid_bucket_to_file(gb, "test_grid_temp.txt")
         for g, d in gb:
             node_number = d["node_number"]
             name = "test_grid_temp_{}.txt".format(node_number)
-            g_inn = pp.io.grid_reader.read_grid(name)
+            g_inn = pp.grids.grid_reader.read_grid(name)
             os.remove(name)
 
             self.assertTrue(self._grids_are_equal(g, g_inn))
 
         for e, d in gb.edges():
             name = "test_grid_temp_mortar_{}.txt".format(d["edge_number"])
-            mg_inn = pp.io.grid_reader.read_grid(name)
+            mg_inn = pp.grids.grid_reader.read_grid(name)
             os.remove(name)
 
             sg = [sub_grid for sub_grid in d["mortar_grid"].side_grids.values()]
@@ -72,8 +73,8 @@ class TestWriterReader(unittest.TestCase):
         g = pp.CartGrid([2, 2, 3], [1, 1, 2])
         g.compute_geometry()
 
-        pp.io.grid_writer.dump_grid_to_file(g, "test_grid_temp.txt")
-        g_inn = pp.io.grid_reader.read_grid("test_grid_temp.txt")
+        pp.grids.grid_writer.dump_grid_to_file(g, "test_grid_temp.txt")
+        g_inn = pp.grids.grid_reader.read_grid("test_grid_temp.txt")
         os.remove("test_grid_temp.txt")
 
         self.assertTrue(self._grids_are_equal(g, g_inn))
@@ -86,8 +87,8 @@ class TestWriterReader(unittest.TestCase):
         g.compute_geometry()
         g.cell_facetag = np.random.randint(0, 6, g.cell_faces.indices.size)
 
-        pp.io.grid_writer.dump_grid_to_file(g, "test_grid_temp.txt")
-        g_inn = pp.io.grid_reader.read_grid("test_grid_temp.txt")
+        pp.grids.grid_writer.dump_grid_to_file(g, "test_grid_temp.txt")
+        g_inn = pp.grids.grid_reader.read_grid("test_grid_temp.txt")
         os.remove("test_grid_temp.txt")
 
         self.assertTrue(self._grids_are_equal(g, g_inn))
@@ -99,8 +100,8 @@ class TestWriterReader(unittest.TestCase):
         g = pp.StructuredTriangleGrid([2, 3], [1, 1])
         g.compute_geometry()
 
-        pp.io.grid_writer.dump_grid_to_file(g, "test_grid_temp.txt")
-        g_inn = pp.io.grid_reader.read_grid("test_grid_temp.txt")
+        pp.grids.grid_writer.dump_grid_to_file(g, "test_grid_temp.txt")
+        g_inn = pp.grids.grid_reader.read_grid("test_grid_temp.txt")
         os.remove("test_grid_temp.txt")
 
         self.assertTrue(self._grids_are_equal(g, g_inn))
@@ -112,8 +113,8 @@ class TestWriterReader(unittest.TestCase):
         g = pp.StructuredTetrahedralGrid([3, 3, 1], [5, 1, 1])
         g.compute_geometry()
 
-        pp.io.grid_writer.dump_grid_to_file(g, "test_grid_temp.txt")
-        g_inn = pp.io.grid_reader.read_grid("test_grid_temp.txt")
+        pp.grids.grid_writer.dump_grid_to_file(g, "test_grid_temp.txt")
+        g_inn = pp.grids.grid_reader.read_grid("test_grid_temp.txt")
         os.remove("test_grid_temp.txt")
 
         self.assertTrue(self._grids_are_equal(g, g_inn))
@@ -145,6 +146,7 @@ class TestWriterReader(unittest.TestCase):
             if not np.allclose(g0.cell_facetag, g1.cell_facetag):
                 return False
         return True
+
 
 if __name__ == "__main__":
     unittest.main()
