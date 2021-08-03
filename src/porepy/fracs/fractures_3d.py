@@ -2922,8 +2922,11 @@ class FractureNetwork3d(object):
             # save the points of the fracture
             meshio_pts = np.vstack((meshio_pts, frac.p.T))
             num_pts = frac.p.shape[1]
-            # determine the fracture type
-            cell_type = "polygon" + str(num_pts)
+            # Always represent the fracture as a polygon
+            cell_type = "polygon"
+            # The representation of polygons changed in meshio version 4.4
+            if meshio.__version__[2] < "4":
+                cell_type += str(num_pts)
             # just stack all the nodes after the others
             nodes = pts_pos + np.arange(num_pts)
             pts_pos += num_pts

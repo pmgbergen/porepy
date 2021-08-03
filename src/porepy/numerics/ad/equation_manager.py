@@ -477,14 +477,17 @@ class EquationManager:
         equations: Optional[List[Expression]] = None,
     ) -> None:
         self.gb = gb
+
+        # Inform mypy about variables, and then set them by a dedicated method.
+        self.variables: Dict[grid_like_type, Dict[str, "pp.ad.Variable"]]
         self._set_variables(gb)
 
         if equations is None:
-            self.equations = []
+            self.equations: List[Expression] = []
         else:
             self.equations = equations
-            # Separate a dof-manager from assembler?
-        self.dof_manager = dof_manager
+
+        self.dof_manager: pp.DofManager = dof_manager
 
     def _set_variables(self, gb):
         # Define variables as specified in the GridBucket
@@ -503,10 +506,12 @@ class EquationManager:
         self.variables = variables
         # Define discretizations
 
-    def merge_variables(self, grid_var: Sequence[Tuple[grid_like_type, str]]):
+    def merge_variables(
+        self, grid_var: Sequence[Tuple[grid_like_type, str]]
+    ) -> "pp.ad.MergedVariable":
         return pp.ad.MergedVariable([self.variables[g][v] for g, v in grid_var])
 
-    def variable(self, grid_like: grid_like_type, variable: str):
+    def variable(self, grid_like: grid_like_type, variable: str) -> "pp.ad.Variable":
         # Method to access the variabe list; to syntax similar to merge_variables
         return self.variables[grid_like][variable]
 
@@ -523,10 +528,25 @@ class EquationManager:
 
     def assemble_matrix_rhs(
         self,
-        equations: Optional[list] = None,
-        ad_var: Optional[list] = None,
+        equations: Optional[List[str]] = None,
+        ad_var: Optional[List[Union["pp.ad.Variable", "pp.ad.MergedVariable"]]] = None,
         state: Optional[np.ndarray] = None,
-    ):
+    ) -> Tuple[sps.spmatrix, np.ndarray]:
+        """Assemble residual vector and Jacobian matrix with respect to the current
+        state represented in self.gb.
+
+        As an experimental feature, subset of variables and equations can also be
+        assembled. This functionality may be moved somewhere else in the future.
+
+        Parameters:
+            equations (list of str, optional): Name of equations to be assembled.
+                Defaults to assembly of all equations.
+            ad_var (Ad variable, optional): Variables to be assembled. Defaults to all
+                variables present known to the EquationManager.
+            state (np.ndarray, optional): State vector to assemble from. If not provided,
+                the default behavior of pp.ad.Expression.to_ad() will be followed.
+
+        """
         mat: List[sps.spmatrix] = []
         b: List[np.ndarray] = []
 
@@ -538,6 +558,7 @@ class EquationManager:
             variables = sorted(list(set(ad_var)), key=lambda v: v.id)
             names: List[str] = [v._name for v in variables]
             num_global_dofs = self.dof_manager.num_dofs(var=names)
+
         for eq in self.equations:
 
             # Neglect equation if not explicilty asked for.

@@ -143,6 +143,59 @@ def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucke
 
 
 @pp.time_logger(sections=module_sections)
+def tensor_grid(
+    fracs: List[np.ndarray], x: np.ndarray, y=None, z=None, **kwargs
+) -> pp.GridBucket:
+    """
+    Creates a cartesian fractured GridBucket in 2- or 3-dimensions.
+
+    Parameters
+    ----------
+    fracs (list of np.ndarray): One list item for each fracture. Each item
+        consist of a (nd x npt) array describing fracture vertices, where npt is 2
+        for 2d domains, 4 for 3d domains. The fractures has to be rectangles(3D) or
+        straight lines(2D) that alignes with the axis. The fractures may be intersecting.
+        The fractures will snap to closest grid faces.
+    x (np.ndarray): Node coordinates in x-direction
+    y (np.ndarray): Node coordinates in y-direction.
+    z (np.ndarray): Node coordinates in z-direction.
+    **kwargs: May contain fracture tags, options for gridding, etc.
+
+    Returns:
+    -------
+    GridBucket: A complete bucket where all fractures are represented as
+        lower dim grids. The higher dim fracture faces are split in two,
+        and on the edges of the GridBucket graph the mapping from lower dim
+        cells to higher dim faces are stored as 'face_cells'. Each face is
+        given boolean tags depending on the type:
+           domain_boundary_faces: All faces that lie on the domain boundary
+               (i.e. should be given a boundary condition).
+           fracture_faces: All faces that are split (i.e. has a connection to a
+               lower dim grid).
+           tip_faces: A boundary face that is not on the domain boundary, nor
+               coupled to a lower domentional domain.
+        The union of the above three is the tag boundary_faces.
+
+    Examples
+    --------
+    frac1 = np.array([[1, 4], [2, 2]])
+    frac2 = np.array([[2, 2], [1, 4]])
+    fracs = [frac1, frac2]
+    gb = cart_grid(fracs, [5, 5])
+
+    """
+    # Call relevant method, depending on grid dimensions
+    if y is None:
+        raise NotImplementedError("fractured tensor grids not implemented in 1D")
+    elif z is None:
+        grids = structured._tensor_grid_2d(fracs, x, y)
+    else:
+        grids = structured._tensor_grid_3d(fracs, x, y, z)
+
+    return grid_list_to_grid_bucket(grids, **kwargs)
+
+
+@pp.time_logger(sections=module_sections)
 def _tag_faces(grids, check_highest_dim=True):
     """
         Tag faces of grids. Three different tags are given to different types of
