@@ -1980,7 +1980,10 @@ class FractureNetwork3d(object):
                 # A prospective diagonal (i0, i2) can be ruled out for two reasons:
                 # 1) It crosses a segment of the polygon
                 # 2) It is completely outside the polygon
-                # Check for both. There must be better ways of doing this, with more
+                # 3) The prospective subtriangle fully contains another point
+                #    (thus other segments). This can happen for a non-convex quad.
+
+                # Check for all three. There must be better ways of doing this, with more
                 # knowledge of computational geometry, but the code is what it is.
 
                 # Distance from the prospective diagonal to all boundary segments
@@ -2000,7 +2003,15 @@ class FractureNetwork3d(object):
                     p, center
                 )[0]
 
-                if not center_in_poly or (mask.any() and dist[mask].min() < self.tol):
+                other_points_in_loc_poly = pp.geometry_property_checks.point_in_polygon(
+                    loc_poly, p
+                )
+
+                if (
+                    not center_in_poly
+                    or (mask.any() and dist[mask].min() < self.tol)
+                    or other_points_in_loc_poly.any()
+                ):
                     # We cannot use this triangle - move on:
                     # i0 and i1 are moved one step up, i2 is moved to the next
                     # available vertex
