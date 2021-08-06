@@ -356,6 +356,9 @@ class GridSequenceFactory(abc.ABC):
     def close(self):
         if hasattr(self, "_gmsh"):
             self._gmsh.finalize()
+            # Also inform the GmshWriter class that gmsh is no longer
+            # initialized.
+            pp.fracs.gmsh_interface.GmshWriter.gmsh_initialized = False
 
     @pp.time_logger(sections=module_sections)
     def _generate(self, counter):
@@ -378,9 +381,10 @@ class GridSequenceFactory(abc.ABC):
         )
         # Initialize gmsh model with the relevant data. The data will be accessible
         # in gmsh.model.mesh (that is the way the Gmsh Python API works)
-        pp.fracs.gmsh_interface.GmshWriter(gmsh_data)
+        writer = pp.fracs.gmsh_interface.GmshWriter(gmsh_data)
         # Generate the first grid
-        gmsh.model.mesh.generate(dim=self.dim)
+        # Do not finalize gmsh; this should be done by a call to self.close()
+        writer.generate(file_name=file_name, finalize=False, clear_gmsh=False)
         self._out_file = file_name
         self._gmsh = gmsh
 
