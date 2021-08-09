@@ -1,8 +1,8 @@
 """
 Various functions with set operations.
 """
-import numpy as np
 import numba
+import numpy as np
 
 import porepy as pp
 
