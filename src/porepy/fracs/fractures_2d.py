@@ -5,7 +5,7 @@ import copy
 import csv
 import logging
 import time
-from typing import Dict, Optional, Tuple, Union, List
+from typing import Dict, List, Optional, Tuple, Union
 
 import meshio
 import numpy as np
@@ -821,7 +821,7 @@ class FractureNetwork2d(object):
         start_bound_pts = self.pts[:, self.edges[0, is_bound]]
         end_bound_pts = self.pts[:, self.edges[1, is_bound]]
 
-        overlap = np.zeros(self.edges.shape[1], dtype=np.bool)
+        overlap = np.zeros(self.edges.shape[1], dtype=bool)
         # loop on all the internal edges and check if should be removed or not
         for ind in np.where(is_internal)[0]:
             # define the start and end point of the current internal edge

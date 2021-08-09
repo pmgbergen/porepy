@@ -9,10 +9,11 @@ import csv
 import logging
 import time
 from typing import Dict, List, Optional, Tuple, Union
-import networkx as nx
+
 import meshio
+import networkx as nx
 import numpy as np
-from scipy.spatial import ConvexHull, Delaunay
+from scipy.spatial import ConvexHull
 
 import porepy as pp
 from porepy.utils import setmembership, sort_points
@@ -2082,22 +2083,22 @@ class FractureNetwork3d(object):
             # with a common vertex.
             # Find the pairs looping over all vertexes, find all its
             # neighboring vertexes.
-            main_vertex = []
+            main_vertex_list = []
             other_vertex_list: List[int] = []
-            indptr = [0]
+            indptr_list = [0]
 
             for i in range(num_p):
                 row, _ = np.where(triangles == i)
                 other = np.setdiff1d(triangles[row].ravel(), i)
                 num_other = other.size
-                indptr.append(indptr[-1] + num_other)
-                main_vertex += num_other * [i]
+                indptr_list.append(indptr_list[-1] + num_other)
+                main_vertex_list += num_other * [i]
                 other_vertex_list += other.tolist()
 
             edge_pairs = np.zeros((3, 0), dtype=int)
             other_vertex = np.array(other_vertex_list)
-            indptr = np.array(indptr)
-            main_vertex = np.array(main_vertex)
+            indptr = np.array(indptr_list)
+            main_vertex = np.array(main_vertex_list)
             # again loop over all the vertexes, sort the neighboring vertexes
             for vi in range(num_p):
                 start = indptr[vi]

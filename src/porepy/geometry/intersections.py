@@ -1352,7 +1352,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
 
 def _point_in_or_on_polygon(
     p: np.ndarray, poly: np.ndarray, tol=1e-8
-) -> Tuple[int, Union[None, Tuple[int, int]]]:
+):
     """Helper function to get intersection information between a point and a polygon.
 
     The polygon is classified as being outside, on the boundary or in the interior of
@@ -1386,13 +1386,13 @@ def _point_in_or_on_polygon(
 
     if dist.min() < tol:
         # Intersection on boundary. Either vertex of segment.
-        seg_ind = np.argmin(dist[0])
         vert_dist = pp.distances.point_pointset(p, poly)
         if vert_dist.min() < tol:
             vert_ind = np.argmin(vert_dist)
             seg_ind = None
         else:
-            vert_ind = None
+            vert_ind = None  # type: ignore
+            seg_ind = np.argmin(dist[0])
         return 1, (seg_ind, vert_ind)
     else:
         # Point inside
