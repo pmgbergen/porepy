@@ -1811,6 +1811,7 @@ def compute_darcy_flux(
     d_name="darcy_flux",
     p_name="pressure",
     lam_name="mortar_solution",
+    well_name="well_flux",
     data=None,
     from_iterate=False,
 ):
@@ -1909,6 +1910,11 @@ def compute_darcy_flux(
     # Note that fluxes over faces on the subdomain boundaries are not included,
     # these are already accounted for in the mortar solution.
     for e, d in gb.edges():
+        if d["mortar_grid"].codim > 1:
+            d[pp.PARAMETERS][keyword_store][d_name] = extract_variable(
+                d, well_name
+            ).copy()
+            continue
         g_h = gb.nodes_of_edge(e)[1]
         d_h = gb.node_props(g_h)
         # The mapping mortar_to_hat_bc contains is composed of a mapping to
