@@ -4,6 +4,11 @@ Module for well representation in Well and WellNetworks.
 
 A well is a polyline of at least nsegs=1 segment defined through a list of
 npts=nsegs+1 points. Wells are connected in a network.
+
+After defining and meshing a fracture network, the wells may be added to the gb
+by
+    compute_well_fracture_intersections(well_network, fracture_network)
+    well_network.mesh(gb)
 """
 import logging
 from typing import Dict, List, Optional, Tuple, Union
@@ -374,7 +379,153 @@ class WellNetwork3d(object):
             pp.utils.tags.add_node_tags_from_face_tags(gb, t)
 
 
-def _intersection_grid(point, gb):
+def compute_well_fracture_intersections(well_network, fracture_network):
+    """Compute intersections and store tags identifying which fracture
+    and well segments each intersection corresponds.
+
+    Parameters:
+        well_network containing the wells, which are assumed to have at least
+            two points each (in well.p). Intersection points and tags are added
+            and updated in-place.
+        fracture_network containing the (3d) fractures.
+
+
+    A new set of points will be computed for each well, with original points
+    and new intersection points. Note that original points may also correspond
+    to an intersection with a fracture. Each well's tags are updated with the list
+    "intersecting_fractures", with one list for each point in the new set. The
+    entries of the inner list are the indices of the fractures intersecting the
+    well at the corresponding point. Multiple fractures may intersect in any
+    given point, but this might require special treatment elsewhere.
+    The tags are crucial to the meshing of the well network.
+    """
+
+    for well in well_network._wells:
+        well_pts = np.empty((3, 0))
+        well_tags = []
+        for seg_ind, segment in well.segments():
+            # Special treatment of endpoint of the segment, which should not
+            # be added to the point array nor have its tag updated unless we are
+            # at the endpoint of the well.
+            ignore_endpoint_tag = seg_ind[1] < well.num_segments()
+            # Keep track of information for this segment
+            pts_seg = segment.copy()
+            # Initiate tags for this segment, with empty elements for the endpoints
+            tags_seg = [np.empty(0), np.empty(0)]
+            for fracture, tag in zip(
+                fracture_network._fractures, fracture_network.tags["boundary"]
+            ):
+                if tag:
+                    continue
+                pts_seg, tags_seg = _intersection_segment_fracture(
+                    pts_seg, fracture, tags_seg, ignore_endpoint_tag
+                )
+            # Sort points of this segment
+            sort_inds, sorted_pts = _argsort_points_along_line_segment(pts_seg)
+
+            stop_ind = sort_inds.size - ignore_endpoint_tag
+            well_pts = np.hstack((well_pts, sorted_pts[:, :stop_ind]))
+            # The last tag might change when it is used for the start point of
+            # the next segment. Store remaining tags in correct order
+            [well_tags.append(tags_seg[i]) for i in sort_inds[:stop_ind]]
+        # Overwrite old points and tags for this well
+        well.p = well_pts
+        well.tags["intersecting_fractures"] = well_tags
+
+
+def _argsort_points_along_line_segment(
+    seg: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Sort point lying along a segment.
+
+    Parameters:
+        seg (array): 3 x npts coordinates of the points to be sorted, assumed
+            to lie on a straight line.
+
+    Returns:
+        array (npts x 1): Indices of the sorting.
+        array (3 x npts): Sorted points.
+
+    The sorting is done so that
+    seg[d, inds[0]], seg[d,inds[1]], ..., seg[d,inds[-2]], seg[d,inds[-1]]
+    is monotone for at least one dimension d. Ascending or descending order
+    is determined by the values of the two end points.
+    """
+    for dim in range(3):
+        if not np.isclose(seg[dim, 0] - seg[dim, 1], 0):
+            break
+    inds = np.argsort(seg[dim])
+    if seg[dim, 0] > seg[dim, 1]:
+        inds = inds[::-1]
+    return inds, seg[:, inds]
+
+
+def _intersection_segment_fracture(
+    segment_points: np.ndarray,
+    fracture: pp.Fracture,
+    tags: List[np.ndarray],
+    ignore_endpoint_tag: bool,
+    tol: float = 1e-8,
+) -> Tuple[np.ndarray, List[np.ndarray]]:
+    """Compute intersection between a single line segment and fracture.
+
+    Checks whether the intersection corresponds to one of the endpoints and
+    provide that information.
+    segment_points are
+
+    Parameters:
+        segment_points (array, 3 x npts): coordinates of the points on the line segment,
+            sorted as [start, end, *any interior points]
+        fracture (pp.Fracture): the fracture to be checked for intersections
+            with the line segment.
+        tags (list of length npts): identifies fractures (by fracture.index)
+            intersecting at each of the points in segment_points.
+        ingore_endpoint_tag (bool): whether to update the tag of the second endpoint
+            or not. To be used when looping over a polyline. The last endpoint
+            of this segment will be treated as the first endpoint of the next
+            segment.
+        tol (float): Used to determine whether there is an intersection between
+            the segment and the fracture.
+
+    Returns:
+        segment_points (array, 3 x npts): updated coordinates of the points on
+            the line segment, sorted as [start, end, *any interior points].
+            Any new points have been appended.
+        tags (list of length npts): updated tags.
+    """
+    distance, isec_pt = pp.geometry.distances.segments_polygon(
+        segment_points[:, 0], segment_points[:, 1], fracture.p
+    )
+    if distance > tol:
+        return segment_points, tags
+    dist_endpt_isec = pp.geometry.distances.point_pointset(isec_pt, segment_points)
+    ind_point_at_node = np.isclose(dist_endpt_isec, 0)
+
+    if ignore_endpoint_tag and ind_point_at_node[1]:
+        return segment_points, tags
+    elif np.any(ind_point_at_node):
+        # The new intersection point already exists on the segment (endpoint or
+        # internal). Point is not added, but tags are updated with the fracture
+        # index.
+        ind_loc = ind_point_at_node.nonzero()[0][0]
+        tags[ind_loc] = np.append(tags[ind_loc], fracture.index)
+    else:
+        # Store point and tag
+        segment_points = np.hstack((segment_points, isec_pt))
+        tags.append(np.array(fracture.index))
+    return segment_points, tags
+
+
+def _intersection_grid(point: np.ndarray, gb: pp.GridBucket) -> pp.PointGrid:
+    """Make a point grid and add to gb.
+
+    Parameters:
+        point (array, 3 x 1): coordinates.
+        gb: The grid bucket.
+
+    Returns:
+        PointGrid
+    """
     g = pp.PointGrid(point)
     g.name.append("Well-fracture intersection grid")
     g.compute_geometry()
@@ -382,7 +533,7 @@ def _intersection_grid(point, gb):
     return g
 
 
-def _add_fracture_2_intersection_edge(g_l, frac_num, gb):
+def _add_fracture_2_intersection_edge(g_l: pp.Grid, frac_num: int, gb: pp.GridBucket):
     """
     Does not check that the well lies _inside_ a fracture cell and not on the
     face between two cells.
@@ -409,10 +560,18 @@ def _add_well_2_intersection_edge(g_l: pp.Grid, g_h: pp.Grid, gb: pp.GridBucket)
     _add_edge(g_l, g_h, gb, face_cell_map)
 
 
-def _add_edge(g_l, g_h, gb, primary_secondary_map):
-    """
-    g_l is the intersection point grid
-    g_h is fracture or well
+def _add_edge(
+    g_l: pp.Grid, g_h: pp.Grid, gb: pp.GridBucket, primary_secondary_map: np.ndarray
+):
+    """Utility method to add an edge to the gb.
+
+    Both grids should already be present in the bucket.
+    Parameters:
+        g_l: is the intersection point grid.
+        g_h. represents fracture or well.
+        gb: GridBucket to which the edge will be added.
+        primary_secondary_map (array): Map between cells_l and either faces_h
+            (codim=1) or cells_h (codim=2).
     """
     codim = g_h.dim - g_l.dim
     edge = (g_h, g_l)

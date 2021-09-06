@@ -98,7 +98,11 @@ from porepy.fracs.fractures_3d import Fracture, EllipticFracture, FractureNetwor
 from porepy.fracs.fractures_2d import FractureNetwork2d
 
 # Wells
-from porepy.fracs.wells_3d import Well, WellNetwork3d
+from porepy.fracs.wells_3d import (
+    Well,
+    WellNetwork3d,
+    compute_well_fracture_intersections,
+)
 
 
 # Numerics
