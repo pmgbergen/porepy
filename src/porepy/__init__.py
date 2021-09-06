@@ -97,6 +97,10 @@ from porepy.utils import grid_utils
 from porepy.fracs.fractures_3d import Fracture, EllipticFracture, FractureNetwork3d
 from porepy.fracs.fractures_2d import FractureNetwork2d
 
+# Wells
+from porepy.fracs.wells_3d import Well, WellNetwork3d
+
+
 # Numerics
 from porepy.numerics.discretization import VoidDiscretization
 from porepy.numerics.interface_laws.elliptic_discretization import (
@@ -128,6 +132,7 @@ from porepy.numerics.fem.rt0 import RT0
 from porepy.numerics.interface_laws.elliptic_interface_laws import (
     RobinCoupling,
     FluxPressureContinuity,
+    WellCoupling,
 )
 
 from porepy.numerics.interface_laws.cell_dof_face_dof_map import CellDofFaceDofMap
@@ -164,8 +169,8 @@ from porepy.models.run_models import (
     run_time_dependent_model,
 )
 
-from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 from porepy.models.contact_mechanics_model import ContactMechanics
+from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 from porepy.models.thm_model import THM
 
 # from porepy.numerics.ad.equation_manager import Equation, EquationManager

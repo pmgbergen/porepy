@@ -250,27 +250,31 @@ class MortarProjections(Operator):
         for e in edges:
             g_primary, g_secondary = e
             mg: pp.MortarGrid = gb.edge_props(e, "mortar_grid")
-            if (g_primary.dim != mg.dim + 1) or g_secondary.dim != mg.dim:
+            if (g_primary.dim != mg.dim + mg.codim) or g_secondary.dim != mg.dim:
                 # This will correspond to DD of sorts; we could handle this
                 # by using cell_projections for g_primary and/or
                 # face_projection for g_secondary, depending on the exact
                 # configuration
                 raise NotImplementedError("Non-standard interface.")
-
+            primary_projection = (
+                face_projection[g_primary]
+                if mg.codim < 2
+                else cell_projection[g_primary]
+            )
             # Projections to primary
             mortar_to_primary_int.append(
-                face_projection[g_primary] * mg.mortar_to_primary_int(nd)
+                primary_projection * mg.mortar_to_primary_int(nd)
             )
             mortar_to_primary_avg.append(
-                face_projection[g_primary] * mg.mortar_to_primary_avg(nd)
+                primary_projection * mg.mortar_to_primary_avg(nd)
             )
 
             # Projections from primary
             primary_to_mortar_int.append(
-                mg.primary_to_mortar_int(nd) * face_projection[g_primary].T
+                mg.primary_to_mortar_int(nd) * primary_projection.T
             )
             primary_to_mortar_avg.append(
-                mg.primary_to_mortar_avg(nd) * face_projection[g_primary].T
+                mg.primary_to_mortar_avg(nd) * primary_projection.T
             )
 
             mortar_to_secondary_int.append(
@@ -290,35 +294,32 @@ class MortarProjections(Operator):
         # Stack mappings from the mortar horizontally.
         # The projections are wrapped by a pp.ad.Matrix to be compatible with the
         # requirements for processing of Ad operators.
-        self.mortar_to_primary_int = Matrix(sps.bmat([mortar_to_primary_int]).tocsr())
-        self.mortar_to_primary_avg = Matrix(sps.bmat([mortar_to_primary_avg]).tocsr())
-        self.mortar_to_secondary_int = Matrix(
-            sps.bmat([mortar_to_secondary_int]).tocsr()
-        )
-        self.mortar_to_secondary_avg = Matrix(
-            sps.bmat([mortar_to_secondary_avg]).tocsr()
-        )
+        def bmat(matrices):
+            if len(edges) == 0:
+                return Matrix(sps.bmat([[None]]))
+            else:
+                return Matrix(sps.bmat(matrices, format="csr"))
+
+        self.mortar_to_primary_int = bmat([mortar_to_primary_int])
+        self.mortar_to_primary_avg = bmat([mortar_to_primary_avg])
+        self.mortar_to_secondary_int = bmat([mortar_to_secondary_int])
+        self.mortar_to_secondary_avg = bmat([mortar_to_secondary_avg])
 
         # Vertical stacking of the projections
-        self.primary_to_mortar_int = Matrix(
-            sps.bmat([[m] for m in primary_to_mortar_int]).tocsr()
-        )
-        self.primary_to_mortar_avg = Matrix(
-            sps.bmat([[m] for m in primary_to_mortar_avg]).tocsr()
-        )
-        self.secondary_to_mortar_int = Matrix(
-            sps.bmat([[m] for m in secondary_to_mortar_int]).tocsr()
-        )
-        self.secondary_to_mortar_avg = Matrix(
-            sps.bmat([[m] for m in secondary_to_mortar_avg]).tocsr()
-        )
+        self.primary_to_mortar_int = bmat([[m] for m in primary_to_mortar_int])
+        self.primary_to_mortar_avg = bmat([[m] for m in primary_to_mortar_avg])
+        self.secondary_to_mortar_int = bmat([[m] for m in secondary_to_mortar_int])
+        self.secondary_to_mortar_avg = bmat([[m] for m in secondary_to_mortar_avg])
 
         # Also generate a merged version of MortarGrid.sign_of_mortar_sides:
         mats = []
         for e in edges:
             mg = gb.edge_props(e, "mortar_grid")
             mats.append(mg.sign_of_mortar_sides(nd))
-        self.sign_of_mortar_sides = Matrix(sps.block_diag(mats))
+        if len(edges) == 0:
+            self.sign_of_mortar_sides = Matrix(sps.bmat([[None]]))
+        else:
+            self.sign_of_mortar_sides = Matrix(sps.block_diag(mats))
 
     def __repr__(self) -> str:
         s = (
@@ -604,7 +605,7 @@ class ParameterArray(Operator):
         param_keyword: str,
         array_keyword: str,
         grids: Optional[List[pp.Grid]] = None,
-        gb: Optional[pp.GridBucket] = None,
+        edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None,
     ):
         """Construct a wrapper for scalar sources for a set of subdomains.
 
@@ -621,9 +622,9 @@ class ParameterArray(Operator):
                 to get the relevant parameter dictionary (same way as discretizations
                 pick out their parameters).
             grids (List of pp.Grid): List of grids. The order of the grids in the list
-                sets the ordering of the boundary values.
-            gb (pp.GridBucket): Used if grid list is not provided. The order of the
-                grids is set according to iteration over the GridBucket nodes.
+                sets the ordering of the parameter values.
+           edges (List of tuples of pp.Grid): List of edges. The order of the edges in the list
+                sets the ordering of the parameter values.
 
 
         Example:
@@ -631,10 +632,19 @@ class ParameterArray(Operator):
             and array_keyword='source'.
 
         """
+        if grids is None:
+            grids = []
+            if edges is None:
+                raise ValueError(
+                    "ParameterArray needs at least a list of grids or a list of edges"
+                )
+        elif edges is None:
+            edges = []
 
         self.param_keyword = param_keyword
         self.array_keyword = array_keyword
-        self._g: List[pp.Grid] = _grid_list(grids, gb)
+        self._g: List[pp.Grid] = grids
+        self._e: List[Tuple[pp.Grid, pp.Grid]] = edges
         self._set_tree()
 
     def __repr__(self) -> str:
@@ -650,6 +660,16 @@ class ParameterArray(Operator):
         for d in range(3, -1, -1):
             if dims[d] > 0:
                 s += f"{dims[d]} grids of dimension {d}\n"
+
+        dims = np.zeros(4, dtype=int)
+        for e in self._e:
+            # The mg and its dimension are not accessible without the gb.
+            # Assume mg.dim equals g_l.dim
+            dims[e[1].dim] += 1
+        for d in range(3, -1, -1):
+            if dims[d] > 0:
+                s += f"""{dims[d]} mortar grids with lower-dimensional neighbor
+                of dimension {d}\n"""
 
         return s
 
@@ -669,7 +689,9 @@ class ParameterArray(Operator):
         for g in self._g:
             data = gb.node_props(g)
             val.append(data[pp.PARAMETERS][self.param_keyword][self.array_keyword])
-
+        for e in self._e:
+            data = gb.edge_props(e)
+            val.append(data[pp.PARAMETERS][self.param_keyword][self.array_keyword])
         return np.hstack([v for v in val])
 
 
@@ -679,6 +701,8 @@ class ParameterArray(Operator):
 def _grid_list(
     grids: Optional[List[pp.Grid]], gb: Optional[pp.GridBucket]
 ) -> List[pp.Grid]:
+    # TODO: Decide whether to purge this and remove the option to initialize
+    # operators with gb instead of grid_list.
     # Helper method to parse input data
     if grids is None:
         if gb is None:

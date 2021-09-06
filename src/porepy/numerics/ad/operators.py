@@ -94,7 +94,7 @@ class Operator:
             operation = node.tree.op
             G.add_node(operation)
             G.add_edge(node, operation)
-            for child in node._tree._children:
+            for child in node.tree.children:
                 parse_subgraph(child)
                 G.add_edge(child, operation)
 
