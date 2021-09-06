@@ -19,9 +19,11 @@ __all__ = [
     "BiotStabilizationAd",
     "ColoumbContactAd",
     "MpfaAd",
+    "TpfaAd",
     "MassMatrixAd",
     "UpwindAd",
     "RobinCouplingAd",
+    "WellCouplingAd",
 ]
 
 
@@ -277,6 +279,31 @@ class MpfaAd:
         return s
 
 
+class TpfaAd:
+    def __init__(self, keyword, grids):
+
+        if isinstance(grids, list):
+            self._grids = grids
+        else:
+            self._grids = [grids]
+        self._discretization = pp.Tpfa(keyword)
+        self._name = "Tpfa"
+        self.keyword = keyword
+
+        self.flux: _MergedOperator
+        self.bound_flux: _MergedOperator
+        self.bound_pressure_cell: _MergedOperator
+        self.bound_pressure_face: _MergedOperator
+        self.vector_source: _MergedOperator
+        self.bound_pressure_vector_source: _MergedOperator
+
+        _wrap_discretization(self, self._discretization, grids)
+
+    def __repr__(self) -> str:
+        s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
+        return s
+
+
 class MassMatrixAd:
     def __init__(self, keyword, grids):
         if isinstance(grids, list):
@@ -315,6 +342,28 @@ class UpwindAd:
         return s
 
 
+class WellCouplingAd:
+    def __init__(self, keyword, edges):
+        if isinstance(edges, list):
+            self._edges = edges
+        else:
+            self._edges = [edges]
+        self._discretization = pp.WellCoupling(keyword, primary_keyword=keyword)
+        self._name = "Well interface coupling"
+        self.keyword = keyword
+
+        self.well_discr: _MergedOperator
+        self.mortar_vector_source: _MergedOperator
+        _wrap_discretization(self, self._discretization, edges)
+
+    def __repr__(self) -> str:
+        s = (
+            f"Ad discretization of type {self._name}."
+            f"Defined on {len(self._edges)} mortar grids."
+        )
+        return s
+
+
 class RobinCouplingAd:
     def __init__(self, keyword, edges):
         if isinstance(edges, list):
@@ -327,10 +376,14 @@ class RobinCouplingAd:
 
         self.mortar_scaling: _MergedOperator
         self.mortar_discr: _MergedOperator
+        self.mortar_vector_source: _MergedOperator
         _wrap_discretization(self, self._discretization, edges)
 
     def __repr__(self) -> str:
-        s = f"Ad discretization of type {self._name}. Defined on {len(self._edges)} grids"
+        s = (
+            f"Ad discretization of type {self._name}."
+            f"Defined on {len(self._edges)} mortar grids."
+        )
         return s
 
 
@@ -439,6 +492,9 @@ class _MergedOperator(Operator):
 def _wrap_discretization(
     obj, discr, grids, mat_dict_key: Optional[str] = None, mat_dict_grids=None
 ):
+    """
+    Please add documentation, @EK.
+    """
     key_set = []
     # Loop over all discretizations, identify all attributes that ends with
     # "_matrix_key". These will be taken as discretizations (they are discretization
