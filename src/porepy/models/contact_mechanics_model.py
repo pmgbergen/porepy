@@ -18,14 +18,14 @@ import scipy.sparse as sps
 import scipy.sparse.linalg as spla
 
 import porepy as pp
-import porepy.models.abstract_model
+from porepy.models.abstract_model import AbstractModel
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
 module_sections = ["models", "numerics"]
 
 
-class ContactMechanics(porepy.models.abstract_model.AbstractModel):
+class ContactMechanics(AbstractModel):
     """This is a shell class for contact mechanics problems.
 
     Setting up such problems requires a lot of boilerplate definitions of variables,
