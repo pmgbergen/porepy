@@ -473,25 +473,19 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
         assert t >= 0 and t <= 1
         return start + t * dx
 
-    def vector_pointset_point(a, b, tol=1e-4):
+    def vector_pointset_point(a, b, tol=1e-8):
         # Create a set of non-zero vectors from a point in the plane spanned by
         # a, to all points in b
-        found = None
         # Loop over all points in a, search for a point that is sufficiently
         # far away from b. Mainly this involves finding a point in a which is
         # not in b
+        dist = np.zeros(a.shape[1])
         for i in range(a.shape[1]):
-            dist = np.sqrt(np.sum((b - a[:, i].reshape((-1, 1))) ** 2, axis=0))
-            if np.min(dist) > tol:
-                found = i
-                break
-        if found is None:
-            # All points in a are also in b. We could probably use some other
-            # point in a, but this seems so strange that we will rather
-            # raise an error, with the expectation that this should never happen.
-            raise ValueError("Coinciding polygons")
+            dist[i] = np.min(np.sqrt(np.sum((b - a[:, i].reshape((-1, 1))) ** 2, axis=0)))
 
-        return b - a[:, found].reshape((-1, 1))
+        ind = np.argmax(dist)
+        assert dist[ind] > tol
+        return b - a[:, ind].reshape((-1, 1))
 
     num_polys = len(polys)
 
