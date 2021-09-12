@@ -17,7 +17,6 @@ import porepy as pp
 import porepy.grids.standard_grids.utils as utils
 
 module_sections = ["grids", "gridding"]
-unit_domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
 
 
 @pp.time_logger(sections=module_sections)
@@ -41,19 +40,20 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
     if x_endpoints is None:
         x_endpoints = [0, 1]
 
+    domain = utils.unit_domain(2)
     if simplex:
         if mesh_args is None:
             mesh_args = {"mesh_size_frac": 0.2}
         points = np.array([x_endpoints, [0.5, 0.5]])
         edges = np.array([[0], [1]])
-        gb = utils.make_gb_2d_simplex(mesh_args, points, edges, unit_domain)
+        gb = utils.make_gb_2d_simplex(mesh_args, points, edges, domain)
 
     else:
         fracture = np.array([x_endpoints, [0.5, 0.5]])
         gb = pp.meshing.cart_grid(
-            [fracture], mesh_args, physdims=[unit_domain["xmax"], unit_domain["ymax"]]
+            [fracture], mesh_args, physdims=[domain["xmax"], domain["ymax"]]
         )
-    return gb, unit_domain
+    return gb, domain
 
 
 @pp.time_logger(sections=module_sections)
@@ -76,18 +76,18 @@ def single_vertical(mesh_args=None, y_endpoints=None, simplex=True):
     """
     if y_endpoints is None:
         y_endpoints = [0, 1]
-
+    domain = utils.unit_domain(2)
     if simplex:
         if mesh_args is None:
             mesh_args = {"mesh_size_frac": 0.2}
         points = np.array([[0.5, 0.5], y_endpoints])
         edges = np.array([[0], [1]])
-        gb = utils.make_gb_2d_simplex(mesh_args, points, edges, unit_domain)
+        gb = utils.make_gb_2d_simplex(mesh_args, points, edges, domain)
 
     else:
         fracture = np.array([[0.5, 0.5], y_endpoints])
         gb = pp.meshing.cart_grid(
-            [fracture], mesh_args, physdims=[unit_domain["xmax"], unit_domain["ymax"]]
+            [fracture], mesh_args, physdims=[domain["xmax"], domain["ymax"]]
         )
     return gb
 
@@ -119,7 +119,7 @@ def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex
         x_endpoints = [0, 1]
     if y_endpoints is None:
         y_endpoints = [0, 1]
-
+    domain = utils.unit_domain(2)
     if simplex:
         if mesh_args is None:
             mesh_args = {"mesh_size_frac": 0.2}
@@ -130,7 +130,7 @@ def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex
             ]
         )
         edges = np.array([[0, 2], [1, 3]])
-        gb = utils.make_gb_2d_simplex(mesh_args, points, edges, unit_domain)
+        gb = utils.make_gb_2d_simplex(mesh_args, points, edges, domain)
 
     else:
         fracture0 = np.array([x_endpoints, [0.5, 0.5]])
@@ -138,10 +138,10 @@ def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex
         gb = pp.meshing.cart_grid(
             [fracture0, fracture1],
             mesh_args,
-            physdims=[unit_domain["xmax"], unit_domain["ymax"]],
+            physdims=[domain["xmax"], domain["ymax"]],
         )
         gb.compute_geometry()
-    return gb, unit_domain
+    return gb, domain
 
 
 @pp.time_logger(sections=module_sections)
@@ -212,8 +212,9 @@ def benchmark_regular(mesh_args, is_coarse=False):
             [0.625, 0.75],
         ]
     ).T
+    domain = utils.unit_domain(2)
     edges = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11]]).T
-    gb = utils.make_gb_2d_simplex(mesh_args, points, edges, domain=unit_domain)
+    gb = utils.make_gb_2d_simplex(mesh_args, points, edges, domain=domain)
     if is_coarse:
         pp.coarsening.coarsen(gb, "by_volume")
-    return gb, unit_domain
+    return gb, domain
