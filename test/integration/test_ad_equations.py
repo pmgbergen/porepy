@@ -6,8 +6,6 @@ and the classical way of defining equations.
 import pytest
 import porepy as pp
 import numpy as np
-import scipy.sparse.linalg as spla
-import scipy.sparse as sps
 
 from test import test_utils
 
@@ -40,25 +38,25 @@ def test_md_flow():
             bc_values[0] = 1
             sources = np.random.rand(g.num_cells) * g.cell_volumes
             specified_parameters = {
-                "bc": bc, 
+                "bc": bc,
                 "bc_values": bc_values,
                 "source": sources
                 }
         else:
             sources = np.random.rand(g.num_cells) * g.cell_volumes
             specified_parameters = {"source": sources}
-        
+
         # Initialize data
         pp.initialize_default_data(g, d, keyword, specified_parameters)
-        
+
         # Declare grid primary variable
         d[pp.PRIMARY_VARIABLES] = {pressure_variable: {"cells": 1}}
-        
+
         # Assign discretization
         d[pp.DISCRETIZATION] = {
             pressure_variable: {"diff": discr, "source": source_discr}
             }
-        
+
         # Initialize state
         d[pp.STATE] = {
             pressure_variable: np.zeros(g.num_cells),
@@ -97,7 +95,7 @@ def test_md_flow():
     edge_discr = pp.ad.RobinCouplingAd(keyword, edge_list)
 
     bc_val = pp.ad.BoundaryCondition(keyword, grid_list)
-    
+
     source = pp.ad.ParameterArray(param_keyword=keyword, array_keyword='source', grids=grid_list)
 
     projections = pp.ad.MortarProjections(gb=gb)
@@ -421,3 +419,5 @@ def test_contact_mechanics_biot(grid_method):
     model_ad = BiotContactModel({}, grid_method)
     model_ad._use_ad = True
     _timestep_stepwise_newton_with_comparison(model_as, model_ad)
+
+

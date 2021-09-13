@@ -851,3 +851,179 @@ class FluxPressureContinuity(RobinCoupling):
 
     def __repr__(self) -> str:
         return f"Interface coupling with full pressure flux continuity. Keyword {self.keyword}"
+
+
+class WellCoupling(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
+    """Simple version of the classical Peaceman model relating well and fracture
+    pressure.
+
+    """
+
+    def __init__(
+        self,
+        keyword: str,
+        discr_primary: Optional["pp.EllipticDiscretization"] = None,
+        discr_secondary: Optional["pp.EllipticDiscretization"] = None,
+        primary_keyword: Optional[str] = None,
+    ) -> None:
+        """Initialize Robin Coupling.
+
+        Parameters:
+            keyword (str): Keyword used to access parameters needed for this
+                discretization in the data dictionary. Will also define where
+                 discretization matrices are stored.
+            discr_primary: Discretization on the higher-dimensional neighbor. Only
+                needed when the RobinCoupling is used for local assembly.
+            discr_secondary: Discretization on the lower-dimensional neighbor. Only
+                needed when the RobinCoupling is used for local assembly. If not
+                provided, it is assumed that primary and secondary discretizations
+                are identical.
+            primary_keyword: Parameter keyword for the discretization on the higher-
+                dimensional neighbor, which the RobinCoupling is intended coupled to.
+                Only needed when the object is not used for local assembly (that is,
+                needed if Ad is used).
+        """
+        super().__init__(keyword)
+
+        if discr_secondary is None:
+            discr_secondary = discr_primary
+
+        if primary_keyword is not None:
+            self._primary_keyword = primary_keyword
+        else:
+            if discr_primary is None:
+                raise ValueError(
+                    "Either primary keyword or primary discretization must be specified"
+                )
+            else:
+                self._primary_keyword = discr_primary.keyword
+
+        self.discr_primary = discr_primary
+        self.discr_secondary = discr_secondary
+
+        # Keys used to identify the discretization matrices of this discretization
+        self.well_discr_matrix_key = "well_mortar_discr"
+        self.mortar_vector_source_matrix_key = "well_vector_source_discr"
+
+    def ndof(self, mg: pp.MortarGrid) -> int:
+        return mg.num_cells
+
+    def discretize(
+        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
+    ) -> None:
+        """Discretize the Peaceman interface law and store the discretization in the
+        edge data.
+
+        Parameters:
+            g_h: Grid of the primary domanin.
+            g_l: Grid of the secondary domain.
+            data_h: Data dictionary for the primary domain.
+            data_l: Data dictionary for the secondary domain.
+            data_edge: Data dictionary for the edge between the domains.
+
+        Implementational note: The computation of equivalent radius is highly simplified
+        and ignores discretization and anisotropy effects. For more advanced alternatives,
+        see the MRST book, https://www.cambridge.org/core/books/an-introduction-to-
+        reservoir-simulation-using-matlabgnu-octave/F48C3D8C88A3F67E4D97D4E16970F894
+        """
+        matrix_dictionary_edge: Dict[str, sps.spmatrix] = data_edge[
+            pp.DISCRETIZATION_MATRICES
+        ][self.keyword]
+        parameter_dictionary_edge: Dict = data_edge[pp.PARAMETERS][self.keyword]
+
+        parameter_dictionary_h: Dict = data_h[pp.PARAMETERS][self._primary_keyword]
+        parameter_dictionary_l: Dict = data_l[pp.PARAMETERS][self.keyword]
+        # Mortar data structure.
+        mg: pp.MortarGrid = data_edge["mortar_grid"]
+        # projection matrix
+        proj_h = mg.primary_to_mortar_avg()
+        proj_l = mg.secondary_to_mortar_avg()
+
+        r_w = parameter_dictionary_l["well_radius"]
+        skin_factor = parameter_dictionary_edge["skin_factor"]
+        # Compute equivalent radius for Peaceman well model (see above note)
+        r_e = 0.2 * np.power(g_h.cell_volumes, 1 / g_h.dim)
+        # Compute effective permeability
+        k: pp.SecondOrderTensor = parameter_dictionary_h["second_order_tensor"]
+        if g_h.dim == 2:
+            R = pp.map_geometry.project_plane_matrix(g_h.nodes)
+            k = k.copy()
+            k.values = np.tensordot(R.T, np.tensordot(R, k.values, (1, 0)), (0, 1))
+            k.values = np.delete(k.values, (2), axis=0)
+            k.values = np.delete(k.values, (2), axis=1)
+        kx = k.values[0, 0]
+        ky = k.values[1, 1]
+        ke = np.sqrt(kx * ky)
+
+        # Kh is ke * specific volume, but this is already captured by k
+        Kh = proj_h * ke * mg.cell_volumes
+        inv_WI = sps.diags((np.log(proj_h * r_e / r_w) + skin_factor) / 2 * np.pi * Kh)
+        matrix_dictionary_edge[self.well_discr_matrix_key] = -inv_WI
+
+        ## Vector source.
+        # This contribution is last term of
+        # lambda = -\int{\kappa_n [p_l - p_h +  a/2 g \cdot n]} dV,
+        # where n is the outwards normal and the integral is taken over the mortar cell.
+        # (Note: This assumes a P0 discretization of mortar fluxes).
+
+        # Ambient dimension of the problem, as specified for the higher-dimensional
+        # neighbor.
+        # IMPLEMENTATION NOTE: The default value is needed to avoid that
+        # ambient_dimension becomes a required parameter. If neither ambient dimension,
+        # nor the actual vector_source is specified, there will be no problems (in the
+        # assembly, a zero vector soucre of a size that fits with the discretization is
+        # created). If a vector_source is specified, but the ambient dimension is not,
+        # a dimension mismatch will result unless the ambient dimension implied by
+        # the size of the vector source matches g_h.dim. This is okay for domains with
+        # no subdomains with co-dimension more than 1, but will fail for fracture
+        # intersections. The default value is thus the least bad option in this case.
+        vector_source_dim: int = parameter_dictionary_h.get(
+            "ambient_dimension", g_h.dim
+        )
+        # The ambient dimension cannot be less than the dimension of g_h.
+        # If this is broken, we risk ending up with zero normal vectors below, so it is
+        # better to break this off now
+        if vector_source_dim < g_h.dim:
+            raise ValueError(
+                "Ambient dimension cannot be lower than the grid dimension"
+            )
+
+        # Construct the dot product between vectors connecting fracture and well
+        # cell centers and the identity matrix.
+
+        # Project the vectors, we need to do some transposes to get this right.
+        # Note that in the codim 2 case, proj_h maps from g_h cells, not faces.
+        vectors_mortar = (proj_h * g_h.cell_centers.T - proj_l * g_l.cell_centers.T).T
+
+        # The values in vals are sorted by the mortar cell index ordering (proj is a
+        # csr matrix).
+        ci_mortar = np.arange(mg.num_cells, dtype=int)
+
+        # The mortar cell indices are expanded to account for the vector source
+        # having multiple dimensions
+        rows = np.tile(ci_mortar, (vector_source_dim, 1)).ravel("F")
+        # Columns must account for the values being vector values.
+        cols = pp.fvutils.expand_indices_nd(ci_mortar, vector_source_dim)
+        vals = vectors_mortar[:vector_source_dim].ravel("F")
+        # And we have the normal vectors
+        expanded_vectors = sps.coo_matrix((vals, (rows, cols))).tocsr()
+
+        # On assembly, the outwards normals on the mortars will be multiplied by the
+        # interface vector source.
+        matrix_dictionary_edge[self.mortar_vector_source_matrix_key] = expanded_vectors
+
+    def assemble_matrix_rhs(
+        self,
+        g_primary: pp.Grid,
+        g_secondary: pp.Grid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_edge: Dict,
+        matrix: sps.spmatrix,
+    ):
+        pass
+
+    def __repr__(self) -> str:
+        return f"Interface coupling of Well type, with keyword {self.keyword}"
