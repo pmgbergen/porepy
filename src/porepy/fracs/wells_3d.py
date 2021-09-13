@@ -561,7 +561,7 @@ def _add_well_2_intersection_edge(g_l: pp.Grid, g_h: pp.Grid, gb: pp.GridBucket)
 
 def _add_edge(
     g_l: pp.Grid, g_h: pp.Grid, gb: pp.GridBucket, primary_secondary_map: np.ndarray
-):
+) -> None:
     """Utility method to add an edge to the gb.
 
     Both grids should already be present in the bucket.
