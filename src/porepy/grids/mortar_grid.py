@@ -60,6 +60,7 @@ class MortarGrid:
         dim: int,
         side_grids: Dict[MortarSides, pp.Grid],
         primary_secondary: sps.spmatrix = None,
+        codim: int = 1,
         name: Union[str, List[str]] = "",
         face_duplicate_ind: Optional[np.ndarray] = None,
         tol: float = 1e-6,
@@ -74,6 +75,8 @@ class MortarGrid:
             primary_secondary (sps.csc_matrix): Cell-face relations between the higher
                 dimensional grid and the lower dimensional grid. It is possible to not
                 give the projection to create only the grid.
+            codim (int): dimension difference between the primary grida and
+                the secondary grid.
             name (str): Name of the grid. Can also be used to set various information on
                 the grid.
             face_duplicate_ind (np.ndarray, optional): Which faces should be considered
@@ -89,13 +92,15 @@ class MortarGrid:
             raise ValueError("A mortar grid cannot be 3d")
         if not np.all([g.dim == dim for g in side_grids.values()]):
             raise ValueError("All the mortar grids have to have the same dimension")
-
         self.dim = dim
+        self.codim = codim
         self.side_grids: Dict[MortarSides, pp.Grid] = side_grids.copy()
         self.sides: np.ndarray = np.array(list(self.side_grids.keys()))
 
         if not (self.num_sides() == 1 or self.num_sides() == 2):
             raise ValueError("The number of sides have to be 1 or 2")
+        if face_duplicate_ind is not None and codim == 2:
+            raise ValueError("Codim 2 interfaces have no faces to duplicate")
 
         if isinstance(name, list):
             self.name = name
@@ -127,16 +132,22 @@ class MortarGrid:
             "Mortar grid with history "
             + ", ".join(self.name)
             + "\n"
-            + "Dimension "
-            + str(self.dim)
-            + "\n"
+            + f"Dimension {self.dim} and codimension {self.codim}\n"
             + f"Number of cells {self.num_cells}\n"
             + f"Number of sides {len(self.side_grids)}\n"
             + "Number of cells in lower-dimensional neighbor "
             + f"{self.mortar_to_secondary_int().shape[0]}\n"
-            + "Number of faces in higher-dimensional neighbor "
-            + f"{self.mortar_to_primary_int().shape[0]}\n"
         )
+        if self.codim < 2:
+            s += (
+                "Number of faces in higher-dimensional neighbor "
+                + f"{self.mortar_to_primary_int().shape[0]}\n"
+            )
+        else:
+            s += (
+                "Number of cells in higher-dimensional neighbor "
+                + f"{self.mortar_to_primary_int().shape[0]}\n"
+            )
 
         return s
 
@@ -147,9 +158,7 @@ class MortarGrid:
             "Mortar grid with history "
             + ", ".join(self.name)
             + "\n"
-            + "Dimension "
-            + str(self.dim)
-            + "\n"
+            + f"Dimension {self.dim} and codimension {self.codim}\n"
             + f"Number of cells {self.num_cells}"
         )
         return s
@@ -704,7 +713,11 @@ class MortarGrid:
         # If the face_duplicate_ind is not given, we then assume that the primary side faces
         # already have this ordering. If the grid is created using the pp.split_grid.py
         # module this should be the case.
-        if self.num_sides() == 2 and (face_duplicate_ind is not None):
+        if (
+            self.num_sides() == 2
+            and (face_duplicate_ind is not None)
+            and self.codim < 2
+        ):
             is_second_side = np.in1d(primary_f, face_duplicate_ind)
             secondary_f = np.r_[
                 secondary_f[~is_second_side], secondary_f[is_second_side]
@@ -729,7 +742,7 @@ class MortarGrid:
         # sorted such that the left side comes first, then the right side. We use stable
         # sort to not mix up the ordering if there is two sides.
         ix = np.argsort(secondary_f, kind="stable")
-        if self.num_sides() == 2:
+        if self.num_sides() == 2 and self.codim < 2:
             # If there are two sides we are in the case of a secondary grid of equal
             # dimension as the mortar grid. The mapping primary_secondary is then a mapping
             # from faces-cells, and we assume the higher dimensional grid is split and

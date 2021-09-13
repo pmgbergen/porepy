@@ -61,18 +61,19 @@ class TestBucket(unittest.TestCase):
 
     def test_add_edge(self):
         gb = pp.GridBucket()
+        g0 = MockGrid(0)
         g1 = MockGrid(1)
-        g2 = MockGrid(2)
         g3 = MockGrid(3)
+        gb.add_nodes(g0)
         gb.add_nodes(g1)
-        gb.add_nodes(g2)
         gb.add_nodes(g3)
-        gb.add_edge([g1, g2], None)
+        gb.add_edge([g0, g1], None)
+        gb.add_edge([g1, g3], None)
 
         # Should not be able to add existing edge
-        self.assertRaises(ValueError, gb.add_edge, [g1, g2], None)
-        # Should not be able to add couplings two dimensions appart
-        self.assertRaises(ValueError, gb.add_edge, [g1, g3], None)
+        self.assertRaises(ValueError, gb.add_edge, [g0, g1], None)
+        # Should not be able to add couplings three dimensions appart
+        self.assertRaises(ValueError, gb.add_edge, [g0, g3], None)
 
     def test_dimension_ordering_edges(self):
         gb = pp.GridBucket()

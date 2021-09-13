@@ -19,7 +19,6 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-import porepy.models.contact_mechanics_model as contact_model
 from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
 
 # Module-wide logger
@@ -27,7 +26,7 @@ logger = logging.getLogger(__name__)
 module_sections = ["models", "numerics"]
 
 
-class ContactMechanicsBiot(contact_model.ContactMechanics):
+class ContactMechanicsBiot(pp.ContactMechanics):
     """This is a shell class for poro-elastic contact mechanics problems.
 
     Setting up such problems requires a lot of boilerplate definitions of variables,
@@ -121,7 +120,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
         # Re-discretize the nonlinear term
         filt = pp.assembler_filters.ListFilter(term_list=[self.friction_coupling_term])
         if self._use_ad:
-            self._eq_manager.equations[1].discretize(self.gb)
+            self._eq_manager.equations[1].discretize(self.gb)  # type: ignore
         else:
             self.assembler.discretize(filt=filt)
 
@@ -604,7 +603,6 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
                 param_keyword=self.mechanics_parameter_key,
                 array_keyword="p_reference",
                 grids=[g_primary],
-                gb=gb,
             )
 
             # Stress in g_h
@@ -624,7 +622,7 @@ class ContactMechanicsBiot(contact_model.ContactMechanics):
             )
 
             momentum_eq = pp.ad.Expression(
-                div_vector * stress, dof_manager, "momentuum", grid_order=[g_primary]
+                div_vector * stress, dof_manager, "momentum", grid_order=[g_primary]
             )
 
             jump = (

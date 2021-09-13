@@ -619,7 +619,9 @@ class GridBucket:
             self._nodes[grid] = {}
 
     @pp.time_logger(sections=module_sections)
-    def add_edge(self, grids: List[pp.Grid], face_cells: sps.spmatrix) -> None:
+    def add_edge(
+        self, grids: List[pp.Grid], primary_secondary_map: sps.spmatrix
+    ) -> None:
         """
         Add an edge in the graph.
 
@@ -629,17 +631,17 @@ class GridBucket:
 
         Parameters:
             grids (list, len==2). Grids to be connected. Order is arbitrary.
-            face_cells (sps.spmatrix): Identity mapping between cells in the
+            primary_secondary_map (sps.spmatrix): Identity mapping between cells in the
                 higher-dimensional grid and faces in the lower-dimensional
                 grid. No assumptions are made on the type of the object at this
                 stage. In the grids[0].dim = grids[1].dim case, the mapping is
-                from faces of the first grid to faces of the second one.
+                from faces of the first grid to faces of the second one. In the
+                co-dimension 2 case, it maps from cells to cells.
 
         Raises:
             ValueError if the edge is not specified by exactly two grids
             ValueError if the edge already exists.
-            ValueError if the two grids are not either one dimension apart, or of the
-                same dimension.
+            ValueError if the two grids are not between zero and two dimensions apart.
 
         """
         if len(grids) != 2:
@@ -650,12 +652,18 @@ class GridBucket:
         ):
             raise ValueError("Cannot add existing edge")
 
-        data = {"face_cells": face_cells}
+        data = {
+            "face_cells": primary_secondary_map
+        }  # {"primary_secondary_map": primary_secondary_map}
 
         # The higher-dimensional grid is the first node of the edge.
         if grids[0].dim - 1 == grids[1].dim:
             self._edges[(grids[0], grids[1])] = data
         elif grids[0].dim == grids[1].dim - 1:
+            self._edges[(grids[1], grids[0])] = data
+        elif grids[0].dim - 2 == grids[1].dim:
+            self._edges[(grids[0], grids[1])] = data
+        elif grids[0].dim == grids[1].dim - 2:
             self._edges[(grids[1], grids[0])] = data
         elif grids[0].dim == grids[1].dim:
             self._edges[(grids[0], grids[1])] = data

@@ -1712,7 +1712,9 @@ class FractureNetwork3d(object):
 
         if domain is not None:
             if isinstance(domain, dict):
-                polyhedron = self._make_bounding_planes_from_box(domain)
+                polyhedron = pp.geometry.bounding_box.make_bounding_planes_from_box(
+                    domain
+                )
             else:
                 polyhedron = domain
             self.domain = domain
@@ -1743,7 +1745,7 @@ class FractureNetwork3d(object):
                 "zmin": cmin[2] - dx[2],
                 "zmax": cmax[2] + dx[2],
             }
-            polyhedron = self._make_bounding_planes_from_box(box)
+            polyhedron = pp.geometry.bounding_box.make_bounding_planes_from_box(box)
             self.domain = polyhedron
 
         # Constrain the fractures to lie within the bounding polyhedron
@@ -1793,29 +1795,6 @@ class FractureNetwork3d(object):
 
         self._reindex_fractures()
         return ind_map
-
-    def _make_bounding_planes_from_box(
-        self, box: Dict[str, float], keep_box: bool = True
-    ) -> List[np.ndarray]:
-        """
-        Translate the bounding box into fractures. Tag them as boundaries.
-        For now limited to a box consisting of six planes.
-        """
-        x0 = box["xmin"]
-        x1 = box["xmax"]
-        y0 = box["ymin"]
-        y1 = box["ymax"]
-        z0 = box["zmin"]
-        z1 = box["zmax"]
-        west = np.array([[x0, x0, x0, x0], [y0, y1, y1, y0], [z0, z0, z1, z1]])
-        east = np.array([[x1, x1, x1, x1], [y0, y1, y1, y0], [z0, z0, z1, z1]])
-        south = np.array([[x0, x1, x1, x0], [y0, y0, y0, y0], [z0, z0, z1, z1]])
-        north = np.array([[x0, x1, x1, x0], [y1, y1, y1, y1], [z0, z0, z1, z1]])
-        bottom = np.array([[x0, x1, x1, x0], [y0, y0, y1, y1], [z0, z0, z0, z0]])
-        top = np.array([[x0, x1, x1, x0], [y0, y0, y1, y1], [z1, z1, z1, z1]])
-
-        bound_planes = [west, east, south, north, bottom, top]
-        return bound_planes
 
     @pp.time_logger(sections=module_sections)
     def _classify_edges(self, polygon_edges, constraints):
