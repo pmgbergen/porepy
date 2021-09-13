@@ -10,7 +10,7 @@ by
     well_network.mesh(gb)
 """
 import logging
-from typing import Dict, Iterator, List, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Tuple
 
 import numpy as np
 import scipy.sparse as sps
