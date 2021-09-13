@@ -10,7 +10,7 @@ by
     well_network.mesh(gb)
 """
 import logging
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -77,7 +77,7 @@ class Well:
         """
         self.index = i
 
-    def segments(self) -> Iterator[Tuple[List[int, int], np.ndarray]]:
+    def segments(self) -> Iterator[Tuple[List[int], np.ndarray]]:
         """
         Iterate over the segments defined through segment indices and endpoints.
         """
@@ -378,7 +378,9 @@ class WellNetwork3d:
             pp.utils.tags.add_node_tags_from_face_tags(gb, t)
 
 
-def compute_well_fracture_intersections(well_network, fracture_network):
+def compute_well_fracture_intersections(
+    well_network: WellNetwork3d, fracture_network: pp.FractureNetwork3d
+):
     """Compute intersections and store tags identifying which fracture
     and well segments each intersection corresponds.
 
@@ -426,7 +428,8 @@ def compute_well_fracture_intersections(well_network, fracture_network):
             well_pts = np.hstack((well_pts, sorted_pts[:, :stop_ind]))
             # The last tag might change when it is used for the start point of
             # the next segment. Store remaining tags in correct order
-            [well_tags.append(tags_seg[i]) for i in sort_inds[:stop_ind]]
+            for i in sort_inds[:stop_ind]:
+                well_tags.append(tags_seg[i])
         # Overwrite old points and tags for this well
         well.p = well_pts
         well.tags["intersecting_fractures"] = well_tags
@@ -450,10 +453,14 @@ def _argsort_points_along_line_segment(
     is monotone for at least one dimension d. Ascending or descending order
     is determined by the values of the two end points.
     """
+    # Find a dimension along which the points may be sorted (coordinates are not
+    # constant):
     for dim in range(3):
         if not np.isclose(seg[dim, 0] - seg[dim, 1], 0):
             break
+    # Perform sorting
     inds = np.argsort(seg[dim])
+    # Invert if the original segment was in decreasing order
     if seg[dim, 0] > seg[dim, 1]:
         inds = inds[::-1]
     return inds, seg[:, inds]
@@ -468,9 +475,11 @@ def _intersection_segment_fracture(
 ) -> Tuple[np.ndarray, List[np.ndarray]]:
     """Compute intersection between a single line segment and fracture.
 
-    Checks whether the intersection corresponds to one of the endpoints and
-    provide that information.
-    segment_points are
+    Computes intersection point. If no intersection exists (distance > 0), no updates are
+    done to points or tags. If the intersection is internal (distance between intersection
+    and both endpoints > 0), the point is appended to segment_points and a tag appended to
+    tags. If the intersection is on one of the existing points, that point's tag is updated,
+    unless ignore_endpoint_tag tag is True (see below).
 
     Parameters:
         segment_points (array, 3 x npts): coordinates of the points on the line segment,
@@ -496,20 +505,22 @@ def _intersection_segment_fracture(
         segment_points[:, 0], segment_points[:, 1], fracture.p
     )
     if distance > tol:
+        # No intersection exists
         return segment_points, tags
     dist_endpt_isec = pp.geometry.distances.point_pointset(isec_pt, segment_points)
     ind_point_at_node = np.isclose(dist_endpt_isec, 0)
 
     if ignore_endpoint_tag and ind_point_at_node[1]:
+        # No updates wanted, see parameter description of ignore_endpoint_tag
         return segment_points, tags
     elif np.any(ind_point_at_node):
         # The new intersection point already exists on the segment (endpoint or
         # internal). Point is not added, but tags are updated with the fracture
         # index.
-        ind_loc = ind_point_at_node.nonzero()[0][0]
+        ind_loc = ind_point_at_node.nonzero()[0][0]  # type: ignore
         tags[ind_loc] = np.append(tags[ind_loc], fracture.index)
     else:
-        # Store point and tag
+        # New (internal) point. Store point and tag
         segment_points = np.hstack((segment_points, isec_pt))
         tags.append(np.array(fracture.index))
     return segment_points, tags
@@ -532,7 +543,9 @@ def _intersection_grid(point: np.ndarray, gb: pp.GridBucket) -> pp.PointGrid:
     return g
 
 
-def _add_fracture_2_intersection_edge(g_l: pp.Grid, frac_num: int, gb: pp.GridBucket) -> None:
+def _add_fracture_2_intersection_edge(
+    g_l: pp.Grid, frac_num: int, gb: pp.GridBucket
+) -> None:
     """
     Does not check that the well lies _inside_ a fracture cell and not on the
     face between two cells.
@@ -549,7 +562,9 @@ def _add_fracture_2_intersection_edge(g_l: pp.Grid, frac_num: int, gb: pp.GridBu
     _add_edge(g_l, g_h, gb, cell_cell_map)
 
 
-def _add_well_2_intersection_edge(g_l: pp.Grid, g_h: pp.Grid, gb: pp.GridBucket) -> None:
+def _add_well_2_intersection_edge(
+    g_l: pp.Grid, g_h: pp.Grid, gb: pp.GridBucket
+) -> None:
     cell_l = np.array([0], dtype=int)
     vec = g_h.face_centers - g_l.cell_centers
     face_h = np.array([np.argmin(np.sum(np.power(vec, 2), axis=0))], dtype=int)

@@ -84,7 +84,7 @@ def test_add_one_well(
         tip_faces (list): Each item is the expected tip face tags for one well grid,
             assumed to have two faces each.
     """
-    gb = _generate_gb(fracture_indices, [0, 1])
+    gb = _generate_gb(fracture_indices, [0])
     # One 3d grid, n_frac 2d grids, n_frac 1d well grids + one if none of the
     # fractures are on the well endpoint and n_frac intersections between
     # fractures and well

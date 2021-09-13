@@ -120,7 +120,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         # Re-discretize the nonlinear term
         filt = pp.assembler_filters.ListFilter(term_list=[self.friction_coupling_term])
         if self._use_ad:
-            self._eq_manager.equations[1].discretize(self.gb)
+            self._eq_manager.equations[1].discretize(self.gb)  # type: ignore
         else:
             self.assembler.discretize(filt=filt)
 
