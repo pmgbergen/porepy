@@ -185,8 +185,9 @@ class WellNetwork3d:
         else:
             self.parameters = parameters
 
-        # Initialize with an empty domain.
-        self.domain = domain
+        if domain is None:
+            domain = {}
+        self.domain: Dict = domain
 
         # Assign an empty tag dictionary
         self.tags: Dict[str, List[bool]] = {}
@@ -295,7 +296,7 @@ class WellNetwork3d:
             for inds_seg, seg in w.segments():
                 tags_seg = [tags_w[i] for i in inds_seg]
                 length = pp.geometry.distances.point_pointset(seg[:, 0], seg[:, 1])
-                num_pts = np.int(length / self._mesh_size(w, inds_seg[0]))
+                num_pts = int(length / self._mesh_size(w, inds_seg[0]))
                 num_pts = max(num_pts, 2)
                 points_loc = np.linspace(seg[:, 0], seg[:, 1], num_pts).T
                 points_subline = np.hstack((points_subline, points_loc))
