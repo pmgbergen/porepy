@@ -150,7 +150,7 @@ class WellNetwork3d:
     def __init__(
         self,
         wells: Optional[List[Well]] = None,
-        domain: Optional[Union[Dict[str, float], List[np.ndarray]]] = None,
+        domain: Optional[Dict[str, float]] = None,
         tol: float = 1e-8,
         parameters: Optional[Dict] = None,
     ) -> None:
@@ -165,7 +165,7 @@ class WellNetwork3d:
         Parameters:
             wells (list of Well, optional): Wells that make up the network.
                 Defaults to None, which will create a domain empty of wells.
-            domain (either dictionary or list of np.arrays): Domain specification.
+            domain (dictionary): Domain specification.
             tol (double, optional): Tolerance used in geometric tolerations. Defaults
                 to 1e-8.
             parameters (dictionary, optional): E.g. mesh parameters.
