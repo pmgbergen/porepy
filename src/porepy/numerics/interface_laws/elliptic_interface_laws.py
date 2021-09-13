@@ -912,7 +912,7 @@ class WellCoupling(
 
     def discretize(
         self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
-    )-> None:
+    ) -> None:
         """Discretize the Peaceman interface law and store the discretization in the
         edge data.
 

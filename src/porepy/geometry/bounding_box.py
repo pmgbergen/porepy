@@ -41,12 +41,16 @@ def from_points(pts, overlap=0):
     return domain
 
 
-def make_bounding_planes_from_box(
-    box: Dict[str, float], keep_box: bool = True
-) -> List[np.ndarray]:
+def make_bounding_planes_from_box(box: Dict[str, float]) -> List[np.ndarray]:
     """
     Translate the bounding box into fractures. Tag them as boundaries.
     For now limited to a box consisting of six planes.
+
+    Parameters:
+        box: dictionary containing max and min coordinates in three dimensions.
+
+    Returns:
+        list of the six bounding planes defined by 3 x 4 coordinate values.
     """
     x0 = box["xmin"]
     x1 = box["xmax"]

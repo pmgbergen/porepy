@@ -99,6 +99,8 @@ class MortarGrid:
 
         if not (self.num_sides() == 1 or self.num_sides() == 2):
             raise ValueError("The number of sides have to be 1 or 2")
+        if face_duplicate_ind is not None and codim == 2:
+            raise ValueError("Codim 2 interfaces have no faces to duplicate")
 
         if isinstance(name, list):
             self.name = name
