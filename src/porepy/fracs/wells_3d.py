@@ -134,7 +134,7 @@ class WellNetwork3d:
     """
     Collection of Wells with geometrical information.
 
-    Facilitates meshing of all fractures in the network and their addition to
+    Facilitates meshing of all wells in the network and their addition to
     a grid bucket, see mesh method.
 
     Attributes:
@@ -225,7 +225,7 @@ class WellNetwork3d:
             size = self.parameters["mesh_size"]
         return size
 
-    def mesh(self, gb):
+    def mesh(self, gb: pp.GridBucket) -> None:
         """Produce grids for the network's wells and add to existing grid bucket.
 
         One grid is constructed for each subline extending between two fracture
