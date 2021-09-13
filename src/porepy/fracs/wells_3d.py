@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Module for well representation in Well and WellNetworks.
 
@@ -23,7 +22,7 @@ logger = logging.getLogger(__name__)
 module_sections = ["gridding"]
 
 
-class Well(object):
+class Well:
     """Class representing a single well as a polyline embedded in 3D space.
 
     The fracture is defined by its vertexes. It contains various utility
@@ -43,7 +42,7 @@ class Well(object):
         points: np.ndarray,
         index: Optional[int] = None,
         tags: Optional[Dict] = None,
-    ):
+    ) -> None:
         """Initialize fractures.
 
         __init__ defines the points of the well.
@@ -69,7 +68,7 @@ class Well(object):
         else:
             self.tags = tags
 
-    def set_index(self, i: int):
+    def set_index(self, i: int) -> None:
         """Set index of this fracture.
 
         Parameters:
@@ -78,7 +77,7 @@ class Well(object):
         """
         self.index = i
 
-    def segments(self):
+    def segments(self) -> Iterator[Tuple[List[int, int], np.ndarray]]:
         """
         Iterate over the segments defined through segment indices and endpoints.
         """
@@ -87,13 +86,13 @@ class Well(object):
             endpoints = self.p[:, segment_inds]
             yield segment_inds, endpoints
 
-    def num_points(self):
+    def num_points(self) -> int:
         return self.p.shape[1]
 
-    def num_segments(self):
+    def num_segments(self) -> int:
         return self.num_points() - 1
 
-    def add_point(self, point: np.ndarray, ind: int = None):
+    def add_point(self, point: np.ndarray, ind: int = None) -> None:
         """Add new pts (3 x 1) to self.p.
         If ind is not specified, the point is appended at the end of
         self.p. Otherwise, it is inserted between the old points number ind
@@ -131,7 +130,7 @@ class Well(object):
         return Well(p, tags=t)
 
 
-class WellNetwork3d(object):
+class WellNetwork3d:
     """
     Collection of Wells with geometrical information.
 
@@ -533,7 +532,7 @@ def _intersection_grid(point: np.ndarray, gb: pp.GridBucket) -> pp.PointGrid:
     return g
 
 
-def _add_fracture_2_intersection_edge(g_l: pp.Grid, frac_num: int, gb: pp.GridBucket):
+def _add_fracture_2_intersection_edge(g_l: pp.Grid, frac_num: int, gb: pp.GridBucket) -> None:
     """
     Does not check that the well lies _inside_ a fracture cell and not on the
     face between two cells.
@@ -550,7 +549,7 @@ def _add_fracture_2_intersection_edge(g_l: pp.Grid, frac_num: int, gb: pp.GridBu
     _add_edge(g_l, g_h, gb, cell_cell_map)
 
 
-def _add_well_2_intersection_edge(g_l: pp.Grid, g_h: pp.Grid, gb: pp.GridBucket):
+def _add_well_2_intersection_edge(g_l: pp.Grid, g_h: pp.Grid, gb: pp.GridBucket) -> None:
     cell_l = np.array([0], dtype=int)
     vec = g_h.face_centers - g_l.cell_centers
     face_h = np.array([np.argmin(np.sum(np.power(vec, 2), axis=0))], dtype=int)
