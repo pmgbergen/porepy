@@ -68,6 +68,7 @@ class TestBucket(unittest.TestCase):
         gb.add_nodes(g1)
         gb.add_nodes(g3)
         gb.add_edge([g0, g1], None)
+        gb.add_edge([g1, g3], None)
 
         # Should not be able to add existing edge
         self.assertRaises(ValueError, gb.add_edge, [g0, g1], None)

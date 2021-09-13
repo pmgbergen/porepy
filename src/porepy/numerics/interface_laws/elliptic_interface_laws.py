@@ -907,12 +907,12 @@ class WellCoupling(
         self.well_discr_matrix_key = "well_mortar_discr"
         self.mortar_vector_source_matrix_key = "well_vector_source_discr"
 
-    def ndof(self, mg: pp.MortarGrid):
+    def ndof(self, mg: pp.MortarGrid) -> int:
         return mg.num_cells
 
     def discretize(
         self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
-    ):
+    )-> None:
         """Discretize the Peaceman interface law and store the discretization in the
         edge data.
 
