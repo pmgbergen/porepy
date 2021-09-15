@@ -18,6 +18,7 @@ __all__ = [
     "Trace",
     "SubdomainProjections",
     "ParameterArray",
+    "EdgeParameterArray",
 ]
 
 
@@ -673,6 +674,88 @@ class ParameterArray(Operator):
         return np.hstack([v for v in val])
 
 
+class EdgeParameterArray(Operator):
+    """Extract an array from the parameter dictionaries for a given set of edges.
+
+    Can be used to pick parameter arrays stored in the edge dictionaries (and thereby
+    could be changed during the simulation, without having to redifine the abstract
+    Ad representation of the equations).
+
+    """
+
+    def __init__(
+        self,
+        param_keyword: str,
+        array_keyword: str,
+        edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None,
+        gb: Optional[pp.GridBucket] = None,
+    ):
+        """Construct a wrapper for parameter arrays for a set of edges
+
+        The values of the parameters will be ordered according to the ordering
+        provided in the edge list, or the order of the GridBucket iteration over edges. It is
+        critical that the same ordering is used by other operators.
+
+        Parameters:
+
+            param_keyword (str): Keyword that should be used to access the data dictionary
+                to get the relevant parameter dictionary (same way as discretizations
+                pick out their parameters).
+            edges (List of edges, Optional): List of edges. Each element of the list must be
+                a tuple formed with two neighboring pp.Grids.
+            gb (pp.GridBucket): Used if grid list is not provided. The order of the
+                edges is set according to iteration over the GridBucket edges.
+
+
+        Example:
+            To get the normal diffusivity for a flow equation initialize with
+            param_keyword='flow', and array_keyword='normal_diffusivity'.
+
+        """
+
+        self.param_keyword = param_keyword
+        self.array_keyword = array_keyword
+        self._edges: List[Tuple[pp.Grid, pp.Grid]] = _edges_list(edges, gb)
+        self._set_tree()
+
+    def __repr__(self) -> str:
+        s = (
+            f"Will access the parameter array with keyword '{self.param_keyword}'"
+            f" and array keyword '{self.array_keyword}'. "
+        )
+
+        dims = np.zeros(3, dtype=int)
+        for e in self._edges:
+            g_primary, g_secondary = e
+            dims[g_secondary.dim] += 1
+
+        for d in range(2, -1, -1):
+            if dims[d] > 0:
+                s += f"{dims[d]} mortar grids of dimension {d}\n"
+
+        return s
+
+    def parse(self, gb: pp.GridBucket) -> np.ndarray:
+        """Convert the Ad expression into numerical values for the parameter array,
+        in the form of an np.ndarray concatenated for all edges.
+
+        Parameters:
+            gb (pp.GridBucket): Mixed-dimensional grid. The parameter array will be
+                taken from the data dictionaries with the relevant keyword.
+
+        Returns:
+            np.ndarray: Value of the parameter array
+
+        """
+
+        val = []
+        for edge in self._edges:
+            data = gb.edge_props(edge)
+            val.append(data[pp.PARAMETERS][self.param_keyword][self.array_keyword])
+
+        return np.hstack([v for v in val])
+
+
 #### Helper methods below
 
 
@@ -687,6 +770,17 @@ def _grid_list(
             )
         grids = [g for g, _ in gb]
     return grids
+
+
+def _edges_list(
+    edges: Optional[List[Tuple[pp.Grid, pp.Grid]]], gb: Optional[pp.GridBucket]
+) -> List[Tuple[pp.Grid, pp.Grid]]:
+    # Helper method to parse input data
+    if edges is None:
+        if gb is None:
+            raise ValueError("Trace needs either a list of edges or a GridBucket")
+        edges = [e for e, _ in gb.edges()]
+    return edges
 
 
 def _subgrid_projections(
