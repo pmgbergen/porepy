@@ -310,6 +310,56 @@ def test_boundary_condition(scalar):
 
     assert np.allclose(val, known_values)
 
+
+def test_edge_parameter_array_with_gb():
+    fracs = [np.array([[0, 3], [1, 1]]), np.array([[1, 1], [0, 2]])]
+    gb = pp.meshing.cart_grid(fracs, [3, 2])
+    for e, d in gb.edges():
+        mg = d["mortar_grid"]
+        data = {"normal_diffusivity": 5 * np.ones(mg.num_cells)}
+        pp.initialize_data(mg, d, "flow", data)
+
+    known = 5. * np.ones(gb.num_mortar_cells())
+    picked = pp.ad.EdgeParameterArray("flow", "normal_diffusivity", gb=gb)
+
+    assert np.allclose(known, picked.parse(gb))
+
+
+def test_edge_parameter_array_manual_edge_list():
+    fracs = [np.array([[0, 3], [1, 1]]), np.array([[1, 1], [0, 2]])]
+    gb = pp.meshing.cart_grid(fracs, [3, 2])
+    g2d = gb.grids_of_dimension(2)[0]
+    g1d_0 = gb.grids_of_dimension(1)[0]
+    g1d_1 = gb.grids_of_dimension(1)[1]
+    g0d = gb.grids_of_dimension(0)[0]
+
+    # Identify horizontal and vertical fractures
+    if g1d_0.num_cells == 3:
+        g1d_hor = g1d_0
+        g1d_ver = g1d_1
+    else:
+        g1d_hor = g1d_1
+        g1d_ver = g1d_0
+
+    # Construct edges manually
+    edge0 = (g2d, g1d_hor)
+    edge1 = (g2d, g1d_ver)
+    edge2 = (g1d_hor, g0d)
+    edge3 = (g1d_ver, g0d)
+    edge_list = [edge0, edge1, edge2, edge3]
+
+    # Initialize data parameters
+    for idx, e in enumerate(edge_list):
+        d = gb.edge_props(e)
+        mg = d["mortar_grid"]
+        data = {"normal_diffusivity": idx * np.ones(mg.num_cells)}
+        pp.initialize_data(mg, d, "flow", data)
+
+    known = np.array([0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 2., 2., 3., 3.])
+    picked = pp.ad.EdgeParameterArray("flow", "normal_diffusivity", edge_list)
+
+    assert np.allclose(known, picked.parse(gb))
+
 ## Tests of Ad operators
 
 def test_ad_variable_vrappers():
