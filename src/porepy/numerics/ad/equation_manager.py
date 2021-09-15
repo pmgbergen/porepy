@@ -399,6 +399,37 @@ class Expression:
         tree = op.tree
         results = [self._parse_operator(child, gb) for child in tree.children]
 
+        def get_shape(mat):
+            # Get shape of a matrix
+            if isinstance(mat, pp.ad.Ad_array):
+                return mat.jac.shape
+            else:
+                return mat.shape
+
+        def error_message(operation):
+            # Helper function to format error message
+            msg_0 = self._parse_readable(tree.children[0])
+            msg_1 = self._parse_readable(tree.children[1])
+
+            nl = "\n"
+            msg = (
+                f"Ad parsing: Error when {operation}\n"
+                + "  "
+                + msg_0
+                + nl
+                + "with"
+                + nl
+                + "  "
+                + msg_1
+                + nl
+            )
+
+            msg += (
+                f"Matrix sizes are {get_shape(results[0])} and "
+                f"{get_shape(results[1])}"
+            )
+            return msg
+
         # Combine the results
         if tree.op == operators.Operation.add:
             # To add we need two objects
@@ -407,7 +438,11 @@ class Expression:
             # Convert any vectors that mascarade as a nx1 (1xn) scipy matrix
             self._ravel_scipy_matrix(results)
 
-            return results[0] + results[1]
+            try:
+                return results[0] + results[1]
+            except ValueError:
+                msg = error_message("adding")
+                raise ValueError(msg)
 
         elif tree.op == operators.Operation.sub:
             # To subtract we need two objects
@@ -416,12 +451,20 @@ class Expression:
             # Convert any vectors that mascarade as a nx1 (1xn) scipy matrix
             self._ravel_scipy_matrix(results)
 
-            return results[0] - results[1]
+            try:
+                return results[0] - results[1]
+            except ValueError:
+                msg = error_message("subtracting")
+                raise ValueError(msg)
 
         elif tree.op == operators.Operation.mul:
             # To multiply we need two objects
             assert len(results) == 2
-            return results[0] * results[1]
+            try:
+                return results[0] * results[1]
+            except ValueError:
+                msg = error_message("multiplying")
+                raise ValueError(msg)
 
         elif tree.op == operators.Operation.evaluate:
             # This is a function, which should have at least one argument
@@ -454,6 +497,54 @@ class Expression:
 
         else:
             raise ValueError("Should not happen")
+
+    def _parse_readable(self, op: operators.Operator) -> str:
+        # Make a human-readable error message related to a parsing error.
+        # NOTE: The exact formatting should be considered work in progress,
+        # in particular when it comes to function evaluation.
+
+        # There are three cases to consider: Either the operator is a leaf,
+        # it is a composite operator with a name, or it is a general composite
+        # operator.
+        if op.is_leaf():
+            # Leafs are represented by their strings.
+            return str(op)
+        elif op._name is not None:
+            # Composite operators that have been given a name (possibly
+            # with a goal of simple identification of an error)
+            return op._name
+
+        # General operator. Split into its parts by recursion.
+        tree = op.tree
+
+        child_str = [self._parse_readable(child) for child in tree.children]
+
+        is_func = False
+
+        if tree.op == operators.Operation.add:
+            operator_str = "+"
+        elif tree.op == operators.Operation.sub:
+            operator_str = "-"
+        elif tree.op == operators.Operation.mul:
+            operator_str = "*"
+        elif tree.op in [operators.Operation.evaluate, operators.Operation.apply]:
+            # TODO: This has not really been tested.
+            is_func = True
+        else:
+            # TODO: This corresponds to unknown (to EK) cases.
+            print("Have not implemented string parsing of this operator")
+
+        if is_func:
+            # TODO: Not sure what to write here
+            msg = f"{child_str[0]} evaluated on ("
+            for child in range(1, len(child_str)):
+                msg += f"{child_str[child]}, "
+
+            msg += ")"
+            return msg
+        else:
+            # TODO: Should we try to give parantheses here?
+            return f"{child_str[0]} {operator_str} {child_str[1]}"
 
     def _ravel_scipy_matrix(self, results):
         # In some cases, parsing may leave what is essentially an array, but with the
