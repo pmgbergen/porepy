@@ -438,6 +438,12 @@ class Expression:
             # Convert any vectors that mascarade as a nx1 (1xn) scipy matrix
             self._ravel_scipy_matrix(results)
 
+            if isinstance(results[0], np.ndarray):
+                # With the implementation of Ad arrays, addition does not
+                # commute for combinations with numpy arrays. Switch the order
+                # of results, and everything works.
+                results = results[::-1]
+
             try:
                 return results[0] + results[1]
             except ValueError:
@@ -450,6 +456,12 @@ class Expression:
 
             # Convert any vectors that mascarade as a nx1 (1xn) scipy matrix
             self._ravel_scipy_matrix(results)
+
+            if isinstance(results[0], np.ndarray):
+                # With the implementation of Ad arrays, subtraction does not
+                # commute for combinations with numpy arrays. Switch the order
+                # of results, and everything works.
+                results = results[::-1]
 
             try:
                 return results[0] - results[1]
