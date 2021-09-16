@@ -75,12 +75,13 @@ class SubdomainProjections(Operator):
 
         """
         if isinstance(grids, pp.Grid):
-            return pp.ad.Matrix(self._cell_projection[grids].T)
+            return pp.ad.Matrix(self._cell_projection[grids].T, name="CellRestriction")
         elif isinstance(grids, list):
             # A key error will be raised if a grid in g is not known to
             # self._cell_projection
             return pp.ad.Matrix(
-                sps.bmat([[self._cell_projection[g].T] for g in grids]).tocsr()
+                sps.bmat([[self._cell_projection[g].T] for g in grids]).tocsr(),
+                name="CellRestriction",
             )
         else:
             raise ValueError("Argument should be a grid or a list of grids")
@@ -98,11 +99,12 @@ class SubdomainProjections(Operator):
 
         """
         if isinstance(grids, pp.Grid):
-            return pp.ad.Matrix(self._cell_projection[grids])
+            return pp.ad.Matrix(self._cell_projection[grids], name="CellProlongation")
         elif isinstance(grids, list):
             # A key error will be raised if a grid in g is not known to self._cell_projection
             return pp.ad.Matrix(
-                sps.bmat([[self._cell_projection[g] for g in grids]]).tocsr()
+                sps.bmat([[self._cell_projection[g] for g in grids]]).tocsr(),
+                name="CellProlongation",
             )
         else:
             raise ValueError("Argument should be a grid or a list of grids")
@@ -120,11 +122,12 @@ class SubdomainProjections(Operator):
 
         """
         if isinstance(grids, pp.Grid):
-            return pp.ad.Matrix(self._face_projection[grids].T)
+            return pp.ad.Matrix(self._face_projection[grids].T, name="FaceRestriction")
         elif isinstance(grids, list):
             # A key error will be raised if a grid in g is not known to self._cell_projection
             return pp.ad.Matrix(
-                sps.bmat([[self._face_projection[g].T] for g in grids]).tocsr()
+                sps.bmat([[self._face_projection[g].T] for g in grids]).tocsr(),
+                name="FaceRestriction",
             )
         else:
             raise ValueError("Argument should be a grid or a list of grids")
@@ -142,11 +145,12 @@ class SubdomainProjections(Operator):
 
         """
         if isinstance(grids, pp.Grid):
-            return pp.ad.Matrix(self._face_projection[grids])
+            return pp.ad.Matrix(self._face_projection[grids], name="FaceProlongation")
         elif isinstance(grids, list):
             # A key error will be raised if a grid in g is not known to self._cell_projection
             return pp.ad.Matrix(
-                sps.bmat([[self._face_projection[g] for g in grids]]).tocsr()
+                sps.bmat([[self._face_projection[g] for g in grids]]).tocsr(),
+                name="FaceProlongation",
             )
         else:
             raise ValueError("Argument should be a grid or a list of grids")
@@ -294,22 +298,38 @@ class MortarProjections(Operator):
         # Stack mappings from the mortar horizontally.
         # The projections are wrapped by a pp.ad.Matrix to be compatible with the
         # requirements for processing of Ad operators.
-        def bmat(matrices):
+        def bmat(matrices, name):
             if len(edges) == 0:
-                return Matrix(sps.bmat([[None]]))
+                return Matrix(sps.bmat([[None]]), name=name)
             else:
-                return Matrix(sps.bmat(matrices, format="csr"))
+                return Matrix(sps.bmat(matrices, format="csr"), name=name)
 
-        self.mortar_to_primary_int = bmat([mortar_to_primary_int])
-        self.mortar_to_primary_avg = bmat([mortar_to_primary_avg])
-        self.mortar_to_secondary_int = bmat([mortar_to_secondary_int])
-        self.mortar_to_secondary_avg = bmat([mortar_to_secondary_avg])
+        self.mortar_to_primary_int = bmat(
+            [mortar_to_primary_int], name="MortarToPrimaryInt"
+        )
+        self.mortar_to_primary_avg = bmat(
+            [mortar_to_primary_avg], name="MortarToPrimaryAvg"
+        )
+        self.mortar_to_secondary_int = bmat(
+            [mortar_to_secondary_int], name="MortarToSecondaryInt"
+        )
+        self.mortar_to_secondary_avg = bmat(
+            [mortar_to_secondary_avg], name="MortarToSecondaryAvg"
+        )
 
         # Vertical stacking of the projections
-        self.primary_to_mortar_int = bmat([[m] for m in primary_to_mortar_int])
-        self.primary_to_mortar_avg = bmat([[m] for m in primary_to_mortar_avg])
-        self.secondary_to_mortar_int = bmat([[m] for m in secondary_to_mortar_int])
-        self.secondary_to_mortar_avg = bmat([[m] for m in secondary_to_mortar_avg])
+        self.primary_to_mortar_int = bmat(
+            [[m] for m in primary_to_mortar_int], name="PrimaryToMortarInt"
+        )
+        self.primary_to_mortar_avg = bmat(
+            [[m] for m in primary_to_mortar_avg], name="PrimarytoMortarAvg"
+        )
+        self.secondary_to_mortar_int = bmat(
+            [[m] for m in secondary_to_mortar_int], name="SecondaryToMortarInt"
+        )
+        self.secondary_to_mortar_avg = bmat(
+            [[m] for m in secondary_to_mortar_avg], name="SecondaryToMortarAvg"
+        )
 
         # Also generate a merged version of MortarGrid.sign_of_mortar_sides:
         mats = []
@@ -317,9 +337,13 @@ class MortarProjections(Operator):
             mg = gb.edge_props(e, "mortar_grid")
             mats.append(mg.sign_of_mortar_sides(nd))
         if len(edges) == 0:
-            self.sign_of_mortar_sides = Matrix(sps.bmat([[None]]))
+            self.sign_of_mortar_sides = Matrix(
+                sps.bmat([[None]]), name="SignOfMortarSides"
+            )
         else:
-            self.sign_of_mortar_sides = Matrix(sps.block_diag(mats))
+            self.sign_of_mortar_sides = Matrix(
+                sps.block_diag(mats), name="SignOfMortarSides"
+            )
 
     def __repr__(self) -> str:
         s = (
@@ -353,6 +377,7 @@ class Trace(Operator):
         gb: Optional[pp.GridBucket] = None,
         grids: Optional[List[pp.Grid]] = None,
         nd: int = 1,
+        name: Optional[str] = None,
     ):
         """Construct trace operators and their inverse for a given set of subdomains.
 
@@ -369,6 +394,7 @@ class Trace(Operator):
                 scalar quantities.
 
         """
+        super().__init__(name=name)
 
         grids = _grid_list(grids, gb)
 
@@ -410,6 +436,12 @@ class Trace(Operator):
             f"Aimed at variables with dimension {self._nd}\n"
             f"Projection from grid to mortar has dimensions {self.trace}\n"
         )
+        return s
+
+    def __str__(self) -> str:
+        s = "Trace"
+        if self._name is not None:
+            s += f" named {self._name}"
         return s
 
 
