@@ -322,7 +322,7 @@ class MortarProjections(Operator):
             [[m] for m in primary_to_mortar_int], name="PrimaryToMortarInt"
         )
         self.primary_to_mortar_avg = bmat(
-            [[m] for m in primary_to_mortar_avg], name="PrimarytoMortarAvg"
+            [[m] for m in primary_to_mortar_avg], name="PrimaryToMortarAvg"
         )
         self.secondary_to_mortar_int = bmat(
             [[m] for m in secondary_to_mortar_int], name="SecondaryToMortarInt"
