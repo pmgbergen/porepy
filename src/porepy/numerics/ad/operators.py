@@ -44,8 +44,7 @@ class Operator:
         grid: Optional[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]] = None,
         tree: Optional["Tree"] = None,
     ) -> None:
-        if name is not None:
-            self._name = name
+        self._name = name
         if grid is not None:
             self.g = grid
         self._set_tree(tree)
@@ -65,6 +64,9 @@ class Operator:
         """
         return len(self.tree.children) == 0
 
+    def set_name(self, name: str) -> None:
+        self._name = name
+
     def parse(self, gb) -> Any:
         """Translate the operator into a numerical expression.
 
@@ -82,6 +84,9 @@ class Operator:
         return (
             f"Operator formed by {self.tree.op} with {len(self.tree.children)} children"
         )
+
+    def __str__(self) -> str:
+        return self._name if self._name is not None else ""
 
     def viz(self):
         """Give a visualization of the operator tree that has this operator at the top."""
@@ -153,19 +158,26 @@ class Matrix(Operator):
 
     """
 
-    def __init__(self, mat: sps.spmatrix) -> None:
+    def __init__(self, mat: sps.spmatrix, name: Optional[str] = None) -> None:
         """Construct an Ad representation of a matrix.
 
         Parameters:
             mat (sps.spmatrix): Sparse matrix to be represented.
 
         """
+        super().__init__(name=name)
         self._mat = mat
         self._set_tree()
         self.shape = mat.shape
 
     def __repr__(self) -> str:
         return f"Matrix with shape {self._mat.shape} and {self._mat.data.size} elements"
+
+    def __str__(self) -> str:
+        s = "Matrix "
+        if self._name is not None:
+            s += self._name
+        return s
 
     def parse(self, gb) -> sps.spmatrix:
         """Convert the Ad matrix into an actual matrix.
@@ -194,18 +206,25 @@ class Array(Operator):
 
     """
 
-    def __init__(self, values):
+    def __init__(self, values, name: Optional[str] = None) -> None:
         """Construct an Ad representation of a numpy array.
 
         Parameters:
             values (np.ndarray): Numpy array to be represented.
 
         """
+        super().__init__(name=name)
         self._values = values
         self._set_tree()
 
     def __repr__(self) -> str:
         return f"Wrapped numpy array of size {self._values.size}"
+
+    def __str__(self) -> str:
+        s = "Array"
+        if self._name is not None:
+            s += f"({self._name})"
+        return s
 
     def parse(self, gb: pp.GridBucket) -> np.ndarray:
         """Convert the Ad Array into an actual array.
@@ -229,18 +248,25 @@ class Scalar(Operator):
 
     """
 
-    def __init__(self, value):
+    def __init__(self, value, name: Optional[str] = None) -> None:
         """Construct an Ad representation of a numpy array.
 
         Parameters:
             values (float): Number to be represented
 
         """
+        super().__init__(name=name)
         self._value = value
         self._set_tree()
 
     def __repr__(self) -> str:
         return f"Wrapped scalar with value {self._value}"
+
+    def __str__(self) -> str:
+        s = "Scalar"
+        if self._name is not None:
+            s += f"({self._name})"
+        return s
 
     def parse(self, gb: pp.GridBucket) -> float:
         """Convert the Ad Scalar into an actual number.
@@ -362,6 +388,7 @@ class MergedVariable(Variable):
                 same name.
 
         """
+        self._name = variables[0]._name
         self.sub_vars = variables
 
         # Use counter from superclass to ensure unique Variable ids
