@@ -401,7 +401,7 @@ class _MergedOperator(Operator):
         return f"Operator with key {self.key} defined on {len(self.grids)} grids"
 
     def __str__(self) -> str:
-        return f"{self._name}.{self.key}"
+        return f"{self._name}({self.mat_dict_key}).{self.key}"
 
     def parse(self, gb):
         """Convert a merged operator into a sparse matrix by concatenating
