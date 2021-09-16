@@ -421,6 +421,7 @@ class Divergence(Operator):
         grids: Optional[List[pp.Grid]] = None,
         gb: Optional[pp.GridBucket] = None,
         dim: int = 1,
+        name: Optional[str] = None,
     ):
         """Construct divergence operators for a set of subdomains.
 
@@ -439,7 +440,7 @@ class Divergence(Operator):
             dim (int, optional): Dimension of vector field. Defaults to 1.
 
         """
-
+        super().__init__(name=name)
         self._g: List[pp.Grid] = _grid_list(grids, gb)
 
         self.dim: int = dim
@@ -459,6 +460,12 @@ class Divergence(Operator):
 
         s += f"The total size of the matrix is ({nc}, {nf})\n"
 
+        return s
+
+    def __str__(self) -> str:
+        s = "Divergence "
+        if self._name is not None:
+            s += f"named {self._name}"
         return s
 
     def parse(self, gb: pp.GridBucket) -> sps.spmatrix:
@@ -493,6 +500,7 @@ class BoundaryCondition(Operator):
         keyword: str,
         grids: Optional[List[pp.Grid]] = None,
         gb: Optional[pp.GridBucket] = None,
+        name: Optional[str] = None,
     ):
         """Construct a wrapper for boundary conditions for a set of subdomains.
 
@@ -515,7 +523,7 @@ class BoundaryCondition(Operator):
                 grids is set according to iteration over the GridBucket nodes.
 
         """
-
+        super().__init__(name=name)
         self.keyword = keyword
         self._g: List[pp.Grid] = _grid_list(grids, gb)
         self._set_tree()
@@ -532,6 +540,9 @@ class BoundaryCondition(Operator):
                 s += f"{dims[d]} grids of dimension {d}\n"
 
         return s
+
+    def __str__(self) -> str:
+        return f"BC({self.keyword})"
 
     def parse(self, gb: pp.GridBucket) -> np.ndarray:
         """Convert the Ad expression into numerical values for the boundary conditions,
@@ -562,7 +573,9 @@ class DirBC(Operator):
         bc,
         grids: Optional[List[pp.Grid]] = None,
         gb: Optional[pp.GridBucket] = None,
+        name: Optional[str] = None,
     ):
+        super().__init__(name)
         self._bc = bc
         self._g: List[pp.Grid] = _grid_list(grids, gb)
         if not (len(self._g) == 1):
@@ -606,6 +619,7 @@ class ParameterArray(Operator):
         array_keyword: str,
         grids: Optional[List[pp.Grid]] = None,
         edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None,
+        name: Optional[str] = None,
     ):
         """Construct a wrapper for scalar sources for a set of subdomains.
 
@@ -632,6 +646,7 @@ class ParameterArray(Operator):
             and array_keyword='source'.
 
         """
+        super().__init__(name=name)
         if grids is None:
             grids = []
             if edges is None:
@@ -672,6 +687,9 @@ class ParameterArray(Operator):
                 of dimension {d}\n"""
 
         return s
+
+    def __str__(self) -> str:
+        return f"ParameterArray({self.param_keyword})({self.array_keyword})"
 
     def parse(self, gb: pp.GridBucket) -> np.ndarray:
         """Convert the Ad expression into numerical values for the scalar sources,
