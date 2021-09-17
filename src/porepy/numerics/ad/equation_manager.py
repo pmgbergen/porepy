@@ -539,6 +539,8 @@ class Expression:
             operator_str = "-"
         elif tree.op == operators.Operation.mul:
             operator_str = "*"
+        elif tree.op == operators.Operation.div:
+            operator_str = "/"
         elif tree.op in [operators.Operation.evaluate, operators.Operation.apply]:
             # TODO: This has not really been tested.
             is_func = True
