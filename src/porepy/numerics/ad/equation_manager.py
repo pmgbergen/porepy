@@ -457,14 +457,17 @@ class Expression:
             # Convert any vectors that mascarade as a nx1 (1xn) scipy matrix
             self._ravel_scipy_matrix(results)
 
+            factor = 1
+
             if isinstance(results[0], np.ndarray):
                 # With the implementation of Ad arrays, subtraction does not
                 # commute for combinations with numpy arrays. Switch the order
                 # of results, and everything works.
                 results = results[::-1]
+                factor = -1
 
             try:
-                return results[0] - results[1]
+                return factor * (results[0] - results[1])
             except ValueError:
                 msg = error_message("subtracting")
                 raise ValueError(msg)
