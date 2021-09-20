@@ -188,11 +188,24 @@ class Upwind(pp.numerics.discretization.Discretization):
         matrix_dictionary: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
             self.keyword
         ]
-
+        
+        # Number of components to transport
+        num_components: int = parameter_dictionary.get("num_components", 1)
+        
         # Shortcut for point grids
+        # We also need to work a bit around these matrices  
         if g.dim == 0:
-            matrix_dictionary[self.upwind_matrix_key] = sps.csr_matrix((0, 1))
+            
+            sps_csr = sps.csr_matrix((0, num_components))
+            
+            # Upwind
+            matrix_dictionary[self.upwind_matrix_key] = sps_csr
+            
+            # BC
             matrix_dictionary[self.rhs_matrix_key] = sps.csr_matrix((0, 0))
+            
+            # Neumann outflow
+            matrix_dictionary[self.outflow_neumann_matrix_key] = sps_csr
             return
 
         darcy_flux: np.ndarray = parameter_dictionary[d_name]
@@ -263,7 +276,6 @@ class Upwind(pp.numerics.discretization.Discretization):
 
         # Form and store disrcetization matrix
         # Expand the discretization matrix to more than one component
-        num_components: int = parameter_dictionary.get("num_components", 1)
         product = flux_mat * upstream_mat
         matrix_dictionary[self.upwind_matrix_key] = sps.kron(
             product, sps.eye(num_components)
@@ -305,7 +317,6 @@ class Upwind(pp.numerics.discretization.Discretization):
             bc_discr, sps.eye(num_components)
         ).tocsr()
 
-        ## Neumann outflow conditions
         # Outflow Neumann boundaries
         outflow_neu = np.logical_and(
             bc.is_neu,
