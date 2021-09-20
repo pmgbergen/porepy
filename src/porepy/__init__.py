@@ -22,7 +22,7 @@ import os
 from pathlib import Path
 import configparser
 
-__version__ = "1.4.1"
+__version__ = "1.4.2"
 
 
 # Try to read the config file from the directory where python process was launched
@@ -175,6 +175,9 @@ from porepy.numerics import ad
 from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
+
+# io
+from porepy.grids import grid_reader, grid_writer
 
 # Modules
 from porepy.fracs import utils as frac_utils

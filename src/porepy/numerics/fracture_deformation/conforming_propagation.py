@@ -121,7 +121,7 @@ class ConformingFracturePropagation(FracturePropagation):
             g_l, g_h = gb.nodes_of_edge(e)
 
             # Only consider grids of co-dimension 1 for splitting.
-            if g_h.dim == self.Nd:
+            if g_h.dim == self._Nd:
                 d_l: Dict = gb.node_props(g_l)
                 d_h: Dict = gb.node_props(g_h)
 
@@ -179,7 +179,7 @@ class ConformingFracturePropagation(FracturePropagation):
         None.
 
         Stores the stress intensity factors in data_l under the name "SIFs". The value
-        is an self.Nd times self.num_faces np.ndarray.
+        is an self._Nd times self.num_faces np.ndarray.
 
         """
 
@@ -204,12 +204,12 @@ class ConformingFracturePropagation(FracturePropagation):
 
         # Project to fracture and apply jump operator
         u_l = (
-            mg.mortar_to_secondary_avg(nd=self.Nd)
-            * mg.sign_of_mortar_sides(nd=self.Nd)
+            mg.mortar_to_secondary_avg(nd=self._Nd)
+            * mg.sign_of_mortar_sides(nd=self._Nd)
             * u_j
         )
         # Jumps at the fracture tips
-        u_l = u_l.reshape((self.Nd, g_l.num_cells), order="F")[:, tip_cells]
+        u_l = u_l.reshape((self._Nd, g_l.num_cells), order="F")[:, tip_cells]
 
         # Pick out components of the tip displacement jump in the tip basis
         tip_bases = self._tip_bases(
@@ -218,7 +218,7 @@ class ConformingFracturePropagation(FracturePropagation):
         d_u_tips = np.zeros((tip_bases.shape[1:3]))
         d_u_tips[0] = np.sum(u_l * tip_bases[0, :, :], axis=0)
         d_u_tips[1] = np.sum(u_l * tip_bases[1, :, :], axis=0)
-        if self.Nd == 3:
+        if self._Nd == 3:
             d_u_tips[2] = np.sum(u_l * tip_bases[2, :, :], axis=0)
 
         # Compute distance from face centers to cell centers:
@@ -228,7 +228,7 @@ class ConformingFracturePropagation(FracturePropagation):
 
         # The SIF vector has size equal to the number of faces in g_l, however,
         # only the tip values are non-zero.
-        sifs = np.zeros((self.Nd, g_l.num_faces))
+        sifs = np.zeros((self._Nd, g_l.num_faces))
         sifs[:, tip_faces] = self._sifs_from_delta_u(
             d_u_tips, dist_face_cell, parameters_h
         )
@@ -306,7 +306,7 @@ class ConformingFracturePropagation(FracturePropagation):
         ----------
         d : Dict
             Dictionary of a fracture. Assumed to contain facewise computed SIFs
-            facewie or scalar critical SIFs, both with size self.Nd in first dimension.
+            facewise or scalar critical SIFs, both with size self._Nd in first dimension.
 
         Returns
         -------
@@ -328,7 +328,7 @@ class ConformingFracturePropagation(FracturePropagation):
         # Comparison
         a_1 = K_crit[0] / K_crit[1]
         shear_contribution = 4 * (a_1 * K[1]) ** 2
-        if self.Nd == 3:
+        if self._Nd == 3:
             a_2 = K_crit[0] / K_crit[2]
             shear_contribution += 4 * (a_2 * K[2]) ** 2
         K_equivalent = (K[0] + np.sqrt(K[0] ** 2 + shear_contribution)) / 2
@@ -348,7 +348,7 @@ class ConformingFracturePropagation(FracturePropagation):
         ----------
         d : Dict
             Dictionary of a fracture. Assumed to contain facewise computed SIFs
-            facewie or scalar critical SIFs, both with size self.Nd in first dimension.
+            facewise or scalar critical SIFs, both with size self._Nd in first dimension.
 
         Returns
         -------
@@ -372,7 +372,7 @@ class ConformingFracturePropagation(FracturePropagation):
         A, B = np.radians(140), np.radians(-70)
         abs_K_1 = np.abs(K[1])
         denominator = K[0] + abs_K_1
-        if self.Nd == 3:
+        if self._Nd == 3:
             denominator += np.abs(K[2])
 
         phi[ind] = -np.sign(K[1]) * (
@@ -411,12 +411,12 @@ class ConformingFracturePropagation(FracturePropagation):
         angle = d[pp.PARAMETERS][self.mechanics_parameter_key][  # type: ignore
             "propagation_angle_normal"
         ][face]
-        if self.Nd == 2:
+        if self._Nd == 2:
             sign = np.cross(tip_basis[0], tip_basis[1])
             e2 = np.array([0, 0, sign])
         else:
             e2 = tip_basis[2]
-        R = pp.map_geometry.rotation_matrix(angle, e2)[: self.Nd, : self.Nd]
+        R = pp.map_geometry.rotation_matrix(angle, e2)[: self._Nd, : self._Nd]
         propagation_vector = np.dot(R, tip_basis[0])
         return propagation_vector
 
@@ -430,7 +430,7 @@ class ConformingFracturePropagation(FracturePropagation):
 
         Work flow:
             Pick out faces_l
-            Identify the corresponding edges_h (= nodes if self.Nd==2)
+            Identify the corresponding edges_h (= nodes if self._Nd==2)
             The edges' faces_h are candidates for propagation
             Pick the candidate based on the propagation angle
 
@@ -455,7 +455,7 @@ class ConformingFracturePropagation(FracturePropagation):
         lower- and higherdimensional faces. During grid updates, the former will receive
         a new neighbour cell and the latter will be split.
         """
-        nd: int = self.Nd
+        nd: int = self._Nd
         parameters_l: Dict[str, Any] = data_l[pp.PARAMETERS][
             self.mechanics_parameter_key  # type: ignore
         ]
@@ -572,12 +572,12 @@ class ConformingFracturePropagation(FracturePropagation):
             of the tangential vectors indicating that they are perpendicular and
             parallel to the fracture tip (face), respectively.
         """
-        basis = np.empty((self.Nd, self.Nd, faces.size))
+        basis = np.empty((self._Nd, self._Nd, faces.size))
         signs, cells = g.signs_and_cells_of_boundary_faces(faces)
 
         basis[0, :, :] = np.reshape(
-            g.face_normals[: self.Nd, faces] / g.face_areas[faces] * signs,
-            ((self.Nd, faces.size)),
+            g.face_normals[: self._Nd, faces] / g.face_areas[faces] * signs,
+            ((self._Nd, faces.size)),
         )
         # Normals of the fracture plane
         if projection.normals.shape[1] == 1:

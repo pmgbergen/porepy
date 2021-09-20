@@ -9,10 +9,11 @@ import csv
 import logging
 import time
 from typing import Dict, List, Optional, Tuple, Union
-import networkx as nx
+
 import meshio
+import networkx as nx
 import numpy as np
-from scipy.spatial import ConvexHull, Delaunay
+from scipy.spatial import ConvexHull
 
 import porepy as pp
 from porepy.utils import setmembership, sort_points
@@ -1980,7 +1981,10 @@ class FractureNetwork3d(object):
                 # A prospective diagonal (i0, i2) can be ruled out for two reasons:
                 # 1) It crosses a segment of the polygon
                 # 2) It is completely outside the polygon
-                # Check for both. There must be better ways of doing this, with more
+                # 3) The prospective subtriangle fully contains another point
+                #    (thus other segments). This can happen for a non-convex quad.
+
+                # Check for all three. There must be better ways of doing this, with more
                 # knowledge of computational geometry, but the code is what it is.
 
                 # Distance from the prospective diagonal to all boundary segments
@@ -2000,7 +2004,15 @@ class FractureNetwork3d(object):
                     p, center
                 )[0]
 
-                if not center_in_poly or (mask.any() and dist[mask].min() < self.tol):
+                other_points_in_loc_poly = pp.geometry_property_checks.point_in_polygon(
+                    loc_poly, p
+                )
+
+                if (
+                    not center_in_poly
+                    or (mask.any() and dist[mask].min() < self.tol)
+                    or other_points_in_loc_poly.any()
+                ):
                     # We cannot use this triangle - move on:
                     # i0 and i1 are moved one step up, i2 is moved to the next
                     # available vertex
@@ -2071,22 +2083,22 @@ class FractureNetwork3d(object):
             # with a common vertex.
             # Find the pairs looping over all vertexes, find all its
             # neighboring vertexes.
-            main_vertex = []
+            main_vertex_list = []
             other_vertex_list: List[int] = []
-            indptr = [0]
+            indptr_list = [0]
 
             for i in range(num_p):
                 row, _ = np.where(triangles == i)
                 other = np.setdiff1d(triangles[row].ravel(), i)
                 num_other = other.size
-                indptr.append(indptr[-1] + num_other)
-                main_vertex += num_other * [i]
+                indptr_list.append(indptr_list[-1] + num_other)
+                main_vertex_list += num_other * [i]
                 other_vertex_list += other.tolist()
 
             edge_pairs = np.zeros((3, 0), dtype=int)
             other_vertex = np.array(other_vertex_list)
-            indptr = np.array(indptr)
-            main_vertex = np.array(main_vertex)
+            indptr = np.array(indptr_list)
+            main_vertex = np.array(main_vertex_list)
             # again loop over all the vertexes, sort the neighboring vertexes
             for vi in range(num_p):
                 start = indptr[vi]
@@ -2922,8 +2934,11 @@ class FractureNetwork3d(object):
             # save the points of the fracture
             meshio_pts = np.vstack((meshio_pts, frac.p.T))
             num_pts = frac.p.shape[1]
-            # determine the fracture type
-            cell_type = "polygon" + str(num_pts)
+            # Always represent the fracture as a polygon
+            cell_type = "polygon"
+            # The representation of polygons changed in meshio version 4.4
+            if meshio.__version__[2] < "4":
+                cell_type += str(num_pts)
             # just stack all the nodes after the others
             nodes = pts_pos + np.arange(num_pts)
             pts_pos += num_pts
