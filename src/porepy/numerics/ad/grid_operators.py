@@ -75,13 +75,12 @@ class SubdomainProjections(Operator):
 
         """
         if isinstance(grids, pp.Grid):
-            return pp.ad.Matrix(self._cell_projection[grids].T, name="CellRestriction")
+            return pp.ad.Matrix(self._cell_projection[grids].T)
         elif isinstance(grids, list):
             # A key error will be raised if a grid in g is not known to
             # self._cell_projection
             return pp.ad.Matrix(
-                sps.bmat([[self._cell_projection[g].T] for g in grids]).tocsr(),
-                name="CellRestriction",
+                sps.bmat([[self._cell_projection[g].T] for g in grids]).tocsr()
             )
         else:
             raise ValueError("Argument should be a grid or a list of grids")
@@ -99,12 +98,11 @@ class SubdomainProjections(Operator):
 
         """
         if isinstance(grids, pp.Grid):
-            return pp.ad.Matrix(self._cell_projection[grids], name="CellProlongation")
+            return pp.ad.Matrix(self._cell_projection[grids])
         elif isinstance(grids, list):
             # A key error will be raised if a grid in g is not known to self._cell_projection
             return pp.ad.Matrix(
-                sps.bmat([[self._cell_projection[g] for g in grids]]).tocsr(),
-                name="CellProlongation",
+                sps.bmat([[self._cell_projection[g] for g in grids]]).tocsr()
             )
         else:
             raise ValueError("Argument should be a grid or a list of grids")
@@ -122,12 +120,11 @@ class SubdomainProjections(Operator):
 
         """
         if isinstance(grids, pp.Grid):
-            return pp.ad.Matrix(self._face_projection[grids].T, name="FaceRestriction")
+            return pp.ad.Matrix(self._face_projection[grids].T)
         elif isinstance(grids, list):
             # A key error will be raised if a grid in g is not known to self._cell_projection
             return pp.ad.Matrix(
-                sps.bmat([[self._face_projection[g].T] for g in grids]).tocsr(),
-                name="FaceRestriction",
+                sps.bmat([[self._face_projection[g].T] for g in grids]).tocsr()
             )
         else:
             raise ValueError("Argument should be a grid or a list of grids")
@@ -145,12 +142,11 @@ class SubdomainProjections(Operator):
 
         """
         if isinstance(grids, pp.Grid):
-            return pp.ad.Matrix(self._face_projection[grids], name="FaceProlongation")
+            return pp.ad.Matrix(self._face_projection[grids])
         elif isinstance(grids, list):
             # A key error will be raised if a grid in g is not known to self._cell_projection
             return pp.ad.Matrix(
-                sps.bmat([[self._face_projection[g] for g in grids]]).tocsr(),
-                name="FaceProlongation",
+                sps.bmat([[self._face_projection[g] for g in grids]]).tocsr()
             )
         else:
             raise ValueError("Argument should be a grid or a list of grids")
@@ -254,31 +250,27 @@ class MortarProjections(Operator):
         for e in edges:
             g_primary, g_secondary = e
             mg: pp.MortarGrid = gb.edge_props(e, "mortar_grid")
-            if (g_primary.dim != mg.dim + mg.codim) or g_secondary.dim != mg.dim:
+            if (g_primary.dim != mg.dim + 1) or g_secondary.dim != mg.dim:
                 # This will correspond to DD of sorts; we could handle this
                 # by using cell_projections for g_primary and/or
                 # face_projection for g_secondary, depending on the exact
                 # configuration
                 raise NotImplementedError("Non-standard interface.")
-            primary_projection = (
-                face_projection[g_primary]
-                if mg.codim < 2
-                else cell_projection[g_primary]
-            )
+
             # Projections to primary
             mortar_to_primary_int.append(
-                primary_projection * mg.mortar_to_primary_int(nd)
+                face_projection[g_primary] * mg.mortar_to_primary_int(nd)
             )
             mortar_to_primary_avg.append(
-                primary_projection * mg.mortar_to_primary_avg(nd)
+                face_projection[g_primary] * mg.mortar_to_primary_avg(nd)
             )
 
             # Projections from primary
             primary_to_mortar_int.append(
-                mg.primary_to_mortar_int(nd) * primary_projection.T
+                mg.primary_to_mortar_int(nd) * face_projection[g_primary].T
             )
             primary_to_mortar_avg.append(
-                mg.primary_to_mortar_avg(nd) * primary_projection.T
+                mg.primary_to_mortar_avg(nd) * face_projection[g_primary].T
             )
 
             mortar_to_secondary_int.append(
@@ -298,37 +290,27 @@ class MortarProjections(Operator):
         # Stack mappings from the mortar horizontally.
         # The projections are wrapped by a pp.ad.Matrix to be compatible with the
         # requirements for processing of Ad operators.
-        def bmat(matrices, name):
-            if len(edges) == 0:
-                return Matrix(sps.bmat([[None]]), name=name)
-            else:
-                return Matrix(sps.bmat(matrices, format="csr"), name=name)
-
-        self.mortar_to_primary_int = bmat(
-            [mortar_to_primary_int], name="MortarToPrimaryInt"
+        self.mortar_to_primary_int = Matrix(sps.bmat([mortar_to_primary_int]).tocsr())
+        self.mortar_to_primary_avg = Matrix(sps.bmat([mortar_to_primary_avg]).tocsr())
+        self.mortar_to_secondary_int = Matrix(
+            sps.bmat([mortar_to_secondary_int]).tocsr()
         )
-        self.mortar_to_primary_avg = bmat(
-            [mortar_to_primary_avg], name="MortarToPrimaryAvg"
-        )
-        self.mortar_to_secondary_int = bmat(
-            [mortar_to_secondary_int], name="MortarToSecondaryInt"
-        )
-        self.mortar_to_secondary_avg = bmat(
-            [mortar_to_secondary_avg], name="MortarToSecondaryAvg"
+        self.mortar_to_secondary_avg = Matrix(
+            sps.bmat([mortar_to_secondary_avg]).tocsr()
         )
 
         # Vertical stacking of the projections
-        self.primary_to_mortar_int = bmat(
-            [[m] for m in primary_to_mortar_int], name="PrimaryToMortarInt"
+        self.primary_to_mortar_int = Matrix(
+            sps.bmat([[m] for m in primary_to_mortar_int]).tocsr()
         )
-        self.primary_to_mortar_avg = bmat(
-            [[m] for m in primary_to_mortar_avg], name="PrimaryToMortarAvg"
+        self.primary_to_mortar_avg = Matrix(
+            sps.bmat([[m] for m in primary_to_mortar_avg]).tocsr()
         )
-        self.secondary_to_mortar_int = bmat(
-            [[m] for m in secondary_to_mortar_int], name="SecondaryToMortarInt"
+        self.secondary_to_mortar_int = Matrix(
+            sps.bmat([[m] for m in secondary_to_mortar_int]).tocsr()
         )
-        self.secondary_to_mortar_avg = bmat(
-            [[m] for m in secondary_to_mortar_avg], name="SecondaryToMortarAvg"
+        self.secondary_to_mortar_avg = Matrix(
+            sps.bmat([[m] for m in secondary_to_mortar_avg]).tocsr()
         )
 
         # Also generate a merged version of MortarGrid.sign_of_mortar_sides:
@@ -336,14 +318,7 @@ class MortarProjections(Operator):
         for e in edges:
             mg = gb.edge_props(e, "mortar_grid")
             mats.append(mg.sign_of_mortar_sides(nd))
-        if len(edges) == 0:
-            self.sign_of_mortar_sides = Matrix(
-                sps.bmat([[None]]), name="SignOfMortarSides"
-            )
-        else:
-            self.sign_of_mortar_sides = Matrix(
-                sps.block_diag(mats), name="SignOfMortarSides"
-            )
+        self.sign_of_mortar_sides = Matrix(sps.block_diag(mats))
 
     def __repr__(self) -> str:
         s = (
@@ -377,7 +352,6 @@ class Trace(Operator):
         gb: Optional[pp.GridBucket] = None,
         grids: Optional[List[pp.Grid]] = None,
         nd: int = 1,
-        name: Optional[str] = None,
     ):
         """Construct trace operators and their inverse for a given set of subdomains.
 
@@ -394,7 +368,6 @@ class Trace(Operator):
                 scalar quantities.
 
         """
-        super().__init__(name=name)
 
         grids = _grid_list(grids, gb)
 
@@ -421,27 +394,38 @@ class Trace(Operator):
                 # Similarly restrict a global face quantity to the local grid, then
                 # map back to cells.
                 inv_trace.append(div * face_projections[g].T)
-            else:
-                raise NotImplementedError("kronecker")
-
+            else: 
+              
+                eye_nd = sps.eye(self._nd)
+                
+                # Use a similar procedure as above to compute
+                # trace and inv_trace
+                
+                # Same as above
+                div = np.abs(pp.fvutils.scalar_divergence(g))   
+                
+                # Expand div for several components
+                div_extended = sps.kron(div, eye_nd)
+                div_cell = div_extended.T * cell_projections[g].T
+                div_face = div_extended * face_projections[g].T
+                
+                # Values to return
+                trace.append(div_cell) 
+                inv_trace.append(div_face)
+            # end if-else
+                    
         # Stack both trace and inv_trace vertically to make them into mappings to
         # global quantities.
         # Wrap the stacked matrices into an Ad object
         self.trace = Matrix(sps.bmat([[m] for m in trace]).tocsr())
         self.inv_trace = Matrix(sps.bmat([[m] for m in inv_trace]).tocsr())
-
+       
     def __repr__(self) -> str:
         s = (
             f"Trace operator for {self._num_grids} grids\n"
             f"Aimed at variables with dimension {self._nd}\n"
             f"Projection from grid to mortar has dimensions {self.trace}\n"
         )
-        return s
-
-    def __str__(self) -> str:
-        s = "Trace"
-        if self._name is not None:
-            s += f" named {self._name}"
         return s
 
 
@@ -453,7 +437,6 @@ class Divergence(Operator):
         grids: Optional[List[pp.Grid]] = None,
         gb: Optional[pp.GridBucket] = None,
         dim: int = 1,
-        name: Optional[str] = None,
     ):
         """Construct divergence operators for a set of subdomains.
 
@@ -472,7 +455,7 @@ class Divergence(Operator):
             dim (int, optional): Dimension of vector field. Defaults to 1.
 
         """
-        super().__init__(name=name)
+
         self._g: List[pp.Grid] = _grid_list(grids, gb)
 
         self.dim: int = dim
@@ -492,12 +475,6 @@ class Divergence(Operator):
 
         s += f"The total size of the matrix is ({nc}, {nf})\n"
 
-        return s
-
-    def __str__(self) -> str:
-        s = "Divergence "
-        if self._name is not None:
-            s += f"named {self._name}"
         return s
 
     def parse(self, gb: pp.GridBucket) -> sps.spmatrix:
@@ -532,7 +509,6 @@ class BoundaryCondition(Operator):
         keyword: str,
         grids: Optional[List[pp.Grid]] = None,
         gb: Optional[pp.GridBucket] = None,
-        name: Optional[str] = None,
     ):
         """Construct a wrapper for boundary conditions for a set of subdomains.
 
@@ -555,7 +531,7 @@ class BoundaryCondition(Operator):
                 grids is set according to iteration over the GridBucket nodes.
 
         """
-        super().__init__(name=name)
+
         self.keyword = keyword
         self._g: List[pp.Grid] = _grid_list(grids, gb)
         self._set_tree()
@@ -572,9 +548,6 @@ class BoundaryCondition(Operator):
                 s += f"{dims[d]} grids of dimension {d}\n"
 
         return s
-
-    def __str__(self) -> str:
-        return f"BC({self.keyword})"
 
     def parse(self, gb: pp.GridBucket) -> np.ndarray:
         """Convert the Ad expression into numerical values for the boundary conditions,
@@ -605,9 +578,7 @@ class DirBC(Operator):
         bc,
         grids: Optional[List[pp.Grid]] = None,
         gb: Optional[pp.GridBucket] = None,
-        name: Optional[str] = None,
     ):
-        super().__init__(name)
         self._bc = bc
         self._g: List[pp.Grid] = _grid_list(grids, gb)
         if not (len(self._g) == 1):
@@ -650,8 +621,7 @@ class ParameterArray(Operator):
         param_keyword: str,
         array_keyword: str,
         grids: Optional[List[pp.Grid]] = None,
-        edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None,
-        name: Optional[str] = None,
+        gb: Optional[pp.GridBucket] = None,
     ):
         """Construct a wrapper for scalar sources for a set of subdomains.
 
@@ -668,9 +638,9 @@ class ParameterArray(Operator):
                 to get the relevant parameter dictionary (same way as discretizations
                 pick out their parameters).
             grids (List of pp.Grid): List of grids. The order of the grids in the list
-                sets the ordering of the parameter values.
-           edges (List of tuples of pp.Grid): List of edges. The order of the edges in the list
-                sets the ordering of the parameter values.
+                sets the ordering of the boundary values.
+            gb (pp.GridBucket): Used if grid list is not provided. The order of the
+                grids is set according to iteration over the GridBucket nodes.
 
 
         Example:
@@ -678,20 +648,10 @@ class ParameterArray(Operator):
             and array_keyword='source'.
 
         """
-        super().__init__(name=name)
-        if grids is None:
-            grids = []
-            if edges is None:
-                raise ValueError(
-                    "ParameterArray needs at least a list of grids or a list of edges"
-                )
-        elif edges is None:
-            edges = []
 
         self.param_keyword = param_keyword
         self.array_keyword = array_keyword
-        self._g: List[pp.Grid] = grids
-        self._e: List[Tuple[pp.Grid, pp.Grid]] = edges
+        self._g: List[pp.Grid] = _grid_list(grids, gb)
         self._set_tree()
 
     def __repr__(self) -> str:
@@ -708,20 +668,7 @@ class ParameterArray(Operator):
             if dims[d] > 0:
                 s += f"{dims[d]} grids of dimension {d}\n"
 
-        dims = np.zeros(4, dtype=int)
-        for e in self._e:
-            # The mg and its dimension are not accessible without the gb.
-            # Assume mg.dim equals g_l.dim
-            dims[e[1].dim] += 1
-        for d in range(3, -1, -1):
-            if dims[d] > 0:
-                s += f"""{dims[d]} mortar grids with lower-dimensional neighbor
-                of dimension {d}\n"""
-
         return s
-
-    def __str__(self) -> str:
-        return f"ParameterArray({self.param_keyword})({self.array_keyword})"
 
     def parse(self, gb: pp.GridBucket) -> np.ndarray:
         """Convert the Ad expression into numerical values for the scalar sources,
@@ -739,9 +686,7 @@ class ParameterArray(Operator):
         for g in self._g:
             data = gb.node_props(g)
             val.append(data[pp.PARAMETERS][self.param_keyword][self.array_keyword])
-        for e in self._e:
-            data = gb.edge_props(e)
-            val.append(data[pp.PARAMETERS][self.param_keyword][self.array_keyword])
+
         return np.hstack([v for v in val])
 
 
@@ -751,8 +696,6 @@ class ParameterArray(Operator):
 def _grid_list(
     grids: Optional[List[pp.Grid]], gb: Optional[pp.GridBucket]
 ) -> List[pp.Grid]:
-    # TODO: Decide whether to purge this and remove the option to initialize
-    # operators with gb instead of grid_list.
     # Helper method to parse input data
     if grids is None:
         if gb is None:
