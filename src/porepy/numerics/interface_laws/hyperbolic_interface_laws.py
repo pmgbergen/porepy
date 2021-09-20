@@ -61,10 +61,14 @@ class UpwindCoupling(
             )
 
         matrix_dictionary = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-
+        
+        # Number of aqueous components. Defualt is 1 
+        num_components: int = data_edge[pp.PARAMETERS][self.keyword].get("num_components", 1)
+        eye_num_comp = sps.eye(num_components)
+  
         # Normal component of the velocity from the higher dimensional grid
         lam_flux: np.ndarray = data_edge[pp.PARAMETERS][self.keyword]["darcy_flux"]
-
+        
         mg: pp.MortarGrid = data_edge["mortar_grid"]
 
         # mapping from upper dim cellls to faces
@@ -76,10 +80,7 @@ class UpwindCoupling(
         inv_trace_h = np.abs(pp.fvutils.scalar_divergence(g_primary))
         # We also need a trace-like projection from cells to faces
         trace_h = inv_trace_h.T
-
-        matrix_dictionary[self.inv_trace_primary_matrix_key] = inv_trace_h
-        matrix_dictionary[self.trace_primary_matrix_key] = trace_h
-
+        
         # Find upwind weighting. if flag is True we use the upper weights
         # if flag is False we use the lower weighs
         flag = (lam_flux > 0).astype(float)
@@ -89,15 +90,33 @@ class UpwindCoupling(
         # is hit.
         upwind_from_primary = sps.diags(flag)
         upwind_from_secondary = sps.diags(not_flag)
-
         flux = sps.diags(lam_flux)
 
-        matrix_dictionary[self.upwind_primary_matrix_key] = upwind_from_primary
-        matrix_dictionary[self.upwind_secondary_matrix_key] = upwind_from_secondary
-        matrix_dictionary[self.flux_matrix_key] = flux
+        # Extend all the matrices, so they take several components into account
+        matrix_dictionary[self.inv_trace_primary_matrix_key] = sps.kron(
+        inv_trace_h, eye_num_comp 
+        ).tocsr()  
+        
+        matrix_dictionary[self.trace_primary_matrix_key] = sps.kron(
+        trace_h, eye_num_comp 
+        ).tocsr()
+    
+        matrix_dictionary[self.upwind_primary_matrix_key] = sps.kron(
+            upwind_from_primary, eye_num_comp 
+            ).tocsr()
+        
+        matrix_dictionary[self.upwind_secondary_matrix_key] = sps.kron(
+            upwind_from_secondary, eye_num_comp 
+            ).tocsr()
+
+        matrix_dictionary[self.flux_matrix_key] = sps.kron(
+            flux, eye_num_comp 
+            ).tocsr()
 
         # Identity matrix, to represent the mortar variable itself
-        matrix_dictionary[self.mortar_discr_matrix_key] = sps.eye(mg.num_cells)
+        matrix_dictionary[self.mortar_discr_matrix_key] = sps.kron(
+            sps.eye(mg.num_cells), eye_num_comp 
+            ).tocsr()
 
     @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
