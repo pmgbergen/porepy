@@ -269,6 +269,36 @@ class EllipticDiscretization(Discretization):
         pass
 
     @abstractmethod
+    def assemble_int_bound_pressure_trace_rhs(
+        self, g, data, data_edge, cc, rhs, self_ind, use_secondary_proj=False
+    ):
+        """Assemble the rhs contribution from an internal
+        boundary, manifested as a condition on the boundary pressure.
+
+        For details, see self.assemble_int_bound_pressure_trace()
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+            data_edge (dictionary): Data dictionary for the edge in the
+                mixed-dimensional grid.
+            cc (block matrix, 3x3): Block matrix for the coupling condition.
+                The first and second rows and columns are identified with the
+                primary and secondary side; the third belongs to the edge variable.
+                The discretization of the relevant term is done in-place in cc.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            rhs (block_array 3x1): Right hand side contribution for the edge and
+                the two adjacent nodes.
+            self_ind (int): Index in cc and matrix associated with this node.
+                Should be either 1 or 2.
+            use_secondary_proj (boolean): If True, the secondary side projection operator is
+                used. Needed for periodic boundary conditions.
+
+        """
+
+    @abstractmethod
     @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace_between_interfaces(
         self,

@@ -473,25 +473,19 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
         assert t >= 0 and t <= 1
         return start + t * dx
 
-    def vector_pointset_point(a, b, tol=1e-4):
+    def vector_pointset_point(a, b, tol=1e-8):
         # Create a set of non-zero vectors from a point in the plane spanned by
         # a, to all points in b
-        found = None
         # Loop over all points in a, search for a point that is sufficiently
         # far away from b. Mainly this involves finding a point in a which is
         # not in b
+        dist = np.zeros(a.shape[1])
         for i in range(a.shape[1]):
-            dist = np.sqrt(np.sum((b - a[:, i].reshape((-1, 1))) ** 2, axis=0))
-            if np.min(dist) > tol:
-                found = i
-                break
-        if found is None:
-            # All points in a are also in b. We could probably use some other
-            # point in a, but this seems so strange that we will rather
-            # raise an error, with the expectation that this should never happen.
-            raise ValueError("Coinciding polygons")
+            dist[i] = np.min(np.sqrt(np.sum((b - a[:, i].reshape((-1, 1))) ** 2, axis=0)))
 
-        return b - a[:, found].reshape((-1, 1))
+        ind = np.argmax(dist)
+        assert dist[ind] > tol
+        return b - a[:, ind].reshape((-1, 1))
 
     num_polys = len(polys)
 
@@ -1123,10 +1117,6 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
                             # seg_vert info 0.
                             segment_vertex_intersection[main].append(seg_vert_main_0)
                         else:
-                            if not mod_sign(main_1_other_0.sum()) == 0:  # sanity check
-                                raise ValueError(
-                                    "inconsistent polygon intersection configuration"
-                                )
                             # other_intersects_main_0 == main_intersects_other_1
                             # The first intersection point, seen from main, should have
                             # seg_vert info 1.
@@ -1150,10 +1140,6 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
                             segment_vertex_intersection[main].append(seg_vert_main_1)
                         else:
                             # other_intersects_main_1 == main_intersects_other_1
-                            if not mod_sign(main_0_other_1.sum()) == 0:
-                                raise ValueError(
-                                    "inconsistent polygon intersection configuration"
-                                )
                             segment_vertex_intersection[main].append(seg_vert_main_0)
 
                     else:
@@ -1352,7 +1338,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
 
 def _point_in_or_on_polygon(
     p: np.ndarray, poly: np.ndarray, tol=1e-8
-) -> Tuple[int, Union[None, Tuple[int, int]]]:
+):
     """Helper function to get intersection information between a point and a polygon.
 
     The polygon is classified as being outside, on the boundary or in the interior of
@@ -1386,13 +1372,13 @@ def _point_in_or_on_polygon(
 
     if dist.min() < tol:
         # Intersection on boundary. Either vertex of segment.
-        seg_ind = np.argmin(dist[0])
         vert_dist = pp.distances.point_pointset(p, poly)
         if vert_dist.min() < tol:
             vert_ind = np.argmin(vert_dist)
             seg_ind = None
         else:
-            vert_ind = None
+            vert_ind = None  # type: ignore
+            seg_ind = np.argmin(dist[0])
         return 1, (seg_ind, vert_ind)
     else:
         # Point inside

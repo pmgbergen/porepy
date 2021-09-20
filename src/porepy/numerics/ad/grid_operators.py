@@ -419,7 +419,7 @@ class Divergence(Operator):
         self,
         grids: Optional[List[pp.Grid]] = None,
         gb: Optional[pp.GridBucket] = None,
-        is_scalar: bool = True,
+        dim: int = 1,
     ):
         """Construct divergence operators for a set of subdomains.
 
@@ -435,35 +435,26 @@ class Divergence(Operator):
                 sets the ordering of the divergence operators.
             gb (pp.GridBucket): Used if grid list is not provided. The order of the
                 grids is set according to iteration over the GridBucket nodes.
-            is_scalar (bool, optional): If true, divergence operators are constructed
-                for scalar quantities.
+            dim (int, optional): Dimension of vector field. Defaults to 1.
 
         """
 
         self._g: List[pp.Grid] = _grid_list(grids, gb)
 
-        self.scalar = is_scalar
+        self.dim: int = dim
         self._set_tree(None)
 
     def __repr__(self) -> str:
-        if self.scalar:
-            s = "Scalar "
-        else:
-            s = "Vector "
-
-        s += f"divergence defined on {len(self._g)} grids\n"
+        s = (
+            f"divergence for vector field of size {self.dim}"
+            f"defined on {len(self._g)} grids\n"
+        )
 
         nf = 0
         nc = 0
         for g in self._g:
-            if self.scalar:
-                nf += g.num_faces
-                nc += g.num_cells
-            else:
-                # EK: the notion of vector divergence for grids of co-dimension >= 1
-                # is not clear, but we ignore this here.
-                nf += g.num_faces * g.dim
-                nc += g.num_cells * g.dim
+            nf += g.num_faces * g.dim
+            nc += g.num_cells * g.dim
 
         s += f"The total size of the matrix is ({nc}, {nf})\n"
 
@@ -482,10 +473,13 @@ class Divergence(Operator):
                 multiple grids.
 
         """
-        if self.scalar:
+        if self.dim == 1:
             mat = [pp.fvutils.scalar_divergence(g) for g in self._g]
         else:
-            mat = [pp.fvutils.vector_divergence(g) for g in self._g]
+            mat = [
+                sps.kron(pp.fvutils.scalar_divergence(g), sps.eye(self.dim))
+                for g in self._g
+            ]
         matrix = sps.block_diag(mat)
         return matrix
 

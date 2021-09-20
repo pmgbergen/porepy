@@ -182,7 +182,7 @@ class RobinCoupling(
         normals_mortar = (proj * normals_h.T).T
         nrm = np.linalg.norm(normals_mortar, axis=0)
         # Sanity check
-        assert np.all(nrm > 1e-10)
+        assert np.nonzero(nrm)[0].size == nrm.size
         outwards_unit_mortar_normals = normals_mortar / nrm
 
         # We know that the ambient dimension for the vector source must be at least as
