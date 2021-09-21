@@ -118,7 +118,9 @@ class Expression:
         self._prev_iter_dofs = prev_iter_indices
         self._prev_iter_ids = prev_iter_ids
 
-        self.discretizations = self._identify_discretizations()
+        self.discretizations: Dict[
+            _MergedOperator, grid_like_type
+        ] = self._identify_discretizations()
 
     # TODO why is this called local? and not global?
     def local_dofs(self, true_ad_variables: Optional[list] = None) -> np.ndarray:
@@ -238,7 +240,7 @@ class Expression:
 
         return discr
 
-    def _identify_discretizations(self) -> List:
+    def _identify_discretizations(self) -> Dict[_MergedOperator, grid_like_type]:
         """Perform a recursive search to find all discretizations present in the
         operator tree. Uniquify the list to avoid double computations.
 
@@ -318,7 +320,7 @@ class Expression:
             # this matrix.
 
             # First generate an Ad array (ready for forward Ad) for the full set.
-            ad_vars = initAdArrays(state)
+            ad_vars = initAdArrays([state])[0]
 
             # Next, the Ad array must be split into variables of the right size
             # (splitting impacts values and number of rows in the Jacobian, but
@@ -326,7 +328,7 @@ class Expression:
             # in the derivatives).
 
             # Dictionary which mapps from Ad variable ids to Ad_array.
-            self._ad: Dict[int, pp.Ad_array] = {}
+            self._ad: Dict[int, pp.ad.Ad_array] = {}
 
             # Loop over all variables, restrict to an Ad array corresponding to
             # this variable.
@@ -759,7 +761,7 @@ class EquationManager:
         # dependency graph etc).
 
         # List of discretizations, build up by iterations over all equations
-        discr = []
+        discr: List = []
         for eqn in self.equations:
             # This will expand the list discr with new discretizations.
             # The list may contain duplicates.
@@ -852,13 +854,14 @@ def _uniquify_discretization_list(all_discr):
 
 
 def _discretize_from_list(
-    discretizations: Dict[_MergedOperator, grid_like_type], gb: pp.GridBucket
+    discretizations: Dict,
+    gb: pp.GridBucket,
 ) -> None:
     """For a list of (ideally uniquified) discretizations, perform the actual
     discretization.
     """
     for discr in discretizations:
-        # Discr has type _MergedOperator
+        # discr is a discretization (on node or interface in the GridBucket sense)
 
         # Loop over all grids (or GridBucket edges), do discretization.
         for g in discretizations[discr]:
