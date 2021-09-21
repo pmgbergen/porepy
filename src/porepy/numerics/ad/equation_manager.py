@@ -118,7 +118,7 @@ class Expression:
         self._prev_iter_dofs = prev_iter_indices
         self._prev_iter_ids = prev_iter_ids
 
-        self._identify_discretizations()
+        self.discretizations = self._identify_discretizations()
 
     # TODO why is this called local? and not global?
     def local_dofs(self, true_ad_variables: Optional[list] = None) -> np.ndarray:
@@ -221,22 +221,39 @@ class Expression:
 
         return inds, variable_ids, prev_time, prev_iter
 
-    def _identify_subtree_discretizations(self, op, discr):
-
+    def _identify_subtree_discretizations(
+        self, op: operators.Operator, discr: List
+    ) -> List:
+        """Recursive search in the tree of this operator to identify all discretizations
+        represented in the operator.
+        """
         if len(op.tree.children) > 0:
+            # Go further in recursion
             for child in op.tree.children:
                 discr += self._identify_subtree_discretizations(child, [])
 
         if isinstance(op, _MergedOperator):
+            # We have reached the bottom; this is a disrcetization (example: mpfa.flux)
             discr.append(op)
 
         return discr
 
-    def _identify_discretizations(self):
+    def _identify_discretizations(self) -> List:
+        """Perform a recursive search to find all discretizations present in the
+        operator tree. Uniquify the list to avoid double computations.
+
+        """
         all_discr = self._identify_subtree_discretizations(self._operator, [])
-        self.discretizations = _uniquify_discretization_list(all_discr)
+        return _uniquify_discretization_list(all_discr)
 
     def discretize(self, gb: pp.GridBucket) -> None:
+        """Perform discretization operation on all discretizations identified in
+        the tree of this operator, using data from gb.
+
+        IMPLEMENTATION NOTE: The discretizations are identified at initialization of
+        this operator - would it be better to identify them just before discretization?
+
+        """
         _discretize_from_list(self.discretizations, gb)
 
     def to_ad(
@@ -728,15 +745,27 @@ class EquationManager:
         rhs = np.hstack([vec for vec in b])
         return A, rhs
 
-    def discretize(self, gb):
+    def discretize(self, gb: pp.GridBucket) -> None:
+        """Loop over all discretizations in self.equations, find all discretizations
+        and discretize.
+
+        Parameters:
+            gb (pp.GridBucket): Mixed-dimensional grid from which parameters etc. will
+                be taken.
+
+        """
         # Somehow loop over all equations, discretize identified objects
         # (but should also be able to do rediscretization based on
         # dependency graph etc).
-        discr = []
 
+        # List of discretizations, build up by iterations over all equations
+        discr = []
         for eqn in self.equations:
+            # This will expand the list discr with new discretizations.
+            # The list may contain duplicates.
             discr = eqn._identify_subtree_discretizations(eqn._operator, discr)
 
+        # Uniquify to save computational time, then discretize.
         unique_discr = _uniquify_discretization_list(discr)
         _discretize_from_list(unique_discr, gb)
 
@@ -765,36 +794,73 @@ class EquationManager:
 
 
 def _uniquify_discretization_list(all_discr):
-    unique_discr_grids: Dict[
-        Union["pp.Discretization", "pp.AbstractInterfaceLaw"], List
-    ] = {}
+    """From a list of Ad discretizations (in an Operator), define a unique list
+    of discretization-keyword combinations.
 
+    The intention is to avoid that what is essentially the same discretization
+    operation is executed twice. For instance, if the list all_discr contains
+    elements
+
+        Mpfa(key1).flux, Mpfa(key2).flux and Mpfa(key1).bound_flux,
+
+    where key1 and key2 are different parameter keywords, the function will
+    register Mpfa(key1) and Mpfa(key2) (since these use data specified by different
+    parameter keywords) but ignore the second instance Mpfa(key1), since this
+    discretization is already registered.
+
+    """
+    discr_type = Union["pp.Discretization", "pp.AbstractInterfaceLaw"]
+    unique_discr_grids: Dict[discr_type, List[grid_like_type]] = {}
+
+    # Mapping from discretization classes to the discretization.
+    # We needed this for some reason..
     cls_obj_map = {}
-
+    # List of all combinations of discretizations and parameter keywords covered.
     cls_key_covered = []
 
     for discr in all_discr:
+        # Get the class of the underlying dicsretization, so MpfaAd will return Mpfa.
         cls = discr.discr.__class__
+        # Parameter keyword for this discretization
         param_keyword = discr.keyword
 
+        # This discretization-keyword combination
         key = (cls, param_keyword)
 
         if key in cls_key_covered:
+            # If this has been encountered before, we add grids not earlier associated
+            # with this discretization to the existing list.
+            # of grids.
+            # Map from discretization class to Ad discretization
             d = cls_obj_map[cls]
             for g in discr.grids:
                 if g not in unique_discr_grids[d]:
                     unique_discr_grids[d].append(g)
         else:
+            # Take note we have now encountered this discretization and parameter keyword.
             cls_obj_map[cls] = discr.discr
             cls_key_covered.append(key)
-            unique_discr_grids[discr.discr] = discr.grids
+
+            # Add new discretization with associated list of grids.
+            # Need a copy here to avoid assigning additional grids to this
+            # discretization (if not copy, this may happen if
+            # the key-discr combination is encountered a second time and the
+            # code enters the if part of this if-else).
+            unique_discr_grids[discr.discr] = discr.grids.copy()
 
     return unique_discr_grids
 
 
-def _discretize_from_list(discretizations, gb):
+def _discretize_from_list(
+    discretizations: Dict[_MergedOperator, grid_like_type], gb: pp.GridBucket
+) -> None:
+    """For a list of (ideally uniquified) discretizations, perform the actual
+    discretization.
+    """
     for discr in discretizations:
         # Discr has type _MergedOperator
+
+        # Loop over all grids (or GridBucket edges), do discretization.
         for g in discretizations[discr]:
             if isinstance(g, tuple):
                 data = gb.edge_props(g)
