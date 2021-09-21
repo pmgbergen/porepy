@@ -293,8 +293,35 @@ class Expression:
 
         # Initialize Ad variables with the current iterates
         if active_variables is None:
-            ad_vars = initAdArrays([state[ind] for ind in self._variable_dofs])
-            self._ad = {var_id: ad for (var_id, ad) in zip(self._variable_ids, ad_vars)}
+            # The size of the Jacobian matrix will always be set according to the
+            # variables found by the DofManager in the GridBucket.
+            #
+            # NOTE: This implies that to derive a subsystem from the Jacobian
+            # matrix of this Expression will require restricting the columns of
+            # this matrix.
+
+            # First generate an Ad array (ready for forward Ad) for the full set.
+            ad_vars = initAdArrays(state)
+
+            # Next, the Ad array must be split into variables of the right size
+            # (splitting impacts values and number of rows in the Jacobian, but
+            # the Jacobian columns must stay the same to preserve all cross couplings
+            # in the derivatives).
+
+            # Dictionary which mapps from Ad variable ids to Ad_array.
+            self._ad: Dict[int, pp.Ad_array] = {}
+
+            # Loop over all variables, restrict to an Ad array corresponding to
+            # this variable.
+            for (var_id, dof) in zip(self._variable_ids, self._variable_dofs):
+                ncol = state.size
+                nrow = np.unique(dof).size
+                # Restriction matrix from full state (in Forward Ad) to the specific
+                # variable.
+                R = sps.coo_matrix(
+                    (np.ones(nrow), (np.arange(nrow), dof)), shape=(nrow, ncol)
+                ).tocsr()
+                self._ad[var_id] = R * ad_vars
         else:
             active_variable_ids = [v.id for v in active_variables]
 
@@ -310,6 +337,8 @@ class Expression:
             self._ad = {var_id: ad for (var_id, ad) in zip(ad_variable_ids, ad_vars)}
 
         # Also make mappings from the previous iteration.
+        # This is simpler, since it is only a matter of getting the residual vector
+        # correctly (not Jacobian matrix).
         if active_variables is None:
             prev_iter_vals_list = [state[ind] for ind in self._prev_iter_dofs]
             self._prev_iter_vals = {
@@ -660,12 +689,12 @@ class EquationManager:
 
         # Make sure the variables are uniquely sorted
         if ad_var is None:
-            num_global_dofs = self.dof_manager.num_dofs()
+            #            num_global_dofs = self.dof_manager.num_dofs()
             variables = None
         else:
             variables = sorted(list(set(ad_var)), key=lambda v: v.id)
-            names: List[str] = [v._name for v in variables]
-            num_global_dofs = self.dof_manager.num_dofs(var=names)
+        #            names: List[str] = [v._name for v in variables]
+        #            num_global_dofs = self.dof_manager.num_dofs(var=names)
 
         for eq in self.equations:
 
@@ -674,20 +703,23 @@ class EquationManager:
                 continue
 
             ad = eq.to_ad(self.gb, state, active_variables=variables)
+
+            # EK: Comment out this part for now; we may need something like this
+            # when we get around to implementing subsystems.
             # The columns of the Jacobian has the size of the local variables.
             # Map these to the global ones
-            local_dofs = eq.local_dofs(true_ad_variables=variables)
-            if variables is not None:
-                local_dofs = self.dof_manager.transform_dofs(local_dofs, var=names)
+            # local_dofs = eq.local_dofs(true_ad_variables=variables)
+            # if variables is not None:
+            #    local_dofs = self.dof_manager.transform_dofs(local_dofs, var=names)
 
-            num_local_dofs = local_dofs.size
-            projection = sps.coo_matrix(
-                (np.ones(num_local_dofs), (np.arange(num_local_dofs), local_dofs)),
-                shape=(num_local_dofs, num_global_dofs),
-            )
+            # num_local_dofs = local_dofs.size
+            # projection = sps.coo_matrix(
+            #    (np.ones(num_local_dofs), (np.arange(num_local_dofs), local_dofs)),
+            #    shape=(num_local_dofs, num_global_dofs),
+            # )
+            # mat.append(ad.jac * projection)
 
-            mat.append(ad.jac * projection)
-
+            mat.append(ad.jac)
             # Concatenate the residuals
             # Multiply by -1 to move to the rhs
             b.append(-ad.val)
