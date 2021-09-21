@@ -408,6 +408,15 @@ class MergedVariable(Variable):
         self.prev_time: bool = False
         self.prev_iter: bool = False
 
+    def size(self) -> int:
+        """Get total size of the merged variable.
+
+        Returns:
+            int: Total size of this merged variable.
+
+        """
+        return sum([v.size() for v in self.sub_vars])
+
     def previous_timestep(self) -> "MergedVariable":
         new_subs = [var.previous_timestep() for var in self.sub_vars]
         new_var = MergedVariable(new_subs)
