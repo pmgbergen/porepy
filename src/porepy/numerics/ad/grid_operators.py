@@ -395,7 +395,8 @@ class Trace(Operator):
                 # map back to cells.
                 inv_trace.append(div * face_projections[g].T)
             else: 
-              
+                
+                # Identity matrix
                 eye_nd = sps.eye(self._nd)
                 
                 # Use a similar procedure as above to compute
