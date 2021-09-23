@@ -1016,7 +1016,9 @@ class TestDFMNonConvexDomain(unittest.TestCase):
         gb = network.mesh(mesh_args)
         # The fracture should be split into subfractures because of the non-convexity.
         # non-convexity.
-        self.assertTrue(len(gb.grids_of_dimension(2)) == 5)
+        # The size of the domain here is set by how the fracture pieces are merged
+        # into convex parts.
+        self.assertTrue(len(gb.grids_of_dimension(2)) == 3)
 
 
 class Test2dDomain(unittest.TestCase):
