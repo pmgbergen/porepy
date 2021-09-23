@@ -16,8 +16,7 @@ import porepy as pp
 
 from . import operators
 from .discretizations import _MergedOperator
-from .forward_mode import Ad_array, initAdArrays
-from .local_forward_mode import Local_Ad_array
+from .forward_mode import initAdArrays
 
 __all__ = ["Expression", "EquationManager"]
 
@@ -121,20 +120,6 @@ class Expression:
         self.discretizations: Dict[
             _MergedOperator, grid_like_type
         ] = self._identify_discretizations()
-
-    # TODO why is this called local? and not global?
-    def local_dofs(self, true_ad_variables: Optional[list] = None) -> np.ndarray:
-        if true_ad_variables is None:
-            dofs = np.hstack([d for d in self._variable_dofs])
-        else:
-            true_ad_variable_ids = [v.id for v in true_ad_variables]
-            assert all([i in self._variable_ids for i in true_ad_variable_ids])
-            ad_variable_local_ids = [
-                self._variable_ids.index(i) for i in true_ad_variable_ids
-            ]
-            ad_variable_dofs = [self._variable_dofs[i] for i in ad_variable_local_ids]
-            dofs = np.hstack([d for d in ad_variable_dofs])
-        return dofs
 
     def __repr__(self) -> str:
         return f"Equation named {self.name}"
@@ -262,7 +247,6 @@ class Expression:
         self,
         gb: pp.GridBucket,
         state: Optional[np.ndarray] = None,
-        active_variables: Optional[list] = None,
     ):
         """Evaluate the residual and Jacobian matrix for a given state.
 
@@ -311,77 +295,46 @@ class Expression:
                         state[ind] = gb.node_props(g, pp.STATE)[var]
 
         # Initialize Ad variables with the current iterates
-        if active_variables is None:
-            # The size of the Jacobian matrix will always be set according to the
-            # variables found by the DofManager in the GridBucket.
-            #
-            # NOTE: This implies that to derive a subsystem from the Jacobian
-            # matrix of this Expression will require restricting the columns of
-            # this matrix.
 
-            # First generate an Ad array (ready for forward Ad) for the full set.
-            ad_vars = initAdArrays([state])[0]
+        # The size of the Jacobian matrix will always be set according to the
+        # variables found by the DofManager in the GridBucket.
+        #
+        # NOTE: This implies that to derive a subsystem from the Jacobian
+        # matrix of this Expression will require restricting the columns of
+        # this matrix.
 
-            # Next, the Ad array must be split into variables of the right size
-            # (splitting impacts values and number of rows in the Jacobian, but
-            # the Jacobian columns must stay the same to preserve all cross couplings
-            # in the derivatives).
+        # First generate an Ad array (ready for forward Ad) for the full set.
+        ad_vars = initAdArrays([state])[0]
 
-            # Dictionary which mapps from Ad variable ids to Ad_array.
-            self._ad: Dict[int, pp.ad.Ad_array] = {}
+        # Next, the Ad array must be split into variables of the right size
+        # (splitting impacts values and number of rows in the Jacobian, but
+        # the Jacobian columns must stay the same to preserve all cross couplings
+        # in the derivatives).
 
-            # Loop over all variables, restrict to an Ad array corresponding to
-            # this variable.
-            for (var_id, dof) in zip(self._variable_ids, self._variable_dofs):
-                ncol = state.size
-                nrow = np.unique(dof).size
-                # Restriction matrix from full state (in Forward Ad) to the specific
-                # variable.
-                R = sps.coo_matrix(
-                    (np.ones(nrow), (np.arange(nrow), dof)), shape=(nrow, ncol)
-                ).tocsr()
-                self._ad[var_id] = R * ad_vars
-        else:
-            active_variable_ids = [v.id for v in active_variables]
+        # Dictionary which mapps from Ad variable ids to Ad_array.
+        self._ad: Dict[int, pp.ad.Ad_array] = {}
 
-            ad_variable_ids = list(
-                set(self._variable_ids).intersection(active_variable_ids)
-            )
-            assert all([i in self._variable_ids for i in active_variable_ids])
-            ad_variable_local_ids = [
-                self._variable_ids.index(i) for i in active_variable_ids
-            ]
-            ad_variable_dofs = [self._variable_dofs[i] for i in ad_variable_local_ids]
-            ad_vars = initAdArrays([state[ind] for ind in ad_variable_dofs])
-            self._ad = {var_id: ad for (var_id, ad) in zip(ad_variable_ids, ad_vars)}
+        # Loop over all variables, restrict to an Ad array corresponding to
+        # this variable.
+        for (var_id, dof) in zip(self._variable_ids, self._variable_dofs):
+            ncol = state.size
+            nrow = np.unique(dof).size
+            # Restriction matrix from full state (in Forward Ad) to the specific
+            # variable.
+            R = sps.coo_matrix(
+                (np.ones(nrow), (np.arange(nrow), dof)), shape=(nrow, ncol)
+            ).tocsr()
+            self._ad[var_id] = R * ad_vars
 
         # Also make mappings from the previous iteration.
         # This is simpler, since it is only a matter of getting the residual vector
         # correctly (not Jacobian matrix).
-        if active_variables is None:
-            prev_iter_vals_list = [state[ind] for ind in self._prev_iter_dofs]
-            self._prev_iter_vals = {
-                var_id: val
-                for (var_id, val) in zip(self._prev_iter_ids, prev_iter_vals_list)
-            }
-        else:
-            # FIXME: This needs explanations
-            prev_iter_vals_list = [state[ind] for ind in self._prev_iter_dofs]
-            non_ad_variable_ids = list(set(self._variable_ids) - set(ad_variable_ids))
-            non_ad_variable_local_ids = [
-                self._variable_ids.index(i) for i in non_ad_variable_ids
-            ]
-            non_ad_variable_dofs = [
-                self._variable_dofs[i] for i in non_ad_variable_local_ids
-            ]
-            non_ad_vals_list = [state[ind] for ind in non_ad_variable_dofs]
-            self._prev_iter_vals = {
-                var_id: val
-                for (var_id, val) in zip(
-                    self._prev_iter_ids + non_ad_variable_ids,
-                    prev_iter_vals_list + non_ad_vals_list,
-                )
-            }
+
+        prev_iter_vals_list = [state[ind] for ind in self._prev_iter_dofs]
+        self._prev_iter_vals = {
+            var_id: val
+            for (var_id, val) in zip(self._prev_iter_ids, prev_iter_vals_list)
+        }
 
         # Also make mappings from the previous time step.
         prev_vals_list = [prev_vals[ind] for ind in self._prev_time_dofs]
@@ -564,23 +517,6 @@ class Expression:
             # This is a function, which should have at least one argument
             assert len(results) > 1
             return results[0].func(*results[1:])
-
-        elif tree.op == operators.Operation.localeval:
-            # This is a local function, which should have at least one argument
-            assert len(results) > 1
-            if all([isinstance(r, Ad_array) for r in results[1:]]):
-                # TODO: return results[0].func(*makeLocalAd(results[1:]))
-                if len(results) > 2:
-                    # evaluation of local functions only supported for single
-                    # argument functions.
-                    raise RuntimeError("Not implemented.")
-                else:
-                    argval = results[1].val
-                    argjac = results[1].jac.diagonal()
-                    arg = Local_Ad_array(argval, argjac)
-                    return results[0].func(arg)
-            else:
-                return results[0].func(*results[1:])
 
         elif tree.op == operators.Operation.apply:
             assert len(results) > 1
@@ -774,8 +710,6 @@ class EquationManager:
 
     def assemble_matrix_rhs(
         self,
-        equations: Optional[List[str]] = None,
-        ad_var: Optional[List[Union["pp.ad.Variable", "pp.ad.MergedVariable"]]] = None,
         state: Optional[np.ndarray] = None,
     ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Assemble residual vector and Jacobian matrix with respect to the current
@@ -785,10 +719,6 @@ class EquationManager:
         assembled. This functionality may be moved somewhere else in the future.
 
         Parameters:
-            equations (list of str, optional): Name of equations to be assembled.
-                Defaults to assembly of all equations.
-            ad_var (Ad variable, optional): Variables to be assembled. Defaults to all
-                variables present known to the EquationManager.
             state (np.ndarray, optional): State vector to assemble from. If not provided,
                 the default behavior of pp.ad.Expression.to_ad() will be followed.
 
@@ -802,22 +732,8 @@ class EquationManager:
         mat: List[sps.spmatrix] = []
         b: List[np.ndarray] = []
 
-        # Make sure the variables are uniquely sorted
-        if ad_var is None:
-            #            num_global_dofs = self.dof_manager.num_dofs()
-            variables = None
-        else:
-            variables = sorted(list(set(ad_var)), key=lambda v: v.id)
-        #            names: List[str] = [v._name for v in variables]
-        #            num_global_dofs = self.dof_manager.num_dofs(var=names)
-
         for eq in self.equations:
-
-            # Neglect equation if not explicilty asked for.
-            if equations is not None and not (eq.name in equations):
-                continue
-
-            ad = eq.to_ad(self.gb, state, active_variables=variables)
+            ad = eq.to_ad(self.gb, state)
 
             # EK: Comment out this part for now; we may need something like this
             # when we get around to implementing subsystems.
