@@ -356,7 +356,7 @@ def segments_3d(start_1, end_1, start_2, end_2, tol=1e-8):
 
 
 @pp.time_logger(sections=module_sections)
-def polygons_3d(polys, target_poly=None, tol=1e-8):
+def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
     """Compute the intersection between polygons embedded in 3d.
 
     In addition to intersection points, the function also decides:
@@ -368,7 +368,8 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
 
     Assumptions:
         * All polygons are convex. Non-convex polygons will simply be treated
-          in a wrong way.
+            in a wrong way. To circumvent this, split the non-convex polygon into convex
+            parts.
         * No polygon contains three points on a line, that is, an angle of pi. This can
             be included, possibly by temporarily stripping the hanging node from the
             polygon definition.
@@ -404,6 +405,8 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
             segment, False if vertex. The index identifies the vertex, or the first
             vertex of the segment. If the intersection is in the interior of a polygon,
             the tuple is replaced by an empty list.
+        list of list of bool: For each polygon, for all intersection points, True if this
+            intersection is formed by a single point.
 
     """
     if target_poly is None:
@@ -413,6 +416,16 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
 
     # Obtain bounding boxes for the polygons
     x_min, x_max, y_min, y_max, z_min, z_max = _axis_aligned_bounding_box_3d(polys)
+
+    # If a polygon is perfectly aligned with a coordinate axis, and another polygon
+    # terminates in the first one, rounding errors in the coordinates may lead to
+    # the intersection not being picked up. To circumvent the issue, detect such
+    # situations and give ourselves a bit wiggle room.
+    # It seems that this will not give problems in other cases.
+    for (cmin, cmax) in [(x_min, x_max), (y_min, y_max), (z_min, z_max)]:
+        hit = cmax - cmin < tol
+        cmin[hit] -= 0.5 * tol
+        cmax[hit] += 0.5 * tol
 
     # Identify overlapping bounding boxes: First, use a fast method to find
     # overlapping rectangles in the xy-plane.
@@ -460,25 +473,21 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
         assert t >= 0 and t <= 1
         return start + t * dx
 
-    def vector_pointset_point(a, b, tol=1e-4):
+    def vector_pointset_point(a, b, tol=1e-8):
         # Create a set of non-zero vectors from a point in the plane spanned by
         # a, to all points in b
-        found = None
         # Loop over all points in a, search for a point that is sufficiently
         # far away from b. Mainly this involves finding a point in a which is
         # not in b
+        dist = np.zeros(a.shape[1])
         for i in range(a.shape[1]):
-            dist = np.sqrt(np.sum((b - a[:, i].reshape((-1, 1))) ** 2, axis=0))
-            if np.min(dist) > tol:
-                found = i
-                break
-        if found is None:
-            # All points in a are also in b. We could probably use some other
-            # point in a, but this seems so strange that we will rather
-            # raise an error, with the expectation that this should never happen.
-            raise ValueError("Coinciding polygons")
+            dist[i] = np.min(
+                np.sqrt(np.sum((b - a[:, i].reshape((-1, 1))) ** 2, axis=0))
+            )
 
-        return b - a[:, found].reshape((-1, 1))
+        ind = np.argmax(dist)
+        assert dist[ind] > tol
+        return b - a[:, ind].reshape((-1, 1))
 
     num_polys = len(polys)
 
@@ -488,12 +497,14 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
     is_bound_isect = np.empty_like(isect_pt)
     # Storage for which segment or vertex of a polygon is intersected
     segment_vertex_intersection = np.empty_like(isect_pt)
+    is_point_contact = np.empty(num_polys, dtype=object)
 
     # Initialization
     for i in range(isect_pt.size):
         isect_pt[i] = []
         is_bound_isect[i] = []
         segment_vertex_intersection[i] = []
+        is_point_contact[i] = []
 
     # Array for storing the newly found points
     new_pt = []
@@ -587,7 +598,6 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
             # to two vertexes of the polygon
             isect_on_boundary_main = False
             isect_on_boundary_other = False
-
             # We know that the polygons at least are very close to intersecting each
             # others planes. There are four options, differing in whether the vertexes
             # are in the plane of the other polygon or not:
@@ -642,8 +652,60 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
                 if sign_change_full.size == 0:
                     # This corresponds to a point contact between one polygon and the
                     # other (at least other plane, perhaps also other polygon)
-                    # Simply ignore this for now.S
+                    if not include_point_contact:
+                        continue
+
+                    # Point of the intersection - known to be on o.
+                    tmp_p = polys[o][:, hit].reshape((-1, 1))
+
+                    # Check whether the point is inside, or on the boundary, of outside.
+                    # in_or_on is 0 for outside, 1 for on boundary, 2 for internal.
+                    # If the contact is on an index of other, vert_ind_on_other gives
+                    # the index of this vertex, if not, it is False.
+                    in_or_on, vert_ind_on_main = _point_in_or_on_polygon(
+                        tmp_p, polys[main], tol=tol
+                    )
+
+                    if in_or_on > 0:
+                        # The intersection is between the polygons proper.
+                        # Store point, assign it to both polygons.
+                        new_pt.append(tmp_p)
+                        isect_pt[main].append(new_pt_ind + np.arange(1))
+                        isect_pt[o].append(new_pt_ind + np.arange(1))
+                        polygon_pairs.append((main, o))
+                        new_pt_ind += 1
+
+                        # This is certainly a point on the boundary on main.
+                        is_bound_isect[o].append(True)
+
+                        # Store index of the point contact vertex for main.
+                        is_point_contact[o].append(True)
+                        # Store vertex information for other.
+                        is_point_contact[main].append(True)
+                        segment_vertex_intersection[o].append([hit[0], False])
+
+                        # Store boundary information on other.
+                        if in_or_on == 1:
+                            if vert_ind_on_main[1] is None:
+                                # This is a segment, but not a vertex intersection
+                                segment_vertex_intersection[main].append(
+                                    [vert_ind_on_main[0], True]
+                                )
+                            else:
+                                # Intersection is on vertex of other as well
+                                segment_vertex_intersection[main].append(
+                                    [vert_ind_on_main[1], False]
+                                )
+                            is_bound_isect[main].append(True)
+                        else:
+                            segment_vertex_intersection[main].append([])
+                            is_bound_isect[main].append(False)
+
+                    # if in_or_or is 0, the intersection is external, and we do nothing.
+                    # There is no need to do further processing of the combination of
+                    # main and o.
                     continue
+
                 other_intersects_main_1 = intersection(
                     other_p_expanded[:, sign_change_full[0]],
                     other_p_expanded[:, sign_change_full[0] + 1],
@@ -690,7 +752,44 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
                     # The polygons share a plane, but no intersections
                     continue
                 elif isect.shape[1] == 1:
-                    # Point contact. Not really sure what to do with this, ignore for now
+
+                    if not include_point_contact:
+                        continue
+
+                    # Register point
+                    new_pt.append(isect)
+                    isect_pt[main].append(new_pt_ind + np.arange(1))
+                    isect_pt[o].append(new_pt_ind + np.arange(1))
+                    polygon_pairs.append((main, o))
+                    new_pt_ind += 1
+
+                    # This is certainly a point on the boundary on both
+                    is_bound_isect[main].append(True)
+                    is_bound_isect[o].append(True)
+                    # Store point index information
+                    is_point_contact[o].append(True)
+                    is_point_contact[main].append(True)
+
+                    # For each of the polygons, check proximity of intersection first with
+                    # vertexes, next segments.
+                    for tmp_ind in [main, o]:
+                        dist_vert = pp.distances.point_pointset(isect, polys[tmp_ind])
+                        if dist_vert.min() < tol:
+                            # This is a point
+                            segment_vertex_intersection[tmp_ind].append(
+                                [np.argmin(dist_vert)[0], False]
+                            )
+                        else:
+                            # Point failed, look for closest segment.
+                            start = polys[tmp_ind]
+                            end = np.roll(start, -1, axis=1)
+                            dist_seg, _ = pp.distances.points_segments(
+                                isect, start, end
+                            )
+                            segment_vertex_intersection[tmp_ind].append(
+                                [np.argmin(dist_seg[0])[0], True]
+                            )
+                    # Intersection information is complete, move on.
                     continue
                 elif isect.shape[1] == 2:
                     other_intersects_main_0 = isect[:, 0]
@@ -759,8 +858,62 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
                 if sign_change_full.size == 0:
                     # This corresponds to a point contact between one polygon and the
                     # other (at least other plane, perhaps also other polygon)
-                    # Simply ignore this for now.S
+
+                    if not include_point_contact:
+                        continue
+
+                    # Point of the intersection - known to be on main.
+                    tmp_p = polys[main][:, hit].reshape((-1, 1))
+
+                    # Check whether the point is inside, or on the boundary, of outside.
+                    # in_or_on is 0 for outside, 1 for on boundary, 2 for internal.
+                    # If the contact is on an index of other, vert_ind_on_other gives
+                    # the index of this vertex, if not, it is False.
+                    in_or_on, vert_ind_on_other = _point_in_or_on_polygon(
+                        tmp_p, polys[o], tol=tol
+                    )
+
+                    if in_or_on > 0:
+                        # The intersection is between the polygons proper.
+                        # Store point, assign it to both polygons.
+                        new_pt.append(tmp_p)
+                        isect_pt[main].append(new_pt_ind + np.arange(1))
+                        isect_pt[o].append(new_pt_ind + np.arange(1))
+                        polygon_pairs.append((main, o))
+                        new_pt_ind += 1
+
+                        # This is certainly a point on the boundary on main.
+                        is_bound_isect[main].append(True)
+
+                        # Store index of the point contact vertex for main.
+                        is_point_contact[main].append(True)
+                        # Store vertex information for other.
+                        is_point_contact[o].append(True)
+
+                        segment_vertex_intersection[main].append([hit[0], False])
+
+                        # Store boundary information on other.
+                        if in_or_on == 1:
+                            if vert_ind_on_other[1] is None:
+                                # This is a segment, but not a vertex intersection
+                                segment_vertex_intersection[o].append(
+                                    [vert_ind_on_other[0], True]
+                                )
+                            else:
+                                # Intersection is on vertex of other as well
+                                segment_vertex_intersection[o].append(
+                                    [vert_ind_on_other[1], False]
+                                )
+                            is_bound_isect[o].append(True)
+                        else:
+                            segment_vertex_intersection[o].append([])
+                            is_bound_isect[o].append(False)
+
+                    # if in_or_or is 0, the intersection is external, and we do nothing.
+                    # There is no need to do further processing of the combination of
+                    # main and o.
                     continue
+
                 main_intersects_other_1 = intersection(
                     main_p_expanded[:, sign_change_full[0]],
                     main_p_expanded[:, sign_change_full[0] + 1],
@@ -803,7 +956,46 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
                     # The polygons share a plane, but no intersections
                     continue
                 elif isect.shape[1] == 1:
-                    # Point contact. Not really sure what to do with this, continue for now
+                    # Point contact. Must be on the boundary of both, but not clear whether
+                    # it is on vertex of both (must be at least on one).
+                    if not include_point_contact:
+                        continue
+
+                    # Register point
+                    new_pt.append(isect)
+                    isect_pt[main].append(new_pt_ind + np.arange(1))
+                    isect_pt[o].append(new_pt_ind + np.arange(1))
+                    polygon_pairs.append((main, o))
+                    new_pt_ind += 1
+
+                    # This is certainly a point on the boundary on both
+                    is_bound_isect[main].append(True)
+                    is_bound_isect[o].append(True)
+                    # Store point index information
+                    is_point_contact[o].append(True)
+                    is_point_contact[main].append(True)
+
+                    # For each of the polygons, check proximity of intersection first with
+                    # vertexes, next segments.
+                    for tmp_ind in [main, o]:
+                        dist_vert = pp.distances.point_pointset(isect, polys[tmp_ind])
+                        if dist_vert.min() < tol:
+                            # This is a point
+                            segment_vertex_intersection[tmp_ind].append(
+                                [np.argmin(dist_vert)[0], True]
+                            )
+                        else:
+                            # Point failed, look for closest segment.
+                            start = polys[tmp_ind]
+                            end = np.roll(start, -1, axis=1)
+                            dist_seg, _ = pp.distances.points_segments(
+                                isect, start, end
+                            )
+                            segment_vertex_intersection[tmp_ind].append(
+                                [np.argmin(dist_seg)[0], False]
+                            )
+
+                    # Intersection information is complete, move on.
                     continue
                 elif isect.shape[1] == 2:
                     main_intersects_other_0 = isect[:, 0]
@@ -891,6 +1083,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
             ):
                 # Contact in a single point
                 continue
+
             if e_1 >= 0:
                 # The first point on the main fracture is at most marginally involved in
                 # the intersection (if e_1 == 0, two segments intersect)
@@ -926,10 +1119,6 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
                             # seg_vert info 0.
                             segment_vertex_intersection[main].append(seg_vert_main_0)
                         else:
-                            if not mod_sign(main_1_other_0.sum()) == 0:  # sanity check
-                                raise ValueError(
-                                    "inconsistent polygon intersection configuration"
-                                )
                             # other_intersects_main_0 == main_intersects_other_1
                             # The first intersection point, seen from main, should have
                             # seg_vert info 1.
@@ -938,9 +1127,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
                         if isect_on_boundary_main:
                             # The first intersection coincides with a segment of main
                             ind = seg_vert_main_0[0]
-                            if ind == 0:
-                                ind = num_main - 1
-                            segment_vertex_intersection[main].append((ind, True))
+                            segment_vertex_intersection[main].append((ind, False))
                         else:
                             # The first intersection is in the interior of main
                             segment_vertex_intersection[main].append([])
@@ -955,10 +1142,6 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
                             segment_vertex_intersection[main].append(seg_vert_main_1)
                         else:
                             # other_intersects_main_1 == main_intersects_other_1
-                            if not mod_sign(main_0_other_1.sum()) == 0:
-                                raise ValueError(
-                                    "inconsistent polygon intersection configuration"
-                                )
                             segment_vertex_intersection[main].append(seg_vert_main_0)
 
                     else:
@@ -1000,10 +1183,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
                             if isect_on_boundary_main:
                                 # No intersection for the first point of main
                                 ind = seg_vert_main_0[0]
-                                if ind == 0:
-                                    ind = num_main - 1
-
-                                segment_vertex_intersection[main].append((ind, True))
+                                segment_vertex_intersection[main].append((ind, False))
                             else:
                                 segment_vertex_intersection[main].append([])
 
@@ -1089,7 +1269,10 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
                             other_intersects_main_1,
                         ]
                         segment_vertex_intersection[main].append(seg_vert_main_0)
-                        segment_vertex_intersection[main].append([])
+                        if mod_sign(np.abs(main_1_other_1).sum()) == 0:
+                            segment_vertex_intersection[main].append(seg_vert_main_1)
+                        else:
+                            segment_vertex_intersection[main].append([])
 
                         segment_vertex_intersection[o].append([])
                         segment_vertex_intersection[o].append(seg_vert_other_1)
@@ -1129,6 +1312,9 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
             is_bound_isect[o].append(isect_on_boundary_other)
             polygon_pairs.append((main, o))
 
+            is_point_contact[main] += num_new * [False]
+            is_point_contact[o] += num_new * [False]
+
     # Cleanup and return. Puh!
     if len(new_pt) > 0:
         new_pt = np.hstack([v for v in new_pt])
@@ -1142,8 +1328,61 @@ def polygons_3d(polys, target_poly=None, tol=1e-8):
         new_pt = np.empty((3, 0))
         for i in range(isect_pt.size):
             isect_pt[i] = np.empty(0)
+    return (
+        new_pt,
+        isect_pt,
+        is_bound_isect,
+        polygon_pairs,
+        segment_vertex_intersection,
+        is_point_contact,
+    )
 
-    return new_pt, isect_pt, is_bound_isect, polygon_pairs, segment_vertex_intersection
+
+def _point_in_or_on_polygon(p: np.ndarray, poly: np.ndarray, tol=1e-8):
+    """Helper function to get intersection information between a point and a polygon.
+
+    The polygon is classified as being outside, on the boundary or in the interior of
+    the polygon. If on the boundary, the intersection is further classified according to
+    whether it is on a segment or vertex.
+
+    Interpretation of return values:
+        First values is an int, 0 for outside, 1 for on boundary, 2 in interior.
+        If the first value is 0 or 2, the second is None.
+        If the first value is 1, the second is a tuple. First item is the segment index
+            in the polygon if intersection is on segment, None if on vertex. Second item
+            is vertex index if intersection on vertex, None if not.
+
+    """
+
+    # Rotate polygon to its natural plane, also map point.
+    cp = poly.mean(axis=1).reshape((-1, 1))
+    rot = pp.map_geometry.project_plane_matrix(poly - cp)
+    rot_poly = rot.dot(poly - cp)[:2]
+    rot_p = rot.dot(p - cp)
+
+    if np.abs(rot_p[2]) > tol:
+        # Point not even in the plane of the polygon.
+        return 0, None
+
+    if not pp.geometry_property_checks.point_in_polygon(rot_poly, rot_p, default=True):
+        # Point outside the polygon
+        return 0, None
+
+    dist, _ = pp.distances.points_segments(p, poly, np.roll(poly, -1, axis=1))
+
+    if dist.min() < tol:
+        # Intersection on boundary. Either vertex of segment.
+        vert_dist = pp.distances.point_pointset(p, poly)
+        if vert_dist.min() < tol:
+            vert_ind = np.argmin(vert_dist)
+            seg_ind = None
+        else:
+            vert_ind = None  # type: ignore
+            seg_ind = np.argmin(dist[0])
+        return 1, (seg_ind, vert_ind)
+    else:
+        # Point inside
+        return 2, None
 
 
 @pp.time_logger(sections=module_sections)
@@ -1556,7 +1795,7 @@ def surface_tessalations(
 
 
 @pp.time_logger(sections=module_sections)
-def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
+def split_intersecting_segments_2d(p, e, tol=1e-8, return_argsort=False):
     """Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
 
@@ -1591,8 +1830,22 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
             Returned if return_argsort is True.
 
     """
+    if p.dtype == int:
+        p = p.astype(float)
+
     # Find the bounding box
     x_min, x_max, y_min, y_max = _axis_aligned_bounding_box_2d(p, e)
+
+    # If a polygon is perfectly aligned with a coordinate axis, and another polygon
+    # terminates in the first one, rounding errors in the coordinates may lead to
+    # the intersection not being picked up. To circumvent the issue, detect such
+    # situations and give ourselves a bit wiggle room.
+    # It seems that this will not give problems in other cases.
+    for (cmin, cmax) in [(x_min, x_max), (y_min, y_max)]:
+        hit = cmax - cmin < tol
+        cmin[hit] -= 0.5 * tol
+        cmax[hit] += 0.5 * tol
+
     # Identify fractures with overlapping bounding boxes
     pairs = _identify_overlapping_rectangles(x_min, x_max, y_min, y_max)
 
@@ -1665,11 +1918,11 @@ def split_intersecting_segments_2d(p, e, tol=1e-4, return_argsort=False):
         # If the segments are overlapping, there will still be issues with nans,
         # but these are dealt with below.
         main_vec = normalize(end_main - start_main)
-        if dist(start_other, start_main) > 1e-4:
+        if dist(start_other, start_main) > tol:
             main_other_start = normalize(start_other - start_main)
         else:
             main_other_start = normalize(0.5 * (start_other + end_other) - start_main)
-        if dist(end_other, start_main) > 1e-4:
+        if dist(end_other, start_main) > tol:
             main_other_end = normalize(end_other - start_main)
         else:
             # Values 0.3 and 0.7 are quite random here.

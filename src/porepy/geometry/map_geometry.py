@@ -205,7 +205,7 @@ def project_plane_matrix(pts, normal=None, tol=1e-5, reference=None, check_plana
         reference = [0, 0, 1]
 
     if normal is None:
-        normal = compute_normal(pts)
+        normal = compute_normal(pts, check=check_planar, tol=tol)
     else:
         normal = np.asarray(normal)
         normal = normal.flatten() / np.linalg.norm(normal)
@@ -342,7 +342,7 @@ def tangent_matrix(pts=None, normal=None):
 
 
 @pp.time_logger(sections=module_sections)
-def compute_normal(pts, check=True):
+def compute_normal(pts, check=True, tol=1e-5):
     """Compute the normal of a set of points. The sign of the normal is arbitary
 
     The algorithm assume that the points lie on a plane.
@@ -365,7 +365,7 @@ def compute_normal(pts, check=True):
         count += 1
         normal = np.cross(pts[:, 0] - pts[:, 1], np.mean(pts, axis=1) - pts[:, 2])
         pts = pts[:, 1:]
-    if check and np.allclose(normal, np.zeros(3)):
+    if check and np.allclose(normal, np.zeros(3), tol):
         raise RuntimeError(
             "Unable to calculate normal from point set. Are all points collinear?"
         )

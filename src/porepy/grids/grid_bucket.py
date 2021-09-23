@@ -3,6 +3,7 @@ Module to store the grid hiearchy formed by a set of fractures and their
 intersections in the form of a GridBucket.
 
 """
+import itertools
 import warnings
 from typing import (
     Any,
@@ -128,6 +129,23 @@ class GridBucket:
         """
         for edge, data in self._edges.items():
             yield edge, data
+
+    @pp.time_logger(sections=module_sections)
+    def nodes_and_edges(
+        self,
+    ) -> Generator[Tuple[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], Dict], None, None]:
+        """
+        Iterator over the nodes and edges in the GridBucket
+
+        Yields:
+            node_or_edge (Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]):
+                Grid or Grid pair associated with the current node or edge.
+            data (dict):
+                The dictionary storing all information in this node or edge.
+
+        """
+        for node_or_edge, data in itertools.chain(*[self, self.edges()]):
+            yield node_or_edge, data
 
     # ---------- Navigate within the graph --------
 

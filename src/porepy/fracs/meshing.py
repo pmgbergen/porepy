@@ -247,6 +247,11 @@ def _tag_faces(grids, check_highest_dim=True):
         # Also count the number of occurences of nodes on fractures
         num_occ_nodes = np.array([], dtype=int)
 
+        # Pick out the face-node relation for the highest dimensional grid, restricted
+        # to the faces on the domain boundary. This will be of use for identifying
+        # tip faces for 2d grids below.
+        fn_h = g_h.face_nodes[:, bnd_faces].tocsr()
+
         for g_dim in grids[1:-1]:
             for g in g_dim:
                 # We find the global nodes of all boundary faces
@@ -273,6 +278,20 @@ def _tag_faces(grids, check_highest_dim=True):
                     ),
                     axis=0,
                 )
+
+                # Special case: In 2d, there may be fractures that are so close to a
+                # corner of the domain that it has faces with nodes on different
+                # surfaces of the global boundary. These are identified by the two
+                # nodes (there will be 2 in 2d) not having any faces in the coarse grid
+                # in common.
+                if g.dim == 2:
+                    assert n_per_face == 2
+                    not_tip = np.where(np.logical_not(is_tip_face))[0]
+                    for fi in not_tip:
+                        g1 = fn_h[nodes_glb[2 * fi]].indices
+                        g2 = fn_h[nodes_glb[2 * fi + 1]].indices
+                        if np.intersect1d(g1, g2).size == 0:
+                            is_tip_face[fi] = True
 
                 # Tag faces on tips and boundaries
                 g.tags["tip_faces"][bnd_faces_l[is_tip_face]] = True

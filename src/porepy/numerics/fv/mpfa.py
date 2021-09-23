@@ -142,7 +142,7 @@ class Mpfa(pp.FVElliptic):
 
             # Extract the relevant part of the boundary condition
             active_bound: pp.BoundaryCondition = self._bc_for_subgrid(
-                bnd, active_grid, extracted_faces
+                bnd, active_grid, extracted_faces, g
             )
         else:
             # The active grid is simply the grid
@@ -198,7 +198,7 @@ class Mpfa(pp.FVElliptic):
             # that are on the global boundary.
             # Then transfer boundary condition on those faces.
             loc_bnd: pp.BoundaryCondition = self._bc_for_subgrid(
-                active_bound, sub_g, l2g_faces
+                active_bound, sub_g, l2g_faces, active_grid
             )
             discr_fields = self._flux_discretization(
                 sub_g,
@@ -1397,7 +1397,11 @@ class Mpfa(pp.FVElliptic):
 
     @pp.time_logger(sections=module_sections)
     def _bc_for_subgrid(
-        self, bc: pp.BoundaryCondition, sub_g: pp.Grid, face_map: np.ndarray
+        self,
+        bc: pp.BoundaryCondition,
+        sub_g: pp.Grid,
+        face_map: np.ndarray,
+        full_grid: pp.Grid,
     ) -> pp.BoundaryCondition:
         """Obtain a representation of a boundary condition for a subgrid of
         the original grid.
@@ -1420,12 +1424,15 @@ class Mpfa(pp.FVElliptic):
 
         sub_bc = pp.BoundaryCondition(sub_g)
 
-        # Copy the Neumann information as from the parent grid. For standard
-        # problems this should not be necessary, however, in special cases
-        # (EK: DFM upscaling) the tagging of grid boundary faces which underlies
-        # the boundary condition implementation may be inaccurate, and copying
-        # the information is necessary.
-        # sub_bc.is_neu = bc.is_neu[face_map]
+        # In certain cases (EK: DFM upscaling) it may be of interest to set boundary
+        # conditions for non-boundary faces - don't ask.
+        # If such conditions are found, we copy them to the subgrid.
+        neu_condition_on_interior = np.setdiff1d(
+            np.where(bc.is_neu), full_grid.get_all_boundary_faces()
+        )
+        if neu_condition_on_interior.size > 0:
+            hit = np.isin(face_map, neu_condition_on_interior)
+            sub_bc.is_neu[hit] = True
 
         sub_bc.is_dir = bc.is_dir[face_map]
         sub_bc.is_rob = bc.is_rob[face_map]
