@@ -3,6 +3,7 @@ Module to store the grid hiearchy formed by a set of fractures and their
 intersections in the form of a GridBucket.
 
 """
+import itertools
 import warnings
 from typing import (
     Any,
@@ -17,7 +18,6 @@ from typing import (
 )
 
 import numpy as np
-import itertools
 from scipy import sparse as sps
 
 import porepy as pp
