@@ -449,7 +449,7 @@ class Expression:
 
         def get_shape(mat):
             # Get shape of a matrix
-            if isinstance(mat, pp.ad.Ad_array):
+            if isinstance(mat, (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)):
                 return mat.jac.shape
             else:
                 return mat.shape
@@ -491,7 +491,6 @@ class Expression:
                 # commute for combinations with numpy arrays. Switch the order
                 # of results, and everything works.
                 results = results[::-1]
-
             try:
                 return results[0] + results[1]
             except ValueError:
@@ -523,10 +522,42 @@ class Expression:
         elif tree.op == operators.Operation.mul:
             # To multiply we need two objects
             assert len(results) == 2
+
+            if isinstance(results[0], np.ndarray) and isinstance(
+                results[1], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
+            ):
+                # In the implementation of multiplication between an Ad_array and a
+                # numpy array (in the forward mode Ad), a * b and b * a do not
+                # commute. Flip the order of the results to get the expected behavior.
+                results = results[::-1]
             try:
                 return results[0] * results[1]
             except ValueError:
-                msg = error_message("multiplying")
+                if isinstance(
+                    results[0], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
+                ) and isinstance(results[1], np.ndarray):
+                    # Special error message here, since the information provided by
+                    # the standard method looks like a contradiction.
+                    # Move this to a helper method if similar cases arise for other
+                    # operations.
+                    msg_0 = self._parse_readable(tree.children[0])
+                    msg_1 = self._parse_readable(tree.children[1])
+                    nl = "\n"
+                    msg = (
+                        "Error when right multiplying \n"
+                        + f"  {msg_0}"
+                        + nl
+                        + "with"
+                        + nl
+                        + f"  numpy array {msg_1}"
+                        + nl
+                        + f"Size of arrays: {results[0].val.size} and {results[1].size}"
+                        + nl
+                        + "Did you forget some parantheses?"
+                    )
+
+                else:
+                    msg = error_message("multiplying")
                 raise ValueError(msg)
 
         elif tree.op == operators.Operation.evaluate:
@@ -802,7 +833,6 @@ class EquationManager:
             #    shape=(num_local_dofs, num_global_dofs),
             # )
             # mat.append(ad.jac * projection)
-
             mat.append(ad.jac)
             # Concatenate the residuals
             # Multiply by -1 to move to the rhs
