@@ -624,14 +624,47 @@ class Expression:
 
 
 class EquationManager:
-    # The usage of this class is not yet clear, and will likely undergo substantial
-    # enhancements and changes.
+    """Representation of a set of equations specified on Ad form.
+
+    The equations are tied to a specific GridBucket, with variables fixed in a
+    corresponding DofManager. Both these are set on initialization, and should
+    not be modified later.
+
+    Central methods are:
+        discretize(): Discretize all operators identified in the set equations.
+        assemble_matrix_rhs(): Provide a Jacobian matrix and residual for the
+            current state in the GridBucket.
+
+    TODO: Add functionality to derive subset of equations, fit for splitting
+    algorithms.
+
+    Attributes:
+        gb (pp.GridBucket): Mixed-dimensional grid on which this EquationManager
+            operates.
+        dof_manager (pp.DofManager): Degree of freedom manager used for this
+            EquationManager.
+        equations (List of Expressions): Equations assigned to this EquationManager.
+            can be expanded by direct addition to the list.
+        variables (Dict): Mapping from grids or grid tuples (interfaces) to Ad
+            variables. These are set at initialization from the GridBucket, and should
+            not be changed later.
+
+    """
+
     def __init__(
         self,
         gb: pp.GridBucket,
         dof_manager: pp.DofManager,
         equations: Optional[List[Expression]] = None,
     ) -> None:
+        """Initialize the EquationManager.
+
+        Parameters:
+            gb (pp.GridBucket): Mixed-dimensional grid for this EquationManager.
+            dof_manager (pp.DofManager): Degree of freedom manager.
+            equations (List, Optional): List of equations. Defaults to empty list.
+
+        """
         self.gb = gb
 
         # Inform mypy about variables, and then set them by a dedicated method.
@@ -665,10 +698,36 @@ class EquationManager:
     def merge_variables(
         self, grid_var: Sequence[Tuple[grid_like_type, str]]
     ) -> "pp.ad.MergedVariable":
+        """Concatenate a variable defined over several grids or interface between grids,
+        that is, a mortar grid.
+
+        The merged variable can be used to define mathematical operations on multiple
+        grids simultaneously (provided it is combined with other operators defined on
+        the same grids).
+
+        NOTE: Merged variables are assigned unique ids (see documentation of
+        Variable and MergedVariable), thus two MergedVariables will have different
+        ids even if they represent the same combination of grids and variables.
+        This does not impact the parsing of the variables into numerical values.
+
+        Returns:
+            pp.ad.MergedVariable: Joint representation of the variable on the specified
+                grids.
+
+        """
         return pp.ad.MergedVariable([self.variables[g][v] for g, v in grid_var])
 
     def variable(self, grid_like: grid_like_type, variable: str) -> "pp.ad.Variable":
-        # Method to access the variabe list; to syntax similar to merge_variables
+        """Get a variable for a specified grid (or interface between grids, that is
+        a mortar grid.
+
+        Subsequent calls of this method with the same grid and variable will return
+        references to the same variable.
+
+        Returns:
+            pp.ad.Variable: Ad representation of a variable.
+
+        """
         return self.variables[grid_like][variable]
 
     def variable_state(
@@ -701,6 +760,12 @@ class EquationManager:
                 variables present known to the EquationManager.
             state (np.ndarray, optional): State vector to assemble from. If not provided,
                 the default behavior of pp.ad.Expression.to_ad() will be followed.
+
+        Returns:
+            sps.spmatrix: Jacobian matrix corresponding to the current variable state,
+                as found in self.gb.
+            np.ndarray: Residual vector corresponding to the current variable state,
+                as found in self.gb.
 
         """
         mat: List[sps.spmatrix] = []
