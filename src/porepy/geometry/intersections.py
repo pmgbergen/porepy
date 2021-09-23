@@ -3,7 +3,7 @@ Module with functions for computing intersections between geometric objects.
 
 """
 import logging
-from typing import List, Tuple, Union
+from typing import List, Tuple
 
 import numpy as np
 import scipy.sparse as sps
@@ -481,7 +481,9 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
         # not in b
         dist = np.zeros(a.shape[1])
         for i in range(a.shape[1]):
-            dist[i] = np.min(np.sqrt(np.sum((b - a[:, i].reshape((-1, 1))) ** 2, axis=0)))
+            dist[i] = np.min(
+                np.sqrt(np.sum((b - a[:, i].reshape((-1, 1))) ** 2, axis=0))
+            )
 
         ind = np.argmax(dist)
         assert dist[ind] > tol
@@ -1336,9 +1338,7 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
     )
 
 
-def _point_in_or_on_polygon(
-    p: np.ndarray, poly: np.ndarray, tol=1e-8
-):
+def _point_in_or_on_polygon(p: np.ndarray, poly: np.ndarray, tol=1e-8):
     """Helper function to get intersection information between a point and a polygon.
 
     The polygon is classified as being outside, on the boundary or in the interior of

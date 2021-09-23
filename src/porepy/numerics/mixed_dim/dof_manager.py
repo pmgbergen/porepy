@@ -5,9 +5,9 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import scipy.sparse as sps
 
-csc_or_csr_matrix = Union[sps.csc_matrix, sps.csr_matrix]
-
 import porepy as pp
+
+csc_or_csr_matrix = Union[sps.csc_matrix, sps.csr_matrix]
 
 
 class DofManager:
@@ -107,20 +107,23 @@ class DofManager:
         self,
         var: Union[List[str], str],
         return_projection: Optional[bool] = False,
-        matrix_format: Optional[csc_or_csr_matrix] = sps.csr_matrix,
+        matrix_format: csc_or_csr_matrix = sps.csr_matrix,
     ) -> Union[np.ndarray, Tuple[np.ndarray, csc_or_csr_matrix]]:
-        """Get the indices in the global system of variables given as input on all nodes and edges (in the GridBucket
-        sense).
+        """Get the indices in the global system of variables given as input on all
+        nodes and edges (in the GridBucket sense).
 
         Parameters:
-            var (str or list of str): Name or names of the variable. Should be an active variable.
-            return_projection (bool, optional): Return the projection matrix from for selecting only the requested
-            variables. Default to False.
-            matrix_format (csc_or_csr_matrix, optional): Format of the projection matrix. Default to sps.csr_matrix.
+            var (str or list of str): Name or names of the variable. Should be an
+                active variable.
+            return_projection (bool, optional): Return the projection matrix from for
+                selecting only the requested variables. Default to False.
+            matrix_format (csc_or_csr_matrix, optional): Format of the projection matrix.
+                Default to sps.csr_matrix.
+
         """
         if not isinstance(var, list):
             var = [var]  # type: ignore
-        dofs = np.empty(0, dtype=np.int)
+        dofs = np.empty(0, dtype=int)
         dof_start = np.hstack((0, np.cumsum(self.full_dof)))
 
         for x, _ in self.gb.nodes_and_edges():
