@@ -291,6 +291,15 @@ class Variable(Operator):
     state of an array; see Equations. Therefore, the variable does not implement a
     parse() method.
 
+    Attributes:
+        id (int): Unique identifier of this variable.
+        prev_iter (boolean): Whether the variable represents the state at the
+            previous iteration.
+        prev_time (boolean): Whether the variable represents the state at the
+            previous time step.
+        g (List of pp.Grid or List of Tuples of pp.Grids): Grids on which this variable
+            is defined.
+
     """
 
     # Identifiers for variables. The usage and reliability of this system is unclear.
@@ -350,10 +359,22 @@ class Variable(Operator):
             )
 
     def previous_timestep(self) -> "Variable":
+        """Return a representation of this variable on the previous time step.
+
+        Returns:
+            Variable: A representation of this variable, with self.prev_time=True.
+
+        """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
         return Variable(self._name, ndof, self.g, previous_timestep=True)
 
     def previous_iteration(self) -> "Variable":
+        """Return a representation of this variable on the previous time iteration.
+
+        Returns:
+            Variable: A representation of this variable, with self.prev_iter=True.
+
+        """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
         return Variable(self._name, ndof, self.g, previous_iteration=True)
 
@@ -418,12 +439,24 @@ class MergedVariable(Variable):
         return sum([v.size() for v in self.sub_vars])
 
     def previous_timestep(self) -> "MergedVariable":
+        """Return a representation of this merged variable on the previous time step.
+
+        Returns:
+            Variable: A representation of this variable, with self.prev_time=True.
+
+        """
         new_subs = [var.previous_timestep() for var in self.sub_vars]
         new_var = MergedVariable(new_subs)
         new_var.prev_time = True
         return new_var
 
     def previous_iteration(self) -> "MergedVariable":
+        """Return a representation of this merged variable on the previous iteration.
+
+        Returns:
+            Variable: A representation of this variable, with self.prev_iter=True.
+
+        """
         new_subs = [var.previous_iteration() for var in self.sub_vars]
         new_var = MergedVariable(new_subs)
         new_var.prev_iter = True
