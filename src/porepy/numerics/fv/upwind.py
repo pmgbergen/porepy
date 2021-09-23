@@ -118,7 +118,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         bc_values: np.ndarray = parameter_dictionary["bc_values"]
         bc_discr = matrix_dictionary[self.rhs_matrix_key]
 
-        div = sps.spmatrix = pp.fvutils.scalar_divergence(g)
+        div: sps.spmatrix = pp.fvutils.scalar_divergence(g)
 
         if div.shape[1] != bc_discr.shape[0] or bc_discr.shape[1] != bc_values.size:
             # It should not be difficult to fix this, however it requires some thinking
