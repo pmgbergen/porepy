@@ -285,7 +285,10 @@ def _generate_coarse_grid_gb(gb, subdiv):
             new_primary_to_mortar = sps.csr_matrix(
                 (primary_to_mortar.data, indices, primary_to_mortar.indptr), shape=shape
             )
+            # Update mortar projection
             d["mortar_grid"]._primary_to_mortar_int = new_primary_to_mortar.tocsc()
+            # Also update all other projections to secondary
+            d["mortar_grid"]._set_projections(secondary=False)
 
             # update also the face_cells map
             face_cells = d["face_cells"].tocsr()

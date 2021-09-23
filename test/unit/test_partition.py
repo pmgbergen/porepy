@@ -283,6 +283,7 @@ class TestExtractSubGrid(unittest.TestCase):
     def test_cart_2d(self):
         g = pp.CartGrid([2, 3])
         g.nodes = g.nodes + 0.2 * np.random.random(g.nodes.shape)
+        g.nodes[2, :] = 0
         g.compute_geometry()
 
         f = np.array([0, 3, 6])
@@ -350,6 +351,7 @@ class TestExtractSubGrid(unittest.TestCase):
         """
         g = pp.CartGrid([2, 2])
         g.nodes = g.nodes + 0.2 * np.random.random(g.nodes.shape)
+        g.nodes[2, :] = 0
         g.compute_geometry()
 
         f = np.array([2, 5, 11])
@@ -377,6 +379,7 @@ class TestGrids(unittest.TestCase):
     def test_cart_2d(self):
         g = pp.CartGrid([3, 2])
         g.nodes = g.nodes + 0.2 * np.random.random(g.nodes.shape)
+        g.nodes[2, :] = 0
         g.compute_geometry()
 
         c = np.array([0, 1, 3])

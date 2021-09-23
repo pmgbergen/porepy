@@ -7,6 +7,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+csc_or_csr_matrix = Union[sps.csc_matrix, sps.csr_matrix]
+
 
 class DofManager:
     """
@@ -100,6 +102,47 @@ class DofManager:
         block_ind = self.block_dof[(g, name)]
         dof_start = np.hstack((0, np.cumsum(self.full_dof)))
         return np.arange(dof_start[block_ind], dof_start[block_ind + 1])
+
+    def dof_var(
+        self,
+        var: Union[List[str], str],
+        return_projection: Optional[bool] = False,
+        matrix_format: csc_or_csr_matrix = sps.csr_matrix,
+    ) -> Union[np.ndarray, Tuple[np.ndarray, csc_or_csr_matrix]]:
+        """Get the indices in the global system of variables given as input on all
+        nodes and edges (in the GridBucket sense).
+
+        Parameters:
+            var (str or list of str): Name or names of the variable. Should be an
+                active variable.
+            return_projection (bool, optional): Return the projection matrix from for
+                selecting only the requested variables. Default to False.
+            matrix_format (csc_or_csr_matrix, optional): Format of the projection matrix.
+                Default to sps.csr_matrix.
+
+        """
+        if not isinstance(var, list):
+            var = [var]  # type: ignore
+        dofs = np.empty(0, dtype=int)
+        dof_start = np.hstack((0, np.cumsum(self.full_dof)))
+
+        for x, _ in self.gb.nodes_and_edges():
+            for v in var:
+                if (x, v) in self.block_dof:
+                    block_ind = self.block_dof[(x, v)]
+                    local_dofs = np.arange(
+                        dof_start[block_ind], dof_start[block_ind + 1]
+                    )
+                    dofs = np.hstack((dofs, local_dofs))
+
+        if return_projection:
+            projection = matrix_format(
+                (np.ones(dofs.size), (np.arange(dofs.size), dofs)),
+                shape=(dofs.size, np.sum(self.full_dof)),
+            )
+            return dofs, projection
+
+        return dofs
 
     def num_dofs(
         self,

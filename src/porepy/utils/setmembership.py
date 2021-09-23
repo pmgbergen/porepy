@@ -1,6 +1,7 @@
 """
 Various functions with set operations.
 """
+import numba
 import numpy as np
 
 import porepy as pp
@@ -108,6 +109,37 @@ def ismember_rows(a, b, sort=True):
     return ismem_a, ia
 
 
+@numba.jit("Tuple((b1[:],i8[:],i8[:]))(f8[:, :],f8)", nopython=True, cache=True)
+def _numba_distance(mat, tol):
+    # Helper function for numba acceleration of unique_columns_tol
+    num_cols = mat.shape[0]
+    keep = np.zeros(num_cols, dtype=numba.types.bool_)
+    keep[0] = True
+    keep_counter = 1
+
+    # Map from old points to the unique subspace. Defaults to map to itself.
+    old_2_new = np.arange(num_cols)
+
+    # Loop over all points, check if it is already represented in the kept list
+    for i in range(1, num_cols):
+        d = np.sum((mat[i] - mat[keep]) ** 2, axis=1)
+        condition = d < tol ** 2
+
+        if np.any(condition):
+            # We will not keep this point
+            old_2_new[i] = np.argmin(d)
+        else:
+            # We have found a new point
+            keep[i] = True
+            old_2_new[i] = keep_counter
+            keep_counter += 1
+
+    # Finally find which elements we kept
+    new_2_old = np.nonzero(keep)[0]
+
+    return keep, new_2_old, old_2_new
+
+
 @pp.time_logger(sections=module_sections)
 def unique_columns_tol(mat, tol=1e-8):
     """
@@ -115,7 +147,6 @@ def unique_columns_tol(mat, tol=1e-8):
 
     Resembles Matlab's uniquetol function, as applied to columns. To rather
     work at rows, use a transpose.
-
 
     Parameters:
         mat (np.ndarray, nd x n_pts): Columns to be uniquified
@@ -154,41 +185,8 @@ def unique_columns_tol(mat, tol=1e-8):
         )
         return un_ar, new_2_old, old_2_new
 
-    num_cols = mat.shape[1]
+    mat_t = np.atleast_2d(mat.T).astype(float)
 
-    # By default, no columns are kept
-    keep = np.zeros(num_cols, dtype=bool)
-
-    # We will however keep the first point
-    keep[0] = True
-    keep_counter = 1
-
-    # Map from old points to the unique subspace. Defaults to map to itself.
-    old_2_new = np.arange(num_cols)
-
-    # Matrix of elements to keep. Comparison of new poitns will be run with this
-    keep_mat = mat[:, 0].reshape((-1, 1))
-
-    # Loop over all points, check if it is already represented in the kept list
-    for i in range(1, num_cols):
-        a = mat[:, i].reshape((-1, 1))
-
-        d = np.sum((a - keep_mat) ** 2, axis=0)
-        condition = d < tol ** 2
-        proximate = np.where(condition)[0]
-
-        if condition[proximate]:  # proximate.size > 0:
-            # We will not keep this point
-            old_2_new[i] = proximate
-        else:
-            # We have found a new point
-            keep[i] = True
-            old_2_new[i] = keep_counter
-            keep_counter += 1
-            # Update list of elements we keep
-            keep_mat = mat[:, keep]
-
-    # Finally find which elements we kept
-    new_2_old = np.nonzero(keep)[0]
+    keep, new_2_old, old_2_new = _numba_distance(mat_t, tol)
 
     return mat[:, keep], new_2_old, old_2_new
