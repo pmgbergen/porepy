@@ -1,7 +1,8 @@
-# -*- coding: utf-8 -*-
 """
+Module with implementation of the mixed virtual element method.
 
-@author: fumagalli, alessio
+The main class is MVEM.
+
 """
 import logging
 from typing import Dict, Tuple
@@ -17,17 +18,13 @@ module_sections = ["numerics", "discretization", "assembly"]
 
 
 class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
-    """
-    @ALL: I have kept the inheritance from the general Solver for now, or else
-    the Parameter class start making trouble. It still may be useful to have a
-    parent class for all discretizations, mainly to guide the implementation of
-    new methods. Opinions?
-
+    """Implementation of the lowest order mixed virtual element method for scalar
+    elliptic equations.
     """
 
     @pp.time_logger(sections=module_sections)
     def __init__(self, keyword: str) -> None:
-        super(MVEM, self).__init__(keyword, "MVEM")
+        super().__init__(keyword, "MVEM")
 
     @pp.time_logger(sections=module_sections)
     def discretize(self, g: pp.Grid, data: Dict) -> None:
