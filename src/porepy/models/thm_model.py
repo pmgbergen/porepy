@@ -36,7 +36,6 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 
 import porepy as pp
-import porepy.models.contact_mechanics_biot_model as parent_model
 from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
 
 # Module-wide logger
@@ -44,7 +43,7 @@ logger = logging.getLogger(__name__)
 module_sections = ["models", "numerics"]
 
 
-class THM(parent_model.ContactMechanicsBiot):
+class THM(pp.ContactMechanicsBiot):
     """This is a shell class for poro-elastic contact mechanics problems.
 
     Setting up such problems requires a lot of boilerplate definitions of variables,

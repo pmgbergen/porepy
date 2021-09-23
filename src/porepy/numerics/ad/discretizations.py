@@ -19,9 +19,11 @@ __all__ = [
     "BiotStabilizationAd",
     "ColoumbContactAd",
     "MpfaAd",
+    "TpfaAd",
     "MassMatrixAd",
     "UpwindAd",
     "RobinCouplingAd",
+    "WellCouplingAd",
 ]
 
 
@@ -68,7 +70,7 @@ class Discretization:
         Parameters:
             grid_discr (dict): Mapping between grids, or interfaces, where the
                 discretization is applied, and the actual Discretization objects.
-            name (str): Name of the wrapper.
+            _name (str): Name of the wrapper.
             mat_dict_key (str): Keyword used to access discretization matrices, if this
                 is not the same as the keyword of the discretization. The only known
                 case where this is necessary is for Mpfa applied to Biot's equations.
@@ -77,6 +79,7 @@ class Discretization:
         self.grids = grids
         self._discretization = discretization
         self.mat_dict_key = mat_dict_key
+        self.keyword = discretization.keyword
 
         # Get the name of this discretization.
         self._name = discretization.__class__.__name__
@@ -87,11 +90,14 @@ class Discretization:
         s = f"Ad discretization of type {self._name}. Defined on {len(self.grids)} grids"
         return s
 
+    def __str__(self) -> str:
+        return f"{self._name}({self.keyword})"
+
 
 ### Mechanics related discretizations
 
 
-class BiotAd:
+class BiotAd(Discretization):
     """Ad wrapper around the Biot discretization class.
 
     For description of the method, we refer to the standard Biot class.
@@ -126,12 +132,8 @@ class BiotAd:
             obj=self, discr=self._discretization, grids=grids, mat_dict_key=self.keyword
         )
 
-    def __repr__(self) -> str:
-        s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
-        return s
 
-
-class MpsaAd:
+class MpsaAd(Discretization):
     def __init__(self, keyword, grids):
         if isinstance(grids, list):
             self._grids = grids
@@ -152,12 +154,8 @@ class MpsaAd:
 
         _wrap_discretization(self, self._discretization, grids)
 
-    def __repr__(self) -> str:
-        s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
-        return s
 
-
-class GradPAd:
+class GradPAd(Discretization):
     def __init__(self, keyword, grids):
         if isinstance(grids, list):
             self._grids = grids
@@ -171,12 +169,8 @@ class GradPAd:
 
         _wrap_discretization(self, self._discretization, grids)
 
-    def __repr__(self) -> str:
-        s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
-        return s
 
-
-class DivUAd:
+class DivUAd(Discretization):
     def __init__(self, keyword, grids, mat_dict_keyword):
         if isinstance(grids, list):
             self._grids = grids
@@ -192,12 +186,8 @@ class DivUAd:
 
         _wrap_discretization(self, self._discretization, grids, mat_dict_keyword)
 
-    def __repr__(self) -> str:
-        s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
-        return s
 
-
-class BiotStabilizationAd:
+class BiotStabilizationAd(Discretization):
     def __init__(self, keyword, grids):
         if isinstance(grids, list):
             self._grids = grids
@@ -211,12 +201,8 @@ class BiotStabilizationAd:
 
         _wrap_discretization(self, self._discretization, grids)
 
-    def __repr__(self) -> str:
-        s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
-        return s
 
-
-class ColoumbContactAd:
+class ColoumbContactAd(Discretization):
     def __init__(self, keyword, grids):
 
         if isinstance(grids, list):
@@ -244,15 +230,11 @@ class ColoumbContactAd:
             self, self._discretization, grids, mat_dict_grids=low_dim_grids
         )
 
-    def __repr__(self) -> str:
-        s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
-        return s
-
 
 ## Flow related
 
 
-class MpfaAd:
+class MpfaAd(Discretization):
     def __init__(self, keyword, grids):
 
         if isinstance(grids, list):
@@ -272,12 +254,33 @@ class MpfaAd:
 
         _wrap_discretization(self, self._discretization, grids)
 
+
+class TpfaAd(Discretization):
+    def __init__(self, keyword, grids):
+
+        if isinstance(grids, list):
+            self._grids = grids
+        else:
+            self._grids = [grids]
+        self._discretization = pp.Tpfa(keyword)
+        self._name = "Tpfa"
+        self.keyword = keyword
+
+        self.flux: _MergedOperator
+        self.bound_flux: _MergedOperator
+        self.bound_pressure_cell: _MergedOperator
+        self.bound_pressure_face: _MergedOperator
+        self.vector_source: _MergedOperator
+        self.bound_pressure_vector_source: _MergedOperator
+
+        _wrap_discretization(self, self._discretization, grids)
+
     def __repr__(self) -> str:
         s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
         return s
 
 
-class MassMatrixAd:
+class MassMatrixAd(Discretization):
     def __init__(self, keyword, grids):
         if isinstance(grids, list):
             self._grids = grids
@@ -290,12 +293,8 @@ class MassMatrixAd:
         self.mass: _MergedOperator
         _wrap_discretization(self, self._discretization, grids)
 
-    def __repr__(self) -> str:
-        s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
-        return s
 
-
-class UpwindAd:
+class UpwindAd(Discretization):
     def __init__(self, keyword, grids):
         if isinstance(grids, list):
             self._grids = grids
@@ -310,12 +309,30 @@ class UpwindAd:
         self.outflow_neumann: _MergedOperator
         _wrap_discretization(self, self._discretization, grids)
 
+
+class WellCouplingAd(Discretization):
+    def __init__(self, keyword, edges):
+        if isinstance(edges, list):
+            self._edges = edges
+        else:
+            self._edges = [edges]
+        self._discretization = pp.WellCoupling(keyword, primary_keyword=keyword)
+        self._name = "Well interface coupling"
+        self.keyword = keyword
+
+        self.well_discr: _MergedOperator
+        self.mortar_vector_source: _MergedOperator
+        _wrap_discretization(self, self._discretization, edges)
+
     def __repr__(self) -> str:
-        s = f"Ad discretization of type {self._name}. Defined on {len(self._grids)} grids"
+        s = (
+            f"Ad discretization of type {self._name}."
+            f"Defined on {len(self._edges)} mortar grids."
+        )
         return s
 
 
-class RobinCouplingAd:
+class RobinCouplingAd(Discretization):
     def __init__(self, keyword, edges):
         if isinstance(edges, list):
             self._edges = edges
@@ -327,10 +344,14 @@ class RobinCouplingAd:
 
         self.mortar_scaling: _MergedOperator
         self.mortar_discr: _MergedOperator
+        self.mortar_vector_source: _MergedOperator
         _wrap_discretization(self, self._discretization, edges)
 
     def __repr__(self) -> str:
-        s = f"Ad discretization of type {self._name}. Defined on {len(self._edges)} grids"
+        s = (
+            f"Ad discretization of type {self._name}."
+            f"Defined on {len(self._edges)} mortar grids."
+        )
         return s
 
 
@@ -365,6 +386,7 @@ class _MergedOperator(Operator):
                 case where this is necessary is for Mpfa applied to Biot's equations.
 
         """
+        self._name = discr.__class__.__name__
         self.grids = grids
         self.key = key
         self.discr = discr
@@ -377,6 +399,9 @@ class _MergedOperator(Operator):
 
     def __repr__(self) -> str:
         return f"Operator with key {self.key} defined on {len(self.grids)} grids"
+
+    def __str__(self) -> str:
+        return f"{self._name}({self.mat_dict_key}).{self.key}"
 
     def parse(self, gb):
         """Convert a merged operator into a sparse matrix by concatenating
@@ -439,6 +464,9 @@ class _MergedOperator(Operator):
 def _wrap_discretization(
     obj, discr, grids, mat_dict_key: Optional[str] = None, mat_dict_grids=None
 ):
+    """
+    Please add documentation, @EK.
+    """
     key_set = []
     # Loop over all discretizations, identify all attributes that ends with
     # "_matrix_key". These will be taken as discretizations (they are discretization
