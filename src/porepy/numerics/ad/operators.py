@@ -44,8 +44,7 @@ class Operator:
         grid: Optional[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]] = None,
         tree: Optional["Tree"] = None,
     ) -> None:
-        if name is not None:
-            self._name = name
+        self._name = name
         if grid is not None:
             self.g = grid
         self._set_tree(tree)
@@ -65,6 +64,9 @@ class Operator:
         """
         return len(self.tree.children) == 0
 
+    def set_name(self, name: str) -> None:
+        self._name = name
+
     def parse(self, gb) -> Any:
         """Translate the operator into a numerical expression.
 
@@ -83,6 +85,9 @@ class Operator:
             f"Operator formed by {self.tree.op} with {len(self.tree.children)} children"
         )
 
+    def __str__(self) -> str:
+        return self._name if self._name is not None else ""
+
     def viz(self):
         """Give a visualization of the operator tree that has this operator at the top."""
         G = nx.Graph()
@@ -94,7 +99,7 @@ class Operator:
             operation = node.tree.op
             G.add_node(operation)
             G.add_edge(node, operation)
-            for child in node._tree._children:
+            for child in node.tree.children:
                 parse_subgraph(child)
                 G.add_edge(child, operation)
 
@@ -153,19 +158,26 @@ class Matrix(Operator):
 
     """
 
-    def __init__(self, mat: sps.spmatrix) -> None:
+    def __init__(self, mat: sps.spmatrix, name: Optional[str] = None) -> None:
         """Construct an Ad representation of a matrix.
 
         Parameters:
             mat (sps.spmatrix): Sparse matrix to be represented.
 
         """
+        super().__init__(name=name)
         self._mat = mat
         self._set_tree()
         self.shape = mat.shape
 
     def __repr__(self) -> str:
         return f"Matrix with shape {self._mat.shape} and {self._mat.data.size} elements"
+
+    def __str__(self) -> str:
+        s = "Matrix "
+        if self._name is not None:
+            s += self._name
+        return s
 
     def parse(self, gb) -> sps.spmatrix:
         """Convert the Ad matrix into an actual matrix.
@@ -194,18 +206,25 @@ class Array(Operator):
 
     """
 
-    def __init__(self, values):
+    def __init__(self, values, name: Optional[str] = None) -> None:
         """Construct an Ad representation of a numpy array.
 
         Parameters:
             values (np.ndarray): Numpy array to be represented.
 
         """
+        super().__init__(name=name)
         self._values = values
         self._set_tree()
 
     def __repr__(self) -> str:
         return f"Wrapped numpy array of size {self._values.size}"
+
+    def __str__(self) -> str:
+        s = "Array"
+        if self._name is not None:
+            s += f"({self._name})"
+        return s
 
     def parse(self, gb: pp.GridBucket) -> np.ndarray:
         """Convert the Ad Array into an actual array.
@@ -229,18 +248,25 @@ class Scalar(Operator):
 
     """
 
-    def __init__(self, value):
+    def __init__(self, value, name: Optional[str] = None) -> None:
         """Construct an Ad representation of a numpy array.
 
         Parameters:
             values (float): Number to be represented
 
         """
+        super().__init__(name=name)
         self._value = value
         self._set_tree()
 
     def __repr__(self) -> str:
         return f"Wrapped scalar with value {self._value}"
+
+    def __str__(self) -> str:
+        s = "Scalar"
+        if self._name is not None:
+            s += f"({self._name})"
+        return s
 
     def parse(self, gb: pp.GridBucket) -> float:
         """Convert the Ad Scalar into an actual number.
@@ -264,6 +290,15 @@ class Variable(Operator):
     Conversion of the variable into numerical value should be done with respect to the
     state of an array; see Equations. Therefore, the variable does not implement a
     parse() method.
+
+    Attributes:
+        id (int): Unique identifier of this variable.
+        prev_iter (boolean): Whether the variable represents the state at the
+            previous iteration.
+        prev_time (boolean): Whether the variable represents the state at the
+            previous time step.
+        g (List of pp.Grid or List of Tuples of pp.Grids): Grids on which this variable
+            is defined.
 
     """
 
@@ -324,10 +359,22 @@ class Variable(Operator):
             )
 
     def previous_timestep(self) -> "Variable":
+        """Return a representation of this variable on the previous time step.
+
+        Returns:
+            Variable: A representation of this variable, with self.prev_time=True.
+
+        """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
         return Variable(self._name, ndof, self.g, previous_timestep=True)
 
     def previous_iteration(self) -> "Variable":
+        """Return a representation of this variable on the previous time iteration.
+
+        Returns:
+            Variable: A representation of this variable, with self.prev_iter=True.
+
+        """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
         return Variable(self._name, ndof, self.g, previous_iteration=True)
 
@@ -362,6 +409,7 @@ class MergedVariable(Variable):
                 same name.
 
         """
+        self._name = variables[0]._name
         self.sub_vars = variables
 
         # Use counter from superclass to ensure unique Variable ids
@@ -381,13 +429,34 @@ class MergedVariable(Variable):
         self.prev_time: bool = False
         self.prev_iter: bool = False
 
+    def size(self) -> int:
+        """Get total size of the merged variable.
+
+        Returns:
+            int: Total size of this merged variable.
+
+        """
+        return sum([v.size() for v in self.sub_vars])
+
     def previous_timestep(self) -> "MergedVariable":
+        """Return a representation of this merged variable on the previous time step.
+
+        Returns:
+            Variable: A representation of this variable, with self.prev_time=True.
+
+        """
         new_subs = [var.previous_timestep() for var in self.sub_vars]
         new_var = MergedVariable(new_subs)
         new_var.prev_time = True
         return new_var
 
     def previous_iteration(self) -> "MergedVariable":
+        """Return a representation of this merged variable on the previous iteration.
+
+        Returns:
+            Variable: A representation of this variable, with self.prev_iter=True.
+
+        """
         new_subs = [var.previous_iteration() for var in self.sub_vars]
         new_var = MergedVariable(new_subs)
         new_var.prev_iter = True

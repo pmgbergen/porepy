@@ -10,6 +10,7 @@ import porepy as pp
 
 ## Tests of the Ad grid operators.
 
+
 @pytest.mark.parametrize("scalar", [True, False])
 def test_subdomain_projections(scalar):
     """Test of subdomain projections. Both face and cell restriction and prolongation.
@@ -221,8 +222,8 @@ def test_mortar_projections(scalar):
     # If this test fails, something is fundentally wrong.
     vals = np.array([])
     for e in edge_list:
-        mg = gb.edge_props(e, 'mortar_grid')
-        sz = int(np.round(mg.num_cells/2))
+        mg = gb.edge_props(e, "mortar_grid")
+        sz = int(np.round(mg.num_cells / 2))
         if not scalar:
             sz *= Nd
         vals = np.hstack((vals, -np.ones(sz), np.ones(sz)))
@@ -310,9 +311,16 @@ def test_boundary_condition(scalar):
 
     assert np.allclose(val, known_values)
 
+
 ## Tests of Ad operators
 
+
 def test_ad_variable_vrappers():
+    # Tests that the wrapping of Ad variables, including previous iterates
+    # and time steps, are carried out correctly.
+    # See also test_variable_combinations, which specifically tests evaluation of
+    # variables in a setting of multple variables, including merged variables.
+
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
     gb = pp.meshing.cart_grid(fracs, [2, 2])
 
@@ -321,10 +329,10 @@ def test_ad_variable_vrappers():
 
     state_map_2, iterate_map_2 = {}, {}
 
-    var = 'foo'
-    var2 = 'bar'
+    var = "foo"
+    var2 = "bar"
 
-    mortar_var = 'mv'
+    mortar_var = "mv"
 
     def _compare_ad_objects(a, b):
         va, ja = a.val, a.jac
@@ -342,7 +350,7 @@ def test_ad_variable_vrappers():
         else:
             num_dofs = 1
 
-        d[pp.PRIMARY_VARIABLES] = {var: {'cells': num_dofs}}
+        d[pp.PRIMARY_VARIABLES] = {var: {"cells": num_dofs}}
 
         val_state = np.random.rand(g.num_cells * num_dofs)
         val_iterate = np.random.rand(g.num_cells * num_dofs)
@@ -353,7 +361,7 @@ def test_ad_variable_vrappers():
 
         # Add a second variable to the 2d grid, just for the fun of it
         if g.dim == 2:
-            d[pp.PRIMARY_VARIABLES][var2] = {'cells': 1}
+            d[pp.PRIMARY_VARIABLES][var2] = {"cells": 1}
             val_state = np.random.rand(g.num_cells)
             val_iterate = np.random.rand(g.num_cells)
             d[pp.STATE][var2] = val_state
@@ -362,13 +370,13 @@ def test_ad_variable_vrappers():
             iterate_map_2[g] = val_iterate
 
     for e, d in gb.edges():
-        mg = d['mortar_grid']
+        mg = d["mortar_grid"]
         if mg.dim == 1:
             num_dofs = 2
         else:
             num_dofs = 1
 
-        d[pp.PRIMARY_VARIABLES] = {mortar_var: {'cells': num_dofs}}
+        d[pp.PRIMARY_VARIABLES] = {mortar_var: {"cells": num_dofs}}
 
         val_state = np.random.rand(mg.num_cells * num_dofs)
         val_iterate = np.random.rand(mg.num_cells * num_dofs)
@@ -398,9 +406,11 @@ def test_ad_variable_vrappers():
             true_iterate[inds] = iterate_map[g]
             double_iterate[inds] = 2 * iterate_map[g]
 
-    grid_list = [gb.grids_of_dimension(2)[0],
-                 *gb.grids_of_dimension(1),
-                 gb.grids_of_dimension(0)[0]]
+    grid_list = [
+        gb.grids_of_dimension(2)[0],
+        *gb.grids_of_dimension(1),
+        gb.grids_of_dimension(0)[0],
+    ]
 
     # Generate merged variables via the EquationManager.
     var_ad = eq_manager.merge_variables([(g, var) for g in grid_list])
@@ -458,7 +468,88 @@ def test_ad_variable_vrappers():
     eq_5 = pp.ad.Expression(v1_prev, dof_manager)
     assert np.allclose(true_state[ind1], eq_5.to_ad(gb, true_iterate))
 
+
+@pytest.mark.parametrize(
+    "grids", [[pp.CartGrid([4, 1])], [pp.CartGrid([4, 1]), pp.CartGrid([3, 1])]]
+)
+@pytest.mark.parametrize(
+    "variables",
+    [["foo"], ["foo", "bar"]],
+)
+def test_variable_combinations(grids, variables):
+    # Test combinations of variables, and merged variables, on different grids.
+    # Main check is if Jacobian matrices are of the right size.
+
+    # Make GridBucket, populate with necessary information
+    gb = pp.GridBucket()
+    gb.add_nodes(grids)
+    for g, d in gb:
+        d[pp.STATE] = {}
+        d[pp.PRIMARY_VARIABLES] = {}
+        for var in variables:
+            d[pp.PRIMARY_VARIABLES].update({var: {"cells": 1}})
+            d[pp.STATE][var] = np.random.rand(g.num_cells)
+
+    # Ad boilerplate
+    dof_manager = pp.DofManager(gb)
+    eq_manager = pp.ad.EquationManager(gb, dof_manager)
+
+    # Standard Ad variables
+    ad_vars = [eq_manager.variable(g, var) for g in grids for var in variables]
+    # Merge variables over all grids
+    merged_vars = []
+    for var in variables:
+        gv = [(g, var) for g in grids]
+        merged_vars.append(eq_manager.merge_variables(gv))
+
+    # First check of standard variables. If this fails, something is really wrong
+    for g in grids:
+        d = gb.node_props(g)
+        for var in ad_vars:
+            if g == var.g:
+                expr = pp.ad.Expression(var, dof_manager).to_ad(gb)
+                # Check that the size of the variable is correct
+                assert np.allclose(expr.val, d[pp.STATE][var._name])
+                # Check that the Jacobian matrix has the right number of columns
+                assert expr.jac.shape[1] == dof_manager.num_dofs()
+
+    # Next, check that merged variables are handled correctly.
+    for var in merged_vars:
+        expr = pp.ad.Expression(var, dof_manager).to_ad(gb)
+        vals = []
+        for sub_var in var.sub_vars:
+            vals.append(gb.node_props(sub_var.g, pp.STATE)[sub_var._name])
+
+        assert np.allclose(expr.val, np.hstack([v for v in vals]))
+        assert expr.jac.shape[1] == dof_manager.num_dofs()
+
+    # Finally, check that the size of the Jacobian matrix is correct when combining
+    # variables (this will cover both variables and merged variable with the same name,
+    # and with different name).
+    for g in grids:
+        for var in ad_vars:
+            nc = var.size()
+            cols = np.arange(nc)
+            data = np.ones(nc)
+            for mv in merged_vars:
+                nr = mv.size()
+
+                # The variable must be projected to the full set of grid for addition
+                # to be meaningful. This requires a bit of work.
+                sv_size = np.array([sv.size() for sv in mv.sub_vars])
+                mv_grids = [sv.g for sv in mv.sub_vars]
+                ind = mv_grids.index(var.g)
+                offset = np.hstack((0, np.cumsum(sv_size)))[ind]
+                rows = offset + np.arange(nc)
+                P = pp.ad.Matrix(sps.coo_matrix((data, (rows, cols)), shape=(nr, nc)))
+
+                expr = pp.ad.Expression(mv + P * var, dof_manager).to_ad(gb)
+                # Jacobian matrix size is set according to the dof manager,
+                assert expr.jac.shape[1] == dof_manager.num_dofs()
+
+
 def test_ad_discretization_class():
+    # Test of the mother class of all discretizations (pp.ad.Discretization)
 
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
     gb = pp.meshing.cart_grid(fracs, [2, 2])
@@ -471,7 +562,6 @@ def test_ad_discretization_class():
     sub_key = "bar"
     discr = _MockDiscretization(key)
     sub_discr = _MockDiscretization(sub_key)
-
 
     # Ad wrappers
     discr_ad = pp.ad.Discretization(grid_list, discr)
@@ -504,6 +594,7 @@ def test_ad_discretization_class():
 
 ## Below are helpers for tests of the Ad wrappers.
 
+
 def _compare_matrices(m1, m2):
     if isinstance(m1, pp.ad.Matrix):
         m1 = m1._mat
@@ -525,6 +616,7 @@ def _list_ind_of_grid(grid_list, g):
 
     raise ValueError("grid is not in list")
 
+
 class _MockDiscretization:
     def __init__(self, key):
         self.foobar_matrix_key = "foobar"
@@ -533,10 +625,9 @@ class _MockDiscretization:
         self.keyword = key
 
 
-
 class AdArrays(unittest.TestCase):
-    """ Tests for the implementation of the main Ad array class.
-    """
+    """Tests for the implementation of the main Ad array class."""
+
     def test_add_two_scalars(self):
         a = Ad_array(1, 0)
         b = Ad_array(-10, 0)
@@ -795,5 +886,4 @@ class AdArrays(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    test_ad_variable_vrappers()
     unittest.main()

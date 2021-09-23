@@ -1,6 +1,26 @@
+import numpy as np
+
 import porepy as pp
 
 module_sections = ["grids", "gridding"]
+
+
+def unit_domain(dimension):
+    """Return a domain of unitary size extending from 0 to 1 in all dimensions.
+
+    Parameters:
+        dimension (int): the dimension of the domain.
+
+    Returns:
+        dict: specification of max and min in all dimensions
+    """
+    assert dimension in np.arange(1, 4)
+    domain = {"xmin": 0, "xmax": 1}
+    if dimension > 1:
+        domain.update({"ymin": 0, "ymax": 1})
+    if dimension > 2:
+        domain.update({"zmin": 0, "zmax": 1})
+    return domain
 
 
 @pp.time_logger(sections=module_sections)
