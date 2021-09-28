@@ -48,6 +48,7 @@ class EquationManager:
         gb: pp.GridBucket,
         dof_manager: pp.DofManager,
         equations: Optional[List] = None,
+        secondary_variables: Optional[Sequence[pp.ad.Variable]] = None,
     ) -> None:
         """Initialize the EquationManager.
 
@@ -69,6 +70,14 @@ class EquationManager:
             self.equations = equations
 
         self.dof_manager: pp.DofManager = dof_manager
+
+        if secondary_variables is None:
+            secondary_variables = []
+
+        # Unravel any MergedVariable and store as a list
+        self.secondary_variables: List[pp.ad.Variable] = self._variable_as_list(
+            secondary_variables
+        )
 
     def _set_variables(self, gb):
         # Define variables as specified in the GridBucket
@@ -308,6 +317,34 @@ class EquationManager:
         bs = b_p - A_ps * inv_A_ss * b_s
 
         return S, bs
+
+    def extract_subsystem(
+        self,
+        eq_names: Sequence[str],
+        variables: Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]],
+    ) -> EquationManager:
+        """Extract an EquationManager for a subset of variables and equations.
+        In effect, this produce a nonlinear subsystem.
+
+        Parameters:
+            eq_names (Sequence of str): Equations to be assembled, specified
+                as keys in self.equations.
+            variables (Sequence of Variables): Variables to be assembled.
+
+        Returns:
+            EquationManager: System of nonlinear equations.
+
+        """
+        all_variables = self._variables_as_list()
+        secondary_variables = list(set(all_variables).difference(set(variables)))
+
+        sub_eqs = {name: self.equations[name] for name in eq_names}
+        return EquationManager(
+            gb=self.gb,
+            equations=sub_eqs,
+            dof_manager=self.dof_manager,
+            secondary_variables=secondary_variables,
+        )
 
     def discretize(self, gb: pp.GridBucket) -> None:
         """Loop over all discretizations in self.equations, find all unique discretizations
