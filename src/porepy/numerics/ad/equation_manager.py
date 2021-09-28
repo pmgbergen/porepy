@@ -134,11 +134,11 @@ class EquationManager:
 
         return values
 
-    def assemble_matrix_rhs(
+    def assemble(
         self,
         state: Optional[np.ndarray] = None,
     ) -> Tuple[sps.spmatrix, np.ndarray]:
-        """Assemble residual vector and Jacobian matrix with respect to the current
+        """Assemble Jacobian matrix and residual vector with respect to the current
         state represented in self.gb.
 
         As an experimental feature, subset of variables and equations can also be
@@ -152,31 +152,18 @@ class EquationManager:
             sps.spmatrix: Jacobian matrix corresponding to the current variable state,
                 as found in self.gb.
             np.ndarray: Residual vector corresponding to the current variable state,
-                as found in self.gb.
+                as found in self.gb. Scaled with -1 (moved to rhs).
 
         """
+        # Data structures for building the Jacobian matrix and residual vector
         mat: List[sps.spmatrix] = []
         b: List[np.ndarray] = []
-
-        for eq in self.equations:
+        
+        # Iterate over equations, assemble.
+        for eq in self.equations.values():
             ad = eq.evaluate(self.dof_manager, state)
-
-            # EK: Comment out this part for now; we may need something like this
-            # when we get around to implementing subsystems.
-            # The columns of the Jacobian has the size of the local variables.
-            # Map these to the global ones
-            # local_dofs = eq.local_dofs(true_ad_variables=variables)
-            # if variables is not None:
-            #    local_dofs = self.dof_manager.transform_dofs(local_dofs, var=names)
-
-            # num_local_dofs = local_dofs.size
-            # projection = sps.coo_matrix(
-            #    (np.ones(num_local_dofs), (np.arange(num_local_dofs), local_dofs)),
-            #    shape=(num_local_dofs, num_global_dofs),
-            # )
-            # mat.append(ad.jac * projection)
+            # Append matrix and rhs
             mat.append(ad.jac)
-            # Concatenate the residuals
             # Multiply by -1 to move to the rhs
             b.append(-ad.val)
 
@@ -184,13 +171,76 @@ class EquationManager:
         rhs = np.hstack([vec for vec in b])
         return A, rhs
 
+    def assemble_subsystem(self, eq_names: Optional[Sequence[str]]=None, variables: Optional[Sequence[Union[pp.ad.Variables, pp.ad.MergedVariable]]]=None) -> Tuple[sps.spmatrix, np.ndarray]:
+        """ Assemble Jacobian matrix and residual vector  using a specified subset of
+        equations and variables.
+
+        The method is intended for use in splitting algorithms. Matrix blocks not
+        included will simply be ignored. 
+
+        Parameters:
+            eq_names (Sequence of str, optional): Equations to be assembled, specified
+                as keys in self.equations. If not provided, all equations known to this
+                EquationManager will be included.
+            variables (Sequence of Variabels, optional): Variables to be assembled.
+                If not provided, all variabels known to this EquationManager will be
+                included.
+
+        Returns:
+            sps.spmatrix: Jacobian matrix corresponding to the current variable state,
+                as found in self.gb, for the specified equations and variables.
+            np.ndarray: Residual vector corresponding to the current variable state,
+                as found in self.gb, for the specified equations and variables.
+                Scaled with -1 (moved to rhs).
+
+            NOTE: The ordering of rows and columns in the system are defined by
+                the order items in eq_names and variables. If a variable is merged,
+                the ordering will further be determined by that of its subvariables.
+
+        """
+        if variables is None:
+            variables = self._variables_as_list()
+
+        if eq_names is None:
+            eq_names = list(self.eq_names.keys())
+        
+        # Data structures for building matrix and residual vector
+        mat: List[sps.spmatrix] = []
+        b: List[np.ndarray] = []
+
+        # Projection to the subset of active variables
+        projection = self._column_projection(variables)
+        
+        # Iterate over equations, assemble.
+        for name in eq_names:
+            eq = self.equations[name]
+            ad = eq.to_ad(self.gb, state)
+
+            # ad contains derivatives with respect to all variables, while
+            # we need a subset. Project the columns to get the right size.
+            mat.append(ad.jac * projection)
+            
+            # The residuals can be stored without reordering.
+            # Multiply by -1 to move to the rhs
+            b.append(-ad.val)
+
+        # Concatenate results. Return
+        A = sps.bmat([[m] for m in mat]).tocsr()
+        rhs = np.hstack([vec for vec in b])
+        return A, rhs
+
+
     def discretize(self, gb: pp.GridBucket) -> None:
         """Loop over all discretizations in self.equations, find all unique discretizations
         and discretize.
 
+        This is more effecient than discretizing on the Operator level, since
+        discretizations which occur more than once in a set of equations will be
+        identified and only discretize once.
+
         Parameters:
             gb (pp.GridBucket): Mixed-dimensional grid from which parameters etc. will
-                be taken.
+                be taken and discretization matrices stored.
 
         """
         # Somehow loop over all equations, discretize identified objects
@@ -199,7 +249,7 @@ class EquationManager:
 
         # List of discretizations, build up by iterations over all equations
         discr: List = []
-        for eqn in self.equations:
+        for eqn in self.equations.values():
             # This will expand the list discr with new discretizations.
             # The list may contain duplicates.
             discr = eqn._identify_subtree_discretizations(discr)
@@ -208,6 +258,47 @@ class EquationManager:
         unique_discr = _ad_utils.uniquify_discretization_list(discr)
         _ad_utils.discretize_from_list(unique_discr, gb)
 
+            var: List[pp.ad.Variable] = []
+        for v in variables:
+            if isinstance(v, (pp.ad.Variable, operators.Variable)):
+                var.append(v)
+            elif isinstance(v, (pp.ad.MergedVariable, operators.MergedVariable)):
+                for sv in subvars:
+                    var.append(sv)
+            else:
+                raise ValueError('Encountered unknown type in variable list')
+
+    def _column_projection(self, variables: Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]]) -> sps.spmatrix:
+        """ Create a projection matrix from the full variable set to a subset.
+
+        The matrix can be right multiplied with a Jacobian matrix to remove
+        columns corresponding to variables not included.
+        """
+        inds = []
+        for v in variables:
+            inds.append(self.dof_manager.dof_ind(v.g, v._name))
+
+        ind_arr = np.hstack((i for i in inds))
+        num_loc_dofs = ind_arr.size
+        num_glob_dofs = self.dof_manager.full_dof.sum()
+
+        num_local_dofs = local_dofs.size
+        return sps.coo_matrix(
+        (np.ones(num_local_dofs), (np.arange(num_local_dofs), local_dofs)),
+            shape=(num_local_dofs, num_global_dofs),
+        ).tocsr()
+
+    def _variables_as_list(self):
+        # Get a list of all variables known to this EquationManager
+        variables = []
+        # Loop through nested dictionaries
+        for v_dict in self.variables.values():
+            for var in v_dict.values():
+                variables.append(var)
+
+        return variables
+
+        
     def __repr__(self) -> str:
         s = (
             "Equation manager for mixed-dimensional grid with "
