@@ -1,7 +1,7 @@
 """ Main content:
 EquationManager: representation of a set of equations on Ad form.
 """
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union, Callable
 
 import numpy as np
 import scipy.sparse as sps
@@ -229,6 +229,85 @@ class EquationManager:
         rhs = np.hstack([vec for vec in b])
         return A, rhs
 
+    def assemble_schur_complement_system(
+        self,
+        eq_names: Sequence[str],
+        variables: Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]],
+        inverter: Callable[[sps.spmatrix], sps.spmatrix],
+    ) -> Tuple[sps.spmatrix, np.ndarray]:
+        """Assemble Jacobian matrix and residual vector using a Schur complement
+        elimination of the variables and equations not to be included.
+
+        The specified equations and variables will define a reordering of the linearized
+        system into
+
+            [J_pp, J_ps  [x_p   = [b_p
+             J_sp, J_ss]  x_s]     b_s]
+
+        Where subscripts p and s define primary and secondary quantities. The Schur
+        complement system is then given by
+
+            (J_pp - J_ps * inv(J_ss) * J_sp) * x_p = b_p - J_ps * inv(J_pp) * b_s.
+
+        The Schur complement is well defined only if the inverse of J_ss exists,
+        and the efficiency of the approach assumes that an ifficient inverter for
+        J_ss can be found. The user must ensure both requirements are fulfilled.
+        The simplest option is a lambda function on the form:
+
+            inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))
+
+        but depending on A (size and sparsity pattern), this can be costly in terms of
+        computational time and memory.
+
+        The method can be used, e.g. to  splitting between primary and secondary variables,
+        where the latter can be efficiently eliminated (for instance, they contain no
+        spatial derivatives).
+
+        Parameters:
+            eq_names (Sequence of str): Equations to be assembled, specified
+                as keys in self.equations.
+            variables (Sequence of Variabels): Variables to be assembled.
+            inverter (Callable): Method to compute the inverse of the matrix A_ss.
+
+        Returns:
+            sps.spmatrix: Jacobian matrix corresponding to the current variable state,
+                as found in self.gb, for the specified equations and variables.
+            np.ndarray: Residual vector corresponding to the current variable state,
+                as found in self.gb, for the specified equations and variables.
+                Scaled with -1 (moved to rhs).
+
+        """
+
+        # Get lists of all variables and equations, and find the secondary items
+        # by a set difference
+        all_eq_names = list(self.eq_names.keys())
+        all_variables = self._variables_as_list()
+
+        secondary_equations = list(set(all_eq_names).difference(set(eq_names)))
+        secondary_variables = list(set(all_variables).difference(set(variables)))
+
+        # First assemble the primary and secondary equations for all variables
+        A_p, b_p = self.assemble_subsystem(eq_names, all_variables)
+        A_s, b_s = self.assemble_subsystem(secondary_equations, all_variables)
+
+        # Projection matrices to reduce matrices to the relevant columns
+        proj_primary = self._column_projection(variables)
+        proj_secondary = self._column_projection(secondary_variables)
+
+        # Matrices involved in the Schur complements
+        A_pp = A_p * proj_primary
+        A_ps = A_p * proj_secondary
+        A_sp = A_s * proj_primary
+        A_ss = A_s * proj_secondary
+
+        # Explicitly compute the inverse.
+        # Depending on the matrix, and the inverter, this can take a long time.
+        inv_A_ss = inverter(A_ss)
+
+        S = A_pp - A_ps * inv_A_ss * A_sp
+        bs = b_p - A_ps * inv_A_ss * b_s
+
+        return S, bs
 
     def discretize(self, gb: pp.GridBucket) -> None:
         """Loop over all discretizations in self.equations, find all unique discretizations
