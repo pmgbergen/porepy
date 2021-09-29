@@ -626,11 +626,13 @@ class ContactMechanics(AbstractModel):
 
             if len(gb.grids_of_dimension(Nd)) != 1:
                 raise NotImplementedError("This will require further work")
-
+            grid_list = [g for g, _ in gb]
             edge_list = [(g_primary, g) for g in g_frac]
 
-            mortar_proj = pp.ad.MortarProjections(edges=edge_list, gb=gb, nd=self._Nd)
-            subdomain_proj = pp.ad.SubdomainProjections(gb=gb, nd=self._Nd)
+            mortar_proj = pp.ad.MortarProjections(
+                grids=grid_list, edges=edge_list, gb=gb, nd=self._Nd
+            )
+            subdomain_proj = pp.ad.SubdomainProjections(grids=grid_list, nd=self._Nd)
             tangential_proj_lists = [
                 gb.node_props(
                     gf, "tangential_normal_projection"
@@ -639,7 +641,7 @@ class ContactMechanics(AbstractModel):
             ]
             tangential_proj = pp.ad.Matrix(sps.block_diag(tangential_proj_lists))
 
-            mpsa_ad = mpsa_ad = pp.ad.MpsaAd(self.mechanics_parameter_key, g_primary)
+            mpsa_ad = mpsa_ad = pp.ad.MpsaAd(self.mechanics_parameter_key, [g_primary])
             bc_ad = pp.ad.BoundaryCondition(
                 self.mechanics_parameter_key, grids=[g_primary]
             )
@@ -661,17 +663,17 @@ class ContactMechanics(AbstractModel):
                 mpsa_ad.stress * u
                 + mpsa_ad.bound_stress * bc_ad
                 + mpsa_ad.bound_stress
-                * subdomain_proj.face_restriction(g_primary)
+                * subdomain_proj.face_restriction([g_primary])
                 * mortar_proj.mortar_to_primary_avg
                 * u_mortar
             )
 
             # momentum balance equation in g_h
-            momentum_eq = pp.ad.Expression(
-                div * stress, dof_manager, name="momentuum", grid_order=[g_primary]
-            )
+            momentum_eq = div * stress
 
-            coloumb_ad = pp.ad.ColoumbContactAd(self.mechanics_parameter_key, edge_list)
+            coloumb_ad = pp.ad.ColoumbContactAd(
+                self.mechanics_parameter_key, edges=edge_list
+            )
             jump_rotate = (
                 tangential_proj
                 * subdomain_proj.cell_restriction(g_frac)
@@ -691,13 +693,9 @@ class ContactMechanics(AbstractModel):
                 coloumb_ad.rhs
                 + exclude_normal * coloumb_ad.displacement * jump_rotate * u_mortar_prev
             )
-            contact_conditions = coloumb_ad.traction * contact_force + jump_discr - rhs
-            contact_eq = pp.ad.Expression(
-                contact_conditions, dof_manager, grid_order=g_frac, name="contact"
-            )
+            contact_eq = coloumb_ad.traction * contact_force + jump_discr - rhs
 
             # Force balance
-
             mat = None
             for _, d in gb.edges():
                 mg: pp.MortarGrid = d["mortar_grid"]
@@ -718,7 +716,7 @@ class ContactMechanics(AbstractModel):
             # Contact from primary grid and mortar displacements (via primary grid)
             contact_from_primary_mortar = (
                 mortar_proj.primary_to_mortar_int
-                * subdomain_proj.face_prolongation(g_primary)
+                * subdomain_proj.face_prolongation([g_primary])
                 * sign_switcher
                 * stress
             )
@@ -729,13 +727,7 @@ class ContactMechanics(AbstractModel):
                 * tangential_proj.transpose()
                 * contact_force
             )
-            force_balance_eq = pp.ad.Expression(
-                contact_from_primary_mortar + contact_from_secondary,
-                dof_manager,
-                name="force_balance",
-                grid_order=edge_list,
-            )
-            #            eq2 = pp.ad.Equation(contact_from_secondary, dof_manager).to_ad(gb)
+            force_balance_eq = contact_from_primary_mortar + contact_from_secondary
 
             eq_manager.equations += [momentum_eq, contact_eq, force_balance_eq]
 
