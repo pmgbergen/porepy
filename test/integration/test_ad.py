@@ -5,7 +5,7 @@ import scipy.sparse as sps
 
 from porepy.numerics.ad.forward_mode import Ad_array, initAdArrays
 from porepy.numerics.ad.functions import exp
-from porepy.numerics.ad.utils import concatenate
+from porepy.numerics.ad._ad_utils import concatenate
 
 
 class AdTest(unittest.TestCase):

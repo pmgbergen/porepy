@@ -37,11 +37,7 @@ def test_md_flow():
             bc_values = np.zeros(g.num_faces)
             bc_values[0] = 1
             sources = np.random.rand(g.num_cells) * g.cell_volumes
-            specified_parameters = {
-                "bc": bc,
-                "bc_values": bc_values,
-                "source": sources
-                }
+            specified_parameters = {"bc": bc, "bc_values": bc_values, "source": sources}
         else:
             sources = np.random.rand(g.num_cells) * g.cell_volumes
             specified_parameters = {"source": sources}
@@ -55,7 +51,7 @@ def test_md_flow():
         # Assign discretization
         d[pp.DISCRETIZATION] = {
             pressure_variable: {"diff": discr, "source": source_discr}
-            }
+        }
 
         # Initialize state
         d[pp.STATE] = {
@@ -96,9 +92,11 @@ def test_md_flow():
 
     bc_val = pp.ad.BoundaryCondition(keyword, grid_list)
 
-    source = pp.ad.ParameterArray(param_keyword=keyword, array_keyword='source', grids=grid_list)
+    source = pp.ad.ParameterArray(
+        param_keyword=keyword, array_keyword="source", grids=grid_list
+    )
 
-    projections = pp.ad.MortarProjections(gb=gb)
+    projections = pp.ad.MortarProjections(gb=gb, grids=grid_list, edges=edge_list)
     div = pp.ad.Divergence(grids=grid_list)
 
     p = manager.merge_variables([(g, pressure_variable) for g in grid_list])
@@ -121,12 +119,9 @@ def test_md_flow():
         + edge_discr.mortar_discr * lmbda
     )
 
-    flow_eq_ad = pp.ad.Expression(flow_eq, dof_manager, "flow on nodes")
-    flow_eq_ad.discretize(gb)
+    flow_eq.discretize(gb)
 
-    interface_eq_ad = pp.ad.Expression(interface_flux, dof_manager, "flow on interface")
-
-    manager.equations += [flow_eq_ad, interface_eq_ad]
+    manager.equations += [flow_eq, interface_flux]
 
     state = np.zeros(gb.num_cells() + gb.num_mortar_cells())
     A, b = manager.assemble_matrix_rhs(state=state)
@@ -134,6 +129,7 @@ def test_md_flow():
     if diff.data.size > 0:
         assert np.max(np.abs(diff.data)) < 1e-10
     assert np.max(np.abs(b - b_ref)) < 1e-10
+
 
 # Below are grid buckte generators to be used for tests of contact-mechanics models
 
@@ -285,13 +281,9 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
         # Solve linear system
         sol_as = model_as.assemble_and_solve_linear_system(tol)
         sol_ad = model_ad.assemble_and_solve_linear_system(tol)
-        #        g = model_ad.gb.grids_of_dimension(2)[0]
-        #        print(model_ad.gb.node_props(g, pp.STATE)['p'])
-        #        breakpoint()
         model_as.after_newton_iteration(sol_as)
         model_ad.after_newton_iteration(sol_ad)
 
-        #       breakpoint()
         _, is_converged_as, _ = model_as.check_convergence(
             sol_as, prev_sol_as, init_sol_as, {"nl_convergence_tol": tol}
         )
@@ -329,9 +321,30 @@ def _block_reordering(eq_names, dof_manager, eqn_manager):
 
         return test_utils.compare_arrays(n1, n2, sort=False)
 
+    def get_unique_grids(op):
+        # Return the unique grids defined for an AD Operator(/old Expression)
+        all_variables = eq._find_subtree_variables()
+        grids = []
+        for var in all_variables:
+            if isinstance(var, pp.ad.MergedVariable):
+                for sub_var in var.sub_vars:
+                    g = sub_var._g
+                    if g not in grids:
+                        grids.append(g)
+            elif isinstance(var, pp.ad.Variable):
+                g = var._g
+                if g not in grids:
+                    grids.append(g)
+            else:
+                raise NotImplementedError
+
+        return grids
+
     keys = []
     for (name, eq) in zip(eq_names, eqn_manager.equations):
-        for grid_eq in eq.grid_order:
+        grids_ad = get_unique_grids(eq)
+
+        for grid_eq in grids_ad:
             for (grid, var) in dof_manager.block_dof:
                 if var != name:
                     continue
@@ -419,5 +432,3 @@ def test_contact_mechanics_biot(grid_method):
     model_ad = BiotContactModel({}, grid_method)
     model_ad._use_ad = True
     _timestep_stepwise_newton_with_comparison(model_as, model_ad)
-
-

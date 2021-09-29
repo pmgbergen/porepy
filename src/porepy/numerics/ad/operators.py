@@ -13,6 +13,9 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.params.tensor import SecondOrderTensor
 
+from . import _ad_utils
+from .forward_mode import initAdArrays
+
 __all__ = [
     "Operator",
     "Matrix",
@@ -27,6 +30,8 @@ __all__ = [
 Operation = Enum(
     "Operation", ["void", "add", "sub", "mul", "evaluate", "div", "localeval", "apply"]
 )
+Edge = Tuple[pp.Grid, pp.Grid]
+GridLike = Union[pp.Grid, Edge]
 
 
 class Operator:
@@ -41,12 +46,13 @@ class Operator:
     def __init__(
         self,
         name: Optional[str] = None,
-        grid: Optional[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]] = None,
+        grids: Optional[List[pp.Grid]] = None,
+        edges: Optional[List[Edge]] = None,
         tree: Optional["Tree"] = None,
     ) -> None:
         self._name = name
-        if grid is not None:
-            self.g = grid
+        self.grids: List = [] if grids is None else grids
+        self.edges: List = [] if edges is None else edges
         self._set_tree(tree)
 
     def _set_tree(self, tree=None):
@@ -54,6 +60,151 @@ class Operator:
             self.tree = Tree(Operation.void)
         else:
             self.tree = tree
+
+    def _set_grids_or_edges(
+        self, grids: Union[List[pp.Grid], None], edges: Union[List[Edge], None]
+    ) -> None:
+        """For operators which are defined for either grids or edges but not both.
+
+        Check that exactly one of grids and edges is given and assign to the operator.
+        The unspecified grid-like type will also be set as an attribute, i.e. either
+        op.grids or op.edges is an empty list, while the other is a list with len>0.
+
+        Parameters:
+            op (operator): The operator to which grids OR edges will be set as attribute.
+            grids (optional list of grids): The grid list.
+            edges (optional list of tuples of grids): The edge list.
+
+        """
+        if grids is None:
+            assert isinstance(edges, list)
+            self.grids = []
+            self.edges = edges
+        else:
+            assert isinstance(grids, list)
+            assert edges is None
+            self.grids = grids
+            self.edges = []
+
+    def _find_subtree_variables(self) -> List["pp.ad.Variable"]:
+        """Method to recursively look for Variables (or MergedVariables) in an
+        operator tree.
+        """
+        # The variables should be located at leaves in the tree. Traverse the tree
+        # recursively, look for variables, and then gather the results.
+
+        if isinstance(self, Variable) or isinstance(self, pp.ad.Variable):
+            # We are at the bottom of the a branch of the tree, return the operator
+            return [self]
+        else:
+            # We need to look deeper in the tree.
+            # Look for variables among the children
+            sub_variables = [
+                child._find_subtree_variables() for child in self.tree.children
+            ]
+            # Some work is needed to parse the information
+            var_list: List[Variable] = []
+            for var in sub_variables:
+                if isinstance(var, Variable) or isinstance(var, pp.ad.Variable):
+                    # Effectively, this node is one step from the leaf
+                    var_list.append(var)
+                elif isinstance(var, list):
+                    # We are further up in the tree.
+                    for sub_var in var:
+                        if isinstance(sub_var, Variable) or isinstance(
+                            sub_var, pp.ad.Variable
+                        ):
+                            var_list.append(sub_var)
+            return var_list
+
+    def _identify_variables(self, dof_manager, var: Optional[list] = None):
+        # NOTES TO SELF:
+        # state: state vector for all unknowns. Should be possible to pick this
+        # from pp.STATE or pp.ITERATE
+
+        # 1. Get all variables present in this equation.
+        # The variable finder is implemented in a special function, aimed at recursion
+        # through the operator tree.
+        # Uniquify by making this a set, and then sort on variable id
+        variables = sorted(
+            list(set(self._find_subtree_variables())),
+            key=lambda var: var.id,
+        )
+
+        # 2. Get a mapping between variables (*not* only MergedVariables) and their
+        # indices according to the DofManager. This is needed to access the state of
+        # a variable when parsing the equation to Ad format.
+
+        # For each variable, get the global index
+        inds = []
+        variable_ids = []
+        prev_time = []
+        prev_iter = []
+        for variable in variables:
+            # Indices (in DofManager sense) of this variable. Will be built gradually
+            # for MergedVariables, in one go for plain Variables.
+            ind_var = []
+            prev_time.append(variable.prev_time)
+            prev_iter.append(variable.prev_iter)
+
+            if isinstance(
+                variable, (pp.ad.MergedVariable, MergedVariable)
+            ):  # Is this equivalent to the test in previous function?
+                # Loop over all subvariables for the merged variable
+                for i, sub_var in enumerate(variable.sub_vars):
+                    # Store dofs
+                    ind_var.append(dof_manager.dof_ind(sub_var._g, sub_var._name))
+                    if i == 0:
+                        # Store id of variable, but only for the first one; we will
+                        # concatenate the arrays in ind_var into one array
+                        variable_ids.append(variable.id)
+            else:
+                # This is a variable that lives on a single grid
+                ind_var.append(dof_manager.dof_ind(variable._g, variable._name))
+                variable_ids.append(variable.id)
+
+            # Gather all indices for this variable
+            inds.append(np.hstack([i for i in ind_var]))
+
+        return inds, variable_ids, prev_time, prev_iter
+
+    def _identify_subtree_discretizations(self, discr: List) -> List:
+        """Recursive search in the tree of this operator to identify all discretizations
+        represented in the operator.
+        """
+        if len(self.tree.children) > 0:
+            # Go further in recursion
+            for child in self.tree.children:
+                discr += child._identify_subtree_discretizations([])
+
+        if isinstance(self, _ad_utils.MergedOperator):
+            # We have reached the bottom; this is a disrcetization (example: mpfa.flux)
+            discr.append(self)
+
+        return discr
+
+    def _identify_discretizations(
+        self,
+    ) -> Dict["_ad_utils.MergedOperator", GridLike]:
+        """Perform a recursive search to find all discretizations present in the
+        operator tree. Uniquify the list to avoid double computations.
+
+        """
+        all_discr = self._identify_subtree_discretizations([])
+        return _ad_utils.uniquify_discretization_list(all_discr)
+
+    def discretize(self, gb: pp.GridBucket) -> None:
+        """Perform discretization operation on all discretizations identified in
+        the tree of this operator, using data from gb.
+
+        IMPLEMENTATION NOTE: The discretizations was identified at initialization of
+        Expression - it is now done here to accomodate updates (?) and
+
+        """
+        unique_discretizations: Dict[
+            _ad_utils.MergedOperator, GridLike
+        ] = self._identify_discretizations()
+        _ad_utils.discretize_from_list(unique_discretizations, gb)
 
     def is_leaf(self) -> bool:
         """Check if this operator is a leaf in the tree-representation of an object.
@@ -69,21 +220,261 @@ class Operator:
 
     def parse(self, gb) -> Any:
         """Translate the operator into a numerical expression.
-
         Subclasses that represent atomic operators (leaves in a tree-representation of
         an operator) should override this method to retutrn e.g. a number, an array or a
         matrix.
-
         This method should not be called on operators that are formed as combinations
         of atomic operators; such operators should be evaluated by an Equation object.
-
         """
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
+    def _parse_operator(self, op: "Operator", gb: pp.GridBucket):
+        """TODO: Currently, there is no prioritization between the operations; for
+        some reason, things just work. We may need to make an ordering in which the
+        operations should be carried out. It seems that the strategy of putting on
+        hold until all children are processed works, but there likely are cases where
+        this is not the case.
+        """
+
+        # The parsing strategy depends on the operator at hand:
+        # 1) If the operator is a Variable, it will be represented according to its
+        #    state.
+        # 2) If the operator is a leaf in the tree-representation of the equation,
+        #    parsing is left to the operator itself.
+        # 3) If the operator is formed by combining other operators lower in the tree,
+        #    parsing is handled by first evaluating the children (leads to recursion)
+        #    and then perform the operation on the result.
+
+        # Check for case 1 or 2
+        if isinstance(op, pp.ad.Variable) or isinstance(op, Variable):
+            # Case 1: Variable
+
+            # How to access the array of (Ad representation of) states depends on wether
+            # this is a single or combined variable; see self.__init__, definition of
+            # self._variable_ids.
+            # TODO no differecen between merged or no merged variables!?
+            if isinstance(op, pp.ad.MergedVariable) or isinstance(op, MergedVariable):
+                if op.prev_time:
+                    return self._prev_vals[op.id]
+                elif op.prev_iter:
+                    return self._prev_iter_vals[op.id]
+                else:
+                    return self._ad[op.id]
+            else:
+                if op.prev_time:
+                    return self._prev_vals[op.id]
+                elif op.prev_iter or not (
+                    op.id in self._ad
+                ):  # TODO make it more explicit that op corresponds to a non_ad_variable?
+                    # e.g. by op.id in non_ad_variable_ids.
+                    return self._prev_iter_vals[op.id]
+                else:
+                    return self._ad[op.id]
+        elif op.is_leaf():
+            # Case 2
+            # EK: Is this correct after moving from Expression?
+            return op.parse(gb)  # type:ignore
+
+        # This is not an atomic operator. First parse its children, then combine them
+        tree = op.tree
+        results = [self._parse_operator(child, gb) for child in tree.children]
+
+        def get_shape(mat):
+            # Get shape of a matrix
+            if isinstance(mat, (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)):
+                return mat.jac.shape
+            else:
+                return mat.shape
+
+        def error_message(operation):
+            # Helper function to format error message
+            msg_0 = tree.children[0]._parse_readable()
+            msg_1 = tree.children[1]._parse_readable()
+
+            nl = "\n"
+            msg = (
+                f"Ad parsing: Error when {operation}\n"
+                + "  "
+                + msg_0
+                + nl
+                + "with"
+                + nl
+                + "  "
+                + msg_1
+                + nl
+            )
+
+            msg += (
+                f"Matrix sizes are {get_shape(results[0])} and "
+                f"{get_shape(results[1])}"
+            )
+            return msg
+
+        # Combine the results
+        if tree.op == Operation.add:
+            # To add we need two objects
+            assert len(results) == 2
+
+            # Convert any vectors that mascarade as a nx1 (1xn) scipy matrix
+            self._ravel_scipy_matrix(results)
+
+            if isinstance(results[0], np.ndarray):
+                # With the implementation of Ad arrays, addition does not
+                # commute for combinations with numpy arrays. Switch the order
+                # of results, and everything works.
+                results = results[::-1]
+            try:
+                return results[0] + results[1]
+            except ValueError:
+                msg = error_message("adding")
+                raise ValueError(msg)
+
+        elif tree.op == Operation.sub:
+            # To subtract we need two objects
+            assert len(results) == 2
+
+            # Convert any vectors that mascarade as a nx1 (1xn) scipy matrix
+            self._ravel_scipy_matrix(results)
+
+            factor = 1
+
+            if isinstance(results[0], np.ndarray):
+                # With the implementation of Ad arrays, subtraction does not
+                # commute for combinations with numpy arrays. Switch the order
+                # of results, and everything works.
+                results = results[::-1]
+                factor = -1
+
+            try:
+                return factor * (results[0] - results[1])
+            except ValueError:
+                msg = error_message("subtracting")
+                raise ValueError(msg)
+
+        elif tree.op == Operation.mul:
+            # To multiply we need two objects
+            assert len(results) == 2
+
+            if isinstance(results[0], np.ndarray) and isinstance(
+                results[1], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
+            ):
+                # In the implementation of multiplication between an Ad_array and a
+                # numpy array (in the forward mode Ad), a * b and b * a do not
+                # commute. Flip the order of the results to get the expected behavior.
+                results = results[::-1]
+            try:
+                return results[0] * results[1]
+            except ValueError:
+                if isinstance(
+                    results[0], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
+                ) and isinstance(results[1], np.ndarray):
+                    # Special error message here, since the information provided by
+                    # the standard method looks like a contradiction.
+                    # Move this to a helper method if similar cases arise for other
+                    # operations.
+                    msg_0 = tree.children[0]._parse_readable()
+                    msg_1 = tree.children[1]._parse_readable()
+                    nl = "\n"
+                    msg = (
+                        "Error when right multiplying \n"
+                        + f"  {msg_0}"
+                        + nl
+                        + "with"
+                        + nl
+                        + f"  numpy array {msg_1}"
+                        + nl
+                        + f"Size of arrays: {results[0].val.size} and {results[1].size}"
+                        + nl
+                        + "Did you forget some parantheses?"
+                    )
+
+                else:
+                    msg = error_message("multiplying")
+                raise ValueError(msg)
+
+        elif tree.op == Operation.evaluate:
+            # This is a function, which should have at least one argument
+            assert len(results) > 1
+            return results[0].func(*results[1:])
+
+        elif tree.op == Operation.apply:
+            assert len(results) > 1
+            return results[0].apply(*results[1:])
+
+        elif tree.op == Operation.div:
+            return results[0] / results[1]
+
+        else:
+            raise ValueError("Should not happen")
+
+    def _parse_readable(self, op: "Operator") -> str:
+        # Make a human-readable error message related to a parsing error.
+        # NOTE: The exact formatting should be considered work in progress,
+        # in particular when it comes to function evaluation.
+
+        # There are three cases to consider: Either the operator is a leaf,
+        # it is a composite operator with a name, or it is a general composite
+        # operator.
+        if op.is_leaf():
+            # Leafs are represented by their strings.
+            return str(op)
+        elif op._name is not None:
+            # Composite operators that have been given a name (possibly
+            # with a goal of simple identification of an error)
+            return op._name
+
+        # General operator. Split into its parts by recursion.
+        tree = op.tree
+
+        child_str = [child._parse_readable() for child in tree.children]
+
+        is_func = False
+
+        if tree.op == Operation.add:
+            operator_str = "+"
+        elif tree.op == Operation.sub:
+            operator_str = "-"
+        elif tree.op == Operation.mul:
+            operator_str = "*"
+        elif tree.op == Operation.div:
+            operator_str = "/"
+        elif tree.op in [Operation.evaluate, Operation.apply]:
+            # TODO: This has not really been tested.
+            is_func = True
+        else:
+            # TODO: This corresponds to unknown (to EK) cases.
+            print("Have not implemented string parsing of this operator")
+
+        if is_func:
+            # TODO: Not sure what to write here
+            msg = f"{child_str[0]} evaluated on ("
+            for child in range(1, len(child_str)):
+                msg += f"{child_str[child]}, "
+
+            msg += ")"
+            return msg
+        else:
+            # TODO: Should we try to give parantheses here?
+            return f"{child_str[0]} {operator_str} {child_str[1]}"
+
+    def _ravel_scipy_matrix(self, results):
+        # In some cases, parsing may leave what is essentially an array, but with the
+        # format of a scipy matrix. This must be converted to a numpy array before
+        # moving on.
+        # Note: It is not clear that this conversion is meaningful in all cases, so be
+        # cautious with adding this extra parsing to more operations.
+        for i, res in enumerate(results):
+            if isinstance(res, sps.spmatrix):
+                assert res.shape[0] == 1 or res.shape[1] == 1
+                results[i] = res.toarray().ravel()
+
     def __repr__(self) -> str:
-        return (
-            f"Operator formed by {self.tree.op} with {len(self.tree.children)} children"
-        )
+        if self._name is None:
+            s = "Operator with no name"
+        else:
+            s = "Operator named {self._name}"
+        s += f" formed by {self.tree.op} with {len(self.tree.children)} children."
+        return s
 
     def __str__(self) -> str:
         return self._name if self._name is not None else ""
@@ -134,6 +525,162 @@ class Operator:
 
     def __rsub__(self, other):
         return self.__sub__(other)
+
+    def evaluate(
+        self,
+        dof_manager: "pp.DofManager",
+        state: Optional[np.ndarray] = None,
+    ):
+        """Evaluate the residual and Jacobian matrix for a given state.
+
+        Parameters:
+            dof_manager (pp.DofManager): used to represent the problem. Will be used
+                to parse the operators that combine to form this Equation..
+            state (np.ndarray, optional): State vector for which the residual and its
+                derivatives should be formed. If not provided, the state will be pulled from
+                the previous iterate (if this exists), or alternatively from the state
+                at the previous time step.
+
+        Returns:
+            An Ad-array representation of the residual and Jacbobian.
+
+        """
+
+        # Down to (and including) commented identification of self.discretizations
+        # used to be part of old Expression init
+        gb = dof_manager.gb
+        # Identify all variables in the Operator tree. This will include real variables,
+        # and representation of previous time steps and iterations.
+        (
+            variable_dofs,
+            variable_ids,
+            is_prev_time,
+            is_prev_iter,
+        ) = self._identify_variables(dof_manager)
+
+        # Split variable dof indices and ids into groups of current variables (those
+        # of the current iteration step), and those from the previous time steps and
+        # iterations.
+        current_indices = []
+        current_ids = []
+        prev_indices = []
+        prev_ids = []
+        prev_iter_indices = []
+        prev_iter_ids = []
+        for ind, var_id, is_prev, is_prev_it in zip(
+            variable_dofs, variable_ids, is_prev_time, is_prev_iter
+        ):
+            if is_prev:
+                prev_indices.append(ind)
+                prev_ids.append(var_id)
+            elif is_prev_it:
+                prev_iter_indices.append(ind)
+                prev_iter_ids.append(var_id)
+            else:
+                current_indices.append(ind)
+                current_ids.append(var_id)
+
+        # Save information.
+        self._variable_dofs = current_indices
+        self._variable_ids = current_ids
+        self._prev_time_dofs = prev_indices
+        self._prev_time_ids = prev_ids
+        self._prev_iter_dofs = prev_iter_indices
+        self._prev_iter_ids = prev_iter_ids
+
+        # Obsolete? The identification (and uniqueification) is no done upon
+        # call of self.discretize()
+        # self.discretizations: Dict[
+        #     _ad_utils.MergedOperator, GridLike
+        # ] = self._identify_discretizations()
+
+        # Below is the modified Expression.to_ad()
+
+        # Parsing in two stages: First make an Ad-representation of the variable state
+        # (this must be done jointly for all variables of the Equation to get all
+        # derivatives represented). Then parse the equation by traversing its
+        # tree-representation, and parse and combine individual operators.
+
+        # Initialize variables
+        prev_vals = np.zeros(dof_manager.num_dofs())
+
+        populate_state = state is None
+        if populate_state:
+            state = np.zeros(dof_manager.num_dofs())
+
+        assert state is not None
+        for (g, var) in dof_manager.block_dof:
+            ind = dof_manager.dof_ind(g, var)
+            if isinstance(g, tuple):
+                prev_vals[ind] = gb.edge_props(g, pp.STATE)[var]
+            else:
+                prev_vals[ind] = gb.node_props(g, pp.STATE)[var]
+
+            if populate_state:
+                if isinstance(g, tuple):
+                    try:
+                        state[ind] = gb.edge_props(g, pp.STATE)[pp.ITERATE][var]
+                    except KeyError:
+                        prev_vals[ind] = gb.edge_props(g, pp.STATE)[var]
+                else:
+                    try:
+                        state[ind] = gb.node_props(g, pp.STATE)[pp.ITERATE][var]
+                    except KeyError:
+                        state[ind] = gb.node_props(g, pp.STATE)[var]
+
+        # Initialize Ad variables with the current iterates
+
+        # The size of the Jacobian matrix will always be set according to the
+        # variables found by the DofManager in the GridBucket.
+
+        # NOTE: This implies that to derive a subsystem from the Jacobian
+        # matrix of this Expression will require restricting the columns of
+        # this matrix.
+
+        # First generate an Ad array (ready for forward Ad) for the full set.
+        ad_vars = initAdArrays([state])[0]
+
+        # Next, the Ad array must be split into variables of the right size
+        # (splitting impacts values and number of rows in the Jacobian, but
+        # the Jacobian columns must stay the same to preserve all cross couplings
+        # in the derivatives).
+
+        # Dictionary which mapps from Ad variable ids to Ad_array.
+        self._ad: Dict[int, pp.ad.Ad_array] = {}
+
+        # Loop over all variables, restrict to an Ad array corresponding to
+        # this variable.
+        for (var_id, dof) in zip(self._variable_ids, self._variable_dofs):
+            ncol = state.size
+            nrow = np.unique(dof).size
+            # Restriction matrix from full state (in Forward Ad) to the specific
+            # variable.
+            R = sps.coo_matrix(
+                (np.ones(nrow), (np.arange(nrow), dof)), shape=(nrow, ncol)
+            ).tocsr()
+            self._ad[var_id] = R * ad_vars
+
+        # Also make mappings from the previous iteration.
+        # This is simpler, since it is only a matter of getting the residual vector
+        # correctly (not Jacobian matrix).
+
+        prev_iter_vals_list = [state[ind] for ind in self._prev_iter_dofs]
+        self._prev_iter_vals = {
+            var_id: val
+            for (var_id, val) in zip(self._prev_iter_ids, prev_iter_vals_list)
+        }
+
+        # Also make mappings from the previous time step.
+        prev_vals_list = [prev_vals[ind] for ind in self._prev_time_dofs]
+        self._prev_vals = {
+            var_id: val for (var_id, val) in zip(self._prev_time_ids, prev_vals_list)
+        }
+
+        # Parse operators. This is left to a separate function to facilitate the
+        # necessary recursion for complex operators.
+        eq = self._parse_operator(self, gb)
+
+        return eq
 
     def _parse_other(self, other):
         if isinstance(other, float) or isinstance(other, int):
@@ -309,27 +856,42 @@ class Variable(Operator):
         self,
         name: str,
         ndof: Dict[str, int],
-        grid_like: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]],
+        grids: Optional[List[pp.Grid]] = None,
+        edges: Optional[List[Edge]] = None,
         num_cells: int = 0,
         previous_timestep: bool = False,
         previous_iteration: bool = False,
     ):
-        """Initiate an Ad representation of the variable.
+        """Initiate an Ad representation of a variable associated with a grid or edge.
 
+        It is assumed that exactly one of grids and edges is defined.
         Parameters:
             name (str): Variable name.
             ndof (dict): Number of dofs per grid element.
-            grid_like (pp.Grid, or Tuple of pp.Grid): Either a grid or an interface
-                (combination of grids).
+            grids (optional list of pp.Grid ): List with length one containing a grid.
+            edges (optional list of Tuple of pp.Grid) List with length one containing
+                an edge.
             num_cells (int): Number of cells in the grid. Only sued if the variable
                 is on an interface.
 
         """
+
         self._name: str = name
         self._cells: int = ndof.get("cells", 0)
         self._faces: int = ndof.get("faces", 0)
         self._nodes: int = ndof.get("nodes", 0)
-        self.g = grid_like
+        self._set_grids_or_edges(grids, edges)
+        # Shorthand access to grid or edge:
+        if len(self.edges) == 0:
+            if len(self.grids) != 1:
+                raise ValueError("Variable must be associated with exactly one grid.")
+            self._g = self.grids[0]
+            self._is_edge_var = False
+        else:
+            if len(self.edges) != 1:
+                raise ValueError("Variable must be associated with exactly one edge.")
+            self._g = self.edges[0]
+            self._is_edge_var = True
 
         self.prev_time: bool = previous_timestep
         self.prev_iter: bool = previous_iteration
@@ -348,14 +910,15 @@ class Variable(Operator):
             int: Number of dofs.
 
         """
-        if isinstance(self.g, tuple):
+        if self._is_edge_var:
             # This is a mortar grid. Assume that there are only cell unknowns
             return self._num_cells * self._cells
         else:
+            # We now know _g is a grid, which is useful for mypy
             return (
-                self.g.num_cells * self._cells
-                + self.g.num_faces * self._faces
-                + self.g.num_nodes * self._nodes
+                self._g.num_cells * self._cells
+                + self._g.num_faces * self._faces
+                + self._g.num_nodes * self._nodes
             )
 
     def previous_timestep(self) -> "Variable":
@@ -366,7 +929,10 @@ class Variable(Operator):
 
         """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
-        return Variable(self._name, ndof, self.g, previous_timestep=True)
+        if self._is_edge_var:
+            return Variable(self._name, ndof, edges=self.edges, previous_timestep=True)
+        else:
+            return Variable(self._name, ndof, grids=self.grids, previous_timestep=True)
 
     def previous_iteration(self) -> "Variable":
         """Return a representation of this variable on the previous time iteration.
@@ -376,7 +942,10 @@ class Variable(Operator):
 
         """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
-        return Variable(self._name, ndof, self.g, previous_iteration=True)
+        if self._is_edge_var:
+            return Variable(self._name, ndof, grids=self.grids, previous_iteration=True)
+        else:
+            return Variable(self._name, ndof, edges=self.edges, previous_iteration=True)
 
     def __repr__(self) -> str:
         s = (
@@ -424,7 +993,7 @@ class MergedVariable(Variable):
 
         self._set_tree()
 
-        self.is_interface = isinstance(self.sub_vars[0].g, tuple)
+        self.is_interface = isinstance(self.sub_vars[0]._g, tuple)
 
         self.prev_time: bool = False
         self.prev_iter: bool = False

@@ -30,4 +30,6 @@ __all__.extend(forward_mode.__all__)
 __all__.extend(grid_operators.__all__)
 __all__.extend(equation_manager.__all__)
 
-from porepy.numerics.ad.utils import concatenate
+from porepy.numerics.ad._ad_utils import (  # @EK, should this really be accessible?
+    concatenate,
+)

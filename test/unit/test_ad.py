@@ -35,8 +35,7 @@ def test_subdomain_projections(scalar):
         proj_dim = Nd
 
     grid_list = np.array([g for g, _ in gb])
-    proj = pp.ad.SubdomainProjections(gb=gb, nd=proj_dim)
-    proj_list = pp.ad.SubdomainProjections(grids=grid_list, nd=proj_dim)
+    proj = pp.ad.SubdomainProjections(grids=grid_list, nd=proj_dim)
 
     cell_start = np.cumsum(np.hstack((0, np.array([g.num_cells for g in grid_list]))))
     face_start = np.cumsum(np.hstack((0, np.array([g.num_faces for g in grid_list]))))
@@ -85,14 +84,8 @@ def test_subdomain_projections(scalar):
             (data_face, (row_face, col_face)), shape=(num_rows_face, NF)
         ).tocsr()
 
-        assert _compare_matrices(
-            proj.cell_restriction(g), proj_list.cell_restriction(g)
-        )
         assert _compare_matrices(proj.cell_restriction(g), known_cell_proj)
         assert _compare_matrices(proj.cell_prolongation(g), known_cell_proj.T)
-        assert _compare_matrices(
-            proj.face_restriction(g), proj_list.face_restriction(g)
-        )
         assert _compare_matrices(proj.face_restriction(g), known_face_proj)
         assert _compare_matrices(proj.face_prolongation(g), known_face_proj.T)
 
@@ -231,42 +224,42 @@ def test_mortar_projections(scalar):
     known_sgn_mat = sps.dia_matrix((vals, 0), shape=(NMC, NMC))
     assert _compare_matrices(known_sgn_mat, proj.sign_of_mortar_sides)
 
+# EK: Do you agree these should be purged after removal of gb initialization option?
+# @pytest.mark.parametrize("scalar", [True, False])
+# def test_divergence_operators(scalar):
+#     """Test of divergence operator. Only check equivalence between grid bucket and
+#     set of list. A test of elements would essentially verify the block-diagonal
+#     contrucor for sps.spmatrix, which does not seem like worth a test in this setting.
 
-@pytest.mark.parametrize("scalar", [True, False])
-def test_divergence_operators(scalar):
-    """Test of divergence operator. Only check equivalence between grid bucket and
-    set of list. A test of elements would essentially verify the block-diagonal
-    contrucor for sps.spmatrix, which does not seem like worth a test in this setting.
+#     In practice, this test will mainly check that the construction of a divergence
+#     operator actually works.
+#     """
+#     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
+#     gb = pp.meshing.cart_grid(fracs, [2, 2])
 
-    In practice, this test will mainly check that the construction of a divergence
-    operator actually works.
-    """
-    fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
-    gb = pp.meshing.cart_grid(fracs, [2, 2])
-
-    grid_list = np.array([g for g, _ in gb])
-    div = pp.ad.Divergence(gb=gb)
-    div_list = pp.ad.Divergence(grids=grid_list)
-    assert _compare_matrices(div.parse(gb), div_list.parse(gb))
+#     grid_list = np.array([g for g, _ in gb])
+#     div = pp.ad.Divergence(gb=gb)
+#     div_list = pp.ad.Divergence(grids=grid_list)
+#     assert _compare_matrices(div.parse(gb), div_list.parse(gb))
 
 
-@pytest.mark.parametrize("scalar", [True, False])
-def test_trace_operators(scalar):
-    """Test of trace operators. Only check equivalence between grid bucket and
-    set of list. A test of elements would essentially verify the block-diagonal
-    contrucor for sps.spmatrix, which does not seem like worth a test in this setting.
+# @pytest.mark.parametrize("scalar", [True, False])
+# def test_trace_operators(scalar):
+#     """Test of trace operators. Only check equivalence between grid bucket and
+#     set of list. A test of elements would essentially verify the block-diagonal
+#     contrucor for sps.spmatrix, which does not seem like worth a test in this setting.
 
-    In practice, this test will mainly check that the construction of a trace
-    operator actually works.
-    """
-    fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
-    gb = pp.meshing.cart_grid(fracs, [2, 2])
+#     In practice, this test will mainly check that the construction of a trace
+#     operator actually works.
+#     """
+#     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
+#     gb = pp.meshing.cart_grid(fracs, [2, 2])
 
-    grid_list = np.array([g for g, _ in gb])
-    trace = pp.ad.Trace(gb=gb)
-    trace_list = pp.ad.Trace(grids=grid_list)
-    assert _compare_matrices(trace.trace.parse(gb), trace_list.trace.parse(gb))
-    assert _compare_matrices(trace.inv_trace.parse(gb), trace_list.inv_trace.parse(gb))
+#     grid_list = np.array([g for g, _ in gb])
+#     trace = pp.ad.Trace(gb=gb)
+#     trace_list = pp.ad.Trace(grids=grid_list)
+#     assert _compare_matrices(trace.trace.parse(gb), trace_list.trace.parse(gb))
+#     assert _compare_matrices(trace.inv_trace.parse(gb), trace_list.inv_trace.parse(gb))
 
 
 @pytest.mark.parametrize("scalar", [True, False])
@@ -315,7 +308,7 @@ def test_boundary_condition(scalar):
 ## Tests of Ad operators
 
 
-def test_ad_variable_vrappers():
+def test_ad_variable_wrappers():
     # Tests that the wrapping of Ad variables, including previous iterates
     # and time steps, are carried out correctly.
     # See also test_variable_combinations, which specifically tests evaluation of
@@ -416,29 +409,27 @@ def test_ad_variable_vrappers():
     var_ad = eq_manager.merge_variables([(g, var) for g in grid_list])
 
     # Check equivalence between the two approaches to generation.
-    eq_1 = pp.ad.Expression(var_ad, dof_manager)
 
     # Check that the state is correctly evaluated.
     inds_var = np.hstack([dof_manager.dof_ind(g, var) for g in grid_list])
-    assert np.allclose(true_iterate[inds_var], eq_1.to_ad(gb, true_iterate).val)
+    assert np.allclose(true_iterate[inds_var], var_ad.evaluate(dof_manager, true_iterate).val)
 
     # Check evaluation when no state is passed to the parser, and information must
     # instead be glued together from the GridBucket
-    assert np.allclose(true_iterate[inds_var], eq_1.to_ad(gb).val)
+    assert np.allclose(true_iterate[inds_var], var_ad.evaluate(dof_manager).val)
 
     # Evaluate the equation using the double iterate
-    assert np.allclose(2 * true_iterate[inds_var], eq_1.to_ad(gb, double_iterate).val)
+    assert np.allclose(2 * true_iterate[inds_var], var_ad.evaluate(dof_manager, double_iterate).val)
 
     # Represent the variable on the previous time step. This should be a numpy array
     prev_var_ad = var_ad.previous_timestep()
-    eq_prev = pp.ad.Expression(prev_var_ad, dof_manager)
-    prev_evaluated = eq_prev.to_ad(gb)
+    prev_evaluated = prev_var_ad.evaluate(dof_manager)
     assert isinstance(prev_evaluated, np.ndarray)
     assert np.allclose(true_state[inds_var], prev_evaluated)
 
     # Also check that state values given to the ad parser are ignored for previous
     # values
-    assert np.allclose(prev_evaluated, eq_prev.to_ad(gb, double_iterate))
+    assert np.allclose(prev_evaluated, prev_var_ad.evaluate(dof_manager, double_iterate))
 
     ## Next, test edge variables. This should be much the same as the grid variables,
     # so the testing is less thorough.
@@ -446,27 +437,23 @@ def test_ad_variable_vrappers():
     edge_list = [e for e, _ in gb.edges()]
     var_edge = eq_manager.merge_variables([(e, mortar_var) for e in edge_list])
 
-    eq_2 = pp.ad.Expression(var_edge, dof_manager)
     edge_inds = np.hstack([dof_manager.dof_ind(e, mortar_var) for e in edge_list])
-    assert np.allclose(true_iterate[edge_inds], eq_2.to_ad(gb, true_iterate).val)
+    assert np.allclose(true_iterate[edge_inds], var_edge.evaluate(dof_manager, true_iterate).val)
 
     # Finally, test a single variable; everything should work then as well
     g = gb.grids_of_dimension(2)[0]
     v1 = eq_manager.variable(g, var)
     v2 = eq_manager.variable(g, var2)
 
-    eq_3 = pp.ad.Expression(v1, dof_manager)
-    eq_4 = pp.ad.Expression(v2, dof_manager)
 
     ind1 = dof_manager.dof_ind(g, var)
     ind2 = dof_manager.dof_ind(g, var2)
 
-    assert np.allclose(true_iterate[ind1], eq_3.to_ad(gb, true_iterate).val)
-    assert np.allclose(true_iterate[ind2], eq_4.to_ad(gb, true_iterate).val)
+    assert np.allclose(true_iterate[ind1], v1.evaluate(dof_manager, true_iterate).val)
+    assert np.allclose(true_iterate[ind2], v2.evaluate(dof_manager, true_iterate).val)
 
     v1_prev = v1.previous_timestep()
-    eq_5 = pp.ad.Expression(v1_prev, dof_manager)
-    assert np.allclose(true_state[ind1], eq_5.to_ad(gb, true_iterate))
+    assert np.allclose(true_state[ind1], v1_prev.evaluate(dof_manager, true_iterate))
 
 
 @pytest.mark.parametrize(
@@ -506,8 +493,8 @@ def test_variable_combinations(grids, variables):
     for g in grids:
         d = gb.node_props(g)
         for var in ad_vars:
-            if g == var.g:
-                expr = pp.ad.Expression(var, dof_manager).to_ad(gb)
+            if g == var._g:
+                expr = var.evaluate(dof_manager)
                 # Check that the size of the variable is correct
                 assert np.allclose(expr.val, d[pp.STATE][var._name])
                 # Check that the Jacobian matrix has the right number of columns
@@ -515,10 +502,10 @@ def test_variable_combinations(grids, variables):
 
     # Next, check that merged variables are handled correctly.
     for var in merged_vars:
-        expr = pp.ad.Expression(var, dof_manager).to_ad(gb)
+        expr = var.evaluate(dof_manager)
         vals = []
         for sub_var in var.sub_vars:
-            vals.append(gb.node_props(sub_var.g, pp.STATE)[sub_var._name])
+            vals.append(gb.node_props(sub_var._g, pp.STATE)[sub_var._name])
 
         assert np.allclose(expr.val, np.hstack([v for v in vals]))
         assert expr.jac.shape[1] == dof_manager.num_dofs()
@@ -537,13 +524,14 @@ def test_variable_combinations(grids, variables):
                 # The variable must be projected to the full set of grid for addition
                 # to be meaningful. This requires a bit of work.
                 sv_size = np.array([sv.size() for sv in mv.sub_vars])
-                mv_grids = [sv.g for sv in mv.sub_vars]
-                ind = mv_grids.index(var.g)
+                mv_grids = [sv._g for sv in mv.sub_vars]
+                ind = mv_grids.index(var._g)
                 offset = np.hstack((0, np.cumsum(sv_size)))[ind]
                 rows = offset + np.arange(nc)
                 P = pp.ad.Matrix(sps.coo_matrix((data, (rows, cols)), shape=(nr, nc)))
 
-                expr = pp.ad.Expression(mv + P * var, dof_manager).to_ad(gb)
+                eq = eq = mv + P * var
+                expr = eq.evaluate(dof_manager)
                 # Jacobian matrix size is set according to the dof manager,
                 assert expr.jac.shape[1] == dof_manager.num_dofs()
 
@@ -564,13 +552,16 @@ def test_ad_discretization_class():
     sub_discr = _MockDiscretization(sub_key)
 
     # Ad wrappers
-    discr_ad = pp.ad.Discretization(grid_list, discr)
-    sub_discr_ad = pp.ad.Discretization(sub_list, sub_discr)
-
-    # Check that the Ad wrapper has made a field of foobar, but not of the attribute
-    # with a slightly misspelled name
-    assert hasattr(discr_ad, "foobar")
-    assert not hasattr(discr_ad, "not")
+    # This is mimicks the old init of Discretization, before it was decided to
+    # make that class semi-ABC. Still checks the wrap method
+    discr_ad = pp.ad.Discretization()
+    discr_ad.grids = grid_list
+    discr_ad._discretization = discr
+    pp.ad._ad_utils.wrap_discretization(discr_ad, discr, grid_list)
+    sub_discr_ad = pp.ad.Discretization()
+    sub_discr_ad.grids = sub_list
+    sub_discr_ad._discretization = sub_discr
+    pp.ad._ad_utils.wrap_discretization(sub_discr_ad, sub_discr, sub_list)
 
     # values
     known_val = np.random.rand(len(grid_list))
