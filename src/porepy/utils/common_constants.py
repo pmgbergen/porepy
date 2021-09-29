@@ -1,5 +1,8 @@
 """
-The module is intended to give access to a set of unified keywords, units etc.
+The module is intended to give access to a set of unified
+    keywords
+    units
+    constants
 
 To access the quantities, invoke pp.KEY.
 
