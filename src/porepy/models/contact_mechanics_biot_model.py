@@ -532,12 +532,16 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             edge_list_highest = [(g_primary, g) for g in g_frac]
             edge_list = [e for e, _ in gb.edges()]
 
-            mortar_proj_scalar = pp.ad.MortarProjections(edges=edge_list, gb=gb, nd=1)
-            mortar_proj_vector = pp.ad.MortarProjections(
-                edges=edge_list_highest, gb=gb, nd=self._Nd
+            mortar_proj_scalar = pp.ad.MortarProjections(
+                grids=grid_list, edges=edge_list, gb=gb, nd=1
             )
-            subdomain_proj_scalar = pp.ad.SubdomainProjections(gb=gb)
-            subdomain_proj_vector = pp.ad.SubdomainProjections(gb=gb, nd=self._Nd)
+            mortar_proj_vector = pp.ad.MortarProjections(
+                grids=grid_list, edges=edge_list_highest, gb=gb, nd=self._Nd
+            )
+            subdomain_proj_scalar = pp.ad.SubdomainProjections(grids=grid_list)
+            subdomain_proj_vector = pp.ad.SubdomainProjections(
+                grids=grid_list, nd=self._Nd
+            )
 
             tangential_normal_proj_list = []
             normal_proj_list = []
@@ -554,8 +558,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             normal_proj = pp.ad.Matrix(sps.block_diag(normal_proj_list))
 
             # Ad representation of discretizations
-            mpsa_ad = pp.ad.BiotAd(self.mechanics_parameter_key, g_primary)
-            grad_p_ad = pp.ad.GradPAd(self.mechanics_parameter_key, g_primary)
+            mpsa_ad = pp.ad.BiotAd(self.mechanics_parameter_key, [g_primary])
+            grad_p_ad = pp.ad.GradPAd(self.mechanics_parameter_key, [g_primary])
 
             mpfa_ad = pp.ad.MpfaAd(self.scalar_parameter_key, grid_list)
             mass_ad = pp.ad.MassMatrixAd(self.scalar_parameter_key, grid_list)
@@ -563,11 +567,11 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
             div_u_ad = pp.ad.DivUAd(
                 self.mechanics_parameter_key,
-                grids=g_primary,
+                grids=[g_primary],
                 mat_dict_keyword=self.scalar_parameter_key,
             )
             stab_biot_ad = pp.ad.BiotStabilizationAd(
-                self.scalar_parameter_key, g_primary
+                self.scalar_parameter_key, [g_primary]
             )
 
             coloumb_ad = pp.ad.ColoumbContactAd(
@@ -621,9 +625,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 - grad_p_ad.grad_p * p_reference
             )
 
-            momentum_eq = pp.ad.Expression(
-                div_vector * stress, dof_manager, "momentum", grid_order=[g_primary]
-            )
+            momentum_eq = div_vector * stress
 
             jump = (
                 subdomain_proj_vector.cell_restriction(g_frac)
@@ -646,10 +648,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 coloumb_ad.rhs
                 + exclude_normal * coloumb_ad.displacement * jump_rotate * u_mortar_prev
             )
-            contact_conditions = coloumb_ad.traction * contact_force + jump_discr - rhs
-            contact_eq = pp.ad.Expression(
-                contact_conditions, dof_manager, "contact", grid_order=g_frac
-            )
+            contact_eq = coloumb_ad.traction * contact_force + jump_discr - rhs
 
             # Force balance
             mat = None
@@ -725,13 +724,10 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 p_frac = subdomain_proj_scalar.cell_restriction(g_frac) * p
 
                 contact_from_secondary2 = normal_matrix * p_frac
-            force_balance_eq = pp.ad.Expression(
+            force_balance_eq = (
                 contact_from_primary_mortar
                 + contact_from_secondary
-                + contact_from_secondary2,
-                dof_manager,
-                "force_balance",
-                grid_order=edge_list_highest,
+                + contact_from_secondary2
             )
 
             bc_val_scalar = pp.ad.BoundaryCondition(
@@ -772,7 +768,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 * mortar_proj_scalar.mortar_to_primary_int
                 * mortar_flux
             )
-            flow_md = (
+            flow_eq = (
                 dt
                 * (  # Time scaling of flux terms, both inter-dimensional and from
                     # the higher dimension
@@ -799,22 +795,12 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 + robin_ad.mortar_discr * mortar_flux
             )
 
-            flow_eq = pp.ad.Expression(
-                flow_md, dof_manager, "flow on nodes", grid_order=grid_list
-            )
-            interface_eq = pp.ad.Expression(
-                interface_flow_eq,
-                dof_manager,
-                "flow on interface",
-                grid_order=edge_list,
-            )
-
             eq_manager.equations += [
                 momentum_eq,
                 contact_eq,
                 force_balance_eq,
                 flow_eq,
-                interface_eq,
+                interface_flow_eq,
             ]
             self._eq_manager = eq_manager
 
