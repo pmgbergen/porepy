@@ -28,7 +28,9 @@ class SubdomainProjections(Operator):
 
     One use case in when variables are defined on only some of subdomains.
 
-    The class should be used through the methods (cell, face)_(projection,restriction)
+    The class should be used through the methods {cell, face}_{projection,restriction}.
+
+    See also MortarProjections for projcetions to and from mortar grids.
 
     """
 
@@ -66,7 +68,7 @@ class SubdomainProjections(Operator):
         """Construct restrictions from global to subdomain cell quantities.
 
         Parameters:
-            grids (pp.Grid or List of pp.Grid): One or several subdomains to which
+            grids (List of pp.Grid): One or several subdomains to which
                 the projection should apply.
 
         Returns:
@@ -90,7 +92,7 @@ class SubdomainProjections(Operator):
         """Construct prolongation from subdomain to global cell quantities.
 
         Parameters:
-            grids (pp.Grid or List of pp.Grid): One or several subdomains to which
+            grids (List of pp.Grid): One or several subdomains to which
                 the prolongation should apply.
 
         Returns:
@@ -113,7 +115,7 @@ class SubdomainProjections(Operator):
         """Construct restrictions from global to subdomain face quantities.
 
         Parameters:
-            grids (pp.Grid or List of pp.Grid): One or several subdomains to which
+            grids (List of pp.Grid): One or several subdomains to which
                 the projection should apply.
 
         Returns:
@@ -139,7 +141,7 @@ class SubdomainProjections(Operator):
         """Construct prolongation from subdomain to global face quantities.
 
         Parameters:
-            grids (pp.Grid or List of pp.Grid): One or several subdomains to which
+            grids (List of pp.Grid): One or several subdomains to which
                 the prolongation should apply.
 
         Returns:
@@ -211,7 +213,7 @@ class MortarProjections(Operator):
         """Construct mortar projection object.
 
         The projections will be ordered according to the ordering in grids, or the order
-        of the GridBucket iteration over grids. Iit is critical that the same ordering
+        of the GridBucket iteration over grids. It is critical that the same ordering
         is used by other operators.
 
         Parameters:
@@ -234,6 +236,7 @@ class MortarProjections(Operator):
 
         cell_projection, face_projection = _subgrid_projections(grids, self._nd)
 
+        # IMPLEMENTATION NOTE:
         # sparse blocks are slow; it should be possible to do a right multiplication
         # of local-to-global mortar indices instead of the block.
 
@@ -395,6 +398,7 @@ class Trace(Operator):
         """
         super().__init__(name=name)
 
+        self.grids = grids
         self._nd: int = nd
         self._is_scalar: bool = nd == 1
         self._num_grids: int = len(grids)
@@ -740,21 +744,6 @@ class ParameterArray(Operator):
 
 
 #### Helper methods below
-
-
-# def _grid_list(
-#     grids: Optional[List[GridLike]], gb: Optional[pp.GridBucket]
-# ) -> List[GridLike]:
-#     # TODO: Decide whether to purge this and remove the option to initialize
-#     # operators with gb instead of grid_list.
-#     # Helper method to parse input data
-#     if grids is None:
-#         if gb is None:
-#             raise ValueError(
-#                 "Trace needs either either a list of grids or a GridBucket"
-#             )
-#         grids = [g for g, _ in gb]
-#     return grids
 
 
 def _subgrid_projections(

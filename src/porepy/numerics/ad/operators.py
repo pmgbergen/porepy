@@ -26,12 +26,14 @@ __all__ = [
     "Function",
 ]
 
+# Short hand for typing
+Edge = Tuple[pp.Grid, pp.Grid]
+GridLike = Union[pp.Grid, Edge]
 
+# Abstract representations of mathematical operations supported by the Ad framework.
 Operation = Enum(
     "Operation", ["void", "add", "sub", "mul", "evaluate", "div", "localeval", "apply"]
 )
-Edge = Tuple[pp.Grid, pp.Grid]
-GridLike = Union[pp.Grid, Edge]
 
 
 class Operator:
@@ -40,6 +42,13 @@ class Operator:
     Objects of this class is not meant to be initiated directly; rather the various
     subclasses should be used. Instances of this class will still be created when
     subclasses are combined by operations.
+
+    Attributes:
+        grids: List of grids (subdomains) on which the operator is defined. Will be
+            empty for operators not associated with specific grids.
+        edges: List of edges (tuple of grids) in the mixed-dimensional grid on which
+            the operator is defined. Will be empty for operators not associated with
+            specific grids.
 
     """
 
@@ -51,8 +60,8 @@ class Operator:
         tree: Optional["Tree"] = None,
     ) -> None:
         self._name = name
-        self.grids: List = [] if grids is None else grids
-        self.edges: List = [] if edges is None else edges
+        self.grids: List[pp.Grid] = [] if grids is None else grids
+        self.edges: List[Edge] = [] if edges is None else edges
         self._set_tree(tree)
 
     def _set_tree(self, tree=None):
@@ -118,11 +127,8 @@ class Operator:
             return var_list
 
     def _identify_variables(self, dof_manager, var: Optional[list] = None):
-        # NOTES TO SELF:
-        # state: state vector for all unknowns. Should be possible to pick this
-        # from pp.STATE or pp.ITERATE
-
-        # 1. Get all variables present in this equation.
+        """Identify all variables in this operator."""
+        # 1. Get all variables present in this operator.
         # The variable finder is implemented in a special function, aimed at recursion
         # through the operator tree.
         # Uniquify by making this a set, and then sort on variable id
@@ -133,7 +139,7 @@ class Operator:
 
         # 2. Get a mapping between variables (*not* only MergedVariables) and their
         # indices according to the DofManager. This is needed to access the state of
-        # a variable when parsing the equation to Ad format.
+        # a variable when parsing the operator to numerical values using forward Ad.
 
         # For each variable, get the global index
         inds = []
@@ -224,7 +230,7 @@ class Operator:
         an operator) should override this method to retutrn e.g. a number, an array or a
         matrix.
         This method should not be called on operators that are formed as combinations
-        of atomic operators; such operators should be evaluated by an Equation object.
+        of atomic operators; such operators should be evaluated by the method evaluate().
         """
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
@@ -239,7 +245,7 @@ class Operator:
         # The parsing strategy depends on the operator at hand:
         # 1) If the operator is a Variable, it will be represented according to its
         #    state.
-        # 2) If the operator is a leaf in the tree-representation of the equation,
+        # 2) If the operator is a leaf in the tree-representation of the operator,
         #    parsing is left to the operator itself.
         # 3) If the operator is formed by combining other operators lower in the tree,
         #    parsing is handled by first evaluating the children (leads to recursion)
@@ -535,20 +541,20 @@ class Operator:
 
         Parameters:
             dof_manager (pp.DofManager): used to represent the problem. Will be used
-                to parse the operators that combine to form this Equation..
+                to parse the sub-operators that combine to form this operator.
             state (np.ndarray, optional): State vector for which the residual and its
                 derivatives should be formed. If not provided, the state will be pulled from
                 the previous iterate (if this exists), or alternatively from the state
                 at the previous time step.
 
         Returns:
-            An Ad-array representation of the residual and Jacbobian.
+            An Ad-array representation of the residual and Jacbobian. Note that the Jacobian
+                matrix need not be invertible, or ever square; this depends on the operator.
 
         """
-
-        # Down to (and including) commented identification of self.discretizations
-        # used to be part of old Expression init
+        # Get the mixed-dimensional grids used for the dof-manager.
         gb = dof_manager.gb
+
         # Identify all variables in the Operator tree. This will include real variables,
         # and representation of previous time steps and iterations.
         (
@@ -581,6 +587,8 @@ class Operator:
                 current_ids.append(var_id)
 
         # Save information.
+        # IMPLEMENTATION NOTE: Storage in a separate data class could have
+        # been a more elegant option.
         self._variable_dofs = current_indices
         self._variable_ids = current_ids
         self._prev_time_dofs = prev_indices
@@ -588,17 +596,9 @@ class Operator:
         self._prev_iter_dofs = prev_iter_indices
         self._prev_iter_ids = prev_iter_ids
 
-        # Obsolete? The identification (and uniqueification) is no done upon
-        # call of self.discretize()
-        # self.discretizations: Dict[
-        #     _ad_utils.MergedOperator, GridLike
-        # ] = self._identify_discretizations()
-
-        # Below is the modified Expression.to_ad()
-
-        # Parsing in two stages: First make an Ad-representation of the variable state
-        # (this must be done jointly for all variables of the Equation to get all
-        # derivatives represented). Then parse the equation by traversing its
+        # Parsing in two stages: First make a forward Ad-representation of the variable
+        # state (this must be done jointly for all variables of the operator to get all
+        # derivatives represented). Then parse the operator by traversing its
         # tree-representation, and parse and combine individual operators.
 
         # Initialize variables
@@ -702,6 +702,9 @@ class Matrix(Operator):
 
     This is a shallow wrapper around the real matrix; it is needed to combine the matrix
     with other types of Ad objects.
+
+    Attributes:
+        shape (Tuple of ints): Shape of the wrapped matrix.
 
     """
 
@@ -835,8 +838,8 @@ class Variable(Operator):
     For combinations of variables on different grids, see MergedVariable.
 
     Conversion of the variable into numerical value should be done with respect to the
-    state of an array; see Equations. Therefore, the variable does not implement a
-    parse() method.
+    state of an array; see the method evaluate(). Therefore, the variable does not
+    implement a parse() method.
 
     Attributes:
         id (int): Unique identifier of this variable.
@@ -844,12 +847,18 @@ class Variable(Operator):
             previous iteration.
         prev_time (boolean): Whether the variable represents the state at the
             previous time step.
-        g (List of pp.Grid or List of Tuples of pp.Grids): Grids on which this variable
-            is defined.
+        grids: List with one item, giving the single grid on which the operator is
+            defined.
+        edges: List with one item, giving the single edge (tuple of grids) on which the
+            operator is defined.
+
+        It is assumed that exactly one of grids and edges is defined.
 
     """
 
-    # Identifiers for variables. The usage and reliability of this system is unclear.
+    # Identifiers for variables. This will assign a unique id to all instances of this
+    # class. This is used when operators are parsed to the forward Ad format. The
+    # value of the id has no particular meaning.
     _ids = count(0)
 
     def __init__(
@@ -869,7 +878,7 @@ class Variable(Operator):
             name (str): Variable name.
             ndof (dict): Number of dofs per grid element.
             grids (optional list of pp.Grid ): List with length one containing a grid.
-            edges (optional list of Tuple of pp.Grid) List with length one containing
+            edges (optional list of Tuple of pp.Grid): List with length one containing
                 an edge.
             num_cells (int): Number of cells in the grid. Only sued if the variable
                 is on an interface.
@@ -881,6 +890,7 @@ class Variable(Operator):
         self._faces: int = ndof.get("faces", 0)
         self._nodes: int = ndof.get("nodes", 0)
         self._set_grids_or_edges(grids, edges)
+
         # Shorthand access to grid or edge:
         if len(self.edges) == 0:
             if len(self.grids) != 1:
@@ -961,13 +971,24 @@ class MergedVariable(Variable):
     grids of interfaces, but which it is useful to treat jointly.
 
     Conversion of the variables into numerical value should be done with respect to the
-    state of an array; see Equations.  Therefore, the class does not implement a parse()
-    method.
+    state of an array; see the method evaluate().  Therefore, the class does not implement
+    a parse() method.
 
     Attributes:
         sub_vars (List of Variable): List of variable on different grids or interfaces.
         id (int): Counter of all variables. Used to identify variables. Usage of this
             term is not clear, it may change.
+        prev_iter (boolean): Whether the variable represents the state at the
+            previous iteration.
+        prev_time (boolean): Whether the variable represents the state at the
+            previous time step.
+        grids: List with one item, giving the single grid on which the operator is
+            defined.
+        edges: List with one item, giving the single edge (tuple of grids) on which the
+            operator is defined.
+
+        It is assumed that exactly one of grids and edges is defined.
+
     """
 
     def __init__(self, variables: List[Variable]) -> None:
