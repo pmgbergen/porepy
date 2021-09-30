@@ -1,3 +1,13 @@
+"""
+Tests for components of the Ad machinery. Specifically, the tests cover:
+    * Projection operators between collections of grids and individual grids
+    * Projections between grids and mortar grids (again also covering collections)
+    * Ad representations of various grid-based operators (divergence etc).
+    * Ad representation of variables.
+    * The forward Ad machinery as implemented in pp.ad.Ad_array.
+
+"""
+
 import unittest
 import pytest
 
@@ -133,6 +143,7 @@ def test_subdomain_projections(scalar):
 
 @pytest.mark.parametrize("scalar", [True, False])
 def test_mortar_projections(scalar):
+    # Test of mortar projections between mortar grids and standard subdomain grids.
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
     gb = pp.meshing.cart_grid(fracs, [2, 2])
     Nd = gb.dim_max()
@@ -587,7 +598,9 @@ class _MockDiscretization:
 
 
 class AdArrays(unittest.TestCase):
-    """Tests for the implementation of the main Ad array class."""
+    """Tests for the implementation of the main Ad array class,
+    that is, the functionality needed for the forward Ad operations.
+    """
 
     def test_add_two_scalars(self):
         a = Ad_array(1, 0)
