@@ -224,43 +224,6 @@ def test_mortar_projections(scalar):
     known_sgn_mat = sps.dia_matrix((vals, 0), shape=(NMC, NMC))
     assert _compare_matrices(known_sgn_mat, proj.sign_of_mortar_sides)
 
-# EK: Do you agree these should be purged after removal of gb initialization option?
-# @pytest.mark.parametrize("scalar", [True, False])
-# def test_divergence_operators(scalar):
-#     """Test of divergence operator. Only check equivalence between grid bucket and
-#     set of list. A test of elements would essentially verify the block-diagonal
-#     contrucor for sps.spmatrix, which does not seem like worth a test in this setting.
-
-#     In practice, this test will mainly check that the construction of a divergence
-#     operator actually works.
-#     """
-#     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
-#     gb = pp.meshing.cart_grid(fracs, [2, 2])
-
-#     grid_list = np.array([g for g, _ in gb])
-#     div = pp.ad.Divergence(gb=gb)
-#     div_list = pp.ad.Divergence(grids=grid_list)
-#     assert _compare_matrices(div.parse(gb), div_list.parse(gb))
-
-
-# @pytest.mark.parametrize("scalar", [True, False])
-# def test_trace_operators(scalar):
-#     """Test of trace operators. Only check equivalence between grid bucket and
-#     set of list. A test of elements would essentially verify the block-diagonal
-#     contrucor for sps.spmatrix, which does not seem like worth a test in this setting.
-
-#     In practice, this test will mainly check that the construction of a trace
-#     operator actually works.
-#     """
-#     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
-#     gb = pp.meshing.cart_grid(fracs, [2, 2])
-
-#     grid_list = np.array([g for g, _ in gb])
-#     trace = pp.ad.Trace(gb=gb)
-#     trace_list = pp.ad.Trace(grids=grid_list)
-#     assert _compare_matrices(trace.trace.parse(gb), trace_list.trace.parse(gb))
-#     assert _compare_matrices(trace.inv_trace.parse(gb), trace_list.inv_trace.parse(gb))
-
 
 @pytest.mark.parametrize("scalar", [True, False])
 def test_boundary_condition(scalar):
@@ -412,14 +375,18 @@ def test_ad_variable_wrappers():
 
     # Check that the state is correctly evaluated.
     inds_var = np.hstack([dof_manager.dof_ind(g, var) for g in grid_list])
-    assert np.allclose(true_iterate[inds_var], var_ad.evaluate(dof_manager, true_iterate).val)
+    assert np.allclose(
+        true_iterate[inds_var], var_ad.evaluate(dof_manager, true_iterate).val
+    )
 
     # Check evaluation when no state is passed to the parser, and information must
     # instead be glued together from the GridBucket
     assert np.allclose(true_iterate[inds_var], var_ad.evaluate(dof_manager).val)
 
     # Evaluate the equation using the double iterate
-    assert np.allclose(2 * true_iterate[inds_var], var_ad.evaluate(dof_manager, double_iterate).val)
+    assert np.allclose(
+        2 * true_iterate[inds_var], var_ad.evaluate(dof_manager, double_iterate).val
+    )
 
     # Represent the variable on the previous time step. This should be a numpy array
     prev_var_ad = var_ad.previous_timestep()
@@ -429,7 +396,9 @@ def test_ad_variable_wrappers():
 
     # Also check that state values given to the ad parser are ignored for previous
     # values
-    assert np.allclose(prev_evaluated, prev_var_ad.evaluate(dof_manager, double_iterate))
+    assert np.allclose(
+        prev_evaluated, prev_var_ad.evaluate(dof_manager, double_iterate)
+    )
 
     ## Next, test edge variables. This should be much the same as the grid variables,
     # so the testing is less thorough.
@@ -438,13 +407,14 @@ def test_ad_variable_wrappers():
     var_edge = eq_manager.merge_variables([(e, mortar_var) for e in edge_list])
 
     edge_inds = np.hstack([dof_manager.dof_ind(e, mortar_var) for e in edge_list])
-    assert np.allclose(true_iterate[edge_inds], var_edge.evaluate(dof_manager, true_iterate).val)
+    assert np.allclose(
+        true_iterate[edge_inds], var_edge.evaluate(dof_manager, true_iterate).val
+    )
 
     # Finally, test a single variable; everything should work then as well
     g = gb.grids_of_dimension(2)[0]
     v1 = eq_manager.variable(g, var)
     v2 = eq_manager.variable(g, var2)
-
 
     ind1 = dof_manager.dof_ind(g, var)
     ind2 = dof_manager.dof_ind(g, var2)

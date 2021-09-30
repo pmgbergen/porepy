@@ -33,6 +33,10 @@ EdgeList = List[Edge]
 
 
 def concatenate(variables, axis=0):
+    # NOTE: This function is related to an outdated approach to equation assembly
+    # based on forward Ad. For now, it is kept for legacy reasons, however,
+    # the newer approach based on Operators and the EquationManager is
+    # highly recommended.
     vals = [var.val for var in variables]
     jacs = np.array([var.jac for var in variables])
 
