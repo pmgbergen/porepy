@@ -217,8 +217,8 @@ class MeshioExporterTest(unittest.TestCase):
         network_3d = pp.FractureNetwork3d([f_1, f_2], domain=domain)
 
         num_frac = len(network_3d._fractures)
-        dummy_scalar = np.ones(num_frac)
-        dummy_vector = np.ones((3, num_frac))
+        dummy_scalar = [[1] for _ in range(num_frac)]
+        dummy_vector = [[np.ones(3)] for _ in range(num_frac)]
         data = {"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector}
 
         if not os.path.exists(self.folder):
@@ -11860,9 +11860,9 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
-<DataArray type="Float64" Name="dummy_scalar" format="ascii">
-1.00000000000e+00
-1.00000000000e+00
+<DataArray type="Int64" Name="dummy_scalar" format="ascii">
+1
+1
 
 </DataArray>
 <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii">
