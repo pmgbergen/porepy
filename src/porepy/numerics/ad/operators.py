@@ -59,6 +59,8 @@ class Operator:
         edges: Optional[List[Edge]] = None,
         tree: Optional["Tree"] = None,
     ) -> None:
+        if name is None:
+            name = ""
         self._name = name
         self.grids: List[pp.Grid] = [] if grids is None else grids
         self.edges: List[Edge] = [] if edges is None else edges
@@ -891,6 +893,8 @@ class Variable(Operator):
         self._nodes: int = ndof.get("nodes", 0)
         self._set_grids_or_edges(grids, edges)
 
+        self._g: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
+
         # Shorthand access to grid or edge:
         if len(self.edges) == 0:
             if len(self.grids) != 1:
@@ -924,7 +928,8 @@ class Variable(Operator):
             # This is a mortar grid. Assume that there are only cell unknowns
             return self._num_cells * self._cells
         else:
-            # We now know _g is a grid, which is useful for mypy
+            # We now know _g is a grid by logic, make an assertion to appease mypy
+            assert isinstance(self._g, pp.Grid)
             return (
                 self._g.num_cells * self._cells
                 + self._g.num_faces * self._faces

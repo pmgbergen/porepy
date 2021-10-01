@@ -1,11 +1,5 @@
-"""
-* Resue assembly when relevant (if no operator that maps to a specific block has been changed)
-* Concatenate equations with the same sequence of operators
-  - Should use the same discretization object
-  - divergence operators on different grids considered the same
-* Concatenated variables will share ad derivatives. However, it should be possible to combine
-  subsets of variables with other variables (outside the set) to assemble different terms
-*
+""" Main content:
+EquationManager: representation of a set of equations on Ad form.
 """
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
@@ -70,7 +64,7 @@ class EquationManager:
         self._set_variables(gb)
 
         if equations is None:
-            self.equations: List = []
+            self.equations: List[pp.ad.Operator] = []
         else:
             self.equations = equations
 
@@ -231,7 +225,7 @@ class EquationManager:
         s += ", ".join(unique_vars) + "\n"
 
         if self.equations is not None:
-            eq_names = [eq.name for eq in self.equations]
+            eq_names = [eq._name for eq in self.equations]
             s += f"In total {len(self.equations)} equations, with names: \n\t"
             s += ", ".join(eq_names)
 
