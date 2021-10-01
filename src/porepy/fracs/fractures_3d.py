@@ -2852,7 +2852,7 @@ class FractureNetwork3d(object):
 
     @pp.time_logger(sections=module_sections)
     def to_file(
-        self, file_name: str, data: Dict[str, np.ndarray] = None, **kwargs
+        self, file_name: str, data: Dict[str, Union[np.ndarray, List]] = None, **kwargs
     ) -> None:
         """
         Export the fracture network to file.
@@ -2901,8 +2901,6 @@ class FractureNetwork3d(object):
 
         # fracture points
         meshio_pts = np.empty((0, 3))
-        # map cell->nodes
-        cell_to_nodes = {}
 
         # counter for the points
         pts_pos = 0
