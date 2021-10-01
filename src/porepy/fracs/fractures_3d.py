@@ -2903,18 +2903,12 @@ class FractureNetwork3d(object):
         meshio_pts = np.empty((0, 3))
         # map cell->nodes
         cell_to_nodes = {}
-        # cell id map
-        cell_id = {}
+
         # counter for the points
         pts_pos = 0
 
-        # IMPLEMENTATION NOTE: The code below is a bit messy to work with various
-        # versions of meshio. The functionality for the older version will be
-        # removed at some point.
-
-        # Data structure for storing mesh. Will only
-        cells = []
-
+        # Data structure for cells in meshio format.
+        meshio_cells = []
         # we operate fracture by fracture
         for fid, frac in enumerate(self._fractures):
             # In old meshio, polygonal cells are distinguished based on the
@@ -2926,64 +2920,23 @@ class FractureNetwork3d(object):
             cell_type = "polygon"
             nodes = pts_pos + np.arange(num_pts)
             pts_pos += num_pts
-            # The representation of polygons changed in meshio version 4.4
-            if meshio.__version__ < "4.4.4":
-                cell_type += str(num_pts)
-                # just stack all the nodes after the others
-                # polygon should be stored uniformly
-                if cell_type not in cell_to_nodes:
-                    cell_to_nodes[cell_type] = np.atleast_2d(nodes)
-                    cell_id[cell_type] = [fid]
-                else:
-                    cell_to_nodes[cell_type] = np.vstack(
-                        (cell_to_nodes[cell_type], nodes)
-                    )
-                    cell_id[cell_type] += [fid]
-            else:
-                # In newer versions of meshio, make a list of 2-tuples with
-                # (cell_type, list(node_numbers))
-                cells.append((cell_type, [nodes.tolist()]))
 
-        num_block = len(cell_to_nodes)
+            # In newer versions of meshio, make a list of 2-tuples with
+            # (cell_type, list(node_numbers))
+            meshio_cells.append((cell_type, [nodes.tolist()]))
+
         # The older version of meshio requires more post processing to work.
         # Cell data also requires different formats.
-        if meshio.__version__ < "4.4.4":
-            # construct the meshio data structure
-            meshio_cells = np.empty(num_block, dtype=object)
-            meshio_cell_id = np.empty(num_block, dtype=object)
-            for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
-                meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
-                meshio_cell_id[block] = np.array(cell_id[cell_type])
 
-            # add also the fracture number to the data to export
-            data.update(
-                {"fracture_number": fracture_offset + np.arange(len(self._fractures))}
-            )
-            meshio_data = {}
-            # store also the data
-            for key, val in data.items():
-                # for each field create a sub-vector for each geometrically uniform
-                # group of cells
-                meshio_data[key] = np.empty(num_block, dtype=object)
-                # fill up the data
-                for block, ids in enumerate(meshio_cell_id):
-                    if val.ndim == 1:
-                        meshio_data[key][block] = val[ids]
-                    elif val.ndim == 2:
-                        meshio_data[key][block] = val[:, ids].T
-                    else:
-                        raise ValueError
-        else:
-            meshio_cells = cells  # type: ignore
-            data.update(
-                {
-                    "fracture_number": [
-                        [fracture_offset + i] for i in range(len(self._fractures))
-                    ]
-                }
-            )
-            # The data is simply the data
-            meshio_data = data
+        data.update(
+            {
+                "fracture_number": [
+                    [fracture_offset + i] for i in range(len(self._fractures))
+                ]
+            }
+        )
+        # The data is simply the data
+        meshio_data = data
 
         meshio_grid_to_export = meshio.Mesh(
             meshio_pts, meshio_cells, cell_data=meshio_data

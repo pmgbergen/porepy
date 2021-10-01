@@ -1,4 +1,4 @@
-meshio
+meshio>=5.0
 networkx
 numpy
 scipy
