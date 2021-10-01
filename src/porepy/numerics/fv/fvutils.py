@@ -210,7 +210,7 @@ class SubcellTopology(object):
 
     @pp.time_logger(sections=module_sections)
     def pair_over_subfaces_nd(self, other):
-        """ nd-version of pair_over_subfaces, see above. """
+        """nd-version of pair_over_subfaces, see above."""
         nd = self.g.dim
         # For force balance, displacements and stresses on the two sides of the
         # matrices must be paired

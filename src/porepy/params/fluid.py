@@ -25,22 +25,22 @@ class UnitFluid:
 
     @pp.time_logger(sections=module_sections)
     def thermal_expansion(self, delta_theta):
-        """ Units: m^3 / m^3 K, i.e. volumetric """
+        """Units: m^3 / m^3 K, i.e. volumetric"""
         return 1
 
     @pp.time_logger(sections=module_sections)
     def density(self, theta=None):  # theta in CELSIUS
-        """ Units: kg / m^3 """
+        """Units: kg / m^3"""
         return 1
 
     @pp.time_logger(sections=module_sections)
     def thermal_conductivity(self, theta=None):  # theta in CELSIUS
-        """ Units: W / m K """
+        """Units: W / m K"""
         return 1
 
     @pp.time_logger(sections=module_sections)
     def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
-        """ Units: J / kg K """
+        """Units: J / kg K"""
         return 1
 
     @pp.time_logger(sections=module_sections)
@@ -67,7 +67,7 @@ class Water:
 
     @pp.time_logger(sections=module_sections)
     def thermal_expansion(self, delta_theta):
-        """ Units: m^3 / m^3 K, i.e. volumetric """
+        """Units: m^3 / m^3 K, i.e. volumetric"""
         return (
             0.0002115
             + 1.32 * 1e-6 * delta_theta
@@ -76,7 +76,7 @@ class Water:
 
     @pp.time_logger(sections=module_sections)
     def density(self, theta=None):  # theta in CELSIUS
-        """ Units: kg / m^3 """
+        """Units: kg / m^3"""
         if theta is None:
             theta = self.theta_ref
         theta_0 = 10 * (pp.CELSIUS)
@@ -85,7 +85,7 @@ class Water:
 
     @pp.time_logger(sections=module_sections)
     def thermal_conductivity(self, theta=None):  # theta in CELSIUS
-        """ Units: W / m K """
+        """Units: W / m K"""
         if theta is None:
             theta = self.theta_ref
         return (
@@ -97,7 +97,7 @@ class Water:
 
     @pp.time_logger(sections=module_sections)
     def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
-        """ Units: J / kg K """
+        """Units: J / kg K"""
         if theta is None:
             theta = self.theta_ref
         return 4245 - 1.841 * theta

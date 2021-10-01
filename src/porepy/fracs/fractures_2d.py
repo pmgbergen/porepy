@@ -1033,12 +1033,12 @@ class FractureNetwork2d(object):
 
     @pp.time_logger(sections=module_sections)
     def num_frac(self):
-        """ Return the number of fractures stored"""
+        """Return the number of fractures stored"""
         return self.edges.shape[1]
 
     @pp.time_logger(sections=module_sections)
     def _remove_orphan_pts(self):
-        """ Remove points that are not part of any edge. Modify the numerations accordingly """
+        """Remove points that are not part of any edge. Modify the numerations accordingly"""
 
         pts_id = np.unique(self.edges)
         all_pts_id = np.arange(self.pts.shape[1])

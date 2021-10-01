@@ -16,5 +16,5 @@ numba >= 0.53.0
 gmsh
 flake8
 mypy
-black == 20.08b1
+black == 21.9b0
 isort
