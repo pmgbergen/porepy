@@ -102,7 +102,7 @@ def match_2d(new_g: pp.Grid, old_g: pp.Grid, tol: float):
 
     @pp.time_logger(sections=module_sections)
     def proj_pts(p, cc, normal):
-        """ Project points to the 2d plane defined by normal and center them around cc"""
+        """Project points to the 2d plane defined by normal and center them around cc"""
         rot = pp.map_geometry.project_plane_matrix(p - cc, normal)
         return rot.dot(p - cc)[:2]
 
