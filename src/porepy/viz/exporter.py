@@ -633,11 +633,7 @@ class Exporter:
                 # define the type of cell we are currently saving
                 cell_type_raw = "polygon" + str(nodes_loc.shape[1])
 
-                # The representation of meshio polygon cells changed in version 4.4
-                if meshio.__version__[2] < "4":
-                    default_type = cell_type_raw
-                else:
-                    default_type = "polygon"
+                default_type = "polygon"
                 # Map to triangle/quad if relevant, or simple polygon for general cells.
                 cell_type = polygon_map.get(cell_type_raw, default_type)
                 # if the cell type is not present, then add it
