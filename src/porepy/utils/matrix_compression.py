@@ -42,7 +42,7 @@ def rldecode(A, n):
 
 @pp.time_logger(sections=module_sections)
 def rlencode(A):
-    """ Compress matrix by looking for identical columns. """
+    """Compress matrix by looking for identical columns."""
     comp = A[::, 0:-1] != A[::, 1::]
     i = np.any(comp, axis=0)
     i = np.hstack((np.argwhere(i).ravel(), (A.shape[1] - 1)))

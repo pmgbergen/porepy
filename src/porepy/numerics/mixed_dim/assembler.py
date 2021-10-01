@@ -1265,7 +1265,7 @@ class Assembler:
     def _assign_matrix_vector(
         dof: np.ndarray, sps_matrix: Type[csc_or_csr_matrix], create_matrix: bool = True
     ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
-        """ Assign a block matrix and vector with specified number of dofs per block"""
+        """Assign a block matrix and vector with specified number of dofs per block"""
         num_blocks = dof.size
 
         if create_matrix:
