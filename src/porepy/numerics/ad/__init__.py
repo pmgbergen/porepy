@@ -29,4 +29,3 @@ __all__.extend(functions.__all__)
 __all__.extend(forward_mode.__all__)
 __all__.extend(grid_operators.__all__)
 __all__.extend(equation_manager.__all__)
-
