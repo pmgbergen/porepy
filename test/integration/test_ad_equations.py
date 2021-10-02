@@ -109,14 +109,18 @@ def test_md_flow():
     )
     flow_eq = div * flux - projections.mortar_to_secondary_int * lmbda - source
 
-    interface_flux = edge_discr.mortar_scaling * (
-        projections.primary_to_mortar_avg * node_discr.bound_pressure_cell * p
-        + projections.primary_to_mortar_avg
+    interface_flux = (
+        edge_discr.mortar_discr
+        * projections.primary_to_mortar_avg
+        * node_discr.bound_pressure_cell
+        * p
+        + edge_discr.mortar_discr
+        * projections.primary_to_mortar_avg
         * node_discr.bound_pressure_face
         * projections.mortar_to_primary_int
         * lmbda
-        - projections.secondary_to_mortar_avg * p
-        + edge_discr.mortar_discr * lmbda
+        - edge_discr.mortar_discr * projections.secondary_to_mortar_avg * p
+        + lmbda
     )
 
     flow_eq.discretize(gb)
