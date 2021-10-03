@@ -43,42 +43,57 @@ class TimeSteppingControl:
                 Default is 10.
             print_info (bool). Print time-stepping information. Default is False.
 
+        Example
+            # The following is an example on how to construct a time-stepping object
+            tsc = pp.TimeSteppingControl(
+                schedule=[0, 10],
+                dt_init=0.5,
+                dt_min_max=(0.1, 2),
+                iter_max=10,
+                iter_optimal_range=(4, 7),
+                iter_lowupp_factor=(1.1, 0.9),
+                recomp_factor=0.5,
+                recomp_max=5,
+                print_info=True
+            )
+            # To inspect the current attributes of the object
+            print(tsc)
+
         """
 
-        # Sanity checks on input paramters
+        # Checks for schedule
         if len(schedule) < 2:
-            s = "Schedule list must have at least two items, representing the initial and"
-            s += " final simualtion time."
-            raise ValueError(s)
-        elif schedule[0] < 0:
-            raise ValueError("Initial time cannot be negative.")
-        elif schedule[-1] < schedule[0]:
-            raise ValueError("Final time cannot be smaller than initial time.")
+            raise ValueError("Expected schedule with at least two items.")
+        elif any(time < 0 for time in schedule):
+            raise ValueError("Encountered at least one negative time in schedule.")
         elif not self._is_strictly_increasing(schedule):
             raise ValueError("Schedule must contain strictly increasing times.")
 
+        # Checks for initial time step
         if dt_init <= 0:
-            raise ValueError("Initial time step must be positive")
+            raise ValueError("Initial time step must be positive.")
         elif dt_init > schedule[-1]:
             raise ValueError(
-                "Inital time step cannot be larger than final simulation time."
+                "Initial time step cannot be larger than final simulation time."
             )
         elif dt_init < dt_min_max[0]:
             raise ValueError(
-                "Intial time step cannot be smaller than minimum time step."
+                "Initial time step cannot be smaller than minimum time step."
             )
         elif dt_init > dt_min_max[1]:
             raise ValueError(
-                "Intial time step cannot be larger than maximum time step."
+                "Initial time step cannot be larger than maximum time step."
             )
 
-        if dt_min_max[0] > dt_min_max[1]:
-            s = "Minimum time step cannot be larger than maximum time step."
-            raise ValueError(s)
+        # NOTE: The above checks satisfy that minimum time step <= maximum time step
 
-        if iter_max <= 0:
-            raise ValueError("Maximum number of iterations must be > 0")
+        # Check maximum number of iterations. Note that 0 is a possibility. This
+        # will imply that the solver reaches convergence directly, i.e., as in
+        # linear solvers.
+        if iter_max < 0:
+            raise ValueError("Maximum number of iterations must be non-negative.")
 
+        # Checks for optimal iteration range
         if iter_optimal_range[0] > iter_optimal_range[1]:
             s = "Lower optimal iteration range cannot be larger than"
             s += " upper optimal iteration range."
@@ -87,17 +102,29 @@ class TimeSteppingControl:
             s = "Upper optimal iteration range cannot be larger than"
             s += " maximum number of iterations."
             raise ValueError(s)
+        elif iter_optimal_range[0] < 0:
+            s = "Lower optimal iteration range cannot be negative."
+            raise ValueError(s)
 
+        # Checks for lower and upper multiplication factors
         if iter_lowupp_factor[0] <= 1:
-            raise ValueError("Expected lower multiplication factor > 1")
+            raise ValueError("Expected lower multiplication factor > 1.")
         elif iter_lowupp_factor[1] >= 1:
-            raise ValueError("Expected upper multiplication factor < 1")
+            raise ValueError("Expected upper multiplication factor < 1.")
 
+        # Checks for sensible combinations of iter_optimal_range and iter_lowupp_factor
+        if dt_min_max[0] * iter_lowupp_factor[0] > dt_min_max[1]:
+            raise ValueError("Encountered dt_min * iter_low_factor > dt_max.")
+        elif dt_min_max[1] * iter_lowupp_factor[1] < dt_min_max[0]:
+            raise ValueError("Encountered dt_max * iter_upp_factor < dt_min.")
+
+        # Check for recomputation factor
         if recomp_factor >= 1:
-            raise ValueError("Expected recomputing multiplication factor < 1")
+            raise ValueError("Expected recomputation multiplication factor < 1.")
 
+        # Check for maximum number of recomputation attempts
         if recomp_max <= 0:
-            raise ValueError("Number of recomputing attempts must be > 0")
+            raise ValueError("Number of recomputation attempts must be > 0.")
 
         # Schedule, initial, and final times
         self.schedule = schedule
@@ -126,35 +153,39 @@ class TimeSteppingControl:
         self.recomp_max = recomp_max
 
         # Time
-        self.time = self.time_init
+        self.time: Union[int, float] = self.time_init
 
         # Time step. Initially, equal to the initial time step
-        self.dt = self.dt_init
+        self.dt: Union[int, float] = self.dt_init
 
         # Private attributes
         # Number of times the solution has been recomputed
-        self._recomp_num = 0
+        self._recomp_num: int = 0
 
         # Index of the next scheduled time
-        self._scheduled_idx = 1
+        self._scheduled_idx: int = 1
 
         # Print information
-        self._print_info = print_info
+        # TODO: In the future, printing should be promoted to a logging strategy
+        self._print_info: bool = print_info
+
+        # Flag to keep track of recomputed solutions
+        self._recomp_sol: bool = False
 
     def __repr__(self) -> str:
 
         s = "Time-stepping control object with atributes:\n"
-        s += f"Initial simulation time = {self.time_init}\n"
-        s += f"Final simulation time = {self.time_final}\n"
+        s += f"Initial and final simulation time = ({self.time_init}, {self.time_final})\n"
         s += f"Initial time step = {self.dt_init}\n"
-        s += f"Minimum time step = {self.dt_min}\n"
-        s += f"Maximum time step = {self.dt_max}\n"
-        s += f"Lower optimal iteration range = {self.iter_low}\n"
-        s += f"Upper optimal iteration range = {self.iter_upp}\n"
-        s += f"Lower multiplication factor = {self.iter_low_factor}\n"
-        s += f"Upper multiplication factor = {self.iter_upp_factor}\n"
+        s += f"Minimum and maximum time steps = ({self.dt_min}, {self.dt_max})\n"
+        s += f"Optimal iteration range = ({self.iter_low}, {self.iter_upp})\n"
+        s += (
+            f"Lower and upper multiplication factors = ({self.iter_low_factor}, "
+            f"{self.iter_upp_factor})\n"
+        )
         s += f"Recompute solution multiplication factor = {self.recomp_factor}\n"
-        s += f"Maximum recomputing attempts = {self.recomp_max}"
+        s += f"Maximum recomputation attempts = {self.recomp_max}\n"
+        s += f"Current time step and time are {self.dt} and {self.time}."
 
         return s
 
@@ -162,7 +193,7 @@ class TimeSteppingControl:
         self, iterations: int, recompute_solution: bool
     ) -> Union[float, None]:
         """
-        Determines the next time step based on the previous amount of iterations needed
+        Determines the next time step based on the previous number of iterations needed
         to reach convergence. If convergence was not achieved, then the time step is
         reduced by recomp_factor. The time-stepping control routine will recompute the
         solution recomp_max times. Otherwise, an error will be raised and the simulation
@@ -180,15 +211,23 @@ class TimeSteppingControl:
 
         """
 
+        # For bookkeeping reasons, save recomputation flag
+        self._recomp_sol = recompute_solution
+
         # First, check if we reach final simulation time
-        if self.time == self.time_final:
+        if self.time >= self.time_final:
             return None
 
         # If the solution did not convergence and we are allow to recompute it:
-        #   Update simulation time (since solution will be recomputed)
-        #   Decrease time step by the recomputing factor
-        #   Increase counter keeping track of the number of times the solution was recomputed
-        #   Check if the time step is smaller that dt_min. Otherwise, use dt_min
+        #   Update simulation time (since solution will be recomputed).
+        #   Decrease time step multiplying it by the recomputing factor < 1.
+        #   Increase counter that tracks the number of times that the solution was recomputed.
+        #   Check if calculated time step is larger than dt_min. Otherwise, use dt_min.
+        # Note that iterations is not really used here. So, as long as the passed
+        # recompute_solution==True and recomputation_attempts < max_recomp_attempts, the user
+        # can pass any number of iterations. This, in principle, allows for more flexibility,
+        # in the sense that we are no restricting the recomputation criteria to only reaching
+        # the maximum number of iterations, even though that is the primary intended usage.
         if recompute_solution and self._recomp_num < self.recomp_max:
             self.time -= self.dt
             self.dt *= self.recomp_factor
@@ -207,9 +246,9 @@ class TimeSteppingControl:
         elif not recompute_solution:  # we reach convergence, set recomp_num to zero
             self._recomp_num = 0
         else:  # number of recomputing attempts has been exhausted
-            error_msg = f"Solution did not convergece after {self.recomp_max}"
-            error_msg += " recomputing attempts."
-            raise ValueError(error_msg)
+            msg = f"Solution did not converge after {self.recomp_max} recomputing attempts."
+            # TODO: Should this be a RunTimeError perhaps?
+            raise ValueError(msg)
 
         # If iters < max_iter. Proceed to determine the next time step using the
         # following criteria.
