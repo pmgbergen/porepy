@@ -180,6 +180,9 @@ from porepy.models.thm_model import THM
 # from porepy.numerics.ad.equation_manager import Equation, EquationManager
 from porepy.numerics import ad
 
+# Time stepping control
+from porepy.numerics.time_step_control import TimeSteppingControl
+
 # Visualization
 from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
