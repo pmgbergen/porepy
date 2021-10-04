@@ -786,21 +786,20 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             # from cell center pressure, external boundary and interface flux
             # on internal boundaries (including those corresponding to "other"
             # fractures).
-            interface_flow_eq = (
-                robin_ad.mortar_discr
-                * mortar_proj_scalar.primary_to_mortar_avg
-                * mpfa_ad.bound_pressure_cell
-                * p
-                + robin_ad.mortar_discr
-                * mortar_proj_scalar.primary_to_mortar_avg
-                * mpfa_ad.bound_pressure_face
+            p_primary = (
+                mpfa_ad.bound_pressure_cell * p
+                + mpfa_ad.bound_pressure_face
                 * mortar_proj_scalar.mortar_to_primary_int
                 * mortar_flux
-                + robin_ad.mortar_discr
-                * mortar_proj_scalar.primary_to_mortar_avg
-                * mpfa_ad.bound_pressure_face
-                * bc_val_scalar
-                - robin_ad.mortar_discr * mortar_proj_scalar.secondary_to_mortar_avg * p
+                + mpfa_ad.bound_pressure_face * bc_val_scalar
+            )
+            # Project the two pressures to the interface and equate with \lambda
+            interface_flow_eq = (
+                robin_ad.mortar_discr
+                * (
+                    mortar_proj_scalar.primary_to_mortar_avg * p_primary
+                    - mortar_proj_scalar.secondary_to_mortar_avg * p
+                )
                 + mortar_flux
             )
 

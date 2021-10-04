@@ -509,7 +509,9 @@ class RobinCoupling(
             # Scale the equations (this will modify from K^-1 to K scaling if relevant)
 
             for block in range(3):
-                # Scale the pressure blocks in the row of the primary mortar problem.
+                # Scale the pressure blocks in the row of the primary mortar problem,
+                # i.e. the row corresponding to the mortar variable to which the
+                # contributions from the flux of block 2 is being added.
                 # The secondary mortar will be treated somewhere else (handled by the
                 # assembler).
                 cc[1, block] = (
