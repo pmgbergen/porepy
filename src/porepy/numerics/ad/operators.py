@@ -958,9 +958,9 @@ class Variable(Operator):
         """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
         if self._is_edge_var:
-            return Variable(self._name, ndof, grids=self.grids, previous_iteration=True)
-        else:
             return Variable(self._name, ndof, edges=self.edges, previous_iteration=True)
+        else:
+            return Variable(self._name, ndof, grids=self.grids, previous_iteration=True)
 
     def __repr__(self) -> str:
         s = (
