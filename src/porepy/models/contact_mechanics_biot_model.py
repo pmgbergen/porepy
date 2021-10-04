@@ -780,19 +780,27 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 * accumulation_primary
                 + subdomain_proj_scalar.cell_prolongation(g_frac) * accumulation_fracs
             )
-
-            interface_flow_eq = robin_ad.mortar_scaling * (
-                mortar_proj_scalar.primary_to_mortar_avg
-                * mpfa_ad.bound_pressure_cell
-                * p
-                + mortar_proj_scalar.primary_to_mortar_avg
-                * mpfa_ad.bound_pressure_face
+            # Interface equation: \lambda = -\kappa (p_l - p_h)
+            # Robin_ad.mortar_discr represents -\kappa. The involved term is
+            # reconstruction of p_h on internal boundary, which has contributions
+            # from cell center pressure, external boundary and interface flux
+            # on internal boundaries (including those corresponding to "other"
+            # fractures).
+            p_primary = (
+                mpfa_ad.bound_pressure_cell * p
+                + mpfa_ad.bound_pressure_face
+                * mortar_proj_scalar.mortar_to_primary_int
+                * mortar_flux
+                + mpfa_ad.bound_pressure_face * bc_val_scalar
+            )
+            # Project the two pressures to the interface and equate with \lambda
+            interface_flow_eq = (
+                robin_ad.mortar_discr
                 * (
-                    mortar_proj_scalar.mortar_to_primary_int * mortar_flux
-                    + bc_val_scalar
+                    mortar_proj_scalar.primary_to_mortar_avg * p_primary
+                    - mortar_proj_scalar.secondary_to_mortar_avg * p
                 )
-                - mortar_proj_scalar.secondary_to_mortar_avg * p
-                + robin_ad.mortar_discr * mortar_flux
+                + mortar_flux
             )
 
             eq_manager.equations += [
