@@ -25,7 +25,7 @@ class RobinCoupling(
     al 2005. The equation reads
         \lambda = -\int{\kappa_n [p_l - p_h +  a/2 g \cdot n]} dV,
     where the last gravity type term is zero by default (controlled by the vector_source
-    parameter).
+    parameter). That is, \lambda is an extensive quantity.
 
     The class can be used either as pure discretization, or also to do assembly of
     the local (to the interface / mortar grid) linear system. The latter case will
@@ -214,7 +214,7 @@ class RobinCoupling(
 
         The discretization matrices must be included since they will be changed
         by the imposition of Neumann boundary conditions on the internal boundary
-        in some numerical methods (Read: VEM, RT0)
+        in some numerical methods (Read: VEM, RT0).
 
 
         """
@@ -320,7 +320,7 @@ class RobinCoupling(
     ):
         """Actual implementation of assembly. May skip matrix and rhs if specified."""
 
-        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary_edge: Dict[str, sps.spmatrix] = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
         diffusivity_discr = matrix_dictionary_edge[self.mortar_discr_matrix_key]
         parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
         mg = data_edge["mortar_grid"]
@@ -501,8 +501,6 @@ class RobinCoupling(
             ):
                 proj_flux = mg_secondary.mortar_to_secondary_int()
             # Assemble contribution between higher dimensions.
-            # import pdb
-            # pdb.set_trace()
             self.discr_primary.assemble_int_bound_pressure_trace_between_interfaces(
                 g, data_grid, proj_pressure, proj_flux, cc, matrix, rhs
             )
@@ -899,8 +897,8 @@ class WellCoupling(
         self.discr_secondary = discr_secondary
 
         # Keys used to identify the discretization matrices of this discretization
-        self.well_discr_matrix_key = "well_mortar_discr"
-        self.well_vector_source_matrix_key = "well_vector_source_discr"
+        self.well_discr_matrix_key: str = "well_mortar_discr"
+        self.well_vector_source_matrix_key: str = "well_vector_source_discr"
 
     def ndof(self, mg: pp.MortarGrid) -> int:
         return mg.num_cells
