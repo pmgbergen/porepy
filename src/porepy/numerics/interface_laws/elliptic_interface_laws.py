@@ -320,7 +320,9 @@ class RobinCoupling(
     ):
         """Actual implementation of assembly. May skip matrix and rhs if specified."""
 
-        matrix_dictionary_edge: Dict[str, sps.spmatrix] = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary_edge: Dict[str, sps.spmatrix] = data_edge[
+            pp.DISCRETIZATION_MATRICES
+        ][self.keyword]
         diffusivity_discr = matrix_dictionary_edge[self.mortar_discr_matrix_key]
         parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
         mg = data_edge["mortar_grid"]
