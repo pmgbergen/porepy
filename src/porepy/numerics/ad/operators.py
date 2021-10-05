@@ -296,8 +296,8 @@ class Operator:
 
         def error_message(operation):
             # Helper function to format error message
-            msg_0 = tree.children[0]._parse_readable()
-            msg_1 = tree.children[1]._parse_readable()
+            msg_0 = self._parse_readable(tree.children[0])
+            msg_1 = self._parse_readable(tree.children[1])
 
             nl = "\n"
             msg = (
