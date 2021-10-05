@@ -1,7 +1,7 @@
 """ Main content:
 EquationManager: representation of a set of equations on Ad form.
 """
-from typing import Dict, List, Optional, Sequence, Tuple, Union, Callable
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -19,16 +19,7 @@ class EquationManager:
     """Representation of a set of equations specified on Ad form.
 
     The equations are tied to a specific GridBucket, with variables fixed in a
-    corresponding DofManager. Both these are set on initialization, and should
-    not be modified later.
-
-    Central methods are:
-        discretize(): Discretize all operators identified in the set equations.
-        assemble_matrix_rhs(): Provide a Jacobian matrix and residual for the
-            current state in the GridBucket.
-
-    TODO: Add functionality to derive subset of equations, fit for splitting
-    algorithms.
+    corresponding DofManager.
 
     Attributes:
         gb (pp.GridBucket): Mixed-dimensional grid on which this EquationManager
@@ -40,6 +31,11 @@ class EquationManager:
         variables (Dict): Mapping from grids or grid tuples (interfaces) to Ad
             variables. These are set at initialization from the GridBucket, and should
             not be changed later.
+        secondary_variables (List of Ad Variables): List of variables that are secondary,
+            that is, their derivatives will not be included in the Jacobian matrix.
+            Variables will be represented on atomic form, that is, merged variables are
+            unravelled. Secondary variables act as a filter during assembly, that is,
+            they do not impactt the ordering or treatment of variables.
 
     """
 
@@ -47,8 +43,8 @@ class EquationManager:
         self,
         gb: pp.GridBucket,
         dof_manager: pp.DofManager,
-        equations: Optional[Dict[str, Expression]] = None,
-        secondary_variables: Optional[Sequence[pp.ad.Variable]] = None,
+        equations: Optional[Dict[str, "pp.ad.Operator"]] = None,
+        secondary_variables: Optional[Sequence["pp.ad.Variable"]] = None,
     ) -> None:
         """Initialize the EquationManager.
 
@@ -56,6 +52,8 @@ class EquationManager:
             gb (pp.GridBucket): Mixed-dimensional grid for this EquationManager.
             dof_manager (pp.DofManager): Degree of freedom manager.
             equations (List, Optional): List of equations. Defaults to empty list.
+            secondary_variables (List of Ad Variable or MergedVariable): Variables
+                to be considered secondary for this EquationManager.
 
         """
         self.gb = gb
@@ -65,7 +63,7 @@ class EquationManager:
         self._set_variables(gb)
 
         if equations is None:
-            self.equations: List[pp.ad.Operator] = []
+            self.equations: Dict[str, pp.ad.Operator] = {}
         else:
             self.equations = equations
 
@@ -74,7 +72,9 @@ class EquationManager:
         if secondary_variables is None:
             secondary_variables = []
 
-        # Unravel any MergedVariable and store as a list
+        # Unravel any MergedVariable and store as a list.
+        # Note that secondary variables will be present in self.variables; the exclusion
+        # of secondary variables happens in assembly methods.
         self.secondary_variables: List[pp.ad.Variable] = self._variables_as_list(
             secondary_variables
         )
@@ -150,8 +150,7 @@ class EquationManager:
         """Assemble Jacobian matrix and residual vector with respect to the current
         state represented in self.gb.
 
-        As an experimental feature, subset of variables and equations can also be
-        assembled. This functionality may be moved somewhere else in the future.
+        Derivatives for secondary variables are not included in the Jacobian matrix.
 
         Parameters:
             state (np.ndarray, optional): State vector to assemble from. If not provided,
@@ -159,7 +158,9 @@ class EquationManager:
 
         Returns:
             sps.spmatrix: Jacobian matrix corresponding to the current variable state,
-                as found in self.gb.
+                as found in self.gb. The ordering of the equations is determined by
+                the ordering in self.equations (for rows) and self.dof_manager (for
+                columns).
             np.ndarray: Residual vector corresponding to the current variable state,
                 as found in self.gb. Scaled with -1 (moved to rhs).
 
@@ -167,7 +168,7 @@ class EquationManager:
         # Data structures for building the Jacobian matrix and residual vector
         mat: List[sps.spmatrix] = []
         b: List[np.ndarray] = []
-        
+
         # Iterate over equations, assemble.
         for eq in self.equations.values():
             ad = eq.evaluate(self.dof_manager, state)
@@ -176,7 +177,13 @@ class EquationManager:
             # Multiply by -1 to move to the rhs
             b.append(-ad.val)
 
-        proj = self._column_projection(self.secondary_variables)
+        # Define secondary variables as the complement of the primary ones
+        # This operation we do on atomic variables (not merged)
+        primary_variables = self._variable_set_complement(
+            self._variables_as_list(self.secondary_variables)
+        )
+        proj = self._column_projection(primary_variables)
+
         A = sps.bmat([[m] for m in mat]).tocsr() * proj
         rhs = np.hstack([vec for vec in b])
 
@@ -197,10 +204,10 @@ class EquationManager:
 
         Parameters:
             eq_names (Sequence of str, optional): Equations to be assembled, specified
-                as keys in self.equations. If not provided, all equations known to this
-                EquationManager will be included.
+                as keys in self.equations. If not provided (None), all equations known to
+                this EquationManager will be included.
             variables (Sequence of Variables, optional): Variables to be assembled.
-                If not provided, all variabels known to this EquationManager will be
+                If not provided (None), all variabels known to this EquationManager will be
                 included.
 
         Returns:
@@ -210,9 +217,10 @@ class EquationManager:
                 as found in self.gb, for the specified equations and variables.
                 Scaled with -1 (moved to rhs).
 
-            NOTE: The ordering of rows and columns in the system are defined by
-                the order items in eq_names and variables. If a variable is merged,
-                the ordering will further be determined by that of its subvariables.
+            NOTE: The ordering of columns in the system are defined by the order of the
+                variables specified in DofManager. For the rows, no corresponding global
+                ordering of equations exists, and the rows will therefore be organized
+                by the ordering in the parameter eq_names.
 
         """
         variables = self._variables_as_list(variables)
@@ -225,12 +233,12 @@ class EquationManager:
         b: List[np.ndarray] = []
 
         # Projection to the subset of active variables
-        projection = self._column_projection(variables + self.secondary_variables)
+        projection = self._column_projection(variables)
 
         # Iterate over equations, assemble.
         for name in eq_names:
             eq = self.equations[name]
-            ad = eq.to_ad(self.gb)
+            ad = eq.evaluate(self.dof_manager)
 
             # ad contains derivatives with respect to all variables, while
             # we need a subset. Project the columns to get the right size.
@@ -241,14 +249,18 @@ class EquationManager:
             b.append(-ad.val)
 
         # Concatenate results. Return
-        A = sps.bmat([[m] for m in mat]).tocsr()
-        rhs = np.hstack([vec for vec in b])
+        if len(mat) > 0:
+            A = sps.bmat([[m] for m in mat]).tocsr()
+            rhs = np.hstack([vec for vec in b])
+        else:
+            A = sps.csr_matrix((0, 0))
+            rhs = np.empty(0)
         return A, rhs
 
     def assemble_schur_complement_system(
         self,
-        eq_names: Sequence[str],
-        variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]],
+        primary_equations: Sequence[str],
+        primary_variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]],
         inverter: Callable[[sps.spmatrix], sps.spmatrix],
     ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a Schur complement
@@ -280,9 +292,10 @@ class EquationManager:
         spatial derivatives).
 
         Parameters:
-            eq_names (Sequence of str): Equations to be assembled, specified
-                as keys in self.equations.
-            variables (Sequence of Variables): Variables to be assembled.
+            primary_equations (Sequence of str): Equations to be assembled, specified
+                as keys in self.equations. Should have length > 0.
+            primary_variables (Sequence of Variables): Variables to be assembled. Should have
+                length > 0.
             inverter (Callable): Method to compute the inverse of the matrix A_ss.
 
         Returns:
@@ -293,24 +306,30 @@ class EquationManager:
                 Scaled with -1 (moved to rhs).
 
         """
+        if len(primary_equations) == 0:
+            raise ValueError("Must take Schur complement with at least one equation")
+        if len(primary_variables) == 0:
+            raise ValueError("Must take Schur complement with at least one variable")
 
         # Unravel any merged variable
-        variables = self._variables_as_list(variables)
+        primary_variables = self._variables_as_list(primary_variables)
 
         # Get lists of all variables and equations, and find the secondary items
         # by a set difference
         all_eq_names = list(self.equations.keys())
         all_variables = self._variables_as_list()
 
-        secondary_equations = list(set(all_eq_names).difference(set(eq_names)))
-        secondary_variables = list(set(all_variables).difference(set(variables)))
+        secondary_equations = list(set(all_eq_names).difference(set(primary_equations)))
+        secondary_variables = list(
+            set(all_variables).difference(set(primary_variables))
+        )
 
         # First assemble the primary and secondary equations for all variables
-        A_p, b_p = self.assemble_subsystem(eq_names, all_variables)
+        A_p, b_p = self.assemble_subsystem(primary_equations, all_variables)
         A_s, b_s = self.assemble_subsystem(secondary_equations, all_variables)
 
         # Projection matrices to reduce matrices to the relevant columns
-        proj_primary = self._column_projection(variables)
+        proj_primary = self._column_projection(primary_variables)
         proj_secondary = self._column_projection(secondary_variables)
 
         # Matrices involved in the Schur complements
@@ -342,11 +361,14 @@ class EquationManager:
             variables (Sequence of Variables): Variables to be assembled.
 
         Returns:
-            EquationManager: System of nonlinear equations.
+            EquationManager: System of nonlinear equations. The ordering of the
+                equations in the subsystem will be the same as in the original
+                set (disregarding equations not included in the subset). Variables
+                that were excluded are added to the set of secondary_variables in
+                the new EquationManager.
 
         """
-        all_variables = self._variables_as_list()
-        secondary_variables = list(set(all_variables).difference(set(variables)))
+        secondary_variables = self._variable_set_complement(variables)
 
         sub_eqs = {name: self.equations[name] for name in eq_names}
         return EquationManager(
@@ -384,31 +406,66 @@ class EquationManager:
         unique_discr = _ad_utils.uniquify_discretization_list(discr)
         _ad_utils.discretize_from_list(unique_discr, gb)
 
-    def _column_projection(
-        self, variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]]
-    ) -> sps.spmatrix:
+    def _column_projection(self, variables: Sequence["pp.ad.Variable"]) -> sps.spmatrix:
         """Create a projection matrix from the full variable set to a subset.
 
-        The matrix can be right multiplied with a Jacobian matrix to remove
-        columns corresponding to variables not included.
-        """
-        inds = []
-        for v in variables:
-            inds.append(self.dof_manager.dof_ind(v.g, v._name))
 
-        local_dofs = np.hstack((i for i in inds))
-        num_local_dofs = local_dofs.size
+        Parameters:
+            variables (Sequence of pp.ad.Variable): Variables to be preserved in the
+                projection. Should be atomic variables, *not* merged ones. The
+                projection will preserve the ordering of the included variables, as
+                defined in self.dof_manager.block_dof.
+
+        Returns:
+            sps.spmatrix: Projection matrix to be right multiplied with a Jacobian matrix to
+                remove columns corresponding to variables not included.
+
+        """
         num_global_dofs = self.dof_manager.full_dof.sum()
 
+        # Array for the dofs associated with each grid-variable combination
+        inds = []
+
+        # Loop over variables, find dofs
+        for v in variables:
+            inds.append(self.dof_manager.dof_ind(v._g, v._name))
+
+        if len(inds) == 0:
+            # Special case if no indices were returned
+            return sps.csr_matrix((num_global_dofs, 0))
+
+        # Create projection matrix. Uniquify indices here, both to sort (will preserve
+        # the ordering of the unknowns given by the DofManager) and remove duplicates
+        # (in case variables were specified more than once).
+        local_dofs = np.unique(np.hstack([i for i in inds]))
+        num_local_dofs = local_dofs.size
+
         return sps.coo_matrix(
-            (np.ones(num_local_dofs), (np.arange(num_local_dofs), local_dofs)),
-            shape=(num_local_dofs, num_global_dofs),
+            (np.ones(num_local_dofs), (local_dofs, np.arange(num_local_dofs))),
+            shape=(num_global_dofs, num_local_dofs),
         ).tocsr()
+
+    def _variable_set_complement(
+        self,
+        variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]] = None,
+    ):
+        # Take the complement of a set of variables, with respect to the full set of
+        # variables. The variables are returned as atomic (merged variables are
+        # unravelled as part of the process).
+
+        # Unravel any merged variable
+        variables = self._variables_as_list(variables)
+        # Get list of all variables
+        all_variables = self._variables_as_list()
+
+        # Do the complement
+        other_variables = list(set(all_variables).difference(set(variables)))
+        return other_variables
 
     def _variables_as_list(
         self,
         variables: Optional[
-            List[Union["pp.ad.Variable", "pp.ad.MergedVariable"]]
+            Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]]
         ] = None,
     ) -> List["pp.ad.Variable"]:
         # Get a list of all variables known to this EquationManager
@@ -426,17 +483,20 @@ class EquationManager:
                 for v in v_dict.values():
                     # Append variable
                     tmp_vars.append(v)
+        else:
+            tmp_vars = list(variables)
 
         # List of all variables.
         var = []
+
         # Loop over all variables, add the variable itself, or its subvariables
         # (if it is Merged)
         for v in tmp_vars:
-            if isinstance(v, (pp.ad.Variable, operators.Variable)):
-                var.append(v)
-            elif isinstance(v, (pp.ad.MergedVariable, operators.MergedVariable)):
-                for sv in v.subvars:
+            if isinstance(v, (pp.ad.MergedVariable, operators.MergedVariable)):
+                for sv in v.sub_vars:
                     var.append(sv)
+            elif isinstance(v, (pp.ad.Variable, operators.Variable)):
+                var.append(v)
             else:
                 raise ValueError("Encountered unknown type in variable list")
 
@@ -459,8 +519,12 @@ class EquationManager:
         s += ", ".join(unique_vars) + "\n"
 
         if self.equations is not None:
-            eq_names = [eq._name for eq in self.equations]
+            eq_names = [eq._name for eq in self.equations.values()]
             s += f"In total {len(self.equations)} equations, with names: \n\t"
             s += ", ".join(eq_names)
+
+        if len(self.secondary_variables) > 0:
+            s += "\n"
+            s += f"In total {len(self.secondary_variables)} secondary variables."
 
         return s

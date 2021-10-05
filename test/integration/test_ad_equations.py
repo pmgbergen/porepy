@@ -125,10 +125,10 @@ def test_md_flow():
 
     flow_eq.discretize(gb)
 
-    manager.equations += [flow_eq, interface_flux]
+    manager.equations.update({"matrix_flow": flow_eq, "mortar_flow": interface_flux})
 
     state = np.zeros(gb.num_cells() + gb.num_mortar_cells())
-    A, b = manager.assemble_matrix_rhs(state=state)
+    A, b = manager.assemble(state=state)
     diff = A - A_ref
     if diff.data.size > 0:
         assert np.max(np.abs(diff.data)) < 1e-10
@@ -268,7 +268,7 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
         model_ad.before_newton_iteration()
 
         A_as, b_as = model_as.assembler.assemble_matrix_rhs()
-        A_ad, b_ad = model_ad._eq_manager.assemble_matrix_rhs()
+        A_ad, b_ad = model_ad._eq_manager.assemble()
 
         A_as = A_as[dofs]
         b_as = b_as[dofs]
@@ -345,7 +345,7 @@ def _block_reordering(eq_names, dof_manager, eqn_manager):
         return grids
 
     keys = []
-    for (name, eq) in zip(eq_names, eqn_manager.equations):
+    for (name, eq) in zip(eq_names, eqn_manager.equations.values()):  #
         grids_ad = get_unique_grids(eq)
 
         for grid_eq in grids_ad:
