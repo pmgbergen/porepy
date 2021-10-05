@@ -120,7 +120,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         # Re-discretize the nonlinear term
         filt = pp.assembler_filters.ListFilter(term_list=[self.friction_coupling_term])
         if self._use_ad:
-            self._eq_manager.equations[1].discretize(self.gb)  # type: ignore
+            self._eq_manager.equations["contact"].discretize(self.gb)  # type: ignore
         else:
             self.assembler.discretize(filt=filt)
 
@@ -803,13 +803,15 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 + mortar_flux
             )
 
-            eq_manager.equations += [
-                momentum_eq,
-                contact_eq,
-                force_balance_eq,
-                flow_eq,
-                interface_flow_eq,
-            ]
+            eq_manager.equations.update(
+                {
+                    "momentum": momentum_eq,
+                    "contact": contact_eq,
+                    "force_balance": force_balance_eq,
+                    "matrix_flow": flow_eq,
+                    "mortar_flow": interface_flow_eq,
+                }
+            )
             self._eq_manager = eq_manager
 
     @pp.time_logger(sections=module_sections)

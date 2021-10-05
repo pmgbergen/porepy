@@ -169,7 +169,7 @@ class ContactMechanics(AbstractModel):
         # Re-discretize the nonlinear term
         filt = pp.assembler_filters.ListFilter(term_list=[self.friction_coupling_term])
         if self._use_ad:
-            self._eq_manager.equations[1].discretize(self.gb)
+            self._eq_manager.equations["contact"].discretize(self.gb)
         else:
             self.assembler.discretize(filt=filt)
 
@@ -297,7 +297,7 @@ class ContactMechanics(AbstractModel):
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
 
         if self._use_ad:
-            A, b = self._eq_manager.assemble_matrix_rhs()
+            A, b = self._eq_manager.assemble()
         else:
             A, b = self.assembler.assemble_matrix_rhs()
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
@@ -729,7 +729,13 @@ class ContactMechanics(AbstractModel):
             )
             force_balance_eq = contact_from_primary_mortar + contact_from_secondary
 
-            eq_manager.equations += [momentum_eq, contact_eq, force_balance_eq]
+            eq_manager.equations.update(
+                {
+                    "momentum": momentum_eq,
+                    "contact": contact_eq,
+                    "force_balance": force_balance_eq,
+                }
+            )
 
             self._eq_manager = eq_manager
 
