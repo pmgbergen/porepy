@@ -35,7 +35,7 @@ class EquationManager:
             that is, their derivatives will not be included in the Jacobian matrix.
             Variables will be represented on atomic form, that is, merged variables are
             unravelled. Secondary variables act as a filter during assembly, that is,
-            they do not impactt the ordering or treatment of variables.
+            they do not impact the ordering or treatment of variables.
 
     """
 
@@ -196,7 +196,7 @@ class EquationManager:
             Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]]
         ] = None,
     ) -> Tuple[sps.spmatrix, np.ndarray]:
-        """Assemble Jacobian matrix and residual vector  using a specified subset of
+        """Assemble Jacobian matrix and residual vector using a specified subset of
         equations and variables.
 
         The method is intended for use in splitting algorithms. Matrix blocks not
@@ -278,7 +278,7 @@ class EquationManager:
             (J_pp - J_ps * inv(J_ss) * J_sp) * x_p = b_p - J_ps * inv(J_pp) * b_s.
 
         The Schur complement is well defined only if the inverse of J_ss exists,
-        and the efficiency of the approach assumes that an ifficient inverter for
+        and the efficiency of the approach assumes that an efficient inverter for
         J_ss can be found. The user must ensure both requirements are fulfilled.
         The simplest option is a lambda function on the form:
 
@@ -287,7 +287,7 @@ class EquationManager:
         but depending on A (size and sparsity pattern), this can be costly in terms of
         computational time and memory.
 
-        The method can be used, e.g. to  splitting between primary and secondary variables,
+        The method can be used e.g. for splitting between primary and secondary variables,
         where the latter can be efficiently eliminated (for instance, they contain no
         spatial derivatives).
 
@@ -296,7 +296,7 @@ class EquationManager:
                 as keys in self.equations. Should have length > 0.
             primary_variables (Sequence of Variables): Variables to be assembled. Should have
                 length > 0.
-            inverter (Callable): Method to compute the inverse of the matrix A_ss.
+            inverter (Callable): Method to compute the inverse of the matrix J_ss.
 
         Returns:
             sps.spmatrix: Jacobian matrix corresponding to the current variable state,
@@ -311,7 +311,7 @@ class EquationManager:
         if len(primary_variables) == 0:
             raise ValueError("Must take Schur complement with at least one variable")
 
-        # Unravel any merged variable
+        # Unravel any merged variables
         primary_variables = self._variables_as_list(primary_variables)
 
         # Get lists of all variables and equations, and find the secondary items
@@ -356,9 +356,9 @@ class EquationManager:
         In effect, this produce a nonlinear subsystem.
 
         Parameters:
-            eq_names (Sequence of str): Equations to be assembled, specified
+            eq_names (Sequence of str): Equations assigned to the new EquationManager, specified
                 as keys in self.equations.
-            variables (Sequence of Variables): Variables to be assembled.
+            variables (Sequence of Variables): Variables for which the new EquationManager is defined.
 
         Returns:
             EquationManager: System of nonlinear equations. The ordering of the
@@ -384,11 +384,11 @@ class EquationManager:
 
         This is more effecient than discretizing on the Operator level, since
         discretizations which occur more than once in a set of equations will be
-        identified and only discretize once.
+        identified and only discretized once.
 
         Parameters:
             gb (pp.GridBucket): Mixed-dimensional grid from which parameters etc. will
-                be taken and discretization matrices stored.
+                be taken and where discretization matrices will be stored.
 
         """
         # Somehow loop over all equations, discretize identified objects
@@ -408,7 +408,6 @@ class EquationManager:
 
     def _column_projection(self, variables: Sequence["pp.ad.Variable"]) -> sps.spmatrix:
         """Create a projection matrix from the full variable set to a subset.
-
 
         Parameters:
             variables (Sequence of pp.ad.Variable): Variables to be preserved in the
@@ -448,7 +447,7 @@ class EquationManager:
     def _variable_set_complement(
         self,
         variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]] = None,
-    ):
+    ) -> List["pp.ad.Variable"]:
         # Take the complement of a set of variables, with respect to the full set of
         # variables. The variables are returned as atomic (merged variables are
         # unravelled as part of the process).

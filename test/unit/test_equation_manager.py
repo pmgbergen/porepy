@@ -1,4 +1,4 @@
-""" Tests of the EquationManager used in the Ad framework.
+"""Tests of the EquationManager used in the Ad framework.
 
 The tests focus on various assembly methods:
     * test_secondary_variable_assembly: Test of assembly when secondary variables are
@@ -35,7 +35,7 @@ class EquationManagerSetup:
                 "y": {"cells": 1},
             }
             if g == g2:
-                # Add a third variable on the second
+                # Add a third variable on the second grid
                 d[pp.PRIMARY_VARIABLES].update({"z": {"cells": 1}})
 
             x = 2 * np.ones(g.num_cells)
@@ -106,7 +106,7 @@ class EquationManagerSetup:
             raise ValueError
 
     def dof_ind(self, var):
-        # For a given variable, get the global indices assigned to this by
+        # For a given variable, get the global indices assigned by
         # the DofManager. Based on knowledge of how the variables were
         # defined in self.__init__
         dof_manager = self.eq_manager.dof_manager
@@ -168,7 +168,7 @@ def setup():
 
 
 def _eliminate_rows_from_matrix(A, indices, reverse):
-    # Helper method to extract submatrix by rows indices
+    # Helper method to extract submatrix by row indices
     if reverse:
         inds = np.setdiff1d(np.arange(A.shape[0]), indices)
     else:
@@ -178,7 +178,7 @@ def _eliminate_rows_from_matrix(A, indices, reverse):
 
 def _compare_matrices(m1, m2):
     # Helper method to compare two matrices. Returns True only if the matrices are
-    # (virtually) identical.
+    # identical up to a small tolerance.
     if m1.shape != m2.shape:
         # Matrices with different shape are unequal, unless the number of
         # rows and columns is zero in at least one dimension.
@@ -361,7 +361,7 @@ def test_extract_subsystem(setup, eq_names, var_names):
                 # Okay, this secondary variable has nothing in common with this active var
                 continue
             else:
-                # With the setup of the tests, this is acceptible only if the active
+                # With the setup of the tests, this is acceptable only if the active
                 # variable is x1, and the secondary variable has name 'x', is active on
                 # grid g1.
 
@@ -391,11 +391,11 @@ def test_extract_subsystem(setup, eq_names, var_names):
 def test_schur_complement(setup, eq_var_to_exclude):
     # Test assembly by a Schur complement.
     # The test constructs the Schur complement 'manually', using known information on
-    # the ordering of equations and unknowns, and compare with the method in EquationManager.
+    # the ordering of equations and unknowns, and compares with the method in EquationManager.
 
     # NOTE: Input parameters to this test are interpreted as equations and variables to be
     # eliminated (this makes interpretation of test results easier), while the method in
-    # EquationManagerexpects equations and variables to be kept. Some work is needed to invert
+    # EquationManager expects equations and variables to be kept. Some work is needed to invert
     # the sets.
 
     eq_to_exclude, var_to_exclude = eq_var_to_exclude
@@ -425,7 +425,7 @@ def test_schur_complement(setup, eq_var_to_exclude):
     rows_keep = np.sort(np.hstack([setup.eq_ind(name) for name in eq_name]))
     cols_keep = np.sort(np.hstack([setup.dof_ind(var) for var in variables]))
 
-    # Rows and columns to keep
+    # Rows and columns to eliminate
     rows_elim = np.setdiff1d(np.arange(15), rows_keep)
     cols_elim = np.setdiff1d(np.arange(18), cols_keep)
 
