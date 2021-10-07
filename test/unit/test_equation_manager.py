@@ -15,9 +15,10 @@ import scipy.sparse as sps
 
 
 class EquationManagerSetup:
-    # Class to set up an EquationManager with a combination of variables
-    # and equations, designed to make it convenient to test critical functionality
-    # of the EM.
+    """Class to set up an EquationManager with a combination of variables
+    and equations, designed to make it convenient to test critical functionality
+    of the EM.
+    """
 
     def __init__(self):
         g1 = pp.CartGrid([3, 1])
@@ -343,7 +344,7 @@ def test_extract_subsystem(setup, eq_names, var_names):
     # The number of secondary variables is also known
     num_secondary = 5 - num_atomic_vars
 
-    new_manager = eq_manager.extract_subsystem(eq_names, variables)
+    new_manager = eq_manager.subsystem_equation_manager(eq_names, variables)
 
     # Check that the number of variables and equations are as expected
     assert len(new_manager.secondary_variables) == num_secondary

@@ -808,8 +808,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     "momentum": momentum_eq,
                     "contact": contact_eq,
                     "force_balance": force_balance_eq,
-                    "matrix_flow": flow_eq,
-                    "mortar_flow": interface_flow_eq,
+                    "subdomain_flow": flow_eq,
+                    "interface_flow": interface_flow_eq,
                 }
             )
             self._eq_manager = eq_manager

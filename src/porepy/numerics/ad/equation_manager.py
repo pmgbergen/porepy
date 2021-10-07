@@ -26,7 +26,7 @@ class EquationManager:
             operates.
         dof_manager (pp.DofManager): Degree of freedom manager used for this
             EquationManager.
-        equations (List of Expressions): Equations assigned to this EquationManager.
+        equations (List of Ad Operators): Equations assigned to this EquationManager.
             can be expanded by direct addition to the list.
         variables (Dict): Mapping from grids or grid tuples (interfaces) to Ad
             variables. These are set at initialization from the GridBucket, and should
@@ -167,7 +167,7 @@ class EquationManager:
         """
         # Data structures for building the Jacobian matrix and residual vector
         mat: List[sps.spmatrix] = []
-        b: List[np.ndarray] = []
+        rhs: List[np.ndarray] = []
 
         # Iterate over equations, assemble.
         for eq in self.equations.values():
@@ -175,19 +175,30 @@ class EquationManager:
             # Append matrix and rhs
             mat.append(ad.jac)
             # Multiply by -1 to move to the rhs
-            b.append(-ad.val)
+            rhs.append(-ad.val)
 
-        # Define secondary variables as the complement of the primary ones
-        # This operation we do on atomic variables (not merged)
+        # The system assembled in the for-loop above contains derivatives for both
+        # primary and secondary variables, where the primary is understood as the
+        # complement of the secondary ones. Columns relating to secondary variables
+        # should therefore be removed. Construct a projection matrix onto the set
+        # of primary variables and right multiply the Jacobian matrix.
+
+        # Define primary variables as the complement of the secondary ones
+        # This operation we do on atomic variables (not merged), or else there may
+        # be problems for
         primary_variables = self._variable_set_complement(
             self._variables_as_list(self.secondary_variables)
         )
         proj = self._column_projection(primary_variables)
 
-        A = sps.bmat([[m] for m in mat]).tocsr() * proj
-        rhs = np.hstack([vec for vec in b])
+        # Concatenate matrix and remove columns of secondary variables
+        A = sps.bmat([[m] for m in mat], format="csr") * proj
 
-        return A, rhs
+        # The right hand side vector. This should have contributions form both primary
+        # and secondary variables, thus no need to modify it before concatenation.
+        rhs_cat = np.hstack([vec for vec in rhs])
+
+        return A, rhs_cat
 
     def assemble_subsystem(
         self,
@@ -207,8 +218,9 @@ class EquationManager:
                 as keys in self.equations. If not provided (None), all equations known to
                 this EquationManager will be included.
             variables (Sequence of Variables, optional): Variables to be assembled.
-                If not provided (None), all variabels known to this EquationManager will be
-                included.
+                If not provided (None), all variables known to this EquationManager will be
+                included. If a secondary variable is specified, this will be included in
+                the returned system.
 
         Returns:
             sps.spmatrix: Jacobian matrix corresponding to the current variable state,
@@ -230,7 +242,7 @@ class EquationManager:
 
         # Data structures for building matrix and residual vector
         mat: List[sps.spmatrix] = []
-        b: List[np.ndarray] = []
+        rhs: List[np.ndarray] = []
 
         # Projection to the subset of active variables
         projection = self._column_projection(variables)
@@ -246,16 +258,17 @@ class EquationManager:
 
             # The residuals can be stored without reordering.
             # Multiply by -1 to move to the rhs
-            b.append(-ad.val)
+            rhs.append(-ad.val)
 
-        # Concatenate results. Return
+        # Concatenate results.
         if len(mat) > 0:
-            A = sps.bmat([[m] for m in mat]).tocsr()
-            rhs = np.hstack([vec for vec in b])
+            A = sps.bmat([[m] for m in mat], format="csr")
+            rhs_cat = np.hstack([vec for vec in rhs])
         else:
+            # Special case if the restriction produced an empty system.
             A = sps.csr_matrix((0, 0))
-            rhs = np.empty(0)
-        return A, rhs
+            rhs_cat = np.empty(0)
+        return A, rhs_cat
 
     def assemble_schur_complement_system(
         self,
@@ -269,17 +282,17 @@ class EquationManager:
         The specified equations and variables will define a reordering of the linearized
         system into
 
-            [J_pp, J_ps  [x_p   = [b_p
-             J_sp, J_ss]  x_s]     b_s]
+            [A_pp, A_ps  [x_p   = [b_p
+             A_sp, A_ss]  x_s]     b_s]
 
         Where subscripts p and s define primary and secondary quantities. The Schur
         complement system is then given by
 
-            (J_pp - J_ps * inv(J_ss) * J_sp) * x_p = b_p - J_ps * inv(J_pp) * b_s.
+            (A_pp - A_ps * inv(A_ss) * A_sp) * x_p = b_p - A_ps * inv(A_pp) * b_s.
 
-        The Schur complement is well defined only if the inverse of J_ss exists,
+        The Schur complement is well defined only if the inverse of A_ss exists,
         and the efficiency of the approach assumes that an efficient inverter for
-        J_ss can be found. The user must ensure both requirements are fulfilled.
+        A_ss can be found. The user must ensure both requirements are fulfilled.
         The simplest option is a lambda function on the form:
 
             inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))
@@ -296,7 +309,7 @@ class EquationManager:
                 as keys in self.equations. Should have length > 0.
             primary_variables (Sequence of Variables): Variables to be assembled. Should have
                 length > 0.
-            inverter (Callable): Method to compute the inverse of the matrix J_ss.
+            inverter (Callable): Method to compute the inverse of the matrix A_ss.
 
         Returns:
             sps.spmatrix: Jacobian matrix corresponding to the current variable state,
@@ -347,7 +360,7 @@ class EquationManager:
 
         return S, bs
 
-    def extract_subsystem(
+    def subsystem_equation_manager(
         self,
         eq_names: Sequence[str],
         variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]],
@@ -356,16 +369,17 @@ class EquationManager:
         In effect, this produce a nonlinear subsystem.
 
         Parameters:
-            eq_names (Sequence of str): Equations assigned to the new EquationManager, specified
-                as keys in self.equations.
-            variables (Sequence of Variables): Variables for which the new EquationManager is defined.
+            eq_names (Sequence of str): Equations assigned to the new EquationManager,
+                specified as keys in self.equations.
+            variables (Sequence of Variables): Variables for which the new EquationManager is
+                defined.
 
         Returns:
             EquationManager: System of nonlinear equations. The ordering of the
                 equations in the subsystem will be the same as in the original
-                set (disregarding equations not included in the subset). Variables
-                that were excluded are added to the set of secondary_variables in
-                the new EquationManager.
+                EquationManager (i.e. self),  disregarding equations not included in the
+                subset. Variables that were excluded are added to the set of
+                secondary_variables in the new EquationManager.
 
         """
         secondary_variables = self._variable_set_complement(variables)
@@ -448,9 +462,22 @@ class EquationManager:
         self,
         variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]] = None,
     ) -> List["pp.ad.Variable"]:
-        # Take the complement of a set of variables, with respect to the full set of
-        # variables. The variables are returned as atomic (merged variables are
-        # unravelled as part of the process).
+        """
+        Take the complement of a set of variables, with respect to the full set of
+        variables. The variables are returned as atomic (merged variables are
+        unravelled as part of the process).
+
+        Parameters:
+            variables (Sequence of pp.ad.Variable or pp.ad.MergedVariable, optional):
+                Variables for which the complement should be taken. If not provided,
+                all variables known to this EquationManager will be added, thus an
+                empty list will be returned.
+
+        Returns:
+            List of pp.ad.Variable: Variables known to this EquationManager which were
+            not present in the input list.
+
+        """
 
         # Unravel any merged variable
         variables = self._variables_as_list(variables)
@@ -467,12 +494,22 @@ class EquationManager:
             Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]]
         ] = None,
     ) -> List["pp.ad.Variable"]:
-        # Get a list of all variables known to this EquationManager
-        # This is a bit cumbersome, since the variables are stored as a
-        # mapping from individual GridLike to an innermapping between variable
-        # names and actual variables. To top it off, this variable can be merged,
-        # and we need the atomic variables.
+        """Unravel a list of variables into atomic (non-merged) variables.
 
+        This is a bit cumbersome, since the variables are stored as a
+        mapping from individual GridLike to an innermapping between variable
+        names and actual variables. To top it off, this variable can be merged,
+        and we need the atomic variables.
+
+        Parameters:
+            variables (Sequence of pp.ad.Variable or pp.ad.MergedVariable, optional):
+                Variables to be unravelled. If not provided, all variables known to this
+                EquationManager will be considered.
+
+        Returns:
+            List of pp.ad.Variable: Atomic form of all variables in the input list.
+
+        """
         if variables is None:
             # First get a list of all variables (single or merged)
             tmp_vars = []
