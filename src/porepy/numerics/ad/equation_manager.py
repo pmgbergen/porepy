@@ -69,15 +69,45 @@ class EquationManager:
 
         self.dof_manager: pp.DofManager = dof_manager
 
+        # Define secondary variables.
+        # Note that secondary variables will be present in self.variables; the exclusion
+        # of secondary variables happens in assembly methods.
+
+        # This gets a bit technical: Since every EquationManager makes its own set of
+        # variables with unique Ids, we should make sure the secondary variables are
+        # taken with respect to the variable set of this EquationManager. This should be
+        # okay for standard usage (although the user may abuse it, and suffer for doing so.
+        # However, when the EquationManager is formed by extracting a non-linear system,
+        # the set of secondary variables are defined from the original EquationManager,
+        # and this can create all sort of problems. Therefore translate the secondary
+        # variables into variables identified with this EquationManager.
+        #
+        # IMPLEMENTATION NOTE: The code below has not been thoroughly tested on
+        # mixed-dimensional grids.
+
         if secondary_variables is None:
             secondary_variables = []
 
-        # Unravel any MergedVariable and store as a list.
-        # Note that secondary variables will be present in self.variables; the exclusion
-        # of secondary variables happens in assembly methods.
-        self.secondary_variables: List[pp.ad.Variable] = self._variables_as_list(
-            secondary_variables
-        )
+        # Make a list of combinations of grids and names, this should form a unique
+        # classification of variables
+        secondary_grid_name = [
+            (var._g, var._name) for var in self._variables_as_list(secondary_variables)
+        ]
+        # Do the same for all variables, but make this a map to the real variable.
+        primary_grid_name = {
+            (var._g, var._name): var for var in self._variables_as_list()
+        }
+
+        # Data structure for secondary variables
+        sec_var = []
+        # Loop over all variables known to this EquationManager. If its grid-name
+        # combination is identical that of a secondary variable, we store it as a
+        # secondary variable, with the representation known to this EquationManager
+        for v in primary_grid_name:
+            if v in secondary_grid_name:
+                sec_var.append(primary_grid_name[v])
+
+        self.secondary_variables = sec_var
 
     def _set_variables(self, gb):
         # Define variables as specified in the GridBucket
