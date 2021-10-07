@@ -477,10 +477,10 @@ class Operator:
                 results[i] = res.toarray().ravel()
 
     def __repr__(self) -> str:
-        if self._name is None:
+        if self._name is None or len(self._name) == 0:
             s = "Operator with no name"
         else:
-            s = "Operator named {self._name}"
+            s = f"Operator named {self._name}"
         s += f" formed by {self.tree.op} with {len(self.tree.children)} children."
         return s
 
