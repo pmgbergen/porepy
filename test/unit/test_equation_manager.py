@@ -356,6 +356,11 @@ def test_extract_subsystem(setup, eq_names, var_names):
 
     # Check that the secondary variables are not among the active (primary) variables.
     for sec_var in new_manager.secondary_variables:
+
+        # Check that the secondary variable has a representation in a form known to the
+        # new EquationManager.
+        assert sec_var in new_manager._variables_as_list()
+
         sec_name = sec_var._name
         for vi, active_name in enumerate(var_names):
             if sec_name[0] != active_name[0]:
