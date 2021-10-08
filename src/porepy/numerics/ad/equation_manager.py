@@ -2,6 +2,7 @@
 EquationManager: representation of a set of equations on Ad form.
 """
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
+from collections import Counter
 
 import numpy as np
 import scipy.sparse as sps
@@ -580,17 +581,62 @@ class EquationManager:
             for v in self.variables[g]:
                 var.append(v)
 
-        unique_vars = list(set(var))
+        # Sort variables alphabetically, not case sensitive
+        unique_vars = sorted(list(set(var)), key=str.casefold)
         s += "Variables present on at least one grid or interface:\n\t"
         s += ", ".join(unique_vars) + "\n"
 
         if self.equations is not None:
-            eq_names = [eq._name for eq in self.equations.values()]
+            eq_names = [name for name in self.equations]
             s += f"In total {len(self.equations)} equations, with names: \n\t"
             s += ", ".join(eq_names)
 
         if len(self.secondary_variables) > 0:
             s += "\n"
             s += f"In total {len(self.secondary_variables)} secondary variables."
+
+        return s
+
+    def __str__(self) -> str:
+        s = (
+            "Equation manager for mixed-dimensional grid with "
+            f"{self.gb.num_graph_nodes()} subdomains and {self.gb.num_graph_edges()}"
+            " interfaces.\n\n"
+        )
+
+        var: Dict = {}
+        for g, _ in self.gb:
+            for v in self.variables[g]:
+                if v not in var:
+                    var[v] = []
+                var[v].append(g)
+
+        s += f"There are in total {len(var)} variables, distributed as follows:" + "\n"
+
+        # Sort variables alphabetically, not case sensitive
+        for v in sorted(var, key=str.casefold):
+            grids = var[v]
+            s += "\t" + f"{v} is present on {len(grids)}"
+            s += " subdomain(s)" if isinstance(grids[0], pp.Grid) else " interface(s)"
+            s += "\n"
+
+        if len(self.secondary_variables) > 0:
+            s += "\n"
+            # Leave a hint that any merged secondary variables have been split into subparts
+            s += (
+                f"In total {len(self.secondary_variables)} secondary variables"
+                "(having split merged variables).\n"
+                "Listing secondary variables:\n"
+            )
+            # Make a list of
+            sec_names = [v._name for v in self.secondary_variables]
+            for key, val in Counter(sec_names).items():
+                s += "\t" + f"{key} occurs on {val} subdomains or interfaces" + "\n"
+
+        s += "\n"
+        if self.equations is not None:
+            eq_names = [name for name in self.equations]
+            s += f"In total {len(self.equations)} equations, with names: \n\t"
+            s += "\n\t".join(eq_names) + "\n"
 
         return s
