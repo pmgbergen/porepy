@@ -512,12 +512,14 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
 
     tags = _define_tags(g, num_cell_layers)
 
-    name = g.name.copy()
-    name.append("Extrude 2d->3d")
-    g_info = g.name.copy()
-    g_info.append("Extrude 1d->2d")
+    name = f"{g.name} extruded 2d->3d"
 
-    g_new = pp.Grid(3, nodes, face_nodes, cell_faces, g_info, external_tags=tags)
+    g_info = g.history.copy()
+    g_info.append("Extrude 2d->3d")
+
+    g_new = pp.Grid(
+        3, nodes, face_nodes, cell_faces, name=name, history=g_info, external_tags=tags
+    )
     g_new.compute_geometry()
 
     # Mappings between old and new cells and faces
@@ -626,10 +628,11 @@ def _extrude_1d(
     tags = _define_tags(g, num_cell_layers)
 
     # We are ready to define the new grid
-    g_info = g.name.copy()
+    name = f"{g.name} extruded 1d->2d"
+    g_info = g.history.copy()
     g_info.append("Extrude 1d->2d")
 
-    g_new = pp.Grid(2, nodes, fn, cf, g_info, external_tags=tags)
+    g_new = pp.Grid(2, nodes, fn, cf, name=name, history=g_info, external_tags=tags)
     g_new.compute_geometry()
 
     if hasattr(g, "frac_num"):
@@ -676,11 +679,12 @@ def _extrude_0d(
     # Initial 1d grid. Coordinates are wrong, but this we will fix later
     # There is no need to do anything special with tags here; the tags of a 0d grid are
     # trivial, and the 1d extrusion can be based on this.
-    g_new = pp.TensorGrid(x)
+    name = f"{g.name} extruded 0d->1d"
+    g_new = pp.TensorGrid(x, name=name)
 
-    g_info = g.name.copy()
-    g_info.append("Extrude 0d->1d")
-    g_new.name = g_info
+    g_info = g.history.copy()
+    g_info.append("Extruded 0d->1d")
+    g_new.history = g_info
 
     # Update coordinates
     g_new.nodes = np.vstack((x, y, z))
