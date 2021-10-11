@@ -152,6 +152,17 @@ class EquationManagerSetup:
         else:
             raise ValueError
 
+    def block_size(self, name):
+        # Get the size of an equation block equation
+        if name == "simple":
+            return 4
+        elif name == "merged":
+            return 7
+        elif name == "combined":
+            return 4
+        else:
+            raise ValueError
+
 
 def _eliminate_columns_from_matrix(A, indices, reverse):
     # Helper method to extract submatrix by column indices
@@ -234,6 +245,10 @@ def test_secondary_variable_assembly(setup, var_names):
     assert _compare_matrices(
         A, _eliminate_columns_from_matrix(setup.A, dofs, reverse=True)
     )
+    # Check that the size of equation blocks (rows) were correctly recorded
+    assert np.allclose(
+        setup.eq_manager.row_block_indices_last_assembled, np.array([0, 4, 11, 15])
+    )
 
 
 @pytest.mark.parametrize(
@@ -282,12 +297,18 @@ def test_assemble_subsystem(setup, var_names, eq_names):
     if eq_names is None:
         # If no equations are specified, all should be included.
         rows = np.arange(15)
+        expected_blocks = np.array([0, 4, 11, 15])
     elif len(eq_names) > 0:
         # Do not sort row indices - these are allowed to change.
         rows = np.hstack([setup.eq_ind(eq) for eq in eq_names])
+        expected_blocks = np.cumsum(
+            np.hstack([0, [setup.block_size(eq) for eq in eq_names]])
+        )
     else:
         # Equations are set to empty
         rows = []
+        expected_blocks = np.array([0])
+
     if variables is None:
         # If no variables are specified, all should be included.
         cols = np.arange(18)
@@ -304,6 +325,10 @@ def test_assemble_subsystem(setup, var_names, eq_names):
     # Check matrix and vector items
     assert np.allclose(b_sub, setup.b[rows])
     assert _compare_matrices(A_sub, setup.A[rows][:, cols])
+    # Also check that the equation row sizes were correctly recorded.
+    assert np.allclose(
+        expected_blocks, setup.eq_manager.row_block_indices_last_assembled
+    )
 
 
 @pytest.mark.parametrize(
@@ -452,3 +477,10 @@ def test_schur_complement(setup, eq_var_to_exclude):
 
     assert np.allclose(bS, b_known)
     assert _compare_matrices(S, S_known)
+    # Also check that the equation row sizes were correctly recorded.
+    expected_blocks = np.cumsum(
+        np.hstack([0, [setup.block_size(eq) for eq in eq_name]])
+    )
+    assert np.allclose(
+        expected_blocks, setup.eq_manager.row_block_indices_last_assembled
+    )
