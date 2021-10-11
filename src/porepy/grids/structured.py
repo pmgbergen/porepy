@@ -6,6 +6,7 @@ Acknowledgements:
     (MRST) developed by SINTEF ICT, see www.sintef.no/projectweb/mrst/
 
 """
+from typing import Optional
 import numpy as np
 import scipy as sp
 import scipy.sparse as sps
@@ -26,7 +27,13 @@ class TensorGrid(Grid):
     """
 
     @pp.time_logger(sections=module_sections)
-    def __init__(self, x, y=None, z=None, name=None):
+    def __init__(
+        self,
+        x: np.ndarray,
+        y: Optional[np.ndarray] = None,
+        z: Optional[np.ndarray] = None,
+        name: Optional[str] = None,
+    ) -> None:
         """
         Constructor for 1D or 2D or 3D tensor grid
 
@@ -47,15 +54,15 @@ class TensorGrid(Grid):
         if y is None:
             nodes, face_nodes, cell_faces = self._create_1d_grid(x)
             self.cart_dims = np.array([x.size - 1])
-            super(TensorGrid, self).__init__(1, nodes, face_nodes, cell_faces, name)
+            super().__init__(1, nodes, face_nodes, cell_faces, name)
         elif z is None:
             nodes, face_nodes, cell_faces = self._create_2d_grid(x, y)
             self.cart_dims = np.array([x.size, y.size]) - 1
-            super(TensorGrid, self).__init__(2, nodes, face_nodes, cell_faces, name)
+            super().__init__(2, nodes, face_nodes, cell_faces, name)
         else:
             nodes, face_nodes, cell_faces = self._create_3d_grid(x, y, z)
             self.cart_dims = np.array([x.size, y.size, z.size]) - 1
-            super(TensorGrid, self).__init__(3, nodes, face_nodes, cell_faces, name)
+            super().__init__(3, nodes, face_nodes, cell_faces, name)
 
     @pp.time_logger(sections=module_sections)
     def _create_1d_grid(self, nodes_x):
@@ -299,7 +306,7 @@ class CartGrid(TensorGrid):
     """
 
     @pp.time_logger(sections=module_sections)
-    def __init__(self, nx, physdims=None):
+    def __init__(self, nx: np.ndarray, physdims: Optional[np.ndarray] = None) -> None:
         """
         Constructor for Cartesian grid
 
@@ -340,19 +347,19 @@ class CartGrid(TensorGrid):
         # TensorGrid constructor
         if len(dims) == 0:
             nodes_x = xmin + np.linspace(0, physdims, nx + 1)
-            super(self.__class__, self).__init__(nodes_x, name=name)
+            super().__init__(nodes_x, name=name)
         elif dims[0] == 1:
             nodes_x = np.linspace(0, physdims, nx[0] + 1).ravel()
-            super(self.__class__, self).__init__(nodes_x, name=name)
+            super().__init__(nodes_x, name=name)
         elif dims[0] == 2:
             nodes_x = xmin + np.linspace(0, physdims[0], nx[0] + 1)
             nodes_y = ymin + np.linspace(0, physdims[1], nx[1] + 1)
-            super(self.__class__, self).__init__(nodes_x, nodes_y, name=name)
+            super().__init__(nodes_x, nodes_y, name=name)
         elif dims[0] == 3:
             nodes_x = xmin + np.linspace(0, physdims[0], nx[0] + 1)
             nodes_y = ymin + np.linspace(0, physdims[1], nx[1] + 1)
             nodes_z = zmin + np.linspace(0, physdims[2], nx[2] + 1)
-            super(self.__class__, self).__init__(nodes_x, nodes_y, nodes_z, name=name)
+            super().__init__(nodes_x, nodes_y, nodes_z, name=name)
         else:
             raise ValueError(
                 "Cartesian grid only implemented for up to three \
