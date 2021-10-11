@@ -37,6 +37,12 @@ class EquationManager:
             Variables will be represented on atomic form, that is, merged variables are
             unravelled. Secondary variables act as a filter during assembly, that is,
             they do not impact the ordering or treatment of variables.
+        row_block_indices_last_assembled (np.ndarray): Row indices for the start of blocks
+            corresponding to different equations in the last assembled system. The last item
+            in the array is the total number of rows, so that row indices for block i can
+            be recovered by np.arange(row_bl..[i], row_bl..[i+1]). The user must relate the
+            indices to equations (either in self.equations or a on equations given to the
+            relevant assembly method). This information is intended for diagnostic usage.
 
     """
 
@@ -109,6 +115,10 @@ class EquationManager:
                 sec_var.append(primary_grid_name[v])
 
         self.secondary_variables = sec_var
+
+        # Start index for blocks corresponding to rows of the different equations.
+        # Defaults to None, will be overwritten by assembly methods.
+        self.row_block_indices_last_assembled: Optional[np.ndarray] = None
 
     def _set_variables(self, gb):
         # Define variables as specified in the GridBucket
@@ -200,6 +210,8 @@ class EquationManager:
         mat: List[sps.spmatrix] = []
         rhs: List[np.ndarray] = []
 
+        ind_start = [0]
+
         # Iterate over equations, assemble.
         for eq in self.equations.values():
             ad = eq.evaluate(self.dof_manager, state)
@@ -207,6 +219,7 @@ class EquationManager:
             mat.append(ad.jac)
             # Multiply by -1 to move to the rhs
             rhs.append(-ad.val)
+            ind_start.append(ind_start[-1] + ad.val.size)
 
         # The system assembled in the for-loop above contains derivatives for both
         # primary and secondary variables, where the primary is understood as the
@@ -228,6 +241,9 @@ class EquationManager:
         # The right hand side vector. This should have contributions form both primary
         # and secondary variables, thus no need to modify it before concatenation.
         rhs_cat = np.hstack([vec for vec in rhs])
+
+        # Store information on start of each block
+        self.row_block_indices_last_assembled = np.array(ind_start)
 
         return A, rhs_cat
 
@@ -278,6 +294,8 @@ class EquationManager:
         # Projection to the subset of active variables
         projection = self._column_projection(variables)
 
+        ind_start = [0]
+
         # Iterate over equations, assemble.
         for name in eq_names:
             eq = self.equations[name]
@@ -291,6 +309,8 @@ class EquationManager:
             # Multiply by -1 to move to the rhs
             rhs.append(-ad.val)
 
+            ind_start.append(ind_start[-1] + ad.val.size)
+
         # Concatenate results.
         if len(mat) > 0:
             A = sps.bmat([[m] for m in mat], format="csr")
@@ -299,6 +319,10 @@ class EquationManager:
             # Special case if the restriction produced an empty system.
             A = sps.csr_matrix((0, 0))
             rhs_cat = np.empty(0)
+
+        # Store information on start of each block
+        self.row_block_indices_last_assembled = np.array(ind_start)
+
         return A, rhs_cat
 
     def assemble_schur_complement_system(
@@ -369,8 +393,10 @@ class EquationManager:
         )
 
         # First assemble the primary and secondary equations for all variables
-        A_p, b_p = self.assemble_subsystem(primary_equations, all_variables)
+        # Note the reverse order here: Assemble the primary variables last so that
+        # the attribute row_block_indices_last_assembled is set correctly.
         A_s, b_s = self.assemble_subsystem(secondary_equations, all_variables)
+        A_p, b_p = self.assemble_subsystem(primary_equations, all_variables)
 
         # Projection matrices to reduce matrices to the relevant columns
         proj_primary = self._column_projection(primary_variables)
@@ -611,7 +637,10 @@ class EquationManager:
                     var[v] = []
                 var[v].append(g)
 
-        s += f"There are in total {len(var)} variables, distributed as follows:" + "\n"
+        s += (
+            f"There are in total {len(var)} variables, distributed as follows "
+            "(sorted alphabetically):\n"
+        )
 
         # Sort variables alphabetically, not case sensitive
         for v in sorted(var, key=str.casefold):
