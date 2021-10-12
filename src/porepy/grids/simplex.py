@@ -231,9 +231,9 @@ class TetrahedralGrid(Grid):
         # Transform points to column vector if necessary (scipy.Delaunay
         # requires this format)
         if tet is None:
-            tet = scipy.spatial.Delaunay(p.transpose())
-            tet = tet.simplices
-            tet = tet.transpose()
+            tessalation = scipy.spatial.Delaunay(p.transpose())
+            tet = tessalation.simplices.transpose()
+
 
         if name is None:
             name = "TetrahedralGrid"
@@ -244,7 +244,9 @@ class TetrahedralGrid(Grid):
         assert num_nodes > 3  # Check of transposes of point array
 
         num_cells = tet.shape[1]
-        tet = self.__permute_nodes(p, tet)
+        tet = self._permute_nodes(p, tet)
+        # This is apparently needed to appease mypy
+        assert tet is not None
 
         # Define face-nodes so that the first column contains fn of cell 0,
         # etc.
@@ -291,8 +293,8 @@ class TetrahedralGrid(Grid):
         super().__init__(3, nodes, face_nodes, cell_faces, "TetrahedralGrid")
 
     @pp.time_logger(sections=module_sections)
-    def __permute_nodes(self, p, t):
-        v = self.__triple_product(p, t)
+    def _permute_nodes(self, p: np.ndarray, t: np.ndarray) -> np.ndarray:
+        v = self._triple_product(p, t)
         permute = np.where(v > 0)[0]
         if t.ndim == 1:
             if permute[0]:
@@ -302,7 +304,7 @@ class TetrahedralGrid(Grid):
         return t
 
     @pp.time_logger(sections=module_sections)
-    def __triple_product(self, p, t):
+    def _triple_product(self, p: np.ndarray, t: np.ndarray) -> np.ndarray:
         px = p[0]
         py = p[1]
         pz = p[2]

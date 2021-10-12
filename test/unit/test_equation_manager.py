@@ -110,18 +110,22 @@ class EquationManagerSetup:
         # For a given variable, get the global indices assigned by
         # the DofManager. Based on knowledge of how the variables were
         # defined in self.__init__
+
+        def inds(g, n):
+            return dof_manager.grid_and_variable_dofs(g, n)
+
         dof_manager = self.eq_manager.dof_manager
         if var == self.x1:
-            return dof_manager.dof_ind(self.x1._g, self.x1._name)
+            return inds(self.x1._g, self.x1._name)
 
         elif var == self.x2:
-            return dof_manager.dof_ind(self.x2._g, self.x1._name)
+            return inds(self.x2._g, self.x1._name)
 
         elif var == self.x_merged:
             dofs = np.hstack(
                 [
-                    dof_manager.dof_ind(self.g1, self.x_merged._name),
-                    dof_manager.dof_ind(self.g2, self.x_merged._name),
+                    inds(self.g1, self.x_merged._name),
+                    inds(self.g2, self.x_merged._name),
                 ]
             )
             return dofs
@@ -129,14 +133,14 @@ class EquationManagerSetup:
         elif var == self.y_merged:
             dofs = np.hstack(
                 [
-                    dof_manager.dof_ind(self.g1, self.y_merged._name),
-                    dof_manager.dof_ind(self.g2, self.y_merged._name),
+                    inds(self.g1, self.y_merged._name),
+                    inds(self.g2, self.y_merged._name),
                 ]
             )
             return dofs
 
         elif var == self.z1:
-            return dof_manager.dof_ind(self.z1._g, self.z1._name)
+            return inds(self.z1._g, self.z1._name)
         else:
             raise ValueError
 

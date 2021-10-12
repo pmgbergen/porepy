@@ -210,13 +210,15 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> Tuple[pp.TriangleGrid, np.ndarra
     new_tri = new_tri.reshape((nd + 1, (nd + 2) * g.num_cells))
 
     # The new grid inherits the history of the old one.
-    name = g.name.copy()
-    name.append("Refinement")
+    history = g.history.copy()
+    history.append("Refinement")
 
     # Also create mapping from refined to parent cells
     parent = np.tile(np.arange(g.num_cells), g.dim + 2)
 
-    return TriangleGrid(new_nodes, tri=new_tri, name=name), parent
+    new_grid = TriangleGrid(new_nodes, tri=new_tri, name=g.name)
+    new_grid.history = history
+    return new_grid, parent
 
 
 @pp.time_logger(sections=module_sections)

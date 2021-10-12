@@ -73,7 +73,8 @@ class TestGridRefinement2dSimplex(unittest.TestCase):
             self.num_cells = 1
             self.num_nodes = 3
             self.dim = 2
-            self.name = ["OneGrid"]
+            self.history = ["OneGrid"]
+            self.name = "GridWithOneCell"
 
     class TwoCellsGrid:
         def __init__(self):
@@ -97,7 +98,8 @@ class TestGridRefinement2dSimplex(unittest.TestCase):
             self.num_cells = 2
             self.num_nodes = 4
             self.dim = 2
-            self.name = ["TwoGrid"]
+            self.history = ["TwoGrid"]
+            self.name = "GridWithTwoCells"
 
     def test_refinement_single_cell(self):
         g = self.OneCellGrid()
@@ -132,7 +134,6 @@ class TestGridRefinement2dSimplex(unittest.TestCase):
         self.assertTrue(np.sum(parent == 0) == 4)
         self.assertTrue(np.sum(parent == 1) == 4)
         self.assertTrue(np.allclose(np.bincount(parent, h.cell_volumes), 0.5))
-
 
 
 """ EK: I can no longer recall the intention behind these tests - they seem to
@@ -271,7 +272,6 @@ class TestRefinementGridBucket(unittest.TestCase):
         for _, d in gb.edges():
             self.assertTrue(np.allclose(d["face_cells"].todense(), known_face_cells))
 """
-
 
 
 class TestRefinementMortarGrid(unittest.TestCase):

@@ -10,23 +10,35 @@ import porepy as pp
 csc_or_csr_matrix = Union[sps.csc_matrix, sps.csr_matrix]
 
 
+__all__ = ["DofManager"]
+
+GridLike = Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
+
+
 class DofManager:
     """
-    block_dof: Is a dictionary with keys that are either
-        Tuple[pp.Grid, variable_name: str] for nodes in the GridBucket, or
-        Tuple[Tuple[pp.Grid, pp.Grid], str] for edges in the GridBucket.
 
-        The values in block_dof are integers 0, 1, ..., that identify the block
-        index of this specific grid (or edge) - variable combination.
+    Attributes:
+        block_dof: Is a dictionary with keys that are either
+            Tuple[pp.Grid, variable_name: str] for nodes in the GridBucket, or
+            Tuple[Tuple[pp.Grid, pp.Grid], str] for edges in the GridBucket.
 
-    full_dof: Is a np.ndarray of int that store the number of degrees of
-        freedom per key-item pair in block_dof. Thus
-          len(full_dof) == len(block_dof).
-        The total size of the global system is full_dof.sum()
+            The values in block_dof are integers 0, 1, ..., that identify the block
+            index of this specific grid (or edge) - variable combination.
+        full_dof: Is a np.ndarray of int that store the number of degrees of
+            freedom per key-item pair in block_dof. Thus
+              len(full_dof) == len(block_dof).
+            The total size of the global system is full_dof.sum()
 
     """
 
     def __init__(self, gb: pp.GridBucket) -> None:
+        """Set up a DofManager for a mixed-dimensional grid.
+
+        Parameters:
+            gb (pp.GridBucket): GridBucket representing the mixed-dimensional grid.
+
+        """
 
         self.gb = gb
 
@@ -80,26 +92,22 @@ class DofManager:
 
         # Array version of the number of dofs per node/edge and variable
         self.full_dof: np.ndarray = np.array(full_dof)
-        self.block_dof: Dict[
-            Tuple[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], str], int
-        ] = block_dof
+        self.block_dof: Dict[Tuple[GridLike, str], int] = block_dof
 
-    def dof_ind(
-        self, g: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], name: str
-    ) -> np.ndarray:
+    def grid_and_variable_dofs(self, g: GridLike, variable: str) -> np.ndarray:
         """Get the indices in the global system of variables associated with a
         given node / edge (in the GridBucket sense) and a given variable.
 
         Parameters:
             g (pp.Grid or pp.GridBucket edge): Either a grid, or an edge in the
                 GridBucket.
-            name (str): Name of a variable. Should be an active variable.
+           variables (str): Name of a variable.
 
         Returns:
             np.array (int): Index of degrees of freedom for this variable.
 
         """
-        block_ind = self.block_dof[(g, name)]
+        block_ind = self.block_dof[(g, variable)]
         dof_start = np.hstack((0, np.cumsum(self.full_dof)))
         return np.arange(dof_start[block_ind], dof_start[block_ind + 1])
 
