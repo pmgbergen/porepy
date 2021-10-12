@@ -137,9 +137,9 @@ class ContactMechanics(AbstractModel):
         """
         size = self.assembler.num_dof()
         state = np.zeros(size)
-        for g, var in self.dof_manager.block_dof.keys():
-            # Index of
-            ind = self.dof_manager.dof_ind(g, var)
+        for g, var in self.dof_manager.block_dof:
+            # Index of this grid-variable combination
+            ind = self.dof_manager.grid_and_variable_dofs(g, var)
 
             if isinstance(g, tuple):
                 if use_iterate:
@@ -227,7 +227,9 @@ class ContactMechanics(AbstractModel):
             error = np.nan if diverged else 0
             return error, converged, diverged
 
-        mech_dof = self.dof_manager.dof_ind(g_max, self.displacement_variable)
+        mech_dof = self.dof_manager.grid_and_variable_dofs(
+            g_max, self.displacement_variable
+        )
 
         # Also find indices for the contact variables
         contact_dof = np.array([], dtype=int)
@@ -236,7 +238,9 @@ class ContactMechanics(AbstractModel):
                 contact_dof = np.hstack(
                     (
                         contact_dof,
-                        self.dof_manager.dof_ind(e[1], self.contact_traction_variable),
+                        self.dof_manager.grid_and_variable_dofs(
+                            e[1], self.contact_traction_variable
+                        ),
                     )
                 )
 
