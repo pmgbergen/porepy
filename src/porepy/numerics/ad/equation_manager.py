@@ -179,7 +179,7 @@ class EquationManager:
         # This should likely be placed somewhere else
         values: List[np.ndarray] = []
         for item in grid_var:
-            ind: np.ndarray = self.dof_manager.dof_ind(*item)
+            ind: np.ndarray = self.dof_manager.grid_and_variable_dofs(*item)
             values.append(state[ind])
 
         return values
@@ -498,7 +498,7 @@ class EquationManager:
 
         # Loop over variables, find dofs
         for v in variables:
-            inds.append(self.dof_manager.dof_ind(v._g, v._name))
+            inds.append(self.dof_manager.grid_and_variable_dofs(v._g, v._name))
 
         if len(inds) == 0:
             # Special case if no indices were returned

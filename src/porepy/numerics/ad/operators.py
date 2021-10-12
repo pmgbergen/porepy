@@ -161,14 +161,18 @@ class Operator:
                 # Loop over all subvariables for the merged variable
                 for i, sub_var in enumerate(variable.sub_vars):
                     # Store dofs
-                    ind_var.append(dof_manager.dof_ind(sub_var._g, sub_var._name))
+                    ind_var.append(
+                        dof_manager.grid_and_variable_dofs(sub_var._g, sub_var._name)
+                    )
                     if i == 0:
                         # Store id of variable, but only for the first one; we will
                         # concatenate the arrays in ind_var into one array
                         variable_ids.append(variable.id)
             else:
                 # This is a variable that lives on a single grid
-                ind_var.append(dof_manager.dof_ind(variable._g, variable._name))
+                ind_var.append(
+                    dof_manager.grid_and_variable_dofs(variable._g, variable._name)
+                )
                 variable_ids.append(variable.id)
 
             # Gather all indices for this variable
@@ -612,7 +616,7 @@ class Operator:
 
         assert state is not None
         for (g, var) in dof_manager.block_dof:
-            ind = dof_manager.dof_ind(g, var)
+            ind = dof_manager.grid_and_variable_dofs(g, var)
             if isinstance(g, tuple):
                 prev_vals[ind] = gb.edge_props(g, pp.STATE)[var]
             else:
