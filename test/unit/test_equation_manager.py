@@ -112,7 +112,7 @@ class EquationManagerSetup:
         # defined in self.__init__
 
         def inds(g, n):
-            return dof_manager.grid_and_variable_dofs(g, n)
+            return dof_manager.grid_and_variable_to_dofs(g, n)
 
         dof_manager = self.eq_manager.dof_manager
         if var == self.x1:

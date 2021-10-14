@@ -806,12 +806,12 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
 
         # Define and initialize a state vector
         x = np.zeros(dof_manager.full_dof.sum())
-        x[dof_manager.grid_and_variable_dofs(g_2d, self.cv2)] = cell_val_2d
+        x[dof_manager.grid_and_variable_to_dofs(g_2d, self.cv2)] = cell_val_2d
         for g in g_1d:
-            x[dof_manager.grid_and_variable_dofs(g, self.cv1)] = cell_val_1d[g]
-            x[dof_manager.grid_and_variable_dofs((g_2d, g), self.mv)] = cell_val_mortar[
-                g
-            ]
+            x[dof_manager.grid_and_variable_to_dofs(g, self.cv1)] = cell_val_1d[g]
+            x[
+                dof_manager.grid_and_variable_to_dofs((g_2d, g), self.mv)
+            ] = cell_val_mortar[g]
 
         # Keep track of the previous values for each grid.
         # Not needed in 2d, where no updates are expected
@@ -833,7 +833,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
             # The values of the 2d cell should not change
             self.assertTrue(
                 np.all(
-                    x_new[dof_manager.grid_and_variable_dofs(g_2d, self.cv2)]
+                    x_new[dof_manager.grid_and_variable_to_dofs(g_2d, self.cv2)]
                     == cell_val_2d
                 )
             )
@@ -850,7 +850,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 num_new_cells = split[g].size
 
                 # mapped variable
-                x_1d = x_new[dof_manager.grid_and_variable_dofs(g, self.cv1)]
+                x_1d = x_new[dof_manager.grid_and_variable_to_dofs(g, self.cv1)]
 
                 # Extension of the 1d grid. All values should be 42 (see propagation class)
                 extended_1d = np.full(var_sz_1d * num_new_cells, 42)
@@ -871,18 +871,22 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 # next step. To be sure values from the first propagation are mapped
                 # correctly, we alter the true value (add 1), and update this both in
                 # the solution vector, state and previous iterate
-                x_new[dof_manager.grid_and_variable_dofs(g, self.cv1)] = np.r_[
+                x_new[dof_manager.grid_and_variable_to_dofs(g, self.cv1)] = np.r_[
                     val_1d_prev[g], extended_1d + 1
                 ]
-                val_1d_prev[g] = x_new[dof_manager.grid_and_variable_dofs(g, self.cv1)]
+                val_1d_prev[g] = x_new[
+                    dof_manager.grid_and_variable_to_dofs(g, self.cv1)
+                ]
                 d[pp.STATE][self.cv1] = x_new[
-                    dof_manager.grid_and_variable_dofs(g, self.cv1)
+                    dof_manager.grid_and_variable_to_dofs(g, self.cv1)
                 ]
                 val_1d_iterate_prev[g] = np.r_[val_1d_iterate_prev[g], extended_1d + 1]
                 d[pp.STATE][pp.ITERATE][self.cv1] = val_1d_iterate_prev[g]
 
                 ## Check mortar grid - see 1d case above for comments
-                x_mortar = x_new[dof_manager.grid_and_variable_dofs((g_2d, g), self.mv)]
+                x_mortar = x_new[
+                    dof_manager.grid_and_variable_to_dofs((g_2d, g), self.mv)
+                ]
 
                 sz = int(np.round(val_mortar_prev[g].size / 2))
 
@@ -908,14 +912,16 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                     np.all(d[pp.STATE][pp.ITERATE][self.mv] == truth_iterate)
                 )
 
-                x_new[dof_manager.grid_and_variable_dofs((g_2d, g), self.mv)] = np.r_[
+                x_new[
+                    dof_manager.grid_and_variable_to_dofs((g_2d, g), self.mv)
+                ] = np.r_[
                     val_mortar_prev[g][:sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
                     val_mortar_prev[g][sz : 2 * sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
                 ]
                 val_mortar_prev[g] = x_new[
-                    dof_manager.grid_and_variable_dofs((g_2d, g), self.mv)
+                    dof_manager.grid_and_variable_to_dofs((g_2d, g), self.mv)
                 ]
                 val_mortar_iterate_prev[g] = np.r_[
                     val_mortar_iterate_prev[g][:sz],
