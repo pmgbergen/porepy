@@ -369,7 +369,9 @@ def _block_reordering(eq_names, dof_manager, eqn_manager):
 
     assert len(keys) == len(dof_manager.block_dof)
 
-    new_ind = np.hstack([dof_manager.grid_and_variable_dofs(k[0], k[1]) for k in keys])
+    new_ind = np.hstack(
+        [dof_manager.grid_and_variable_to_dofs(k[0], k[1]) for k in keys]
+    )
     return new_ind
 
 
