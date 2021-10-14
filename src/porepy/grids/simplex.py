@@ -7,6 +7,7 @@ Acknowledgements:
 
 """
 from typing import Optional
+
 import numpy as np
 import scipy.sparse as sps
 import scipy.spatial
@@ -233,7 +234,6 @@ class TetrahedralGrid(Grid):
         if tet is None:
             tessalation = scipy.spatial.Delaunay(p.transpose())
             tet = tessalation.simplices.transpose()
-
 
         if name is None:
             name = "TetrahedralGrid"
