@@ -162,7 +162,7 @@ class Operator:
                 for i, sub_var in enumerate(variable.sub_vars):
                     # Store dofs
                     ind_var.append(
-                        dof_manager.grid_and_variable_dofs(sub_var._g, sub_var._name)
+                        dof_manager.grid_and_variable_to_dofs(sub_var._g, sub_var._name)
                     )
                     if i == 0:
                         # Store id of variable, but only for the first one; we will
@@ -171,7 +171,7 @@ class Operator:
             else:
                 # This is a variable that lives on a single grid
                 ind_var.append(
-                    dof_manager.grid_and_variable_dofs(variable._g, variable._name)
+                    dof_manager.grid_and_variable_to_dofs(variable._g, variable._name)
                 )
                 variable_ids.append(variable.id)
 
@@ -616,7 +616,7 @@ class Operator:
 
         assert state is not None
         for (g, var) in dof_manager.block_dof:
-            ind = dof_manager.grid_and_variable_dofs(g, var)
+            ind = dof_manager.grid_and_variable_to_dofs(g, var)
             if isinstance(g, tuple):
                 prev_vals[ind] = gb.edge_props(g, pp.STATE)[var]
             else:

@@ -758,10 +758,10 @@ class ContactModel2d(ContactMechanics):
 
         A, b = assembler.assemble_matrix_rhs()
 
-        dof_mortar = dof_manager.grid_and_variable_dofs(
+        dof_mortar = dof_manager.grid_and_variable_to_dofs(
             self.edge, self.mortar_displacement_variable
         )
-        dof_contact = dof_manager.grid_and_variable_dofs(
+        dof_contact = dof_manager.grid_and_variable_to_dofs(
             self.g1, self.contact_traction_variable
         )
 

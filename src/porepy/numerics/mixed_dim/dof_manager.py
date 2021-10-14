@@ -94,7 +94,7 @@ class DofManager:
         self.full_dof: np.ndarray = np.array(full_dof)
         self.block_dof: Dict[Tuple[GridLike, str], int] = block_dof
 
-    def grid_and_variable_dofs(self, g: GridLike, variable: str) -> np.ndarray:
+    def grid_and_variable_to_dofs(self, g: GridLike, variable: str) -> np.ndarray:
         """Get the indices in the global system of variables associated with a
         given node / edge (in the GridBucket sense) and a given variable.
 
