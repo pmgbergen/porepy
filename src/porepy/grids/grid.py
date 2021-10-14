@@ -213,9 +213,9 @@ class Grid:
         """
         s = f"Grid with name {self.name}" + "\n"
         s = "Grid history: " + ", ".join(self.history) + "\n"
-        s += s + "Number of cells " + str(self.num_cells) + "\n"
-        s += s + "Number of faces " + str(self.num_faces) + "\n"
-        s += s + "Number of nodes " + str(self.num_nodes) + "\n"
+        s += "Number of cells " + str(self.num_cells) + "\n"
+        s += "Number of faces " + str(self.num_faces) + "\n"
+        s += "Number of nodes " + str(self.num_nodes) + "\n"
         s += "Dimension " + str(self.dim)
         return s
 
