@@ -1391,7 +1391,7 @@ class Assembler:
                 will be distributed
 
         """
-        self._dof_manager.distribute_variable(values, variable_names)
+        self._dof_manager.distribute_variable(values, variables=variable_names)
 
     @pp.time_logger(sections=module_sections)
     def num_dof(self) -> int:

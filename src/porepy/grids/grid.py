@@ -11,8 +11,9 @@ Acknowledgements:
 
 """
 from __future__ import annotations
+
 import itertools
-from typing import Dict, List, Tuple, Union, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from scipy import sparse as sps

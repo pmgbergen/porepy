@@ -1,8 +1,8 @@
 """ Main content:
 EquationManager: representation of a set of equations on Ad form.
 """
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 from collections import Counter
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps

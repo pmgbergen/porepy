@@ -1,8 +1,9 @@
 """ Implementation of a degree of freedom manager.
 """
 from __future__ import annotations
+
 import itertools
-from typing import Dict, List, Optional, Tuple, Union, Literal
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -412,7 +413,7 @@ class DofManager:
             else:
                 data = self.gb.node_props(g)
 
-            if not pp.STATE in data:
+            if pp.STATE not in data:
                 data[pp.STATE] = {}
 
             vals = values[dof_ind]
