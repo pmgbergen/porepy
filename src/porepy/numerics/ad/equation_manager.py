@@ -99,7 +99,8 @@ class EquationManager:
         secondary_grid_name = [
             (var._g, var._name) for var in self._variables_as_list(secondary_variables)
         ]
-        # Do the same for all variables, but make this a map to the atomic (non-merged) variable.
+        # Do the same for all variables, but make this a map to the atomic (non-merged)
+        # variable.
         primary_grid_name = {
             (var._g, var._name): var for var in self._variables_as_list()
         }
