@@ -122,7 +122,7 @@ class Grid:
         nodes (np.ndarray): node coordinates.
         face_nodes (sps.csc_matrix): Face-node relations.
         cell_faces (sps.csc_matrix): Cell-face relations
-        history (str or list of str)
+        history (str or list of str): Information on the formation of the grid.
         name (str): Name of grid
         tags (dict): Tags for nodes and grids. Will be constructed if not provided.
         """
