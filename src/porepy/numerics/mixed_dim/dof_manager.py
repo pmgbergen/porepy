@@ -388,12 +388,12 @@ class DofManager:
                 values coresponds to that implied in self._block_dof and self._full_dof.
                 Should have size self.num_dofs(), thus projections from subsets of
                 variables must be done before calling this function.
-            grids (list of grids or grid tuples (interfaces), optional): Names of the
-                grids and edges to be distributed. If not provided, all grids and edges
-                found in self._block_dof will be distributed.
-            variables (list of str, optional): Names of the variable to be
-                distributed. If not provided, all variables found in self._block_dof
-                will be distributed
+            grids (list of grids or grid tuples (interfaces), optional): The subdomains
+                and interfaces to be considered. If not provided, all grids and edges
+                found in self.block_dof will be considered.
+            variables (list of str, optional): Names of the variables to be
+                distributed. If not provided, all variables found in self.block_dof
+                will be considered.
             additive (bool, optional): If True, the variables are added to the current
                 state or iterate, instead of overwrite the existing value.
             to_iterate (bool, optional): If True, distribute to iterates, and not the
@@ -444,19 +444,18 @@ class DofManager:
         variables: Optional[List[str]] = None,
         from_iterate: bool = False,
     ) -> np.ndarray:
-        """Assemble a vector from the variable state stored in nodes and edges in the GridBucket.
-        The intended use is to split a multi-physics solution vector into its
-        component parts.
+        """Assemble a vector from the variable state stored in nodes and edges in
+        the GridBucket.
 
         Parameters:
             grids (list of grids or grid tuples (interfaces), optional): Names of the
-                variable to be distributed. If not provided, all variables found in
-                self._block_dof will be distributed.
-            variables (list of str, optional): Names of the variable to be
-                distributed. If not provided, all variables found in self._block_dof
-                will be distributed
-            to_iterate (bool, optional): If True, distribute to iterates, and not the
-                state itself. Set to True inside a non-linear scheme (Newton), False
+                grids (both subdomains and interfaces) to be assembled from. If not provided,
+                all variables found in self.block_dof will be considered.
+            variables (list of str, optional): Names of the variables to be
+                assembled. If not provided, all variables found in self.block_dof
+                will be cosidered.
+            to_iterate (bool, optional): If True, assemble from iterates, and not the
+                state itself. Set this to True inside a non-linear scheme (Newton), False
                 at the end of a time step.
 
         Returns:
