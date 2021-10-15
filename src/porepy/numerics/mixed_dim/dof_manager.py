@@ -38,10 +38,10 @@ class DofManager:
 
             The values in block_dof are integers 0, 1, ..., that identify the block
             index of this specific grid (or edge) - variable combination.
-        full_dof: Is a np.ndarray of int that store the number of degrees of
+        full_dof: Is a np.ndarray of int that stores the number of degrees of
             freedom per key-item pair in block_dof. Thus
               len(full_dof) == len(block_dof).
-            The total size of the global system is full_dof.sum()
+            The total size of the global system is self.num_dofs() = full_dof.sum().
 
     """
 
@@ -112,7 +112,7 @@ class DofManager:
         given node / edge (in the GridBucket sense) and a given variable.
 
         Parameters:
-            g (pp.Grid or pp.GridBucket edge): Either a grid, or an edge in the
+            g (pp.Grid or pp.GridBucket edge): Either a grid or an edge in the
                 GridBucket.
            variables (str): Name of a variable.
 
@@ -137,7 +137,7 @@ class DofManager:
 
         This function is intended mainly for inquiries into the ordering of blocks
         in systems with multiple variables and/or grids. The results can be returned
-        in as variables or a strings. Both options come with options for sorting of
+        as variables or a string. Both options come with options for sorting of
         the output.
 
         Parameters:
@@ -146,16 +146,16 @@ class DofManager:
                 assigned variables will be considered.
             variables (str): Name of variables. If not provided, all variables assigned
                 to at least one grid or variable will be considered).
-            sort_by (str): Should take values 'grids', 'variables' or an empty str (default).
-                If either grids or variables are specified, the return argument will be
-                sorted according to the corresponding type.
+            sort_by (str): Should take one of the values 'grids', 'variables' or an empty
+                str (default). If either grids or variables is specified, the return
+                 argument will be sorted according to the corresponding type.
             return_str (bool): If True, information will be returned as a string instead
                 of as variables.
 
         Returns:
-            Information on the range of for grid-variable combinations. The format will
+            Information on the range for grid-variable combinations. The format will
             depend on the value of sort_by: If set to grids, a dictionary with grids as
-            keys will be returned, corresponding for variables. If not specified, unsorted
+            keys will be returned, correspondingly for variables. If not specified, unsorted
             grid-variable combinations are returned.
             If return_str is True, the information will instead be returned as a string,
             with formatting determined on the value of sort_by.
@@ -170,7 +170,7 @@ class DofManager:
         # The iteration strategy depends on the specified output format, given by
         # the value of sort_by.
         pairs: Dict = {}
-        # Match-switch, but we're not yet at Python 3.10
+        # TODO: Match-switch, but we're not yet at Python 3.10
         if sort_by == "grids":
             for g in grids:
                 this_g = {}
@@ -324,7 +324,7 @@ class DofManager:
 
         This method is primarily intended used when equations are assembled with an
         Assembler object. If you use the newer Ad framework (recommended), the
-        Ad machinery, and in particular the EquationManager can deliver subsystems in
+        Ad machinery, and in particular the EquationManager, can deliver subsystems in a
         better way.
 
         Parameters:
@@ -389,8 +389,8 @@ class DofManager:
                 Should have size self.num_dofs(), thus projections from subsets of
                 variables must be done before calling this function.
             grids (list of grids or grid tuples (interfaces), optional): Names of the
-                variable to be distributed. If not provided, all variables found in
-                self._block_dof will be distributed.
+                grids and edges to be distributed. If not provided, all grids and edges
+                found in self._block_dof will be distributed.
             variables (list of str, optional): Names of the variable to be
                 distributed. If not provided, all variables found in self._block_dof
                 will be distributed
@@ -407,6 +407,7 @@ class DofManager:
         if variables is None:
             variables = list(set([key[1] for key in self.block_dof]))
 
+        # Loop over grid-variable combinations and update data in pp.STATE or pp.ITERATE
         for g, var in itertools.product(grids, variables):
             if (g, var) not in self.block_dof:
                 continue
@@ -443,8 +444,7 @@ class DofManager:
         variables: Optional[List[str]] = None,
         from_iterate: bool = False,
     ) -> np.ndarray:
-        """Distribute a vector to the nodes and edges in the GridBucket.
-
+        """Assemble a vector from the variable state stored in nodes and edges in the GridBucket.
         The intended use is to split a multi-physics solution vector into its
         component parts.
 

@@ -41,7 +41,7 @@ class EquationManager:
             corresponding to different equations in the last assembled system. The last item
             in the array is the total number of rows, so that row indices for block i can
             be recovered by np.arange(row_bl..[i], row_bl..[i+1]). The user must relate the
-            indices to equations (either in self.equations or a on equations given to the
+            indices to equations (either in self.equations or the equation list given to the
             relevant assembly method). This information is intended for diagnostic usage.
 
     """
@@ -83,12 +83,11 @@ class EquationManager:
         # This gets a bit technical: Since every EquationManager makes its own set of
         # variables with unique Ids, we should make sure the secondary variables are
         # taken with respect to the variable set of this EquationManager. This should be
-        # okay for standard usage (although the user may abuse it, and suffer for doing so.
-        # However, when the EquationManager is formed by extracting a non-linear system,
+        # okay for standard usage (although the user may abuse it, and suffer for doing so).
+        # However, when the EquationManager is formed by extracting a subsystem,
         # the set of secondary variables are defined from the original EquationManager,
         # and this can create all sort of problems. Therefore translate the secondary
         # variables into variables identified with this EquationManager.
-        #
         # IMPLEMENTATION NOTE: The code below has not been thoroughly tested on
         # mixed-dimensional grids.
 
@@ -100,7 +99,7 @@ class EquationManager:
         secondary_grid_name = [
             (var._g, var._name) for var in self._variables_as_list(secondary_variables)
         ]
-        # Do the same for all variables, but make this a map to the real variable.
+        # Do the same for all variables, but make this a map to the atomic (non-merged) variable.
         primary_grid_name = {
             (var._g, var._name): var for var in self._variables_as_list()
         }
@@ -108,7 +107,7 @@ class EquationManager:
         # Data structure for secondary variables
         sec_var = []
         # Loop over all variables known to this EquationManager. If its grid-name
-        # combination is identical that of a secondary variable, we store it as a
+        # combination is identical to that of a secondary variable, we store it as a
         # secondary variable, with the representation known to this EquationManager
         for v in primary_grid_name:
             if v in secondary_grid_name:
@@ -210,7 +209,8 @@ class EquationManager:
         mat: List[sps.spmatrix] = []
         rhs: List[np.ndarray] = []
 
-        ind_start = [0]
+        # Keep track of first row index for each equation/block
+        ind_start: List[int] = [0]
 
         # Iterate over equations, assemble.
         for eq in self.equations.values():

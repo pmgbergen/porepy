@@ -157,7 +157,7 @@ class EquationManagerSetup:
             raise ValueError
 
     def block_size(self, name):
-        # Get the size of an equation block equation
+        # Get the size of an equation block
         if name == "simple":
             return 4
         elif name == "merged":
