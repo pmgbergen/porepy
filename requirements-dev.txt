@@ -18,3 +18,4 @@ flake8
 mypy
 black == 21.9b0
 isort
+typing_extensions
