@@ -288,7 +288,6 @@ class RobinCouplingAd(Discretization):
         self._name = "Robin interface coupling"
         self.keyword = keyword
 
-        self.mortar_scaling: MergedOperator
         self.mortar_discr: MergedOperator
         self.mortar_vector_source: MergedOperator
         wrap_discretization(self, self._discretization, edges=edges)

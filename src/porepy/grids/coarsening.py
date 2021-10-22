@@ -225,8 +225,9 @@ def _generate_coarse_grid_single(g, subdiv, face_map):
     indptr = np.r_[0, np.cumsum(np.bincount(face_nodes))]
     face_nodes = sps.csc_matrix((data, nodes, indptr))
 
+    g.name = "Coarsened grid"
     # store again the data in the same grid
-    g.name.append("coarse")
+    g.history.append("coarse")
 
     g.nodes = g.nodes[:, nodes_list]
     g.num_nodes = g.nodes.shape[1]

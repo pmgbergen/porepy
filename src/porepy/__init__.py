@@ -22,7 +22,7 @@ import os
 from pathlib import Path
 import configparser
 
-__version__ = "1.4.2"
+__version__ = "1.5.0"
 
 
 # Try to read the config file from the directory where python process was launched
@@ -180,6 +180,9 @@ from porepy.models.thm_model import THM
 
 # from porepy.numerics.ad.equation_manager import Equation, EquationManager
 from porepy.numerics import ad
+
+# Time stepping control
+from porepy.numerics.time_step_control import TimeSteppingControl
 
 # Visualization
 from porepy.viz.exporter import Exporter

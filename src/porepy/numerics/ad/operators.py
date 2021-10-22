@@ -161,14 +161,18 @@ class Operator:
                 # Loop over all subvariables for the merged variable
                 for i, sub_var in enumerate(variable.sub_vars):
                     # Store dofs
-                    ind_var.append(dof_manager.dof_ind(sub_var._g, sub_var._name))
+                    ind_var.append(
+                        dof_manager.grid_and_variable_to_dofs(sub_var._g, sub_var._name)
+                    )
                     if i == 0:
                         # Store id of variable, but only for the first one; we will
                         # concatenate the arrays in ind_var into one array
                         variable_ids.append(variable.id)
             else:
                 # This is a variable that lives on a single grid
-                ind_var.append(dof_manager.dof_ind(variable._g, variable._name))
+                ind_var.append(
+                    dof_manager.grid_and_variable_to_dofs(variable._g, variable._name)
+                )
                 variable_ids.append(variable.id)
 
             # Gather all indices for this variable
@@ -296,8 +300,8 @@ class Operator:
 
         def error_message(operation):
             # Helper function to format error message
-            msg_0 = tree.children[0]._parse_readable()
-            msg_1 = tree.children[1]._parse_readable()
+            msg_0 = self._parse_readable(tree.children[0])
+            msg_1 = self._parse_readable(tree.children[1])
 
             nl = "\n"
             msg = (
@@ -477,10 +481,10 @@ class Operator:
                 results[i] = res.toarray().ravel()
 
     def __repr__(self) -> str:
-        if self._name is None:
+        if self._name is None or len(self._name) == 0:
             s = "Operator with no name"
         else:
-            s = "Operator named {self._name}"
+            s = f"Operator named {self._name}"
         s += f" formed by {self.tree.op} with {len(self.tree.children)} children."
         return s
 
@@ -612,7 +616,7 @@ class Operator:
 
         assert state is not None
         for (g, var) in dof_manager.block_dof:
-            ind = dof_manager.dof_ind(g, var)
+            ind = dof_manager.grid_and_variable_to_dofs(g, var)
             if isinstance(g, tuple):
                 prev_vals[ind] = gb.edge_props(g, pp.STATE)[var]
             else:
@@ -958,9 +962,9 @@ class Variable(Operator):
         """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
         if self._is_edge_var:
-            return Variable(self._name, ndof, grids=self.grids, previous_iteration=True)
-        else:
             return Variable(self._name, ndof, edges=self.edges, previous_iteration=True)
+        else:
+            return Variable(self._name, ndof, grids=self.grids, previous_iteration=True)
 
     def __repr__(self) -> str:
         s = (

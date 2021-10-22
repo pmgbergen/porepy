@@ -75,8 +75,7 @@ class MortarGrid:
             primary_secondary (sps.csc_matrix): Cell-face relations between the higher
                 dimensional grid and the lower dimensional grid. It is possible to not
                 give the projection to create only the grid.
-            codim (int): dimension difference between the primary grida and
-                the secondary grid.
+            codim (int): dimension difference between the primary grid secondary grid.
             name (str): Name of the grid. Can also be used to set various information on
                 the grid.
             face_duplicate_ind (np.ndarray, optional): Which faces should be considered

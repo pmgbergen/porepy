@@ -1,3 +1,13 @@
+"""
+Tests for components of the Ad machinery. Specifically, the tests cover:
+    * Projection operators between collections of grids and individual grids
+    * Projections between grids and mortar grids (again also covering collections)
+    * Ad representations of various grid-based operators (divergence etc).
+    * Ad representation of variables.
+    * The forward Ad machinery as implemented in pp.ad.Ad_array.
+
+"""
+
 import unittest
 import pytest
 
@@ -133,6 +143,7 @@ def test_subdomain_projections(scalar):
 
 @pytest.mark.parametrize("scalar", [True, False])
 def test_mortar_projections(scalar):
+    # Test of mortar projections between mortar grids and standard subdomain grids.
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
     gb = pp.meshing.cart_grid(fracs, [2, 2])
     Nd = gb.dim_max()
@@ -352,7 +363,7 @@ def test_ad_variable_wrappers():
     double_iterate = np.zeros(dof_manager.num_dofs())
 
     for (g, v) in dof_manager.block_dof:
-        inds = dof_manager.dof_ind(g, v)
+        inds = dof_manager.grid_and_variable_to_dofs(g, v)
         if v == var2:
             true_state[inds] = state_map_2[g]
             true_iterate[inds] = iterate_map_2[g]
@@ -374,7 +385,9 @@ def test_ad_variable_wrappers():
     # Check equivalence between the two approaches to generation.
 
     # Check that the state is correctly evaluated.
-    inds_var = np.hstack([dof_manager.dof_ind(g, var) for g in grid_list])
+    inds_var = np.hstack(
+        [dof_manager.grid_and_variable_to_dofs(g, var) for g in grid_list]
+    )
     assert np.allclose(
         true_iterate[inds_var], var_ad.evaluate(dof_manager, true_iterate).val
     )
@@ -406,7 +419,9 @@ def test_ad_variable_wrappers():
     edge_list = [e for e, _ in gb.edges()]
     var_edge = eq_manager.merge_variables([(e, mortar_var) for e in edge_list])
 
-    edge_inds = np.hstack([dof_manager.dof_ind(e, mortar_var) for e in edge_list])
+    edge_inds = np.hstack(
+        [dof_manager.grid_and_variable_to_dofs(e, mortar_var) for e in edge_list]
+    )
     assert np.allclose(
         true_iterate[edge_inds], var_edge.evaluate(dof_manager, true_iterate).val
     )
@@ -416,8 +431,8 @@ def test_ad_variable_wrappers():
     v1 = eq_manager.variable(g, var)
     v2 = eq_manager.variable(g, var2)
 
-    ind1 = dof_manager.dof_ind(g, var)
-    ind2 = dof_manager.dof_ind(g, var2)
+    ind1 = dof_manager.grid_and_variable_to_dofs(g, var)
+    ind2 = dof_manager.grid_and_variable_to_dofs(g, var2)
 
     assert np.allclose(true_iterate[ind1], v1.evaluate(dof_manager, true_iterate).val)
     assert np.allclose(true_iterate[ind2], v2.evaluate(dof_manager, true_iterate).val)
@@ -587,7 +602,9 @@ class _MockDiscretization:
 
 
 class AdArrays(unittest.TestCase):
-    """Tests for the implementation of the main Ad array class."""
+    """Tests for the implementation of the main Ad array class,
+    that is, the functionality needed for the forward Ad operations.
+    """
 
     def test_add_two_scalars(self):
         a = Ad_array(1, 0)
