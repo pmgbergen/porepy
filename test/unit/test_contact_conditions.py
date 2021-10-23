@@ -51,7 +51,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
         # print(A_mc, self.known_Amc)
         self.assertTrue(np.allclose(A_mc, self.known_Amc))
         # if not np.allclose(A_cm, self.known_Acm):
-        print(A_cm, self.known_Acm)
+        # print(A_cm, self.known_Acm)
         self.assertTrue(np.allclose(A_cm, self.known_Acm))
         self.assertTrue(np.allclose(A_cc, self.known_Acc))
         self.assertTrue(np.allclose(b_c, self.known_bc))
@@ -748,6 +748,7 @@ class ContactModel2d(ContactMechanics):
 
         self._assign_variables()
         self._assign_discretizations()
+        self.assembler = pp.Assembler(self.gb, self.dof_manager)
         self.set_state(u_mortar, contact_force)
         self._discretize()
 

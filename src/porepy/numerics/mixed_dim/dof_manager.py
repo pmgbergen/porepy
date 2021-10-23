@@ -422,6 +422,8 @@ class DofManager:
 
             if pp.STATE not in data:
                 data[pp.STATE] = {}
+            if to_iterate and pp.ITERATE not in data[pp.STATE]:
+                data[pp.STATE][pp.ITERATE] = {}
 
             vals = values[dof_ind]
             if additive:
