@@ -326,6 +326,7 @@ class WellNetwork3d:
                 g_w.compute_geometry()
                 gb.add_nodes(g_w)
                 g_w.well_num = well_num
+                g_w.tags["parent_well_index"] = w.index
                 well_num += 1
 
                 # Add intersection grid and interfaces if the second segment
