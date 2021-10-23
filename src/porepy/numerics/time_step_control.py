@@ -204,7 +204,7 @@ class TimeSteppingControl:
             this tipically represent the number of iterations for a given time step.
         recompute_solution (bool): Wheter the solution needs to be recomputed or not. If
             True, then the time step is multiplied by recomp_factor. If False, the time
-            step will be tune accordingly.
+            step will be tuned accordingly.
 
         Returns
         dt (float or None):  Next time step if time < final_simulation time. None otherwise.
