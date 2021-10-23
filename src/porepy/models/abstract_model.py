@@ -165,7 +165,7 @@ class AbstractModel:
             # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
             # error (but a warning) is raised for singular matrices, but a nan solution
             # is returned. We check for this.
-            diverged = np.any(np.isnan(solution))
+            diverged = bool(np.any(np.isnan(solution)))
             converged: bool = not diverged
             error: float = np.nan if diverged else 0.0
             return error, converged, diverged

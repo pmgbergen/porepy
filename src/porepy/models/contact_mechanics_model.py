@@ -162,7 +162,7 @@ class ContactMechanics(AbstractModel):
         prev_solution: np.ndarray,
         init_solution: np.ndarray,
         nl_params: Dict[str, Any],
-    ) -> Tuple[float, bool, Union[np.bool_, bool]]:
+    ) -> Tuple[float, bool, bool]:
         """
         Check whether the solution has converged by comparing values from the two
         most recent iterations.
