@@ -82,7 +82,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, params: Optional[Dict] = None) -> None:
         super().__init__(params)
 
@@ -116,30 +115,11 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         self._set_parameters()
 
     @pp.time_logger(sections=module_sections)
-    def before_newton_iteration(self) -> None:
-        # Re-discretize the nonlinear term
-        filt = pp.assembler_filters.ListFilter(term_list=[self.friction_coupling_term])
-        if self._use_ad:
-            self._eq_manager.equations["contact"].discretize(self.gb)  # type: ignore
-        else:
-            self.assembler.discretize(filt=filt)
-
-    @pp.time_logger(sections=module_sections)
-    def after_newton_iteration(self, solution: np.ndarray) -> None:
-        self._update_iterate(solution)
-
-    @pp.time_logger(sections=module_sections)
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
         super().after_newton_convergence(solution, errors, iteration_counter)
         self._save_mechanical_bc_values()
-
-    @pp.time_logger(sections=module_sections)
-    def after_newton_failure(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-        raise ValueError("Newton iterations did not converge")
 
     @pp.time_logger(sections=module_sections)
     def reconstruct_stress(self, previous_iterate: bool = False) -> None:
@@ -261,6 +241,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     "source": source_values,
                     "second_order_tensor": diffusivity,
                     "time_step": self.time_step,
+                    "vector_source": np.zeros(g.num_cells * self.gb.dim_max()),
+                    "ambient_dimension": self.gb.dim_max(),
                 },
             )
 
@@ -268,6 +250,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         for e, data_edge in self.gb.edges():
             g_l, g_h = self.gb.nodes_of_edge(e)
             mg = data_edge["mortar_grid"]
+            if mg.codim == 2:
+                continue
             a_l = self._aperture(g_l)
             # Take trace of and then project specific volumes from g_h
             v_h = (
@@ -286,7 +270,11 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 e,
                 data_edge,
                 self.scalar_parameter_key,
-                {"normal_diffusivity": normal_diffusivity},
+                {
+                    "normal_diffusivity": normal_diffusivity,
+                    "vector_source": np.zeros(mg.num_cells * self.gb.dim_max()),
+                    "ambient_dimension": self.gb.dim_max(),
+                },
             )
 
     @pp.time_logger(sections=module_sections)
@@ -362,6 +350,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         subtract the fracture pressure contribution for the contact traction. This
         should not be done if the scalar variable is temperature.
         """
+        if not hasattr(self, "dof_manager"):
+            self.dof_manager = pp.DofManager(self.gb)
         if not self._use_ad:
 
             # Shorthand
@@ -447,6 +437,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 )
 
             for e, d in self.gb.edges():
+                if d["mortar_grid"].codim == 2:
+                    continue
                 g_l, g_h = self.gb.nodes_of_edge(e)
 
                 if g_h.dim == self._Nd:
@@ -513,8 +505,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
             gb = self.gb
             Nd = self._Nd
-            dof_manager = pp.DofManager(gb)
-            eq_manager = pp.ad.EquationManager(gb, dof_manager)
+            eq_manager = pp.ad.EquationManager(gb, self.dof_manager)
 
             g_primary = gb.grids_of_dimension(Nd)[0]
             g_frac = gb.grids_of_dimension(Nd - 1).tolist()
@@ -530,7 +521,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 raise NotImplementedError("This will require further work")
 
             edge_list_highest = [(g_primary, g) for g in g_frac]
-            edge_list = [e for e, _ in gb.edges()]
+            edge_list = [e for e, d in gb.edges() if d["mortar_grid"].codim == 1]
 
             mortar_proj_scalar = pp.ad.MortarProjections(
                 grids=grid_list, edges=edge_list, gb=gb, nd=1
@@ -565,6 +556,10 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             mass_ad = pp.ad.MassMatrixAd(self.scalar_parameter_key, grid_list)
             robin_ad = pp.ad.RobinCouplingAd(self.scalar_parameter_key, edge_list)
 
+            # Facilitate updates of dt. self.time_step_ad._value must be updated
+            # if time steps are changed.
+            dt = pp.ad.Scalar(self.time_step, "time step")
+            self.time_step_ad = dt
             div_u_ad = pp.ad.DivUAd(
                 self.mechanics_parameter_key,
                 grids=[g_primary],
@@ -578,9 +573,24 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 self.mechanics_parameter_key, edge_list_highest
             )
 
-            bc_ad = pp.ad.BoundaryCondition(
-                self.mechanics_parameter_key, grids=[g_primary]
+            bc_mech = pp.ad.ParameterArray(
+                self.mechanics_parameter_key,
+                array_keyword="bc_values",
+                grids=[g_primary],
             )
+            bc_mech_previous = pp.ad.ParameterArray(
+                self.mechanics_parameter_key,
+                array_keyword="bc_values_previous_timestep",
+                grids=[g_primary],
+            )
+            # Alpha is for now assumed to be scalar:
+            # biot_alpha = pp.ad.ParameterArray(
+            #     self.scalar_parameter_key,
+            #     array_keyword="biot_alpha",
+            #     grids=[g_primary],
+            # )
+            biot_alpha = self._biot_alpha(g_primary)
+
             div_vector = pp.ad.Divergence(grids=[g_primary], dim=g_primary.dim)
 
             # Primary variables on Ad form
@@ -608,11 +618,13 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 array_keyword="p_reference",
                 grids=[g_primary],
             )
-
+            gravity = pp.ad.ParameterArray(
+                self.mechanics_parameter_key, "source", grids=[g_primary]
+            )
             # Stress in g_h
             stress = (
                 mpsa_ad.stress * u
-                + mpsa_ad.bound_stress * bc_ad
+                + mpsa_ad.bound_stress * bc_mech
                 + mpsa_ad.bound_stress
                 * subdomain_proj_vector.face_restriction(g_primary)
                 * mortar_proj_vector.mortar_to_primary_avg
@@ -625,7 +637,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 - grad_p_ad.grad_p * p_reference
             )
 
-            momentum_eq = div_vector * stress
+            momentum_eq = div_vector * stress - gravity
 
             jump = (
                 subdomain_proj_vector.cell_restriction(g_frac)
@@ -729,25 +741,43 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 + contact_from_secondary
                 + contact_from_secondary2
             )
-
-            bc_val_scalar = pp.ad.BoundaryCondition(
-                self.scalar_parameter_key, grid_list
+            # Flow parameters
+            bc_scalar = pp.ad.ParameterArray(
+                self.scalar_parameter_key,
+                array_keyword="bc_values",
+                grids=grid_list,
+            )
+            flow_source = pp.ad.ParameterArray(
+                param_keyword=self.scalar_parameter_key,
+                array_keyword="source",
+                grids=grid_list,
+            )
+            vector_source_grids = pp.ad.ParameterArray(
+                param_keyword=self.scalar_parameter_key,
+                array_keyword="vector_source",
+                grids=grid_list,
+            )
+            vector_source_edges = pp.ad.ParameterArray(
+                param_keyword=self.scalar_parameter_key,
+                array_keyword="vector_source",
+                edges=edge_list,
             )
 
             div_scalar = pp.ad.Divergence(grids=grid_list)
-
-            dt = self.time_step
-
-            # FIXME: Need bc for div_u term, including previous time step
-            accumulation_primary = (
+            div_u_terms = biot_alpha * (
                 div_u_ad.div_u * (u - u_prev)
-                + stab_biot_ad.stabilization
-                * subdomain_proj_scalar.cell_restriction(g_primary)
-                * (p - p_prev)
                 + div_u_ad.bound_div_u
                 * subdomain_proj_vector.face_restriction(g_primary)
                 * mortar_proj_vector.mortar_to_primary_int
                 * (u_mortar - u_mortar_prev)
+                + div_u_ad.bound_div_u * (bc_mech - bc_mech_previous)
+            )
+            div_u_terms.set_name("div u")
+            accumulation_primary = (
+                div_u_terms
+                + stab_biot_ad.stabilization
+                * subdomain_proj_scalar.cell_restriction(g_primary)
+                * (p - p_prev)
             )
 
             # Accumulation term on the fractures.
@@ -763,11 +793,13 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
             flux = (
                 mpfa_ad.flux * p
-                + mpfa_ad.bound_flux * bc_val_scalar
+                + mpfa_ad.bound_flux * bc_scalar
                 + mpfa_ad.bound_flux
                 * mortar_proj_scalar.mortar_to_primary_int
                 * mortar_flux
+                + mpfa_ad.vector_source * vector_source_grids
             )
+
             flow_eq = (
                 dt
                 * (  # Time scaling of flux terms, both inter-dimensional and from
@@ -779,30 +811,40 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 + subdomain_proj_scalar.cell_prolongation(g_primary)
                 * accumulation_primary
                 + subdomain_proj_scalar.cell_prolongation(g_frac) * accumulation_fracs
+                + flow_source
             )
+
             # Interface equation: \lambda = -\kappa (p_l - p_h)
             # Robin_ad.mortar_discr represents -\kappa. The involved term is
             # reconstruction of p_h on internal boundary, which has contributions
             # from cell center pressure, external boundary and interface flux
             # on internal boundaries (including those corresponding to "other"
             # fractures).
+
             p_primary = (
                 mpfa_ad.bound_pressure_cell * p
                 + mpfa_ad.bound_pressure_face
                 * mortar_proj_scalar.mortar_to_primary_int
                 * mortar_flux
-                + mpfa_ad.bound_pressure_face * bc_val_scalar
+                + mpfa_ad.bound_pressure_face * bc_scalar
+                + mpfa_ad.vector_source * vector_source_grids
             )
             # Project the two pressures to the interface and equate with \lambda
+
             interface_flow_eq = (
                 robin_ad.mortar_discr
                 * (
                     mortar_proj_scalar.primary_to_mortar_avg * p_primary
                     - mortar_proj_scalar.secondary_to_mortar_avg * p
+                    + robin_ad.mortar_vector_source * vector_source_edges
                 )
                 + mortar_flux
             )
-
+            flow_eq.set_name("flow")
+            momentum_eq.set_name("momentum")
+            interface_flow_eq._name = "interface_flow"
+            force_balance_eq._name = "force balance"
+            contact_eq.set_name("contact")
             eq_manager.equations.update(
                 {
                     "momentum": momentum_eq,
@@ -843,74 +885,20 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     self.mortar_displacement_variable: {"cells": self._Nd},
                     self.mortar_scalar_variable: {"cells": 1},
                 }
-            else:
+            elif d["mortar_grid"].codim == 1:
                 d[pp.PRIMARY_VARIABLES] = {self.mortar_scalar_variable: {"cells": 1}}
 
-    @pp.time_logger(sections=module_sections)
     def _initial_condition(self) -> None:
         """
         Initial guess for Newton iteration, scalar variable and bc_values (for time
         discretization).
         """
         super()._initial_condition()
+        g = self._nd_grid()
+        d = self.gb.node_props(g)
+        params = d[pp.PARAMETERS][self.mechanics_parameter_key]
+        params["bc_values_previous_timestep"] = self._bc_values_mechanics(g)
 
-        for g, d in self.gb:
-            # Initial value for the scalar variable.
-            initial_scalar_value = np.zeros(g.num_cells)
-            d[pp.STATE].update({self.scalar_variable: initial_scalar_value})
-
-            d[pp.STATE][pp.ITERATE].update(
-                {self.scalar_variable: initial_scalar_value.copy()}
-            )
-            if g.dim == self._Nd:
-                bc_values = self._bc_values_mechanics(g)
-                mech_dict = {"bc_values": bc_values}
-                d[pp.STATE].update({self.mechanics_parameter_key: mech_dict})
-
-        for _, d in self.gb.edges():
-            mg = d["mortar_grid"]
-            initial_value = np.zeros(mg.num_cells)
-            d[pp.STATE][self.mortar_scalar_variable] = initial_value
-            d[pp.STATE][pp.ITERATE][self.mortar_scalar_variable] = initial_value.copy()
-
-    def _update_iterate(self, solution: np.ndarray) -> None:
-        super()._update_iterate(solution)
-
-        cumulative = self._use_ad
-
-        dof_manager = self.dof_manager
-        variable_names = []
-        for pair in dof_manager.block_dof.keys():
-            variable_names.append(pair[1])
-
-        dof = np.cumsum(np.append(0, np.asarray(dof_manager.full_dof)))
-
-        for var_name in set(variable_names):
-            for pair, bi in dof_manager.block_dof.items():
-                g = pair[0]
-                name = pair[1]
-                if name != var_name:
-                    continue
-
-                local_sol = solution[dof[bi] : dof[bi + 1]].copy()
-
-                if isinstance(g, tuple):
-                    # This is really an edge
-                    if name == self.mortar_scalar_variable:
-                        data = self.gb.edge_props(g)
-                        if cumulative:
-                            data[pp.STATE][pp.ITERATE][name] += local_sol
-                        else:
-                            data[pp.STATE][pp.ITERATE][name] = local_sol
-                else:  # This is a node
-                    if name == self.scalar_variable:
-                        data = self.gb.node_props(g)
-                        if cumulative:
-                            data[pp.STATE][pp.ITERATE][name] += local_sol
-                        else:
-                            data[pp.STATE][pp.ITERATE][name] = local_sol
-
-    @pp.time_logger(sections=module_sections)
     def _save_mechanical_bc_values(self) -> None:
         """
         The div_u term uses the mechanical bc values for both current and previous time
@@ -918,9 +906,11 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         is very easy to overlook, we do it by default.
         """
         key = self.mechanics_parameter_key
-        g = self.gb.grids_of_dimension(self._Nd)[0]
+        g = self._nd_grid()
         d = self.gb.node_props(g)
-        d[pp.STATE][key]["bc_values"] = d[pp.PARAMETERS][key]["bc_values"].copy()
+        d[pp.PARAMETERS][key]["bc_values_previous_timestep"] = d[pp.PARAMETERS][key][
+            "bc_values"
+        ].copy()
 
     # Methods for discretization etc.
 
