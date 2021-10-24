@@ -1,17 +1,13 @@
 """
-This is a setup class for solving linear elasticity with contact between the fractures.
+This is a setup class for solving linear elasticity with contact mechanics governing
+the relative motion of fracture surfaces.
 
 The setup handles parameters, variables and discretizations. Default (unitary-like)
-parameters are set. A "run script" function for setting up the class and solving the
-nonlinear contact mechanics problem is also provided.
-
-NOTE: This module should be considered an experimental feature, which may
-undergo major changes on little notice.
-
+parameters are set.
 """
 import logging
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import scipy.sparse as sps
@@ -53,7 +49,7 @@ class ContactMechanics(AbstractModel):
             discretizations for the friction problem.
 
         params (dict): Dictionary of parameters used to control the solution procedure.
-        viz_folder_name (str): Folder for visualization export.
+            Default parameters are set in AbstractModel
         gb (pp.GridBucket): Mixed-dimensional grid. Should be set by a method
             create_grid which should be provided by the user.
         convergence_status (bool): Whether the non-linear iterations has converged.
@@ -79,13 +75,7 @@ class ContactMechanics(AbstractModel):
         # Terms of the equations
         self.friction_coupling_term: str = "fracture_force_balance"
 
-        # Solver parameters
-        if params is None:
-            self.viz_folder_name: str = "contact_mechanics_viz"
-        else:
-            self.viz_folder_name = params.get("folder_name", "contact_mechanics_viz")
-
-    # # Public methods
+    ## Public methods
     @pp.time_logger(sections=module_sections)
     def get_state_vector(self, use_iterate: bool = False) -> np.ndarray:
         """Get a vector of the current state of the variables; with the same ordering
@@ -389,7 +379,9 @@ class ContactMechanics(AbstractModel):
 
         g_max = self._nd_grid()
         self.viz = pp.Exporter(
-            g_max, file_name="mechanics", folder_name=self.viz_folder_name
+            g_max,
+            file_name=self.params["file_name"],
+            folder_name=self.params["folder_name"],
         )
 
     @pp.time_logger(sections=module_sections)
