@@ -28,6 +28,15 @@ class AbstractModel:
             self.params = {}
         else:
             self.params = params
+        if params is None:
+            params = {}
+        default_params = {
+            "folder_name": "visualization",
+            "file_name": "data",
+            "use_ad": False,
+        }
+        default_params.update(params)
+        self.params = default_params
 
         # Set a convergence status. Not sure if a boolean is sufficient, or whether
         # we should have an enum here.
@@ -35,8 +44,7 @@ class AbstractModel:
         self.linear_solver: str = "direct"
 
         self._iteration: int = 0
-
-        self._use_ad: bool = self.params.get("use_ad", False)
+        self._use_ad = self.params["use_ad"]
         self._eq_manager: pp.ad.EquationManager
         self.dof_manager: pp.DofManager
 
