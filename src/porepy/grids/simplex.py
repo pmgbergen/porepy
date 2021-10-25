@@ -6,6 +6,8 @@ Acknowledgements:
     Toolbox (MRST) developed by SINTEF ICT, see www.sintef.no/projectweb/mrst/
 
 """
+from typing import Optional
+
 import numpy as np
 import scipy.sparse as sps
 import scipy.spatial
@@ -26,7 +28,12 @@ class TriangleGrid(Grid):
     """
 
     @pp.time_logger(sections=module_sections)
-    def __init__(self, p, tri=None, name=None):
+    def __init__(
+        self,
+        p: np.ndarray,
+        tri: Optional[np.ndarray] = None,
+        name: Optional[str] = None,
+    ) -> None:
         """
         Create triangular grid from point cloud.
 
@@ -49,8 +56,8 @@ class TriangleGrid(Grid):
         self.dim = 2
 
         if tri is None:
-            tri = scipy.spatial.Delaunay(p.transpose())
-            tri = tri.simplices
+            triangulation = scipy.spatial.Delaunay(p.transpose())
+            tri = triangulation.simplices
             tri = tri.transpose()
 
         if name is None:
@@ -103,7 +110,7 @@ class TriangleGrid(Grid):
             (data, cell_faces, indptr), shape=(num_faces, num_cells)
         )
 
-        super(TriangleGrid, self).__init__(2, nodes, face_nodes, cell_faces, name)
+        super().__init__(2, nodes, face_nodes, cell_faces, name)
 
     @pp.time_logger(sections=module_sections)
     def cell_node_matrix(self):
@@ -132,7 +139,7 @@ class StructuredTriangleGrid(TriangleGrid):
     """
 
     @pp.time_logger(sections=module_sections)
-    def __init__(self, nx, physdims=None):
+    def __init__(self, nx: np.ndarray, physdims: Optional[np.ndarray] = None) -> None:
         """
         Construct a triangular grid by splitting Cartesian cells in two.
 
@@ -188,7 +195,7 @@ class StructuredTriangleGrid(TriangleGrid):
             # The node numbers are increased by nx[0] + 1 for each row
             tri = np.hstack((tri, tri_base + (iter1 + 1) * (nx[0] + 1)))
 
-        super(self.__class__, self).__init__(p, tri, name="StructuredTriangleGrid")
+        super().__init__(p, tri, name="StructuredTriangleGrid")
 
 
 class TetrahedralGrid(Grid):
@@ -200,7 +207,12 @@ class TetrahedralGrid(Grid):
     """
 
     @pp.time_logger(sections=module_sections)
-    def __init__(self, p, tet=None, name=None):
+    def __init__(
+        self,
+        p: np.ndarray,
+        tet: Optional[np.ndarray] = None,
+        name: Optional[str] = None,
+    ):
         """
         Create a tetrahedral grid from a set of point and cells.
 
@@ -220,9 +232,8 @@ class TetrahedralGrid(Grid):
         # Transform points to column vector if necessary (scipy.Delaunay
         # requires this format)
         if tet is None:
-            tet = scipy.spatial.Delaunay(p.transpose())
-            tet = tet.simplices
-            tet = tet.transpose()
+            tessalation = scipy.spatial.Delaunay(p.transpose())
+            tet = tessalation.simplices.transpose()
 
         if name is None:
             name = "TetrahedralGrid"
@@ -233,7 +244,9 @@ class TetrahedralGrid(Grid):
         assert num_nodes > 3  # Check of transposes of point array
 
         num_cells = tet.shape[1]
-        tet = self.__permute_nodes(p, tet)
+        tet = self._permute_nodes(p, tet)
+        # This is apparently needed to appease mypy
+        assert tet is not None
 
         # Define face-nodes so that the first column contains fn of cell 0,
         # etc.
@@ -277,13 +290,11 @@ class TetrahedralGrid(Grid):
             (data, cell_faces, indptr), shape=(num_faces, num_cells)
         )
 
-        super(TetrahedralGrid, self).__init__(
-            3, nodes, face_nodes, cell_faces, "TetrahedralGrid"
-        )
+        super().__init__(3, nodes, face_nodes, cell_faces, "TetrahedralGrid")
 
     @pp.time_logger(sections=module_sections)
-    def __permute_nodes(self, p, t):
-        v = self.__triple_product(p, t)
+    def _permute_nodes(self, p: np.ndarray, t: np.ndarray) -> np.ndarray:
+        v = self._triple_product(p, t)
         permute = np.where(v > 0)[0]
         if t.ndim == 1:
             if permute[0]:
@@ -293,7 +304,7 @@ class TetrahedralGrid(Grid):
         return t
 
     @pp.time_logger(sections=module_sections)
-    def __triple_product(self, p, t):
+    def _triple_product(self, p: np.ndarray, t: np.ndarray) -> np.ndarray:
         px = p[0]
         py = p[1]
         pz = p[2]
@@ -323,7 +334,7 @@ class StructuredTetrahedralGrid(TetrahedralGrid):
     """
 
     @pp.time_logger(sections=module_sections)
-    def __init__(self, nx, physdims=None):
+    def __init__(self, nx: np.ndarray, physdims: Optional[np.ndarray] = None) -> None:
         """
         Construct a triangular grid by splitting Cartesian cells in two.
 
@@ -417,6 +428,4 @@ class StructuredTetrahedralGrid(TetrahedralGrid):
                 else:
                     tet = np.hstack((tet, tet_base + increment))
 
-        super(self.__class__, self).__init__(
-            p, tet=tet, name="StructuredTetrahedralGrid"
-        )
+        super().__init__(p, tet=tet, name="StructuredTetrahedralGrid")

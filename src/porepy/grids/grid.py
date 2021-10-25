@@ -10,8 +10,10 @@ Acknowledgements:
     of the corresponding functions in MRST.
 
 """
+from __future__ import annotations
+
 import itertools
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -46,7 +48,8 @@ class Grid:
         cell_faces (sps.csc-matrix): Cell-face relationships. Matrix size:
             num_faces x num_cells. Matrix elements have value +-1, where +
             corresponds to the face normal vector being outwards.
-        name (list): Information on the formation of the grid, such as the
+        name (str): Name assigned to this grid.
+        history (list of str): Information on the formation of the grid, such as the
             constructor, computations of geometry etc.
         num_nodes (int): Number of nodes in the grid
         num_faces (int): Number of faces in the grid
@@ -105,8 +108,9 @@ class Grid:
         nodes: np.ndarray,
         face_nodes: sps.csc_matrix,
         cell_faces: sps.csc_matrix,
-        name: Union[List[str], str],
-        external_tags: Dict[str, np.ndarray] = None,
+        name: str,
+        history: Optional[Union[List[str], str]] = None,
+        external_tags: Optional[Dict[str, np.ndarray]] = None,
     ) -> None:
         """Initialize the grid
 
@@ -118,6 +122,7 @@ class Grid:
         nodes (np.ndarray): node coordinates.
         face_nodes (sps.csc_matrix): Face-node relations.
         cell_faces (sps.csc_matrix): Cell-face relations
+        history (str or list of str): Information on the formation of the grid.
         name (str): Name of grid
         tags (dict): Tags for nodes and grids. Will be constructed if not provided.
         """
@@ -129,10 +134,14 @@ class Grid:
         self.cell_faces: sps.csc_matrix = cell_faces
         self.face_nodes: sps.csc_matrix = face_nodes
 
-        if isinstance(name, list):
-            self.name: List[str] = name
-        else:
-            self.name = [name]
+        self.name: str = name
+
+        if history is None:
+            self.history: List[str] = []
+        elif isinstance(history, list):
+            self.history = history
+        else:  # history is str
+            self.history = [history]
 
         # Infer bookkeeping from size of parameters
         self.num_nodes: int = nodes.shape[1]
@@ -165,7 +174,7 @@ class Grid:
             self._check_tags()
 
     @pp.time_logger(sections=module_sections)
-    def copy(self):
+    def copy(self) -> pp.Grid:
         """
         Create a deep copy of the grid.
 
@@ -178,7 +187,8 @@ class Grid:
             self.nodes.copy(),
             self.face_nodes.copy(),
             self.cell_faces.copy(),
-            self.name,
+            name=self.name,
+            history=self.history,
         )
         if hasattr(self, "cell_volumes"):
             h.cell_volumes = self.cell_volumes.copy()
@@ -202,10 +212,11 @@ class Grid:
         Implementation of __repr__
 
         """
-        s = "Grid with history " + ", ".join(self.name) + "\n"
-        s = s + "Number of cells " + str(self.num_cells) + "\n"
-        s = s + "Number of faces " + str(self.num_faces) + "\n"
-        s = s + "Number of nodes " + str(self.num_nodes) + "\n"
+        s = f"Grid with name {self.name}" + "\n"
+        s = "Grid history: " + ", ".join(self.history) + "\n"
+        s += "Number of cells " + str(self.num_cells) + "\n"
+        s += "Number of faces " + str(self.num_faces) + "\n"
+        s += "Number of nodes " + str(self.num_nodes) + "\n"
         s += "Dimension " + str(self.dim)
         return s
 
@@ -256,7 +267,7 @@ class Grid:
         computations.
         """
 
-        self.name.append("Compute geometry")
+        self.history.append("Compute geometry")
 
         if self.dim == 0:
             self._compute_geometry_0d()

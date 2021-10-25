@@ -137,9 +137,9 @@ class ContactMechanics(AbstractModel):
         """
         size = self.assembler.num_dof()
         state = np.zeros(size)
-        for g, var in self.dof_manager.block_dof.keys():
-            # Index of
-            ind = self.dof_manager.dof_ind(g, var)
+        for g, var in self.dof_manager.block_dof:
+            # Index of this grid-variable combination
+            ind = self.dof_manager.grid_and_variable_to_dofs(g, var)
 
             if isinstance(g, tuple):
                 if use_iterate:
@@ -169,7 +169,7 @@ class ContactMechanics(AbstractModel):
         # Re-discretize the nonlinear term
         filt = pp.assembler_filters.ListFilter(term_list=[self.friction_coupling_term])
         if self._use_ad:
-            self._eq_manager.equations[1].discretize(self.gb)
+            self._eq_manager.equations["contact"].discretize(self.gb)
         else:
             self.assembler.discretize(filt=filt)
 
@@ -227,7 +227,9 @@ class ContactMechanics(AbstractModel):
             error = np.nan if diverged else 0
             return error, converged, diverged
 
-        mech_dof = self.dof_manager.dof_ind(g_max, self.displacement_variable)
+        mech_dof = self.dof_manager.grid_and_variable_to_dofs(
+            g_max, self.displacement_variable
+        )
 
         # Also find indices for the contact variables
         contact_dof = np.array([], dtype=int)
@@ -236,7 +238,9 @@ class ContactMechanics(AbstractModel):
                 contact_dof = np.hstack(
                     (
                         contact_dof,
-                        self.dof_manager.dof_ind(e[1], self.contact_traction_variable),
+                        self.dof_manager.grid_and_variable_to_dofs(
+                            e[1], self.contact_traction_variable
+                        ),
                     )
                 )
 
@@ -297,7 +301,7 @@ class ContactMechanics(AbstractModel):
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
 
         if self._use_ad:
-            A, b = self._eq_manager.assemble_matrix_rhs()
+            A, b = self._eq_manager.assemble()
         else:
             A, b = self.assembler.assemble_matrix_rhs()
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
@@ -729,7 +733,13 @@ class ContactMechanics(AbstractModel):
             )
             force_balance_eq = contact_from_primary_mortar + contact_from_secondary
 
-            eq_manager.equations += [momentum_eq, contact_eq, force_balance_eq]
+            eq_manager.equations.update(
+                {
+                    "momentum": momentum_eq,
+                    "contact": contact_eq,
+                    "force_balance": force_balance_eq,
+                }
+            )
 
             self._eq_manager = eq_manager
 

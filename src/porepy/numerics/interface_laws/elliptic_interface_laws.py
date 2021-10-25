@@ -22,7 +22,10 @@ class RobinCoupling(
 ):
     """A condition with resistance to flow between subdomains. Implementation
     of the model studied (though not originally proposed) by Martin et
-    al 2005.
+    al 2005. The equation reads
+        \lambda = -\int{\kappa_n [p_l - p_h +  a/2 g \cdot n]} dV,
+    where the last gravity type term is zero by default (controlled by the vector_source
+    parameter). That is, \lambda is an extensive quantity.
 
     The class can be used either as pure discretization, or also to do assembly of
     the local (to the interface / mortar grid) linear system. The latter case will
@@ -82,21 +85,6 @@ class RobinCoupling(
         # Keys used to identify the discretization matrices of this discretization
         self.mortar_discr_matrix_key = "robin_mortar_discr"
         self.mortar_vector_source_matrix_key = "robin_vector_source_discr"
-        self.mortar_scaling_matrix_key = "mortar_scaling"
-
-        # Decide on whether to scale the mortar flux with K^-1 or not.
-        # This is the scaling of Darcy's law in mixed methods, and should be used in the
-        # interface law if the full system is on mixed form.
-        # We decide on this based on whether both neigboring discretizations are mixed
-        # or not. This leaves the case when one neighbor is mixed, the other is FV; in
-        # this case, we use a K-scaling, but it is not clear what is best.
-        if isinstance(
-            discr_primary, pp.numerics.vem.dual_elliptic.DualElliptic
-        ) and isinstance(discr_secondary, pp.numerics.vem.dual_elliptic.DualElliptic):
-            self.kinv_scaling = True
-        else:
-            # At least one of the neighboring discretizations is FV.
-            self.kinv_scaling = False
 
     def ndof(self, mg: pp.MortarGrid):
         return mg.num_cells
@@ -129,10 +117,8 @@ class RobinCoupling(
         if not isinstance(kn, np.ndarray):
             kn *= np.ones(mg.num_cells)
 
-        inv_M = sps.diags(1.0 / mg.cell_volumes)
-        inv_k = 1.0 / kn
-        Eta = sps.diags(inv_k)
-        matrix_dictionary_edge[self.mortar_discr_matrix_key] = -inv_M * Eta
+        val: np.ndarray = mg.cell_volumes * kn
+        matrix_dictionary_edge[self.mortar_discr_matrix_key] = -sps.diags(val)
 
         ## Vector source.
         # This contribution is last term of
@@ -206,21 +192,6 @@ class RobinCoupling(
         # On assembly, the outwards normals on the mortars will be multiplied by the
         # interface vector source.
         matrix_dictionary_edge[self.mortar_vector_source_matrix_key] = mortar_normals
-        if self.kinv_scaling:
-            # Use a discretization fit for mixed methods, with a K^-1 scaling of the
-            # mortar flux
-            # In this case, the scaling of the pressure blocks on the mortar rows is
-            # simple.
-            matrix_dictionary_edge[self.mortar_scaling_matrix_key] = sps.diags(
-                np.ones(mg.num_cells)
-            )
-
-        else:
-            # Scale the the mortar equations with K, so that the this becomes a
-            # Darcy-type equation on standard form.
-            matrix_dictionary_edge[self.mortar_scaling_matrix_key] = sps.diags(
-                mg.cell_volumes * kn
-            )
 
     def assemble_matrix(
         self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
@@ -241,9 +212,10 @@ class RobinCoupling(
                     g[ambient_dimension]= -G * rho.
             matrix: original discretization
 
-            The discretization matrices must be included since they will be
-            changed by the imposition of Neumann boundary conditions on the
-            internal boundary in some numerical methods (Read: VEM, RT0)
+        The discretization matrices must be included since they will be changed
+        by the imposition of Neumann boundary conditions on the internal boundary
+        in some numerical methods (Read: VEM, RT0).
+
 
         """
 
@@ -317,9 +289,14 @@ class RobinCoupling(
                     g[ambient_dimension]= -G * rho.
             matrix: original discretization
 
-            The discretization matrices must be included since they will be
-            changed by the imposition of Neumann boundary conditions on the
-            internal boundary in some numerical methods (Read: VEM, RT0)
+        The discretization matrices must be included since they will be changed
+        by the imposition of Neumann boundary conditions on the internal boundary
+        in some numerical methods (Read: VEM, RT0).
+
+        The overall strategy is to first assemble the pressure contributions,
+        then multiply by the mortar discretization (corresponding to -\kappa) and
+        finally add the identity matrix for the interface flux (see equation
+        description above).
         """
         return self._assemble(
             g_primary,
@@ -343,7 +320,10 @@ class RobinCoupling(
     ):
         """Actual implementation of assembly. May skip matrix and rhs if specified."""
 
-        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary_edge: Dict[str, sps.spmatrix] = data_edge[
+            pp.DISCRETIZATION_MATRICES
+        ][self.keyword]
+        diffusivity_discr = matrix_dictionary_edge[self.mortar_discr_matrix_key]
         parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
         mg = data_edge["mortar_grid"]
 
@@ -376,8 +356,6 @@ class RobinCoupling(
         # The convention, for now, is to put the higher dimensional information
         # in the first column and row in matrix, lower-dimensional in the second
         # and mortar variables in the third
-        if assemble_matrix:
-            cc[2, 2] = matrix_dictionary_edge[self.mortar_discr_matrix_key]
 
         # Assembly of contribution from boundary pressure must be called even if only
         # matrix or rhs must be assembled.
@@ -392,7 +370,6 @@ class RobinCoupling(
             assemble_matrix=assemble_matrix,
             assemble_rhs=assemble_rhs,
         )
-
         if assemble_matrix:
             # Calls only for matrix assembly
             self.discr_primary.assemble_int_bound_flux(
@@ -429,15 +406,16 @@ class RobinCoupling(
 
                 rhs[2] = rhs[2] - vector_source_discr * vector_source
 
-            rhs[2] = matrix_dictionary_edge[self.mortar_scaling_matrix_key] * rhs[2]
+            rhs[2] = diffusivity_discr * rhs[2]
 
         if assemble_matrix:
-            for block in range(cc.shape[1]):
-                # Scale the pressure blocks in the mortar problem
-                cc[2, block] = (
-                    matrix_dictionary_edge[self.mortar_scaling_matrix_key]
-                    * cc[2, block]
-                )
+            for block in range(3):
+                # Scale the pressure contributions in the mortar equation by
+                # normal diffusivity.
+                cc[2, block] = diffusivity_discr * cc[2, block]
+            # Add mortar flux to the interface equation
+            cc[2, 2] += sps.diags(np.ones(data_edge["mortar_grid"].num_cells))
+
             matrix += cc
 
             self.discr_primary.enforce_neumann_int_bound(
@@ -529,19 +507,21 @@ class RobinCoupling(
                 g, data_grid, proj_pressure, proj_flux, cc, matrix, rhs
             )
             # Scale the equations (this will modify from K^-1 to K scaling if relevant)
-            for block in range(cc.shape[1]):
-                # Scale the pressure blocks in the row of the primary mortar problem.
+
+            for block in range(3):
+                # Scale the pressure blocks in the row of the primary mortar problem,
+                # i.e. the row corresponding to the mortar variable to which the
+                # contributions from the flux of block 2 is being added.
                 # The secondary mortar will be treated somewhere else (handled by the
                 # assembler).
                 cc[1, block] = (
-                    matrix_dictionary_edge[self.mortar_scaling_matrix_key]
-                    * cc[1, block]
+                    matrix_dictionary_edge[self.mortar_discr_matrix_key] * cc[1, block]
                 )
         else:
             cc = None
 
         if assemble_rhs:
-            rhs[1] = matrix_dictionary_edge[self.mortar_scaling_matrix_key] * rhs[1]
+            rhs[1] = matrix_dictionary_edge[self.mortar_discr_matrix_key] * rhs[1]
 
         return cc, rhs
 
@@ -919,8 +899,8 @@ class WellCoupling(
         self.discr_secondary = discr_secondary
 
         # Keys used to identify the discretization matrices of this discretization
-        self.well_discr_matrix_key = "well_mortar_discr"
-        self.mortar_vector_source_matrix_key = "well_vector_source_discr"
+        self.well_discr_matrix_key: str = "well_mortar_discr"
+        self.well_vector_source_matrix_key: str = "well_vector_source_discr"
 
     def ndof(self, mg: pp.MortarGrid) -> int:
         return mg.num_cells
@@ -1027,7 +1007,7 @@ class WellCoupling(
 
         # On assembly, the outwards normals on the mortars will be multiplied by the
         # interface vector source.
-        matrix_dictionary_edge[self.mortar_vector_source_matrix_key] = expanded_vectors
+        matrix_dictionary_edge[self.well_vector_source_matrix_key] = expanded_vectors
 
     def assemble_matrix_rhs(
         self,

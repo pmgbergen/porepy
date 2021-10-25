@@ -646,7 +646,7 @@ def _intersection_grid(point: np.ndarray, gb: pp.GridBucket) -> pp.PointGrid:
         PointGrid
     """
     g = pp.PointGrid(point)
-    g.name.append("Well-fracture intersection grid")
+    g.history.append("Well-fracture intersection grid")
     g.compute_geometry()
     gb.add_nodes(g)
     return g
