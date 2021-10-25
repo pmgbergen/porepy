@@ -48,7 +48,7 @@ A search in the tree gives a list of all possible nodes that may
 intersect the given one.
 
 """
-from typing import Any, List, Optional
+from typing import Any, List
 
 import numpy as np
 from scipy import sparse as sps
@@ -345,4 +345,4 @@ class ADTree:
         Returns:
             (float): current portion of the interval according to the level
         """
-        return np.prod(0.5 * np.ones(int(level / dim) + 1, dtype=np.float))
+        return np.prod(0.5 * np.ones(int(level / dim) + 1, dtype=float))
