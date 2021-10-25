@@ -176,6 +176,7 @@ from porepy.models.run_models import (
 from porepy.models.contact_mechanics_model import ContactMechanics
 from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 from porepy.models.thm_model import THM
+from porepy.models.incompressible_flow_model import IncompressibleFlow
 
 # from porepy.numerics.ad.equation_manager import Equation, EquationManager
 from porepy.numerics import ad

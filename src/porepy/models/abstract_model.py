@@ -277,7 +277,7 @@ class AbstractModel:
         west = g.face_centers[0] < box["xmin"] + tol
         north = g.face_centers[1] > box["ymax"] - tol
         south = g.face_centers[1] < box["ymin"] + tol
-        if self._Nd == 2:
+        if self.gb.dim_max() == 2:
             top = np.zeros(g.num_faces, dtype=bool)
             bottom = top.copy()
         else:
