@@ -64,6 +64,7 @@ class ContactMechanics(AbstractModel):
     def __init__(self, params: Optional[Dict] = None):
 
         super().__init__(params)
+
         # Variables
         self.displacement_variable: str = "u"
         self.mortar_displacement_variable: str = "mortar_u"
@@ -136,15 +137,6 @@ class ContactMechanics(AbstractModel):
         else:
             self.assembler.distribute_variable(solution)
         self.convergence_status = True
-
-    @pp.time_logger(sections=module_sections)
-    def after_newton_failure(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-        if self._is_nonlinear_problem():
-            raise ValueError("Newton iterations did not converge")
-        else:
-            raise ValueError("Tried solving singular matrix for the linear problem.")
 
     def check_convergence(
         self,
@@ -443,37 +435,6 @@ class ContactMechanics(AbstractModel):
         return self.gb.grids_of_dimension(self._Nd)[0]
 
     @pp.time_logger(sections=module_sections)
-    def _domain_boundary_sides(
-        self, g: pp.Grid
-    ) -> Tuple[
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-    ]:
-        """
-        Obtain indices of the faces of a grid that lie on each side of the domain
-        boundaries.
-        """
-        tol = 1e-10
-        box = self.box
-        east = g.face_centers[0] > box["xmax"] - tol
-        west = g.face_centers[0] < box["xmin"] + tol
-        north = g.face_centers[1] > box["ymax"] - tol
-        south = g.face_centers[1] < box["ymin"] + tol
-        if self._Nd == 2:
-            top = np.zeros(g.num_faces, dtype=bool)
-            bottom = top.copy()
-        else:
-            top = g.face_centers[2] > box["zmax"] - tol
-            bottom = g.face_centers[2] < box["zmin"] + tol
-        all_bf = g.get_boundary_faces()
-        return all_bf, east, west, north, south, top, bottom
-
-    @pp.time_logger(sections=module_sections)
     def _bc_type(self, g: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions: Dirichlet on all global boundaries,
         Dirichlet also on fracture faces.
@@ -697,19 +658,12 @@ class ContactMechanics(AbstractModel):
 
             self._eq_manager = eq_manager
 
-    # Methods for discretization, numerical issues etc.
-
-    def _initial_condition(self):
-        """Set zero initial guess for the variables."""
-        initial_values = np.zeros(self.dof_manager.num_dofs())
-        self.dof_manager.distribute_variable(initial_values)
-        self.dof_manager.distribute_variable(initial_values, to_iterate=True)
-
     @pp.time_logger(sections=module_sections)
     def _set_friction_coefficient(self, g: pp.Grid) -> np.ndarray:
         """The friction coefficient is uniform, and equal to 1."""
         return np.ones(g.num_cells)
 
+    # Methods for discretization, numerical issues etc.
     @pp.time_logger(sections=module_sections)
     def _discretize(self) -> None:
         """Discretize all terms"""

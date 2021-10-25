@@ -4,6 +4,13 @@ problems.
 Some methods may raise NotImplementedErrors instead of being abstract methods. This
 is because they are only needed for some model types (typically nonlinear ones).
 
+Note on running simulations: We provide run_time_dependent_model and run_stationary_model.
+Both call the Model's prepare_simulation and after_simulation methods, as well as the
+solve method of either a LinearSolver or NewtonSolver (only non-linear available
+for the time being). The Solvers call methods before_newton_loop, check_convergence,
+after_newton_convergence/after_newton_divergence, (only NewtonSolver:) before_newton_iteration,
+after_newton_iteration. The name "newton" is there for legacy reasons, a more fitting
+and general name would be something like "equation_solve".
 """
 import abc
 import logging
@@ -69,8 +76,12 @@ class AbstractModel:
         # If fractures are present, it is advised to call
         # pp.contact_conditions.set_projections(self.gb)
 
-    @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
+    def _initial_condition(self):
+        """Set initial guess for the variables."""
+        initial_values = np.zeros(self.dof_manager.num_dofs())
+        self.dof_manager.distribute_variable(initial_values)
+        self.dof_manager.distribute_variable(initial_values, to_iterate=True)
+
     def prepare_simulation(self) -> None:
         """Method called prior to the start of time stepping, or prior to entering the
         non-linear solver for stationary problems.
@@ -79,9 +90,8 @@ class AbstractModel:
         and time-independent terms, and generally prepare for the simulation.
 
         """
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def before_newton_loop(self) -> None:
         """Method to be called before entering the non-linear solver, thus at the start
         of a new time step.
@@ -89,20 +99,16 @@ class AbstractModel:
         Possible usage is to update time-dependent parameters, discertizations etc.
 
         """
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def before_newton_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
 
         Possible usage is to update non-linear parameters, discertizations etc.
 
         """
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def after_newton_iteration(self, solution_vector: np.ndarray):
         """Method to be called after every non-linear iteration.
 
@@ -113,10 +119,8 @@ class AbstractModel:
             np.array: The new solution state, as computed by the non-linear solver.
 
         """
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
@@ -128,7 +132,7 @@ class AbstractModel:
             np.array: The new solution state, as computed by the non-linear solver.
 
         """
-        pass
+        raise NotImplementedError
 
     def after_newton_failure(
         self, solution: np.ndarray, errors: float, iteration_counter: int
@@ -138,7 +142,10 @@ class AbstractModel:
         else:
             raise ValueError("Tried solving singular matrix for the linear problem.")
 
-    @abc.abstractmethod
+    def after_simulation(self) -> None:
+        """Run at the end of simulation. Can be used for cleaup etc."""
+        raise NotImplementedError
+
     def check_convergence(
         self,
         solution: np.ndarray,
@@ -208,12 +215,6 @@ class AbstractModel:
         pass
 
     @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
-    def after_simulation(self) -> None:
-        """Run at the end of simulation. Can be used for cleaup etc."""
-        pass
-
-    @abc.abstractmethod
     def _is_nonlinear_problem(self) -> bool:
         """Specifies whether the Model problem is nonlinear."""
         pass
@@ -255,3 +256,32 @@ class AbstractModel:
         Method is called after initialization and after solution convergence.
         """
         pass
+
+    def _domain_boundary_sides(
+        self, g: pp.Grid
+    ) -> Tuple[
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+    ]:
+        """Obtain indices of the faces of a grid that lie on each side of the domain
+        boundaries.
+        """
+        tol = 1e-10
+        box = self.box
+        east = g.face_centers[0] > box["xmax"] - tol
+        west = g.face_centers[0] < box["xmin"] + tol
+        north = g.face_centers[1] > box["ymax"] - tol
+        south = g.face_centers[1] < box["ymin"] + tol
+        if self._Nd == 2:
+            top = np.zeros(g.num_faces, dtype=bool)
+            bottom = top.copy()
+        else:
+            top = g.face_centers[2] > box["zmax"] - tol
+            bottom = g.face_centers[2] < box["zmin"] + tol
+        all_bf = g.get_boundary_faces()
+        return all_bf, east, west, north, south, top, bottom
