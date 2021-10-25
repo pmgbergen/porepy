@@ -441,7 +441,7 @@ def compute_well_fracture_intersections(
 
 
 def compute_well_rock_matrix_intersections(
-    gb: pp.GridBucket, cells: np.array = None, tol: float = 1e-5
+    gb: pp.GridBucket, cells: np.ndarray = None, tol: float = 1e-5
 ):
     """Compute intersections and add edge coupling between the well and the rock matrix.
     To be called after the wells grids are constructed.
@@ -449,7 +449,7 @@ def compute_well_rock_matrix_intersections(
 
     Parameters:
         gb (pp.GridBucket): the grid bucket containing all the elements
-        cells (np.array, optional): a set of cells that might be considered to construct the
+        cells (np.ndarray, optional): a set of cells that might be considered to construct the
             tree. If it is not given the tree is constructed by using all the higher
             dimensional grid cells
         tol (float, optional): geometric tolerance

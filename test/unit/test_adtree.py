@@ -28,14 +28,14 @@ class ADTreeTest(unittest.TestCase):
         self.assertTrue(np.allclose(nodes, known_nodes))
         self.assertTrue(np.allclose(tree.nodes[0].child, [4, 1]))
         self.assertTrue(np.allclose(tree.nodes[1].child, [2, 3]))
-        self.assertTrue(tree.nodes[2].child[0] is None)
-        self.assertTrue(tree.nodes[2].child[1] is None)
-        self.assertTrue(tree.nodes[3].child[0] is None)
-        self.assertTrue(tree.nodes[3].child[1] is None)
+        self.assertTrue(tree.nodes[2].child[0] == -1)
+        self.assertTrue(tree.nodes[2].child[1] == -1)
+        self.assertTrue(tree.nodes[3].child[0] == -1)
+        self.assertTrue(tree.nodes[3].child[1] == -1)
         self.assertTrue(tree.nodes[4].child[0] == 5)
-        self.assertTrue(tree.nodes[4].child[1] is None)
-        self.assertTrue(tree.nodes[5].child[0] is None)
-        self.assertTrue(tree.nodes[5].child[1] is None)
+        self.assertTrue(tree.nodes[4].child[1] == -1)
+        self.assertTrue(tree.nodes[5].child[0] == -1)
+        self.assertTrue(tree.nodes[5].child[1] == -1)
 
     def test_grid_1d_adtree(self):
         g = pp.CartGrid(5, 1)
@@ -48,14 +48,14 @@ class ADTreeTest(unittest.TestCase):
         known_nodes = [0, 1, 2, 3, 4]
         self.assertTrue(np.allclose(nodes, known_nodes))
         self.assertTrue(np.allclose(tree.nodes[0].child, [1, 3]))
-        self.assertTrue(tree.nodes[1].child[0] is None)
+        self.assertTrue(tree.nodes[1].child[0] == -1)
         self.assertTrue(tree.nodes[1].child[1] == 2)
-        self.assertTrue(tree.nodes[2].child[0] is None)
-        self.assertTrue(tree.nodes[2].child[1] is None)
-        self.assertTrue(tree.nodes[3].child[0] is None)
+        self.assertTrue(tree.nodes[2].child[0] == -1)
+        self.assertTrue(tree.nodes[2].child[1] == -1)
+        self.assertTrue(tree.nodes[3].child[0] == -1)
         self.assertTrue(tree.nodes[3].child[1] == 4)
-        self.assertTrue(tree.nodes[4].child[0] is None)
-        self.assertTrue(tree.nodes[4].child[1] is None)
+        self.assertTrue(tree.nodes[4].child[0] == -1)
+        self.assertTrue(tree.nodes[4].child[1] == -1)
 
         # point check
         n = pp.adtree.ADTNode(99, [0.1] * 2)
@@ -299,14 +299,14 @@ class ADTreeTest(unittest.TestCase):
         known_nodes = [5, 6, 7, 8, 9]
         self.assertTrue(np.allclose(nodes, known_nodes))
         self.assertTrue(np.allclose(tree.nodes[0].child, [1, 3]))
-        self.assertTrue(tree.nodes[1].child[0] is None)
+        self.assertTrue(tree.nodes[1].child[0] == -1)
         self.assertTrue(tree.nodes[1].child[1] == 2)
-        self.assertTrue(tree.nodes[2].child[0] is None)
-        self.assertTrue(tree.nodes[2].child[1] is None)
-        self.assertTrue(tree.nodes[3].child[0] is None)
+        self.assertTrue(tree.nodes[2].child[0] == -1)
+        self.assertTrue(tree.nodes[2].child[1] == -1)
+        self.assertTrue(tree.nodes[3].child[0] == -1)
         self.assertTrue(tree.nodes[3].child[1] == 4)
-        self.assertTrue(tree.nodes[4].child[0] is None)
-        self.assertTrue(tree.nodes[4].child[1] is None)
+        self.assertTrue(tree.nodes[4].child[0] == -1)
+        self.assertTrue(tree.nodes[4].child[1] == -1)
 
 
 if __name__ == "__main__":

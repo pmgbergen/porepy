@@ -30,7 +30,7 @@ in the tree, we get the following
                  E          B
                 / \        / \
                /   \      /   \
-              F   None   C     D
+              F   -1     C     D
 
 In the multi-dimensional case, the ADT is organized in the same way, but
 the subdivision takes place alternately for the various coordinates:
@@ -48,7 +48,7 @@ A search in the tree gives a list of all possible nodes that may
 intersect the given one.
 
 """
-from typing import Any
+from typing import Any, List, Optional
 
 import numpy as np
 from scipy import sparse as sps
@@ -75,11 +75,11 @@ class ADTNode:
             box (np.ndarray): The bounding box of the node
             dim (int): Physical dimension of the object
         """
-        self.key = key
-        self.box = np.atleast_1d(np.asarray(box))
+        self.key: Any = key
+        self.box: np.ndarray = np.atleast_1d(np.asarray(box))
 
-        self.child = [None, None]
-        self.parent = None
+        self.child: List[int] = [-1, -1]
+        self.parent: int = -1
 
     def __str__(self) -> str:
         """Implementation of __str__"""
@@ -115,14 +115,12 @@ class ADTree:
                 the physical dimension)
             tree_dim (np.ndarray, optional): Set the physical dimension
         """
-        self.tree_dim = tree_dim
-        self.phys_dim = phys_dim
+        self.tree_dim: int = tree_dim
+        self.phys_dim: int = phys_dim
 
-        self.nodes = []
-        self.region_min = 0.0
-        self.delta = 1.0
-
-        self.g = None
+        self.nodes: List[ADTNode] = []
+        self.region_min: float = 0.0
+        self.delta: float = 1.0
 
     def __str__(self) -> str:
         """Implementation of __str__"""
@@ -148,7 +146,7 @@ class ADTree:
         # Get the first node id, the position in the self.nodes list
         next_node_id = 0
         box = node.box.copy()
-        while next_node_id is not None:
+        while next_node_id != -1:
             current_node_id = next_node_id
             # Get the current search dimension
             search_dim = level % self.tree_dim
@@ -172,7 +170,7 @@ class ADTree:
         node.parent = current_node_id
         self.nodes.append(node)
 
-    def search(self, node: ADTNode, tol: float = 2.0e-6) -> np.array:
+    def search(self, node: ADTNode, tol: float = 2.0e-6) -> np.ndarray:
         """Search all possible nodes in the tree that might intersect with the input node.
         The node is not added to the tree.
 
@@ -181,7 +179,7 @@ class ADTree:
             tol (float, optional): Geometrical tolerance to avoid floating point problems
 
         Returns:
-            nodes (np.array): Sorted, by id, list of nodes id that might intersect the node
+            nodes (np.ndarray): Sorted, by id, list of nodes id that might intersect the node
         """
 
         # Enlarge the region to avoid floating point problems
@@ -204,7 +202,7 @@ class ADTree:
         # > visit the root;
         # > traverse the left subtree;
         # > traverse the right subtree.
-        while node_id is not None:
+        while node_id != -1:
             # check the left part
             next_node_id = -1
             while True:
@@ -214,17 +212,17 @@ class ADTree:
                 # Go to the left part of the sub-tree, and check if
                 # it intersects the box. The right part is considered later.
                 next_node_id = self.nodes[node_id].child[self.LEFT]
-                if next_node_id is not None:
+                if next_node_id != -1:
                     search_dim = level % self.tree_dim
                     if search_dim < self.phys_dim:
                         if origin[search_dim] > box[search_dim + self.phys_dim]:
-                            next_node_id = None
+                            next_node_id = -1
                     else:
                         delta = self._delta(level, self.tree_dim)
                         if origin[search_dim] + delta < box[search_dim - self.phys_dim]:
-                            next_node_id = None
+                            next_node_id = -1
                 # Left sub-tree is neither null nor external, push info onto the stack
-                if next_node_id is not None:
+                if next_node_id != -1:
                     stack.append((node_id, origin.copy(), level))
                     node_id = next_node_id
                     level += 1
@@ -235,7 +233,7 @@ class ADTree:
             level += 1
             node_id = self.nodes[node_id].child[self.RIGHT]
             while True:
-                while node_id is None:
+                while node_id == -1:
                     if len(stack) == 0:
                         return np.sort(found)
                     info = stack.pop()
@@ -243,7 +241,7 @@ class ADTree:
                     origin = info[1]
                     level = info[2] + 1
 
-                # Check if the subtree intersects the box. Otherwise set right_link = None,
+                # Check if the subtree intersects the box. Otherwise set right_link = -1,
                 # pop new node from the stack and adjourn level.
                 #
                 # lev-1 is the level of the parent node, which directs the search.
@@ -253,15 +251,15 @@ class ADTree:
                 origin[search_dim] += delta
                 if search_dim < self.phys_dim:
                     if origin[search_dim] > box[search_dim + self.phys_dim]:
-                        node_id = None
+                        node_id = -1
                 else:
                     if origin[search_dim] + delta < box[search_dim - self.phys_dim]:
-                        node_id = None
+                        node_id = -1
 
-                if node_id is not None:
+                if node_id != -1:
                     break
 
-    def from_grid(self, g: pp.Grid, only_cells: np.array = None) -> None:
+    def from_grid(self, g: pp.Grid, only_cells: np.ndarray = None) -> None:
         """Function that construct the tree from a grid by adding one cells at the time.
 
         If a portion of the cells should be considered due to some a-priori estimates of the
@@ -269,7 +267,7 @@ class ADTree:
 
         Parameters:
             g (pp.Grid): The grid to be used to construct the tree
-            only_cells (np.array, optional): Consider only a portion of the cells
+            only_cells (np.ndarray, optional): Consider only a portion of the cells
 
         """
         self.g = g
@@ -312,23 +310,23 @@ class ADTree:
             new_node = ADTNode(c, np.hstack((c_min, c_max)))
             self.add_node(new_node)
 
-    def _scale(self, x: np.array) -> np.array:
+    def _scale(self, x: np.ndarray) -> np.ndarray:
         """Scale the input point to be in the interval [0, 1]
 
         Parameters:
-            x (np.array): the point to be scaled
+            x (np.ndarray): the point to be scaled
 
         Returns:
-            (np.array): the scaled point
+            (np.ndarray): the scaled point
         """
         return self.delta * (x - self.region_min)
 
-    def _box_intersect(self, box1: np.array, box2: np.array) -> bool:
+    def _box_intersect(self, box1: np.ndarray, box2: np.ndarray) -> bool:
         """Check if two boxes intersect.
 
         Parameters:
-            box1 (np.array): the first box
-            box2 (np.array): the second box
+            box1 (np.ndarray): the first box
+            box2 (np.ndarray): the second box
 
         Returns:
             (bool): if the two boxes intersect
