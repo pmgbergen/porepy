@@ -67,8 +67,8 @@ class ADTNode:
     def __init__(self, key: Any, box: np.ndarray) -> None:
         """Initialize the node.
         The physical dimension associated to the node represent the dimension of the object.
-        For a 3d element is 3, for 2d elements is 2, for 1d elements is 1, for 0d elements is 1.
-        The latter can be seen as the degenerate case of a 1d element.
+        For a 3d element is 3, for 2d elements is 2, for 1d elements is 1, for 0d elements
+        is 1. The latter can be seen as the degenerate case of a 1d element.
 
         Parameters:
             key (Any): The key associated to the node
@@ -99,8 +99,8 @@ class ADTNode:
 class ADTree:
     """
     ADT structure, it is possible to fill the tree by giving a PorePy grid and then search for
-    possible intersections. The implementation does not include some features, like removing a node,
-    that are not used so far. Possible extensions in the future.
+    possible intersections. The implementation does not include some features, like removing a
+    node, that are not used so far. Possible extensions in the future.
     """
 
     # Pre-defined ordering of left and right node
@@ -111,7 +111,8 @@ class ADTree:
         """Initialize the tree, if the grid is given then the tree is filled.
 
         Parameters:
-            tree_dim (np.ndarray, optional): Set the tree dimension (typically the double of the physical dimension)
+            tree_dim (np.ndarray, optional): Set the tree dimension (typically the double of
+                the physical dimension)
             tree_dim (np.ndarray, optional): Set the physical dimension
         """
         self.tree_dim = tree_dim

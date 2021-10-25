@@ -449,8 +449,9 @@ def compute_well_rock_matrix_intersections(
 
     Parameters:
         gb (pp.GridBucket): the grid bucket containing all the elements
-        cells (np.array, optional): a set of cells that might be considered to construct the tree
-            If it is not given the tree is constructed by using all the higher dimensional grid cells
+        cells (np.array, optional): a set of cells that might be considered to construct the
+            tree. If it is not given the tree is constructed by using all the higher
+            dimensional grid cells
         tol (float, optional): geometric tolerance
 
     """
@@ -464,7 +465,6 @@ def compute_well_rock_matrix_intersections(
 
     # Extract the grids of the wells of co-dimension 2
     gs_w = gb.grids_of_dimension(dim_max - 2)
-    gs_w_cell_nodes = np.array([g.cell_nodes() for g in gs_w])
 
     # Pre-compute some well informations
     nodes_w = np.empty(gs_w.size, dtype=np.object)
@@ -493,7 +493,7 @@ def compute_well_rock_matrix_intersections(
         end = g_w.nodes[:, n_w[1]]
 
         # Lists for the cell_cell_map
-        I, J, data = [], [], []
+        primary_to_mortar_I, primary_to_mortar_J, primary_to_mortar_data = [], [], []
 
         # Operate on the segments
         for seg_id, (seg_start, seg_end) in enumerate(zip(start.T, end.T)):
@@ -513,17 +513,19 @@ def compute_well_rock_matrix_intersections(
                         for f in faces_loc
                     ]
                 )
-                # Compute the intersections between the segment and the current higher dimensional cell
+                # Compute the intersections between the segment and the current higher
+                # dimensional cell
                 ratio = pp.intersections.segments_polyhedron(
                     seg_start, seg_end, poly, tol
                 )
                 # Store the requested information to build the projection operator
                 if ratio > 0:
-                    I += [seg_id]
-                    J += [c]
-                    data += ratio.tolist()
+                    primary_to_mortar_I += [seg_id]
+                    primary_to_mortar_J += [c]
+                    primary_to_mortar_data += ratio.tolist()
         primary_to_mortar_int = sps.csc_matrix(
-            (data, (I, J)), shape=(g_w.num_cells, g_max.num_cells)
+            (primary_to_mortar_data, (primary_to_mortar_I, primary_to_mortar_J)),
+            shape=(g_w.num_cells, g_max.num_cells),
         )
         secondary_to_mortar_int = sps.diags(np.ones(g_w.num_cells), format="csc")
 

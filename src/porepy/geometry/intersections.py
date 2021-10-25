@@ -1365,10 +1365,6 @@ def segments_polygon(start, end, poly, tol=1e-5):
 
     # First translate the points so that the first plane is located at the origin
     center = np.mean(poly, axis=1).reshape((-1, 1))
-    # Compute copies of polygon and point in new coordinate system
-    orig_poly = poly
-    orig_start = start
-    orig_end = end
 
     poly = poly - center
     start = start - center
@@ -1449,11 +1445,6 @@ def segments_polyhedron(start: np.ndarray, end: np.ndarray, poly: np.ndarray, to
     # Check if the vertices are inside or outside the polyhedron
     is_in_start = pp.geometry_property_checks.point_in_polyhedron(poly, start, tol)
     is_in_end = pp.geometry_property_checks.point_in_polyhedron(poly, end, tol)
-
-    # Check if a segment is completely inside the polyhedron
-    is_all_in = np.logical_and(is_in_start, is_in_end)
-    # check if a segment is partially inside the polyhedron
-    is_partially_in = np.logical_or(is_in_start, is_in_end)
 
     # Check how many intersections a segment has with the faces of the polyhedron
     extra_pts = np.empty(start.shape[1], dtype=np.object)
