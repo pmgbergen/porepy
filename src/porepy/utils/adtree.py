@@ -259,6 +259,8 @@ class ADTree:
                 if node_id != -1:
                     break
 
+        return np.empty(0)
+
     def from_grid(self, g: pp.Grid, only_cells: np.ndarray = None) -> None:
         """Function that construct the tree from a grid by adding one cells at the time.
 
