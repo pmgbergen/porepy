@@ -13,9 +13,12 @@ module_sections = ["models", "numerics"]
 def run_stationary_model(model, params):
     model.prepare_simulation()
 
-    nl_solver = pp.NewtonSolver(params)
+    if model._is_nonlinear_problem():
+        solver = pp.NewtonSolver(params)
+    else:
+        solver = pp.LinearSolver(params)
 
-    nl_solver.solve(model)
+    solver.solve(model)
 
     model.after_simulation()
 
