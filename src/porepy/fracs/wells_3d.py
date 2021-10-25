@@ -456,9 +456,9 @@ def compute_well_rock_matrix_intersections(
 
     """
     # Extract the dimension of the rock matrix, assumed to be of highest dimension
-    dim_max = gb.dim_max()
+    dim_max: int = gb.dim_max()
     # We assume only one single higher dimensional grid, needed for the ADTree
-    g_max = gb.grids_of_dimension(dim_max)[0]
+    g_max: pp.Grid = gb.grids_of_dimension(dim_max)[0]
     # Construct an ADTree for fast computation
     tree = pp.adtree.ADTree(2 * g_max.dim, g_max.dim)
     tree.from_grid(g_max, cells)
@@ -480,7 +480,7 @@ def compute_well_rock_matrix_intersections(
         )
 
     # Operate on the rock matrix grid
-    faces, cells, _ = sps.find(g_max.cell_faces)
+    (faces, cells, _) = sps.find(g_max.cell_faces)
     faces = faces[np.argsort(cells)]
 
     nodes, _, _ = sps.find(g_max.face_nodes)
