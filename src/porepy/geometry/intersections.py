@@ -1447,7 +1447,7 @@ def segments_polyhedron(start: np.ndarray, end: np.ndarray, poly: np.ndarray, to
     is_in_end = pp.geometry_property_checks.point_in_polyhedron(poly, end, tol)
 
     # Check how many intersections a segment has with the faces of the polyhedron
-    extra_pts = np.empty(start.shape[1], dtype=np.object)
+    extra_pts = np.empty(start.shape[1], dtype=object)
     extra_pts.fill(np.empty((3, 0)))
     for face in poly:
         # the face vertices need to be sorted

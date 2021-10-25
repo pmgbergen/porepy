@@ -467,7 +467,7 @@ def compute_well_rock_matrix_intersections(
     gs_w = gb.grids_of_dimension(dim_max - 2)
 
     # Pre-compute some well informations
-    nodes_w = np.empty(gs_w.size, dtype=np.object)
+    nodes_w = np.empty(gs_w.size, dtype=object)
     for idw, g_w in enumerate(gs_w):
         g_w_cn = g_w.cell_nodes()
         g_w_cells = np.arange(g_w.num_cells)
