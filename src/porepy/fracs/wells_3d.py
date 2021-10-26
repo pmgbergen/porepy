@@ -523,6 +523,7 @@ def compute_well_rock_matrix_intersections(
                     primary_to_mortar_I += [seg_id]
                     primary_to_mortar_J += [c]
                     primary_to_mortar_data += ratio.tolist()
+
         primary_to_mortar_int = sps.csc_matrix(
             (primary_to_mortar_data, (primary_to_mortar_I, primary_to_mortar_J)),
             shape=(g_w.num_cells, g_max.num_cells),
