@@ -498,7 +498,7 @@ def compute_well_rock_matrix_intersections(
         # Operate on the segments
         for seg_id, (seg_start, seg_end) in enumerate(zip(start.T, end.T)):
             # Create the box for the segment by ordering its start and end
-            box = np.sort(np.vstack((seg_start, seg_end)), axis=0).flatten()
+            box = np.sort(np.vstack((seg_start, seg_end)), axis=0).ravel()
             seg_cells = tree.search(pp.adtree.ADTNode("dummy_node", box))
 
             # Loop on all the higher dimensional cells
