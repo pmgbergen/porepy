@@ -379,6 +379,7 @@ class WellNetwork3d:
         for t in ["domain_boundary", "tip", "fracture"]:
             pp.utils.tags.add_node_tags_from_face_tags(gb, t)
 
+
 def compute_well_fracture_intersections(
     well_network: WellNetwork3d, fracture_network: pp.FractureNetwork3d
 ) -> None:
@@ -537,6 +538,7 @@ def compute_well_rock_matrix_intersections(
         gb.add_edge((g_max, g_w), mg._primary_to_mortar_int)
         d_e = gb.edge_props((g_max, g_w))
         d_e["mortar_grid"] = mg
+
 
 def _argsort_points_along_line_segment(
     seg: np.ndarray,

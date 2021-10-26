@@ -55,6 +55,7 @@ from scipy import sparse as sps
 
 import porepy as pp
 
+
 class ADTNode:
     """
     Simple bookkeeping class that contains the basic information of a tree node.
