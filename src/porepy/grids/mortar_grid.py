@@ -680,7 +680,6 @@ class MortarGrid:
         self,
         primary_to_mortar_int: sps.spmatrix,
         secondary_to_mortar_int: sps.spmatrix,
-        compute_avg: bool = True,
     ) -> None:
         """Set the int projection matrices from primary and secondary to the mortar grid.
         Useful when the constructor is called with primary_secondary as None, also useful
@@ -692,14 +691,12 @@ class MortarGrid:
                 grid and the mortar grid.
             secondary_to_mortar_int (sps.csc_matrix): Relation between the lower dimensional
                 grid and the mortar grid.
-            compute_avg (bool, optional): Compute the avg matrices. Defaults to True.
         """
 
         self._primary_to_mortar_int = primary_to_mortar_int
         self._secondary_to_mortar_int = secondary_to_mortar_int
 
-        if compute_avg:
-            self._set_projections()
+        self._set_projections()
 
     @pp.time_logger(sections=module_sections)
     def cell_diameters(self) -> np.ndarray:
