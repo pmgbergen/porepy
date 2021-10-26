@@ -48,7 +48,7 @@ A search in the tree gives a list of all possible nodes that may
 intersect the given one.
 
 """
-from typing import Any, List
+from typing import Any, List, Optional
 
 import numpy as np
 from scipy import sparse as sps
