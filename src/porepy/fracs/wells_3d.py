@@ -464,20 +464,20 @@ def compute_well_rock_matrix_intersections(
     gs_w = gb.grids_of_dimension(dim_max - 2)
 
     # Pre-compute some well informations
-    nodes_w = np.empty(gs_w.size, dtype=object)
-    for idw, g_w in enumerate(gs_w):
+    nodes_w = []
+    for g_w in gs_w:
         g_w_cn = g_w.cell_nodes()
         g_w_cells = np.arange(g_w.num_cells)
         # get the cells of the 0d as segments (start, end)
         first = g_w_cn.indptr[g_w_cells]
         second = g_w_cn.indptr[g_w_cells + 1]
 
-        nodes_w[idw] = (
+        nodes_w.append(
             g_w_cn.indices[pp.utils.mcolon.mcolon(first, second)].reshape((-1, 2)).T
         )
 
     # Operate on the rock matrix grid
-    faces, cells, _ = sps.find(g_max.cell_faces)
+    faces, cells, _ = sps.find(g_max.cell_faces.tocsc())
     faces = faces[np.argsort(cells)]
 
     nodes, _, _ = sps.find(g_max.face_nodes)
