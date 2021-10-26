@@ -1,3 +1,14 @@
+"""
+Tests for ADTree usage. We cover the following points:
+    * Add elements in the tree, not related to a grid
+    * Add elements from a 1d grid, and search for 0d and 1d objects (points and segments)
+    * Add elements from a 2d grid, and search for 0d, 1d and 2d objects
+    * Add elements from a 3d grid, and search for 0d, 1d, 2d and 3d objects
+    * Add only some elements from a 1d grid
+    In all the cases, we consider also objects that might be shared by more than one
+    cell in the corresponding grid.
+"""
+
 import unittest
 from test import test_utils
 
@@ -5,9 +16,13 @@ import numpy as np
 
 import porepy as pp
 
+## Tests of the ADTree class.
 
 class ADTreeTest(unittest.TestCase):
     def test_simple_adtree(self):
+        """ Test a simple ADTree with elements added not from a grid.
+            We check if the resulting tree is consistent.
+        """
         tree = pp.adtree.ADTree(1, 1)
 
         n0 = pp.adtree.ADTNode(0, 0.4)
@@ -38,6 +53,11 @@ class ADTreeTest(unittest.TestCase):
         self.assertTrue(tree.nodes[5].child[1] == -1)
 
     def test_grid_1d_adtree(self):
+        """ Test a ADTree constructed from a 1d Grid.
+            We check if the resulting tree is consistent and
+            we search for points and segments.
+        """
+
         g = pp.CartGrid(5, 1)
         g.compute_geometry()
 
@@ -98,6 +118,10 @@ class ADTreeTest(unittest.TestCase):
         self.assertTrue(np.allclose(n_nodes, [0, 1, 2, 3, 4]))
 
     def test_grid_2d_adtree(self):
+        """ Test a ADTree constructed from a 2d Cartesian Grid.
+            We search for points, segments and 2d objects (not a-priori grid cells).
+        """
+
         g = pp.CartGrid([3] * 2, [1] * 2)
         g.compute_geometry()
 
@@ -180,6 +204,11 @@ class ADTreeTest(unittest.TestCase):
         self.assertTrue(np.allclose(n_nodes, [0, 1, 3, 4, 6, 7]))
 
     def test_grid_3d_adtree(self):
+        """ Test a ADTree constructed from a 3d Cartesian Grid.
+            We search for points, segments and 2d objects (not a-priori grid faces)
+            and 3d objects (not a-priori grid cells).
+        """
+
         g = pp.CartGrid([3] * 3, [1] * 3)
         g.compute_geometry()
 
@@ -288,6 +317,10 @@ class ADTreeTest(unittest.TestCase):
         self.assertTrue(np.allclose(n_nodes, [0]))
 
     def test_grid_1d_adtree_partial(self):
+        """ Test a ADTree constructed from a subset of 1d Grid cells.
+            We check if the resulting tree is consistent.
+        """
+
         g = pp.CartGrid(10, 1)
         g.compute_geometry()
 
