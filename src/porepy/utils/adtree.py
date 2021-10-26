@@ -188,7 +188,7 @@ class ADTree:
         box[self.phys_dim :] = self._scale(box[self.phys_dim :]) + tol
 
         # Origin of the sub-tree
-        origin = np.asarray([0.0] * self.tree_dim)
+        origin = np.zeros(self.tree_dim, dtype=float)
 
         level = 0
         node_id = 0
