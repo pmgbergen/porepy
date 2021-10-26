@@ -446,11 +446,12 @@ def compute_well_rock_matrix_intersections(
     """Compute intersections and add edge coupling between the well and the rock matrix.
     To be called after the well grids are constructed.
     We are assuming convex cells and a single high dimensional grid.
+    To speed up the geometrical computation we construct an ADTree.
 
     Parameters:
         gb (pp.GridBucket): the grid bucket containing all the elements
         cells (np.ndarray, optional): a set of cells that might be considered to construct the
-            tree. If it is not given the tree is constructed by using all the higher
+            ADTree. If it is not given the tree is constructed by using all the higher
             dimensional grid cells
         tol (float, optional): geometric tolerance
 
