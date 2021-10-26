@@ -55,9 +55,6 @@ from scipy import sparse as sps
 
 import porepy as pp
 
-module_sections = ["gridding", "grids"]
-
-
 class ADTNode:
     """
     Simple bookkeeping class that contains the basic information of a tree node.
@@ -193,8 +190,12 @@ class ADTree:
         level = 0
         node_id = 0
         # List of possible intersections
-        found = []
-        stack = []
+        found: List[int] = []
+        # List of right parts of the tree that need to be checked
+        # each element contains the node_id (position in self.nodes)
+        # the (shifted) origin at the current level and the current
+        # level
+        stack: List[Tuple[int, np.ndarray, int]] = []
 
         # To traverse a non-empty binary tree in preorder,
         # perform the following operations recursively at each node,
