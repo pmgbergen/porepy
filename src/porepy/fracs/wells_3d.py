@@ -385,7 +385,7 @@ class WellNetwork3d:
 
 def compute_well_fracture_intersections(
     well_network: WellNetwork3d, fracture_network: pp.FractureNetwork3d
-):
+) -> None:
     """Compute intersections and store tags identifying which fracture
     and well segments each intersection corresponds.
 
@@ -442,7 +442,7 @@ def compute_well_fracture_intersections(
 
 def compute_well_rock_matrix_intersections(
     gb: pp.GridBucket, cells: np.ndarray = None, tol: float = 1e-5
-):
+) -> None:
     """Compute intersections and add edge coupling between the well and the rock matrix.
     To be called after the well grids are constructed.
     We are assuming convex cells and a single high dimensional grid.
