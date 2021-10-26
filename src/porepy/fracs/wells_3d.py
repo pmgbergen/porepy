@@ -445,7 +445,7 @@ def compute_well_rock_matrix_intersections(
 ):
     """Compute intersections and add edge coupling between the well and the rock matrix.
     To be called after the well grids are constructed.
-    We are assuming convex cells and one single high dimensional grid.
+    We are assuming convex cells and a single high dimensional grid.
 
     Parameters:
         gb (pp.GridBucket): the grid bucket containing all the elements
