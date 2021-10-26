@@ -480,7 +480,7 @@ def compute_well_rock_matrix_intersections(
     faces, cells, _ = sps.find(g_max.cell_faces.tocsc())
     faces = faces[np.argsort(cells)]
 
-    nodes, _, _ = sps.find(g_max.face_nodes)
+    nodes, *_ = sps.find(g_max.face_nodes)
     indptr = g_max.face_nodes.indptr
 
     # Loop on all the well grids

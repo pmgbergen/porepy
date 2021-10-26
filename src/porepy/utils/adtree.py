@@ -185,7 +185,7 @@ class ADTree:
         box[self.phys_dim :] = self._scale(box[self.phys_dim :]) + tol
 
         # Origin of the sub-tree
-        origin = np.asarray([0.0] * self.tree_dim)
+        origin = np.zeros(self.tree_dim, dtype=float)
 
         level = 0
         node_id = 0
@@ -262,7 +262,7 @@ class ADTree:
 
         return np.empty(0)
 
-    def from_grid(self, g: pp.Grid, only_cells: np.ndarray = None) -> None:
+    def from_grid(self, g: pp.Grid, only_cells: Optional[np.ndarray] = None) -> None:
         """Function that construct the tree from a grid by adding one cells at the time.
 
         If a portion of the cells should be considered due to some a-priori estimates of the

@@ -1418,6 +1418,7 @@ def segments_polygon(start, end, poly, tol=1e-5):
 
 def segments_polyhedron(start: np.ndarray, end: np.ndarray, poly: np.ndarray, tol=1e-5):
     """Compute the intersection from line segments to the interior of a convex polyhedron.
+
     There are four possibilities for each segment
         1 - the segment is completely inside the polyhedron, meaning that its vertices
             are both inside the polyhedron
