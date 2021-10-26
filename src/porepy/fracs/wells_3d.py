@@ -480,7 +480,7 @@ def compute_well_rock_matrix_intersections(
         )
 
     # Operate on the rock matrix grid
-    (faces, cells, _) = sps.find(g_max.cell_faces)
+    faces, cells, _ = sps.find(g_max.cell_faces)
     faces = faces[np.argsort(cells)]
 
     nodes, _, _ = sps.find(g_max.face_nodes)
