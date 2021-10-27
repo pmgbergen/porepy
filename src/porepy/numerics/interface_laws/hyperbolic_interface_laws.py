@@ -33,6 +33,8 @@ class UpwindCoupling(
         # Discretization of the mortar variable
         self.mortar_discr_matrix_key = "mortar_discr"
 
+        self._flux_array_key = "darcy_flux"
+
     def key(self) -> str:
         return self.keyword + "_"
 
@@ -63,7 +65,9 @@ class UpwindCoupling(
         matrix_dictionary = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         # Normal component of the velocity from the higher dimensional grid
-        lam_flux: np.ndarray = data_edge[pp.PARAMETERS][self.keyword]["darcy_flux"]
+        lam_flux: np.ndarray = np.sign(
+            data_edge[pp.PARAMETERS][self.keyword][self._flux_array_key]
+        )
 
         mg: pp.MortarGrid = data_edge["mortar_grid"]
 
@@ -161,6 +165,12 @@ class UpwindCoupling(
         # The mortar variable itself.
         mortar_discr: sps.spmatrix = matrix_dictionary[self.mortar_discr_matrix_key]
 
+        # The advective flux
+        lam_flux: np.ndarray = np.abs(
+            data_edge[pp.PARAMETERS][self.keyword][self._flux_array_key]
+        )
+        scaling = sps.dia_matrix((lam_flux, 0), shape=(mg.num_cells, mg.num_cells))
+
         # assemble matrices
         # Note the sign convention: The Darcy mortar flux is positive if it goes
         # from g_h to g_l. Thus a positive transport flux (assuming positive
@@ -178,13 +188,15 @@ class UpwindCoupling(
         # i.e., T_primaryat * fluid_flux = lambda.
         # We set cc[2, 0] = T_primaryat * fluid_flux
         # Use averaged projection operator for an intensive quantity
-        cc[2, 0] = flux * upwind_primary * mg.primary_to_mortar_avg() * trace_primary
+        cc[2, 0] = (
+            scaling * flux * upwind_primary * mg.primary_to_mortar_avg() * trace_primary
+        )
 
         # If fluid flux is negative we use the lower value as weight,
         # i.e., T_check * fluid_flux = lambda.
         # we set cc[2, 1] = T_check * fluid_flux
         # Use averaged projection operator for an intensive quantity
-        cc[2, 1] = flux * upwind_secondary * mg.secondary_to_mortar_avg()
+        cc[2, 1] = scaling * flux * upwind_secondary * mg.secondary_to_mortar_avg()
 
         # The rhs of T * fluid_flux = lambda
         # Recover the information for the grid-grid mapping
