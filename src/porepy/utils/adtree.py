@@ -60,6 +60,13 @@ class ADTNode:
     """
     Simple bookkeeping class that contains the basic information of a tree node.
 
+    Attributes:
+        key (Any): any key related to the node
+        box (np.ndarray): the bounding box associated to the node
+        child (list): list of identification of right and left children, if a children is not
+            present is marked as -1. It's not the key but the position of the children in the ADTree
+        parent (int): identification of the parent node, marked -1 if not present (the root of a tree)
+
     """
 
     def __init__(self, key: Any, box: np.ndarray) -> None:
@@ -99,6 +106,17 @@ class ADTree:
     ADT structure, it is possible to fill the tree by giving a PorePy grid and then search for
     possible intersections. The implementation does not include some features, like removing a
     node, that are not used so far. Possible extensions in the future.
+
+    Attributes:
+        tree_dim (int): search dimension of the tree, typically (e.g., when a pp.Grid is given) the
+            double of the phys_dim
+        phys_dim (int): physical dimension of nodes in the tree, e.g., a 2d grid will have phys_dim = 2
+        nodes (list): the list of nodes as ADTNode
+        region_min (float): to scale the bounding box of all the elements in [0, 1]^phys_dim we need the minimum
+            corner point of the all region
+        delta (float): a paramenter to scale and get all the bounding box of the elements in [0, 1]^phys_dim
+        LEFT (int): define the index of the left child, being equal to 0
+        RIGHT (int): define the index of the right child, being equal to 1
     """
 
     # Pre-defined ordering of left and right node
