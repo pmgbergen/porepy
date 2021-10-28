@@ -105,17 +105,32 @@ class ADTNode:
     def __str__(self) -> str:
         """Implementation of __str__"""
         s = (
-            "key: "
+            "Node with key: "
             + str(self.key)
-            + " child: "
+            + "\nChild nodes: "
             + str(self.child)
-            + " parent: "
+            + "\nParent node: "
             + str(self.parent)
-            + " box: "
+            + "\nBounding box: "
             + str(self.box)
         )
         return s
 
+    def __repr__(self) -> str:
+        """Implementation of __repr__"""
+        s = (
+            "key: "
+            + repr(self.key)
+            + " left child: "
+            + repr(self.child[0])
+            + " right child: "
+            + repr(self.child[0])
+            + " parent: "
+            + repr(self.parent)
+            + " box: "
+            + repr(self.box)
+        )
+        return s
 
 class ADTree:
     """
@@ -158,9 +173,42 @@ class ADTree:
 
     def __str__(self) -> str:
         """Implementation of __str__"""
-        return "\n".join(
-            ["node " + str(idn) + " " + str(n) for idn, n in enumerate(self.nodes)]
+        s = (
+            "Tree search dimension: "
+            + str(self.tree_dim)
+            + "\nPhysical dimension: "
+            + str(self.phys_dim)
+            + "\nNumber of nodes: "
+            + str(len(self.nodes))
+            + "\nFor the geometrical scaling in [0, 1], the region minimum: "
+            + str(self.region_min)
+            + " and delta "
+            + str(self.delta)
         )
+        return s
+
+    def __repr__(self) -> str:
+        """Implementation of __repr__"""
+
+        s = (
+            "Search dimension: "
+            + str(self.tree_dim)
+            + " physical dimension: "
+            + str(self.phys_dim)
+            + " the region minimum: "
+            + str(self.region_min)
+            + " delta: "
+            + str(self.delta)
+            + " number of nodes: "
+            + str(len(self.nodes))
+            + " list of nodes:\n"
+        )
+
+        s += "\n".join(
+            ["node " + str(idn) + " " + repr(n) for idn, n in enumerate(self.nodes)]
+        )
+
+        return s
 
     def add_node(self, node: ADTNode) -> None:
         """Add a new node to the tree. We traverse the tree as previously specified and
@@ -297,6 +345,7 @@ class ADTree:
                 if node_id != -1:
                     break
 
+        # nothing is found, return an empty array
         return np.empty(0)
 
     def from_grid(self, g: pp.Grid, only_cells: Optional[np.ndarray] = None) -> None:
@@ -321,10 +370,10 @@ class ADTree:
 
             # to compute the min and max of the region, and get a more balanced tree,
             # we need to consider only the cells involved
-            which_nodes = []
+            which_nodes = np.empty(0, dtype=int)
             for c in which_cells:
                 loc = slice(g_cell_nodes.indptr[c], g_cell_nodes.indptr[c + 1])
-                which_nodes += g_nodes[loc].tolist()
+                which_nodes = np.append(which_nodes, g_nodes[loc])
             which_nodes = np.unique(which_nodes)
 
         else:
