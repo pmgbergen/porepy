@@ -132,6 +132,7 @@ class ADTNode:
         )
         return s
 
+
 class ADTree:
     """
     ADT structure, it is possible to fill the tree by giving a PorePy grid and then search for
