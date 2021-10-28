@@ -266,6 +266,7 @@ class LinesIntersectTest(unittest.TestCase):
         self.assertTrue(is_cross[0] and np.allclose(pt[:, 0], [0.5, 0.5, 0.0]))
 
     def test_segments_polyhedron_fully_inside(self):
+        """ Test for a segment with both extrema immersed in the polyhedron (cube) """
         s = np.array([0.5, 0.5, 0.25])
         e = np.array([0.5, 0.5, 0.75])
 
@@ -284,6 +285,7 @@ class LinesIntersectTest(unittest.TestCase):
         self.assertTrue(perc[0] == 1)
 
     def test_segments_polyhedron_fully_outside(self):
+        """ Test for a segment with both extrema outside the polyhedron (cube) """
         s = np.array([0.5, 0.5, 1.25])
         e = np.array([0.5, 0.5, 1.75])
 
@@ -302,6 +304,7 @@ class LinesIntersectTest(unittest.TestCase):
         self.assertTrue(perc[0] == 0)
 
     def test_segments_polyhedron_one_inside_one_outside(self):
+        """ Test for a segment with one extrema inside and one outside the polyhedron (cube) """
         s = np.array([0.5, 0.5, 0.5])
         e = np.array([0.5, 0.5, 1.5])
 
@@ -320,6 +323,7 @@ class LinesIntersectTest(unittest.TestCase):
         self.assertTrue(perc[0] == 0.5)
 
     def test_segments_polyhedron_edge(self):
+        """ Test for a segment that partially overlap one of the edge (face boundary) of the polyhedron (cube) """
         s = np.array([1, 0, 0.5])
         e = np.array([1, 0, 1.5])
 
@@ -337,6 +341,24 @@ class LinesIntersectTest(unittest.TestCase):
         perc = pp.intersections.segments_polyhedron(s, e, p)
         self.assertTrue(perc[0] == 0)
 
+    def test_segments_polyhedron_face(self):
+        """ Test for a segment that partially overlap a face of the polyhedron (cube) """
+        s = np.array([0.5, 0, 0.5])
+        e = np.array([0.5, 0, 1.5])
+
+        p = np.array(
+            [
+                [[0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[1.0, 1.0, 1.0, 1.0], [0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [1.0, 1.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]],
+            ]
+        )
+
+        perc = pp.intersections.segments_polyhedron(s, e, p)
+        self.assertTrue(perc[0] == 0)
 
 class LineTesselation(unittest.TestCase):
     def test_tesselation_do_not(self):
