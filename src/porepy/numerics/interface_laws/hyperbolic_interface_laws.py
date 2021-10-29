@@ -18,7 +18,7 @@ class UpwindCoupling(
     def __init__(self, keyword: str) -> None:
         super().__init__(keyword)
 
-        # Keywords for accessing discretization matices
+        # Keywords for accessing discretization matrices
 
         # Trace operator for the primary grid
         self.trace_primary_matrix_key = "trace"
