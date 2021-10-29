@@ -286,7 +286,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         subdomain_flow_eq = (
             div * flux - mortar_proj.mortar_to_secondary_int * mortar_flux - source
         )
-        
+
         # Interface equation: \lambda = -\kappa (p_l - p_h)
         # Robin_ad.mortar_discr represents -\kappa. The involved term is
         # reconstruction of p_h on internal boundary, which has contributions
