@@ -954,7 +954,9 @@ class WellCoupling(
 
         # Kh is ke * specific volume, but this is already captured by k
         Kh = proj_h * ke * mg.cell_volumes
-        inv_WI = sps.diags((np.log(proj_h * r_e / r_w) + skin_factor) / 2 * np.pi * Kh)
+        inv_WI = sps.diags(
+            (np.log(proj_h * r_e / r_w) + skin_factor) / 2 * np.pi * Kh, format="csr"
+        )
         matrix_dictionary_edge[self.well_discr_matrix_key] = -inv_WI
 
         ## Vector source.
