@@ -89,7 +89,7 @@ def single_vertical(mesh_args=None, y_endpoints=None, simplex=True):
         gb = pp.meshing.cart_grid(
             [fracture], mesh_args, physdims=[domain["xmax"], domain["ymax"]]
         )
-    return gb
+    return gb, domain
 
 
 @pp.time_logger(sections=module_sections)
