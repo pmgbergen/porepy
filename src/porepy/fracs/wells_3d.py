@@ -514,7 +514,7 @@ def compute_well_rock_matrix_intersections(
                 )
                 # Compute the intersections between the segment and the current higher
                 # dimensional cell
-                ratio = pp.intersections.segments_polyhedron(
+                _, _, _, ratio = pp.intersections.segments_polyhedron(
                     seg_start, seg_end, poly, tol
                 )
                 # Store the requested information to build the projection operator

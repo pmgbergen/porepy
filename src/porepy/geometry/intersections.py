@@ -1340,15 +1340,16 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
 
 def segments_polygon(start, end, poly, tol=1e-5):
     """Compute the internal intersection from line segments to a polygon in 3d.
+    Intersections with the boundary of the polygon are not computed.
 
     Parameters:
-        start (np.array, nd x num_segments): One endpoint of segments
-        end (np.array, nd x num_segments): Other endpoint of segments
-        poly (np.array, nd x n_vert): Vertexes of polygon.
+        start (np.ndarray, nd x num_segments): One endpoint of segments
+        end (np.ndarray, nd x num_segments): Other endpoint of segments
+        poly (np.ndarray, nd x n_vert): Vertexes of polygon.
         tol (optional): Tolerance for the geometric computations.
 
     Returns:
-        np.array, bool: Identify if a segment has intersection with the polygon
+        np.ndarray, bool: Identify if a segment has intersection with the polygon
             useful to filter the second return parameter.
         np.ndarray, nd x num_segments: Intersection point.
     """
@@ -1418,6 +1419,7 @@ def segments_polygon(start, end, poly, tol=1e-5):
 
 def segments_polyhedron(start: np.ndarray, end: np.ndarray, poly: np.ndarray, tol=1e-5):
     """Compute the intersection from line segments to the interior of a convex polyhedron.
+    Intersections with the boundary of the polyhedron are not computed.
 
     There are four possibilities for each segment
         1 - the segment is completely inside the polyhedron, meaning that its vertices
@@ -1427,16 +1429,20 @@ def segments_polyhedron(start: np.ndarray, end: np.ndarray, poly: np.ndarray, to
         4 - the segment has in intersection but both vertices are outside the polyhedron.
 
     Parameters:
-        start (np.array, nd x num_segments): One endpoint of segments
-        end (np.array, nd x num_segments): Other endpoint of segments
-        poly (np.array, nd x n_vert): Vertexes of polygon organised face by face
+        start (np.ndarray, nd x num_segments): One endpoint of segments
+        end (np.ndarray, nd x num_segments): Other endpoint of segments
+        poly (np.ndarray, nd x n_vert): Vertexes of polygon organised face by face
         tol (optional): Tolerance for the geometric computations
 
     Returns:
-        np.array, num_segments: Length percentage of a segment inside the polyhedron
+        np.ndarray, num_segment: For each segment intersection points with the polyhedron,
+            start and end points are not included in this list
+        np.ndarray, num_segments: Vector of boolean that indicate if the start of a segment
+            is inside the polyhedron
+        np.ndarray, num_segments: Vector of boolean that indicate if the end of a segment
+            is inside the polyhedron
+        np.ndarray, num_segments: Length percentage of a segment inside the polyhedron
 
-    NOTE: Other possible data are available in the function but not returned since they
-        are not needed so far.
     """
     # For a single point make its shape consistent
     if len(start.shape) == 1:
@@ -1471,8 +1477,9 @@ def segments_polyhedron(start: np.ndarray, end: np.ndarray, poly: np.ndarray, to
         elif extra_pts[seg].shape[1] > 1:
             length[seg] = np.linalg.norm(extra_pts[seg][:, 0] - extra_pts[seg][:, 1])
 
-    # Return the percentage of segment in the polyhedron
-    return length / np.sqrt(np.einsum("ij,ij->j", end - start, end - start))
+    # Compute the percentage of segment in the polyhedron
+    ratio = length / np.sqrt(np.einsum("ij,ij->j", end - start, end - start))
+    return extra_pts, is_in_start, is_in_end, ratio
 
 
 def _point_in_or_on_polygon(p: np.ndarray, poly: np.ndarray, tol=1e-8):

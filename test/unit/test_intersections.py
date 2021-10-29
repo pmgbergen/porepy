@@ -265,6 +265,15 @@ class LinesIntersectTest(unittest.TestCase):
         is_cross, pt = pp.intersections.segments_polygon(s, e, p)
         self.assertTrue(is_cross[0] and np.allclose(pt[:, 0], [0.5, 0.5, 0.0]))
 
+    def test_segments_polygon_immersed(self):
+        s = np.array([0.25, 0.25, 0])
+        e = np.array([0.75, 0.75, 0])
+
+        p = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+
+        is_cross, _ = pp.intersections.segments_polygon(s, e, p)
+        self.assertTrue(not is_cross[0])
+
     def test_segments_polyhedron_fully_inside(self):
         """ Test for a segment with both extrema immersed in the polyhedron (cube) """
         s = np.array([0.5, 0.5, 0.25])
@@ -281,8 +290,8 @@ class LinesIntersectTest(unittest.TestCase):
             ]
         )
 
-        perc = pp.intersections.segments_polyhedron(s, e, p)
-        self.assertTrue(perc[0] == 1)
+        pts, s_in, e_in, perc = pp.intersections.segments_polyhedron(s, e, p)
+        self.assertTrue(pts[0].size == 0 and s_in[0] and e_in[0] and perc[0] == 1)
 
     def test_segments_polyhedron_fully_outside(self):
         """ Test for a segment with both extrema outside the polyhedron (cube) """
@@ -300,11 +309,14 @@ class LinesIntersectTest(unittest.TestCase):
             ]
         )
 
-        perc = pp.intersections.segments_polyhedron(s, e, p)
-        self.assertTrue(perc[0] == 0)
+        pts, s_in, e_in, perc = pp.intersections.segments_polyhedron(s, e, p)
+        self.assertTrue(
+            pts[0].size == 0 and (not s_in[0]) and (not e_in[0]) and perc[0] == 0
+        )
 
     def test_segments_polyhedron_one_inside_one_outside(self):
-        """ Test for a segment with one extrema inside and one outside the polyhedron (cube) """
+        """Test for a segment with one extrema inside and one outside the polyhedron
+        (cube)"""
         s = np.array([0.5, 0.5, 0.5])
         e = np.array([0.5, 0.5, 1.5])
 
@@ -319,11 +331,17 @@ class LinesIntersectTest(unittest.TestCase):
             ]
         )
 
-        perc = pp.intersections.segments_polyhedron(s, e, p)
-        self.assertTrue(perc[0] == 0.5)
+        pts, s_in, e_in, perc = pp.intersections.segments_polyhedron(s, e, p)
+        self.assertTrue(
+            np.allclose(pts[0].T, [0.5, 0.5, 1])
+            and s_in[0]
+            and (not e_in[0])
+            and perc[0] == 0.5
+        )
 
     def test_segments_polyhedron_edge(self):
-        """ Test for a segment that partially overlap one of the edge (face boundary) of the polyhedron (cube) """
+        """Test for a segment that partially overlap one of the edge (face boundary) of the
+        polyhedron (cube)"""
         s = np.array([1, 0, 0.5])
         e = np.array([1, 0, 1.5])
 
@@ -338,8 +356,10 @@ class LinesIntersectTest(unittest.TestCase):
             ]
         )
 
-        perc = pp.intersections.segments_polyhedron(s, e, p)
-        self.assertTrue(perc[0] == 0)
+        pts, s_in, e_in, perc = pp.intersections.segments_polyhedron(s, e, p)
+        self.assertTrue(
+            pts[0].size == 0 and (not s_in[0]) and (not e_in[0]) and perc[0] == 0
+        )
 
     def test_segments_polyhedron_face(self):
         """ Test for a segment that partially overlap a face of the polyhedron (cube) """
@@ -357,8 +377,11 @@ class LinesIntersectTest(unittest.TestCase):
             ]
         )
 
-        perc = pp.intersections.segments_polyhedron(s, e, p)
-        self.assertTrue(perc[0] == 0)
+        pts, s_in, e_in, perc = pp.intersections.segments_polyhedron(s, e, p)
+        self.assertTrue(
+            pts[0].size == 0 and (not s_in[0]) and (not e_in[0]) and perc[0] == 0
+        )
+
 
 class LineTesselation(unittest.TestCase):
     def test_tesselation_do_not(self):
