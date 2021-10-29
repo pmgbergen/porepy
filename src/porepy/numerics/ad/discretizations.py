@@ -298,3 +298,26 @@ class RobinCouplingAd(Discretization):
             f"Defined on {len(self.edges)} mortar grids."
         )
         return s
+
+
+class UpwindCouplingAd(Discretization):
+    def __init__(self, keyword: str, edges: List[Edge]) -> None:
+        self.edges = edges
+        self._discretization = pp.UpwindCoupling(keyword)
+        self._name = "Upwind coupling"
+        self.keyword = keyword
+
+        # UpwindCoupling also has discretization matrices for (inverse) trace.
+        # These are not needed for Ad version since ad.Trace should be used instead
+        self.mortar_discr: MergedOperator
+        self.flux: MergedOperator
+        self.upwind_primary: MergedOperator
+        self.upwind_secondary: MergedOperator
+        wrap_discretization(self, self._discretization, edges)
+
+    def __repr__(self) -> str:
+        s = (
+            f"Ad discretization of type {self._name}."
+            f"Defined on {len(self.edges)} mortar grids."
+        )
+        return s
