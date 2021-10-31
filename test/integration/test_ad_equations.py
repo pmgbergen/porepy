@@ -199,9 +199,6 @@ class ContactModel(pp.ContactMechanics):
         self.gb = self._grid_meth()
 
 
-#        pp.contact_conditions.set_projections(self.gb)
-
-
 class BiotContactModel(pp.ContactMechanicsBiot):
     def __init__(self, param, grid_meth):
         ############# NB: tests should be with and without subtract_fracture_pressure
