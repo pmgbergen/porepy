@@ -51,7 +51,7 @@ class AbstractModel:
         self.linear_solver: str = "direct"
 
         self._iteration: int = 0
-        self._use_ad = self.params["use_ad"]
+        self._use_ad = bool(self.params["use_ad"])
         self._eq_manager: pp.ad.EquationManager
         self.dof_manager: pp.DofManager
 
