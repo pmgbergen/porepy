@@ -1,6 +1,6 @@
 """
 For any discretization class compatible with PorePy, wrap_discretization associates
-a discretization with all attributes of the class' attributes that ends with
+a discretization with all attributes of the class' attributes that end with
 '_matrix_key'.
 
 
@@ -43,6 +43,7 @@ __all__ = [
     "UpwindAd",
     "RobinCouplingAd",
     "WellCouplingAd",
+    "UpwindCouplingAd",
 ]
 
 Edge = Tuple[pp.Grid, pp.Grid]
@@ -52,7 +53,7 @@ class Discretization(abc.ABC):
     """General/utility methods for AD discretization classes.
 
     The init of the children classes below typically calls wrap_discretization
-    and have arguments including grids or edges and keywords for parameter and
+    and has arguments including grids or edges and keywords for parameter and
     possibly matrix storage.
 
     """
@@ -262,6 +263,9 @@ class UpwindAd(Discretization):
         wrap_discretization(self, self._discretization, grids=grids)
 
 
+## Interface coupling discretizations
+
+
 class WellCouplingAd(Discretization):
     def __init__(self, keyword: str, edges: List[Edge]) -> None:
         self.edges = edges
@@ -313,7 +317,7 @@ class UpwindCouplingAd(Discretization):
         self.flux: MergedOperator
         self.upwind_primary: MergedOperator
         self.upwind_secondary: MergedOperator
-        wrap_discretization(self, self._discretization, edges)
+        wrap_discretization(self, self._discretization, edges=edges)
 
     def __repr__(self) -> str:
         s = (
