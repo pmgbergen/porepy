@@ -27,8 +27,14 @@ module_sections = ["models", "numerics"]
 class AbstractModel:
     """This is a class that specifies methods that a model must implement to
     be compatible with the Newton and time stepping methods.
-Attributes:
-    params (Dict): Simulation specific parameters. Admissible items depends on the model in question.
+
+    Public attributes:
+        params (Dict): Simulation specific parameters. Which items are admissible
+            depends on the model in question.
+        convergence_status (bool): Whether the non-linear iterations has converged.
+        linear_solver (str): Specification of linear solver. Only known permissible
+            value is 'direct'.
+        dof_mansager (pp.DofManager): Degree of freedom manager.
     """
 
     def __init__(self, params: Optional[Dict] = None):
@@ -51,8 +57,9 @@ Attributes:
         self.convergence_status: bool = False
         self.linear_solver: str = "direct"
 
-        self._iteration: int = 0
-        self._use_ad = bool(self.params["use_ad"])
+        self._nonlinear_iteration: int = 0
+        assert isinstance(self.params["use_ad"], bool)
+        self._use_ad = self.params["use_ad"]
         self._eq_manager: pp.ad.EquationManager
         self.dof_manager: pp.DofManager
 
