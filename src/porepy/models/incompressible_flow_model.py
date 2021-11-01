@@ -1,4 +1,4 @@
-"""
+""" This module contains an implementation of a base model for all incompressible flow problems.
 """
 
 import logging
@@ -24,12 +24,13 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
     model classes (CompressibleFlow).
 
     Public attributes:
-        variable (str): Name assigned to the displacement variable in the
+        variable (str): Name assigned to the pressure variable in the
             highest-dimensional subdomain. Will be used throughout the simulations,
-            including in Paraview export.
+            including in Paraview export. The default variable name is 'p'.
 
         mortar_variable (str): Name assigned to the flux variable on the interfaces.
             Will be used throughout the simulations, including in Paraview export.
+            The default mortar variable name is 'mortar_p'.
 
         parameter_key (str): Keyword used to define parameters and discretizations.
 
@@ -110,7 +111,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
             mg = data_edge["mortar_grid"]
             if mg.codim == 2:
                 # Codim 2 (well type) interfaces are on the user's own responsibility
-                # and must be handled in run scripts.
+                # and must be handled in run scripts or by subclassing.
                 continue
 
             a_l = self._aperture(g_l)
@@ -323,7 +324,8 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         )
 
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
-
+         """Use a direct solver for the linear system.
+         """
         A, b = self._eq_manager.assemble()
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
         logger.debug(

@@ -6,7 +6,7 @@ is because they are only needed for some model types (typically nonlinear ones).
 
 Note on running simulations: We provide run_time_dependent_model and run_stationary_model.
 Both call the Model's prepare_simulation and after_simulation methods, as well as the
-solve method of either a LinearSolver or NewtonSolver (only non-linear available
+solve method of either a LinearSolver or NewtonSolver (the only non-linear solver available
 for the time being). The Solvers call methods before_newton_loop, check_convergence,
 after_newton_convergence/after_newton_divergence, (only NewtonSolver:) before_newton_iteration,
 after_newton_iteration. The name "newton" is there for legacy reasons, a more fitting
@@ -77,7 +77,7 @@ Attributes:
         # If fractures are present, it is advised to call
         # pp.contact_conditions.set_projections(self.gb)
 
-    def _initial_condition(self):
+    def _initial_condition(self) -> None:
         """Set initial guess for the variables."""
         initial_values = np.zeros(self.dof_manager.num_dofs())
         self.dof_manager.distribute_variable(initial_values)
@@ -270,7 +270,7 @@ Attributes:
         np.ndarray,
     ]:
         """Obtain indices of the faces of a grid that lie on each side of the domain
-        boundaries.
+        boundaries. It is assumed the domain is box shaped.
         """
         tol = 1e-10
         box = self.box
