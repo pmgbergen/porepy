@@ -27,7 +27,8 @@ module_sections = ["models", "numerics"]
 class AbstractModel:
     """This is a class that specifies methods that a model must implement to
     be compatible with the Newton and time stepping methods.
-
+Attributes:
+    params (Dict): Simulation specific parameters. Admissible items depends on the model in question.
     """
 
     def __init__(self, params: Optional[Dict] = None):
