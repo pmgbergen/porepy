@@ -146,7 +146,7 @@ class ContactMechanics(AbstractModel):
         Check whether the solution has converged by comparing values from the two
         most recent iterations.
 
-        Taylored implementation if AD is not used. Else, the generic check in
+        Tailored implementation if AD is not used. Else, the generic check in
         AbstractModel is used.
 
         Parameters:
@@ -161,6 +161,7 @@ class ContactMechanics(AbstractModel):
                 solution, prev_solution, init_solution, nl_params
             )
 
+        # The default convergence check cannot be applied. Do a manual check instead.
         g_max = self._nd_grid()
         mech_dof = self.dof_manager.grid_and_variable_to_dofs(
             g_max, self.displacement_variable
