@@ -2,8 +2,8 @@
 
 Both within a grid, and upwind coupling on mortar grids.
 
-NOTE: Most tests checks the both the discretization matrix and the result from a call
-to assemble_matrix_rhs (the later functionality is in a sense outdated, but kept for
+NOTE: Most tests check both the discretization matrix and the result from a call
+to assemble_matrix_rhs (the latter functionality is in a sense outdated, but kept for
 legacy reasons).
 
 """
