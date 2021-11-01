@@ -21,10 +21,7 @@ class Upwind(pp.numerics.discretization.Discretization):
 
         # Keywords used to store matrix and right hand side in the matrix_dictionary
         self.upwind_matrix_key = "transport"
-        self.rhs_matrix_key = "rhs"
-
-        # Separate discretization matrix for outflow Neumann conditions.
-        self.outflow_neumann_matrix_key = "outflow_neumann"
+        self.bound_transport_matrix_key = "rhs"
 
         # Key used to set the advective flux in the parameter dictionary
         self._flux_array_key = "darcy_flux"
@@ -71,7 +68,7 @@ class Upwind(pp.numerics.discretization.Discretization):
     @pp.time_logger(sections=module_sections)
     def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.spmatrix:
         """Return the matrix for an upwind discretization of a linear transport
-        problem. The upwind discretization is scaled with the advective flux.
+        problem.
 
         To stay true with a legacy format, the assembled system includes scaling with
         the advective flux field.
@@ -119,9 +116,6 @@ class Upwind(pp.numerics.discretization.Discretization):
         To stay true with a legacy format, the assembled system includes scaling with
         the advective flux field.
 
-        NOTE: This function does not represent outflow over Neumann conditions. For that
-        consider using the Ad version of upwinding.
-
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
@@ -138,7 +132,7 @@ class Upwind(pp.numerics.discretization.Discretization):
 
         bc_values: np.ndarray = parameter_dictionary["bc_values"]
         bc: pp.BoundaryCondition = parameter_dictionary["bc"]
-        bc_discr = matrix_dictionary[self.rhs_matrix_key]
+        bc_discr = matrix_dictionary[self.bound_transport_matrix_key]
 
         # Scaling with the advective flux.
         # This is included to stay compatible with the legacy contract for this
@@ -229,7 +223,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         # Shortcut for point grids
         if g.dim == 0:
             matrix_dictionary[self.upwind_matrix_key] = sps.csr_matrix((0, 1))
-            matrix_dictionary[self.rhs_matrix_key] = sps.csr_matrix((0, 0))
+            matrix_dictionary[self.bound_transport_matrix_key] = sps.csr_matrix((0, 0))
             return
 
         # Get the sign of the advective flux
@@ -258,9 +252,9 @@ class Upwind(pp.numerics.discretization.Discretization):
 
         # We need to eliminate faces on the boundary; these will be discretized
         # separately below. On faces with Neumann conditions, boundary conditions apply
-        # for both inflow and outflow. For Dirichlet, only inflow conditions are given;
-        # for outflow, we use upstream weighting (thus no need to modify the matrix
-        # we are about to build).
+        # for inflow; outflow faces should be assigned Dirichlet conditions.
+        # For Dirichlet, only inflow conditions are given; for outflow, we use upstream
+        # weighting (thus no need to modify the matrix we are about to build).
 
         # faces with Neumann conditions
         neumann_ind = np.where(bc.is_neu)[0]
@@ -309,13 +303,8 @@ class Upwind(pp.numerics.discretization.Discretization):
         # 1) On Neumann boundaries the precribed boundary value should effectively
         # be added to the adjacent cell, with the convention that influx (so
         # negative boundary value) should correspond to accumulation.
-        # 2) On Neumann outflow conditions, a separate discretization matrix is constructed.
-        #    This has been tested for advective problems only.
-        # 3) On Dirichlet boundaries, we consider only inflow boundaries.
-        #
-        # IMPLEMENTATION NOTE: The isolation of outflow Neumann condition in a separate
-        # discretization matrix may not be necessary, the reason is partly poorly understood
-        # assumptions in a legacy implementation.
+        # 2) On Dirichlet boundaries, we consider only inflow boundaries. Outflow boundaries
+        # are treated by the standard discretization.
 
         # For Neumann faces we need to assign the sign of the divergence, to
         # counteract multiplication with the same sign when the divergence is
@@ -334,37 +323,8 @@ class Upwind(pp.numerics.discretization.Discretization):
         ).tocsr()
 
         # Expand matrix to the right number of components, and store it
-        matrix_dictionary[self.rhs_matrix_key] = sps.kron(
+        matrix_dictionary[self.bound_transport_matrix_key] = sps.kron(
             bc_discr, sps.eye(num_components)
-        ).tocsr()
-
-        ## Neumann outflow conditions
-        # Outflow Neumann boundaries
-        outflow_neu = np.logical_and(
-            bc.is_neu,
-            np.logical_or(
-                np.logical_and(pos_flux, sgn_div > 0),
-                np.logical_and(neg_flux, sgn_div < 0),
-            ),
-        )
-
-        # We need to account for the sign of the advective flux.
-        flux_mat = sps.dia_matrix(
-            (np.ones(g.num_faces), 0), shape=(g.num_faces, g.num_faces)
-        )
-        # Set all fluxes that are not on outflow Neumann faces to zero
-        # We know flux_mat is diagonal, and can safely edit the data directly.
-        # Note that the data is stored as a 2d array.
-        flux_mat.data[0][np.logical_not(outflow_neu)] = 0
-
-        # Use a simple cell to face map here; this will pick up cells that are both
-        # upstream and downstream to Neumann faces, however, the latter will have
-        # their flux filtered away.
-        cell_2_face = np.abs(g.cell_faces)
-
-        # Add minus sign to be consistent with other boundary terms
-        matrix_dictionary[self.outflow_neumann_matrix_key] = sps.kron(
-            flux_mat * cell_2_face, sps.eye(num_components)
         ).tocsr()
 
     @pp.time_logger(sections=module_sections)
