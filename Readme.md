@@ -16,7 +16,7 @@ PorePy currently has the following distinguishing features:
 
 For more information, see the [tutorials](tutorials) and the [Wiki](https://github.com/pmgbergen/porepy/wiki).
 
-PorePy is developed by the [Porous Media Group](http://pmg.b.uib.no/) at the University of Bergen, Norway. The software is developed under projects funded by the Research Council of Norway and Equinor.
+PorePy is developed by the [Porous Media Group](http://pmg.b.uib.no/) at the University of Bergen, Norway. The software is developed under projects funded by the Research Council of Norway, the European Research Council and Equinor.
 
 # Citing
 If you use PorePy in your research, we ask you to cite the following publication
