@@ -40,7 +40,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         time (float): Current time.
         time_step (float): Size of an individual time step
         end_time (float): Time at which the simulation should stop.
-
         displacement_variable (str): Name assigned to the displacement variable in the
             highest-dimensional subdomain. Will be used throughout the simulations,
             including in Paraview export.
@@ -56,12 +55,10 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         mortar scalar_variable (str): Name assigned to the interface scalar variable
             representing flux between grids. Will be used throughout the simulations,
             including in Paraview export.
-
         mechanics_parameter_key (str): Keyword used to define parameters and
             discretizations for the mechanics problem.
         scalar_parameter_key (str): Keyword used to define parameters and
             discretizations for the flow problem.
-
         params (dict): Dictionary of parameters used to control the solution procedure.
         viz_folder_name (str): Folder for visualization export.
         gb (pp.GridBucket): Mixed-dimensional grid. Should be set by a method
@@ -584,11 +581,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 grids=[g_primary],
             )
             # Alpha is for now assumed to be scalar:
-            # biot_alpha = pp.ad.ParameterArray(
-            #     self.scalar_parameter_key,
-            #     array_keyword="biot_alpha",
-            #     grids=[g_primary],
-            # )
             biot_alpha = self._biot_alpha(g_primary)
 
             div_vector = pp.ad.Divergence(grids=[g_primary], dim=g_primary.dim)

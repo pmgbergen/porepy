@@ -35,19 +35,16 @@ class ContactMechanics(AbstractModel):
         displacement_variable (str): Name assigned to the displacement variable in the
             highest-dimensional subdomain. Will be used throughout the simulations,
             including in Paraview export.
-
         mortar_displacement_variable (str): Name assigned to the displacement variable
             on the fracture walls. Will be used throughout the simulations, including in
             Paraview export.
         contact_traction_variable (str): Name assigned to the variable for contact
             forces in the fracture. Will be used throughout the simulations, including
             in Paraview export.
-
         mechanics_parameter_key (str): Keyword used to define parameters and
             discretizations for the mechanics problem.
         friction_coupling_term (str): Keyword used to define paramaters and
             discretizations for the friction problem.
-
         params (dict): Dictionary of parameters used to control the solution procedure.
             Default parameters are set in AbstractModel
         gb (pp.GridBucket): Mixed-dimensional grid. Should be set by a method
@@ -94,7 +91,7 @@ class ContactMechanics(AbstractModel):
         Discretize time-dependent quantities etc.
         """
         self.convergence_status = False
-        self._iteration = 0
+        self._nonlinear_iteration = 0
 
     @pp.time_logger(sections=module_sections)
     def before_newton_iteration(self) -> None:
@@ -120,7 +117,7 @@ class ContactMechanics(AbstractModel):
             solution_vector (np.array): solution vector for the current iterate.
 
         """
-        self._iteration += 1
+        self._nonlinear_iteration += 1
         self.dof_manager.distribute_variable(
             values=solution_vector, additive=self._use_ad, to_iterate=True
         )

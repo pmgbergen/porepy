@@ -1,4 +1,4 @@
-""" This module contains an implementation of a base model for all incompressible flow problems.
+"""This module contains an implementation of a base model for incompressible flow problems.
 """
 
 import logging
@@ -27,17 +27,13 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         variable (str): Name assigned to the pressure variable in the
             highest-dimensional subdomain. Will be used throughout the simulations,
             including in Paraview export. The default variable name is 'p'.
-
         mortar_variable (str): Name assigned to the flux variable on the interfaces.
             Will be used throughout the simulations, including in Paraview export.
             The default mortar variable name is 'mortar_p'.
-
         parameter_key (str): Keyword used to define parameters and discretizations.
-
         params (dict): Dictionary of parameters used to control the solution procedure.
             Some frequently used entries are file and folder names for export,
             mesh sizes...
-
         gb (pp.GridBucket): Mixed-dimensional grid. Should be set by a method
             create_grid which should be provided by the user.
         convergence_status (bool): Whether the non-linear iterations has converged.
@@ -324,8 +320,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         )
 
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
-         """Use a direct solver for the linear system.
-         """
+        """Use a direct solver for the linear system."""
         A, b = self._eq_manager.assemble()
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
         logger.debug(
@@ -362,7 +357,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
 
     ## Methods required by AbstractModel but irrelevant for static problems:
     def before_newton_loop(self):
-        self._iteration = 0
+        self._nonlinear_iteration = 0
 
     def after_simulation(self):
         pass
