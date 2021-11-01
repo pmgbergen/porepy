@@ -138,21 +138,10 @@ class TestUpwindDiscretization(unittest.TestCase):
 
         deltaT_known = 1 / 12
 
-        # Finally outflow Neumann conditions
-        neu_known = np.zeros((g.num_faces, g.num_cells))
-        neu_known[[3, 7], [2, 5]] = 1
-        # Also add faces with zero flux (counts as positive in discretization)
-        neu_known[[14, 15, 16], [3, 4, 5]] = 1
-
-        neu = data[pp.DISCRETIZATION_MATRICES]["transport"][
-            solver.outflow_neumann_matrix_key
-        ].todense()
-
         rtol = 1e-15
         atol = rtol
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(D, D_known, rtol, atol))
-        self.assertTrue(np.allclose(neu, neu_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
     def test_upwind_2d_cart_darcy_flux_negative(self):
@@ -628,19 +617,10 @@ class TestUpwindDiscretization(unittest.TestCase):
         rhs_known = np.array([-2, 0, 2])
         deltaT_known = 1 / 12
 
-        # Finally outflow Neumann conditions
-        neu_known = np.zeros((g.num_faces, g.num_cells))
-        neu_known[0, 0] = 1
-
-        neu = data[pp.DISCRETIZATION_MATRICES]["transport"][
-            solver.outflow_neumann_matrix_key
-        ].todense()
-
         rtol = 1e-15
         atol = rtol
         self.assertTrue(np.allclose(M.todense(), M_known, rtol, atol))
         self.assertTrue(np.allclose(D, D_known, rtol, atol))
-        self.assertTrue(np.allclose(neu, neu_known, rtol, atol))
         self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
