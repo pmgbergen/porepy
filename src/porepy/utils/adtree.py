@@ -36,7 +36,7 @@ The first element A is added as the root. The second element B check if its
 coordinate (in this case is a single value) is smaller than 0.5. If so, it goes
 on the left part of the tree starting from the root otherwise on the right part.
 Now, since B = 0.6 it goes on the right part. Now are with the node C,
-we need to check as before if its coordinate is smaller then 0.5 (so it goes on the left)
+we need to check as before if its coordinate is smaller than 0.5 (so it goes on the left)
 or bigger than 0.5 (so it goes on the right). Since it is 0.7 it goes on the right and being
 already taken by B we need to go one level down. We check now if its coordinate is
 smaller (left) or bigger (right) than 0.75. Since it's smaller we proceed on the left
