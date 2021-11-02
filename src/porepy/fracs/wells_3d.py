@@ -438,7 +438,7 @@ def compute_well_fracture_intersections(
 
 
 def compute_well_rock_matrix_intersections(
-    gb: pp.GridBucket, cells: np.ndarray = None, tol: float = 1e-5
+    gb: pp.GridBucket, cells: np.ndarray = None, min_length: float = 1e-10, tol: float = 1e-5
 ) -> None:
     """Compute intersections and add edge coupling between the well and the rock matrix.
     To be called after the well grids are constructed.
@@ -450,7 +450,9 @@ def compute_well_rock_matrix_intersections(
         cells (np.ndarray, optional): a set of cells that might be considered to construct the
             ADTree. If it is not given the tree is constructed by using all the higher
             dimensional grid cells
-        tol (float, optional): geometric tolerance
+        min_length (float, optional): minimum length a segment that intersect a cells need
+            to have to be considered in the mapping
+        tol (float, optional): geometric tolerance, default 1e-5
 
     """
     # Extract the dimension of the rock matrix, assumed to be of highest dimension
@@ -518,7 +520,7 @@ def compute_well_rock_matrix_intersections(
                     seg_start, seg_end, poly, tol
                 )
                 # Store the requested information to build the projection operator
-                if ratio > 0:
+                if ratio > min_length:
                     primary_to_mortar_I += [seg_id]
                     primary_to_mortar_J += [c]
                     primary_to_mortar_data += ratio.tolist()
