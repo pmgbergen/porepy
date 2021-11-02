@@ -78,8 +78,7 @@ class ADTNode:
         key (Any): any key related to the node
         box (np.ndarray): the bounding box associated to the node
         child (list): list of identification of right and left children, if a children is not
-            present is marked as -1. It's not the key but the position of the children in the
-            ADTree
+            present is marked as -1.
         parent (int): identification of the parent node, marked -1 if not present (the root
             of a tree)
 
@@ -352,12 +351,10 @@ class ADTree:
     def from_grid(self, g: pp.Grid, only_cells: Optional[np.ndarray] = None) -> None:
         """Function that construct the tree from a grid by adding one cells at the time.
 
-        If a portion of the cells should be considered due to some a-priori estimates of the
-        searching elements.
-
         Parameters:
             g (pp.Grid): The grid to be used to construct the tree
             only_cells (np.ndarray, optional): Consider only a portion of the cells
+                due to some a-priori estimates of the searching elements.
 
         """
         self.g = g
