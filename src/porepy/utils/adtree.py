@@ -36,7 +36,7 @@ The first element A is added as the root. The second element B check if its
 coordinate (in this case is a single value) is smaller than 0.5. If so, it goes
 on the left part of the tree starting from the root otherwise on the right part.
 Now, since B = 0.6 it goes on the right part. Now are with the node C,
-we need to check as before if its coordinate is smaller then 0.5 (so it goes on the left)
+we need to check as before if its coordinate is smaller than 0.5 (so it goes on the left)
 or bigger than 0.5 (so it goes on the right). Since it is 0.7 it goes on the right and being
 already taken by B we need to go one level down. We check now if its coordinate is
 smaller (left) or bigger (right) than 0.75. Since it's smaller we proceed on the left
@@ -86,7 +86,7 @@ class ADTNode:
 
     def __init__(self, key: Any, box: np.ndarray) -> None:
         """Initialize the node.
-        The physical dimension associated to the node represent the dimension of the object.
+        The physical dimension associated to the node represents the dimension of the object.
         For a 3d element is 3, for 2d elements is 2, for 1d elements is 1, for 0d elements
         is 1. The latter can be seen as the degenerate case of a 1d element.
 
@@ -276,8 +276,8 @@ class ADTree:
         node_id = 0
         # List of possible intersections
         found: List[int] = []
-        # List of right parts of the tree that need to be checked
-        # each element contains the node_id (position in self.nodes)
+        # List of right parts of the tree that need to be checked.
+        # Each element contains the node_id (position in self.nodes)
         # the (shifted) origin at the current level and the current
         # level
         stack: List[Tuple[int, np.ndarray, int]] = []
@@ -349,7 +349,7 @@ class ADTree:
         return np.empty(0)
 
     def from_grid(self, g: pp.Grid, only_cells: Optional[np.ndarray] = None) -> None:
-        """Function that construct the tree from a grid by adding one cells at the time.
+        """Function that constructs the tree from a grid by adding one cell at a time.
 
         Parameters:
             g (pp.Grid): The grid to be used to construct the tree
