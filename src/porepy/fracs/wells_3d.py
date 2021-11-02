@@ -438,7 +438,10 @@ def compute_well_fracture_intersections(
 
 
 def compute_well_rock_matrix_intersections(
-    gb: pp.GridBucket, cells: np.ndarray = None, min_length: float = 1e-10, tol: float = 1e-5
+    gb: pp.GridBucket,
+    cells: np.ndarray = None,
+    min_length: float = 1e-10,
+    tol: float = 1e-5,
 ) -> None:
     """Compute intersections and add edge coupling between the well and the rock matrix.
     To be called after the well grids are constructed.
@@ -545,6 +548,7 @@ def compute_well_rock_matrix_intersections(
         # compute the geometry and save the mortar grid
         mg.compute_geometry()
         d_e["mortar_grid"] = mg
+
 
 def _argsort_points_along_line_segment(
     seg: np.ndarray,
