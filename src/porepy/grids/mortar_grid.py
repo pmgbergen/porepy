@@ -676,29 +676,6 @@ class MortarGrid:
             return sps.dia_matrix((data, 0), shape=(nd * nc, nd * nc))
 
     @pp.time_logger(sections=module_sections)
-    def set_projection_to_mortar_int(
-        self,
-        primary_to_mortar_int: sps.spmatrix,
-        secondary_to_mortar_int: sps.spmatrix,
-    ) -> None:
-        """Set the int projection matrices from primary and secondary to the mortar grid.
-        Useful when the constructor is called with primary_secondary as None, also useful
-        when the grids are not matching to each other.
-        NOTE: No check of consistency are done.
-
-        Parameters:
-            primary_to_mortar_int (sps.csc_matrix): Relation between the higher dimensional
-                grid and the mortar grid.
-            secondary_to_mortar_int (sps.csc_matrix): Relation between the lower dimensional
-                grid and the mortar grid.
-        """
-
-        self._primary_to_mortar_int = primary_to_mortar_int
-        self._secondary_to_mortar_int = secondary_to_mortar_int
-
-        self._set_projections()
-
-    @pp.time_logger(sections=module_sections)
     def cell_diameters(self) -> np.ndarray:
         diams = np.empty(self.num_sides(), dtype=object)
         for pos, (_, g) in enumerate(self.side_grids.items()):
