@@ -494,7 +494,7 @@ def compute_well_rock_matrix_intersections(
         end = g_w.nodes[:, n_w[1]]
 
         # Lists for the cell_cell_map
-        primary_to_mortar_I, primary_to_mortar_J, primary_to_mortar_data = [], [], []
+        primary_secondary_I, primary_secondary_J, primary_secondary_data = [], [], []
 
         # Operate on the segments
         for seg_id, (seg_start, seg_end) in enumerate(zip(start.T, end.T)):
@@ -521,27 +521,30 @@ def compute_well_rock_matrix_intersections(
                 )
                 # Store the requested information to build the projection operator
                 if ratio > min_length:
-                    primary_to_mortar_I += [seg_id]
-                    primary_to_mortar_J += [c]
-                    primary_to_mortar_data += ratio.tolist()
+                    primary_secondary_I += [seg_id]
+                    primary_secondary_J += [c]
+                    primary_secondary_data += ratio.tolist()
 
-        primary_to_mortar_int = sps.csc_matrix(
-            (primary_to_mortar_data, (primary_to_mortar_I, primary_to_mortar_J)),
+        # primary to secondary map
+        primary_secondary_map = sps.csc_matrix(
+            (primary_secondary_data, (primary_secondary_I, primary_secondary_J)),
             shape=(g_w.num_cells, g_max.num_cells),
         )
-        secondary_to_mortar_int = sps.diags(np.ones(g_w.num_cells), format="csc")
-
-        # create the mortar grid and set the maps
-        side_g = {pp.grids.mortar_grid.MortarSides.LEFT_SIDE: g_w.copy()}
-        mg = pp.MortarGrid(g_w.dim, side_g, codim=g_max.dim - g_w.dim)
-        mg.set_projection_to_mortar_int(primary_to_mortar_int, secondary_to_mortar_int)
-        mg.compute_geometry()
 
         # add a new edge to the grid bucket
-        gb.add_edge((g_max, g_w), mg._primary_to_mortar_int)
+        gb.add_edge((g_max, g_w), primary_secondary_map)
         d_e = gb.edge_props((g_max, g_w))
-        d_e["mortar_grid"] = mg
 
+        # create the mortar grid
+        side_g = {pp.grids.mortar_grid.MortarSides.LEFT_SIDE: g_w.copy()}
+        mg = pp.MortarGrid(g_w.dim, side_g, codim=g_max.dim - g_w.dim)
+        # set the maps
+        mg._primary_to_mortar_int = primary_secondary_map
+        mg._secondary_to_mortar_int = sps.diags(np.ones(g_w.num_cells), format="csc")
+        mg._set_projections()
+        # compute the geometry and save the mortar grid
+        mg.compute_geometry()
+        d_e["mortar_grid"] = mg
 
 def _argsort_points_along_line_segment(
     seg: np.ndarray,
