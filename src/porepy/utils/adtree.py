@@ -77,7 +77,7 @@ class ADTNode:
     Attributes:
         key (Any): any key related to the node
         box (np.ndarray): the bounding box associated to the node
-        child (list): list of identification of right and left children, if a children is not
+        child (list): list of identification of right and left children. If a child is not
             present is marked as -1. It's not the key but the position of the children in the
             ADTree
         parent (int): identification of the parent node, marked -1 if not present (the root
