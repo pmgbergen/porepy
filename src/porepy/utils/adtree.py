@@ -87,7 +87,7 @@ class ADTNode:
 
     def __init__(self, key: Any, box: np.ndarray) -> None:
         """Initialize the node.
-        The physical dimension associated to the node represent the dimension of the object.
+        The physical dimension associated to the node represents the dimension of the object.
         For a 3d element is 3, for 2d elements is 2, for 1d elements is 1, for 0d elements
         is 1. The latter can be seen as the degenerate case of a 1d element.
 
