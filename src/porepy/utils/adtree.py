@@ -277,7 +277,7 @@ class ADTree:
         node_id = 0
         # List of possible intersections
         found: List[int] = []
-        # List of right parts of the tree that need to be checked
+        # List of right parts of the tree that need to be checked.
         # each element contains the node_id (position in self.nodes)
         # the (shifted) origin at the current level and the current
         # level
