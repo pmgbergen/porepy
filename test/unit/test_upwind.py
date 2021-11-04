@@ -1,6 +1,11 @@
 """ Various tests of the upwind discretization for tranpsort problems on a single grid.
 
 Both within a grid, and upwind coupling on mortar grids.
+
+NOTE: Most tests check both the discretization matrix and the result from a call
+to assemble_matrix_rhs (the latter functionality is in a sense outdated, but kept for
+legacy reasons).
+
 """
 import unittest
 
@@ -28,6 +33,16 @@ class TestUpwindDiscretization(unittest.TestCase):
 
         solver.discretize(g, data)
 
+        # Test upstream discretization matrix
+        D = data[pp.DISCRETIZATION_MATRICES]["transport"][
+            solver.upwind_matrix_key
+        ].todense()
+
+        # Known truth
+        D_known = np.zeros((g.num_faces, g.num_cells))
+        D_known[[1, 2], [0, 1]] = 1
+
+        # Next test the assembled system.
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -37,6 +52,7 @@ class TestUpwindDiscretization(unittest.TestCase):
         rtol = 1e-15
         atol = rtol
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        self.assertTrue(np.allclose(D, D_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
     def test_upwind_1d_darcy_flux_negative(self):
@@ -53,6 +69,16 @@ class TestUpwindDiscretization(unittest.TestCase):
 
         solver.discretize(g, data)
 
+        # Test upstream discretization matrix
+        D = data[pp.DISCRETIZATION_MATRICES]["transport"][
+            solver.upwind_matrix_key
+        ].todense()
+
+        # Known truth
+        D_known = np.zeros((g.num_faces, g.num_cells))
+        D_known[[1, 2], [1, 2]] = 1
+
+        # Next test the assembled system.
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -62,6 +88,7 @@ class TestUpwindDiscretization(unittest.TestCase):
         rtol = 1e-15
         atol = rtol
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        self.assertTrue(np.allclose(D, D_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
     def test_upwind_2d_cart_darcy_flux_positive(self):
@@ -78,6 +105,23 @@ class TestUpwindDiscretization(unittest.TestCase):
 
         solver.discretize(g, data)
 
+        # Check actual discretization matrix
+        D = data[pp.DISCRETIZATION_MATRICES]["transport"][
+            solver.upwind_matrix_key
+        ].todense()
+
+        # Known truth
+        D_known = np.zeros((g.num_faces, g.num_cells))
+        nonzero_rows = [1, 2, 5, 6]
+        nonzero_columns = [0, 1, 3, 4]
+        D_known[nonzero_rows, nonzero_columns] = 1
+        # Faces with zero flux. Upstream here will be the cell which the face normal
+        # points out of.
+        extra_rows = [11, 12, 13]
+        extra_columns = [0, 1, 2]
+        D_known[extra_rows, extra_columns] = 1
+
+        # Check the assembled system
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -97,6 +141,7 @@ class TestUpwindDiscretization(unittest.TestCase):
         rtol = 1e-15
         atol = rtol
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        self.assertTrue(np.allclose(D, D_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
     def test_upwind_2d_cart_darcy_flux_negative(self):
@@ -197,6 +242,25 @@ class TestUpwindDiscretization(unittest.TestCase):
 
         solver.discretize(g, data)
 
+        # Check actual discretization matrix
+        D = data[pp.DISCRETIZATION_MATRICES]["transport"][
+            solver.upwind_matrix_key
+        ].todense()
+
+        # Known truth
+        D_known = np.zeros((g.num_faces, g.num_cells))
+        # Faces with a non-zero flux
+        nonzero_rows = [1, 4, 7, 10]
+        nonzero_columns = [1, 3, 5, 7]
+        D_known[nonzero_rows, nonzero_columns] = 1
+
+        # Faces with a zero flux, where the upstream direction is defined, but
+        # scaling with the flux would give no transport
+        extra_rows = [14, 15, 20, 21, 28, 29, 30, 31]
+        extra_columns = [0, 1, 4, 5, 0, 1, 2, 3]
+        D_known[extra_rows, extra_columns] = 1
+
+        # Check the assembled system
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -217,6 +281,7 @@ class TestUpwindDiscretization(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
+        self.assertTrue(np.allclose(D, D_known, rtol, atol))
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
@@ -234,6 +299,23 @@ class TestUpwindDiscretization(unittest.TestCase):
 
         solver.discretize(g, data)
 
+        # Check actual discretization matrix
+        D = data[pp.DISCRETIZATION_MATRICES]["transport"][
+            solver.upwind_matrix_key
+        ].todense()
+
+        # Known truth
+        D_known = np.zeros((g.num_faces, g.num_cells))
+        nonzero_rows = [1, 4, 7, 10]
+        nonzero_columns = [0, 2, 4, 6]
+        D_known[nonzero_rows, nonzero_columns] = 1
+        # Faces with a zero flux, where the upstream direction is defined, but
+        # scaling with the flux would give no transport
+        extra_rows = [14, 15, 20, 21, 28, 29, 30, 31]
+        extra_columns = [0, 1, 4, 5, 0, 1, 2, 3]
+        D_known[extra_rows, extra_columns] = 1
+
+        # Check the assembled system
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -254,6 +336,7 @@ class TestUpwindDiscretization(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
+        self.assertTrue(np.allclose(D, D_known, rtol, atol))
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
@@ -327,6 +410,18 @@ class TestUpwindDiscretization(unittest.TestCase):
 
         solver.discretize(g, data)
 
+        # Check actual discretization matrix
+        D = data[pp.DISCRETIZATION_MATRICES]["transport"][
+            solver.upwind_matrix_key
+        ].todense()
+
+        # Known truth
+        D_known = np.zeros((g.num_faces, g.num_cells))
+        nonzero_rows = [1, 2, 5, 6, 11, 12, 13]
+        nonzero_columns = [0, 1, 3, 4, 0, 1, 2]
+        # The known flux is 1
+        D_known[nonzero_rows, nonzero_columns] = 1
+
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -346,6 +441,7 @@ class TestUpwindDiscretization(unittest.TestCase):
         rtol = 1e-15
         atol = rtol
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        self.assertTrue(np.allclose(D, D_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
     def test_upwind_2d_cart_surf_darcy_flux_negative(self):
@@ -364,6 +460,19 @@ class TestUpwindDiscretization(unittest.TestCase):
 
         solver.discretize(g, data)
 
+        # Check actual discretization matrix
+        D = data[pp.DISCRETIZATION_MATRICES]["transport"][
+            solver.upwind_matrix_key
+        ].todense()
+
+        # Known truth
+        D_known = np.zeros((g.num_faces, g.num_cells))
+        nonzero_rows = [1, 2, 5, 6, 11, 12, 13]
+        nonzero_columns = [1, 2, 4, 5, 3, 4, 5]
+        # The known flux is 1
+        D_known[nonzero_rows, nonzero_columns] = 1
+
+        # Check assembled system
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -454,6 +563,15 @@ class TestUpwindDiscretization(unittest.TestCase):
 
         solver.discretize(g, data)
 
+        # Test upstream discretization matrix
+        D = data[pp.DISCRETIZATION_MATRICES]["transport"][
+            solver.upwind_matrix_key
+        ].todense()
+
+        # Known truth
+        D_known = np.zeros((g.num_faces, g.num_cells))
+        D_known[[0, 1, 2], [0, 1, 2]] = 1
+
         M, rhs = solver.assemble_matrix_rhs(g, data)
         deltaT = solver.cfl(g, data)
 
@@ -464,6 +582,7 @@ class TestUpwindDiscretization(unittest.TestCase):
         rtol = 1e-15
         atol = rtol
         self.assertTrue(np.allclose(M.todense(), M_known, rtol, atol))
+        self.assertTrue(np.allclose(D, D_known, rtol, atol))
         self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 
@@ -482,9 +601,18 @@ class TestUpwindDiscretization(unittest.TestCase):
 
         solver.discretize(g, data)
 
+        # Test upstream discretization matrix
+        D = data[pp.DISCRETIZATION_MATRICES]["transport"][
+            solver.upwind_matrix_key
+        ].todense()
+
+        # Known truth
+        D_known = np.zeros((g.num_faces, g.num_cells))
+        D_known[[1, 2], [1, 2]] = 1
+
+        # Next test the assembled system.
         M, rhs = solver.assemble_matrix_rhs(g, data)
         deltaT = solver.cfl(g, data)
-
         M_known = np.array([[0, -2, 0], [0, 2, -2], [0, 0, 2]])
         rhs_known = np.array([-2, 0, 2])
         deltaT_known = 1 / 12
@@ -492,6 +620,7 @@ class TestUpwindDiscretization(unittest.TestCase):
         rtol = 1e-15
         atol = rtol
         self.assertTrue(np.allclose(M.todense(), M_known, rtol, atol))
+        self.assertTrue(np.allclose(D, D_known, rtol, atol))
         self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
         self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
 

@@ -1,17 +1,13 @@
 """
-This is a setup class for solving linear elasticity with contact between the fractures.
+This is a setup class for solving linear elasticity with contact mechanics governing
+the relative motion of fracture surfaces.
 
 The setup handles parameters, variables and discretizations. Default (unitary-like)
-parameters are set. A "run script" function for setting up the class and solving the
-nonlinear contact mechanics problem is also provided.
-
-NOTE: This module should be considered an experimental feature, which may
-undergo major changes on little notice.
-
+parameters are set.
 """
 import logging
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import scipy.sparse as sps
@@ -39,21 +35,18 @@ class ContactMechanics(AbstractModel):
         displacement_variable (str): Name assigned to the displacement variable in the
             highest-dimensional subdomain. Will be used throughout the simulations,
             including in Paraview export.
-
         mortar_displacement_variable (str): Name assigned to the displacement variable
             on the fracture walls. Will be used throughout the simulations, including in
             Paraview export.
         contact_traction_variable (str): Name assigned to the variable for contact
             forces in the fracture. Will be used throughout the simulations, including
             in Paraview export.
-
         mechanics_parameter_key (str): Keyword used to define parameters and
             discretizations for the mechanics problem.
         friction_coupling_term (str): Keyword used to define paramaters and
             discretizations for the friction problem.
-
         params (dict): Dictionary of parameters used to control the solution procedure.
-        viz_folder_name (str): Folder for visualization export.
+            Default parameters are set in AbstractModel
         gb (pp.GridBucket): Mixed-dimensional grid. Should be set by a method
             create_grid which should be provided by the user.
         convergence_status (bool): Whether the non-linear iterations has converged.
@@ -67,6 +60,8 @@ class ContactMechanics(AbstractModel):
     @pp.time_logger(sections=module_sections)
     def __init__(self, params: Optional[Dict] = None):
 
+        super().__init__(params)
+
         # Variables
         self.displacement_variable: str = "u"
         self.mortar_displacement_variable: str = "mortar_u"
@@ -78,54 +73,7 @@ class ContactMechanics(AbstractModel):
         # Terms of the equations
         self.friction_coupling_term: str = "fracture_force_balance"
 
-        # Solver parameters
-        if params is None:
-            self.params = {}
-            self.viz_folder_name: str = "contact_mechanics_viz"
-        else:
-            self.params = params
-            self.viz_folder_name = params.get("folder_name", "contact_mechanics_viz")
-
-        # Initialize grid bucket
-        self.gb: pp.GridBucket = None  # type: ignore
-        self.box: Dict[str, float] = None  # type: ignore
-
-        # Set a convergence study. Not sure if a boolean is sufficient, or whether
-        # we should have an enum here.
-        self.convergence_status: bool = False
-        self.linear_solver: str = "direct"
-
-        self._iteration: int = 0
-
-        self._use_ad: bool = self.params.get("use_ad", False)
-        self._eq_manager: pp.ad.EquationManager
-
-    # Public methods
-
-    @pp.time_logger(sections=module_sections)
-    def create_grid(self) -> None:
-        """Create a (fractured) domain in 2D or 3D, with projections to local
-        coordinates set for all fractures.
-
-        The method requires the following attribute, which is stored in self.params:
-            mesh_args (dict): Containing the mesh sizes.
-
-        The method assigns the following attributes to self:
-            gb (pp.GridBucket): The produced grid bucket.
-            box (dict): The bounding box of the domain, defined through minimum and
-                maximum values in each dimension.
-            Nd (int): The dimension of the matrix, i.e., the highest dimension in the
-                grid bucket.
-
-        After self.gb is set, the method should also call
-
-            pp.contact_conditions.set_projections(self.gb)
-
-        """
-        raise NotImplementedError(
-            "Method for grid creation should be implemented in a subclass"
-        )
-
+    ## Public methods
     @pp.time_logger(sections=module_sections)
     def get_state_vector(self, use_iterate: bool = False) -> np.ndarray:
         """Get a vector of the current state of the variables; with the same ordering
@@ -135,26 +83,7 @@ class ContactMechanics(AbstractModel):
             np.array: The current state, as stored in the GridBucket.
 
         """
-        size = self.assembler.num_dof()
-        state = np.zeros(size)
-        for g, var in self.dof_manager.block_dof:
-            # Index of this grid-variable combination
-            ind = self.dof_manager.grid_and_variable_to_dofs(g, var)
-
-            if isinstance(g, tuple):
-                if use_iterate:
-                    values = self.gb.edge_props(g)[pp.STATE][pp.ITERATE][var]
-                else:
-                    values = self.gb.edge_props(g)[pp.STATE][var]
-            else:
-                if use_iterate:
-                    values = self.gb.node_props(g)[pp.STATE][pp.ITERATE][var]
-                else:
-                    values = self.gb.node_props(g)[pp.STATE][var]
-
-            state[ind] = values
-
-        return state
+        return self.dof_manager.assemble_variable(from_iterate=use_iterate)
 
     @pp.time_logger(sections=module_sections)
     def before_newton_loop(self):
@@ -162,15 +91,17 @@ class ContactMechanics(AbstractModel):
         Discretize time-dependent quantities etc.
         """
         self.convergence_status = False
-        self._iteration = 0
+        self._nonlinear_iteration = 0
 
     @pp.time_logger(sections=module_sections)
     def before_newton_iteration(self) -> None:
         # Re-discretize the nonlinear term
-        filt = pp.assembler_filters.ListFilter(term_list=[self.friction_coupling_term])
         if self._use_ad:
             self._eq_manager.equations["contact"].discretize(self.gb)
         else:
+            filt = pp.assembler_filters.ListFilter(
+                term_list=[self.friction_coupling_term]
+            )
             self.assembler.discretize(filt=filt)
 
     @pp.time_logger(sections=module_sections)
@@ -186,47 +117,52 @@ class ContactMechanics(AbstractModel):
             solution_vector (np.array): solution vector for the current iterate.
 
         """
-        self._iteration += 1
-        self._update_iterate(solution_vector)
+        self._nonlinear_iteration += 1
+        self.dof_manager.distribute_variable(
+            values=solution_vector, additive=self._use_ad, to_iterate=True
+        )
 
     @pp.time_logger(sections=module_sections)
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
         if self._use_ad:
-            solution = self.get_state_vector(use_iterate=True)
-
-        self.assembler.distribute_variable(solution)
+            # Fetch iterate solution, which was updated in after_newton_iteration
+            solution = self.dof_manager.assemble_variable(from_iterate=True)
+            # Distribute to pp.STATE
+            self.dof_manager.distribute_variable(values=solution, additive=False)
+        else:
+            self.assembler.distribute_variable(solution)
         self.convergence_status = True
 
-    @pp.time_logger(sections=module_sections)
-    def after_newton_failure(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-        if self._is_nonlinear_problem():
-            raise ValueError("Newton iterations did not converge")
-        else:
-            raise ValueError("Tried solving singular matrix for the linear problem.")
-
-    @pp.time_logger(sections=module_sections)
     def check_convergence(
         self,
         solution: np.ndarray,
         prev_solution: np.ndarray,
         init_solution: np.ndarray,
         nl_params: Dict[str, Any],
-    ) -> Tuple[float, bool, Union[np.bool_, bool]]:
+    ) -> Tuple[float, bool, bool]:
+        """
+        Check whether the solution has converged by comparing values from the two
+        most recent iterations.
+
+        Tailored implementation if AD is not used. Else, the generic check in
+        AbstractModel is used.
+
+        Parameters:
+            solution (array): solution of current iteration.
+            solution (array): solution of previous iteration.
+            solution (array): initial solution (or from beginning of time step).
+            nl_params (dictionary): assumed to have the key nl_convergence_tol whose
+                value is a float.
+        """
+        if self._use_ad or not self._is_nonlinear_problem():
+            return super().check_convergence(
+                solution, prev_solution, init_solution, nl_params
+            )
+
+        # The default convergence check cannot be applied. Do a manual check instead.
         g_max = self._nd_grid()
-
-        if not self._is_nonlinear_problem():
-            # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
-            # error (but a warning) is raised for singular matrices, but a nan solution
-            # is returned. We check for this.
-            diverged = np.any(np.isnan(solution))
-            converged = not diverged
-            error = np.nan if diverged else 0
-            return error, converged, diverged
-
         mech_dof = self.dof_manager.grid_and_variable_to_dofs(
             g_max, self.displacement_variable
         )
@@ -422,13 +358,20 @@ class ContactMechanics(AbstractModel):
         self._set_parameters()
         self._assign_variables()
         self._assign_discretizations()
+        # Once we have defined all discretizations, it's time to instantiate an
+        # equation manager (needs to know which terms it should treat)
+        if not self._use_ad:
+            self.assembler: pp.Assembler = pp.Assembler(self.gb, self.dof_manager)
+
         self._initial_condition()
         self._discretize()
         self._initialize_linear_solver()
 
         g_max = self._nd_grid()
         self.viz = pp.Exporter(
-            g_max, file_name="mechanics", folder_name=self.viz_folder_name
+            g_max,
+            file_name=self.params["file_name"],
+            folder_name=self.params["folder_name"],
         )
 
     @pp.time_logger(sections=module_sections)
@@ -488,37 +431,6 @@ class ContactMechanics(AbstractModel):
     def _nd_grid(self) -> pp.Grid:
         """Get the grid of the highest dimension. Assumes self.gb is set."""
         return self.gb.grids_of_dimension(self._Nd)[0]
-
-    @pp.time_logger(sections=module_sections)
-    def _domain_boundary_sides(
-        self, g: pp.Grid
-    ) -> Tuple[
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-    ]:
-        """
-        Obtain indices of the faces of a grid that lie on each side of the domain
-        boundaries.
-        """
-        tol = 1e-10
-        box = self.box
-        east = g.face_centers[0] > box["xmax"] - tol
-        west = g.face_centers[0] < box["xmin"] + tol
-        north = g.face_centers[1] > box["ymax"] - tol
-        south = g.face_centers[1] < box["ymin"] + tol
-        if self._Nd == 2:
-            top = np.zeros(g.num_faces, dtype=bool)
-            bottom = top.copy()
-        else:
-            top = g.face_centers[2] > box["zmax"] - tol
-            bottom = g.face_centers[2] < box["zmin"] + tol
-        all_bf = g.get_boundary_faces()
-        return all_bf, east, west, north, south, top, bottom
 
     @pp.time_logger(sections=module_sections)
     def _bc_type(self, g: pp.Grid) -> pp.BoundaryConditionVectorial:
@@ -583,10 +495,12 @@ class ContactMechanics(AbstractModel):
         Assign discretizations to the nodes and edges of the grid bucket.
 
         """
+
         # For the Nd domain we solve linear elasticity with mpsa.
         Nd = self._Nd
         gb = self.gb
-
+        if not hasattr(self, "dof_manager"):
+            self.dof_manager = pp.DofManager(gb)
         if not self._use_ad:
             mpsa = pp.Mpsa(self.mechanics_parameter_key)
             # We need a void discretization for the contact traction variable defined on
@@ -619,10 +533,9 @@ class ContactMechanics(AbstractModel):
                             (g_h, g_l): (self.mortar_displacement_variable, contact),
                         }
                     }
-        else:
 
-            dof_manager = pp.DofManager(gb)
-            eq_manager = pp.ad.EquationManager(gb, dof_manager)
+        else:
+            eq_manager = pp.ad.EquationManager(gb, self.dof_manager)
 
             g_primary: pp.Grid = gb.grids_of_dimension(Nd)[0]
             g_frac: List[pp.Grid] = gb.grids_of_dimension(Nd - 1).tolist()
@@ -743,133 +656,15 @@ class ContactMechanics(AbstractModel):
 
             self._eq_manager = eq_manager
 
-    # Methods for discretization, numerical issues etc.
-
-    @pp.time_logger(sections=module_sections)
-    def _initial_condition(self):
-        """Set initial guess for the variables.
-
-        The displacement is set to zero in the Nd-domain, and at the fracture interfaces
-        The displacement jump is thereby also zero.
-
-        The contact pressure is set to zero in the tangential direction,
-        and -1 (that is, in contact) in the normal direction.
-
-        """
-
-        for g, d in self.gb:
-            if g.dim == self._Nd:
-                # Initialize displacement variable
-                displacement = np.zeros(g.num_cells * self._Nd)
-                state = {self.displacement_variable: displacement}
-                pp.set_iterate(d, {self.displacement_variable: displacement.copy()})
-            elif g.dim == self._Nd - 1:
-                # Initialize contact variable
-                traction = np.vstack(
-                    (np.zeros((g.dim, g.num_cells)), -1 * np.ones(g.num_cells))
-                ).ravel(order="F")
-                state = {
-                    self.contact_traction_variable: traction,
-                }
-                pp.set_iterate(d, {self.contact_traction_variable: traction.copy()})
-            else:
-                state = pp.set_iterate(d, {})
-            pp.set_state(d, state)
-
-        for _, d in self.gb.edges():
-            mg = d["mortar_grid"]
-
-            if mg.dim == self._Nd - 1:
-                size = mg.num_cells * self._Nd
-                state = {self.mortar_displacement_variable: np.zeros(size)}
-                iterate = {self.mortar_displacement_variable: np.zeros(size)}
-                pp.set_iterate(d, iterate)
-            else:
-                state = {pp.ITERATE: {}}
-            pp.set_state(d, state)
-
-    @pp.time_logger(sections=module_sections)
-    def _update_iterate(self, solution_vector: np.ndarray) -> None:
-        """
-        Extract parts of the solution for current iterate.
-
-        The iterate solutions in d[pp.STATE][pp.ITERATE] are updated for the
-        mortar displacements and contact traction are updated.
-        Method is a tailored copy from assembler.distribute_variable.
-
-        Parameters:
-            assembler (pp.Assembler): assembler for self.gb.
-            solution_vector (np.array): solution vector for the current iterate.
-
-        """
-        dof_manager = self.dof_manager
-        variable_names = []
-        for pair in dof_manager.block_dof.keys():
-            variable_names.append(pair[1])
-
-        dof = np.cumsum(np.append(0, np.asarray(dof_manager.full_dof)))
-
-        # Treat the updates cumulatively if automatic differentiation is used
-        cumulative = self._use_ad
-
-        for var_name in set(variable_names):
-            for pair, bi in dof_manager.block_dof.items():
-                g = pair[0]
-                name = pair[1]
-                if name != var_name:
-                    continue
-                if isinstance(g, tuple):
-                    # This is really an edge
-                    if name == self.mortar_displacement_variable:
-                        mortar_u = solution_vector[dof[bi] : dof[bi + 1]]
-                        data = self.gb.edge_props(g)
-                        if cumulative:
-                            data[pp.STATE][pp.ITERATE][
-                                self.mortar_displacement_variable
-                            ] += mortar_u.copy()
-                        else:
-                            data[pp.STATE][pp.ITERATE][
-                                self.mortar_displacement_variable
-                            ] = mortar_u.copy()
-
-                else:
-                    # g is a node (not edge)
-                    data = self.gb.node_props(g)
-
-                    if g.dim == self._Nd and name == self.displacement_variable:
-                        # In the matrix, update displacement
-                        displacement = solution_vector[dof[bi] : dof[bi + 1]]
-                        if cumulative:
-                            data[pp.STATE][pp.ITERATE][
-                                self.displacement_variable
-                            ] += displacement.copy()
-                        else:
-                            data[pp.STATE][pp.ITERATE][
-                                self.displacement_variable
-                            ] = displacement.copy()
-                    elif g.dim < self._Nd and name == self.contact_traction_variable:
-                        # For the fractures, update the contact force
-                        contact = solution_vector[dof[bi] : dof[bi + 1]]
-                        if cumulative:
-                            data[pp.STATE][pp.ITERATE][
-                                self.contact_traction_variable
-                            ] += contact.copy()
-                        else:
-                            data[pp.STATE][pp.ITERATE][
-                                self.contact_traction_variable
-                            ] = contact.copy()
-
     @pp.time_logger(sections=module_sections)
     def _set_friction_coefficient(self, g: pp.Grid) -> np.ndarray:
         """The friction coefficient is uniform, and equal to 1."""
         return np.ones(g.num_cells)
 
+    # Methods for discretization, numerical issues etc.
     @pp.time_logger(sections=module_sections)
     def _discretize(self) -> None:
         """Discretize all terms"""
-        if not hasattr(self, "dof_manager"):
-            self.dof_manager = pp.DofManager(self.gb)
-            self.assembler = pp.Assembler(self.gb, self.dof_manager)
         tic = time.time()
         logger.info("Discretize")
         if self._use_ad:

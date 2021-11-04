@@ -522,49 +522,16 @@ class THM(pp.ContactMechanicsBiot):
     def _initial_condition(self) -> None:
         """
         In addition to the values set by the parent class, we set initial value for the
-        temperature variable, and a previous iterate value for the scalar value. The
-        latter is used for computation of Darcy fluxes, needed for the advective term of
-        the energy equation. The Darcy flux parameter is also initialized.
+        Darcy flux parameter.
         """
         super()._initial_condition()
-
+        key = self.temperature_parameter_key
         for g, d in self.gb:
-            # Initial value for the scalar variable.
-            cell_zeros = np.zeros(g.num_cells)
-            state = {self.temperature_variable: cell_zeros}
-            iterate = {self.scalar_variable: cell_zeros}  # For initial flux
-            pp.set_state(d, state)
-            pp.set_iterate(d, iterate)
-            # Initial Darcy fluxes for advective flux.
-            pp.initialize_data(
-                g,
-                d,
-                self.temperature_parameter_key,
-                {
-                    "darcy_flux": np.zeros(g.num_faces),
-                },
-            )
+            pp.initialize_data(g, d, key, {"darcy_flux": np.zeros(g.num_faces)})
 
         for e, d in self.gb.edges():
             mg = d["mortar_grid"]
-            cell_zeros = np.zeros(mg.num_cells)
-            state = {
-                self.mortar_temperature_variable: cell_zeros,
-                self.mortar_temperature_advection_variable: cell_zeros,
-            }
-            iterate = {self.mortar_scalar_variable: cell_zeros}
-
-            pp.set_state(d, state)
-            pp.set_iterate(d, iterate)
-            # Initial Darcy fluxes for advective flux.
-            d = pp.initialize_data(
-                e,
-                d,
-                self.temperature_parameter_key,
-                {
-                    "darcy_flux": np.zeros(mg.num_cells),
-                },
-            )
+            d = pp.initialize_data(e, d, key, {"darcy_flux": np.zeros(mg.num_cells)})
 
     @pp.time_logger(sections=module_sections)
     def _save_mechanical_bc_values(self) -> None:
@@ -579,8 +546,12 @@ class THM(pp.ContactMechanicsBiot):
         )
         g = self._nd_grid()
         d = self.gb.node_props(g)
-        d[pp.STATE][key]["bc_values"] = d[pp.PARAMETERS][key]["bc_values"].copy()
-        d[pp.STATE][key_t]["bc_values"] = d[pp.PARAMETERS][key_t]["bc_values"].copy()
+        d[pp.PARAMETERS][key]["bc_values_previous_timestep"] = d[pp.PARAMETERS][key][
+            "bc_values"
+        ].copy()
+        d[pp.PARAMETERS][key_t]["bc_values_previous_timestep"] = d[pp.PARAMETERS][
+            key_t
+        ]["bc_values"].copy()
 
     @pp.time_logger(sections=module_sections)
     def _discretize(self) -> None:
@@ -705,57 +676,3 @@ class THM(pp.ContactMechanicsBiot):
         bc_dict = {"bc_values": self._bc_values_mechanics(g)}
         state = {key_m_from_t: bc_dict}
         pp.set_state(d, state)
-
-    @pp.time_logger(sections=module_sections)
-    def _update_iterate(self, solution_vector: np.ndarray) -> None:
-        """
-        Extract parts of the solution for current iterate.
-
-        Calls ContactMechanicsBiot version, and additionally updates the iterate solutions
-        in d[pp.STATE][pp.ITERATE] are updated for the scalar variable, to be used
-        for flux computations by compute_darcy_fluxes.
-        Method is a tailored copy from assembler.distribute_variable.
-
-        Parameters:
-            solution_vector (np.array): solution vector for the current iterate.
-
-        """
-        # super().update_state(solution_vector)
-        super()._update_iterate(solution_vector)
-
-        dof_manager = self.dof_manager
-
-        variable_names = []
-        for pair in dof_manager.block_dof.keys():
-            variable_names.append(pair[1])
-
-        dof = np.cumsum(np.append(0, np.asarray(dof_manager.full_dof)))
-
-        for var_name in set(variable_names):
-            for pair, bi in dof_manager.block_dof.items():
-                g = pair[0]
-                name = pair[1]
-                if name != var_name:
-                    continue
-                if isinstance(g, tuple):
-                    # This is really an edge
-                    if name == self.mortar_scalar_variable:
-                        mortar_p = solution_vector[dof[bi] : dof[bi + 1]]
-                        data = self.gb.edge_props(g)
-                        data[pp.STATE][pp.ITERATE][
-                            self.mortar_scalar_variable
-                        ] = mortar_p.copy()
-                else:
-                    data = self.gb.node_props(g)
-
-                    # g is a node (not edge)
-
-                    # For the fractures, update the contact force
-                    if name == self.scalar_variable:
-                        p = solution_vector[dof[bi] : dof[bi + 1]]
-                        data = self.gb.node_props(g)
-                        data[pp.STATE][pp.ITERATE][self.scalar_variable] = p.copy()
-                    elif name == self.temperature_variable:
-                        T = solution_vector[dof[bi] : dof[bi + 1]]
-                        data = self.gb.node_props(g)
-                        data[pp.STATE][pp.ITERATE][self.temperature_variable] = T.copy()

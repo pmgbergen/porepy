@@ -1,6 +1,6 @@
 """
 For any discretization class compatible with PorePy, wrap_discretization associates
-a discretization with all attributes of the class' attributes that ends with
+a discretization with all attributes of the class' attributes that end with
 '_matrix_key'.
 
 
@@ -43,6 +43,7 @@ __all__ = [
     "UpwindAd",
     "RobinCouplingAd",
     "WellCouplingAd",
+    "UpwindCouplingAd",
 ]
 
 Edge = Tuple[pp.Grid, pp.Grid]
@@ -52,7 +53,7 @@ class Discretization(abc.ABC):
     """General/utility methods for AD discretization classes.
 
     The init of the children classes below typically calls wrap_discretization
-    and have arguments including grids or edges and keywords for parameter and
+    and has arguments including grids or edges and keywords for parameter and
     possibly matrix storage.
 
     """
@@ -262,6 +263,9 @@ class UpwindAd(Discretization):
         wrap_discretization(self, self._discretization, grids=grids)
 
 
+## Interface coupling discretizations
+
+
 class WellCouplingAd(Discretization):
     def __init__(self, keyword: str, edges: List[Edge]) -> None:
         self.edges = edges
@@ -290,6 +294,29 @@ class RobinCouplingAd(Discretization):
 
         self.mortar_discr: MergedOperator
         self.mortar_vector_source: MergedOperator
+        wrap_discretization(self, self._discretization, edges=edges)
+
+    def __repr__(self) -> str:
+        s = (
+            f"Ad discretization of type {self._name}."
+            f"Defined on {len(self.edges)} mortar grids."
+        )
+        return s
+
+
+class UpwindCouplingAd(Discretization):
+    def __init__(self, keyword: str, edges: List[Edge]) -> None:
+        self.edges = edges
+        self._discretization = pp.UpwindCoupling(keyword)
+        self._name = "Upwind coupling"
+        self.keyword = keyword
+
+        # UpwindCoupling also has discretization matrices for (inverse) trace.
+        # These are not needed for Ad version since ad.Trace should be used instead
+        self.mortar_discr: MergedOperator
+        self.flux: MergedOperator
+        self.upwind_primary: MergedOperator
+        self.upwind_secondary: MergedOperator
         wrap_discretization(self, self._discretization, edges=edges)
 
     def __repr__(self) -> str:
