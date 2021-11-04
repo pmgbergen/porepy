@@ -1372,7 +1372,7 @@ class DivU(Discretization):
         # Get bc values from mechanics
         d_bound_1 = parameter_dictionary_mech["bc_values"]
 
-        d_bound_0 = data[pp.STATE][self.mechanics_keyword]["bc_values"]
+        d_bound_0 = parameter_dictionary_mech["bc_values_previous_timestep"]
         # and coupling parameter from flow
         biot_alpha = parameter_dictionary_flow["biot_alpha"]
         rhs_bound = (

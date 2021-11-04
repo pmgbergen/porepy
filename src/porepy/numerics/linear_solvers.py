@@ -43,7 +43,7 @@ class LinearSolver:
         """
 
         setup.before_newton_loop()
-        prev_sol = setup.get_state_vector()
+        prev_sol = setup.dof_manager.assemble_variable(from_iterate=False)
         # For linear problems, the tolerance is irrelevant
         sol = setup.assemble_and_solve_linear_system(tol=0)
         error_norm, is_converged, _ = setup.check_convergence(

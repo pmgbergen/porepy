@@ -217,7 +217,7 @@ class SetupContactMechanics(
         """
         # Only make grid if not already available. This is necessary to avoid issuse
         # with TestDilation().test_two_steps()
-        if self.gb is None:
+        if not hasattr(self, "gb"):
             rotate_fracture = getattr(self, "rotate_fracture", False)
             endpoints = getattr(self, "fracture_endpoints", np.array([0.3, 0.7]))
             if rotate_fracture:

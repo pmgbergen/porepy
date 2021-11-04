@@ -199,9 +199,6 @@ class ContactModel(pp.ContactMechanics):
         self.gb = self._grid_meth()
 
 
-#        pp.contact_conditions.set_projections(self.gb)
-
-
 class BiotContactModel(pp.ContactMechanicsBiot):
     def __init__(self, param, grid_meth):
         ############# NB: tests should be with and without subtract_fracture_pressure
@@ -300,9 +297,8 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
         prev_sol_ad += sol_ad
         iteration_counter += 1
 
-        if is_converged_as:
+        if is_converged_as and is_converged_ad:
             model_as.after_newton_convergence(sol_as, [], iteration_counter)
-        if is_converged_ad:
             model_ad.after_newton_convergence(sol_ad, [], iteration_counter)
 
     state_as = model_as.get_state_vector()

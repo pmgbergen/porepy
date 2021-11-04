@@ -1,37 +1,95 @@
-""" Contains the mothed class for all models, that is, standardized setups for complex
+""" Contains the mother class for all models, that is, standardized setups for complex
 problems.
 
+Some methods may raise NotImplementedErrors instead of being abstract methods. This
+is because they are only needed for some model types (typically nonlinear ones).
+
+Note on running simulations: We provide run_time_dependent_model and run_stationary_model.
+Both call the Model's prepare_simulation and after_simulation methods, as well as the
+solve method of either a LinearSolver or NewtonSolver (the only non-linear solver available
+for the time being). The Solvers call methods before_newton_loop, check_convergence,
+after_newton_convergence/after_newton_divergence, (only NewtonSolver:) before_newton_iteration,
+after_newton_iteration. The name "newton" is there for legacy reasons, a more fitting
+and general name would be something like "equation_solve".
 """
 import abc
-from typing import Any, Dict, Tuple
+import logging
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
 import porepy as pp
 
+logger = logging.getLogger(__name__)
 module_sections = ["models", "numerics"]
 
 
-class AbstractModel(abc.ABC):
-    """This is an abstract class that specifies methods that a model must implement to
+class AbstractModel:
+    """This is a class that specifies methods that a model must implement to
     be compatible with the Newton and time stepping methods.
 
+    Public attributes:
+        params (Dict): Simulation specific parameters. Which items are admissible
+            depends on the model in question.
+        convergence_status (bool): Whether the non-linear iterations has converged.
+        linear_solver (str): Specification of linear solver. Only known permissible
+            value is 'direct'.
+        dof_mansager (pp.DofManager): Degree of freedom manager.
     """
 
-    @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
-    def get_state_vector(self) -> np.ndarray:
-        """Get a vector of the current state of the variables; with the same ordering
-            as in the assembler.
+    def __init__(self, params: Optional[Dict] = None):
+        if params is None:
+            self.params = {}
+        else:
+            self.params = params
+        if params is None:
+            params = {}
+        default_params = {
+            "folder_name": "visualization",
+            "file_name": "data",
+            "use_ad": False,
+        }
+        default_params.update(params)
+        self.params = default_params
 
-        Returns:
-            np.array: The current state of the system.
+        # Set a convergence status. Not sure if a boolean is sufficient, or whether
+        # we should have an enum here.
+        self.convergence_status: bool = False
+        self.linear_solver: str = "direct"
 
+        self._nonlinear_iteration: int = 0
+        assert isinstance(self.params["use_ad"], bool)
+        self._use_ad = self.params["use_ad"]
+        self._eq_manager: pp.ad.EquationManager
+        self.dof_manager: pp.DofManager
+
+    def create_grid(self) -> None:
+        """Create the grid bucket.
+
+        A unit square grid with no fractures is assigned by default.
+
+        The method assigns the following attributes to self:
+            gb (pp.GridBucket): The produced grid bucket.
+            box (dict): The bounding box of the domain, defined through minimum and
+                maximum values in each dimension.
         """
-        pass
+        phys_dims = [1, 1]
+        n_cells = [1, 1]
+        self.box: Dict = pp.geometry.bounding_box.from_points(
+            np.array([[0, 0], phys_dims])
+        )
+        g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
+        g.compute_geometry()
+        self.gb: pp.GridBucket = pp.meshing._assemble_in_bucket([[g]])
+        # If fractures are present, it is advised to call
+        # pp.contact_conditions.set_projections(self.gb)
 
-    @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
+    def _initial_condition(self) -> None:
+        """Set initial guess for the variables."""
+        initial_values = np.zeros(self.dof_manager.num_dofs())
+        self.dof_manager.distribute_variable(initial_values)
+        self.dof_manager.distribute_variable(initial_values, to_iterate=True)
+
     def prepare_simulation(self) -> None:
         """Method called prior to the start of time stepping, or prior to entering the
         non-linear solver for stationary problems.
@@ -40,10 +98,8 @@ class AbstractModel(abc.ABC):
         and time-independent terms, and generally prepare for the simulation.
 
         """
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def before_newton_loop(self) -> None:
         """Method to be called before entering the non-linear solver, thus at the start
         of a new time step.
@@ -51,20 +107,16 @@ class AbstractModel(abc.ABC):
         Possible usage is to update time-dependent parameters, discertizations etc.
 
         """
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def before_newton_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
 
         Possible usage is to update non-linear parameters, discertizations etc.
 
         """
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def after_newton_iteration(self, solution_vector: np.ndarray):
         """Method to be called after every non-linear iteration.
 
@@ -75,10 +127,8 @@ class AbstractModel(abc.ABC):
             np.array: The new solution state, as computed by the non-linear solver.
 
         """
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
@@ -90,25 +140,20 @@ class AbstractModel(abc.ABC):
             np.array: The new solution state, as computed by the non-linear solver.
 
         """
-        pass
+        raise NotImplementedError
 
-    @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def after_newton_failure(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
-        """Method called after a non-linear solver has failed.
+        if self._is_nonlinear_problem():
+            raise ValueError("Newton iterations did not converge")
+        else:
+            raise ValueError("Tried solving singular matrix for the linear problem.")
 
-        The failure can be due to divergence, or that the maximum number of iterations
-        has been reached.
+    def after_simulation(self) -> None:
+        """Run at the end of simulation. Can be used for cleaup etc."""
+        raise NotImplementedError
 
-        The actual implementation depends on the model at hand.
-
-        """
-        pass
-
-    @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def check_convergence(
         self,
         solution: np.ndarray,
@@ -128,14 +173,38 @@ class AbstractModel(abc.ABC):
                 implemented.
 
         Returns:
-            double: Error, computed to the norm in question.
+            float: Error, computed to the norm in question.
             boolean: True if the solution is converged according to the test
                 implemented by this method.
             boolean: True if the solution is diverged according to the test
                 implemented by this method.
 
+        Raises: NotImplementedError if the problem is nonlinear and AD is not used.
+            Convergence criteria are more involved in this case, so we do not risk
+            providing a general method.
+
         """
-        pass
+        if not self._is_nonlinear_problem():
+            # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
+            # error (but a warning) is raised for singular matrices, but a nan solution
+            # is returned. We check for this.
+            diverged = bool(np.any(np.isnan(solution)))
+            converged: bool = not diverged
+            error: float = np.nan if diverged else 0.0
+            return error, converged, diverged
+        elif self._use_ad:
+            # Simple but fairly robust convergence criterion.
+            # More advanced options are e.g. considering errors for each variable
+            # and/or each grid separately, possibly using _l2_norm_cell
+
+            # We normalize by the size of the solution vector
+            error = np.linalg.norm(solution) / solution.size
+            logger.debug(f"Normalized error: {error:.2e}")
+            converged = error < nl_params["nl_convergence_tol"]
+            diverged = False
+            return error, converged, diverged
+        else:
+            raise NotImplementedError
 
     @abc.abstractmethod
     @pp.time_logger(sections=module_sections)
@@ -154,26 +223,26 @@ class AbstractModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
-    def after_simulation(self) -> None:
-        """Run at the end of simulation. Can be used for cleaup etc."""
+    def _is_nonlinear_problem(self) -> bool:
+        """Specifies whether the Model problem is nonlinear."""
+        pass
 
-    @pp.time_logger(sections=module_sections)
-    def _l2_norm_cell(self, g: pp.Grid, u: np.ndarray) -> float:
+    ## Utility methods
+    def _l2_norm_cell(self, g: pp.Grid, val: np.ndarray) -> float:
         """
         Compute the cell volume weighted norm of a vector-valued cellwise quantity for
         a given grid.
 
         Parameters:
             g (pp.Grid): Grid
-            u (np.array): Vector-valued function.
+            val (np.array): Vector-valued function.
 
         Returns:
             double: The computed L2-norm.
 
         """
         nc = g.num_cells
-        sz = u.size
+        sz = val.size
         if nc == sz:
             nd = 1
         elif nc * g.dim == sz:
@@ -181,6 +250,46 @@ class AbstractModel(abc.ABC):
         else:
             raise ValueError("Have not conisdered this type of unknown vector")
 
-        norm = np.sqrt(np.reshape(u ** 2, (nd, nc), order="F") * g.cell_volumes)
+        norm = np.sqrt(np.reshape(val ** 2, (nd, nc), order="F") * g.cell_volumes)
 
         return np.sum(norm)
+
+    def _nd_grid(self) -> pp.Grid:
+        """Get the grid of the highest dimension. Assumes self.gb is set."""
+        return self.gb.grids_of_dimension(self.gb.dim_max())[0]
+
+    def _export(self) -> None:
+        """Method to export the solution to using an Exporter.
+
+        Method is called after initialization and after solution convergence.
+        """
+        pass
+
+    def _domain_boundary_sides(
+        self, g: pp.Grid
+    ) -> Tuple[
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+    ]:
+        """Obtain indices of the faces of a grid that lie on each side of the domain
+        boundaries. It is assumed the domain is box shaped.
+        """
+        tol = 1e-10
+        box = self.box
+        east = g.face_centers[0] > box["xmax"] - tol
+        west = g.face_centers[0] < box["xmin"] + tol
+        north = g.face_centers[1] > box["ymax"] - tol
+        south = g.face_centers[1] < box["ymin"] + tol
+        if self.gb.dim_max() == 2:
+            top = np.zeros(g.num_faces, dtype=bool)
+            bottom = top.copy()
+        else:
+            top = g.face_centers[2] > box["zmax"] - tol
+            bottom = g.face_centers[2] < box["zmin"] + tol
+        all_bf = g.get_boundary_faces()
+        return all_bf, east, west, north, south, top, bottom
