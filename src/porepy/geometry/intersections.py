@@ -1395,10 +1395,9 @@ def segments_polygon(start, end, poly, tol=1e-5):
     t[non_zero_incline] = -start[2, non_zero_incline] / dz[non_zero_incline]
     # Segments with z=0 along the segment
     zero_along_segment = np.logical_and(
-        non_zero_incline, np.logical_and(t >= 0, t <= 1).astype(bool)
+        non_zero_incline, np.logical_and(t >= 0 - tol, t <= 1 + tol).astype(bool)
     )
     x0 = start + (end - start) * t
-
     # Check if zero point is inside the polygon
     inside = pp.geometry_property_checks.point_in_polygon(poly_xy, x0[:2])
     crosses = np.logical_and(inside, zero_along_segment)
@@ -1408,8 +1407,7 @@ def segments_polygon(start, end, poly, tol=1e-5):
     sq_length = np.einsum("ij,ij->j", end - start, end - start)
 
     crosses[dot_product < 0] = False
-    crosses[dot_product > sq_length] = False
-
+    crosses[dot_product > sq_length + tol] = False
     # Rotate back the points
     x0[2, crosses] = 0
     cp[:, crosses] = center + irot.dot(x0[:, crosses])
