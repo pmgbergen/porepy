@@ -468,7 +468,7 @@ def compute_well_rock_matrix_intersections(
     tree.from_grid(g_max, cells)
 
     # Extract the grids of the wells of co-dimension 2
-    gs_w = gb.grids_of_dimension(dim_max - 2)
+    gs_w = [g for g in gb.grids_of_dimension(dim_max - 2) if hasattr(g, "well_num")]
 
     # Pre-compute some well informations
     nodes_w = []
