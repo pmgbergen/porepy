@@ -4,12 +4,7 @@ Various functions with set operations.
 import numba
 import numpy as np
 
-import porepy as pp
 
-module_sections = ["utils"]
-
-
-@pp.time_logger(sections=module_sections)
 def unique_rows(data):
     """
     Function similar to Matlab's unique(...,'rows')
@@ -32,7 +27,6 @@ def unique_rows(data):
     return data[ia], ia, ic
 
 
-@pp.time_logger(sections=module_sections)
 def ismember_rows(a, b, sort=True):
     """
     Find *columns* of a that are also members of *columns* of b.
@@ -109,38 +103,6 @@ def ismember_rows(a, b, sort=True):
     return ismem_a, ia
 
 
-@numba.jit("Tuple((b1[:],i8[:],i8[:]))(f8[:, :],f8)", nopython=True, cache=True)
-def _numba_distance(mat, tol):
-    # Helper function for numba acceleration of unique_columns_tol
-    num_cols = mat.shape[0]
-    keep = np.zeros(num_cols, dtype=numba.types.bool_)
-    keep[0] = True
-    keep_counter = 1
-
-    # Map from old points to the unique subspace. Defaults to map to itself.
-    old_2_new = np.arange(num_cols)
-
-    # Loop over all points, check if it is already represented in the kept list
-    for i in range(1, num_cols):
-        d = np.sum((mat[i] - mat[keep]) ** 2, axis=1)
-        condition = d < tol ** 2
-
-        if np.any(condition):
-            # We will not keep this point
-            old_2_new[i] = np.argmin(d)
-        else:
-            # We have found a new point
-            keep[i] = True
-            old_2_new[i] = keep_counter
-            keep_counter += 1
-
-    # Finally find which elements we kept
-    new_2_old = np.nonzero(keep)[0]
-
-    return keep, new_2_old, old_2_new
-
-
-@pp.time_logger(sections=module_sections)
 def unique_columns_tol(mat, tol=1e-8):
     """
     Remove duplicates from a point set, for a given distance traveling.
@@ -184,6 +146,36 @@ def unique_columns_tol(mat, tol=1e-8):
             mat, return_index=True, return_inverse=True, axis=1
         )
         return un_ar, new_2_old, old_2_new
+
+    @numba.jit("Tuple((b1[:],i8[:],i8[:]))(f8[:, :],f8)", nopython=True, cache=True)
+    def _numba_distance(mat, tol):
+        # Helper function for numba acceleration of unique_columns_tol
+        num_cols = mat.shape[0]
+        keep = np.zeros(num_cols, dtype=numba.types.bool_)
+        keep[0] = True
+        keep_counter = 1
+
+        # Map from old points to the unique subspace. Defaults to map to itself.
+        old_2_new = np.arange(num_cols)
+
+        # Loop over all points, check if it is already represented in the kept list
+        for i in range(1, num_cols):
+            d = np.sum((mat[i] - mat[keep]) ** 2, axis=1)
+            condition = d < tol ** 2
+
+            if np.any(condition):
+                # We will not keep this point
+                old_2_new[i] = np.argmin(d)
+            else:
+                # We have found a new point
+                keep[i] = True
+                old_2_new[i] = keep_counter
+                keep_counter += 1
+
+        # Finally find which elements we kept
+        new_2_old = np.nonzero(keep)[0]
+
+        return keep, new_2_old, old_2_new
 
     mat_t = np.atleast_2d(mat.T).astype(float)
 
