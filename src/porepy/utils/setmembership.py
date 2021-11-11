@@ -179,6 +179,9 @@ def unique_columns_tol(mat, tol=1e-8):
 
     mat_t = np.atleast_2d(mat.T).astype(float)
 
+    # IMPLEMENTATION NOTE: For small problems, it will likely not pay off to
+    # wait for the numba compile. Consider to make a python version of the numba
+    # function and use this for small (whatever that means) mat_t.
     keep, new_2_old, old_2_new = _numba_distance(mat_t, tol)
 
     return mat[:, keep], new_2_old, old_2_new
