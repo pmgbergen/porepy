@@ -456,7 +456,7 @@ class DofManager:
             variables (list of str, optional): Names of the variables to be
                 assembled. If not provided, all variables found in self.block_dof
                 will be cosidered.
-            to_iterate (bool, optional): If True, assemble from iterates, and not the
+            from_iterate (bool, optional): If True, assemble from iterates, and not the
                 state itself. Set this to True inside a non-linear scheme (Newton), False
                 at the end of a time step.
 
