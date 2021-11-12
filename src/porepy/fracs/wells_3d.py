@@ -695,7 +695,7 @@ def _add_edge(
     g_l: pp.Grid,
     g_h: pp.Grid,
     gb: pp.GridBucket,
-    primary_secondary_map: np.ndarray,
+    primary_secondary_map: sps.coo_matrix,
 ) -> None:
     """Utility method to add an edge to the gb.
 
@@ -704,7 +704,7 @@ def _add_edge(
         g_l: is the intersection point grid.
         g_h. represents fracture or well.
         gb: GridBucket to which the edge will be added.
-        primary_secondary_map (array): Map between cells_l and either faces_h
+        primary_secondary_map (sps.coo_matrix): Map between cells_l and either faces_h
             (codim=1) or cells_h (codim=2).
     """
     codim = g_h.dim - g_l.dim
