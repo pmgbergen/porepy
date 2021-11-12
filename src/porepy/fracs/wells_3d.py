@@ -454,7 +454,7 @@ def compute_well_rock_matrix_intersections(
         cells (np.ndarray, optional): a set of cells that might be considered to construct the
             ADTree. If it is not given the tree is constructed by using all the higher
             dimensional grid cells
-        min_length (float, optional): minimum length a segment that intersect a cells need
+        min_length (float, optional): minimum length a segment that intersect a cell needs
             to have to be considered in the mapping
         tol (float, optional): geometric tolerance, default 1e-5
 
