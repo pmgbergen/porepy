@@ -271,7 +271,7 @@ class WellNetwork3d:
         # Will be added as g.well_num for the well grids
         well_num = 0
         for w in self._wells:
-            tags_w = w.tags["intersecting_fractures"]
+            tags_w = w.tags.get("intersecting_fractures", [np.empty(0)] * w.p.shape[1])
             for t in tags_w:
                 if t.size > 1:
                     raise NotImplementedError(
@@ -326,6 +326,7 @@ class WellNetwork3d:
                 g_w.compute_geometry()
                 gb.add_nodes(g_w)
                 g_w.well_num = well_num
+                g_w.name += " well " + str(well_num)
                 g_w.tags["parent_well_index"] = w.index
                 well_num += 1
 
@@ -382,7 +383,7 @@ class WellNetwork3d:
 
 def compute_well_fracture_intersections(
     well_network: WellNetwork3d, fracture_network: pp.FractureNetwork3d
-):
+) -> None:
     """Compute intersections and store tags identifying which fracture
     and well segments each intersection corresponds.
 
@@ -435,6 +436,119 @@ def compute_well_fracture_intersections(
         # Overwrite old points and tags for this well
         well.p = well_pts
         well.tags["intersecting_fractures"] = well_tags
+
+
+def compute_well_rock_matrix_intersections(
+    gb: pp.GridBucket,
+    cells: np.ndarray = None,
+    min_length: float = 1e-10,
+    tol: float = 1e-5,
+) -> None:
+    """Compute intersections and add edge coupling between the well and the rock matrix.
+    To be called after the well grids are constructed.
+    We are assuming convex cells and a single high dimensional grid.
+    To speed up the geometrical computation we construct an ADTree.
+
+    Parameters:
+        gb (pp.GridBucket): the grid bucket containing all the elements
+        cells (np.ndarray, optional): a set of cells that might be considered to construct the
+            ADTree. If it is not given the tree is constructed by using all the higher
+            dimensional grid cells
+        min_length (float, optional): minimum length a segment that intersect a cell needs
+            to have to be considered in the mapping
+        tol (float, optional): geometric tolerance, default 1e-5
+
+    """
+    # Extract the dimension of the rock matrix, assumed to be of highest dimension
+    dim_max: int = gb.dim_max()
+    # We assume only one single higher dimensional grid, needed for the ADTree
+    g_max: pp.Grid = gb.grids_of_dimension(dim_max)[0]
+    # Construct an ADTree for fast computation
+    tree = pp.adtree.ADTree(2 * g_max.dim, g_max.dim)
+    tree.from_grid(g_max, cells)
+
+    # Extract the grids of the wells of co-dimension 2
+    gs_w = [g for g in gb.grids_of_dimension(dim_max - 2) if hasattr(g, "well_num")]
+
+    # Pre-compute some well informations
+    nodes_w = []
+    for g_w in gs_w:
+        g_w_cn = g_w.cell_nodes()
+        g_w_cells = np.arange(g_w.num_cells)
+        # get the cells of the 0d as segments (start, end)
+        first = g_w_cn.indptr[g_w_cells]
+        second = g_w_cn.indptr[g_w_cells + 1]
+
+        nodes_w.append(
+            g_w_cn.indices[pp.utils.mcolon.mcolon(first, second)].reshape((-1, 2)).T
+        )
+
+    # Operate on the rock matrix grid
+    faces, cells, _ = sps.find(g_max.cell_faces.tocsc())
+    cells_order = np.argsort(cells)  # type: ignore
+    faces = faces[cells_order]
+
+    nodes, *_ = sps.find(g_max.face_nodes)
+    indptr = g_max.face_nodes.indptr
+
+    # Loop on all the well grids
+    for g_w, n_w in zip(gs_w, nodes_w):
+        # extract the start and end point of the segments
+        start = g_w.nodes[:, n_w[0]]
+        end = g_w.nodes[:, n_w[1]]
+
+        # Lists for the cell_cell_map
+        primary_secondary_I, primary_secondary_J, primary_secondary_data = [], [], []
+
+        # Operate on the segments
+        for seg_id, (seg_start, seg_end) in enumerate(zip(start.T, end.T)):
+            # Create the box for the segment by ordering its start and end
+            box = np.sort(np.vstack((seg_start, seg_end)), axis=0).ravel()
+            seg_cells = tree.search(pp.adtree.ADTNode("dummy_node", box))
+
+            # Loop on all the higher dimensional cells
+            for c in seg_cells:
+                # For the current cell retrieve its faces
+                loc = slice(g_max.cell_faces.indptr[c], g_max.cell_faces.indptr[c + 1])
+                faces_loc = faces[loc]
+                # Get the local nodes, face based
+                poly = np.array(
+                    [
+                        g_max.nodes[:, nodes[indptr[f] : indptr[f + 1]]]
+                        for f in faces_loc
+                    ]
+                )
+                # Compute the intersections between the segment and the current higher
+                # dimensional cell
+                _, _, _, ratio = pp.intersections.segments_polyhedron(
+                    seg_start, seg_end, poly, tol
+                )
+                # Store the requested information to build the projection operator
+                if ratio > min_length:
+                    primary_secondary_I += [seg_id]
+                    primary_secondary_J += [c]
+                    primary_secondary_data += ratio.tolist()
+
+        # primary to secondary map
+        primary_secondary_map = sps.csc_matrix(
+            (primary_secondary_data, (primary_secondary_I, primary_secondary_J)),
+            shape=(g_w.num_cells, g_max.num_cells),
+        )
+
+        # add a new edge to the grid bucket
+        gb.add_edge((g_max, g_w), primary_secondary_map)
+        d_e = gb.edge_props((g_max, g_w))
+
+        # create the mortar grid
+        side_g = {pp.grids.mortar_grid.MortarSides.LEFT_SIDE: g_w.copy()}
+        mg = pp.MortarGrid(g_w.dim, side_g, codim=g_max.dim - g_w.dim)
+        # set the maps
+        mg._primary_to_mortar_int = primary_secondary_map
+        mg._secondary_to_mortar_int = sps.diags(np.ones(g_w.num_cells), format="csc")
+        mg._set_projections()
+        # compute the geometry and save the mortar grid
+        mg.compute_geometry()
+        d_e["mortar_grid"] = mg
 
 
 def _argsort_points_along_line_segment(
@@ -561,7 +675,7 @@ def _add_fracture_2_intersection_edge(
     cell_cell_map = sps.coo_matrix(
         (np.ones(1, dtype=bool), (cell_l, cell_h)), shape=(g_l.num_cells, g_h.num_cells)
     )
-    _add_edge(g_l, g_h, gb, cell_cell_map)
+    _add_edge(0, g_l, g_h, gb, cell_cell_map)
 
 
 def _add_well_2_intersection_edge(
@@ -573,11 +687,15 @@ def _add_well_2_intersection_edge(
     face_cell_map = sps.coo_matrix(
         (np.ones(1, dtype=bool), (cell_l, face_h)), shape=(g_l.num_cells, g_h.num_faces)
     )
-    _add_edge(g_l, g_h, gb, face_cell_map)
+    _add_edge(0, g_l, g_h, gb, face_cell_map)
 
 
 def _add_edge(
-    g_l: pp.Grid, g_h: pp.Grid, gb: pp.GridBucket, primary_secondary_map: np.ndarray
+    dim: int,
+    g_l: pp.Grid,
+    g_h: pp.Grid,
+    gb: pp.GridBucket,
+    primary_secondary_map: sps.coo_matrix,
 ) -> None:
     """Utility method to add an edge to the gb.
 
@@ -586,7 +704,7 @@ def _add_edge(
         g_l: is the intersection point grid.
         g_h. represents fracture or well.
         gb: GridBucket to which the edge will be added.
-        primary_secondary_map (array): Map between cells_l and either faces_h
+        primary_secondary_map (sps.coo_matrix): Map between cells_l and either faces_h
             (codim=1) or cells_h (codim=2).
     """
     codim = g_h.dim - g_l.dim
@@ -594,6 +712,7 @@ def _add_edge(
     gb.add_edge(edge, primary_secondary_map)
     d_e = gb.edge_props(edge)
     side_g = {pp.grids.mortar_grid.MortarSides.LEFT_SIDE: g_l.copy()}
-    mg = pp.MortarGrid(0, side_g, primary_secondary_map, codim=codim)
+    mg = pp.MortarGrid(dim, side_g, primary_secondary_map, codim=codim)
+    mg._primary_to_mortar_int = primary_secondary_map
     mg.compute_geometry()
     d_e["mortar_grid"] = mg
