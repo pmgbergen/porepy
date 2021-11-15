@@ -20,7 +20,9 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
 
         lines = np.array([[0, 1], [2, 3]])
-        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(
+            p, lines
+        )
         self.assertTrue(np.allclose(new_pts, p))
         self.assertTrue(np.allclose(new_lines, lines))
 
@@ -31,7 +33,9 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         )
         lines = np.array([[0, 3], [1, 4], [2, 5]]).T
 
-        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(
+            p, lines
+        )
 
         self.assertTrue(np.allclose(new_pts, p))
         self.assertTrue(test_utils.compare_arrays(new_lines, lines))
@@ -43,7 +47,9 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         )
         lines = np.array([[0, 3], [2, 5], [1, 4]]).T
 
-        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(
+            p, lines
+        )
         p_known = np.hstack((p, np.array([[0.4], [0.4]])))
         lines_known = np.array([[0, 3], [2, 6], [6, 5], [1, 6], [6, 4]]).T
         self.assertTrue(np.allclose(new_pts, p_known))
@@ -53,7 +59,9 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
         lines = np.array([[0, 2], [1, 3]]).T
 
-        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(
+            p, lines
+        )
 
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
 
@@ -66,7 +74,9 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
         lines = np.array([[0, 2], [3, 1]]).T
 
-        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(
+            p, lines
+        )
 
         new_lines = np.sort(new_lines, axis=0)
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
@@ -78,7 +88,9 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
         lines = np.array([[0, 3], [1, 2]]).T
 
-        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(
+            p, lines
+        )
 
         new_lines = np.sort(new_lines, axis=0)
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
@@ -90,7 +102,9 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2], [0, 0, 0]])
         lines = np.array([[0, 2], [0, 1]]).T
 
-        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(
+            p, lines
+        )
 
         new_lines = np.sort(new_lines, axis=0)
         lines_known = np.array([[0, 1], [1, 2]]).T
@@ -102,7 +116,9 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2], [0, 0, 0]])
         lines = np.array([[0, 2], [1, 2]]).T
 
-        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(
+            p, lines
+        )
 
         new_lines = np.sort(new_lines, axis=0)
         lines_known = np.array([[0, 1], [1, 2]]).T
@@ -114,7 +130,9 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
         lines = np.array([[0, 3], [2, 1]]).T
 
-        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(p, lines)
+        new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(
+            p, lines
+        )
         new_lines = np.sort(new_lines, axis=0)
 
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
@@ -201,6 +219,168 @@ class LinesIntersectTest(unittest.TestCase):
 
         pi = pp.intersections.segments_2d(s0, e0, s1, e1)
         self.assertTrue(pi[0, 0] == 1 and pi[1, 0] == 0)
+
+    def test_segments_polygon_inside(self):
+        s = np.array([0.5, 0.5, -0.5])
+        e = np.array([0.5, 0.5, 0.5])
+
+        p = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+
+        is_cross, pt = pp.intersections.segments_polygon(s, e, p)
+        self.assertTrue(is_cross[0] and np.allclose(pt[:, 0], [0.5, 0.5, 0.0]))
+
+    def test_segments_polygon_outside(self):
+        s = np.array([1.5, 0.5, -0.5])
+        e = np.array([1.5, 0.5, 0.5])
+
+        p = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+
+        is_cross, pt = pp.intersections.segments_polygon(s, e, p)
+        self.assertTrue(not is_cross[0])
+
+    def test_segments_polygon_corner(self):
+        s = np.array([1, 1, -0.5])
+        e = np.array([1, 1, 0.5])
+
+        p = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+
+        is_cross, pt = pp.intersections.segments_polygon(s, e, p)
+        self.assertTrue(not is_cross[0])
+
+    def test_segments_polygon_edge(self):
+        s = np.array([1, 0.5, -0.5])
+        e = np.array([1, 0.5, 0.5])
+
+        p = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+
+        is_cross, pt = pp.intersections.segments_polygon(s, e, p)
+        self.assertTrue(not is_cross[0])
+
+    def test_segments_polygon_one_node_on(self):
+        s = np.array([0.5, 0.5, 0])
+        e = np.array([0.5, 0.5, 0.5])
+
+        p = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+
+        is_cross, pt = pp.intersections.segments_polygon(s, e, p)
+        self.assertTrue(is_cross[0] and np.allclose(pt[:, 0], [0.5, 0.5, 0.0]))
+
+    def test_segments_polygon_immersed(self):
+        s = np.array([0.25, 0.25, 0])
+        e = np.array([0.75, 0.75, 0])
+
+        p = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+
+        is_cross, _ = pp.intersections.segments_polygon(s, e, p)
+        self.assertTrue(not is_cross[0])
+
+    def test_segments_polyhedron_fully_inside(self):
+        """ Test for a segment with both extrema immersed in the polyhedron (cube) """
+        s = np.array([0.5, 0.5, 0.25])
+        e = np.array([0.5, 0.5, 0.75])
+
+        p = np.array(
+            [
+                [[0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[1.0, 1.0, 1.0, 1.0], [0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [1.0, 1.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]],
+            ]
+        )
+
+        pts, s_in, e_in, perc = pp.intersections.segments_polyhedron(s, e, p)
+        self.assertTrue(pts[0].size == 0 and s_in[0] and e_in[0] and perc[0] == 1)
+
+    def test_segments_polyhedron_fully_outside(self):
+        """ Test for a segment with both extrema outside the polyhedron (cube) """
+        s = np.array([0.5, 0.5, 1.25])
+        e = np.array([0.5, 0.5, 1.75])
+
+        p = np.array(
+            [
+                [[0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[1.0, 1.0, 1.0, 1.0], [0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [1.0, 1.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]],
+            ]
+        )
+
+        pts, s_in, e_in, perc = pp.intersections.segments_polyhedron(s, e, p)
+        self.assertTrue(
+            pts[0].size == 0 and (not s_in[0]) and (not e_in[0]) and perc[0] == 0
+        )
+
+    def test_segments_polyhedron_one_inside_one_outside(self):
+        """Test for a segment with one extrema inside and one outside the polyhedron
+        (cube)"""
+        s = np.array([0.5, 0.5, 0.5])
+        e = np.array([0.5, 0.5, 1.5])
+
+        p = np.array(
+            [
+                [[0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[1.0, 1.0, 1.0, 1.0], [0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [1.0, 1.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]],
+            ]
+        )
+
+        pts, s_in, e_in, perc = pp.intersections.segments_polyhedron(s, e, p)
+        self.assertTrue(
+            np.allclose(pts[0].T, [0.5, 0.5, 1])
+            and s_in[0]
+            and (not e_in[0])
+            and perc[0] == 0.5
+        )
+
+    def test_segments_polyhedron_edge(self):
+        """Test for a segment that partially overlap one of the edge (face boundary) of the
+        polyhedron (cube)"""
+        s = np.array([1, 0, 0.5])
+        e = np.array([1, 0, 1.5])
+
+        p = np.array(
+            [
+                [[0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[1.0, 1.0, 1.0, 1.0], [0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [1.0, 1.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]],
+            ]
+        )
+
+        pts, s_in, e_in, perc = pp.intersections.segments_polyhedron(s, e, p)
+        self.assertTrue(
+            pts[0].size == 0 and (not s_in[0]) and (not e_in[0]) and perc[0] == 0
+        )
+
+    def test_segments_polyhedron_face(self):
+        """ Test for a segment that partially overlap a face of the polyhedron (cube) """
+        s = np.array([0.5, 0, 0.5])
+        e = np.array([0.5, 0, 1.5])
+
+        p = np.array(
+            [
+                [[0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[1.0, 1.0, 1.0, 1.0], [0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [1.0, 1.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0]],
+                [[0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]],
+            ]
+        )
+
+        pts, s_in, e_in, perc = pp.intersections.segments_polyhedron(s, e, p)
+        self.assertTrue(
+            pts[0].size == 0 and (not s_in[0]) and (not e_in[0]) and perc[0] == 0
+        )
 
 
 class LineTesselation(unittest.TestCase):

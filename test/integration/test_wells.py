@@ -57,6 +57,7 @@ def _generate_gb(fracture_indices: List[int], well_indices: List[int]):
     # Mesh fractures and add fracture + intersection grids to grid bucket along
     # with these grids' new interfaces to fractures.
     well_network.mesh(gb)
+
     return gb
 
 
@@ -91,7 +92,6 @@ def test_add_one_well(
     n_int = (0 in fracture_indices) + (1 in fracture_indices)
     n_end = 2 in fracture_indices
     n_frac = n_int + n_end
-    print(gb)
     assert gb.num_graph_nodes() == (1 + 3 * n_frac + (1 - n_end))
 
     # 3d-2d: n_frac between matrix and fractures,
@@ -170,3 +170,55 @@ def test_add_two_wells(
         assert np.all(
             np.isclose(well_grid.tags["domain_boundary_faces"], boundary_faces[ind])
         )
+
+
+def test_add_one_well_with_matrix() -> None:
+    """Compute intersection between one well and the rock matrix mesh."""
+    gb = _generate_gb([], [1])
+    # add the coupling between the rock matrix and the well
+    pp.fracs.wells_3d.compute_well_rock_matrix_intersections(gb)
+
+    # check the number of graph nodes and edges
+    assert gb.num_graph_nodes() == 2
+    assert gb.num_graph_edges() == 1
+
+    # check the well grid
+    for well_grid in gb.grids_of_dimension(1):
+        assert well_grid.num_cells == 1
+        assert well_grid.num_faces == 2
+        assert well_grid.num_nodes == 2
+
+    for e, d in gb.edges():
+        mg = d["mortar_grid"]
+        assert mg.num_sides() == 1
+        assert mg.num_cells == 1
+        assert np.allclose(mg.mortar_to_secondary_int().todense(), 1)
+        known = np.array(
+            [
+                0.29166667,
+                0.0,
+                0.0,
+                0.175,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.25,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.08333333,
+                0.2,
+                0.0,
+            ]
+        )
+        assert np.allclose(mg.mortar_to_primary_int().A.flatten(), known)

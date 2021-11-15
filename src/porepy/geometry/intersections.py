@@ -1338,6 +1338,148 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
     )
 
 
+def segments_polygon(start, end, poly, tol=1e-5):
+    """Compute the internal intersection from line segments to a polygon in 3d.
+    Intersections with the boundary of the polygon are not computed.
+
+    Parameters:
+        start (np.ndarray, nd x num_segments): One endpoint of segments
+        end (np.ndarray, nd x num_segments): Other endpoint of segments
+        poly (np.ndarray, nd x n_vert): Vertexes of polygon.
+        tol (optional): Tolerance for the geometric computations.
+
+    Returns:
+        np.ndarray, bool: Identify if a segment has intersection with the polygon
+            useful to filter the second return parameter.
+        np.ndarray, nd x num_segments: Intersection point.
+    """
+    # Reshape if only one point is given
+    if start.size < 4:
+        start = start.reshape((-1, 1))
+    if end.size < 4:
+        end = end.reshape((-1, 1))
+
+    num_p = start.shape[1]
+    nd = start.shape[0]
+
+    cp = np.zeros((nd, num_p))
+
+    # First translate the points so that the first plane is located at the origin
+    center = np.mean(poly, axis=1).reshape((-1, 1))
+
+    poly = poly - center
+    start = start - center
+    end = end - center
+
+    # Obtain the rotation matrix that projects p1 to the xy-plane
+    rot_p = pp.map_geometry.project_plane_matrix(poly)
+    irot = rot_p.transpose()
+    poly_rot = rot_p.dot(poly)
+
+    # Sanity check: The points should lay on a plane
+    assert np.all(np.abs(poly_rot[2]) < tol)
+
+    poly_xy = poly_rot[:2]
+
+    # Rotate the point set, using the same coordinate system.
+    start = rot_p.dot(start)
+    end = rot_p.dot(end)
+
+    dz = end[2] - start[2]
+    non_zero_incline = np.abs(dz) > tol
+
+    # Parametrization along line of intersection point
+    t = 0 * dz
+
+    # Intersection point for segments with non-zero incline
+    t[non_zero_incline] = -start[2, non_zero_incline] / dz[non_zero_incline]
+    # Segments with z=0 along the segment
+    zero_along_segment = np.logical_and(
+        non_zero_incline, np.logical_and(t >= 0 - tol, t <= 1 + tol).astype(bool)
+    )
+    x0 = start + (end - start) * t
+    # Check if zero point is inside the polygon
+    inside = pp.geometry_property_checks.point_in_polygon(poly_xy, x0[:2])
+    crosses = np.logical_and(inside, zero_along_segment)
+
+    # Verify that the computed points are in the interior of the associated segments
+    dot_product = np.einsum("ij,ij->j", x0 - start, end - start)
+    sq_length = np.einsum("ij,ij->j", end - start, end - start)
+
+    crosses[dot_product < 0] = False
+    crosses[dot_product > sq_length + tol] = False
+    # Rotate back the points
+    x0[2, crosses] = 0
+    cp[:, crosses] = center + irot.dot(x0[:, crosses])
+
+    return crosses, cp
+
+
+def segments_polyhedron(start: np.ndarray, end: np.ndarray, poly: np.ndarray, tol=1e-5):
+    """Compute the intersection from line segments to the interior of a convex polyhedron.
+    Intersections with the boundary of the polyhedron are not computed.
+
+    There are four possibilities for each segment
+        1 - the segment is completely inside the polyhedron, meaning that its vertices
+            are both inside the polyhedron
+        2 - the segment has only one vertex in the polyhedron
+        3 - the segment is completely outside the polyhedron
+        4 - the segment has in intersection but both vertices are outside the polyhedron.
+
+    Parameters:
+        start (np.ndarray, nd x num_segments): One endpoint of segments
+        end (np.ndarray, nd x num_segments): Other endpoint of segments
+        poly (np.ndarray, nd x n_vert): Vertexes of polygon organised face by face
+        tol (optional): Tolerance for the geometric computations
+
+    Returns:
+        np.ndarray, num_segment: For each segment intersection points with the polyhedron,
+            start and end points are not included in this list
+        np.ndarray, num_segments: Vector of boolean that indicate if the start of a segment
+            is inside the polyhedron
+        np.ndarray, num_segments: Vector of boolean that indicate if the end of a segment
+            is inside the polyhedron
+        np.ndarray, num_segments: Length percentage of a segment inside the polyhedron
+
+    """
+    # For a single point make its shape consistent
+    if len(start.shape) == 1:
+        start = start.reshape((start.shape[0], -1))
+        end = end.reshape((end.shape[0], -1))
+
+    # Check if the vertices are inside or outside the polyhedron
+    is_in_start = pp.geometry_property_checks.point_in_polyhedron(poly, start, tol)
+    is_in_end = pp.geometry_property_checks.point_in_polyhedron(poly, end, tol)
+
+    # Check how many intersections a segment has with the faces of the polyhedron
+    extra_pts = np.empty(start.shape[1], dtype=object)
+    extra_pts.fill(np.empty((3, 0)))
+    for face in poly:
+        # the face vertices need to be sorted
+        sort_ind = pp.utils.sort_points.sort_point_plane(face, np.average(face, axis=1))
+        # compute if the current face intersect the segments
+        is_inside, pts = segments_polygon(start, end, face[:, sort_ind], tol=tol)
+        for i in np.flatnonzero(is_inside):
+            extra_pts[i] = np.c_[extra_pts[i], pts[:, i]]
+
+    # Loop on the segments and compute the length in the polyhedron
+    length = np.zeros(start.shape[1])
+    for seg in np.arange(start.shape[1]):
+        # The segment is all inside
+        if is_in_start[seg] and is_in_end[seg]:
+            length[seg] = np.linalg.norm(end[:, seg] - start[:, seg])
+        elif is_in_start[seg] and extra_pts[seg].shape[1] > 0:
+            length[seg] = np.linalg.norm(start[:, seg] - extra_pts[seg].flatten())
+        elif is_in_end[seg] and extra_pts[seg].shape[1] > 0:
+            length[seg] = np.linalg.norm(end[:, seg] - extra_pts[seg].flatten())
+        elif extra_pts[seg].shape[1] > 1:
+            length[seg] = np.linalg.norm(extra_pts[seg][:, 0] - extra_pts[seg][:, 1])
+
+    # Compute the percentage of segment in the polyhedron
+    ratio = length / np.sqrt(np.einsum("ij,ij->j", end - start, end - start))
+    return extra_pts, is_in_start, is_in_end, ratio
+
+
 def _point_in_or_on_polygon(p: np.ndarray, poly: np.ndarray, tol=1e-8):
     """Helper function to get intersection information between a point and a polygon.
 

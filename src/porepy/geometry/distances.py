@@ -541,12 +541,12 @@ def segments_polygon(start, end, poly, tol=1e-5):
     for si in not_found:
         # For starters, assume the closest point is on the start of the segment
         md = d_start_poly[si]
-        cp_l = cp_s_p
+        cp_l = cp_s_p[:, si]
 
         # Update with the end coordinate if relevant
         if d_end_poly[si] < md:
-            md = d_end_poly
-            cp_l = cp_e_p
+            md = d_end_poly[si]
+            cp_l = cp_e_p[:, si]
 
         poly_start = poly
         poly_end = np.roll(poly, -1, axis=1)
@@ -556,7 +556,7 @@ def segments_polygon(start, end, poly, tol=1e-5):
         )
 
         min_seg = np.argmin(ds)
-        if ds[min_seg] < md:
+        if np.any(ds[min_seg] < md):
             md = ds[min_seg]
             cp_l = cp_s[:, min_seg]
 

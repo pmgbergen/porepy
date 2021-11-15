@@ -92,6 +92,7 @@ from porepy.grids import match_grids
 from porepy.grids.standard_grids import grid_buckets_2d
 from porepy.grids import grid_extrusion
 from porepy.utils import grid_utils
+from porepy.utils import adtree
 
 # Fractures
 from porepy.fracs.fractures_3d import Fracture, EllipticFracture, FractureNetwork3d
