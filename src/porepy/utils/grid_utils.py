@@ -1,3 +1,5 @@
+"""Module contains various utility functions for working with grids.
+"""
 from typing import List, Union
 
 import numpy as np
@@ -5,10 +7,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-module_sections = ["gridding", "grids"]
 
-
-@pp.time_logger(sections=module_sections)
 def merge_grids(grids: List[pp.Grid]) -> pp.Grid:
     """Merge the given list of grids into one grid. Quantities in the grids
     are appendded by the grid ordering of the input list. First all
@@ -209,19 +208,10 @@ def merge_grids_of_equal_dim(gb: pp.GridBucket) -> pp.GridBucket:
         d["mortar_grid"] = mg
 
     mergedGb.assign_node_ordering()
-    # for g, _ in mergedGb:
-    #     g.tags: Dict = {}
-    #     g.initiate_face_tags()
-    #     g.update_boundary_face_tag()
-
-    #     # Add tag for the boundary nodes
-    #     g.initiate_node_tags()
-    #     g.update_boundary_node_tag()
 
     return mergedGb
 
 
-@pp.time_logger(sections=module_sections)
 def switch_sign_if_inwards_normal(
     g: pp.Grid, nd: int, faces: np.ndarray
 ) -> sps.spmatrix:
@@ -258,3 +248,72 @@ def switch_sign_if_inwards_normal(
 
     # Create the diagonal matrix.
     return sps.dia_matrix((sgn_mat, 0), shape=(sgn_mat.size, sgn_mat.size))
+
+
+def star_shape_cell_centers(g: "pp.Grid", as_nan: bool = False) -> np.ndarray:
+    """
+    For a given grid compute the star shape center for each cell.
+    The algorithm computes the half space intersections, by using the above method
+    half_space_pt,
+    of the spaces defined by the cell faces and the face normals.
+    This is a wrapper method that operate on a grid.
+
+    Parameters
+    ----------
+    g: pp.Grid
+        the grid
+    as_nan: bool, optional
+        Decide whether, in case some cells are not star-shaped return nan as
+        new center. Otherwise an exception is raised (default behaviour).
+
+    Returns
+    -------
+    np.ndarray
+        The new cell centers.
+
+    """
+
+    # no need for 1d or 0d grids
+    if g.dim < 2:
+        return g.cell_centers
+
+    # retrieve the faces and nodes
+    faces, _, sgn = sps.find(g.cell_faces)
+    nodes, _, _ = sps.find(g.face_nodes)
+
+    # shift the nodes close to the origin, to avoid numerical problems when coordinates are
+    # too big
+    xn = g.nodes.copy()
+    xn_shift = np.average(xn, axis=1)
+    xn -= np.tile(xn_shift, (xn.shape[1], 1)).T
+
+    # compute the star shape cell centers by constructing the half spaces of each cell
+    # given by its faces and related normals
+    cell_centers = np.zeros((3, g.num_cells))
+    for c in np.arange(g.num_cells):
+        loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+        faces_loc = faces[loc]
+        loc_n = g.face_nodes.indptr[faces_loc]
+        # make the normals coherent
+        normal = np.multiply(
+            sgn[loc], np.divide(g.face_normals[:, faces_loc], g.face_areas[faces_loc])
+        )
+
+        x0, x1 = xn[:, nodes[loc_n]], xn[:, nodes[loc_n + 1]]
+        coords = np.concatenate((x0, x1), axis=1)
+        # compute a point in the half space intersection of all cell faces
+        try:
+            cell_centers[:, c] = pp.half_space.half_space_interior_point(
+                normal, (x1 + x0) / 2.0, coords
+            )
+        except ValueError:
+            # the cell is not star-shaped
+            if as_nan:
+                cell_centers[:, c] = np.array([np.nan, np.nan, np.nan])
+            else:
+                raise ValueError(
+                    "Cell not star-shaped impossible to compute the centre"
+                )
+
+    # shift back the computed cell centers and return them
+    return cell_centers + np.tile(xn_shift, (g.num_cells, 1)).T
