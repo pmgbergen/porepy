@@ -11,12 +11,12 @@ import porepy as pp
 from porepy.grids import grid, grid_bucket
 from porepy.utils import (
     accumarray,
+    grid_utils,
     matrix_compression,
     mcolon,
     setmembership,
     tags,
 )
-from porepy.utils import grid_utils
 
 
 def coarsen(
