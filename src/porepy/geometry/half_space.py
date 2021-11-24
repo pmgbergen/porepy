@@ -1,35 +1,34 @@
+""" Module contains functions for computations relating to half spaces.
+"""
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 
-module_sections = ["gridding", "utils"]
 
-
-@pp.time_logger(sections=module_sections)
-def half_space_int(n, x0, pts):
+def point_inside_half_space_intersection(
+    n: np.ndarray, x0: np.ndarray, pts: np.ndarray
+) -> np.ndarray:
     """
     Find the points that lie in the intersection of half spaces (3D)
 
     Parameters
     ----------
-    n : ndarray
+    n : np.ndarray, size 3 x num_planes
         This is the normal vectors of the half planes. The normal
         vectors is assumed to point out of the half spaces.
-    x0 : ndarray
+    x0 : np.ndarray, size 3 x num_planes
         Point on the boundary of the half-spaces. Half space i is given
         by all points satisfying (x - x0[:,i])*n[:,i]<=0
-    pts : ndarray
+    pts : np.ndarray, size 3 x num_points
         The points to be tested if they are in the intersection of all
         half-spaces or not.
 
     Returns
     -------
-    out : ndarray
+    out : np.ndarray, size num_points
         A logical array with length equal number of pts.
-
         out[i] is True if pts[:,i] is in all half-spaces
-
 
     Examples
     --------
@@ -39,6 +38,7 @@ def half_space_int(n, x0, pts):
     >>> pts = np.array([[-1 ,-1 ,4], [2, -2, -2], [0, 0, 0]])
     >>> half_space_int(n,x0,pts)
     array([False,  True, False], dtype=bool)
+
     """
     assert n.shape[0] == 3, " only 3D supported"
     assert x0.shape[0] == 3, " only 3D supported"
@@ -57,44 +57,50 @@ def half_space_int(n, x0, pts):
     return in_hull == x0.shape[1]
 
 
-# ------------------------------------------------------------------------------#
-
-
-@pp.time_logger(sections=module_sections)
-def half_space_pt(n, x0, pts, recompute=True):
+def half_space_interior_point(
+    n: np.ndarray, x0: np.ndarray, pts: np.ndarray, recompute: bool = True
+) -> np.ndarray:
     """
     Find an interior point for the halfspaces.
 
+    We use linear programming to find one interior point for the half spaces.
+    Assume, n halfspaces defined by
+
+        aj*x1+bj*x2+cj*x3+dj<=0, j=1..num_planes.
+
+    Perform the following linear program:
+
+        max(x5) aj*x1+bj*x2+cj*x3+dj*x4+x5<=0, j=1..num_planes
+
+    Then, if [x1,x2,x3,x4,x5] is an optimal solution with x4>0 and x5>0 we get:
+
+        aj*(x1/x4)+bj*(x2/x4)+cj*(x3/x4)+dj<=(-x5/x4) j=1..num_planes
+
+    and
+         (-x5/x4)<0,
+    and conclude that the point [x1/x4,x2/x4,x3/x4] is in the interior of all
+    the halfspaces. Since x5 is optimal, this point is "way in" the interior
+    (good for precision errors).
+    http://www.qhull.org/html/qhalf.htm#notes
+
     Parameters
     ----------
-    n : ndarray
-        This is the normal vectors of the half planes. The normal
-        vectors is assumed to coherently for all the half spaces
+    n : np.ndarray, size 3 x num_planes
+        This is the normal vectors of the half planes. The normal vectors
+        vectors are assumed to be coherently oriented for all the half spaces
         (inward or outward).
-    x0 : ndarray
+    x0 : np.ndarray, size 3 x num_planes
         Point on the boundary of the half-spaces. Half space i is given
-        by all points satisfying (x - x0[:,i])*n[:,i]<=0
-    pts : ndarray
+        by all points satisfying (x - x0[:, i]) * n[:, i] <= 0
+    pts : np.ndarray, size 3 x num_points
         Points which defines a bounds for the algorithm.
     recompute: bool
         If the algorithm fails try again with flipped normals.
 
     Returns
     -------
-    out: array
+    out: np.ndarray, size num_points
         Interior point of the halfspaces.
-
-    We use linear programming to find one interior point for the half spaces.
-    Assume, n halfspaces defined by: aj*x1+bj*x2+cj*x3+dj<=0, j=1..n.
-    Perform the following linear program:
-    max(x5) aj*x1+bj*x2+cj*x3+dj*x4+x5<=0, j=1..n
-
-    Then, if [x1,x2,x3,x4,x5] is an optimal solution with x4>0 and x5>0 we get:
-    aj*(x1/x4)+bj*(x2/x4)+cj*(x3/x4)+dj<=(-x5/x4) j=1..n and (-x5/x4)<0,
-    and conclude that the point [x1/x4,x2/x4,x3/x4] is in the interior of all
-    the halfspaces. Since x5 is optimal, this point is "way in" the interior
-    (good for precision errors).
-    http://www.qhull.org/html/qhalf.htm#notes
 
     """
     import scipy.optimize as opt
@@ -114,7 +120,7 @@ def half_space_pt(n, x0, pts, recompute=True):
     res = opt.linprog(c, A_ub, b_ub, bounds=bounds)
 
     if recompute and (not res.success or np.all(np.isclose(res.x[3:], 0))):
-        return half_space_pt(-n, x0, pts, False)
+        return half_space_interior_point(-n, x0, pts, False)
 
     if res.success and not np.all(np.isclose(res.x[3:], 0)):
         return np.array(res.x[:3]) / res.x[3]
@@ -122,11 +128,7 @@ def half_space_pt(n, x0, pts, recompute=True):
         raise ValueError("Half space intersection empty")
 
 
-# ------------------------------------------------------------------------------#
-
-
-@pp.time_logger(sections=module_sections)
-def star_shape_cell_centers(g, as_nan=False):
+def star_shape_cell_centers(g: "pp.Grid", as_nan: bool = False) -> np.ndarray:
     """
     For a given grid compute the star shape center for each cell.
     The algorithm computes the half space intersections, by using the above method
@@ -136,9 +138,17 @@ def star_shape_cell_centers(g, as_nan=False):
 
     Parameters
     ----------
-    g: the grid
-    as_nan: (default False) in the case some cells are not star-shaped return nan as
+    g: pp.Grid
+        the grid
+    as_nan: bool, optional
+        Decide whether, in case some cells are not star-shaped return nan as
         new center. Otherwise an exception is raised (default behaviour).
+
+    Returns
+    -------
+    np.ndarray
+        The new cell centers.
+
     """
 
     # no need for 1d or 0d grids
@@ -171,7 +181,9 @@ def star_shape_cell_centers(g, as_nan=False):
         coords = np.concatenate((x0, x1), axis=1)
         # compute a point in the half space intersection of all cell faces
         try:
-            cell_centers[:, c] = half_space_pt(normal, (x1 + x0) / 2.0, coords)
+            cell_centers[:, c] = half_space_interior_point(
+                normal, (x1 + x0) / 2.0, coords
+            )
         except ValueError:
             # the cell is not star-shaped
             if as_nan:
@@ -183,6 +195,3 @@ def star_shape_cell_centers(g, as_nan=False):
 
     # shift back the computed cell centers and return them
     return cell_centers + np.tile(xn_shift, (g.num_cells, 1)).T
-
-
-# ------------------------------------------------------------------------------#

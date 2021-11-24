@@ -11,19 +11,14 @@ import porepy as pp
 from porepy.grids import grid, grid_bucket
 from porepy.utils import (
     accumarray,
-    half_space,
     matrix_compression,
     mcolon,
     setmembership,
     tags,
 )
-
-module_sections = ["grids", "gridding"]
-
-# ------------------------------------------------------------------------------#
+from porepy.geometry import half_space
 
 
-@pp.time_logger(sections=module_sections)
 def coarsen(
     g: Union[pp.Grid, pp.GridBucket], method: str, **method_kwargs
 ) -> Union[None, sps.spmatrix]:
@@ -57,10 +52,6 @@ def coarsen(
     return generate_coarse_grid(g, partition)
 
 
-# ------------------------------------------------------------------------------#
-
-
-@pp.time_logger(sections=module_sections)
 def generate_coarse_grid(g, subdiv):
     """Generate a coarse grid clustering the cells according to the flags
     given by subdiv. Subdiv should be long as the number of cells in the
@@ -104,7 +95,6 @@ def generate_coarse_grid(g, subdiv):
 # ------------------------------------------------------------------------------#
 
 
-@pp.time_logger(sections=module_sections)
 def reorder_partition(
     subdiv: Union[Dict[Any, Tuple[Any, np.ndarray]], np.ndarray]
 ) -> Union[Dict[Any, Tuple[Any, np.ndarray]], np.ndarray]:
@@ -130,10 +120,6 @@ def reorder_partition(
     return subdiv
 
 
-# ------------------------------------------------------------------------------#
-
-
-@pp.time_logger(sections=module_sections)
 def _generate_coarse_grid_single(g, subdiv, face_map):
     """
     Specific function for a single grid. Use the common interface instead.
@@ -250,10 +236,6 @@ def _generate_coarse_grid_single(g, subdiv, face_map):
         return np.array([cell_faces_unique, cell_faces_id])
 
 
-# ------------------------------------------------------------------------------#
-
-
-@pp.time_logger(sections=module_sections)
 def _generate_coarse_grid_gb(gb, subdiv):
     """
     Specific function for a grid bucket. Use the common interface instead.
@@ -304,10 +286,6 @@ def _generate_coarse_grid_gb(gb, subdiv):
             d["face_cells"] = face_cells.tocsc()
 
 
-# ------------------------------------------------------------------------------#
-
-
-@pp.time_logger(sections=module_sections)
 def _tpfa_matrix(g, perm=None):
     """
     Compute a two-point flux approximation matrix useful related to a call of
@@ -340,10 +318,6 @@ def _tpfa_matrix(g, perm=None):
     return solver.assemble_matrix(g, data)
 
 
-# ------------------------------------------------------------------------------#
-
-
-@pp.time_logger(sections=module_sections)
 def generate_seeds(gb):
     """
     Giving the higher dimensional grid in a grid bucket, generate the seed for
@@ -382,10 +356,6 @@ def generate_seeds(gb):
     return seeds
 
 
-# ------------------------------------------------------------------------------#
-
-
-@pp.time_logger(sections=module_sections)
 def create_aggregations(g, **kwargs):
     """Create a cell partition based on their volumes.
 
@@ -488,10 +458,6 @@ def create_aggregations(g, **kwargs):
     return partition
 
 
-# ------------------------------------------------------------------------------#
-
-
-@pp.time_logger(sections=module_sections)
 def __get_neigh(cells_id, c2c, partition):
     """Support function for create_aggregations"""
     neighbors = np.empty(0, dtype=int)
@@ -508,10 +474,6 @@ def __get_neigh(cells_id, c2c, partition):
     return np.sort(neighbors[partition_neighbors < 0])
 
 
-# ------------------------------------------------------------------------------#
-
-
-@pp.time_logger(sections=module_sections)
 def create_partition(A, g, seeds=None, **kwargs):
     """
     Create the partition based on an input matrix using the algebraic multigrid
@@ -720,6 +682,3 @@ def create_partition(A, g, seeds=None, **kwargs):
     coarse, fine = primal.tocsr().nonzero()
     partition = {g_high: (g_high.copy(), coarse[np.argsort(fine)])}
     return partition
-
-
-# ------------------------------------------------------------------------------#
