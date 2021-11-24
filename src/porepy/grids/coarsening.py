@@ -16,7 +16,7 @@ from porepy.utils import (
     setmembership,
     tags,
 )
-from porepy.geometry import half_space
+from porepy.utils import grid_utils
 
 
 def coarsen(
@@ -228,7 +228,7 @@ def _generate_coarse_grid_single(g, subdiv, face_map):
     g.cell_faces = cell_faces
     g.num_cells = g.cell_faces.shape[1]
     g.cell_volumes = cell_volumes
-    g.cell_centers = half_space.star_shape_cell_centers(g, as_nan=True)
+    g.cell_centers = grid_utils.star_shape_cell_centers(g, as_nan=True)
     is_nan = np.isnan(g.cell_centers[0, :])
     g.cell_centers[:, is_nan] = cell_centers[:, is_nan]
 
