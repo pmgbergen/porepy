@@ -114,7 +114,7 @@ def split_faces(gh, face_cells):
     The face_cells are updated such that the copy of a face also
     map to the same lower-dim cell.
     """
-    gh.frac_pairs = np.zeros((2, 0), dtype=np.int32)
+    gh.frac_pairs = np.zeros((2, 0), dtype=int)
     for i in range(len(face_cells)):
         # We first duplicate faces along tagged faces. The duplicate
         # faces will share the same nodes as the original faces,
@@ -150,7 +150,7 @@ def split_specific_faces(
     face_cell_list: List[sps.spmatrix],
     faces: np.ndarray,
     cells: np.ndarray,
-    gl_ind: np.ndarray,
+    gl_ind: int,
     non_planar: bool = False,
 ):
     """
