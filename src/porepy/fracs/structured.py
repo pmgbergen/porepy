@@ -13,10 +13,7 @@ import porepy as pp
 from . import msh_2_grid
 from .gmsh_interface import Tags
 
-module_sections = ["gridding"]
 
-
-@pp.time_logger(sections=module_sections)
 def _cart_grid_3d(fracs, nx, physdims=None):
     """
     Create grids for a domain with possibly intersecting fractures in 3d.
@@ -61,7 +58,6 @@ def _cart_grid_3d(fracs, nx, physdims=None):
     return _create_lower_dim_grids_3d(g_3d, fracs, nx, physdims)
 
 
-@pp.time_logger(sections=module_sections)
 def _tensor_grid_3d(
     fracs: List[np.ndarray], x: np.ndarray, y: np.ndarray, z: np.ndarray
 ) -> List[List[pp.Grid]]:
@@ -100,7 +96,6 @@ def _tensor_grid_3d(
     return _create_lower_dim_grids_3d(g_3d, fracs, nx)
 
 
-@pp.time_logger(sections=module_sections)
 def _cart_grid_2d(fracs, nx, physdims=None):
     """
     Create grids for a domain with possibly intersecting fractures in 2d.
@@ -142,7 +137,6 @@ def _cart_grid_2d(fracs, nx, physdims=None):
     return _create_lower_dim_grids_2d(g_2d, fracs, nx)
 
 
-@pp.time_logger(sections=module_sections)
 def _tensor_grid_2d(
     fracs: List[np.ndarray], x: np.ndarray, y: np.ndarray
 ) -> List[List[pp.Grid]]:
@@ -178,7 +172,6 @@ def _tensor_grid_2d(
     return _create_lower_dim_grids_2d(g_2d, fracs, nx)
 
 
-@pp.time_logger(sections=module_sections)
 def _create_lower_dim_grids_3d(g_3d, fracs, nx, physdims=None):
     g_3d.global_point_ind = np.arange(g_3d.num_nodes)
     g_3d.compute_geometry()
@@ -240,7 +233,9 @@ def _create_lower_dim_grids_3d(g_3d, fracs, nx, physdims=None):
         # We find all the faces inside the convex hull defined by the
         # rectangle. To find the faces on the fracture plane, we remove any
         # faces that are further than tol from the snapped fracture plane.
-        in_hull = pp.utils.half_space.half_space_int(normal, f_s, g_3d.face_centers)
+        in_hull = pp.half_space.point_inside_half_space_intersection(
+            normal, f_s, g_3d.face_centers
+        )
         f_tag = np.logical_and(
             in_hull,
             np.logical_and(
@@ -357,7 +352,6 @@ def _create_lower_dim_grids_3d(g_3d, fracs, nx, physdims=None):
     return grids
 
 
-@pp.time_logger(sections=module_sections)
 def _create_lower_dim_grids_2d(g_2d, fracs, nx):
     g_2d.global_point_ind = np.arange(g_2d.num_nodes)
     g_2d.compute_geometry()
@@ -390,7 +384,6 @@ def _create_lower_dim_grids_2d(g_2d, fracs, nx):
     return grids
 
 
-@pp.time_logger(sections=module_sections)
 def _create_embedded_2d_grid(loc_coord, glob_id):
     """
     Create a 2d grid that is embedded in a 3d grid.
@@ -435,7 +428,6 @@ def _create_embedded_2d_grid(loc_coord, glob_id):
     return g
 
 
-@pp.time_logger(sections=module_sections)
 def _find_nodes_on_line(g, nx, s_pt, e_pt):
     """
     We have the start and end point of the fracture. From this we find the

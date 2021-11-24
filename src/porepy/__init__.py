@@ -61,6 +61,7 @@ from porepy.geometry import (
     map_geometry,
     geometry_property_checks,
     bounding_box,
+    half_space,
 )
 
 # Parameters
