@@ -71,6 +71,7 @@ def merge_grids_of_equal_dim(gb: pp.GridBucket) -> pp.GridBucket:
     Returns:
     mergedGb (pp.GridBucket): A grid bucket with the merged grids of gb, and
         updated projections and mortar grids.
+
     """
     dimMax = gb.dim_max()
 
@@ -87,7 +88,7 @@ def merge_grids_of_equal_dim(gb: pp.GridBucket) -> pp.GridBucket:
             mergedGrids.append([])
             continue
 
-        mergedGrids.append(merge_grids(gridsOfDim[i]))
+        mergedGrids.append([merge_grids(gridsOfDim[i])])
         # Store the node number of each merged node.
         # This is used to obtain the correct merged
         # mortar projections
@@ -177,7 +178,10 @@ def merge_grids_of_equal_dim(gb: pp.GridBucket) -> pp.GridBucket:
             mergedSecondary2Mortar.append([])
             mergedPrimary2Mortar.append([])
         else:
-            mergedMortars.append(merge_grids(mortarsOfDim[dim]))
+            raise NotImplementedError("Need a helper function to merge MortarGrids")
+            # If a method to merge mortar grids is implemented, the below functions
+            # should take care of what is needed.
+            mergedMortars.append([merge_grids(mortarsOfDim[dim])])  # type:ignore
             mergedSecondary2Mortar.append(sps.bmat(secondary2mortar[dim], format="csc"))
             mergedPrimary2Mortar.append(sps.bmat(primary2mortar[dim], format="csc"))
 
