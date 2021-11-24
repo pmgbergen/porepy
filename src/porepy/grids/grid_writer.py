@@ -1,4 +1,5 @@
 import os
+from typing import List
 
 import numpy as np
 import scipy.sparse as sps
@@ -8,7 +9,6 @@ import porepy as pp
 module_sections = ["io"]
 
 
-@pp.time_logger(sections=module_sections)
 def dump_grid_to_file(g: pp.Grid, fn: str) -> None:
     """
     Dump a PorePy grid to a file. The file format of the dumped file
@@ -130,11 +130,11 @@ def dump_mortar_grid_to_file(gb, e, d, fn, max_1_grid_per_dim=False, dfn=False):
     mg = d["mortar_grid"]
     mg.idx = d["edge_number"]
     # We need to obtain the actuall mortar grids from the side grids
-    mortar_grids = []
+    mortar_side_grids: List[pp.Grid] = []
     for sg in mg.side_grids.values():
-        mortar_grids.append(sg)
+        mortar_side_grids.append(sg)
     # We store both sides of the grids as one grid.
-    mortar_grid = pp.utils.grid_utils.merge_grids(mortar_grids)
+    mortar_grid = pp.utils.grid_utils.merge_grids(mortar_side_grids)
     mortar_grid.idx = mg.idx
     dim = mortar_grid.dim
 
@@ -393,9 +393,6 @@ def circumcenterCellCenters(gb):
         ) / d
         uz = np.zeros(g.num_cells)
         g.cell_centers = np.vstack((ux, uy, uz))
-
-
-#        pp.plot_grid(g, alpha=0,info='c')
 
 
 def _findCellsXY(g):
